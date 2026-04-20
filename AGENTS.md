@@ -20,8 +20,7 @@
 
 ## Tech Stack
 
-Bun 1.2+, TypeScript 5.9, Effect 4-beta, React 19, Vite 8, Vitest 4, Tailwind CSS
-4, Biome 2.4
+Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Biome 2.4
 
 ## Code Style
 
@@ -49,12 +48,10 @@ Effect.gen(function* () {
 
 ## Structure
 
-| Workspace         | Stack                | AGENTS.md                   |
-| ----------------- | -------------------- | --------------------------- |
-| `apps/client`     | React + Effect Atom  | `apps/client/AGENTS.md`     |
-| `apps/server`     | Effect Platform, RPC | `apps/server/AGENTS.md`     |
-| `apps/server-mcp` | Effect MCP Server    | `apps/server-mcp/AGENTS.md` |
-| `packages/domain` | Effect Schema, RPC   | `packages/domain/AGENTS.md` |
+| Workspace         | Stack              | AGENTS.md                   |
+| ----------------- | ------------------ | --------------------------- |
+| `apps/cli`        | Effect Cli         | `apps/cli/AGENTS.md`        |
+| `packages/domain` | Effect Schema, RPC | `packages/domain/AGENTS.md` |
 
 ## Local Source References
 
@@ -63,13 +60,17 @@ cloned source repos first. When updating dependencies, pull the latest
 commits in these repos to ensure the LLM references current code:
 
 - `.reference/effect/`
-- `.reference/effect-atom/`
+- `.reference/t3-stack/`
+- `.reference/better-t-stack/`
+- `.reference/shadcn/`
 
 If any of the folders are missing (they are git ignored), clone them into
 `reference/`:
 
 - `https://github.com/Effect-TS/effect-smol.git` -> `.reference/effect/`
-- `https://github.com/Effect-TS/effect-atom.git` -> `.reference/effect-atom/`
+- `https://github.com/t3-oss/create-t3-app.git` -> `.reference/t3-stack/`
+- `https://github.com/AmanVarshney01/create-better-t-stack.git` -> `.reference/better-t-stack/`
+- `https://github.com/shadcn-ui/ui.git` -> `.reference/shadcn/`
 
 ---
 

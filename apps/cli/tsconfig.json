@@ -1,0 +1,10 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "noEmit": true,
+    "types": ["@types/bun"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}
