@@ -1,9 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import {
   Blueprint,
-  ConceptualTargetCollision,
   InvalidRepoOption,
-  InvalidTargetOption,
   ModuleGatedTargetOption,
   UnsupportedTargetModule,
 } from "@repo/domain/Blueprint";
