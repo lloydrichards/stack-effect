@@ -68,6 +68,27 @@ bun run test:e2e
 bun run test:e2e -- --update-snapshots
 ```
 
+### Ralph Loop
+
+This repo includes a local Ralph-style loop for OpenCode in `.ralph/`.
+
+```bash
+# Run one supervised iteration
+bun run ralph:once
+
+# Run a bounded AFK loop
+bun run ralph:afk -- 5
+
+# Sync GitHub issues into .ralph/prd.json
+bun run ralph:sync-issues
+
+# Close completed GitHub issues from .ralph/prd.json
+bun run ralph:github-update
+```
+
+Before running it, replace the placeholder task in `.ralph/prd.json` with a real,
+scoped backlog item and review `.ralph/prompt.md`.
+
 ### Test Stack
 
 - **Client**: Vitest 4.x with Browser Mode (Playwright), vitest-browser-react
