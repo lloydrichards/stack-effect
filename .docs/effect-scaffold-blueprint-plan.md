@@ -261,7 +261,7 @@ that identity.
 
 For v1 monorepo conventions:
 
-- client, server, server-mcp, and cli targets conceptually map to `apps/<name>`
+- client, server, and cli targets conceptually map to `apps/<name>`
 - package targets conceptually map to `packages/<name>`
 
 That means collisions should be detected at the conceptual path level, not only
@@ -273,7 +273,6 @@ V1 target kinds are concrete archetypes, not just broad scopes:
 
 - `client`
 - `server`
-- `server-mcp`
 - `cli`
 - `package`
 

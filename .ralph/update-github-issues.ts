@@ -32,18 +32,11 @@ if (!existsSync(prdPath)) {
 
 const latestProgressEntry = await loadLatestProgressEntry(progressPath);
 const prdItems = await loadPrdItems(prdPath);
-const recentlyCompletedIssueNumbers = extractIssueNumbers(
-  latestProgressEntry.text,
-);
 
 let updatedCount = 0;
 
 for (const item of prdItems) {
-  if (
-    item.passes !== true ||
-    typeof item.issueNumber !== "number" ||
-    !recentlyCompletedIssueNumbers.has(item.issueNumber)
-  ) {
+  if (item.passes !== true || typeof item.issueNumber !== "number") {
     continue;
   }
 
@@ -109,20 +102,6 @@ async function loadLatestProgressEntry(filePath: string) {
   }
 
   return { text: latestEntry.slice(2).trim() };
-}
-
-function extractIssueNumbers(text: string) {
-  const matches = text.matchAll(/issue\s+#(\d+)/gi);
-  const issueNumbers = new Set<number>();
-
-  for (const match of matches) {
-    const issueNumber = Number.parseInt(match[1] ?? "", 10);
-    if (Number.isFinite(issueNumber)) {
-      issueNumbers.add(issueNumber);
-    }
-  }
-
-  return issueNumbers;
 }
 
 function loadIssueState(issueNumber: number, issueRepo?: string) {

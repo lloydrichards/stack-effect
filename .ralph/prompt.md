@@ -6,7 +6,9 @@ Consult `AGENTS.md` first, then any nested `AGENTS.md` files in areas you touch.
 
 Execution rules:
 
-1. Decide which single PRD item to work on next.
+1. Decide which single unblocked PRD item to work on next.
+   - Treat any item with unresolved `blockedBy` issue numbers in `.ralph/prd.json` as unavailable.
+   - Prefer the lowest-numbered unblocked GitHub issue when multiple AFK items are ready.
 2. Prefer risky integration or architectural work before easy polish.
 3. Make one logical change only. If the item is too large, complete one safe slice.
 4. Do not touch unrelated files or revert user changes.

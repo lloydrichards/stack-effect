@@ -17,6 +17,7 @@ type PrdItem = {
   issueNumber: number;
   url: string;
   labels: Array<string>;
+  blockedBy: Array<number>;
 };
 
 const rootDir = process.cwd();
@@ -168,7 +169,28 @@ function toPrdItem(
     issueNumber: issue.number,
     url: issue.url,
     labels,
+    blockedBy: extractBlockedBy(issue.body),
   };
+}
+
+function extractBlockedBy(body: string) {
+  const blockedBySection = extractSection(body, ["Blocked by"]);
+
+  if (!blockedBySection) {
+    return [];
+  }
+
+  const matches = blockedBySection.matchAll(/blocked by\s+#(\d+)/gi);
+  const issueNumbers = new Set<number>();
+
+  for (const match of matches) {
+    const issueNumber = Number.parseInt(match[1] ?? "", 10);
+    if (Number.isFinite(issueNumber)) {
+      issueNumbers.add(issueNumber);
+    }
+  }
+
+  return [...issueNumbers].sort((left, right) => left - right);
 }
 
 function extractSteps(issue: Issue) {
