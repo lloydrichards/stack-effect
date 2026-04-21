@@ -3,7 +3,7 @@
 ## Purpose
 
 This document reconstructs the current design for the scaffold system's
-`Blueprint` and `Plan` phases.
+`Selection`, `Blueprint`, and `Plan` phases.
 
 The system is intentionally split into three conceptual stages:
 
@@ -11,8 +11,8 @@ The system is intentionally split into three conceptual stages:
 2. `Blueprint`
 3. `Plan`
 
-`Selection` remains the explicit user-authored request. This document focuses on
-the two downstream phases:
+`Selection` remains the explicit user-authored request. This document primarily
+focuses on the downstream phases:
 
 - `Blueprint`: resolve and normalize scaffold intent
 - `Plan`: compile that intent against repo state into a virtual filesystem plan
@@ -55,13 +55,38 @@ Selection
 
 `Selection` is the explicit user-authored request.
 
+It is the final confirmed request, not prompt-session state.
+
 It contains only:
 
 - selected targets, with target modules nested inside each target
 - selected repo modules
+- selected repo options
+
+Each selected target contains:
+
+- structured target identity using target kind plus target name
+- selected target modules
+- selected target options
+
+`Selection` contains the final effective choices passed downstream, including
+defaults applied by the CLI before confirmation.
+
+It is operation-agnostic. Different CLI modes may produce a `Selection`, but
+mode does not appear in the final contract.
+
+It must be normalized before blueprint resolution:
+
+- at least one target, repo module, or repo option must be selected
+- duplicate targets, repo modules, and target modules are rejected before final
+  `Selection` exists
+- collections are emitted in deterministic canonical order
 
 It does not contain implied dependencies, resolved graph edges, repo-state
 knowledge, or merge decisions.
+
+Canonical target ids such as `server/api` are derived during blueprint
+resolution rather than authored directly in `Selection`.
 
 ### Blueprint
 
@@ -124,6 +149,12 @@ The term `module` is overloaded. The design distinguishes:
 - `Target module`: belongs to one target as part of that target's module set
 - `Capability`: the shared idea a module may represent
 
+The design also distinguishes options from modules:
+
+- `Repo option`: typed repo-level configuration captured in the final request
+- `Target option`: typed target-level configuration captured in the final
+  request
+
 At the public boundary, target modules should be nested under their target rather
 than modeled as a separate top-level collection. That keeps `Selection` and the
 reviewed `Blueprint` simpler to read.
@@ -140,10 +171,16 @@ It should not invent arbitrary non-canonical app targets in v1.
 
 ### Normalize early, reconcile late
 
+Selection finalization handles:
+
+- conversion from prompt answers into a final request
+- default application
+- duplicate rejection
+- deterministic ordering
+
 Blueprint normalization handles:
 
 - dependency expansion
-- duplicate normalization
 - explicit vs implied precedence
 - slot override resolution
 - contradictory composition failures
@@ -167,7 +204,9 @@ for this document are:
 - `Target`
 - `Canonical target`
 - `Repo module`
+- `Repo option`
 - `Target module`
+- `Target option`
 - `Intent`
 - `Repo snapshot`
 - `Merge requirement`
@@ -180,7 +219,9 @@ for this document are:
 `BlueprintService` is responsible for:
 
 - validating selected target kinds and module ids
+- validating repo-option and target-option shapes
 - validating target-module compatibility
+- validating module-gated target-option combinations
 - rejecting conceptual target collisions
 - expanding required repo modules and canonical targets
 - attaching implied target modules to specific resolved targets
@@ -212,11 +253,15 @@ helps normalization, but that should not leak into the public shape.
 
 ### Target identity
 
-Target identity should align with conceptual repo path identity.
+At the public boundary, target identity is authored as target kind plus target
+name.
+
+Blueprint resolution derives canonical target ids and conceptual repo paths from
+that identity.
 
 For v1 monorepo conventions:
 
-- app targets conceptually map to `apps/<name>`
+- client, server, server-mcp, and cli targets conceptually map to `apps/<name>`
 - package targets conceptually map to `packages/<name>`
 
 That means collisions should be detected at the conceptual path level, not only
@@ -245,6 +290,30 @@ The key repo module in v1 is the umbrella bootstrap capability:
 Every target kind depends on `root-bootstrap` in v1.
 
 Users may still select `root-bootstrap` explicitly for repo-only initialization.
+
+Repo-level scaffold intent is split into:
+
+- additive repo modules
+- typed repo options
+
+Repo options belong to the final explicit request when they affect scaffold
+output. They are not inferred only from ambient global config.
+
+Global config may still provide defaults, but those defaults must be resolved
+before final `Selection` is confirmed.
+
+### Target options
+
+Target-level scaffold intent is split into:
+
+- additive target modules
+- typed target options
+
+Target options are stored on the owning target rather than on individual module
+selections.
+
+Some target option fields may be valid only when specific target modules are
+selected. Those relationships are validated during blueprint construction.
 
 ### Canonical targets
 
@@ -291,6 +360,9 @@ If the same target or module is both selected and implied:
 For target modules, that precedence should be expressed inside the owning target
 rather than in a separate top-level resolved target-module list.
 
+The same rule applies when an explicitly selected repo module or target-level
+choice is also introduced through dependency expansion.
+
 ### Dependency model
 
 Dependency declarations should be data-first wherever possible.
@@ -323,7 +395,6 @@ Use typed errors for invalid blueprint construction, such as:
 
 Use structured warnings for non-fatal conditions, such as:
 
-- duplicate selections normalized away
 - redundant selections covered by dependency closure
 - implied dependencies added automatically
 
@@ -605,6 +676,10 @@ The first implementation should emphasize behavior-first end-to-end tests.
 
 Important test categories:
 
+- final `Selection` validation and normalization
+- effective-choice defaulting before blueprint resolution
+- repo-option and target-option validation
+- module-gated target-option validation
 - selection to blueprint happy path for the first slice
 - root-bootstrap implication
 - nested target-module ownership and cross-target dependency expansion
@@ -625,27 +700,32 @@ Suggested order:
 
 1. define schema-backed domain models for `Selection`, `Blueprint`, `Intent`, and
    `Plan`
-2. implement static target and module registries for the first slice
-3. implement selection validation and collision checks
-4. implement blueprint resolution for resolved targets with nested target modules
+2. expand `Selection` to structured target identity, additive repo modules,
+   typed repo options, additive target modules, and typed target options
+3. implement selection finalization, including default application, duplicate
+   rejection, non-empty request validation, and deterministic ordering
+4. implement static target and module registries for the first slice
+5. extend validation to cover option shapes and module-gated target options
+6. implement blueprint resolution for resolved targets with nested target modules
    plus resolved repo modules
-5. implement root-bootstrap implication
-6. implement canonical `package/domain` implication and `domain-api` attachment
-7. implement slot override normalization for package public entrypoint
-8. emit deterministic flat blueprint intents
-9. implement narrow repo snapshot loading
-10. implement planning compilers for the first recognized file classes
-11. add classification, merge requirement collection, and virtual tree
-12. expand coverage only after the first end-to-end slice is stable
+7. implement root-bootstrap implication
+8. implement canonical `package/domain` implication and `domain-api` attachment
+9. implement slot override normalization for package public entrypoint
+10. emit deterministic flat blueprint intents
+11. implement narrow repo snapshot loading
+12. implement planning compilers for the first recognized file classes
+13. add classification, merge requirement collection, and virtual tree
+14. expand coverage only after the first end-to-end slice is stable
 
 ## Summary
 
 The current design is intentionally narrow and phase-driven:
 
-- `Selection` remains explicit and user-authored
+- `Selection` remains explicit, user-authored, and finalized before resolution
 - `Blueprint` becomes the reviewed normalized scaffold graph
 - `Plan` becomes the repo-aware virtual projection
 
+Selection finalization owns explicit effective choices and normalization.
 Blueprint owns dependency expansion and scaffold composition.
 Plan owns repo reconciliation and path classification.
 

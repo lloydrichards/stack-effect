@@ -1,16 +1,36 @@
 import { Schema } from "effect";
-import { RepoModuleId, TargetModuleId } from "./Scaffold";
+import { RepoModuleId, TargetIdentity, TargetModuleId } from "./Scaffold";
 
-export const TargetModuleSelection = Schema.Struct({
+const RepoLinter = Schema.Literals(["biome"]);
+
+const TargetRuntime = Schema.Literals(["bun"]);
+
+const RepoOptions = Schema.Struct({
+  runtime: Schema.optional(TargetRuntime),
+  linter: Schema.optional(RepoLinter),
+});
+
+const HttpApiStyle = Schema.Literals(["rest"]);
+
+const DomainApiSurface = Schema.Literals(["api"]);
+
+const TargetOptions = Schema.Struct({
+  httpApiStyle: Schema.optional(HttpApiStyle),
+  domainApiSurface: Schema.optional(DomainApiSurface),
+});
+
+const TargetModuleSelection = Schema.Struct({
   id: TargetModuleId,
 });
 
-export const TargetSelection = Schema.Struct({
-  id: Schema.NonEmptyString,
+const TargetSelection = Schema.Struct({
+  identity: TargetIdentity,
   modules: Schema.Array(TargetModuleSelection),
+  options: TargetOptions,
 });
 
 export const Selection = Schema.Struct({
   targets: Schema.Array(TargetSelection),
-  repoModules: Schema.Array(RepoModuleId),
+  modules: Schema.Array(RepoModuleId),
+  options: RepoOptions,
 });
