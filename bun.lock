@@ -153,6 +153,19 @@
         "@types/node": "^25.6.0",
       },
     },
+    "packages/scaffold": {
+      "name": "@repo/scaffold",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/domain": "workspace:*",
+        "effect": "4.0.0-beta.47",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.47",
+        "@repo/config-typescript": "workspace:*",
+        "vitest": "^4.1.0",
+      },
+    },
     "packages/selection": {
       "name": "@repo/selection",
       "version": "0.0.0",
@@ -526,6 +539,8 @@
     "@repo/observability": ["@repo/observability@workspace:packages/observability"],
 
     "@repo/presence": ["@repo/presence@workspace:packages/presence"],
+
+    "@repo/scaffold": ["@repo/scaffold@workspace:packages/scaffold"],
 
     "@repo/selection": ["@repo/selection@workspace:packages/selection"],
 

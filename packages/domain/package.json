@@ -6,8 +6,11 @@
   "exports": {
     ".": "./src/Api.ts",
     "./Api": "./src/Api.ts",
+    "./Blueprint": "./src/Blueprint.ts",
     "./Chat": "./src/Chat.ts",
     "./Rpc": "./src/Rpc.ts",
+    "./Scaffold": "./src/Scaffold.ts",
+    "./Selection": "./src/Selection.ts",
     "./WebSocket": "./src/WebSocket.ts"
   },
   "main": "./src/Api.ts",

@@ -1,0 +1,25 @@
+{
+  "name": "@repo/scaffold",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@repo/domain": "workspace:*",
+    "effect": "4.0.0-beta.47"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-beta.47",
+    "@repo/config-typescript": "workspace:*",
+    "vitest": "^4.1.0"
+  }
+}
