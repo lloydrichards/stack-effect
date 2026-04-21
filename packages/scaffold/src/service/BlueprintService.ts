@@ -1,13 +1,24 @@
 import {
   Blueprint,
   type BlueprintCause,
+  type BlueprintDependencyEdge,
   type BlueprintError,
-  type BlueprintIntent,
   type BlueprintNodeReference,
   type BlueprintStatus,
   type BlueprintWarning,
+  ConceptualTargetCollision,
+  InvalidTarget,
+  InvalidTargetModuleTarget,
+  UnknownRepoModule,
+  UnknownTargetKind,
+  UnknownTargetModule,
+  type ResolvedRepoModule,
+  type ResolvedTarget,
+  type ResolvedTargetModule,
+  type TargetComposition,
+  UnsupportedTargetModule,
 } from "@repo/domain/Blueprint";
-import type {
+import {
   PackagePublicEntrypoint,
   RepoModuleId,
   TargetIdentity,
@@ -18,36 +29,15 @@ import { Context, Effect, Layer, Option, Schema } from "effect";
 import { ModuleCatalog } from "../catalog/ModuleCatalog";
 import { TargetCatalog } from "../catalog/TargetCatalog";
 
-type ResolvedTargetState = {
+const decodeTargetIdentity = Schema.decodeUnknownOption(TargetIdentity);
+
+type DependencyInput = {
+  readonly from: typeof BlueprintNodeReference.Type;
+  readonly reason: typeof BlueprintDependencyEdge.Type.reason;
+};
+type TargetModuleState = typeof ResolvedTargetModule.Type & {
   readonly targetId: string;
-  readonly identity: typeof TargetIdentity.Type;
-  readonly status: typeof BlueprintStatus.Type;
-  readonly causes: [
-    typeof BlueprintCause.Type,
-    ...Array<typeof BlueprintCause.Type>,
-  ];
 };
-
-type ResolvedTargetModuleState = {
-  readonly targetId: string;
-  readonly moduleId: typeof TargetModuleId.Type;
-  readonly status: typeof BlueprintStatus.Type;
-  readonly causes: [
-    typeof BlueprintCause.Type,
-    ...Array<typeof BlueprintCause.Type>,
-  ];
-};
-
-type ResolvedRepoModuleState = {
-  readonly moduleId: typeof RepoModuleId.Type;
-  readonly status: typeof BlueprintStatus.Type;
-  readonly causes: [
-    typeof BlueprintCause.Type,
-    ...Array<typeof BlueprintCause.Type>,
-  ];
-};
-
-const decodeSelection = Schema.decodeUnknownOption(Selection);
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
   "BlueprintService",
@@ -59,25 +49,10 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
       const resolve = Effect.fn("BlueprintService.resolve")(function* (
         selection: typeof Selection.Type,
       ) {
-        const decodedSelection = decodeSelection(selection);
-
-        if (Option.isNone(decodedSelection)) {
-          return yield* Effect.fail<typeof BlueprintError.Type>({
-            _tag: "InvalidTarget",
-            targetId: "invalid-selection",
-          });
-        }
-
-        const targets = new Map<string, ResolvedTargetState>();
-        const targetModules = new Map<string, ResolvedTargetModuleState>();
-        const repoModules = new Map<string, ResolvedRepoModuleState>();
-        const targetCompositions = new Map<
-          string,
-          {
-            readonly _tag: "package";
-            readonly publicEntrypoint: typeof PackagePublicEntrypoint.Type;
-          }
-        >();
+        const targets = new Map<string, typeof ResolvedTarget.Type>();
+        const targetModules = new Map<string, TargetModuleState>();
+        const repoModules = new Map<string, typeof ResolvedRepoModule.Type>();
+        const edges = new Map<string, typeof BlueprintDependencyEdge.Type>();
         const warnings = new Map<string, typeof BlueprintWarning.Type>();
         const conceptualPaths = new Map<string, string>();
 
@@ -85,20 +60,35 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           warnings.set(toBlueprintWarningKey(warning), warning);
         };
 
+        const addDependencyEdge = (
+          from: typeof BlueprintNodeReference.Type,
+          to: typeof BlueprintNodeReference.Type,
+          reason: typeof BlueprintDependencyEdge.Type.reason,
+        ): string => {
+          const edge: typeof BlueprintDependencyEdge.Type = {
+            _tag: "depends-on",
+            id: toBlueprintDependencyEdgeId({ from, to, reason }),
+            from,
+            to,
+            reason,
+          };
+
+          edges.set(edge.id, edge);
+          return edge.id;
+        };
+
         const validateTarget = (
           targetId: string,
-        ): Effect.Effect<
-          typeof TargetIdentity.Type,
-          typeof BlueprintError.Type
-        > =>
+        ): Effect.Effect<typeof TargetIdentity.Type, typeof BlueprintError.Type> =>
           Effect.gen(function* () {
-            const targetIdentityOption = getTargetIdentity({ targetId });
+            const targetIdentityOption = getTargetIdentity({ id: targetId });
 
             if (Option.isNone(targetIdentityOption)) {
-              return yield* Effect.fail({
-                _tag: "InvalidTarget",
-                targetId,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new InvalidTarget({
+                  id: targetId,
+                }),
+              );
             }
 
             const targetDefinition = targetCatalog.getTargetDefinition(
@@ -106,10 +96,11 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
             );
 
             if (targetDefinition === undefined) {
-              return yield* Effect.fail({
-                _tag: "UnknownTargetKind",
-                targetKind: targetIdentityOption.value.kind,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnknownTargetKind({
+                  kind: targetIdentityOption.value.kind,
+                }),
+              );
             }
 
             const conceptualPath = getConceptualPath(
@@ -121,11 +112,12 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
               existingTargetId !== undefined &&
               existingTargetId !== targetId
             ) {
-              return yield* Effect.fail({
-                _tag: "ConceptualTargetCollision",
-                conceptualPath,
-                targetIds: [existingTargetId, targetId],
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new ConceptualTargetCollision({
+                  path: conceptualPath,
+                  targetIds: [existingTargetId, targetId],
+                }),
+              );
             }
 
             conceptualPaths.set(conceptualPath, targetId);
@@ -133,25 +125,27 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
             return targetIdentityOption.value;
           });
 
-        const upsertTarget = (
-          targetId: string,
-          identity: typeof TargetIdentity.Type,
-          status: typeof BlueprintStatus.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): void => {
-          const existingTarget = targets.get(targetId);
+        const upsertTarget = ({
+          id,
+          identity,
+          status,
+          causes,
+        }: Omit<typeof ResolvedTarget.Type, "targetModules" | "composition">): void => {
+          const existingTarget = targets.get(id);
 
           if (existingTarget === undefined) {
-            targets.set(targetId, {
-              targetId,
+            targets.set(id, {
+              id,
               identity,
               status,
               causes: mergeCauses(causes),
+              targetModules: [],
+              composition: undefined,
             });
             return;
           }
 
-          targets.set(targetId, {
+          targets.set(id, {
             ...existingTarget,
             status:
               existingTarget.status === "selected" || status === "selected"
@@ -161,19 +155,18 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           });
         };
 
-        const upsertTargetModule = (
-          targetId: string,
-          moduleId: typeof TargetModuleId.Type,
-          status: typeof BlueprintStatus.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): void => {
+        const upsertTargetModule = ({
+          targetId,
+          ...module
+        }: TargetModuleState): void => {
+          const { moduleId, status, causes } = module;
           const key = `${targetId}:${moduleId}`;
           const existingTargetModule = targetModules.get(key);
 
           if (existingTargetModule === undefined) {
             targetModules.set(key, {
               targetId,
-              moduleId,
+              ...module,
               status,
               causes: mergeCauses(causes),
             });
@@ -191,11 +184,11 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           });
         };
 
-        const upsertRepoModule = (
-          moduleId: typeof RepoModuleId.Type,
-          status: typeof BlueprintStatus.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): void => {
+        const upsertRepoModule = ({
+          moduleId,
+          status,
+          causes,
+        }: typeof ResolvedRepoModule.Type): void => {
           const existingRepoModule = repoModules.get(moduleId);
 
           if (existingRepoModule === undefined) {
@@ -217,153 +210,209 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           });
         };
 
-        const requireRepoModule = (
-          moduleId: typeof RepoModuleId.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): Effect.Effect<void, typeof BlueprintError.Type> =>
+        const requireRepoModule = ({
+          moduleId,
+          dependency,
+        }: {
+          readonly moduleId: typeof RepoModuleId.Type;
+          readonly dependency: DependencyInput;
+        }): Effect.Effect<void, typeof BlueprintError.Type> =>
           Effect.gen(function* () {
             if (moduleCatalog.getRepoModuleDefinition(moduleId) === undefined) {
-              return yield* Effect.fail({
-                _tag: "UnknownRepoModule",
-                moduleId,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnknownRepoModule({
+                  id: moduleId,
+                }),
+              );
             }
 
-            upsertRepoModule(moduleId, "implied", causes);
+            const edgeId = addDependencyEdge(
+              dependency.from,
+              repoModuleNode(moduleId),
+              dependency.reason,
+            );
+
+            upsertRepoModule({
+              moduleId,
+              status: "implied",
+              causes: [dependencyCause(edgeId)],
+            });
           });
 
-        const requireCanonicalTarget = (
-          identity: typeof TargetIdentity.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): Effect.Effect<string, typeof BlueprintError.Type> =>
+        const requireCanonicalTarget = ({
+          identity,
+          dependency,
+        }: {
+          readonly identity: typeof TargetIdentity.Type;
+          readonly dependency: DependencyInput;
+        }): Effect.Effect<string, typeof BlueprintError.Type> =>
           Effect.gen(function* () {
             const targetDefinition = targetCatalog.getTargetDefinition(
               identity.kind,
             );
 
             if (targetDefinition === undefined) {
-              return yield* Effect.fail({
-                _tag: "UnknownTargetKind",
-                targetKind: identity.kind,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnknownTargetKind({
+                  kind: identity.kind,
+                }),
+              );
             }
 
             const targetId = toTargetId(identity);
             conceptualPaths.set(getConceptualPath(identity), targetId);
-            upsertTarget(targetId, identity, "implied", causes);
+            const edgeId = addDependencyEdge(
+              dependency.from,
+              targetNode(targetId),
+              dependency.reason,
+            );
+
+            upsertTarget({
+              id: targetId,
+              identity,
+              status: "implied",
+              causes: [dependencyCause(edgeId)],
+            });
 
             for (const repoModuleId of targetDefinition.requiredRepoModules) {
-              yield* requireRepoModule(repoModuleId, [
-                dependencyCause({
-                  _tag: "target",
-                  targetId,
-                }),
-              ]);
+              yield* requireRepoModule({
+                moduleId: repoModuleId,
+                dependency: {
+                  from: targetNode(targetId),
+                  reason: "required-repo-module",
+                },
+              });
             }
 
             return targetId;
           });
 
-        const requireTargetModule = (
-          targetId: string,
-          moduleId: typeof TargetModuleId.Type,
-          causes: ReadonlyArray<typeof BlueprintCause.Type>,
-        ): Effect.Effect<void, typeof BlueprintError.Type> =>
+        const requireTargetModule = ({
+          targetId,
+          moduleId,
+          dependency,
+        }: {
+          readonly targetId: string;
+          readonly moduleId: typeof TargetModuleId.Type;
+          readonly dependency: DependencyInput;
+        }): Effect.Effect<void, typeof BlueprintError.Type> =>
           Effect.gen(function* () {
             const targetState = targets.get(targetId);
 
             if (targetState === undefined) {
-              return yield* Effect.fail({
-                _tag: "InvalidTargetModuleTarget",
-                targetModule: {
-                  targetId,
-                  moduleId,
-                },
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new InvalidTargetModuleTarget({
+                  module: {
+                    targetId,
+                    moduleId,
+                  },
+                }),
+              );
             }
 
             const targetModuleDefinition =
               moduleCatalog.getTargetModuleDefinition(moduleId);
 
             if (targetModuleDefinition === undefined) {
-              return yield* Effect.fail({
-                _tag: "UnknownTargetModule",
-                moduleId,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnknownTargetModule({
+                  id: moduleId,
+                }),
+              );
             }
 
             if (!targetModuleDefinition.isSupported(targetState.identity)) {
-              return yield* Effect.fail({
-                _tag: "UnsupportedTargetModule",
-                targetModule: {
-                  targetId,
-                  moduleId,
-                },
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnsupportedTargetModule({
+                  module: {
+                    targetId,
+                    moduleId,
+                  },
+                }),
+              );
             }
 
-            upsertTargetModule(targetId, moduleId, "implied", causes);
+            const edgeId = addDependencyEdge(
+              dependency.from,
+              targetModuleNode(targetId, moduleId),
+              dependency.reason,
+            );
+
+            upsertTargetModule({
+              targetId,
+              moduleId,
+              status: "implied",
+              causes: [dependencyCause(edgeId)],
+            });
+
+            const owningTargetEdgeId = addDependencyEdge(
+              targetModuleNode(targetId, moduleId),
+              targetNode(targetId),
+              "required-owning-target",
+            );
+
+            upsertTarget({
+              id: targetId,
+              identity: targetState.identity,
+              status: "implied",
+              causes: [dependencyCause(owningTargetEdgeId)],
+            });
           });
 
         const normalizedTargetSelections = new Set<string>();
 
-        for (const target of decodedSelection.value.targets) {
-          const targetIdentity = yield* validateTarget(target.targetId);
+        for (const target of selection.targets) {
+          const targetIdentity = yield* validateTarget(target.id);
           const normalizedTargetId = toTargetId(targetIdentity);
 
           if (normalizedTargetSelections.has(normalizedTargetId)) {
             addWarning({
               _tag: "DuplicateSelectionNormalized",
-              node: {
-                _tag: "target",
-                targetId: normalizedTargetId,
-              },
+              node: targetNode(normalizedTargetId),
             });
             continue;
           }
 
           normalizedTargetSelections.add(normalizedTargetId);
-          upsertTarget(
-            normalizedTargetId,
-            targetIdentity,
-            "selected",
-            selectedCause({
-              _tag: "target",
-              targetId: normalizedTargetId,
+          upsertTarget({
+            id: normalizedTargetId,
+            identity: targetIdentity,
+            status: "selected",
+            causes: selectedCause({
+              ...targetNode(normalizedTargetId),
             }),
-          );
+          });
 
           const targetDefinition = targetCatalog.getTargetDefinition(
             targetIdentity.kind,
           );
 
           if (targetDefinition === undefined) {
-            return yield* Effect.fail({
-              _tag: "UnknownTargetKind",
-              targetKind: targetIdentity.kind,
-            } satisfies typeof BlueprintError.Type);
+            return yield* Effect.fail(
+              new UnknownTargetKind({
+                kind: targetIdentity.kind,
+              }),
+            );
           }
 
           for (const repoModuleId of targetDefinition.requiredRepoModules) {
-            yield* requireRepoModule(repoModuleId, [
-              dependencyCause({
-                _tag: "target",
-                targetId: normalizedTargetId,
-              }),
-            ]);
+            yield* requireRepoModule({
+              moduleId: repoModuleId,
+                dependency: {
+                  from: targetNode(normalizedTargetId),
+                  reason: "required-repo-module",
+                },
+              });
           }
         }
 
         const normalizedRepoModuleSelections = new Set<string>();
 
-        for (const moduleId of decodedSelection.value.repoModules) {
+        for (const moduleId of selection.repoModules) {
           if (normalizedRepoModuleSelections.has(moduleId)) {
             addWarning({
               _tag: "DuplicateSelectionNormalized",
-              node: {
-                _tag: "repo-module",
-                moduleId,
-              },
+              node: repoModuleNode(moduleId),
             });
             continue;
           }
@@ -371,30 +420,30 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           normalizedRepoModuleSelections.add(moduleId);
 
           if (moduleCatalog.getRepoModuleDefinition(moduleId) === undefined) {
-            return yield* Effect.fail({
-              _tag: "UnknownRepoModule",
-              moduleId,
-            } satisfies typeof BlueprintError.Type);
+            return yield* Effect.fail(
+              new UnknownRepoModule({
+                id: moduleId,
+              }),
+            );
           }
 
-          upsertRepoModule(
+          upsertRepoModule({
             moduleId,
-            "selected",
-            selectedCause({
-              _tag: "repo-module",
-              moduleId,
+            status: "selected",
+            causes: selectedCause({
+              ...repoModuleNode(moduleId),
             }),
-          );
+          });
         }
 
         const normalizedTargetModuleSelections = new Set<string>();
 
-        for (const target of decodedSelection.value.targets) {
-          const targetIdentity = yield* validateTarget(target.targetId);
+        for (const target of selection.targets) {
+          const targetIdentity = yield* validateTarget(target.id);
           const normalizedTargetId = toTargetId(targetIdentity);
 
-          for (const targetModule of target.targetModules) {
-            const normalizedTargetModuleKey = `${normalizedTargetId}:${targetModule.moduleId}`;
+          for (const targetModule of target.modules) {
+            const normalizedTargetModuleKey = `${normalizedTargetId}:${targetModule.id}`;
 
             if (
               normalizedTargetModuleSelections.has(normalizedTargetModuleKey)
@@ -402,9 +451,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
               addWarning({
                 _tag: "DuplicateSelectionNormalized",
                 node: {
-                  _tag: "target-module",
-                  targetId: normalizedTargetId,
-                  moduleId: targetModule.moduleId,
+                  ...targetModuleNode(normalizedTargetId, targetModule.id),
                 },
               });
               continue;
@@ -413,71 +460,70 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
             normalizedTargetModuleSelections.add(normalizedTargetModuleKey);
 
             const targetModuleDefinition =
-              moduleCatalog.getTargetModuleDefinition(targetModule.moduleId);
+              moduleCatalog.getTargetModuleDefinition(targetModule.id);
 
             if (targetModuleDefinition === undefined) {
-              return yield* Effect.fail({
-                _tag: "UnknownTargetModule",
-                moduleId: targetModule.moduleId,
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnknownTargetModule({
+                  id: targetModule.id,
+                }),
+              );
             }
 
             if (!targetModuleDefinition.isSupported(targetIdentity)) {
-              return yield* Effect.fail({
-                _tag: "UnsupportedTargetModule",
-                targetModule: {
-                  targetId: normalizedTargetId,
-                  moduleId: targetModule.moduleId,
-                },
-              } satisfies typeof BlueprintError.Type);
+              return yield* Effect.fail(
+                new UnsupportedTargetModule({
+                  module: {
+                    targetId: normalizedTargetId,
+                    moduleId: targetModule.id,
+                  },
+                }),
+              );
             }
 
-            const targetModuleReference: typeof BlueprintNodeReference.Type = {
-              _tag: "target-module",
-              targetId: normalizedTargetId,
-              moduleId: targetModule.moduleId,
-            };
-
-            upsertTarget(normalizedTargetId, targetIdentity, "implied", [
-              dependencyCause(targetModuleReference),
-            ]);
-            upsertTargetModule(
+            const targetModuleReference = targetModuleNode(
               normalizedTargetId,
-              targetModule.moduleId,
-              "selected",
-              selectedCause(targetModuleReference),
+              targetModule.id,
             );
+
+            const owningTargetEdgeId = addDependencyEdge(
+              targetModuleReference,
+              targetNode(normalizedTargetId),
+              "required-owning-target",
+            );
+
+            upsertTarget({
+              id: normalizedTargetId,
+              identity: targetIdentity,
+              status: "implied",
+              causes: [dependencyCause(owningTargetEdgeId)],
+            });
+            upsertTargetModule({
+              targetId: normalizedTargetId,
+              moduleId: targetModule.id,
+              status: "selected",
+              causes: selectedCause(targetModuleReference),
+            });
 
             for (const dependency of targetModuleDefinition.dependencies) {
               if (dependency.requiredCanonicalTarget !== undefined) {
-                const requiredTargetId = yield* requireCanonicalTarget(
-                  dependency.requiredCanonicalTarget,
-                  [dependencyCause(targetModuleReference)],
-                );
+                const requiredTargetId = yield* requireCanonicalTarget({
+                  identity: dependency.requiredCanonicalTarget,
+                  dependency: {
+                    from: targetModuleReference,
+                    reason: "required-canonical-target",
+                  },
+                });
 
                 if (dependency.requiredTargetModule !== undefined) {
-                  yield* requireTargetModule(
-                    requiredTargetId,
-                    dependency.requiredTargetModule.moduleId,
-                    [
-                      dependencyCause({
-                        _tag: "target",
-                        targetId: normalizedTargetId,
-                      }),
-                    ],
-                  );
-                  upsertTarget(
-                    requiredTargetId,
-                    dependency.requiredTargetModule.target,
-                    "implied",
-                    [
-                      dependencyCause({
-                        _tag: "target-module",
-                        targetId: requiredTargetId,
-                        moduleId: dependency.requiredTargetModule.moduleId,
-                      }),
-                    ],
-                  );
+                  yield* requireTargetModule({
+                    targetId: requiredTargetId,
+                    moduleId: dependency.requiredTargetModule.moduleId,
+                    dependency: {
+                      from: targetModuleReference,
+                      reason: "required-target-module",
+                    },
+                  });
                 }
               }
             }
@@ -485,137 +531,62 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         }
 
         for (const target of targets.values()) {
-          const composition = resolveTargetComposition(
-            target.targetId,
-            targetModules,
-          );
+          const dependencyEdgeIds = toDependencyEdgeIds(target.causes);
 
-          if (composition === undefined) {
-            continue;
-          }
-
-          const existingComposition = targetCompositions.get(target.targetId);
-
-          if (
-            existingComposition !== undefined &&
-            existingComposition.publicEntrypoint !==
-              composition.publicEntrypoint
-          ) {
-            return yield* Effect.fail({
-              _tag: "ContradictoryTargetComposition",
-              targetId: target.targetId,
-              slot: "package-public-entrypoint",
-            } satisfies typeof BlueprintError.Type);
-          }
-
-          targetCompositions.set(target.targetId, composition);
-        }
-
-        for (const target of targets.values()) {
-          const dependencySources = toDependencySources(target.causes);
-
-          if (dependencySources !== undefined) {
+          if (target.status === "selected" && dependencyEdgeIds !== undefined) {
             addWarning({
-              _tag:
-                target.status === "selected"
-                  ? "RedundantSelectionNormalized"
-                  : "ImpliedDependencyAdded",
-              node: {
-                _tag: "target",
-                targetId: target.targetId,
-              },
-              causes: dependencySources,
+              _tag: "RedundantSelectionNormalized",
+              node: targetNode(target.id),
+              edgeIds: dependencyEdgeIds,
             });
           }
         }
 
         for (const targetModule of targetModules.values()) {
-          const dependencySources = toDependencySources(targetModule.causes);
+          const dependencyEdgeIds = toDependencyEdgeIds(targetModule.causes);
 
-          if (dependencySources !== undefined) {
+          if (
+            targetModule.status === "selected" &&
+            dependencyEdgeIds !== undefined
+          ) {
             addWarning({
-              _tag:
-                targetModule.status === "selected"
-                  ? "RedundantSelectionNormalized"
-                  : "ImpliedDependencyAdded",
+              _tag: "RedundantSelectionNormalized",
               node: {
                 _tag: "target-module",
                 targetId: targetModule.targetId,
                 moduleId: targetModule.moduleId,
               },
-              causes: dependencySources,
+              edgeIds: dependencyEdgeIds,
             });
           }
         }
 
         for (const repoModule of repoModules.values()) {
-          const dependencySources = toDependencySources(repoModule.causes);
+          const dependencyEdgeIds = toDependencyEdgeIds(repoModule.causes);
 
-          if (dependencySources !== undefined) {
+          if (
+            repoModule.status === "selected" &&
+            dependencyEdgeIds !== undefined
+          ) {
             addWarning({
-              _tag:
-                repoModule.status === "selected"
-                  ? "RedundantSelectionNormalized"
-                  : "ImpliedDependencyAdded",
-              node: {
-                _tag: "repo-module",
-                moduleId: repoModule.moduleId,
-              },
-              causes: dependencySources,
+              _tag: "RedundantSelectionNormalized",
+              node: repoModuleNode(repoModule.moduleId),
+              edgeIds: dependencyEdgeIds,
             });
           }
         }
 
-        const intents = [
-          ...[...repoModules.values()].map(
-            (repoModule): typeof BlueprintIntent.Type => ({
-              _tag: "RepoModule",
-              moduleId: repoModule.moduleId,
-            }),
-          ),
-          ...[...targets.values()].map(
-            (target): typeof BlueprintIntent.Type => ({
-              _tag: "Target",
-              targetId: target.targetId,
-            }),
-          ),
-          ...[...targetModules.values()].map(
-            (targetModule): typeof BlueprintIntent.Type => ({
-              _tag: "TargetModule",
-              targetId: targetModule.targetId,
-              moduleId: targetModule.moduleId,
-            }),
-          ),
-          ...[...targetCompositions.entries()].map(
-            ([targetId, composition]): typeof BlueprintIntent.Type => ({
-              _tag: "PackageEntrypoint",
-              targetId,
-              publicEntrypoint: composition.publicEntrypoint,
-            }),
-          ),
-        ].sort(byBlueprintIntent);
-
         return new Blueprint({
-          targets: [...targets.values()].sort(byTargetId).map((target) => ({
+          nodes: [...targets.values()].sort(byTargetId).map((target) => ({
             ...target,
             targetModules: [...targetModules.values()]
-              .filter(
-                (targetModule) => targetModule.targetId === target.targetId,
-              )
+              .filter((targetModule) => targetModule.targetId === target.id)
               .sort(byNestedResolvedTargetModule)
-              .map(({ moduleId, status, causes }) => ({
-                moduleId,
-                status,
-                causes,
-              })),
+              .map(({ targetId: _targetId, ...module }) => module),
+            composition: resolveTargetComposition(target.id, targetModules),
           })),
-          repoModules: [...repoModules.values()].sort(byRepoModuleId),
-          targetCompositions: Object.fromEntries(
-            [...targetCompositions.entries()].sort(([left], [right]) =>
-              left.localeCompare(right),
-            ),
-          ),
-          intents,
+          modules: [...repoModules.values()].sort(byRepoModuleId),
+          edges: [...edges.values()].sort(byBlueprintDependencyEdge),
           warnings: [...warnings.values()].sort(byBlueprintWarning),
         });
       });
@@ -633,36 +604,19 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
 }
 
 const getTargetIdentity = ({
-  targetId,
+  id,
 }: {
-  readonly targetId: string;
+  readonly id: string;
 }): Option.Option<typeof TargetIdentity.Type> => {
-  const [kind, name, ...rest] = targetId.split("/");
+  const [kind, name, ...rest] = id.split("/");
 
   if (rest.length > 0 || kind === undefined || name === undefined) {
     return Option.none();
   }
 
-  const decodedKind = Schema.decodeUnknownOption(
-    Schema.Union([
-      Schema.Literal("client"),
-      Schema.Literal("server"),
-      Schema.Literal("server-mcp"),
-      Schema.Literal("cli"),
-      Schema.Literal("package"),
-    ]),
-  )(kind);
-  const decodedName = Schema.decodeUnknownOption(
-    Schema.String.check(Schema.isNonEmpty(), Schema.isTrimmed()),
-  )(name);
-
-  if (Option.isNone(decodedKind) || Option.isNone(decodedName)) {
-    return Option.none();
-  }
-
-  return Option.some({
-    kind: decodedKind.value,
-    name: decodedName.value,
+  return decodeTargetIdentity({
+    kind,
+    name,
   });
 };
 
@@ -672,10 +626,31 @@ const getConceptualPath = (identity: typeof TargetIdentity.Type) =>
 const toTargetId = ({ kind, name }: typeof TargetIdentity.Type): string =>
   `${kind}/${name}`;
 
+const targetNode = (id: string): typeof BlueprintNodeReference.Type => ({
+  _tag: "target",
+  id,
+});
+
+const repoModuleNode = (
+  id: typeof RepoModuleId.Type,
+): typeof BlueprintNodeReference.Type => ({
+  _tag: "repo-module",
+  id,
+});
+
+const targetModuleNode = (
+  targetId: string,
+  moduleId: typeof TargetModuleId.Type,
+): typeof BlueprintNodeReference.Type => ({
+  _tag: "target-module",
+  targetId,
+  moduleId,
+});
+
 const byTargetId = (
-  left: { readonly targetId: string },
-  right: { readonly targetId: string },
-): number => left.targetId.localeCompare(right.targetId);
+  left: { readonly id: string },
+  right: { readonly id: string },
+): number => left.id.localeCompare(right.id);
 
 const byRepoModuleId = (
   left: { readonly moduleId: string },
@@ -692,9 +667,9 @@ const toBlueprintNodeReferenceKey = (
 ): string => {
   switch (reference._tag) {
     case "repo-module":
-      return `repo-module:${reference.moduleId}`;
+      return `repo-module:${reference.id}`;
     case "target":
-      return `target:${reference.targetId}`;
+      return `target:${reference.id}`;
     case "target-module":
       return `target-module:${reference.targetId}:${reference.moduleId}`;
   }
@@ -708,18 +683,33 @@ const byBlueprintCause = (
     return left._tag.localeCompare(right._tag);
   }
 
-  return toBlueprintNodeReferenceKey(left.source).localeCompare(
-    toBlueprintNodeReferenceKey(right.source),
-  );
+  if (left._tag === "selection" && right._tag === "selection") {
+    return toBlueprintNodeReferenceKey(left.source).localeCompare(
+      toBlueprintNodeReferenceKey(right.source),
+    );
+  }
+
+  if (left._tag === "dependency" && right._tag === "dependency") {
+    return left.edgeId.localeCompare(right.edgeId);
+  }
+
+  return 0;
 };
 
 const mergeCauses = (
   causes: ReadonlyArray<typeof BlueprintCause.Type>,
-): [typeof BlueprintCause.Type, ...Array<typeof BlueprintCause.Type>] =>
-  [...causes].sort(byBlueprintCause) as [
+): [typeof BlueprintCause.Type, ...Array<typeof BlueprintCause.Type>] => {
+  const deduped = new Map<string, typeof BlueprintCause.Type>();
+
+  for (const cause of causes) {
+    deduped.set(toBlueprintCauseKey(cause), cause);
+  }
+
+  return [...deduped.values()].sort(byBlueprintCause) as [
     typeof BlueprintCause.Type,
     ...Array<typeof BlueprintCause.Type>,
   ];
+};
 
 const selectedCause = (
   source: typeof BlueprintNodeReference.Type,
@@ -733,58 +723,33 @@ const selectedCause = (
   },
 ];
 
-const dependencyCause = (
-  source: typeof BlueprintNodeReference.Type,
-): typeof BlueprintCause.Type => ({
+const dependencyCause = (edgeId: string): typeof BlueprintCause.Type => ({
   _tag: "dependency",
-  source,
+  edgeId,
 });
 
-const toDependencySources = (
+const toDependencyEdgeIds = (
   causes: ReadonlyArray<typeof BlueprintCause.Type>,
-):
-  | [
-      typeof BlueprintNodeReference.Type,
-      ...Array<typeof BlueprintNodeReference.Type>,
-    ]
-  | undefined => {
-  const dependencySources = new Map<
-    string,
-    typeof BlueprintNodeReference.Type
-  >();
+): [string, ...Array<string>] | undefined => {
+  const dependencyEdgeIds = new Set<string>();
 
   for (const cause of causes) {
     if (cause._tag === "dependency") {
-      dependencySources.set(
-        toBlueprintNodeReferenceKey(cause.source),
-        cause.source,
-      );
+      dependencyEdgeIds.add(cause.edgeId);
     }
   }
 
-  if (dependencySources.size === 0) {
+  if (dependencyEdgeIds.size === 0) {
     return undefined;
   }
 
-  return [...dependencySources.values()].sort((left, right) =>
-    toBlueprintNodeReferenceKey(left).localeCompare(
-      toBlueprintNodeReferenceKey(right),
-    ),
-  ) as [
-    typeof BlueprintNodeReference.Type,
-    ...Array<typeof BlueprintNodeReference.Type>,
-  ];
+  return [...dependencyEdgeIds].sort() as [string, ...Array<string>];
 };
 
 const resolveTargetComposition = (
   targetId: string,
-  targetModules: ReadonlyMap<string, ResolvedTargetModuleState>,
-):
-  | {
-      readonly _tag: "package";
-      readonly publicEntrypoint: typeof PackagePublicEntrypoint.Type;
-    }
-  | undefined => {
+  targetModules: ReadonlyMap<string, TargetModuleState>,
+): typeof TargetComposition.Type | undefined => {
   if (!targetId.startsWith("package/")) {
     return undefined;
   }
@@ -792,29 +757,39 @@ const resolveTargetComposition = (
   return {
     _tag: "package",
     publicEntrypoint: targetModules.has(`${targetId}:domain-api`)
-      ? "./Api"
-      : ".",
+      ? ("./Api" satisfies typeof PackagePublicEntrypoint.Type)
+      : ("." satisfies typeof PackagePublicEntrypoint.Type),
   };
 };
 
-const toBlueprintIntentKey = (intent: typeof BlueprintIntent.Type): string => {
-  switch (intent._tag) {
-    case "PackageEntrypoint":
-      return `${intent._tag}:${intent.targetId}:${intent.publicEntrypoint}`;
-    case "RepoModule":
-      return `${intent._tag}:${intent.moduleId}`;
-    case "Target":
-      return `${intent._tag}:${intent.targetId}`;
-    case "TargetModule":
-      return `${intent._tag}:${intent.targetId}:${intent.moduleId}`;
+const toBlueprintCauseKey = (cause: typeof BlueprintCause.Type): string => {
+  switch (cause._tag) {
+    case "selection":
+      return `${cause._tag}:${toBlueprintNodeReferenceKey(cause.source)}`;
+    case "dependency":
+      return `${cause._tag}:${cause.edgeId}`;
   }
 };
 
-const byBlueprintIntent = (
-  left: typeof BlueprintIntent.Type,
-  right: typeof BlueprintIntent.Type,
-): number =>
-  toBlueprintIntentKey(left).localeCompare(toBlueprintIntentKey(right));
+const toBlueprintDependencyEdgeId = ({
+  from,
+  to,
+  reason,
+}: {
+  readonly from: typeof BlueprintNodeReference.Type;
+  readonly to: typeof BlueprintNodeReference.Type;
+  readonly reason: typeof BlueprintDependencyEdge.Type.reason;
+}): string =>
+  [
+    reason,
+    toBlueprintNodeReferenceKey(from),
+    toBlueprintNodeReferenceKey(to),
+  ].join("=>");
+
+const byBlueprintDependencyEdge = (
+  left: typeof BlueprintDependencyEdge.Type,
+  right: typeof BlueprintDependencyEdge.Type,
+): number => left.id.localeCompare(right.id);
 
 const toBlueprintWarningKey = (
   warning: typeof BlueprintWarning.Type,
@@ -822,11 +797,8 @@ const toBlueprintWarningKey = (
   switch (warning._tag) {
     case "DuplicateSelectionNormalized":
       return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}`;
-    case "ImpliedDependencyAdded":
     case "RedundantSelectionNormalized":
-      return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}:${warning.causes
-        .map(toBlueprintNodeReferenceKey)
-        .join("|")}`;
+      return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}:${warning.edgeIds.join("|")}`;
   }
 };
 

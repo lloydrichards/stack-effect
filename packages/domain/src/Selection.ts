@@ -2,12 +2,12 @@ import { Schema } from "effect";
 import { RepoModuleId, TargetModuleId } from "./Scaffold";
 
 export const TargetModuleSelection = Schema.Struct({
-  moduleId: TargetModuleId,
+  id: TargetModuleId,
 });
 
 export const TargetSelection = Schema.Struct({
-  targetId: Schema.NonEmptyString,
-  targetModules: Schema.Array(TargetModuleSelection),
+  id: Schema.NonEmptyString,
+  modules: Schema.Array(TargetModuleSelection),
 });
 
 export const Selection = Schema.Struct({

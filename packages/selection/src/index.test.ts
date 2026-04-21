@@ -188,6 +188,7 @@ describe("resolveBlueprint", () => {
               },
             ],
             targetModules: [],
+            composition: undefined,
           },
           {
             targetId: "package/domain",
@@ -199,11 +200,8 @@ describe("resolveBlueprint", () => {
             causes: [
               {
                 _tag: "dependency",
-                source: {
-                  _tag: "target-module",
-                  targetId: "package/domain",
-                  moduleId: "domain-api",
-                },
+                edgeId:
+                  "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
               },
               {
                 _tag: "selection",
@@ -220,14 +218,16 @@ describe("resolveBlueprint", () => {
                 causes: [
                   {
                     _tag: "dependency",
-                    source: {
-                      _tag: "target",
-                      targetId: "app/server",
-                    },
+                    edgeId:
+                      "required-target-module=>target:app/server=>target-module:package/domain:domain-api",
                   },
                 ],
               },
             ],
+            composition: {
+              _tag: "package",
+              publicEntrypoint: "./Api",
+            },
           },
         ],
         repoModules: [
@@ -237,17 +237,13 @@ describe("resolveBlueprint", () => {
             causes: [
               {
                 _tag: "dependency",
-                source: {
-                  _tag: "target",
-                  targetId: "app/server",
-                },
+                edgeId:
+                  "required-repo-module=>target:app/server=>repo-module:root-bootstrap",
               },
               {
                 _tag: "dependency",
-                source: {
-                  _tag: "target",
-                  targetId: "package/domain",
-                },
+                edgeId:
+                  "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
               },
               {
                 _tag: "selection",
@@ -272,55 +268,72 @@ describe("resolveBlueprint", () => {
             ],
           },
         ],
-        targetCompositions: {
-          "package/domain": {
-            _tag: "package",
-            publicEntrypoint: "./Api",
-          },
-        },
-        intents: [
+        edges: [
           {
-            _tag: "PackageEntrypoint",
-            publicEntrypoint: "./Api",
-            targetId: "package/domain",
-          },
-          {
-            _tag: "RepoModule",
-            moduleId: "root-bootstrap",
-          },
-          {
-            _tag: "RepoModule",
-            moduleId: "tooling/biome",
-          },
-          {
-            _tag: "Target",
-            targetId: "app/server",
-          },
-          {
-            _tag: "Target",
-            targetId: "package/domain",
-          },
-          {
-            _tag: "TargetModule",
-            moduleId: "domain-api",
-            targetId: "package/domain",
-          },
-        ],
-        warnings: [
-          {
-            _tag: "ImpliedDependencyAdded",
-            causes: [{ _tag: "target", targetId: "app/server" }],
-            node: {
+            _tag: "depends-on",
+            edgeId:
+              "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
+            from: {
               _tag: "target-module",
               moduleId: "domain-api",
               targetId: "package/domain",
             },
+            to: {
+              _tag: "target",
+              targetId: "package/domain",
+            },
+            reason: "required-owning-target",
           },
           {
+            _tag: "depends-on",
+            edgeId:
+              "required-repo-module=>target:app/server=>repo-module:root-bootstrap",
+            from: {
+              _tag: "target",
+              targetId: "app/server",
+            },
+            to: {
+              _tag: "repo-module",
+              moduleId: "root-bootstrap",
+            },
+            reason: "required-repo-module",
+          },
+          {
+            _tag: "depends-on",
+            edgeId:
+              "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
+            from: {
+              _tag: "target",
+              targetId: "package/domain",
+            },
+            to: {
+              _tag: "repo-module",
+              moduleId: "root-bootstrap",
+            },
+            reason: "required-repo-module",
+          },
+          {
+            _tag: "depends-on",
+            edgeId:
+              "required-target-module=>target:app/server=>target-module:package/domain:domain-api",
+            from: {
+              _tag: "target",
+              targetId: "app/server",
+            },
+            to: {
+              _tag: "target-module",
+              moduleId: "domain-api",
+              targetId: "package/domain",
+            },
+            reason: "required-target-module",
+          },
+        ],
+        warnings: [
+          {
             _tag: "RedundantSelectionNormalized",
-            causes: [
-              { _tag: "target", targetId: "app/server" },
-              { _tag: "target", targetId: "package/domain" },
+            edgeIds: [
+              "required-repo-module=>target:app/server=>repo-module:root-bootstrap",
+              "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
             ],
             node: {
               _tag: "repo-module",
@@ -329,12 +342,8 @@ describe("resolveBlueprint", () => {
           },
           {
             _tag: "RedundantSelectionNormalized",
-            causes: [
-              {
-                _tag: "target-module",
-                moduleId: "domain-api",
-                targetId: "package/domain",
-              },
+            edgeIds: [
+              "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
             ],
             node: {
               _tag: "target",
@@ -380,11 +389,8 @@ describe("resolveBlueprint", () => {
         causes: [
           {
             _tag: "dependency",
-            source: {
-              _tag: "target-module",
-              targetId: "package/domain",
-              moduleId: "domain-api",
-            },
+            edgeId:
+              "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
           },
           {
             _tag: "selection",
@@ -410,6 +416,10 @@ describe("resolveBlueprint", () => {
             ],
           },
         ],
+        composition: {
+          _tag: "package",
+          publicEntrypoint: "./Api",
+        },
       },
     ]);
     expect(result.blueprint.repoModules).toEqual([
@@ -419,10 +429,8 @@ describe("resolveBlueprint", () => {
         causes: [
           {
             _tag: "dependency",
-            source: {
-              _tag: "target",
-              targetId: "package/domain",
-            },
+            edgeId:
+              "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
           },
         ],
       },
@@ -486,6 +494,7 @@ describe("resolveBlueprint", () => {
           },
         ],
         targetModules: [],
+        composition: undefined,
       },
       {
         targetId: "package/domain",
@@ -497,19 +506,8 @@ describe("resolveBlueprint", () => {
         causes: [
           {
             _tag: "dependency",
-            source: {
-              _tag: "target-module",
-              targetId: "package/domain",
-              moduleId: "domain-api",
-            },
-          },
-          {
-            _tag: "dependency",
-            source: {
-              _tag: "target-module",
-              targetId: "package/domain",
-              moduleId: "domain-api",
-            },
+            edgeId:
+              "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
           },
           {
             _tag: "selection",
@@ -526,10 +524,8 @@ describe("resolveBlueprint", () => {
             causes: [
               {
                 _tag: "dependency",
-                source: {
-                  _tag: "target",
-                  targetId: "app/server",
-                },
+                edgeId:
+                  "required-target-module=>target:app/server=>target-module:package/domain:domain-api",
               },
               {
                 _tag: "selection",
@@ -542,6 +538,10 @@ describe("resolveBlueprint", () => {
             ],
           },
         ],
+        composition: {
+          _tag: "package",
+          publicEntrypoint: "./Api",
+        },
       },
     ]);
     expect(result.blueprint.warnings).toEqual([
@@ -569,9 +569,9 @@ describe("resolveBlueprint", () => {
       },
       {
         _tag: "RedundantSelectionNormalized",
-        causes: [
-          { _tag: "target", targetId: "app/server" },
-          { _tag: "target", targetId: "package/domain" },
+        edgeIds: [
+          "required-repo-module=>target:app/server=>repo-module:root-bootstrap",
+          "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
         ],
         node: {
           _tag: "repo-module",
@@ -580,7 +580,9 @@ describe("resolveBlueprint", () => {
       },
       {
         _tag: "RedundantSelectionNormalized",
-        causes: [{ _tag: "target", targetId: "app/server" }],
+        edgeIds: [
+          "required-target-module=>target:app/server=>target-module:package/domain:domain-api",
+        ],
         node: {
           _tag: "target-module",
           targetId: "package/domain",
@@ -589,12 +591,8 @@ describe("resolveBlueprint", () => {
       },
       {
         _tag: "RedundantSelectionNormalized",
-        causes: [
-          {
-            _tag: "target-module",
-            moduleId: "domain-api",
-            targetId: "package/domain",
-          },
+        edgeIds: [
+          "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
         ],
         node: {
           _tag: "target",
@@ -627,30 +625,39 @@ describe("resolveBlueprint", () => {
       throw new Error("expected blueprint to resolve");
     }
 
-    expect(result.blueprint.targetCompositions).toEqual({
-      "package/domain": {
-        _tag: "package",
-        publicEntrypoint: "./Api",
-      },
+    expect(result.blueprint.targets[0]?.composition).toEqual({
+      _tag: "package",
+      publicEntrypoint: "./Api",
     });
-    expect(result.blueprint.intents).toEqual([
+    expect(result.blueprint.edges).toEqual([
       {
-        _tag: "PackageEntrypoint",
-        publicEntrypoint: "./Api",
-        targetId: "package/domain",
+        _tag: "depends-on",
+        edgeId:
+          "required-owning-target=>target-module:package/domain:domain-api=>target:package/domain",
+        from: {
+          _tag: "target-module",
+          targetId: "package/domain",
+          moduleId: "domain-api",
+        },
+        to: {
+          _tag: "target",
+          targetId: "package/domain",
+        },
+        reason: "required-owning-target",
       },
       {
-        _tag: "RepoModule",
-        moduleId: "root-bootstrap",
-      },
-      {
-        _tag: "Target",
-        targetId: "package/domain",
-      },
-      {
-        _tag: "TargetModule",
-        moduleId: "domain-api",
-        targetId: "package/domain",
+        _tag: "depends-on",
+        edgeId:
+          "required-repo-module=>target:package/domain=>repo-module:root-bootstrap",
+        from: {
+          _tag: "target",
+          targetId: "package/domain",
+        },
+        to: {
+          _tag: "repo-module",
+          moduleId: "root-bootstrap",
+        },
+        reason: "required-repo-module",
       },
     ]);
     expect(JSON.stringify(result.blueprint)).not.toContain("override");

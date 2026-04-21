@@ -20,10 +20,6 @@ export const TargetIdentity = Schema.Struct({
   name: Schema.NonEmptyString,
 });
 
-export const TargetReference = Schema.Struct({
-  targetId: Schema.NonEmptyString,
-});
-
 export const TargetModuleReference = Schema.Struct({
   targetId: Schema.NonEmptyString,
   moduleId: TargetModuleId,

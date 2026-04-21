@@ -7,41 +7,81 @@ import {
   TargetModuleReference,
 } from "./Scaffold";
 
-export const BlueprintError = Schema.Union([
-  Schema.TaggedStruct("InvalidTarget", {
-    targetId: Schema.NonEmptyString,
-  }),
-  Schema.TaggedStruct("UnknownTargetKind", {
-    targetKind: Schema.NonEmptyString,
-  }),
-  Schema.TaggedStruct("UnknownRepoModule", {
-    moduleId: RepoModuleId,
-  }),
-  Schema.TaggedStruct("UnknownTargetModule", {
-    moduleId: TargetModuleId,
-  }),
-  Schema.TaggedStruct("InvalidTargetModuleTarget", {
-    targetModule: TargetModuleReference,
-  }),
-  Schema.TaggedStruct("UnsupportedTargetModule", {
-    targetModule: TargetModuleReference,
-  }),
-  Schema.TaggedStruct("ConceptualTargetCollision", {
-    conceptualPath: Schema.NonEmptyString,
+export class InvalidTarget extends Schema.TaggedErrorClass<InvalidTarget>()(
+  "InvalidTarget",
+  {
+    id: Schema.NonEmptyString,
+  },
+) {}
+
+export class UnknownTargetKind extends Schema.TaggedErrorClass<UnknownTargetKind>()(
+  "UnknownTargetKind",
+  {
+    kind: Schema.NonEmptyString,
+  },
+) {}
+
+export class UnknownRepoModule extends Schema.TaggedErrorClass<UnknownRepoModule>()(
+  "UnknownRepoModule",
+  {
+    id: RepoModuleId,
+  },
+) {}
+
+export class UnknownTargetModule extends Schema.TaggedErrorClass<UnknownTargetModule>()(
+  "UnknownTargetModule",
+  {
+    id: TargetModuleId,
+  },
+) {}
+
+export class InvalidTargetModuleTarget extends Schema.TaggedErrorClass<InvalidTargetModuleTarget>()(
+  "InvalidTargetModuleTarget",
+  {
+    module: TargetModuleReference,
+  },
+) {}
+
+export class UnsupportedTargetModule extends Schema.TaggedErrorClass<UnsupportedTargetModule>()(
+  "UnsupportedTargetModule",
+  {
+    module: TargetModuleReference,
+  },
+) {}
+
+export class ConceptualTargetCollision extends Schema.TaggedErrorClass<ConceptualTargetCollision>()(
+  "ConceptualTargetCollision",
+  {
+    path: Schema.NonEmptyString,
     targetIds: Schema.Tuple([Schema.NonEmptyString, Schema.NonEmptyString]),
-  }),
-  Schema.TaggedStruct("ContradictoryTargetComposition", {
-    targetId: Schema.NonEmptyString,
+  },
+) {}
+
+export class ContradictoryTargetComposition extends Schema.TaggedErrorClass<ContradictoryTargetComposition>()(
+  "ContradictoryTargetComposition",
+  {
+    id: Schema.NonEmptyString,
     slot: Schema.Literal("package-public-entrypoint"),
-  }),
+  },
+) {}
+
+export const BlueprintError = Schema.Union([
+  InvalidTarget,
+  UnknownTargetKind,
+  UnknownRepoModule,
+  UnknownTargetModule,
+  InvalidTargetModuleTarget,
+  UnsupportedTargetModule,
+  ConceptualTargetCollision,
+  ContradictoryTargetComposition,
 ]);
 
 export const BlueprintNodeReference = Schema.Union([
   Schema.TaggedStruct("target", {
-    targetId: Schema.NonEmptyString,
+    id: Schema.NonEmptyString,
   }),
   Schema.TaggedStruct("repo-module", {
-    moduleId: RepoModuleId,
+    id: RepoModuleId,
   }),
   Schema.TaggedStruct("target-module", {
     targetId: Schema.NonEmptyString,
@@ -54,13 +94,16 @@ export const BlueprintCause = Schema.Union([
     source: BlueprintNodeReference,
   }),
   Schema.TaggedStruct("dependency", {
-    source: BlueprintNodeReference,
+    edgeId: Schema.NonEmptyString,
   }),
 ]);
 
-export const BlueprintStatus = Schema.Union([
-  Schema.Literal("selected"),
-  Schema.Literal("implied"),
+export const BlueprintStatus = Schema.Literals(["selected", "implied"]);
+
+export const TargetComposition = Schema.Union([
+  Schema.TaggedStruct("package", {
+    publicEntrypoint: PackagePublicEntrypoint,
+  }),
 ]);
 
 export const ResolvedTargetModule = Schema.Struct({
@@ -69,42 +112,34 @@ export const ResolvedTargetModule = Schema.Struct({
   causes: Schema.NonEmptyArray(BlueprintCause),
 });
 
-export const ResolvedTarget = Schema.Struct({
-  targetId: Schema.NonEmptyString,
-  identity: TargetIdentity,
-  status: BlueprintStatus,
-  causes: Schema.NonEmptyArray(BlueprintCause),
-  targetModules: Schema.Array(ResolvedTargetModule),
-});
-
 export const ResolvedRepoModule = Schema.Struct({
   moduleId: RepoModuleId,
   status: BlueprintStatus,
   causes: Schema.NonEmptyArray(BlueprintCause),
 });
 
-export const TargetComposition = Schema.Union([
-  Schema.TaggedStruct("package", {
-    publicEntrypoint: PackagePublicEntrypoint,
-  }),
+export const ResolvedTarget = Schema.Struct({
+  id: Schema.NonEmptyString,
+  identity: TargetIdentity,
+  status: BlueprintStatus,
+  causes: Schema.NonEmptyArray(BlueprintCause),
+  targetModules: Schema.Array(ResolvedTargetModule),
+  composition: Schema.optional(TargetComposition),
+});
+
+export const BlueprintEdgeReason = Schema.Literals([
+  "required-owning-target",
+  "required-repo-module",
+  "required-canonical-target",
+  "required-target-module",
 ]);
 
-export const BlueprintIntent = Schema.Union([
-  Schema.TaggedStruct("PackageEntrypoint", {
-    targetId: Schema.NonEmptyString,
-    publicEntrypoint: PackagePublicEntrypoint,
-  }),
-  Schema.TaggedStruct("RepoModule", {
-    moduleId: RepoModuleId,
-  }),
-  Schema.TaggedStruct("Target", {
-    targetId: Schema.NonEmptyString,
-  }),
-  Schema.TaggedStruct("TargetModule", {
-    targetId: Schema.NonEmptyString,
-    moduleId: TargetModuleId,
-  }),
-]);
+export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
+  id: Schema.NonEmptyString,
+  from: BlueprintNodeReference,
+  to: BlueprintNodeReference,
+  reason: BlueprintEdgeReason,
+});
 
 export const BlueprintWarning = Schema.Union([
   Schema.TaggedStruct("DuplicateSelectionNormalized", {
@@ -112,30 +147,25 @@ export const BlueprintWarning = Schema.Union([
   }),
   Schema.TaggedStruct("RedundantSelectionNormalized", {
     node: BlueprintNodeReference,
-    causes: Schema.NonEmptyArray(BlueprintNodeReference),
-  }),
-  Schema.TaggedStruct("ImpliedDependencyAdded", {
-    node: BlueprintNodeReference,
-    causes: Schema.NonEmptyArray(BlueprintNodeReference),
+    edgeIds: Schema.NonEmptyArray(Schema.NonEmptyString),
   }),
 ]);
 
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
-  targets: Schema.Array(ResolvedTarget),
-  repoModules: Schema.Array(ResolvedRepoModule),
-  targetCompositions: Schema.Record(Schema.NonEmptyString, TargetComposition),
-  intents: Schema.Array(BlueprintIntent),
+  nodes: Schema.Array(ResolvedTarget),
+  edges: Schema.Array(BlueprintDependencyEdge),
+  modules: Schema.Array(ResolvedRepoModule),
   warnings: Schema.Array(BlueprintWarning),
 }) {
   prettyPrint(): string {
     const lines: Array<string> = ["Blueprint"];
 
-    if (this.targets.length > 0) {
+    if (this.nodes.length > 0) {
       lines.push("", "Targets");
 
-      for (const target of this.targets) {
+      for (const target of this.nodes) {
         lines.push(
-          `- ${target.targetId} [${target.status}] (${target.identity.kind})`,
+          `- ${target.id} [${target.status}] (${target.identity.kind})`,
         );
 
         for (const targetModule of target.targetModules) {
@@ -143,14 +173,30 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
             `  - module:${targetModule.moduleId} [${targetModule.status}]`,
           );
         }
+
+        if (target.composition?._tag === "package") {
+          lines.push(
+            `  - composition: publicEntrypoint=${target.composition.publicEntrypoint}`,
+          );
+        }
       }
     }
 
-    if (this.repoModules.length > 0) {
+    if (this.modules.length > 0) {
       lines.push("", "Repo Modules");
 
-      for (const repoModule of this.repoModules) {
-        lines.push(`- ${repoModule.moduleId} [${repoModule.status}]`);
+      for (const module of this.modules) {
+        lines.push(`- ${module.moduleId} [${module.status}]`);
+      }
+    }
+
+    if (this.edges.length > 0) {
+      lines.push("", "Dependencies");
+
+      for (const edge of this.edges) {
+        lines.push(
+          `- ${formatNodeReference(edge.from)} -> ${formatNodeReference(edge.to)} [${edge.reason}]`,
+        );
       }
     }
 
@@ -166,19 +212,19 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   }
 
   hasTarget(targetId: string): boolean {
-    return this.targets.some((target) => target.targetId === targetId);
+    return this.nodes.some((target) => target.id === targetId);
   }
 
   getTarget(targetId: string): typeof ResolvedTarget.Type | undefined {
-    return this.targets.find((target) => target.targetId === targetId);
+    return this.nodes.find((target) => target.id === targetId);
   }
 
   getSelectedTargets(): Array<typeof ResolvedTarget.Type> {
-    return this.targets.filter((target) => target.status === "selected");
+    return this.nodes.filter((target) => target.status === "selected");
   }
 
   getImpliedTargets(): Array<typeof ResolvedTarget.Type> {
-    return this.targets.filter((target) => target.status === "implied");
+    return this.nodes.filter((target) => target.status === "implied");
   }
 
   hasWarnings(): boolean {
@@ -190,11 +236,10 @@ const formatWarning = (warning: typeof BlueprintWarning.Type): string => {
   switch (warning._tag) {
     case "DuplicateSelectionNormalized":
       return formatNodeReference(warning.node);
-    case "ImpliedDependencyAdded":
     case "RedundantSelectionNormalized":
-      return `${formatNodeReference(warning.node)} <= ${warning.causes
-        .map(formatNodeReference)
-        .join(", ")}`;
+      return `${formatNodeReference(warning.node)} <= ${warning.edgeIds.join(
+        ", ",
+      )}`;
   }
 };
 
@@ -203,10 +248,10 @@ const formatNodeReference = (
 ): string => {
   switch (reference._tag) {
     case "repo-module":
-      return `repo-module:${reference.moduleId}`;
+      return `repo-module:${reference.id}`;
     case "target":
-      return `target:${reference.targetId}`;
+      return `target:${reference.id}`;
     case "target-module":
-      return `target-module:${reference.targetId}:${reference.moduleId}`;
+      return `target-module:${reference.targetId}/${reference.moduleId}`;
   }
 };

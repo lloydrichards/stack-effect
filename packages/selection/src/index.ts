@@ -75,7 +75,7 @@ export const BlueprintCause = Schema.Union([
     source: BlueprintNodeReference,
   }),
   Schema.TaggedStruct("dependency", {
-    source: BlueprintNodeReference,
+    edgeId: TrimmedNonEmptyString,
   }),
 ]);
 export type BlueprintCause = Schema.Schema.Type<typeof BlueprintCause>;
@@ -85,6 +85,21 @@ export const BlueprintStatus = Schema.Union([
   Schema.Literal("implied"),
 ]);
 export type BlueprintStatus = Schema.Schema.Type<typeof BlueprintStatus>;
+
+export const PackagePublicEntrypoint = Schema.Union([
+  Schema.Literal("."),
+  Schema.Literal("./Api"),
+]);
+export type PackagePublicEntrypoint = Schema.Schema.Type<
+  typeof PackagePublicEntrypoint
+>;
+
+export const TargetComposition = Schema.Union([
+  Schema.TaggedStruct("package", {
+    publicEntrypoint: PackagePublicEntrypoint,
+  }),
+]);
+export type TargetComposition = Schema.Schema.Type<typeof TargetComposition>;
 
 export const ResolvedTarget = Schema.Struct({
   targetId: TrimmedNonEmptyString,
@@ -98,6 +113,7 @@ export const ResolvedTarget = Schema.Struct({
       causes: Schema.NonEmptyArray(BlueprintCause),
     }),
   ),
+  composition: Schema.optional(TargetComposition),
 });
 export type ResolvedTarget = Schema.Schema.Type<typeof ResolvedTarget>;
 
@@ -117,40 +133,25 @@ export type ResolvedTargetModule = Schema.Schema.Type<
   typeof ResolvedTargetModule
 >;
 
-export const PackagePublicEntrypoint = Schema.Union([
-  Schema.Literal("."),
-  Schema.Literal("./Api"),
+export const BlueprintEdgeReason = Schema.Union([
+  Schema.Literal("required-owning-target"),
+  Schema.Literal("required-repo-module"),
+  Schema.Literal("required-canonical-target"),
+  Schema.Literal("required-target-module"),
 ]);
-export type PackagePublicEntrypoint = Schema.Schema.Type<
-  typeof PackagePublicEntrypoint
+export type BlueprintEdgeReason = Schema.Schema.Type<typeof BlueprintEdgeReason>;
+
+export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
+  edgeId: TrimmedNonEmptyString,
+  from: BlueprintNodeReference,
+  to: BlueprintNodeReference,
+  reason: BlueprintEdgeReason,
+});
+export type BlueprintDependencyEdge = Schema.Schema.Type<
+  typeof BlueprintDependencyEdge
 >;
 
-export const TargetComposition = Schema.Union([
-  Schema.TaggedStruct("package", {
-    publicEntrypoint: PackagePublicEntrypoint,
-  }),
-]);
-export type TargetComposition = Schema.Schema.Type<typeof TargetComposition>;
-
-export const BlueprintIntent = Schema.Union([
-  Schema.TaggedStruct("PackageEntrypoint", {
-    targetId: TrimmedNonEmptyString,
-    publicEntrypoint: PackagePublicEntrypoint,
-  }),
-  Schema.TaggedStruct("RepoModule", {
-    moduleId: RepoModule,
-  }),
-  Schema.TaggedStruct("Target", {
-    targetId: TrimmedNonEmptyString,
-  }),
-  Schema.TaggedStruct("TargetModule", {
-    targetId: TrimmedNonEmptyString,
-    moduleId: TargetModuleId,
-  }),
-]);
-export type BlueprintIntent = Schema.Schema.Type<typeof BlueprintIntent>;
-
-const BlueprintWarningSources = Schema.NonEmptyArray(BlueprintNodeReference);
+const BlueprintWarningEdgeIds = Schema.NonEmptyArray(TrimmedNonEmptyString);
 
 export const BlueprintWarning = Schema.Union([
   Schema.TaggedStruct("DuplicateSelectionNormalized", {
@@ -158,11 +159,7 @@ export const BlueprintWarning = Schema.Union([
   }),
   Schema.TaggedStruct("RedundantSelectionNormalized", {
     node: BlueprintNodeReference,
-    causes: BlueprintWarningSources,
-  }),
-  Schema.TaggedStruct("ImpliedDependencyAdded", {
-    node: BlueprintNodeReference,
-    causes: BlueprintWarningSources,
+    edgeIds: BlueprintWarningEdgeIds,
   }),
 ]);
 export type BlueprintWarning = Schema.Schema.Type<typeof BlueprintWarning>;
@@ -170,8 +167,7 @@ export type BlueprintWarning = Schema.Schema.Type<typeof BlueprintWarning>;
 export const Blueprint = Schema.Struct({
   targets: Schema.Array(ResolvedTarget),
   repoModules: Schema.Array(ResolvedRepoModule),
-  targetCompositions: Schema.Record(TrimmedNonEmptyString, TargetComposition),
-  intents: Schema.Array(BlueprintIntent),
+  edges: Schema.Array(BlueprintDependencyEdge),
   warnings: Schema.Array(BlueprintWarning),
 });
 export type Blueprint = Schema.Schema.Type<typeof Blueprint>;
@@ -281,9 +277,17 @@ const byBlueprintCause = (
     return left._tag.localeCompare(right._tag);
   }
 
-  return toBlueprintNodeReferenceKey(left.source).localeCompare(
-    toBlueprintNodeReferenceKey(right.source),
-  );
+  if (left._tag === "selection" && right._tag === "selection") {
+    return toBlueprintNodeReferenceKey(left.source).localeCompare(
+      toBlueprintNodeReferenceKey(right.source),
+    );
+  }
+
+  if (left._tag === "dependency" && right._tag === "dependency") {
+    return left.edgeId.localeCompare(right.edgeId);
+  }
+
+  return 0;
 };
 
 const byBlueprintNodeReference = (
@@ -294,34 +298,39 @@ const byBlueprintNodeReference = (
     toBlueprintNodeReferenceKey(right),
   );
 
-const toBlueprintIntentKey = (intent: BlueprintIntent): string => {
-  switch (intent._tag) {
-    case "PackageEntrypoint":
-      return `${intent._tag}:${intent.targetId}:${intent.publicEntrypoint}`;
-    case "RepoModule":
-      return `${intent._tag}:${intent.moduleId}`;
-    case "Target":
-      return `${intent._tag}:${intent.targetId}`;
-    case "TargetModule":
-      return `${intent._tag}:${intent.targetId}:${intent.moduleId}`;
+const toBlueprintCauseKey = (cause: BlueprintCause): string => {
+  switch (cause._tag) {
+    case "selection":
+      return `${cause._tag}:${toBlueprintNodeReferenceKey(cause.source)}`;
+    case "dependency":
+      return `${cause._tag}:${cause.edgeId}`;
   }
 };
 
-const byBlueprintIntent = (
-  left: BlueprintIntent,
-  right: BlueprintIntent,
-): number =>
-  toBlueprintIntentKey(left).localeCompare(toBlueprintIntentKey(right));
+const toBlueprintDependencyEdgeId = ({
+  from,
+  to,
+  reason,
+}: {
+  readonly from: BlueprintNodeReference;
+  readonly to: BlueprintNodeReference;
+  readonly reason: BlueprintEdgeReason;
+}): string =>
+  [reason, toBlueprintNodeReferenceKey(from), toBlueprintNodeReferenceKey(to)].join(
+    "=>",
+  );
+
+const byBlueprintDependencyEdge = (
+  left: BlueprintDependencyEdge,
+  right: BlueprintDependencyEdge,
+): number => left.edgeId.localeCompare(right.edgeId);
 
 const toBlueprintWarningKey = (warning: BlueprintWarning): string => {
   switch (warning._tag) {
     case "DuplicateSelectionNormalized":
       return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}`;
-    case "ImpliedDependencyAdded":
     case "RedundantSelectionNormalized":
-      return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}:${warning.causes
-        .map(toBlueprintNodeReferenceKey)
-        .join("|")}`;
+      return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}:${warning.edgeIds.join("|")}`;
   }
 };
 
@@ -340,33 +349,27 @@ const selectedCause = (
   },
 ];
 
-const dependencyCause = (source: BlueprintNodeReference): BlueprintCause => ({
+const dependencyCause = (edgeId: string): BlueprintCause => ({
   _tag: "dependency",
-  source,
+  edgeId,
 });
 
-const toDependencySources = (
+const toDependencyEdgeIds = (
   causes: ReadonlyArray<BlueprintCause>,
-): [BlueprintNodeReference, ...Array<BlueprintNodeReference>] | undefined => {
-  const dependencySources = new Map<string, BlueprintNodeReference>();
+): [string, ...Array<string>] | undefined => {
+  const dependencyEdgeIds = new Set<string>();
 
   for (const cause of causes) {
     if (cause._tag === "dependency") {
-      dependencySources.set(
-        toBlueprintNodeReferenceKey(cause.source),
-        cause.source,
-      );
+      dependencyEdgeIds.add(cause.edgeId);
     }
   }
 
-  if (dependencySources.size === 0) {
+  if (dependencyEdgeIds.size === 0) {
     return undefined;
   }
 
-  return [...dependencySources.values()].sort(byBlueprintNodeReference) as [
-    BlueprintNodeReference,
-    ...Array<BlueprintNodeReference>,
-  ];
+  return [...dependencyEdgeIds].sort() as [string, ...Array<string>];
 };
 
 const isSupportedTargetModule = (
@@ -453,7 +456,7 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
       targetId: string;
     }
   >();
-  const targetCompositions = new Map<string, TargetComposition>();
+  const edges = new Map<string, BlueprintDependencyEdge>();
   const warnings = new Map<string, BlueprintWarning>();
 
   const selectedTargetModules = selection.targets.flatMap((target) =>
@@ -467,13 +470,37 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
     warnings.set(toBlueprintWarningKey(warning), warning);
   };
 
+  const addDependencyEdge = (
+    from: BlueprintNodeReference,
+    to: BlueprintNodeReference,
+    reason: BlueprintEdgeReason,
+  ): string => {
+    const edge: BlueprintDependencyEdge = {
+      _tag: "depends-on",
+      edgeId: toBlueprintDependencyEdgeId({ from, to, reason }),
+      from,
+      to,
+      reason,
+    };
+
+    edges.set(edge.edgeId, edge);
+    return edge.edgeId;
+  };
+
   const mergeCauses = (
     causes: ReadonlyArray<BlueprintCause>,
-  ): [BlueprintCause, ...Array<BlueprintCause>] =>
-    [...causes].sort(byBlueprintCause) as [
+  ): [BlueprintCause, ...Array<BlueprintCause>] => {
+    const deduped = new Map<string, BlueprintCause>();
+
+    for (const cause of causes) {
+      deduped.set(toBlueprintCauseKey(cause), cause);
+    }
+
+    return [...deduped.values()].sort(byBlueprintCause) as [
       BlueprintCause,
       ...Array<BlueprintCause>,
     ];
+  };
 
   const upsertTarget = (
     targetId: string,
@@ -606,15 +633,28 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
         targetId: domainTargetId,
         moduleId: "domain-api",
       };
-
-      upsertTargetModule(domainTargetId, "domain-api", "implied", [
-        dependencyCause({
+      const impliedDomainModuleEdgeId = addDependencyEdge(
+        {
           _tag: "target",
           targetId: normalizedTargetId,
-        }),
+        },
+        domainApiReference,
+        "required-target-module",
+      );
+      const impliedOwningTargetEdgeId = addDependencyEdge(
+        domainApiReference,
+        {
+          _tag: "target",
+          targetId: domainTargetId,
+        },
+        "required-owning-target",
+      );
+
+      upsertTargetModule(domainTargetId, "domain-api", "implied", [
+        dependencyCause(impliedDomainModuleEdgeId),
       ]);
       upsertTarget(domainTargetId, domainTargetIdentity, "implied", [
-        dependencyCause(domainApiReference),
+        dependencyCause(impliedOwningTargetEdgeId),
       ]);
       targetIdentities.set(domainTargetId, domainTargetIdentity);
     }
@@ -672,9 +712,17 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
       targetId: normalizedTargetId,
       moduleId: targetModule.moduleId,
     };
+    const owningTargetEdgeId = addDependencyEdge(
+      targetModuleReference,
+      {
+        _tag: "target",
+        targetId: normalizedTargetId,
+      },
+      "required-owning-target",
+    );
 
     upsertTarget(normalizedTargetId, targetIdentity, "implied", [
-      dependencyCause(targetModuleReference),
+      dependencyCause(owningTargetEdgeId),
     ]);
     upsertTargetModule(
       normalizedTargetId,
@@ -685,15 +733,6 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
       }),
     );
   }
-
-  const rootBootstrapDependencyCauses: Array<BlueprintCause> = [
-    ...targets.values(),
-  ].map((target) =>
-    dependencyCause({
-      _tag: "target",
-      targetId: target.targetId,
-    }),
-  );
 
   const repoModules = new Map<string, ResolvedRepoModule>();
   const normalizedRepoModuleSelections = new Set<string>();
@@ -723,6 +762,22 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
     });
   }
 
+  const rootBootstrapDependencyCauses = [...targets.values()].map((target) => {
+    const edgeId = addDependencyEdge(
+      {
+        _tag: "target",
+        targetId: target.targetId,
+      },
+      {
+        _tag: "repo-module",
+        moduleId: "root-bootstrap",
+      },
+      "required-repo-module",
+    );
+
+    return dependencyCause(edgeId);
+  });
+
   if (rootBootstrapDependencyCauses.length > 0) {
     const existingRootBootstrap = repoModules.get("root-bootstrap");
 
@@ -737,105 +792,56 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
   }
 
   for (const target of targets.values()) {
-    const dependencySources = toDependencySources(target.causes);
+    const dependencyEdgeIds = toDependencyEdgeIds(target.causes);
 
-    if (dependencySources === undefined) {
+    if (dependencyEdgeIds === undefined || target.status !== "selected") {
       continue;
     }
 
     addWarning({
-      _tag:
-        target.status === "selected"
-          ? "RedundantSelectionNormalized"
-          : "ImpliedDependencyAdded",
+      _tag: "RedundantSelectionNormalized",
       node: {
         _tag: "target",
         targetId: target.targetId,
       },
-      causes: dependencySources,
+      edgeIds: dependencyEdgeIds,
     });
   }
 
   for (const targetModule of targetModules.values()) {
-    const dependencySources = toDependencySources(targetModule.causes);
+    const dependencyEdgeIds = toDependencyEdgeIds(targetModule.causes);
 
-    if (dependencySources === undefined) {
+    if (dependencyEdgeIds === undefined || targetModule.status !== "selected") {
       continue;
     }
 
     addWarning({
-      _tag:
-        targetModule.status === "selected"
-          ? "RedundantSelectionNormalized"
-          : "ImpliedDependencyAdded",
+      _tag: "RedundantSelectionNormalized",
       node: {
         _tag: "target-module",
         targetId: targetModule.targetId,
         moduleId: targetModule.moduleId,
       },
-      causes: dependencySources,
+      edgeIds: dependencyEdgeIds,
     });
   }
 
   for (const repoModule of repoModules.values()) {
-    const dependencySources = toDependencySources(repoModule.causes);
+    const dependencyEdgeIds = toDependencyEdgeIds(repoModule.causes);
 
-    if (dependencySources === undefined) {
+    if (dependencyEdgeIds === undefined || repoModule.status !== "selected") {
       continue;
     }
 
     addWarning({
-      _tag:
-        repoModule.status === "selected"
-          ? "RedundantSelectionNormalized"
-          : "ImpliedDependencyAdded",
+      _tag: "RedundantSelectionNormalized",
       node: {
         _tag: "repo-module",
         moduleId: repoModule.moduleId,
       },
-      causes: dependencySources,
+      edgeIds: dependencyEdgeIds,
     });
   }
-
-  for (const target of targets.values()) {
-    const composition = resolveTargetComposition(
-      target.targetId,
-      target.identity,
-    );
-
-    if (composition !== undefined) {
-      targetCompositions.set(target.targetId, composition);
-    }
-  }
-
-  const intents = [
-    ...[...repoModules.values()].map(
-      (repoModule): BlueprintIntent => ({
-        _tag: "RepoModule",
-        moduleId: repoModule.moduleId,
-      }),
-    ),
-    ...[...targets.values()].map(
-      (target): BlueprintIntent => ({
-        _tag: "Target",
-        targetId: target.targetId,
-      }),
-    ),
-    ...[...targetModules.values()].map(
-      (targetModule): BlueprintIntent => ({
-        _tag: "TargetModule",
-        targetId: targetModule.targetId,
-        moduleId: targetModule.moduleId,
-      }),
-    ),
-    ...[...targetCompositions.entries()].map(
-      ([targetId, composition]): BlueprintIntent => ({
-        _tag: "PackageEntrypoint",
-        targetId,
-        publicEntrypoint: composition.publicEntrypoint,
-      }),
-    ),
-  ].sort(byBlueprintIntent);
 
   const resolvedTargets = [...targets.values()]
     .sort(byTargetId)
@@ -850,6 +856,7 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
           causes,
         }))
         .sort(byNestedResolvedTargetModule),
+      composition: resolveTargetComposition(target.targetId, target.identity),
     }));
 
   return {
@@ -857,12 +864,7 @@ export const resolveBlueprint = (selection: Selection): BlueprintResolution => {
     blueprint: {
       targets: resolvedTargets,
       repoModules: [...repoModules.values()].sort(byRepoModuleId),
-      targetCompositions: Object.fromEntries(
-        [...targetCompositions.entries()].sort(([left], [right]) =>
-          left.localeCompare(right),
-        ),
-      ),
-      intents,
+      edges: [...edges.values()].sort(byBlueprintDependencyEdge),
       warnings: [...warnings.values()].sort(byBlueprintWarning),
     },
   };
