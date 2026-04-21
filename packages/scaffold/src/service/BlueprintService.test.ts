@@ -2,6 +2,9 @@ import { describe, expect, layer } from "@effect/vitest";
 import {
   Blueprint,
   ConceptualTargetCollision,
+  InvalidRepoOption,
+  InvalidTargetOption,
+  ModuleGatedTargetOption,
   UnsupportedTargetModule,
 } from "@repo/domain/Blueprint";
 import type { Selection } from "@repo/domain/Selection";
@@ -18,11 +21,16 @@ describe("BlueprintService", () => {
           const blueprint = yield* blueprintService.resolve({
             targets: [
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [{ id: "http-api-server" }],
+                options: {},
               },
             ],
-            repoModules: [],
+            modules: [],
+            options: {},
           } satisfies typeof Selection.Type);
 
           expect(blueprint).toBeInstanceOf(Blueprint);
@@ -35,10 +43,6 @@ describe("BlueprintService", () => {
                   name: "domain",
                 },
                 status: "implied",
-                composition: {
-                  _tag: "package",
-                  publicEntrypoint: "./Api",
-                },
                 targetModules: expect.arrayContaining([
                   expect.objectContaining({
                     moduleId: "domain-api",
@@ -71,18 +75,15 @@ describe("BlueprintService", () => {
           expect(blueprint.edges).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
-                id:
-                  "required-canonical-target=>target-module:server/api:http-api-server=>target:package/domain",
+                id: "required-canonical-target=>target-module:server/api:http-api-server=>target:package/domain",
                 reason: "required-canonical-target",
               }),
               expect.objectContaining({
-                id:
-                  "required-target-module=>target-module:server/api:http-api-server=>target-module:package/domain:domain-api",
+                id: "required-target-module=>target-module:server/api:http-api-server=>target-module:package/domain:domain-api",
                 reason: "required-target-module",
               }),
               expect.objectContaining({
-                id:
-                  "required-repo-module=>target:server/api=>repo-module:root-bootstrap",
+                id: "required-repo-module=>target:server/api=>repo-module:root-bootstrap",
                 reason: "required-repo-module",
               }),
             ]),
@@ -114,11 +115,16 @@ describe("BlueprintService", () => {
           const blueprint = yield* blueprintService.resolve({
             targets: [
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [{ id: "http-api-server" }],
+                options: {},
               },
             ],
-            repoModules: [],
+            modules: [],
+            options: {},
           });
 
           expect(blueprint.hasTarget("server/api")).toBe(true);
@@ -145,12 +151,12 @@ describe("BlueprintService", () => {
              |- root-bootstrap [implied]
              |
              |Dependencies
-              |- target-module:server/api/http-api-server -> target:package/domain [required-canonical-target]
-              |- target-module:package/domain/domain-api -> target:package/domain [required-owning-target]
-              |- target-module:server/api/http-api-server -> target:server/api [required-owning-target]
-              |- target:package/domain -> repo-module:root-bootstrap [required-repo-module]
-              |- target:server/api -> repo-module:root-bootstrap [required-repo-module]
-              |- target-module:server/api/http-api-server -> target-module:package/domain/domain-api [required-target-module]
+             |- target-module:server/api/http-api-server -> target:package/domain [required-canonical-target]
+             |- target-module:package/domain/domain-api -> target:package/domain [required-owning-target]
+             |- target-module:server/api/http-api-server -> target:server/api [required-owning-target]
+             |- target:package/domain -> repo-module:root-bootstrap [required-repo-module]
+             |- target:server/api -> repo-module:root-bootstrap [required-repo-module]
+             |- target-module:server/api/http-api-server -> target-module:package/domain/domain-api [required-target-module]
              |
              |Warnings
              |- RedundantSelectionNormalized: target:server/api <= required-owning-target=>target-module:server/api:http-api-server=>target:server/api`),
@@ -166,17 +172,22 @@ describe("BlueprintService", () => {
           const blueprint = yield* blueprintService.resolve({
             targets: [
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [],
+                options: {},
               },
             ],
-            repoModules: [],
+            modules: [],
+            options: {},
           });
 
           expect(blueprint.nodes).toEqual([
-              {
-                id: "server/api",
-                identity: {
+            {
+              id: "server/api",
+              identity: {
                 kind: "server",
                 name: "api",
               },
@@ -208,12 +219,11 @@ describe("BlueprintService", () => {
             },
           ]);
           expect(blueprint.edges).toEqual([
-              {
-                _tag: "depends-on",
-                id:
-                  "required-repo-module=>target:server/api=>repo-module:root-bootstrap",
-                from: {
-                  _tag: "target",
+            {
+              _tag: "depends-on",
+              id: "required-repo-module=>target:server/api=>repo-module:root-bootstrap",
+              from: {
+                _tag: "target",
                 id: "server/api",
               },
               to: {
@@ -231,7 +241,8 @@ describe("BlueprintService", () => {
         const blueprintService = yield* BlueprintService;
         const blueprint = yield* blueprintService.resolve({
           targets: [],
-          repoModules: ["root-bootstrap"],
+          modules: ["root-bootstrap"],
+          options: {},
         });
 
         expect(blueprint.nodes).toEqual([]);
@@ -255,6 +266,75 @@ describe("BlueprintService", () => {
       }),
     );
 
+    it.effect("accepts valid first-slice repo and target options", () =>
+      Effect.gen(function* () {
+        const blueprintService = yield* BlueprintService;
+        const blueprint = yield* blueprintService.resolve({
+          targets: [
+            {
+              identity: {
+                kind: "server",
+                name: "api",
+              },
+              modules: [{ id: "http-api-server" }],
+              options: {
+                httpApiStyle: "rest",
+              },
+            },
+            {
+              identity: {
+                kind: "package",
+                name: "domain",
+              },
+              modules: [{ id: "domain-api" }],
+              options: {
+                domainApiSurface: "api",
+              },
+            },
+          ],
+          modules: ["root-bootstrap"],
+          options: {
+            runtime: "bun",
+            linter: "biome",
+          },
+        });
+
+        expect(blueprint.nodes).toHaveLength(2);
+        expect(blueprint.modules[0]?.moduleId).toBe("root-bootstrap");
+      }),
+    );
+
+    it.effect(
+      "accepts repo options when bootstrap is implied by selected targets",
+      () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const blueprint = yield* blueprintService.resolve({
+            targets: [
+              {
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
+                modules: [],
+                options: {},
+              },
+            ],
+            modules: [],
+            options: {
+              linter: "biome",
+            },
+          });
+
+          expect(blueprint.modules).toEqual([
+            expect.objectContaining({
+              moduleId: "root-bootstrap",
+              status: "implied",
+            }),
+          ]);
+        }),
+    );
+
     it.effect(
       "keeps explicit selection precedence when canonical target and repo module are also implied",
       () =>
@@ -263,71 +343,30 @@ describe("BlueprintService", () => {
           const blueprint = yield* blueprintService.resolve({
             targets: [
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [{ id: "http-api-server" }],
+                options: {},
               },
               {
-                id: "package/domain",
+                identity: {
+                  kind: "package",
+                  name: "domain",
+                },
                 modules: [{ id: "domain-api" }],
+                options: {},
               },
             ],
-            repoModules: ["root-bootstrap"],
+            modules: ["root-bootstrap"],
+            options: {},
           });
 
           expect(blueprint.nodes[0]?.status).toBe("selected");
           expect(blueprint.nodes[0]?.id).toBe("package/domain");
           expect(blueprint.nodes[0]?.targetModules[0]?.status).toBe("selected");
           expect(blueprint.modules[0]?.status).toBe("selected");
-        }),
-    );
-
-    it.effect(
-      "normalizes duplicate selections into warnings instead of failures",
-      () =>
-        Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
-          const blueprint = yield* blueprintService.resolve({
-            targets: [
-              {
-                id: "server/api",
-                modules: [{ id: "http-api-server" }],
-              },
-              {
-                id: "server/api",
-                modules: [{ id: "http-api-server" }],
-              },
-            ],
-            repoModules: ["root-bootstrap", "root-bootstrap"],
-          });
-
-          expect(
-            blueprint.warnings.filter(
-              (warning) => warning._tag === "DuplicateSelectionNormalized",
-            ),
-          ).toEqual([
-            {
-              _tag: "DuplicateSelectionNormalized",
-              node: {
-                _tag: "repo-module",
-                id: "root-bootstrap",
-              },
-            },
-            {
-              _tag: "DuplicateSelectionNormalized",
-              node: {
-                _tag: "target-module",
-                targetId: "server/api",
-                moduleId: "http-api-server",
-              },
-            },
-            {
-              _tag: "DuplicateSelectionNormalized",
-              node: {
-                _tag: "target",
-                id: "server/api",
-              },
-            },
-          ]);
         }),
     );
 
@@ -340,34 +379,130 @@ describe("BlueprintService", () => {
           const first = yield* blueprintService.resolve({
             targets: [
               {
-                id: "package/domain",
+                identity: {
+                  kind: "package",
+                  name: "domain",
+                },
                 modules: [{ id: "domain-api" }],
+                options: {},
               },
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [{ id: "http-api-server" }],
+                options: {},
               },
             ],
-            repoModules: ["root-bootstrap"],
+            modules: ["root-bootstrap"],
+            options: {},
           });
 
           const second = yield* blueprintService.resolve({
             targets: [
               {
-                id: "server/api",
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
                 modules: [{ id: "http-api-server" }],
+                options: {},
               },
               {
-                id: "package/domain",
+                identity: {
+                  kind: "package",
+                  name: "domain",
+                },
                 modules: [{ id: "domain-api" }],
+                options: {},
               },
             ],
-            repoModules: ["root-bootstrap"],
+            modules: ["root-bootstrap"],
+            options: {},
           });
 
           expect(first).toEqual(second);
           expect(first.prettyPrint()).toBe(second.prettyPrint());
         }),
+    );
+
+    it.effect(
+      "fails when a repo option is selected without a supporting repo module",
+      () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const error = yield* Effect.flip(
+            blueprintService.resolve({
+              targets: [],
+              modules: [],
+              options: {
+                linter: "biome",
+              },
+            }),
+          );
+
+          expect(error).toBeInstanceOf(InvalidRepoOption);
+          expect(error).toMatchObject({
+            _tag: "InvalidRepoOption",
+            option: "linter",
+          });
+        }),
+    );
+
+    it.effect(
+      "fails when repo runtime is selected without a supporting repo module",
+      () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const error = yield* Effect.flip(
+            blueprintService.resolve({
+              targets: [],
+              modules: [],
+              options: {
+                runtime: "bun",
+              },
+            }),
+          );
+
+          expect(error).toBeInstanceOf(InvalidRepoOption);
+          expect(error).toMatchObject({
+            _tag: "InvalidRepoOption",
+            option: "runtime",
+          });
+        }),
+    );
+
+    it.effect("fails when a target option requires an unselected module", () =>
+      Effect.gen(function* () {
+        const blueprintService = yield* BlueprintService;
+        const error = yield* Effect.flip(
+          blueprintService.resolve({
+            targets: [
+              {
+                identity: {
+                  kind: "server",
+                  name: "api",
+                },
+                modules: [],
+                options: {
+                  httpApiStyle: "rest",
+                },
+              },
+            ],
+            modules: [],
+            options: {},
+          }),
+        );
+
+        expect(error).toBeInstanceOf(ModuleGatedTargetOption);
+        expect(error).toMatchObject({
+          _tag: "ModuleGatedTargetOption",
+          targetId: "server/api",
+          option: "httpApiStyle",
+          requiredModuleId: "http-api-server",
+        });
+      }),
     );
 
     it.effect(
@@ -379,15 +514,24 @@ describe("BlueprintService", () => {
             blueprintService.resolve({
               targets: [
                 {
-                  id: "server/api",
+                  identity: {
+                    kind: "server",
+                    name: "api",
+                  },
                   modules: [],
+                  options: {},
                 },
                 {
-                  id: "client/api",
+                  identity: {
+                    kind: "client",
+                    name: "api",
+                  },
                   modules: [],
+                  options: {},
                 },
               ],
-              repoModules: [],
+              modules: [],
+              options: {},
             }),
           );
 
@@ -409,11 +553,16 @@ describe("BlueprintService", () => {
             blueprintService.resolve({
               targets: [
                 {
-                  id: "package/domain",
+                  identity: {
+                    kind: "package",
+                    name: "domain",
+                  },
                   modules: [{ id: "http-api-server" }],
+                  options: {},
                 },
               ],
-              repoModules: [],
+              modules: [],
+              options: {},
             }),
           );
 

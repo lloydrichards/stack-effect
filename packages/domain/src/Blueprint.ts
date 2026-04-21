@@ -7,13 +7,6 @@ import {
   TargetModuleReference,
 } from "./Scaffold";
 
-export class InvalidTarget extends Schema.TaggedErrorClass<InvalidTarget>()(
-  "InvalidTarget",
-  {
-    id: Schema.NonEmptyString,
-  },
-) {}
-
 export class UnknownTargetKind extends Schema.TaggedErrorClass<UnknownTargetKind>()(
   "UnknownTargetKind",
   {
@@ -49,6 +42,30 @@ export class UnsupportedTargetModule extends Schema.TaggedErrorClass<Unsupported
   },
 ) {}
 
+export class InvalidRepoOption extends Schema.TaggedErrorClass<InvalidRepoOption>()(
+  "InvalidRepoOption",
+  {
+    option: Schema.NonEmptyString,
+  },
+) {}
+
+export class InvalidTargetOption extends Schema.TaggedErrorClass<InvalidTargetOption>()(
+  "InvalidTargetOption",
+  {
+    targetId: Schema.NonEmptyString,
+    option: Schema.NonEmptyString,
+  },
+) {}
+
+export class ModuleGatedTargetOption extends Schema.TaggedErrorClass<ModuleGatedTargetOption>()(
+  "ModuleGatedTargetOption",
+  {
+    targetId: Schema.NonEmptyString,
+    option: Schema.NonEmptyString,
+    requiredModuleId: TargetModuleId,
+  },
+) {}
+
 export class ConceptualTargetCollision extends Schema.TaggedErrorClass<ConceptualTargetCollision>()(
   "ConceptualTargetCollision",
   {
@@ -66,12 +83,14 @@ export class ContradictoryTargetComposition extends Schema.TaggedErrorClass<Cont
 ) {}
 
 export const BlueprintError = Schema.Union([
-  InvalidTarget,
   UnknownTargetKind,
   UnknownRepoModule,
   UnknownTargetModule,
   InvalidTargetModuleTarget,
   UnsupportedTargetModule,
+  InvalidRepoOption,
+  InvalidTargetOption,
+  ModuleGatedTargetOption,
   ConceptualTargetCollision,
   ContradictoryTargetComposition,
 ]);
@@ -142,9 +161,6 @@ export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
 });
 
 export const BlueprintWarning = Schema.Union([
-  Schema.TaggedStruct("DuplicateSelectionNormalized", {
-    node: BlueprintNodeReference,
-  }),
   Schema.TaggedStruct("RedundantSelectionNormalized", {
     node: BlueprintNodeReference,
     edgeIds: Schema.NonEmptyArray(Schema.NonEmptyString),
@@ -234,8 +250,6 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
 
 const formatWarning = (warning: typeof BlueprintWarning.Type): string => {
   switch (warning._tag) {
-    case "DuplicateSelectionNormalized":
-      return formatNodeReference(warning.node);
     case "RedundantSelectionNormalized":
       return `${formatNodeReference(warning.node)} <= ${warning.edgeIds.join(
         ", ",
