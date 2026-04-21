@@ -174,26 +174,81 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   warnings: Schema.Array(BlueprintWarning),
 }) {
   prettyPrint(): string {
-    const lines: Array<string> = ["Blueprint"];
+    const lines: Array<string> = [
+      "Blueprint",
+      "",
+      "Legend: [*] selected  [+] implied  ╌> owns  ─> depends on",
+    ];
+    const targetModuleStates = new Map<
+      string,
+      typeof ResolvedTargetModule.Type
+    >();
+
+    for (const target of this.nodes) {
+      for (const targetModule of target.targetModules) {
+        targetModuleStates.set(
+          toTargetModuleStateKey(target.id, targetModule.moduleId),
+          targetModule,
+        );
+      }
+    }
 
     if (this.nodes.length > 0) {
       lines.push("", "Targets");
 
-      for (const target of this.nodes) {
+      for (const [index, target] of this.nodes.entries()) {
         lines.push(
-          `- ${target.id} [${target.status}] (${target.identity.kind})`,
+          `${formatStatusBadge(target.status)} ${target.id} (${target.identity.kind})`,
         );
 
-        for (const targetModule of target.targetModules) {
-          lines.push(
-            `  - module:${targetModule.moduleId} [${targetModule.status}]`,
-          );
-        }
+        const targetBranches: Array<TreeBranch> = [
+          ...target.targetModules.map(
+            (targetModule): TreeBranch => ({
+              line: `${formatStatusBadge(targetModule.status)} ${target.id}/${targetModule.moduleId}`,
+              prefix: "╌>",
+              children: this.edges
+                .filter(
+                  (edge) =>
+                    edge.from._tag === "target-module" &&
+                    edge.from.targetId === target.id &&
+                    edge.from.moduleId === targetModule.moduleId &&
+                    edge.reason !== "required-owning-target",
+                )
+                .map(
+                  (edge): TreeBranch => ({
+                    line: `${formatReferencedNode(edge.to, this.nodes, this.modules, targetModuleStates)} ${formatEdgeReasonLabel(edge.reason)}`,
+                    prefix: "─>",
+                  }),
+                ),
+            }),
+          ),
+        ];
 
         if (target.composition?._tag === "package") {
-          lines.push(
-            `  - composition: publicEntrypoint=${target.composition.publicEntrypoint}`,
-          );
+          targetBranches.push({
+            line: `composition: ${target.composition.publicEntrypoint}`,
+            prefix: "╌>",
+          });
+        }
+
+        targetBranches.push(
+          ...this.edges
+            .filter(
+              (edge) =>
+                edge.from._tag === "target" && edge.from.id === target.id,
+            )
+            .map(
+              (edge): TreeBranch => ({
+                line: `${formatReferencedNode(edge.to, this.nodes, this.modules, targetModuleStates)} ${formatEdgeReasonLabel(edge.reason)}`,
+                prefix: "─>",
+              }),
+            ),
+        );
+
+        appendTreeBranches(lines, targetBranches);
+
+        if (index < this.nodes.length - 1) {
+          lines.push("");
         }
       }
     }
@@ -202,17 +257,7 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
       lines.push("", "Repo Modules");
 
       for (const module of this.modules) {
-        lines.push(`- ${module.moduleId} [${module.status}]`);
-      }
-    }
-
-    if (this.edges.length > 0) {
-      lines.push("", "Dependencies");
-
-      for (const edge of this.edges) {
-        lines.push(
-          `- ${formatNodeReference(edge.from)} -> ${formatNodeReference(edge.to)} [${edge.reason}]`,
-        );
+        lines.push(`${formatStatusBadge(module.status)} ${module.moduleId}`);
       }
     }
 
@@ -220,7 +265,7 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
       lines.push("", "Warnings");
 
       for (const warning of this.warnings) {
-        lines.push(`- ${warning._tag}: ${formatWarning(warning)}`);
+        lines.push(...formatWarningLines(warning));
       }
     }
 
@@ -248,14 +293,90 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   }
 }
 
-const formatWarning = (warning: typeof BlueprintWarning.Type): string => {
-  switch (warning._tag) {
-    case "RedundantSelectionNormalized":
-      return `${formatNodeReference(warning.node)} <= ${warning.edgeIds.join(
-        ", ",
-      )}`;
+type TreeBranch = {
+  readonly line: string;
+  readonly prefix: "╌>" | "─>";
+  readonly children?: ReadonlyArray<TreeBranch>;
+};
+
+const appendTreeBranches = (
+  lines: Array<string>,
+  branches: ReadonlyArray<TreeBranch>,
+  indent = "",
+): void => {
+  for (const [index, branch] of branches.entries()) {
+    const isLast = index === branches.length - 1;
+    const connector = isLast ? " └" : " ├";
+    lines.push(`${indent}${connector}${branch.prefix} ${branch.line}`);
+
+    if (branch.children !== undefined && branch.children.length > 0) {
+      appendTreeBranches(
+        lines,
+        branch.children,
+        `${indent}${isLast ? "   " : " │   "}`,
+      );
+    }
   }
 };
+
+const formatWarningLines = (
+  warning: typeof BlueprintWarning.Type,
+): Array<string> => {
+  switch (warning._tag) {
+    case "RedundantSelectionNormalized":
+      return [
+        `! ${formatNodeReference(warning.node)} also implied by:`,
+        ...warning.edgeIds.map((edgeId) => `  ${edgeId}`),
+      ];
+  }
+};
+
+const formatStatusBadge = (status: typeof BlueprintStatus.Type): string =>
+  status === "selected" ? "[*]" : "[+]";
+
+const formatEdgeReasonLabel = (
+  reason: typeof BlueprintEdgeReason.Type,
+): string => {
+  switch (reason) {
+    case "required-canonical-target":
+      return "[canonical-target]";
+    case "required-owning-target":
+      return "[owning-target]";
+    case "required-repo-module":
+      return "[repo-module]";
+    case "required-target-module":
+      return "[target-module]";
+  }
+};
+
+const formatReferencedNode = (
+  reference: typeof BlueprintNodeReference.Type,
+  targets: ReadonlyArray<typeof ResolvedTarget.Type>,
+  repoModules: ReadonlyArray<typeof ResolvedRepoModule.Type>,
+  targetModules: ReadonlyMap<string, typeof ResolvedTargetModule.Type>,
+): string => {
+  switch (reference._tag) {
+    case "repo-module": {
+      const repoModule = repoModules.find(
+        (module) => module.moduleId === reference.id,
+      );
+      return `${formatStatusBadge(repoModule?.status ?? "implied")} ${reference.id}`;
+    }
+    case "target": {
+      const target = targets.find((node) => node.id === reference.id);
+      return `${formatStatusBadge(target?.status ?? "implied")} ${reference.id}`;
+    }
+    case "target-module": {
+      const targetModule = targetModules.get(
+        toTargetModuleStateKey(reference.targetId, reference.moduleId),
+      );
+      return `${formatStatusBadge(targetModule?.status ?? "implied")} ${reference.targetId}/${reference.moduleId}`;
+    }
+  }
+};
+
+const toTargetModuleStateKey = (targetId: string, moduleId: string): string =>
+  `${targetId}:${moduleId}`;
 
 const formatNodeReference = (
   reference: typeof BlueprintNodeReference.Type,
