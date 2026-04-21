@@ -1,4 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
+import { Api } from "@repo/domain/Api";
+import { EventRpc } from "@repo/domain/Rpc";
+import { WebSocketRpc } from "@repo/domain/WebSocket";
 import { Effect, Exit } from "effect";
 
 describe("Server", () => {
@@ -52,25 +55,10 @@ describe("Server", () => {
 
   describe("Module Structure", () => {
     it.effect("can import domain types", () =>
-      Effect.gen(function* () {
-        // This test verifies that the server module structure is valid
-        // by checking that required dependencies can be imported
-        const apiModule = yield* Effect.promise(
-          () => import("@repo/domain/Api"),
-        );
-        const rpcModule = yield* Effect.promise(
-          () => import("@repo/domain/Rpc"),
-        );
-        const wsModule = yield* Effect.promise(
-          () => import("@repo/domain/WebSocket"),
-        );
-
-        expect(apiModule).toBeDefined();
-        expect(apiModule.Api).toBeDefined();
-        expect(rpcModule).toBeDefined();
-        expect(rpcModule.EventRpc).toBeDefined();
-        expect(wsModule).toBeDefined();
-        expect(wsModule.WebSocketRpc).toBeDefined();
+      Effect.sync(() => {
+        expect(Api).toBeDefined();
+        expect(EventRpc).toBeDefined();
+        expect(WebSocketRpc).toBeDefined();
       }),
     );
   });

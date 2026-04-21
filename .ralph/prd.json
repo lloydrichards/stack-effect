@@ -1,0 +1,172 @@
+[
+  {
+    "category": "github-issue",
+    "description": "Issue #1: PRD: Selection Phase for Effect Scaffold",
+    "steps": ["PRD: Selection Phase for Effect Scaffold"],
+    "passes": true,
+    "issueNumber": 1,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/1",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #2: PRD: Blueprint Phase for Effect Scaffold",
+    "steps": ["PRD: Blueprint Phase for Effect Scaffold"],
+    "passes": false,
+    "issueNumber": 2,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/2",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #3: PRD: Plan Phase for Effect Scaffold",
+    "steps": ["PRD: Plan Phase for Effect Scaffold"],
+    "passes": false,
+    "issueNumber": 3,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/3",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #4: Selection: schema and explicit request validation",
+    "steps": [
+      "A caller can construct and validate a Selection containing explicit targets and explicit repo modules only.",
+      "A Selection with no targets and at least one repo module is accepted as a valid repo-only request.",
+      "Invalid Selection shapes are rejected through the public validation surface, with tests covering accepted and rejected examples."
+    ],
+    "passes": true,
+    "issueNumber": 4,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/4",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #5: Selection: target identity and collision checks",
+    "steps": [
+      "Concrete v1 target kinds are recognized by the Selection validation flow and map to deterministic conceptual identities.",
+      "Requests that would collide conceptually, such as two targets claiming the same app or package namespace, are rejected.",
+      "Tests verify stable identity behavior and collision rejection independent of user input ordering."
+    ],
+    "passes": true,
+    "issueNumber": 5,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/5",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #6: Selection: module compatibility and duplicate normalization",
+    "steps": [
+      "Unsupported target-module combinations are rejected through the Selection validation flow.",
+      "Duplicate target-module and repo-module selections are normalized into one stable explicit request representation.",
+      "Tests cover valid combinations, invalid combinations, and duplicate normalization behavior."
+    ],
+    "passes": true,
+    "issueNumber": 6,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/6",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #7: Blueprint: resolved graph for selected targets and repo modules",
+    "steps": [
+      "A caller can resolve a simple Selection into a Blueprint containing resolved targets and resolved repo modules with stable identities.",
+      "The Blueprint preserves selected versus implied status and structured causes on resolved graph nodes.",
+      "Tests verify the public Blueprint shape for simple no-dependency selections."
+    ],
+    "passes": true,
+    "issueNumber": 7,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/7",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #8: Blueprint: dependency expansion for root bootstrap",
+    "steps": [
+      "Selecting any v1 target kind results in a Blueprint that includes `root-bootstrap` as an implied repo module when it was not explicitly selected.",
+      "Explicit selection of `root-bootstrap` wins public classification while retaining dependency cause metadata.",
+      "Tests verify root-bootstrap implication and explicit-versus-implied precedence in Blueprint output."
+    ],
+    "passes": true,
+    "issueNumber": 8,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/8",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #9: Blueprint: target-module ownership and compatibility",
+    "steps": [
+      "Target-scoped modules are represented in Blueprint with owning target identity rather than as flat repo-wide module ids.",
+      "Invalid target-module combinations fail through Blueprint resolution with typed errors.",
+      "Tests cover attached module ownership, module precedence, and compatibility failures."
+    ],
+    "passes": true,
+    "issueNumber": 9,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/9",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #10: Blueprint: canonical package implication for package/domain",
+    "steps": [
+      "A dependent capability can cause canonical `package/domain` to appear in the Blueprint as an implied target.",
+      "Explicit selection of `package/domain` wins classification when the same target is also implied by dependency expansion.",
+      "Tests verify deterministic implication of canonical `package/domain` and selected-versus-implied precedence."
+    ],
+    "passes": true,
+    "issueNumber": 10,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/10",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #11: Blueprint: cross-target module dependency for domain-api",
+    "steps": [
+      "When a dependent capability requires the domain API contract, the Blueprint includes both canonical `package/domain` and an attached `domain-api` resolved target module on that target.",
+      "If `package/domain` was already explicitly selected without `domain-api`, Blueprint adds the required module with correct precedence and provenance.",
+      "Tests verify automatic attachment of `domain-api` across both implied-target and preselected-target scenarios."
+    ],
+    "passes": true,
+    "issueNumber": 11,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/11",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #12: Blueprint: warnings and normalization reporting",
+    "steps": [
+      "Duplicate and redundant selections are normalized away without duplicating resolved targets or modules in the Blueprint.",
+      "Typed warnings are emitted for duplicate normalization, redundancy, and implied dependency reporting.",
+      "Tests verify that warnings are structured data and that normalized output remains deterministic."
+    ],
+    "passes": true,
+    "issueNumber": 12,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/12",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #13: Blueprint: slot override for domain package public entrypoint",
+    "steps": [
+      "The generic package target kind exposes a narrow overridable public-entrypoint slot in the Blueprint composition model.",
+      "Applying `domain-api` to canonical `package/domain` resolves that slot to the `./Api` public surface instead of the generic package default.",
+      "Tests verify that override resolution happens during Blueprint normalization and does not leak as public override intents."
+    ],
+    "passes": true,
+    "issueNumber": 13,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/13",
+    "labels": []
+  },
+  {
+    "category": "github-issue",
+    "description": "Issue #14: Blueprint: normalized flat intents and deterministic output",
+    "steps": [
+      "Blueprint resolution emits a flat public intent list with deterministic ordering and no contradictory ownership.",
+      "Slot overrides, dependency expansion, and normalization are fully resolved before the final Blueprint is returned.",
+      "Tests verify full reviewed Blueprint output for representative scenarios, including the first domain-api server slice."
+    ],
+    "passes": true,
+    "issueNumber": 14,
+    "url": "https://github.com/lloydrichards/proj_e_stack/issues/14",
+    "labels": []
+  }
+]

@@ -2,6 +2,10 @@
   "name": "base_bevr-stack",
   "private": true,
   "scripts": {
+    "ralph:afk": "bash .ralph/afk-ralph.sh",
+    "ralph:once": "bash .ralph/ralph-once.sh",
+    "ralph:github-update": "bun run .ralph/update-github-issues.ts",
+    "ralph:sync-issues": "bun run .ralph/sync-issues.ts",
     "build": "turbo run build",
     "clean": "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo playwright-report test-results",
     "dev": "turbo run dev",
