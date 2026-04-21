@@ -3,7 +3,6 @@ import { Schema } from "effect";
 export const TargetKind = Schema.Union([
   Schema.Literal("client"),
   Schema.Literal("server"),
-  Schema.Literal("server-mcp"),
   Schema.Literal("cli"),
   Schema.Literal("package"),
 ]);

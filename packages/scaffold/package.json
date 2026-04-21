@@ -10,6 +10,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
+    "scratch": "bun run ./scratchpad.ts",
     "test": "vitest run",
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },

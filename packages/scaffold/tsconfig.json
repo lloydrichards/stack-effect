@@ -1,13 +1,14 @@
 {
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
-    "rootDir": "src",
+    "rootDir": ".",
+    "lib": ["ES2023", "DOM"],
     "composite": true,
     "declaration": true,
     "declarationMap": true,
     "outDir": "./dist",
     "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "scratchpad.ts"],
   "exclude": ["dist", "build", "node_modules"]
 }

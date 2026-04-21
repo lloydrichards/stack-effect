@@ -669,11 +669,19 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
   );
 }
 
-const getConceptualPath = (identity: typeof TargetIdentity.Type) =>
-  `${identity.kind === "package" ? "packages" : "apps"}/${identity.name}`;
+const getConceptualPath = ({ kind, name }: typeof TargetIdentity.Type) => {
+  switch (kind) {
+    case "client":
+    case "server":
+    case "cli":
+      return `apps/${kind}-${name}`;
+    case "package":
+      return `packages/${name}`;
+  }
+};
 
-const toTargetId = ({ kind, name }: typeof TargetIdentity.Type): string =>
-  `${kind}/${name}`;
+const toTargetId = (identity: typeof TargetIdentity.Type): string =>
+  getConceptualPath(identity);
 
 const targetNode = (id: string): typeof BlueprintNodeReference.Type => ({
   _tag: "target",
@@ -799,7 +807,7 @@ const resolveTargetComposition = (
   targetId: string,
   targetModules: ReadonlyMap<string, TargetModuleState>,
 ): typeof TargetComposition.Type | undefined => {
-  if (!targetId.startsWith("package/")) {
+  if (!targetId.startsWith("packages/")) {
     return undefined;
   }
 

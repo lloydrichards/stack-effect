@@ -39,13 +39,6 @@ const targetDefinitions = new Map<typeof TargetKind.Type, TargetDefinition>([
     },
   ],
   [
-    "server-mcp",
-    {
-      kind: "server-mcp",
-      requiredRepoModules: ["root-bootstrap"],
-    },
-  ],
-  [
     "cli",
     {
       kind: "cli",
