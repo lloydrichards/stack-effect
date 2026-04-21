@@ -140,26 +140,26 @@ describe("BlueprintService", () => {
           expect(blueprint.prettyPrint()).toBe(
             String.stripMargin(`|Blueprint
              |
+             |Legend: [*] selected  [+] implied  ╌> owns  ─> depends on
+             |
              |Targets
-             |- package/domain [implied] (package)
-             |  - module:domain-api [implied]
-             |  - composition: publicEntrypoint=./Api
-             |- server/api [selected] (server)
-             |  - module:http-api-server [selected]
+             |[+] package/domain (package)
+             | ├╌> [+] package/domain/domain-api
+             | ├╌> composition: ./Api
+             | └─> [+] root-bootstrap [repo-module]
+             |
+             |[*] server/api (server)
+             | ├╌> [*] server/api/http-api-server
+             | │    ├─> [+] package/domain [canonical-target]
+             | │    └─> [+] package/domain/domain-api [target-module]
+             | └─> [+] root-bootstrap [repo-module]
              |
              |Repo Modules
-             |- root-bootstrap [implied]
-             |
-             |Dependencies
-             |- target-module:server/api/http-api-server -> target:package/domain [required-canonical-target]
-             |- target-module:package/domain/domain-api -> target:package/domain [required-owning-target]
-             |- target-module:server/api/http-api-server -> target:server/api [required-owning-target]
-             |- target:package/domain -> repo-module:root-bootstrap [required-repo-module]
-             |- target:server/api -> repo-module:root-bootstrap [required-repo-module]
-             |- target-module:server/api/http-api-server -> target-module:package/domain/domain-api [required-target-module]
+             |[+] root-bootstrap
              |
              |Warnings
-             |- RedundantSelectionNormalized: target:server/api <= required-owning-target=>target-module:server/api:http-api-server=>target:server/api`),
+             |! target:server/api also implied by:
+             |  required-owning-target=>target-module:server/api:http-api-server=>target:server/api`),
           );
         }),
     );
