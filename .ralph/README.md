@@ -35,6 +35,9 @@ Generate `.ralph/prd.json` from GitHub issues:
 bun run ralph:sync-issues
 ```
 
+The AFK loop automatically runs this sync before each iteration and defaults to
+`RALPH_ISSUE_LABELS=afk` unless you override it.
+
 Optional filters:
 
 ```bash
@@ -48,6 +51,7 @@ The sync script:
 - reads open issues with `gh`
 - pulls checklist items from `## Acceptance criteria` or `## Verify`
 - falls back to `## What to build` or the issue title when needed
+- records `## Blocked by` issue numbers in each PRD item
 - preserves existing `passes` values for matching issue numbers
 
 ## Update GitHub During The Loop
@@ -70,6 +74,7 @@ The updater:
 - `RALPH_MODEL`: Optional model override for `opencode run`.
 - `RALPH_AGENT`: Optional agent override.
 - `RALPH_ISSUE_LABELS`: Optional comma-separated label filter for issue sync.
+  The AFK loop defaults this to `afk`.
 - `RALPH_ISSUE_LIMIT`: Optional issue sync limit. Defaults to `100`.
 - `RALPH_ISSUE_REPO`: Optional `owner/repo` override for issue sync.
 - `RALPH_ISSUE_STATE`: Optional issue state for sync. Defaults to `open`.

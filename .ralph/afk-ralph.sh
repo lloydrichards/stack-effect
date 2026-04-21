@@ -14,7 +14,16 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+sync_issues() {
+  printf 'Syncing AFK GitHub issues into .ralph/prd.json...\n'
+  (
+    cd "$ROOT_DIR"
+    RALPH_ISSUE_LABELS="${RALPH_ISSUE_LABELS:-afk}" bun run ralph:sync-issues
+  )
+}
+
 for ((i = 1; i <= $1; i++)); do
+  sync_issues
   printf '\n[%s/%s] Starting Ralph iteration...\n' "$i" "$1"
   result="$(cd "$ROOT_DIR" && bash .ralph/ralph-once.sh)"
   printf '%s\n' "$result"
