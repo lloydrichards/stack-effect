@@ -20,6 +20,8 @@
   },
   "devDependencies": {
     "@effect/vitest": "4.0.0-beta.47",
+    "@types/node": "^25.6.0",
+
     "@repo/config-typescript": "workspace:*",
     "vitest": "^4.1.0"
   }

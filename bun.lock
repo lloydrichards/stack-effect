@@ -163,6 +163,7 @@
       "devDependencies": {
         "@effect/vitest": "4.0.0-beta.47",
         "@repo/config-typescript": "workspace:*",
+        "@types/node": "^25.6.0",
         "vitest": "^4.1.0",
       },
     },
