@@ -1,0 +1,22 @@
+import type { RepoModuleId, TargetModuleId } from "@repo/domain/Scaffold";
+import { Context, Effect, Layer } from "effect";
+import { moduleRegistry } from "../registry/moduleRegistry";
+import { targetModuleRegistry } from "../registry/targetModuleRegistry";
+
+export type RepoModuleDefinition = {
+  readonly moduleId: typeof RepoModuleId.Type;
+};
+
+export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
+  "ModuleCatalog",
+  {
+    make: Effect.succeed({
+      getRepoModuleDefinition: (moduleId: typeof RepoModuleId.Type) =>
+        moduleRegistry.get(moduleId),
+      getTargetModuleDefinition: (moduleId: typeof TargetModuleId.Type) =>
+        targetModuleRegistry.get(moduleId),
+    }),
+  },
+) {
+  static readonly layer = Layer.effect(ModuleCatalog)(ModuleCatalog.make);
+}
