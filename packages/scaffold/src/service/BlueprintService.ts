@@ -5,7 +5,6 @@ import {
   type BlueprintIntent,
   type BlueprintNodeReference,
   type BlueprintStatus,
-  type Blueprint as BlueprintType,
   type BlueprintWarning,
 } from "@repo/domain/Blueprint";
 import type {
@@ -49,7 +48,6 @@ type ResolvedRepoModuleState = {
 };
 
 const decodeSelection = Schema.decodeUnknownOption(Selection);
-const encodeBlueprint = Schema.encodeSync(Blueprint);
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
   "BlueprintService",
@@ -597,7 +595,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           ),
         ].sort(byBlueprintIntent);
 
-        return encodeBlueprint({
+        return new Blueprint({
           targets: [...targets.values()].sort(byTargetId).map((target) => ({
             ...target,
             targetModules: [...targetModules.values()]
@@ -619,7 +617,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           ),
           intents,
           warnings: [...warnings.values()].sort(byBlueprintWarning),
-        } satisfies typeof BlueprintType.Type);
+        });
       });
 
       return { resolve };
