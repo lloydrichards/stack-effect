@@ -120,10 +120,93 @@ export const BlueprintWarning = Schema.Union([
   }),
 ]);
 
-export const Blueprint = Schema.Struct({
+export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   targets: Schema.Array(ResolvedTarget),
   repoModules: Schema.Array(ResolvedRepoModule),
   targetCompositions: Schema.Record(Schema.NonEmptyString, TargetComposition),
   intents: Schema.Array(BlueprintIntent),
   warnings: Schema.Array(BlueprintWarning),
-});
+}) {
+  prettyPrint(): string {
+    const lines: Array<string> = ["Blueprint"];
+
+    if (this.targets.length > 0) {
+      lines.push("", "Targets");
+
+      for (const target of this.targets) {
+        lines.push(
+          `- ${target.targetId} [${target.status}] (${target.identity.kind})`,
+        );
+
+        for (const targetModule of target.targetModules) {
+          lines.push(
+            `  - module:${targetModule.moduleId} [${targetModule.status}]`,
+          );
+        }
+      }
+    }
+
+    if (this.repoModules.length > 0) {
+      lines.push("", "Repo Modules");
+
+      for (const repoModule of this.repoModules) {
+        lines.push(`- ${repoModule.moduleId} [${repoModule.status}]`);
+      }
+    }
+
+    if (this.warnings.length > 0) {
+      lines.push("", "Warnings");
+
+      for (const warning of this.warnings) {
+        lines.push(`- ${warning._tag}: ${formatWarning(warning)}`);
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  hasTarget(targetId: string): boolean {
+    return this.targets.some((target) => target.targetId === targetId);
+  }
+
+  getTarget(targetId: string): typeof ResolvedTarget.Type | undefined {
+    return this.targets.find((target) => target.targetId === targetId);
+  }
+
+  getSelectedTargets(): Array<typeof ResolvedTarget.Type> {
+    return this.targets.filter((target) => target.status === "selected");
+  }
+
+  getImpliedTargets(): Array<typeof ResolvedTarget.Type> {
+    return this.targets.filter((target) => target.status === "implied");
+  }
+
+  hasWarnings(): boolean {
+    return this.warnings.length > 0;
+  }
+}
+
+const formatWarning = (warning: typeof BlueprintWarning.Type): string => {
+  switch (warning._tag) {
+    case "DuplicateSelectionNormalized":
+      return formatNodeReference(warning.node);
+    case "ImpliedDependencyAdded":
+    case "RedundantSelectionNormalized":
+      return `${formatNodeReference(warning.node)} <= ${warning.causes
+        .map(formatNodeReference)
+        .join(", ")}`;
+  }
+};
+
+const formatNodeReference = (
+  reference: typeof BlueprintNodeReference.Type,
+): string => {
+  switch (reference._tag) {
+    case "repo-module":
+      return `repo-module:${reference.moduleId}`;
+    case "target":
+      return `target:${reference.targetId}`;
+    case "target-module":
+      return `target-module:${reference.targetId}:${reference.moduleId}`;
+  }
+};
