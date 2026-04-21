@@ -153,6 +153,16 @@
         "@types/node": "^25.6.0",
       },
     },
+    "packages/selection": {
+      "name": "@repo/selection",
+      "version": "0.0.0",
+      "dependencies": {
+        "effect": "4.0.0-beta.47",
+      },
+      "devDependencies": {
+        "@repo/config-typescript": "workspace:*",
+      },
+    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
@@ -516,6 +526,8 @@
     "@repo/observability": ["@repo/observability@workspace:packages/observability"],
 
     "@repo/presence": ["@repo/presence@workspace:packages/presence"],
+
+    "@repo/selection": ["@repo/selection@workspace:packages/selection"],
 
     "@rolldown/binding-android-arm64": ["@rolldown/binding-android-arm64@1.0.0-rc.15", "", { "os": "android", "cpu": "arm64" }, "sha512-YYe6aWruPZDtHNpwu7+qAHEMbQ/yRl6atqb/AhznLTnD3UY99Q1jE7ihLSahNWkF4EqRPVC4SiR4O0UkLK02tA=="],
 
