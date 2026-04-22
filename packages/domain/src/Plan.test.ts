@@ -1,49 +1,41 @@
 import {
   MergeRequirement,
-  type MergeRequirement as MergeRequirementType,
   mergePlanCauses,
   Plan,
   PlanEntryClassification,
-  type Plan as PlanType,
   PlanWarning,
-  type PlanWarning as PlanWarningType,
   toPlanRepoModuleCauses,
   toPlanTargetCauses,
   toPlanTargetCompositionCauses,
   toPlanTargetModuleCauses,
 } from "@repo/domain/Plan";
-import { Schema } from "effect";
+import { Schema, String } from "effect";
 import { describe, expect, it } from "vitest";
-
-const decodePlanEntryClassification = Schema.decodeUnknownSync(
-  PlanEntryClassification,
-);
-const decodePlan = Schema.decodeUnknownSync(Plan as never) as (
-  input: unknown,
-) => PlanType;
-const decodeMergeRequirement = Schema.decodeUnknownSync(
-  MergeRequirement as never,
-) as (input: unknown) => MergeRequirementType;
-const decodePlanWarning = Schema.decodeUnknownSync(PlanWarning as never) as (
-  input: unknown,
-) => PlanWarningType;
 
 describe("@repo/domain Plan", () => {
   it("accepts the supported plan classifications", () => {
-    expect(decodePlanEntryClassification("create")).toBe("create");
-    expect(decodePlanEntryClassification("modify")).toBe("modify");
-    expect(decodePlanEntryClassification("unchanged")).toBe("unchanged");
-    expect(decodePlanEntryClassification("needsMergeStrategy")).toBe(
-      "needsMergeStrategy",
+    expect(Schema.decodeUnknownSync(PlanEntryClassification)("create")).toBe(
+      "create",
     );
+    expect(Schema.decodeUnknownSync(PlanEntryClassification)("modify")).toBe(
+      "modify",
+    );
+    expect(Schema.decodeUnknownSync(PlanEntryClassification)("unchanged")).toBe(
+      "unchanged",
+    );
+    expect(
+      Schema.decodeUnknownSync(PlanEntryClassification)("needsMergeStrategy"),
+    ).toBe("needsMergeStrategy");
   });
 
   it("rejects unsupported classifications", () => {
-    expect(() => decodePlanEntryClassification("delete")).toThrow();
+    expect(() =>
+      Schema.decodeUnknownSync(PlanEntryClassification)("delete"),
+    ).toThrow();
   });
 
   it("models a deterministic narrow public plan", () => {
-    const plan = decodePlan({
+    const plan = new Plan({
       entries: [
         {
           _tag: "directory",
@@ -165,7 +157,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows merge requirements to be decoded independently", () => {
-    const requirement = decodeMergeRequirement({
+    const requirement = Schema.decodeUnknownSync(MergeRequirement)({
       _tag: "authoritativeFile",
       path: "package.json",
       causes: [{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }],
@@ -175,7 +167,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows warnings to be decoded independently", () => {
-    const warning = decodePlanWarning({
+    const warning = Schema.decodeUnknownSync(PlanWarning)({
       _tag: "impliedDependency",
       path: "packages/domain/src/Api.ts",
       message: "Added because app/server selected http-api-server.",
@@ -190,6 +182,277 @@ describe("@repo/domain Plan", () => {
     });
 
     expect(warning._tag).toBe("impliedDependency");
+  });
+
+  it("pretty prints an empty plan", () => {
+    const plan = new Plan({
+      entries: [],
+      tree: {
+        _tag: "directory",
+        name: ".",
+        path: ".",
+        causes: [{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }],
+        children: [],
+      },
+      mergeRequirements: [],
+      warnings: [],
+    });
+
+    expect(plan.prettyPrint()).toBe(
+      String.stripMargin(`|Plan
+       |
+       |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
+       |
+       |Summary: 0 create  0 modify  0 unchanged  0 merge
+       |
+       |.`),
+    );
+  });
+
+  it("pretty prints a plan with create, modify, unchanged, merge, and warnings", () => {
+    const plan = new Plan({
+      entries: [
+        {
+          _tag: "file",
+          path: "packages/domain/src/Api.ts",
+          classification: "create",
+          causes: [
+            {
+              _tag: "selectedTarget",
+              targetId: "packages/domain",
+            },
+          ],
+        },
+        {
+          _tag: "file",
+          path: "packages/domain/src/index.ts",
+          classification: "needsMergeStrategy",
+          causes: [
+            {
+              _tag: "targetComposition",
+              targetId: "packages/domain",
+              slot: "public-entrypoint",
+              value: "./Api",
+            },
+          ],
+        },
+        {
+          _tag: "file",
+          path: "packages/domain/tsconfig.json",
+          classification: "needsMergeStrategy",
+          causes: [
+            {
+              _tag: "selectedTarget",
+              targetId: "packages/domain",
+            },
+          ],
+        },
+        {
+          _tag: "file",
+          path: "README.md",
+          classification: "modify",
+          causes: [
+            {
+              _tag: "selectedRepoModule",
+              moduleId: "root-bootstrap",
+            },
+          ],
+        },
+        {
+          _tag: "file",
+          path: "package.json",
+          classification: "unchanged",
+          causes: [
+            {
+              _tag: "selectedRepoModule",
+              moduleId: "root-bootstrap",
+            },
+          ],
+        },
+      ],
+      tree: {
+        _tag: "directory",
+        name: ".",
+        path: ".",
+        causes: [{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }],
+        children: [
+          {
+            _tag: "directory",
+            name: "packages",
+            path: "packages",
+            causes: [{ _tag: "selectedTarget", targetId: "packages/domain" }],
+            children: [
+              {
+                _tag: "directory",
+                name: "domain",
+                path: "packages/domain",
+                causes: [
+                  { _tag: "selectedTarget", targetId: "packages/domain" },
+                ],
+                children: [
+                  {
+                    _tag: "file",
+                    name: "tsconfig.json",
+                    path: "packages/domain/tsconfig.json",
+                    classification: "needsMergeStrategy",
+                    causes: [
+                      {
+                        _tag: "selectedTarget",
+                        targetId: "packages/domain",
+                      },
+                    ],
+                  },
+                  {
+                    _tag: "directory",
+                    name: "src",
+                    path: "packages/domain/src",
+                    causes: [
+                      {
+                        _tag: "selectedTarget",
+                        targetId: "packages/domain",
+                      },
+                    ],
+                    children: [
+                      {
+                        _tag: "file",
+                        name: "Api.ts",
+                        path: "packages/domain/src/Api.ts",
+                        classification: "create",
+                        causes: [
+                          {
+                            _tag: "selectedTarget",
+                            targetId: "packages/domain",
+                          },
+                        ],
+                      },
+                      {
+                        _tag: "file",
+                        name: "index.ts",
+                        path: "packages/domain/src/index.ts",
+                        classification: "needsMergeStrategy",
+                        causes: [
+                          {
+                            _tag: "targetComposition",
+                            targetId: "packages/domain",
+                            slot: "public-entrypoint",
+                            value: "./Api",
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+          {
+            _tag: "file",
+            name: "README.md",
+            path: "README.md",
+            classification: "modify",
+            causes: [
+              {
+                _tag: "selectedRepoModule",
+                moduleId: "root-bootstrap",
+              },
+            ],
+          },
+          {
+            _tag: "file",
+            name: "package.json",
+            path: "package.json",
+            classification: "unchanged",
+            causes: [
+              {
+                _tag: "selectedRepoModule",
+                moduleId: "root-bootstrap",
+              },
+            ],
+          },
+        ],
+      },
+      mergeRequirements: [
+        {
+          _tag: "barrelExport",
+          path: "packages/domain/src/index.ts",
+          exportPath: "./Api",
+          causes: [
+            {
+              _tag: "targetComposition",
+              targetId: "packages/domain",
+              slot: "public-entrypoint",
+              value: "./Api",
+            },
+          ],
+        },
+        {
+          _tag: "tsconfig",
+          path: "packages/domain/tsconfig.json",
+          causes: [
+            {
+              _tag: "selectedTarget",
+              targetId: "packages/domain",
+            },
+          ],
+        },
+      ],
+      warnings: [
+        {
+          _tag: "impliedDependency",
+          path: "packages/domain/src/Api.ts",
+          message: "Added because app/server selected http-api-server.",
+          causes: [
+            {
+              _tag: "impliedTargetModule",
+              targetId: "packages/domain",
+              moduleId: "domain-api",
+              via: "apps/server-api:http-api-server",
+            },
+          ],
+        },
+        {
+          _tag: "mergeStrategyRequired",
+          path: "packages/domain/tsconfig.json",
+          message: "Existing tsconfig.json requires manual merge strategy.",
+          requirement: {
+            _tag: "tsconfig",
+            path: "packages/domain/tsconfig.json",
+            causes: [
+              {
+                _tag: "selectedTarget",
+                targetId: "packages/domain",
+              },
+            ],
+          },
+        },
+      ],
+    }).toSorted();
+
+    expect(plan.prettyPrint()).toBe(
+      String.stripMargin(`|Plan
+       |
+       |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
+       |
+       |Summary: 1 create  1 modify  1 unchanged  2 merge
+       |
+       |.
+       |├── packages
+       |│   └── domain
+       |│       ├── src
+       |│       │   ├── [+] Api.ts
+       |│       │   └── [!] index.ts
+       |│       │       merge: export ./Api
+       |│       └── [!] tsconfig.json
+       |│           merge: tsconfig
+       |├── [~] README.md
+       |└── [=] package.json
+       |
+       |Warnings
+       |! packages/domain/src/Api.ts
+       |  Added because app/server selected http-api-server.
+       |! packages/domain/tsconfig.json
+       |  Existing tsconfig.json requires manual merge strategy.`),
+    );
   });
 
   it("sorts plan entries, tree children, merge requirements, warnings, and causes deterministically", () => {

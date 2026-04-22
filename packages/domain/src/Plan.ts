@@ -180,6 +180,32 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   mergeRequirements: Schema.Array(MergeRequirement),
   warnings: Schema.Array(PlanWarning),
 }) {
+  prettyPrint(): string {
+    const summary = countPlanClassifications(this.tree);
+    const mergeRequirementsByPath = groupMergeRequirementsByPath(
+      this.mergeRequirements,
+    );
+    const lines: Array<string> = [
+      "Plan",
+      "",
+      "Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge",
+      "",
+      `Summary: ${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.needsMergeStrategy} merge`,
+      "",
+      this.tree.name,
+    ];
+
+    appendPlanTreeChildren(lines, this.tree.children, mergeRequirementsByPath);
+
+    const warningLines = this.warnings.flatMap(formatPlanWarningLines);
+
+    if (warningLines.length > 0) {
+      lines.push("", "Warnings", ...warningLines);
+    }
+
+    return lines.join("\n");
+  }
+
   toSorted(): Plan {
     return new Plan({
       entries: [...this.entries]
@@ -333,5 +359,133 @@ const sortPlanWarning = (warning: PlanWarning): PlanWarning => {
         ...warning,
         requirement: sortMergeRequirement(warning.requirement),
       };
+  }
+};
+
+type PlanClassificationSummary = Record<PlanEntryClassification, number>;
+
+const countPlanClassifications = (
+  node: PlanTreeDirectoryNode,
+): PlanClassificationSummary => {
+  const summary: PlanClassificationSummary = {
+    create: 0,
+    modify: 0,
+    unchanged: 0,
+    needsMergeStrategy: 0,
+  };
+
+  const visit = (current: PlanTreeNode): void => {
+    switch (current._tag) {
+      case "directory": {
+        for (const child of current.children) {
+          visit(child);
+        }
+        return;
+      }
+      case "file": {
+        summary[current.classification] += 1;
+      }
+    }
+  };
+
+  visit(node);
+
+  return summary;
+};
+
+const appendPlanTreeChildren = (
+  lines: Array<string>,
+  nodes: ReadonlyArray<PlanTreeNode>,
+  mergeRequirementsByPath: ReadonlyMap<string, ReadonlyArray<MergeRequirement>>,
+  indent = "",
+): void => {
+  for (const [index, node] of nodes.entries()) {
+    const isLast = index === nodes.length - 1;
+    const connector = isLast ? "└── " : "├── ";
+    const childIndent = `${indent}${isLast ? "    " : "│   "}`;
+
+    switch (node._tag) {
+      case "directory": {
+        lines.push(`${indent}${connector}${node.name}`);
+        appendPlanTreeChildren(
+          lines,
+          node.children,
+          mergeRequirementsByPath,
+          childIndent,
+        );
+        break;
+      }
+      case "file": {
+        lines.push(
+          `${indent}${connector}${formatPlanClassificationBadge(node.classification)} ${node.name}`,
+        );
+
+        const mergeRequirements = mergeRequirementsByPath.get(node.path) ?? [];
+
+        for (const mergeRequirement of mergeRequirements) {
+          lines.push(
+            `${childIndent}${formatMergeRequirementLine(mergeRequirement)}`,
+          );
+        }
+
+        break;
+      }
+    }
+  }
+};
+
+const groupMergeRequirementsByPath = (
+  mergeRequirements: ReadonlyArray<MergeRequirement>,
+): Map<string, Array<MergeRequirement>> => {
+  const mergeRequirementsByPath = new Map<string, Array<MergeRequirement>>();
+
+  for (const mergeRequirement of mergeRequirements) {
+    const requirements =
+      mergeRequirementsByPath.get(mergeRequirement.path) ?? [];
+    requirements.push(mergeRequirement);
+    mergeRequirementsByPath.set(mergeRequirement.path, requirements);
+  }
+
+  return mergeRequirementsByPath;
+};
+
+const formatPlanClassificationBadge = (
+  classification: PlanEntryClassification,
+): string => {
+  switch (classification) {
+    case "create":
+      return "[+]";
+    case "modify":
+      return "[~]";
+    case "unchanged":
+      return "[=]";
+    case "needsMergeStrategy":
+      return "[!]";
+  }
+};
+
+const formatMergeRequirementLine = (requirement: MergeRequirement): string => {
+  switch (requirement._tag) {
+    case "authoritativeFile":
+      return "merge: authoritative file";
+    case "barrelExport":
+      return `merge: export ${requirement.exportPath}`;
+    case "packageJsonDependencies":
+      return `merge: ${requirement.section}.${requirement.dependencyName}`;
+    case "packageJsonExports":
+      return `merge: exports ${requirement.exportKey}`;
+    case "packageJsonScripts":
+      return `merge: scripts ${requirement.scriptName}`;
+    case "tsconfig":
+      return "merge: tsconfig";
+  }
+};
+
+const formatPlanWarningLines = (warning: PlanWarning): Array<string> => {
+  switch (warning._tag) {
+    case "impliedDependency":
+      return [`! ${warning.path}`, `  ${warning.message}`];
+    case "mergeStrategyRequired":
+      return [`! ${warning.path}`, `  ${warning.message}`];
   }
 };
