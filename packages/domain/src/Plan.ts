@@ -1,9 +1,9 @@
-import {
-  type BlueprintCause,
-  type ResolvedRepoModule,
-  type ResolvedTarget,
-  type ResolvedTargetModule,
-  type TargetComposition,
+import type {
+  BlueprintCause,
+  ResolvedRepoModule,
+  ResolvedTarget,
+  ResolvedTargetModule,
+  TargetComposition,
 } from "./Blueprint";
 import { Schema } from "effect";
 
@@ -56,7 +56,6 @@ export const RepoSnapshotPath = Schema.Union([
 export type RepoSnapshotPath = Schema.Schema.Type<typeof RepoSnapshotPath>;
 
 export const RepoSnapshot = Schema.Struct({
-  rootEntries: Schema.Array(Schema.String),
   paths: Schema.Array(RepoSnapshotPath),
 });
 export type RepoSnapshot = Schema.Schema.Type<typeof RepoSnapshot>;
@@ -64,7 +63,7 @@ export type RepoSnapshot = Schema.Schema.Type<typeof RepoSnapshot>;
 export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
   "PlanFailure",
   {
-    reason: Schema.Literal("repoRootNotEmpty"),
+    reason: Schema.Literals(["repoRootNotEmpty", "invalidChangeset"]),
     message: Schema.String,
   },
 ) {}
@@ -201,7 +200,7 @@ export const toPlanTargetCauses = ({
   target: ResolvedTarget;
 }): [PlanCause, ...Array<PlanCause>] =>
   sortPlanCauses(
-    target.causes.map((cause) => {
+    target.causes.map((cause): PlanCause => {
       switch (cause._tag) {
         case "selection":
           return {
@@ -214,6 +213,8 @@ export const toPlanTargetCauses = ({
             targetId: target.id,
             via: cause.edgeId,
           } satisfies PlanCause;
+        default:
+          return cause satisfies never;
       }
     }),
   );

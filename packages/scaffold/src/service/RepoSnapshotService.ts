@@ -1,12 +1,9 @@
-import type { Blueprint } from "@repo/domain/Blueprint";
 import {
   PlanFailure,
   type RepoSnapshot,
   type RepoSnapshotPath,
 } from "@repo/domain/Plan";
 import { Context, Effect, FileSystem, Layer, Path } from "effect";
-
-import { collectSnapshotPaths } from "../plan";
 
 export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
   "RepoSnapshotService",
@@ -16,20 +13,15 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
       const path = yield* Path.Path;
 
       const load = Effect.fn("RepoSnapshotService.load")(function* ({
-        blueprint,
+        paths: requestedPaths,
         repoRoot,
       }: {
-        blueprint: Blueprint;
+        paths: ReadonlyArray<string>;
         repoRoot: string;
       }) {
-        const snapshotPaths = collectSnapshotPaths(blueprint);
-        const rootEntries: Array<string> = yield* fileSystem
-          .readDirectory(repoRoot)
-          .pipe(
-            Effect.mapError(
-              toPlanFailure("Could not read repo root for planning."),
-            ),
-          );
+        const snapshotPaths = [...new Set(requestedPaths)].sort((left, right) =>
+          left.localeCompare(right),
+        );
 
         const paths: Array<RepoSnapshotPath> = [];
 
@@ -72,9 +64,6 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
         }
 
         return {
-          rootEntries: [...rootEntries].sort((left, right) =>
-            left.localeCompare(right),
-          ),
           paths,
         } satisfies RepoSnapshot;
       });

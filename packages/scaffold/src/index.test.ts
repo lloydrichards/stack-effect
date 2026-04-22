@@ -611,12 +611,6 @@ describe("@repo/scaffold", () => {
       }).pipe(Effect.provide(BlueprintService.layer)),
     );
 
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -664,12 +658,6 @@ describe("@repo/scaffold", () => {
       }).pipe(Effect.provide(BlueprintService.layer)),
     );
 
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -717,12 +705,6 @@ describe("@repo/scaffold", () => {
       }).pipe(Effect.provide(BlueprintService.layer)),
     );
 
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -807,12 +789,6 @@ describe("@repo/scaffold", () => {
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -891,12 +867,6 @@ describe("@repo/scaffold", () => {
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -971,12 +941,6 @@ describe("@repo/scaffold", () => {
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
-    };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
       targetId: "packages/domain",
@@ -1048,12 +1012,6 @@ describe("@repo/scaffold", () => {
       _tag: "impliedTarget" as const,
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
-    };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
     };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
@@ -1128,12 +1086,6 @@ describe("@repo/scaffold", () => {
       _tag: "impliedTarget" as const,
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
-    };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
     };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
@@ -1214,12 +1166,6 @@ describe("@repo/scaffold", () => {
       _tag: "impliedTarget" as const,
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
-    };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
     };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,
@@ -1570,12 +1516,6 @@ describe("@repo/scaffold", () => {
       _tag: "impliedTarget" as const,
       targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
-    };
-    const impliedDomainApiCause = {
-      _tag: "impliedTargetModule" as const,
-      targetId: "packages/domain",
-      moduleId: "domain-api",
-      via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
     };
     const targetCompositionCause = {
       _tag: "targetComposition" as const,

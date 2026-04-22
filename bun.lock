@@ -157,6 +157,7 @@
       "name": "@repo/scaffold",
       "version": "0.0.0",
       "dependencies": {
+        "@effect/platform-bun": "4.0.0-beta.47",
         "@repo/domain": "workspace:*",
         "effect": "4.0.0-beta.47",
       },

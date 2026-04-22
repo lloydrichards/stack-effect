@@ -136,7 +136,9 @@ export const ResolvedTargetModule = Schema.Struct({
   status: BlueprintStatus,
   causes: Schema.NonEmptyArray(BlueprintCause),
 });
-export type ResolvedTargetModule = Schema.Schema.Type<typeof ResolvedTargetModule>;
+export type ResolvedTargetModule = Schema.Schema.Type<
+  typeof ResolvedTargetModule
+>;
 
 export const ResolvedRepoModule = Schema.Struct({
   moduleId: RepoModuleId,
@@ -161,7 +163,9 @@ export const BlueprintEdgeReason = Schema.Literals([
   "required-canonical-target",
   "required-target-module",
 ]);
-export type BlueprintEdgeReason = Schema.Schema.Type<typeof BlueprintEdgeReason>;
+export type BlueprintEdgeReason = Schema.Schema.Type<
+  typeof BlueprintEdgeReason
+>;
 
 export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
   id: Schema.NonEmptyString,

@@ -12,6 +12,14 @@ _Avoid_: PlanBlueprint, normalized blueprint, prototype blueprint
 The observed filesystem state of a repository at planning time.
 _Avoid_: blueprint state, plan state
 
+**Narrow RepoSnapshot**:
+The planning input shape containing only requested path observations tagged as `missing`, `directory`, or `file` with contents.
+_Avoid_: rich filesystem model, whole-repo model
+
+**Blueprint-agnostic Snapshot Loader**:
+An infrastructure service that loads a `RepoSnapshot` from caller-requested repo paths without depending on `Blueprint`.
+_Avoid_: standalone snapshot service, blueprint-aware loader
+
 **Plan**:
 The result of comparing a **Blueprint** against a **RepoSnapshot** to determine required file and merge actions.
 _Avoid_: resolved blueprint, enriched blueprint
@@ -60,6 +68,10 @@ _Avoid_: planner-local cause mapping, ad hoc translation
 An implementation-level rule that maps canonical domain structure into concrete repository files, paths, and file contents.
 _Avoid_: domain model, canonical domain rule
 
+**PlanChangeset**:
+The private planning-stage model that compiles a `Blueprint` into all intended file changes, including authoritative file outputs and structured merge contributions, before repo snapshot loading and merge classification.
+_Avoid_: changeset, git diff, public plan model
+
 **Blueprint Review Step**:
 An application step between blueprint resolution and planning where the resolved **Blueprint** may be inspected, logged, or approved.
 _Avoid_: implicit planning resolution
@@ -85,7 +97,21 @@ _Avoid_: `ScaffoldPlan` module, parallel planning model
 - A **Plan** identifies targets by **Target ID**, not by remapped aliases
 - A **Plan** reads **Target Composition** directly from the **Blueprint** rather than through a second planning-specific composition model
 - `root-bootstrap` is a **Repo Module** and root bootstrap files are projected from that module during planning
+- A `Blueprint` is first compiled into a **PlanChangeset** before snapshot loading and merge classification
+- A **PlanChangeset** contains all intended file changes implied by a `Blueprint`, including both full-file outputs and merge contributions for recognized file classes
+- A **PlanChangeset** is organized primarily by planned repo path, with each path carrying its intended change operations
+- A single **PlanChangeset** path may carry multiple compatible operations, but contradictory operation combinations are rejected during changeset compilation
+- **PlanChangeset** compilation validates intended-change coherence before any repo snapshot loading occurs
+- A contradiction in **PlanChangeset** compilation is a fail-fast planning error rather than a warning or partial-plan condition
 - A **RepoSnapshot** is canonical domain input, while snapshot loading is an infrastructure concern outside the domain model
+- A **Narrow RepoSnapshot** remains the planning contract for this refactor and contains only observations for requested paths
+- A **Blueprint-agnostic Snapshot Loader** reads caller-scoped repo paths and does not derive snapshot scope from a **Blueprint**
+- The **Blueprint-agnostic Snapshot Loader** defensively deduplicates and orders requested paths before reading them
+- `PlanService` compiles the repo path scope needed for planning before calling the **Blueprint-agnostic Snapshot Loader**
+- `PlanService` compiles the full repo-relative inspection path set, including parent directories, for every path it may plan to change
+- `PlanService` includes parent directories in the inspection path set so planning can detect ancestor file-vs-directory collisions before classifying leaf paths
+- The **Blueprint-agnostic Snapshot Loader** returns the current observed **RepoSnapshot** for that requested path set without resolving conflicts or planning outcomes
+- `PlanService` compares intended changes against the current observed **RepoSnapshot** and decides how to classify conflicts in the resulting **Plan**
 - Planning failures are expressed as **Planning Error** values in the domain model and may be surfaced directly by applications
 - A **PlanFailure** is used when no branching application behavior depends on the error variant
 - `BlueprintService` resolves **Selection** into **Blueprint** and `PlanService` consumes the resolved **Blueprint** rather than re-resolving it
@@ -108,6 +134,20 @@ _Avoid_: `ScaffoldPlan` module, parallel planning model
 - Composition was being rewritten into a planning-specific `slot/value/causes` structure. Resolved: planning must consume canonical **Target Composition** directly from the domain **Blueprint**.
 - Root bootstrap could have become a separate domain concept. Resolved: keep `root-bootstrap` as a **Repo Module**; planning derives root bootstrap files from that module.
 - `RepoSnapshot` could have been treated as a scaffold-local loader concern. Resolved: the snapshot model is canonical domain input; only snapshot acquisition is infrastructure-specific.
+- "standalone" snapshot loading was ambiguous between blueprint-aware orchestration and pure repo access. Resolved: prefer **Blueprint-agnostic Snapshot Loader** for the service boundary.
+- Snapshot scope derivation could have remained in a planner helper or moved into the loader. Resolved: `PlanService` compiles the planning path scope before snapshot loading.
+- Snapshot loading could have inferred directory checks or conflict behavior internally. Resolved: `PlanService` owns the full inspection path set and all planning-time conflict handling; the loader only reports current observed state.
+- Planning could have kept its intended-change stage implicit across scattered helper functions. Resolved: introduce a private **PlanChangeset** stage between `Blueprint` and `RepoSnapshot`.
+- `PlanChangeset` could have meant only added files or only path discovery. Resolved: it contains all intended changes from the `Blueprint`, including authoritative file outputs and structured merge contributions.
+- `PlanChangeset` could have been organized by operation type first. Resolved: organize it by path because planning, snapshot loading, and conflict classification are path-centric.
+- Each planned path could have been limited to one operation. Resolved: allow multiple compatible operations per path and reject contradictory combinations during **PlanChangeset** compilation.
+- Contradictory intended changes could have been deferred until repo comparison. Resolved: reject them during **PlanChangeset** compilation because they are intent-coherence problems, not snapshot conflicts.
+- Contradictory **PlanChangeset** paths could have produced warnings or partial planning output. Resolved: treat them as fail-fast planning errors.
+- Parent-directory inspection could have been omitted as redundant leaf checking. Resolved: include the full inspection path set so planning can detect ancestor path collisions.
+- `RepoSnapshot` could have expanded into a richer filesystem model during this refactor. Resolved: keep a **Narrow RepoSnapshot** and remove unrequested root listing from the contract.
+- Requested path normalization could have been a strict caller obligation. Resolved: the **Blueprint-agnostic Snapshot Loader** normalizes paths defensively while `PlanService` still owns path selection.
+- `rootEntries` could have remained as unconditional repo-root state. Resolved: remove them so **RepoSnapshot** is purely a path-scoped observation contract.
+- "changeset" could have been used generically. Resolved: prefer **PlanChangeset** for the private planning-stage model.
 - Planning errors could have remained ad hoc `Error` subclasses. Resolved: planning uses lean, actionable **Planning Error** domain values that applications can react to or present to users.
 - Cause mapping could have remained buried in the planner. Resolved: **Cause Translation** belongs to the domain as canonical shared behavior.
 - Concrete file-path and file-content projection could have moved into the domain. Resolved: **File Projection Rule** stays in implementation code and consumes canonical domain models.

@@ -4,23 +4,15 @@ import type {
   ResolvedTarget,
 } from "@repo/domain/Blueprint";
 import {
-  type MergeRequirement,
   mergePlanCauses,
   type PlanCause,
-  type PlanEntryClassification,
-  PlanFailure,
-  type Plan as PlanModel,
-  type PlanTreeNode,
-  type PlanWarning,
-  type RepoSnapshot,
-  type RepoSnapshotPath,
   toPlanRepoModuleCauses,
   toPlanTargetCauses,
   toPlanTargetCompositionCauses,
   toPlanTargetModuleCauses,
 } from "@repo/domain/Plan";
 
-const sortPaths = (left: string, right: string) => {
+export const sortPaths = (left: string, right: string) => {
   const leftParts = left.split("/");
   const rightParts = right.split("/");
   const length = Math.min(leftParts.length, rightParts.length);
@@ -50,7 +42,7 @@ const sortCauses = (
     JSON.stringify(left).localeCompare(JSON.stringify(right)),
   ) as [PlanCause, ...Array<PlanCause>];
 
-const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
+export const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
   const directories = new Set<string>();
 
   for (const path of paths) {
@@ -69,34 +61,67 @@ type ProjectedPlanPath = {
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-type ProjectedPackageJsonExport = {
+export type ProjectedPackageJsonExport = {
   readonly exportKey: string;
   readonly exportValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-type ProjectedPackageJsonDependency = {
+export type ProjectedPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
   readonly dependencyName: string;
   readonly dependencyValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-type ProjectedPackageJsonScript = {
+export type ProjectedPackageJsonScript = {
   readonly scriptName: string;
   readonly scriptValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-type ProjectedBarrelExport = {
+export type ProjectedBarrelExport = {
   readonly exportPath: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-type ProjectedTsconfig = {
+export type ProjectedTsconfig = {
   readonly path: string;
   readonly contents: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
+};
+
+export type PlanChangesetPath = {
+  readonly path: string;
+  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
+  readonly authoritativeContents: string | undefined;
+  readonly packageJsonExports: ReadonlyArray<ProjectedPackageJsonExport>;
+  readonly packageJsonDependencies: ReadonlyArray<ProjectedPackageJsonDependency>;
+  readonly packageJsonScripts: ReadonlyArray<ProjectedPackageJsonScript>;
+  readonly barrelExports: ReadonlyArray<ProjectedBarrelExport>;
+  readonly tsconfig: ProjectedTsconfig | undefined;
+};
+
+export type PlanChangeset = {
+  readonly paths: ReadonlyArray<PlanChangesetPath>;
+};
+
+export type PlanChangesetOperationFamily =
+  | "authoritative"
+  | "packageJson"
+  | "barrel"
+  | "tsconfig";
+
+export type MutablePlanChangesetPath = {
+  readonly path: string;
+  causes: readonly [PlanCause, ...Array<PlanCause>];
+  family?: PlanChangesetOperationFamily;
+  authoritativeContents?: string;
+  readonly packageJsonExports: Array<ProjectedPackageJsonExport>;
+  readonly packageJsonDependencies: Array<ProjectedPackageJsonDependency>;
+  readonly packageJsonScripts: Array<ProjectedPackageJsonScript>;
+  readonly barrelExports: Array<ProjectedBarrelExport>;
+  tsconfig?: ProjectedTsconfig;
 };
 
 const appendProjectedPath = (
@@ -227,6 +252,169 @@ const rootBootstrapFiles = {
   "packages/config-typescript/base.json": '{"compilerOptions":{}}',
   "turbo.json": '{"$schema":"https://turbo.build/schema.json"}',
 } as const;
+
+const serverIndexContents = `import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
+import { ChatServiceLive, FastModelLive, SampleToolkitLive } from "@repo/ai";
+import { Api } from "@repo/domain/Api";
+import { EventRpc } from "@repo/domain/Rpc";
+import { WebSocketRpc } from "@repo/domain/WebSocket";
+import { ObservabilityLive } from "@repo/observability";
+import { PresenceServiceLive } from "@repo/presence";
+import { Config, Effect, Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
+import { HttpRouter, HttpServer } from "effect/unstable/http";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { HealthGroupLive } from "./Api/Health";
+import { HelloGroupLive } from "./Api/Hello";
+import { EventRpcLive } from "./Rpc/Event";
+import { PresenceRpcLive } from "./Rpc/Presence";
+
+// ============================================================================
+// Server Configuration
+// ============================================================================
+
+const ServerConfig = Config.all({
+  port: Config.number("PORT").pipe(Config.withDefault(9000)),
+  hostname: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
+  idleTimeout: Config.number("IDLE_TIMEOUT").pipe(Config.withDefault(120)), // seconds (Bun default is 10)
+  allowedOrigins: Config.string("ALLOWED_ORIGINS").pipe(
+    Config.withDefault("http://localhost:3000"),
+  ),
+  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
+});
+
+// ============================================================================
+// Router Composition
+// ============================================================================
+
+// HTTP API Router
+const ApiRouter = HttpApiBuilder.layer(Api).pipe(
+  Layer.provide([HealthGroupLive, HelloGroupLive]),
+);
+
+// HTTP RPC Router (for EventRpc - streaming over HTTP)
+const HttpRpcRouter = RpcServer.layerHttp({
+  group: EventRpc,
+  path: "/rpc",
+  protocol: "http", // Use HTTP for EventRpc
+  spanPrefix: "rpc",
+}).pipe(
+  Layer.provide(EventRpcLive),
+  Layer.provide(ChatServiceLive),
+  Layer.provide(SampleToolkitLive),
+  Layer.provide(FastModelLive),
+  Layer.provide(RpcSerialization.layerNdjson),
+);
+
+// WebSocket RPC Router (for PresenceRpc - real-time presence)
+const WebSocketRpcRouter = RpcServer.layerHttp({
+  group: WebSocketRpc,
+  path: "/ws",
+  protocol: "websocket", // Use WebSocket for PresenceRpc!
+  spanPrefix: "ws",
+  disableFatalDefects: true,
+}).pipe(
+  Layer.provide(PresenceRpcLive),
+  Layer.provide(PresenceServiceLive),
+  Layer.provide(RpcSerialization.layerNdjson),
+);
+
+// ============================================================================
+// Server Launch
+// ============================================================================
+
+const DevToolsLive = Effect.gen(function* () {
+  const config = yield* ServerConfig;
+  if (!config.enableDevTools) {
+    return Layer.empty;
+  }
+  yield* Effect.log("Enabling DevTools Layer");
+  return DevTools.layer();
+}).pipe(Layer.unwrap);
+
+const HttpLive = Effect.gen(function* () {
+  const config = yield* ServerConfig;
+  const allowedOrigins = config.allowedOrigins.split(",").map((o) => o.trim());
+
+  yield* Effect.log("CORS allowed origins: " + allowedOrigins.join(", "));
+  yield* Effect.log("Starting server with:");
+  yield* Effect.log("  - HTTP API at /");
+  yield* Effect.log("  - HTTP RPC at /rpc (EventRpc)");
+  yield* Effect.log("  - WebSocket RPC at /ws (PresenceRpc)");
+
+  const AllRouters = Layer.mergeAll(
+    ApiRouter,
+    HttpRpcRouter,
+    WebSocketRpcRouter,
+  ).pipe(
+    Layer.provide(
+      HttpRouter.cors({
+        allowedOrigins,
+        allowedMethods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "B3", "traceparent"],
+        credentials: true,
+      }),
+    ),
+  );
+
+  return HttpRouter.serve(AllRouters).pipe(
+    HttpServer.withLogAddress,
+    Layer.provideMerge(DevToolsLive),
+    Layer.provideMerge(ObservabilityLive),
+    Layer.provideMerge(BunHttpServer.layerConfig(ServerConfig)),
+  );
+}).pipe(Layer.unwrap, Layer.launch);
+
+BunRuntime.runMain(HttpLive);
+`;
+
+const serverHelloContents = `import { Api, type ApiResponse } from "@repo/domain/Api";
+import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
+
+export const HelloGroupLive = HttpApiBuilder.group(Api, "hello", (handlers) =>
+  handlers.handle("get", () => {
+    const data: typeof ApiResponse.Type = {
+      message: "Hello bEvr!",
+      success: true,
+    };
+    return Effect.succeed(data);
+  }),
+);
+`;
+
+const serverHealthContents = `import { Api } from "@repo/domain/Api";
+import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/unstable/httpapi";
+export const HealthGroupLive = HttpApiBuilder.group(Api, "health", (handlers) =>
+  handlers.handle("get", () => Effect.succeed("Hello Effect!")),
+);
+`;
+
+const domainApiContents = `import { Schema } from "effect";
+import {
+  HttpApi,
+  HttpApiEndpoint,
+  HttpApiGroup,
+} from "effect/unstable/httpapi";
+
+export const ApiResponse = Schema.Struct({
+  message: Schema.String,
+  success: Schema.Literal(true),
+});
+
+// Define Domain of API
+export class HealthGroup extends HttpApiGroup.make("health")
+  .add(HttpApiEndpoint.get("get", "/", { success: Schema.String }))
+  .prefix("/") {}
+
+export class HelloGroup extends HttpApiGroup.make("hello")
+  .add(HttpApiEndpoint.get("get", "/", { success: ApiResponse }))
+  .prefix("/hello") {}
+
+export const Api = HttpApi.make("Api").add(HealthGroup).add(HelloGroup);
+`;
 
 const isServerTarget = (target: ResolvedTarget) =>
   target.id === "apps/server-api";
@@ -368,7 +556,7 @@ const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
   );
 };
 
-const collectProjectedPlanPaths = (blueprint: Blueprint) => {
+export const collectProjectedPlanPaths = (blueprint: Blueprint) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
 
   for (const projectedPath of collectProjectedRootBootstrapPaths(blueprint)) {
@@ -406,14 +594,50 @@ const collectProjectedPlanPaths = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedContents = (blueprint: Blueprint) =>
-  new Map(
+export const collectProjectedContents = (blueprint: Blueprint) => {
+  const projectedContents = new Map<string, string>(
     Object.entries(rootBootstrapFiles)
       .filter(() => getRepoOnlyRootBootstrapCauses(blueprint) !== undefined)
       .map(([path, contents]) => [path, contents] as const),
   );
 
-const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
+  for (const target of blueprint.nodes) {
+    if (isServerTarget(target)) {
+      projectedContents.set("apps/server/src/index.ts", serverIndexContents);
+
+      for (const targetModule of target.targetModules) {
+        if (targetModule.moduleId !== "http-api-server") {
+          continue;
+        }
+
+        projectedContents.set(
+          "apps/server/src/Api/Health.ts",
+          serverHealthContents,
+        );
+        projectedContents.set(
+          "apps/server/src/Api/Hello.ts",
+          serverHelloContents,
+        );
+      }
+    }
+
+    if (!isDomainPackageTarget(target)) {
+      continue;
+    }
+
+    for (const targetModule of target.targetModules) {
+      if (targetModule.moduleId !== "domain-api") {
+        continue;
+      }
+
+      projectedContents.set("packages/domain/src/Api.ts", domainApiContents);
+    }
+  }
+
+  return projectedContents;
+};
+
+export const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
   const projectedExportsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonExport>
@@ -456,7 +680,9 @@ const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
+export const collectProjectedPackageJsonDependencies = (
+  blueprint: Blueprint,
+) => {
   const projectedDependenciesByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonDependency>
@@ -506,7 +732,7 @@ const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
+export const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
   const projectedScriptsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonScript>
@@ -589,7 +815,7 @@ const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedBarrelExports = (blueprint: Blueprint) => {
+export const collectProjectedBarrelExports = (blueprint: Blueprint) => {
   const projectedBarrelExportsByPath = new Map<
     string,
     Map<string, ProjectedBarrelExport>
@@ -632,7 +858,7 @@ const collectProjectedBarrelExports = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedTsconfigs = (blueprint: Blueprint) => {
+export const collectProjectedTsconfigs = (blueprint: Blueprint) => {
   const projectedTsconfigs = new Map<string, ProjectedTsconfig>();
 
   for (const target of blueprint.nodes) {
@@ -657,738 +883,32 @@ const collectProjectedTsconfigs = (blueprint: Blueprint) => {
   return new Map(projectedTsconfigs.entries());
 };
 
-export const collectSnapshotPaths = (blueprint: Blueprint) => {
-  const requestedPaths = new Set<string>();
+export const getOrCreatePlanChangesetPath = (
+  changesetPaths: Map<string, MutablePlanChangesetPath>,
+  path: string,
+  causes: readonly [PlanCause, ...Array<PlanCause>],
+) => {
+  const current = changesetPaths.get(path);
 
-  for (const projectedPath of collectProjectedPlanPaths(blueprint)) {
-    requestedPaths.add(projectedPath.path);
-
-    for (const directoryPath of collectDirectoryPaths([projectedPath.path])) {
-      requestedPaths.add(directoryPath);
-    }
+  if (current !== undefined) {
+    current.causes = mergePlanCauses(current.causes, causes);
+    return current;
   }
 
-  return [...requestedPaths].sort(sortPaths);
+  const next: MutablePlanChangesetPath = {
+    path,
+    causes,
+    packageJsonExports: [],
+    packageJsonDependencies: [],
+    packageJsonScripts: [],
+    barrelExports: [],
+  };
+
+  changesetPaths.set(path, next);
+  return next;
 };
 
-const nameFromPath = (path: string) => {
+export const nameFromPath = (path: string) => {
   const parts = path.split("/");
   return parts[parts.length - 1] ?? path;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
-  isRecord(value) &&
-  Object.values(value).every((entry) => typeof entry === "string");
-
-const createPackageJsonExportMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing exports require manual merge strategy.",
-  requirement,
-});
-
-const createPackageJsonDependencyMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message:
-    requirement._tag === "packageJsonDependencies"
-      ? `Existing ${requirement.section} require manual merge strategy.`
-      : "Existing dependencies require manual merge strategy.",
-  requirement,
-});
-
-const createPackageJsonDependencyMergeRequirement = ({
-  path,
-  projectedDependency,
-}: {
-  path: string;
-  projectedDependency: ProjectedPackageJsonDependency;
-}): MergeRequirement => ({
-  _tag: "packageJsonDependencies",
-  path,
-  section: projectedDependency.section,
-  dependencyName: projectedDependency.dependencyName,
-  causes: projectedDependency.causes,
-});
-
-const createPackageJsonScriptMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing scripts require manual merge strategy.",
-  requirement,
-});
-
-const createPackageJsonScriptMergeRequirement = ({
-  path,
-  projectedScript,
-}: {
-  path: string;
-  projectedScript: ProjectedPackageJsonScript;
-}): MergeRequirement => ({
-  _tag: "packageJsonScripts",
-  path,
-  scriptName: projectedScript.scriptName,
-  causes: projectedScript.causes,
-});
-
-const createPackageJsonExportMergeRequirement = ({
-  path,
-  projectedExport,
-}: {
-  path: string;
-  projectedExport: ProjectedPackageJsonExport;
-}): MergeRequirement => ({
-  _tag: "packageJsonExports",
-  path,
-  exportKey: projectedExport.exportKey,
-  causes: projectedExport.causes,
-});
-
-const createBarrelExportMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing barrel exports require manual merge strategy.",
-  requirement,
-});
-
-const createBarrelExportMergeRequirement = ({
-  path,
-  projectedBarrelExport,
-}: {
-  path: string;
-  projectedBarrelExport: ProjectedBarrelExport;
-}): MergeRequirement => ({
-  _tag: "barrelExport",
-  path,
-  exportPath: projectedBarrelExport.exportPath,
-  causes: projectedBarrelExport.causes,
-});
-
-const createTsconfigMergeRequirement = ({
-  path,
-  causes,
-}: {
-  path: string;
-  causes: readonly [PlanCause, ...Array<PlanCause>];
-}): MergeRequirement => ({
-  _tag: "tsconfig",
-  path,
-  causes,
-});
-
-const createTsconfigMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing tsconfig.json requires manual merge strategy.",
-  requirement,
-});
-
-const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
-
-const parseSimpleBarrelExports = (contents: string) => {
-  const exports: Array<string> = [];
-
-  for (const line of contents.split(/\r?\n/u)) {
-    if (line.trim() === "") {
-      continue;
-    }
-
-    const matched = line.match(simpleBarrelExportPattern);
-
-    if (matched === null) {
-      return undefined;
-    }
-
-    const exportPath = matched[1];
-
-    if (exportPath === undefined) {
-      return undefined;
-    }
-
-    exports.push(exportPath);
-  }
-
-  return exports;
-};
-
-const planBarrelMerge = ({
-  path,
-  projectedBarrelExports,
-  snapshotPath,
-}: {
-  path: string;
-  projectedBarrelExports: ReadonlyArray<ProjectedBarrelExport>;
-  snapshotPath: RepoSnapshotPath | undefined;
-}) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
-    return {
-      classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
-    };
-  }
-
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  const existingExports = parseSimpleBarrelExports(snapshotPath.contents);
-
-  if (existingExports === undefined) {
-    const mergeRequirements = projectedBarrelExports.map(
-      (projectedBarrelExport) =>
-        createBarrelExportMergeRequirement({ path, projectedBarrelExport }),
-    );
-
-    return {
-      classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        createBarrelExportMergeWarning(requirement),
-      ),
-    };
-  }
-
-  const existingExportsSet = new Set(existingExports);
-  let hasAdditions = false;
-
-  for (const projectedBarrelExport of projectedBarrelExports) {
-    if (existingExportsSet.has(projectedBarrelExport.exportPath)) {
-      continue;
-    }
-
-    hasAdditions = true;
-  }
-
-  return {
-    classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    mergeRequirements: [] as Array<MergeRequirement>,
-    warnings: [] as Array<PlanWarning>,
-  };
-};
-
-const planPackageJsonMerge = ({
-  path,
-  projectedExports,
-  projectedDependencies,
-  projectedScripts,
-  snapshotPath,
-}: {
-  path: string;
-  projectedExports: ReadonlyArray<ProjectedPackageJsonExport>;
-  projectedDependencies: ReadonlyArray<ProjectedPackageJsonDependency>;
-  projectedScripts: ReadonlyArray<ProjectedPackageJsonScript>;
-  snapshotPath: RepoSnapshotPath | undefined;
-}) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
-    return {
-      classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
-    };
-  }
-
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  const packageJson = (() => {
-    try {
-      return JSON.parse(snapshotPath.contents) as unknown;
-    } catch {
-      return undefined;
-    }
-  })();
-
-  if (!isRecord(packageJson)) {
-    const mergeRequirements = [
-      ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportMergeRequirement({ path, projectedExport }),
-      ),
-      ...projectedDependencies.map((projectedDependency) =>
-        createPackageJsonDependencyMergeRequirement({
-          path,
-          projectedDependency,
-        }),
-      ),
-      ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptMergeRequirement({
-          path,
-          projectedScript,
-        }),
-      ),
-    ];
-
-    return {
-      classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        requirement._tag === "packageJsonExports"
-          ? createPackageJsonExportMergeWarning(requirement)
-          : requirement._tag === "packageJsonDependencies"
-            ? createPackageJsonDependencyMergeWarning(requirement)
-            : createPackageJsonScriptMergeWarning(requirement),
-      ),
-    };
-  }
-
-  const { exports: exportsValue, scripts: scriptsValue } = packageJson;
-  const mergeRequirements: Array<MergeRequirement> = [];
-  let hasAdditions = false;
-
-  if (exportsValue !== undefined && !isFlatStringRecord(exportsValue)) {
-    mergeRequirements.push(
-      ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportMergeRequirement({ path, projectedExport }),
-      ),
-    );
-  } else {
-    const existingExports = exportsValue ?? {};
-
-    for (const projectedExport of projectedExports) {
-      const existingValue = existingExports[projectedExport.exportKey];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedExport.exportValue) {
-        mergeRequirements.push(
-          createPackageJsonExportMergeRequirement({ path, projectedExport }),
-        );
-      }
-    }
-  }
-
-  const projectedDependenciesBySection = new Map<
-    string,
-    Array<ProjectedPackageJsonDependency>
-  >();
-
-  for (const projectedDependency of projectedDependencies) {
-    const sectionDependencies =
-      projectedDependenciesBySection.get(projectedDependency.section) ?? [];
-
-    sectionDependencies.push(projectedDependency);
-    projectedDependenciesBySection.set(
-      projectedDependency.section,
-      sectionDependencies,
-    );
-  }
-
-  for (const [section, sectionDependencies] of projectedDependenciesBySection) {
-    const sectionValue = packageJson[section];
-
-    if (sectionValue !== undefined && !isFlatStringRecord(sectionValue)) {
-      mergeRequirements.push(
-        ...sectionDependencies.map((projectedDependency) =>
-          createPackageJsonDependencyMergeRequirement({
-            path,
-            projectedDependency,
-          }),
-        ),
-      );
-      continue;
-    }
-
-    const existingDependencies = sectionValue ?? {};
-
-    for (const projectedDependency of sectionDependencies) {
-      const existingValue =
-        existingDependencies[projectedDependency.dependencyName];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedDependency.dependencyValue) {
-        mergeRequirements.push(
-          createPackageJsonDependencyMergeRequirement({
-            path,
-            projectedDependency,
-          }),
-        );
-      }
-    }
-  }
-
-  if (scriptsValue !== undefined && !isFlatStringRecord(scriptsValue)) {
-    mergeRequirements.push(
-      ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptMergeRequirement({
-          path,
-          projectedScript,
-        }),
-      ),
-    );
-  } else {
-    const existingScripts = scriptsValue ?? {};
-
-    for (const projectedScript of projectedScripts) {
-      const existingValue = existingScripts[projectedScript.scriptName];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedScript.scriptValue) {
-        mergeRequirements.push(
-          createPackageJsonScriptMergeRequirement({
-            path,
-            projectedScript,
-          }),
-        );
-      }
-    }
-  }
-
-  if (mergeRequirements.length > 0) {
-    return {
-      classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        requirement._tag === "packageJsonExports"
-          ? createPackageJsonExportMergeWarning(requirement)
-          : requirement._tag === "packageJsonDependencies"
-            ? createPackageJsonDependencyMergeWarning(requirement)
-            : createPackageJsonScriptMergeWarning(requirement),
-      ),
-    };
-  }
-
-  return {
-    classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    mergeRequirements: [] as Array<MergeRequirement>,
-    warnings: [] as Array<PlanWarning>,
-  };
-};
-
-const planTsconfigMerge = ({
-  path,
-  projectedTsconfig,
-  snapshotPath,
-}: {
-  path: string;
-  projectedTsconfig: ProjectedTsconfig;
-  snapshotPath: RepoSnapshotPath | undefined;
-}) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
-    return {
-      classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
-    };
-  }
-
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  if (snapshotPath.contents === projectedTsconfig.contents) {
-    return {
-      classification: "unchanged" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
-    };
-  }
-
-  const requirement = createTsconfigMergeRequirement({
-    path,
-    causes: projectedTsconfig.causes,
-  });
-
-  return {
-    classification: "needsMergeStrategy" as const,
-    mergeRequirements: [requirement],
-    warnings: [createTsconfigMergeWarning(requirement)],
-  };
-};
-
-export const projectPlan = ({
-  blueprint,
-  repoSnapshot,
-}: {
-  blueprint: Blueprint;
-  repoSnapshot: RepoSnapshot;
-}): PlanModel => {
-  const projectedPaths = collectProjectedPlanPaths(blueprint);
-  const projectedContents = collectProjectedContents(blueprint);
-  const projectedPackageJsonExports =
-    collectProjectedPackageJsonExports(blueprint);
-  const projectedPackageJsonDependencies =
-    collectProjectedPackageJsonDependencies(blueprint);
-  const projectedPackageJsonScripts =
-    collectProjectedPackageJsonScripts(blueprint);
-  const projectedBarrelExports = collectProjectedBarrelExports(blueprint);
-  const projectedTsconfigs = collectProjectedTsconfigs(blueprint);
-
-  const snapshotPaths = new Map(
-    repoSnapshot.paths.map(
-      (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
-    ),
-  );
-  const directoryPaths = collectDirectoryPaths(
-    projectedPaths.map((projectedPath) => projectedPath.path),
-  );
-  const fileCauseMap = new Map<
-    string,
-    readonly [PlanCause, ...Array<PlanCause>]
-  >(
-    projectedPaths.map((projectedPath) => [
-      projectedPath.path,
-      projectedPath.causes,
-    ]),
-  );
-  const directoryCauseMap = new Map<
-    string,
-    readonly [PlanCause, ...Array<PlanCause>]
-  >();
-
-  for (const projectedPath of projectedPaths) {
-    const parts = projectedPath.path.split("/");
-
-    for (let index = 1; index < parts.length; index += 1) {
-      const path = parts.slice(0, index).join("/");
-      const current = directoryCauseMap.get(path);
-
-      directoryCauseMap.set(
-        path,
-        current
-          ? mergePlanCauses(current, projectedPath.causes)
-          : projectedPath.causes,
-      );
-    }
-  }
-
-  const rootBootstrap = blueprint.modules.find(
-    (repoModule) => repoModule.moduleId === "root-bootstrap",
-  );
-  const rootCauses =
-    (rootBootstrap === undefined
-      ? undefined
-      : toPlanRepoModuleCauses({ repoModule: rootBootstrap })) ??
-    projectedPaths[0]?.causes ??
-    ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const);
-
-  const fileClassifications = new Map<string, PlanEntryClassification>();
-  const mergeRequirements: Array<MergeRequirement> = [];
-  const warnings: Array<PlanWarning> = [];
-
-  for (const projectedPath of projectedPaths) {
-    const projectedContentsForPath = projectedContents.get(projectedPath.path);
-    const projectedExports = projectedPackageJsonExports.get(
-      projectedPath.path,
-    );
-    const projectedDependencies = projectedPackageJsonDependencies.get(
-      projectedPath.path,
-    );
-    const projectedScripts = projectedPackageJsonScripts.get(
-      projectedPath.path,
-    );
-    const projectedBarrelExportsForPath = projectedBarrelExports.get(
-      projectedPath.path,
-    );
-    const projectedTsconfig = projectedTsconfigs.get(projectedPath.path);
-
-    if (
-      projectedContentsForPath === undefined &&
-      (projectedExports !== undefined ||
-        projectedDependencies !== undefined ||
-        projectedScripts !== undefined)
-    ) {
-      const packageJsonMergePlan = planPackageJsonMerge({
-        path: projectedPath.path,
-        projectedExports: projectedExports ?? [],
-        projectedDependencies: projectedDependencies ?? [],
-        projectedScripts: projectedScripts ?? [],
-        snapshotPath: snapshotPaths.get(projectedPath.path),
-      });
-
-      fileClassifications.set(
-        projectedPath.path,
-        packageJsonMergePlan.classification,
-      );
-      mergeRequirements.push(...packageJsonMergePlan.mergeRequirements);
-      warnings.push(...packageJsonMergePlan.warnings);
-      continue;
-    }
-
-    if (
-      projectedContentsForPath === undefined &&
-      projectedBarrelExportsForPath !== undefined
-    ) {
-      const barrelMergePlan = planBarrelMerge({
-        path: projectedPath.path,
-        projectedBarrelExports: projectedBarrelExportsForPath,
-        snapshotPath: snapshotPaths.get(projectedPath.path),
-      });
-
-      fileClassifications.set(
-        projectedPath.path,
-        barrelMergePlan.classification,
-      );
-      mergeRequirements.push(...barrelMergePlan.mergeRequirements);
-      warnings.push(...barrelMergePlan.warnings);
-      continue;
-    }
-
-    if (
-      projectedContentsForPath === undefined &&
-      projectedTsconfig !== undefined
-    ) {
-      const tsconfigMergePlan = planTsconfigMerge({
-        path: projectedPath.path,
-        projectedTsconfig,
-        snapshotPath: snapshotPaths.get(projectedPath.path),
-      });
-
-      fileClassifications.set(
-        projectedPath.path,
-        tsconfigMergePlan.classification,
-      );
-      mergeRequirements.push(...tsconfigMergePlan.mergeRequirements);
-      warnings.push(...tsconfigMergePlan.warnings);
-      continue;
-    }
-
-    if (projectedContentsForPath === undefined) {
-      fileClassifications.set(projectedPath.path, "create");
-      continue;
-    }
-
-    const snapshotPath = snapshotPaths.get(projectedPath.path);
-
-    if (snapshotPath === undefined || snapshotPath._tag === "missing") {
-      fileClassifications.set(projectedPath.path, "create");
-      continue;
-    }
-
-    if (snapshotPath._tag !== "file") {
-      throw new PlanFailure({
-        reason: "repoRootNotEmpty",
-        message: `Expected ${projectedPath.path} to be a file during planning.`,
-      });
-    }
-
-    fileClassifications.set(
-      projectedPath.path,
-      snapshotPath.contents === projectedContentsForPath
-        ? "unchanged"
-        : "modify",
-    );
-  }
-
-  const entries: Array<PlanModel["entries"][number]> = [
-    ...directoryPaths.map((path) => ({
-      _tag: "directory" as const,
-      path,
-      causes:
-        directoryCauseMap.get(path) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    })),
-    ...projectedPaths.map((projectedPath) => ({
-      _tag: "file" as const,
-      path: projectedPath.path,
-      classification: fileClassifications.get(projectedPath.path) ?? "create",
-      causes: projectedPath.causes,
-    })),
-  ].sort((left, right) => sortPaths(left.path, right.path));
-
-  type MutableTreeDirectoryNode = {
-    _tag: "directory";
-    name: string;
-    path: string;
-    causes: readonly [PlanCause, ...Array<PlanCause>];
-    children: Array<PlanTreeNode>;
-  };
-
-  const root: MutableTreeDirectoryNode = {
-    _tag: "directory",
-    name: ".",
-    path: ".",
-    causes: rootCauses,
-    children: [],
-  };
-  const directories = new Map<string, MutableTreeDirectoryNode>([[".", root]]);
-
-  for (const path of directoryPaths) {
-    const parentPath = path.includes("/")
-      ? path.slice(0, path.lastIndexOf("/"))
-      : ".";
-    const node: MutableTreeDirectoryNode = {
-      _tag: "directory",
-      name: nameFromPath(path),
-      path,
-      causes:
-        directoryCauseMap.get(path) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-      children: [],
-    };
-
-    directories.set(path, node);
-    directories.get(parentPath)?.children.push(node);
-  }
-
-  for (const projectedPath of projectedPaths) {
-    const parentPath = projectedPath.path.includes("/")
-      ? projectedPath.path.slice(0, projectedPath.path.lastIndexOf("/"))
-      : ".";
-
-    directories.get(parentPath)?.children.push({
-      _tag: "file",
-      name: nameFromPath(projectedPath.path),
-      path: projectedPath.path,
-      classification: (() => {
-        const entry = entries.find(
-          (planEntry) =>
-            planEntry._tag === "file" && planEntry.path === projectedPath.path,
-        );
-
-        return entry?._tag === "file" ? entry.classification : "create";
-      })(),
-      causes: fileCauseMap.get(projectedPath.path) ?? projectedPath.causes,
-    });
-  }
-
-  for (const directory of directories.values()) {
-    directory.children.sort((left, right) => {
-      if (left._tag !== right._tag) {
-        return left._tag === "directory" ? -1 : 1;
-      }
-
-      return left.name.localeCompare(right.name);
-    });
-  }
-
-  return {
-    entries,
-    tree: root,
-    mergeRequirements,
-    warnings,
-  } satisfies PlanModel;
 };
