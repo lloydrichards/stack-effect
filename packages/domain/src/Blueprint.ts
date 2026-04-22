@@ -107,6 +107,9 @@ export const BlueprintNodeReference = Schema.Union([
     moduleId: TargetModuleId,
   }),
 ]);
+export type BlueprintNodeReference = Schema.Schema.Type<
+  typeof BlueprintNodeReference
+>;
 
 export const BlueprintCause = Schema.Union([
   Schema.TaggedStruct("selection", {
@@ -116,26 +119,31 @@ export const BlueprintCause = Schema.Union([
     edgeId: Schema.NonEmptyString,
   }),
 ]);
+export type BlueprintCause = Schema.Schema.Type<typeof BlueprintCause>;
 
 export const BlueprintStatus = Schema.Literals(["selected", "implied"]);
+export type BlueprintStatus = Schema.Schema.Type<typeof BlueprintStatus>;
 
 export const TargetComposition = Schema.Union([
   Schema.TaggedStruct("package", {
     publicEntrypoint: PackagePublicEntrypoint,
   }),
 ]);
+export type TargetComposition = Schema.Schema.Type<typeof TargetComposition>;
 
 export const ResolvedTargetModule = Schema.Struct({
   moduleId: TargetModuleId,
   status: BlueprintStatus,
   causes: Schema.NonEmptyArray(BlueprintCause),
 });
+export type ResolvedTargetModule = Schema.Schema.Type<typeof ResolvedTargetModule>;
 
 export const ResolvedRepoModule = Schema.Struct({
   moduleId: RepoModuleId,
   status: BlueprintStatus,
   causes: Schema.NonEmptyArray(BlueprintCause),
 });
+export type ResolvedRepoModule = Schema.Schema.Type<typeof ResolvedRepoModule>;
 
 export const ResolvedTarget = Schema.Struct({
   id: Schema.NonEmptyString,
@@ -145,6 +153,7 @@ export const ResolvedTarget = Schema.Struct({
   targetModules: Schema.Array(ResolvedTargetModule),
   composition: Schema.optional(TargetComposition),
 });
+export type ResolvedTarget = Schema.Schema.Type<typeof ResolvedTarget>;
 
 export const BlueprintEdgeReason = Schema.Literals([
   "required-owning-target",
@@ -152,6 +161,7 @@ export const BlueprintEdgeReason = Schema.Literals([
   "required-canonical-target",
   "required-target-module",
 ]);
+export type BlueprintEdgeReason = Schema.Schema.Type<typeof BlueprintEdgeReason>;
 
 export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
   id: Schema.NonEmptyString,
@@ -159,6 +169,9 @@ export const BlueprintDependencyEdge = Schema.TaggedStruct("depends-on", {
   to: BlueprintNodeReference,
   reason: BlueprintEdgeReason,
 });
+export type BlueprintDependencyEdge = Schema.Schema.Type<
+  typeof BlueprintDependencyEdge
+>;
 
 export const BlueprintWarning = Schema.Union([
   Schema.TaggedStruct("RedundantSelectionNormalized", {
@@ -166,6 +179,7 @@ export const BlueprintWarning = Schema.Union([
     edgeIds: Schema.NonEmptyArray(Schema.NonEmptyString),
   }),
 ]);
+export type BlueprintWarning = Schema.Schema.Type<typeof BlueprintWarning>;
 
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   nodes: Schema.Array(ResolvedTarget),

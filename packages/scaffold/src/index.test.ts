@@ -1,10 +1,7 @@
 import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import {
-  Plan,
-  type Plan as PlanModel,
-} from "@repo/domain/Plan";
+import { Plan, type Plan as PlanModel } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
@@ -76,7 +73,7 @@ describe("@repo/scaffold", () => {
     };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
 
     expect(typedPlan).toEqual(plan);
@@ -205,13 +202,13 @@ describe("@repo/scaffold", () => {
     };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
     const httpApiServerCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
       moduleId: "http-api-server",
-      via: "app/server:http-api-server",
+      via: "apps/server-api:http-api-server",
     };
 
     const appsNode = plan.tree.children.find(
@@ -220,19 +217,23 @@ describe("@repo/scaffold", () => {
     const serverNode =
       appsNode?._tag === "directory"
         ? appsNode.children.find(
-            (child) => child._tag === "directory" && child.path === "apps/server",
+            (child) =>
+              child._tag === "directory" && child.path === "apps/server",
           )
         : undefined;
     const srcNode =
       serverNode?._tag === "directory"
         ? serverNode.children.find(
-            (child) => child._tag === "directory" && child.path === "apps/server/src",
+            (child) =>
+              child._tag === "directory" && child.path === "apps/server/src",
           )
         : undefined;
     const apiNode =
       srcNode?._tag === "directory"
         ? srcNode.children.find(
-            (child) => child._tag === "directory" && child.path === "apps/server/src/Api",
+            (child) =>
+              child._tag === "directory" &&
+              child.path === "apps/server/src/Api",
           )
         : undefined;
 
@@ -290,7 +291,9 @@ describe("@repo/scaffold", () => {
     expect(plan.tree._tag).toBe("directory");
     expect(plan.tree.name).toBe(".");
     expect(plan.tree.path).toBe(".");
-    expect(plan.tree.causes).toEqual(expect.arrayContaining([rootBootstrapCause]));
+    expect(plan.tree.causes).toEqual(
+      expect.arrayContaining([rootBootstrapCause]),
+    );
     expect(appsNode).toEqual(
       expect.objectContaining({
         _tag: "directory",
@@ -347,7 +350,10 @@ describe("@repo/scaffold", () => {
             name: "index.ts",
             path: "apps/server/src/index.ts",
             classification: "create",
-            causes: expect.arrayContaining([serverTargetCause, httpApiServerCause]),
+            causes: expect.arrayContaining([
+              serverTargetCause,
+              httpApiServerCause,
+            ]),
           }),
         ]),
       }),
@@ -389,19 +395,25 @@ describe("@repo/scaffold", () => {
     };
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     const packagesNode = plan.tree.children.find(
@@ -417,7 +429,9 @@ describe("@repo/scaffold", () => {
     const srcNode =
       domainNode?._tag === "directory"
         ? domainNode.children.find(
-            (child) => child._tag === "directory" && child.path === "packages/domain/src",
+            (child) =>
+              child._tag === "directory" &&
+              child.path === "packages/domain/src",
           )
         : undefined;
 
@@ -428,7 +442,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.entries).toContainEqual({
@@ -437,13 +451,16 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.entries).toContainEqual({
       _tag: "directory",
       path: "packages/domain/src",
-      causes: [impliedDomainApiCause],
+      causes: expect.arrayContaining([
+        impliedDomainApiCause,
+        targetCompositionCause,
+      ]),
     });
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -452,7 +469,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.entries).toContainEqual({
@@ -465,7 +482,7 @@ describe("@repo/scaffold", () => {
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "create",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -479,7 +496,9 @@ describe("@repo/scaffold", () => {
     expect(plan.tree._tag).toBe("directory");
     expect(plan.tree.name).toBe(".");
     expect(plan.tree.path).toBe(".");
-    expect(plan.tree.causes).toEqual(expect.arrayContaining([rootBootstrapCause]));
+    expect(plan.tree.causes).toEqual(
+      expect.arrayContaining([rootBootstrapCause]),
+    );
     expect(packagesNode).toEqual(
       expect.objectContaining({
         _tag: "directory",
@@ -509,7 +528,10 @@ describe("@repo/scaffold", () => {
         _tag: "directory",
         name: "src",
         path: "packages/domain/src",
-        causes: [impliedDomainApiCause],
+        causes: expect.arrayContaining([
+          impliedDomainApiCause,
+          targetCompositionCause,
+        ]),
         children: expect.arrayContaining([
           expect.objectContaining({
             _tag: "file",
@@ -523,7 +545,7 @@ describe("@repo/scaffold", () => {
             name: "index.ts",
             path: "packages/domain/src/index.ts",
             classification: "create",
-            causes: [impliedDomainApiCause],
+            causes: [targetCompositionCause],
           }),
         ]),
       }),
@@ -539,7 +561,7 @@ describe("@repo/scaffold", () => {
             causes: expect.arrayContaining([
               impliedCanonicalDomainTargetCause,
               impliedOwningDomainTargetCause,
-              impliedDomainApiCause,
+              targetCompositionCause,
             ]),
           }),
           expect.objectContaining({
@@ -591,16 +613,22 @@ describe("@repo/scaffold", () => {
 
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(plan.entries).toContainEqual({
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "modify",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
     expect(plan.warnings).toStrictEqual([]);
@@ -638,16 +666,22 @@ describe("@repo/scaffold", () => {
 
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(plan.entries).toContainEqual({
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "unchanged",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
     expect(plan.warnings).toStrictEqual([]);
@@ -685,22 +719,28 @@ describe("@repo/scaffold", () => {
 
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(plan.entries).toContainEqual({
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "needsMergeStrategy",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.mergeRequirements).toContainEqual({
       _tag: "barrelExport",
       path: "packages/domain/src/index.ts",
       exportPath: "./Api",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.warnings).toContainEqual({
       _tag: "mergeStrategyRequired",
@@ -710,7 +750,7 @@ describe("@repo/scaffold", () => {
         _tag: "barrelExport",
         path: "packages/domain/src/index.ts",
         exportPath: "./Api",
-        causes: [impliedDomainApiCause],
+        causes: [targetCompositionCause],
       },
     });
   });
@@ -759,19 +799,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -780,7 +826,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -837,19 +883,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -858,7 +910,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -911,19 +963,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -932,14 +990,14 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toContainEqual({
       _tag: "packageJsonExports",
       path: "packages/domain/package.json",
       exportKey: "./Api",
-      causes: [impliedDomainApiCause],
+          causes: [targetCompositionCause],
     });
     expect(plan.warnings).toContainEqual({
       _tag: "mergeStrategyRequired",
@@ -949,13 +1007,15 @@ describe("@repo/scaffold", () => {
         _tag: "packageJsonExports",
         path: "packages/domain/package.json",
         exportKey: "./Api",
-        causes: [impliedDomainApiCause],
+        causes: [targetCompositionCause],
       },
     });
   });
 
   it("creates package dependencies through the public entrypoint when package.json is absent", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-domain-dependencies-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-domain-dependencies-"),
+    );
 
     const plan = await Effect.runPromise(
       Effect.gen(function* () {
@@ -981,19 +1041,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -1002,7 +1068,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -1010,7 +1076,9 @@ describe("@repo/scaffold", () => {
   });
 
   it("merges recognized package dependency additions through the public entrypoint", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-domain-dependencies-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-domain-dependencies-"),
+    );
     await mkdir(join(repoRoot, "packages/domain"), { recursive: true });
     await writeFile(
       join(repoRoot, "packages/domain/package.json"),
@@ -1053,19 +1121,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -1074,7 +1148,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -1082,7 +1156,9 @@ describe("@repo/scaffold", () => {
   });
 
   it("treats existing matching package dependencies as unchanged through the public entrypoint", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-domain-dependencies-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-domain-dependencies-"),
+    );
     await mkdir(join(repoRoot, "packages/domain"), { recursive: true });
     await writeFile(
       join(repoRoot, "packages/domain/package.json"),
@@ -1131,19 +1207,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -1152,7 +1234,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -1160,7 +1242,9 @@ describe("@repo/scaffold", () => {
   });
 
   it("retains dependency section information for incompatible package dependencies through the public entrypoint", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-domain-dependencies-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-domain-dependencies-"),
+    );
     await mkdir(join(repoRoot, "packages/domain"), { recursive: true });
     await writeFile(
       join(repoRoot, "packages/domain/package.json"),
@@ -1207,12 +1291,12 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     expect(plan.entries).toContainEqual({
@@ -1230,14 +1314,20 @@ describe("@repo/scaffold", () => {
         path: "packages/domain/package.json",
         section: "dependencies",
         dependencyName: "effect",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
       {
         _tag: "packageJsonDependencies",
         path: "packages/domain/package.json",
         section: "devDependencies",
         dependencyName: "@repo/config-typescript",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
     ]);
     expect(plan.warnings).toStrictEqual([
@@ -1250,7 +1340,10 @@ describe("@repo/scaffold", () => {
           path: "packages/domain/package.json",
           section: "dependencies",
           dependencyName: "effect",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
       {
@@ -1262,14 +1355,19 @@ describe("@repo/scaffold", () => {
           path: "packages/domain/package.json",
           section: "devDependencies",
           dependencyName: "@repo/config-typescript",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
     ]);
   });
 
   it("defers unsupported package dependency shapes to merge requirements through the public entrypoint", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-domain-dependencies-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-domain-dependencies-"),
+    );
     await mkdir(join(repoRoot, "packages/domain"), { recursive: true });
     await writeFile(
       join(repoRoot, "packages/domain/package.json"),
@@ -1308,13 +1406,19 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(plan.entries).toContainEqual({
@@ -1324,6 +1428,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([
@@ -1332,7 +1437,10 @@ describe("@repo/scaffold", () => {
         path: "packages/domain/package.json",
         section: "dependencies",
         dependencyName: "effect",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
     ]);
     expect(plan.warnings).toStrictEqual([
@@ -1345,7 +1453,10 @@ describe("@repo/scaffold", () => {
           path: "packages/domain/package.json",
           section: "dependencies",
           dependencyName: "effect",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
     ]);
@@ -1389,7 +1500,7 @@ describe("@repo/scaffold", () => {
 
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
 
     expect(plan.entries).toContainEqual({
@@ -1452,19 +1563,25 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(plan.entries).toContainEqual({
@@ -1474,7 +1591,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.mergeRequirements).toStrictEqual([]);
@@ -1527,12 +1644,12 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
 
@@ -1550,13 +1667,19 @@ describe("@repo/scaffold", () => {
         _tag: "packageJsonScripts",
         path: "packages/domain/package.json",
         scriptName: "clean",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
       {
         _tag: "packageJsonScripts",
         path: "packages/domain/package.json",
         scriptName: "type-check",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
     ]);
     expect(plan.warnings).toStrictEqual([
@@ -1568,7 +1691,10 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonScripts",
           path: "packages/domain/package.json",
           scriptName: "clean",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
       {
@@ -1579,7 +1705,10 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonScripts",
           path: "packages/domain/package.json",
           scriptName: "type-check",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
     ]);
@@ -1612,17 +1741,17 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
 
     expect(plan.entries).toContainEqual(
@@ -1647,7 +1776,9 @@ describe("@repo/scaffold", () => {
   });
 
   it("treats existing matching scaffold tsconfig files as unchanged through the public entrypoint", async () => {
-    const repoRoot = await mkdtemp(join(tmpdir(), "scaffold-tsconfig-unchanged-"));
+    const repoRoot = await mkdtemp(
+      join(tmpdir(), "scaffold-tsconfig-unchanged-"),
+    );
     await mkdir(join(repoRoot, "apps/server"), { recursive: true });
     await mkdir(join(repoRoot, "packages/domain"), { recursive: true });
     await writeFile(
@@ -1683,17 +1814,17 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
 
     expect(plan.entries).toContainEqual(
@@ -1754,17 +1885,17 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
 
     expect(plan.entries).toContainEqual(
@@ -1886,29 +2017,35 @@ describe("@repo/scaffold", () => {
 
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
     };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
+    };
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
     const httpApiServerCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
       moduleId: "http-api-server",
-      via: "app/server:http-api-server",
+      via: "apps/server-api:http-api-server",
     };
 
     expect(plan.entries).toContainEqual(
@@ -1934,7 +2071,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.entries).toContainEqual({
@@ -1947,14 +2084,14 @@ describe("@repo/scaffold", () => {
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "unchanged",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.mergeRequirements).toStrictEqual([
       {
         _tag: "packageJsonExports",
         path: "packages/domain/package.json",
         exportKey: "./Api",
-        causes: [impliedDomainApiCause],
+        causes: [targetCompositionCause],
       },
     ]);
     expect(plan.warnings).toStrictEqual([
@@ -1966,7 +2103,7 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonExports",
           path: "packages/domain/package.json",
           exportKey: "./Api",
-          causes: [impliedDomainApiCause],
+          causes: [targetCompositionCause],
         },
       },
     ]);
@@ -2045,29 +2182,35 @@ describe("@repo/scaffold", () => {
     const typedPlan = decodePlan(plan);
     const serverTargetCause = {
       _tag: "selectedTarget" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
     };
     const httpApiServerCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "app/server",
+      targetId: "apps/server-api",
       moduleId: "http-api-server",
-      via: "app/server:http-api-server",
+      via: "apps/server-api:http-api-server",
     };
     const impliedCanonicalDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-canonical-target=>target-module:apps/server-api:http-api-server=>target:packages/domain",
     };
     const impliedOwningDomainTargetCause = {
       _tag: "impliedTarget" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       via: "required-owning-target=>target-module:packages/domain:domain-api=>target:packages/domain",
     };
     const impliedDomainApiCause = {
       _tag: "impliedTargetModule" as const,
-      targetId: "package/domain",
+      targetId: "packages/domain",
       moduleId: "domain-api",
       via: "required-target-module=>target-module:apps/server-api:http-api-server=>target-module:packages/domain:domain-api",
+    };
+    const targetCompositionCause = {
+      _tag: "targetComposition" as const,
+      targetId: "packages/domain",
+      slot: "public-entrypoint",
+      value: "./Api",
     };
 
     expect(typedPlan).toEqual(plan);
@@ -2150,7 +2293,7 @@ describe("@repo/scaffold", () => {
       causes: expect.arrayContaining([
         impliedCanonicalDomainTargetCause,
         impliedOwningDomainTargetCause,
-        impliedDomainApiCause,
+        targetCompositionCause,
       ]),
     });
     expect(plan.entries).toContainEqual({
@@ -2163,7 +2306,7 @@ describe("@repo/scaffold", () => {
       _tag: "file",
       path: "packages/domain/src/index.ts",
       classification: "unchanged",
-      causes: [impliedDomainApiCause],
+      causes: [targetCompositionCause],
     });
     expect(plan.entries).toContainEqual({
       _tag: "file",
@@ -2179,19 +2322,25 @@ describe("@repo/scaffold", () => {
         _tag: "packageJsonExports",
         path: "packages/domain/package.json",
         exportKey: "./Api",
-        causes: [impliedDomainApiCause],
+        causes: [targetCompositionCause],
       },
       {
         _tag: "packageJsonScripts",
         path: "packages/domain/package.json",
         scriptName: "clean",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
       {
         _tag: "packageJsonScripts",
         path: "packages/domain/package.json",
         scriptName: "type-check",
-        causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+        causes: [
+          impliedCanonicalDomainTargetCause,
+          impliedOwningDomainTargetCause,
+        ],
       },
     ]);
     expect(plan.warnings).toStrictEqual([
@@ -2203,7 +2352,7 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonExports",
           path: "packages/domain/package.json",
           exportKey: "./Api",
-          causes: [impliedDomainApiCause],
+          causes: [targetCompositionCause],
         },
       },
       {
@@ -2214,7 +2363,10 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonScripts",
           path: "packages/domain/package.json",
           scriptName: "clean",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
       {
@@ -2225,7 +2377,10 @@ describe("@repo/scaffold", () => {
           _tag: "packageJsonScripts",
           path: "packages/domain/package.json",
           scriptName: "type-check",
-          causes: [impliedCanonicalDomainTargetCause, impliedOwningDomainTargetCause],
+          causes: [
+            impliedCanonicalDomainTargetCause,
+            impliedOwningDomainTargetCause,
+          ],
         },
       },
     ]);
@@ -2477,7 +2632,7 @@ describe("@repo/scaffold", () => {
         }).pipe(Effect.provide(BlueprintService.layer)),
       ),
     ).rejects.toMatchObject({
-      _tag: "PlanBuildError",
+      _tag: "PlanFailure",
       reason: "repoRootNotEmpty",
     } satisfies { _tag: string; reason: string });
   });

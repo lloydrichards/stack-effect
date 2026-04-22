@@ -1,3 +1,10 @@
+import {
+  type BlueprintCause,
+  type ResolvedRepoModule,
+  type ResolvedTarget,
+  type ResolvedTargetModule,
+  type TargetComposition,
+} from "./Blueprint";
 import { Schema } from "effect";
 
 export const PlanEntryClassification = Schema.Literals([
@@ -33,6 +40,34 @@ export const PlanCause = Schema.Union([
   }),
 ]);
 export type PlanCause = Schema.Schema.Type<typeof PlanCause>;
+
+export const RepoSnapshotPath = Schema.Union([
+  Schema.TaggedStruct("missing", {
+    path: Schema.String,
+  }),
+  Schema.TaggedStruct("directory", {
+    path: Schema.String,
+  }),
+  Schema.TaggedStruct("file", {
+    path: Schema.String,
+    contents: Schema.String,
+  }),
+]);
+export type RepoSnapshotPath = Schema.Schema.Type<typeof RepoSnapshotPath>;
+
+export const RepoSnapshot = Schema.Struct({
+  rootEntries: Schema.Array(Schema.String),
+  paths: Schema.Array(RepoSnapshotPath),
+});
+export type RepoSnapshot = Schema.Schema.Type<typeof RepoSnapshot>;
+
+export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
+  "PlanFailure",
+  {
+    reason: Schema.Literal("repoRootNotEmpty"),
+    message: Schema.String,
+  },
+) {}
 
 export const MergeRequirement = Schema.Union([
   Schema.TaggedStruct("packageJsonExports", {
@@ -139,3 +174,101 @@ export const Plan = Schema.Struct({
   warnings: Schema.Array(PlanWarning),
 });
 export type Plan = Schema.Schema.Type<typeof Plan>;
+
+const sortPlanCauses = (
+  causes: ReadonlyArray<PlanCause>,
+): [PlanCause, ...Array<PlanCause>] =>
+  [...causes].sort((left, right) =>
+    JSON.stringify(left).localeCompare(JSON.stringify(right)),
+  ) as [PlanCause, ...Array<PlanCause>];
+
+export const mergePlanCauses = (
+  first: ReadonlyArray<PlanCause>,
+  second: ReadonlyArray<PlanCause>,
+): [PlanCause, ...Array<PlanCause>] => {
+  const merged = new Map<string, PlanCause>();
+
+  for (const cause of [...first, ...second]) {
+    merged.set(JSON.stringify(cause), cause);
+  }
+
+  return sortPlanCauses([...merged.values()]);
+};
+
+export const toPlanTargetCauses = ({
+  target,
+}: {
+  target: ResolvedTarget;
+}): [PlanCause, ...Array<PlanCause>] =>
+  sortPlanCauses(
+    target.causes.map((cause) => {
+      switch (cause._tag) {
+        case "selection":
+          return {
+            _tag: "selectedTarget",
+            targetId: target.id,
+          } satisfies PlanCause;
+        case "dependency":
+          return {
+            _tag: "impliedTarget",
+            targetId: target.id,
+            via: cause.edgeId,
+          } satisfies PlanCause;
+      }
+    }),
+  );
+
+export const toPlanTargetModuleCauses = ({
+  targetId,
+  targetModule,
+}: {
+  targetId: string;
+  targetModule: ResolvedTargetModule;
+}): [PlanCause, ...Array<PlanCause>] =>
+  sortPlanCauses(
+    targetModule.causes.map((cause) => ({
+      _tag: "impliedTargetModule",
+      targetId,
+      moduleId: targetModule.moduleId,
+      via:
+        cause._tag === "dependency"
+          ? cause.edgeId
+          : `${targetId}:${targetModule.moduleId}`,
+    })),
+  );
+
+export const toPlanRepoModuleCauses = ({
+  repoModule,
+}: {
+  repoModule: ResolvedRepoModule;
+}): [PlanCause, ...Array<PlanCause>] =>
+  sortPlanCauses(
+    repoModule.causes.map(() => ({
+      _tag: "selectedRepoModule",
+      moduleId: repoModule.moduleId,
+    })),
+  );
+
+export const toPlanTargetCompositionCauses = ({
+  target,
+  composition,
+}: {
+  target: ResolvedTarget;
+  composition: TargetComposition;
+}): [PlanCause, ...Array<PlanCause>] => {
+  switch (composition._tag) {
+    case "package":
+      return [
+        {
+          _tag: "targetComposition",
+          targetId: target.id,
+          slot: "public-entrypoint",
+          value: composition.publicEntrypoint,
+        },
+      ];
+  }
+};
+
+export const isBlueprintCauseSelected = (
+  cause: BlueprintCause,
+): boolean => cause._tag === "selection";

@@ -43,7 +43,7 @@ describe("@repo/domain Plan", () => {
         {
           _tag: "directory",
           path: "packages/domain",
-          causes: [{ _tag: "selectedTarget", targetId: "package/domain" }],
+          causes: [{ _tag: "selectedTarget", targetId: "packages/domain" }],
         },
         {
           _tag: "file",
@@ -52,9 +52,9 @@ describe("@repo/domain Plan", () => {
           causes: [
             {
               _tag: "impliedTargetModule",
-              targetId: "package/domain",
+              targetId: "packages/domain",
               moduleId: "domain-api",
-              via: "app/server:http-api-server",
+              via: "apps/server-api:http-api-server",
             },
           ],
         },
@@ -69,14 +69,14 @@ describe("@repo/domain Plan", () => {
             _tag: "directory",
             name: "packages",
             path: "packages",
-            causes: [{ _tag: "selectedTarget", targetId: "package/domain" }],
+            causes: [{ _tag: "selectedTarget", targetId: "packages/domain" }],
             children: [
               {
                 _tag: "directory",
                 name: "domain",
                 path: "packages/domain",
                 causes: [
-                  { _tag: "selectedTarget", targetId: "package/domain" },
+                  { _tag: "selectedTarget", targetId: "packages/domain" },
                 ],
                 children: [
                   {
@@ -87,7 +87,7 @@ describe("@repo/domain Plan", () => {
                     causes: [
                       {
                         _tag: "targetComposition",
-                        targetId: "package/domain",
+                        targetId: "packages/domain",
                         slot: "public-entrypoint",
                         value: "./Api",
                       },
@@ -101,9 +101,9 @@ describe("@repo/domain Plan", () => {
                     causes: [
                       {
                         _tag: "impliedTargetModule",
-                        targetId: "package/domain",
+                        targetId: "packages/domain",
                         moduleId: "domain-api",
-                        via: "app/server:http-api-server",
+                        via: "apps/server-api:http-api-server",
                       },
                     ],
                   },
@@ -121,7 +121,7 @@ describe("@repo/domain Plan", () => {
           causes: [
             {
               _tag: "targetComposition",
-              targetId: "package/domain",
+              targetId: "packages/domain",
               slot: "public-entrypoint",
               value: "./Api",
             },
@@ -140,7 +140,7 @@ describe("@repo/domain Plan", () => {
             causes: [
               {
                 _tag: "targetComposition",
-                targetId: "package/domain",
+                targetId: "packages/domain",
                 slot: "public-entrypoint",
                 value: "./Api",
               },
@@ -177,9 +177,9 @@ describe("@repo/domain Plan", () => {
       causes: [
         {
           _tag: "impliedTargetModule",
-          targetId: "package/domain",
+          targetId: "packages/domain",
           moduleId: "domain-api",
-          via: "app/server:http-api-server",
+          via: "apps/server-api:http-api-server",
         },
       ],
     });
