@@ -2,22 +2,13 @@ import {
   Blueprint,
   type BlueprintCause,
   type BlueprintDependencyEdge,
-  type BlueprintError,
+  BlueprintFailure,
   type BlueprintNodeReference,
   type BlueprintWarning,
-  ConceptualTargetCollision,
-  InvalidRepoOption,
-  InvalidTargetModuleTarget,
-  InvalidTargetOption,
-  ModuleGatedTargetOption,
   type ResolvedRepoModule,
   type ResolvedTarget,
   type ResolvedTargetModule,
   type TargetComposition,
-  UnknownRepoModule,
-  UnknownTargetKind,
-  UnknownTargetModule,
-  UnsupportedTargetModule,
 } from "@repo/domain/Blueprint";
 import type {
   PackagePublicEntrypoint,
@@ -54,7 +45,6 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         const repoModules = new Map<string, typeof ResolvedRepoModule.Type>();
         const edges = new Map<string, typeof BlueprintDependencyEdge.Type>();
         const warnings = new Map<string, typeof BlueprintWarning.Type>();
-        const conceptualPaths = new Map<string, string>();
 
         const addWarning = (warning: typeof BlueprintWarning.Type) => {
           warnings.set(toBlueprintWarningKey(warning), warning);
@@ -77,41 +67,13 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           return edge.id;
         };
 
-        const validateTarget = (targetIdentity: typeof TargetIdentity.Type) =>
-          Effect.gen(function* () {
-            const targetDefinition = targetCatalog.getTargetDefinition(
-              targetIdentity.kind,
-            );
-
-            if (targetDefinition === undefined) {
-              return yield* Effect.fail(
-                new UnknownTargetKind({
-                  kind: targetIdentity.kind,
-                }),
-              );
-            }
-
-            const targetId = toTargetId(targetIdentity);
-
-            const conceptualPath = getConceptualPath(targetIdentity);
-            const existingTargetId = conceptualPaths.get(conceptualPath);
-
-            if (
-              existingTargetId !== undefined &&
-              existingTargetId !== targetId
-            ) {
-              return yield* Effect.fail(
-                new ConceptualTargetCollision({
-                  path: conceptualPath,
-                  targetIds: [existingTargetId, targetId],
-                }),
-              );
-            }
-
-            conceptualPaths.set(conceptualPath, targetId);
+        const validateTarget = Effect.fn("BlueprintService.validateTarget")(
+          function* (targetIdentity: typeof TargetIdentity.Type) {
+            yield* targetCatalog.getTargetDefinition(targetIdentity.kind);
 
             return targetIdentity;
-          });
+          },
+        );
 
         const validateRepoOptions = () =>
           Effect.gen(function* () {
@@ -120,17 +82,9 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
             );
 
             for (const target of selection.targets) {
-              const targetDefinition = targetCatalog.getTargetDefinition(
+              const targetDefinition = yield* targetCatalog.getTargetDefinition(
                 target.identity.kind,
               );
-
-              if (targetDefinition === undefined) {
-                return yield* Effect.fail(
-                  new UnknownTargetKind({
-                    kind: target.identity.kind,
-                  }),
-                );
-              }
 
               for (const repoModuleId of targetDefinition.requiredRepoModules) {
                 conceptualRepoModules.add(repoModuleId);
@@ -142,8 +96,9 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
               !conceptualRepoModules.has("root-bootstrap")
             ) {
               return yield* Effect.fail(
-                new InvalidRepoOption({
-                  option: "runtime",
+                new BlueprintFailure({
+                  message: "Invalid repo option: runtime",
+                  cause: { option: "runtime" },
                 }),
               );
             }
@@ -153,14 +108,17 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
               !conceptualRepoModules.has("root-bootstrap")
             ) {
               return yield* Effect.fail(
-                new InvalidRepoOption({
-                  option: "linter",
+                new BlueprintFailure({
+                  message: "Invalid repo option: linter",
+                  cause: { option: "linter" },
                 }),
               );
             }
           });
 
-        const validateTargetOptions = ({
+        const validateTargetOptions = Effect.fn(
+          "BlueprintService.validateTargetOptions",
+        )(function* ({
           targetId,
           targetIdentity,
           selectedModuleIds,
@@ -170,53 +128,97 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           readonly targetIdentity: typeof TargetIdentity.Type;
           readonly selectedModuleIds: ReadonlySet<typeof TargetModuleId.Type>;
           readonly options: (typeof Selection.Type.targets)[number]["options"];
-        }) =>
-          Effect.gen(function* () {
-            if (options.httpApiStyle !== undefined) {
-              if (targetIdentity.kind !== "server") {
-                return yield* Effect.fail(
-                  new InvalidTargetOption({
+        }) {
+          if (options.httpApiStyle !== undefined) {
+            if (targetIdentity.kind !== "server") {
+              return yield* Effect.fail(
+                new BlueprintFailure({
+                  message: `Invalid target option: ${targetId} cannot use httpApiStyle`,
+                  cause: {
                     targetId,
                     option: "httpApiStyle",
-                  }),
-                );
-              }
+                  },
+                }),
+              );
+            }
 
-              if (!selectedModuleIds.has("http-api-server")) {
-                return yield* Effect.fail(
-                  new ModuleGatedTargetOption({
+            if (!selectedModuleIds.has("http-api-server")) {
+              return yield* Effect.fail(
+                new BlueprintFailure({
+                  message:
+                    "Module gated target option: httpApiStyle requires module http-api-server",
+                  cause: {
                     targetId,
                     option: "httpApiStyle",
                     requiredModuleId: "http-api-server",
-                  }),
-                );
-              }
+                  },
+                }),
+              );
             }
+          }
 
-            if (options.domainApiSurface !== undefined) {
-              if (
-                targetIdentity.kind !== "package" ||
-                targetIdentity.name !== "domain"
-              ) {
-                return yield* Effect.fail(
-                  new InvalidTargetOption({
+          if (options.domainApiSurface !== undefined) {
+            if (
+              targetIdentity.kind !== "package" ||
+              targetIdentity.name !== "domain"
+            ) {
+              return yield* Effect.fail(
+                new BlueprintFailure({
+                  message: `Invalid target option: ${targetId} cannot use domainApiSurface`,
+                  cause: {
                     targetId,
                     option: "domainApiSurface",
-                  }),
-                );
-              }
+                  },
+                }),
+              );
+            }
 
-              if (!selectedModuleIds.has("domain-api")) {
-                return yield* Effect.fail(
-                  new ModuleGatedTargetOption({
+            if (!selectedModuleIds.has("domain-api")) {
+              return yield* Effect.fail(
+                new BlueprintFailure({
+                  message:
+                    "Module gated target option: domainApiSurface requires module domain-api",
+                  cause: {
                     targetId,
                     option: "domainApiSurface",
                     requiredModuleId: "domain-api",
-                  }),
-                );
-              }
+                  },
+                }),
+              );
             }
-          });
+          }
+        });
+
+        const requireSupportedTargetModule = Effect.fn(
+          "BlueprintService.requireSupportedTargetModule",
+        )(function* ({
+          targetId,
+          targetIdentity,
+          moduleId,
+        }: {
+          readonly targetId: string;
+          readonly targetIdentity: typeof TargetIdentity.Type;
+          readonly moduleId: typeof TargetModuleId.Type;
+        }) {
+          const targetModuleDefinition =
+            yield* moduleCatalog.getTargetModuleDefinition(moduleId);
+
+          if (!targetModuleDefinition.isSupported(targetIdentity)) {
+            return yield* Effect.fail(
+              new BlueprintFailure({
+                message: `Unsupported target-module combination: ${targetId} requires module ${moduleId}`,
+                cause: {
+                  module: {
+                    targetId,
+                    moduleId,
+                  },
+                },
+              }),
+            );
+          }
+
+          return targetModuleDefinition;
+        });
 
         const upsertTarget = ({
           id,
@@ -306,84 +308,73 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           });
         };
 
-        const requireRepoModule = ({
+        const requireRepoModule = Effect.fn(
+          "BlueprintService.requireRepoModule",
+        )(function* ({
           moduleId,
           dependency,
         }: {
           readonly moduleId: typeof RepoModuleId.Type;
           readonly dependency: DependencyInput;
-        }) =>
-          Effect.gen(function* () {
-            if (moduleCatalog.getRepoModuleDefinition(moduleId) === undefined) {
-              return yield* Effect.fail(
-                new UnknownRepoModule({
-                  id: moduleId,
-                }),
-              );
-            }
+        }) {
+          yield* moduleCatalog.getRepoModuleDefinition(moduleId);
 
-            const edgeId = addDependencyEdge(
-              dependency.from,
-              repoModuleNode(moduleId),
-              dependency.reason,
-            );
+          const edgeId = addDependencyEdge(
+            dependency.from,
+            repoModuleNode(moduleId),
+            dependency.reason,
+          );
 
-            upsertRepoModule({
-              moduleId,
-              status: "implied",
-              causes: [dependencyCause(edgeId)],
-            });
+          upsertRepoModule({
+            moduleId,
+            status: "implied",
+            causes: [dependencyCause(edgeId)],
           });
+        });
 
-        const requireCanonicalTarget = ({
+        const requireCanonicalTarget = Effect.fn(
+          "BlueprintService.requireCanonicalTarget",
+        )(function* ({
           identity,
           dependency,
         }: {
           readonly identity: typeof TargetIdentity.Type;
           readonly dependency: DependencyInput;
-        }): Effect.Effect<string, typeof BlueprintError.Type> =>
-          Effect.gen(function* () {
-            const targetDefinition = targetCatalog.getTargetDefinition(
-              identity.kind,
-            );
+        }) {
+          const targetDefinition = yield* targetCatalog.getTargetDefinition(
+            identity.kind,
+          );
 
-            if (targetDefinition === undefined) {
-              return yield* Effect.fail(
-                new UnknownTargetKind({
-                  kind: identity.kind,
-                }),
-              );
-            }
+          const targetId = toTargetId(identity);
+          const edgeId = addDependencyEdge(
+            dependency.from,
+            targetNode(targetId),
+            dependency.reason,
+          );
 
-            const targetId = toTargetId(identity);
-            conceptualPaths.set(getConceptualPath(identity), targetId);
-            const edgeId = addDependencyEdge(
-              dependency.from,
-              targetNode(targetId),
-              dependency.reason,
-            );
-
-            upsertTarget({
-              id: targetId,
-              identity,
-              status: "implied",
-              causes: [dependencyCause(edgeId)],
-            });
-
-            for (const repoModuleId of targetDefinition.requiredRepoModules) {
-              yield* requireRepoModule({
-                moduleId: repoModuleId,
-                dependency: {
-                  from: targetNode(targetId),
-                  reason: "required-repo-module",
-                },
-              });
-            }
-
-            return targetId;
+          upsertTarget({
+            id: targetId,
+            identity,
+            status: "implied",
+            causes: [dependencyCause(edgeId)],
           });
 
-        const requireTargetModule = ({
+          for (const repoModuleId of targetDefinition.requiredRepoModules) {
+            yield* requireRepoModule({
+              moduleId: repoModuleId,
+              dependency: {
+                from: targetNode(targetId),
+                reason: "required-repo-module",
+              },
+            });
+          }
+
+          return targetId;
+        });
+
+        const requireTargetModule = Effect.fn(
+          "BlueprintService.requireTargetModule",
+        )(function* ({
           targetId,
           moduleId,
           dependency,
@@ -391,111 +382,82 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           readonly targetId: string;
           readonly moduleId: typeof TargetModuleId.Type;
           readonly dependency: DependencyInput;
-        }) =>
-          Effect.gen(function* () {
-            const targetState = targets.get(targetId);
+        }) {
+          const targetState = targets.get(targetId);
 
-            if (targetState === undefined) {
-              return yield* Effect.fail(
-                new InvalidTargetModuleTarget({
-                  module: {
-                    targetId,
-                    moduleId,
-                  },
-                }),
-              );
-            }
-
-            const targetModuleDefinition =
-              moduleCatalog.getTargetModuleDefinition(moduleId);
-
-            if (targetModuleDefinition === undefined) {
-              return yield* Effect.fail(
-                new UnknownTargetModule({
-                  id: moduleId,
-                }),
-              );
-            }
-
-            if (!targetModuleDefinition.isSupported(targetState.identity)) {
-              return yield* Effect.fail(
-                new UnsupportedTargetModule({
-                  module: {
-                    targetId,
-                    moduleId,
-                  },
-                }),
-              );
-            }
-
-            const edgeId = addDependencyEdge(
-              dependency.from,
-              targetModuleNode(targetId, moduleId),
-              dependency.reason,
+          if (targetState === undefined) {
+            return yield* Effect.die(
+              new Error(
+                `Invariant violation: target ${targetId} must exist before requiring module ${moduleId}`,
+              ),
             );
+          }
 
-            upsertTargetModule({
-              targetId,
-              moduleId,
-              status: "implied",
-              causes: [dependencyCause(edgeId)],
-            });
-
-            const owningTargetEdgeId = addDependencyEdge(
-              targetModuleNode(targetId, moduleId),
-              targetNode(targetId),
-              "required-owning-target",
-            );
-
-            upsertTarget({
-              id: targetId,
-              identity: targetState.identity,
-              status: "implied",
-              causes: [dependencyCause(owningTargetEdgeId)],
-            });
+          yield* requireSupportedTargetModule({
+            targetId,
+            targetIdentity: targetState.identity,
+            moduleId,
           });
+
+          const edgeId = addDependencyEdge(
+            dependency.from,
+            targetModuleNode(targetId, moduleId),
+            dependency.reason,
+          );
+
+          upsertTargetModule({
+            targetId,
+            moduleId,
+            status: "implied",
+            causes: [dependencyCause(edgeId)],
+          });
+
+          const owningTargetEdgeId = addDependencyEdge(
+            targetModuleNode(targetId, moduleId),
+            targetNode(targetId),
+            "required-owning-target",
+          );
+
+          upsertTarget({
+            id: targetId,
+            identity: targetState.identity,
+            status: "implied",
+            causes: [dependencyCause(owningTargetEdgeId)],
+          });
+        });
 
         yield* validateRepoOptions();
 
         for (const target of selection.targets) {
           const targetIdentity = yield* validateTarget(target.identity);
-          const normalizedTargetId = toTargetId(targetIdentity);
+          const targetId = toTargetId(targetIdentity);
           const selectedModuleIds = new Set(
             target.modules.map((module) => module.id),
           );
 
           yield* validateTargetOptions({
-            targetId: normalizedTargetId,
+            targetId,
             targetIdentity,
             selectedModuleIds,
             options: target.options,
           });
+
           upsertTarget({
-            id: normalizedTargetId,
+            id: targetId,
             identity: targetIdentity,
             status: "selected",
-            causes: selectedCause({
-              ...targetNode(normalizedTargetId),
-            }),
+            causes: selectedCause(targetNode(targetId)),
           });
 
-          const targetDefinition = targetCatalog.getTargetDefinition(
+          const targetDefinition = yield* targetCatalog.getTargetDefinition(
             targetIdentity.kind,
           );
-
-          if (targetDefinition === undefined) {
-            return yield* Effect.fail(
-              new UnknownTargetKind({
-                kind: targetIdentity.kind,
-              }),
-            );
-          }
 
           for (const repoModuleId of targetDefinition.requiredRepoModules) {
             yield* requireRepoModule({
               moduleId: repoModuleId,
               dependency: {
-                from: targetNode(normalizedTargetId),
+                from: targetNode(targetId),
                 reason: "required-repo-module",
               },
             });
@@ -503,69 +465,45 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         }
 
         for (const moduleId of selection.modules) {
-          if (moduleCatalog.getRepoModuleDefinition(moduleId) === undefined) {
-            return yield* Effect.fail(
-              new UnknownRepoModule({
-                id: moduleId,
-              }),
-            );
-          }
+          yield* moduleCatalog.getRepoModuleDefinition(moduleId);
 
           upsertRepoModule({
             moduleId,
             status: "selected",
-            causes: selectedCause({
-              ...repoModuleNode(moduleId),
-            }),
+            causes: selectedCause(repoModuleNode(moduleId)),
           });
         }
 
         for (const target of selection.targets) {
           const targetIdentity = yield* validateTarget(target.identity);
-          const normalizedTargetId = toTargetId(targetIdentity);
+          const targetId = toTargetId(targetIdentity);
 
           for (const targetModule of target.modules) {
-            const targetModuleDefinition =
-              moduleCatalog.getTargetModuleDefinition(targetModule.id);
-
-            if (targetModuleDefinition === undefined) {
-              return yield* Effect.fail(
-                new UnknownTargetModule({
-                  id: targetModule.id,
-                }),
-              );
-            }
-
-            if (!targetModuleDefinition.isSupported(targetIdentity)) {
-              return yield* Effect.fail(
-                new UnsupportedTargetModule({
-                  module: {
-                    targetId: normalizedTargetId,
-                    moduleId: targetModule.id,
-                  },
-                }),
-              );
-            }
+            const targetModuleDefinition = yield* requireSupportedTargetModule({
+              targetId,
+              targetIdentity,
+              moduleId: targetModule.id,
+            });
 
             const targetModuleReference = targetModuleNode(
-              normalizedTargetId,
+              targetId,
               targetModule.id,
             );
 
             const owningTargetEdgeId = addDependencyEdge(
               targetModuleReference,
-              targetNode(normalizedTargetId),
+              targetNode(targetId),
               "required-owning-target",
             );
 
             upsertTarget({
-              id: normalizedTargetId,
+              id: targetId,
               identity: targetIdentity,
               status: "implied",
               causes: [dependencyCause(owningTargetEdgeId)],
             });
             upsertTargetModule({
-              targetId: normalizedTargetId,
+              targetId,
               moduleId: targetModule.id,
               status: "selected",
               causes: selectedCause(targetModuleReference),
@@ -669,7 +607,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
   );
 }
 
-const getConceptualPath = ({ kind, name }: typeof TargetIdentity.Type) => {
+const toTargetId = ({ kind, name }: typeof TargetIdentity.Type): string => {
   switch (kind) {
     case "client":
     case "server":
@@ -679,9 +617,6 @@ const getConceptualPath = ({ kind, name }: typeof TargetIdentity.Type) => {
       return `packages/${name}`;
   }
 };
-
-const toTargetId = (identity: typeof TargetIdentity.Type): string =>
-  getConceptualPath(identity);
 
 const targetNode = (id: string): typeof BlueprintNodeReference.Type => ({
   _tag: "target",

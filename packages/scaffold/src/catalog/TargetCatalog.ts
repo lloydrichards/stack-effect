@@ -1,3 +1,4 @@
+import { CatalogNotFound } from "@repo/domain/Blueprint";
 import type {
   RepoModuleId,
   TargetIdentity,
@@ -59,7 +60,17 @@ export class TargetCatalog extends Context.Service<TargetCatalog>()(
   {
     make: Effect.succeed({
       getTargetDefinition: (kind: typeof TargetKind.Type) =>
-        targetDefinitions.get(kind),
+        Effect.fromNullishOr(targetDefinitions.get(kind)).pipe(
+          Effect.catch(() =>
+            Effect.fail(
+              new CatalogNotFound({
+                catalog: "target",
+                entity: "target-kind",
+                id: kind,
+              }),
+            ),
+          ),
+        ),
     }),
   },
 ) {

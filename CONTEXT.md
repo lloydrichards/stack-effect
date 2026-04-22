@@ -60,6 +60,22 @@ _Avoid_: generic exception, opaque runtime error
 A generic planning error used when callers only need a clear domain failure message rather than branching behavior.
 _Avoid_: over-specified variant, runtime exception
 
+**BlueprintFailure**:
+A generic blueprint-resolution error used until a caller needs to distinguish a specific recoverable blueprint failure.
+_Avoid_: premature variant explosion, opaque runtime exception
+
+**Blueprint Resolution Defect**:
+An impossible internal state in blueprint resolution that indicates a bug in the resolver rather than an invalid selection.
+_Avoid_: user-facing blueprint failure, recoverable validation error
+
+**CatalogNotFound**:
+A typed catalog lookup error indicating that a requested target kind or module definition is not registered.
+_Avoid_: nullable lookup miss, blueprint failure
+
+**SelectionValidationFailure**:
+A minimal recoverable blueprint-resolution error indicating that the user-authored `Selection` must be changed before resolution can proceed.
+_Avoid_: generic blueprint failure, internal resolver defect
+
 **Cause Translation**:
 The canonical domain rule set that projects a **BlueprintCause** into one or more **PlanCause** values for planning.
 _Avoid_: planner-local cause mapping, ad hoc translation
@@ -114,7 +130,14 @@ _Avoid_: `ScaffoldPlan` module, parallel planning model
 - `PlanService` compares intended changes against the current observed **RepoSnapshot** and decides how to classify conflicts in the resulting **Plan**
 - Planning failures are expressed as **Planning Error** values in the domain model and may be surfaced directly by applications
 - A **PlanFailure** is used when no branching application behavior depends on the error variant
+- A **BlueprintFailure** is used when no branching application behavior depends on the blueprint failure variant
+- A **Blueprint Resolution Defect** is not surfaced as a normal **BlueprintFailure** because it represents a broken resolver invariant
 - `BlueprintService` resolves **Selection** into **Blueprint** and `PlanService` consumes the resolved **Blueprint** rather than re-resolving it
+- `TargetCatalog` and `ModuleCatalog` provide validated lookups through the Effect error channel rather than nullable registry results
+- `TargetCatalog` and `ModuleCatalog` may fail with **CatalogNotFound** when a requested definition is not registered
+- `BlueprintService.resolve` currently bubbles **CatalogNotFound** alongside **BlueprintFailure** rather than translating catalog misses at the service boundary
+- User-correctable selection mistakes are surfaced as **SelectionValidationFailure** rather than generic **BlueprintFailure**
+- **SelectionValidationFailure** remains minimal until callers need typed branching for user guidance
 - **Planning Support Model** concepts are merged into the canonical `Blueprint` and `Plan` modules rather than a separate planning module
 - **RepoSnapshot** belongs to the `Plan` domain module because it is planning input rather than blueprint structure
 - **Cause Translation** belongs to the `Plan` domain module because it produces planning semantics from blueprint semantics
@@ -157,3 +180,10 @@ _Avoid_: `ScaffoldPlan` module, parallel planning model
 - `RepoSnapshot` could have been merged into `Blueprint`. Resolved: it belongs with `Plan` because it participates only in planning, not blueprint resolution.
 - Cause translation helpers could have lived outside `Plan`. Resolved: place them in `Plan` because they derive `PlanCause` from blueprint-side inputs.
 - Planning errors could have been either fully granular or fully generic. Resolved: split into variants only when callers need branching behavior; otherwise use a generic **PlanFailure** domain error.
+- Blueprint resolution errors could have been modeled as a large tagged union up front. Resolved: keep a generic **BlueprintFailure** until a concrete recovery path requires a distinct error type.
+- Internal resolver invariant breaks could have been collapsed into generic blueprint failures. Resolved: treat them as **Blueprint Resolution Defect** values because they indicate bugs, not invalid selections.
+- Catalog lookups could have stayed as nullable registry reads or moved into validated Effect lookups. Resolved: catalogs expose validated lookups through Effect failures.
+- Catalog lookup failures could have been split into many error classes or collapsed into a generic miss. Resolved: use typed **CatalogNotFound** via `Data.TaggedError` and encode the missing catalog entity in the payload.
+- `BlueprintService` could have translated catalog misses into generic blueprint failures at its boundary. Resolved: for now, `resolve` bubbles **CatalogNotFound** directly so callers can distinguish registry misses from other blueprint failures.
+- User-editable selection mistakes could have remained inside generic blueprint failures. Resolved: expose them as **SelectionValidationFailure** because applications may ask users to change the `Selection` and retry.
+- `SelectionValidationFailure` could have started with a typed reason union. Resolved: keep it minimal until callers need typed branching beyond a user-visible message.
