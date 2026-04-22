@@ -6,7 +6,6 @@ import type {
 import {
   type MergeRequirement,
   mergePlanCauses,
-  Plan,
   type PlanCause,
   type PlanEntryClassification,
   PlanFailure,
@@ -1147,6 +1146,7 @@ export const projectPlan = ({
     collectProjectedPackageJsonScripts(blueprint);
   const projectedBarrelExports = collectProjectedBarrelExports(blueprint);
   const projectedTsconfigs = collectProjectedTsconfigs(blueprint);
+
   const snapshotPaths = new Map(
     repoSnapshot.paths.map(
       (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
