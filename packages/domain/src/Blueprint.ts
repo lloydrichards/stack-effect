@@ -1,4 +1,12 @@
-import { Data, Schema } from "effect";
+import { Data, Order, Schema } from "effect";
+import {
+  blueprintCauseOrd,
+  blueprintDependencyEdgeOrd,
+  blueprintWarningOrd,
+  resolvedRepoModuleOrd,
+  resolvedTargetModuleOrd,
+  resolvedTargetOrd,
+} from "./Order";
 import {
   PackagePublicEntrypoint,
   RepoModuleId,
@@ -113,6 +121,39 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   modules: Schema.Array(ResolvedRepoModule),
   warnings: Schema.Array(BlueprintWarning),
 }) {
+  toSorted(): Blueprint {
+    return new Blueprint({
+      nodes: [...this.nodes]
+        .map((target) => ({
+          ...target,
+          causes: sortBlueprintCauses(target.causes),
+          targetModules: [...target.targetModules]
+            .map((targetModule) => ({
+              ...targetModule,
+              causes: sortBlueprintCauses(targetModule.causes),
+            }))
+            .sort(resolvedTargetModuleOrd),
+        }))
+        .sort(resolvedTargetOrd),
+      edges: [...this.edges].sort(blueprintDependencyEdgeOrd),
+      modules: [...this.modules]
+        .map((repoModule) => ({
+          ...repoModule,
+          causes: sortBlueprintCauses(repoModule.causes),
+        }))
+        .sort(resolvedRepoModuleOrd),
+      warnings: [...this.warnings]
+        .map((warning) => ({
+          ...warning,
+          edgeIds: [...warning.edgeIds].sort(Order.String) as [
+            string,
+            ...Array<string>,
+          ],
+        }))
+        .sort(blueprintWarningOrd),
+    });
+  }
+
   prettyPrint(): string {
     const lines: Array<string> = [
       "Blueprint",
@@ -330,3 +371,11 @@ const formatNodeReference = (
       return `target-module:${reference.targetId}/${reference.moduleId}`;
   }
 };
+
+const sortBlueprintCauses = (
+  causes: ReadonlyArray<BlueprintCause>,
+): [BlueprintCause, ...Array<BlueprintCause>] =>
+  [...causes].sort(blueprintCauseOrd) as [
+    BlueprintCause,
+    ...Array<BlueprintCause>,
+  ];

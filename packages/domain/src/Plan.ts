@@ -1,3 +1,4 @@
+import { Schema } from "effect";
 import type {
   BlueprintCause,
   ResolvedRepoModule,
@@ -5,7 +6,14 @@ import type {
   ResolvedTargetModule,
   TargetComposition,
 } from "./Blueprint";
-import { Schema } from "effect";
+import {
+  mergeRequirementOrd,
+  planCauseOrd,
+  planEntryOrd,
+  planTreeNodeOrd,
+  planWarningOrd,
+  toPlanCauseKey,
+} from "./Order";
 
 export const PlanEntryClassification = Schema.Literals([
   "create",
@@ -166,20 +174,33 @@ export const PlanTreeNode = Schema.Union([
 ]);
 export type PlanTreeNodeSchema = Schema.Schema.Type<typeof PlanTreeNode>;
 
-export const Plan = Schema.Struct({
+export class Plan extends Schema.Class<Plan>("Plan")({
   entries: Schema.Array(PlanEntry),
   tree: PlanTreeDirectoryNode,
   mergeRequirements: Schema.Array(MergeRequirement),
   warnings: Schema.Array(PlanWarning),
-});
-export type Plan = Schema.Schema.Type<typeof Plan>;
+}) {
+  toSorted(): Plan {
+    return new Plan({
+      entries: [...this.entries]
+        .map((entry) => ({
+          ...entry,
+          causes: sortPlanCauses(entry.causes),
+        }))
+        .sort(planEntryOrd),
+      tree: sortPlanTreeDirectoryNode(this.tree),
+      mergeRequirements: [...this.mergeRequirements]
+        .map(sortMergeRequirement)
+        .sort(mergeRequirementOrd),
+      warnings: [...this.warnings].map(sortPlanWarning).sort(planWarningOrd),
+    });
+  }
+}
 
 const sortPlanCauses = (
   causes: ReadonlyArray<PlanCause>,
 ): [PlanCause, ...Array<PlanCause>] =>
-  [...causes].sort((left, right) =>
-    JSON.stringify(left).localeCompare(JSON.stringify(right)),
-  ) as [PlanCause, ...Array<PlanCause>];
+  [...causes].sort(planCauseOrd) as [PlanCause, ...Array<PlanCause>];
 
 export const mergePlanCauses = (
   first: ReadonlyArray<PlanCause>,
@@ -188,7 +209,7 @@ export const mergePlanCauses = (
   const merged = new Map<string, PlanCause>();
 
   for (const cause of [...first, ...second]) {
-    merged.set(JSON.stringify(cause), cause);
+    merged.set(toPlanCauseKey(cause), cause);
   }
 
   return sortPlanCauses([...merged.values()]);
@@ -270,6 +291,47 @@ export const toPlanTargetCompositionCauses = ({
   }
 };
 
-export const isBlueprintCauseSelected = (
-  cause: BlueprintCause,
-): boolean => cause._tag === "selection";
+export const isBlueprintCauseSelected = (cause: BlueprintCause): boolean =>
+  cause._tag === "selection";
+
+const sortPlanTreeDirectoryNode = (
+  node: PlanTreeDirectoryNode,
+): PlanTreeDirectoryNode => ({
+  ...node,
+  causes: sortPlanCauses(node.causes),
+  children: [...node.children].map(sortPlanTreeNode).sort(planTreeNodeOrd),
+});
+
+const sortPlanTreeNode = (node: PlanTreeNode): PlanTreeNode => {
+  switch (node._tag) {
+    case "directory":
+      return sortPlanTreeDirectoryNode(node);
+    case "file":
+      return {
+        ...node,
+        causes: sortPlanCauses(node.causes),
+      };
+  }
+};
+
+const sortMergeRequirement = (
+  requirement: MergeRequirement,
+): MergeRequirement => ({
+  ...requirement,
+  causes: sortPlanCauses(requirement.causes),
+});
+
+const sortPlanWarning = (warning: PlanWarning): PlanWarning => {
+  switch (warning._tag) {
+    case "impliedDependency":
+      return {
+        ...warning,
+        causes: sortPlanCauses(warning.causes),
+      };
+    case "mergeStrategyRequired":
+      return {
+        ...warning,
+        requirement: sortMergeRequirement(warning.requirement),
+      };
+  }
+};

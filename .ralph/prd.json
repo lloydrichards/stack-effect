@@ -10,19 +10,7 @@
     "passes": true,
     "issueNumber": 48,
     "url": "https://github.com/lloydrichards/proj_e_stack/issues/48",
-    "labels": [
-      "afk"
-    ],
-    "blockedBy": [
-      37,
-      39,
-      41,
-      42,
-      43,
-      44,
-      45,
-      46,
-      47
-    ]
+    "labels": ["afk"],
+    "blockedBy": [37, 39, 41, 42, 43, 44, 45, 46, 47]
   }
 ]

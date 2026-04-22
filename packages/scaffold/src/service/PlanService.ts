@@ -3,10 +3,11 @@ import type {
   ResolvedRepoModule,
   ResolvedTarget,
 } from "@repo/domain/Blueprint";
+import { pathOrd, planCauseOrd } from "@repo/domain/Order";
 import {
   type MergeRequirement,
   mergePlanCauses,
-  type Plan,
+  Plan,
   type PlanCause,
   type PlanEntryClassification,
   PlanFailure,
@@ -19,7 +20,15 @@ import {
   toPlanTargetCompositionCauses,
   toPlanTargetModuleCauses,
 } from "@repo/domain/Plan";
-import { Context, Effect, Layer } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  Record,
+} from "effect";
 import {
   domainApiContents,
   serverHealthContents,
@@ -33,7 +42,31 @@ import {
   serverIndexContents,
   serverTsconfigContents,
 } from "../registry/content/server";
+import {
+  byBarrelExportPathOrd,
+  byDependencySectionAndNameOrd,
+  byExportKeyOrd,
+  byPathOrd,
+  byScriptNameOrd,
+} from "./planOrders";
 import { RepoSnapshotService } from "./RepoSnapshotService";
+
+const planChangesetPathOrd = byPathOrd<
+  PlanChangesetPath | MutablePlanChangesetPath
+>();
+
+const projectedPlanPathOrd = byPathOrd<ProjectedPlanPath>();
+
+const projectedPackageJsonExportOrd =
+  byExportKeyOrd<ProjectedPackageJsonExport>();
+
+const projectedPackageJsonDependencyOrd =
+  byDependencySectionAndNameOrd<ProjectedPackageJsonDependency>();
+
+const projectedPackageJsonScriptOrd =
+  byScriptNameOrd<ProjectedPackageJsonScript>();
+
+const projectedBarrelExportOrd = byBarrelExportPathOrd<ProjectedBarrelExport>();
 
 export class PlanService extends Context.Service<PlanService>()("PlanService", {
   make: Effect.gen(function* () {
@@ -112,7 +145,9 @@ const compilePlanChangeset = (
     const pathEntry = getOrCreatePlanChangesetPath(
       changesetPaths,
       path,
-      projectedExports[0]?.causes ??
+      (Arr.isReadonlyArrayNonEmpty(projectedExports)
+        ? Arr.headNonEmpty(projectedExports).causes
+        : undefined) ??
         ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
     );
 
@@ -127,7 +162,9 @@ const compilePlanChangeset = (
     const pathEntry = getOrCreatePlanChangesetPath(
       changesetPaths,
       path,
-      projectedDependencies[0]?.causes ??
+      (Arr.isReadonlyArrayNonEmpty(projectedDependencies)
+        ? Arr.headNonEmpty(projectedDependencies).causes
+        : undefined) ??
         ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
     );
 
@@ -139,7 +176,9 @@ const compilePlanChangeset = (
     const pathEntry = getOrCreatePlanChangesetPath(
       changesetPaths,
       path,
-      projectedScripts[0]?.causes ??
+      (Arr.isReadonlyArrayNonEmpty(projectedScripts)
+        ? Arr.headNonEmpty(projectedScripts).causes
+        : undefined) ??
         ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
     );
 
@@ -151,7 +190,9 @@ const compilePlanChangeset = (
     const pathEntry = getOrCreatePlanChangesetPath(
       changesetPaths,
       path,
-      projectedExports[0]?.causes ??
+      (Arr.isReadonlyArrayNonEmpty(projectedExports)
+        ? Arr.headNonEmpty(projectedExports).causes
+        : undefined) ??
         ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
     );
 
@@ -182,21 +223,23 @@ const compilePlanChangeset = (
   }
 
   return {
-    paths: [...changesetPaths.values()]
-      .sort((left, right) => sortPaths(left.path, right.path))
-      .map((pathEntry) => ({
+    paths: Arr.sort(changesetPaths.values(), planChangesetPathOrd).map(
+      (pathEntry) => ({
         path: pathEntry.path,
         causes: pathEntry.causes,
         authoritativeContents: pathEntry.authoritativeContents,
-        packageJsonExports: [...pathEntry.packageJsonExports],
-        packageJsonDependencies: [...pathEntry.packageJsonDependencies],
-        packageJsonScripts: [...pathEntry.packageJsonScripts],
-        barrelExports: [...pathEntry.barrelExports],
+        packageJsonExports: Arr.fromIterable(pathEntry.packageJsonExports),
+        packageJsonDependencies: Arr.fromIterable(
+          pathEntry.packageJsonDependencies,
+        ),
+        packageJsonScripts: Arr.fromIterable(pathEntry.packageJsonScripts),
+        barrelExports: Arr.fromIterable(pathEntry.barrelExports),
         tsconfig: pathEntry.tsconfig,
-      })),
+      }),
+    ),
   };
 };
-export const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
+const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
   const requestedPaths = new Set<string>();
 
   for (const changesetPath of changeset.paths) {
@@ -207,9 +250,9 @@ export const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
     }
   }
 
-  return [...requestedPaths].sort(sortPaths);
+  return Arr.sort(requestedPaths, pathOrd);
 };
-export const assertPlanChangesetFamily = ({
+const assertPlanChangesetFamily = ({
   pathEntry,
   family,
 }: {
@@ -226,7 +269,7 @@ export const assertPlanChangesetFamily = ({
     message: `Conflicting planned operations for ${pathEntry.path}.`,
   });
 };
-export const projectPlan = ({
+const projectPlan = ({
   blueprint,
   changeset,
   repoSnapshot,
@@ -273,15 +316,21 @@ export const projectPlan = ({
     }
   }
 
-  const rootBootstrap = blueprint.modules.find(
+  const rootCauses = Arr.findFirst(
+    blueprint.modules,
     (repoModule) => repoModule.moduleId === "root-bootstrap",
+  ).pipe(
+    Option.map((repoModule) => toPlanRepoModuleCauses({ repoModule })),
+    Option.orElse(() =>
+      Arr.isReadonlyArrayNonEmpty(changeset.paths)
+        ? Option.some(Arr.headNonEmpty(changeset.paths).causes)
+        : Option.none(),
+    ),
+    Option.getOrElse(
+      () =>
+        [{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const,
+    ),
   );
-  const rootCauses =
-    (rootBootstrap === undefined
-      ? undefined
-      : toPlanRepoModuleCauses({ repoModule: rootBootstrap })) ??
-    changeset.paths[0]?.causes ??
-    ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const);
 
   const fileClassifications = new Map<string, PlanEntryClassification>();
   const mergeRequirements: Array<MergeRequirement> = [];
@@ -410,7 +459,7 @@ export const projectPlan = ({
       classification: fileClassifications.get(changesetPath.path) ?? "create",
       causes: changesetPath.causes,
     })),
-  ].sort((left, right) => sortPaths(left.path, right.path));
+  ];
 
   type MutableTreeDirectoryNode = {
     _tag: "directory";
@@ -456,36 +505,28 @@ export const projectPlan = ({
       _tag: "file",
       name: nameFromPath(changesetPath.path),
       path: changesetPath.path,
-      classification: (() => {
-        const entry = entries.find(
-          (planEntry) =>
-            planEntry._tag === "file" && planEntry.path === changesetPath.path,
-        );
-
-        return entry?._tag === "file" ? entry.classification : "create";
-      })(),
+      classification: Arr.findFirst(
+        entries,
+        (
+          planEntry,
+        ): planEntry is Extract<(typeof entries)[number], { _tag: "file" }> =>
+          planEntry._tag === "file" && planEntry.path === changesetPath.path,
+      ).pipe(
+        Option.map((entry) => entry.classification),
+        Option.getOrElse((): PlanEntryClassification => "create"),
+      ),
       causes: fileCauseMap.get(changesetPath.path) ?? changesetPath.causes,
     });
   }
 
-  for (const directory of directories.values()) {
-    directory.children.sort((left, right) => {
-      if (left._tag !== right._tag) {
-        return left._tag === "directory" ? -1 : 1;
-      }
-
-      return left.name.localeCompare(right.name);
-    });
-  }
-
-  return {
+  return new Plan({
     entries,
     tree: root,
     mergeRequirements,
     warnings,
-  } satisfies typeof Plan.Type;
+  }).toSorted();
 };
-export const planTsconfigMerge = ({
+const planTsconfigMerge = ({
   path,
   projectedTsconfig,
   snapshotPath,
@@ -528,7 +569,7 @@ export const planTsconfigMerge = ({
     warnings: [createTsconfigMergeWarning(requirement)],
   };
 };
-export const planPackageJsonMerge = ({
+const planPackageJsonMerge = ({
   path,
   projectedExports,
   projectedDependencies,
@@ -565,7 +606,7 @@ export const planPackageJsonMerge = ({
   })();
 
   if (!isRecord(packageJson)) {
-    const mergeRequirements = [
+    const mergeRequirements: Array<PackageJsonMergeRequirement> = [
       ...projectedExports.map((projectedExport) =>
         createPackageJsonExportMergeRequirement({ path, projectedExport }),
       ),
@@ -586,18 +627,12 @@ export const planPackageJsonMerge = ({
     return {
       classification: "needsMergeStrategy" as const,
       mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        requirement._tag === "packageJsonExports"
-          ? createPackageJsonExportMergeWarning(requirement)
-          : requirement._tag === "packageJsonDependencies"
-            ? createPackageJsonDependencyMergeWarning(requirement)
-            : createPackageJsonScriptMergeWarning(requirement),
-      ),
+      warnings: mergeRequirements.map(toMergeRequirementWarning),
     };
   }
 
   const { exports: exportsValue, scripts: scriptsValue } = packageJson;
-  const mergeRequirements: Array<MergeRequirement> = [];
+  const mergeRequirements: Array<PackageJsonMergeRequirement> = [];
   let hasAdditions = false;
 
   if (exportsValue !== undefined && !isFlatStringRecord(exportsValue)) {
@@ -625,23 +660,13 @@ export const planPackageJsonMerge = ({
     }
   }
 
-  const projectedDependenciesBySection = new Map<
-    string,
-    Array<ProjectedPackageJsonDependency>
-  >();
-
-  for (const projectedDependency of projectedDependencies) {
-    const sectionDependencies =
-      projectedDependenciesBySection.get(projectedDependency.section) ?? [];
-
-    sectionDependencies.push(projectedDependency);
-    projectedDependenciesBySection.set(
-      projectedDependency.section,
-      sectionDependencies,
-    );
-  }
-
-  for (const [section, sectionDependencies] of projectedDependenciesBySection) {
+  for (const [section, sectionDependencies] of Record.collect(
+    Arr.groupBy(
+      projectedDependencies,
+      (projectedDependency) => projectedDependency.section,
+    ),
+    (section, sectionDependencies) => [section, sectionDependencies] as const,
+  )) {
     const sectionValue = packageJson[section];
 
     if (sectionValue !== undefined && !isFlatStringRecord(sectionValue)) {
@@ -713,13 +738,7 @@ export const planPackageJsonMerge = ({
     return {
       classification: "needsMergeStrategy" as const,
       mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        requirement._tag === "packageJsonExports"
-          ? createPackageJsonExportMergeWarning(requirement)
-          : requirement._tag === "packageJsonDependencies"
-            ? createPackageJsonDependencyMergeWarning(requirement)
-            : createPackageJsonScriptMergeWarning(requirement),
-      ),
+      warnings: mergeRequirements.map(toMergeRequirementWarning),
     };
   }
 
@@ -729,7 +748,7 @@ export const planPackageJsonMerge = ({
     warnings: [] as Array<PlanWarning>,
   };
 };
-export const planBarrelMerge = ({
+const planBarrelMerge = ({
   path,
   projectedBarrelExports,
   snapshotPath,
@@ -787,7 +806,7 @@ export const planBarrelMerge = ({
     warnings: [] as Array<PlanWarning>,
   };
 };
-export const parseSimpleBarrelExports = (contents: string) => {
+const parseSimpleBarrelExports = (contents: string) => {
   const exports: Array<string> = [];
 
   for (const line of contents.split(/\r?\n/u)) {
@@ -812,8 +831,8 @@ export const parseSimpleBarrelExports = (contents: string) => {
 
   return exports;
 };
-export const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
-export const createTsconfigMergeWarning = (
+const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
+const createTsconfigMergeWarning = (
   requirement: MergeRequirement,
 ): PlanWarning => ({
   _tag: "mergeStrategyRequired",
@@ -821,7 +840,7 @@ export const createTsconfigMergeWarning = (
   message: "Existing tsconfig.json requires manual merge strategy.",
   requirement,
 });
-export const createTsconfigMergeRequirement = ({
+const createTsconfigMergeRequirement = ({
   path,
   causes,
 }: {
@@ -832,7 +851,7 @@ export const createTsconfigMergeRequirement = ({
   path,
   causes,
 });
-export const createBarrelExportMergeRequirement = ({
+const createBarrelExportMergeRequirement = ({
   path,
   projectedBarrelExport,
 }: {
@@ -844,7 +863,7 @@ export const createBarrelExportMergeRequirement = ({
   exportPath: projectedBarrelExport.exportPath,
   causes: projectedBarrelExport.causes,
 });
-export const createBarrelExportMergeWarning = (
+const createBarrelExportMergeWarning = (
   requirement: MergeRequirement,
 ): PlanWarning => ({
   _tag: "mergeStrategyRequired",
@@ -852,31 +871,31 @@ export const createBarrelExportMergeWarning = (
   message: "Existing barrel exports require manual merge strategy.",
   requirement,
 });
-export const createPackageJsonExportMergeRequirement = ({
+const createPackageJsonExportMergeRequirement = ({
   path,
   projectedExport,
 }: {
   path: string;
   projectedExport: ProjectedPackageJsonExport;
-}): MergeRequirement => ({
+}): Extract<MergeRequirement, { _tag: "packageJsonExports" }> => ({
   _tag: "packageJsonExports",
   path,
   exportKey: projectedExport.exportKey,
   causes: projectedExport.causes,
 });
-export const createPackageJsonScriptMergeRequirement = ({
+const createPackageJsonScriptMergeRequirement = ({
   path,
   projectedScript,
 }: {
   path: string;
   projectedScript: ProjectedPackageJsonScript;
-}): MergeRequirement => ({
+}): Extract<MergeRequirement, { _tag: "packageJsonScripts" }> => ({
   _tag: "packageJsonScripts",
   path,
   scriptName: projectedScript.scriptName,
   causes: projectedScript.causes,
 });
-export const createPackageJsonScriptMergeWarning = (
+const createPackageJsonScriptMergeWarning = (
   requirement: MergeRequirement,
 ): PlanWarning => ({
   _tag: "mergeStrategyRequired",
@@ -884,13 +903,13 @@ export const createPackageJsonScriptMergeWarning = (
   message: "Existing scripts require manual merge strategy.",
   requirement,
 });
-export const createPackageJsonDependencyMergeRequirement = ({
+const createPackageJsonDependencyMergeRequirement = ({
   path,
   projectedDependency,
 }: {
   path: string;
   projectedDependency: ProjectedPackageJsonDependency;
-}): MergeRequirement => ({
+}): Extract<MergeRequirement, { _tag: "packageJsonDependencies" }> => ({
   _tag: "packageJsonDependencies",
   path,
   section: projectedDependency.section,
@@ -898,16 +917,14 @@ export const createPackageJsonDependencyMergeRequirement = ({
   causes: projectedDependency.causes,
 });
 
-export const isRecord = (value: unknown): value is Record<string, unknown> =>
+const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-export const isFlatStringRecord = (
-  value: unknown,
-): value is Record<string, string> =>
+const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   isRecord(value) &&
-  Object.values(value).every((entry) => typeof entry === "string");
+  Arr.every(Record.values(value), (entry) => typeof entry === "string");
 
-export const createPackageJsonExportMergeWarning = (
+const createPackageJsonExportMergeWarning = (
   requirement: MergeRequirement,
 ): PlanWarning => ({
   _tag: "mergeStrategyRequired",
@@ -916,7 +933,7 @@ export const createPackageJsonExportMergeWarning = (
   requirement,
 });
 
-export const createPackageJsonDependencyMergeWarning = (
+const createPackageJsonDependencyMergeWarning = (
   requirement: MergeRequirement,
 ): PlanWarning => ({
   _tag: "mergeStrategyRequired",
@@ -928,37 +945,24 @@ export const createPackageJsonDependencyMergeWarning = (
   requirement,
 });
 
-export const sortPaths = (left: string, right: string) => {
-  const leftParts = left.split("/");
-  const rightParts = right.split("/");
-  const length = Math.min(leftParts.length, rightParts.length);
-
-  for (let index = 0; index < length; index += 1) {
-    const leftPart = leftParts[index];
-    const rightPart = rightParts[index];
-
-    if (leftPart === undefined || rightPart === undefined) {
-      continue;
-    }
-
-    const compared = leftPart.localeCompare(rightPart);
-
-    if (compared !== 0) {
-      return compared;
-    }
-  }
-
-  return leftParts.length - rightParts.length;
-};
+const toMergeRequirementWarning = (
+  requirement: PackageJsonMergeRequirement,
+): PlanWarning =>
+  Match.value(requirement).pipe(
+    Match.tag("packageJsonExports", createPackageJsonExportMergeWarning),
+    Match.tag(
+      "packageJsonDependencies",
+      createPackageJsonDependencyMergeWarning,
+    ),
+    Match.tag("packageJsonScripts", createPackageJsonScriptMergeWarning),
+    Match.exhaustive,
+  );
 
 const sortCauses = (
-  causes: ReadonlyArray<PlanCause>,
-): [PlanCause, ...Array<PlanCause>] =>
-  [...causes].sort((left, right) =>
-    JSON.stringify(left).localeCompare(JSON.stringify(right)),
-  ) as [PlanCause, ...Array<PlanCause>];
+  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
+): [PlanCause, ...Array<PlanCause>] => Arr.sort(causes, planCauseOrd);
 
-export const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
+const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
   const directories = new Set<string>();
 
   for (const path of paths) {
@@ -969,7 +973,7 @@ export const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
     }
   }
 
-  return [...directories].sort(sortPaths);
+  return Arr.sort(directories, pathOrd);
 };
 
 type ProjectedPlanPath = {
@@ -977,37 +981,37 @@ type ProjectedPlanPath = {
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type ProjectedPackageJsonExport = {
+type ProjectedPackageJsonExport = {
   readonly exportKey: string;
   readonly exportValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type ProjectedPackageJsonDependency = {
+type ProjectedPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
   readonly dependencyName: string;
   readonly dependencyValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type ProjectedPackageJsonScript = {
+type ProjectedPackageJsonScript = {
   readonly scriptName: string;
   readonly scriptValue: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type ProjectedBarrelExport = {
+type ProjectedBarrelExport = {
   readonly exportPath: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type ProjectedTsconfig = {
+type ProjectedTsconfig = {
   readonly path: string;
   readonly contents: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
-export type PlanChangesetPath = {
+type PlanChangesetPath = {
   readonly path: string;
   readonly causes: readonly [PlanCause, ...Array<PlanCause>];
   readonly authoritativeContents: string | undefined;
@@ -1018,17 +1022,24 @@ export type PlanChangesetPath = {
   readonly tsconfig: ProjectedTsconfig | undefined;
 };
 
-export type PlanChangeset = {
+type PlanChangeset = {
   readonly paths: ReadonlyArray<PlanChangesetPath>;
 };
 
-export type PlanChangesetOperationFamily =
+type PlanChangesetOperationFamily =
   | "authoritative"
   | "packageJson"
   | "barrel"
   | "tsconfig";
 
-export type MutablePlanChangesetPath = {
+type PackageJsonMergeRequirement = Extract<
+  MergeRequirement,
+  | { _tag: "packageJsonExports" }
+  | { _tag: "packageJsonDependencies" }
+  | { _tag: "packageJsonScripts" }
+>;
+
+type MutablePlanChangesetPath = {
   readonly path: string;
   causes: readonly [PlanCause, ...Array<PlanCause>];
   family?: PlanChangesetOperationFamily;
@@ -1043,7 +1054,7 @@ export type MutablePlanChangesetPath = {
 const appendProjectedPath = (
   projectedPaths: Map<string, ProjectedPlanPath>,
   path: string,
-  causes: ReadonlyArray<PlanCause>,
+  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
   const current = projectedPaths.get(path);
 
@@ -1059,7 +1070,7 @@ const appendProjectedPackageJsonExport = (
   projectedExports: Map<string, ProjectedPackageJsonExport>,
   exportKey: string,
   exportValue: string,
-  causes: ReadonlyArray<PlanCause>,
+  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
   const current = projectedExports.get(exportKey);
 
@@ -1107,7 +1118,7 @@ const appendProjectedPackageJsonScript = (
 const appendProjectedBarrelExport = (
   projectedBarrelExports: Map<string, ProjectedBarrelExport>,
   exportPath: string,
-  causes: ReadonlyArray<PlanCause>,
+  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
   const current = projectedBarrelExports.get(exportPath);
 
@@ -1167,7 +1178,7 @@ const collectProjectedRootBootstrapPaths = (blueprint: Blueprint) => {
   }
 
   return Object.keys(rootBootstrapFiles)
-    .sort(sortPaths)
+    .sort(pathOrd)
     .map((path) => ({
       path,
       causes: rootBootstrapCauses,
@@ -1213,9 +1224,7 @@ const projectServerTargetPaths = (target: ResolvedTarget) => {
     );
   }
 
-  return [...projectedPaths.values()].sort((left, right) =>
-    sortPaths(left.path, right.path),
-  );
+  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
 };
 
 const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
@@ -1269,12 +1278,10 @@ const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
     );
   }
 
-  return [...projectedPaths.values()].sort((left, right) =>
-    sortPaths(left.path, right.path),
-  );
+  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
 };
 
-export const collectProjectedPlanPaths = (blueprint: Blueprint) => {
+const collectProjectedPlanPaths = (blueprint: Blueprint) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
 
   for (const projectedPath of collectProjectedRootBootstrapPaths(blueprint)) {
@@ -1307,12 +1314,10 @@ export const collectProjectedPlanPaths = (blueprint: Blueprint) => {
     }
   }
 
-  return [...projectedPaths.values()].sort((left, right) =>
-    sortPaths(left.path, right.path),
-  );
+  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
 };
 
-export const collectProjectedContents = (blueprint: Blueprint) => {
+const collectProjectedContents = (blueprint: Blueprint) => {
   const projectedContents = new Map<string, string>(
     Object.entries(rootBootstrapFiles)
       .filter(() => getRepoOnlyRootBootstrapCauses(blueprint) !== undefined)
@@ -1355,7 +1360,7 @@ export const collectProjectedContents = (blueprint: Blueprint) => {
   return projectedContents;
 };
 
-export const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
+const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
   const projectedExportsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonExport>
@@ -1389,18 +1394,16 @@ export const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
   }
 
   return new Map(
-    [...projectedExportsByPath.entries()].map(([path, projectedExports]) => [
-      path,
-      [...projectedExports.values()].sort((left, right) =>
-        left.exportKey.localeCompare(right.exportKey),
-      ),
-    ]),
+    Arr.fromIterable(projectedExportsByPath.entries()).map(
+      ([path, projectedExports]) => [
+        path,
+        Arr.sort(projectedExports.values(), projectedPackageJsonExportOrd),
+      ],
+    ),
   );
 };
 
-export const collectProjectedPackageJsonDependencies = (
-  blueprint: Blueprint,
-) => {
+const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
   const projectedDependenciesByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonDependency>
@@ -1433,24 +1436,19 @@ export const collectProjectedPackageJsonDependencies = (
   }
 
   return new Map(
-    [...projectedDependenciesByPath.entries()].map(
+    Arr.fromIterable(projectedDependenciesByPath.entries()).map(
       ([path, projectedDependencies]) => [
         path,
-        [...projectedDependencies.values()].sort((left, right) => {
-          const sectionCompared = left.section.localeCompare(right.section);
-
-          if (sectionCompared !== 0) {
-            return sectionCompared;
-          }
-
-          return left.dependencyName.localeCompare(right.dependencyName);
-        }),
+        Arr.sort(
+          projectedDependencies.values(),
+          projectedPackageJsonDependencyOrd,
+        ),
       ],
     ),
   );
 };
 
-export const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
+const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
   const projectedScriptsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonScript>
@@ -1524,16 +1522,16 @@ export const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
   }
 
   return new Map(
-    [...projectedScriptsByPath.entries()].map(([path, projectedScripts]) => [
-      path,
-      [...projectedScripts.values()].sort((left, right) =>
-        left.scriptName.localeCompare(right.scriptName),
-      ),
-    ]),
+    Arr.fromIterable(projectedScriptsByPath.entries()).map(
+      ([path, projectedScripts]) => [
+        path,
+        Arr.sort(projectedScripts.values(), projectedPackageJsonScriptOrd),
+      ],
+    ),
   );
 };
 
-export const collectProjectedBarrelExports = (blueprint: Blueprint) => {
+const collectProjectedBarrelExports = (blueprint: Blueprint) => {
   const projectedBarrelExportsByPath = new Map<
     string,
     Map<string, ProjectedBarrelExport>
@@ -1565,18 +1563,16 @@ export const collectProjectedBarrelExports = (blueprint: Blueprint) => {
   }
 
   return new Map(
-    [...projectedBarrelExportsByPath.entries()].map(
+    Arr.fromIterable(projectedBarrelExportsByPath.entries()).map(
       ([path, projectedBarrelExports]) => [
         path,
-        [...projectedBarrelExports.values()].sort((left, right) =>
-          left.exportPath.localeCompare(right.exportPath),
-        ),
+        Arr.sort(projectedBarrelExports.values(), projectedBarrelExportOrd),
       ],
     ),
   );
 };
 
-export const collectProjectedTsconfigs = (blueprint: Blueprint) => {
+const collectProjectedTsconfigs = (blueprint: Blueprint) => {
   const projectedTsconfigs = new Map<string, ProjectedTsconfig>();
 
   for (const target of blueprint.nodes) {
@@ -1601,7 +1597,7 @@ export const collectProjectedTsconfigs = (blueprint: Blueprint) => {
   return new Map(projectedTsconfigs.entries());
 };
 
-export const getOrCreatePlanChangesetPath = (
+const getOrCreatePlanChangesetPath = (
   changesetPaths: Map<string, MutablePlanChangesetPath>,
   path: string,
   causes: readonly [PlanCause, ...Array<PlanCause>],
@@ -1626,7 +1622,7 @@ export const getOrCreatePlanChangesetPath = (
   return next;
 };
 
-export const nameFromPath = (path: string) => {
+const nameFromPath = (path: string) => {
   const parts = path.split("/");
   return parts[parts.length - 1] ?? path;
 };

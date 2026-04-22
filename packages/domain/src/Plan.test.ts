@@ -3,9 +3,9 @@ import {
   type MergeRequirement as MergeRequirementType,
   Plan,
   PlanEntryClassification,
+  type Plan as PlanType,
   PlanWarning,
   type PlanWarning as PlanWarningType,
-  type Plan as PlanType,
 } from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";

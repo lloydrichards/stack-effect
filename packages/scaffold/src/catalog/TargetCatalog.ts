@@ -12,7 +12,7 @@ export type TargetModuleDefinition = {
   readonly isSupported: (target: typeof TargetIdentity.Type) => boolean;
   readonly dependencies: ReadonlyArray<TargetModuleDependency>;
 };
-export type TargetDefinition = {
+type TargetDefinition = {
   readonly kind: typeof TargetKind.Type;
   readonly requiredRepoModules: ReadonlyArray<typeof RepoModuleId.Type>;
 };
