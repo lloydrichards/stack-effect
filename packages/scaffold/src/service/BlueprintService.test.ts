@@ -1,10 +1,5 @@
 import { describe, expect, layer } from "@effect/vitest";
-import {
-  Blueprint,
-  InvalidRepoOption,
-  ModuleGatedTargetOption,
-  UnsupportedTargetModule,
-} from "@repo/domain/Blueprint";
+import { Blueprint, BlueprintFailure } from "@repo/domain/Blueprint";
 import type { Selection } from "@repo/domain/Selection";
 import { Effect, String } from "effect";
 import { BlueprintService } from "./BlueprintService";
@@ -444,10 +439,9 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(InvalidRepoOption);
+          expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
-            _tag: "InvalidRepoOption",
-            option: "linter",
+            message: "Invalid repo option: linter",
           });
         }),
     );
@@ -467,10 +461,9 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(InvalidRepoOption);
+          expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
-            _tag: "InvalidRepoOption",
-            option: "runtime",
+            message: "Invalid repo option: runtime",
           });
         }),
     );
@@ -497,12 +490,10 @@ describe("BlueprintService", () => {
           }),
         );
 
-        expect(error).toBeInstanceOf(ModuleGatedTargetOption);
+        expect(error).toBeInstanceOf(BlueprintFailure);
         expect(error).toMatchObject({
-          _tag: "ModuleGatedTargetOption",
-          targetId: "apps/server-api",
-          option: "httpApiStyle",
-          requiredModuleId: "http-api-server",
+          message:
+            "Module gated target option: httpApiStyle requires module http-api-server",
         });
       }),
     );
@@ -564,13 +555,10 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(UnsupportedTargetModule);
+          expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
-            _tag: "UnsupportedTargetModule",
-            module: {
-              targetId: "packages/domain",
-              moduleId: "http-api-server",
-            },
+            message:
+              "Unsupported target-module combination: packages/domain requires module http-api-server",
           });
         }),
     );

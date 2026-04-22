@@ -1,99 +1,21 @@
-import { Schema } from "effect";
+import { Data, Schema } from "effect";
 import {
   PackagePublicEntrypoint,
   RepoModuleId,
   TargetIdentity,
   TargetModuleId,
-  TargetModuleReference,
 } from "./Scaffold";
 
-export class UnknownTargetKind extends Schema.TaggedErrorClass<UnknownTargetKind>()(
-  "UnknownTargetKind",
-  {
-    kind: Schema.NonEmptyString,
-  },
-) {}
+export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
+  message: string;
+  cause?: unknown;
+}> {}
 
-export class UnknownRepoModule extends Schema.TaggedErrorClass<UnknownRepoModule>()(
-  "UnknownRepoModule",
-  {
-    id: RepoModuleId,
-  },
-) {}
-
-export class UnknownTargetModule extends Schema.TaggedErrorClass<UnknownTargetModule>()(
-  "UnknownTargetModule",
-  {
-    id: TargetModuleId,
-  },
-) {}
-
-export class InvalidTargetModuleTarget extends Schema.TaggedErrorClass<InvalidTargetModuleTarget>()(
-  "InvalidTargetModuleTarget",
-  {
-    module: TargetModuleReference,
-  },
-) {}
-
-export class UnsupportedTargetModule extends Schema.TaggedErrorClass<UnsupportedTargetModule>()(
-  "UnsupportedTargetModule",
-  {
-    module: TargetModuleReference,
-  },
-) {}
-
-export class InvalidRepoOption extends Schema.TaggedErrorClass<InvalidRepoOption>()(
-  "InvalidRepoOption",
-  {
-    option: Schema.NonEmptyString,
-  },
-) {}
-
-export class InvalidTargetOption extends Schema.TaggedErrorClass<InvalidTargetOption>()(
-  "InvalidTargetOption",
-  {
-    targetId: Schema.NonEmptyString,
-    option: Schema.NonEmptyString,
-  },
-) {}
-
-export class ModuleGatedTargetOption extends Schema.TaggedErrorClass<ModuleGatedTargetOption>()(
-  "ModuleGatedTargetOption",
-  {
-    targetId: Schema.NonEmptyString,
-    option: Schema.NonEmptyString,
-    requiredModuleId: TargetModuleId,
-  },
-) {}
-
-export class ConceptualTargetCollision extends Schema.TaggedErrorClass<ConceptualTargetCollision>()(
-  "ConceptualTargetCollision",
-  {
-    path: Schema.NonEmptyString,
-    targetIds: Schema.Tuple([Schema.NonEmptyString, Schema.NonEmptyString]),
-  },
-) {}
-
-export class ContradictoryTargetComposition extends Schema.TaggedErrorClass<ContradictoryTargetComposition>()(
-  "ContradictoryTargetComposition",
-  {
-    id: Schema.NonEmptyString,
-    slot: Schema.Literal("package-public-entrypoint"),
-  },
-) {}
-
-export const BlueprintError = Schema.Union([
-  UnknownTargetKind,
-  UnknownRepoModule,
-  UnknownTargetModule,
-  InvalidTargetModuleTarget,
-  UnsupportedTargetModule,
-  InvalidRepoOption,
-  InvalidTargetOption,
-  ModuleGatedTargetOption,
-  ConceptualTargetCollision,
-  ContradictoryTargetComposition,
-]);
+export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
+  catalog: "target" | "module";
+  entity: "target-kind" | "repo-module" | "target-module";
+  id: string;
+}> {}
 
 export const BlueprintNodeReference = Schema.Union([
   Schema.TaggedStruct("target", {

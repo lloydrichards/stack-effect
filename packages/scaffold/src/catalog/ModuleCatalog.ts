@@ -1,3 +1,4 @@
+import { CatalogNotFound } from "@repo/domain/Blueprint";
 import type { RepoModuleId, TargetModuleId } from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
 import { moduleRegistry } from "../registry/moduleRegistry";
@@ -12,9 +13,29 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   {
     make: Effect.succeed({
       getRepoModuleDefinition: (moduleId: typeof RepoModuleId.Type) =>
-        moduleRegistry.get(moduleId),
+        Effect.fromNullishOr(moduleRegistry.get(moduleId)).pipe(
+          Effect.catch(() =>
+            Effect.fail(
+              new CatalogNotFound({
+                catalog: "module",
+                entity: "repo-module",
+                id: moduleId,
+              }),
+            ),
+          ),
+        ),
       getTargetModuleDefinition: (moduleId: typeof TargetModuleId.Type) =>
-        targetModuleRegistry.get(moduleId),
+        Effect.fromNullishOr(targetModuleRegistry.get(moduleId)).pipe(
+          Effect.catch(() =>
+            Effect.fail(
+              new CatalogNotFound({
+                catalog: "module",
+                entity: "target-module",
+                id: moduleId,
+              }),
+            ),
+          ),
+        ),
     }),
   },
 ) {
