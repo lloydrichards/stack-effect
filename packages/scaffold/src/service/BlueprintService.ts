@@ -5,29 +5,53 @@ import {
   BlueprintFailure,
   type BlueprintNodeReference,
   type BlueprintWarning,
+  type CatalogNotFound,
   type ResolvedRepoModule,
   type ResolvedTarget,
   type ResolvedTargetModule,
-  type TargetComposition,
 } from "@repo/domain/Blueprint";
 import type {
-  PackagePublicEntrypoint,
   RepoModuleId,
   TargetIdentity,
   TargetModuleId,
 } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Graph, Layer } from "effect";
 import { ModuleCatalog } from "../catalog/ModuleCatalog";
 import { TargetCatalog } from "../catalog/TargetCatalog";
 
-type DependencyInput = {
-  readonly from: typeof BlueprintNodeReference.Type;
-  readonly reason: typeof BlueprintDependencyEdge.Type.reason;
+type ResolutionGraph = Graph.DirectedGraph<
+  BlueprintNodeReference,
+  BlueprintDependencyEdge
+>;
+
+type MutableTargetState = {
+  readonly id: string;
+  readonly identity: typeof TargetIdentity.Type;
+  selected: boolean;
+  readonly causes: Array<BlueprintCause>;
+  readonly targetModules: Map<
+    typeof TargetModuleId.Type,
+    MutableTargetModuleState
+  >;
 };
 
-type TargetModuleState = typeof ResolvedTargetModule.Type & {
-  readonly targetId: string;
+type MutableTargetModuleState = {
+  readonly moduleId: typeof TargetModuleId.Type;
+  selected: boolean;
+  readonly causes: Array<BlueprintCause>;
+};
+
+type MutableRepoModuleState = {
+  readonly moduleId: typeof RepoModuleId.Type;
+  selected: boolean;
+  readonly causes: Array<BlueprintCause>;
+};
+
+type ResolutionState = {
+  readonly targets: Map<string, MutableTargetState>;
+  readonly repoModules: Map<typeof RepoModuleId.Type, MutableRepoModuleState>;
+  readonly edges: Map<string, BlueprintDependencyEdge>;
 };
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
@@ -37,563 +61,32 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
       const targetCatalog = yield* TargetCatalog;
       const moduleCatalog = yield* ModuleCatalog;
 
-      const resolve = Effect.fn("BlueprintService.resolve")(function* (
+      const resolve: (
         selection: typeof Selection.Type,
-      ) {
-        const targets = new Map<string, typeof ResolvedTarget.Type>();
-        const targetModules = new Map<string, TargetModuleState>();
-        const repoModules = new Map<string, typeof ResolvedRepoModule.Type>();
-        const edges = new Map<string, typeof BlueprintDependencyEdge.Type>();
-        const warnings = new Map<string, typeof BlueprintWarning.Type>();
+      ) => Effect.Effect<Blueprint, BlueprintFailure | CatalogNotFound, never> =
+        Effect.fn("BlueprintService.resolve")(function* (
+          selection: typeof Selection.Type,
+        ) {
+          yield* validateSelection(selection, targetCatalog, moduleCatalog);
 
-        const addWarning = (warning: typeof BlueprintWarning.Type) => {
-          warnings.set(toBlueprintWarningKey(warning), warning);
-        };
-
-        const addDependencyEdge = (
-          from: typeof BlueprintNodeReference.Type,
-          to: typeof BlueprintNodeReference.Type,
-          reason: typeof BlueprintDependencyEdge.Type.reason,
-        ) => {
-          const edge: typeof BlueprintDependencyEdge.Type = {
-            _tag: "depends-on",
-            id: toBlueprintDependencyEdgeId({ from, to, reason }),
-            from,
-            to,
-            reason,
-          };
-
-          edges.set(edge.id, edge);
-          return edge.id;
-        };
-
-        const validateTarget = Effect.fn("BlueprintService.validateTarget")(
-          function* (targetIdentity: typeof TargetIdentity.Type) {
-            yield* targetCatalog.getTargetDefinition(targetIdentity.kind);
-
-            return targetIdentity;
-          },
-        );
-
-        const validateRepoOptions = () =>
-          Effect.gen(function* () {
-            const conceptualRepoModules = new Set<typeof RepoModuleId.Type>(
-              selection.modules,
-            );
-
-            for (const target of selection.targets) {
-              const targetDefinition = yield* targetCatalog.getTargetDefinition(
-                target.identity.kind,
-              );
-
-              for (const repoModuleId of targetDefinition.requiredRepoModules) {
-                conceptualRepoModules.add(repoModuleId);
-              }
-            }
-
-            if (
-              selection.options.runtime !== undefined &&
-              !conceptualRepoModules.has("root-bootstrap")
-            ) {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message: "Invalid repo option: runtime",
-                  cause: { option: "runtime" },
-                }),
-              );
-            }
-
-            if (
-              selection.options.linter !== undefined &&
-              !conceptualRepoModules.has("root-bootstrap")
-            ) {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message: "Invalid repo option: linter",
-                  cause: { option: "linter" },
-                }),
-              );
-            }
-          });
-
-        const validateTargetOptions = Effect.fn(
-          "BlueprintService.validateTargetOptions",
-        )(function* ({
-          targetId,
-          targetIdentity,
-          selectedModuleIds,
-          options,
-        }: {
-          readonly targetId: string;
-          readonly targetIdentity: typeof TargetIdentity.Type;
-          readonly selectedModuleIds: ReadonlySet<typeof TargetModuleId.Type>;
-          readonly options: (typeof Selection.Type.targets)[number]["options"];
-        }) {
-          if (options.httpApiStyle !== undefined) {
-            if (targetIdentity.kind !== "server") {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message: `Invalid target option: ${targetId} cannot use httpApiStyle`,
-                  cause: {
-                    targetId,
-                    option: "httpApiStyle",
-                  },
-                }),
-              );
-            }
-
-            if (!selectedModuleIds.has("http-api-server")) {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message:
-                    "Module gated target option: httpApiStyle requires module http-api-server",
-                  cause: {
-                    targetId,
-                    option: "httpApiStyle",
-                    requiredModuleId: "http-api-server",
-                  },
-                }),
-              );
-            }
-          }
-
-          if (options.domainApiSurface !== undefined) {
-            if (
-              targetIdentity.kind !== "package" ||
-              targetIdentity.name !== "domain"
-            ) {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message: `Invalid target option: ${targetId} cannot use domainApiSurface`,
-                  cause: {
-                    targetId,
-                    option: "domainApiSurface",
-                  },
-                }),
-              );
-            }
-
-            if (!selectedModuleIds.has("domain-api")) {
-              return yield* Effect.fail(
-                new BlueprintFailure({
-                  message:
-                    "Module gated target option: domainApiSurface requires module domain-api",
-                  cause: {
-                    targetId,
-                    option: "domainApiSurface",
-                    requiredModuleId: "domain-api",
-                  },
-                }),
-              );
-            }
-          }
-        });
-
-        const requireSupportedTargetModule = Effect.fn(
-          "BlueprintService.requireSupportedTargetModule",
-        )(function* ({
-          targetId,
-          targetIdentity,
-          moduleId,
-        }: {
-          readonly targetId: string;
-          readonly targetIdentity: typeof TargetIdentity.Type;
-          readonly moduleId: typeof TargetModuleId.Type;
-        }) {
-          const targetModuleDefinition =
-            yield* moduleCatalog.getTargetModuleDefinition(moduleId);
-
-          if (!targetModuleDefinition.isSupported(targetIdentity)) {
-            return yield* Effect.fail(
-              new BlueprintFailure({
-                message: `Unsupported target-module combination: ${targetId} requires module ${moduleId}`,
-                cause: {
-                  module: {
-                    targetId,
-                    moduleId,
-                  },
-                },
-              }),
-            );
-          }
-
-          return targetModuleDefinition;
-        });
-
-        const upsertTarget = ({
-          id,
-          identity,
-          status,
-          causes,
-        }: Omit<
-          typeof ResolvedTarget.Type,
-          "targetModules" | "composition"
-        >) => {
-          const existingTarget = targets.get(id);
-
-          if (existingTarget === undefined) {
-            targets.set(id, {
-              id,
-              identity,
-              status,
-              causes: mergeCauses(causes),
-              targetModules: [],
-              composition: undefined,
-            });
-            return;
-          }
-
-          targets.set(id, {
-            ...existingTarget,
-            status:
-              existingTarget.status === "selected" || status === "selected"
-                ? "selected"
-                : "implied",
-            causes: mergeCauses([...existingTarget.causes, ...causes]),
-          });
-        };
-
-        const upsertTargetModule = ({
-          targetId,
-          ...module
-        }: TargetModuleState) => {
-          const { moduleId, status, causes } = module;
-          const key = `${targetId}:${moduleId}`;
-          const existingTargetModule = targetModules.get(key);
-
-          if (existingTargetModule === undefined) {
-            targetModules.set(key, {
-              targetId,
-              ...module,
-              status,
-              causes: mergeCauses(causes),
-            });
-            return;
-          }
-
-          targetModules.set(key, {
-            ...existingTargetModule,
-            status:
-              existingTargetModule.status === "selected" ||
-              status === "selected"
-                ? "selected"
-                : "implied",
-            causes: mergeCauses([...existingTargetModule.causes, ...causes]),
-          });
-        };
-
-        const upsertRepoModule = ({
-          moduleId,
-          status,
-          causes,
-        }: typeof ResolvedRepoModule.Type) => {
-          const existingRepoModule = repoModules.get(moduleId);
-
-          if (existingRepoModule === undefined) {
-            repoModules.set(moduleId, {
-              moduleId,
-              status,
-              causes: mergeCauses(causes),
-            });
-            return;
-          }
-
-          repoModules.set(moduleId, {
-            ...existingRepoModule,
-            status:
-              existingRepoModule.status === "selected" || status === "selected"
-                ? "selected"
-                : "implied",
-            causes: mergeCauses([...existingRepoModule.causes, ...causes]),
-          });
-        };
-
-        const requireRepoModule = Effect.fn(
-          "BlueprintService.requireRepoModule",
-        )(function* ({
-          moduleId,
-          dependency,
-        }: {
-          readonly moduleId: typeof RepoModuleId.Type;
-          readonly dependency: DependencyInput;
-        }) {
-          yield* moduleCatalog.getRepoModuleDefinition(moduleId);
-
-          const edgeId = addDependencyEdge(
-            dependency.from,
-            repoModuleNode(moduleId),
-            dependency.reason,
+          const state = yield* resolveSelection(
+            selection,
+            targetCatalog,
+            moduleCatalog,
           );
+          const graph = buildGraph(state);
+          const nodes = getTargets(state);
+          const modules = getRepoModules(state);
+          const warnings = buildWarnings(state);
+          const edges = [...graph.edges.values()].map((edge) => edge.data);
 
-          upsertRepoModule({
-            moduleId,
-            status: "implied",
-            causes: [dependencyCause(edgeId)],
+          return new Blueprint({
+            nodes,
+            edges,
+            modules,
+            warnings,
           });
         });
-
-        const requireCanonicalTarget = Effect.fn(
-          "BlueprintService.requireCanonicalTarget",
-        )(function* ({
-          identity,
-          dependency,
-        }: {
-          readonly identity: typeof TargetIdentity.Type;
-          readonly dependency: DependencyInput;
-        }) {
-          const targetDefinition = yield* targetCatalog.getTargetDefinition(
-            identity.kind,
-          );
-
-          const targetId = toTargetId(identity);
-          const edgeId = addDependencyEdge(
-            dependency.from,
-            targetNode(targetId),
-            dependency.reason,
-          );
-
-          upsertTarget({
-            id: targetId,
-            identity,
-            status: "implied",
-            causes: [dependencyCause(edgeId)],
-          });
-
-          for (const repoModuleId of targetDefinition.requiredRepoModules) {
-            yield* requireRepoModule({
-              moduleId: repoModuleId,
-              dependency: {
-                from: targetNode(targetId),
-                reason: "required-repo-module",
-              },
-            });
-          }
-
-          return targetId;
-        });
-
-        const requireTargetModule = Effect.fn(
-          "BlueprintService.requireTargetModule",
-        )(function* ({
-          targetId,
-          moduleId,
-          dependency,
-        }: {
-          readonly targetId: string;
-          readonly moduleId: typeof TargetModuleId.Type;
-          readonly dependency: DependencyInput;
-        }) {
-          const targetState = targets.get(targetId);
-
-          if (targetState === undefined) {
-            return yield* Effect.die(
-              new Error(
-                `Invariant violation: target ${targetId} must exist before requiring module ${moduleId}`,
-              ),
-            );
-          }
-
-          yield* requireSupportedTargetModule({
-            targetId,
-            targetIdentity: targetState.identity,
-            moduleId,
-          });
-
-          const edgeId = addDependencyEdge(
-            dependency.from,
-            targetModuleNode(targetId, moduleId),
-            dependency.reason,
-          );
-
-          upsertTargetModule({
-            targetId,
-            moduleId,
-            status: "implied",
-            causes: [dependencyCause(edgeId)],
-          });
-
-          const owningTargetEdgeId = addDependencyEdge(
-            targetModuleNode(targetId, moduleId),
-            targetNode(targetId),
-            "required-owning-target",
-          );
-
-          upsertTarget({
-            id: targetId,
-            identity: targetState.identity,
-            status: "implied",
-            causes: [dependencyCause(owningTargetEdgeId)],
-          });
-        });
-
-        yield* validateRepoOptions();
-
-        for (const target of selection.targets) {
-          const targetIdentity = yield* validateTarget(target.identity);
-          const targetId = toTargetId(targetIdentity);
-          const selectedModuleIds = new Set(
-            target.modules.map((module) => module.id),
-          );
-
-          yield* validateTargetOptions({
-            targetId,
-            targetIdentity,
-            selectedModuleIds,
-            options: target.options,
-          });
-
-          upsertTarget({
-            id: targetId,
-            identity: targetIdentity,
-            status: "selected",
-            causes: selectedCause(targetNode(targetId)),
-          });
-
-          const targetDefinition = yield* targetCatalog.getTargetDefinition(
-            targetIdentity.kind,
-          );
-
-          for (const repoModuleId of targetDefinition.requiredRepoModules) {
-            yield* requireRepoModule({
-              moduleId: repoModuleId,
-              dependency: {
-                from: targetNode(targetId),
-                reason: "required-repo-module",
-              },
-            });
-          }
-        }
-
-        for (const moduleId of selection.modules) {
-          yield* moduleCatalog.getRepoModuleDefinition(moduleId);
-
-          upsertRepoModule({
-            moduleId,
-            status: "selected",
-            causes: selectedCause(repoModuleNode(moduleId)),
-          });
-        }
-
-        for (const target of selection.targets) {
-          const targetIdentity = yield* validateTarget(target.identity);
-          const targetId = toTargetId(targetIdentity);
-
-          for (const targetModule of target.modules) {
-            const targetModuleDefinition = yield* requireSupportedTargetModule({
-              targetId,
-              targetIdentity,
-              moduleId: targetModule.id,
-            });
-
-            const targetModuleReference = targetModuleNode(
-              targetId,
-              targetModule.id,
-            );
-
-            const owningTargetEdgeId = addDependencyEdge(
-              targetModuleReference,
-              targetNode(targetId),
-              "required-owning-target",
-            );
-
-            upsertTarget({
-              id: targetId,
-              identity: targetIdentity,
-              status: "implied",
-              causes: [dependencyCause(owningTargetEdgeId)],
-            });
-            upsertTargetModule({
-              targetId,
-              moduleId: targetModule.id,
-              status: "selected",
-              causes: selectedCause(targetModuleReference),
-            });
-
-            for (const dependency of targetModuleDefinition.dependencies) {
-              if (dependency.requiredCanonicalTarget !== undefined) {
-                const requiredTargetId = yield* requireCanonicalTarget({
-                  identity: dependency.requiredCanonicalTarget,
-                  dependency: {
-                    from: targetModuleReference,
-                    reason: "required-canonical-target",
-                  },
-                });
-
-                if (dependency.requiredTargetModule !== undefined) {
-                  yield* requireTargetModule({
-                    targetId: requiredTargetId,
-                    moduleId: dependency.requiredTargetModule.moduleId,
-                    dependency: {
-                      from: targetModuleReference,
-                      reason: "required-target-module",
-                    },
-                  });
-                }
-              }
-            }
-          }
-        }
-
-        for (const target of targets.values()) {
-          const dependencyEdgeIds = toDependencyEdgeIds(target.causes);
-
-          if (target.status === "selected" && dependencyEdgeIds !== undefined) {
-            addWarning({
-              _tag: "RedundantSelectionNormalized",
-              node: targetNode(target.id),
-              edgeIds: dependencyEdgeIds,
-            });
-          }
-        }
-
-        for (const targetModule of targetModules.values()) {
-          const dependencyEdgeIds = toDependencyEdgeIds(targetModule.causes);
-
-          if (
-            targetModule.status === "selected" &&
-            dependencyEdgeIds !== undefined
-          ) {
-            addWarning({
-              _tag: "RedundantSelectionNormalized",
-              node: {
-                _tag: "target-module",
-                targetId: targetModule.targetId,
-                moduleId: targetModule.moduleId,
-              },
-              edgeIds: dependencyEdgeIds,
-            });
-          }
-        }
-
-        for (const repoModule of repoModules.values()) {
-          const dependencyEdgeIds = toDependencyEdgeIds(repoModule.causes);
-
-          if (
-            repoModule.status === "selected" &&
-            dependencyEdgeIds !== undefined
-          ) {
-            addWarning({
-              _tag: "RedundantSelectionNormalized",
-              node: repoModuleNode(repoModule.moduleId),
-              edgeIds: dependencyEdgeIds,
-            });
-          }
-        }
-
-        return new Blueprint({
-          nodes: [...targets.values()].sort(byTargetId).map((target) => ({
-            ...target,
-            targetModules: [...targetModules.values()]
-              .filter((targetModule) => targetModule.targetId === target.id)
-              .sort(byNestedResolvedTargetModule)
-              .map(({ targetId: _targetId, ...module }) => module),
-            composition: resolveTargetComposition(target.id, targetModules),
-          })),
-          modules: [...repoModules.values()].sort(byRepoModuleId),
-          edges: [...edges.values()].sort(byBlueprintDependencyEdge),
-          warnings: [...warnings.values()].sort(byBlueprintWarning),
-        });
-      });
 
       return { resolve };
     }),
@@ -607,193 +100,629 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
   );
 }
 
-const toTargetId = ({ kind, name }: typeof TargetIdentity.Type): string => {
-  switch (kind) {
-    case "client":
-    case "server":
-    case "cli":
-      return `apps/${kind}-${name}`;
-    case "package":
-      return `packages/${name}`;
+const validateSelection: (
+  selection: typeof Selection.Type,
+  targetCatalog: typeof TargetCatalog.Service,
+  moduleCatalog: typeof ModuleCatalog.Service,
+) => Effect.Effect<void, BlueprintFailure | CatalogNotFound, never> = Effect.fn(
+  "BlueprintService.validateSelection",
+)(function* (
+  selection: typeof Selection.Type,
+  targetCatalog: typeof TargetCatalog.Service,
+  moduleCatalog: typeof ModuleCatalog.Service,
+) {
+  const selectedTargetIds = new Set<string>();
+  const impliedRepoModules = new Set<typeof RepoModuleId.Type>(
+    selection.modules,
+  );
+
+  for (const target of selection.targets) {
+    const targetId = toTargetId(target.identity);
+
+    if (selectedTargetIds.has(targetId)) {
+      yield* Effect.fail(
+        new BlueprintFailure({
+          message: `Duplicate target selection: ${targetId}`,
+        }),
+      );
+    }
+
+    selectedTargetIds.add(targetId);
+
+    const targetDefinition = yield* targetCatalog.getTargetDefinition(
+      target.identity.kind,
+    );
+
+    for (const repoModuleId of targetDefinition.requiredRepoModules) {
+      impliedRepoModules.add(repoModuleId);
+    }
+
+    const selectedTargetModuleIds = new Set<typeof TargetModuleId.Type>();
+
+    for (const moduleSelection of target.modules) {
+      if (selectedTargetModuleIds.has(moduleSelection.id)) {
+        yield* Effect.fail(
+          new BlueprintFailure({
+            message: `Duplicate target module selection: ${targetId} requires module ${moduleSelection.id}`,
+          }),
+        );
+      }
+
+      selectedTargetModuleIds.add(moduleSelection.id);
+
+      const targetModuleDefinition =
+        yield* moduleCatalog.getTargetModuleDefinition(moduleSelection.id);
+
+      if (!targetModuleDefinition.isSupported(target.identity)) {
+        yield* Effect.fail(
+          new BlueprintFailure({
+            message: `Unsupported target-module combination: ${targetId} requires module ${moduleSelection.id}`,
+          }),
+        );
+      }
+    }
+
+    if (
+      target.options.httpApiStyle !== undefined &&
+      !selectedTargetModuleIds.has("http-api-server")
+    ) {
+      yield* Effect.fail(
+        new BlueprintFailure({
+          message:
+            "Module gated target option: httpApiStyle requires module http-api-server",
+        }),
+      );
+    }
+
+    if (
+      target.options.domainApiSurface !== undefined &&
+      !selectedTargetModuleIds.has("domain-api")
+    ) {
+      yield* Effect.fail(
+        new BlueprintFailure({
+          message:
+            "Module gated target option: domainApiSurface requires module domain-api",
+        }),
+      );
+    }
   }
+
+  for (const repoModuleId of selection.modules) {
+    yield* moduleCatalog.getRepoModuleDefinition(repoModuleId);
+  }
+
+  if (
+    selection.options.linter !== undefined &&
+    !impliedRepoModules.has("root-bootstrap")
+  ) {
+    yield* Effect.fail(
+      new BlueprintFailure({
+        message: "Invalid repo option: linter",
+      }),
+    );
+  }
+
+  if (
+    selection.options.runtime !== undefined &&
+    !impliedRepoModules.has("root-bootstrap")
+  ) {
+    yield* Effect.fail(
+      new BlueprintFailure({
+        message: "Invalid repo option: runtime",
+      }),
+    );
+  }
+});
+
+const resolveSelection: (
+  selection: typeof Selection.Type,
+  targetCatalog: typeof TargetCatalog.Service,
+  moduleCatalog: typeof ModuleCatalog.Service,
+) => Effect.Effect<ResolutionState, BlueprintFailure | CatalogNotFound, never> =
+  Effect.fn("BlueprintService.resolveSelection")(function* (
+    selection: typeof Selection.Type,
+    targetCatalog: typeof TargetCatalog.Service,
+    moduleCatalog: typeof ModuleCatalog.Service,
+  ) {
+    const state: ResolutionState = {
+      targets: new Map(),
+      repoModules: new Map(),
+      edges: new Map(),
+    };
+
+    const ensureRepoModule: (
+      moduleId: typeof RepoModuleId.Type,
+      options: {
+        readonly selected: boolean;
+        readonly cause: BlueprintCause;
+      },
+    ) => Effect.Effect<MutableRepoModuleState, CatalogNotFound, never> =
+      Effect.fn(function* (
+        moduleId: typeof RepoModuleId.Type,
+        options: {
+          readonly selected: boolean;
+          readonly cause: BlueprintCause;
+        },
+      ) {
+        yield* moduleCatalog.getRepoModuleDefinition(moduleId);
+
+        const current = state.repoModules.get(moduleId);
+
+        if (current !== undefined) {
+          current.selected = current.selected || options.selected;
+          appendCause(current.causes, options.cause);
+          return current;
+        }
+
+        const next: MutableRepoModuleState = {
+          moduleId,
+          selected: options.selected,
+          causes: [options.cause],
+        };
+
+        state.repoModules.set(moduleId, next);
+        return next;
+      });
+
+    const ensureTarget: (
+      identity: typeof TargetIdentity.Type,
+      options: {
+        readonly selected: boolean;
+        readonly cause: BlueprintCause;
+      },
+    ) => Effect.Effect<
+      MutableTargetState,
+      BlueprintFailure | CatalogNotFound,
+      never
+    > = Effect.fn(function* (
+      identity: typeof TargetIdentity.Type,
+      options: {
+        readonly selected: boolean;
+        readonly cause: BlueprintCause;
+      },
+    ) {
+      const id = toTargetId(identity);
+      const current = state.targets.get(id);
+
+      if (current !== undefined) {
+        current.selected = current.selected || options.selected;
+        appendCause(current.causes, options.cause);
+        return current;
+      }
+
+      const targetDefinition = yield* targetCatalog.getTargetDefinition(
+        identity.kind,
+      );
+      const targetState: MutableTargetState = {
+        id,
+        identity,
+        selected: options.selected,
+        causes: [options.cause],
+        targetModules: new Map(),
+      };
+
+      state.targets.set(id, targetState);
+
+      for (const repoModuleId of targetDefinition.requiredRepoModules) {
+        const edge = appendEdge(state, {
+          from: toTargetReference(id),
+          to: toRepoModuleReference(repoModuleId),
+          reason: "required-repo-module",
+        });
+
+        yield* ensureRepoModule(repoModuleId, {
+          selected: false,
+          cause: toDependencyCause(edge.id),
+        });
+      }
+
+      return targetState;
+    });
+
+    const ensureTargetModule: (
+      target: typeof TargetIdentity.Type,
+      moduleId: typeof TargetModuleId.Type,
+      options: {
+        readonly selected: boolean;
+        readonly cause: BlueprintCause;
+      },
+    ) => Effect.Effect<
+      MutableTargetModuleState,
+      BlueprintFailure | CatalogNotFound,
+      never
+    > = Effect.fn(function* (
+      target: typeof TargetIdentity.Type,
+      moduleId: typeof TargetModuleId.Type,
+      options: {
+        readonly selected: boolean;
+        readonly cause: BlueprintCause;
+      },
+    ) {
+      const targetId = toTargetId(target);
+      const targetState = yield* ensureTarget(target, {
+        selected: false,
+        cause: options.cause,
+      });
+      const current = targetState.targetModules.get(moduleId);
+
+      if (current !== undefined) {
+        current.selected = current.selected || options.selected;
+        appendCause(current.causes, options.cause);
+        return current;
+      }
+
+      const targetModuleDefinition =
+        yield* moduleCatalog.getTargetModuleDefinition(moduleId);
+
+      if (!targetModuleDefinition.isSupported(target)) {
+        yield* Effect.fail(
+          new BlueprintFailure({
+            message: `Unsupported target-module combination: ${targetId} requires module ${moduleId}`,
+          }),
+        );
+      }
+
+      const targetModuleState: MutableTargetModuleState = {
+        moduleId,
+        selected: options.selected,
+        causes: [options.cause],
+      };
+
+      targetState.targetModules.set(moduleId, targetModuleState);
+      const targetModuleReference = toTargetModuleReference(targetId, moduleId);
+      const owningEdge = appendEdge(state, {
+        from: targetModuleReference,
+        to: toTargetReference(targetId),
+        reason: "required-owning-target",
+      });
+
+      yield* ensureTarget(target, {
+        selected: false,
+        cause: toDependencyCause(owningEdge.id),
+      });
+
+      for (const dependency of targetModuleDefinition.dependencies) {
+        if (dependency.requiredCanonicalTarget !== undefined) {
+          const canonicalTargetId = toTargetId(
+            dependency.requiredCanonicalTarget,
+          );
+          const canonicalTargetEdge = appendEdge(state, {
+            from: targetModuleReference,
+            to: toTargetReference(canonicalTargetId),
+            reason: "required-canonical-target",
+          });
+
+          yield* ensureTarget(dependency.requiredCanonicalTarget, {
+            selected: false,
+            cause: toDependencyCause(canonicalTargetEdge.id),
+          });
+        }
+
+        if (dependency.requiredTargetModule !== undefined) {
+          const requiredTargetId = toTargetId(
+            dependency.requiredTargetModule.target,
+          );
+          const requiredTargetModuleEdge = appendEdge(state, {
+            from: targetModuleReference,
+            to: toTargetModuleReference(
+              requiredTargetId,
+              dependency.requiredTargetModule.moduleId,
+            ),
+            reason: "required-target-module",
+          });
+
+          yield* ensureTargetModule(
+            dependency.requiredTargetModule.target,
+            dependency.requiredTargetModule.moduleId,
+            {
+              selected: false,
+              cause: toDependencyCause(requiredTargetModuleEdge.id),
+            },
+          );
+        }
+      }
+
+      return targetModuleState;
+    });
+
+    for (const target of [...selection.targets].sort((left, right) =>
+      toTargetId(left.identity).localeCompare(toTargetId(right.identity)),
+    )) {
+      const targetId = toTargetId(target.identity);
+
+      yield* ensureTarget(target.identity, {
+        selected: true,
+        cause: toSelectionCause(toTargetReference(targetId)),
+      });
+
+      for (const moduleSelection of [...target.modules].sort((left, right) =>
+        left.id.localeCompare(right.id),
+      )) {
+        yield* ensureTargetModule(target.identity, moduleSelection.id, {
+          selected: true,
+          cause: toSelectionCause(
+            toTargetModuleReference(targetId, moduleSelection.id),
+          ),
+        });
+      }
+    }
+
+    for (const repoModuleId of [...selection.modules].sort((left, right) =>
+      left.localeCompare(right),
+    )) {
+      yield* ensureRepoModule(repoModuleId, {
+        selected: true,
+        cause: toSelectionCause(toRepoModuleReference(repoModuleId)),
+      });
+    }
+
+    return state;
+  });
+
+const buildGraph = (state: ResolutionState): ResolutionGraph => {
+  const nodeReferences = [
+    ...[...state.targets.values()].map((target) =>
+      toTargetReference(target.id),
+    ),
+    ...[...state.repoModules.values()].map((repoModule) =>
+      toRepoModuleReference(repoModule.moduleId),
+    ),
+    ...[...state.targets.values()].flatMap((target) =>
+      [...target.targetModules.values()].map((targetModule) =>
+        toTargetModuleReference(target.id, targetModule.moduleId),
+      ),
+    ),
+  ].sort((left, right) =>
+    toNodeReferenceKey(left).localeCompare(toNodeReferenceKey(right)),
+  );
+
+  const edges = [...state.edges.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  );
+
+  return Graph.directed<BlueprintNodeReference, BlueprintDependencyEdge>(
+    (mutable) => {
+      const nodeIndexes = new Map<string, number>();
+
+      for (const reference of nodeReferences) {
+        nodeIndexes.set(
+          toNodeReferenceKey(reference),
+          Graph.addNode(mutable, reference),
+        );
+      }
+
+      for (const edge of edges) {
+        const from = nodeIndexes.get(toNodeReferenceKey(edge.from));
+        const to = nodeIndexes.get(toNodeReferenceKey(edge.to));
+
+        if (from === undefined || to === undefined) {
+          continue;
+        }
+
+        Graph.addEdge(mutable, from, to, edge);
+      }
+    },
+  );
 };
 
-const targetNode = (id: string): typeof BlueprintNodeReference.Type => ({
+const getTargets = (state: ResolutionState): Array<ResolvedTarget> =>
+  [...state.targets.values()]
+    .sort((left, right) => left.id.localeCompare(right.id))
+    .map((target) => {
+      const targetModules = [...target.targetModules.values()]
+        .sort((left, right) => left.moduleId.localeCompare(right.moduleId))
+        .map(
+          (targetModule): ResolvedTargetModule => ({
+            moduleId: targetModule.moduleId,
+            status: targetModule.selected ? "selected" : "implied",
+            causes: toSortedCauses(targetModule.causes),
+          }),
+        );
+
+      return {
+        id: target.id,
+        identity: target.identity,
+        status: target.selected ? "selected" : "implied",
+        causes: toSortedCauses(target.causes),
+        targetModules,
+        composition:
+          target.identity.kind === "package" &&
+          target.targetModules.has("domain-api")
+            ? {
+                _tag: "package",
+                publicEntrypoint: "./Api",
+              }
+            : undefined,
+      };
+    });
+
+const getRepoModules = (state: ResolutionState): Array<ResolvedRepoModule> =>
+  [...state.repoModules.keys()]
+    .sort((left, right) => left.localeCompare(right))
+    .map((repoModuleId) => ({
+      moduleId: repoModuleId,
+      status: state.repoModules.get(repoModuleId)?.selected
+        ? "selected"
+        : "implied",
+      causes: toSortedCauses(state.repoModules.get(repoModuleId)?.causes ?? []),
+    }));
+
+const buildWarnings = (state: ResolutionState): Array<BlueprintWarning> => {
+  const warnings: Array<BlueprintWarning> = [];
+
+  for (const target of [...state.targets.values()].sort((left, right) =>
+    left.id.localeCompare(right.id),
+  )) {
+    const warning = toRedundantSelectionWarning(
+      toTargetReference(target.id),
+      target.selected,
+      target.causes,
+    );
+
+    if (warning !== undefined) {
+      warnings.push(warning);
+    }
+
+    for (const targetModule of [...target.targetModules.values()].sort(
+      (left, right) => left.moduleId.localeCompare(right.moduleId),
+    )) {
+      const targetModuleWarning = toRedundantSelectionWarning(
+        toTargetModuleReference(target.id, targetModule.moduleId),
+        targetModule.selected,
+        targetModule.causes,
+      );
+
+      if (targetModuleWarning !== undefined) {
+        warnings.push(targetModuleWarning);
+      }
+    }
+  }
+
+  for (const repoModule of [...state.repoModules.values()].sort((left, right) =>
+    left.moduleId.localeCompare(right.moduleId),
+  )) {
+    const warning = toRedundantSelectionWarning(
+      toRepoModuleReference(repoModule.moduleId),
+      repoModule.selected,
+      repoModule.causes,
+    );
+
+    if (warning !== undefined) {
+      warnings.push(warning);
+    }
+  }
+
+  return warnings.sort((left, right) =>
+    toNodeReferenceKey(left.node).localeCompare(toNodeReferenceKey(right.node)),
+  );
+};
+
+const toRedundantSelectionWarning = (
+  node: BlueprintNodeReference,
+  selected: boolean,
+  causes: ReadonlyArray<BlueprintCause>,
+): BlueprintWarning | undefined => {
+  if (!selected) {
+    return undefined;
+  }
+
+  const edgeIds = causes
+    .filter((cause) => cause._tag === "dependency")
+    .map((cause) => cause.edgeId)
+    .sort((left, right) => left.localeCompare(right));
+
+  if (edgeIds.length === 0) {
+    return undefined;
+  }
+
+  return {
+    _tag: "RedundantSelectionNormalized",
+    node,
+    edgeIds: edgeIds as [string, ...Array<string>],
+  };
+};
+
+const appendEdge = (
+  state: ResolutionState,
+  edge: Omit<BlueprintDependencyEdge, "_tag" | "id">,
+): BlueprintDependencyEdge => {
+  const next: BlueprintDependencyEdge = {
+    _tag: "depends-on",
+    id: toEdgeId(edge.reason, edge.from, edge.to),
+    from: edge.from,
+    to: edge.to,
+    reason: edge.reason,
+  };
+
+  const current = state.edges.get(next.id);
+
+  if (current !== undefined) {
+    return current;
+  }
+
+  state.edges.set(next.id, next);
+  return next;
+};
+
+const appendCause = (
+  causes: Array<BlueprintCause>,
+  cause: BlueprintCause,
+): void => {
+  const causeKey = toCauseKey(cause);
+
+  if (causes.some((current) => toCauseKey(current) === causeKey)) {
+    return;
+  }
+
+  causes.push(cause);
+};
+
+const toSelectionCause = (source: BlueprintNodeReference): BlueprintCause => ({
+  _tag: "selection",
+  source,
+});
+
+const toDependencyCause = (edgeId: string): BlueprintCause => ({
+  _tag: "dependency",
+  edgeId,
+});
+
+const toTargetId = (identity: typeof TargetIdentity.Type): string =>
+  identity.kind === "package"
+    ? `packages/${identity.name}`
+    : `apps/${identity.kind}-${identity.name}`;
+
+const toTargetReference = (id: string): BlueprintNodeReference => ({
   _tag: "target",
   id,
 });
 
-const repoModuleNode = (
+const toRepoModuleReference = (
   id: typeof RepoModuleId.Type,
-): typeof BlueprintNodeReference.Type => ({
+): BlueprintNodeReference => ({
   _tag: "repo-module",
   id,
 });
 
-const targetModuleNode = (
+const toTargetModuleReference = (
   targetId: string,
   moduleId: typeof TargetModuleId.Type,
-): typeof BlueprintNodeReference.Type => ({
+): BlueprintNodeReference => ({
   _tag: "target-module",
   targetId,
   moduleId,
 });
 
-const byTargetId = (
-  left: { readonly id: string },
-  right: { readonly id: string },
-): number => left.id.localeCompare(right.id);
-
-const byRepoModuleId = (
-  left: { readonly moduleId: string },
-  right: { readonly moduleId: string },
-): number => left.moduleId.localeCompare(right.moduleId);
-
-const byNestedResolvedTargetModule = (
-  left: { readonly moduleId: string },
-  right: { readonly moduleId: string },
-): number => left.moduleId.localeCompare(right.moduleId);
-
-const toBlueprintNodeReferenceKey = (
-  reference: typeof BlueprintNodeReference.Type,
-): string => {
+const toNodeReferenceKey = (reference: BlueprintNodeReference): string => {
   switch (reference._tag) {
-    case "repo-module":
-      return `repo-module:${reference.id}`;
     case "target":
       return `target:${reference.id}`;
+    case "repo-module":
+      return `repo-module:${reference.id}`;
     case "target-module":
       return `target-module:${reference.targetId}:${reference.moduleId}`;
   }
 };
 
-const byBlueprintCause = (
-  left: typeof BlueprintCause.Type,
-  right: typeof BlueprintCause.Type,
-): number => {
-  if (left._tag !== right._tag) {
-    return left._tag.localeCompare(right._tag);
-  }
+const toEdgeId = (
+  reason: BlueprintDependencyEdge["reason"],
+  from: BlueprintNodeReference,
+  to: BlueprintNodeReference,
+): string =>
+  `${reason}=>${toNodeReferenceKey(from)}=>${toNodeReferenceKey(to)}`;
 
-  if (left._tag === "selection" && right._tag === "selection") {
-    return toBlueprintNodeReferenceKey(left.source).localeCompare(
-      toBlueprintNodeReferenceKey(right.source),
-    );
-  }
-
-  if (left._tag === "dependency" && right._tag === "dependency") {
-    return left.edgeId.localeCompare(right.edgeId);
-  }
-
-  return 0;
-};
-
-const mergeCauses = (
-  causes: ReadonlyArray<typeof BlueprintCause.Type>,
-): [typeof BlueprintCause.Type, ...Array<typeof BlueprintCause.Type>] => {
-  const deduped = new Map<string, typeof BlueprintCause.Type>();
-
-  for (const cause of causes) {
-    deduped.set(toBlueprintCauseKey(cause), cause);
-  }
-
-  return [...deduped.values()].sort(byBlueprintCause) as [
-    typeof BlueprintCause.Type,
-    ...Array<typeof BlueprintCause.Type>,
-  ];
-};
-
-const selectedCause = (
-  source: typeof BlueprintNodeReference.Type,
-): readonly [
-  typeof BlueprintCause.Type,
-  ...Array<typeof BlueprintCause.Type>,
-] => [
-  {
-    _tag: "selection",
-    source,
-  },
-];
-
-const dependencyCause = (edgeId: string): typeof BlueprintCause.Type => ({
-  _tag: "dependency",
-  edgeId,
-});
-
-const toDependencyEdgeIds = (
-  causes: ReadonlyArray<typeof BlueprintCause.Type>,
-): [string, ...Array<string>] | undefined => {
-  const dependencyEdgeIds = new Set<string>();
-
-  for (const cause of causes) {
-    if (cause._tag === "dependency") {
-      dependencyEdgeIds.add(cause.edgeId);
-    }
-  }
-
-  if (dependencyEdgeIds.size === 0) {
-    return undefined;
-  }
-
-  return [...dependencyEdgeIds].sort() as [string, ...Array<string>];
-};
-
-const resolveTargetComposition = (
-  targetId: string,
-  targetModules: ReadonlyMap<string, TargetModuleState>,
-): typeof TargetComposition.Type | undefined => {
-  if (!targetId.startsWith("packages/")) {
-    return undefined;
-  }
-
-  return {
-    _tag: "package",
-    publicEntrypoint: targetModules.has(`${targetId}:domain-api`)
-      ? ("./Api" satisfies typeof PackagePublicEntrypoint.Type)
-      : ("." satisfies typeof PackagePublicEntrypoint.Type),
-  };
-};
-
-const toBlueprintCauseKey = (cause: typeof BlueprintCause.Type): string => {
+const toCauseKey = (cause: BlueprintCause): string => {
   switch (cause._tag) {
     case "selection":
-      return `${cause._tag}:${toBlueprintNodeReferenceKey(cause.source)}`;
+      return `selection:${toNodeReferenceKey(cause.source)}`;
     case "dependency":
-      return `${cause._tag}:${cause.edgeId}`;
+      return `dependency:${cause.edgeId}`;
   }
 };
 
-const toBlueprintDependencyEdgeId = ({
-  from,
-  to,
-  reason,
-}: {
-  readonly from: typeof BlueprintNodeReference.Type;
-  readonly to: typeof BlueprintNodeReference.Type;
-  readonly reason: typeof BlueprintDependencyEdge.Type.reason;
-}): string =>
-  [
-    reason,
-    toBlueprintNodeReferenceKey(from),
-    toBlueprintNodeReferenceKey(to),
-  ].join("=>");
-
-const byBlueprintDependencyEdge = (
-  left: typeof BlueprintDependencyEdge.Type,
-  right: typeof BlueprintDependencyEdge.Type,
-): number => left.id.localeCompare(right.id);
-
-const toBlueprintWarningKey = (
-  warning: typeof BlueprintWarning.Type,
-): string => {
-  switch (warning._tag) {
-    case "RedundantSelectionNormalized":
-      return `${warning._tag}:${toBlueprintNodeReferenceKey(warning.node)}:${warning.edgeIds.join("|")}`;
-  }
-};
-
-const byBlueprintWarning = (
-  left: typeof BlueprintWarning.Type,
-  right: typeof BlueprintWarning.Type,
-): number =>
-  toBlueprintWarningKey(left).localeCompare(toBlueprintWarningKey(right));
+const toSortedCauses = (
+  causes: ReadonlyArray<BlueprintCause>,
+): [BlueprintCause, ...Array<BlueprintCause>] =>
+  [...causes].sort((left, right) =>
+    toCauseKey(left).localeCompare(toCauseKey(right)),
+  ) as [BlueprintCause, ...Array<BlueprintCause>];
