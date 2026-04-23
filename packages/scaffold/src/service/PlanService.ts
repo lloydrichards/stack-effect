@@ -1,4 +1,4 @@
-import type { Blueprint, ResolvedTarget } from "@repo/domain/Blueprint";
+import type { Blueprint } from "@repo/domain/Blueprint";
 import { pathOrd } from "@repo/domain/Order";
 import {
   Plan,
@@ -11,18 +11,9 @@ import {
 } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, Layer, Option, Record } from "effect";
 import {
-  domainApiContents,
-  serverHealthContents,
-  serverHelloContents,
-} from "../registry/content/api";
-import {
-  packageDomainTsconfigContents,
-  rootBootstrapFiles,
-} from "../registry/content/root-bootstrap";
-import {
-  serverIndexContents,
-  serverTsconfigContents,
-} from "../registry/content/server";
+  ContributionResolver,
+  type NormalizedContributions,
+} from "./ContributionResolver";
 import {
   byBarrelExportPathOrd,
   byDependencySectionAndNameOrd,
@@ -52,6 +43,7 @@ const projectedBarrelExportOrd = byBarrelExportPathOrd<ProjectedBarrelExport>();
 export class PlanService extends Context.Service<PlanService>()("PlanService", {
   make: Effect.gen(function* () {
     const snapshot = yield* RepoSnapshotService;
+    const contributionResolver = yield* ContributionResolver;
 
     const build = Effect.fn("PlanService.build")(function* ({
       blueprint,
@@ -60,7 +52,10 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
       blueprint: typeof Blueprint.Type;
       repoRoot: string;
     }) {
-      const changeset = compilePlanChangeset(blueprint);
+      const normalizedContributions = yield* contributionResolver.resolve({
+        blueprint,
+      });
+      const changeset = compilePlanChangeset(normalizedContributions);
       const inspectionPaths = collectPlanInspectionPaths(changeset);
       const repoSnapshot = yield* snapshot.load({
         paths: inspectionPaths,
@@ -74,23 +69,28 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
   }),
 }) {
   static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
+    Layer.provide(ContributionResolver.layer),
     Layer.provide(RepoSnapshotService.layer),
   );
 }
 const compilePlanChangeset = (
-  blueprint: typeof Blueprint.Type,
+  normalizedContributions: NormalizedContributions,
 ): PlanChangeset => {
   const changesetPaths = new Map<string, MutablePlanChangesetPath>();
-  const projectedPaths = collectProjectedPlanPaths(blueprint);
-  const projectedContents = collectProjectedContents(blueprint);
-  const projectedPackageJsonExports =
-    collectProjectedPackageJsonExports(blueprint);
+  const projectedPaths = collectProjectedPlanPaths(normalizedContributions);
+  const projectedContents = collectProjectedContents(normalizedContributions);
+  const projectedPackageJsonExports = collectProjectedPackageJsonExports(
+    normalizedContributions,
+  );
   const projectedPackageJsonDependencies =
-    collectProjectedPackageJsonDependencies(blueprint);
-  const projectedPackageJsonScripts =
-    collectProjectedPackageJsonScripts(blueprint);
-  const projectedBarrelExports = collectProjectedBarrelExports(blueprint);
-  const projectedTsconfigs = collectProjectedTsconfigs(blueprint);
+    collectProjectedPackageJsonDependencies(normalizedContributions);
+  const projectedPackageJsonScripts = collectProjectedPackageJsonScripts(
+    normalizedContributions,
+  );
+  const projectedBarrelExports = collectProjectedBarrelExports(
+    normalizedContributions,
+  );
+  const projectedTsconfigs = collectProjectedTsconfigs(normalizedContributions);
 
   for (const projectedPath of projectedPaths) {
     getOrCreatePlanChangesetPath(changesetPaths, projectedPath.path);
@@ -897,174 +897,82 @@ const appendProjectedTsconfig = (
   });
 };
 
-const isServerTarget = (target: ResolvedTarget) =>
-  target.id === "apps/server-api";
+const flattenContributions = (
+  normalizedContributions: NormalizedContributions,
+) => [
+  ...normalizedContributions.targets.map((entry) => entry.contributions),
+  ...normalizedContributions.modules.map((entry) => entry.contributions),
+];
 
-const isDomainPackageTarget = (target: ResolvedTarget) =>
-  target.id === "packages/domain";
-
-const hasRepoOnlyRootBootstrap = (blueprint: Blueprint) => {
-  if (blueprint.nodes.length > 0) {
-    return undefined;
-  }
-
-  const rootBootstrap = blueprint.modules.find(
-    (repoModule) => repoModule.moduleId === "root-bootstrap",
-  );
-
-  return rootBootstrap === undefined ? undefined : true;
-};
-
-const collectProjectedRootBootstrapPaths = (blueprint: Blueprint) => {
-  const hasRootBootstrap = hasRepoOnlyRootBootstrap(blueprint);
-
-  if (hasRootBootstrap === undefined) {
-    return [];
-  }
-
-  return Object.keys(rootBootstrapFiles)
-    .sort(pathOrd)
-    .map((path) => ({ path })) satisfies Array<ProjectedPlanPath>;
-};
-
-const projectServerTargetPaths = (target: ResolvedTarget) => {
+const collectProjectedPlanPaths = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
 
-  appendProjectedPath(projectedPaths, "apps/server/package.json");
-  appendProjectedPath(projectedPaths, "apps/server/tsconfig.json");
-  appendProjectedPath(projectedPaths, "apps/server/src/index.ts");
-
-  for (const targetModule of target.targetModules) {
-    if (targetModule.moduleId !== "http-api-server") {
-      continue;
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const file of contributions.files) {
+      appendProjectedPath(projectedPaths, file.path);
     }
 
-    appendProjectedPath(projectedPaths, "apps/server/src/index.ts");
-    appendProjectedPath(projectedPaths, "apps/server/src/Api/Health.ts");
-    appendProjectedPath(projectedPaths, "apps/server/src/Api/Hello.ts");
-  }
-
-  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
-};
-
-const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
-  const projectedPaths = new Map<string, ProjectedPlanPath>();
-
-  appendProjectedPath(projectedPaths, "packages/domain/package.json");
-  appendProjectedPath(projectedPaths, "packages/domain/tsconfig.json");
-
-  if (
-    target.composition?._tag === "package" &&
-    target.composition.publicEntrypoint === "./Api"
-  ) {
-    appendProjectedPath(projectedPaths, "packages/domain/package.json");
-    appendProjectedPath(projectedPaths, "packages/domain/src/index.ts");
-  }
-
-  for (const targetModule of target.targetModules) {
-    if (targetModule.moduleId !== "domain-api") {
-      continue;
+    for (const entry of contributions.packageJsonExports) {
+      appendProjectedPath(projectedPaths, entry.packageJsonPath);
     }
 
-    appendProjectedPath(projectedPaths, "packages/domain/src/Api.ts");
-  }
+    for (const entry of contributions.packageJsonDependencies) {
+      appendProjectedPath(projectedPaths, entry.packageJsonPath);
+    }
 
-  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
-};
+    for (const entry of contributions.packageJsonScripts) {
+      appendProjectedPath(projectedPaths, entry.packageJsonPath);
+    }
 
-const collectProjectedPlanPaths = (blueprint: Blueprint) => {
-  const projectedPaths = new Map<string, ProjectedPlanPath>();
+    for (const entry of contributions.barrelExports) {
+      appendProjectedPath(projectedPaths, entry.barrelPath);
+    }
 
-  for (const projectedPath of collectProjectedRootBootstrapPaths(blueprint)) {
-    appendProjectedPath(projectedPaths, projectedPath.path);
-  }
-
-  for (const target of blueprint.nodes) {
-    const targetProjectedPaths = (() => {
-      if (isServerTarget(target)) {
-        return projectServerTargetPaths(target);
-      }
-
-      if (isDomainPackageTarget(target)) {
-        return projectDomainPackageTargetPaths(target);
-      }
-
-      return [];
-    })();
-
-    for (const projectedPath of targetProjectedPaths) {
-      appendProjectedPath(projectedPaths, projectedPath.path);
+    for (const entry of contributions.tsconfigs) {
+      appendProjectedPath(projectedPaths, entry.path);
     }
   }
 
   return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
 };
 
-const collectProjectedContents = (blueprint: Blueprint) => {
-  const projectedContents = new Map<string, string>(
-    Object.entries(rootBootstrapFiles)
-      .filter(() => hasRepoOnlyRootBootstrap(blueprint) !== undefined)
-      .map(([path, contents]) => [path, contents] as const),
-  );
+const collectProjectedContents = (
+  normalizedContributions: NormalizedContributions,
+) => {
+  const projectedContents = new Map<string, string>();
 
-  for (const target of blueprint.nodes) {
-    if (isServerTarget(target)) {
-      projectedContents.set("apps/server/src/index.ts", serverIndexContents);
-
-      for (const targetModule of target.targetModules) {
-        if (targetModule.moduleId !== "http-api-server") {
-          continue;
-        }
-
-        projectedContents.set(
-          "apps/server/src/Api/Health.ts",
-          serverHealthContents,
-        );
-        projectedContents.set(
-          "apps/server/src/Api/Hello.ts",
-          serverHelloContents,
-        );
-      }
-    }
-
-    if (!isDomainPackageTarget(target)) {
-      continue;
-    }
-
-    for (const targetModule of target.targetModules) {
-      if (targetModule.moduleId !== "domain-api") {
-        continue;
-      }
-
-      projectedContents.set("packages/domain/src/Api.ts", domainApiContents);
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const file of contributions.files) {
+      projectedContents.set(file.path, file.contents);
     }
   }
 
   return projectedContents;
 };
 
-const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
+const collectProjectedPackageJsonExports = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedExportsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonExport>
   >();
 
-  for (const target of blueprint.nodes) {
-    if (
-      !isDomainPackageTarget(target) ||
-      target.composition?._tag !== "package" ||
-      target.composition.publicEntrypoint !== "./Api"
-    ) {
-      continue;
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const entry of contributions.packageJsonExports) {
+      const pathExports =
+        projectedExportsByPath.get(entry.packageJsonPath) ??
+        new Map<string, ProjectedPackageJsonExport>();
+
+      appendProjectedPackageJsonExport(
+        pathExports,
+        entry.exportKey,
+        entry.exportValue,
+      );
+      projectedExportsByPath.set(entry.packageJsonPath, pathExports);
     }
-
-    const path = "packages/domain/package.json";
-    const pathExports =
-      projectedExportsByPath.get(path) ??
-      new Map<string, ProjectedPackageJsonExport>();
-
-    appendProjectedPackageJsonExport(pathExports, "./Api", "./src/Api.ts");
-    projectedExportsByPath.set(path, pathExports);
   }
 
   return new Map(
@@ -1077,33 +985,27 @@ const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
+const collectProjectedPackageJsonDependencies = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedDependenciesByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonDependency>
   >();
 
-  for (const target of blueprint.nodes) {
-    if (!isDomainPackageTarget(target)) {
-      continue;
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const entry of contributions.packageJsonDependencies) {
+      const pathDependencies =
+        projectedDependenciesByPath.get(entry.packageJsonPath) ??
+        new Map<string, ProjectedPackageJsonDependency>();
+
+      appendProjectedPackageJsonDependency(pathDependencies, {
+        section: entry.section,
+        dependencyName: entry.dependencyName,
+        dependencyValue: entry.dependencyValue,
+      });
+      projectedDependenciesByPath.set(entry.packageJsonPath, pathDependencies);
     }
-
-    const path = "packages/domain/package.json";
-    const pathDependencies =
-      projectedDependenciesByPath.get(path) ??
-      new Map<string, ProjectedPackageJsonDependency>();
-
-    appendProjectedPackageJsonDependency(pathDependencies, {
-      section: "dependencies",
-      dependencyName: "effect",
-      dependencyValue: "4.0.0-beta.47",
-    });
-    appendProjectedPackageJsonDependency(pathDependencies, {
-      section: "devDependencies",
-      dependencyName: "@repo/config-typescript",
-      dependencyValue: "workspace:*",
-    });
-    projectedDependenciesByPath.set(path, pathDependencies);
   }
 
   return new Map(
@@ -1119,67 +1021,26 @@ const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
+const collectProjectedPackageJsonScripts = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedScriptsByPath = new Map<
     string,
     Map<string, ProjectedPackageJsonScript>
   >();
 
-  for (const target of blueprint.nodes) {
-    if (isServerTarget(target)) {
-      const path = "apps/server/package.json";
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const entry of contributions.packageJsonScripts) {
       const pathScripts =
-        projectedScriptsByPath.get(path) ??
+        projectedScriptsByPath.get(entry.packageJsonPath) ??
         new Map<string, ProjectedPackageJsonScript>();
 
       appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "build",
-        scriptValue:
-          "bun build src/index.ts --outdir=dist --target=bun --minify",
+        scriptName: entry.scriptName,
+        scriptValue: entry.scriptValue,
       });
-      appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "build:types",
-        scriptValue: "tsc --emitDeclarationOnly",
-      });
-      appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "dev",
-        scriptValue: "bun --watch run src/index.ts",
-      });
-      appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "test",
-        scriptValue: "vitest run",
-      });
-      appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "type-check",
-        scriptValue: "tsc --noEmit",
-      });
-      appendProjectedPackageJsonScript(pathScripts, {
-        scriptName: "clean",
-        scriptValue: "git clean -xdf .cache .turbo dist node_modules",
-      });
-      projectedScriptsByPath.set(path, pathScripts);
-      continue;
+      projectedScriptsByPath.set(entry.packageJsonPath, pathScripts);
     }
-
-    if (!isDomainPackageTarget(target)) {
-      continue;
-    }
-
-    const path = "packages/domain/package.json";
-    const pathScripts =
-      projectedScriptsByPath.get(path) ??
-      new Map<string, ProjectedPackageJsonScript>();
-
-    appendProjectedPackageJsonScript(pathScripts, {
-      scriptName: "type-check",
-      scriptValue: "tsc --noEmit",
-    });
-    appendProjectedPackageJsonScript(pathScripts, {
-      scriptName: "clean",
-      scriptValue:
-        "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo",
-    });
-    projectedScriptsByPath.set(path, pathScripts);
   }
 
   return new Map(
@@ -1192,28 +1053,23 @@ const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedBarrelExports = (blueprint: Blueprint) => {
+const collectProjectedBarrelExports = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedBarrelExportsByPath = new Map<
     string,
     Map<string, ProjectedBarrelExport>
   >();
 
-  for (const target of blueprint.nodes) {
-    if (
-      !isDomainPackageTarget(target) ||
-      target.composition?._tag !== "package" ||
-      target.composition.publicEntrypoint !== "./Api"
-    ) {
-      continue;
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const entry of contributions.barrelExports) {
+      const pathBarrelExports =
+        projectedBarrelExportsByPath.get(entry.barrelPath) ??
+        new Map<string, ProjectedBarrelExport>();
+
+      appendProjectedBarrelExport(pathBarrelExports, entry.exportPath);
+      projectedBarrelExportsByPath.set(entry.barrelPath, pathBarrelExports);
     }
-
-    const path = "packages/domain/src/index.ts";
-    const pathBarrelExports =
-      projectedBarrelExportsByPath.get(path) ??
-      new Map<string, ProjectedBarrelExport>();
-
-    appendProjectedBarrelExport(pathBarrelExports, "./Api");
-    projectedBarrelExportsByPath.set(path, pathBarrelExports);
   }
 
   return new Map(
@@ -1226,22 +1082,16 @@ const collectProjectedBarrelExports = (blueprint: Blueprint) => {
   );
 };
 
-const collectProjectedTsconfigs = (blueprint: Blueprint) => {
+const collectProjectedTsconfigs = (
+  normalizedContributions: NormalizedContributions,
+) => {
   const projectedTsconfigs = new Map<string, ProjectedTsconfig>();
 
-  for (const target of blueprint.nodes) {
-    if (isServerTarget(target)) {
+  for (const contributions of flattenContributions(normalizedContributions)) {
+    for (const entry of contributions.tsconfigs) {
       appendProjectedTsconfig(projectedTsconfigs, {
-        path: "apps/server/tsconfig.json",
-        contents: serverTsconfigContents,
-      });
-      continue;
-    }
-
-    if (isDomainPackageTarget(target)) {
-      appendProjectedTsconfig(projectedTsconfigs, {
-        path: "packages/domain/tsconfig.json",
-        contents: packageDomainTsconfigContents,
+        path: entry.path,
+        contents: entry.contents,
       });
     }
   }

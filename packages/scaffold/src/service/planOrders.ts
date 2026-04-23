@@ -37,5 +37,3 @@ export const selectionTargetModuleOrd = Order.mapInput(
     moduleSelection: (typeof Selection.Type.targets)[number]["modules"][number],
   ) => moduleSelection.id,
 );
-
-export const repoModuleIdOrd = Order.String;
