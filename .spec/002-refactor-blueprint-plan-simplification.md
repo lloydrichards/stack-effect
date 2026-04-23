@@ -6,17 +6,18 @@ Remove the cause/warning provenance system from Blueprint and Plan. Reshape Blue
 
 ## Current Complexity
 
-| Concern | Lines | Files |
-|---|---|---|
-| Cause types + conversion | ~850 | Blueprint.ts, Plan.ts, Order.ts, BlueprintService.ts, PlanService.ts |
-| Warning types + builders | ~280 | Blueprint.ts, Plan.ts, Order.ts, BlueprintService.ts, PlanService.ts |
-| **Total removable** | **~1130** | |
+| Concern                  | Lines     | Files                                                                |
+| ------------------------ | --------- | -------------------------------------------------------------------- |
+| Cause types + conversion | ~850      | Blueprint.ts, Plan.ts, Order.ts, BlueprintService.ts, PlanService.ts |
+| Warning types + builders | ~280      | Blueprint.ts, Plan.ts, Order.ts, BlueprintService.ts, PlanService.ts |
+| **Total removable**      | **~1130** |                                                                      |
 
 ## Before / After Schemas
 
 ### Blueprint
 
 **Before:**
+
 ```typescript
 Blueprint {
   nodes: Array<ResolvedTarget>          // each has status, causes, targetModules w/ causes
@@ -27,6 +28,7 @@ Blueprint {
 ```
 
 **After:**
+
 ```typescript
 Blueprint {
   nodes: Array<BlueprintNode>           // targets, target-modules, repo-modules as graph nodes
@@ -36,12 +38,14 @@ Blueprint {
 ```
 
 Key changes:
+
 - **Remove** `BlueprintCause`, `BlueprintStatus`, `BlueprintWarning`
 - **Remove** `causes` and `status` from `ResolvedTarget`, `ResolvedTargetModule`, `ResolvedRepoModule`
 - Selected vs implied is derived: roots = selected, everything else = implied (reachable from roots)
 - Redundant selection is derivable: a root that is also reachable from another root
 
 **New `BlueprintNode`:**
+
 ```typescript
 BlueprintNode = Union(
   TaggedStruct("target", {
@@ -51,29 +55,31 @@ BlueprintNode = Union(
     composition: optional(TargetComposition),
   }),
   TaggedStruct("target-module", {
-    id: NonEmptyString,           // "targetId/moduleId"
+    id: NonEmptyString, // "targetId/moduleId"
     targetId: NonEmptyString,
     moduleId: TargetModuleId,
   }),
   TaggedStruct("repo-module", {
     id: RepoModuleId,
   }),
-)
+);
 ```
 
 **New `BlueprintEdge`:**
+
 ```typescript
 BlueprintEdge = Struct({
   id: NonEmptyString,
-  from: NonEmptyString,           // node ID
-  to: NonEmptyString,             // node ID
-  reason: BlueprintEdgeReason,    // kept as-is
-})
+  from: NonEmptyString, // node ID
+  to: NonEmptyString, // node ID
+  reason: BlueprintEdgeReason, // kept as-is
+});
 ```
 
 ### Plan
 
 **Before:**
+
 ```typescript
 Plan {
   entries: Array<PlanEntry>             // each has causes
@@ -84,6 +90,7 @@ Plan {
 ```
 
 **After:**
+
 ```typescript
 Plan {
   entries: Array<PlanEntry>             // no causes
@@ -93,6 +100,7 @@ Plan {
 ```
 
 Key changes:
+
 - **Remove** `PlanCause` (all 5 variants)
 - **Remove** `PlanWarning` (both variants)
 - **Remove** `causes` from `PlanEntry`, `PlanFileEntry`, `PlanDirectoryEntry`, `PlanTreeFileNode`, `PlanTreeDirectoryNode`
@@ -101,6 +109,7 @@ Key changes:
 - **Remove** all cause conversion functions: `toPlanTargetCauses`, `toPlanTargetModuleCauses`, `toPlanRepoModuleCauses`, `toPlanTargetCompositionCauses`, `mergePlanCauses`, `isBlueprintCauseSelected`
 
 **New `PlanConflict`:**
+
 ```typescript
 PlanConflict = Union(
   TaggedStruct("packageJsonExports", {
@@ -126,12 +135,13 @@ PlanConflict = Union(
   TaggedStruct("authoritativeFile", {
     path: String,
   }),
-)
+);
 ```
 
 ### PlanChangeset (internal to PlanService)
 
 **Before:**
+
 ```typescript
 PlanChangesetPath {
   path: string
@@ -146,6 +156,7 @@ PlanChangesetPath {
 ```
 
 **After:**
+
 ```typescript
 PlanChangesetPath {
   path: string
@@ -211,18 +222,19 @@ PlanChangesetPath {
 
 ## Estimated Impact
 
-| Metric | Before | After | Reduction |
-|---|---|---|---|
-| Blueprint.ts | 381 lines | ~200 lines | ~47% |
-| Plan.ts | 491 lines | ~250 lines | ~49% |
-| Order.ts | 152 lines | ~80 lines | ~47% |
-| BlueprintService.ts | 704 lines | ~400 lines | ~43% |
-| PlanService.ts | 1628 lines | ~900 lines | ~45% |
-| **Total** | **3356 lines** | **~1830 lines** | **~45%** |
+| Metric              | Before         | After           | Reduction |
+| ------------------- | -------------- | --------------- | --------- |
+| Blueprint.ts        | 381 lines      | ~200 lines      | ~47%      |
+| Plan.ts             | 491 lines      | ~250 lines      | ~49%      |
+| Order.ts            | 152 lines      | ~80 lines       | ~47%      |
+| BlueprintService.ts | 704 lines      | ~400 lines      | ~43%      |
+| PlanService.ts      | 1628 lines     | ~900 lines      | ~45%      |
+| **Total**           | **3356 lines** | **~1830 lines** | **~45%**  |
 
 ## Verification
 
 After each phase, run:
+
 ```bash
 bun test --filter=domain
 bun test --filter=scaffold

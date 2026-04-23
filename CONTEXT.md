@@ -1,0 +1,150 @@
+# Scaffold Planning
+
+This context defines how scaffold selections are resolved into a dependency graph and then projected into concrete repository changes. It exists to keep the language around scaffold structure, dependencies, and generated outputs precise.
+
+## Language
+
+**Target**:
+A concrete workspace in the repository with a stable identity and directory.
+_Avoid_: Node, app, package unit
+
+**Target Identity**:
+The semantic identity of a **Target**, expressed as `{ kind, name }`.
+_Avoid_: Target ID, target path
+
+**Target Path**:
+The repo-relative workspace directory for a **Target**.
+_Avoid_: Identity, key
+
+**Target Key**:
+A canonical string identifier for a **Target** used in graph edges and lookups.
+_Avoid_: Path, display name
+
+**Module**:
+A contribution unit that adds capability to a compatible **Target**.
+_Avoid_: Feature, plugin, target module
+
+**Supported On**:
+A declarative compatibility rule describing which **Targets** a **Module** may be attached to.
+_Avoid_: isSupported predicate, runtime compatibility check
+
+**Required Target**:
+A dependency that requires another **Target** to exist, without requiring a specific **Module** on it.
+_Avoid_: Canonical target, implicit workspace dependency
+
+**Required Module**:
+A dependency that requires a specific **Module** on a specific **Target**.
+_Avoid_: Feature dependency, target module dependency
+
+**Init**:
+A separate repository bootstrap process that prepares only the stable repo-wide substrate outside the **Blueprint** to **Plan** flow.
+_Avoid_: Root target, repo module
+
+**Blueprint**:
+A resolved dependency graph for the selected **Targets** and **Modules**.
+_Avoid_: Selection result, resolved plan
+
+**Plan**:
+A projection of a **Blueprint** onto the current repository state to describe required file changes.
+_Avoid_: Blueprint, changeset
+
+**Desired Contribution**:
+The repository state that a **Target Contribution** or **Module Contribution** wants to exist, without encoding merge policy.
+_Avoid_: Merge instruction, planner rule
+
+**Contribution Token**:
+An explicit placeholder like `{{targetDir}}` or `{{targetName}}` used to resolve a **Desired Contribution** against a specific **Target** context.
+_Avoid_: Template function, dynamic generator
+
+**Target Contribution**:
+The base workspace scaffold produced by a **Target**.
+_Avoid_: Base module, default feature
+
+**Module Contribution**:
+The capability-specific overlay produced by a **Module** on a **Target**.
+_Avoid_: Patch, extension file
+
+**Owning Target**:
+The **Target** a selected **Module** is attached to and allowed to contribute to directly.
+_Avoid_: Host target, source target
+
+## Relationships
+
+- A **Blueprint** resolves dependencies between selected **Targets** and **Modules**
+- A **Blueprint** contains resolved graph structure, not normalized file contributions
+- A **Module** may depend on a **Required Target**, a **Required Module**, or both
+- A **Module** is globally identified by its module ID and constrained by **Supported On** rules
+- **Supported On** rules match either a target kind or an exact target identity
+- **Required Target** and **Required Module** reference **Target Identity**; **Target Key** and **Target Path** are derived later
+- A **Plan** is derived from a **Blueprint** and the current repository snapshot
+- **Init** prepares repo-wide infrastructure before **Blueprint** and **Plan** operate on it
+- A **Plan** may create **Targets** from scratch inside an initialized repository
+- A **Target** contributes base workspace scaffold through its **Target Contribution**
+- A **Module** contributes capability-specific changes through its **Module Contribution**
+- A **Module Contribution** may write only to its **Owning Target**
+- Cross-target effects are modeled through **Required Target** and **Required Module** dependencies, not by writing into another target directly
+- A **Target Contribution** and **Module Contribution** declare **Desired Contributions** only
+- **Plan** owns merge and conflict policy for applying **Desired Contributions** to the repository snapshot
+- A **Desired Contribution** may use **Contribution Tokens** that are resolved against the owning **Target** context
+- A **Target Identity**, **Target Path**, and **Target Key** are distinct representations of the same **Target**
+- A **Target Path** is derived centrally from **Target Identity** using repo conventions
+- Package public entrypoints are expressed as **Desired Contributions**, not as a separate composition concept
+
+## Example dialogue
+
+> **Dev:** "If I select the server target with the API module, does the Blueprint also include repo bootstrap files?"
+> **Domain expert:** "No. Init handles the repo substrate first. The Blueprint resolves target and module dependencies, and the Plan can still create the server and domain workspaces from scratch."
+
+> **Dev:** "Does the server API module depend on the domain target, the domain API module, or both?"
+> **Domain expert:** "Both. The domain target must exist as a workspace, and the domain API module must exist as a capability on that workspace."
+
+> **Dev:** "If I select a target with no modules, does it still produce files?"
+> **Domain expert:** "Yes. The target contributes the workspace scaffold, and modules add capability-specific overlays on top."
+
+> **Dev:** "Does a module decide how `package.json` gets merged?"
+> **Domain expert:** "No. The module declares the desired entries, and the Plan decides whether that is a create, modify, unchanged result, or a conflict."
+
+> **Dev:** "How does one server definition work for both `apps/admin-api` and `apps/public-api`?"
+> **Domain expert:** "The contribution uses `{{targetDir}}`. The planner resolves that token from the selected target before comparing the desired files to the repo snapshot."
+
+> **Dev:** "Is `packages/domain` the identity of the target or just where it lives?"
+> **Domain expert:** "It is the target path. The identity is `{ kind: 'package', name: 'domain' }`, and the graph can also use a separate target key for lookups and edges."
+
+> **Dev:** "What path does `{ kind: 'server', name: 'api' }` resolve to?"
+> **Domain expert:** "`apps/server-api`. Non-package targets resolve to `apps/{kind}-{name}`, while packages resolve to `packages/{name}`."
+
+> **Dev:** "How do we know whether `domain-api` can be added to a target?"
+> **Domain expert:** "The module definition carries a declarative **Supported On** rule. `domain-api` is supported on the domain package target, while `http-api-server` is supported on server targets."
+
+> **Dev:** "Can `supportedOn` express wildcards or exclusions?"
+> **Domain expert:** "Not for now. It matches either a target kind or an exact target identity."
+
+> **Dev:** "When a module depends on the domain package, does it point at `packages/domain`?"
+> **Domain expert:** "No. It points at the target identity `{ kind: 'package', name: 'domain' }`. The key and path are derived later."
+
+> **Dev:** "Why is `./Api` a separate composition concept instead of just part of the module output?"
+> **Domain expert:** "It should not be separate. Public entrypoints are part of the desired repository state and belong in target or module contributions."
+
+> **Dev:** "Should Blueprint carry the generated file contributions too?"
+> **Domain expert:** "No. Blueprint stays a resolved dependency graph. Plan looks up and normalizes contributions afterward."
+
+> **Dev:** "If the server API module needs the domain package, can it write files into `packages/domain` itself?"
+> **Domain expert:** "No. A module contributes only to its owning target. Cross-target changes happen by resolving dependencies so the other target and module contribute their own outputs."
+
+## Flagged ambiguities
+
+- "target" was being stretched to include repo-wide bootstrap concerns like `root-bootstrap` — resolved: **Target** is reserved for concrete workspaces on disk.
+- "module" previously referred only to target modules — resolved: **Module** is the capability unit attached to a **Target** in this context.
+- "base folder structure" was ambiguous between repo-wide substrate and target workspaces — resolved: **Init** owns only repo-wide substrate; **Plan** may create target workspaces.
+- "dependency" was too broad to distinguish workspace existence from capability requirements — resolved: use **Required Target** and **Required Module** separately.
+- "base module" would blur workspace scaffold with capability overlays — resolved: use **Target Contribution** for scaffold and **Module Contribution** for overlays.
+- "contribution" could have implied both desired state and merge behavior — resolved: contributions express desired state only; planner policy stays in **Plan**.
+- "template" could imply arbitrary generation logic — resolved: use a small explicit set of **Contribution Tokens** resolved from target context.
+- the code was using identity, path, and ID interchangeably for targets — resolved: distinguish **Target Identity**, **Target Path**, and **Target Key**.
+- it was unclear whether target paths were input data or derived convention — resolved: derive **Target Path** centrally from **Target Identity** using repo conventions.
+- module compatibility was encoded as arbitrary code — resolved: use declarative **Supported On** rules in module definitions.
+- module compatibility could have grown into a rule language — resolved: **Supported On** only matches target kind or exact target identity for now.
+- dependency declarations could have leaked technical identifiers — resolved: dependencies reference **Target Identity**, not target path or key.
+- "composition" was an overly abstract label for published outputs — resolved: public entrypoints are modeled directly as **Desired Contributions**.
+- it was unclear whether Blueprint should contain generated output data — resolved: **Blueprint** stays graph-only; **Plan** resolves contributions afterward.
+- cross-target file generation could have been hidden inside a module — resolved: a **Module Contribution** only affects its **Owning Target**; cross-target effects use explicit dependencies.
