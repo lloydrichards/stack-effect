@@ -9,15 +9,7 @@ import {
   type RepoSnapshot,
   type RepoSnapshotPath,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Option,
-  Order,
-  Record,
-} from "effect";
+import { Array as Arr, Context, Effect, Layer, Order, Record } from "effect";
 import {
   ContributionResolver,
   type NormalizedContributions,
@@ -197,10 +189,12 @@ const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
 
   for (const changesetPath of changeset.paths) {
     requestedPaths.add(changesetPath.path);
+  }
 
-    for (const directoryPath of collectDirectoryPaths([changesetPath.path])) {
-      requestedPaths.add(directoryPath);
-    }
+  for (const directoryPath of collectDirectoryPaths(
+    changeset.paths.map((changesetPath) => changesetPath.path),
+  )) {
+    requestedPaths.add(directoryPath);
   }
 
   return Arr.sort(requestedPaths, pathOrd);
@@ -240,6 +234,8 @@ const projectPlan = ({
 
   const fileClassifications = new Map<string, PlanEntryClassification>();
   const conflicts: Array<PlanConflict> = [];
+  const getFileClassification = (path: string): PlanEntryClassification =>
+    fileClassifications.get(path) ?? "create";
 
   const assertAncestorDirectories = (path: string) => {
     const pathParts = path.split("/");
@@ -325,26 +321,22 @@ const projectPlan = ({
       });
     }
 
-    const snapshotPath = snapshotPaths.get(changesetPath.path);
+    const existingContents = getExistingFileContents({
+      path: changesetPath.path,
+      snapshotPath: snapshotPaths.get(changesetPath.path),
+    });
 
-    if (snapshotPath === undefined || snapshotPath._tag === "missing") {
+    if (existingContents === undefined) {
       fileClassifications.set(changesetPath.path, "create");
       continue;
     }
 
-    if (snapshotPath._tag !== "file") {
-      throw new PlanFailure({
-        reason: "repoRootNotEmpty",
-        message: `Expected ${changesetPath.path} to be a file during planning.`,
-      });
+    if (existingContents === changesetPath.authoritativeContents) {
+      fileClassifications.set(changesetPath.path, "unchanged");
+      continue;
     }
 
-    fileClassifications.set(
-      changesetPath.path,
-      snapshotPath.contents === changesetPath.authoritativeContents
-        ? "unchanged"
-        : "modify",
-    );
+    fileClassifications.set(changesetPath.path, "modify");
   }
 
   const entries: Array<(typeof Plan.Type)["entries"][number]> = [
@@ -352,7 +344,7 @@ const projectPlan = ({
     ...changeset.paths.map((changesetPath) => ({
       _tag: "file" as const,
       path: changesetPath.path,
-      classification: fileClassifications.get(changesetPath.path) ?? "create",
+      classification: getFileClassification(changesetPath.path),
     })),
   ];
 
@@ -372,9 +364,7 @@ const projectPlan = ({
   const directories = new Map<string, MutableTreeDirectoryNode>([[".", root]]);
 
   for (const path of directoryPaths) {
-    const parentPath = path.includes("/")
-      ? path.slice(0, path.lastIndexOf("/"))
-      : ".";
+    const parentPath = parentPathFromPath(path);
     const node: MutableTreeDirectoryNode = {
       _tag: "directory",
       name: nameFromPath(path),
@@ -387,24 +377,13 @@ const projectPlan = ({
   }
 
   for (const changesetPath of changeset.paths) {
-    const parentPath = changesetPath.path.includes("/")
-      ? changesetPath.path.slice(0, changesetPath.path.lastIndexOf("/"))
-      : ".";
+    const parentPath = parentPathFromPath(changesetPath.path);
 
     directories.get(parentPath)?.children.push({
       _tag: "file",
       name: nameFromPath(changesetPath.path),
       path: changesetPath.path,
-      classification: Arr.findFirst(
-        entries,
-        (
-          planEntry,
-        ): planEntry is Extract<(typeof entries)[number], { _tag: "file" }> =>
-          planEntry._tag === "file" && planEntry.path === changesetPath.path,
-      ).pipe(
-        Option.map((entry) => entry.classification),
-        Option.getOrElse((): PlanEntryClassification => "create"),
-      ),
+      classification: getFileClassification(changesetPath.path),
     });
   }
 
@@ -423,21 +402,16 @@ const planTsconfigMerge = ({
   projectedTsconfig: ProjectedTsconfig;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
+  const existingContents = getExistingFileContents({ path, snapshotPath });
+
+  if (existingContents === undefined) {
     return {
       classification: "create" as const,
       conflicts: [] as Array<PlanConflict>,
     };
   }
 
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  if (snapshotPath.contents === projectedTsconfig.contents) {
+  if (existingContents === projectedTsconfig.contents) {
     return {
       classification: "unchanged" as const,
       conflicts: [] as Array<PlanConflict>,
@@ -466,45 +440,37 @@ const planPackageJsonMerge = ({
   projectedScripts: ReadonlyArray<ProjectedPackageJsonScript>;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
+  const existingContents = getExistingFileContents({ path, snapshotPath });
+
+  if (existingContents === undefined) {
     return {
       classification: "create" as const,
       conflicts: [] as Array<PlanConflict>,
     };
   }
 
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
+  const exportConflicts = projectedExports.map((projectedExport) =>
+    createPackageJsonExportPlanConflict({ path, projectedExport }),
+  );
+  const dependencyConflicts = projectedDependencies.map((projectedDependency) =>
+    createPackageJsonDependencyPlanConflict({
+      path,
+      projectedDependency,
+    }),
+  );
+  const scriptConflicts = projectedScripts.map((projectedScript) =>
+    createPackageJsonScriptPlanConflict({
+      path,
+      projectedScript,
+    }),
+  );
+  const packageJson = parseJsonRecord(existingContents);
 
-  const packageJson = (() => {
-    try {
-      return JSON.parse(snapshotPath.contents) as unknown;
-    } catch {
-      return undefined;
-    }
-  })();
-
-  if (!isRecord(packageJson)) {
+  if (packageJson === undefined) {
     const conflicts: Array<PackageJsonPlanConflict> = [
-      ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportPlanConflict({ path, projectedExport }),
-      ),
-      ...projectedDependencies.map((projectedDependency) =>
-        createPackageJsonDependencyPlanConflict({
-          path,
-          projectedDependency,
-        }),
-      ),
-      ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptPlanConflict({
-          path,
-          projectedScript,
-        }),
-      ),
+      ...exportConflicts,
+      ...dependencyConflicts,
+      ...scriptConflicts,
     ];
 
     return {
@@ -518,11 +484,7 @@ const planPackageJsonMerge = ({
   let hasAdditions = false;
 
   if (exportsValue !== undefined && !isFlatStringRecord(exportsValue)) {
-    conflicts.push(
-      ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportPlanConflict({ path, projectedExport }),
-      ),
-    );
+    conflicts.push(...exportConflicts);
   } else {
     const existingExports = exportsValue ?? {};
 
@@ -586,14 +548,7 @@ const planPackageJsonMerge = ({
   }
 
   if (scriptsValue !== undefined && !isFlatStringRecord(scriptsValue)) {
-    conflicts.push(
-      ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptPlanConflict({
-          path,
-          projectedScript,
-        }),
-      ),
-    );
+    conflicts.push(...scriptConflicts);
   } else {
     const existingScripts = scriptsValue ?? {};
 
@@ -637,21 +592,16 @@ const planBarrelMerge = ({
   projectedBarrelExports: ReadonlyArray<ProjectedBarrelExport>;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
+  const existingContents = getExistingFileContents({ path, snapshotPath });
+
+  if (existingContents === undefined) {
     return {
       classification: "create" as const,
       conflicts: [] as Array<PlanConflict>,
     };
   }
 
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      reason: "repoRootNotEmpty",
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  const existingExports = parseSimpleBarrelExports(snapshotPath.contents);
+  const existingExports = parseSimpleBarrelExports(existingContents);
 
   if (existingExports === undefined) {
     const conflicts = projectedBarrelExports.map((projectedBarrelExport) =>
@@ -766,6 +716,38 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   isRecord(value) &&
   Arr.every(Record.values(value), (entry) => typeof entry === "string");
+
+const parseJsonRecord = (
+  contents: string,
+): Record<string, unknown> | undefined => {
+  try {
+    const parsed = JSON.parse(contents) as unknown;
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const getExistingFileContents = ({
+  path,
+  snapshotPath,
+}: {
+  path: string;
+  snapshotPath: RepoSnapshotPath | undefined;
+}): string | undefined => {
+  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
+    return undefined;
+  }
+
+  if (snapshotPath._tag !== "file") {
+    throw new PlanFailure({
+      reason: "repoRootNotEmpty",
+      message: `Expected ${path} to be a file during planning.`,
+    });
+  }
+
+  return snapshotPath.contents;
+};
 
 const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
   const directories = new Set<string>();
@@ -1054,7 +1036,7 @@ const collectProjectedTsconfigs = (
     }
   }
 
-  return new Map(projectedTsconfigs.entries());
+  return projectedTsconfigs;
 };
 
 const getOrCreatePlanChangesetPath = (
@@ -1082,4 +1064,14 @@ const getOrCreatePlanChangesetPath = (
 const nameFromPath = (path: string) => {
   const parts = path.split("/");
   return parts[parts.length - 1] ?? path;
+};
+
+const parentPathFromPath = (path: string) => {
+  const lastSeparatorIndex = path.lastIndexOf("/");
+
+  if (lastSeparatorIndex === -1) {
+    return ".";
+  }
+
+  return path.slice(0, lastSeparatorIndex);
 };

@@ -12,7 +12,6 @@ import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer } from "effect";
 import { ModuleCatalog } from "../catalog/ModuleCatalog";
 import { TargetCatalog } from "../catalog/TargetCatalog";
-import { selectionTargetModuleOrd, selectionTargetOrd } from "./planOrders";
 
 type MutableTargetState = BlueprintTargetNode;
 
@@ -264,13 +263,10 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       return next;
     });
 
-    for (const target of Arr.sort(selection.targets, selectionTargetOrd)) {
+    for (const target of selection.targets) {
       yield* ensureTarget(target.identity);
 
-      for (const moduleSelection of Arr.sort(
-        target.modules,
-        selectionTargetModuleOrd,
-      )) {
+      for (const moduleSelection of target.modules) {
         yield* ensureAttachedModule(target.identity, moduleSelection.id);
       }
     }
