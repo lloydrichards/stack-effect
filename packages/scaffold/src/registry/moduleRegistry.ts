@@ -1,4 +1,4 @@
-import type { ModuleId } from "@repo/domain/Scaffold";
+import { type ModuleId, TargetIdentity } from "@repo/domain/Scaffold";
 import type { ModuleDefinition } from "../catalog/ModuleCatalog";
 import {
   domainApiContents,
@@ -14,10 +14,10 @@ export const moduleRegistry = new Map<ModuleId, ModuleDefinition>([
       supportedOn: [
         {
           _tag: "identity",
-          identity: {
+          identity: new TargetIdentity({
             kind: "package",
             name: "domain",
-          },
+          }),
         },
       ],
       dependencies: [],
@@ -60,16 +60,16 @@ export const moduleRegistry = new Map<ModuleId, ModuleDefinition>([
       dependencies: [
         {
           requiredTarget: {
-            identity: {
+            identity: new TargetIdentity({
               kind: "package",
               name: "domain",
-            },
+            }),
           },
           requiredModule: {
-            target: {
+            target: new TargetIdentity({
               kind: "package",
               name: "domain",
-            },
+            }),
             moduleId: "domain-api",
           },
         },

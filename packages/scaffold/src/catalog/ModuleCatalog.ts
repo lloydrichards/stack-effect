@@ -16,21 +16,6 @@ export type ModuleDefinition = {
   readonly contributions: DesiredContributions;
 };
 
-const matchesSupportedOn = (
-  target: TargetIdentity,
-  supportedOn: SupportedOn,
-): boolean => {
-  switch (supportedOn._tag) {
-    case "identity":
-      return (
-        supportedOn.identity.kind === target.kind &&
-        supportedOn.identity.name === target.name
-      );
-    case "kind":
-      return supportedOn.kind === target.kind;
-  }
-};
-
 export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   "ModuleCatalog",
   {
@@ -70,7 +55,7 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
           );
 
           return definition.supportedOn.some((supportedOn) =>
-            matchesSupportedOn(target, supportedOn),
+            target.matches(supportedOn),
           );
         }),
     }),

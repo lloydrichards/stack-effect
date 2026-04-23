@@ -1,3 +1,4 @@
+import { TargetIdentity } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Effect } from "effect";
 import { BlueprintService } from "./src";
@@ -8,10 +9,10 @@ const examples = [
     selection: {
       targets: [
         {
-          identity: {
+          identity: new TargetIdentity({
             kind: "server",
             name: "api",
-          },
+          }),
           modules: [{ id: "http-api-server" }],
           options: {},
         },
@@ -23,20 +24,20 @@ const examples = [
     selection: {
       targets: [
         {
-          identity: {
+          identity: new TargetIdentity({
             kind: "server",
             name: "api",
-          },
+          }),
           modules: [{ id: "http-api-server" }],
           options: {
             httpApiStyle: "rest",
           },
         },
         {
-          identity: {
+          identity: new TargetIdentity({
             kind: "package",
             name: "domain",
-          },
+          }),
           modules: [{ id: "domain-api" }],
           options: {
             domainApiSurface: "api",

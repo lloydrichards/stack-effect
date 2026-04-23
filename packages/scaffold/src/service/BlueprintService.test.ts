@@ -6,11 +6,12 @@ import {
   CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import type { TargetKey } from "@repo/domain/Scaffold";
+import { TargetIdentity } from "@repo/domain/Scaffold";
 import { Effect } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
-const unsafeTargetKey = (value: string) => value as typeof TargetKey.Type;
+const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
+const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });
 
 const getNode = (blueprint: Blueprint, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
@@ -28,18 +29,18 @@ describe("BlueprintService", () => {
             blueprintService.resolve({
               targets: [
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [],
                   options: {},
                 },
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [],
                   options: {},
                 },
@@ -61,10 +62,10 @@ describe("BlueprintService", () => {
             blueprintService.resolve({
               targets: [
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [
                     { id: "http-api-server" },
                     { id: "http-api-server" },
@@ -92,10 +93,10 @@ describe("BlueprintService", () => {
               blueprintService.resolve({
                 targets: [
                   {
-                    identity: {
+                    identity: new TargetIdentity({
                       kind: "package",
                       name: "domain",
-                    },
+                    }),
                     modules: [{ id: "http-api-server" }],
                     options: {},
                   },
@@ -118,10 +119,10 @@ describe("BlueprintService", () => {
             blueprintService.resolve({
               targets: [
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [{ id: "missing-target-module" as never }],
                   options: {},
                 },
@@ -148,10 +149,10 @@ describe("BlueprintService", () => {
             const blueprint = yield* blueprintService.resolve({
               targets: [
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [{ id: "http-api-server" }],
                   options: {},
                 },
@@ -170,7 +171,7 @@ describe("BlueprintService", () => {
               getNode(
                 blueprint,
                 toAttachedModuleNodeId(
-                  unsafeTargetKey("apps/server-api"),
+                  serverApiIdentity.toKey(),
                   "http-api-server",
                 ),
               ),
@@ -182,10 +183,7 @@ describe("BlueprintService", () => {
             expect(
               getNode(
                 blueprint,
-                toAttachedModuleNodeId(
-                  unsafeTargetKey("packages/domain"),
-                  "domain-api",
-                ),
+                toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
               ),
             ).toMatchObject({
               _tag: "attached-module",
@@ -195,19 +193,19 @@ describe("BlueprintService", () => {
             expect(blueprint.edges).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({
-                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}`,
+                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), "http-api-server")}`,
                   reason: "owns-module",
                 }),
                 expect.objectContaining({
-                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api")}`,
                   reason: "owns-module",
                 }),
                 expect.objectContaining({
-                  id: `required-target=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>packages/domain`,
+                  id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), "http-api-server")}=>packages/domain`,
                   reason: "required-target",
                 }),
                 expect.objectContaining({
-                  id: `required-module=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+                  id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), "http-api-server")}=>${toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api")}`,
                   reason: "required-module",
                 }),
               ]),
@@ -223,18 +221,18 @@ describe("BlueprintService", () => {
             const blueprint = yield* blueprintService.resolve({
               targets: [
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "server",
                     name: "api",
-                  },
+                  }),
                   modules: [],
                   options: {},
                 },
                 {
-                  identity: {
+                  identity: new TargetIdentity({
                     kind: "client",
                     name: "api",
-                  },
+                  }),
                   modules: [],
                   options: {},
                 },
