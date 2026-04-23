@@ -55,7 +55,10 @@ const prdItems = filteredIssues.map((issue) =>
   toPrdItem(issue, existingPasses),
 );
 
-await Bun.write(outputPath, `${JSON.stringify(prdItems, null, 2)}\n`);
+const existingNonIssueItems = await loadExistingNonIssueItems(outputPath);
+const mergedItems = [...existingNonIssueItems, ...prdItems];
+
+await Bun.write(outputPath, `${JSON.stringify(mergedItems, null, 2)}\n`);
 
 const labelSummary =
   issueLabels.length > 0 ? ` with labels: ${issueLabels.join(", ")}` : "";
@@ -74,6 +77,21 @@ function ensureGhInstalled() {
   if (result.exitCode !== 0) {
     throw new Error("gh CLI is required for Ralph issue sync");
   }
+}
+
+async function loadExistingNonIssueItems(filePath: string) {
+  if (!existsSync(filePath)) {
+    return [];
+  }
+
+  const file = Bun.file(filePath);
+  const content = await file.text();
+  if (!content.trim()) {
+    return [];
+  }
+
+  const parsed = JSON.parse(content) as Array<Record<string, unknown>>;
+  return parsed.filter((item) => item.category !== "github-issue");
 }
 
 async function loadExistingPasses(filePath: string) {
