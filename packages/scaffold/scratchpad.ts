@@ -16,12 +16,10 @@ const examples = [
           options: {},
         },
       ],
-      modules: [],
-      options: {},
     },
   },
   {
-    label: "Explicit bootstrap with valid repo and target options",
+    label: "Explicit server and domain selections",
     selection: {
       targets: [
         {
@@ -45,11 +43,6 @@ const examples = [
           },
         },
       ],
-      modules: ["root-bootstrap"],
-      options: {
-        runtime: "bun",
-        linter: "biome",
-      },
     },
   },
 ] satisfies ReadonlyArray<{

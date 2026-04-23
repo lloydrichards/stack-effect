@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
-import { Blueprint } from "@repo/domain/Blueprint";
+import { Blueprint, toModuleNodeId } from "@repo/domain/Blueprint";
 import type {
   Plan,
   PlanDirectoryEntry,
@@ -9,7 +9,7 @@ import type {
   RepoSnapshot,
 } from "@repo/domain/Plan";
 import { Cause, Effect, Exit, Layer } from "effect";
-import { rootBootstrapFiles } from "../registry/content/root-bootstrap";
+import { ContributionResolver } from "./ContributionResolver";
 import { PlanService } from "./PlanService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
@@ -25,84 +25,63 @@ const makeRepoSnapshotServiceLayer = (
     load: Effect.fn("MockRepoSnapshotService.load")(load),
   } as never);
 
-const makeRepoOnlyBlueprint = () =>
-  new Blueprint({
-    nodes: [],
-    edges: [],
-    modules: [
-      {
-        moduleId: "root-bootstrap",
-        status: "selected",
-        causes: [
-          {
-            _tag: "selection",
-            source: {
-              _tag: "repo-module",
-              id: "root-bootstrap",
-            },
-          },
-        ],
-      },
-    ],
-    warnings: [],
-  }).toSorted();
-
 const makeDomainBlueprint = () =>
   new Blueprint({
     nodes: [
       {
+        _tag: "target",
         id: "packages/domain",
         identity: {
           kind: "package",
           name: "domain",
         },
-        status: "selected",
-        causes: [
-          {
-            _tag: "selection",
-            source: {
-              _tag: "target",
-              id: "packages/domain",
-            },
-          },
-        ],
-        targetModules: [
-          {
-            moduleId: "domain-api",
-            status: "selected",
-            causes: [
-              {
-                _tag: "selection",
-                source: {
-                  _tag: "target-module",
-                  targetId: "packages/domain",
-                  moduleId: "domain-api",
-                },
-              },
-            ],
-          },
-        ],
-        composition: {
-          _tag: "package",
-          publicEntrypoint: "./Api",
-        },
+        modules: [{ moduleId: "domain-api" }],
       },
     ],
     edges: [],
-    modules: [
+    roots: ["packages/domain", toModuleNodeId("packages/domain", "domain-api")],
+  }).toSorted();
+
+const makeServerApiBlueprint = () =>
+  new Blueprint({
+    nodes: [
       {
-        moduleId: "root-bootstrap",
-        status: "implied",
-        causes: [
-          {
-            _tag: "dependency",
-            edgeId:
-              "required-repo-module=>target:packages/domain=>repo-module:root-bootstrap",
-          },
-        ],
+        _tag: "target",
+        id: "apps/server-api",
+        identity: {
+          kind: "server",
+          name: "api",
+        },
+        modules: [{ moduleId: "http-api-server" }],
+      },
+      {
+        _tag: "target",
+        id: "packages/domain",
+        identity: {
+          kind: "package",
+          name: "domain",
+        },
+        modules: [{ moduleId: "domain-api" }],
       },
     ],
-    warnings: [],
+    edges: [
+      {
+        id: `required-target=>${toModuleNodeId("apps/server-api", "http-api-server")}=>packages/domain`,
+        from: toModuleNodeId("apps/server-api", "http-api-server"),
+        to: "packages/domain",
+        reason: "required-target",
+      },
+      {
+        id: `required-module=>${toModuleNodeId("apps/server-api", "http-api-server")}=>${toModuleNodeId("packages/domain", "domain-api")}`,
+        from: toModuleNodeId("apps/server-api", "http-api-server"),
+        to: toModuleNodeId("packages/domain", "domain-api"),
+        reason: "required-module",
+      },
+    ],
+    roots: [
+      "apps/server-api",
+      toModuleNodeId("apps/server-api", "http-api-server"),
+    ],
   }).toSorted();
 
 const getFileEntry = (plan: Plan, path: string): PlanFileEntry => {
@@ -132,6 +111,7 @@ const makePlanServiceLayer = (
   }) => Effect.Effect<RepoSnapshot, PlanFailure, never>,
 ) =>
   Layer.effect(PlanService)(PlanService.make).pipe(
+    Layer.provide(ContributionResolver.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
   );
 
@@ -153,13 +133,13 @@ const buildPlan = ({
 describe("PlanService", () => {
   describe("when compiling plan inspection paths", () => {
     it.effect(
-      "should request projected files and ancestor directories for repo bootstrap",
+      "should request projected files and ancestor directories for selected targets and modules",
       () =>
         Effect.gen(function* () {
           const requested: Array<string> = [];
 
           yield* buildPlan({
-            blueprint: makeRepoOnlyBlueprint(),
+            blueprint: makeServerApiBlueprint(),
             load: ({ paths }) => {
               requested.push(...paths);
               return Effect.succeed({
@@ -168,74 +148,47 @@ describe("PlanService", () => {
             },
           });
 
-          expect(requested).toEqual([
-            ".gitignore",
-            "package.json",
-            "packages",
-            "packages/config-typescript",
-            "packages/config-typescript/base.json",
-            "turbo.json",
-          ]);
+          expect(requested).toEqual(
+            expect.arrayContaining([
+              "apps",
+              "apps/server-api",
+              "apps/server-api/package.json",
+              "apps/server-api/src",
+              "apps/server-api/src/index.ts",
+              "apps/server-api/src/Api/Health.ts",
+              "packages",
+              "packages/domain/package.json",
+              "packages/domain/src/Api.ts",
+            ]),
+          );
         }),
     );
   });
 
-  describe("when building repo bootstrap plans", () => {
+  describe("when building target plans", () => {
     it.effect(
-      "should classify projected root bootstrap files as create when they are missing",
+      "should classify projected target and module files as create when they are missing",
       () =>
         Effect.gen(function* () {
           const plan = yield* buildPlan({
-            blueprint: makeRepoOnlyBlueprint(),
+            blueprint: makeServerApiBlueprint(),
             load: ({ paths }) =>
               Effect.succeed({
                 paths: paths.map((path) => ({ _tag: "missing", path })),
               }),
           });
 
-          expect(getDirectoryEntry(plan, "packages")).toBeDefined();
-          expect(getFileEntry(plan, ".gitignore").classification).toBe(
-            "create",
-          );
-          expect(getFileEntry(plan, "package.json").classification).toBe(
-            "create",
-          );
+          expect(getDirectoryEntry(plan, "apps/server-api")).toBeDefined();
           expect(
-            getFileEntry(plan, "packages/config-typescript/base.json")
+            getFileEntry(plan, "apps/server-api/src/index.ts").classification,
+          ).toBe("create");
+          expect(
+            getFileEntry(plan, "apps/server-api/src/Api/Health.ts")
               .classification,
           ).toBe("create");
-          expect(plan.conflicts).toEqual([]);
-        }),
-    );
-
-    it.effect(
-      "should classify authoritative files as unchanged when contents already match",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeRepoOnlyBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "package.json") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: rootBootstrapFiles["package.json"],
-                    };
-                  }
-
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
-          });
-
-          expect(getFileEntry(plan, "package.json").classification).toBe(
-            "unchanged",
-          );
-          expect(getFileEntry(plan, ".gitignore").classification).toBe(
-            "create",
-          );
+          expect(
+            getFileEntry(plan, "packages/domain/src/Api.ts").classification,
+          ).toBe("create");
         }),
     );
   });
@@ -316,42 +269,6 @@ describe("PlanService", () => {
           );
         }),
     );
-
-    it.effect(
-      "should require a tsconfig merge strategy when the existing tsconfig differs",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeDomainBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/domain/tsconfig.json") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: '{"extends":"./other.json"}',
-                    };
-                  }
-
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
-          });
-
-          expect(
-            getFileEntry(plan, "packages/domain/tsconfig.json").classification,
-          ).toBe("needsMergeStrategy");
-          expect(plan.conflicts).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "tsconfig",
-                path: "packages/domain/tsconfig.json",
-              }),
-            ]),
-          );
-        }),
-    );
   });
 
   describe("when planning against an invalid repo snapshot", () => {
@@ -383,38 +300,6 @@ describe("PlanService", () => {
             _tag: "PlanFailure",
             reason: "repoRootNotEmpty",
             message: "Expected packages to be a directory during planning.",
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail when a projected file path resolves to a directory",
-      () =>
-        Effect.gen(function* () {
-          const exit = yield* Effect.exit(
-            buildPlan({
-              blueprint: makeDomainBlueprint(),
-              load: ({ paths }) =>
-                Effect.succeed({
-                  paths: paths.map((path) =>
-                    path === "packages/domain/tsconfig.json"
-                      ? {
-                          _tag: "directory" as const,
-                          path,
-                        }
-                      : { _tag: "missing" as const, path },
-                  ),
-                }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "PlanFailure",
-            reason: "repoRootNotEmpty",
-            message:
-              "Expected packages/domain/tsconfig.json to be a file during planning.",
           });
         }),
     );

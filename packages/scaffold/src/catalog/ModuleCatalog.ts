@@ -1,41 +1,78 @@
 import { CatalogNotFound } from "@repo/domain/Blueprint";
-import type { RepoModuleId, TargetModuleId } from "@repo/domain/Scaffold";
+import type {
+  DesiredContributions,
+  ModuleDependency,
+  ModuleId,
+  SupportedOn,
+  TargetIdentity,
+} from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
 import { moduleRegistry } from "../registry/moduleRegistry";
-import { targetModuleRegistry } from "../registry/targetModuleRegistry";
 
-export type RepoModuleDefinition = {
-  readonly moduleId: typeof RepoModuleId.Type;
+export type ModuleDefinition = {
+  readonly moduleId: ModuleId;
+  readonly supportedOn: ReadonlyArray<SupportedOn>;
+  readonly dependencies: ReadonlyArray<ModuleDependency>;
+  readonly contributions: DesiredContributions;
+};
+
+const matchesSupportedOn = (
+  target: TargetIdentity,
+  supportedOn: SupportedOn,
+): boolean => {
+  switch (supportedOn._tag) {
+    case "identity":
+      return (
+        supportedOn.identity.kind === target.kind &&
+        supportedOn.identity.name === target.name
+      );
+    case "kind":
+      return supportedOn.kind === target.kind;
+  }
 };
 
 export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   "ModuleCatalog",
   {
     make: Effect.succeed({
-      getRepoModuleDefinition: (moduleId: typeof RepoModuleId.Type) =>
+      getModuleDefinition: (moduleId: ModuleId) =>
         Effect.fromNullishOr(moduleRegistry.get(moduleId)).pipe(
           Effect.catch(() =>
             Effect.fail(
               new CatalogNotFound({
                 catalog: "module",
-                entity: "repo-module",
+                entity: "module",
                 id: moduleId,
               }),
             ),
           ),
         ),
-      getTargetModuleDefinition: (moduleId: typeof TargetModuleId.Type) =>
-        Effect.fromNullishOr(targetModuleRegistry.get(moduleId)).pipe(
-          Effect.catch(() =>
-            Effect.fail(
-              new CatalogNotFound({
-                catalog: "module",
-                entity: "target-module",
-                id: moduleId,
-              }),
+      isModuleSupportedOn: ({
+        moduleId,
+        target,
+      }: {
+        moduleId: ModuleId;
+        target: TargetIdentity;
+      }) =>
+        Effect.gen(function* () {
+          const definition = yield* Effect.fromNullishOr(
+            moduleRegistry.get(moduleId),
+          ).pipe(
+            Effect.catch(() =>
+              Effect.fail(
+                new CatalogNotFound({
+                  catalog: "module",
+                  entity: "module",
+                  id: moduleId,
+                }),
+              ),
             ),
-          ),
-        ),
+          );
+
+          return definition.supportedOn.some((supportedOn) =>
+            matchesSupportedOn(target, supportedOn),
+          );
+        }),
     }),
   },
 ) {
