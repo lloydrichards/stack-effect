@@ -1,66 +1,61 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { Schema, String } from "effect";
-import { TargetKey } from "./Scaffold";
 import { describe, expect, it } from "vitest";
+import { TargetIdentity, TargetKey } from "./Scaffold";
 
-const unsafeTargetKey = (value: string) => value as typeof TargetKey.Type;
+const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
+const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });
 
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
       {
         _tag: "attached-module",
-        id: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
-        targetId: unsafeTargetKey("packages/domain"),
+        id: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        targetId: domainIdentity.toKey(),
         moduleId: "domain-api",
       },
       {
         _tag: "target",
-        id: unsafeTargetKey("packages/domain"),
-        identity: {
-          kind: "package",
-          name: "domain",
-        },
+        id: domainIdentity.toKey(),
+        identity: domainIdentity,
       },
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
-          unsafeTargetKey("apps/server-api"),
+          serverApiIdentity.toKey(),
           "http-api-server",
         ),
-        targetId: unsafeTargetKey("apps/server-api"),
+        targetId: serverApiIdentity.toKey(),
         moduleId: "http-api-server",
       },
       {
         _tag: "target",
-        id: unsafeTargetKey("apps/server-api"),
-        identity: {
-          kind: "server",
-          name: "api",
-        },
+        id: serverApiIdentity.toKey(),
+        identity: serverApiIdentity,
       },
     ],
     edges: [
       {
         id: "z-edge",
         from: toAttachedModuleNodeId(
-          unsafeTargetKey("apps/server-api"),
+          serverApiIdentity.toKey(),
           "http-api-server",
         ),
-        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
         reason: "required-module",
       },
       {
         id: "m-edge",
-        from: unsafeTargetKey("packages/domain"),
-        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        from: domainIdentity.toKey(),
+        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
         reason: "owns-module",
       },
       {
         id: "n-edge",
-        from: unsafeTargetKey("apps/server-api"),
+        from: serverApiIdentity.toKey(),
         to: toAttachedModuleNodeId(
-          unsafeTargetKey("apps/server-api"),
+          serverApiIdentity.toKey(),
           "http-api-server",
         ),
         reason: "owns-module",
@@ -68,25 +63,80 @@ const makeUnsortedBlueprint = () =>
       {
         id: "a-edge",
         from: toAttachedModuleNodeId(
-          unsafeTargetKey("apps/server-api"),
+          serverApiIdentity.toKey(),
           "http-api-server",
         ),
-        to: unsafeTargetKey("packages/domain"),
+        to: domainIdentity.toKey(),
         reason: "required-target",
       },
     ],
   });
 
 describe("@repo/domain Blueprint", () => {
+  it("should expose target identity domain methods", () => {
+    const identity = new TargetIdentity({
+      kind: "server",
+      name: "api",
+    });
+
+    expect(identity.toKey()).toBe("apps/server-api");
+    expect(identity.toPath()).toBe("apps/server-api");
+    expect(identity.matches({ _tag: "kind", kind: "server" })).toBe(true);
+    expect(
+      identity.matches({
+        _tag: "identity",
+        identity: new TargetIdentity({ kind: "server", name: "api" }),
+      }),
+    ).toBe(true);
+    expect(
+      identity.matches({
+        _tag: "identity",
+        identity: new TargetIdentity({ kind: "client", name: "api" }),
+      }),
+    ).toBe(false);
+  });
+
+  it("should slugify user-provided names when deriving key and path", () => {
+    const identity = new TargetIdentity({
+      kind: "server",
+      name: "My Api",
+    });
+
+    expect(identity.toKey()).toBe("apps/server-my-api");
+    expect(identity.toPath()).toBe("apps/server-my-api");
+  });
+
+  it("should compare exact identity rules by canonical target identity", () => {
+    const identity = new TargetIdentity({
+      kind: "server",
+      name: "My Api",
+    });
+
+    expect(
+      identity.matches({
+        _tag: "identity",
+        identity: new TargetIdentity({ kind: "server", name: "my-api" }),
+      }),
+    ).toBe(true);
+  });
+
+  it("should decode target identities as domain class instances", () => {
+    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      kind: "package",
+      name: "domain",
+    });
+
+    expect(identity).toBeInstanceOf(TargetIdentity);
+    expect(identity.toKey()).toBe("packages/domain");
+    expect(identity.toPath()).toBe("packages/domain");
+  });
+
   it("should sort blueprint nodes and edges deterministically", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     expect(blueprint.nodes.map((node) => node.id)).toEqual([
-      toAttachedModuleNodeId(
-        unsafeTargetKey("apps/server-api"),
-        "http-api-server",
-      ),
-      toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+      toAttachedModuleNodeId(serverApiIdentity.toKey(), "http-api-server"),
+      toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
       "apps/server-api",
       "packages/domain",
     ]);
@@ -134,7 +184,9 @@ describe("@repo/domain Blueprint", () => {
     await expect(
       Schema.decodeUnknownPromise(TargetKey)("apps/server-api#http-api-server"),
     ).rejects.toThrow();
-    await expect(Schema.decodeUnknownPromise(TargetKey)("server-api")).rejects.toThrow();
+    await expect(
+      Schema.decodeUnknownPromise(TargetKey)("server-api"),
+    ).rejects.toThrow();
   });
 
   it("should pretty print a normalized dependency blueprint", () => {

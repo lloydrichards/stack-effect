@@ -9,8 +9,8 @@ A concrete workspace in the repository with a stable identity and directory.
 _Avoid_: Node, app, package unit
 
 **Target Identity**:
-The semantic identity of a **Target**, expressed as `{ kind, name }`.
-_Avoid_: Target ID, target path
+A behavior-bearing domain value object that identifies a **Target** as `{ kind, name }`.
+_Avoid_: Target ID, target path, plain DTO
 
 **Target Path**:
 The repo-relative workspace directory for a **Target**.
@@ -92,9 +92,9 @@ _Avoid_: Host target, source target
 - A **Target** node uses its **Target Key** as its **Blueprint Node ID**
 - An **Attached Module** node uses a canonical `TargetKey#ModuleId` **Blueprint Node ID**
 - In this context, **Target Key** and **Target Path** collapse to the same canonical string
+- In this context, **Target Key** and **Target Path** remain separate domain concepts with separate operations even when they serialize to the same canonical string
 - A **Blueprint** is simple graph data with minimal helpers, not a custom query API
-- **BlueprintService** delegates selection resolution to a dedicated resolver module that returns **Blueprint**
-- The dedicated resolver owns both selection validation and dependency-closure resolution
+- **BlueprintService** currently owns both selection validation and dependency-closure resolution
 - A **Module** may depend on a **Required Target**, a **Required Module**, or both
 - A **Module** is globally identified by its module ID and constrained by **Supported On** rules
 - **Supported On** rules match either a target kind or an exact target identity
@@ -110,7 +110,12 @@ _Avoid_: Host target, source target
 - **Plan** owns merge and conflict policy for applying **Desired Contributions** to the repository snapshot
 - A **Desired Contribution** may use **Contribution Tokens** that are resolved against the owning **Target** context
 - A **Target Identity** is distinct from the canonical target path/key string of the same **Target**
-- A **Target Path** is derived centrally from **Target Identity** using repo conventions
+- **Target Identity** owns canonical target derivation and matching behavior in the domain model
+- **Target Identity** is instantiated canonically as a domain class rather than wrapped later at service boundaries
+- A **Target Identity** may preserve user-facing naming, while **Target Path** and **Target Key** are derived by slugifying the name into canonical repo-safe form
+- A **Target Identity** derives **Target Path** and **Target Key** using repo conventions
+- A **Target Identity** evaluates **Supported On** compatibility through `matches(supportedOn)`
+- **Target Identity** stops at `toKey()`, `toPath()`, and `matches(supportedOn)`; scaffold-specific contribution context stays outside the value object
 - Package public entrypoints are expressed as **Desired Contributions**, not as a separate composition concept
 
 ## Example dialogue
@@ -166,13 +171,20 @@ _Avoid_: Host target, source target
 - "template" could imply arbitrary generation logic — resolved: use a small explicit set of **Contribution Tokens** resolved from target context.
 - the code was using identity, path, and ID interchangeably for targets — resolved: distinguish **Target Identity** from the canonical target path/key string used in scaffold planning.
 - it was unclear whether **Target Key** and **Target Path** should remain distinct in this context — resolved: collapse them to the same canonical string for scaffold planning.
+- it was unclear whether **Target Key** and **Target Path** should collapse into one API because they currently serialize the same way — resolved: keep them as separate domain concepts and expose separate operations for each.
 - it was unclear whether graph node identifiers were the same thing as **Target Key** — resolved: use **Blueprint Node ID** for graph nodes and reserve **Target Key** for **Target** identifiers only.
 - it was unclear whether **Blueprint Node ID** should be ad hoc string concatenation or a canonical schema format — resolved: use canonical string formats, with **Attached Module** node IDs derived as `TargetKey#ModuleId`.
 - it was unclear whether the public **Blueprint** boundary should be rich behavior or simple graph data — resolved: keep **Blueprint** as simple graph data with minimal helpers.
-- it was unclear whether selection resolution should remain embedded in **BlueprintService** — resolved: extract a dedicated resolver module that returns **Blueprint**.
-- it was unclear whether selection validation should be split from selection resolution — resolved: keep validation inside the dedicated resolver.
+- it was unclear whether selection resolution should remain embedded in **BlueprintService** — resolved in the current implementation: keep selection validation and dependency-closure resolution together in **BlueprintService**.
+- it was unclear whether selection validation should be split from selection resolution — resolved in the current implementation: keep validation inside **BlueprintService**.
 - it was unclear whether target paths were input data or derived convention — resolved: derive **Target Path** centrally from **Target Identity** using repo conventions.
+- it was unclear whether **Target Identity** should remain plain schema data or become a domain value object — resolved: **Target Identity** is a behavior-bearing domain value object that owns canonical derivation and matching behavior.
+- it was unclear whether rich **Target Identity** behavior should live on a canonical schema/class or on a wrapper around plain decoded data — resolved: use a canonical domain class for **Target Identity** throughout the scaffold flow.
+- it was unclear what users were allowed to put in `TargetIdentity.name` — resolved: accept any non-empty user-facing name and derive canonical target keys and paths by slugifying it.
 - module compatibility was encoded as arbitrary code — resolved: use declarative **Supported On** rules in module definitions.
+- it was unclear whether **Supported On** compatibility should be evaluated by catalog code or by **Target Identity** — resolved: **Target Identity** owns the compatibility predicate as domain behavior.
+- it was unclear what the canonical compatibility method should be called — resolved: use `matches(supportedOn)` as the boolean predicate on **Target Identity**.
+- it was unclear whether scaffold contribution-token context should also move onto **Target Identity** — resolved: no; keep the value object boundary to `toKey()`, `toPath()`, and `matches(supportedOn)`.
 - module compatibility could have grown into a rule language — resolved: **Supported On** only matches target kind or exact target identity for now.
 - dependency declarations could have leaked technical identifiers — resolved: dependencies reference **Target Identity**, not target path or key.
 - "composition" was an overly abstract label for published outputs — resolved: public entrypoints are modeled directly as **Desired Contributions**.

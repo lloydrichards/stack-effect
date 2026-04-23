@@ -9,36 +9,49 @@ import {
   type RepoSnapshot,
   type RepoSnapshotPath,
 } from "@repo/domain/Plan";
-import { Array as Arr, Context, Effect, Layer, Option, Record } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  Order,
+  Record,
+} from "effect";
 import {
   ContributionResolver,
   type NormalizedContributions,
 } from "./ContributionResolver";
-import {
-  byBarrelExportPathOrd,
-  byDependencySectionAndNameOrd,
-  byExportKeyOrd,
-  byPathOrd,
-  byScriptNameOrd,
-} from "./planOrders";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
-const planChangesetPathOrd = byPathOrd<
-  PlanChangesetPath | MutablePlanChangesetPath
->();
+const planPathOrd = Order.mapInput(
+  pathOrd,
+  (value: { path: string }) => value.path,
+);
 
-const projectedPlanPathOrd = byPathOrd<ProjectedPlanPath>();
+const projectedPackageJsonExportOrd = Order.mapInput(
+  Order.String,
+  (value: { exportKey: string }) => value.exportKey,
+);
 
-const projectedPackageJsonExportOrd =
-  byExportKeyOrd<ProjectedPackageJsonExport>();
+const projectedPackageJsonDependencyOrd = Order.combineAll([
+  Order.mapInput(Order.String, (value: { section: string }) => value.section),
+  Order.mapInput(
+    Order.String,
+    (value: { section: string; dependencyName: string }) =>
+      value.dependencyName,
+  ),
+]);
 
-const projectedPackageJsonDependencyOrd =
-  byDependencySectionAndNameOrd<ProjectedPackageJsonDependency>();
+const projectedPackageJsonScriptOrd = Order.mapInput(
+  Order.String,
+  (value: { scriptName: string }) => value.scriptName,
+);
 
-const projectedPackageJsonScriptOrd =
-  byScriptNameOrd<ProjectedPackageJsonScript>();
-
-const projectedBarrelExportOrd = byBarrelExportPathOrd<ProjectedBarrelExport>();
+const projectedBarrelExportOrd = Order.mapInput(
+  Order.String,
+  (value: { exportPath: string }) => value.exportPath,
+);
 
 export class PlanService extends Context.Service<PlanService>()("PlanService", {
   make: Effect.gen(function* () {
@@ -166,19 +179,17 @@ const compilePlanChangeset = (
   }
 
   return {
-    paths: Arr.sort(changesetPaths.values(), planChangesetPathOrd).map(
-      (pathEntry) => ({
-        path: pathEntry.path,
-        authoritativeContents: pathEntry.authoritativeContents,
-        packageJsonExports: Arr.fromIterable(pathEntry.packageJsonExports),
-        packageJsonDependencies: Arr.fromIterable(
-          pathEntry.packageJsonDependencies,
-        ),
-        packageJsonScripts: Arr.fromIterable(pathEntry.packageJsonScripts),
-        barrelExports: Arr.fromIterable(pathEntry.barrelExports),
-        tsconfig: pathEntry.tsconfig,
-      }),
-    ),
+    paths: Arr.sort(changesetPaths.values(), planPathOrd).map((pathEntry) => ({
+      path: pathEntry.path,
+      authoritativeContents: pathEntry.authoritativeContents,
+      packageJsonExports: Arr.fromIterable(pathEntry.packageJsonExports),
+      packageJsonDependencies: Arr.fromIterable(
+        pathEntry.packageJsonDependencies,
+      ),
+      packageJsonScripts: Arr.fromIterable(pathEntry.packageJsonScripts),
+      barrelExports: Arr.fromIterable(pathEntry.barrelExports),
+      tsconfig: pathEntry.tsconfig,
+    })),
   };
 };
 const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
@@ -837,66 +848,6 @@ type MutablePlanChangesetPath = {
   tsconfig?: ProjectedTsconfig;
 };
 
-const appendProjectedPath = (
-  projectedPaths: Map<string, ProjectedPlanPath>,
-  path: string,
-) => {
-  projectedPaths.set(path, { path });
-};
-
-const appendProjectedPackageJsonExport = (
-  projectedExports: Map<string, ProjectedPackageJsonExport>,
-  exportKey: string,
-  exportValue: string,
-) => {
-  projectedExports.set(exportKey, {
-    exportKey,
-    exportValue,
-  });
-};
-
-const appendProjectedPackageJsonDependency = (
-  projectedDependencies: Map<string, ProjectedPackageJsonDependency>,
-  dependency: ProjectedPackageJsonDependency,
-) => {
-  const key = `${dependency.section}:${dependency.dependencyName}`;
-
-  projectedDependencies.set(key, {
-    section: dependency.section,
-    dependencyName: dependency.dependencyName,
-    dependencyValue: dependency.dependencyValue,
-  });
-};
-
-const appendProjectedPackageJsonScript = (
-  projectedScripts: Map<string, ProjectedPackageJsonScript>,
-  script: ProjectedPackageJsonScript,
-) => {
-  projectedScripts.set(script.scriptName, {
-    scriptName: script.scriptName,
-    scriptValue: script.scriptValue,
-  });
-};
-
-const appendProjectedBarrelExport = (
-  projectedBarrelExports: Map<string, ProjectedBarrelExport>,
-  exportPath: string,
-) => {
-  projectedBarrelExports.set(exportPath, {
-    exportPath,
-  });
-};
-
-const appendProjectedTsconfig = (
-  projectedTsconfigs: Map<string, ProjectedTsconfig>,
-  projectedTsconfig: ProjectedTsconfig,
-) => {
-  projectedTsconfigs.set(projectedTsconfig.path, {
-    path: projectedTsconfig.path,
-    contents: projectedTsconfig.contents,
-  });
-};
-
 const flattenContributions = (
   normalizedContributions: NormalizedContributions,
 ) => [
@@ -911,31 +862,37 @@ const collectProjectedPlanPaths = (
 
   for (const contributions of flattenContributions(normalizedContributions)) {
     for (const file of contributions.files) {
-      appendProjectedPath(projectedPaths, file.path);
+      projectedPaths.set(file.path, { path: file.path });
     }
 
     for (const entry of contributions.packageJsonExports) {
-      appendProjectedPath(projectedPaths, entry.packageJsonPath);
+      projectedPaths.set(entry.packageJsonPath, {
+        path: entry.packageJsonPath,
+      });
     }
 
     for (const entry of contributions.packageJsonDependencies) {
-      appendProjectedPath(projectedPaths, entry.packageJsonPath);
+      projectedPaths.set(entry.packageJsonPath, {
+        path: entry.packageJsonPath,
+      });
     }
 
     for (const entry of contributions.packageJsonScripts) {
-      appendProjectedPath(projectedPaths, entry.packageJsonPath);
+      projectedPaths.set(entry.packageJsonPath, {
+        path: entry.packageJsonPath,
+      });
     }
 
     for (const entry of contributions.barrelExports) {
-      appendProjectedPath(projectedPaths, entry.barrelPath);
+      projectedPaths.set(entry.barrelPath, { path: entry.barrelPath });
     }
 
     for (const entry of contributions.tsconfigs) {
-      appendProjectedPath(projectedPaths, entry.path);
+      projectedPaths.set(entry.path, { path: entry.path });
     }
   }
 
-  return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
+  return Arr.sort(projectedPaths.values(), planPathOrd);
 };
 
 const collectProjectedContents = (
@@ -966,11 +923,10 @@ const collectProjectedPackageJsonExports = (
         projectedExportsByPath.get(entry.packageJsonPath) ??
         new Map<string, ProjectedPackageJsonExport>();
 
-      appendProjectedPackageJsonExport(
-        pathExports,
-        entry.exportKey,
-        entry.exportValue,
-      );
+      pathExports.set(entry.exportKey, {
+        exportKey: entry.exportKey,
+        exportValue: entry.exportValue,
+      });
       projectedExportsByPath.set(entry.packageJsonPath, pathExports);
     }
   }
@@ -999,7 +955,7 @@ const collectProjectedPackageJsonDependencies = (
         projectedDependenciesByPath.get(entry.packageJsonPath) ??
         new Map<string, ProjectedPackageJsonDependency>();
 
-      appendProjectedPackageJsonDependency(pathDependencies, {
+      pathDependencies.set(`${entry.section}:${entry.dependencyName}`, {
         section: entry.section,
         dependencyName: entry.dependencyName,
         dependencyValue: entry.dependencyValue,
@@ -1035,7 +991,7 @@ const collectProjectedPackageJsonScripts = (
         projectedScriptsByPath.get(entry.packageJsonPath) ??
         new Map<string, ProjectedPackageJsonScript>();
 
-      appendProjectedPackageJsonScript(pathScripts, {
+      pathScripts.set(entry.scriptName, {
         scriptName: entry.scriptName,
         scriptValue: entry.scriptValue,
       });
@@ -1067,7 +1023,9 @@ const collectProjectedBarrelExports = (
         projectedBarrelExportsByPath.get(entry.barrelPath) ??
         new Map<string, ProjectedBarrelExport>();
 
-      appendProjectedBarrelExport(pathBarrelExports, entry.exportPath);
+      pathBarrelExports.set(entry.exportPath, {
+        exportPath: entry.exportPath,
+      });
       projectedBarrelExportsByPath.set(entry.barrelPath, pathBarrelExports);
     }
   }
@@ -1089,7 +1047,7 @@ const collectProjectedTsconfigs = (
 
   for (const contributions of flattenContributions(normalizedContributions)) {
     for (const entry of contributions.tsconfigs) {
-      appendProjectedTsconfig(projectedTsconfigs, {
+      projectedTsconfigs.set(entry.path, {
         path: entry.path,
         contents: entry.contents,
       });

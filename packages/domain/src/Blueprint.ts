@@ -1,4 +1,4 @@
-import { Data, Order, Schema } from "effect";
+import { Data, Schema } from "effect";
 import { blueprintEdgeOrd, blueprintNodeOrd } from "./Order";
 import { ModuleId, TargetIdentity, TargetKey } from "./Scaffold";
 
@@ -29,7 +29,9 @@ export const BlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
 });
-export type BlueprintTargetNode = Schema.Schema.Type<typeof BlueprintTargetNode>;
+export type BlueprintTargetNode = Schema.Schema.Type<
+  typeof BlueprintTargetNode
+>;
 
 export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
   "attached-module",
@@ -85,8 +87,13 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
     }
 
     const targetNodes = this.nodes.filter(isBlueprintTargetNode);
-    const attachedModuleNodes = this.nodes.filter(isBlueprintAttachedModuleNode);
-    const attachedModulesByTarget = new Map<string, Array<BlueprintAttachedModuleNode>>();
+    const attachedModuleNodes = this.nodes.filter(
+      isBlueprintAttachedModuleNode,
+    );
+    const attachedModulesByTarget = new Map<
+      string,
+      Array<BlueprintAttachedModuleNode>
+    >();
     const outgoingEdgesByNode = new Map<string, Array<BlueprintEdge>>();
 
     for (const node of attachedModuleNodes) {
@@ -108,17 +115,20 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
 
       const branches = [...(attachedModulesByTarget.get(targetNode.id) ?? [])]
         .sort(blueprintNodeOrd)
-        .map((attachedModule) => ({
-          line: attachedModule.id,
-          prefix: "╌>",
-          children: [...(outgoingEdgesByNode.get(attachedModule.id) ?? [])]
-            .filter((edge) => edge.reason !== "owns-module")
-            .sort(blueprintEdgeOrd)
-            .map((edge) => ({
-              line: `${edge.to} [${edge.reason}]`,
-              prefix: "─>",
-            })),
-        } satisfies TreeBranch));
+        .map(
+          (attachedModule) =>
+            ({
+              line: attachedModule.id,
+              prefix: "╌>",
+              children: [...(outgoingEdgesByNode.get(attachedModule.id) ?? [])]
+                .filter((edge) => edge.reason !== "owns-module")
+                .sort(blueprintEdgeOrd)
+                .map((edge) => ({
+                  line: `${edge.to} [${edge.reason}]`,
+                  prefix: "─>",
+                })),
+            }) satisfies TreeBranch,
+        );
 
       appendTreeBranches(lines, branches);
     }

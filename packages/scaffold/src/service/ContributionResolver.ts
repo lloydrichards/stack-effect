@@ -43,12 +43,9 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
           const definition = yield* targetCatalog.getTargetDefinition(
             node.identity.kind,
           );
-          const targetPath = yield* targetCatalog.deriveTargetPath(
-            node.identity,
-          );
           const context: ContributionTokenContext = {
             targetKey: node.id,
-            targetPath,
+            targetPath: node.identity.toPath(),
             targetKind: node.identity.kind,
             targetName: node.identity.name,
           };
@@ -57,7 +54,10 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 
           targetContributions.push({
             targetKey: node.id,
-            contributions: resolveContributionTokens(definition.contributions, context),
+            contributions: resolveContributionTokens(
+              definition.contributions,
+              context,
+            ),
           });
         }
 

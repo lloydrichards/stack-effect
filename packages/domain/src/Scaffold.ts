@@ -1,6 +1,11 @@
 import { Schema } from "effect";
 
-const targetPathPattern = /^(packages\/[a-z0-9-]+|apps\/[a-z0-9-]+-[a-z0-9-]+)$/;
+const slugifyTargetName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 export const TargetKind = Schema.Union([
   Schema.Literal("client"),
@@ -16,20 +21,48 @@ export const ModuleId = Schema.Union([
 ]);
 export type ModuleId = Schema.Schema.Type<typeof ModuleId>;
 
-export const TargetIdentity = Schema.Struct({
+export class TargetIdentity extends Schema.Class<TargetIdentity>(
+  "TargetIdentity",
+)({
   kind: TargetKind,
   name: Schema.NonEmptyString,
-});
-export type TargetIdentity = Schema.Schema.Type<typeof TargetIdentity>;
+}) {
+  toPath(): TargetPath {
+    switch (this.kind) {
+      case "package":
+        return `packages/${slugifyTargetName(this.name)}` as TargetPath;
+      case "server":
+      case "client":
+      case "cli":
+        return `apps/${this.kind}-${slugifyTargetName(this.name)}` as TargetPath;
+    }
+  }
 
-export const TargetKey = Schema.String.check(
-  Schema.isPattern(targetPathPattern),
-).pipe(Schema.brand("TargetKey"));
+  toKey(): TargetKey {
+    switch (this.kind) {
+      case "package":
+        return `packages/${slugifyTargetName(this.name)}` as TargetKey;
+      case "server":
+      case "client":
+      case "cli":
+        return `apps/${this.kind}-${slugifyTargetName(this.name)}` as TargetKey;
+    }
+  }
+
+  matches(supportedOn: SupportedOn): boolean {
+    switch (supportedOn._tag) {
+      case "identity":
+        return supportedOn.identity.toKey() === this.toKey();
+      case "kind":
+        return supportedOn.kind === this.kind;
+    }
+  }
+}
+
+export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
 export type TargetKey = Schema.Schema.Type<typeof TargetKey>;
 
-export const TargetPath = Schema.String.check(
-  Schema.isPattern(targetPathPattern),
-).pipe(Schema.brand("TargetPath"));
+export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
 export type TargetPath = Schema.Schema.Type<typeof TargetPath>;
 
 export const SupportedOn = Schema.Union([

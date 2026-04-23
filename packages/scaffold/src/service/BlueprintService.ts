@@ -69,20 +69,20 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
     targetCatalog: typeof TargetCatalog.Service,
     moduleCatalog: typeof ModuleCatalog.Service,
   ) {
-    const selectedTargetIds = new Set<string>();
+    const selectedTargetKeys = new Set<string>();
 
     for (const target of selection.targets) {
-      const targetId = yield* targetCatalog.deriveTargetKey(target.identity);
+      const targetKey = target.identity.toKey();
 
-      if (selectedTargetIds.has(targetId)) {
+      if (selectedTargetKeys.has(targetKey)) {
         yield* Effect.fail(
           new BlueprintFailure({
-            message: `Duplicate target selection: ${targetId}`,
+            message: `Duplicate target selection: ${targetKey}`,
           }),
         );
       }
 
-      selectedTargetIds.add(targetId);
+      selectedTargetKeys.add(targetKey);
       yield* targetCatalog.getTargetDefinition(target.identity.kind);
 
       const selectedModuleIds = new Set<ModuleId>();
@@ -91,7 +91,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         if (selectedModuleIds.has(moduleSelection.id)) {
           yield* Effect.fail(
             new BlueprintFailure({
-              message: `Duplicate module selection: ${targetId} requires module ${moduleSelection.id}`,
+              message: `Duplicate module selection: ${targetKey} requires module ${moduleSelection.id}`,
             }),
           );
         }
@@ -106,7 +106,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         if (!isSupported) {
           yield* Effect.fail(
             new BlueprintFailure({
-              message: `Unsupported target-module combination: ${targetId} requires module ${moduleSelection.id}`,
+              message: `Unsupported target-module combination: ${targetKey} requires module ${moduleSelection.id}`,
             }),
           );
         }
@@ -152,8 +152,8 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     };
 
     const ensureTarget = Effect.fn(function* (identity: TargetIdentity) {
-      const id = yield* targetCatalog.deriveTargetKey(identity);
-      const current = state.targets.get(id);
+      const targetKey = identity.toKey();
+      const current = state.targets.get(targetKey);
 
       if (current !== undefined) {
         return current;
@@ -163,11 +163,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
       const next: MutableTargetState = {
         _tag: "target",
-        id,
+        id: targetKey,
         identity,
       };
 
-      state.targets.set(id, next);
+      state.targets.set(targetKey, next);
       return next;
     });
 
@@ -184,11 +184,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         return;
       }
 
-      const targetId = yield* targetCatalog.deriveTargetKey(target);
+      const targetKey = target.toKey();
 
       yield* Effect.fail(
         new BlueprintFailure({
-          message: `Unsupported target-module combination: ${targetId} requires module ${moduleId}`,
+          message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
         }),
       );
     });
@@ -204,8 +204,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       yield* ensureModuleSupportedOn(target, moduleId);
 
       const targetState = yield* ensureTarget(target);
-      const id = toAttachedModuleNodeId(targetState.id, moduleId);
-      const current = state.attachedModules.get(id);
+      const attachedModuleNodeId = toAttachedModuleNodeId(
+        targetState.id,
+        moduleId,
+      );
+      const current = state.attachedModules.get(attachedModuleNodeId);
 
       if (current !== undefined) {
         return current;
@@ -213,17 +216,17 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
       const next: MutableAttachedModuleState = {
         _tag: "attached-module",
-        id,
+        id: attachedModuleNodeId,
         targetId: targetState.id,
         moduleId,
       };
 
-      state.attachedModules.set(id, next);
+      state.attachedModules.set(attachedModuleNodeId, next);
 
       appendEdge(state, {
-        id: `owns-module=>${targetState.id}=>${id}`,
+        id: `owns-module=>${targetState.id}=>${attachedModuleNodeId}`,
         from: targetState.id,
-        to: id,
+        to: attachedModuleNodeId,
         reason: "owns-module",
       });
 
@@ -236,8 +239,8 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
           );
 
           appendEdge(state, {
-            id: `required-target=>${id}=>${requiredTarget.id}`,
-            from: id,
+            id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
+            from: attachedModuleNodeId,
             to: requiredTarget.id,
             reason: "required-target",
           });
@@ -250,8 +253,8 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
           );
 
           appendEdge(state, {
-            id: `required-module=>${id}=>${requiredModule.id}`,
-            from: id,
+            id: `required-module=>${attachedModuleNodeId}=>${requiredModule.id}`,
+            from: attachedModuleNodeId,
             to: requiredModule.id,
             reason: "required-module",
           });
