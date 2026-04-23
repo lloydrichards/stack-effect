@@ -193,9 +193,7 @@ describe("PlanService", () => {
               }),
           });
 
-          expect(getDirectoryEntry(plan, "packages").causes).toEqual([
-            { _tag: "selectedRepoModule", moduleId: "root-bootstrap" },
-          ]);
+          expect(getDirectoryEntry(plan, "packages")).toBeDefined();
           expect(getFileEntry(plan, ".gitignore").classification).toBe(
             "create",
           );
@@ -206,8 +204,7 @@ describe("PlanService", () => {
             getFileEntry(plan, "packages/config-typescript/base.json")
               .classification,
           ).toBe("create");
-          expect(plan.mergeRequirements).toEqual([]);
-          expect(plan.warnings).toEqual([]);
+          expect(plan.conflicts).toEqual([]);
         }),
     );
 
@@ -271,21 +268,12 @@ describe("PlanService", () => {
           expect(
             getFileEntry(plan, "packages/domain/package.json").classification,
           ).toBe("needsMergeStrategy");
-          expect(plan.mergeRequirements).toEqual(
+          expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "packageJsonExports",
                 path: "packages/domain/package.json",
                 exportKey: "./Api",
-              }),
-            ]),
-          );
-          expect(plan.warnings).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "mergeStrategyRequired",
-                path: "packages/domain/package.json",
-                message: "Existing exports require manual merge strategy.",
               }),
             ]),
           );
@@ -317,7 +305,7 @@ describe("PlanService", () => {
           expect(
             getFileEntry(plan, "packages/domain/src/index.ts").classification,
           ).toBe("needsMergeStrategy");
-          expect(plan.mergeRequirements).toEqual(
+          expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "barrelExport",
@@ -354,21 +342,11 @@ describe("PlanService", () => {
           expect(
             getFileEntry(plan, "packages/domain/tsconfig.json").classification,
           ).toBe("needsMergeStrategy");
-          expect(plan.mergeRequirements).toEqual(
+          expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "tsconfig",
                 path: "packages/domain/tsconfig.json",
-              }),
-            ]),
-          );
-          expect(plan.warnings).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "mergeStrategyRequired",
-                path: "packages/domain/tsconfig.json",
-                message:
-                  "Existing tsconfig.json requires manual merge strategy.",
               }),
             ]),
           );

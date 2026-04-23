@@ -1,34 +1,15 @@
-import type {
-  Blueprint,
-  ResolvedRepoModule,
-  ResolvedTarget,
-} from "@repo/domain/Blueprint";
-import { pathOrd, planCauseOrd } from "@repo/domain/Order";
+import type { Blueprint, ResolvedTarget } from "@repo/domain/Blueprint";
+import { pathOrd } from "@repo/domain/Order";
 import {
-  type MergeRequirement,
-  mergePlanCauses,
   Plan,
-  type PlanCause,
+  type PlanConflict,
   type PlanEntryClassification,
   PlanFailure,
   type PlanTreeNode,
-  type PlanWarning,
   type RepoSnapshot,
   type RepoSnapshotPath,
-  toPlanRepoModuleCauses,
-  toPlanTargetCauses,
-  toPlanTargetCompositionCauses,
-  toPlanTargetModuleCauses,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Match,
-  Option,
-  Record,
-} from "effect";
+import { Array as Arr, Context, Effect, Layer, Option, Record } from "effect";
 import {
   domainApiContents,
   serverHealthContents,
@@ -86,7 +67,7 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
         repoRoot,
       });
 
-      return projectPlan({ blueprint, changeset, repoSnapshot });
+      return projectPlan({ changeset, repoSnapshot });
     });
 
     return { build } as const;
@@ -112,19 +93,13 @@ const compilePlanChangeset = (
   const projectedTsconfigs = collectProjectedTsconfigs(blueprint);
 
   for (const projectedPath of projectedPaths) {
-    getOrCreatePlanChangesetPath(
-      changesetPaths,
-      projectedPath.path,
-      projectedPath.causes,
-    );
+    getOrCreatePlanChangesetPath(changesetPaths, projectedPath.path);
   }
 
   for (const [path, contents] of projectedContents) {
     const pathEntry =
       changesetPaths.get(path) ??
-      getOrCreatePlanChangesetPath(changesetPaths, path, [
-        { _tag: "selectedRepoModule", moduleId: "root-bootstrap" },
-      ] as const);
+      getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "authoritative" });
 
@@ -142,14 +117,7 @@ const compilePlanChangeset = (
   }
 
   for (const [path, projectedExports] of projectedPackageJsonExports) {
-    const pathEntry = getOrCreatePlanChangesetPath(
-      changesetPaths,
-      path,
-      (Arr.isReadonlyArrayNonEmpty(projectedExports)
-        ? Arr.headNonEmpty(projectedExports).causes
-        : undefined) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    );
+    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
     pathEntry.packageJsonExports.push(...projectedExports);
@@ -159,53 +127,28 @@ const compilePlanChangeset = (
     path,
     projectedDependencies,
   ] of projectedPackageJsonDependencies) {
-    const pathEntry = getOrCreatePlanChangesetPath(
-      changesetPaths,
-      path,
-      (Arr.isReadonlyArrayNonEmpty(projectedDependencies)
-        ? Arr.headNonEmpty(projectedDependencies).causes
-        : undefined) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    );
+    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
     pathEntry.packageJsonDependencies.push(...projectedDependencies);
   }
 
   for (const [path, projectedScripts] of projectedPackageJsonScripts) {
-    const pathEntry = getOrCreatePlanChangesetPath(
-      changesetPaths,
-      path,
-      (Arr.isReadonlyArrayNonEmpty(projectedScripts)
-        ? Arr.headNonEmpty(projectedScripts).causes
-        : undefined) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    );
+    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
     pathEntry.packageJsonScripts.push(...projectedScripts);
   }
 
   for (const [path, projectedExports] of projectedBarrelExports) {
-    const pathEntry = getOrCreatePlanChangesetPath(
-      changesetPaths,
-      path,
-      (Arr.isReadonlyArrayNonEmpty(projectedExports)
-        ? Arr.headNonEmpty(projectedExports).causes
-        : undefined) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    );
+    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "barrel" });
     pathEntry.barrelExports.push(...projectedExports);
   }
 
   for (const [path, projectedTsconfig] of projectedTsconfigs) {
-    const pathEntry = getOrCreatePlanChangesetPath(
-      changesetPaths,
-      path,
-      projectedTsconfig.causes,
-    );
+    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
 
     assertPlanChangesetFamily({ pathEntry, family: "tsconfig" });
 
@@ -226,7 +169,6 @@ const compilePlanChangeset = (
     paths: Arr.sort(changesetPaths.values(), planChangesetPathOrd).map(
       (pathEntry) => ({
         path: pathEntry.path,
-        causes: pathEntry.causes,
         authoritativeContents: pathEntry.authoritativeContents,
         packageJsonExports: Arr.fromIterable(pathEntry.packageJsonExports),
         packageJsonDependencies: Arr.fromIterable(
@@ -270,11 +212,9 @@ const assertPlanChangesetFamily = ({
   });
 };
 const projectPlan = ({
-  blueprint,
   changeset,
   repoSnapshot,
 }: {
-  blueprint: Blueprint;
   changeset: PlanChangeset;
   repoSnapshot: RepoSnapshot;
 }) => {
@@ -286,55 +226,9 @@ const projectPlan = ({
   const directoryPaths = collectDirectoryPaths(
     changeset.paths.map((changesetPath) => changesetPath.path),
   );
-  const fileCauseMap = new Map<
-    string,
-    readonly [PlanCause, ...Array<PlanCause>]
-  >(
-    changeset.paths.map((changesetPath) => [
-      changesetPath.path,
-      changesetPath.causes,
-    ]),
-  );
-  const directoryCauseMap = new Map<
-    string,
-    readonly [PlanCause, ...Array<PlanCause>]
-  >();
-
-  for (const changesetPath of changeset.paths) {
-    const parts = changesetPath.path.split("/");
-
-    for (let index = 1; index < parts.length; index += 1) {
-      const path = parts.slice(0, index).join("/");
-      const current = directoryCauseMap.get(path);
-
-      directoryCauseMap.set(
-        path,
-        current
-          ? mergePlanCauses(current, changesetPath.causes)
-          : changesetPath.causes,
-      );
-    }
-  }
-
-  const rootCauses = Arr.findFirst(
-    blueprint.modules,
-    (repoModule) => repoModule.moduleId === "root-bootstrap",
-  ).pipe(
-    Option.map((repoModule) => toPlanRepoModuleCauses({ repoModule })),
-    Option.orElse(() =>
-      Arr.isReadonlyArrayNonEmpty(changeset.paths)
-        ? Option.some(Arr.headNonEmpty(changeset.paths).causes)
-        : Option.none(),
-    ),
-    Option.getOrElse(
-      () =>
-        [{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const,
-    ),
-  );
 
   const fileClassifications = new Map<string, PlanEntryClassification>();
-  const mergeRequirements: Array<MergeRequirement> = [];
-  const warnings: Array<PlanWarning> = [];
+  const conflicts: Array<PlanConflict> = [];
 
   const assertAncestorDirectories = (path: string) => {
     const pathParts = path.split("/");
@@ -373,8 +267,7 @@ const projectPlan = ({
         changesetPath.path,
         packageJsonMergePlan.classification,
       );
-      mergeRequirements.push(...packageJsonMergePlan.mergeRequirements);
-      warnings.push(...packageJsonMergePlan.warnings);
+      conflicts.push(...packageJsonMergePlan.conflicts);
       continue;
     }
 
@@ -392,8 +285,7 @@ const projectPlan = ({
         changesetPath.path,
         barrelMergePlan.classification,
       );
-      mergeRequirements.push(...barrelMergePlan.mergeRequirements);
-      warnings.push(...barrelMergePlan.warnings);
+      conflicts.push(...barrelMergePlan.conflicts);
       continue;
     }
 
@@ -411,8 +303,7 @@ const projectPlan = ({
         changesetPath.path,
         tsconfigMergePlan.classification,
       );
-      mergeRequirements.push(...tsconfigMergePlan.mergeRequirements);
-      warnings.push(...tsconfigMergePlan.warnings);
+      conflicts.push(...tsconfigMergePlan.conflicts);
       continue;
     }
 
@@ -446,18 +337,11 @@ const projectPlan = ({
   }
 
   const entries: Array<(typeof Plan.Type)["entries"][number]> = [
-    ...directoryPaths.map((path) => ({
-      _tag: "directory" as const,
-      path,
-      causes:
-        directoryCauseMap.get(path) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
-    })),
+    ...directoryPaths.map((path) => ({ _tag: "directory" as const, path })),
     ...changeset.paths.map((changesetPath) => ({
       _tag: "file" as const,
       path: changesetPath.path,
       classification: fileClassifications.get(changesetPath.path) ?? "create",
-      causes: changesetPath.causes,
     })),
   ];
 
@@ -465,7 +349,6 @@ const projectPlan = ({
     _tag: "directory";
     name: string;
     path: string;
-    causes: readonly [PlanCause, ...Array<PlanCause>];
     children: Array<PlanTreeNode>;
   };
 
@@ -473,7 +356,6 @@ const projectPlan = ({
     _tag: "directory",
     name: ".",
     path: ".",
-    causes: rootCauses,
     children: [],
   };
   const directories = new Map<string, MutableTreeDirectoryNode>([[".", root]]);
@@ -486,9 +368,6 @@ const projectPlan = ({
       _tag: "directory",
       name: nameFromPath(path),
       path,
-      causes:
-        directoryCauseMap.get(path) ??
-        ([{ _tag: "selectedRepoModule", moduleId: "root-bootstrap" }] as const),
       children: [],
     };
 
@@ -515,15 +394,13 @@ const projectPlan = ({
         Option.map((entry) => entry.classification),
         Option.getOrElse((): PlanEntryClassification => "create"),
       ),
-      causes: fileCauseMap.get(changesetPath.path) ?? changesetPath.causes,
     });
   }
 
   return new Plan({
     entries,
     tree: root,
-    mergeRequirements,
-    warnings,
+    conflicts,
   }).toSorted();
 };
 const planTsconfigMerge = ({
@@ -538,8 +415,7 @@ const planTsconfigMerge = ({
   if (snapshotPath === undefined || snapshotPath._tag === "missing") {
     return {
       classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
+      conflicts: [] as Array<PlanConflict>,
     };
   }
 
@@ -553,20 +429,17 @@ const planTsconfigMerge = ({
   if (snapshotPath.contents === projectedTsconfig.contents) {
     return {
       classification: "unchanged" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
+      conflicts: [] as Array<PlanConflict>,
     };
   }
 
-  const requirement = createTsconfigMergeRequirement({
+  const conflict = createTsconfigPlanConflict({
     path,
-    causes: projectedTsconfig.causes,
   });
 
   return {
     classification: "needsMergeStrategy" as const,
-    mergeRequirements: [requirement],
-    warnings: [createTsconfigMergeWarning(requirement)],
+    conflicts: [conflict],
   };
 };
 const planPackageJsonMerge = ({
@@ -585,8 +458,7 @@ const planPackageJsonMerge = ({
   if (snapshotPath === undefined || snapshotPath._tag === "missing") {
     return {
       classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
+      conflicts: [] as Array<PlanConflict>,
     };
   }
 
@@ -606,18 +478,18 @@ const planPackageJsonMerge = ({
   })();
 
   if (!isRecord(packageJson)) {
-    const mergeRequirements: Array<PackageJsonMergeRequirement> = [
+    const conflicts: Array<PackageJsonPlanConflict> = [
       ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportMergeRequirement({ path, projectedExport }),
+        createPackageJsonExportPlanConflict({ path, projectedExport }),
       ),
       ...projectedDependencies.map((projectedDependency) =>
-        createPackageJsonDependencyMergeRequirement({
+        createPackageJsonDependencyPlanConflict({
           path,
           projectedDependency,
         }),
       ),
       ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptMergeRequirement({
+        createPackageJsonScriptPlanConflict({
           path,
           projectedScript,
         }),
@@ -626,19 +498,18 @@ const planPackageJsonMerge = ({
 
     return {
       classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map(toMergeRequirementWarning),
+      conflicts,
     };
   }
 
   const { exports: exportsValue, scripts: scriptsValue } = packageJson;
-  const mergeRequirements: Array<PackageJsonMergeRequirement> = [];
+  const conflicts: Array<PackageJsonPlanConflict> = [];
   let hasAdditions = false;
 
   if (exportsValue !== undefined && !isFlatStringRecord(exportsValue)) {
-    mergeRequirements.push(
+    conflicts.push(
       ...projectedExports.map((projectedExport) =>
-        createPackageJsonExportMergeRequirement({ path, projectedExport }),
+        createPackageJsonExportPlanConflict({ path, projectedExport }),
       ),
     );
   } else {
@@ -653,8 +524,8 @@ const planPackageJsonMerge = ({
       }
 
       if (existingValue !== projectedExport.exportValue) {
-        mergeRequirements.push(
-          createPackageJsonExportMergeRequirement({ path, projectedExport }),
+        conflicts.push(
+          createPackageJsonExportPlanConflict({ path, projectedExport }),
         );
       }
     }
@@ -670,9 +541,9 @@ const planPackageJsonMerge = ({
     const sectionValue = packageJson[section];
 
     if (sectionValue !== undefined && !isFlatStringRecord(sectionValue)) {
-      mergeRequirements.push(
+      conflicts.push(
         ...sectionDependencies.map((projectedDependency) =>
-          createPackageJsonDependencyMergeRequirement({
+          createPackageJsonDependencyPlanConflict({
             path,
             projectedDependency,
           }),
@@ -693,8 +564,8 @@ const planPackageJsonMerge = ({
       }
 
       if (existingValue !== projectedDependency.dependencyValue) {
-        mergeRequirements.push(
-          createPackageJsonDependencyMergeRequirement({
+        conflicts.push(
+          createPackageJsonDependencyPlanConflict({
             path,
             projectedDependency,
           }),
@@ -704,9 +575,9 @@ const planPackageJsonMerge = ({
   }
 
   if (scriptsValue !== undefined && !isFlatStringRecord(scriptsValue)) {
-    mergeRequirements.push(
+    conflicts.push(
       ...projectedScripts.map((projectedScript) =>
-        createPackageJsonScriptMergeRequirement({
+        createPackageJsonScriptPlanConflict({
           path,
           projectedScript,
         }),
@@ -724,8 +595,8 @@ const planPackageJsonMerge = ({
       }
 
       if (existingValue !== projectedScript.scriptValue) {
-        mergeRequirements.push(
-          createPackageJsonScriptMergeRequirement({
+        conflicts.push(
+          createPackageJsonScriptPlanConflict({
             path,
             projectedScript,
           }),
@@ -734,18 +605,16 @@ const planPackageJsonMerge = ({
     }
   }
 
-  if (mergeRequirements.length > 0) {
+  if (conflicts.length > 0) {
     return {
       classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map(toMergeRequirementWarning),
+      conflicts,
     };
   }
 
   return {
     classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    mergeRequirements: [] as Array<MergeRequirement>,
-    warnings: [] as Array<PlanWarning>,
+    conflicts: [] as Array<PlanConflict>,
   };
 };
 const planBarrelMerge = ({
@@ -760,8 +629,7 @@ const planBarrelMerge = ({
   if (snapshotPath === undefined || snapshotPath._tag === "missing") {
     return {
       classification: "create" as const,
-      mergeRequirements: [] as Array<MergeRequirement>,
-      warnings: [] as Array<PlanWarning>,
+      conflicts: [] as Array<PlanConflict>,
     };
   }
 
@@ -775,17 +643,13 @@ const planBarrelMerge = ({
   const existingExports = parseSimpleBarrelExports(snapshotPath.contents);
 
   if (existingExports === undefined) {
-    const mergeRequirements = projectedBarrelExports.map(
-      (projectedBarrelExport) =>
-        createBarrelExportMergeRequirement({ path, projectedBarrelExport }),
+    const conflicts = projectedBarrelExports.map((projectedBarrelExport) =>
+      createBarrelExportPlanConflict({ path, projectedBarrelExport }),
     );
 
     return {
       classification: "needsMergeStrategy" as const,
-      mergeRequirements,
-      warnings: mergeRequirements.map((requirement) =>
-        createBarrelExportMergeWarning(requirement),
-      ),
+      conflicts,
     };
   }
 
@@ -802,8 +666,7 @@ const planBarrelMerge = ({
 
   return {
     classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    mergeRequirements: [] as Array<MergeRequirement>,
-    warnings: [] as Array<PlanWarning>,
+    conflicts: [] as Array<PlanConflict>,
   };
 };
 const parseSimpleBarrelExports = (contents: string) => {
@@ -832,89 +695,58 @@ const parseSimpleBarrelExports = (contents: string) => {
   return exports;
 };
 const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
-const createTsconfigMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing tsconfig.json requires manual merge strategy.",
-  requirement,
-});
-const createTsconfigMergeRequirement = ({
+const createTsconfigPlanConflict = ({
   path,
-  causes,
 }: {
   path: string;
-  causes: readonly [PlanCause, ...Array<PlanCause>];
-}): MergeRequirement => ({
+}): PlanConflict => ({
   _tag: "tsconfig",
   path,
-  causes,
 });
-const createBarrelExportMergeRequirement = ({
+const createBarrelExportPlanConflict = ({
   path,
   projectedBarrelExport,
 }: {
   path: string;
   projectedBarrelExport: ProjectedBarrelExport;
-}): MergeRequirement => ({
+}): PlanConflict => ({
   _tag: "barrelExport",
   path,
   exportPath: projectedBarrelExport.exportPath,
-  causes: projectedBarrelExport.causes,
 });
-const createBarrelExportMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing barrel exports require manual merge strategy.",
-  requirement,
-});
-const createPackageJsonExportMergeRequirement = ({
+const createPackageJsonExportPlanConflict = ({
   path,
   projectedExport,
 }: {
   path: string;
   projectedExport: ProjectedPackageJsonExport;
-}): Extract<MergeRequirement, { _tag: "packageJsonExports" }> => ({
+}): Extract<PlanConflict, { _tag: "packageJsonExports" }> => ({
   _tag: "packageJsonExports",
   path,
   exportKey: projectedExport.exportKey,
-  causes: projectedExport.causes,
 });
-const createPackageJsonScriptMergeRequirement = ({
+const createPackageJsonScriptPlanConflict = ({
   path,
   projectedScript,
 }: {
   path: string;
   projectedScript: ProjectedPackageJsonScript;
-}): Extract<MergeRequirement, { _tag: "packageJsonScripts" }> => ({
+}): Extract<PlanConflict, { _tag: "packageJsonScripts" }> => ({
   _tag: "packageJsonScripts",
   path,
   scriptName: projectedScript.scriptName,
-  causes: projectedScript.causes,
 });
-const createPackageJsonScriptMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing scripts require manual merge strategy.",
-  requirement,
-});
-const createPackageJsonDependencyMergeRequirement = ({
+const createPackageJsonDependencyPlanConflict = ({
   path,
   projectedDependency,
 }: {
   path: string;
   projectedDependency: ProjectedPackageJsonDependency;
-}): Extract<MergeRequirement, { _tag: "packageJsonDependencies" }> => ({
+}): Extract<PlanConflict, { _tag: "packageJsonDependencies" }> => ({
   _tag: "packageJsonDependencies",
   path,
   section: projectedDependency.section,
   dependencyName: projectedDependency.dependencyName,
-  causes: projectedDependency.causes,
 });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -923,44 +755,6 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   isRecord(value) &&
   Arr.every(Record.values(value), (entry) => typeof entry === "string");
-
-const createPackageJsonExportMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message: "Existing exports require manual merge strategy.",
-  requirement,
-});
-
-const createPackageJsonDependencyMergeWarning = (
-  requirement: MergeRequirement,
-): PlanWarning => ({
-  _tag: "mergeStrategyRequired",
-  path: requirement.path,
-  message:
-    requirement._tag === "packageJsonDependencies"
-      ? `Existing ${requirement.section} require manual merge strategy.`
-      : "Existing dependencies require manual merge strategy.",
-  requirement,
-});
-
-const toMergeRequirementWarning = (
-  requirement: PackageJsonMergeRequirement,
-): PlanWarning =>
-  Match.value(requirement).pipe(
-    Match.tag("packageJsonExports", createPackageJsonExportMergeWarning),
-    Match.tag(
-      "packageJsonDependencies",
-      createPackageJsonDependencyMergeWarning,
-    ),
-    Match.tag("packageJsonScripts", createPackageJsonScriptMergeWarning),
-    Match.exhaustive,
-  );
-
-const sortCauses = (
-  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
-): [PlanCause, ...Array<PlanCause>] => Arr.sort(causes, planCauseOrd);
 
 const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
   const directories = new Set<string>();
@@ -978,42 +772,35 @@ const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
 
 type ProjectedPlanPath = {
   readonly path: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type ProjectedPackageJsonExport = {
   readonly exportKey: string;
   readonly exportValue: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type ProjectedPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
   readonly dependencyName: string;
   readonly dependencyValue: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type ProjectedPackageJsonScript = {
   readonly scriptName: string;
   readonly scriptValue: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type ProjectedBarrelExport = {
   readonly exportPath: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type ProjectedTsconfig = {
   readonly path: string;
   readonly contents: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
 };
 
 type PlanChangesetPath = {
   readonly path: string;
-  readonly causes: readonly [PlanCause, ...Array<PlanCause>];
   readonly authoritativeContents: string | undefined;
   readonly packageJsonExports: ReadonlyArray<ProjectedPackageJsonExport>;
   readonly packageJsonDependencies: ReadonlyArray<ProjectedPackageJsonDependency>;
@@ -1032,8 +819,8 @@ type PlanChangesetOperationFamily =
   | "barrel"
   | "tsconfig";
 
-type PackageJsonMergeRequirement = Extract<
-  MergeRequirement,
+type PackageJsonPlanConflict = Extract<
+  PlanConflict,
   | { _tag: "packageJsonExports" }
   | { _tag: "packageJsonDependencies" }
   | { _tag: "packageJsonScripts" }
@@ -1041,7 +828,6 @@ type PackageJsonMergeRequirement = Extract<
 
 type MutablePlanChangesetPath = {
   readonly path: string;
-  causes: readonly [PlanCause, ...Array<PlanCause>];
   family?: PlanChangesetOperationFamily;
   authoritativeContents?: string;
   readonly packageJsonExports: Array<ProjectedPackageJsonExport>;
@@ -1054,32 +840,18 @@ type MutablePlanChangesetPath = {
 const appendProjectedPath = (
   projectedPaths: Map<string, ProjectedPlanPath>,
   path: string,
-  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
-  const current = projectedPaths.get(path);
-
-  projectedPaths.set(path, {
-    path,
-    causes: current
-      ? mergePlanCauses(current.causes, causes)
-      : sortCauses(causes),
-  });
+  projectedPaths.set(path, { path });
 };
 
 const appendProjectedPackageJsonExport = (
   projectedExports: Map<string, ProjectedPackageJsonExport>,
   exportKey: string,
   exportValue: string,
-  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
-  const current = projectedExports.get(exportKey);
-
   projectedExports.set(exportKey, {
     exportKey,
     exportValue,
-    causes: current
-      ? mergePlanCauses(current.causes, causes)
-      : sortCauses(causes),
   });
 };
 
@@ -1088,15 +860,11 @@ const appendProjectedPackageJsonDependency = (
   dependency: ProjectedPackageJsonDependency,
 ) => {
   const key = `${dependency.section}:${dependency.dependencyName}`;
-  const current = projectedDependencies.get(key);
 
   projectedDependencies.set(key, {
     section: dependency.section,
     dependencyName: dependency.dependencyName,
     dependencyValue: dependency.dependencyValue,
-    causes: current
-      ? mergePlanCauses(current.causes, dependency.causes)
-      : sortCauses(dependency.causes),
   });
 };
 
@@ -1104,29 +872,18 @@ const appendProjectedPackageJsonScript = (
   projectedScripts: Map<string, ProjectedPackageJsonScript>,
   script: ProjectedPackageJsonScript,
 ) => {
-  const current = projectedScripts.get(script.scriptName);
-
   projectedScripts.set(script.scriptName, {
     scriptName: script.scriptName,
     scriptValue: script.scriptValue,
-    causes: current
-      ? mergePlanCauses(current.causes, script.causes)
-      : sortCauses(script.causes),
   });
 };
 
 const appendProjectedBarrelExport = (
   projectedBarrelExports: Map<string, ProjectedBarrelExport>,
   exportPath: string,
-  causes: Arr.NonEmptyReadonlyArray<PlanCause>,
 ) => {
-  const current = projectedBarrelExports.get(exportPath);
-
   projectedBarrelExports.set(exportPath, {
     exportPath,
-    causes: current
-      ? mergePlanCauses(current.causes, causes)
-      : sortCauses(causes),
   });
 };
 
@@ -1134,14 +891,9 @@ const appendProjectedTsconfig = (
   projectedTsconfigs: Map<string, ProjectedTsconfig>,
   projectedTsconfig: ProjectedTsconfig,
 ) => {
-  const current = projectedTsconfigs.get(projectedTsconfig.path);
-
   projectedTsconfigs.set(projectedTsconfig.path, {
     path: projectedTsconfig.path,
     contents: projectedTsconfig.contents,
-    causes: current
-      ? mergePlanCauses(current.causes, projectedTsconfig.causes)
-      : sortCauses(projectedTsconfig.causes),
   });
 };
 
@@ -1151,12 +903,7 @@ const isServerTarget = (target: ResolvedTarget) =>
 const isDomainPackageTarget = (target: ResolvedTarget) =>
   target.id === "packages/domain";
 
-const toRootBootstrapCauses = (
-  repoModule: ResolvedRepoModule,
-): readonly [PlanCause, ...Array<PlanCause>] =>
-  toPlanRepoModuleCauses({ repoModule });
-
-const getRepoOnlyRootBootstrapCauses = (blueprint: Blueprint) => {
+const hasRepoOnlyRootBootstrap = (blueprint: Blueprint) => {
   if (blueprint.nodes.length > 0) {
     return undefined;
   }
@@ -1165,63 +912,36 @@ const getRepoOnlyRootBootstrapCauses = (blueprint: Blueprint) => {
     (repoModule) => repoModule.moduleId === "root-bootstrap",
   );
 
-  return rootBootstrap === undefined
-    ? undefined
-    : toRootBootstrapCauses(rootBootstrap);
+  return rootBootstrap === undefined ? undefined : true;
 };
 
 const collectProjectedRootBootstrapPaths = (blueprint: Blueprint) => {
-  const rootBootstrapCauses = getRepoOnlyRootBootstrapCauses(blueprint);
+  const hasRootBootstrap = hasRepoOnlyRootBootstrap(blueprint);
 
-  if (rootBootstrapCauses === undefined) {
+  if (hasRootBootstrap === undefined) {
     return [];
   }
 
   return Object.keys(rootBootstrapFiles)
     .sort(pathOrd)
-    .map((path) => ({
-      path,
-      causes: rootBootstrapCauses,
-    })) satisfies Array<ProjectedPlanPath>;
+    .map((path) => ({ path })) satisfies Array<ProjectedPlanPath>;
 };
 
 const projectServerTargetPaths = (target: ResolvedTarget) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
-  const targetCauses = toPlanTargetCauses({ target });
 
-  appendProjectedPath(projectedPaths, "apps/server/package.json", targetCauses);
-  appendProjectedPath(
-    projectedPaths,
-    "apps/server/tsconfig.json",
-    targetCauses,
-  );
-  appendProjectedPath(projectedPaths, "apps/server/src/index.ts", targetCauses);
+  appendProjectedPath(projectedPaths, "apps/server/package.json");
+  appendProjectedPath(projectedPaths, "apps/server/tsconfig.json");
+  appendProjectedPath(projectedPaths, "apps/server/src/index.ts");
 
   for (const targetModule of target.targetModules) {
     if (targetModule.moduleId !== "http-api-server") {
       continue;
     }
 
-    const targetModuleCauses = toPlanTargetModuleCauses({
-      targetId: target.id,
-      targetModule,
-    });
-
-    appendProjectedPath(
-      projectedPaths,
-      "apps/server/src/index.ts",
-      targetModuleCauses,
-    );
-    appendProjectedPath(
-      projectedPaths,
-      "apps/server/src/Api/Health.ts",
-      targetModuleCauses,
-    );
-    appendProjectedPath(
-      projectedPaths,
-      "apps/server/src/Api/Hello.ts",
-      targetModuleCauses,
-    );
+    appendProjectedPath(projectedPaths, "apps/server/src/index.ts");
+    appendProjectedPath(projectedPaths, "apps/server/src/Api/Health.ts");
+    appendProjectedPath(projectedPaths, "apps/server/src/Api/Hello.ts");
   }
 
   return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
@@ -1229,38 +949,16 @@ const projectServerTargetPaths = (target: ResolvedTarget) => {
 
 const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
-  const targetCauses = toPlanTargetCauses({ target });
 
-  appendProjectedPath(
-    projectedPaths,
-    "packages/domain/package.json",
-    targetCauses,
-  );
-  appendProjectedPath(
-    projectedPaths,
-    "packages/domain/tsconfig.json",
-    targetCauses,
-  );
+  appendProjectedPath(projectedPaths, "packages/domain/package.json");
+  appendProjectedPath(projectedPaths, "packages/domain/tsconfig.json");
 
   if (
     target.composition?._tag === "package" &&
     target.composition.publicEntrypoint === "./Api"
   ) {
-    const compositionCauses = toPlanTargetCompositionCauses({
-      target,
-      composition: target.composition,
-    });
-
-    appendProjectedPath(
-      projectedPaths,
-      "packages/domain/package.json",
-      compositionCauses,
-    );
-    appendProjectedPath(
-      projectedPaths,
-      "packages/domain/src/index.ts",
-      compositionCauses,
-    );
+    appendProjectedPath(projectedPaths, "packages/domain/package.json");
+    appendProjectedPath(projectedPaths, "packages/domain/src/index.ts");
   }
 
   for (const targetModule of target.targetModules) {
@@ -1268,14 +966,7 @@ const projectDomainPackageTargetPaths = (target: ResolvedTarget) => {
       continue;
     }
 
-    appendProjectedPath(
-      projectedPaths,
-      "packages/domain/src/Api.ts",
-      toPlanTargetModuleCauses({
-        targetId: target.id,
-        targetModule,
-      }),
-    );
+    appendProjectedPath(projectedPaths, "packages/domain/src/Api.ts");
   }
 
   return Arr.sort(projectedPaths.values(), projectedPlanPathOrd);
@@ -1285,11 +976,7 @@ const collectProjectedPlanPaths = (blueprint: Blueprint) => {
   const projectedPaths = new Map<string, ProjectedPlanPath>();
 
   for (const projectedPath of collectProjectedRootBootstrapPaths(blueprint)) {
-    appendProjectedPath(
-      projectedPaths,
-      projectedPath.path,
-      projectedPath.causes,
-    );
+    appendProjectedPath(projectedPaths, projectedPath.path);
   }
 
   for (const target of blueprint.nodes) {
@@ -1306,11 +993,7 @@ const collectProjectedPlanPaths = (blueprint: Blueprint) => {
     })();
 
     for (const projectedPath of targetProjectedPaths) {
-      appendProjectedPath(
-        projectedPaths,
-        projectedPath.path,
-        projectedPath.causes,
-      );
+      appendProjectedPath(projectedPaths, projectedPath.path);
     }
   }
 
@@ -1320,7 +1003,7 @@ const collectProjectedPlanPaths = (blueprint: Blueprint) => {
 const collectProjectedContents = (blueprint: Blueprint) => {
   const projectedContents = new Map<string, string>(
     Object.entries(rootBootstrapFiles)
-      .filter(() => getRepoOnlyRootBootstrapCauses(blueprint) !== undefined)
+      .filter(() => hasRepoOnlyRootBootstrap(blueprint) !== undefined)
       .map(([path, contents]) => [path, contents] as const),
   );
 
@@ -1379,17 +1062,8 @@ const collectProjectedPackageJsonExports = (blueprint: Blueprint) => {
     const pathExports =
       projectedExportsByPath.get(path) ??
       new Map<string, ProjectedPackageJsonExport>();
-    const compositionCauses = toPlanTargetCompositionCauses({
-      target,
-      composition: target.composition,
-    });
 
-    appendProjectedPackageJsonExport(
-      pathExports,
-      "./Api",
-      "./src/Api.ts",
-      compositionCauses,
-    );
+    appendProjectedPackageJsonExport(pathExports, "./Api", "./src/Api.ts");
     projectedExportsByPath.set(path, pathExports);
   }
 
@@ -1418,19 +1092,16 @@ const collectProjectedPackageJsonDependencies = (blueprint: Blueprint) => {
     const pathDependencies =
       projectedDependenciesByPath.get(path) ??
       new Map<string, ProjectedPackageJsonDependency>();
-    const targetCauses = toPlanTargetCauses({ target });
 
     appendProjectedPackageJsonDependency(pathDependencies, {
       section: "dependencies",
       dependencyName: "effect",
       dependencyValue: "4.0.0-beta.47",
-      causes: targetCauses,
     });
     appendProjectedPackageJsonDependency(pathDependencies, {
       section: "devDependencies",
       dependencyName: "@repo/config-typescript",
       dependencyValue: "workspace:*",
-      causes: targetCauses,
     });
     projectedDependenciesByPath.set(path, pathDependencies);
   }
@@ -1460,38 +1131,31 @@ const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
       const pathScripts =
         projectedScriptsByPath.get(path) ??
         new Map<string, ProjectedPackageJsonScript>();
-      const targetCauses = toPlanTargetCauses({ target });
 
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "build",
         scriptValue:
           "bun build src/index.ts --outdir=dist --target=bun --minify",
-        causes: targetCauses,
       });
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "build:types",
         scriptValue: "tsc --emitDeclarationOnly",
-        causes: targetCauses,
       });
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "dev",
         scriptValue: "bun --watch run src/index.ts",
-        causes: targetCauses,
       });
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "test",
         scriptValue: "vitest run",
-        causes: targetCauses,
       });
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "type-check",
         scriptValue: "tsc --noEmit",
-        causes: targetCauses,
       });
       appendProjectedPackageJsonScript(pathScripts, {
         scriptName: "clean",
         scriptValue: "git clean -xdf .cache .turbo dist node_modules",
-        causes: targetCauses,
       });
       projectedScriptsByPath.set(path, pathScripts);
       continue;
@@ -1505,18 +1169,15 @@ const collectProjectedPackageJsonScripts = (blueprint: Blueprint) => {
     const pathScripts =
       projectedScriptsByPath.get(path) ??
       new Map<string, ProjectedPackageJsonScript>();
-    const targetCauses = toPlanTargetCauses({ target });
 
     appendProjectedPackageJsonScript(pathScripts, {
       scriptName: "type-check",
       scriptValue: "tsc --noEmit",
-      causes: targetCauses,
     });
     appendProjectedPackageJsonScript(pathScripts, {
       scriptName: "clean",
       scriptValue:
         "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo",
-      causes: targetCauses,
     });
     projectedScriptsByPath.set(path, pathScripts);
   }
@@ -1551,14 +1212,7 @@ const collectProjectedBarrelExports = (blueprint: Blueprint) => {
       projectedBarrelExportsByPath.get(path) ??
       new Map<string, ProjectedBarrelExport>();
 
-    appendProjectedBarrelExport(
-      pathBarrelExports,
-      "./Api",
-      toPlanTargetCompositionCauses({
-        target,
-        composition: target.composition,
-      }),
-    );
+    appendProjectedBarrelExport(pathBarrelExports, "./Api");
     projectedBarrelExportsByPath.set(path, pathBarrelExports);
   }
 
@@ -1580,7 +1234,6 @@ const collectProjectedTsconfigs = (blueprint: Blueprint) => {
       appendProjectedTsconfig(projectedTsconfigs, {
         path: "apps/server/tsconfig.json",
         contents: serverTsconfigContents,
-        causes: toPlanTargetCauses({ target }),
       });
       continue;
     }
@@ -1589,7 +1242,6 @@ const collectProjectedTsconfigs = (blueprint: Blueprint) => {
       appendProjectedTsconfig(projectedTsconfigs, {
         path: "packages/domain/tsconfig.json",
         contents: packageDomainTsconfigContents,
-        causes: toPlanTargetCauses({ target }),
       });
     }
   }
@@ -1600,18 +1252,15 @@ const collectProjectedTsconfigs = (blueprint: Blueprint) => {
 const getOrCreatePlanChangesetPath = (
   changesetPaths: Map<string, MutablePlanChangesetPath>,
   path: string,
-  causes: readonly [PlanCause, ...Array<PlanCause>],
 ) => {
   const current = changesetPaths.get(path);
 
   if (current !== undefined) {
-    current.causes = mergePlanCauses(current.causes, causes);
     return current;
   }
 
   const next: MutablePlanChangesetPath = {
     path,
-    causes,
     packageJsonExports: [],
     packageJsonDependencies: [],
     packageJsonScripts: [],

@@ -8,13 +8,7 @@ import type {
   ResolvedTarget,
   ResolvedTargetModule,
 } from "./Blueprint";
-import type {
-  MergeRequirement,
-  PlanCause,
-  PlanEntry,
-  PlanTreeNode,
-  PlanWarning,
-} from "./Plan";
+import type { PlanConflict, PlanEntry, PlanTreeNode } from "./Plan";
 import type { TargetIdentity } from "./Scaffold";
 
 const pathPartsOrd = Order.Array(Order.String);
@@ -46,44 +40,20 @@ const toBlueprintCauseKey = (cause: BlueprintCause): string => {
   }
 };
 
-export const toPlanCauseKey = (cause: PlanCause): string => {
-  switch (cause._tag) {
-    case "selectedTarget":
-      return `selectedTarget:${cause.targetId}`;
-    case "selectedRepoModule":
-      return `selectedRepoModule:${cause.moduleId}`;
-    case "impliedTarget":
-      return `impliedTarget:${cause.targetId}:${cause.via}`;
-    case "impliedTargetModule":
-      return `impliedTargetModule:${cause.targetId}:${cause.moduleId}:${cause.via}`;
-    case "targetComposition":
-      return `targetComposition:${cause.targetId}:${cause.slot}:${cause.value}`;
-  }
-};
-
-const toMergeRequirementKey = (requirement: MergeRequirement): string => {
-  switch (requirement._tag) {
+const toPlanConflictKey = (conflict: PlanConflict): string => {
+  switch (conflict._tag) {
     case "packageJsonExports":
-      return `packageJsonExports:${requirement.path}:${requirement.exportKey}`;
+      return `packageJsonExports:${conflict.path}:${conflict.exportKey}`;
     case "packageJsonDependencies":
-      return `packageJsonDependencies:${requirement.path}:${requirement.section}:${requirement.dependencyName}`;
+      return `packageJsonDependencies:${conflict.path}:${conflict.section}:${conflict.dependencyName}`;
     case "packageJsonScripts":
-      return `packageJsonScripts:${requirement.path}:${requirement.scriptName}`;
+      return `packageJsonScripts:${conflict.path}:${conflict.scriptName}`;
     case "barrelExport":
-      return `barrelExport:${requirement.path}:${requirement.exportPath}`;
+      return `barrelExport:${conflict.path}:${conflict.exportPath}`;
     case "tsconfig":
-      return `tsconfig:${requirement.path}`;
+      return `tsconfig:${conflict.path}`;
     case "authoritativeFile":
-      return `authoritativeFile:${requirement.path}`;
-  }
-};
-
-const toPlanWarningKey = (warning: PlanWarning): string => {
-  switch (warning._tag) {
-    case "impliedDependency":
-      return `impliedDependency:${warning.path}:${warning.message}`;
-    case "mergeStrategyRequired":
-      return `mergeStrategyRequired:${warning.path}:${toMergeRequirementKey(warning.requirement)}`;
+      return `authoritativeFile:${conflict.path}`;
   }
 };
 
@@ -131,8 +101,6 @@ export const blueprintWarningOrd = Order.mapInput(
   (warning: BlueprintWarning) => warning.node,
 );
 
-export const planCauseOrd = Order.mapInput(Order.String, toPlanCauseKey);
-
 export const planEntryOrd = Order.mapInput(
   pathOrd,
   (entry: PlanEntry) => entry.path,
@@ -144,9 +112,4 @@ export const planTreeNodeOrd = Order.combineAll([
   Order.mapInput(pathOrd, (node: PlanTreeNode) => node.path),
 ]);
 
-export const mergeRequirementOrd = Order.mapInput(
-  Order.String,
-  toMergeRequirementKey,
-);
-
-export const planWarningOrd = Order.mapInput(Order.String, toPlanWarningKey);
+export const planConflictOrd = Order.mapInput(Order.String, toPlanConflictKey);

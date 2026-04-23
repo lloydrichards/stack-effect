@@ -14,9 +14,7 @@
       "`bun test --filter=domain && bun test --filter=scaffold && bun lint` passes"
     ],
     "passes": false,
-    "labels": [
-      "afk"
-    ],
+    "labels": ["afk"],
     "blockedBy": []
   },
   {
@@ -35,12 +33,8 @@
       "`bun test --filter=domain && bun test --filter=scaffold && bun lint` passes"
     ],
     "passes": false,
-    "labels": [
-      "afk"
-    ],
-    "blockedBy": [
-      "Remove PlanCause and causes from Plan domain + PlanService"
-    ]
+    "labels": ["afk"],
+    "blockedBy": ["Remove PlanCause and causes from Plan domain + PlanService"]
   },
   {
     "category": "refactor",
@@ -59,12 +53,8 @@
       "`bun test --filter=domain && bun test --filter=scaffold && bun lint` passes"
     ],
     "passes": false,
-    "labels": [
-      "afk"
-    ],
-    "blockedBy": [
-      "Remove PlanCause and causes from Plan domain + PlanService"
-    ]
+    "labels": ["afk"],
+    "blockedBy": ["Remove PlanCause and causes from Plan domain + PlanService"]
   },
   {
     "category": "refactor",
@@ -81,9 +71,7 @@
       "`bun test --filter=domain && bun test --filter=scaffold && bun lint` passes"
     ],
     "passes": false,
-    "labels": [
-      "afk"
-    ],
+    "labels": ["afk"],
     "blockedBy": [
       "Remove BlueprintCause, BlueprintStatus, and causes from Blueprint domain + BlueprintService"
     ]
@@ -105,9 +93,7 @@
       "`bun test --filter=domain && bun test --filter=scaffold && bun lint` passes"
     ],
     "passes": false,
-    "labels": [
-      "afk"
-    ],
+    "labels": ["afk"],
     "blockedBy": [
       "Remove BlueprintCause, BlueprintStatus, and causes from Blueprint domain + BlueprintService",
       "Remove BlueprintWarning from Blueprint domain + BlueprintService"
