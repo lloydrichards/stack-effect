@@ -57,13 +57,12 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
       blueprint: typeof Blueprint.Type;
       repoRoot: string;
     }) {
-      const normalizedContributions = yield* contributionResolver.resolve({
-        blueprint,
-      });
+      const normalizedContributions =
+        yield* contributionResolver.resolve(blueprint);
       const changeset = compilePlanChangeset(normalizedContributions);
-      const inspectionPaths = collectPlanInspectionPaths(changeset);
+      const paths = collectPlanInspectionPaths(changeset);
       const repoSnapshot = yield* snapshot.load({
-        paths: inspectionPaths,
+        paths,
         repoRoot,
       });
 
