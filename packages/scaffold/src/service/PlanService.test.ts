@@ -3,9 +3,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import type {
   Plan,
-  PlanDirectoryEntry,
   PlanFailure,
-  PlanFileEntry,
+  PlannedFileOutcome,
   RepoSnapshot,
 } from "@repo/domain/Plan";
 import { TargetIdentity } from "@repo/domain/Scaffold";
@@ -128,24 +127,14 @@ const makeServerApiBlueprint = () =>
     ],
   }).toSorted();
 
-const getFileEntry = (plan: Plan, path: string): PlanFileEntry => {
-  const entry = plan.entries.find(
-    (candidate): candidate is PlanFileEntry =>
-      candidate._tag === "file" && candidate.path === path,
+const getOutcome = (plan: Plan, path: string): PlannedFileOutcome => {
+  const outcome = plan.outcomes.find((candidate) => candidate.path === path);
+  expect(outcome).toBeDefined();
+  assert(
+    outcome !== undefined,
+    `Expected planned file outcome ${path} to exist`,
   );
-  expect(entry).toBeDefined();
-  assert(entry !== undefined, `Expected file plan entry ${path} to exist`);
-  return entry;
-};
-
-const getDirectoryEntry = (plan: Plan, path: string): PlanDirectoryEntry => {
-  const entry = plan.entries.find(
-    (candidate): candidate is PlanDirectoryEntry =>
-      candidate._tag === "directory" && candidate.path === path,
-  );
-  expect(entry).toBeDefined();
-  assert(entry !== undefined, `Expected directory plan entry ${path} to exist`);
-  return entry;
+  return outcome;
 };
 
 const makePlanServiceLayer = (
@@ -175,40 +164,6 @@ const buildPlan = ({
   }).pipe(Effect.provide(makePlanServiceLayer(load)));
 
 describe("PlanService", () => {
-  describe("when compiling plan inspection paths", () => {
-    it.effect(
-      "should request projected files and ancestor directories for selected targets and modules",
-      () =>
-        Effect.gen(function* () {
-          const requested: Array<string> = [];
-
-          yield* buildPlan({
-            blueprint: makeServerApiBlueprint(),
-            load: ({ paths }) => {
-              requested.push(...paths);
-              return Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              });
-            },
-          });
-
-          expect(requested).toEqual(
-            expect.arrayContaining([
-              "apps",
-              "apps/server-api",
-              "apps/server-api/package.json",
-              "apps/server-api/src",
-              "apps/server-api/src/index.ts",
-              "apps/server-api/src/Api/Health.ts",
-              "packages",
-              "packages/domain/package.json",
-              "packages/domain/src/Api.ts",
-            ]),
-          );
-        }),
-    );
-  });
-
   describe("when building target plans", () => {
     it.effect(
       "should classify projected target and module files as create when they are missing",
@@ -222,22 +177,90 @@ describe("PlanService", () => {
               }),
           });
 
-          expect(getDirectoryEntry(plan, "apps/server-api")).toBeDefined();
           expect(
-            getFileEntry(plan, "apps/server-api/src/index.ts").classification,
+            getOutcome(plan, "apps/server-api/src/index.ts").classification,
           ).toBe("create");
           expect(
-            getFileEntry(plan, "apps/server-api/src/Api/Health.ts")
+            getOutcome(plan, "apps/server-api/src/Api/Health.ts")
               .classification,
           ).toBe("create");
           expect(
-            getFileEntry(plan, "packages/domain/src/Api.ts").classification,
+            getOutcome(plan, "packages/domain/src/Api.ts").classification,
           ).toBe("create");
+        }),
+    );
+
+    it.effect(
+      "should emit authoritative outcomes for scaffold-owned files including tsconfig",
+      () =>
+        Effect.gen(function* () {
+          const plan = yield* buildPlan({
+            blueprint: makeDomainBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => ({ _tag: "missing", path })),
+              }),
+          });
+
+          expect(getOutcome(plan, "packages/domain/src/Api.ts")).toMatchObject({
+            _tag: "authoritative",
+            classification: "create",
+          });
+          expect(
+            getOutcome(plan, "packages/domain/tsconfig.json"),
+          ).toMatchObject({
+            _tag: "authoritative",
+            classification: "create",
+          });
         }),
     );
   });
 
   describe("when planning merges", () => {
+    it.effect(
+      "should emit structural outcomes with required structure for package files",
+      () =>
+        Effect.gen(function* () {
+          const plan = yield* buildPlan({
+            blueprint: makeDomainBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => ({ _tag: "missing", path })),
+              }),
+          });
+
+          expect(
+            getOutcome(plan, "packages/domain/package.json"),
+          ).toMatchObject({
+            _tag: "structural",
+            classification: "create",
+            requiredStructure: {
+              packageJsonExports: [
+                {
+                  exportKey: "./Api",
+                  exportValue: "./src/Api.ts",
+                },
+              ],
+              packageJsonScripts: expect.arrayContaining([
+                expect.objectContaining({
+                  scriptName: "type-check",
+                  scriptValue: "tsc --noEmit",
+                }),
+              ]),
+            },
+          });
+          expect(
+            getOutcome(plan, "packages/domain/src/index.ts"),
+          ).toMatchObject({
+            _tag: "structural",
+            classification: "create",
+            requiredStructure: {
+              reExports: ["./Api"],
+            },
+          });
+        }),
+    );
+
     it.effect(
       "should require a package.json merge strategy when existing exports conflict",
       () =>
@@ -263,7 +286,7 @@ describe("PlanService", () => {
           });
 
           expect(
-            getFileEntry(plan, "packages/domain/package.json").classification,
+            getOutcome(plan, "packages/domain/package.json").classification,
           ).toBe("needsMergeStrategy");
           expect(plan.conflicts).toEqual(
             expect.arrayContaining([
@@ -300,7 +323,7 @@ describe("PlanService", () => {
           });
 
           expect(
-            getFileEntry(plan, "packages/domain/src/index.ts").classification,
+            getOutcome(plan, "packages/domain/src/index.ts").classification,
           ).toBe("needsMergeStrategy");
           expect(plan.conflicts).toEqual(
             expect.arrayContaining([

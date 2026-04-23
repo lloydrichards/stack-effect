@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { planConflictOrd, planEntryOrd, planTreeNodeOrd } from "./Order";
+import { planConflictOrd, plannedFileOutcomeOrd } from "./Order";
 
 export const PlanEntryClassification = Schema.Literals([
   "create",
@@ -33,7 +33,7 @@ export type RepoSnapshot = Schema.Schema.Type<typeof RepoSnapshot>;
 export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
   "PlanFailure",
   {
-    reason: Schema.Literals(["repoRootNotEmpty", "invalidChangeset"]),
+    reason: Schema.Literals(["repoRootNotEmpty", "invalidPlanIntent"]),
     message: Schema.String,
   },
 ) {}
@@ -65,60 +65,96 @@ export const PlanConflict = Schema.Union([
 ]);
 export type PlanConflict = Schema.Schema.Type<typeof PlanConflict>;
 
-export const PlanFileEntry = Schema.Struct({
-  _tag: Schema.Literal("file"),
+export const PlannedPackageJsonExport = Schema.Struct({
+  exportKey: Schema.String,
+  exportValue: Schema.String,
+});
+export type PlannedPackageJsonExport = Schema.Schema.Type<
+  typeof PlannedPackageJsonExport
+>;
+
+export const PlannedPackageJsonDependency = Schema.Struct({
+  dependencyName: Schema.String,
+  dependencyValue: Schema.String,
+});
+export type PlannedPackageJsonDependency = Schema.Schema.Type<
+  typeof PlannedPackageJsonDependency
+>;
+
+export const PlannedPackageJsonScript = Schema.Struct({
+  scriptName: Schema.String,
+  scriptValue: Schema.String,
+});
+export type PlannedPackageJsonScript = Schema.Schema.Type<
+  typeof PlannedPackageJsonScript
+>;
+
+export const PlannedDependencySection = Schema.Struct({
+  section: Schema.Literals(["dependencies", "devDependencies"]),
+  entries: Schema.Array(PlannedPackageJsonDependency),
+});
+export type PlannedDependencySection = Schema.Schema.Type<
+  typeof PlannedDependencySection
+>;
+
+export const RequiredStructure = Schema.Struct({
+  packageJsonExports: Schema.optional(Schema.Array(PlannedPackageJsonExport)),
+  packageJsonDependencies: Schema.optional(
+    Schema.Array(PlannedDependencySection),
+  ),
+  packageJsonScripts: Schema.optional(Schema.Array(PlannedPackageJsonScript)),
+  reExports: Schema.optional(Schema.Array(Schema.String)),
+});
+export type RequiredStructure = Schema.Schema.Type<typeof RequiredStructure>;
+
+export const AuthoritativeFileOutcome = Schema.TaggedStruct("authoritative", {
   path: Schema.String,
   classification: PlanEntryClassification,
+  contents: Schema.String,
 });
-export type PlanFileEntry = Schema.Schema.Type<typeof PlanFileEntry>;
+export type AuthoritativeFileOutcome = Schema.Schema.Type<
+  typeof AuthoritativeFileOutcome
+>;
 
-export const PlanDirectoryEntry = Schema.Struct({
-  _tag: Schema.Literal("directory"),
-  path: Schema.String,
-});
-export type PlanDirectoryEntry = Schema.Schema.Type<typeof PlanDirectoryEntry>;
-
-export const PlanEntry = Schema.Union([PlanFileEntry, PlanDirectoryEntry]);
-export type PlanEntry = Schema.Schema.Type<typeof PlanEntry>;
-
-export const PlanTreeFileNode = Schema.Struct({
-  _tag: Schema.Literal("file"),
-  name: Schema.String,
+export const StructuralMergeOutcome = Schema.TaggedStruct("structural", {
   path: Schema.String,
   classification: PlanEntryClassification,
+  requiredStructure: RequiredStructure,
 });
-export type PlanTreeFileNode = Schema.Schema.Type<typeof PlanTreeFileNode>;
+export type StructuralMergeOutcome = Schema.Schema.Type<
+  typeof StructuralMergeOutcome
+>;
 
-export interface PlanTreeDirectoryNode {
+export const PlannedFileOutcome = Schema.Union([
+  AuthoritativeFileOutcome,
+  StructuralMergeOutcome,
+]);
+export type PlannedFileOutcome = Schema.Schema.Type<typeof PlannedFileOutcome>;
+
+type DerivedPlanTreeFileNode = {
+  readonly _tag: "file";
+  readonly name: string;
+  readonly path: string;
+  readonly classification: PlanEntryClassification;
+};
+
+type DerivedPlanTreeDirectoryNode = {
   readonly _tag: "directory";
   readonly name: string;
   readonly path: string;
-  readonly children: ReadonlyArray<PlanTreeNode>;
-}
+  children: Array<DerivedPlanTreeNode>;
+};
 
-export type PlanTreeNode = PlanTreeFileNode | PlanTreeDirectoryNode;
-
-export const PlanTreeDirectoryNode = Schema.Struct({
-  _tag: Schema.Literal("directory"),
-  name: Schema.String,
-  path: Schema.String,
-  children: Schema.Array(Schema.suspend(() => PlanTreeNode)),
-}) as Schema.Schema<PlanTreeDirectoryNode>;
-
-export const PlanTreeNode = Schema.Union([
-  PlanTreeFileNode,
-  Schema.suspend(() => PlanTreeDirectoryNode),
-]);
-export type PlanTreeNodeSchema = Schema.Schema.Type<typeof PlanTreeNode>;
+type DerivedPlanTreeNode = DerivedPlanTreeDirectoryNode | DerivedPlanTreeFileNode;
 
 export class Plan extends Schema.Class<Plan>("Plan")({
-  entries: Schema.Array(PlanEntry),
-  tree: PlanTreeDirectoryNode,
+  outcomes: Schema.Array(PlannedFileOutcome),
   conflicts: Schema.Array(PlanConflict),
 }) {
   prettyPrint(): string {
-    const summary = countPlanClassifications(this.tree);
+    const summary = countPlanClassifications(this.outcomes);
     const conflictsByPath = groupConflictsByPath(this.conflicts);
+    const tree = derivePlanTree(this.outcomes);
     const lines: Array<string> = [
       "Plan",
       "",
@@ -126,43 +162,26 @@ export class Plan extends Schema.Class<Plan>("Plan")({
       "",
       `Summary: ${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.needsMergeStrategy} merge`,
       "",
-      this.tree.name,
+      tree.name,
     ];
 
-    appendPlanTreeChildren(lines, this.tree.children, conflictsByPath);
+    appendPlanTreeChildren(lines, tree.children, conflictsByPath);
 
     return lines.join("\n");
   }
 
   toSorted(): Plan {
     return new Plan({
-      entries: [...this.entries].sort(planEntryOrd),
-      tree: sortPlanTreeDirectoryNode(this.tree),
+      outcomes: [...this.outcomes].sort(plannedFileOutcomeOrd),
       conflicts: [...this.conflicts].sort(planConflictOrd),
     });
   }
 }
 
-const sortPlanTreeDirectoryNode = (
-  node: PlanTreeDirectoryNode,
-): PlanTreeDirectoryNode => ({
-  ...node,
-  children: [...node.children].map(sortPlanTreeNode).sort(planTreeNodeOrd),
-});
-
-const sortPlanTreeNode = (node: PlanTreeNode): PlanTreeNode => {
-  switch (node._tag) {
-    case "directory":
-      return sortPlanTreeDirectoryNode(node);
-    case "file":
-      return node;
-  }
-};
-
 type PlanClassificationSummary = Record<PlanEntryClassification, number>;
 
 const countPlanClassifications = (
-  node: PlanTreeDirectoryNode,
+  outcomes: ReadonlyArray<PlannedFileOutcome>,
 ): PlanClassificationSummary => {
   const summary: PlanClassificationSummary = {
     create: 0,
@@ -171,28 +190,60 @@ const countPlanClassifications = (
     needsMergeStrategy: 0,
   };
 
-  const visit = (current: PlanTreeNode): void => {
-    switch (current._tag) {
-      case "directory": {
-        for (const child of current.children) {
-          visit(child);
-        }
-        return;
-      }
-      case "file": {
-        summary[current.classification] += 1;
-      }
-    }
-  };
-
-  visit(node);
+  for (const outcome of outcomes) {
+    summary[outcome.classification] += 1;
+  }
 
   return summary;
 };
 
+const derivePlanTree = (
+  outcomes: ReadonlyArray<PlannedFileOutcome>,
+): DerivedPlanTreeDirectoryNode => {
+  const root: DerivedPlanTreeDirectoryNode = {
+    _tag: "directory",
+    name: ".",
+    path: ".",
+    children: [],
+  };
+  const directories = new Map<string, DerivedPlanTreeDirectoryNode>([[".", root]]);
+
+  for (const outcome of outcomes) {
+    const pathParts = outcome.path.split("/");
+
+    for (let index = 1; index < pathParts.length; index += 1) {
+      const directoryPath = pathParts.slice(0, index).join("/");
+
+      if (directories.has(directoryPath)) {
+        continue;
+      }
+
+      const node: DerivedPlanTreeDirectoryNode = {
+        _tag: "directory",
+        name: nameFromPath(directoryPath),
+        path: directoryPath,
+        children: [],
+      };
+      const parentPath = parentPathFromPath(directoryPath);
+
+      directories.set(directoryPath, node);
+      directories.get(parentPath)?.children.push(node);
+    }
+
+    directories.get(parentPathFromPath(outcome.path))?.children.push({
+      _tag: "file",
+      name: nameFromPath(outcome.path),
+      path: outcome.path,
+      classification: outcome.classification,
+    });
+  }
+
+  return sortPlanTreeDirectoryNode(root);
+};
+
 const appendPlanTreeChildren = (
   lines: Array<string>,
-  nodes: ReadonlyArray<PlanTreeNode>,
+  nodes: ReadonlyArray<DerivedPlanTreeNode>,
   conflictsByPath: ReadonlyMap<string, ReadonlyArray<PlanConflict>>,
   indent = "",
 ): void => {
@@ -227,6 +278,32 @@ const appendPlanTreeChildren = (
       }
     }
   }
+};
+
+const sortPlanTreeDirectoryNode = (
+  node: DerivedPlanTreeDirectoryNode,
+): DerivedPlanTreeDirectoryNode => ({
+  ...node,
+  children: [...node.children]
+    .map((child) =>
+      child._tag === "directory" ? sortPlanTreeDirectoryNode(child) : child,
+    )
+    .sort(comparePlanTreeNodes),
+});
+
+const comparePlanTreeNodes = (
+  left: DerivedPlanTreeNode,
+  right: DerivedPlanTreeNode,
+) => {
+  if (left._tag !== right._tag) {
+    return left._tag.localeCompare(right._tag);
+  }
+
+  if (left.name !== right.name) {
+    return left.name.localeCompare(right.name);
+  }
+
+  return left.path.localeCompare(right.path);
 };
 
 const groupConflictsByPath = (
@@ -273,4 +350,19 @@ const formatConflictLine = (conflict: PlanConflict): string => {
     case "tsconfig":
       return "merge: tsconfig";
   }
+};
+
+const nameFromPath = (path: string) => {
+  const parts = path.split("/");
+  return parts[parts.length - 1] ?? path;
+};
+
+const parentPathFromPath = (path: string) => {
+  const lastSeparatorIndex = path.lastIndexOf("/");
+
+  if (lastSeparatorIndex === -1) {
+    return ".";
+  }
+
+  return path.slice(0, lastSeparatorIndex);
 };

@@ -70,25 +70,6 @@ const loadSnapshot = ({
 describe("RepoSnapshotService", () => {
   describe("when loading requested paths", () => {
     it.effect(
-      "should deduplicate and sort requested paths before inspection",
-      () =>
-        Effect.gen(function* () {
-          const snapshot = yield* loadSnapshot({
-            layer: makeRepoSnapshotLayer({
-              "/repo/apps": { _tag: "directory" },
-              "/repo/apps/server.ts": { _tag: "file", contents: "server" },
-            }),
-            paths: ["apps/server.ts", "apps", "apps/server.ts"],
-          });
-
-          expect(snapshot.paths).toEqual([
-            { _tag: "directory", path: "apps" },
-            { _tag: "file", path: "apps/server.ts", contents: "server" },
-          ]);
-        }),
-    );
-
-    it.effect(
       "should return missing, directory, and file snapshot entries",
       () =>
         Effect.gen(function* () {

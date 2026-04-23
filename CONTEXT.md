@@ -53,8 +53,24 @@ A resolved dependency-closure graph of **Targets** and **Attached Modules**, wit
 _Avoid_: Selection result, resolved plan, selection provenance, custom graph API
 
 **Plan**:
-A projection of a **Blueprint** onto the current repository state to describe required file changes.
+A projection of a **Blueprint** onto the current repository state to describe canonical planned file outcomes and conflicts.
 _Avoid_: Blueprint, changeset
+
+**PlanService**:
+The planning boundary that derives a **Plan** from a **Blueprint** and the current repository snapshot.
+_Avoid_: Intent builder, comparator pipeline, staged planner API
+
+**Planned File Outcome**:
+The canonical desired state and classification for one planned file path after the **Plan** normalizes contributions against the current repository snapshot.
+_Avoid_: Entry, diff row, render node
+
+**Authoritative File Outcome**:
+A **Planned File Outcome** where the **Plan** knows the full desired file contents.
+_Avoid_: Merge candidate, patch
+
+**Structural Merge Outcome**:
+A **Planned File Outcome** where the **Plan** knows the required structural result for a file without treating the whole file as authoritative.
+_Avoid_: Free-form patch, generic diff
 
 **Desired Contribution**:
 The repository state that a **Target Contribution** or **Module Contribution** wants to exist, without encoding merge policy.
@@ -100,6 +116,16 @@ _Avoid_: Host target, source target
 - **Supported On** rules match either a target kind or an exact target identity
 - **Required Target** and **Required Module** reference **Target Identity**; the canonical target path/key is derived later
 - A **Plan** is derived from a **Blueprint** and the current repository snapshot
+- A **Plan** is the canonical model of planned file outcomes and conflicts
+- A **Plan** treats file paths as first-class planned outcomes
+- A **Plan** contains one **Planned File Outcome** per planned file path
+- Directories implied by planned file paths are derived structure, not planned outcomes
+- Tree and directory views of a **Plan** are derived presentations, not core planning data
+- A **Planned File Outcome** is either an **Authoritative File Outcome** or a **Structural Merge Outcome**
+- A **Structural Merge Outcome** exposes required structure at the public boundary, not planner merge-strategy names
+- `tsconfig.json` is treated as an **Authoritative File Outcome** in this context
+- **PlanService** owns both desired-outcome resolution from a **Blueprint** and comparison against the current repository snapshot
+- **PlanService** exposes a single public planning operation from **Blueprint** plus repo root to **Plan**
 - **Init** prepares repo-wide infrastructure before **Blueprint** and **Plan** operate on it
 - A **Plan** may create **Targets** from scratch inside an initialized repository
 - A **Target** contributes base workspace scaffold through its **Target Contribution**
@@ -108,6 +134,10 @@ _Avoid_: Host target, source target
 - Cross-target effects are modeled through **Required Target** and **Required Module** dependencies, not by writing into another target directly
 - A **Target Contribution** and **Module Contribution** declare **Desired Contributions** only
 - **Plan** owns merge and conflict policy for applying **Desired Contributions** to the repository snapshot
+- A **Planned File Outcome** carries the desired outcome for a file path, not just a classification label
+- File-specific merge strategies such as `package.json`, barrel files, and `tsconfig` are implementation details under a **Planned File Outcome**, not separate top-level planning concepts
+- `tsconfig.json` is usually introduced once by scaffold; later drift is treated as conflict rather than planner-managed merge behavior
+- Merge handlers like `package.json` parsing or barrel parsing are internal planner mechanics, while the public **Plan** exposes only the required structural outcome
 - A **Desired Contribution** may use **Contribution Tokens** that are resolved against the owning **Target** context
 - A **Target Identity** is distinct from the canonical target path/key string of the same **Target**
 - **Target Identity** owns canonical target derivation and matching behavior in the domain model
@@ -196,3 +226,11 @@ _Avoid_: Host target, source target
 - it was unclear whether ownership and dependency should be collapsed into one edge kind — resolved: keep ownership and dependency as distinct edge kinds in **Blueprint**.
 - it was unclear whether **Required Target** becomes redundant when a matching **Required Module** exists — resolved: preserve both edges when both requirements are declared.
 - it was unclear whether **Attached Module** nodes should exist only internally or also in the public **Blueprint** boundary — resolved: expose both **Target** and **Attached Module** nodes publicly.
+- it was unclear whether **Plan** should store both canonical planning data and pre-rendered navigation structure — resolved: **Plan** stores canonical planned file outcomes and conflicts; tree and directory views are derived presentations.
+- it was unclear whether directories should be first-class planned outcomes — resolved: **Plan** is about planned file outcomes only; directories are derived from file paths.
+- it was unclear whether **Plan** should expose only file classifications or also the desired file state — resolved: **Plan** carries a **Planned File Outcome** with the desired outcome for each planned file path.
+- it was unclear whether file kinds like `package.json`, barrel files, and `tsconfig` were separate planning concepts — resolved: the domain split is **Authoritative File Outcome** vs **Structural Merge Outcome**; file-specific strategies stay implementation details.
+- it was unclear whether `tsconfig.json` should be treated as mergeable structure or authoritative output — resolved: it is an **Authoritative File Outcome** because scaffold usually adds it once and treats later drift as conflict.
+- it was unclear whether the public **Plan** should expose merge strategy types like `package.json` or barrel handling — resolved: the public boundary exposes required structure only; merge strategy names stay internal to the planner.
+- it was unclear whether desired-outcome resolution and repo-state comparison should be separate planning services — resolved: **PlanService** keeps both responsibilities as one planning boundary.
+- it was unclear whether **PlanService** should expose intermediate planner stages publicly — resolved: it exposes a single public planning operation and keeps lower-level stages private.

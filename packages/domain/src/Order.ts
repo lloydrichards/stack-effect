@@ -1,6 +1,6 @@
 import { Order } from "effect";
 import type { BlueprintEdge, BlueprintNode } from "./Blueprint";
-import type { PlanConflict, PlanEntry, PlanTreeNode } from "./Plan";
+import type { PlanConflict, PlannedFileOutcome } from "./Plan";
 import type { TargetIdentity } from "./Scaffold";
 
 export const pathOrd = Order.mapInput(
@@ -26,16 +26,10 @@ export const blueprintEdgeOrd = Order.mapInput(
   (edge: BlueprintEdge) => edge.id,
 );
 
-export const planEntryOrd = Order.mapInput(
+export const plannedFileOutcomeOrd = Order.mapInput(
   pathOrd,
-  (entry: PlanEntry) => entry.path,
+  (outcome: PlannedFileOutcome) => outcome.path,
 );
-
-export const planTreeNodeOrd = Order.combineAll<PlanTreeNode>([
-  Order.mapInput(Order.String, (node) => node._tag),
-  Order.mapInput(Order.String, (node) => node.name),
-  Order.mapInput(pathOrd, (node) => node.path),
-]);
 
 export const planConflictOrd = Order.mapInput(
   Order.String,

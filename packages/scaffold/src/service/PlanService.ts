@@ -5,45 +5,17 @@ import {
   type PlanConflict,
   type PlanEntryClassification,
   PlanFailure,
-  type PlanTreeNode,
+  type PlannedFileOutcome,
   type RepoSnapshot,
   type RepoSnapshotPath,
+  type RequiredStructure,
 } from "@repo/domain/Plan";
-import { Array as Arr, Context, Effect, Layer, Order, Record } from "effect";
+import { Array as Arr, Context, Effect, Layer, Record } from "effect";
 import {
   ContributionResolver,
   type NormalizedContributions,
 } from "./ContributionResolver";
 import { RepoSnapshotService } from "./RepoSnapshotService";
-
-const planPathOrd = Order.mapInput(
-  pathOrd,
-  (value: { path: string }) => value.path,
-);
-
-const projectedPackageJsonExportOrd = Order.mapInput(
-  Order.String,
-  (value: { exportKey: string }) => value.exportKey,
-);
-
-const projectedPackageJsonDependencyOrd = Order.combineAll([
-  Order.mapInput(Order.String, (value: { section: string }) => value.section),
-  Order.mapInput(
-    Order.String,
-    (value: { section: string; dependencyName: string }) =>
-      value.dependencyName,
-  ),
-]);
-
-const projectedPackageJsonScriptOrd = Order.mapInput(
-  Order.String,
-  (value: { scriptName: string }) => value.scriptName,
-);
-
-const projectedBarrelExportOrd = Order.mapInput(
-  Order.String,
-  (value: { exportPath: string }) => value.exportPath,
-);
 
 export class PlanService extends Context.Service<PlanService>()("PlanService", {
   make: Effect.gen(function* () {
@@ -59,14 +31,16 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
     }) {
       const normalizedContributions =
         yield* contributionResolver.resolve(blueprint);
-      const changeset = compilePlanChangeset(normalizedContributions);
-      const paths = collectPlanInspectionPaths(changeset);
+      const planningPaths = yield* compilePlanningPaths(
+        normalizedContributions,
+      );
+      const paths = collectPlanInspectionPaths(planningPaths);
       const repoSnapshot = yield* snapshot.load({
         paths,
         repoRoot,
       });
 
-      return projectPlan({ changeset, repoSnapshot });
+      return projectPlan({ planningPaths, repoSnapshot });
     });
 
     return { build } as const;
@@ -77,149 +51,36 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
     Layer.provide(RepoSnapshotService.layer),
   );
 }
-const compilePlanChangeset = (
+const compilePlanningPaths = (
   normalizedContributions: NormalizedContributions,
-): PlanChangeset => {
-  const changesetPaths = new Map<string, MutablePlanChangesetPath>();
-  const projectedPaths = collectProjectedPlanPaths(normalizedContributions);
-  const projectedContents = collectProjectedContents(normalizedContributions);
-  const projectedPackageJsonExports = collectProjectedPackageJsonExports(
-    normalizedContributions,
+): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
+  const flattenedEntries = Arr.flatMap(
+    flattenContributions(normalizedContributions),
+    toPlanningIntentEntries,
   );
-  const projectedPackageJsonDependencies =
-    collectProjectedPackageJsonDependencies(normalizedContributions);
-  const projectedPackageJsonScripts = collectProjectedPackageJsonScripts(
-    normalizedContributions,
+  const entriesByPath = Arr.groupBy(flattenedEntries, (entry) => entry.path);
+
+  return Effect.all(
+    Record.collect(entriesByPath, (path, entries) =>
+      derivePlanningIntentPath({ path, entries }),
+    ),
   );
-  const projectedBarrelExports = collectProjectedBarrelExports(
-    normalizedContributions,
-  );
-  const projectedTsconfigs = collectProjectedTsconfigs(normalizedContributions);
-
-  for (const projectedPath of projectedPaths) {
-    getOrCreatePlanChangesetPath(changesetPaths, projectedPath.path);
-  }
-
-  for (const [path, contents] of projectedContents) {
-    const pathEntry =
-      changesetPaths.get(path) ??
-      getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "authoritative" });
-
-    if (
-      pathEntry.authoritativeContents !== undefined &&
-      pathEntry.authoritativeContents !== contents
-    ) {
-      throw new PlanFailure({
-        reason: "invalidChangeset",
-        message: `Conflicting authoritative contents for ${path}.`,
-      });
-    }
-
-    pathEntry.authoritativeContents = contents;
-  }
-
-  for (const [path, projectedExports] of projectedPackageJsonExports) {
-    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
-    pathEntry.packageJsonExports.push(...projectedExports);
-  }
-
-  for (const [
-    path,
-    projectedDependencies,
-  ] of projectedPackageJsonDependencies) {
-    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
-    pathEntry.packageJsonDependencies.push(...projectedDependencies);
-  }
-
-  for (const [path, projectedScripts] of projectedPackageJsonScripts) {
-    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "packageJson" });
-    pathEntry.packageJsonScripts.push(...projectedScripts);
-  }
-
-  for (const [path, projectedExports] of projectedBarrelExports) {
-    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "barrel" });
-    pathEntry.barrelExports.push(...projectedExports);
-  }
-
-  for (const [path, projectedTsconfig] of projectedTsconfigs) {
-    const pathEntry = getOrCreatePlanChangesetPath(changesetPaths, path);
-
-    assertPlanChangesetFamily({ pathEntry, family: "tsconfig" });
-
-    if (
-      pathEntry.tsconfig !== undefined &&
-      pathEntry.tsconfig.contents !== projectedTsconfig.contents
-    ) {
-      throw new PlanFailure({
-        reason: "invalidChangeset",
-        message: `Conflicting tsconfig outputs for ${path}.`,
-      });
-    }
-
-    pathEntry.tsconfig = projectedTsconfig;
-  }
-
-  return {
-    paths: Arr.sort(changesetPaths.values(), planPathOrd).map((pathEntry) => ({
-      path: pathEntry.path,
-      authoritativeContents: pathEntry.authoritativeContents,
-      packageJsonExports: Arr.fromIterable(pathEntry.packageJsonExports),
-      packageJsonDependencies: Arr.fromIterable(
-        pathEntry.packageJsonDependencies,
-      ),
-      packageJsonScripts: Arr.fromIterable(pathEntry.packageJsonScripts),
-      barrelExports: Arr.fromIterable(pathEntry.barrelExports),
-      tsconfig: pathEntry.tsconfig,
-    })),
-  };
 };
-const collectPlanInspectionPaths = (changeset: PlanChangeset) => {
-  const requestedPaths = new Set<string>();
+const collectPlanInspectionPaths = (
+  planningPaths: ReadonlyArray<PlanningIntentPath>,
+): ReadonlyArray<string> => {
+  const requestedPaths = Arr.flatMap(planningPaths, (planningPath) => [
+    planningPath.path,
+    ...collectAncestorPaths(planningPath.path),
+  ]);
 
-  for (const changesetPath of changeset.paths) {
-    requestedPaths.add(changesetPath.path);
-  }
-
-  for (const directoryPath of collectDirectoryPaths(
-    changeset.paths.map((changesetPath) => changesetPath.path),
-  )) {
-    requestedPaths.add(directoryPath);
-  }
-
-  return Arr.sort(requestedPaths, pathOrd);
-};
-const assertPlanChangesetFamily = ({
-  pathEntry,
-  family,
-}: {
-  pathEntry: MutablePlanChangesetPath;
-  family: PlanChangesetOperationFamily;
-}) => {
-  if (pathEntry.family === undefined || pathEntry.family === family) {
-    pathEntry.family = family;
-    return;
-  }
-
-  throw new PlanFailure({
-    reason: "invalidChangeset",
-    message: `Conflicting planned operations for ${pathEntry.path}.`,
-  });
+  return Arr.sort(Arr.fromIterable(new Set(requestedPaths)), pathOrd);
 };
 const projectPlan = ({
-  changeset,
+  planningPaths,
   repoSnapshot,
 }: {
-  changeset: PlanChangeset;
+  planningPaths: ReadonlyArray<PlanningIntentPath>;
   repoSnapshot: RepoSnapshot;
 }) => {
   const snapshotPaths = new Map(
@@ -227,432 +88,386 @@ const projectPlan = ({
       (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
     ),
   );
-  const directoryPaths = collectDirectoryPaths(
-    changeset.paths.map((changesetPath) => changesetPath.path),
-  );
-
-  const fileClassifications = new Map<string, PlanEntryClassification>();
-  const conflicts: Array<PlanConflict> = [];
-  const getFileClassification = (path: string): PlanEntryClassification =>
-    fileClassifications.get(path) ?? "create";
 
   const assertAncestorDirectories = (path: string) => {
-    const pathParts = path.split("/");
+    const blockedAncestorPath = collectAncestorPaths(path).find(
+      (ancestorPath) => snapshotPaths.get(ancestorPath)?._tag === "file",
+    );
 
-    for (let index = 1; index < pathParts.length; index += 1) {
-      const ancestorPath = pathParts.slice(0, index).join("/");
-      const snapshotPath = snapshotPaths.get(ancestorPath);
-
-      if (snapshotPath?._tag === "file") {
-        throw new PlanFailure({
-          reason: "repoRootNotEmpty",
-          message: `Expected ${ancestorPath} to be a directory during planning.`,
-        });
-      }
-    }
-  };
-
-  for (const changesetPath of changeset.paths) {
-    assertAncestorDirectories(changesetPath.path);
-
-    if (
-      changesetPath.authoritativeContents === undefined &&
-      (changesetPath.packageJsonExports.length > 0 ||
-        changesetPath.packageJsonDependencies.length > 0 ||
-        changesetPath.packageJsonScripts.length > 0)
-    ) {
-      const packageJsonMergePlan = planPackageJsonMerge({
-        path: changesetPath.path,
-        projectedExports: changesetPath.packageJsonExports,
-        projectedDependencies: changesetPath.packageJsonDependencies,
-        projectedScripts: changesetPath.packageJsonScripts,
-        snapshotPath: snapshotPaths.get(changesetPath.path),
-      });
-
-      fileClassifications.set(
-        changesetPath.path,
-        packageJsonMergePlan.classification,
-      );
-      conflicts.push(...packageJsonMergePlan.conflicts);
-      continue;
-    }
-
-    if (
-      changesetPath.authoritativeContents === undefined &&
-      changesetPath.barrelExports.length > 0
-    ) {
-      const barrelMergePlan = planBarrelMerge({
-        path: changesetPath.path,
-        projectedBarrelExports: changesetPath.barrelExports,
-        snapshotPath: snapshotPaths.get(changesetPath.path),
-      });
-
-      fileClassifications.set(
-        changesetPath.path,
-        barrelMergePlan.classification,
-      );
-      conflicts.push(...barrelMergePlan.conflicts);
-      continue;
-    }
-
-    if (
-      changesetPath.authoritativeContents === undefined &&
-      changesetPath.tsconfig !== undefined
-    ) {
-      const tsconfigMergePlan = planTsconfigMerge({
-        path: changesetPath.path,
-        projectedTsconfig: changesetPath.tsconfig,
-        snapshotPath: snapshotPaths.get(changesetPath.path),
-      });
-
-      fileClassifications.set(
-        changesetPath.path,
-        tsconfigMergePlan.classification,
-      );
-      conflicts.push(...tsconfigMergePlan.conflicts);
-      continue;
-    }
-
-    if (changesetPath.authoritativeContents === undefined) {
+    if (blockedAncestorPath !== undefined) {
       throw new PlanFailure({
-        reason: "invalidChangeset",
-        message: `No planned operation defined for ${changesetPath.path}.`,
+        reason: "repoRootNotEmpty",
+        message: `Expected ${blockedAncestorPath} to be a directory during planning.`,
       });
     }
-
-    const existingContents = getExistingFileContents({
-      path: changesetPath.path,
-      snapshotPath: snapshotPaths.get(changesetPath.path),
-    });
-
-    if (existingContents === undefined) {
-      fileClassifications.set(changesetPath.path, "create");
-      continue;
-    }
-
-    if (existingContents === changesetPath.authoritativeContents) {
-      fileClassifications.set(changesetPath.path, "unchanged");
-      continue;
-    }
-
-    fileClassifications.set(changesetPath.path, "modify");
-  }
-
-  const entries: Array<(typeof Plan.Type)["entries"][number]> = [
-    ...directoryPaths.map((path) => ({ _tag: "directory" as const, path })),
-    ...changeset.paths.map((changesetPath) => ({
-      _tag: "file" as const,
-      path: changesetPath.path,
-      classification: getFileClassification(changesetPath.path),
-    })),
-  ];
-
-  type MutableTreeDirectoryNode = {
-    _tag: "directory";
-    name: string;
-    path: string;
-    children: Array<PlanTreeNode>;
   };
 
-  const root: MutableTreeDirectoryNode = {
-    _tag: "directory",
-    name: ".",
-    path: ".",
-    children: [],
-  };
-  const directories = new Map<string, MutableTreeDirectoryNode>([[".", root]]);
+  const assessedPaths = planningPaths.map((planningPath) => {
+    assertAncestorDirectories(planningPath.path);
 
-  for (const path of directoryPaths) {
-    const parentPath = parentPathFromPath(path);
-    const node: MutableTreeDirectoryNode = {
-      _tag: "directory",
-      name: nameFromPath(path),
-      path,
-      children: [],
-    };
-
-    directories.set(path, node);
-    directories.get(parentPath)?.children.push(node);
-  }
-
-  for (const changesetPath of changeset.paths) {
-    const parentPath = parentPathFromPath(changesetPath.path);
-
-    directories.get(parentPath)?.children.push({
-      _tag: "file",
-      name: nameFromPath(changesetPath.path),
-      path: changesetPath.path,
-      classification: getFileClassification(changesetPath.path),
-    });
-  }
+    return {
+      planningPath,
+      assessment: assessPlanningPath({
+        planningPath,
+        snapshotPath: snapshotPaths.get(planningPath.path),
+      }),
+    } as const;
+  });
 
   return new Plan({
-    entries,
-    tree: root,
-    conflicts,
+    outcomes: assessedPaths.map(({ planningPath, assessment }) =>
+      toPlannedFileOutcome({
+        planningPath,
+        classification: assessment.classification,
+      }),
+    ),
+    conflicts: assessedPaths.flatMap(({ assessment }) => assessment.conflicts),
   }).toSorted();
 };
-const planTsconfigMerge = ({
+const toPlannedFileOutcome = ({
+  planningPath,
+  classification,
+}: {
+  planningPath: PlanningIntentPath;
+  classification: PlanEntryClassification;
+}): PlannedFileOutcome => {
+  if (planningPath.authoritativeContents !== undefined) {
+    return {
+      _tag: "authoritative",
+      path: planningPath.path,
+      classification,
+      contents: planningPath.authoritativeContents,
+    };
+  }
+
+  if (planningPath.tsconfig !== undefined) {
+    return {
+      _tag: "authoritative",
+      path: planningPath.path,
+      classification,
+      contents: planningPath.tsconfig.contents,
+    };
+  }
+
+  const requiredStructure = toRequiredStructure(planningPath);
+
+  if (isRequiredStructureEmpty(requiredStructure)) {
+    throw new PlanFailure({
+      reason: "invalidPlanIntent",
+      message: `No planned outcome could be derived for ${planningPath.path}.`,
+    });
+  }
+
+  return {
+    _tag: "structural",
+    path: planningPath.path,
+    classification,
+    requiredStructure,
+  };
+};
+const toRequiredStructure = (
+  planningPath: PlanningIntentPath,
+): RequiredStructure => {
+  const packageJsonDependencies = (["dependencies", "devDependencies"] as const)
+    .map((dependencySection) => ({
+      section: dependencySection,
+      entries: planningPath.packageJsonDependencies
+        .filter(
+          (plannedDependency) =>
+            plannedDependency.section === dependencySection,
+        )
+        .map((plannedDependency) => ({
+          dependencyName: plannedDependency.dependencyName,
+          dependencyValue: plannedDependency.dependencyValue,
+        })),
+    }))
+    .filter((entry) => entry.entries.length > 0);
+
+  return {
+    packageJsonExports:
+      planningPath.packageJsonExports.length > 0
+        ? planningPath.packageJsonExports.map((plannedExport) => ({
+            exportKey: plannedExport.exportKey,
+            exportValue: plannedExport.exportValue,
+          }))
+        : undefined,
+    packageJsonDependencies:
+      packageJsonDependencies.length > 0 ? packageJsonDependencies : undefined,
+    packageJsonScripts:
+      planningPath.packageJsonScripts.length > 0
+        ? planningPath.packageJsonScripts.map((plannedScript) => ({
+            scriptName: plannedScript.scriptName,
+            scriptValue: plannedScript.scriptValue,
+          }))
+        : undefined,
+    reExports:
+      planningPath.barrelExports.length > 0
+        ? planningPath.barrelExports.map(
+            (plannedReExport) => plannedReExport.exportPath,
+          )
+        : undefined,
+  };
+};
+const isRequiredStructureEmpty = (requiredStructure: RequiredStructure) =>
+  requiredStructure.packageJsonExports === undefined &&
+  requiredStructure.packageJsonDependencies === undefined &&
+  requiredStructure.packageJsonScripts === undefined &&
+  requiredStructure.reExports === undefined;
+const assessPlanningPath = ({
+  planningPath,
+  snapshotPath,
+}: {
+  planningPath: PlanningIntentPath;
+  snapshotPath: RepoSnapshotPath | undefined;
+}) => {
+  if (
+    planningPath.authoritativeContents === undefined &&
+    (planningPath.packageJsonExports.length > 0 ||
+      planningPath.packageJsonDependencies.length > 0 ||
+      planningPath.packageJsonScripts.length > 0)
+  ) {
+    return planPackageJsonMerge({
+      path: planningPath.path,
+      requiredExports: planningPath.packageJsonExports,
+      requiredDependencies: planningPath.packageJsonDependencies,
+      requiredScripts: planningPath.packageJsonScripts,
+      snapshotPath,
+    });
+  }
+
+  if (
+    planningPath.authoritativeContents === undefined &&
+    planningPath.barrelExports.length > 0
+  ) {
+    return planBarrelMerge({
+      path: planningPath.path,
+      requiredReExports: planningPath.barrelExports,
+      snapshotPath,
+    });
+  }
+
+  if (
+    planningPath.authoritativeContents === undefined &&
+    planningPath.tsconfig !== undefined
+  ) {
+    return planTsconfigMerge({
+      path: planningPath.path,
+      requiredTsconfig: planningPath.tsconfig,
+      snapshotPath,
+    });
+  }
+
+  if (planningPath.authoritativeContents === undefined) {
+    throw new PlanFailure({
+      reason: "invalidPlanIntent",
+      message: `No planning intent defined for ${planningPath.path}.`,
+    });
+  }
+
+  return assessAuthoritativeContents({
+    path: planningPath.path,
+    requiredContents: planningPath.authoritativeContents,
+    snapshotPath,
+  });
+};
+const createPathAssessment = ({
+  classification,
+  conflicts = [],
+}: {
+  classification: PlanEntryClassification;
+  conflicts?: ReadonlyArray<PlanConflict>;
+}) => ({
+  classification,
+  conflicts: Arr.fromIterable(conflicts),
+});
+
+type FlatStringRecordAssessment<Conflict> = {
+  readonly conflicts: ReadonlyArray<Conflict>;
+  readonly hasAdditions: boolean;
+};
+
+const assessAuthoritativeContents = ({
   path,
-  projectedTsconfig,
+  requiredContents,
   snapshotPath,
 }: {
   path: string;
-  projectedTsconfig: ProjectedTsconfig;
+  requiredContents: string;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
   if (existingContents === undefined) {
-    return {
-      classification: "create" as const,
-      conflicts: [] as Array<PlanConflict>,
-    };
+    return createPathAssessment({ classification: "create" });
   }
 
-  if (existingContents === projectedTsconfig.contents) {
-    return {
-      classification: "unchanged" as const,
-      conflicts: [] as Array<PlanConflict>,
-    };
+  if (existingContents === requiredContents) {
+    return createPathAssessment({ classification: "unchanged" });
+  }
+
+  return createPathAssessment({ classification: "modify" });
+};
+const planTsconfigMerge = ({
+  path,
+  requiredTsconfig,
+  snapshotPath,
+}: {
+  path: string;
+  requiredTsconfig: PlannedTsconfig;
+  snapshotPath: RepoSnapshotPath | undefined;
+}) => {
+  const authoritativeAssessment = assessAuthoritativeContents({
+    path,
+    requiredContents: requiredTsconfig.contents,
+    snapshotPath,
+  });
+
+  if (authoritativeAssessment.classification !== "modify") {
+    return authoritativeAssessment;
   }
 
   const conflict = createTsconfigPlanConflict({
     path,
   });
 
-  return {
-    classification: "needsMergeStrategy" as const,
+  return createPathAssessment({
+    classification: "needsMergeStrategy",
     conflicts: [conflict],
-  };
+  });
 };
 const planPackageJsonMerge = ({
   path,
-  projectedExports,
-  projectedDependencies,
-  projectedScripts,
+  requiredExports,
+  requiredDependencies,
+  requiredScripts,
   snapshotPath,
 }: {
   path: string;
-  projectedExports: ReadonlyArray<ProjectedPackageJsonExport>;
-  projectedDependencies: ReadonlyArray<ProjectedPackageJsonDependency>;
-  projectedScripts: ReadonlyArray<ProjectedPackageJsonScript>;
+  requiredExports: ReadonlyArray<PlannedPackageJsonExport>;
+  requiredDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
+  requiredScripts: ReadonlyArray<PlannedPackageJsonScript>;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
   if (existingContents === undefined) {
-    return {
-      classification: "create" as const,
-      conflicts: [] as Array<PlanConflict>,
-    };
+    return createPathAssessment({ classification: "create" });
   }
 
-  const exportConflicts = projectedExports.map((projectedExport) =>
-    createPackageJsonExportPlanConflict({ path, projectedExport }),
-  );
-  const dependencyConflicts = projectedDependencies.map((projectedDependency) =>
-    createPackageJsonDependencyPlanConflict({
-      path,
-      projectedDependency,
-    }),
-  );
-  const scriptConflicts = projectedScripts.map((projectedScript) =>
-    createPackageJsonScriptPlanConflict({
-      path,
-      projectedScript,
-    }),
-  );
   const packageJson = parseJsonRecord(existingContents);
 
   if (packageJson === undefined) {
-    const conflicts: Array<PackageJsonPlanConflict> = [
-      ...exportConflicts,
-      ...dependencyConflicts,
-      ...scriptConflicts,
-    ];
-
-    return {
-      classification: "needsMergeStrategy" as const,
-      conflicts,
-    };
+    return createPathAssessment({
+      classification: "needsMergeStrategy",
+      conflicts: collectInvalidPackageJsonConflicts({
+        path,
+        requiredExports,
+        requiredDependencies,
+        requiredScripts,
+      }),
+    });
   }
 
-  const { exports: exportsValue, scripts: scriptsValue } = packageJson;
-  const conflicts: Array<PackageJsonPlanConflict> = [];
-  let hasAdditions = false;
-
-  if (exportsValue !== undefined && !isFlatStringRecord(exportsValue)) {
-    conflicts.push(...exportConflicts);
-  } else {
-    const existingExports = exportsValue ?? {};
-
-    for (const projectedExport of projectedExports) {
-      const existingValue = existingExports[projectedExport.exportKey];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedExport.exportValue) {
-        conflicts.push(
-          createPackageJsonExportPlanConflict({ path, projectedExport }),
-        );
-      }
-    }
-  }
-
-  for (const [section, sectionDependencies] of Record.collect(
-    Arr.groupBy(
-      projectedDependencies,
-      (projectedDependency) => projectedDependency.section,
-    ),
-    (section, sectionDependencies) => [section, sectionDependencies] as const,
-  )) {
-    const sectionValue = packageJson[section];
-
-    if (sectionValue !== undefined && !isFlatStringRecord(sectionValue)) {
-      conflicts.push(
-        ...sectionDependencies.map((projectedDependency) =>
+  const dependenciesBySection = Arr.groupBy(
+    requiredDependencies,
+    (plannedDependency) => plannedDependency.section,
+  );
+  const exportAssessment = assessFlatStringRecordEntries({
+    existingValue: packageJson["exports"],
+    requiredEntries: requiredExports,
+    keyOf: (plannedExport) => plannedExport.exportKey,
+    valueOf: (plannedExport) => plannedExport.exportValue,
+    toConflict: (plannedExport) =>
+      createPackageJsonExportPlanConflict({ path, plannedExport }),
+  });
+  const dependencyAssessments = Record.collect(
+    dependenciesBySection,
+    (section, sectionDependencies) =>
+      assessFlatStringRecordEntries({
+        existingValue: packageJson[section],
+        requiredEntries: sectionDependencies,
+        keyOf: (plannedDependency) => plannedDependency.dependencyName,
+        valueOf: (plannedDependency) => plannedDependency.dependencyValue,
+        toConflict: (plannedDependency) =>
           createPackageJsonDependencyPlanConflict({
             path,
-            projectedDependency,
+            plannedDependency,
           }),
-        ),
-      );
-      continue;
-    }
-
-    const existingDependencies = sectionValue ?? {};
-
-    for (const projectedDependency of sectionDependencies) {
-      const existingValue =
-        existingDependencies[projectedDependency.dependencyName];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedDependency.dependencyValue) {
-        conflicts.push(
-          createPackageJsonDependencyPlanConflict({
-            path,
-            projectedDependency,
-          }),
-        );
-      }
-    }
-  }
-
-  if (scriptsValue !== undefined && !isFlatStringRecord(scriptsValue)) {
-    conflicts.push(...scriptConflicts);
-  } else {
-    const existingScripts = scriptsValue ?? {};
-
-    for (const projectedScript of projectedScripts) {
-      const existingValue = existingScripts[projectedScript.scriptName];
-
-      if (existingValue === undefined) {
-        hasAdditions = true;
-        continue;
-      }
-
-      if (existingValue !== projectedScript.scriptValue) {
-        conflicts.push(
-          createPackageJsonScriptPlanConflict({
-            path,
-            projectedScript,
-          }),
-        );
-      }
-    }
-  }
+      }),
+  );
+  const scriptAssessment = assessFlatStringRecordEntries({
+    existingValue: packageJson["scripts"],
+    requiredEntries: requiredScripts,
+    keyOf: (plannedScript) => plannedScript.scriptName,
+    valueOf: (plannedScript) => plannedScript.scriptValue,
+    toConflict: (plannedScript) =>
+      createPackageJsonScriptPlanConflict({ path, plannedScript }),
+  });
+  const conflicts = [
+    ...exportAssessment.conflicts,
+    ...dependencyAssessments.flatMap((assessment) => assessment.conflicts),
+    ...scriptAssessment.conflicts,
+  ];
+  const hasAdditions =
+    exportAssessment.hasAdditions ||
+    dependencyAssessments.some((assessment) => assessment.hasAdditions) ||
+    scriptAssessment.hasAdditions;
 
   if (conflicts.length > 0) {
-    return {
-      classification: "needsMergeStrategy" as const,
+    return createPathAssessment({
+      classification: "needsMergeStrategy",
       conflicts,
-    };
+    });
   }
 
-  return {
-    classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    conflicts: [] as Array<PlanConflict>,
-  };
+  return createPathAssessment({
+    classification: hasAdditions ? "modify" : "unchanged",
+  });
 };
 const planBarrelMerge = ({
   path,
-  projectedBarrelExports,
+  requiredReExports,
   snapshotPath,
 }: {
   path: string;
-  projectedBarrelExports: ReadonlyArray<ProjectedBarrelExport>;
+  requiredReExports: ReadonlyArray<PlannedBarrelExport>;
   snapshotPath: RepoSnapshotPath | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
   if (existingContents === undefined) {
-    return {
-      classification: "create" as const,
-      conflicts: [] as Array<PlanConflict>,
-    };
+    return createPathAssessment({ classification: "create" });
   }
 
   const existingExports = parseSimpleBarrelExports(existingContents);
 
   if (existingExports === undefined) {
-    const conflicts = projectedBarrelExports.map((projectedBarrelExport) =>
-      createBarrelExportPlanConflict({ path, projectedBarrelExport }),
+    const conflicts = requiredReExports.map((plannedReExport) =>
+      createBarrelExportPlanConflict({ path, plannedReExport }),
     );
 
-    return {
-      classification: "needsMergeStrategy" as const,
+    return createPathAssessment({
+      classification: "needsMergeStrategy",
       conflicts,
-    };
+    });
   }
 
   const existingExportsSet = new Set(existingExports);
-  let hasAdditions = false;
+  const hasAdditions = requiredReExports.some(
+    (plannedReExport) => !existingExportsSet.has(plannedReExport.exportPath),
+  );
 
-  for (const projectedBarrelExport of projectedBarrelExports) {
-    if (existingExportsSet.has(projectedBarrelExport.exportPath)) {
-      continue;
-    }
-
-    hasAdditions = true;
-  }
-
-  return {
-    classification: hasAdditions ? ("modify" as const) : ("unchanged" as const),
-    conflicts: [] as Array<PlanConflict>,
-  };
+  return createPathAssessment({
+    classification: hasAdditions ? "modify" : "unchanged",
+  });
 };
 const parseSimpleBarrelExports = (contents: string) => {
-  const exports: Array<string> = [];
+  const parsedExports = contents
+    .split(/\r?\n/u)
+    .filter((line) => line.trim() !== "")
+    .map((line) => line.match(simpleBarrelExportPattern)?.[1]);
 
-  for (const line of contents.split(/\r?\n/u)) {
-    if (line.trim() === "") {
-      continue;
-    }
-
-    const matched = line.match(simpleBarrelExportPattern);
-
-    if (matched === null) {
-      return undefined;
-    }
-
-    const exportPath = matched[1];
-
-    if (exportPath === undefined) {
-      return undefined;
-    }
-
-    exports.push(exportPath);
-  }
-
-  return exports;
+  return parsedExports.every(isDefined) ? parsedExports : undefined;
 };
 const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
 const createTsconfigPlanConflict = ({
@@ -665,52 +480,120 @@ const createTsconfigPlanConflict = ({
 });
 const createBarrelExportPlanConflict = ({
   path,
-  projectedBarrelExport,
+  plannedReExport,
 }: {
   path: string;
-  projectedBarrelExport: ProjectedBarrelExport;
+  plannedReExport: PlannedBarrelExport;
 }): PlanConflict => ({
   _tag: "barrelExport",
   path,
-  exportPath: projectedBarrelExport.exportPath,
+  exportPath: plannedReExport.exportPath,
 });
 const createPackageJsonExportPlanConflict = ({
   path,
-  projectedExport,
+  plannedExport,
 }: {
   path: string;
-  projectedExport: ProjectedPackageJsonExport;
+  plannedExport: PlannedPackageJsonExport;
 }): Extract<PlanConflict, { _tag: "packageJsonExports" }> => ({
   _tag: "packageJsonExports",
   path,
-  exportKey: projectedExport.exportKey,
+  exportKey: plannedExport.exportKey,
 });
 const createPackageJsonScriptPlanConflict = ({
   path,
-  projectedScript,
+  plannedScript,
 }: {
   path: string;
-  projectedScript: ProjectedPackageJsonScript;
+  plannedScript: PlannedPackageJsonScript;
 }): Extract<PlanConflict, { _tag: "packageJsonScripts" }> => ({
   _tag: "packageJsonScripts",
   path,
-  scriptName: projectedScript.scriptName,
+  scriptName: plannedScript.scriptName,
 });
 const createPackageJsonDependencyPlanConflict = ({
   path,
-  projectedDependency,
+  plannedDependency,
 }: {
   path: string;
-  projectedDependency: ProjectedPackageJsonDependency;
+  plannedDependency: PlannedPackageJsonDependency;
 }): Extract<PlanConflict, { _tag: "packageJsonDependencies" }> => ({
   _tag: "packageJsonDependencies",
   path,
-  section: projectedDependency.section,
-  dependencyName: projectedDependency.dependencyName,
+  section: plannedDependency.section,
+  dependencyName: plannedDependency.dependencyName,
 });
+
+const collectInvalidPackageJsonConflicts = ({
+  path,
+  requiredExports,
+  requiredDependencies,
+  requiredScripts,
+}: {
+  path: string;
+  requiredExports: ReadonlyArray<PlannedPackageJsonExport>;
+  requiredDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
+  requiredScripts: ReadonlyArray<PlannedPackageJsonScript>;
+}) => [
+  ...requiredExports.map((plannedExport) =>
+    createPackageJsonExportPlanConflict({ path, plannedExport }),
+  ),
+  ...requiredDependencies.map((plannedDependency) =>
+    createPackageJsonDependencyPlanConflict({
+      path,
+      plannedDependency,
+    }),
+  ),
+  ...requiredScripts.map((plannedScript) =>
+    createPackageJsonScriptPlanConflict({
+      path,
+      plannedScript,
+    }),
+  ),
+];
+
+const assessFlatStringRecordEntries = <Entry, Conflict>({
+  existingValue,
+  requiredEntries,
+  keyOf,
+  valueOf,
+  toConflict,
+}: {
+  existingValue: unknown;
+  requiredEntries: ReadonlyArray<Entry>;
+  keyOf: (entry: Entry) => string;
+  valueOf: (entry: Entry) => string;
+  toConflict: (entry: Entry) => Conflict;
+}): FlatStringRecordAssessment<Conflict> => {
+  if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
+    return {
+      conflicts: requiredEntries.map(toConflict),
+      hasAdditions: false,
+    };
+  }
+
+  const existingEntries = existingValue ?? {};
+  const conflicts = requiredEntries.flatMap((entry) => {
+    const existingEntry = existingEntries[keyOf(entry)];
+
+    return existingEntry === undefined || existingEntry === valueOf(entry)
+      ? []
+      : [toConflict(entry)];
+  });
+
+  return {
+    conflicts,
+    hasAdditions: requiredEntries.some(
+      (entry) => existingEntries[keyOf(entry)] === undefined,
+    ),
+  };
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const isDefined = <Value>(value: Value | undefined): value is Value =>
+  value !== undefined;
 
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   isRecord(value) &&
@@ -748,85 +631,92 @@ const getExistingFileContents = ({
   return snapshotPath.contents;
 };
 
-const collectDirectoryPaths = (paths: ReadonlyArray<string>) => {
-  const directories = new Set<string>();
+const collectAncestorPaths = (path: string): ReadonlyArray<string> =>
+  path
+    .split("/")
+    .map((_, index, parts) => parts.slice(0, index + 1).join("/"))
+    .slice(0, -1);
 
-  for (const path of paths) {
-    const parts = path.split("/");
-
-    for (let index = 1; index < parts.length; index += 1) {
-      directories.add(parts.slice(0, index).join("/"));
-    }
-  }
-
-  return Arr.sort(directories, pathOrd);
-};
-
-type ProjectedPlanPath = {
-  readonly path: string;
-};
-
-type ProjectedPackageJsonExport = {
+type PlannedPackageJsonExport = {
   readonly exportKey: string;
   readonly exportValue: string;
 };
 
-type ProjectedPackageJsonDependency = {
+type PlannedPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
   readonly dependencyName: string;
   readonly dependencyValue: string;
 };
 
-type ProjectedPackageJsonScript = {
+type PlannedPackageJsonScript = {
   readonly scriptName: string;
   readonly scriptValue: string;
 };
 
-type ProjectedBarrelExport = {
+type PlannedBarrelExport = {
   readonly exportPath: string;
 };
 
-type ProjectedTsconfig = {
+type PlannedTsconfig = {
   readonly path: string;
   readonly contents: string;
 };
 
-type PlanChangesetPath = {
+type PlanningIntentPath = {
   readonly path: string;
   readonly authoritativeContents: string | undefined;
-  readonly packageJsonExports: ReadonlyArray<ProjectedPackageJsonExport>;
-  readonly packageJsonDependencies: ReadonlyArray<ProjectedPackageJsonDependency>;
-  readonly packageJsonScripts: ReadonlyArray<ProjectedPackageJsonScript>;
-  readonly barrelExports: ReadonlyArray<ProjectedBarrelExport>;
-  readonly tsconfig: ProjectedTsconfig | undefined;
+  readonly packageJsonExports: ReadonlyArray<PlannedPackageJsonExport>;
+  readonly packageJsonDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
+  readonly packageJsonScripts: ReadonlyArray<PlannedPackageJsonScript>;
+  readonly barrelExports: ReadonlyArray<PlannedBarrelExport>;
+  readonly tsconfig: PlannedTsconfig | undefined;
 };
 
-type PlanChangeset = {
-  readonly paths: ReadonlyArray<PlanChangesetPath>;
-};
-
-type PlanChangesetOperationFamily =
+type PlanningIntentFamily =
   | "authoritative"
   | "packageJson"
   | "barrel"
   | "tsconfig";
 
-type PackageJsonPlanConflict = Extract<
-  PlanConflict,
-  | { _tag: "packageJsonExports" }
-  | { _tag: "packageJsonDependencies" }
-  | { _tag: "packageJsonScripts" }
->;
+type PlanningIntentEntry =
+  | {
+      readonly _tag: "authoritative";
+      readonly path: string;
+      readonly contents: string;
+    }
+  | {
+      readonly _tag: "packageJsonExport";
+      readonly path: string;
+      readonly exportKey: string;
+      readonly exportValue: string;
+    }
+  | {
+      readonly _tag: "packageJsonDependency";
+      readonly path: string;
+      readonly section: "dependencies" | "devDependencies";
+      readonly dependencyName: string;
+      readonly dependencyValue: string;
+    }
+  | {
+      readonly _tag: "packageJsonScript";
+      readonly path: string;
+      readonly scriptName: string;
+      readonly scriptValue: string;
+    }
+  | {
+      readonly _tag: "barrelExport";
+      readonly path: string;
+      readonly exportPath: string;
+    }
+  | {
+      readonly _tag: "tsconfig";
+      readonly path: string;
+      readonly contents: string;
+    };
 
-type MutablePlanChangesetPath = {
+type PlanningIntentPathFamily = {
   readonly path: string;
-  family?: PlanChangesetOperationFamily;
-  authoritativeContents?: string;
-  readonly packageJsonExports: Array<ProjectedPackageJsonExport>;
-  readonly packageJsonDependencies: Array<ProjectedPackageJsonDependency>;
-  readonly packageJsonScripts: Array<ProjectedPackageJsonScript>;
-  readonly barrelExports: Array<ProjectedBarrelExport>;
-  tsconfig?: ProjectedTsconfig;
+  readonly family: PlanningIntentFamily;
 };
 
 const flattenContributions = (
@@ -835,242 +725,277 @@ const flattenContributions = (
   ...normalizedContributions.targets.map((entry) => entry.contributions),
   ...normalizedContributions.modules.map((entry) => entry.contributions),
 ];
-
-const collectProjectedPlanPaths = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedPaths = new Map<string, ProjectedPlanPath>();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const file of contributions.files) {
-      projectedPaths.set(file.path, { path: file.path });
-    }
-
-    for (const entry of contributions.packageJsonExports) {
-      projectedPaths.set(entry.packageJsonPath, {
+const toPlanningIntentEntries = (
+  contributions: ReturnType<typeof flattenContributions>[number],
+): ReadonlyArray<PlanningIntentEntry> => [
+  ...contributions.files.map(
+    (file) =>
+      ({
+        _tag: "authoritative",
+        path: file.path,
+        contents: file.contents,
+      }) satisfies PlanningIntentEntry,
+  ),
+  ...contributions.packageJsonExports.map(
+    (entry) =>
+      ({
+        _tag: "packageJsonExport",
         path: entry.packageJsonPath,
-      });
-    }
-
-    for (const entry of contributions.packageJsonDependencies) {
-      projectedPaths.set(entry.packageJsonPath, {
-        path: entry.packageJsonPath,
-      });
-    }
-
-    for (const entry of contributions.packageJsonScripts) {
-      projectedPaths.set(entry.packageJsonPath, {
-        path: entry.packageJsonPath,
-      });
-    }
-
-    for (const entry of contributions.barrelExports) {
-      projectedPaths.set(entry.barrelPath, { path: entry.barrelPath });
-    }
-
-    for (const entry of contributions.tsconfigs) {
-      projectedPaths.set(entry.path, { path: entry.path });
-    }
-  }
-
-  return Arr.sort(projectedPaths.values(), planPathOrd);
-};
-
-const collectProjectedContents = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedContents = new Map<string, string>();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const file of contributions.files) {
-      projectedContents.set(file.path, file.contents);
-    }
-  }
-
-  return projectedContents;
-};
-
-const collectProjectedPackageJsonExports = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedExportsByPath = new Map<
-    string,
-    Map<string, ProjectedPackageJsonExport>
-  >();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const entry of contributions.packageJsonExports) {
-      const pathExports =
-        projectedExportsByPath.get(entry.packageJsonPath) ??
-        new Map<string, ProjectedPackageJsonExport>();
-
-      pathExports.set(entry.exportKey, {
         exportKey: entry.exportKey,
         exportValue: entry.exportValue,
-      });
-      projectedExportsByPath.set(entry.packageJsonPath, pathExports);
-    }
-  }
-
-  return new Map(
-    Arr.fromIterable(projectedExportsByPath.entries()).map(
-      ([path, projectedExports]) => [
-        path,
-        Arr.sort(projectedExports.values(), projectedPackageJsonExportOrd),
-      ],
-    ),
-  );
-};
-
-const collectProjectedPackageJsonDependencies = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedDependenciesByPath = new Map<
-    string,
-    Map<string, ProjectedPackageJsonDependency>
-  >();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const entry of contributions.packageJsonDependencies) {
-      const pathDependencies =
-        projectedDependenciesByPath.get(entry.packageJsonPath) ??
-        new Map<string, ProjectedPackageJsonDependency>();
-
-      pathDependencies.set(`${entry.section}:${entry.dependencyName}`, {
+      }) satisfies PlanningIntentEntry,
+  ),
+  ...contributions.packageJsonDependencies.map(
+    (entry) =>
+      ({
+        _tag: "packageJsonDependency",
+        path: entry.packageJsonPath,
         section: entry.section,
         dependencyName: entry.dependencyName,
         dependencyValue: entry.dependencyValue,
-      });
-      projectedDependenciesByPath.set(entry.packageJsonPath, pathDependencies);
-    }
-  }
-
-  return new Map(
-    Arr.fromIterable(projectedDependenciesByPath.entries()).map(
-      ([path, projectedDependencies]) => [
-        path,
-        Arr.sort(
-          projectedDependencies.values(),
-          projectedPackageJsonDependencyOrd,
-        ),
-      ],
-    ),
-  );
-};
-
-const collectProjectedPackageJsonScripts = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedScriptsByPath = new Map<
-    string,
-    Map<string, ProjectedPackageJsonScript>
-  >();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const entry of contributions.packageJsonScripts) {
-      const pathScripts =
-        projectedScriptsByPath.get(entry.packageJsonPath) ??
-        new Map<string, ProjectedPackageJsonScript>();
-
-      pathScripts.set(entry.scriptName, {
+      }) satisfies PlanningIntentEntry,
+  ),
+  ...contributions.packageJsonScripts.map(
+    (entry) =>
+      ({
+        _tag: "packageJsonScript",
+        path: entry.packageJsonPath,
         scriptName: entry.scriptName,
         scriptValue: entry.scriptValue,
-      });
-      projectedScriptsByPath.set(entry.packageJsonPath, pathScripts);
-    }
-  }
-
-  return new Map(
-    Arr.fromIterable(projectedScriptsByPath.entries()).map(
-      ([path, projectedScripts]) => [
-        path,
-        Arr.sort(projectedScripts.values(), projectedPackageJsonScriptOrd),
-      ],
-    ),
-  );
-};
-
-const collectProjectedBarrelExports = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedBarrelExportsByPath = new Map<
-    string,
-    Map<string, ProjectedBarrelExport>
-  >();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const entry of contributions.barrelExports) {
-      const pathBarrelExports =
-        projectedBarrelExportsByPath.get(entry.barrelPath) ??
-        new Map<string, ProjectedBarrelExport>();
-
-      pathBarrelExports.set(entry.exportPath, {
+      }) satisfies PlanningIntentEntry,
+  ),
+  ...contributions.barrelExports.map(
+    (entry) =>
+      ({
+        _tag: "barrelExport",
+        path: entry.barrelPath,
         exportPath: entry.exportPath,
-      });
-      projectedBarrelExportsByPath.set(entry.barrelPath, pathBarrelExports);
-    }
-  }
-
-  return new Map(
-    Arr.fromIterable(projectedBarrelExportsByPath.entries()).map(
-      ([path, projectedBarrelExports]) => [
-        path,
-        Arr.sort(projectedBarrelExports.values(), projectedBarrelExportOrd),
-      ],
-    ),
-  );
-};
-
-const collectProjectedTsconfigs = (
-  normalizedContributions: NormalizedContributions,
-) => {
-  const projectedTsconfigs = new Map<string, ProjectedTsconfig>();
-
-  for (const contributions of flattenContributions(normalizedContributions)) {
-    for (const entry of contributions.tsconfigs) {
-      projectedTsconfigs.set(entry.path, {
+      }) satisfies PlanningIntentEntry,
+  ),
+  ...contributions.tsconfigs.map(
+    (entry) =>
+      ({
+        _tag: "tsconfig",
         path: entry.path,
         contents: entry.contents,
-      });
+      }) satisfies PlanningIntentEntry,
+  ),
+];
+
+const isAuthoritativePlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "authoritative" }> =>
+  entry._tag === "authoritative";
+
+const isPackageJsonExportPlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonExport" }> =>
+  entry._tag === "packageJsonExport";
+
+const isPackageJsonDependencyPlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonDependency" }> =>
+  entry._tag === "packageJsonDependency";
+
+const isPackageJsonScriptPlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonScript" }> =>
+  entry._tag === "packageJsonScript";
+
+const isBarrelExportPlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "barrelExport" }> =>
+  entry._tag === "barrelExport";
+
+const isTsconfigPlanningIntentEntry = (
+  entry: PlanningIntentEntry,
+): entry is Extract<PlanningIntentEntry, { _tag: "tsconfig" }> =>
+  entry._tag === "tsconfig";
+
+const derivePlanningIntentPath = ({
+  path,
+  entries,
+}: {
+  path: string;
+  entries: ReadonlyArray<PlanningIntentEntry>;
+}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
+  Effect.gen(function* () {
+    const family = yield* derivePlanningIntentFamily({ path, entries });
+    const authoritativeEntries = entries.filter(
+      isAuthoritativePlanningIntentEntry,
+    );
+    const packageJsonExportEntries = entries.filter(
+      isPackageJsonExportPlanningIntentEntry,
+    );
+    const packageJsonDependencyEntries = entries.filter(
+      isPackageJsonDependencyPlanningIntentEntry,
+    );
+    const packageJsonScriptEntries = entries.filter(
+      isPackageJsonScriptPlanningIntentEntry,
+    );
+    const barrelExportEntries = entries.filter(
+      isBarrelExportPlanningIntentEntry,
+    );
+    const tsconfigEntries = entries.filter(isTsconfigPlanningIntentEntry);
+
+    switch (family.family) {
+      case "authoritative":
+        return {
+          path,
+          authoritativeContents: yield* requireSingleValue({
+            values: authoritativeEntries.map((entry) => entry.contents),
+            errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
+          }),
+          packageJsonExports: [],
+          packageJsonDependencies: [],
+          packageJsonScripts: [],
+          barrelExports: [],
+          tsconfig: undefined,
+        };
+      case "packageJson":
+        return {
+          path,
+          authoritativeContents: undefined,
+          packageJsonExports: yield* collectUniqueEntries({
+            entries: packageJsonExportEntries,
+            keyOf: (entry) => entry.exportKey,
+            valueOf: (entry) => entry.exportValue,
+            toResult: ({ exportKey, exportValue }) => ({
+              exportKey,
+              exportValue,
+            }),
+            errorMessage: `Conflicting package.json export outcomes for ${path}.`,
+          }),
+          packageJsonDependencies: yield* collectUniqueEntries({
+            entries: packageJsonDependencyEntries,
+            keyOf: (entry) => `${entry.section}:${entry.dependencyName}`,
+            valueOf: (entry) => entry.dependencyValue,
+            toResult: ({ section, dependencyName, dependencyValue }) => ({
+              section,
+              dependencyName,
+              dependencyValue,
+            }),
+            errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
+          }),
+          packageJsonScripts: yield* collectUniqueEntries({
+            entries: packageJsonScriptEntries,
+            keyOf: (entry) => entry.scriptName,
+            valueOf: (entry) => entry.scriptValue,
+            toResult: ({ scriptName, scriptValue }) => ({
+              scriptName,
+              scriptValue,
+            }),
+            errorMessage: `Conflicting package.json script outcomes for ${path}.`,
+          }),
+          barrelExports: [],
+          tsconfig: undefined,
+        };
+      case "barrel":
+        return {
+          path,
+          authoritativeContents: undefined,
+          packageJsonExports: [],
+          packageJsonDependencies: [],
+          packageJsonScripts: [],
+          barrelExports: yield* collectUniqueEntries({
+            entries: barrelExportEntries,
+            keyOf: (entry) => entry.exportPath,
+            valueOf: (entry) => entry.exportPath,
+            toResult: ({ exportPath }) => ({ exportPath }),
+            errorMessage: `Conflicting barrel export outcomes for ${path}.`,
+          }),
+          tsconfig: undefined,
+        };
+      case "tsconfig":
+        return {
+          path,
+          authoritativeContents: undefined,
+          packageJsonExports: [],
+          packageJsonDependencies: [],
+          packageJsonScripts: [],
+          barrelExports: [],
+          tsconfig: {
+            path,
+            contents: yield* requireSingleValue({
+              values: tsconfigEntries.map((entry) => entry.contents),
+              errorMessage: `Conflicting tsconfig outcomes for ${path}.`,
+            }),
+          },
+        };
     }
+  });
+
+const derivePlanningIntentFamily = ({
+  path,
+  entries,
+}: {
+  path: string;
+  entries: ReadonlyArray<PlanningIntentEntry>;
+}): Effect.Effect<PlanningIntentPathFamily, PlanFailure> =>
+  requireSingleValue({
+    values: entries.map(toPlanningIntentFamily),
+    errorMessage: `Conflicting planning intents for ${path}.`,
+  }).pipe(Effect.map((family) => ({ path, family })));
+
+const toPlanningIntentFamily = (
+  entry: PlanningIntentEntry,
+): PlanningIntentFamily => {
+  switch (entry._tag) {
+    case "authoritative":
+      return "authoritative";
+    case "packageJsonExport":
+    case "packageJsonDependency":
+    case "packageJsonScript":
+      return "packageJson";
+    case "barrelExport":
+      return "barrel";
+    case "tsconfig":
+      return "tsconfig";
+  }
+};
+
+const requireSingleValue = <Value>({
+  values,
+  errorMessage,
+}: {
+  values: ReadonlyArray<Value>;
+  errorMessage: string;
+}): Effect.Effect<Value, PlanFailure> => {
+  const firstValue = values[0];
+
+  if (
+    firstValue !== undefined &&
+    Arr.every(values, (value) => value === firstValue)
+  ) {
+    return Effect.succeed(firstValue);
   }
 
-  return projectedTsconfigs;
+  return Effect.fail(
+    new PlanFailure({
+      reason: "invalidPlanIntent",
+      message: errorMessage,
+    }),
+  );
 };
 
-const getOrCreatePlanChangesetPath = (
-  changesetPaths: Map<string, MutablePlanChangesetPath>,
-  path: string,
-) => {
-  const current = changesetPaths.get(path);
-
-  if (current !== undefined) {
-    return current;
-  }
-
-  const next: MutablePlanChangesetPath = {
-    path,
-    packageJsonExports: [],
-    packageJsonDependencies: [],
-    packageJsonScripts: [],
-    barrelExports: [],
-  };
-
-  changesetPaths.set(path, next);
-  return next;
-};
-
-const nameFromPath = (path: string) => {
-  const parts = path.split("/");
-  return parts[parts.length - 1] ?? path;
-};
-
-const parentPathFromPath = (path: string) => {
-  const lastSeparatorIndex = path.lastIndexOf("/");
-
-  if (lastSeparatorIndex === -1) {
-    return ".";
-  }
-
-  return path.slice(0, lastSeparatorIndex);
-};
+const collectUniqueEntries = <Entry, Result>({
+  entries,
+  keyOf,
+  valueOf,
+  toResult,
+  errorMessage,
+}: {
+  entries: ReadonlyArray<Entry>;
+  keyOf: (entry: Entry) => string;
+  valueOf: (entry: Entry) => string;
+  toResult: (entry: Entry) => Result;
+  errorMessage: string;
+}): Effect.Effect<ReadonlyArray<Result>, PlanFailure> =>
+  Effect.all(
+    Record.collect(Arr.groupBy(entries, keyOf), (_, groupedEntries) =>
+      requireSingleValue({
+        values: groupedEntries.map(valueOf),
+        errorMessage,
+      }).pipe(Effect.as(toResult(groupedEntries[0]!))),
+    ),
+  );
