@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+const targetPathPattern = /^(packages\/[a-z0-9-]+|apps\/[a-z0-9-]+-[a-z0-9-]+)$/;
+
 export const TargetKind = Schema.Union([
   Schema.Literal("client"),
   Schema.Literal("server"),
@@ -20,10 +22,14 @@ export const TargetIdentity = Schema.Struct({
 });
 export type TargetIdentity = Schema.Schema.Type<typeof TargetIdentity>;
 
-export const TargetKey = Schema.NonEmptyString;
+export const TargetKey = Schema.String.check(
+  Schema.isPattern(targetPathPattern),
+).pipe(Schema.brand("TargetKey"));
 export type TargetKey = Schema.Schema.Type<typeof TargetKey>;
 
-export const TargetPath = Schema.NonEmptyString;
+export const TargetPath = Schema.String.check(
+  Schema.isPattern(targetPathPattern),
+).pipe(Schema.brand("TargetPath"));
 export type TargetPath = Schema.Schema.Type<typeof TargetPath>;
 
 export const SupportedOn = Schema.Union([

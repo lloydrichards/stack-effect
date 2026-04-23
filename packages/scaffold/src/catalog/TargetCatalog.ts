@@ -3,7 +3,9 @@ import {
   type DesiredContributions,
   emptyDesiredContributions,
   type TargetIdentity,
+  type TargetKey,
   type TargetKind,
+  type TargetPath,
 } from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
 import { packageDomainTsconfigContents } from "../registry/content/root-bootstrap";
@@ -116,10 +118,15 @@ const targetDefinitions = new Map<TargetKind, TargetDefinition>([
   ],
 ]);
 
-const toTargetPath = (identity: TargetIdentity) =>
+const toTargetPath = (identity: TargetIdentity): TargetPath =>
   identity.kind === "package"
-    ? `packages/${identity.name}`
-    : `apps/${identity.kind}-${identity.name}`;
+    ? (`packages/${identity.name}` as TargetPath)
+    : (`apps/${identity.kind}-${identity.name}` as TargetPath);
+
+const toTargetKey = (identity: TargetIdentity): TargetKey =>
+  identity.kind === "package"
+    ? (`packages/${identity.name}` as TargetKey)
+    : (`apps/${identity.kind}-${identity.name}` as TargetKey);
 
 export class TargetCatalog extends Context.Service<TargetCatalog>()(
   "TargetCatalog",
@@ -139,6 +146,8 @@ export class TargetCatalog extends Context.Service<TargetCatalog>()(
         ),
       deriveTargetPath: (identity: TargetIdentity) =>
         Effect.succeed(toTargetPath(identity)),
+      deriveTargetKey: (identity: TargetIdentity) =>
+        Effect.succeed(toTargetKey(identity)),
     }),
   },
 ) {

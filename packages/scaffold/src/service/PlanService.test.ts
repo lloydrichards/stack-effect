@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
-import { Blueprint, toModuleNodeId } from "@repo/domain/Blueprint";
+import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import { TargetKey } from "@repo/domain/Scaffold";
 import type {
   Plan,
   PlanDirectoryEntry,
@@ -14,6 +15,8 @@ import { PlanService } from "./PlanService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
 const testRepoRoot = "/repo";
+
+const unsafeTargetKey = (value: string) => value as typeof TargetKey.Type;
 
 const makeRepoSnapshotServiceLayer = (
   load: (args: {
@@ -30,16 +33,27 @@ const makeDomainBlueprint = () =>
     nodes: [
       {
         _tag: "target",
-        id: "packages/domain",
+        id: unsafeTargetKey("packages/domain"),
         identity: {
           kind: "package",
           name: "domain",
         },
-        modules: [{ moduleId: "domain-api" }],
+      },
+      {
+        _tag: "attached-module",
+        id: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        targetId: unsafeTargetKey("packages/domain"),
+        moduleId: "domain-api",
       },
     ],
-    edges: [],
-    roots: ["packages/domain", toModuleNodeId("packages/domain", "domain-api")],
+    edges: [
+      {
+        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+        from: unsafeTargetKey("packages/domain"),
+        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        reason: "owns-module",
+      },
+    ],
   }).toSorted();
 
 const makeServerApiBlueprint = () =>
@@ -47,40 +61,70 @@ const makeServerApiBlueprint = () =>
     nodes: [
       {
         _tag: "target",
-        id: "apps/server-api",
+        id: unsafeTargetKey("apps/server-api"),
         identity: {
           kind: "server",
           name: "api",
         },
-        modules: [{ moduleId: "http-api-server" }],
+      },
+      {
+        _tag: "attached-module",
+        id: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        targetId: unsafeTargetKey("apps/server-api"),
+        moduleId: "http-api-server",
       },
       {
         _tag: "target",
-        id: "packages/domain",
+        id: unsafeTargetKey("packages/domain"),
         identity: {
           kind: "package",
           name: "domain",
         },
-        modules: [{ moduleId: "domain-api" }],
+      },
+      {
+        _tag: "attached-module",
+        id: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        targetId: unsafeTargetKey("packages/domain"),
+        moduleId: "domain-api",
       },
     ],
     edges: [
       {
-        id: `required-target=>${toModuleNodeId("apps/server-api", "http-api-server")}=>packages/domain`,
-        from: toModuleNodeId("apps/server-api", "http-api-server"),
-        to: "packages/domain",
+        id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}`,
+        from: unsafeTargetKey("apps/server-api"),
+        to: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        reason: "owns-module",
+      },
+      {
+        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+        from: unsafeTargetKey("packages/domain"),
+        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        reason: "owns-module",
+      },
+      {
+        id: `required-target=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>packages/domain`,
+        from: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        to: unsafeTargetKey("packages/domain"),
         reason: "required-target",
       },
       {
-        id: `required-module=>${toModuleNodeId("apps/server-api", "http-api-server")}=>${toModuleNodeId("packages/domain", "domain-api")}`,
-        from: toModuleNodeId("apps/server-api", "http-api-server"),
-        to: toModuleNodeId("packages/domain", "domain-api"),
+        id: `required-module=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+        from: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
         reason: "required-module",
       },
-    ],
-    roots: [
-      "apps/server-api",
-      toModuleNodeId("apps/server-api", "http-api-server"),
     ],
   }).toSorted();
 

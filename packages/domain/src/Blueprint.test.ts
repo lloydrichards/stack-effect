@@ -1,95 +1,140 @@
-import { Blueprint, toModuleNodeId } from "@repo/domain/Blueprint";
-import { String } from "effect";
+import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import { Schema, String } from "effect";
+import { TargetKey } from "./Scaffold";
 import { describe, expect, it } from "vitest";
+
+const unsafeTargetKey = (value: string) => value as typeof TargetKey.Type;
 
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
       {
+        _tag: "attached-module",
+        id: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        targetId: unsafeTargetKey("packages/domain"),
+        moduleId: "domain-api",
+      },
+      {
         _tag: "target",
-        id: "packages/domain",
+        id: unsafeTargetKey("packages/domain"),
         identity: {
           kind: "package",
           name: "domain",
         },
-        modules: [{ moduleId: "domain-api" }],
+      },
+      {
+        _tag: "attached-module",
+        id: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        targetId: unsafeTargetKey("apps/server-api"),
+        moduleId: "http-api-server",
       },
       {
         _tag: "target",
-        id: "apps/server-api",
+        id: unsafeTargetKey("apps/server-api"),
         identity: {
           kind: "server",
           name: "api",
         },
-        modules: [{ moduleId: "http-api-server" }],
       },
     ],
     edges: [
       {
         id: "z-edge",
-        from: toModuleNodeId("apps/server-api", "http-api-server"),
-        to: toModuleNodeId("packages/domain", "domain-api"),
+        from: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
         reason: "required-module",
       },
       {
+        id: "m-edge",
+        from: unsafeTargetKey("packages/domain"),
+        to: toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
+        reason: "owns-module",
+      },
+      {
+        id: "n-edge",
+        from: unsafeTargetKey("apps/server-api"),
+        to: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        reason: "owns-module",
+      },
+      {
         id: "a-edge",
-        from: toModuleNodeId("apps/server-api", "http-api-server"),
-        to: "packages/domain",
+        from: toAttachedModuleNodeId(
+          unsafeTargetKey("apps/server-api"),
+          "http-api-server",
+        ),
+        to: unsafeTargetKey("packages/domain"),
         reason: "required-target",
       },
-    ],
-    roots: [
-      toModuleNodeId("apps/server-api", "http-api-server"),
-      "apps/server-api",
     ],
   });
 
 describe("@repo/domain Blueprint", () => {
-  it("should sort blueprint nodes, edges, and roots deterministically", () => {
+  it("should sort blueprint nodes and edges deterministically", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     expect(blueprint.nodes.map((node) => node.id)).toEqual([
+      toAttachedModuleNodeId(
+        unsafeTargetKey("apps/server-api"),
+        "http-api-server",
+      ),
+      toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api"),
       "apps/server-api",
       "packages/domain",
     ]);
     expect(blueprint.edges.map((edge) => edge.id)).toEqual([
       "a-edge",
+      "m-edge",
+      "n-edge",
       "z-edge",
-    ]);
-    expect(blueprint.roots).toEqual([
-      "apps/server-api",
-      toModuleNodeId("apps/server-api", "http-api-server"),
     ]);
   });
 
-  it("should expose helper methods for querying blueprints", () => {
+  it("should expose helper methods for querying targets", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     expect(blueprint.hasTarget("apps/server-api")).toBe(true);
     expect(blueprint.hasTarget("apps/cli-tooling")).toBe(false);
-    expect(blueprint.getTarget("packages/domain")?.modules).toEqual([
-      { moduleId: "domain-api" },
-    ]);
-    expect(blueprint.getRootTargets().map((target) => target.id)).toEqual([
-      "apps/server-api",
-    ]);
+    expect(blueprint.getTarget("packages/domain")).toEqual({
+      _tag: "target",
+      id: "packages/domain",
+      identity: {
+        kind: "package",
+        name: "domain",
+      },
+    });
   });
 
   it("should expose safe helper behavior for an empty blueprint", () => {
     const blueprint = new Blueprint({
       nodes: [],
       edges: [],
-      roots: [],
     });
 
     expect(blueprint.hasTarget("apps/server-api")).toBe(false);
     expect(blueprint.getTarget("apps/server-api")).toBeUndefined();
-    expect(blueprint.getRootTargets()).toEqual([]);
-    expect(blueprint.prettyPrint()).toBe(
-      String.stripMargin(`|Blueprint
-       |
-       |Legend: [*] root  [+] implied`),
-    );
+    expect(blueprint.prettyPrint()).toBe("Blueprint");
+  });
+
+  it("should enforce canonical target key formatting", async () => {
+    await expect(
+      Schema.decodeUnknownPromise(TargetKey)("apps/server-api"),
+    ).resolves.toBe("apps/server-api");
+    await expect(
+      Schema.decodeUnknownPromise(TargetKey)("packages/domain"),
+    ).resolves.toBe("packages/domain");
+    await expect(
+      Schema.decodeUnknownPromise(TargetKey)("apps/server-api#http-api-server"),
+    ).rejects.toThrow();
+    await expect(Schema.decodeUnknownPromise(TargetKey)("server-api")).rejects.toThrow();
   });
 
   it("should pretty print a normalized dependency blueprint", () => {
@@ -98,15 +143,13 @@ describe("@repo/domain Blueprint", () => {
     expect(blueprint.prettyPrint()).toBe(
       String.stripMargin(`|Blueprint
        |
-       |Legend: [*] root  [+] implied
-       |
        |Targets
-       |[*] apps/server-api (server)
-       | └╌> [*] apps/server-api#http-api-server
-       |      ├─> [+] packages/domain [required-target]
-       |      └─> [+] packages/domain#domain-api [required-module]
-       |[+] packages/domain (package)
-       | └╌> [+] packages/domain#domain-api`),
+       |- apps/server-api (server)
+       | └╌> apps/server-api#http-api-server
+       |      ├─> packages/domain [required-target]
+       |      └─> packages/domain#domain-api [required-module]
+       |- packages/domain (package)
+       | └╌> packages/domain#domain-api`),
     );
   });
 });

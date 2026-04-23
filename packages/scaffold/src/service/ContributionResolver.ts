@@ -1,5 +1,10 @@
-import type { Blueprint } from "@repo/domain/Blueprint";
 import {
+  type Blueprint,
+  isBlueprintAttachedModuleNode,
+  isBlueprintTargetNode,
+} from "@repo/domain/Blueprint";
+import {
+  type ContributionTokenContext,
   type DesiredContributions,
   emptyDesiredContributions,
   type ModuleContribution,
@@ -26,43 +31,55 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
       }: {
         blueprint: Blueprint;
       }) {
+        const targetNodes = blueprint.nodes.filter(isBlueprintTargetNode);
+        const attachedModuleNodes = blueprint.nodes.filter(
+          isBlueprintAttachedModuleNode,
+        );
+        const targetContexts = new Map<string, ContributionTokenContext>();
         const targetContributions: Array<TargetContribution> = [];
         const moduleContributions: Array<ModuleContribution> = [];
 
-        for (const node of blueprint.nodes) {
+        for (const node of targetNodes) {
           const definition = yield* targetCatalog.getTargetDefinition(
             node.identity.kind,
           );
           const targetPath = yield* targetCatalog.deriveTargetPath(
             node.identity,
           );
+          const context: ContributionTokenContext = {
+            targetKey: node.id,
+            targetPath,
+            targetKind: node.identity.kind,
+            targetName: node.identity.name,
+          };
+
+          targetContexts.set(node.id, context);
 
           targetContributions.push({
             targetKey: node.id,
+            contributions: resolveContributionTokens(definition.contributions, context),
+          });
+        }
+
+        for (const node of attachedModuleNodes) {
+          const context = targetContexts.get(node.targetId);
+
+          if (context === undefined) {
+            continue;
+          }
+
+          const moduleDefinition = yield* moduleCatalog.getModuleDefinition(
+            node.moduleId,
+          );
+
+          moduleContributions.push({
+            targetKey: node.targetId,
+            moduleId: node.moduleId,
             contributions: resolveContributionTokens(
-              definition.contributions,
-              targetPath,
-              node.identity.kind,
-              node.identity.name,
+              moduleDefinition.contributions,
+              context,
             ),
           });
-
-          for (const module of node.modules) {
-            const moduleDefinition = yield* moduleCatalog.getModuleDefinition(
-              module.moduleId,
-            );
-
-            moduleContributions.push({
-              targetKey: node.id,
-              moduleId: module.moduleId,
-              contributions: resolveContributionTokens(
-                moduleDefinition.contributions,
-                targetPath,
-                node.identity.kind,
-                node.identity.name,
-              ),
-            });
-          }
         }
 
         return {
@@ -85,16 +102,14 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 
 const resolveContributionTokens = (
   contributions: DesiredContributions,
-  targetPath: string,
-  targetKind: string,
-  targetName: string,
+  context: ContributionTokenContext,
 ): DesiredContributions => {
   const resolveString = (value: string) =>
     value
-      .replaceAll("{{targetPath}}", targetPath)
-      .replaceAll("{{targetDir}}", targetPath)
-      .replaceAll("{{targetKind}}", targetKind)
-      .replaceAll("{{targetName}}", targetName);
+      .replaceAll("{{targetPath}}", context.targetPath)
+      .replaceAll("{{targetDir}}", context.targetPath)
+      .replaceAll("{{targetKind}}", context.targetKind)
+      .replaceAll("{{targetName}}", context.targetName);
 
   return {
     ...emptyDesiredContributions(),

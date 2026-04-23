@@ -17,12 +17,20 @@ The repo-relative workspace directory for a **Target**.
 _Avoid_: Identity, key
 
 **Target Key**:
-A canonical string identifier for a **Target** used in graph edges and lookups.
-_Avoid_: Path, display name
+A canonical string identifier for a **Target** used in graph edges and lookups; in this context it is the same value as the **Target Path**.
+_Avoid_: Display name
+
+**Blueprint Node ID**:
+A canonical string identifier for a node in a **Blueprint**, representing either a **Target** or an **Attached Module**.
+_Avoid_: Target key, target identity
 
 **Module**:
-A contribution unit that adds capability to a compatible **Target**.
-_Avoid_: Feature, plugin, target module
+A reusable capability type that may be attached to a compatible **Target**.
+_Avoid_: Feature, plugin, target module instance
+
+**Attached Module**:
+The occurrence of a **Module** on a specific **Owning Target**.
+_Avoid_: Module instance, target module, shared module node
 
 **Supported On**:
 A declarative compatibility rule describing which **Targets** a **Module** may be attached to.
@@ -41,8 +49,8 @@ A separate repository bootstrap process that prepares only the stable repo-wide 
 _Avoid_: Root target, repo module
 
 **Blueprint**:
-A resolved dependency graph for the selected **Targets** and **Modules**.
-_Avoid_: Selection result, resolved plan
+A resolved dependency-closure graph of **Targets** and **Attached Modules**, without preserving direct-selection provenance.
+_Avoid_: Selection result, resolved plan, selection provenance, custom graph API
 
 **Plan**:
 A projection of a **Blueprint** onto the current repository state to describe required file changes.
@@ -65,17 +73,32 @@ The capability-specific overlay produced by a **Module** on a **Target**.
 _Avoid_: Patch, extension file
 
 **Owning Target**:
-The **Target** a selected **Module** is attached to and allowed to contribute to directly.
+The **Target** an **Attached Module** is attached to and allowed to contribute to directly.
 _Avoid_: Host target, source target
 
 ## Relationships
 
-- A **Blueprint** resolves dependencies between selected **Targets** and **Modules**
+- A **Blueprint** resolves the dependency closure introduced by selected **Targets** and **Modules**
 - A **Blueprint** contains resolved graph structure, not normalized file contributions
+- A **Blueprint** represents the resolved dependency closure only and does not preserve which nodes were directly selected
+- Within a **Blueprint**, selected and implied **Targets** with the same identity collapse to the same node
+- A **Module** may be attached to multiple **Targets** through distinct **Attached Modules**
+- An **Attached Module** belongs to exactly one **Owning Target**
+- A **Blueprint** represents ownership between a **Target** and its **Attached Modules** as real graph edges
+- A **Blueprint** distinguishes ownership edges from dependency edges
+- A **Blueprint** may contain both **Required Target** and **Required Module** edges between related nodes when both requirements are declared
+- A **Blueprint** exposes both **Target** nodes and **Attached Module** nodes at its public boundary
+- A **Blueprint Node ID** is not the same concept as a **Target Key**
+- A **Target** node uses its **Target Key** as its **Blueprint Node ID**
+- An **Attached Module** node uses a canonical `TargetKey#ModuleId` **Blueprint Node ID**
+- In this context, **Target Key** and **Target Path** collapse to the same canonical string
+- A **Blueprint** is simple graph data with minimal helpers, not a custom query API
+- **BlueprintService** delegates selection resolution to a dedicated resolver module that returns **Blueprint**
+- The dedicated resolver owns both selection validation and dependency-closure resolution
 - A **Module** may depend on a **Required Target**, a **Required Module**, or both
 - A **Module** is globally identified by its module ID and constrained by **Supported On** rules
 - **Supported On** rules match either a target kind or an exact target identity
-- **Required Target** and **Required Module** reference **Target Identity**; **Target Key** and **Target Path** are derived later
+- **Required Target** and **Required Module** reference **Target Identity**; the canonical target path/key is derived later
 - A **Plan** is derived from a **Blueprint** and the current repository snapshot
 - **Init** prepares repo-wide infrastructure before **Blueprint** and **Plan** operate on it
 - A **Plan** may create **Targets** from scratch inside an initialized repository
@@ -86,7 +109,7 @@ _Avoid_: Host target, source target
 - A **Target Contribution** and **Module Contribution** declare **Desired Contributions** only
 - **Plan** owns merge and conflict policy for applying **Desired Contributions** to the repository snapshot
 - A **Desired Contribution** may use **Contribution Tokens** that are resolved against the owning **Target** context
-- A **Target Identity**, **Target Path**, and **Target Key** are distinct representations of the same **Target**
+- A **Target Identity** is distinct from the canonical target path/key string of the same **Target**
 - A **Target Path** is derived centrally from **Target Identity** using repo conventions
 - Package public entrypoints are expressed as **Desired Contributions**, not as a separate composition concept
 
@@ -108,7 +131,7 @@ _Avoid_: Host target, source target
 > **Domain expert:** "The contribution uses `{{targetDir}}`. The planner resolves that token from the selected target before comparing the desired files to the repo snapshot."
 
 > **Dev:** "Is `packages/domain` the identity of the target or just where it lives?"
-> **Domain expert:** "It is the target path. The identity is `{ kind: 'package', name: 'domain' }`, and the graph can also use a separate target key for lookups and edges."
+> **Domain expert:** "It is the canonical target path/key. The identity is `{ kind: 'package', name: 'domain' }`."
 
 > **Dev:** "What path does `{ kind: 'server', name: 'api' }` resolve to?"
 > **Domain expert:** "`apps/server-api`. Non-package targets resolve to `apps/{kind}-{name}`, while packages resolve to `packages/{name}`."
@@ -120,7 +143,7 @@ _Avoid_: Host target, source target
 > **Domain expert:** "Not for now. It matches either a target kind or an exact target identity."
 
 > **Dev:** "When a module depends on the domain package, does it point at `packages/domain`?"
-> **Domain expert:** "No. It points at the target identity `{ kind: 'package', name: 'domain' }`. The key and path are derived later."
+> **Domain expert:** "No. It points at the target identity `{ kind: 'package', name: 'domain' }`. The canonical target path/key is derived later."
 
 > **Dev:** "Why is `./Api` a separate composition concept instead of just part of the module output?"
 > **Domain expert:** "It should not be separate. Public entrypoints are part of the desired repository state and belong in target or module contributions."
@@ -135,12 +158,19 @@ _Avoid_: Host target, source target
 
 - "target" was being stretched to include repo-wide bootstrap concerns like `root-bootstrap` — resolved: **Target** is reserved for concrete workspaces on disk.
 - "module" previously referred only to target modules — resolved: **Module** is the capability unit attached to a **Target** in this context.
+- it was unclear whether **Module** meant the reusable capability or its per-target occurrence — resolved: use **Module** for the capability type and **Attached Module** for its occurrence on an **Owning Target**.
 - "base folder structure" was ambiguous between repo-wide substrate and target workspaces — resolved: **Init** owns only repo-wide substrate; **Plan** may create target workspaces.
 - "dependency" was too broad to distinguish workspace existence from capability requirements — resolved: use **Required Target** and **Required Module** separately.
 - "base module" would blur workspace scaffold with capability overlays — resolved: use **Target Contribution** for scaffold and **Module Contribution** for overlays.
 - "contribution" could have implied both desired state and merge behavior — resolved: contributions express desired state only; planner policy stays in **Plan**.
 - "template" could imply arbitrary generation logic — resolved: use a small explicit set of **Contribution Tokens** resolved from target context.
-- the code was using identity, path, and ID interchangeably for targets — resolved: distinguish **Target Identity**, **Target Path**, and **Target Key**.
+- the code was using identity, path, and ID interchangeably for targets — resolved: distinguish **Target Identity** from the canonical target path/key string used in scaffold planning.
+- it was unclear whether **Target Key** and **Target Path** should remain distinct in this context — resolved: collapse them to the same canonical string for scaffold planning.
+- it was unclear whether graph node identifiers were the same thing as **Target Key** — resolved: use **Blueprint Node ID** for graph nodes and reserve **Target Key** for **Target** identifiers only.
+- it was unclear whether **Blueprint Node ID** should be ad hoc string concatenation or a canonical schema format — resolved: use canonical string formats, with **Attached Module** node IDs derived as `TargetKey#ModuleId`.
+- it was unclear whether the public **Blueprint** boundary should be rich behavior or simple graph data — resolved: keep **Blueprint** as simple graph data with minimal helpers.
+- it was unclear whether selection resolution should remain embedded in **BlueprintService** — resolved: extract a dedicated resolver module that returns **Blueprint**.
+- it was unclear whether selection validation should be split from selection resolution — resolved: keep validation inside the dedicated resolver.
 - it was unclear whether target paths were input data or derived convention — resolved: derive **Target Path** centrally from **Target Identity** using repo conventions.
 - module compatibility was encoded as arbitrary code — resolved: use declarative **Supported On** rules in module definitions.
 - module compatibility could have grown into a rule language — resolved: **Supported On** only matches target kind or exact target identity for now.
@@ -148,3 +178,9 @@ _Avoid_: Host target, source target
 - "composition" was an overly abstract label for published outputs — resolved: public entrypoints are modeled directly as **Desired Contributions**.
 - it was unclear whether Blueprint should contain generated output data — resolved: **Blueprint** stays graph-only; **Plan** resolves contributions afterward.
 - cross-target file generation could have been hidden inside a module — resolved: a **Module Contribution** only affects its **Owning Target**; cross-target effects use explicit dependencies.
+- it was unclear whether **Blueprint** should preserve direct selection provenance — resolved: **Blueprint** represents only the resolved dependency closure; direct selection provenance is not part of the domain boundary.
+- it was unclear whether selected and implied **Targets** should remain distinct in **Blueprint** — resolved: they collapse to the same node when they have the same identity.
+- it was unclear whether **Target** to **Attached Module** ownership should be nested structure or graph structure — resolved: model ownership as real graph edges in **Blueprint**.
+- it was unclear whether ownership and dependency should be collapsed into one edge kind — resolved: keep ownership and dependency as distinct edge kinds in **Blueprint**.
+- it was unclear whether **Required Target** becomes redundant when a matching **Required Module** exists — resolved: preserve both edges when both requirements are declared.
+- it was unclear whether **Attached Module** nodes should exist only internally or also in the public **Blueprint** boundary — resolved: expose both **Target** and **Attached Module** nodes publicly.

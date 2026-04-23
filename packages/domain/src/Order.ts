@@ -20,8 +20,11 @@ export const targetIdentityOrd = Order.mapInput(
 );
 
 export const blueprintNodeOrd = Order.mapInput(
-  Order.String,
-  (node: BlueprintNode) => node.id,
+  Order.combineAll([
+    Order.mapInput(Order.String, (node: BlueprintNode) => node._tag),
+    Order.mapInput(Order.String, (node: BlueprintNode) => node.id),
+  ]),
+  (node: BlueprintNode) => node,
 );
 
 export const blueprintEdgeOrd = Order.mapInput(

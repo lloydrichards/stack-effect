@@ -4,10 +4,13 @@ import {
   type Blueprint,
   BlueprintFailure,
   CatalogNotFound,
-  toModuleNodeId,
+  toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
+import type { TargetKey } from "@repo/domain/Scaffold";
 import { Effect } from "effect";
 import { BlueprintService } from "./BlueprintService";
+
+const unsafeTargetKey = (value: string) => value as typeof TargetKey.Type;
 
 const getNode = (blueprint: Blueprint, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
@@ -155,27 +158,60 @@ describe("BlueprintService", () => {
               ],
             });
 
-            const server = getNode(blueprint, "apps/server-api");
-            const domain = getNode(blueprint, "packages/domain");
-
-            expect(server.modules).toEqual([{ moduleId: "http-api-server" }]);
-            expect(domain.modules).toEqual([{ moduleId: "domain-api" }]);
+            expect(getNode(blueprint, "apps/server-api")).toMatchObject({
+              _tag: "target",
+              id: "apps/server-api",
+            });
+            expect(getNode(blueprint, "packages/domain")).toMatchObject({
+              _tag: "target",
+              id: "packages/domain",
+            });
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  unsafeTargetKey("apps/server-api"),
+                  "http-api-server",
+                ),
+              ),
+            ).toMatchObject({
+              _tag: "attached-module",
+              targetId: "apps/server-api",
+              moduleId: "http-api-server",
+            });
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  unsafeTargetKey("packages/domain"),
+                  "domain-api",
+                ),
+              ),
+            ).toMatchObject({
+              _tag: "attached-module",
+              targetId: "packages/domain",
+              moduleId: "domain-api",
+            });
             expect(blueprint.edges).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({
-                  id: `required-target=>${toModuleNodeId("apps/server-api", "http-api-server")}=>packages/domain`,
+                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}`,
+                  reason: "owns-module",
+                }),
+                expect.objectContaining({
+                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
+                  reason: "owns-module",
+                }),
+                expect.objectContaining({
+                  id: `required-target=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>packages/domain`,
                   reason: "required-target",
                 }),
                 expect.objectContaining({
-                  id: `required-module=>${toModuleNodeId("apps/server-api", "http-api-server")}=>${toModuleNodeId("packages/domain", "domain-api")}`,
+                  id: `required-module=>${toAttachedModuleNodeId(unsafeTargetKey("apps/server-api"), "http-api-server")}=>${toAttachedModuleNodeId(unsafeTargetKey("packages/domain"), "domain-api")}`,
                   reason: "required-module",
                 }),
               ]),
             );
-            expect(blueprint.roots).toEqual([
-              "apps/server-api",
-              toModuleNodeId("apps/server-api", "http-api-server"),
-            ]);
           }),
       );
 
@@ -205,10 +241,11 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(blueprint.nodes.map((node) => node.id)).toEqual([
-              "apps/client-api",
-              "apps/server-api",
-            ]);
+            expect(
+              blueprint.nodes
+                .filter((node) => node._tag === "target")
+                .map((node) => node.id),
+            ).toEqual(["apps/client-api", "apps/server-api"]);
           }),
       );
     });

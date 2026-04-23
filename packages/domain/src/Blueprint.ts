@@ -13,24 +13,44 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   id: string;
 }> {}
 
-export const AttachedModule = Schema.Struct({
-  moduleId: ModuleId,
-});
-export type AttachedModule = Schema.Schema.Type<typeof AttachedModule>;
+export const BlueprintNodeId = Schema.NonEmptyString;
+export type BlueprintNodeId = Schema.Schema.Type<typeof BlueprintNodeId>;
+
+export const AttachedModuleNodeId = Schema.TemplateLiteral([
+  TargetKey,
+  "#",
+  ModuleId,
+]);
+export type AttachedModuleNodeId = Schema.Schema.Type<
+  typeof AttachedModuleNodeId
+>;
 
 export const BlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
-  modules: Schema.Array(AttachedModule),
 });
-export type BlueprintTargetNode = Schema.Schema.Type<
-  typeof BlueprintTargetNode
+export type BlueprintTargetNode = Schema.Schema.Type<typeof BlueprintTargetNode>;
+
+export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
+  "attached-module",
+  {
+    id: AttachedModuleNodeId,
+    targetId: TargetKey,
+    moduleId: ModuleId,
+  },
+);
+export type BlueprintAttachedModuleNode = Schema.Schema.Type<
+  typeof BlueprintAttachedModuleNode
 >;
 
-export const BlueprintNode = Schema.Union([BlueprintTargetNode]);
+export const BlueprintNode = Schema.Union([
+  BlueprintTargetNode,
+  BlueprintAttachedModuleNode,
+]);
 export type BlueprintNode = Schema.Schema.Type<typeof BlueprintNode>;
 
 export const BlueprintEdgeReason = Schema.Literals([
+  "owns-module",
   "required-target",
   "required-module",
 ]);
@@ -40,8 +60,8 @@ export type BlueprintEdgeReason = Schema.Schema.Type<
 
 export const BlueprintEdge = Schema.Struct({
   id: Schema.NonEmptyString,
-  from: Schema.NonEmptyString,
-  to: Schema.NonEmptyString,
+  from: BlueprintNodeId,
+  to: BlueprintNodeId,
   reason: BlueprintEdgeReason,
 });
 export type BlueprintEdge = Schema.Schema.Type<typeof BlueprintEdge>;
@@ -49,65 +69,56 @@ export type BlueprintEdge = Schema.Schema.Type<typeof BlueprintEdge>;
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   nodes: Schema.Array(BlueprintNode),
   edges: Schema.Array(BlueprintEdge),
-  roots: Schema.Array(Schema.NonEmptyString),
 }) {
   toSorted(): Blueprint {
     return new Blueprint({
-      nodes: [...this.nodes]
-        .map((node) => ({
-          ...node,
-          modules: [...node.modules].sort(attachedModuleOrd),
-        }))
-        .sort(blueprintNodeOrd),
+      nodes: [...this.nodes].sort(blueprintNodeOrd),
       edges: [...this.edges].sort(blueprintEdgeOrd),
-      roots: [...this.roots].sort(Order.String),
     });
   }
 
   prettyPrint(): string {
-    const lines: Array<string> = [
-      "Blueprint",
-      "",
-      "Legend: [*] root  [+] implied",
-    ];
-    const rootSet = new Set(this.roots);
-    const nodesById = new Map(
-      this.nodes.map((node) => [node.id, node] as const),
-    );
+    const lines: Array<string> = ["Blueprint"];
 
     if (this.nodes.length === 0) {
       return lines.join("\n");
     }
 
+    const targetNodes = this.nodes.filter(isBlueprintTargetNode);
+    const attachedModuleNodes = this.nodes.filter(isBlueprintAttachedModuleNode);
+    const attachedModulesByTarget = new Map<string, Array<BlueprintAttachedModuleNode>>();
+    const outgoingEdgesByNode = new Map<string, Array<BlueprintEdge>>();
+
+    for (const node of attachedModuleNodes) {
+      const modules = attachedModulesByTarget.get(node.targetId) ?? [];
+      modules.push(node);
+      attachedModulesByTarget.set(node.targetId, modules);
+    }
+
+    for (const edge of this.edges) {
+      const edges = outgoingEdgesByNode.get(edge.from) ?? [];
+      edges.push(edge);
+      outgoingEdgesByNode.set(edge.from, edges);
+    }
+
     lines.push("", "Targets");
 
-    for (const node of this.nodes) {
-      lines.push(
-        `${rootSet.has(node.id) ? "[*]" : "[+]"} ${node.id} (${node.identity.kind})`,
-      );
+    for (const targetNode of targetNodes) {
+      lines.push(`- ${targetNode.id} (${targetNode.identity.kind})`);
 
-      const branches: Array<TreeBranch> = [];
-
-      for (const module of node.modules) {
-        const moduleId = toModuleNodeId(node.id, module.moduleId);
-        const outgoingEdges = this.edges.filter(
-          (edge) => edge.from === moduleId,
-        );
-
-        branches.push({
-          line: `${rootSet.has(moduleId) ? "[*]" : "[+]"} ${moduleId}`,
+      const branches = [...(attachedModulesByTarget.get(targetNode.id) ?? [])]
+        .sort(blueprintNodeOrd)
+        .map((attachedModule) => ({
+          line: attachedModule.id,
           prefix: "╌>",
-          children: outgoingEdges.map((edge) => {
-            const referencedNode = nodesById.get(edge.to);
-            const label = referencedNode === undefined ? edge.to : `${edge.to}`;
-
-            return {
-              line: `${rootSet.has(edge.to) ? "[*]" : "[+]"} ${label} [${edge.reason}]`,
+          children: [...(outgoingEdgesByNode.get(attachedModule.id) ?? [])]
+            .filter((edge) => edge.reason !== "owns-module")
+            .sort(blueprintEdgeOrd)
+            .map((edge) => ({
+              line: `${edge.to} [${edge.reason}]`,
               prefix: "─>",
-            } satisfies TreeBranch;
-          }),
-        });
-      }
+            })),
+        } satisfies TreeBranch));
 
       appendTreeBranches(lines, branches);
     }
@@ -116,26 +127,32 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   }
 
   hasTarget(targetId: string): boolean {
-    return this.nodes.some((node) => node.id === targetId);
+    return this.nodes.some(
+      (node): node is BlueprintTargetNode =>
+        isBlueprintTargetNode(node) && node.id === targetId,
+    );
   }
 
   getTarget(targetId: string): BlueprintTargetNode | undefined {
-    return this.nodes.find((node) => node.id === targetId);
-  }
-
-  getRootTargets(): Array<BlueprintTargetNode> {
-    const rootSet = new Set(this.roots);
-    return this.nodes.filter((node) => rootSet.has(node.id));
+    return this.nodes.find(
+      (node): node is BlueprintTargetNode =>
+        isBlueprintTargetNode(node) && node.id === targetId,
+    );
   }
 }
 
-const attachedModuleOrd = Order.mapInput(
-  Order.String,
-  (module: AttachedModule) => module.moduleId,
-);
+export const isBlueprintTargetNode = (
+  node: BlueprintNode,
+): node is BlueprintTargetNode => node._tag === "target";
 
-export const toModuleNodeId = (targetId: string, moduleId: ModuleId) =>
-  `${targetId}#${moduleId}`;
+export const isBlueprintAttachedModuleNode = (
+  node: BlueprintNode,
+): node is BlueprintAttachedModuleNode => node._tag === "attached-module";
+
+export const toAttachedModuleNodeId = (
+  targetId: TargetKey,
+  moduleId: ModuleId,
+): AttachedModuleNodeId => `${targetId}#${moduleId}`;
 
 type TreeBranch = {
   readonly line: string;
