@@ -26,11 +26,9 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
       const targetCatalog = yield* TargetCatalog;
       const moduleCatalog = yield* ModuleCatalog;
 
-      const resolve = Effect.fn("ContributionResolver.resolve")(function* ({
-        blueprint,
-      }: {
-        blueprint: Blueprint;
-      }) {
+      const resolve = Effect.fn("ContributionResolver.resolve")(function* (
+        blueprint: Blueprint,
+      ) {
         const targetNodes = blueprint.nodes.filter(isBlueprintTargetNode);
         const attachedModuleNodes = blueprint.nodes.filter(
           isBlueprintAttachedModuleNode,

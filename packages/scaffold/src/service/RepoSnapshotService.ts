@@ -3,7 +3,15 @@ import {
   type RepoSnapshot,
   type RepoSnapshotPath,
 } from "@repo/domain/Plan";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Order,
+  Path,
+} from "effect";
 
 export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
   "RepoSnapshotService",
@@ -13,58 +21,72 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
       const path = yield* Path.Path;
 
       const load = Effect.fn("RepoSnapshotService.load")(function* ({
-        paths: requestedPaths,
+        paths,
         repoRoot,
       }: {
         paths: ReadonlyArray<string>;
         repoRoot: string;
       }) {
-        const snapshotPaths = [...new Set(requestedPaths)].sort((left, right) =>
-          left.localeCompare(right),
+        const snapshotPaths = Arr.fromIterable(new Set(paths)).sort(
+          Order.String,
         );
 
-        const paths: Array<RepoSnapshotPath> = [];
-
-        for (const snapshotPath of snapshotPaths) {
-          const absolutePath = path.join(repoRoot, snapshotPath);
-          const pathStat = yield* fileSystem.stat(absolutePath).pipe(
-            Effect.catchTag("PlatformError", (error) =>
-              error.reason._tag === "NotFound"
-                ? Effect.succeed(null)
-                : Effect.fail(error),
-            ),
-            Effect.mapError(
-              toPlanFailure(
-                `Could not inspect ${snapshotPath} during planning.`,
-              ),
-            ),
-          );
-
-          if (pathStat === null) {
-            paths.push({ _tag: "missing", path: snapshotPath });
-            continue;
-          }
-
-          if (pathStat.type === "Directory") {
-            paths.push({ _tag: "directory", path: snapshotPath });
-            continue;
-          }
-
-          const contents = yield* fileSystem
-            .readFileString(absolutePath)
-            .pipe(
-              Effect.mapError(
-                toPlanFailure(
-                  `Could not read ${snapshotPath} during planning.`,
+        const snapshotEntries = yield* Effect.all(
+          snapshotPaths.map((snapshotPath) =>
+            Effect.gen(function* () {
+              const absolutePath = path.join(repoRoot, snapshotPath);
+              const pathStat = yield* fileSystem.stat(absolutePath).pipe(
+                Effect.catchTag("PlatformError", (error) =>
+                  error.reason._tag === "NotFound"
+                    ? Effect.succeed(null)
+                    : Effect.fail(error),
                 ),
-              ),
-            );
+                Effect.mapError(
+                  (err) =>
+                    new PlanFailure({
+                      reason: "repoRootNotEmpty",
+                      message: `Could not inspect ${snapshotPath} during planning: ${err.message}`,
+                    }),
+                ),
+              );
 
-          paths.push({ _tag: "file", path: snapshotPath, contents });
-        }
+              if (pathStat === null) {
+                return {
+                  _tag: "missing",
+                  path: snapshotPath,
+                } satisfies RepoSnapshotPath;
+              }
+
+              if (pathStat.type === "Directory") {
+                return {
+                  _tag: "directory",
+                  path: snapshotPath,
+                } satisfies RepoSnapshotPath;
+              }
+
+              const contents = yield* fileSystem
+                .readFileString(absolutePath)
+                .pipe(
+                  Effect.mapError(
+                    (err) =>
+                      new PlanFailure({
+                        reason: "repoRootNotEmpty",
+                        message: `Could not read ${snapshotPath} during planning: ${err.message}`,
+                      }),
+                  ),
+                );
+
+              return {
+                _tag: "file",
+                path: snapshotPath,
+                contents,
+              } satisfies RepoSnapshotPath;
+            }),
+          ),
+        );
 
         return {
-          paths,
+          paths: snapshotEntries,
         } satisfies RepoSnapshot;
       });
 
@@ -76,22 +98,3 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
     RepoSnapshotService.make,
   );
 }
-
-const toPlanFailure = (fallbackMessage: string) => (error: unknown) =>
-  new PlanFailure({
-    reason: "repoRootNotEmpty",
-    message: getErrorMessage(error, fallbackMessage),
-  });
-
-const getErrorMessage = (error: unknown, fallbackMessage: string): string => {
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "message" in error &&
-    typeof error.message === "string"
-  ) {
-    return error.message;
-  }
-
-  return fallbackMessage;
-};

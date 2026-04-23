@@ -124,11 +124,11 @@ describe("RepoSnapshotService", () => {
           }),
         );
 
-        expect(error).toMatchObject({
-          _tag: "PlanFailure",
-          reason: "repoRootNotEmpty",
-          message: "stat exploded",
-        });
+        expect(error._tag).toBe("PlanFailure");
+        expect(error.reason).toBe("repoRootNotEmpty");
+        expect(error.message).toBe(
+          "Could not inspect apps/server.ts during planning: stat exploded",
+        );
       }),
     );
 
@@ -146,11 +146,11 @@ describe("RepoSnapshotService", () => {
           }),
         );
 
-        expect(error).toMatchObject({
-          _tag: "PlanFailure",
-          reason: "repoRootNotEmpty",
-          message: "read exploded",
-        });
+        expect(error._tag).toBe("PlanFailure");
+        expect(error.reason).toBe("repoRootNotEmpty");
+        expect(error.message).toBe(
+          "Could not read apps/server.ts during planning: read exploded",
+        );
       }),
     );
   });
