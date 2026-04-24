@@ -12,6 +12,7 @@
     "lint": "biome lint .",
     "format": "biome check --write .",
     "format:check": "biome check .",
+    "prepare": "effect-language-service patch",
     "test": "turbo run test",
     "test:e2e": "playwright test",
     "type-check": "turbo run type-check"
