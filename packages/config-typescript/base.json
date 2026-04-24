@@ -1,5 +1,5 @@
 {
-  "$schema": "https://json.schemastore.org/tsconfig",
+  "$schema": "../../node_modules/@effect/language-service/schema.json",
   "display": "Default",
   "compilerOptions": {
     "moduleResolution": "bundler",
@@ -32,7 +32,16 @@
     "skipLibCheck": true,
     "plugins": [
       {
-        "name": "@effect/language-service"
+        "name": "@effect/language-service",
+        "barrelImportPackages": ["effect"],
+        "includeSuggestionsInTsc": true,
+        "quickinfoMaximumLength": 1200,
+        "diagnosticSeverity": {
+          "cryptoRandomUUIDInEffect": "suggestion",
+          "globalDateInEffect": "suggestion",
+          "layerMergeAllWithDependencies": "warning",
+          "missingEffectServiceDependency": "warning"
+        }
       }
     ]
   },
