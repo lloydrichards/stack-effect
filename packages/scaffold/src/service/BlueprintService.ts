@@ -74,11 +74,9 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       const targetKey = target.identity.toKey();
 
       if (selectedTargetKeys.has(targetKey)) {
-        yield* Effect.fail(
-          new BlueprintFailure({
-            message: `Duplicate target selection: ${targetKey}`,
-          }),
-        );
+        throw new BlueprintFailure({
+          message: `Duplicate target selection: ${targetKey}`,
+        });
       }
 
       selectedTargetKeys.add(targetKey);
@@ -88,11 +86,9 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 
       for (const moduleSelection of target.modules) {
         if (selectedModuleIds.has(moduleSelection.id)) {
-          yield* Effect.fail(
-            new BlueprintFailure({
-              message: `Duplicate module selection: ${targetKey} requires module ${moduleSelection.id}`,
-            }),
-          );
+          throw new BlueprintFailure({
+            message: `Duplicate module selection: ${targetKey} requires module ${moduleSelection.id}`,
+          });
         }
 
         selectedModuleIds.add(moduleSelection.id);
@@ -103,11 +99,9 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         });
 
         if (!isSupported) {
-          yield* Effect.fail(
-            new BlueprintFailure({
-              message: `Unsupported target-module combination: ${targetKey} requires module ${moduleSelection.id}`,
-            }),
-          );
+          throw new BlueprintFailure({
+            message: `Unsupported target-module combination: ${targetKey} requires module ${moduleSelection.id}`,
+          });
         }
       }
 
@@ -115,24 +109,20 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         target.options.httpApiStyle !== undefined &&
         !selectedModuleIds.has("http-api-server")
       ) {
-        yield* Effect.fail(
-          new BlueprintFailure({
-            message:
-              "Module gated target option: httpApiStyle requires module http-api-server",
-          }),
-        );
+        throw new BlueprintFailure({
+          message:
+            "Module gated target option: httpApiStyle requires module http-api-server",
+        });
       }
 
       if (
         target.options.domainApiSurface !== undefined &&
         !selectedModuleIds.has("domain-api")
       ) {
-        yield* Effect.fail(
-          new BlueprintFailure({
-            message:
-              "Module gated target option: domainApiSurface requires module domain-api",
-          }),
-        );
+        throw new BlueprintFailure({
+          message:
+            "Module gated target option: domainApiSurface requires module domain-api",
+        });
       }
     }
   },
@@ -185,11 +175,9 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
       const targetKey = target.toKey();
 
-      yield* Effect.fail(
-        new BlueprintFailure({
-          message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
-        }),
-      );
+      throw new BlueprintFailure({
+        message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
+      });
     });
 
     const ensureAttachedModule: (

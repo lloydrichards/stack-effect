@@ -30,22 +30,26 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   toPath(): TargetPath {
     switch (this.kind) {
       case "package":
-        return `packages/${slugifyTargetName(this.name)}` as TargetPath;
+        return TargetPath.make(`packages/${slugifyTargetName(this.name)}`);
       case "server":
       case "client":
       case "cli":
-        return `apps/${this.kind}-${slugifyTargetName(this.name)}` as TargetPath;
+        return TargetPath.make(
+          `apps/${this.kind}-${slugifyTargetName(this.name)}`,
+        );
     }
   }
 
   toKey(): TargetKey {
     switch (this.kind) {
       case "package":
-        return `packages/${slugifyTargetName(this.name)}` as TargetKey;
+        return TargetKey.make(`packages/${slugifyTargetName(this.name)}`);
       case "server":
       case "client":
       case "cli":
-        return `apps/${this.kind}-${slugifyTargetName(this.name)}` as TargetKey;
+        return TargetKey.make(
+          `apps/${this.kind}-${slugifyTargetName(this.name)}`,
+        );
     }
   }
 
