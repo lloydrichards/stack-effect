@@ -111,6 +111,7 @@ commits in these repos to ensure the LLM references current code:
 - `.reference/t3-stack/`
 - `.reference/better-t-stack/`
 - `.reference/shadcn/`
+- `.reference/effect-boxes/`
 
 If any of the folders are missing (they are git ignored), clone them into
 `reference/`:
@@ -119,6 +120,7 @@ If any of the folders are missing (they are git ignored), clone them into
 - `https://github.com/t3-oss/create-t3-app.git` -> `.reference/t3-stack/`
 - `https://github.com/AmanVarshney01/create-better-t-stack.git` -> `.reference/better-t-stack/`
 - `https://github.com/shadcn-ui/ui.git` -> `.reference/shadcn/`
+- `https://github.com/lloydrichards/proj_effect-boxes.git` -> `.reference/effect-boxes/`
 
 ---
 
