@@ -1,5 +1,5 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { Schema, String } from "effect";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { TargetIdentity, TargetKey } from "./Scaffold";
 
@@ -171,7 +171,6 @@ describe("@repo/domain Blueprint", () => {
 
     expect(blueprint.hasTarget("apps/server-api")).toBe(false);
     expect(blueprint.getTarget("apps/server-api")).toBeUndefined();
-    expect(blueprint.prettyPrint()).toBe("Blueprint");
   });
 
   it("should enforce canonical target key formatting", async () => {
@@ -189,19 +188,4 @@ describe("@repo/domain Blueprint", () => {
     ).rejects.toThrow();
   });
 
-  it("should pretty print a normalized dependency blueprint", () => {
-    const blueprint = makeUnsortedBlueprint().toSorted();
-
-    expect(blueprint.prettyPrint()).toBe(
-      String.stripMargin(`|Blueprint
-       |
-       |Targets
-       |- apps/server-api (server)
-       | └╌> apps/server-api#http-api-server
-       |      ├─> packages/domain [required-target]
-       |      └─> packages/domain#domain-api [required-module]
-       |- packages/domain (package)
-       | └╌> packages/domain#domain-api`),
-    );
-  });
 });

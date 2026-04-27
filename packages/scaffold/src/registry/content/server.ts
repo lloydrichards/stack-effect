@@ -86,7 +86,7 @@ const DevToolsLive = Effect.gen(function* () {
   if (!config.enableDevTools) {
     return Layer.empty;
   }
-  yield* Effect.log("Enabling DevTools Layer");
+  yield* Effect.logDebug("Enabling DevTools Layer");
   return DevTools.layer();
 }).pipe(Layer.unwrap);
 
@@ -94,11 +94,11 @@ const HttpLive = Effect.gen(function* () {
   const config = yield* ServerConfig;
   const allowedOrigins = config.allowedOrigins.split(",").map((o) => o.trim());
 
-  yield* Effect.log("CORS allowed origins: " + allowedOrigins.join(", "));
-  yield* Effect.log("Starting server with:");
-  yield* Effect.log("  - HTTP API at /");
-  yield* Effect.log("  - HTTP RPC at /rpc (EventRpc)");
-  yield* Effect.log("  - WebSocket RPC at /ws (PresenceRpc)");
+  yield* Effect.logInfo("CORS allowed origins: " + allowedOrigins.join(", "));
+  yield* Effect.logInfo("Starting server with:");
+  yield* Effect.logInfo("  - HTTP API at /");
+  yield* Effect.logInfo("  - HTTP RPC at /rpc (EventRpc)");
+  yield* Effect.logInfo("  - WebSocket RPC at /ws (PresenceRpc)");
 
   const AllRouters = Layer.mergeAll(
     ApiRouter,

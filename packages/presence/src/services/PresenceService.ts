@@ -28,7 +28,7 @@ export const PresenceService = Context.Service<{
 export const PresenceServiceLive = Layer.effect(
   PresenceService,
   Effect.gen(function* () {
-    yield* Effect.log("Initializing PresenceService");
+    yield* Effect.logInfo("Initializing PresenceService");
 
     const clientsRef = yield* Ref.make(
       new Map<typeof ClientId.Type, ClientInfo>(),
@@ -52,7 +52,7 @@ export const PresenceServiceLive = Layer.effect(
         client: info,
       });
 
-      yield* Effect.log(`Client added: ${clientId}`);
+      yield* Effect.logDebug(`Client added: ${clientId}`);
     });
 
     const removeClient = Effect.fn("PresenceService.removeClient")(function* (
@@ -74,7 +74,7 @@ export const PresenceServiceLive = Layer.effect(
           disconnectedAt: Date.now(),
         });
 
-        yield* Effect.log(`Client removed: ${clientId}`);
+        yield* Effect.logDebug(`Client removed: ${clientId}`);
       }
     });
 
@@ -105,7 +105,9 @@ export const PresenceServiceLive = Layer.effect(
           changedAt: Date.now(),
         });
 
-        yield* Effect.log(`Client ${clientId} status changed to ${status}`);
+        yield* Effect.logDebug(
+          `Client ${clientId} status changed to ${status}`,
+        );
       }
     });
 

@@ -9,11 +9,11 @@ import { Effect, Queue, Stream } from "effect";
 export const PresenceRpcLive = WebSocketRpc.toLayer(
   Effect.gen(function* () {
     const presence = yield* PresenceService;
-    yield* Effect.log("Starting Presence RPC Live Implementation");
+    yield* Effect.logInfo("Starting Presence RPC Live Implementation");
 
     return WebSocketRpc.of({
       subscribe: Effect.fn(function* () {
-        yield* Effect.log("New presence subscription");
+        yield* Effect.logDebug("New presence subscription");
 
         const clientId = presence.generateClientId();
         const connectedAt = Date.now();
@@ -48,7 +48,7 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
               Effect.gen(function* () {
                 yield* presence.removeClient(clientId);
                 yield* Queue.shutdown(queue);
-                yield* Effect.log(
+                yield* Effect.logDebug(
                   `Presence subscription ended for ${clientId}`,
                 );
               }),
@@ -81,7 +81,7 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
       }),
 
       setStatus: Effect.fn(function* (payload) {
-        yield* Effect.log(
+        yield* Effect.logDebug(
           `Setting status for ${payload.clientId} to ${payload.status}`,
         );
         yield* presence.setStatus(payload.clientId, payload.status);
@@ -90,7 +90,7 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
 
       getPresence: Effect.fn(function* () {
         const clients = yield* presence.getClients();
-        yield* Effect.log(`Returning ${clients.length} clients`);
+        yield* Effect.logDebug(`Returning ${clients.length} clients`);
         return { clients: [...clients] };
       }),
     });
