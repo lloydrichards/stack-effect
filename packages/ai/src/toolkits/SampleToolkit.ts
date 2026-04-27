@@ -46,7 +46,7 @@ export const SampleToolkitLive = SampleToolkit.toLayer(
     return {
       calculate: (params) =>
         Effect.gen(function* () {
-          yield* Effect.log(`Calculating: ${params.expression}`);
+          yield* Effect.logDebug(`Calculating: ${params.expression}`);
 
           // Simple safe evaluation for basic math
           // Whitelist allowed characters
@@ -77,7 +77,7 @@ export const SampleToolkitLive = SampleToolkit.toLayer(
 
       echo: (params) =>
         Effect.gen(function* () {
-          yield* Effect.log(`Echo: ${params.message}`);
+          yield* Effect.logDebug(`Echo: ${params.message}`);
           return yield* Effect.succeed(`Echo: ${params.message}`);
         }),
 
@@ -87,7 +87,7 @@ export const SampleToolkitLive = SampleToolkit.toLayer(
           const timeString = now.toLocaleString("en-US", {
             timeZone: "UTC",
           });
-          yield* Effect.log(`Current time (UTC): ${timeString}`);
+          yield* Effect.logDebug(`Current time (UTC): ${timeString}`);
           return yield* Effect.succeed(
             `Current time in UTC: ${timeString} (ISO: ${now.toISOString()})`,
           );

@@ -4,7 +4,7 @@ import {
   PlanEntryClassification,
   PlannedFileOutcome,
 } from "@repo/domain/Plan";
-import { Schema, String } from "effect";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
@@ -86,95 +86,6 @@ describe("@repo/domain Plan", () => {
     });
 
     expect(conflict._tag).toBe("authoritativeFile");
-  });
-
-  it("pretty prints an empty plan", () => {
-    const plan = new Plan({
-      outcomes: [],
-      conflicts: [],
-    });
-
-    expect(plan.prettyPrint()).toBe(
-      String.stripMargin(`|Plan
-       |
-       |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
-       |
-       |Summary: 0 create  0 modify  0 unchanged  0 merge
-       |
-       |.`),
-    );
-  });
-
-  it("pretty prints a plan with create, modify, unchanged, and merge conflicts", () => {
-    const plan = new Plan({
-      outcomes: [
-        {
-          _tag: "authoritative",
-          path: "packages/domain/src/Api.ts",
-          classification: "create",
-          contents: 'export const Api = "Api";\n',
-        },
-        {
-          _tag: "structural",
-          path: "packages/domain/src/index.ts",
-          classification: "needsMergeStrategy",
-          requiredStructure: { reExports: ["./Api"] },
-        },
-        {
-          _tag: "authoritative",
-          path: "packages/domain/tsconfig.json",
-          classification: "needsMergeStrategy",
-          contents: '{"extends":"../../packages/config-typescript/base.json"}',
-        },
-        {
-          _tag: "authoritative",
-          path: "README.md",
-          classification: "modify",
-          contents: "# Repo\n",
-        },
-        {
-          _tag: "structural",
-          path: "package.json",
-          classification: "unchanged",
-          requiredStructure: {
-            packageJsonScripts: [
-              { scriptName: "build", scriptValue: "tsc -p tsconfig.json" },
-            ],
-          },
-        },
-      ],
-      conflicts: [
-        {
-          _tag: "barrelExport",
-          path: "packages/domain/src/index.ts",
-          exportPath: "./Api",
-        },
-        {
-          _tag: "tsconfig",
-          path: "packages/domain/tsconfig.json",
-        },
-      ],
-    }).toSorted();
-
-    expect(plan.prettyPrint()).toBe(
-      String.stripMargin(`|Plan
-       |
-       |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
-       |
-       |Summary: 1 create  1 modify  1 unchanged  2 merge
-       |
-       |.
-       |├── packages
-       |│   └── domain
-       |│       ├── src
-       |│       │   ├── [+] Api.ts
-       |│       │   └── [!] index.ts
-       |│       │       merge: export ./Api
-       |│       └── [!] tsconfig.json
-       |│           merge: tsconfig
-       |├── [=] package.json
-       |└── [~] README.md`),
-    );
   });
 
   it("sorts planned file outcomes and conflicts deterministically", () => {

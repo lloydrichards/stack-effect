@@ -202,7 +202,7 @@ export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
 
     const finishReason = yield* loop({ chat, queue, toolkit });
 
-    yield* Effect.log(
+    yield* Effect.logInfo(
       `Iteration ${iteration} completed with finishReason: ${finishReason}`,
     );
 

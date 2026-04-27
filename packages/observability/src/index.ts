@@ -16,13 +16,13 @@ export const ObservabilityLive = Effect.gen(function* () {
   const serviceName = Option.getOrUndefined(tracing.serviceName);
 
   if (!endpoint || !serviceName) {
-    yield* Effect.log(
+    yield* Effect.logWarning(
       "OTEL tracing disabled (set OTEL_EXPORTER_OTLP_ENDPOINT and OTEL_SERVICE_NAME to enable)",
     );
     return Layer.empty;
   }
 
-  yield* Effect.log(`OTEL tracing enabled: ${serviceName} -> ${endpoint}`);
+  yield* Effect.logInfo(`OTEL tracing enabled: ${serviceName} -> ${endpoint}`);
   return NodeSdk.layer(() => ({
     resource: { serviceName },
     spanProcessor: new BatchSpanProcessor(

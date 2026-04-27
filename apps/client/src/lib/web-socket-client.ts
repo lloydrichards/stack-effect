@@ -30,7 +30,7 @@ export const presenceSubscriptionAtom: Atom.AtomResultFn<
   RpcClientError.RpcClientError | Cause.NoSuchElementError
 > = WebSocketClient.runtime.fn(() =>
   Effect.gen(function* () {
-    yield* Effect.log("Starting presence subscription stream");
+    yield* Effect.logDebug("Starting presence subscription stream");
     const client = yield* WebSocketClient;
     // biome-ignore lint/suspicious/noConfusingVoidType: RPC with no payload requires void argument
     return client("subscribe", undefined as void);

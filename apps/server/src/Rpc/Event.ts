@@ -6,10 +6,10 @@ import { Prompt } from "effect/unstable/ai";
 export const EventRpcLive = EventRpc.toLayer(
   Effect.gen(function* () {
     const bot = yield* ChatService;
-    yield* Effect.log("Starting Event RPC Live Implementation");
+    yield* Effect.logInfo("Starting Event RPC Live Implementation");
     return EventRpc.of({
       tick: Effect.fn(function* (payload) {
-        yield* Effect.log("Creating new tick stream");
+        yield* Effect.logDebug("Creating new tick stream");
         const queue = yield* Queue.unbounded<typeof TickEvent.Type>();
         yield* Effect.forkScoped(
           Effect.gen(function* () {
@@ -20,7 +20,7 @@ export const EventRpcLive = EventRpc.toLayer(
               yield* Queue.offer(queue, { _tag: "tick" });
             }
             yield* Queue.offer(queue, { _tag: "end" });
-            yield* Effect.log("End event sent");
+            yield* Effect.logDebug("End event sent");
           }).pipe(Effect.ensuring(Queue.shutdown(queue))),
         );
         return queue;
