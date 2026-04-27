@@ -55,6 +55,54 @@ Effect.gen(function* () {
 
 ## Local Source References
 
+## Complexity Analysis
+
+Use the complexity report to identify refactoring targets before making changes.
+The `--json` flag emits structured output suitable for direct consumption.
+
+```bash
+# Full repo — all functions above threshold 0
+bun run complexity -- --json --threshold=0
+
+# Scoped to a single package or app
+bun run complexity -- --json --threshold=0 -f ./packages/scaffold
+bun run complexity -- --json --threshold=0 -f ./apps/server
+
+# Focus on high/extreme only (threshold 10)
+bun run complexity -- --json --threshold=10 -f ./packages/ai
+```
+
+The JSON schema:
+
+```typescript
+{
+  threshold: number;
+  totalFunctions: number;
+  levelCounts: { low: number; normal: number; high: number; extreme: number };
+  functions: Array<{
+    file: string;       // relative path from repo root
+    name: string;       // function signature (truncated to 80 chars)
+    line: number;
+    complexity: number;
+    level: "low" | "normal" | "high" | "extreme";
+    reasons: Array<{    // only present for high/extreme
+      description: string;
+      complexity: number;
+      line: number;
+      col: number;
+      text: string;
+    }> | null;
+  }>;
+}
+```
+
+**Workflow**: run the scoped JSON command first, parse `functions` sorted
+descending by `complexity`, then use `reasons` on high/extreme entries to
+understand exactly which branches or expressions are driving the score before
+deciding how to refactor.
+
+## Local Source References
+
 When answering questions about Effect, search these
 cloned source repos first. When updating dependencies, pull the latest
 commits in these repos to ensure the LLM references current code:
