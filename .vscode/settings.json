@@ -13,6 +13,34 @@
   "[typescriptreact]": {
     "editor.defaultFormatter": "biomejs.biome"
   },
+  "js/ts.referencesCodeLens.enabled": true,
   "js/ts.tsdk.path": "./node_modules/typescript/lib",
-  "js/ts.tsdk.promptToUseWorkspaceVersion": true
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+
+  // CodeMetrics — tuned for Effect/functional patterns
+  "codemetrics.basics.ComplexityLevelExtreme": 20,
+  "codemetrics.basics.CodeLensHiddenUnder": 5,
+  "codemetrics.basics.ComplexityLevelExtremeDescription": "Too complex — split this up!",
+  // "codemetrics.basics.MetricsForArrowFunctionsToggled": false,
+
+  // Zero out nodes that are idiomatic in Effect/functional style
+  "codemetrics.nodeconfiguration.ReturnStatement": 0,
+  "codemetrics.nodeconfiguration.CaseClause": 0,
+  "codemetrics.nodeconfiguration.DefaultClause": 0,
+
+  // Zero out JSX structural nodes — markup is not cognitive complexity
+  "codemetrics.nodeconfiguration.JsxElement": 0,
+  "codemetrics.nodeconfiguration.JsxSelfClosingElement": 0,
+  "codemetrics.nodeconfiguration.JsxOpeningElement": 0,
+
+  // Zero out syntax-mandated and data-literal nodes
+  "codemetrics.nodeconfiguration.BreakStatement": 0,
+  "codemetrics.nodeconfiguration.ObjectLiteralExpression": 0,
+  "codemetrics.nodeconfiguration.ThrowStatement": 0,
+
+  // Zero out function wrapper nodes — in a functional/Effect codebase the
+  // wrapper itself carries no complexity; the body's ifs/loops do
+  "codemetrics.nodeconfiguration.FunctionDeclaration": 0,
+  "codemetrics.nodeconfiguration.FunctionExpression": 0,
+  "codemetrics.nodeconfiguration.MethodDeclaration": 0
 }
