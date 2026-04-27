@@ -38,7 +38,8 @@
         "bradlc.vscode-tailwindcss",
         "Orta.vscode-twoslash-queries",
         "sst-dev.opencode",
-        "dsznajder.es7-react-js-snippets"
+        "dsznajder.es7-react-js-snippets",
+        "kisstkondoros.vscode-codemetrics"
       ]
     }
   },
