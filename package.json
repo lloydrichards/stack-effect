@@ -21,8 +21,8 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.11",
     "@effect/language-service": "^0.85.1",
-    "@effect/platform-bun": "4.0.0-beta.47",
-    "effect": "4.0.0-beta.47",
+    "@effect/platform-bun": "4.0.0-beta.58",
+    "effect": "4.0.0-beta.58",
     "effect-boxes": "^0.10.0",
     "@playwright/test": "^1.59.1",
     "@types/bun": "^1.3.12",

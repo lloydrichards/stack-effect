@@ -1,5 +1,9 @@
-import { Effect, Schema } from "effect";
+import { Data, DateTime, Effect, Schema } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
+
+class CalculatorError extends Data.TaggedError("CalculatorError")<{
+  readonly message: string;
+}> {}
 
 /**
  * Calculator Tool - Safely evaluates mathematical expressions
@@ -62,14 +66,16 @@ export const SampleToolkitLive = SampleToolkit.toLayer(
             try: () => {
               const value = Function(`"use strict"; return (${sanitized})`)();
               if (typeof value !== "number" || Number.isNaN(value)) {
-                throw new Error("Result is not a valid number");
+                throw new CalculatorError({
+                  message: "Result is not a valid number",
+                });
               }
               return `${params.expression} = ${value}`;
             },
             catch: (error) =>
-              new Error(
-                `Invalid expression: ${error instanceof Error ? error.message : String(error)}`,
-              ),
+              new CalculatorError({
+                message: `Invalid expression: ${error instanceof Error ? error.message : String(error)}`,
+              }),
           }).pipe(
             Effect.catch((error) => Effect.succeed(`Error: ${error.message}`)),
           );
@@ -83,13 +89,15 @@ export const SampleToolkitLive = SampleToolkit.toLayer(
 
       getCurrentTime: () =>
         Effect.gen(function* () {
-          const now = new Date();
-          const timeString = now.toLocaleString("en-US", {
-            timeZone: "UTC",
+          const now = yield* DateTime.now;
+          const timeString = DateTime.formatUtc(now, {
+            locale: "en-US",
+            dateStyle: "medium",
+            timeStyle: "medium",
           });
           yield* Effect.logDebug(`Current time (UTC): ${timeString}`);
           return yield* Effect.succeed(
-            `Current time in UTC: ${timeString} (ISO: ${now.toISOString()})`,
+            `Current time in UTC: ${timeString} (ISO: ${DateTime.formatIso(now)})`,
           );
         }),
     };

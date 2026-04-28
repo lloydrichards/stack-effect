@@ -1,12 +1,37 @@
 import type { ChatStreamPart } from "@repo/domain/Chat";
-import { type Cause, Effect, type Queue, Ref, Schema, Stream } from "effect";
+import {
+  type Cause,
+  Effect,
+  Inspectable,
+  type Queue,
+  Ref,
+  Schema,
+  SchemaGetter,
+  Stream,
+} from "effect";
 import type { Chat, Tool, Toolkit } from "effect/unstable/ai";
 import { createMailboxEvents } from "./MailboxEvents";
 
-// Schema for parsing tool parameters (JSON string -> object with unknown keys/values)
+export const AgenticLoopState = Schema.Struct({
+  finishReason: Schema.String,
+  iteration: Schema.Number,
+});
+
 export const ToolParamsSchema = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Unknown),
 );
+
+const stringifyJson = (value: unknown) =>
+  Schema.encodeUnknownEffect(
+    Schema.String.pipe(
+      Schema.decodeTo(Schema.Unknown, {
+        decode: SchemaGetter.parseJson<string>({}),
+        encode: SchemaGetter.stringifyJson({ space: 2 }),
+      }),
+    ),
+  )(value).pipe(
+    Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
+  );
 
 const loop = Effect.fn("loop")(function* <
   Tools extends Record<string, Tool.Any>,
@@ -105,7 +130,7 @@ const loop = Effect.fn("loop")(function* <
               )(toolCall.params?.trim() || "{}").pipe(
                 Effect.tapError((error) =>
                   Effect.logError(
-                    `Failed to parse tool arguments for ${toolCall.name}: ${JSON.stringify(error)}`,
+                    `Failed to parse tool arguments for ${toolCall.name}: ${Inspectable.toStringUnknown(error, 2)}`,
                   ),
                 ),
                 Effect.orElseSucceed(() => ({})),
@@ -126,7 +151,7 @@ const loop = Effect.fn("loop")(function* <
               const resultText =
                 typeof part.result === "string"
                   ? part.result
-                  : JSON.stringify(part.result);
+                  : yield* stringifyJson(part.result);
 
               if (part.isFailure) {
                 yield* Effect.logError(
@@ -159,13 +184,12 @@ const loop = Effect.fn("loop")(function* <
               yield* events.error(
                 typeof part.error === "string"
                   ? part.error
-                  : JSON.stringify(part.error),
+                  : yield* stringifyJson(part.error),
                 false,
               );
               break;
 
             default:
-              // Ignore other part types (reasoning, files, etc.)
               break;
           }
         }),
@@ -202,7 +226,7 @@ export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
 
     const finishReason = yield* loop({ chat, queue, toolkit });
 
-    yield* Effect.logInfo(
+    yield* Effect.logDebug(
       `Iteration ${iteration} completed with finishReason: ${finishReason}`,
     );
 
@@ -211,7 +235,6 @@ export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
 
   const finalState = state;
 
-  // Handle max iterations case
   if (
     finalState.finishReason === "tool-calls" &&
     finalState.iteration >= maxIterations

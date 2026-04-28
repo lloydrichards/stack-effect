@@ -3,20 +3,21 @@ import {
   type WebSocketEvent,
   WebSocketRpc,
 } from "@repo/domain/WebSocket";
-import { PresenceService } from "@repo/presence";
-import { Effect, Queue, Stream } from "effect";
+import { ClientGenerator, PresenceService } from "@repo/presence";
+import { DateTime, Effect, Layer, Queue, Stream } from "effect";
 
 export const PresenceRpcLive = WebSocketRpc.toLayer(
   Effect.gen(function* () {
     const presence = yield* PresenceService;
+    const gen = yield* ClientGenerator;
     yield* Effect.logInfo("Starting Presence RPC Live Implementation");
 
     return WebSocketRpc.of({
       subscribe: Effect.fn(function* () {
         yield* Effect.logDebug("New presence subscription");
 
-        const clientId = presence.generateClientId();
-        const connectedAt = Date.now();
+        const clientId = yield* gen.generateClientId();
+        const connectedAt = yield* DateTime.now;
         const clientInfo: ClientInfo = {
           clientId,
           status: "online",
@@ -25,12 +26,9 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
 
         const queue = yield* Queue.unbounded<WebSocketEvent>();
 
-        // CRITICAL: Subscribe to PubSub FIRST to ensure we don't miss any events
-        const subscription = yield* presence.subscribe();
-
         // Fork the stream consumer to handle incoming PubSub events
         yield* Effect.forkScoped(
-          Stream.fromSubscription(subscription).pipe(
+          presence.subscribe.pipe(
             Stream.tap((event) =>
               Effect.gen(function* () {
                 // Filter out our own user_joined event since we send "connected" instead
@@ -57,7 +55,7 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
         );
 
         // Get existing clients BEFORE adding ourselves
-        const existingClients = yield* presence.getClients();
+        const existingClients = presence.getClients();
 
         // Now add ourselves - this publishes user_joined to PubSub for other clients
         yield* presence.addClient(clientId, clientInfo);
@@ -89,10 +87,13 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
       }),
 
       getPresence: Effect.fn(function* () {
-        const clients = yield* presence.getClients();
+        const clients = presence.getClients();
         yield* Effect.logDebug(`Returning ${clients.length} clients`);
         return { clients: [...clients] };
       }),
     });
   }),
+).pipe(
+  Layer.provide(PresenceService.layer),
+  Layer.provide(ClientGenerator.layer),
 );

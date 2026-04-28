@@ -7,10 +7,10 @@
       "devDependencies": {
         "@biomejs/biome": "2.4.11",
         "@effect/language-service": "^0.85.1",
-        "@effect/platform-bun": "4.0.0-beta.47",
+        "@effect/platform-bun": "4.0.0-beta.58",
         "@playwright/test": "^1.59.1",
         "@types/bun": "^1.3.12",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
         "effect-boxes": "^0.10.0",
         "tsmetrics-core": "^1.4.1",
         "turbo": "^2.9.6",
@@ -22,8 +22,8 @@
       "name": "cli",
       "version": "0.0.1",
       "dependencies": {
-        "@effect/platform-bun": "4.0.0-beta.47",
-        "effect": "4.0.0-beta.47",
+        "@effect/platform-bun": "4.0.0-beta.58",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -35,14 +35,14 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.3.0",
-        "@effect/atom-react": "4.0.0-beta.47",
-        "@effect/platform-browser": "4.0.0-beta.47",
+        "@effect/atom-react": "4.0.0-beta.58",
+        "@effect/platform-browser": "4.0.0-beta.58",
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
         "@repo/domain": "workspace:*",
         "@tailwindcss/vite": "^4.2.2",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
         "lucide-react": "^1.8.0",
         "radix-ui": "^1.4.3",
         "react": "^19.2.5",
@@ -74,15 +74,15 @@
       "name": "server",
       "version": "0.0.1",
       "dependencies": {
-        "@effect/platform-bun": "4.0.0-beta.47",
+        "@effect/platform-bun": "4.0.0-beta.58",
         "@repo/ai": "workspace:*",
         "@repo/domain": "workspace:*",
         "@repo/observability": "workspace:*",
         "@repo/presence": "workspace:*",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.47",
+        "@effect/vitest": "4.0.0-beta.58",
         "@repo/config-typescript": "workspace:*",
         "@types/bun": "1.3.12",
         "vitest": "^4.1.0",
@@ -92,13 +92,13 @@
       "name": "server-mcp",
       "version": "0.0.1",
       "dependencies": {
-        "@effect/platform-bun": "4.0.0-beta.47",
+        "@effect/platform-bun": "4.0.0-beta.58",
         "@repo/domain": "workspace:*",
         "@repo/observability": "workspace:*",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.47",
+        "@effect/vitest": "4.0.0-beta.58",
         "@repo/config-typescript": "workspace:*",
         "@types/bun": "1.3.12",
         "vitest": "^4.1.0",
@@ -108,9 +108,9 @@
       "name": "@repo/ai",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/ai-anthropic": "4.0.0-beta.47",
+        "@effect/ai-anthropic": "4.0.0-beta.58",
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -124,7 +124,7 @@
       "name": "@repo/domain",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -134,12 +134,12 @@
       "name": "@repo/observability",
       "version": "0.0.0",
       "dependencies": {
-        "@effect/opentelemetry": "4.0.0-beta.47",
+        "@effect/opentelemetry": "4.0.0-beta.58",
         "@opentelemetry/exporter-trace-otlp-http": "^0.214.0",
         "@opentelemetry/sdk-trace-base": "^2.6.1",
         "@opentelemetry/sdk-trace-node": "^2.6.1",
         "@opentelemetry/sdk-trace-web": "^2.6.1",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -150,7 +150,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -162,10 +162,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.47",
+        "effect": "4.0.0-beta.58",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.47",
+        "@effect/vitest": "4.0.0-beta.58",
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^25.6.0",
         "vitest": "^4.1.0",
@@ -261,21 +261,21 @@
 
     "@ecies/ciphers": ["@ecies/ciphers@0.2.5", "", { "peerDependencies": { "@noble/ciphers": "^1.0.0" } }, "sha512-GalEZH4JgOMHYYcYmVqnFirFsjZHeoGMDt9IxEnM9F7GRUUyUksJ7Ou53L83WHJq3RWKD3AcBpo0iQh0oMpf8A=="],
 
-    "@effect/ai-anthropic": ["@effect/ai-anthropic@4.0.0-beta.47", "", { "peerDependencies": { "effect": "^4.0.0-beta.47" } }, "sha512-xWhG9lR2PV4obEB3B7CjSJZqdwXAWpRQPfKjcQfYtTmKzPk0y0yzVh7tOktXzEwXXlk8XtB2q3a6flAtvmOxbg=="],
+    "@effect/ai-anthropic": ["@effect/ai-anthropic@4.0.0-beta.58", "", { "peerDependencies": { "effect": "^4.0.0-beta.58" } }, "sha512-ET6cNJcLQoo2l9he4IYH2ANlRFDv9VCmN5DPTligyIpekAm4wsqj10s4E3Of+kXEO6UCKrbzH6mgAGDcP/zA/A=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.47", "", { "peerDependencies": { "effect": "^4.0.0-beta.47", "react": "^19.2.4", "scheduler": "*" } }, "sha512-jCMf5/TvgVHsd+pzfb5UCvtlxZLN/hokLj5x9yzGe6YAztR7zteDEki/Qm6f4Gn6E5PKsmaoi0WlwzZG4rsD7A=="],
+    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.58", "", { "peerDependencies": { "effect": "^4.0.0-beta.58", "react": "^19.2.4", "scheduler": "*" } }, "sha512-hsOLjUKlBgzAVtaOugqBfXMDdSFJ9B+oPpTVtz5bp9WFoJrRPHzznYPUquzeMsbUA5qm3qGf/mUJClXVj/5HOw=="],
 
     "@effect/language-service": ["@effect/language-service@0.85.1", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-EXnJjIy6zQ3nUO/MZ+ynWUb8B895KZPotd1++oTs9JjDkplwM7cb6zo8Zq2zU6piwq+KflO7amXbEfj1UMpHkw=="],
 
-    "@effect/opentelemetry": ["@effect/opentelemetry@4.0.0-beta.47", "", { "peerDependencies": { "@opentelemetry/api": "^1.9", "@opentelemetry/resources": "^2.0.0", "@opentelemetry/sdk-logs": ">=0.203.0 <0.300.0", "@opentelemetry/sdk-metrics": "^2.0.0", "@opentelemetry/sdk-trace-base": "^2.0.0", "@opentelemetry/sdk-trace-node": "^2.0.0", "@opentelemetry/sdk-trace-web": "^2.0.0", "@opentelemetry/semantic-conventions": "^1.33.0", "effect": "^4.0.0-beta.47" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-kuleUnR8GgBMeTB+feYW8XcAWM97njkibpJl7Ew+2utApJC1vHAfnZODprN4atyncFwlMnSqExw8eWkpBE+8Rg=="],
+    "@effect/opentelemetry": ["@effect/opentelemetry@4.0.0-beta.58", "", { "peerDependencies": { "@opentelemetry/api": "^1.9", "@opentelemetry/resources": "^2.0.0", "@opentelemetry/sdk-logs": ">=0.203.0 <0.300.0", "@opentelemetry/sdk-metrics": "^2.0.0", "@opentelemetry/sdk-trace-base": "^2.0.0", "@opentelemetry/sdk-trace-node": "^2.0.0", "@opentelemetry/sdk-trace-web": "^2.0.0", "@opentelemetry/semantic-conventions": "^1.33.0", "effect": "^4.0.0-beta.58" }, "optionalPeers": ["@opentelemetry/api", "@opentelemetry/resources", "@opentelemetry/sdk-logs", "@opentelemetry/sdk-metrics", "@opentelemetry/sdk-trace-base", "@opentelemetry/sdk-trace-node", "@opentelemetry/sdk-trace-web"] }, "sha512-QLk86c2BAPErzYflY3bP/JjAiHOOJy/wuhess5jfoanB3SkqtTKEKloo+2YjAEL7051KCNU66wxLk377T/sl9g=="],
 
-    "@effect/platform-browser": ["@effect/platform-browser@4.0.0-beta.47", "", { "dependencies": { "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^4.0.0-beta.47" } }, "sha512-1SG/4QwP1ritpBQ+Q7wh8eQDaRF710tKcujIKQyaxwGkFe0idtbGgRMOspb7c1WDpOeSBKFrK9rxXMDAJPrA0g=="],
+    "@effect/platform-browser": ["@effect/platform-browser@4.0.0-beta.58", "", { "dependencies": { "multipasta": "^0.2.7" }, "peerDependencies": { "effect": "^4.0.0-beta.58" } }, "sha512-dhKkkZyzDXbhNygMW+I6o3O7FCPDLYIcVjjU2H2M+QNBw5SAzRCfxso4whUhyBrw5isiUdjWFBh+8/pa6kEMng=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.47", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.47" }, "peerDependencies": { "effect": "^4.0.0-beta.47" } }, "sha512-GzX7mqkDaILwXUjubJBH3/kZUBT9a87T37lhopprb07NUu1EF3ViyfYJzcL4npKpcf/8oPAnIVPjnY3fcKRcJw=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.58", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.58" }, "peerDependencies": { "effect": "^4.0.0-beta.58" } }, "sha512-OifaM5k3WQs3gwvPrBDYgIy0MdWYvq14XMdbSEoVu+ZQ36NGjJNujUNgOrnUJR8d/aHlFT0RNVjwHWf/bz6xtA=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.47", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.19.0" }, "peerDependencies": { "effect": "^4.0.0-beta.47" } }, "sha512-LjE961nmzZdXGNtixULdAkTxbACYp8gA28bPEitgdxqclXfdiC18XkOhb2Z/X8cKPDZPVsQ3Q5gnRnQztH0XsA=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.58", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.20.0" }, "peerDependencies": { "effect": "^4.0.0-beta.58" } }, "sha512-xqTspx4Aopi0po8eG/zzbcMaXbibtkt+Yt9Lo/jqPfXXduBK0E/dNr9y/Cbf85v5TNvGkL1rKCUYYQVX8PSKeg=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.0-beta.47", "", { "peerDependencies": { "effect": "^4.0.0-beta.47", "vitest": "^3.0.0 || ^4.0.0" } }, "sha512-1KdMUseTTLP+OeEmWwN3PzyMrhHBy47tHol2lotl+GkrmGameXhtD8xFfiO4BIj92jKMY3RBTkIemVBWaG8UyA=="],
+    "@effect/vitest": ["@effect/vitest@4.0.0-beta.58", "", { "peerDependencies": { "effect": "^4.0.0-beta.58", "vitest": "^3.0.0 || ^4.0.0" } }, "sha512-smbZFxaznzlvbzsfq8r8lCZy6Ym3aAMv5LxmuZSm2DMcyL07jcg0qOrs7FCGvqneUvCEKkkZ8tkcEporBduH7A=="],
 
     "@emnapi/core": ["@emnapi/core@1.9.2", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA=="],
 
@@ -827,7 +827,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-beta.47", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.5.3", "find-my-way-ts": "^0.1.6", "ini": "^6.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^1.11.8", "multipasta": "^0.2.7", "toml": "^3.0.0", "uuid": "^13.0.0", "yaml": "^2.8.2" } }, "sha512-MRrAO6Oof5TTgEo0Tb37d5G+vSRHopBhEImYiGjMDEpuBzHr4nKg5BeAwQGV1kdjZ9/DhxKVuFZKsF4Uw+KJog=="],
+    "effect": ["effect@4.0.0-beta.58", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.6.0", "find-my-way-ts": "^0.1.6", "ini": "^6.0.0", "kubernetes-types": "^1.30.0", "msgpackr": "^1.11.9", "multipasta": "^0.2.7", "toml": "^4.1.1", "uuid": "^13.0.0", "yaml": "^2.8.3" } }, "sha512-ySTFJ4iY54t78lPCAWDQQSdIexhHIxHPXGlk0/hW4vTBTPdfNK7axKzOgfNSxeHMyNcxP43Q7X0SNK0ql206gg=="],
 
     "effect-boxes": ["effect-boxes@0.10.0", "", { "dependencies": { "effect": "4.0.0-beta.57" } }, "sha512-xhbTzQTmqCqAs1Ub1L9XRPx7UdrtIeEo38vvtMxlUIcOjhTI8HTMlYSRwsuFSmOoNQF33MOuAGF6++L9S7iZ7g=="],
 
@@ -1459,7 +1459,7 @@
 
     "toidentifier": ["toidentifier@1.0.1", "", {}, "sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA=="],
 
-    "toml": ["toml@3.0.0", "", {}, "sha512-y/mWCZinnvxjTKYhJ+pYxwD0mRLVvOtdS2Awbgxln6iEnt4rk0yBxeSBHkGJcPucRiG0e55mwWp+g/05rsrd6w=="],
+    "toml": ["toml@4.1.1", "", {}, "sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw=="],
 
     "totalist": ["totalist@3.0.1", "", {}, "sha512-sf4i37nQ2LBx4m3wB74y+ubopq6W/dIzXg0FDGjsYnZHVa1Da8FH853wlL2gtUhg+xJXjfk3kUZS3BRoQeoQBQ=="],
 
@@ -1652,8 +1652,6 @@
     "cliui/strip-ansi/ansi-regex": ["ansi-regex@5.0.1", "", {}, "sha512-quJQXlTSUGL2LH9SUXo8VwsY4soanhgo6LNSm84E1LBcE8s3O0wpdiRzyR9z/ZZJMlMWv37qOOb9pdJlMUEKFQ=="],
 
     "cross-spawn/which/isexe": ["isexe@2.0.0", "", {}, "sha512-RHxMLp9lnKHGHRng9QFhRCMbYAcVpn69smSGcq3f36xjgVVWThj4qqLbTLlq7Ssj8B+fIQ1EuCEGI2lKsyQeIw=="],
-
-    "effect-boxes/effect/toml": ["toml@4.1.1", "", {}, "sha512-EBJnVBr3dTXdA89WVFoAIPUqkBjxPMwRqsfuo1r240tKFHXv3zgca4+NJib/h6TyvGF7vOawz0jGuryJCdNHrw=="],
 
     "protobufjs/@types/node/undici-types": ["undici-types@7.18.2", "", {}, "sha512-AsuCzffGHJybSaRrmr5eHr81mwJU3kjw6M+uprWvCXiNeN9SOGwQ3Jn8jb8m3Z6izVgknn1R0FTCEAP2QrLY/w=="],
 

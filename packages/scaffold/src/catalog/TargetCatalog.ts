@@ -121,14 +121,13 @@ export class TargetCatalog extends Context.Service<TargetCatalog>()(
     make: Effect.succeed({
       getTargetDefinition: (kind: TargetKind) =>
         Effect.fromNullishOr(targetDefinitions.get(kind)).pipe(
-          Effect.catch(() =>
-            Effect.fail(
+          Effect.mapError(
+            () =>
               new CatalogNotFound({
                 catalog: "target",
                 entity: "target-kind",
                 id: kind,
               }),
-            ),
           ),
         ),
     }),

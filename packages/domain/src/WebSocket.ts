@@ -9,7 +9,7 @@ export type ClientStatus = Schema.Schema.Type<typeof ClientStatus>;
 export const ClientInfo = Schema.Struct({
   clientId: ClientId,
   status: ClientStatus,
-  connectedAt: Schema.Number,
+  connectedAt: Schema.DateTimeUtcFromMillis,
 });
 export type ClientInfo = Schema.Schema.Type<typeof ClientInfo>;
 
@@ -17,7 +17,7 @@ export const WebSocketEvent = Schema.Union([
   // Initial connection acknowledgment with assigned ClientId
   Schema.TaggedStruct("connected", {
     clientId: ClientId,
-    connectedAt: Schema.Number,
+    connectedAt: Schema.DateTimeUtcFromMillis,
   }),
   // Broadcast when a user joins
   Schema.TaggedStruct("user_joined", {
@@ -27,12 +27,12 @@ export const WebSocketEvent = Schema.Union([
   Schema.TaggedStruct("status_changed", {
     clientId: ClientId,
     status: ClientStatus,
-    changedAt: Schema.Number,
+    changedAt: Schema.DateTimeUtcFromMillis,
   }),
   // Broadcast when a user disconnects
   Schema.TaggedStruct("user_left", {
     clientId: ClientId,
-    disconnectedAt: Schema.Number,
+    disconnectedAt: Schema.DateTimeUtcFromMillis,
   }),
 ]);
 export type WebSocketEvent = Schema.Schema.Type<typeof WebSocketEvent>;
