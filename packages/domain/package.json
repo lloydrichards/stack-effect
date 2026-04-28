@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/Api.ts",
+    "./Apply": "./src/Apply.ts",
     "./Api": "./src/Api.ts",
     "./Blueprint": "./src/Blueprint.ts",
     "./Chat": "./src/Chat.ts",
