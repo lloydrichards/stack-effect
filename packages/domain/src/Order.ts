@@ -1,16 +1,15 @@
 import { Order } from "effect";
 import type { BlueprintEdge, BlueprintNode } from "./Blueprint";
-import type { PlanConflict, PlannedFileOutcome } from "./Plan";
-import type { TargetIdentity } from "./Scaffold";
+import type { PlanConflict } from "./Plan";
 
-export const pathOrd = Order.mapInput(
+export const pathStrOrd = Order.mapInput(
   Order.Array(Order.String),
   (path: string) => path.split("/"),
 );
 
-export const targetIdentityOrd = Order.mapInput(
-  Order.String,
-  (identity: TargetIdentity) => identity.toPath(),
+export const pathOrd = Order.mapInput(
+  pathStrOrd,
+  (input: { path: string }) => input.path,
 );
 
 export const blueprintNodeOrd = Order.mapInput(
