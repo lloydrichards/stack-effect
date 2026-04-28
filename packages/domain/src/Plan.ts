@@ -1,5 +1,5 @@
-import { Schema } from "effect";
-import { pathOrd, planConflictOrd } from "./Order";
+import { Order, Schema } from "effect";
+import { pathOrd } from "./Order";
 
 export const RepoSnapshot = Schema.Struct({
   paths: Schema.Array(
@@ -27,18 +27,18 @@ export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
 ) {}
 
 export const PlannedPackageJsonExport = Schema.Struct({
-  exportKey: Schema.String,
-  exportValue: Schema.String,
+  name: Schema.String,
+  value: Schema.String,
 });
 
 export const PlannedPackageJsonDependency = Schema.Struct({
-  dependencyName: Schema.String,
-  dependencyValue: Schema.String,
+  name: Schema.String,
+  value: Schema.String,
 });
 
 export const PlannedPackageJsonScript = Schema.Struct({
-  scriptName: Schema.String,
-  scriptValue: Schema.String,
+  name: Schema.String,
+  value: Schema.String,
 });
 
 export const PlannedDependencySection = Schema.Struct({
@@ -47,11 +47,9 @@ export const PlannedDependencySection = Schema.Struct({
 });
 
 export const RequiredStructure = Schema.Struct({
-  packageJsonExports: Schema.optional(Schema.Array(PlannedPackageJsonExport)),
-  packageJsonDependencies: Schema.optional(
-    Schema.Array(PlannedDependencySection),
-  ),
-  packageJsonScripts: Schema.optional(Schema.Array(PlannedPackageJsonScript)),
+  exports: Schema.optional(Schema.Array(PlannedPackageJsonExport)),
+  dependencies: Schema.optional(Schema.Array(PlannedDependencySection)),
+  scripts: Schema.optional(Schema.Array(PlannedPackageJsonScript)),
   reExports: Schema.optional(Schema.Array(Schema.String)),
 });
 
@@ -79,18 +77,18 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   ),
   conflicts: Schema.Array(
     Schema.Union([
-      Schema.TaggedStruct("packageJsonExports", {
+      Schema.TaggedStruct("exports", {
         path: Schema.String,
-        exportKey: Schema.String,
+        name: Schema.String,
       }),
-      Schema.TaggedStruct("packageJsonDependencies", {
+      Schema.TaggedStruct("dependencies", {
         path: Schema.String,
         section: Schema.String,
-        dependencyName: Schema.String,
+        name: Schema.String,
       }),
-      Schema.TaggedStruct("packageJsonScripts", {
+      Schema.TaggedStruct("scripts", {
         path: Schema.String,
-        scriptName: Schema.String,
+        name: Schema.String,
       }),
       Schema.TaggedStruct("barrelExport", {
         path: Schema.String,
@@ -108,7 +106,27 @@ export class Plan extends Schema.Class<Plan>("Plan")({
   toSorted(): Plan {
     return new Plan({
       outcomes: [...this.outcomes].sort(pathOrd),
-      conflicts: [...this.conflicts].sort(planConflictOrd),
+      conflicts: [...this.conflicts].sort(
+        Order.mapInput(
+          Order.String,
+          (conflict: typeof Plan.fields.conflicts.schema.Type): string => {
+            switch (conflict._tag) {
+              case "exports":
+                return `exports:${conflict.path}:${conflict.name}`;
+              case "dependencies":
+                return `dependencies:${conflict.path}:${conflict.section}:${conflict.name}`;
+              case "scripts":
+                return `scripts:${conflict.path}:${conflict.name}`;
+              case "barrelExport":
+                return `barrelExport:${conflict.path}:${conflict.exportPath}`;
+              case "tsconfig":
+                return `tsconfig:${conflict.path}`;
+              case "authoritativeFile":
+                return `authoritativeFile:${conflict.path}`;
+            }
+          },
+        ),
+      ),
     });
   }
 }

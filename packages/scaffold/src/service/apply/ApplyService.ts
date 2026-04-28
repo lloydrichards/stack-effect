@@ -13,7 +13,6 @@ import {
   Layer,
   Option,
   Path,
-  type Schema,
 } from "effect";
 import { StructuralMerger } from "./StructuralMerger";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
@@ -190,9 +189,9 @@ export class ApplyService extends Context.Service<ApplyService>()(
             );
             const merged = yield* merger.merge({
               path: action.path,
-              requiredStructure: action.requiredStructure,
-              existingContents,
-              writeMode: action.writeMode,
+              required: action.requiredStructure,
+              existing: existingContents,
+              mode: action.writeMode,
             });
 
             return {

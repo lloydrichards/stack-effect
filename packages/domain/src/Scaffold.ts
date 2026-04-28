@@ -87,72 +87,72 @@ export const SupportedOn = Schema.Union([
   }),
 ]);
 
-export const RequiredTarget = Schema.Struct({
-  identity: TargetIdentity,
-});
-
-export const RequiredModule = Schema.Struct({
-  target: TargetIdentity,
-  moduleId: ModuleId,
-});
-
 export const ModuleDependency = Schema.Struct({
-  requiredTarget: Schema.optional(RequiredTarget),
-  requiredModule: Schema.optional(RequiredModule),
-});
-
-export const ContributionFile = Schema.Struct({
-  path: Schema.String,
-  contents: Schema.String,
-});
-
-export const ContributionPackageJsonExport = Schema.Struct({
-  packageJsonPath: Schema.String,
-  exportKey: Schema.String,
-  exportValue: Schema.String,
-});
-
-export const ContributionPackageJsonDependency = Schema.Struct({
-  packageJsonPath: Schema.String,
-  section: Schema.Union([
-    Schema.Literal("dependencies"),
-    Schema.Literal("devDependencies"),
-  ]),
-  dependencyName: Schema.String,
-  dependencyValue: Schema.String,
-});
-
-export const ContributionPackageJsonScript = Schema.Struct({
-  packageJsonPath: Schema.String,
-  scriptName: Schema.String,
-  scriptValue: Schema.String,
-});
-
-export const ContributionBarrelExport = Schema.Struct({
-  barrelPath: Schema.String,
-  exportPath: Schema.String,
-});
-
-export const ContributionTsconfig = Schema.Struct({
-  path: Schema.String,
-  contents: Schema.String,
+  requiredTarget: Schema.optional(
+    Schema.Struct({
+      identity: TargetIdentity,
+    }),
+  ),
+  requiredModule: Schema.optional(
+    Schema.Struct({
+      target: TargetIdentity,
+      moduleId: ModuleId,
+    }),
+  ),
 });
 
 export const DesiredContributions = Schema.Struct({
-  files: Schema.Array(ContributionFile),
-  packageJsonExports: Schema.Array(ContributionPackageJsonExport),
-  packageJsonDependencies: Schema.Array(ContributionPackageJsonDependency),
-  packageJsonScripts: Schema.Array(ContributionPackageJsonScript),
-  barrelExports: Schema.Array(ContributionBarrelExport),
-  tsconfigs: Schema.Array(ContributionTsconfig),
+  files: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      contents: Schema.String,
+    }),
+  ),
+  exports: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      name: Schema.String,
+      value: Schema.String,
+    }),
+  ),
+  dependencies: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      section: Schema.Union([
+        Schema.Literal("dependencies"),
+        Schema.Literal("devDependencies"),
+      ]),
+      name: Schema.String,
+      value: Schema.String,
+    }),
+  ),
+  scripts: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      name: Schema.String,
+      value: Schema.String,
+    }),
+  ),
+  barrelExports: Schema.Array(
+    Schema.Struct({
+      barrelPath: Schema.String,
+      exportPath: Schema.String,
+    }),
+  ),
+  tsconfigs: Schema.Array(
+    Schema.Struct({
+      path: Schema.String,
+      contents: Schema.String,
+    }),
+  ),
 });
 
 export const emptyDesiredContributions =
   (): typeof DesiredContributions.Type => ({
     files: [],
-    packageJsonExports: [],
-    packageJsonDependencies: [],
-    packageJsonScripts: [],
+    exports: [],
+    dependencies: [],
+    scripts: [],
     barrelExports: [],
     tsconfigs: [],
   });

@@ -164,10 +164,10 @@ describe("ScaffoldFormatter", () => {
                 path: "package.json",
                 classification: "unchanged",
                 requiredStructure: {
-                  packageJsonScripts: [
+                  scripts: [
                     {
-                      scriptName: "build",
-                      scriptValue: "tsc -p tsconfig.json",
+                      name: "build",
+                      value: "tsc -p tsconfig.json",
                     },
                   ],
                 },

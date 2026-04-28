@@ -1,10 +1,11 @@
 import {
   type Blueprint,
   type BlueprintAttachedModuleNode,
+  blueprintNodeOrd,
   isBlueprintAttachedModuleNode,
   isBlueprintTargetNode,
 } from "@repo/domain/Blueprint";
-import { blueprintNodeOrd, idOrd } from "@repo/domain/Order";
+import { idOrd } from "@repo/domain/Order";
 import type { Plan, PlanEntryClassification } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -340,12 +341,12 @@ const formatConflictLine = (
       return "merge: authoritative file";
     case "barrelExport":
       return `merge: export ${conflict.exportPath}`;
-    case "packageJsonDependencies":
-      return `merge: ${conflict.section}.${conflict.dependencyName}`;
-    case "packageJsonExports":
-      return `merge: exports ${conflict.exportKey}`;
-    case "packageJsonScripts":
-      return `merge: scripts ${conflict.scriptName}`;
+    case "dependencies":
+      return `merge: ${conflict.section}.${conflict.name}`;
+    case "exports":
+      return `merge: exports ${conflict.name}`;
+    case "scripts":
+      return `merge: scripts ${conflict.name}`;
     case "tsconfig":
       return "merge: tsconfig";
   }

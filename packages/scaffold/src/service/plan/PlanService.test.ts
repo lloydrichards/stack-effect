@@ -233,16 +233,16 @@ describe("PlanService", () => {
             _tag: "structural",
             classification: "create",
             requiredStructure: {
-              packageJsonExports: [
+              exports: [
                 {
-                  exportKey: "./Api",
-                  exportValue: "./src/Api.ts",
+                  name: "./Api",
+                  value: "./src/Api.ts",
                 },
               ],
-              packageJsonScripts: expect.arrayContaining([
+              scripts: expect.arrayContaining([
                 expect.objectContaining({
-                  scriptName: "type-check",
-                  scriptValue: "tsc --noEmit",
+                  name: "type-check",
+                  value: "tsc --noEmit",
                 }),
               ]),
             },
@@ -289,9 +289,9 @@ describe("PlanService", () => {
           expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
-                _tag: "packageJsonExports",
+                _tag: "exports",
                 path: "packages/domain/package.json",
-                exportKey: "./Api",
+                name: "./Api",
               }),
             ]),
           );

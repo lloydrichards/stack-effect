@@ -118,23 +118,21 @@ const resolveContributionTokens = (
       path: resolveString(file.path),
       contents: file.contents,
     })),
-    packageJsonExports: contributions.packageJsonExports.map((entry) => ({
-      packageJsonPath: resolveString(entry.packageJsonPath),
-      exportKey: entry.exportKey,
-      exportValue: resolveString(entry.exportValue),
+    exports: contributions.exports.map((entry) => ({
+      path: resolveString(entry.path),
+      name: entry.name,
+      value: resolveString(entry.value),
     })),
-    packageJsonDependencies: contributions.packageJsonDependencies.map(
-      (entry) => ({
-        packageJsonPath: resolveString(entry.packageJsonPath),
-        section: entry.section,
-        dependencyName: entry.dependencyName,
-        dependencyValue: entry.dependencyValue,
-      }),
-    ),
-    packageJsonScripts: contributions.packageJsonScripts.map((entry) => ({
-      packageJsonPath: resolveString(entry.packageJsonPath),
-      scriptName: entry.scriptName,
-      scriptValue: entry.scriptValue,
+    dependencies: contributions.dependencies.map((entry) => ({
+      path: resolveString(entry.path),
+      section: entry.section,
+      name: entry.name,
+      value: entry.value,
+    })),
+    scripts: contributions.scripts.map((entry) => ({
+      path: resolveString(entry.path),
+      name: entry.name,
+      value: entry.value,
     })),
     barrelExports: contributions.barrelExports.map((entry) => ({
       barrelPath: resolveString(entry.barrelPath),

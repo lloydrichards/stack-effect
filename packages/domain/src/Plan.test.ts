@@ -32,10 +32,10 @@ describe("@repo/domain Plan", () => {
           path: "packages/domain/package.json",
           classification: "modify",
           requiredStructure: {
-            packageJsonExports: [
+            exports: [
               {
-                exportKey: "./Api",
-                exportValue: "./src/Api.ts",
+                name: "./Api",
+                value: "./src/Api.ts",
               },
             ],
           },
@@ -49,9 +49,9 @@ describe("@repo/domain Plan", () => {
       ],
       conflicts: [
         {
-          _tag: "packageJsonExports",
+          _tag: "exports",
           path: "packages/domain/package.json",
-          exportKey: "./Api",
+          name: "./Api",
         },
       ],
     });

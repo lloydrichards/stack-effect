@@ -32,12 +32,12 @@ type MockPathEntry =
 
 type StructuralMergeInput = {
   readonly path: string;
-  readonly requiredStructure: Extract<
+  readonly required: Extract<
     typeof Plan.fields.outcomes.schema.Type,
     { _tag: "structural" }
   >["requiredStructure"];
-  readonly existingContents: Option.Option<string>;
-  readonly writeMode: "create" | "modify" | "override";
+  readonly existing: Option.Option<string>;
+  readonly mode: "create" | "modify" | "override";
 };
 
 const makeNotFoundError = (method: string, absolutePath: string) =>
@@ -433,10 +433,10 @@ describe("ApplyService", () => {
           expect(mergeCalls).toHaveLength(1);
           const firstMergeCall = mergeCalls[0];
           assert(firstMergeCall !== undefined);
-          expect(Option.isNone(firstMergeCall.existingContents)).toBe(true);
+          expect(Option.isNone(firstMergeCall.existing)).toBe(true);
           expect(firstMergeCall).toMatchObject({
             path: "packages/domain/src/index.ts",
-            writeMode: "create",
+            mode: "create",
           });
           expect(writeCalls).toEqual([
             {
@@ -497,8 +497,8 @@ describe("ApplyService", () => {
           expect(mergeCalls).toHaveLength(1);
           const firstMergeCall = mergeCalls[0];
           assert(firstMergeCall !== undefined);
-          expect(Option.isSome(firstMergeCall.existingContents)).toBe(true);
-          expect(Option.getOrUndefined(firstMergeCall.existingContents)).toBe(
+          expect(Option.isSome(firstMergeCall.existing)).toBe(true);
+          expect(Option.getOrUndefined(firstMergeCall.existing)).toBe(
             'export * from "./Existing";\n',
           );
           expect(result).toMatchObject({

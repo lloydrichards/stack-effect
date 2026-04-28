@@ -28,15 +28,15 @@ export const moduleRegistry = new Map<typeof ModuleId.Type, ModuleDefinition>([
             contents: domainApiContents,
           },
         ],
-        packageJsonExports: [
+        exports: [
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            exportKey: "./Api",
-            exportValue: "./src/Api.ts",
+            path: "{{targetPath}}/package.json",
+            name: "./Api",
+            value: "./src/Api.ts",
           },
         ],
-        packageJsonDependencies: [],
-        packageJsonScripts: [],
+        dependencies: [],
+        scripts: [],
         barrelExports: [
           {
             barrelPath: "{{targetPath}}/src/index.ts",
@@ -85,9 +85,9 @@ export const moduleRegistry = new Map<typeof ModuleId.Type, ModuleDefinition>([
             contents: serverHelloContents,
           },
         ],
-        packageJsonExports: [],
-        packageJsonDependencies: [],
-        packageJsonScripts: [],
+        exports: [],
+        dependencies: [],
+        scripts: [],
         barrelExports: [],
         tsconfigs: [],
       },

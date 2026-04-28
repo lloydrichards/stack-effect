@@ -15,9 +15,9 @@ type StructuralMergeMode = "create" | "modify" | "override";
 
 type StructuralMergeInput = {
   readonly path: string;
-  readonly requiredStructure: typeof RequiredStructure.Type;
-  readonly existingContents: Option.Option<string>;
-  readonly writeMode: StructuralMergeMode;
+  readonly required: typeof RequiredStructure.Type;
+  readonly existing: Option.Option<string>;
+  readonly mode: StructuralMergeMode;
 };
 
 export class StructuralMerger extends Context.Service<StructuralMerger>()(
@@ -27,16 +27,12 @@ export class StructuralMerger extends Context.Service<StructuralMerger>()(
       merge: Effect.fn("StructuralMerger.merge")(function* (
         input: StructuralMergeInput,
       ) {
-        const { path, requiredStructure } = input;
+        const { path, required } = input;
         const isPackageJsonStructure = Arr.some(
-          [
-            requiredStructure.packageJsonExports,
-            requiredStructure.packageJsonDependencies,
-            requiredStructure.packageJsonScripts,
-          ],
+          [required.exports, required.dependencies, required.scripts],
           (section) => section !== undefined,
         );
-        const isBarrelStructure = requiredStructure.reExports !== undefined;
+        const isBarrelStructure = required.reExports !== undefined;
 
         const contents = Match.value({
           isPackageJsonStructure,
@@ -80,60 +76,51 @@ export class StructuralMerger extends Context.Service<StructuralMerger>()(
 
 const mergePackageJsonContents = ({
   path,
-  requiredStructure,
-  existingContents,
-  writeMode,
+  required,
+  existing,
+  mode,
 }: StructuralMergeInput): string => {
   assertWriteModeContentExpectation({
     path,
-    existingContents,
-    writeMode,
+    existing,
+    mode,
   });
 
   const root = resolvePackageJsonRoot({
     path,
-    existingContents,
-    writeMode,
+    existing,
+    mode,
   });
 
-  if (requiredStructure.packageJsonExports !== undefined) {
+  if (required.exports !== undefined) {
     root["exports"] = mergeFlatStringEntries({
       base: parseFlatStringRecord({
         path,
         fieldName: "exports",
-        existingValue: root["exports"],
-        writeMode,
+        existing: root["exports"],
+        mode,
       }),
-      entries: sortByLocale(
-        requiredStructure.packageJsonExports,
-        (entry) => entry.exportKey,
-      ),
-      keyOf: (entry) => entry.exportKey,
-      valueOf: (entry) => entry.exportValue,
+      entries: sortByLocale(required.exports, (entry) => entry.name),
+      keyOf: (entry) => entry.name,
+      valueOf: (entry) => entry.value,
     });
   }
 
-  if (requiredStructure.packageJsonDependencies !== undefined) {
+  if (required.dependencies !== undefined) {
     Arr.reduce(
-      sortByLocale(
-        requiredStructure.packageJsonDependencies,
-        (section) => section.section,
-      ),
+      sortByLocale(required.dependencies, (section) => section.section),
       root,
       (nextRoot, section) => {
         nextRoot[section.section] = mergeFlatStringEntries({
           base: parseFlatStringRecord({
             path,
             fieldName: section.section,
-            existingValue: nextRoot[section.section],
-            writeMode,
+            existing: nextRoot[section.section],
+            mode,
           }),
-          entries: sortByLocale(
-            section.entries,
-            (entry) => entry.dependencyName,
-          ),
-          keyOf: (entry) => entry.dependencyName,
-          valueOf: (entry) => entry.dependencyValue,
+          entries: sortByLocale(section.entries, (entry) => entry.name),
+          keyOf: (entry) => entry.name,
+          valueOf: (entry) => entry.value,
         });
 
         return nextRoot;
@@ -141,20 +128,17 @@ const mergePackageJsonContents = ({
     );
   }
 
-  if (requiredStructure.packageJsonScripts !== undefined) {
+  if (required.scripts !== undefined) {
     root["scripts"] = mergeFlatStringEntries({
       base: parseFlatStringRecord({
         path,
         fieldName: "scripts",
-        existingValue: root["scripts"],
-        writeMode,
+        existing: root["scripts"],
+        mode,
       }),
-      entries: sortByLocale(
-        requiredStructure.packageJsonScripts,
-        (entry) => entry.scriptName,
-      ),
-      keyOf: (entry) => entry.scriptName,
-      valueOf: (entry) => entry.scriptValue,
+      entries: sortByLocale(required.scripts, (entry) => entry.name),
+      keyOf: (entry) => entry.name,
+      valueOf: (entry) => entry.value,
     });
   }
 
@@ -165,17 +149,17 @@ const mergePackageJsonContents = ({
 
 const resolvePackageJsonRoot = ({
   path,
-  existingContents,
-  writeMode,
+  existing,
+  mode,
 }: {
   path: string;
-  existingContents: Option.Option<string>;
-  writeMode: StructuralMergeMode;
+  existing: Option.Option<string>;
+  mode: StructuralMergeMode;
 }): Record<string, Schema.Json> => {
-  return Match.value(writeMode).pipe(
+  return Match.value(mode).pipe(
     Match.when("create", () => ({})),
     Match.orElse(() =>
-      Option.match(existingContents, {
+      Option.match(existing, {
         onNone: () => ({}),
         onSome: (contents) => {
           const parsed = Schema.decodeUnknownOption(
@@ -186,7 +170,7 @@ const resolvePackageJsonRoot = ({
             return { ...parsed.value };
           }
 
-          if (writeMode === "override") {
+          if (mode === "override") {
             return {};
           }
 
@@ -203,27 +187,27 @@ const resolvePackageJsonRoot = ({
 const parseFlatStringRecord = ({
   path,
   fieldName,
-  existingValue,
-  writeMode,
+  existing,
+  mode,
 }: {
   path: string;
   fieldName: string;
-  existingValue: unknown;
-  writeMode: StructuralMergeMode;
+  existing: unknown;
+  mode: StructuralMergeMode;
 }): Record<string, string> => {
-  if (existingValue === undefined) {
+  if (existing === undefined) {
     return {};
   }
 
   const parsed = Schema.decodeUnknownOption(
     Schema.Record(Schema.String, Schema.String),
-  )(existingValue);
+  )(existing);
 
   if (Option.isSome(parsed)) {
     return { ...parsed.value };
   }
 
-  if (writeMode === "override") {
+  if (mode === "override") {
     return {};
   }
 
@@ -235,12 +219,12 @@ const parseFlatStringRecord = ({
 
 const mergeBarrelContents = ({
   path,
-  requiredStructure,
-  existingContents,
-  writeMode,
+  required,
+  existing,
+  mode,
 }: StructuralMergeInput): string => {
   const requiredReExports = Arr.fromIterable(
-    new Set(requiredStructure.reExports ?? []),
+    new Set(required.reExports ?? []),
   ).sort((left, right) => left.localeCompare(right));
 
   if (requiredReExports.length === 0) {
@@ -252,14 +236,14 @@ const mergeBarrelContents = ({
 
   assertWriteModeContentExpectation({
     path,
-    existingContents,
-    writeMode,
+    existing,
+    mode,
   });
 
-  return Match.value(writeMode).pipe(
+  return Match.value(mode).pipe(
     Match.when("override", () => serializeBarrelExports(requiredReExports)),
     Match.orElse(() =>
-      Option.match(existingContents, {
+      Option.match(existing, {
         onNone: () => serializeBarrelExports(requiredReExports),
         onSome: (contents) =>
           Match.value(parseSimpleBarrelExports(contents)).pipe(
@@ -284,24 +268,24 @@ const mergeBarrelContents = ({
 
 const assertWriteModeContentExpectation = ({
   path,
-  existingContents,
-  writeMode,
+  existing,
+  mode,
 }: {
   path: string;
-  existingContents: Option.Option<string>;
-  writeMode: StructuralMergeMode;
+  existing: Option.Option<string>;
+  mode: StructuralMergeMode;
 }): void =>
   Match.value({
-    writeMode,
-    hasExistingContents: Option.isSome(existingContents),
+    mode,
+    hasExistingContents: Option.isSome(existing),
   }).pipe(
-    Match.when({ writeMode: "create", hasExistingContents: true }, () => {
+    Match.when({ mode: "create", hasExistingContents: true }, () => {
       throw new ApplyFailure({
         reason: "executionFailure",
         message: `Expected ${path} to be missing for create apply mode.`,
       });
     }),
-    Match.when({ writeMode: "modify", hasExistingContents: false }, () => {
+    Match.when({ mode: "modify", hasExistingContents: false }, () => {
       throw new ApplyFailure({
         reason: "executionFailure",
         message: `Expected ${path} to exist for modify apply mode.`,

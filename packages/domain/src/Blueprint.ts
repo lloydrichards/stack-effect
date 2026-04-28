@@ -1,5 +1,5 @@
-import { Data, Schema } from "effect";
-import { blueprintNodeOrd, idOrd } from "./Order";
+import { Data, Order, Schema } from "effect";
+import { idOrd } from "./Order";
 import { ModuleId, TargetIdentity, TargetKey } from "./Scaffold";
 
 export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
@@ -25,6 +25,14 @@ export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
     targetId: TargetKey,
     moduleId: ModuleId,
   },
+);
+
+export const blueprintNodeOrd = Order.mapInput(
+  Order.combineAll<(typeof Blueprint.fields.nodes.Type)[0]>([
+    Order.mapInput(Order.String, (node) => node._tag),
+    Order.mapInput(Order.String, (node) => node.id),
+  ]),
+  (node: (typeof Blueprint.fields.nodes.Type)[0]) => node,
 );
 
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({

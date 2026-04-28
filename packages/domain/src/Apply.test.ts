@@ -10,17 +10,26 @@ import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Apply", () => {
   it("accepts supported apply decision values", () => {
-    expect(Schema.decodeUnknownSync(Apply.fields.decisions)("override")).toBe(
-      "override",
-    );
-    expect(Schema.decodeUnknownSync(Apply.fields.decisions)("skip")).toBe(
-      "skip",
-    );
+    expect(
+      Schema.decodeUnknownSync(ApplyDecision)({
+        path: "package.json",
+        value: "override",
+      }),
+    ).toMatchObject({ value: "override" });
+    expect(
+      Schema.decodeUnknownSync(ApplyDecision)({
+        path: "package.json",
+        value: "skip",
+      }),
+    ).toMatchObject({ value: "skip" });
   });
 
   it("rejects unsupported apply decision values", () => {
     expect(() =>
-      Schema.decodeUnknownSync(Apply.fields.decisions)("merge"),
+      Schema.decodeUnknownSync(ApplyDecision)({
+        path: "package.json",
+        value: "merge",
+      }),
     ).toThrow();
   });
 

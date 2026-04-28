@@ -37,37 +37,36 @@ const targetDefinitions = new Map<
             contents: serverIndexContents,
           },
         ],
-        packageJsonScripts: [
+        scripts: [
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "build",
-            scriptValue:
-              "bun build src/index.ts --outdir=dist --target=bun --minify",
+            path: "{{targetPath}}/package.json",
+            name: "build",
+            value: "bun build src/index.ts --outdir=dist --target=bun --minify",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "build:types",
-            scriptValue: "tsc --emitDeclarationOnly",
+            path: "{{targetPath}}/package.json",
+            name: "build:types",
+            value: "tsc --emitDeclarationOnly",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "dev",
-            scriptValue: "bun --watch run src/index.ts",
+            path: "{{targetPath}}/package.json",
+            name: "dev",
+            value: "bun --watch run src/index.ts",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "test",
-            scriptValue: "vitest run",
+            path: "{{targetPath}}/package.json",
+            name: "test",
+            value: "vitest run",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "type-check",
-            scriptValue: "tsc --noEmit",
+            path: "{{targetPath}}/package.json",
+            name: "type-check",
+            value: "tsc --noEmit",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "clean",
-            scriptValue: "git clean -xdf .cache .turbo dist node_modules",
+            path: "{{targetPath}}/package.json",
+            name: "clean",
+            value: "git clean -xdf .cache .turbo dist node_modules",
           },
         ],
         tsconfigs: [
@@ -92,16 +91,16 @@ const targetDefinitions = new Map<
       kind: "package",
       contributions: {
         ...emptyDesiredContributions(),
-        packageJsonScripts: [
+        scripts: [
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "type-check",
-            scriptValue: "tsc --noEmit",
+            path: "{{targetPath}}/package.json",
+            name: "type-check",
+            value: "tsc --noEmit",
           },
           {
-            packageJsonPath: "{{targetPath}}/package.json",
-            scriptName: "clean",
-            scriptValue:
+            path: "{{targetPath}}/package.json",
+            name: "clean",
+            value:
               "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo",
           },
         ],

@@ -4,6 +4,9 @@ import {
   Plan,
   type PlanEntryClassification,
   PlanFailure,
+  type PlannedPackageJsonDependency,
+  type PlannedPackageJsonExport,
+  type PlannedPackageJsonScript,
   type RepoSnapshot,
   type RequiredStructure,
 } from "@repo/domain/Plan";
@@ -128,12 +131,12 @@ const toPlannedFileOutcome = ({
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
 }): typeof Plan.fields.outcomes.schema.Type => {
-  if (planningPath.authoritativeContents !== undefined) {
+  if (planningPath.contents !== undefined) {
     return {
       _tag: "authoritative",
       path: planningPath.path,
       classification,
-      contents: planningPath.authoritativeContents,
+      contents: planningPath.contents,
     };
   }
 
@@ -165,36 +168,35 @@ const toPlannedFileOutcome = ({
 const toRequiredStructure = (
   planningPath: PlanningIntentPath,
 ): typeof RequiredStructure.Type => {
-  const packageJsonDependencies = (["dependencies", "devDependencies"] as const)
+  const dependencies = (["dependencies", "devDependencies"] as const)
     .map((dependencySection) => ({
       section: dependencySection,
-      entries: planningPath.packageJsonDependencies
+      entries: planningPath.dependencies
         .filter(
           (plannedDependency) =>
             plannedDependency.section === dependencySection,
         )
         .map((plannedDependency) => ({
-          dependencyName: plannedDependency.dependencyName,
-          dependencyValue: plannedDependency.dependencyValue,
+          name: plannedDependency.name,
+          value: plannedDependency.value,
         })),
     }))
     .filter((entry) => entry.entries.length > 0);
 
   return {
-    packageJsonExports:
-      planningPath.packageJsonExports.length > 0
-        ? planningPath.packageJsonExports.map((plannedExport) => ({
-            exportKey: plannedExport.exportKey,
-            exportValue: plannedExport.exportValue,
+    exports:
+      planningPath.exports.length > 0
+        ? planningPath.exports.map((plannedExport) => ({
+            name: plannedExport.name,
+            value: plannedExport.value,
           }))
         : undefined,
-    packageJsonDependencies:
-      packageJsonDependencies.length > 0 ? packageJsonDependencies : undefined,
-    packageJsonScripts:
-      planningPath.packageJsonScripts.length > 0
-        ? planningPath.packageJsonScripts.map((plannedScript) => ({
-            scriptName: plannedScript.scriptName,
-            scriptValue: plannedScript.scriptValue,
+    dependencies: dependencies.length > 0 ? dependencies : undefined,
+    scripts:
+      planningPath.scripts.length > 0
+        ? planningPath.scripts.map((plannedScript) => ({
+            name: plannedScript.name,
+            value: plannedScript.value,
           }))
         : undefined,
     reExports:
@@ -208,9 +210,9 @@ const toRequiredStructure = (
 const isRequiredStructureEmpty = (
   requiredStructure: typeof RequiredStructure.Type,
 ) =>
-  requiredStructure.packageJsonExports === undefined &&
-  requiredStructure.packageJsonDependencies === undefined &&
-  requiredStructure.packageJsonScripts === undefined &&
+  requiredStructure.exports === undefined &&
+  requiredStructure.dependencies === undefined &&
+  requiredStructure.scripts === undefined &&
   requiredStructure.reExports === undefined;
 const assessPlanningPath = ({
   planningPath,
@@ -220,22 +222,22 @@ const assessPlanningPath = ({
   snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   if (
-    planningPath.authoritativeContents === undefined &&
-    (planningPath.packageJsonExports.length > 0 ||
-      planningPath.packageJsonDependencies.length > 0 ||
-      planningPath.packageJsonScripts.length > 0)
+    planningPath.contents === undefined &&
+    (planningPath.exports.length > 0 ||
+      planningPath.dependencies.length > 0 ||
+      planningPath.scripts.length > 0)
   ) {
     return planPackageJsonMerge({
       path: planningPath.path,
-      requiredExports: planningPath.packageJsonExports,
-      requiredDependencies: planningPath.packageJsonDependencies,
-      requiredScripts: planningPath.packageJsonScripts,
+      requiredExports: planningPath.exports,
+      requiredDependencies: planningPath.dependencies,
+      requiredScripts: planningPath.scripts,
       snapshotPath,
     });
   }
 
   if (
-    planningPath.authoritativeContents === undefined &&
+    planningPath.contents === undefined &&
     planningPath.barrelExports.length > 0
   ) {
     return planBarrelMerge({
@@ -246,7 +248,7 @@ const assessPlanningPath = ({
   }
 
   if (
-    planningPath.authoritativeContents === undefined &&
+    planningPath.contents === undefined &&
     planningPath.tsconfig !== undefined
   ) {
     return planTsconfigMerge({
@@ -256,7 +258,7 @@ const assessPlanningPath = ({
     });
   }
 
-  if (planningPath.authoritativeContents === undefined) {
+  if (planningPath.contents === undefined) {
     throw new PlanFailure({
       reason: "invalidPlanIntent",
       message: `No planning intent defined for ${planningPath.path}.`,
@@ -265,7 +267,7 @@ const assessPlanningPath = ({
 
   return assessAuthoritativeContents({
     path: planningPath.path,
-    requiredContents: planningPath.authoritativeContents,
+    requiredContents: planningPath.contents,
     snapshotPath,
   });
 };
@@ -312,7 +314,7 @@ const planTsconfigMerge = ({
   snapshotPath,
 }: {
   path: string;
-  requiredTsconfig: PlannedTsconfig;
+  requiredTsconfig: PlanningIntentTsconfig;
   snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const authoritativeAssessment = assessAuthoritativeContents({
@@ -342,9 +344,9 @@ const planPackageJsonMerge = ({
   snapshotPath,
 }: {
   path: string;
-  requiredExports: ReadonlyArray<PlannedPackageJsonExport>;
-  requiredDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
-  requiredScripts: ReadonlyArray<PlannedPackageJsonScript>;
+  requiredExports: ReadonlyArray<typeof PlannedPackageJsonExport.Type>;
+  requiredDependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
+  requiredScripts: ReadonlyArray<typeof PlannedPackageJsonScript.Type>;
   snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
@@ -374,8 +376,8 @@ const planPackageJsonMerge = ({
   const exportAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["exports"],
     requiredEntries: requiredExports,
-    keyOf: (plannedExport) => plannedExport.exportKey,
-    valueOf: (plannedExport) => plannedExport.exportValue,
+    keyOf: (plannedExport) => plannedExport.name,
+    valueOf: (plannedExport) => plannedExport.value,
     toConflict: (plannedExport) =>
       createPackageJsonExportPlanConflict({ path, plannedExport }),
   });
@@ -385,8 +387,8 @@ const planPackageJsonMerge = ({
       assessFlatStringRecordEntries({
         existingValue: packageJson[section],
         requiredEntries: sectionDependencies,
-        keyOf: (plannedDependency) => plannedDependency.dependencyName,
-        valueOf: (plannedDependency) => plannedDependency.dependencyValue,
+        keyOf: (plannedDependency) => plannedDependency.name,
+        valueOf: (plannedDependency) => plannedDependency.value,
         toConflict: (plannedDependency) =>
           createPackageJsonDependencyPlanConflict({
             path,
@@ -397,10 +399,9 @@ const planPackageJsonMerge = ({
   const scriptAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["scripts"],
     requiredEntries: requiredScripts,
-    keyOf: (plannedScript) => plannedScript.scriptName,
-    valueOf: (plannedScript) => plannedScript.scriptValue,
-    toConflict: (plannedScript) =>
-      createPackageJsonScriptPlanConflict({ path, plannedScript }),
+    keyOf: (script) => script.name,
+    valueOf: (script) => script.value,
+    toConflict: (script) => createScriptPlanConflict({ path, script }),
   });
   const conflicts = [
     ...exportAssessment.conflicts,
@@ -429,7 +430,7 @@ const planBarrelMerge = ({
   snapshotPath,
 }: {
   path: string;
-  requiredReExports: ReadonlyArray<PlannedBarrelExport>;
+  requiredReExports: ReadonlyArray<PlanningIntentBarrelExport>;
   snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
@@ -482,7 +483,7 @@ const createBarrelExportPlanConflict = ({
   plannedReExport,
 }: {
   path: string;
-  plannedReExport: PlannedBarrelExport;
+  plannedReExport: PlanningIntentBarrelExport;
 }): typeof Plan.fields.conflicts.schema.Type => ({
   _tag: "barrelExport",
   path,
@@ -493,43 +494,37 @@ const createPackageJsonExportPlanConflict = ({
   plannedExport,
 }: {
   path: string;
-  plannedExport: PlannedPackageJsonExport;
-}): Extract<
-  typeof Plan.fields.conflicts.schema.Type,
-  { _tag: "packageJsonExports" }
-> => ({
-  _tag: "packageJsonExports",
+  plannedExport: typeof PlannedPackageJsonExport.Type;
+}): Extract<typeof Plan.fields.conflicts.schema.Type, { _tag: "exports" }> => ({
+  _tag: "exports",
   path,
-  exportKey: plannedExport.exportKey,
+  name: plannedExport.name,
 });
-const createPackageJsonScriptPlanConflict = ({
+const createScriptPlanConflict = ({
   path,
-  plannedScript,
+  script,
 }: {
   path: string;
-  plannedScript: PlannedPackageJsonScript;
-}): Extract<
-  typeof Plan.fields.conflicts.schema.Type,
-  { _tag: "packageJsonScripts" }
-> => ({
-  _tag: "packageJsonScripts",
+  script: typeof PlannedPackageJsonScript.Type;
+}): Extract<typeof Plan.fields.conflicts.schema.Type, { _tag: "scripts" }> => ({
+  _tag: "scripts",
   path,
-  scriptName: plannedScript.scriptName,
+  name: script.name,
 });
 const createPackageJsonDependencyPlanConflict = ({
   path,
   plannedDependency,
 }: {
   path: string;
-  plannedDependency: PlannedPackageJsonDependency;
+  plannedDependency: PlanningIntentPackageJsonDependency;
 }): Extract<
   typeof Plan.fields.conflicts.schema.Type,
-  { _tag: "packageJsonDependencies" }
+  { _tag: "dependencies" }
 > => ({
-  _tag: "packageJsonDependencies",
+  _tag: "dependencies",
   path,
   section: plannedDependency.section,
-  dependencyName: plannedDependency.dependencyName,
+  name: plannedDependency.name,
 });
 
 const collectInvalidPackageJsonConflicts = ({
@@ -539,9 +534,9 @@ const collectInvalidPackageJsonConflicts = ({
   requiredScripts,
 }: {
   path: string;
-  requiredExports: ReadonlyArray<PlannedPackageJsonExport>;
-  requiredDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
-  requiredScripts: ReadonlyArray<PlannedPackageJsonScript>;
+  requiredExports: ReadonlyArray<typeof PlannedPackageJsonExport.Type>;
+  requiredDependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
+  requiredScripts: ReadonlyArray<typeof PlannedPackageJsonScript.Type>;
 }) => [
   ...requiredExports.map((plannedExport) =>
     createPackageJsonExportPlanConflict({ path, plannedExport }),
@@ -552,10 +547,10 @@ const collectInvalidPackageJsonConflicts = ({
       plannedDependency,
     }),
   ),
-  ...requiredScripts.map((plannedScript) =>
-    createPackageJsonScriptPlanConflict({
+  ...requiredScripts.map((script) =>
+    createScriptPlanConflict({
       path,
-      plannedScript,
+      script,
     }),
   ),
 ];
@@ -645,46 +640,28 @@ const collectAncestorPaths = (path: string): ReadonlyArray<string> =>
     .map((_, index, parts) => parts.slice(0, index + 1).join("/"))
     .slice(0, -1);
 
-type PlannedPackageJsonExport = {
-  readonly exportKey: string;
-  readonly exportValue: string;
-};
-
-type PlannedPackageJsonDependency = {
+type PlanningIntentPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
-  readonly dependencyName: string;
-  readonly dependencyValue: string;
-};
+} & typeof PlannedPackageJsonDependency.Type;
 
-type PlannedPackageJsonScript = {
-  readonly scriptName: string;
-  readonly scriptValue: string;
-};
-
-type PlannedBarrelExport = {
+type PlanningIntentBarrelExport = {
   readonly exportPath: string;
 };
 
-type PlannedTsconfig = {
+type PlanningIntentTsconfig = {
   readonly path: string;
   readonly contents: string;
 };
 
 type PlanningIntentPath = {
   readonly path: string;
-  readonly authoritativeContents: string | undefined;
-  readonly packageJsonExports: ReadonlyArray<PlannedPackageJsonExport>;
-  readonly packageJsonDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
-  readonly packageJsonScripts: ReadonlyArray<PlannedPackageJsonScript>;
-  readonly barrelExports: ReadonlyArray<PlannedBarrelExport>;
-  readonly tsconfig: PlannedTsconfig | undefined;
+  readonly contents: string | undefined;
+  readonly exports: ReadonlyArray<typeof PlannedPackageJsonExport.Type>;
+  readonly dependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
+  readonly scripts: ReadonlyArray<typeof PlannedPackageJsonScript.Type>;
+  readonly barrelExports: ReadonlyArray<PlanningIntentBarrelExport>;
+  readonly tsconfig: PlanningIntentTsconfig | undefined;
 };
-
-type PlanningIntentFamily =
-  | "authoritative"
-  | "packageJson"
-  | "barrel"
-  | "tsconfig";
 
 type PlanningIntentEntry =
   | {
@@ -695,21 +672,21 @@ type PlanningIntentEntry =
   | {
       readonly _tag: "packageJsonExport";
       readonly path: string;
-      readonly exportKey: string;
-      readonly exportValue: string;
+      readonly name: string;
+      readonly value: string;
     }
   | {
       readonly _tag: "packageJsonDependency";
       readonly path: string;
       readonly section: "dependencies" | "devDependencies";
-      readonly dependencyName: string;
-      readonly dependencyValue: string;
+      readonly name: string;
+      readonly value: string;
     }
   | {
       readonly _tag: "packageJsonScript";
       readonly path: string;
-      readonly scriptName: string;
-      readonly scriptValue: string;
+      readonly name: string;
+      readonly value: string;
     }
   | {
       readonly _tag: "barrelExport";
@@ -721,11 +698,6 @@ type PlanningIntentEntry =
       readonly path: string;
       readonly contents: string;
     };
-
-type PlanningIntentPathFamily = {
-  readonly path: string;
-  readonly family: PlanningIntentFamily;
-};
 
 const flattenContributions = (
   normalizedContributions: NormalizedContributions,
@@ -744,32 +716,32 @@ const toPlanningIntentEntries = (
         contents: file.contents,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.packageJsonExports.map(
+  ...contributions.exports.map(
     (entry) =>
       ({
         _tag: "packageJsonExport",
-        path: entry.packageJsonPath,
-        exportKey: entry.exportKey,
-        exportValue: entry.exportValue,
+        path: entry.path,
+        name: entry.name,
+        value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.packageJsonDependencies.map(
+  ...contributions.dependencies.map(
     (entry) =>
       ({
         _tag: "packageJsonDependency",
-        path: entry.packageJsonPath,
+        path: entry.path,
         section: entry.section,
-        dependencyName: entry.dependencyName,
-        dependencyValue: entry.dependencyValue,
+        name: entry.name,
+        value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.packageJsonScripts.map(
+  ...contributions.scripts.map(
     (entry) =>
       ({
         _tag: "packageJsonScript",
-        path: entry.packageJsonPath,
-        scriptName: entry.scriptName,
-        scriptValue: entry.scriptValue,
+        path: entry.path,
+        name: entry.name,
+        value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
   ...contributions.barrelExports.map(
@@ -850,48 +822,48 @@ const derivePlanningIntentPath = ({
       case "authoritative":
         return {
           path,
-          authoritativeContents: yield* requireSingleValue({
+          contents: yield* requireSingleValue({
             values: authoritativeEntries.map((entry) => entry.contents),
             errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
           }),
-          packageJsonExports: [],
-          packageJsonDependencies: [],
-          packageJsonScripts: [],
+          exports: [],
+          dependencies: [],
+          scripts: [],
           barrelExports: [],
           tsconfig: undefined,
         };
       case "packageJson":
         return {
           path,
-          authoritativeContents: undefined,
-          packageJsonExports: yield* collectUniqueEntries({
+          contents: undefined,
+          exports: yield* collectUniqueEntries({
             entries: packageJsonExportEntries,
-            keyOf: (entry) => entry.exportKey,
-            valueOf: (entry) => entry.exportValue,
-            toResult: ({ exportKey, exportValue }) => ({
-              exportKey,
-              exportValue,
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+            toResult: ({ name, value }) => ({
+              name,
+              value,
             }),
             errorMessage: `Conflicting package.json export outcomes for ${path}.`,
           }),
-          packageJsonDependencies: yield* collectUniqueEntries({
+          dependencies: yield* collectUniqueEntries({
             entries: packageJsonDependencyEntries,
-            keyOf: (entry) => `${entry.section}:${entry.dependencyName}`,
-            valueOf: (entry) => entry.dependencyValue,
-            toResult: ({ section, dependencyName, dependencyValue }) => ({
+            keyOf: (entry) => `${entry.section}:${entry.name}`,
+            valueOf: (entry) => entry.value,
+            toResult: ({ section, name, value }) => ({
               section,
-              dependencyName,
-              dependencyValue,
+              name,
+              value,
             }),
             errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
           }),
-          packageJsonScripts: yield* collectUniqueEntries({
+          scripts: yield* collectUniqueEntries({
             entries: packageJsonScriptEntries,
-            keyOf: (entry) => entry.scriptName,
-            valueOf: (entry) => entry.scriptValue,
-            toResult: ({ scriptName, scriptValue }) => ({
-              scriptName,
-              scriptValue,
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+            toResult: ({ name, value }) => ({
+              name,
+              value,
             }),
             errorMessage: `Conflicting package.json script outcomes for ${path}.`,
           }),
@@ -901,10 +873,10 @@ const derivePlanningIntentPath = ({
       case "barrel":
         return {
           path,
-          authoritativeContents: undefined,
-          packageJsonExports: [],
-          packageJsonDependencies: [],
-          packageJsonScripts: [],
+          contents: undefined,
+          exports: [],
+          dependencies: [],
+          scripts: [],
           barrelExports: yield* collectUniqueEntries({
             entries: barrelExportEntries,
             keyOf: (entry) => entry.exportPath,
@@ -917,10 +889,10 @@ const derivePlanningIntentPath = ({
       case "tsconfig":
         return {
           path,
-          authoritativeContents: undefined,
-          packageJsonExports: [],
-          packageJsonDependencies: [],
-          packageJsonScripts: [],
+          contents: undefined,
+          exports: [],
+          dependencies: [],
+          scripts: [],
           barrelExports: [],
           tsconfig: {
             path,
@@ -939,15 +911,13 @@ const derivePlanningIntentFamily = ({
 }: {
   path: string;
   entries: ReadonlyArray<PlanningIntentEntry>;
-}): Effect.Effect<PlanningIntentPathFamily, PlanFailure> =>
+}) =>
   requireSingleValue({
     values: entries.map(toPlanningIntentFamily),
     errorMessage: `Conflicting planning intents for ${path}.`,
   }).pipe(Effect.map((family) => ({ path, family })));
 
-const toPlanningIntentFamily = (
-  entry: PlanningIntentEntry,
-): PlanningIntentFamily => {
+const toPlanningIntentFamily = (entry: PlanningIntentEntry) => {
   switch (entry._tag) {
     case "authoritative":
       return "authoritative";
