@@ -10,8 +10,8 @@ import {
 import type { ModuleId, TargetIdentity } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer } from "effect";
-import { ModuleCatalog } from "../catalog/ModuleCatalog";
-import { TargetCatalog } from "../catalog/TargetCatalog";
+import { ModuleCatalog } from "../../catalog/ModuleCatalog";
+import { TargetCatalog } from "../../catalog/TargetCatalog";
 
 type MutableTargetState = BlueprintTargetNode;
 
