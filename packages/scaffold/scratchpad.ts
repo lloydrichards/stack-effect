@@ -8,7 +8,7 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "./src";
-import { RepoSnapshotService } from "./src/service/RepoSnapshotService";
+import { RepoSnapshotService } from "./src/service/plan/RepoSnapshotService";
 
 // ---------------------------------------------------------------------------
 // Mock RepoSnapshotService — returns every requested path as "missing"

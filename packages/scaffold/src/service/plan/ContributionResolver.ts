@@ -11,8 +11,8 @@ import {
   type TargetContribution,
 } from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
-import { ModuleCatalog } from "../catalog/ModuleCatalog";
-import { TargetCatalog } from "../catalog/TargetCatalog";
+import { ModuleCatalog } from "../../catalog/ModuleCatalog";
+import { TargetCatalog } from "../../catalog/TargetCatalog";
 
 export type NormalizedContributions = {
   readonly targets: ReadonlyArray<TargetContribution>;

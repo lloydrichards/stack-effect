@@ -25,11 +25,6 @@ export const blueprintEdgeOrd = Order.mapInput(
   (edge: BlueprintEdge) => edge.id,
 );
 
-export const plannedFileOutcomeOrd = Order.mapInput(
-  pathOrd,
-  (outcome: PlannedFileOutcome) => outcome.path,
-);
-
 export const planConflictOrd = Order.mapInput(
   Order.String,
   (conflict: PlanConflict): string => {
