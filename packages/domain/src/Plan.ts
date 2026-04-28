@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { planConflictOrd, plannedFileOutcomeOrd } from "./Order";
+import { pathOrd, planConflictOrd } from "./Order";
 
 export const PlanEntryClassification = Schema.Literals([
   "create",
@@ -137,7 +137,7 @@ export class Plan extends Schema.Class<Plan>("Plan")({
 }) {
   toSorted(): Plan {
     return new Plan({
-      outcomes: [...this.outcomes].sort(plannedFileOutcomeOrd),
+      outcomes: [...this.outcomes].sort(pathOrd),
       conflicts: [...this.conflicts].sort(planConflictOrd),
     });
   }

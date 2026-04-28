@@ -1,5 +1,5 @@
 import type { Blueprint } from "@repo/domain/Blueprint";
-import { pathOrd } from "@repo/domain/Order";
+import { pathStrOrd } from "@repo/domain/Order";
 import {
   Plan,
   type PlanConflict,
@@ -74,7 +74,7 @@ const collectPlanInspectionPaths = (
     ...collectAncestorPaths(planningPath.path),
   ]);
 
-  return Arr.sort(Arr.fromIterable(new Set(requestedPaths)), pathOrd);
+  return Arr.sort(Arr.fromIterable(new Set(requestedPaths)), pathStrOrd);
 };
 const projectPlan = ({
   planningPaths,

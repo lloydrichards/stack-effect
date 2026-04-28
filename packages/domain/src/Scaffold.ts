@@ -63,7 +63,20 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   }
 }
 
-export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
+const targetKeyPattern =
+  /^(?:packages\/[a-z0-9]+(?:-[a-z0-9]+)*|apps\/(?:client|server|cli)-[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+
+const isCanonicalTargetKey = (value: string): value is string =>
+  targetKeyPattern.test(value);
+
+export const TargetKey = Schema.String.pipe(
+  Schema.refine(isCanonicalTargetKey, {
+    identifier: "TargetKey",
+    description:
+      "A canonical target key: packages/<name> or apps/<kind>-<name>.",
+  }),
+  Schema.brand("TargetKey"),
+);
 export type TargetKey = Schema.Schema.Type<typeof TargetKey>;
 
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
