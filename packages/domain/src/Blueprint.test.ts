@@ -187,5 +187,4 @@ describe("@repo/domain Blueprint", () => {
       Schema.decodeUnknownPromise(TargetKey)("server-api"),
     ).rejects.toThrow();
   });
-
 });

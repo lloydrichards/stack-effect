@@ -397,38 +397,43 @@ function buildScoreTable(
     );
   }
 
-  const rows: Box.Box<Ansi.AnsiStyle>[][] = [];
+  const rows = pipe(
+    filtered,
+    Arr.flatMap((entry) => {
+      const loc = `${entry.file}:${entry.line}`;
+      const primRow = [
+        Box.text(String(entry.complexity)),
+        levelBox(entry.level, entry.level),
+        Box.text(pad(entry.name, SCORE_COLUMNS[2].width)),
+        Box.text(pad(loc, SCORE_COLUMNS[3].width)),
+      ];
 
-  for (const entry of filtered) {
-    const loc = `${entry.file}:${entry.line}`;
-    rows.push([
-      Box.text(String(entry.complexity)),
-      levelBox(entry.level, entry.level),
-      Box.text(pad(entry.name, SCORE_COLUMNS[2].width)),
-      Box.text(pad(loc, SCORE_COLUMNS[3].width)),
-    ]);
-
-    // Expand reasons for high/extreme entries
-    if (
-      (entry.level === "high" || entry.level === "extreme") &&
-      entry.reasons
-    ) {
-      for (let i = 0; i < entry.reasons.length; i++) {
-        const reason = entry.reasons[i];
-        const isLast = i === entry.reasons.length - 1;
-        const prefix = isLast ? "└" : "├";
-        const reasonText = `${prefix} ${reason.description} (+${reason.complexity})  :${reason.line}`;
-        rows.push([
-          Box.nullBox,
-          Box.nullBox,
-          Box.text(pad(reasonText, SCORE_COLUMNS[2].width)).pipe(
-            Box.annotate(Ansi.dim),
-          ),
-          Box.nullBox,
-        ]);
+      // Expand reasons for high/extreme entries
+      if (
+        (entry.level === "high" || entry.level === "extreme") &&
+        entry.reasons
+      ) {
+        return [
+          primRow,
+          ...entry.reasons.map((reason, i) => {
+            const isLast = i === (entry.reasons?.length || 0) - 1;
+            const prefix = isLast ? "└" : "├";
+            const reasonText = `${prefix} ${reason.description} (+${reason.complexity})  :${reason.line}`;
+            return [
+              Box.nullBox,
+              Box.nullBox,
+              Box.text(pad(reasonText, SCORE_COLUMNS[2].width)).pipe(
+                Box.annotate(Ansi.dim),
+              ),
+              Box.nullBox,
+            ];
+          }),
+        ];
       }
-    }
-  }
+
+      return [primRow];
+    }),
+  );
 
   return Table(SCORE_COLUMNS, rows).pipe(Border);
 }
@@ -467,49 +472,14 @@ function buildSummary(
     Box.top,
   );
 
-  // Descriptive stats
-  const complexities = [...allEntries.map((e) => e.complexity)].sort(
-    (a, b) => a - b,
-  );
-  const mean = complexities.reduce((a, b) => a + b, 0) / total;
-  const median = complexities[Math.floor(complexities.length / 2)] ?? 0;
-  const p90 = complexities[Math.floor(complexities.length * 0.9)] ?? 0;
-  const max = complexities[complexities.length - 1] ?? 0;
-
-  const statsLine = Box.text(
-    `${allEntries.length} total · mean ${mean.toFixed(1)} · median ${median} · p90 ${p90} · max ${max}`,
-  );
-
-  // Health verdict based on high+extreme ratio
-  const hotCount = counts.high + counts.extreme;
-  const hotRatio = hotCount / total;
-  const [verdictText, verdictAnsi] =
-    hotRatio === 0
-      ? (["HEALTHY", Ansi.green] as const)
-      : hotRatio <= 0.05
-        ? (["MODERATE", Ansi.blue] as const)
-        : hotRatio <= 0.15
-          ? (["CONCERNING", Ansi.yellow] as const)
-          : (["CRITICAL", Ansi.red] as const);
-  const verdict = Box.text(verdictText).pipe(
-    Box.annotate(Ansi.combine(Ansi.bold, verdictAnsi)),
-  );
-  const verdictLine = Box.hcat(
-    [Box.text("Health: "), verdict, Box.text(`  (${hotCount} high/extreme)`)],
-    Box.top,
-  );
-
   // Layout
   const label = Box.text("Distribution: ");
-  const barLine = Box.hcat([label, bar], Box.top);
 
-  return Box.vsep(
+  return Box.vcat(
     [
-      Box.vcat([barLine, pctLabel.pipe(Box.moveRight(label.cols+1))], Box.left),
-      statsLine,
-      verdictLine,
+      Box.hcat([label, bar], Box.top),
+      pctLabel.pipe(Box.moveRight(label.cols + 1)),
     ],
-    1,
     Box.left,
   );
 }
