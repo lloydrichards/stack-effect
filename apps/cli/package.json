@@ -7,12 +7,13 @@
     "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
     "build:types": "tsc --emitDeclarationOnly",
     "dev": "bun --watch run src/index.ts",
-    "start": "bun run src/index.ts",
+    "start": "bun run src/index.ts init --dry-run",
     "type-check": "tsc --noEmit",
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0-beta.58",
+    "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",
     "effect": "4.0.0-beta.58",
     "effect-boxes": "^0.10.0"
