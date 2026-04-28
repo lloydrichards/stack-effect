@@ -7,7 +7,7 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { TargetIdentity } from "@repo/domain/Scaffold";
-import { Effect } from "effect";
+import { Cause, Effect, Exit } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
 const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
@@ -19,13 +19,19 @@ const getNode = (blueprint: Blueprint, id: string) => {
   return node;
 };
 
+const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
+  expect(Exit.isFailure(exit)).toBe(true);
+  assert(Exit.isFailure(exit), "Expected effect to fail");
+  return Cause.squash(exit.cause);
+};
+
 describe("BlueprintService", () => {
   layer(BlueprintService.layer)("resolve", (it) => {
     describe("when validating selections", () => {
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const error = yield* Effect.flip(
+          const exit = yield* Effect.exit(
             blueprintService.resolve({
               targets: [
                 {
@@ -47,6 +53,7 @@ describe("BlueprintService", () => {
               ],
             }),
           );
+          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
@@ -58,7 +65,7 @@ describe("BlueprintService", () => {
       it.effect("should fail when the same module is selected twice", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const error = yield* Effect.flip(
+          const exit = yield* Effect.exit(
             blueprintService.resolve({
               targets: [
                 {
@@ -75,6 +82,7 @@ describe("BlueprintService", () => {
               ],
             }),
           );
+          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
@@ -89,7 +97,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const error = yield* Effect.flip(
+            const exit = yield* Effect.exit(
               blueprintService.resolve({
                 targets: [
                   {
@@ -103,6 +111,7 @@ describe("BlueprintService", () => {
                 ],
               }),
             );
+            const error = squashFailure(exit);
 
             expect(error).toBeInstanceOf(BlueprintFailure);
             expect(error).toMatchObject({
@@ -115,7 +124,7 @@ describe("BlueprintService", () => {
       it.effect("should propagate a missing module catalog lookup", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const error = yield* Effect.flip(
+          const exit = yield* Effect.exit(
             blueprintService.resolve({
               targets: [
                 {
@@ -129,6 +138,7 @@ describe("BlueprintService", () => {
               ],
             }),
           );
+          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(CatalogNotFound);
           expect(error).toMatchObject({

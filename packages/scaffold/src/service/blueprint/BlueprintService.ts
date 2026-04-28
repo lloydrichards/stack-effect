@@ -125,6 +125,8 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         });
       }
     }
+
+    return undefined;
   },
 );
 

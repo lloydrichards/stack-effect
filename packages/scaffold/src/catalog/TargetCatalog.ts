@@ -11,12 +11,13 @@ import {
   serverTsconfigContents,
 } from "../registry/content/server";
 
-export type TargetDefinition = {
-  readonly kind: TargetKind;
-  readonly contributions: DesiredContributions;
-};
-
-const targetDefinitions = new Map<TargetKind, TargetDefinition>([
+const targetDefinitions = new Map<
+  TargetKind,
+  {
+    readonly kind: TargetKind;
+    readonly contributions: DesiredContributions;
+  }
+>([
   [
     "client",
     {

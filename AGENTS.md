@@ -33,6 +33,7 @@ Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Biome 2.4
 - **Effect patterns**: `Effect.gen` + `yield*` for all Effect operations; Layer
   composition for DI
 - **Error handling**: Use Effect error channel; avoid try/catch
+- **Type safety**: Never use `as unknown as` casts; if a type cannot be expressed safely, fix the model or use framework-provided typed test stubs/helpers
 
 ## Effect Essentials
 
