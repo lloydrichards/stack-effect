@@ -60,6 +60,18 @@ _Avoid_: Blueprint, changeset
 The planning boundary that derives a **Plan** from a **Blueprint** and the current repository snapshot.
 _Avoid_: Intent builder, comparator pipeline, staged planner API
 
+**Apply**:
+An execution intent that embeds a **Plan** and the user-provided **Apply Decisions** required to run apply.
+_Avoid_: Apply request DTO, UI state, post-plan options
+
+**Apply Service**:
+The execution boundary that materializes a **Plan** into repository changes using **Apply Decisions**.
+_Avoid_: Writer, patch runner, installer
+
+**Apply Decision**:
+A per-conflicted-path user policy for a `needsMergeStrategy` **Planned File Outcome**.
+_Avoid_: Plan policy, merge engine mode
+
 **Planned File Outcome**:
 The canonical desired state and classification for one planned file path after the **Plan** normalizes contributions against the current repository snapshot.
 _Avoid_: Entry, diff row, render node
@@ -126,6 +138,17 @@ _Avoid_: Host target, source target
 - `tsconfig.json` is treated as an **Authoritative File Outcome** in this context
 - **PlanService** owns both desired-outcome resolution from a **Blueprint** and comparison against the current repository snapshot
 - **PlanService** exposes a single public planning operation from **Blueprint** plus repo root to **Plan**
+- A **Plan** does not contain **Apply Decisions**
+- **Apply** embeds the **Plan** it executes
+- **Apply Service** consumes an **Apply** to materialize repository changes
+- Repository root is runtime execution context passed to **Apply Service**, not part of **Apply**
+- **Apply Decisions** are required only for `needsMergeStrategy` **Planned File Outcomes**
+- **Apply Decisions** contain entries only for `needsMergeStrategy` **Planned File Outcomes**
+- **Apply Decisions** are keyed by planned file path
+- An **Apply** is invalid when any `needsMergeStrategy` **Planned File Outcome** is missing an **Apply Decision**
+- An **Apply** is invalid when it contains an **Apply Decision** for a non-conflicted path
+- In this context, an **Apply Decision** is `override` or `skip`
+- `abort` is a UI cancellation action and is outside the domain model
 - **Init** prepares repo-wide infrastructure before **Blueprint** and **Plan** operate on it
 - A **Plan** may create **Targets** from scratch inside an initialized repository
 - A **Target** contributes base workspace scaffold through its **Target Contribution**
@@ -133,7 +156,8 @@ _Avoid_: Host target, source target
 - A **Module Contribution** may write only to its **Owning Target**
 - Cross-target effects are modeled through **Required Target** and **Required Module** dependencies, not by writing into another target directly
 - A **Target Contribution** and **Module Contribution** declare **Desired Contributions** only
-- **Plan** owns merge and conflict policy for applying **Desired Contributions** to the repository snapshot
+- **Plan** owns merge and conflict detection while projecting **Desired Contributions** onto the repository snapshot
+- **Apply Service** owns execution policy for unresolved conflicts through **Apply Decisions**
 - A **Planned File Outcome** carries the desired outcome for a file path, not just a classification label
 - File-specific merge strategies such as `package.json`, barrel files, and `tsconfig` are implementation details under a **Planned File Outcome**, not separate top-level planning concepts
 - `tsconfig.json` is usually introduced once by scaffold; later drift is treated as conflict rather than planner-managed merge behavior
@@ -234,3 +258,9 @@ _Avoid_: Host target, source target
 - it was unclear whether the public **Plan** should expose merge strategy types like `package.json` or barrel handling — resolved: the public boundary exposes required structure only; merge strategy names stay internal to the planner.
 - it was unclear whether desired-outcome resolution and repo-state comparison should be separate planning services — resolved: **PlanService** keeps both responsibilities as one planning boundary.
 - it was unclear whether **PlanService** should expose intermediate planner stages publicly — resolved: it exposes a single public planning operation and keeps lower-level stages private.
+- it was unclear whether file conflict policies like `override` and `skip` belong inside **Plan** — resolved: conflict policy is modeled as **Apply Decisions** consumed by **Apply Service**, while **Plan** remains policy-free.
+- it was unclear whether `abort` should be modeled in-domain — resolved: `abort` is a UI cancellation action outside the domain model and not part of **Apply**.
+- it was unclear whether **Apply** should carry only decisions or also the **Plan** — resolved: **Apply** is the execution intent and embeds the **Plan** it executes.
+- it was unclear whether missing per-file conflict decisions should be defaulted during apply — resolved: missing decisions make **Apply** invalid and **Apply Service** fails fast.
+- it was unclear whether extra per-file decisions for non-conflicted paths should be ignored — resolved: extra decisions make **Apply** invalid and **Apply Service** rejects the execution intent.
+- it was unclear whether repository root belongs inside **Apply** — resolved: repository root is runtime context supplied to **Apply Service** from CLI/UI, not persisted in **Apply**.
