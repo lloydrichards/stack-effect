@@ -13,9 +13,9 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect/ai-anthropic": "4.0.0-beta.47",
+    "@effect/ai-anthropic": "4.0.0-beta.58",
     "@repo/domain": "workspace:*",
-    "effect": "4.0.0-beta.47"
+    "effect": "4.0.0-beta.58"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*"

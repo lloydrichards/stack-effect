@@ -996,6 +996,6 @@ const collectUniqueEntries = <Entry, Result>({
       requireSingleValue({
         values: groupedEntries.map(valueOf),
         errorMessage,
-      }).pipe(Effect.as(toResult(groupedEntries[0]!))),
+      }).pipe(Effect.as(toResult(groupedEntries[0]))),
     ),
   );

@@ -22,14 +22,13 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
     make: Effect.succeed({
       getModuleDefinition: (moduleId: ModuleId) =>
         Effect.fromNullishOr(moduleRegistry.get(moduleId)).pipe(
-          Effect.catch(() =>
-            Effect.fail(
+          Effect.mapError(
+            () =>
               new CatalogNotFound({
                 catalog: "module",
                 entity: "module",
                 id: moduleId,
               }),
-            ),
           ),
         ),
       isModuleSupportedOn: ({
@@ -43,14 +42,13 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
           const definition = yield* Effect.fromNullishOr(
             moduleRegistry.get(moduleId),
           ).pipe(
-            Effect.catch(() =>
-              Effect.fail(
+            Effect.mapError(
+              () =>
                 new CatalogNotFound({
                   catalog: "module",
                   entity: "module",
                   id: moduleId,
                 }),
-              ),
             ),
           );
 

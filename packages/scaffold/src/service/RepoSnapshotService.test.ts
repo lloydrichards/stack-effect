@@ -1,3 +1,4 @@
+/** @effect-diagnostics globalErrorInEffectFailure:skip-file */
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Match, Path } from "effect";
 import { RepoSnapshotService } from "./RepoSnapshotService";

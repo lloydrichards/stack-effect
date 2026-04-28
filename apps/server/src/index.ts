@@ -4,7 +4,7 @@ import { Api } from "@repo/domain/Api";
 import { EventRpc } from "@repo/domain/Rpc";
 import { WebSocketRpc } from "@repo/domain/WebSocket";
 import { ObservabilityLive } from "@repo/observability";
-import { PresenceServiceLive } from "@repo/presence";
+import { PresenceService } from "@repo/presence";
 import { Config, Effect, Layer } from "effect";
 import { DevTools } from "effect/unstable/devtools";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
@@ -61,7 +61,7 @@ const WebSocketRpcRouter = RpcServer.layerHttp({
   disableFatalDefects: true,
 }).pipe(
   Layer.provide(PresenceRpcLive),
-  Layer.provide(PresenceServiceLive),
+  Layer.provide(PresenceService.layer),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 

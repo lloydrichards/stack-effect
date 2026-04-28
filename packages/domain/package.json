@@ -22,7 +22,7 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.47"
+    "effect": "4.0.0-beta.58"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*"
