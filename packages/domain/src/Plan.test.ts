@@ -1,9 +1,4 @@
-import {
-  Plan,
-  PlanConflict,
-  PlanEntryClassification,
-  PlannedFileOutcome,
-} from "@repo/domain/Plan";
+import { Plan, PlanEntryClassification } from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -69,7 +64,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows planned file outcomes to be decoded independently", () => {
-    const outcome = Schema.decodeUnknownSync(PlannedFileOutcome)({
+    const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.schema)({
       _tag: "authoritative",
       path: "packages/domain/tsconfig.json",
       classification: "create",
@@ -80,7 +75,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows conflicts to be decoded independently", () => {
-    const conflict = Schema.decodeUnknownSync(PlanConflict)({
+    const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.schema)({
       _tag: "authoritativeFile",
       path: "package.json",
     });

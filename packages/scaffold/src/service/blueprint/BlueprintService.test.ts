@@ -13,7 +13,7 @@ import { BlueprintService } from "./BlueprintService";
 const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
 const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });
 
-const getNode = (blueprint: Blueprint, id: string) => {
+const getNode = (blueprint: typeof Blueprint.Type, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
   assert(node !== undefined, `Expected blueprint node ${id} to exist`);
   return node;

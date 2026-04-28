@@ -10,17 +10,17 @@ import { Context, Effect, Layer } from "effect";
 import { moduleRegistry } from "../registry/moduleRegistry";
 
 export type ModuleDefinition = {
-  readonly moduleId: ModuleId;
-  readonly supportedOn: ReadonlyArray<SupportedOn>;
-  readonly dependencies: ReadonlyArray<ModuleDependency>;
-  readonly contributions: DesiredContributions;
+  readonly moduleId: typeof ModuleId.Type;
+  readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
+  readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
+  readonly contributions: typeof DesiredContributions.Type;
 };
 
 export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   "ModuleCatalog",
   {
     make: Effect.succeed({
-      getModuleDefinition: (moduleId: ModuleId) =>
+      getModuleDefinition: (moduleId: typeof ModuleId.Type) =>
         Effect.fromNullishOr(moduleRegistry.get(moduleId)).pipe(
           Effect.mapError(
             () =>
@@ -35,7 +35,7 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
         moduleId,
         target,
       }: {
-        moduleId: ModuleId;
+        moduleId: typeof ModuleId.Type;
         target: TargetIdentity;
       }) =>
         Effect.gen(function* () {

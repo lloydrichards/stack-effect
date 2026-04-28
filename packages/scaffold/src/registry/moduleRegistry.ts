@@ -6,7 +6,7 @@ import {
   serverHelloContents,
 } from "./content/api";
 
-export const moduleRegistry = new Map<ModuleId, ModuleDefinition>([
+export const moduleRegistry = new Map<typeof ModuleId.Type, ModuleDefinition>([
   [
     "domain-api",
     {

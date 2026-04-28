@@ -12,10 +12,10 @@ import {
 } from "../registry/content/server";
 
 const targetDefinitions = new Map<
-  TargetKind,
+  typeof TargetKind.Type,
   {
-    readonly kind: TargetKind;
-    readonly contributions: DesiredContributions;
+    readonly kind: typeof TargetKind.Type;
+    readonly contributions: typeof DesiredContributions.Type;
   }
 >([
   [
@@ -120,7 +120,7 @@ export class TargetCatalog extends Context.Service<TargetCatalog>()(
   "TargetCatalog",
   {
     make: Effect.succeed({
-      getTargetDefinition: (kind: TargetKind) =>
+      getTargetDefinition: (kind: typeof TargetKind.Type) =>
         Effect.fromNullishOr(targetDefinitions.get(kind)).pipe(
           Effect.mapError(
             () =>

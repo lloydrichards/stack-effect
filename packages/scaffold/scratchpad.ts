@@ -26,7 +26,7 @@ const EmptyRepoSnapshotLayer = Layer.succeed(RepoSnapshotService, {
   }) {
     return {
       paths: paths.map((path) => ({ _tag: "missing", path })),
-    } satisfies RepoSnapshot;
+    } satisfies typeof RepoSnapshot.Type;
   }),
 } as never);
 

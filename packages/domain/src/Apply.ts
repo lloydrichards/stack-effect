@@ -2,14 +2,10 @@ import { Schema } from "effect";
 import { pathOrd, pathStrOrd } from "./Order";
 import { Plan } from "./Plan";
 
-export const ApplyDecisionValue = Schema.Literals(["override", "skip"]);
-export type ApplyDecisionValue = Schema.Schema.Type<typeof ApplyDecisionValue>;
-
 export const ApplyDecision = Schema.Struct({
   path: Schema.String,
-  value: ApplyDecisionValue,
+  value: Schema.Literals(["override", "skip"]),
 });
-export type ApplyDecision = Schema.Schema.Type<typeof ApplyDecision>;
 
 export class Apply extends Schema.Class<Apply>("Apply")({
   plan: Plan,
@@ -39,7 +35,6 @@ export const ApplyFailedPath = Schema.Struct({
   path: Schema.String,
   reason: Schema.String,
 });
-export type ApplyFailedPath = Schema.Schema.Type<typeof ApplyFailedPath>;
 
 export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
   created: Schema.Array(Schema.String),

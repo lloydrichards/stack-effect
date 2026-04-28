@@ -15,8 +15,8 @@ import { ModuleCatalog } from "../../catalog/ModuleCatalog";
 import { TargetCatalog } from "../../catalog/TargetCatalog";
 
 export type NormalizedContributions = {
-  readonly targets: ReadonlyArray<TargetContribution>;
-  readonly modules: ReadonlyArray<ModuleContribution>;
+  readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
+  readonly modules: ReadonlyArray<typeof ModuleContribution.Type>;
 };
 
 export class ContributionResolver extends Context.Service<ContributionResolver>()(
@@ -27,21 +27,24 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
       const moduleCatalog = yield* ModuleCatalog;
 
       const resolve = Effect.fn("ContributionResolver.resolve")(function* (
-        blueprint: Blueprint,
+        blueprint: typeof Blueprint.Type,
       ) {
         const targetNodes = blueprint.nodes.filter(isBlueprintTargetNode);
         const attachedModuleNodes = blueprint.nodes.filter(
           isBlueprintAttachedModuleNode,
         );
-        const targetContexts = new Map<string, ContributionTokenContext>();
-        const targetContributions: Array<TargetContribution> = [];
-        const moduleContributions: Array<ModuleContribution> = [];
+        const targetContexts = new Map<
+          string,
+          typeof ContributionTokenContext.Type
+        >();
+        const targetContributions: Array<typeof TargetContribution.Type> = [];
+        const moduleContributions: Array<typeof ModuleContribution.Type> = [];
 
         for (const node of targetNodes) {
           const definition = yield* targetCatalog.getTargetDefinition(
             node.identity.kind,
           );
-          const context: ContributionTokenContext = {
+          const context: typeof ContributionTokenContext.Type = {
             targetKey: node.id,
             targetPath: node.identity.toPath(),
             targetKind: node.identity.kind,
@@ -99,9 +102,9 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 }
 
 const resolveContributionTokens = (
-  contributions: DesiredContributions,
-  context: ContributionTokenContext,
-): DesiredContributions => {
+  contributions: typeof DesiredContributions.Type,
+  context: typeof ContributionTokenContext.Type,
+): typeof DesiredContributions.Type => {
   const resolveString = (value: string) =>
     value
       .replaceAll("{{targetPath}}", context.targetPath)

@@ -1,8 +1,4 @@
-import {
-  PlanFailure,
-  type RepoSnapshot,
-  type RepoSnapshotPath,
-} from "@repo/domain/Plan";
+import { PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -54,14 +50,14 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 return {
                   _tag: "missing",
                   path: snapshotPath,
-                } satisfies RepoSnapshotPath;
+                } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
               }
 
               if (pathStat.type === "Directory") {
                 return {
                   _tag: "directory",
                   path: snapshotPath,
-                } satisfies RepoSnapshotPath;
+                } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
               }
 
               const contents = yield* fileSystem
@@ -80,14 +76,14 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 _tag: "file",
                 path: snapshotPath,
                 contents,
-              } satisfies RepoSnapshotPath;
+              } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
             }),
           ),
         );
 
         return {
           paths: snapshotEntries,
-        } satisfies RepoSnapshot;
+        } satisfies typeof RepoSnapshot.Type;
       });
 
       return { load } as const;

@@ -1,17 +1,11 @@
 import {
   type Blueprint,
   type BlueprintAttachedModuleNode,
-  type BlueprintEdge,
   isBlueprintAttachedModuleNode,
   isBlueprintTargetNode,
 } from "@repo/domain/Blueprint";
-import { blueprintEdgeOrd, blueprintNodeOrd } from "@repo/domain/Order";
-import type {
-  Plan,
-  PlanConflict,
-  PlanEntryClassification,
-  PlannedFileOutcome,
-} from "@repo/domain/Plan";
+import { blueprintNodeOrd, idOrd } from "@repo/domain/Order";
+import type { Plan, PlanEntryClassification } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -32,7 +26,7 @@ type DerivedPlanTreeFileNode = {
   readonly _tag: "file";
   readonly name: string;
   readonly path: string;
-  readonly classification: PlanEntryClassification;
+  readonly classification: typeof PlanEntryClassification.Type;
 };
 
 type DerivedPlanTreeDirectoryNode = {
@@ -51,7 +45,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   {
     make: Effect.gen(function* () {
       const formatBlueprint = Effect.fn("ScaffoldFormatter.formatBlueprint")(
-        function* (blueprint: Blueprint) {
+        function* (blueprint: typeof Blueprint.Type) {
           if (blueprint.nodes.length === 0) {
             return "Blueprint";
           }
@@ -60,7 +54,10 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
             blueprint.nodes,
             Arr.filter(isBlueprintAttachedModuleNode),
             Arr.reduce(
-              new Map<string, ReadonlyArray<BlueprintAttachedModuleNode>>(),
+              new Map<
+                string,
+                ReadonlyArray<typeof BlueprintAttachedModuleNode.Type>
+              >(),
               (groups, node) =>
                 groups.set(
                   node.targetId,
@@ -71,7 +68,10 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
 
           const outgoingEdgesByNode = Arr.reduce(
             blueprint.edges,
-            new Map<string, ReadonlyArray<BlueprintEdge>>(),
+            new Map<
+              string,
+              ReadonlyArray<(typeof Blueprint.fields.edges.Type)[0]>
+            >(),
             (groups, edge) =>
               groups.set(
                 edge.from,
@@ -109,7 +109,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                                 ),
                                 (edge) => edge.reason !== "owns-module",
                               ),
-                              blueprintEdgeOrd,
+                              idOrd,
                             ),
                             (edge) => ({
                               line: `${edge.to} [${edge.reason}]`,
@@ -128,7 +128,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
       );
 
       const formatPlan = Effect.fn("ScaffoldFormatter.formatPlan")(function* (
-        plan: Plan,
+        plan: typeof Plan.Type,
       ) {
         const summary = Arr.reduce(
           plan.outcomes,
@@ -137,7 +137,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
             modify: 0,
             unchanged: 0,
             needsMergeStrategy: 0,
-          } satisfies Record<PlanEntryClassification, number>,
+          } satisfies Record<typeof PlanEntryClassification.Type, number>,
           (summary, outcome) => ({
             ...summary,
             [outcome.classification]: summary[outcome.classification] + 1,
@@ -146,7 +146,10 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
 
         const conflictsByPath = Arr.reduce(
           plan.conflicts,
-          new Map<string, ReadonlyArray<PlanConflict>>(),
+          new Map<
+            string,
+            ReadonlyArray<typeof Plan.fields.conflicts.schema.Type>
+          >(),
           (groups, conflict) =>
             groups.set(
               conflict.path,
@@ -203,7 +206,10 @@ const renderTreeBranches = (
 
 const renderPlanTreeChildren = (
   nodes: ReadonlyArray<DerivedPlanTreeNode>,
-  conflictsByPath: ReadonlyMap<string, ReadonlyArray<PlanConflict>>,
+  conflictsByPath: ReadonlyMap<
+    string,
+    ReadonlyArray<typeof Plan.fields.conflicts.schema.Type>
+  >,
   indent = "",
 ): ReadonlyArray<string> =>
   Arr.flatMap(nodes, (node, index) => {
@@ -234,7 +240,7 @@ const renderPlanTreeChildren = (
 
 const appendOutcomeToDirectoryNode = (
   root: DerivedPlanTreeDirectoryNode,
-  outcome: PlannedFileOutcome,
+  outcome: typeof Plan.fields.outcomes.schema.Type,
 ): DerivedPlanTreeDirectoryNode =>
   appendNodeAtPath(root, String.split(outcome.path, "/"), {
     _tag: "file",
@@ -312,7 +318,7 @@ const sortPlanTreeDirectoryNode = (
 });
 
 const formatPlanClassificationBadge = (
-  classification: PlanEntryClassification,
+  classification: typeof PlanEntryClassification.Type,
 ): string => {
   switch (classification) {
     case "create":
@@ -326,7 +332,9 @@ const formatPlanClassificationBadge = (
   }
 };
 
-const formatConflictLine = (conflict: PlanConflict): string => {
+const formatConflictLine = (
+  conflict: typeof Plan.fields.conflicts.schema.Type,
+): string => {
   switch (conflict._tag) {
     case "authoritativeFile":
       return "merge: authoritative file";

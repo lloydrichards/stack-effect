@@ -2,12 +2,9 @@ import type { Blueprint } from "@repo/domain/Blueprint";
 import { pathStrOrd } from "@repo/domain/Order";
 import {
   Plan,
-  type PlanConflict,
   type PlanEntryClassification,
   PlanFailure,
-  type PlannedFileOutcome,
   type RepoSnapshot,
-  type RepoSnapshotPath,
   type RequiredStructure,
 } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, Layer, Record } from "effect";
@@ -81,7 +78,7 @@ const projectPlan = ({
   repoSnapshot,
 }: {
   planningPaths: ReadonlyArray<PlanningIntentPath>;
-  repoSnapshot: RepoSnapshot;
+  repoSnapshot: typeof RepoSnapshot.Type;
 }) => {
   const snapshotPaths = new Map(
     repoSnapshot.paths.map(
@@ -129,8 +126,8 @@ const toPlannedFileOutcome = ({
   classification,
 }: {
   planningPath: PlanningIntentPath;
-  classification: PlanEntryClassification;
-}): PlannedFileOutcome => {
+  classification: typeof PlanEntryClassification.Type;
+}): typeof Plan.fields.outcomes.schema.Type => {
   if (planningPath.authoritativeContents !== undefined) {
     return {
       _tag: "authoritative",
@@ -167,7 +164,7 @@ const toPlannedFileOutcome = ({
 };
 const toRequiredStructure = (
   planningPath: PlanningIntentPath,
-): RequiredStructure => {
+): typeof RequiredStructure.Type => {
   const packageJsonDependencies = (["dependencies", "devDependencies"] as const)
     .map((dependencySection) => ({
       section: dependencySection,
@@ -208,7 +205,9 @@ const toRequiredStructure = (
         : undefined,
   };
 };
-const isRequiredStructureEmpty = (requiredStructure: RequiredStructure) =>
+const isRequiredStructureEmpty = (
+  requiredStructure: typeof RequiredStructure.Type,
+) =>
   requiredStructure.packageJsonExports === undefined &&
   requiredStructure.packageJsonDependencies === undefined &&
   requiredStructure.packageJsonScripts === undefined &&
@@ -218,7 +217,7 @@ const assessPlanningPath = ({
   snapshotPath,
 }: {
   planningPath: PlanningIntentPath;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   if (
     planningPath.authoritativeContents === undefined &&
@@ -274,8 +273,8 @@ const createPathAssessment = ({
   classification,
   conflicts = [],
 }: {
-  classification: PlanEntryClassification;
-  conflicts?: ReadonlyArray<PlanConflict>;
+  classification: typeof PlanEntryClassification.Type;
+  conflicts?: typeof Plan.fields.conflicts.Type;
 }) => ({
   classification,
   conflicts: Arr.fromIterable(conflicts),
@@ -293,7 +292,7 @@ const assessAuthoritativeContents = ({
 }: {
   path: string;
   requiredContents: string;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
@@ -314,7 +313,7 @@ const planTsconfigMerge = ({
 }: {
   path: string;
   requiredTsconfig: PlannedTsconfig;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const authoritativeAssessment = assessAuthoritativeContents({
     path,
@@ -346,7 +345,7 @@ const planPackageJsonMerge = ({
   requiredExports: ReadonlyArray<PlannedPackageJsonExport>;
   requiredDependencies: ReadonlyArray<PlannedPackageJsonDependency>;
   requiredScripts: ReadonlyArray<PlannedPackageJsonScript>;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
@@ -431,7 +430,7 @@ const planBarrelMerge = ({
 }: {
   path: string;
   requiredReExports: ReadonlyArray<PlannedBarrelExport>;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }) => {
   const existingContents = getExistingFileContents({ path, snapshotPath });
 
@@ -474,7 +473,7 @@ const createTsconfigPlanConflict = ({
   path,
 }: {
   path: string;
-}): PlanConflict => ({
+}): typeof Plan.fields.conflicts.schema.Type => ({
   _tag: "tsconfig",
   path,
 });
@@ -484,7 +483,7 @@ const createBarrelExportPlanConflict = ({
 }: {
   path: string;
   plannedReExport: PlannedBarrelExport;
-}): PlanConflict => ({
+}): typeof Plan.fields.conflicts.schema.Type => ({
   _tag: "barrelExport",
   path,
   exportPath: plannedReExport.exportPath,
@@ -495,7 +494,10 @@ const createPackageJsonExportPlanConflict = ({
 }: {
   path: string;
   plannedExport: PlannedPackageJsonExport;
-}): Extract<PlanConflict, { _tag: "packageJsonExports" }> => ({
+}): Extract<
+  typeof Plan.fields.conflicts.schema.Type,
+  { _tag: "packageJsonExports" }
+> => ({
   _tag: "packageJsonExports",
   path,
   exportKey: plannedExport.exportKey,
@@ -506,7 +508,10 @@ const createPackageJsonScriptPlanConflict = ({
 }: {
   path: string;
   plannedScript: PlannedPackageJsonScript;
-}): Extract<PlanConflict, { _tag: "packageJsonScripts" }> => ({
+}): Extract<
+  typeof Plan.fields.conflicts.schema.Type,
+  { _tag: "packageJsonScripts" }
+> => ({
   _tag: "packageJsonScripts",
   path,
   scriptName: plannedScript.scriptName,
@@ -517,7 +522,10 @@ const createPackageJsonDependencyPlanConflict = ({
 }: {
   path: string;
   plannedDependency: PlannedPackageJsonDependency;
-}): Extract<PlanConflict, { _tag: "packageJsonDependencies" }> => ({
+}): Extract<
+  typeof Plan.fields.conflicts.schema.Type,
+  { _tag: "packageJsonDependencies" }
+> => ({
   _tag: "packageJsonDependencies",
   path,
   section: plannedDependency.section,
@@ -615,7 +623,7 @@ const getExistingFileContents = ({
   snapshotPath,
 }: {
   path: string;
-  snapshotPath: RepoSnapshotPath | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
 }): string | undefined => {
   if (snapshotPath === undefined || snapshotPath._tag === "missing") {
     return undefined;

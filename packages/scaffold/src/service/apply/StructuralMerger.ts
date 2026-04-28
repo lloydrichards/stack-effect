@@ -15,7 +15,7 @@ type StructuralMergeMode = "create" | "modify" | "override";
 
 type StructuralMergeInput = {
   readonly path: string;
-  readonly requiredStructure: RequiredStructure;
+  readonly requiredStructure: typeof RequiredStructure.Type;
   readonly existingContents: Option.Option<string>;
   readonly writeMode: StructuralMergeMode;
 };

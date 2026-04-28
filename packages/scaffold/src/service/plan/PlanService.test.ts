@@ -1,12 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import type {
-  Plan,
-  PlanFailure,
-  PlannedFileOutcome,
-  RepoSnapshot,
-} from "@repo/domain/Plan";
+import type { Plan, PlanFailure, RepoSnapshot } from "@repo/domain/Plan";
 import { TargetIdentity } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
@@ -21,7 +16,7 @@ const makeRepoSnapshotServiceLayer = (
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
-  }) => Effect.Effect<RepoSnapshot, PlanFailure, never>,
+  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
 ) =>
   Layer.succeed(RepoSnapshotService, {
     load: Effect.fn("MockRepoSnapshotService.load")(load),
@@ -127,7 +122,10 @@ const makeServerApiBlueprint = () =>
     ],
   }).toSorted();
 
-const getOutcome = (plan: Plan, path: string): PlannedFileOutcome => {
+const getOutcome = (
+  plan: typeof Plan.Type,
+  path: string,
+): typeof Plan.fields.outcomes.schema.Type => {
   const outcome = plan.outcomes.find((candidate) => candidate.path === path);
   expect(outcome).toBeDefined();
   assert(
@@ -141,7 +139,7 @@ const makePlanServiceLayer = (
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
-  }) => Effect.Effect<RepoSnapshot, PlanFailure, never>,
+  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
 ) =>
   Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
@@ -152,11 +150,11 @@ const buildPlan = ({
   blueprint,
   load,
 }: {
-  blueprint: Blueprint;
+  blueprint: typeof Blueprint.Type;
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
-  }) => Effect.Effect<RepoSnapshot, PlanFailure, never>;
+  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>;
 }) =>
   Effect.gen(function* () {
     const planService = yield* PlanService;

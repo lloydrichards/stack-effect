@@ -1,7 +1,6 @@
 import {
   Blueprint,
   type BlueprintAttachedModuleNode,
-  type BlueprintEdge,
   BlueprintFailure,
   type BlueprintTargetNode,
   type CatalogNotFound,
@@ -13,14 +12,14 @@ import { Array as Arr, Context, Effect, Layer } from "effect";
 import { ModuleCatalog } from "../../catalog/ModuleCatalog";
 import { TargetCatalog } from "../../catalog/TargetCatalog";
 
-type MutableTargetState = BlueprintTargetNode;
+type MutableTargetState = typeof BlueprintTargetNode.Type;
 
-type MutableAttachedModuleState = BlueprintAttachedModuleNode;
+type MutableAttachedModuleState = typeof BlueprintAttachedModuleNode.Type;
 
 type ResolutionState = {
   readonly targets: Map<string, MutableTargetState>;
   readonly attachedModules: Map<string, MutableAttachedModuleState>;
-  readonly edges: Map<string, BlueprintEdge>;
+  readonly edges: Map<string, (typeof Blueprint.fields.edges.Type)[0]>;
 };
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
@@ -31,7 +30,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
       const moduleCatalog = yield* ModuleCatalog;
 
       const resolve = Effect.fn("BlueprintService.resolve")(function* (
-        selection: Selection,
+        selection: typeof Selection.Type,
       ) {
         yield* validateSelection(selection, targetCatalog, moduleCatalog);
 
@@ -64,7 +63,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
 
 const validateSelection = Effect.fn("BlueprintService.validateSelection")(
   function* (
-    selection: Selection,
+    selection: typeof Selection.Type,
     targetCatalog: typeof TargetCatalog.Service,
     moduleCatalog: typeof ModuleCatalog.Service,
   ) {
@@ -82,7 +81,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       selectedTargetKeys.add(targetKey);
       yield* targetCatalog.getTargetDefinition(target.identity.kind);
 
-      const selectedModuleIds = new Set<ModuleId>();
+      const selectedModuleIds = new Set<typeof ModuleId.Type>();
 
       for (const moduleSelection of target.modules) {
         if (selectedModuleIds.has(moduleSelection.id)) {
@@ -132,7 +131,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 
 const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
   function* (
-    selection: Selection,
+    selection: typeof Selection.Type,
     targetCatalog: typeof TargetCatalog.Service,
     moduleCatalog: typeof ModuleCatalog.Service,
   ) {
@@ -164,7 +163,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
     const ensureModuleSupportedOn = Effect.fn(function* (
       target: TargetIdentity,
-      moduleId: ModuleId,
+      moduleId: typeof ModuleId.Type,
     ) {
       const isSupported = yield* moduleCatalog.isModuleSupportedOn({
         moduleId,
@@ -184,12 +183,15 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
     const ensureAttachedModule: (
       target: TargetIdentity,
-      moduleId: ModuleId,
+      moduleId: typeof ModuleId.Type,
     ) => Effect.Effect<
       MutableAttachedModuleState,
       BlueprintFailure | CatalogNotFound,
       never
-    > = Effect.fn(function* (target: TargetIdentity, moduleId: ModuleId) {
+    > = Effect.fn(function* (
+      target: TargetIdentity,
+      moduleId: typeof ModuleId.Type,
+    ) {
       yield* ensureModuleSupportedOn(target, moduleId);
 
       const targetState = yield* ensureTarget(target);
@@ -265,7 +267,10 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
   },
 );
 
-const appendEdge = (state: ResolutionState, edge: BlueprintEdge): void => {
+const appendEdge = (
+  state: ResolutionState,
+  edge: (typeof Blueprint.fields.edges.Type)[0],
+): void => {
   if (state.edges.has(edge.id)) {
     return;
   }

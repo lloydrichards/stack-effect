@@ -1,7 +1,6 @@
 import {
   Apply,
   ApplyDecision,
-  ApplyDecisionValue,
   ApplyFailure,
   ApplyResult,
 } from "@repo/domain/Apply";
@@ -11,15 +10,17 @@ import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Apply", () => {
   it("accepts supported apply decision values", () => {
-    expect(Schema.decodeUnknownSync(ApplyDecisionValue)("override")).toBe(
+    expect(Schema.decodeUnknownSync(Apply.fields.decisions)("override")).toBe(
       "override",
     );
-    expect(Schema.decodeUnknownSync(ApplyDecisionValue)("skip")).toBe("skip");
+    expect(Schema.decodeUnknownSync(Apply.fields.decisions)("skip")).toBe(
+      "skip",
+    );
   });
 
   it("rejects unsupported apply decision values", () => {
     expect(() =>
-      Schema.decodeUnknownSync(ApplyDecisionValue)("merge"),
+      Schema.decodeUnknownSync(Apply.fields.decisions)("merge"),
     ).toThrow();
   });
 

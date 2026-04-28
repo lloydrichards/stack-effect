@@ -5,9 +5,7 @@ import { type ApplyDecision, Apply as ApplyIntent } from "@repo/domain/Apply";
 import {
   Plan,
   type PlanEntryClassification,
-  type PlannedFileOutcome,
   type RequiredStructure,
-  type StructuralMergeOutcome,
 } from "@repo/domain/Plan";
 import {
   Cause,
@@ -34,7 +32,10 @@ type MockPathEntry =
 
 type StructuralMergeInput = {
   readonly path: string;
-  readonly requiredStructure: StructuralMergeOutcome["requiredStructure"];
+  readonly requiredStructure: Extract<
+    typeof Plan.fields.outcomes.schema.Type,
+    { _tag: "structural" }
+  >["requiredStructure"];
   readonly existingContents: Option.Option<string>;
   readonly writeMode: "create" | "modify" | "override";
 };
@@ -158,8 +159,8 @@ const makeApply = ({
   outcomes,
   decisions = [],
 }: {
-  outcomes: ReadonlyArray<PlannedFileOutcome>;
-  decisions?: ReadonlyArray<ApplyDecision>;
+  outcomes: typeof Plan.fields.outcomes.Type;
+  decisions?: ReadonlyArray<typeof ApplyDecision.Type>;
 }) =>
   new ApplyIntent({
     plan: new Plan({
@@ -187,9 +188,9 @@ const authoritativeOutcome = ({
   contents,
 }: {
   path: string;
-  classification: PlanEntryClassification;
+  classification: typeof PlanEntryClassification.Type;
   contents: string;
-}): PlannedFileOutcome => ({
+}): typeof Plan.fields.outcomes.schema.Type => ({
   _tag: "authoritative",
   path,
   classification,
@@ -202,9 +203,9 @@ const structuralOutcome = ({
   requiredStructure,
 }: {
   path: string;
-  classification: PlanEntryClassification;
-  requiredStructure: RequiredStructure;
-}): PlannedFileOutcome => ({
+  classification: typeof PlanEntryClassification.Type;
+  requiredStructure: typeof RequiredStructure.Type;
+}): typeof Plan.fields.outcomes.schema.Type => ({
   _tag: "structural",
   path,
   classification,

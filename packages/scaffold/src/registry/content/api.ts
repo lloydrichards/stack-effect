@@ -28,7 +28,7 @@ export const HealthGroupLive = HttpApiBuilder.group(Api, "health", (handlers) =>
   handlers.handle("get", () => Effect.succeed("Hello Effect!")),
 );
 `;
-export const serverHelloContents = `import { Api, type ApiResponse } from "@repo/domain/Api";
+export const serverHelloContents = `import { Api, ApiResponse } from "@repo/domain/Api";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 

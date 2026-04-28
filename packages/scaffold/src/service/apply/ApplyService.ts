@@ -4,7 +4,7 @@ import {
   ApplyFailure,
   ApplyResult,
 } from "@repo/domain/Apply";
-import type { StructuralMergeOutcome } from "@repo/domain/Plan";
+import type { Plan } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -13,6 +13,7 @@ import {
   Layer,
   Option,
   Path,
+  type Schema,
 } from "effect";
 import { StructuralMerger } from "./StructuralMerger";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
@@ -32,7 +33,10 @@ type MaterializedPlannedOutcomeAction =
   | {
       readonly _tag: "write-structural";
       readonly path: string;
-      readonly requiredStructure: StructuralMergeOutcome["requiredStructure"];
+      readonly requiredStructure: Extract<
+        typeof Plan.fields.outcomes.schema.Type,
+        { _tag: "structural" }
+      >["requiredStructure"];
       readonly writeMode: "create" | "modify" | "override";
     };
 
@@ -56,7 +60,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
       const path = yield* Path.Path;
 
       const materializeFrom = Effect.fn("ApplyService.materializeFrom")(
-        function* (apply: Apply) {
+        function* (apply: typeof Apply.Type) {
           const decisionsByPath = new Map(
             apply.decisions.map(
               (decision) => [decision.path, decision.value] as const,
@@ -245,7 +249,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
         apply,
         repoRoot,
       }: {
-        apply: Apply;
+        apply: typeof Apply.Type;
         repoRoot: string;
       }) {
         const actions = yield* materializeFrom(apply);
@@ -274,7 +278,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
             created: [] as Array<string>,
             modified: [] as Array<string>,
             skippedPaths: actionProjection.skippedPaths,
-            failed: [] as Array<ApplyFailedPath>,
+            failed: [] as Array<typeof ApplyFailedPath.Type>,
           },
           (projection, writeAttempt) => {
             switch (writeAttempt.status) {
