@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0-beta.58",
-    "effect": "4.0.0-beta.58"
+    "@repo/scaffold": "workspace:*",
+    "effect": "4.0.0-beta.58",
+    "effect-boxes": "^0.10.0"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*",
