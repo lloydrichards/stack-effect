@@ -1,24 +1,13 @@
 import { CatalogNotFound } from "@repo/domain/Blueprint";
 import type {
-  DesiredContributions,
-  ModuleDependency,
+  ModuleDefinition,
   ModuleId,
-  SupportedOn,
   TargetIdentity,
   TargetKind,
-} from "@repo/domain/Scaffold";
+} from "@repo/domain/Catalog";
 import { Context, Effect, Layer } from "effect";
 import { moduleRegistry } from "./registry/moduleRegistry";
 import { TargetCatalog } from "./TargetCatalog";
-
-export type ModuleDefinition = {
-  readonly id: typeof ModuleId.Type;
-  readonly title: string;
-  readonly description: string;
-  readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
-  readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
-  readonly contributions: typeof DesiredContributions.Type;
-};
 
 export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   "ModuleCatalog",
@@ -59,14 +48,14 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
           {
             readonly title: string;
             readonly description: string;
-            readonly modules: ReadonlyArray<ModuleDefinition>;
+            readonly modules: ReadonlyArray<typeof ModuleDefinition.Type>;
           }
         >();
 
         for (const kind of targetCatalog.keys) {
           if (kind === "init") continue;
           const target = yield* targetCatalog.get(kind);
-          const modules: Array<ModuleDefinition> = [];
+          const modules: Array<typeof ModuleDefinition.Type> = [];
           for (const mod of moduleRegistry) {
             const supported = mod.supportedOn.some(
               (s) => s._tag === "kind" && s.kind === kind,

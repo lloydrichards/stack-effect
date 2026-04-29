@@ -1,5 +1,5 @@
 import { CatalogNotFound } from "@repo/domain/Blueprint";
-import type { TargetKind } from "@repo/domain/Scaffold";
+import type { TargetKind } from "@repo/domain/Catalog";
 import { Context, Effect, Layer } from "effect";
 import { targetRegistry } from "./registry/targetRegistry";
 

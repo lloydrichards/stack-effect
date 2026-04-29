@@ -1,4 +1,4 @@
-import { TargetIdentity } from "@repo/domain/Scaffold";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";

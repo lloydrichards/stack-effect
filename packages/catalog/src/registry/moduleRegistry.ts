@@ -1,5 +1,4 @@
-import { TargetIdentity } from "@repo/domain/Scaffold";
-import type { ModuleDefinition } from "../ModuleCatalog";
+import { type ModuleDefinition, TargetIdentity } from "@repo/domain/Catalog";
 import {
   domainApiContents,
   serverHealthContents,
@@ -16,7 +15,7 @@ import {
   vitestConfigContents,
 } from "./content/init";
 
-export const moduleRegistry: ReadonlyArray<ModuleDefinition> = [
+export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: "turbo",
     title: "Turborepo",

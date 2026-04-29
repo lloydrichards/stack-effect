@@ -4,9 +4,9 @@ import {
   isBlueprintAttachedModuleNode,
   isBlueprintTargetNode,
 } from "@repo/domain/Blueprint";
+import type { DesiredContributions } from "@repo/domain/Catalog";
 import {
   type ContributionTokenContext,
-  type DesiredContributions,
   emptyDesiredContributions,
   type ModuleContribution,
   type TargetContribution,

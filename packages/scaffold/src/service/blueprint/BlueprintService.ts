@@ -7,7 +7,7 @@ import {
   type CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import type { ModuleId, TargetIdentity } from "@repo/domain/Scaffold";
+import type { ModuleId, TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer } from "effect";
 

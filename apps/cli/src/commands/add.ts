@@ -1,6 +1,6 @@
 import { ModuleCatalog } from "@repo/catalog";
-import type { ModuleId, TargetKind } from "@repo/domain/Scaffold";
-import { TargetIdentity } from "@repo/domain/Scaffold";
+import type { ModuleId, TargetKind } from "@repo/domain/Catalog";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Effect, Option, Ref } from "effect";
 import { Command, Prompt } from "effect/unstable/cli";
@@ -48,7 +48,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
               description: mod.description,
             })),
           })
-        : ([] as ReadonlyArray<typeof ModuleId.Type>);
+        : [];
 
     yield* Ref.update(targets, (ts) => [...ts, { kind, name, modules }]);
 

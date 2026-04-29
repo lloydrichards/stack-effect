@@ -1,7 +1,7 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
-import { TargetIdentity } from "@repo/domain/Scaffold";
 import { Effect, String } from "effect";
 import { ScaffoldFormatter } from "./ScaffolFormatter";
 

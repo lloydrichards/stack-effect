@@ -1,5 +1,5 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { ModuleCatalog, TargetCatalog } from "@repo/catalog";
+import { ModuleCatalog } from "@repo/catalog";
 import {
   ApplyService,
   BlueprintService,

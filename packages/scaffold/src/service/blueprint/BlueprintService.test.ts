@@ -6,7 +6,7 @@ import {
   CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import { TargetIdentity } from "@repo/domain/Scaffold";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import { Cause, Effect, Exit } from "effect";
 import { BlueprintService } from "./BlueprintService";
 

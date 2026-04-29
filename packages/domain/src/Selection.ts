@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { ModuleId, TargetIdentity } from "./Scaffold";
+import { ModuleId, TargetIdentity } from "./Catalog";
 
 export const Selection = Schema.Struct({
   targets: Schema.Array(

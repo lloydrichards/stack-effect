@@ -8,6 +8,7 @@
     "./Apply": "./src/Apply.ts",
     "./Api": "./src/Api.ts",
     "./Blueprint": "./src/Blueprint.ts",
+    "./Catalog": "./src/Catalog.ts",
     "./Chat": "./src/Chat.ts",
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",

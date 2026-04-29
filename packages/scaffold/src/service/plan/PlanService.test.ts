@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Plan, PlanFailure, RepoSnapshot } from "@repo/domain/Plan";
-import { TargetIdentity } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { PlanService } from "./PlanService";

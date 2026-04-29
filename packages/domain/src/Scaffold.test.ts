@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity } from "./Scaffold";
+import { TargetIdentity } from "./Catalog";
 
 describe("@repo/domain Scaffold", () => {
   it("accepts realistic target identities users are expected to provide", () => {

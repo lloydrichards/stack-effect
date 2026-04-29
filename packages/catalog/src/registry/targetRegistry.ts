@@ -1,8 +1,5 @@
-import {
-  type DesiredContributions,
-  emptyDesiredContributions,
-  type TargetKind,
-} from "@repo/domain/Scaffold";
+import type { TargetDefinition } from "@repo/domain/Catalog";
+import { emptyDesiredContributions } from "@repo/domain/Scaffold";
 import {
   clientAppTsxContents,
   clientAtomContents,
@@ -24,14 +21,7 @@ import {
 import { serverIndexContents, serverTsconfigContents } from "./content/server";
 import { packageDomainTsconfigContents } from "./content/shared";
 
-type TargetDefinition = {
-  readonly kind: typeof TargetKind.Type;
-  readonly title: string;
-  readonly description: string;
-  readonly contributions: typeof DesiredContributions.Type;
-};
-
-export const targetRegistry: ReadonlyArray<TargetDefinition> = [
+export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
     kind: "init",
     title: "Project Initialization",

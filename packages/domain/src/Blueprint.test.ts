@@ -1,7 +1,7 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey } from "./Scaffold";
+import { TargetIdentity, TargetKey } from "./Catalog";
 
 const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
 const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });

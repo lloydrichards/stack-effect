@@ -1,6 +1,6 @@
 import { Data, Order, Schema } from "effect";
+import { ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 import { idOrd } from "./Order";
-import { ModuleId, TargetIdentity, TargetKey } from "./Scaffold";
 
 export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
   message: string;

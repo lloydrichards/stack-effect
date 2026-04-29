@@ -1,8 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { TargetCatalog } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
+import { TargetIdentity } from "@repo/domain/Catalog";
 import type { RepoSnapshot } from "@repo/domain/Plan";
-import { TargetIdentity } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, FileSystem, Layer } from "effect";
 import {
