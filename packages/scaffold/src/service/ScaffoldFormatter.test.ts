@@ -84,7 +84,11 @@ describe("ScaffoldFormatter", () => {
           edges: [],
         });
 
-        expect(yield* formatter.formatBlueprint(blueprint)).toBe("Blueprint");
+        expect(yield* formatter.formatBlueprint(blueprint)).toEqual({
+          title: "Blueprint",
+          targetsLabel: "Targets",
+          targets: [],
+        });
       }),
     );
 
@@ -93,11 +97,11 @@ describe("ScaffoldFormatter", () => {
         const formatter = yield* ScaffoldFormatter;
         const blueprint = makeUnsortedBlueprint().toSorted();
 
-        expect(yield* formatter.formatBlueprint(blueprint)).toBe(
-          String.stripMargin(`|Blueprint
-           |
-           |Targets
-           |- apps/server-api (server)
+        const result = yield* formatter.formatBlueprint(blueprint);
+        expect(result.title).toBe("Blueprint");
+        expect(result.targetsLabel).toBe("Targets");
+        expect(result.targets.join("\n")).toBe(
+          String.stripMargin(`|- apps/server-api (server)
            | └╌> apps/server-api#http-api-server
            |      ├─> packages/domain [required-target]
            |      └─> packages/domain#domain-api [required-module]
@@ -115,15 +119,13 @@ describe("ScaffoldFormatter", () => {
           conflicts: [],
         });
 
-        expect(yield* formatter.formatPlan(plan)).toBe(
-          String.stripMargin(`|Plan
-           |
-           |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
-           |
-           |Summary: 0 create  0 modify  0 unchanged  0 merge
-           |
-           |.`),
-        );
+        const result = yield* formatter.formatPlan(plan);
+        expect(result).toEqual({
+          title: "Plan",
+          legend: "[+] create  [~] modify  [=] unchanged  [!] needs merge",
+          summary: "0 create  0 modify  0 unchanged  0 merge",
+          tree: ["."],
+        });
       }),
     );
 
@@ -186,14 +188,16 @@ describe("ScaffoldFormatter", () => {
             ],
           }).toSorted();
 
-          expect(yield* formatter.formatPlan(plan)).toBe(
-            String.stripMargin(`|Plan
-             |
-             |Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge
-             |
-             |Summary: 1 create  1 modify  1 unchanged  2 merge
-             |
-             |.
+          const result = yield* formatter.formatPlan(plan);
+          expect(result.title).toBe("Plan");
+          expect(result.legend).toBe(
+            "[+] create  [~] modify  [=] unchanged  [!] needs merge",
+          );
+          expect(result.summary).toBe(
+            "1 create  1 modify  1 unchanged  2 merge",
+          );
+          expect(result.tree.join("\n")).toBe(
+            String.stripMargin(`|.
              |├── packages
              |│   └── domain
              |│       ├── src

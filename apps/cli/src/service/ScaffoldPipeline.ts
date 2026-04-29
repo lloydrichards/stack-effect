@@ -1,5 +1,5 @@
 import { Apply } from "@repo/domain/Apply";
-import { Plan } from "@repo/domain/Plan";
+import type { Plan } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import {
   ApplyService,
@@ -7,8 +7,16 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Console, Context, Effect, Layer, Schema } from "effect";
+import { Console, Context, Data, Effect, Layer, Schema } from "effect";
 import { Prompt } from "effect/unstable/cli";
+import { Ansi, Box } from "effect-boxes";
+import { Border } from "../components/Border";
+import { Padding } from "../components/Padding";
+
+export class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
+  message: string;
+  retry?: boolean;
+}> {}
 
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
   "ScaffoldPipeline",
@@ -46,29 +54,72 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         dryRun: boolean;
       }) =>
         Effect.gen(function* () {
-          // Blueprint
+          const formatter = yield* ScaffoldFormatter;
           const blueprintService = yield* BlueprintService;
+          const planService = yield* PlanService;
+
+          // Blueprint
           const blueprint = yield* blueprintService.resolve(selection);
 
-          // Plan
-          const planService = yield* PlanService;
-          const plan = yield* planService.build({ blueprint, repoRoot });
+          const bp = yield* formatter.formatBlueprint(blueprint);
 
-          // Display
-          const formatter = yield* ScaffoldFormatter;
-          if (format === "json") {
-            yield* Console.log(
-              Schema.encodeSync(Schema.fromJsonString(Plan))(plan),
-            );
-          } else {
-            yield* Console.log(yield* formatter.formatBlueprint(blueprint));
-            yield* Console.log(yield* formatter.formatPlan(plan));
+          const blueprintBox = Box.vcat(
+            [
+              Box.text(bp.title).pipe(
+                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+              ),
+              Box.emptyBox(1, 0),
+              ...(bp.targets.length > 0
+                ? [
+                    Box.text(bp.targetsLabel).pipe(Box.annotate(Ansi.bold)),
+                    Box.text(bp.targets.join("\n")),
+                  ]
+                : []),
+            ],
+            Box.left,
+          ).pipe(Padding(1, 2), Border);
+
+          yield* Console.log(Box.renderPrettySync(blueprintBox));
+
+          const confirm = yield* Prompt.confirm({
+            message: "Continue with these changes?",
+            initial: true,
+          });
+
+          if (!confirm) {
+            yield* Console.log("Lets try again.\n\n");
+            return yield* new ScaffoldAborted({
+              message: "User aborted the scaffold process.",
+              retry: true,
+            });
           }
+
+          // Plan
+          const plan = yield* planService.build({ blueprint, repoRoot });
+          const pl = yield* formatter.formatPlan(plan);
+
+          const planBox = Box.vcat(
+            [
+              Box.text(pl.title).pipe(
+                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+              ),
+              Box.emptyBox(1, 0),
+              Box.text(pl.legend).pipe(Box.annotate(Ansi.dim)),
+              Box.text(pl.summary),
+              Box.emptyBox(1, 0),
+              Box.text(pl.tree.join("\n")),
+            ],
+            Box.left,
+          ).pipe(Padding(1, 2), Border);
+
+          yield* Console.log(Box.renderPrettySync(planBox));
 
           // Dry run exits here
           if (dryRun) {
             yield* Console.log("\n[dry-run] No changes written.");
-            return;
+            return yield* new ScaffoldAborted({
+              message: "Dry run completed. No changes written.",
+            });
           }
 
           // Resolve conflicts
@@ -81,8 +132,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               initial: true,
             });
             if (!proceed) {
-              yield* Console.log("Aborted.");
-              return;
+              yield* Console.log("Aborted.\n\n");
+              return yield* new ScaffoldAborted({
+                message: "User aborted the scaffold process.",
+              });
             }
           }
 
