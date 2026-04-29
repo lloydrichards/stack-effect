@@ -7,13 +7,13 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Console, Effect, Layer, Option, type Schema } from "effect";
+import { Console, Effect, Layer, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
 import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "./flags";
 import {
   CONFIG_FILENAME,
   ConfigureService,
-  type StackConfig,
+  StackConfig,
 } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
@@ -129,11 +129,6 @@ const init = Command.make(
       yield* Console.log(`  Test: ${config.test}`);
       yield* Console.log(`  Config: ${configure.configPath(repoRoot)}`);
 
-      if (flags.dryRun) {
-        yield* Console.log("\n[dry-run] No changes written.");
-        return;
-      }
-
       if (!flags.yes) {
         const proceed = yield* Prompt.confirm({
           message: "Create project?",
@@ -145,8 +140,15 @@ const init = Command.make(
         }
       }
 
-      yield* configure.writeConfig(repoRoot, config);
-      yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
+      if (!flags.dryRun) {
+        yield* configure.writeConfig(repoRoot, config);
+        yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
+      } else {
+        yield* Console.log("[dry-run] skipping config write:");
+        yield* Console.log(
+          Schema.encodeSync(Schema.fromJsonString(StackConfig))(config),
+        );
+      }
 
       // Scaffold root monorepo files
       const pipeline = yield* ScaffoldPipeline;
@@ -159,7 +161,7 @@ const init = Command.make(
         repoRoot,
         format,
         yes: flags.yes,
-        dryRun: false,
+        dryRun: flags.dryRun,
       });
 
       yield* Console.log("Run 'stack-effect add' to add targets and modules.");

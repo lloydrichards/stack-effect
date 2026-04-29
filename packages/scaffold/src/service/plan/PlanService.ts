@@ -902,6 +902,83 @@ const derivePlanningIntentPath = ({
             }),
           },
         };
+      case "authoritativePackageJson": {
+        const baseContents = yield* requireSingleValue({
+          values: authoritativeEntries.map((entry) => entry.contents),
+          errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
+        });
+        const baseJson = parseJsonRecord(baseContents);
+
+        if (baseJson === undefined) {
+          return yield* new PlanFailure({
+            reason: "invalidPlanIntent",
+            message: `Authoritative base for ${path} is not valid JSON; cannot merge structural contributions.`,
+          });
+        }
+
+        const mergedExports = yield* collectUniqueEntries({
+          entries: packageJsonExportEntries,
+          keyOf: (entry) => entry.name,
+          valueOf: (entry) => entry.value,
+          toResult: ({ name, value }) => ({ name, value }),
+          errorMessage: `Conflicting package.json export outcomes for ${path}.`,
+        });
+        const mergedDependencies = yield* collectUniqueEntries({
+          entries: packageJsonDependencyEntries,
+          keyOf: (entry) => `${entry.section}:${entry.name}`,
+          valueOf: (entry) => entry.value,
+          toResult: ({ section, name, value }) => ({ section, name, value }),
+          errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
+        });
+        const mergedScripts = yield* collectUniqueEntries({
+          entries: packageJsonScriptEntries,
+          keyOf: (entry) => entry.name,
+          valueOf: (entry) => entry.value,
+          toResult: ({ name, value }) => ({ name, value }),
+          errorMessage: `Conflicting package.json script outcomes for ${path}.`,
+        });
+
+        const merged: Record<string, unknown> = Object.assign({}, baseJson);
+
+        for (const exp of mergedExports) {
+          const existing = merged["exports"];
+          const exports: Record<string, unknown> = isRecord(existing)
+            ? Object.assign({}, existing)
+            : {};
+          exports[exp.name] = exp.value;
+          merged["exports"] = exports;
+        }
+
+        for (const dep of mergedDependencies) {
+          const existing = merged[dep.section];
+          const section: Record<string, unknown> = isRecord(existing)
+            ? Object.assign({}, existing)
+            : {};
+          section[dep.name] = dep.value;
+          merged[dep.section] = section;
+        }
+
+        const existingScriptsVal = merged["scripts"];
+        const mergedScriptsRecord: Record<string, unknown> = isRecord(
+          existingScriptsVal,
+        )
+          ? Object.assign({}, existingScriptsVal)
+          : {};
+        for (const script of mergedScripts) {
+          mergedScriptsRecord[script.name] = script.value;
+        }
+        merged["scripts"] = mergedScriptsRecord;
+
+        return {
+          path,
+          contents: JSON.stringify(merged, null, 2) + "\n",
+          exports: [],
+          dependencies: [],
+          scripts: [],
+          barrelExports: [],
+          tsconfig: undefined,
+        };
+      }
     }
   });
 
@@ -911,13 +988,44 @@ const derivePlanningIntentFamily = ({
 }: {
   path: string;
   entries: ReadonlyArray<PlanningIntentEntry>;
-}) =>
-  requireSingleValue({
-    values: entries.map(toPlanningIntentFamily),
-    errorMessage: `Conflicting planning intents for ${path}.`,
-  }).pipe(Effect.map((family) => ({ path, family })));
+}): Effect.Effect<
+  { path: string; family: PlanningIntentFamily | "authoritativePackageJson" },
+  PlanFailure
+> => {
+  const families = new Set(entries.map(toPlanningIntentFamily));
 
-const toPlanningIntentFamily = (entry: PlanningIntentEntry) => {
+  if (families.size === 1) {
+    // entries is non-empty when families.size === 1
+    // biome-ignore lint/style/noNonNullAssertion: guaranteed by size check
+    const family = toPlanningIntentFamily(entries[0]!);
+    return Effect.succeed({ path, family });
+  }
+
+  if (
+    families.size === 2 &&
+    families.has("authoritative") &&
+    families.has("packageJson")
+  ) {
+    return Effect.succeed({ path, family: "authoritativePackageJson" as const });
+  }
+
+  return Effect.fail(
+    new PlanFailure({
+      reason: "invalidPlanIntent",
+      message: `Conflicting planning intents for ${path}.`,
+    }),
+  );
+};
+
+type PlanningIntentFamily =
+  | "authoritative"
+  | "packageJson"
+  | "barrel"
+  | "tsconfig";
+
+const toPlanningIntentFamily = (
+  entry: PlanningIntentEntry,
+): PlanningIntentFamily => {
   switch (entry._tag) {
     case "authoritative":
       return "authoritative";
