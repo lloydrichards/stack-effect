@@ -13,15 +13,15 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.58",
+    "@effect/platform-bun": "4.0.0-beta.59",
     "@repo/domain": "workspace:*",
     "@repo/observability": "workspace:*",
-    "effect": "4.0.0-beta.58"
+    "effect": "4.0.0-beta.59"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.58",
+    "@effect/vitest": "4.0.0-beta.59",
     "@repo/config-typescript": "workspace:*",
-    "@types/bun": "1.3.12",
-    "vitest": "^4.1.0"
+    "@types/bun": "1.3.13",
+    "vitest": "^4.1.5"
   }
 }

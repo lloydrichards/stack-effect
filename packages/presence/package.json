@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@repo/domain": "workspace:*",
-    "effect": "4.0.0-beta.58"
+    "effect": "4.0.0-beta.59"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*",
