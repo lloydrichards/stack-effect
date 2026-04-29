@@ -116,7 +116,7 @@ const resolveContributionTokens = (
     ...emptyDesiredContributions(),
     files: contributions.files.map((file) => ({
       path: resolveString(file.path),
-      contents: file.contents,
+      contents: resolveString(file.contents),
     })),
     exports: contributions.exports.map((entry) => ({
       path: resolveString(entry.path),

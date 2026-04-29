@@ -8,6 +8,7 @@ const slugifyTargetName = (name: string): string =>
     .replace(/^-+|-+$/g, "");
 
 export const TargetKind = Schema.Union([
+  Schema.Literal("init"),
   Schema.Literal("client"),
   Schema.Literal("server"),
   Schema.Literal("cli"),
@@ -15,6 +16,9 @@ export const TargetKind = Schema.Union([
 ]);
 
 export const ModuleId = Schema.Union([
+  Schema.Literal("turbo"),
+  Schema.Literal("biome"),
+  Schema.Literal("vitest"),
   Schema.Literal("domain-api"),
   Schema.Literal("http-api-server"),
 ]);
@@ -27,6 +31,8 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 }) {
   toPath(): typeof TargetPath.Type {
     switch (this.kind) {
+      case "init":
+        return TargetPath.make(".");
       case "package":
         return TargetPath.make(`packages/${slugifyTargetName(this.name)}`);
       case "server":
@@ -40,6 +46,8 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 
   toKey(): typeof TargetKey.Type {
     switch (this.kind) {
+      case "init":
+        return TargetKey.make(".");
       case "package":
         return TargetKey.make(`packages/${slugifyTargetName(this.name)}`);
       case "server":
@@ -62,7 +70,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 }
 
 const targetKeyPattern =
-  /^(?:packages\/[a-z0-9]+(?:-[a-z0-9]+)*|apps\/(?:client|server|cli)-[a-z0-9]+(?:-[a-z0-9]+)*)$/;
+  /^(?:\.|packages\/[a-z0-9]+(?:-[a-z0-9]+)*|apps\/(?:client|server|cli)-[a-z0-9]+(?:-[a-z0-9]+)*)$/;
 
 const isCanonicalTargetKey = (value: string): value is string =>
   targetKeyPattern.test(value);

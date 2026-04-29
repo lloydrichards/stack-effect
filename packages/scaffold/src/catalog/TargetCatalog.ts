@@ -5,11 +5,18 @@ import {
   type TargetKind,
 } from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
-import { packageDomainTsconfigContents } from "../registry/content/root-bootstrap";
+import {
+  configTypescriptBaseContents,
+  configTypescriptPackageJsonContents,
+  gitignoreContents,
+  rootPackageJsonContents,
+  rootTsconfigContents,
+} from "../registry/content/init";
 import {
   serverIndexContents,
   serverTsconfigContents,
 } from "../registry/content/server";
+import { packageDomainTsconfigContents } from "../registry/content/shared";
 
 const targetDefinitions = new Map<
   typeof TargetKind.Type,
@@ -18,6 +25,34 @@ const targetDefinitions = new Map<
     readonly contributions: typeof DesiredContributions.Type;
   }
 >([
+  [
+    "init",
+    {
+      kind: "init",
+      contributions: {
+        ...emptyDesiredContributions(),
+        files: [
+          { path: "{{targetPath}}/.gitignore", contents: gitignoreContents },
+          {
+            path: "{{targetPath}}/package.json",
+            contents: rootPackageJsonContents,
+          },
+          {
+            path: "{{targetPath}}/tsconfig.json",
+            contents: rootTsconfigContents,
+          },
+          {
+            path: "{{targetPath}}/packages/config-typescript/base.json",
+            contents: configTypescriptBaseContents,
+          },
+          {
+            path: "{{targetPath}}/packages/config-typescript/package.json",
+            contents: configTypescriptPackageJsonContents,
+          },
+        ],
+      },
+    },
+  ],
   [
     "client",
     {
