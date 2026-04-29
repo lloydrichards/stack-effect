@@ -102,26 +102,6 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
           });
         }
       }
-
-      if (
-        target.options.httpApiStyle !== undefined &&
-        !selectedModuleIds.has("http-api-server")
-      ) {
-        throw new BlueprintFailure({
-          message:
-            "Module gated target option: httpApiStyle requires module http-api-server",
-        });
-      }
-
-      if (
-        target.options.domainApiSurface !== undefined &&
-        !selectedModuleIds.has("domain-api")
-      ) {
-        throw new BlueprintFailure({
-          message:
-            "Module gated target option: domainApiSurface requires module domain-api",
-        });
-      }
     }
 
     return undefined;

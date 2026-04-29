@@ -25,7 +25,6 @@ const buildInitSelection = (
       {
         identity: new TargetIdentity({ kind: "init", name: config.name }),
         modules,
-        options: {},
       },
     ],
   };

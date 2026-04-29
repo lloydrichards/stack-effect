@@ -53,7 +53,6 @@ const examples = [
             name: "api",
           }),
           modules: [{ id: "http-api-server" }],
-          options: {},
         },
       ],
     },
@@ -68,9 +67,6 @@ const examples = [
             name: "api",
           }),
           modules: [{ id: "http-api-server" }],
-          options: {
-            httpApiStyle: "rest",
-          },
         },
         {
           identity: new TargetIdentity({
@@ -78,9 +74,6 @@ const examples = [
             name: "domain",
           }),
           modules: [{ id: "domain-api" }],
-          options: {
-            domainApiSurface: "api",
-          },
         },
       ],
     },
