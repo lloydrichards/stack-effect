@@ -1006,7 +1006,10 @@ const derivePlanningIntentFamily = ({
     families.has("authoritative") &&
     families.has("packageJson")
   ) {
-    return Effect.succeed({ path, family: "authoritativePackageJson" as const });
+    return Effect.succeed({
+      path,
+      family: "authoritativePackageJson" as const,
+    });
   }
 
   return Effect.fail(
