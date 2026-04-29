@@ -4,9 +4,9 @@ import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Effect, Option, Ref, Schedule } from "effect";
 import { Command, Prompt } from "effect/unstable/cli";
-import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "../flags";
+import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
-import { ScaffoldAborted, ScaffoldPipeline } from "../service/ScaffoldPipeline";
+import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 interface CollectedTarget {
   kind: Exclude<typeof TargetKind.Type, "init">;
@@ -41,7 +41,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
     const modules =
       availableModules.length > 0
         ? yield* Prompt.multiSelect({
-            message: `Which modules do you want to add to "${kind}-${name}"?`,
+            message: `Which modules do you want to add to "${kind}${name ? `-${name}` : ""}"?`,
             choices: availableModules.map((mod) => ({
               title: mod.title,
               value: mod.id,
@@ -73,7 +73,6 @@ export const add = Command.make(
   "add",
   {
     root: rootFlag,
-    format: formatFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
   },
@@ -83,7 +82,6 @@ export const add = Command.make(
       const pipeline = yield* ScaffoldPipeline;
 
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
-      const format = Option.getOrUndefined(flags.format);
 
       // Require init
       yield* configure.requireConfig(repoRoot);
@@ -102,7 +100,6 @@ export const add = Command.make(
       yield* pipeline.run({
         selection,
         repoRoot,
-        format,
         yes: flags.yes,
         dryRun: flags.dryRun,
       });

@@ -2,7 +2,7 @@ import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
-import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "../flags";
+import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -60,7 +60,6 @@ export const init = Command.make(
     root: rootFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
-    format: formatFlag,
     packageManager: packageManagerFlag,
   },
   (flags) =>
@@ -203,12 +202,10 @@ export const init = Command.make(
       // Scaffold root monorepo files
       const pipeline = yield* ScaffoldPipeline;
       const selection = buildInitSelection(config);
-      const format = Option.getOrUndefined(flags.format);
 
       yield* pipeline.run({
         selection,
         repoRoot,
-        format,
         yes: flags.yes,
         dryRun: flags.dryRun,
       });

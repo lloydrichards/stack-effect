@@ -7,7 +7,7 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Console, Context, Data, Effect, Layer, Schema } from "effect";
+import { Console, Context, Data, Effect, Layer } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
@@ -43,13 +43,11 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
       const run = ({
         selection,
         repoRoot,
-        format,
         yes,
         dryRun,
       }: {
         selection: typeof Selection.Type;
         repoRoot: string;
-        format: "json" | undefined;
         yes: boolean;
         dryRun: boolean;
       }) =>
