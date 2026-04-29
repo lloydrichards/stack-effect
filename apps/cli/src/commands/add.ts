@@ -2,11 +2,11 @@ import { ModuleCatalog } from "@repo/catalog";
 import type { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Effect, Option, Ref } from "effect";
+import { Effect, Option, Ref, Schedule } from "effect";
 import { Command, Prompt } from "effect/unstable/cli";
 import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
-import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
+import { ScaffoldAborted, ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 interface CollectedTarget {
   kind: Exclude<typeof TargetKind.Type, "init">;
@@ -106,5 +106,17 @@ export const add = Command.make(
         yes: flags.yes,
         dryRun: flags.dryRun,
       });
-    }),
+    }).pipe(
+      Effect.retry({
+        while: (err) => err._tag === "ScaffoldAborted" && err.retry === true,
+        schedule: Schedule.forever,
+      }),
+      Effect.catchTag("ScaffoldAborted", (err) => {
+        if (err.retry) {
+          return Effect.log(err.message);
+        } else {
+          return Effect.succeed(err.message);
+        }
+      }),
+    ),
 );

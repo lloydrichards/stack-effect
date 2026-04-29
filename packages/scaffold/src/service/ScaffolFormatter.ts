@@ -17,6 +17,19 @@ import {
   String,
 } from "effect";
 
+export type FormattedBlueprint = {
+  readonly title: string;
+  readonly targetsLabel: string;
+  readonly targets: ReadonlyArray<string>;
+};
+
+export type FormattedPlan = {
+  readonly title: string;
+  readonly legend: string;
+  readonly summary: string;
+  readonly tree: ReadonlyArray<string>;
+};
+
 type TreeBranch = {
   readonly line: string;
   readonly prefix: "╌>" | "─>";
@@ -46,9 +59,11 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   {
     make: Effect.gen(function* () {
       const formatBlueprint = Effect.fn("ScaffoldFormatter.formatBlueprint")(
-        function* (blueprint: typeof Blueprint.Type) {
+        function* (
+          blueprint: typeof Blueprint.Type,
+        ): Generator<never, FormattedBlueprint> {
           if (blueprint.nodes.length === 0) {
-            return "Blueprint";
+            return { title: "Blueprint", targetsLabel: "Targets", targets: [] };
           }
 
           const attachedModulesByTarget = pipe(
@@ -80,57 +95,50 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
               ),
           );
 
-          return Arr.join(
-            [
-              "Blueprint",
-              "",
-              "Targets",
-              ...Arr.flatMap(
-                blueprint.nodes.filter(isBlueprintTargetNode),
-                (targetNode) => [
-                  `- ${targetNode.id} (${targetNode.identity.kind})`,
-                  ...renderTreeBranches(
-                    Arr.map(
-                      Arr.sort(
-                        Arr.fromIterable(
-                          attachedModulesByTarget.get(targetNode.id) ?? [],
-                        ),
-                        blueprintNodeOrd,
-                      ),
-                      (attachedModule) =>
-                        ({
-                          line: attachedModule.id,
-                          prefix: "╌>",
-                          children: Arr.map(
-                            Arr.sort(
-                              Arr.filter(
-                                Arr.fromIterable(
-                                  outgoingEdgesByNode.get(attachedModule.id) ??
-                                    [],
-                                ),
-                                (edge) => edge.reason !== "owns-module",
-                              ),
-                              idOrd,
-                            ),
-                            (edge) => ({
-                              line: `${edge.to} [${edge.reason}]`,
-                              prefix: "─>",
-                            }),
-                          ),
-                        }) satisfies TreeBranch,
+          const targets = Arr.flatMap(
+            blueprint.nodes.filter(isBlueprintTargetNode),
+            (targetNode) => [
+              `- ${targetNode.id} (${targetNode.identity.kind})`,
+              ...renderTreeBranches(
+                Arr.map(
+                  Arr.sort(
+                    Arr.fromIterable(
+                      attachedModulesByTarget.get(targetNode.id) ?? [],
                     ),
+                    blueprintNodeOrd,
                   ),
-                ],
+                  (attachedModule) =>
+                    ({
+                      line: attachedModule.id,
+                      prefix: "╌>",
+                      children: Arr.map(
+                        Arr.sort(
+                          Arr.filter(
+                            Arr.fromIterable(
+                              outgoingEdgesByNode.get(attachedModule.id) ?? [],
+                            ),
+                            (edge) => edge.reason !== "owns-module",
+                          ),
+                          idOrd,
+                        ),
+                        (edge) => ({
+                          line: `${edge.to} [${edge.reason}]`,
+                          prefix: "─>",
+                        }),
+                      ),
+                    }) satisfies TreeBranch,
+                ),
               ),
             ],
-            "\n",
           );
+
+          return { title: "Blueprint", targetsLabel: "Targets", targets };
         },
       );
 
       const formatPlan = Effect.fn("ScaffoldFormatter.formatPlan")(function* (
         plan: typeof Plan.Type,
-      ) {
+      ): Generator<never, FormattedPlan> {
         const summary = Arr.reduce(
           plan.outcomes,
           {
@@ -165,21 +173,15 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
           ),
         );
 
-        return yield* Effect.succeed(
-          Arr.join(
-            [
-              "Plan",
-              "",
-              "Legend: [+] create  [~] modify  [=] unchanged  [!] needs merge",
-              "",
-              `Summary: ${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.needsMergeStrategy} merge`,
-              "",
-              tree.name,
-              ...renderPlanTreeChildren(tree.children, conflictsByPath),
-            ],
-            "\n",
-          ),
-        );
+        return {
+          title: "Plan",
+          legend: "[+] create  [~] modify  [=] unchanged  [!] needs merge",
+          summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.needsMergeStrategy} merge`,
+          tree: [
+            tree.name,
+            ...renderPlanTreeChildren(tree.children, conflictsByPath),
+          ],
+        };
       });
 
       return { formatBlueprint, formatPlan } as const;
