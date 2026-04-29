@@ -1,6 +1,7 @@
 import { ModuleCatalog } from "@repo/catalog";
 import type { ModuleId, TargetKind } from "@repo/domain/Scaffold";
 import { TargetIdentity } from "@repo/domain/Scaffold";
+import type { Selection } from "@repo/domain/Selection";
 import { Effect, Option, Ref } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "../flags";
@@ -78,20 +79,6 @@ export const add = Command.make(
     format: formatFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
-    target: Flag.choice("target", ["client", "server", "cli", "package"]).pipe(
-      Flag.atLeast(0),
-      Flag.withAlias("t"),
-      Flag.withDescription("Target kind(s) to scaffold (repeatable)"),
-    ),
-    module: Flag.choice("module", ["domain-api", "http-api-server"]).pipe(
-      Flag.atLeast(0),
-      Flag.withAlias("m"),
-      Flag.withDescription("Module(s) to attach (repeatable)"),
-    ),
-    httpApiStyle: Flag.choice("http-api-style", ["rest"]).pipe(
-      Flag.optional,
-      Flag.withDescription("HTTP API style (when http-api-server is selected)"),
-    ),
   },
   (flags) =>
     Effect.gen(function* () {
@@ -102,36 +89,14 @@ export const add = Command.make(
       // Require init
       yield* configure.requireConfig(repoRoot);
 
-      const httpApiStyle =
-        flags.httpApiStyle._tag === "Some"
-          ? flags.httpApiStyle.value
-          : undefined;
-
       // Collect targets: use flags if provided, otherwise interactive loop
-      const collected: ReadonlyArray<CollectedTarget> =
-        flags.target.length > 0
-          ? flags.target.map((kind) => ({
-              kind,
-              name: kind,
-              modules: flags.module.filter((m) => {
-                if (m === "domain-api") return kind === "package";
-                if (m === "http-api-server") return kind === "server";
-                return false;
-              }),
-            }))
-          : yield* collectTargetsInteractive;
+      const collected = yield* collectTargetsInteractive;
 
       // Build selection
-      const selection = {
+      const selection: typeof Selection.Type = {
         targets: collected.map((t) => ({
           identity: new TargetIdentity({ kind: t.kind, name: t.name }),
           modules: t.modules.map((id) => ({ id })),
-          options: {
-            ...(t.kind === "server" && httpApiStyle ? { httpApiStyle } : {}),
-            ...(t.kind === "package" && t.modules.includes("domain-api")
-              ? { domainApiSurface: "api" as const }
-              : {}),
-          },
         })),
       };
 

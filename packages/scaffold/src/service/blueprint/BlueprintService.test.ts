@@ -40,7 +40,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [],
-                  options: {},
                 },
                 {
                   identity: new TargetIdentity({
@@ -48,7 +47,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [],
-                  options: {},
                 },
               ],
             }),
@@ -77,7 +75,6 @@ describe("BlueprintService", () => {
                     { id: "http-api-server" },
                     { id: "http-api-server" },
                   ],
-                  options: {},
                 },
               ],
             }),
@@ -106,7 +103,6 @@ describe("BlueprintService", () => {
                       name: "domain",
                     }),
                     modules: [{ id: "http-api-server" }],
-                    options: {},
                   },
                 ],
               }),
@@ -133,7 +129,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [{ id: "missing-target-module" as never }],
-                  options: {},
                 },
               ],
             }),
@@ -164,7 +159,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [{ id: "http-api-server" }],
-                  options: {},
                 },
               ],
             });
@@ -236,7 +230,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [],
-                  options: {},
                 },
                 {
                   identity: new TargetIdentity({
@@ -244,7 +237,6 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [],
-                  options: {},
                 },
               ],
             });
