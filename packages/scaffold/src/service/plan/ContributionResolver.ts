@@ -1,3 +1,4 @@
+import { ModuleCatalog, TargetCatalog } from "@repo/catalog";
 import {
   type Blueprint,
   isBlueprintAttachedModuleNode,
@@ -11,8 +12,6 @@ import {
   type TargetContribution,
 } from "@repo/domain/Scaffold";
 import { Context, Effect, Layer } from "effect";
-import { ModuleCatalog } from "../../catalog/ModuleCatalog";
-import { TargetCatalog } from "../../catalog/TargetCatalog";
 
 export type NormalizedContributions = {
   readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
@@ -41,9 +40,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         const moduleContributions: Array<typeof ModuleContribution.Type> = [];
 
         for (const node of targetNodes) {
-          const definition = yield* targetCatalog.getTargetDefinition(
-            node.identity.kind,
-          );
+          const definition = yield* targetCatalog.get(node.identity.kind);
           const context: typeof ContributionTokenContext.Type = {
             targetKey: node.id,
             targetPath: node.identity.toPath(),
@@ -69,9 +66,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
             continue;
           }
 
-          const moduleDefinition = yield* moduleCatalog.getModuleDefinition(
-            node.moduleId,
-          );
+          const moduleDefinition = yield* moduleCatalog.get(node.moduleId);
 
           moduleContributions.push({
             targetKey: node.targetId,

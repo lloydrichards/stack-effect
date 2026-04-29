@@ -52,3 +52,6 @@ tsconfig.tsbuildinfo
 
 # Ralph runtime output
 .ralph/logs/
+
+# Scaffold
+.temp/

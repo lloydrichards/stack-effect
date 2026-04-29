@@ -1,5 +1,3 @@
-export { ModuleCatalog } from "./catalog/ModuleCatalog";
-export { TargetCatalog } from "./catalog/TargetCatalog";
 export { ApplyService } from "./service/apply/ApplyService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export { ContributionResolver } from "./service/plan/ContributionResolver";

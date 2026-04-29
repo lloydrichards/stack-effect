@@ -1,9 +1,75 @@
+import { ModuleCatalog } from "@repo/catalog";
+import type { ModuleId, TargetKind } from "@repo/domain/Scaffold";
 import { TargetIdentity } from "@repo/domain/Scaffold";
-import { Effect, Option } from "effect";
+import { Effect, Option, Ref } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { dryRunFlag, formatFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
+
+interface CollectedTarget {
+  kind: Exclude<typeof TargetKind.Type, "init">;
+  name: string;
+  modules: ReadonlyArray<typeof ModuleId.Type>;
+}
+
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+const collectTargetsInteractive = Effect.gen(function* () {
+  const catalog = yield* ModuleCatalog;
+  const targetModuleMap = catalog.getTargetModuleMap();
+
+  const targets = yield* Ref.make<Array<CollectedTarget>>([]);
+  let loop = true;
+
+  while (loop) {
+    // 1. Select target kind
+    const kind = yield* Prompt.select({
+      message: "What kind of target do you want to add?",
+      choices: Array.from(targetModuleMap.keys()).map((kind) => ({
+        title: capitalize(kind),
+        value: kind,
+      })),
+    });
+
+    // 2. Name the target
+    const name = yield* Prompt.text({
+      message: `What should this ${kind} target be called?`,
+      default: "",
+    });
+
+    // 3. Select modules for this target
+    const availableModules = targetModuleMap.get(kind) ?? [];
+    const modules =
+      availableModules.length > 0
+        ? yield* Prompt.multiSelect({
+            message: `Which modules do you want to add to "${kind}-${name}"?`,
+            choices: availableModules.map((mod) => ({
+              title: mod.title,
+              value: mod.id,
+              description: mod.description,
+            })),
+          })
+        : [];
+
+    yield* Ref.update(targets, (ts) => [...ts, { kind, name, modules }]);
+
+    // 4. Add another or continue?
+    const next = yield* Prompt.select({
+      message: "What would you like to do next?",
+      choices: [
+        { title: "Continue", value: "continue" as const },
+        { title: "Add another target", value: "add" as const },
+      ],
+    });
+
+    if (next === "continue") {
+      loop = false;
+    }
+  }
+
+  return yield* Ref.get(targets);
+});
 
 export const add = Command.make(
   "add",
@@ -36,88 +102,33 @@ export const add = Command.make(
       // Require init
       yield* configure.requireConfig(repoRoot);
 
-      // Resolve targets
-      const targets =
-        flags.target.length > 0
-          ? flags.target
-          : yield* Prompt.multiSelect({
-              message: "Which targets do you want to add?",
-              choices: [
-                {
-                  title: "Server",
-                  value: "server" as const,
-                  description: "Effect HTTP server",
-                },
-                {
-                  title: "Client",
-                  value: "client" as const,
-                  description: "React + Vite client",
-                },
-                {
-                  title: "CLI",
-                  value: "cli" as const,
-                  description: "Effect CLI app",
-                },
-                {
-                  title: "Package",
-                  value: "package" as const,
-                  description: "Shared library package",
-                },
-              ],
-              min: 1,
-            });
-
-      // Resolve modules
-      const availableModules: Array<{
-        title: string;
-        value: "domain-api" | "http-api-server";
-        description: string;
-      }> = [];
-      if (targets.includes("package")) {
-        availableModules.push({
-          title: "Domain API",
-          value: "domain-api",
-          description: "Shared domain schemas + RPC",
-        });
-      }
-      if (targets.includes("server")) {
-        availableModules.push({
-          title: "HTTP API Server",
-          value: "http-api-server",
-          description: "REST API endpoints",
-        });
-      }
-
-      const modules =
-        flags.module.length > 0
-          ? flags.module
-          : availableModules.length > 0
-            ? yield* Prompt.multiSelect({
-                message: "Which modules do you want to include?",
-                choices: availableModules,
-              })
-            : [];
-
       const httpApiStyle =
         flags.httpApiStyle._tag === "Some"
           ? flags.httpApiStyle.value
           : undefined;
 
+      // Collect targets: use flags if provided, otherwise interactive loop
+      const collected: ReadonlyArray<CollectedTarget> =
+        flags.target.length > 0
+          ? flags.target.map((kind) => ({
+              kind,
+              name: kind,
+              modules: flags.module.filter((m) => {
+                if (m === "domain-api") return kind === "package";
+                if (m === "http-api-server") return kind === "server";
+                return false;
+              }),
+            }))
+          : yield* collectTargetsInteractive;
+
       // Build selection
       const selection = {
-        targets: targets.map((kind) => ({
-          identity: new TargetIdentity({ kind, name: kind }),
-          modules: (modules as ReadonlyArray<"domain-api" | "http-api-server">)
-            .filter((m) => {
-              if (m === "domain-api") return kind === "package";
-              if (m === "http-api-server") return kind === "server";
-              return false;
-            })
-            .map((id) => ({ id })),
+        targets: collected.map((t) => ({
+          identity: new TargetIdentity({ kind: t.kind, name: t.name }),
+          modules: t.modules.map((id) => ({ id })),
           options: {
-            ...(kind === "server" && httpApiStyle ? { httpApiStyle } : {}),
-            ...(kind === "package" &&
-            (modules as ReadonlyArray<string>).includes("domain-api")
+            ...(t.kind === "server" && httpApiStyle ? { httpApiStyle } : {}),
+            ...(t.kind === "package" && t.modules.includes("domain-api")
               ? { domainApiSurface: "api" as const }
               : {}),
           },

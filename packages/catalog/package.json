@@ -1,5 +1,5 @@
 {
-  "name": "@repo/scaffold",
+  "name": "@repo/catalog",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@repo/domain": "workspace:*",
-    "@repo/catalog": "workspace:*",
     "effect": "4.0.0-beta.58"
   },
   "devDependencies": {

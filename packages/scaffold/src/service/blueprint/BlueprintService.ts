@@ -1,3 +1,4 @@
+import { ModuleCatalog, TargetCatalog } from "@repo/catalog";
 import {
   Blueprint,
   type BlueprintAttachedModuleNode,
@@ -9,8 +10,6 @@ import {
 import type { ModuleId, TargetIdentity } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer } from "effect";
-import { ModuleCatalog } from "../../catalog/ModuleCatalog";
-import { TargetCatalog } from "../../catalog/TargetCatalog";
 
 type MutableTargetState = typeof BlueprintTargetNode.Type;
 
@@ -56,8 +55,8 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
   static readonly layer = Layer.effect(BlueprintService)(
     BlueprintService.make,
   ).pipe(
-    Layer.provide(TargetCatalog.layer),
     Layer.provide(ModuleCatalog.layer),
+    Layer.provide(TargetCatalog.layer),
   );
 }
 
@@ -79,7 +78,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       }
 
       selectedTargetKeys.add(targetKey);
-      yield* targetCatalog.getTargetDefinition(target.identity.kind);
+      yield* targetCatalog.get(target.identity.kind);
 
       const selectedModuleIds = new Set<typeof ModuleId.Type>();
 
@@ -92,10 +91,10 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 
         selectedModuleIds.add(moduleSelection.id);
 
-        const isSupported = yield* moduleCatalog.isModuleSupportedOn({
-          moduleId: moduleSelection.id,
-          target: target.identity,
-        });
+        const isSupported = yield* moduleCatalog.isSupportedOn(
+          moduleSelection.id,
+          target.identity,
+        );
 
         if (!isSupported) {
           throw new BlueprintFailure({
@@ -149,7 +148,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         return current;
       }
 
-      yield* targetCatalog.getTargetDefinition(identity.kind);
+      yield* targetCatalog.get(identity.kind);
 
       const next: MutableTargetState = {
         _tag: "target",
@@ -165,10 +164,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
     ) {
-      const isSupported = yield* moduleCatalog.isModuleSupportedOn({
-        moduleId,
-        target,
-      });
+      const isSupported = yield* moduleCatalog.isSupportedOn(moduleId, target);
 
       if (isSupported) {
         return;
@@ -221,7 +217,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         reason: "owns-module",
       });
 
-      const definition = yield* moduleCatalog.getModuleDefinition(moduleId);
+      const definition = yield* moduleCatalog.get(moduleId);
 
       for (const dependency of definition.dependencies) {
         if (dependency.requiredTarget !== undefined) {

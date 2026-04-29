@@ -1,3 +1,4 @@
+import { TargetCatalog } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import { pathStrOrd } from "@repo/domain/Order";
 import {
@@ -10,7 +11,7 @@ import {
   type RepoSnapshot,
   type RequiredStructure,
 } from "@repo/domain/Plan";
-import { Array as Arr, Context, Effect, Layer, Record } from "effect";
+import { Array as Arr, Context, Effect, Layer, Record, Schema } from "effect";
 import {
   ContributionResolver,
   type NormalizedContributions,
@@ -49,11 +50,12 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
   static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(RepoSnapshotService.layer),
+    Layer.provide(TargetCatalog.layer),
   );
 }
 const compilePlanningPaths = (
   normalizedContributions: NormalizedContributions,
-): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
+) => {
   const flattenedEntries = Arr.flatMap(
     flattenContributions(normalizedContributions),
     toPlanningIntentEntries,
@@ -798,7 +800,7 @@ const derivePlanningIntentPath = ({
 }: {
   path: string;
   entries: ReadonlyArray<PlanningIntentEntry>;
-}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
+}) =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ path, entries });
     const authoritativeEntries = entries.filter(
@@ -969,9 +971,13 @@ const derivePlanningIntentPath = ({
         }
         merged["scripts"] = mergedScriptsRecord;
 
+        const contents = yield* Schema.encodeEffect(
+          Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+        )(merged);
+
         return {
           path,
-          contents: JSON.stringify(merged, null, 2) + "\n",
+          contents,
           exports: [],
           dependencies: [],
           scripts: [],

@@ -23,6 +23,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.58",
+        "@repo/catalog": "workspace:*",
         "@repo/domain": "workspace:*",
         "@repo/scaffold": "workspace:*",
         "effect": "4.0.0-beta.58",
@@ -119,6 +120,20 @@
         "@repo/config-typescript": "workspace:*",
       },
     },
+    "packages/catalog": {
+      "name": "@repo/catalog",
+      "version": "0.0.0",
+      "dependencies": {
+        "@repo/domain": "workspace:*",
+        "effect": "4.0.0-beta.58",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-beta.58",
+        "@repo/config-typescript": "workspace:*",
+        "@types/node": "^25.6.0",
+        "vitest": "^4.1.0",
+      },
+    },
     "packages/config-typescript": {
       "name": "@repo/config-typescript",
       "version": "0.0.0",
@@ -164,6 +179,7 @@
       "name": "@repo/scaffold",
       "version": "0.0.0",
       "dependencies": {
+        "@repo/catalog": "workspace:*",
         "@repo/domain": "workspace:*",
         "effect": "4.0.0-beta.58",
       },
@@ -529,6 +545,8 @@
     "@radix-ui/rect": ["@radix-ui/rect@1.1.1", "", {}, "sha512-HPwpGIzkl28mWyZqG52jiqDJ12waP11Pa1lGoiyUkIEuMLBP0oeK/C89esbXrxsky5we7dfd8U58nm0SgAWpVw=="],
 
     "@repo/ai": ["@repo/ai@workspace:packages/ai"],
+
+    "@repo/catalog": ["@repo/catalog@workspace:packages/catalog"],
 
     "@repo/config-typescript": ["@repo/config-typescript@workspace:packages/config-typescript"],
 
