@@ -53,16 +53,19 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
         );
       });
 
-      const getTargetModuleMap = (): ReadonlyMap<
-        Exclude<typeof TargetKind.Type, "init">,
-        ReadonlyArray<ModuleDefinition>
-      > => {
+      const targetModuleMap = Effect.gen(function* () {
         const result = new Map<
           Exclude<typeof TargetKind.Type, "init">,
-          Array<ModuleDefinition>
+          {
+            readonly title: string;
+            readonly description: string;
+            readonly modules: ReadonlyArray<ModuleDefinition>;
+          }
         >();
+
         for (const kind of targetCatalog.keys) {
           if (kind === "init") continue;
+          const target = yield* targetCatalog.get(kind);
           const modules: Array<ModuleDefinition> = [];
           for (const mod of moduleRegistry) {
             const supported = mod.supportedOn.some(
@@ -72,15 +75,20 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
               modules.push(mod);
             }
           }
-          result.set(kind, modules);
+          result.set(kind, {
+            title: target.title,
+            description: target.description,
+            modules,
+          });
         }
+
         return result;
-      };
+      });
 
       return {
         get,
         isSupportedOn,
-        getTargetModuleMap,
+        targetModuleMap,
       };
     }),
   },

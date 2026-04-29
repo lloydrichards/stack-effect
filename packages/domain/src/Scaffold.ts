@@ -21,6 +21,7 @@ export const ModuleId = Schema.Union([
   Schema.Literal("vitest"),
   Schema.Literal("domain-api"),
   Schema.Literal("http-api-server"),
+  Schema.Literal("http-api-client"),
 ]);
 
 export class TargetIdentity extends Schema.Class<TargetIdentity>(

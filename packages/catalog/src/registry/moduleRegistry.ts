@@ -6,6 +6,11 @@ import {
   serverHelloContents,
 } from "./content/api";
 import {
+  clientHelloAtomContents,
+  clientRestCardContents,
+  clientViteEnvContents,
+} from "./content/client-api";
+import {
   biomeJsoncContents,
   turboJsonContents,
   vitestConfigContents,
@@ -237,6 +242,62 @@ export const moduleRegistry: ReadonlyArray<ModuleDefinition> = [
       ],
       exports: [],
       dependencies: [],
+      scripts: [],
+      barrelExports: [],
+      tsconfigs: [],
+    },
+  },
+  {
+    id: "http-api-client",
+    title: "HTTP API Client",
+    description: "REST API client with Effect Atom and typed HttpApiClient",
+    supportedOn: [
+      {
+        _tag: "kind",
+        kind: "client",
+      },
+    ],
+    dependencies: [
+      {
+        requiredTarget: {
+          identity: new TargetIdentity({
+            kind: "package",
+            name: "domain",
+          }),
+        },
+        requiredModule: {
+          target: new TargetIdentity({
+            kind: "package",
+            name: "domain",
+          }),
+          moduleId: "domain-api",
+        },
+      },
+    ],
+    contributions: {
+      files: [
+        {
+          path: "{{targetPath}}/src/vite-env.d.ts",
+          contents: clientViteEnvContents,
+        },
+        {
+          path: "{{targetPath}}/src/lib/atoms/hello-atom.ts",
+          contents: clientHelloAtomContents,
+        },
+        {
+          path: "{{targetPath}}/src/components/rest-card.tsx",
+          contents: clientRestCardContents,
+        },
+      ],
+      exports: [],
+      dependencies: [
+        {
+          path: "{{targetPath}}/package.json",
+          section: "dependencies",
+          name: "@repo/domain",
+          value: "workspace:*",
+        },
+      ],
       scripts: [],
       barrelExports: [],
       tsconfigs: [],
