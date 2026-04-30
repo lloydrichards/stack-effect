@@ -1,6 +1,6 @@
 import { CatalogNotFound } from "@repo/domain/Blueprint";
-import type { TargetKind } from "@repo/domain/Catalog";
-import { Context, Effect, Layer } from "effect";
+import type { TargetDefinition, TargetKind } from "@repo/domain/Catalog";
+import { Context, Effect, Graph, Layer } from "effect";
 import { targetRegistry } from "./registry/targetRegistry";
 
 export class TargetCatalog extends Context.Service<TargetCatalog>()(
@@ -26,7 +26,15 @@ export class TargetCatalog extends Context.Service<TargetCatalog>()(
 
       const keys = Array.from(index.keys());
 
-      return { get, keys };
+      const toGraph = Graph.directed<typeof TargetDefinition.Type, string>(
+        (g) => {
+          for (const target of targetRegistry) {
+            Graph.addNode(g, target);
+          }
+        },
+      );
+
+      return { get, keys, toGraph };
     }),
   },
 ) {

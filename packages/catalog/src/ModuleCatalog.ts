@@ -3,12 +3,26 @@ import type {
   ModuleDefinition,
   ModuleId,
   ModuleImplication,
+  TargetDefinition,
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Graph, Layer } from "effect";
 import { moduleRegistry } from "./registry/moduleRegistry";
+import { targetRegistry } from "./registry/targetRegistry";
 import { TargetCatalog } from "./TargetCatalog";
+
+export type CatalogNode =
+  | {
+      readonly _tag: "target";
+      readonly definition: typeof TargetDefinition.Type;
+    }
+  | {
+      readonly _tag: "module";
+      readonly definition: typeof ModuleDefinition.Type;
+    };
+
+export type CatalogEdge = "supportedOn" | "requiredModule" | "implies";
 
 export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
   "ModuleCatalog",
@@ -105,6 +119,66 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
         return result;
       });
 
+      const toGraph = Graph.directed<CatalogNode, CatalogEdge>((g) => {
+        // Add target nodes
+        const targetNodes = new Map<string, number>();
+        for (const target of targetRegistry) {
+          const idx = Graph.addNode(g, {
+            _tag: "target" as const,
+            definition: target,
+          });
+          targetNodes.set(target.kind, idx);
+        }
+
+        // Add module nodes
+        const moduleNodes = new Map<string, number>();
+        for (const mod of moduleRegistry) {
+          const idx = Graph.addNode(g, {
+            _tag: "module" as const,
+            definition: mod,
+          });
+          moduleNodes.set(mod.id, idx);
+        }
+
+        // Add edges
+        for (const mod of moduleRegistry) {
+          const modIdx = moduleNodes.get(mod.id)!;
+
+          // supportedOn edges: module -> target
+          for (const supported of mod.supportedOn) {
+            if (supported._tag === "kind") {
+              const targetIdx = targetNodes.get(supported.kind);
+              if (targetIdx !== undefined) {
+                Graph.addEdge(g, modIdx, targetIdx, "supportedOn");
+              }
+            } else {
+              const targetIdx = targetNodes.get(supported.identity.kind);
+              if (targetIdx !== undefined) {
+                Graph.addEdge(g, modIdx, targetIdx, "supportedOn");
+              }
+            }
+          }
+
+          // requiredModule edges: module -> module
+          for (const dep of mod.dependencies) {
+            if (dep.requiredModule) {
+              const depIdx = moduleNodes.get(dep.requiredModule.moduleId);
+              if (depIdx !== undefined) {
+                Graph.addEdge(g, modIdx, depIdx, "requiredModule");
+              }
+            }
+          }
+
+          // implies edges: module -> module (on a target)
+          for (const imp of mod.implies ?? []) {
+            const impliedIdx = moduleNodes.get(imp.moduleId);
+            if (impliedIdx !== undefined) {
+              Graph.addEdge(g, modIdx, impliedIdx, "implies");
+            }
+          }
+        }
+      });
+
       return {
         keys,
         get,
@@ -112,6 +186,7 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
         isImpliedByAny,
         getImplications,
         targetModuleMap,
+        toGraph,
       };
     }),
   },
