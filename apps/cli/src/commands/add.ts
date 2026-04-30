@@ -238,13 +238,12 @@ const collectTargetsInteractive = Effect.gen(function* () {
       ),
     );
 
-    type Action = "confirm-all" | "edit" | "add";
-    const action = yield* HorizontalRadio<Action>({
+    const action = yield* HorizontalRadio<"confirm-all" | "edit" | "add">({
       message: "What would you like to do?",
       choices: [
-        { title: "Confirm all", value: "confirm-all" as Action },
-        { title: "Edit modules", value: "edit" as Action },
-        { title: "Add target", value: "add" as Action },
+        { title: "Confirm all", value: "confirm-all" },
+        { title: "Edit modules", value: "edit" },
+        { title: "Add target", value: "add" },
       ],
     });
 

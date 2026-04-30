@@ -1,23 +1,10 @@
 import { Data, Effect } from "effect";
 import { Prompt } from "effect/unstable/cli";
-import { Ansi, Box } from "effect-boxes";
+import { Ansi, Box, Cmd } from "effect-boxes";
 import { Border } from "./Border";
 import { Padding } from "./Padding";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
-
-// TODO: replace with clearLines in v0.11.0 of effect-boxes
-const ESC = "\x1B[";
-const eraseLines = (rows: number): string => {
-  let command = "";
-  for (let i = 0; i < rows; i++) {
-    command += `${ESC}2K` + (i < rows - 1 ? `${ESC}1A` : "");
-  }
-  if (rows > 0) {
-    command += `${ESC}G`;
-  }
-  return command;
-};
 
 export const HorizontalRadio = <A extends string>(
   options: Prompt.SelectOptions<A>,
@@ -107,7 +94,9 @@ export const HorizontalRadio = <A extends string>(
     },
     clear: (_state, _action) =>
       Effect.gen(function* () {
-        return eraseLines(renderLayout(_state, false).rows);
+        return Cmd.clearLines(renderLayout(_state, false).rows).pipe(
+          Box.renderPrettySync,
+        );
       }),
   });
 };
