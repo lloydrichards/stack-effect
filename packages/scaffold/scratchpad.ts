@@ -3,6 +3,7 @@ import { CatalogService } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RepoSnapshot } from "@repo/domain/Plan";
+import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, FileSystem, Layer } from "effect";
 import {
@@ -124,6 +125,10 @@ const main = Effect.gen(function* () {
     const plan = yield* planService.build({
       blueprint,
       repoRoot: exampleRepoRoot,
+      config: new StackConfig({
+        name: "example" as any,
+        runtime: { _tag: "bun" },
+      }),
     });
     const formattedPlan = yield* formatter.formatPlan(plan);
     yield* Console.log(`\n${formattedPlan}`);

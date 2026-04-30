@@ -13,9 +13,9 @@ describe("@repo/domain Plan", () => {
     expect(Schema.decodeUnknownSync(PlanEntryClassification)("unchanged")).toBe(
       "unchanged",
     );
-    expect(
-      Schema.decodeUnknownSync(PlanEntryClassification)("conflict"),
-    ).toBe("conflict");
+    expect(Schema.decodeUnknownSync(PlanEntryClassification)("conflict")).toBe(
+      "conflict",
+    );
   });
 
   it("rejects unsupported classifications", () => {

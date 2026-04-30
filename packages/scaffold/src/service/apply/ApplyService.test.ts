@@ -148,8 +148,8 @@ const makeApplyServiceLayer = ({
         } as never),
         Layer.succeed(StructuralMerger, {
           merge: Effect.fn("MockStructuralMerger.merge")(merge),
-          mergeComposed: Effect.fn("MockStructuralMerger.mergeComposed")(
-            () => Effect.succeed({ path: "", contents: "" }),
+          mergeComposed: Effect.fn("MockStructuralMerger.mergeComposed")(() =>
+            Effect.succeed({ path: "", contents: "" }),
           ),
         } as never),
         makeFileSystemLayer(entries),

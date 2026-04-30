@@ -68,6 +68,18 @@ export const SupportedOn = Schema.Union([
   }),
 ]);
 
+export const ScriptPhase = Schema.Literals(["post", "finalize"]);
+
+export const ScriptDefinition = Schema.Struct({
+  phase: ScriptPhase,
+  label: Schema.String,
+  command: Schema.String,
+  workdir: Schema.String.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed("{{targetPath}}")),
+  ),
+});
+
 export const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
   moduleId: ModuleId,
@@ -144,6 +156,10 @@ export const ModuleDefinition = Schema.Struct({
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
   contributions: DesiredContributions,
+  scripts: Schema.Array(ScriptDefinition).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
 });
 
 export const TargetDefinition = Schema.Struct({
@@ -151,6 +167,10 @@ export const TargetDefinition = Schema.Struct({
   title: Schema.String,
   description: Schema.String,
   contributions: DesiredContributions,
+  scripts: Schema.Array(ScriptDefinition).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
 });
 
 export const CatalogNode = Schema.Union([
