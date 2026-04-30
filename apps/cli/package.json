@@ -7,9 +7,7 @@
     "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
     "build:types": "tsc --emitDeclarationOnly",
     "dev": "bun --watch run src/index.ts",
-    "start": "bun run src/index.ts init -r ./.temp",
-    "start:add": "bun run src/index.ts add -r ./.temp --dry-run",
-    "registry:analyse": "bun run src/index.ts graph",
+    "start": "bun run src/index.ts",
     "type-check": "tsc --noEmit",
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },

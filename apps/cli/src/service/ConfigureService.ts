@@ -23,10 +23,10 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
 
       const writeConfig = (repoRoot: string, config: typeof StackConfig.Type) =>
         Effect.gen(function* () {
-          const fs = yield* FileSystem.FileSystem;
           const json = yield* Schema.encodeEffect(
             Schema.fromJsonString(StackConfig),
           )(config);
+          yield* fs.makeDirectory(repoRoot, { recursive: true });
           yield* fs.writeFileString(configPath(repoRoot), json);
         });
 
