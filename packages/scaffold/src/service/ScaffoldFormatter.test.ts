@@ -152,32 +152,32 @@ describe("ScaffoldFormatter", () => {
           const plan = new Plan({
             outcomes: [
               {
-                _tag: "authoritative",
+                _tag: "complete",
                 path: "packages/domain/src/Api.ts",
                 classification: "create",
                 contents: 'export const Api = "Api";\n',
               },
               {
-                _tag: "structural",
+                _tag: "partial",
                 path: "packages/domain/src/index.ts",
-                classification: "needsMergeStrategy",
+                classification: "conflict",
                 requiredStructure: { reExports: ["./Api"] },
               },
               {
-                _tag: "authoritative",
+                _tag: "complete",
                 path: "packages/domain/tsconfig.json",
-                classification: "needsMergeStrategy",
+                classification: "conflict",
                 contents:
                   '{"extends":"../../packages/config-typescript/base.json"}',
               },
               {
-                _tag: "authoritative",
+                _tag: "complete",
                 path: "README.md",
                 classification: "modify",
                 contents: "# Repo\n",
               },
               {
-                _tag: "structural",
+                _tag: "partial",
                 path: "package.json",
                 classification: "unchanged",
                 requiredStructure: {

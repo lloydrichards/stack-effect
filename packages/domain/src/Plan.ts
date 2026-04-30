@@ -26,30 +26,36 @@ export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
   },
 ) {}
 
-export const PlannedPackageJsonExport = Schema.Struct({
-  name: Schema.String,
-  value: Schema.String,
-});
-
-export const PlannedPackageJsonDependency = Schema.Struct({
-  name: Schema.String,
-  value: Schema.String,
-});
-
-export const PlannedPackageJsonScript = Schema.Struct({
-  name: Schema.String,
-  value: Schema.String,
-});
-
-export const PlannedDependencySection = Schema.Struct({
-  section: Schema.Literals(["dependencies", "devDependencies"]),
-  entries: Schema.Array(PlannedPackageJsonDependency),
-});
-
 export const RequiredStructure = Schema.Struct({
-  exports: Schema.optional(Schema.Array(PlannedPackageJsonExport)),
-  dependencies: Schema.optional(Schema.Array(PlannedDependencySection)),
-  scripts: Schema.optional(Schema.Array(PlannedPackageJsonScript)),
+  exports: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        value: Schema.String,
+      }),
+    ),
+  ),
+  dependencies: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        section: Schema.Literals(["dependencies", "devDependencies"]),
+        entries: Schema.Array(
+          Schema.Struct({
+            name: Schema.String,
+            value: Schema.String,
+          }),
+        ),
+      }),
+    ),
+  ),
+  scripts: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String,
+        value: Schema.String,
+      }),
+    ),
+  ),
   reExports: Schema.optional(Schema.Array(Schema.String)),
 });
 
@@ -57,20 +63,26 @@ export const PlanEntryClassification = Schema.Literals([
   "create",
   "modify",
   "unchanged",
-  "needsMergeStrategy",
+  "conflict",
 ]);
 
 export class Plan extends Schema.Class<Plan>("Plan")({
   outcomes: Schema.Array(
     Schema.Union([
-      Schema.TaggedStruct("authoritative", {
+      Schema.TaggedStruct("complete", {
         path: Schema.String,
         classification: PlanEntryClassification,
         contents: Schema.String,
       }),
-      Schema.TaggedStruct("structural", {
+      Schema.TaggedStruct("partial", {
         path: Schema.String,
         classification: PlanEntryClassification,
+        requiredStructure: RequiredStructure,
+      }),
+      Schema.TaggedStruct("composed", {
+        path: Schema.String,
+        classification: PlanEntryClassification,
+        contents: Schema.String,
         requiredStructure: RequiredStructure,
       }),
     ]),
@@ -97,7 +109,7 @@ export class Plan extends Schema.Class<Plan>("Plan")({
       Schema.TaggedStruct("tsconfig", {
         path: Schema.String,
       }),
-      Schema.TaggedStruct("authoritativeFile", {
+      Schema.TaggedStruct("completeFile", {
         path: Schema.String,
       }),
     ]),
@@ -121,8 +133,8 @@ export class Plan extends Schema.Class<Plan>("Plan")({
                 return `barrelExport:${conflict.path}:${conflict.exportPath}`;
               case "tsconfig":
                 return `tsconfig:${conflict.path}`;
-              case "authoritativeFile":
-                return `authoritativeFile:${conflict.path}`;
+              case "completeFile":
+                return `completeFile:${conflict.path}`;
             }
           },
         ),

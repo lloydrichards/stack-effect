@@ -12,6 +12,7 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "./src";
+import { PlanAssessor } from "./src/service/plan/PlanAssessor";
 import { RepoSnapshotService } from "./src/service/plan/RepoSnapshotService";
 
 // ---------------------------------------------------------------------------
@@ -37,6 +38,7 @@ const EmptyRepoSnapshotLayer = Layer.succeed(RepoSnapshotService, {
 const PlanServiceLayer = Layer.effect(PlanService)(PlanService.make).pipe(
   Layer.provide(ContributionResolver.layer),
   Layer.provide(EmptyRepoSnapshotLayer),
+  Layer.provide(PlanAssessor.layer),
 );
 
 // ---------------------------------------------------------------------------

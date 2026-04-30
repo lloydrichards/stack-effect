@@ -34,7 +34,17 @@ type MaterializedPlannedOutcomeAction =
       readonly path: string;
       readonly requiredStructure: Extract<
         typeof Plan.fields.outcomes.schema.Type,
-        { _tag: "structural" }
+        { _tag: "partial" }
+      >["requiredStructure"];
+      readonly writeMode: "create" | "modify" | "override";
+    }
+  | {
+      readonly _tag: "write-composed";
+      readonly path: string;
+      readonly contents: string;
+      readonly requiredStructure: Extract<
+        typeof Plan.fields.outcomes.schema.Type,
+        { _tag: "partial" }
       >["requiredStructure"];
       readonly writeMode: "create" | "modify" | "override";
     };
@@ -79,11 +89,21 @@ export class ApplyService extends Context.Service<ApplyService>()(
                   };
                 case "create":
                 case "modify":
-                  if (outcome._tag === "authoritative") {
+                  if (outcome._tag === "complete") {
                     return {
                       _tag: "write-authoritative",
                       path: outcome.path,
                       contents: outcome.contents,
+                      writeMode: outcome.classification,
+                    };
+                  }
+
+                  if (outcome._tag === "composed") {
+                    return {
+                      _tag: "write-composed",
+                      path: outcome.path,
+                      contents: outcome.contents,
+                      requiredStructure: outcome.requiredStructure,
                       writeMode: outcome.classification,
                     };
                   }
@@ -94,7 +114,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
                     requiredStructure: outcome.requiredStructure,
                     writeMode: outcome.classification,
                   };
-                case "needsMergeStrategy":
+                case "conflict":
                   if (decision === "skip") {
                     return {
                       _tag: "skip",
@@ -103,11 +123,21 @@ export class ApplyService extends Context.Service<ApplyService>()(
                     };
                   }
 
-                  if (outcome._tag === "authoritative") {
+                  if (outcome._tag === "complete") {
                     return {
                       _tag: "write-authoritative",
                       path: outcome.path,
                       contents: outcome.contents,
+                      writeMode: "override",
+                    };
+                  }
+
+                  if (outcome._tag === "composed") {
+                    return {
+                      _tag: "write-composed",
+                      path: outcome.path,
+                      contents: outcome.contents,
+                      requiredStructure: outcome.requiredStructure,
                       writeMode: "override",
                     };
                   }
@@ -192,6 +222,22 @@ export class ApplyService extends Context.Service<ApplyService>()(
               required: action.requiredStructure,
               existing: existingContents,
               mode: action.writeMode,
+            });
+
+            return {
+              _tag: "write",
+              request: {
+                path: action.path,
+                contents: merged.contents,
+                writeMode: action.writeMode,
+              },
+            } satisfies PreparedApplyAction;
+          }
+          case "write-composed": {
+            const merged = yield* merger.mergeComposed({
+              path: action.path,
+              baseContents: action.contents,
+              required: action.requiredStructure,
             });
 
             return {
