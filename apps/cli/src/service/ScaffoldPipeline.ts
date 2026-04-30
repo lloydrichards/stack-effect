@@ -85,17 +85,19 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           yield* Console.log(Box.renderPrettySync(blueprintBox));
 
-          const confirm = yield* Prompt.confirm({
-            message: "Continue with these changes?",
-            initial: true,
-          });
-
-          if (!confirm) {
-            yield* Console.log("Lets try again.\n\n");
-            return yield* new ScaffoldAborted({
-              message: "User aborted the scaffold process.",
-              retry: true,
+          if (!yes) {
+            const confirm = yield* Prompt.confirm({
+              message: "Continue with these changes?",
+              initial: true,
             });
+
+            if (!confirm) {
+              yield* Console.log("Lets try again.\n\n");
+              return yield* new ScaffoldAborted({
+                message: "User aborted the scaffold process.",
+                retry: true,
+              });
+            }
           }
 
           // Plan

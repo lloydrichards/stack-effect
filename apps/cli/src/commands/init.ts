@@ -92,17 +92,21 @@ export const init = Command.make(
       }
 
       // Project name
+      if (flags.yes && Option.isNone(flags.name)) {
+        return yield* Effect.fail(
+          "When using --yes with init, provide a project name as the positional argument.",
+        );
+      }
+
       const projectName = Option.isSome(flags.name)
         ? flags.name.value
-        : flags.yes
-          ? "my-stack-app"
-          : yield* Prompt.text({
-              message: "Project name:",
-              validate: (v) =>
-                v.trim().length > 0
-                  ? Effect.succeed(v.trim())
-                  : Effect.fail("Name cannot be empty"),
-            });
+        : yield* Prompt.text({
+            message: "Project name:",
+            validate: (v) =>
+              v.trim().length > 0
+                ? Effect.succeed(v.trim())
+                : Effect.fail("Name cannot be empty"),
+          });
 
       // Runtime
       const runtimeChoice = Option.isSome(flags.packageManager)
