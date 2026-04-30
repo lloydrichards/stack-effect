@@ -322,7 +322,7 @@ export const add = Command.make(
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
 
       // Require init
-      yield* configure.requireConfig(repoRoot);
+      const config = yield* configure.requireConfig(repoRoot);
 
       // Collect targets: use flags if provided, otherwise interactive loop
       const collected = yield* collectTargetsInteractive;
@@ -340,6 +340,7 @@ export const add = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        config,
       });
     }).pipe(
       Effect.retry({

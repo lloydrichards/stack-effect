@@ -3,6 +3,7 @@ import { CatalogService } from "@repo/catalog";
 import {
   ApplyService,
   BlueprintService,
+  FinalizeService,
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
@@ -20,6 +21,7 @@ const MainLayer = Layer.mergeAll(
   ApplyService.layer,
   BlueprintService.layer,
   CatalogService.layer,
+  FinalizeService.layer,
   PlanService.layer,
   ScaffoldFormatter.layer,
   ConfigureService.layer,

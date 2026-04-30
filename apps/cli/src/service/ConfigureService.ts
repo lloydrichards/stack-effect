@@ -1,15 +1,9 @@
+import { StackConfig } from "@repo/domain/Scaffold";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
-export const CONFIG_FILENAME = "stack.config.json" as const;
+export { StackConfig };
 
-export const StackConfig = Schema.Struct({
-  name: Schema.NonEmptyString,
-  packageManager: Schema.Literals(["bun", "pnpm", "npm"]),
-  lint: Schema.optional(Schema.Literals(["biome"])),
-  format: Schema.optional(Schema.Literals(["biome"])),
-  test: Schema.optional(Schema.Literals(["vitest"])),
-  monorepo: Schema.optional(Schema.Literals(["turbo"])),
-});
+export const CONFIG_FILENAME = "stack.config.json" as const;
 
 export class ConfigureService extends Context.Service<ConfigureService>()(
   "ConfigureService",

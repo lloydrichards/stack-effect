@@ -1,4 +1,5 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import type { Runtime } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
@@ -35,11 +36,10 @@ const buildInitSelection = (
 
 const nameArg = Argument.string("project-name").pipe(Argument.optional);
 
-const packageManagerFlag = Flag.choice("package-manager", [
-  "bun",
-  "pnpm",
-  "npm",
-]).pipe(Flag.optional, Flag.withDescription("Package manager to use"));
+const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
+  Flag.optional,
+  Flag.withDescription("Runtime to use"),
+);
 
 /**
  * Prompt for an optional tool choice, returning Option.none for "none".
@@ -63,7 +63,7 @@ export const init = Command.make(
     root: rootFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
-    packageManager: packageManagerFlag,
+    packageManager: runtimeFlag,
   },
   (flags) =>
     Effect.gen(function* () {
@@ -104,19 +104,32 @@ export const init = Command.make(
                   : Effect.fail("Name cannot be empty"),
             });
 
-      // Package manager
-      const packageManager = Option.isSome(flags.packageManager)
+      // Runtime
+      const runtimeChoice = Option.isSome(flags.packageManager)
         ? flags.packageManager.value
         : flags.yes
           ? ("bun" as const)
           : yield* Prompt.select({
-              message: "Package manager:",
+              message: "Runtime:",
               choices: [
                 { title: "bun", value: "bun" as const },
-                { title: "pnpm", value: "pnpm" as const },
-                { title: "npm", value: "npm" as const },
+                { title: "node", value: "node" as const },
               ],
             });
+
+      let runtime: typeof StackConfig.fields.runtime.Type;
+      if (runtimeChoice === "bun") {
+        runtime = { _tag: "bun" };
+      } else {
+        const pm = yield* Prompt.select({
+          message: "Package manager:",
+          choices: [
+            { title: "pnpm", value: "pnpm" as const },
+            { title: "npm", value: "npm" as const },
+          ],
+        });
+        runtime = { _tag: "node", packageManager: pm };
+      }
 
       // Monorepo
       const monorepo = flags.yes
@@ -146,9 +159,9 @@ export const init = Command.make(
             { title: "vitest", value: "vitest" as const },
           ]);
 
-      const config: typeof StackConfig.Type = {
+      const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,
-        packageManager,
+        runtime,
         ...Option.match(lint, {
           onNone: () => ({}),
           onSome: (v) => ({ lint: v }),
@@ -165,12 +178,13 @@ export const init = Command.make(
           onNone: () => ({}),
           onSome: (v) => ({ monorepo: v }),
         }),
-      };
+      });
 
       // Preview
       yield* Console.log("\nProject configuration:");
       yield* Console.log(`  Name: ${config.name}`);
-      yield* Console.log(`  Package manager: ${config.packageManager}`);
+      yield* Console.log(`  Runtime: ${config.runtimeName}`);
+      yield* Console.log(`  Package manager: ${config.packageManagerName}`);
       yield* Console.log(
         `  Monorepo: ${Option.getOrElse(monorepo, () => "none")}`,
       );
@@ -211,6 +225,7 @@ export const init = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        config,
       });
 
       yield* Console.log("Run 'stack-effect add' to add targets and modules.");

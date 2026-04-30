@@ -1,9 +1,12 @@
 import { Apply } from "@repo/domain/Apply";
 import type { Plan } from "@repo/domain/Plan";
+import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
   ApplyService,
   BlueprintService,
+  type FinalizeConfig,
+  FinalizeService,
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
@@ -45,16 +48,19 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         repoRoot,
         yes,
         dryRun,
+        config,
       }: {
         selection: typeof Selection.Type;
         repoRoot: string;
         yes: boolean;
         dryRun: boolean;
+        config: typeof StackConfig.Type;
       }) =>
         Effect.gen(function* () {
           const formatter = yield* ScaffoldFormatter;
           const blueprintService = yield* BlueprintService;
           const planService = yield* PlanService;
+          const finalizeService = yield* FinalizeService;
 
           // Blueprint
           const blueprint = yield* blueprintService.resolve(selection);
@@ -93,7 +99,11 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           }
 
           // Plan
-          const plan = yield* planService.build({ blueprint, repoRoot });
+          const plan = yield* planService.build({
+            blueprint,
+            repoRoot,
+            config,
+          });
           const pl = yield* formatter.formatPlan(plan);
 
           const planBox = Box.vcat(
@@ -114,6 +124,20 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           // Dry run exits here
           if (dryRun) {
+            const finalizeConfig: FinalizeConfig = {
+              config,
+              repoRoot,
+            };
+            const previewScripts = yield* finalizeService.preview(
+              blueprint,
+              finalizeConfig,
+            );
+            if (previewScripts.length > 0) {
+              yield* Console.log("\nFinalize scripts:");
+              for (const script of previewScripts) {
+                yield* Console.log(`  ${script.label}: ${script.command}`);
+              }
+            }
             yield* Console.log("\n[dry-run] No changes written.");
             return yield* new ScaffoldAborted({
               message: "Dry run completed. No changes written.",
@@ -149,6 +173,35 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           yield* Console.log(`Skipped: ${result.skipped.length} files`);
           if (result.failed.length > 0) {
             yield* Console.log(`Failed: ${result.failed.length} files`);
+          }
+
+          // Finalize
+          const finalizeConfig: FinalizeConfig = {
+            config,
+            repoRoot,
+          };
+          const previewScripts = yield* finalizeService.preview(
+            blueprint,
+            finalizeConfig,
+          );
+          if (previewScripts.length > 0) {
+            yield* Console.log("\nRunning finalize scripts...");
+            const report = yield* finalizeService.run(
+              blueprint,
+              finalizeConfig,
+            );
+            for (const r of report.results) {
+              const icon = r.status === "success" ? "+" : "x";
+              yield* Console.log(`  [${icon}] ${r.label}: ${r.command}`);
+              if (r.error) {
+                yield* Console.log(`      Error: ${r.error}`);
+              }
+            }
+            if (report.failed > 0) {
+              yield* Console.log(
+                `\n${report.failed} finalize script(s) failed. See errors above.`,
+              );
+            }
           }
         });
 
