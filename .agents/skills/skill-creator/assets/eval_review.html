@@ -62,7 +62,7 @@
   <script>
     const EVAL_DATA = __EVAL_DATA_PLACEHOLDER__;
 
-    const evalItems = [...EVAL_DATA];
+    let evalItems = [...EVAL_DATA];
 
     function render() {
       const tbody = document.getElementById('eval-body');
