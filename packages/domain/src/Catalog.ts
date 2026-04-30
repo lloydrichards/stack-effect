@@ -1,4 +1,10 @@
-import { Effect, Schema, String as Str } from "effect";
+import { Data, Effect, type Graph, Schema, String as Str } from "effect";
+
+export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
+  catalog: "target" | "module";
+  entity: "target-kind" | "module";
+  id: string;
+}> {}
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
@@ -146,3 +152,23 @@ export const TargetDefinition = Schema.Struct({
   description: Schema.String,
   contributions: DesiredContributions,
 });
+
+export const CatalogNode = Schema.Union([
+  Schema.TaggedStruct("target", {
+    definition: TargetDefinition,
+  }),
+  Schema.TaggedStruct("module", {
+    definition: ModuleDefinition,
+  }),
+]);
+
+export const CatalogEdge = Schema.Literals([
+  "supportedOn",
+  "requiredModule",
+  "implies",
+]);
+
+export type CatalogGraph = Graph.DirectedGraph<
+  typeof CatalogNode.Type,
+  typeof CatalogEdge.Type
+>;

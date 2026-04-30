@@ -1,16 +1,17 @@
 import { Data, Order, Schema } from "effect";
-import { ModuleId, TargetIdentity, TargetKey } from "./Catalog";
+import {
+  CatalogNotFound,
+  ModuleId,
+  TargetIdentity,
+  TargetKey,
+} from "./Catalog";
 import { idOrd } from "./Order";
+
+export { CatalogNotFound };
 
 export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
   message: string;
   cause?: unknown;
-}> {}
-
-export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
-  catalog: "target" | "module";
-  entity: "target-kind" | "module";
-  id: string;
 }> {}
 
 export const BlueprintTargetNode = Schema.TaggedStruct("target", {

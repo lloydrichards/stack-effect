@@ -1,4 +1,4 @@
-import { TargetCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import { pathStrOrd } from "@repo/domain/Order";
 import {
@@ -50,7 +50,7 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
   static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(RepoSnapshotService.layer),
-    Layer.provide(TargetCatalog.layer),
+    Layer.provide(CatalogService.layer),
   );
 }
 const compilePlanningPaths = (

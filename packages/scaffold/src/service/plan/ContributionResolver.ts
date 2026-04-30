@@ -1,4 +1,4 @@
-import { ModuleCatalog, TargetCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import {
   type Blueprint,
   isBlueprintAttachedModuleNode,
@@ -22,8 +22,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
   "ContributionResolver",
   {
     make: Effect.gen(function* () {
-      const targetCatalog = yield* TargetCatalog;
-      const moduleCatalog = yield* ModuleCatalog;
+      const catalog = yield* CatalogService;
 
       const resolve = Effect.fn("ContributionResolver.resolve")(function* (
         blueprint: typeof Blueprint.Type,
@@ -40,7 +39,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         const moduleContributions: Array<typeof ModuleContribution.Type> = [];
 
         for (const node of targetNodes) {
-          const definition = yield* targetCatalog.get(node.identity.kind);
+          const definition = yield* catalog.getTarget(node.identity.kind);
           const context: typeof ContributionTokenContext.Type = {
             targetKey: node.id,
             targetPath: node.identity.toPath(),
@@ -66,7 +65,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
             continue;
           }
 
-          const moduleDefinition = yield* moduleCatalog.get(node.moduleId);
+          const moduleDefinition = yield* catalog.getModule(node.moduleId);
 
           moduleContributions.push({
             targetKey: node.targetId,
@@ -90,10 +89,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 ) {
   static readonly layer = Layer.effect(ContributionResolver)(
     ContributionResolver.make,
-  ).pipe(
-    Layer.provide(TargetCatalog.layer),
-    Layer.provide(ModuleCatalog.layer),
-  );
+  ).pipe(Layer.provide(CatalogService.layer));
 }
 
 const resolveContributionTokens = (

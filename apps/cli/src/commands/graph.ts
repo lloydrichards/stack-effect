@@ -1,8 +1,9 @@
-import {
-  type CatalogEdge,
-  type CatalogNode,
-  ModuleCatalog,
-} from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
+import type {
+  CatalogEdge,
+  CatalogGraph,
+  CatalogNode,
+} from "@repo/domain/Catalog";
 import {
   Array as Arr,
   Console,
@@ -26,19 +27,18 @@ const formatFlag = Flag.choice("format", ["table", "mermaid", "dot"]).pipe(
 
 // ── Helpers ──────────────────────────────────────────────────────────
 
-type IndexedNode = readonly [idx: number, node: CatalogNode];
+type IndexedNode = readonly [idx: number, node: typeof CatalogNode.Type];
 
-const nodeLabel = Match.type<CatalogNode>().pipe(
+const nodeLabel = Match.type<typeof CatalogNode.Type>().pipe(
   Match.tag("target", (n) => n.definition.kind),
   Match.tag("module", (n) => n.definition.id),
   Match.exhaustive,
 );
 
-const collectNodes = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Array<IndexedNode> => Array.from(Graph.entries(Graph.nodes(g)));
+const collectNodes = (g: CatalogGraph): Array<IndexedNode> =>
+  Array.from(Graph.entries(Graph.nodes(g)));
 
-const collectEdges = (g: Graph.DirectedGraph<CatalogNode, CatalogEdge>) =>
+const collectEdges = (g: CatalogGraph) =>
   Array.from(Graph.entries(Graph.edges(g)));
 
 const splitByTag = (nodes: ReadonlyArray<IndexedNode>) => ({
@@ -52,22 +52,20 @@ const labelsOf = (nodes: ReadonlyArray<IndexedNode>): string =>
 // ── Edge classification ─────────────────────────────────────────────
 
 interface RowData {
-  readonly node: CatalogNode;
+  readonly node: typeof CatalogNode.Type;
   readonly supportedOn: ReadonlyArray<string>;
   readonly requires: ReadonlyArray<string>;
   readonly implies: ReadonlyArray<string>;
 }
 
-const classifyEdge = Match.type<CatalogEdge>().pipe(
+const classifyEdge = Match.type<typeof CatalogEdge.Type>().pipe(
   Match.when("supportedOn", () => "supportedOn" as const),
   Match.when("requiredModule", () => "requires" as const),
   Match.when("implies", () => "implies" as const),
   Match.exhaustive,
 );
 
-const collectRowData = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Array<RowData> => {
+const collectRowData = (g: CatalogGraph): Array<RowData> => {
   const edges = collectEdges(g);
 
   return Arr.map(collectNodes(g), ([idx, node]) => {
@@ -94,9 +92,7 @@ const collectRowData = (
 
 // ── Compute dependency layers ───────────────────────────────────────
 
-const computeLayers = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Array<Array<IndexedNode>> => {
+const computeLayers = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   const allNodes = collectNodes(g);
   const allEdges = collectEdges(g);
 
@@ -130,9 +126,7 @@ const computeLayers = (
 
 // ── Compute connected clusters ──────────────────────────────────────
 
-const computeClusters = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Array<Array<IndexedNode>> => {
+const computeClusters = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   const allNodes = collectNodes(g);
   const allEdges = collectEdges(g);
 
@@ -170,9 +164,7 @@ const computeClusters = (
 
 // ── Render sections ─────────────────────────────────────────────────
 
-const renderLayers = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Box.Box<Ansi.AnsiStyle> => {
+const renderLayers = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
   const layerRows = Arr.map(computeLayers(g), (layer, i) => {
     const { targets, modules } = splitByTag(layer);
     const parts = [labelsOf(targets), labelsOf(modules)].filter(Boolean);
@@ -202,9 +194,7 @@ const renderLayers = (
   );
 };
 
-const renderClusters = (
-  g: Graph.DirectedGraph<CatalogNode, CatalogEdge>,
-): Box.Box<Ansi.AnsiStyle> => {
+const renderClusters = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
   const clusterRows = Arr.map(computeClusters(g), (cluster, i) => {
     const { targets, modules } = splitByTag(cluster);
     const label =
@@ -239,7 +229,7 @@ const renderClusters = (
 
 // ── Edge count summary ──────────────────────────────────────────────
 
-const countEdges = (g: Graph.DirectedGraph<CatalogNode, CatalogEdge>) => {
+const countEdges = (g: CatalogGraph) => {
   const edges = collectEdges(g);
   const counts = Arr.groupBy(edges, ([, e]) => e.data);
   return {
@@ -251,7 +241,7 @@ const countEdges = (g: Graph.DirectedGraph<CatalogNode, CatalogEdge>) => {
 
 // ── Main render ─────────────────────────────────────────────────────
 
-const renderTable = (g: Graph.DirectedGraph<CatalogNode, CatalogEdge>) => {
+const renderTable = (g: CatalogGraph) => {
   const nodeCount = Graph.nodeCount(g);
   const edgeCount = Graph.edgeCount(g);
   const acyclic = Graph.isAcyclic(g);
@@ -330,7 +320,7 @@ const renderTable = (g: Graph.DirectedGraph<CatalogNode, CatalogEdge>) => {
 
 export const graph = Command.make("graph", { format: formatFlag }, (flags) =>
   Effect.gen(function* () {
-    const catalog = yield* ModuleCatalog;
+    const catalog = yield* CatalogService;
     const g = catalog.toGraph;
     const fmt = Option.getOrElse(flags.format, () => "table" as const);
 

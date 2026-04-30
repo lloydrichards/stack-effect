@@ -1,5 +1,5 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { ModuleCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import {
   ApplyService,
   BlueprintService,
@@ -19,7 +19,7 @@ const root = Command.make("stack-effect");
 const MainLayer = Layer.mergeAll(
   ApplyService.layer,
   BlueprintService.layer,
-  ModuleCatalog.layer,
+  CatalogService.layer,
   PlanService.layer,
   ScaffoldFormatter.layer,
   ConfigureService.layer,

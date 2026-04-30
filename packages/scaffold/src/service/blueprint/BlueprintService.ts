@@ -1,4 +1,4 @@
-import { ModuleCatalog, TargetCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import {
   Blueprint,
   type BlueprintAttachedModuleNode,
@@ -25,19 +25,14 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
   "BlueprintService",
   {
     make: Effect.gen(function* () {
-      const targetCatalog = yield* TargetCatalog;
-      const moduleCatalog = yield* ModuleCatalog;
+      const catalog = yield* CatalogService;
 
       const resolve = Effect.fn("BlueprintService.resolve")(function* (
         selection: typeof Selection.Type,
       ) {
-        yield* validateSelection(selection, targetCatalog, moduleCatalog);
+        yield* validateSelection(selection, catalog);
 
-        const state = yield* resolveSelection(
-          selection,
-          targetCatalog,
-          moduleCatalog,
-        );
+        const state = yield* resolveSelection(selection, catalog);
 
         return new Blueprint({
           nodes: [
@@ -54,17 +49,13 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
 ) {
   static readonly layer = Layer.effect(BlueprintService)(
     BlueprintService.make,
-  ).pipe(
-    Layer.provide(ModuleCatalog.layer),
-    Layer.provide(TargetCatalog.layer),
-  );
+  ).pipe(Layer.provide(CatalogService.layer));
 }
 
 const validateSelection = Effect.fn("BlueprintService.validateSelection")(
   function* (
     selection: typeof Selection.Type,
-    targetCatalog: typeof TargetCatalog.Service,
-    moduleCatalog: typeof ModuleCatalog.Service,
+    catalog: typeof CatalogService.Service,
   ) {
     const selectedTargetKeys = new Set<string>();
 
@@ -78,7 +69,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       }
 
       selectedTargetKeys.add(targetKey);
-      yield* targetCatalog.get(target.identity.kind);
+      yield* catalog.getTarget(target.identity.kind);
 
       const selectedModuleIds = new Set<typeof ModuleId.Type>();
 
@@ -91,7 +82,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 
         selectedModuleIds.add(moduleSelection.id);
 
-        const isSupported = yield* moduleCatalog.isSupportedOn(
+        const isSupported = yield* catalog.isSupportedOn(
           moduleSelection.id,
           target.identity,
         );
@@ -111,8 +102,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
   function* (
     selection: typeof Selection.Type,
-    targetCatalog: typeof TargetCatalog.Service,
-    moduleCatalog: typeof ModuleCatalog.Service,
+    catalog: typeof CatalogService.Service,
   ) {
     const state: ResolutionState = {
       targets: new Map(),
@@ -128,7 +118,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         return current;
       }
 
-      yield* targetCatalog.get(identity.kind);
+      yield* catalog.getTarget(identity.kind);
 
       const next: MutableTargetState = {
         _tag: "target",
@@ -144,7 +134,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
     ) {
-      const isSupported = yield* moduleCatalog.isSupportedOn(moduleId, target);
+      const isSupported = yield* catalog.isSupportedOn(moduleId, target);
 
       if (isSupported) {
         return;
@@ -197,7 +187,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         reason: "owns-module",
       });
 
-      const definition = yield* moduleCatalog.get(moduleId);
+      const definition = yield* catalog.getModule(moduleId);
 
       for (const dependency of definition.dependencies) {
         if (dependency.requiredTarget !== undefined) {

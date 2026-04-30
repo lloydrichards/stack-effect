@@ -1,4 +1,4 @@
-import { ModuleCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import type { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
@@ -56,12 +56,12 @@ const formatTargetSummary = (
  */
 const resolveImplications = (targets: Array<CollectedTarget>) =>
   Effect.gen(function* () {
-    const catalog = yield* ModuleCatalog;
+    const catalog = yield* CatalogService;
     let changed = false;
 
     for (const target of targets) {
       for (const moduleId of target.modules) {
-        const definition = yield* catalog.get(moduleId);
+        const definition = yield* catalog.getModule(moduleId);
         for (const implication of definition.implies ?? []) {
           const candidates = targets.filter(
             (t) => t.kind === implication.targetKind,
@@ -124,7 +124,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
  */
 const getActiveImplications = (targets: ReadonlyArray<CollectedTarget>) =>
   Effect.gen(function* () {
-    const catalog = yield* ModuleCatalog;
+    const catalog = yield* CatalogService;
     const allModuleIds = targets.flatMap((t) => t.modules);
     return yield* catalog.getImplications(allModuleIds);
   });
@@ -139,7 +139,7 @@ const removeOrphanedImplications = (
   pinned: ReadonlySet<string> = new Set(),
 ) =>
   Effect.gen(function* () {
-    const catalog = yield* ModuleCatalog;
+    const catalog = yield* CatalogService;
     const activeImplications = yield* getActiveImplications(targets);
     let changed = false;
 
@@ -172,25 +172,31 @@ const removeOrphanedImplications = (
   });
 
 const collectTargetsInteractive = Effect.gen(function* () {
-  const catalog = yield* ModuleCatalog;
-  const targetModuleMap = yield* catalog.targetModuleMap;
+  const catalog = yield* CatalogService;
+
+  // Build target kind choices from catalog
+  const targetChoices: Array<{
+    title: string;
+    value: Exclude<typeof TargetKind.Type, "init">;
+  }> = [];
+  for (const kind of catalog.targetKinds) {
+    const target = yield* catalog.getTarget(kind);
+    targetChoices.push({ title: target.title, value: kind });
+  }
 
   const targets: Array<CollectedTarget> = [];
 
   const addTarget = Effect.gen(function* () {
     const kind = yield* HorizontalRadio({
       message: "What kind of target do you want to add?",
-      choices: Array.from(targetModuleMap.entries()).map(
-        ([value, { title }]) => ({ title, value }),
-      ),
+      choices: targetChoices,
     });
 
     const name = yield* Prompt.text({
       message: `What should this ${kind} target be called?`,
     });
 
-    const targetEntry = targetModuleMap.get(kind);
-    const availableModules = targetEntry?.modules ?? [];
+    const availableModules = yield* catalog.getSupportedModules(kind);
     const modules =
       availableModules.length > 0
         ? yield* Prompt.multiSelect({
@@ -261,8 +267,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
       const t = targets[targetToEdit];
       if (t) {
-        const targetEntry = targetModuleMap.get(t.kind);
-        const availableModules = targetEntry?.modules ?? [];
+        const availableModules = yield* catalog.getSupportedModules(t.kind);
 
         if (availableModules.length > 0) {
           const newModules = yield* Prompt.multiSelect({

@@ -1,5 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
-import { TargetCatalog } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RepoSnapshot } from "@repo/domain/Plan";
@@ -165,7 +165,7 @@ void Effect.runPromise(
     Effect.provide(PlanServiceLayer),
     Effect.provide(ScaffoldFormatter.layer),
     Effect.provide(BunServices.layer),
-    Effect.provide(TargetCatalog.layer),
+    Effect.provide(CatalogService.layer),
   ),
 ).catch((error) => {
   console.error("Error in Scaffold Scratchpad:", error);
