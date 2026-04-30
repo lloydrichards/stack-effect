@@ -11,7 +11,7 @@ import {
   type ModuleContribution,
   type TargetContribution,
 } from "@repo/domain/Scaffold";
-import { Context, Effect, Layer } from "effect";
+import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
 
 export type NormalizedContributions = {
   readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
@@ -27,58 +27,64 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
       const resolve = Effect.fn("ContributionResolver.resolve")(function* (
         blueprint: typeof Blueprint.Type,
       ) {
-        const targetNodes = blueprint.nodes.filter(isBlueprintTargetNode);
-        const attachedModuleNodes = blueprint.nodes.filter(
-          isBlueprintAttachedModuleNode,
+        const targetResults = yield* Effect.forEach(
+          Arr.filter(blueprint.nodes, isBlueprintTargetNode),
+          (node) =>
+            Effect.gen(function* () {
+              const definition = yield* catalog.getTarget(node.identity.kind);
+              const context: typeof ContributionTokenContext.Type = {
+                targetKey: node.id,
+                targetPath: node.identity.toPath(),
+                targetKind: node.identity.kind,
+                targetName: node.identity.name,
+              };
+
+              return {
+                context,
+                contribution: {
+                  targetKey: node.id,
+                  contributions: resolveContributionTokens(
+                    definition.contributions,
+                    context,
+                  ),
+                } satisfies typeof TargetContribution.Type,
+              } as const;
+            }),
         );
-        const targetContexts = new Map<
-          string,
-          typeof ContributionTokenContext.Type
-        >();
-        const targetContributions: Array<typeof TargetContribution.Type> = [];
-        const moduleContributions: Array<typeof ModuleContribution.Type> = [];
 
-        for (const node of targetNodes) {
-          const definition = yield* catalog.getTarget(node.identity.kind);
-          const context: typeof ContributionTokenContext.Type = {
-            targetKey: node.id,
-            targetPath: node.identity.toPath(),
-            targetKind: node.identity.kind,
-            targetName: node.identity.name,
-          };
+        const targetContexts = new Map(
+          Arr.map(targetResults, (r) => [r.contribution.targetKey, r.context]),
+        );
 
-          targetContexts.set(node.id, context);
-
-          targetContributions.push({
-            targetKey: node.id,
-            contributions: resolveContributionTokens(
-              definition.contributions,
-              context,
+        const moduleContributions = yield* pipe(
+          Arr.filter(blueprint.nodes, isBlueprintAttachedModuleNode),
+          Arr.filterMap((node) =>
+            Result.map(
+              Result.fromNullishOr(
+                targetContexts.get(node.targetId),
+                () => "missing" as const,
+              ),
+              (context) => ({ node, context }) as const,
             ),
-          });
-        }
+          ),
+          Effect.forEach(({ node, context }) =>
+            Effect.gen(function* () {
+              const moduleDefinition = yield* catalog.getModule(node.moduleId);
 
-        for (const node of attachedModuleNodes) {
-          const context = targetContexts.get(node.targetId);
-
-          if (context === undefined) {
-            continue;
-          }
-
-          const moduleDefinition = yield* catalog.getModule(node.moduleId);
-
-          moduleContributions.push({
-            targetKey: node.targetId,
-            moduleId: node.moduleId,
-            contributions: resolveContributionTokens(
-              moduleDefinition.contributions,
-              context,
-            ),
-          });
-        }
+              return {
+                targetKey: node.targetId,
+                moduleId: node.moduleId,
+                contributions: resolveContributionTokens(
+                  moduleDefinition.contributions,
+                  context,
+                ),
+              } satisfies typeof ModuleContribution.Type;
+            }),
+          ),
+        );
 
         return {
-          targets: targetContributions,
+          targets: Arr.map(targetResults, (r) => r.contribution),
           modules: moduleContributions,
         } satisfies NormalizedContributions;
       });
