@@ -1,4 +1,4 @@
-name: Check - Client
+name: Check - cli
 
 on:
   workflow_dispatch:
@@ -6,13 +6,13 @@ on:
     branches:
       - main
     paths:
-      - "apps/client/**"
+      - "apps/cli/**"
       - "packages/domain/**"
   pull_request:
     branches:
       - main
     paths:
-      - "apps/client/**"
+      - "apps/cli/**"
       - "packages/domain/**"
 
 jobs:
@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Verify Types
-        run: bun type-check --filter=client
+        run: bun type-check --filter=cli
 
   formatting:
     name: "Formatting"
@@ -69,8 +69,5 @@ jobs:
       - name: Install Dependencies
         uses: ./.github/actions/setup
 
-      - name: Install Playwright Browsers
-        run: bunx playwright install chromium --with-deps
-
       - name: Run Tests
-        run: bun run test --filter=client
+        run: bun run test --filter=cli
