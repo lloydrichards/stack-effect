@@ -6,21 +6,89 @@
 
 ## Commands
 
-| Command                                        | Purpose                                   |
-| ---------------------------------------------- | ----------------------------------------- |
-| `bun install`                                  | Install dependencies                      |
-| `bun dev`                                      | Start all apps (client:3000, server:9000) |
-| `bun dev --filter=client`                      | Start client only                         |
-| `bun dev --filter=server`                      | Start server only                         |
-| `bun run build`                                | Build all apps                            |
-| `bun lint`                                     | Lint with Biome                           |
-| `bun format`                                   | Format with Biome                         |
-| `bun test`                                     | Run all tests (Vitest)                    |
-| `bun test --filter=server -- src/file.test.ts` | Run single test file                      |
+| Command                           | Purpose                                    |
+| --------------------------------- | ------------------------------------------ |
+| `bun install`                     | Install dependencies                       |
+| `bun dev`                         | Run workspace dev tasks via Turbo          |
+| `bun dev --filter=cli`            | Start CLI app in watch mode                |
+| `bun run build`                   | Build all workspaces                       |
+| `bun lint`                        | Lint with Biome                            |
+| `bun format`                      | Format with Biome                          |
+| `bun format:check`                | Validate formatting without writing        |
+| `bun run type-check`              | Run TypeScript checks across workspaces    |
+| `bun run test`                    | Run workspace tests through Turbo + Vitest |
+| `bun run test --filter=<package>` | Run tests for a specific workspace         |
 
 ## Tech Stack
 
 Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Biome 2.4
+
+## Task Completion Requirements
+
+- All of `bun format`, `bun lint`, and `bun run type-check` must pass before considering a task complete.
+- NEVER use `bun test` in this repository. Always use `bun run test` so Turbo workspace filters and task wiring are respected.
+- For behavior changes, run a scoped test command (`bun run test --filter=<workspace>`) for impacted workspaces before completion.
+
+## CLI Automation Smoke Test
+
+When validating non-interactive CLI behavior (LLM/CI paths), run commands against a temporary repository and always clean it up.
+
+```bash
+TMP_REPO="$(mktemp -d)"
+trap 'rm -rf "$TMP_REPO"' EXIT
+
+# 1) Non-interactive init requires project name with --yes
+bun run start -- init smoke-app --yes --root "$TMP_REPO"
+
+# 2) Non-interactive add with explicit Selection inputs
+bun run start -- add --yes --root "$TMP_REPO" --target package/domain --modules domain-api --dry-run
+
+# 3) Optional negative test: cross-target implication should fail in non-interactive mode
+bun run start -- add --yes --root "$TMP_REPO" --target client/web --modules http-api-client --dry-run
+```
+
+Notes:
+
+- Use `trap ... EXIT` so cleanup runs even if a command fails.
+- Do not point smoke tests at the current workspace root; always use `mktemp -d`.
+- The temporary repo must be removed after the test run.
+
+## Project Snapshot
+
+This repository is an Effect-based scaffolding monorepo. The core flow is:
+
+`Catalog -> Selection -> Blueprint -> Plan -> Apply -> ApplyResult -> FinalizeReport`
+
+The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*`.
+
+## Core Priorities
+
+1. Deterministic behavior: identical inputs should produce identical blueprint and plan outputs.
+2. Correctness over convenience: prefer explicit failures and conflict surfaces over implicit fallbacks.
+3. Predictable planning and apply semantics: preserve the Selection/Blueprint/Plan/Apply boundaries.
+
+## Maintainability
+
+- Long-term maintainability is a core priority; extract reusable logic into shared packages instead of duplicating across CLI/services.
+- Keep domain contracts in `@repo/domain` as the canonical boundary, then implement runtime behavior in `@repo/scaffold` and `@repo/catalog`.
+- Favor small, composable Effect services/layers over one-off local logic.
+
+## Package Roles
+
+- `apps/cli`: Effect CLI entrypoint and command UX (`init`, `add`, `graph`) that composes scaffold services.
+- `packages/domain`: Shared Effect Schema contracts and domain vocabulary for Catalog/Selection/Blueprint/Plan/Apply/Finalize.
+- `packages/catalog`: Read-only catalog definitions and lookup service for targets/modules and dependency metadata.
+- `packages/scaffold`: Runtime orchestration services (blueprint resolution, planning, apply, finalize, formatting).
+- `packages/observability`: Shared OpenTelemetry layer wiring for Effect apps.
+- `packages/config-typescript`: Shared TypeScript configuration package.
+
+## Hard Domain Rules
+
+- Do not collapse terms: `Selection` (user intent), `Blueprint` (dependency closure), `Plan` (repo-aware outcomes), and `Apply` (execution intent) are distinct.
+- `Plan` is policy-free and must not contain apply decisions.
+- `ApplyDecision` entries are only for conflicted planned paths; missing or extra decisions are invalid.
+- A module contributes only to its owning target; cross-target effects must be modeled via target/module dependencies.
+- Preserve canonical domain terminology from `docs/UBIQUITOUS_LANGUAGE.md`, `docs/DOMAIN_LEXICON.md`, and `CONTEXT.md` in code and docs.
 
 ## Code Style
 
@@ -54,7 +122,15 @@ Effect.gen(function* () {
 | `apps/cli`        | Effect Cli         | `apps/cli/AGENTS.md`        |
 | `packages/domain` | Effect Schema, RPC | `packages/domain/AGENTS.md` |
 
-## Local Source References
+## Domain Terminology References
+
+When working with domain language for this application, use these sources first:
+
+- `docs/UBIQUITOUS_LANGUAGE.md` for conversation-ready canonical wording
+- `docs/DOMAIN_LEXICON.md` for precise definitions, invariants, and code identifiers
+- `CONTEXT.md` for current domain decisions and relationship constraints
+
+Prefer these canonical terms in code reviews, issues, docs, commit messages, and implementation discussions.
 
 ## Complexity Analysis
 
@@ -62,7 +138,6 @@ Use the complexity report to identify refactoring targets before making changes.
 The `--json` flag emits structured output suitable for direct consumption.
 
 ```bash
-
 # For dead
 bunx fallow -f json
 bunx fallow dead-code -f json
@@ -74,41 +149,6 @@ bunx fallow health -f json
 # For specific directories
 bunx fallow -f json -r apps/cli
 ```
-
-The JSON schema:
-
-```typescript
-{
-  threshold: number;
-  totalFunctions: number;
-  levelCounts: {
-    low: number;
-    normal: number;
-    high: number;
-    extreme: number;
-  }
-  functions: Array<{
-    file: string; // relative path from repo root
-    name: string; // function signature (truncated to 80 chars)
-    line: number;
-    complexity: number;
-    level: "low" | "normal" | "high" | "extreme";
-    reasons: Array<{
-      // only present for high/extreme
-      description: string;
-      complexity: number;
-      line: number;
-      col: number;
-      text: string;
-    }> | null;
-  }>;
-}
-```
-
-**Workflow**: run the scoped JSON command first, parse `functions` sorted
-descending by `complexity`, then use `reasons` on high/extreme entries to
-understand exactly which branches or expressions are driving the score before
-deciding how to refactor.
 
 ## Local Source References
 
