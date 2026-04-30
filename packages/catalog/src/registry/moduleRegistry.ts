@@ -312,6 +312,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
+    implies: [{ targetKind: "server", moduleId: "http-api-server" }],
     contributions: {
       files: [
         {
@@ -451,6 +452,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
+    implies: [{ targetKind: "server", moduleId: "http-rpc-server" }],
     contributions: {
       files: [
         {
@@ -630,6 +632,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
+    implies: [{ targetKind: "server", moduleId: "chat-server" }],
     contributions: {
       files: [
         {
@@ -791,6 +794,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
+    implies: [{ targetKind: "server", moduleId: "ws-presence-server" }],
     contributions: {
       files: [
         {

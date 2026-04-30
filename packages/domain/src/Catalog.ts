@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export const ModuleId = Schema.Union([
   Schema.Literal("turbo"),
@@ -104,6 +104,11 @@ export const SupportedOn = Schema.Union([
   }),
 ]);
 
+export const ModuleImplication = Schema.Struct({
+  targetKind: TargetKind,
+  moduleId: ModuleId,
+});
+
 export const ModuleDependency = Schema.Struct({
   requiredTarget: Schema.optional(
     Schema.Struct({
@@ -170,6 +175,10 @@ export const ModuleDefinition = Schema.Struct({
   description: Schema.String,
   supportedOn: Schema.Array(SupportedOn),
   dependencies: Schema.Array(ModuleDependency),
+  implies: Schema.Array(ModuleImplication).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
   contributions: DesiredContributions,
 });
 
