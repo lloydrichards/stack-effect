@@ -12,5 +12,7 @@ export const dryRunFlag = Flag.boolean("dry-run").pipe(
 
 export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withAlias("y"),
-  Flag.withDescription("Accept all defaults, skip interactive prompts"),
+  Flag.withDescription(
+    "Skip confirmation prompts (uses defaults where available)",
+  ),
 );

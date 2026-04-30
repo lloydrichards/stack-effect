@@ -1,9 +1,8 @@
 import { CatalogService } from "@repo/catalog";
-import type { ModuleId, TargetKind } from "@repo/domain/Catalog";
-import { TargetIdentity } from "@repo/domain/Catalog";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, Option, Ref, Schedule } from "effect";
-import { Command, Prompt } from "effect/unstable/cli";
+import { Console, Effect, Option, Schedule } from "effect";
+import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { HorizontalRadio } from "../components/HorizontalRadio";
@@ -18,6 +17,21 @@ interface CollectedTarget {
   modules: Array<typeof ModuleId.Type>;
   confirmed: boolean;
 }
+
+const targetFlag = Flag.string("target").pipe(
+  Flag.optional,
+  Flag.withDescription(
+    "Target identity as <targetKind>/<targetName>, e.g. client/web",
+  ),
+);
+
+const modulesFlag = Flag.string("modules").pipe(
+  Flag.atLeast(1),
+  Flag.optional,
+  Flag.withDescription(
+    "Module IDs (repeat --modules or use comma-separated values)",
+  ),
+);
 
 const formatTargetSummary = (
   targets: ReadonlyArray<CollectedTarget>,
@@ -171,6 +185,195 @@ const removeOrphanedImplications = (
     return changed;
   });
 
+const resolveImplicationsNonInteractive = (targets: Array<CollectedTarget>) =>
+  Effect.gen(function* () {
+    const catalog = yield* CatalogService;
+
+    let changed = true;
+    while (changed) {
+      changed = false;
+
+      for (const target of targets) {
+        for (const moduleId of target.modules) {
+          const definition = yield* catalog.getModule(moduleId);
+
+          for (const implication of definition.implies ?? []) {
+            const candidates = targets.filter(
+              (t) => t.kind === implication.targetKind,
+            );
+
+            if (candidates.length === 0) {
+              return yield* Effect.fail(
+                `Module \"${definition.id}\" implies \"${implication.moduleId}\" on target kind \"${implication.targetKind}\". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
+              );
+            }
+
+            if (candidates.length > 1) {
+              const alreadyPresent = candidates.some((c) =>
+                c.modules.includes(implication.moduleId),
+              );
+              if (!alreadyPresent) {
+                return yield* Effect.fail(
+                  `Module \"${definition.id}\" implies \"${implication.moduleId}\" for target kind \"${implication.targetKind}\", but multiple candidate targets exist. Use interactive add to disambiguate.`,
+                );
+              }
+            }
+
+            const candidate = candidates[0];
+            if (
+              candidate &&
+              !candidate.modules.includes(implication.moduleId)
+            ) {
+              candidate.modules.push(implication.moduleId);
+              changed = true;
+            }
+          }
+        }
+      }
+    }
+
+    return targets;
+  });
+
+const parseTargetIdentity = (targetId: string) =>
+  Effect.gen(function* () {
+    const value = targetId.trim();
+    const separatorIndex = value.indexOf("/");
+
+    if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
+      return yield* Effect.fail(
+        "Invalid --target value. Expected format: <targetKind>/<targetName>.",
+      );
+    }
+
+    const kindText = value.slice(0, separatorIndex).trim();
+    const name = value.slice(separatorIndex + 1).trim();
+
+    if (kindText.length === 0 || name.length === 0) {
+      return yield* Effect.fail(
+        "Invalid --target value. targetKind and targetName must both be non-empty.",
+      );
+    }
+
+    const kind = TargetKind.make(kindText);
+    if (kind === "init") {
+      return yield* Effect.fail(
+        'The add command cannot target kind "init". Use stack-effect init for project initialization.',
+      );
+    }
+
+    return {
+      kind: kind as Exclude<typeof TargetKind.Type, "init">,
+      name,
+    };
+  });
+
+const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
+  Effect.gen(function* () {
+    const parts = rawModules.flatMap((entry) =>
+      entry
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0),
+    );
+
+    if (parts.length === 0) {
+      return yield* Effect.fail(
+        "At least one module ID is required when using --modules.",
+      );
+    }
+
+    const seen = new Set<string>();
+    const duplicates = new Set<string>();
+
+    for (const moduleId of parts) {
+      if (seen.has(moduleId)) {
+        duplicates.add(moduleId);
+      } else {
+        seen.add(moduleId);
+      }
+    }
+
+    if (duplicates.size > 0) {
+      return yield* Effect.fail(
+        `Duplicate module IDs provided: ${Array.from(duplicates).join(", ")}`,
+      );
+    }
+
+    return parts.map((moduleId) => ModuleId.make(moduleId));
+  });
+
+const collectTargetsFromFlags = (
+  targetId: string,
+  rawModules: ReadonlyArray<string>,
+) =>
+  Effect.gen(function* () {
+    const catalog = yield* CatalogService;
+
+    const parsedTarget = yield* parseTargetIdentity(targetId);
+    const targetIdentity = new TargetIdentity({
+      kind: parsedTarget.kind,
+      name: parsedTarget.name,
+    });
+
+    yield* catalog
+      .getTarget(targetIdentity.kind)
+      .pipe(
+        Effect.mapError(
+          () =>
+            `Unknown target kind \"${targetIdentity.kind}\" in --target value \"${targetId}\".`,
+        ),
+      );
+
+    const moduleIds = yield* parseModuleInputs(rawModules);
+    const unsupported: Array<string> = [];
+
+    for (const moduleId of moduleIds) {
+      yield* catalog
+        .getModule(moduleId)
+        .pipe(
+          Effect.mapError(
+            () => `Unknown module ID \"${moduleId}\" provided via --modules.`,
+          ),
+        );
+
+      const isSupported = yield* catalog.isSupportedOn(
+        moduleId,
+        targetIdentity,
+      );
+      if (!isSupported) {
+        unsupported.push(moduleId);
+      }
+    }
+
+    if (unsupported.length > 0) {
+      return yield* Effect.fail(
+        `Unsupported module(s) for target ${targetIdentity.kind}/${targetIdentity.name}: ${unsupported.join(", ")}`,
+      );
+    }
+
+    const targets: Array<CollectedTarget> = [
+      {
+        kind: parsedTarget.kind,
+        name: parsedTarget.name,
+        modules: moduleIds,
+        confirmed: true,
+      },
+    ];
+
+    yield* resolveImplicationsNonInteractive(targets);
+
+    return targets;
+  });
+
+const isScaffoldAborted = (
+  err: unknown,
+): err is { _tag: "ScaffoldAborted"; retry?: boolean } =>
+  typeof err === "object" &&
+  err !== null &&
+  "_tag" in err &&
+  (err as { _tag?: unknown })._tag === "ScaffoldAborted";
+
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
@@ -311,6 +514,8 @@ export const add = Command.make(
   "add",
   {
     root: rootFlag,
+    target: targetFlag,
+    modules: modulesFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
   },
@@ -324,8 +529,23 @@ export const add = Command.make(
       // Require init
       const config = yield* configure.requireConfig(repoRoot);
 
+      const hasTarget = Option.isSome(flags.target);
+      const hasModules = Option.isSome(flags.modules);
+
+      if (hasTarget !== hasModules) {
+        return yield* Effect.fail(
+          "Use --target and --modules together, or omit both to use interactive mode.",
+        );
+      }
+
       // Collect targets: use flags if provided, otherwise interactive loop
-      const collected = yield* collectTargetsInteractive;
+      const collected =
+        hasTarget && hasModules
+          ? yield* collectTargetsFromFlags(
+              flags.target.value,
+              flags.modules.value,
+            )
+          : yield* collectTargetsInteractive;
 
       // Build selection
       const selection: typeof Selection.Type = {
@@ -344,7 +564,7 @@ export const add = Command.make(
       });
     }).pipe(
       Effect.retry({
-        while: (err) => err._tag === "ScaffoldAborted" && err.retry === true,
+        while: (err) => isScaffoldAborted(err) && err.retry === true,
         schedule: Schedule.forever,
       }),
       Effect.catchTag("ScaffoldAborted", (err) => {
