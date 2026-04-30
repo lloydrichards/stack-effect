@@ -5,8 +5,21 @@ export const ModuleId = Schema.Union([
   Schema.Literal("biome"),
   Schema.Literal("vitest"),
   Schema.Literal("domain-api"),
+  Schema.Literal("domain-rpc"),
+  Schema.Literal("domain-websocket"),
+  Schema.Literal("domain-chat"),
   Schema.Literal("http-api-server"),
   Schema.Literal("http-api-client"),
+  Schema.Literal("http-rpc-server"),
+  Schema.Literal("http-rpc-client"),
+  Schema.Literal("chat-server"),
+  Schema.Literal("chat-client"),
+  Schema.Literal("ws-presence-server"),
+  Schema.Literal("ws-presence-client"),
+  Schema.Literal("ai"),
+  Schema.Literal("ai-chat-service"),
+  Schema.Literal("ai-sample-toolkit"),
+  Schema.Literal("presence"),
 ]);
 
 export const TargetKind = Schema.Union([
