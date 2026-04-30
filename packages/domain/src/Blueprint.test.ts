@@ -1,19 +1,28 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey } from "./Catalog";
+import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 
-const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
-const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });
+const domainIdentity = new TargetIdentity({
+  kind: TargetKind.make("package"),
+  name: "domain",
+});
+const serverApiIdentity = new TargetIdentity({
+  kind: TargetKind.make("server"),
+  name: "api",
+});
 
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
       {
         _tag: "attached-module",
-        id: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        id: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         targetId: domainIdentity.toKey(),
-        moduleId: "domain-api",
+        moduleId: ModuleId.make("domain-api"),
       },
       {
         _tag: "target",
@@ -24,10 +33,10 @@ const makeUnsortedBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         targetId: serverApiIdentity.toKey(),
-        moduleId: "http-api-server",
+        moduleId: ModuleId.make("http-api-server"),
       },
       {
         _tag: "target",
@@ -40,15 +49,21 @@ const makeUnsortedBlueprint = () =>
         id: "z-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
-        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        to: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         reason: "required-module",
       },
       {
         id: "m-edge",
         from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        to: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         reason: "owns-module",
       },
       {
@@ -56,7 +71,7 @@ const makeUnsortedBlueprint = () =>
         from: serverApiIdentity.toKey(),
         to: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         reason: "owns-module",
       },
@@ -64,7 +79,7 @@ const makeUnsortedBlueprint = () =>
         id: "a-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         to: domainIdentity.toKey(),
         reason: "required-target",
@@ -75,30 +90,38 @@ const makeUnsortedBlueprint = () =>
 describe("@repo/domain Blueprint", () => {
   it("should expose target identity domain methods", () => {
     const identity = new TargetIdentity({
-      kind: "server",
+      kind: TargetKind.make("server"),
       name: "api",
     });
 
     expect(identity.toKey()).toBe("apps/server-api");
     expect(identity.toPath()).toBe("apps/server-api");
-    expect(identity.matches({ _tag: "kind", kind: "server" })).toBe(true);
+    expect(
+      identity.matches({ _tag: "kind", kind: TargetKind.make("server") }),
+    ).toBe(true);
     expect(
       identity.matches({
         _tag: "identity",
-        identity: new TargetIdentity({ kind: "server", name: "api" }),
+        identity: new TargetIdentity({
+          kind: TargetKind.make("server"),
+          name: "api",
+        }),
       }),
     ).toBe(true);
     expect(
       identity.matches({
         _tag: "identity",
-        identity: new TargetIdentity({ kind: "client", name: "api" }),
+        identity: new TargetIdentity({
+          kind: TargetKind.make("client"),
+          name: "api",
+        }),
       }),
     ).toBe(false);
   });
 
   it("should slugify user-provided names when deriving key and path", () => {
     const identity = new TargetIdentity({
-      kind: "server",
+      kind: TargetKind.make("server"),
       name: "My Api",
     });
 
@@ -108,14 +131,17 @@ describe("@repo/domain Blueprint", () => {
 
   it("should compare exact identity rules by canonical target identity", () => {
     const identity = new TargetIdentity({
-      kind: "server",
+      kind: TargetKind.make("server"),
       name: "My Api",
     });
 
     expect(
       identity.matches({
         _tag: "identity",
-        identity: new TargetIdentity({ kind: "server", name: "my-api" }),
+        identity: new TargetIdentity({
+          kind: TargetKind.make("server"),
+          name: "my-api",
+        }),
       }),
     ).toBe(true);
   });
@@ -135,8 +161,14 @@ describe("@repo/domain Blueprint", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     expect(blueprint.nodes.map((node) => node.id)).toEqual([
-      toAttachedModuleNodeId(serverApiIdentity.toKey(), "http-api-server"),
-      toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+      toAttachedModuleNodeId(
+        serverApiIdentity.toKey(),
+        ModuleId.make("http-api-server"),
+      ),
+      toAttachedModuleNodeId(
+        domainIdentity.toKey(),
+        ModuleId.make("domain-api"),
+      ),
       "apps/server-api",
       "packages/domain",
     ]);

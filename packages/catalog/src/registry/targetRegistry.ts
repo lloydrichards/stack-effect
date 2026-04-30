@@ -1,4 +1,4 @@
-import type { TargetDefinition } from "@repo/domain/Catalog";
+import { type TargetDefinition, TargetKind } from "@repo/domain/Catalog";
 import { emptyDesiredContributions } from "@repo/domain/Scaffold";
 import {
   clientAppTsxContents,
@@ -23,7 +23,7 @@ import { packageDomainTsconfigContents } from "./content/shared";
 
 export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
-    kind: "init",
+    kind: TargetKind.make("init"),
     title: "Project Initialization",
     description:
       "Set up a new project with recommended structure and configuration",
@@ -52,7 +52,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: "client",
+    kind: TargetKind.make("client"),
     title: "Client Application",
     description: "A frontend application, such as one built with React or Vue",
     contributions: {
@@ -133,7 +133,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: "server",
+    kind: TargetKind.make("server"),
     title: "Server Application",
     description: "A backend application, such as an API server",
     contributions: {
@@ -186,14 +186,14 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: "cli",
+    kind: TargetKind.make("cli"),
     title: "CLI Application",
     description: "A command-line interface application",
     contributions: emptyDesiredContributions(),
   },
 
   {
-    kind: "package",
+    kind: TargetKind.make("package"),
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
     contributions: {

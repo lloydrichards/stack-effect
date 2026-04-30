@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { TargetCatalog } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
-import { TargetIdentity } from "@repo/domain/Catalog";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RepoSnapshot } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, FileSystem, Layer } from "effect";
@@ -49,10 +49,10 @@ const examples = [
       targets: [
         {
           identity: new TargetIdentity({
-            kind: "server",
+            kind: TargetKind.make("server"),
             name: "api",
           }),
-          modules: [{ id: "http-api-server" }],
+          modules: [{ id: ModuleId.make("http-api-server") }],
         },
       ],
     },
@@ -63,17 +63,17 @@ const examples = [
       targets: [
         {
           identity: new TargetIdentity({
-            kind: "server",
+            kind: TargetKind.make("server"),
             name: "api",
           }),
-          modules: [{ id: "http-api-server" }],
+          modules: [{ id: ModuleId.make("http-api-server") }],
         },
         {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          modules: [{ id: "domain-api" }],
+          modules: [{ id: ModuleId.make("domain-api") }],
         },
       ],
     },

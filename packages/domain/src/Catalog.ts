@@ -1,42 +1,12 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema, String as Str } from "effect";
 
-export const ModuleId = Schema.Union([
-  Schema.Literal("turbo"),
-  Schema.Literal("biome"),
-  Schema.Literal("vitest"),
-  Schema.Literal("domain-api"),
-  Schema.Literal("domain-rpc"),
-  Schema.Literal("domain-websocket"),
-  Schema.Literal("domain-chat"),
-  Schema.Literal("http-api-server"),
-  Schema.Literal("http-api-client"),
-  Schema.Literal("http-rpc-server"),
-  Schema.Literal("http-rpc-client"),
-  Schema.Literal("chat-server"),
-  Schema.Literal("chat-client"),
-  Schema.Literal("ws-presence-server"),
-  Schema.Literal("ws-presence-client"),
-  Schema.Literal("ai"),
-  Schema.Literal("ai-chat-service"),
-  Schema.Literal("ai-sample-toolkit"),
-  Schema.Literal("presence"),
-]);
+export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
 export const TargetKind = Schema.Union([
   Schema.Literal("init"),
-  Schema.Literal("client"),
-  Schema.Literal("server"),
-  Schema.Literal("cli"),
   Schema.Literal("package"),
   Schema.String,
-]);
-
-const slugifyTargetName = (name: string): string =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+]).pipe(Schema.brand("TargetKind"));
 
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
 export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
@@ -52,16 +22,10 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
       case "init":
         return TargetPath.make(".");
       case "package":
-        return TargetPath.make(`packages/${slugifyTargetName(this.name)}`);
-      case "server":
-      case "client":
-      case "cli":
-        return TargetPath.make(
-          `apps/${this.kind}${this.name ? `-${slugifyTargetName(this.name)}` : ""}`,
-        );
+        return TargetPath.make(`packages/${Str.kebabCase(this.name.trim())}`);
       default:
         return TargetPath.make(
-          `apps/${this.kind}${this.name ? `-${slugifyTargetName(this.name)}` : ""}`,
+          `apps/${this.kind}${this.name ? `-${Str.kebabCase(this.name.trim())}` : ""}`,
         );
     }
   }
@@ -71,16 +35,10 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
       case "init":
         return TargetKey.make(".");
       case "package":
-        return TargetKey.make(`packages/${slugifyTargetName(this.name)}`);
-      case "server":
-      case "client":
-      case "cli":
-        return TargetKey.make(
-          `apps/${this.kind}${this.name ? `-${slugifyTargetName(this.name)}` : ""}`,
-        );
+        return TargetKey.make(`packages/${Str.kebabCase(this.name.trim())}`);
       default:
         return TargetKey.make(
-          `apps/${this.name ? `-${slugifyTargetName(this.name)}` : ""}`,
+          `apps/${this.kind}${this.name ? `-${Str.kebabCase(this.name.trim())}` : ""}`,
         );
     }
   }
@@ -107,20 +65,6 @@ export const SupportedOn = Schema.Union([
 export const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
   moduleId: ModuleId,
-});
-
-export const ModuleDependency = Schema.Struct({
-  requiredTarget: Schema.optional(
-    Schema.Struct({
-      identity: TargetIdentity,
-    }),
-  ),
-  requiredModule: Schema.optional(
-    Schema.Struct({
-      target: TargetIdentity,
-      moduleId: ModuleId,
-    }),
-  ),
 });
 
 export const DesiredContributions = Schema.Struct({
@@ -174,7 +118,21 @@ export const ModuleDefinition = Schema.Struct({
   title: Schema.String,
   description: Schema.String,
   supportedOn: Schema.Array(SupportedOn),
-  dependencies: Schema.Array(ModuleDependency),
+  dependencies: Schema.Array(
+    Schema.Struct({
+      requiredTarget: Schema.optional(
+        Schema.Struct({
+          identity: TargetIdentity,
+        }),
+      ),
+      requiredModule: Schema.optional(
+        Schema.Struct({
+          target: TargetIdentity,
+          moduleId: ModuleId,
+        }),
+      ),
+    }),
+  ),
   implies: Schema.Array(ModuleImplication).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),

@@ -1,4 +1,4 @@
-import { TargetIdentity } from "@repo/domain/Catalog";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
@@ -13,17 +13,20 @@ import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 const buildInitSelection = (
   config: typeof StackConfig.Type,
 ): typeof Selection.Type => {
-  const modules: Array<{ id: "turbo" | "biome" | "vitest" }> = [];
+  const modules: Array<{ id: typeof ModuleId.Type }> = [];
 
-  if (config.monorepo === "turbo") modules.push({ id: "turbo" });
+  if (config.monorepo === "turbo") modules.push({ id: ModuleId.make("turbo") });
   if (config.lint === "biome" || config.format === "biome")
-    modules.push({ id: "biome" });
-  if (config.test === "vitest") modules.push({ id: "vitest" });
+    modules.push({ id: ModuleId.make("biome") });
+  if (config.test === "vitest") modules.push({ id: ModuleId.make("vitest") });
 
   return {
     targets: [
       {
-        identity: new TargetIdentity({ kind: "init", name: config.name }),
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: config.name,
+        }),
         modules,
       },
     ],

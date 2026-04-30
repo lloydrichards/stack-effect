@@ -1,21 +1,30 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { TargetIdentity } from "@repo/domain/Catalog";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { Effect, String } from "effect";
 import { ScaffoldFormatter } from "./ScaffolFormatter";
 
-const domainIdentity = new TargetIdentity({ kind: "package", name: "domain" });
-const serverApiIdentity = new TargetIdentity({ kind: "server", name: "api" });
+const domainIdentity = new TargetIdentity({
+  kind: TargetKind.make("package"),
+  name: "domain",
+});
+const serverApiIdentity = new TargetIdentity({
+  kind: TargetKind.make("server"),
+  name: "api",
+});
 
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
       {
         _tag: "attached-module",
-        id: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        id: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         targetId: domainIdentity.toKey(),
-        moduleId: "domain-api",
+        moduleId: ModuleId.make("domain-api"),
       },
       {
         _tag: "target",
@@ -26,10 +35,10 @@ const makeUnsortedBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         targetId: serverApiIdentity.toKey(),
-        moduleId: "http-api-server",
+        moduleId: ModuleId.make("http-api-server"),
       },
       {
         _tag: "target",
@@ -42,15 +51,21 @@ const makeUnsortedBlueprint = () =>
         id: "z-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
-        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        to: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         reason: "required-module",
       },
       {
         id: "m-edge",
         from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(domainIdentity.toKey(), "domain-api"),
+        to: toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api"),
+        ),
         reason: "owns-module",
       },
       {
@@ -58,7 +73,7 @@ const makeUnsortedBlueprint = () =>
         from: serverApiIdentity.toKey(),
         to: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         reason: "owns-module",
       },
@@ -66,7 +81,7 @@ const makeUnsortedBlueprint = () =>
         id: "a-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          "http-api-server",
+          ModuleId.make("http-api-server"),
         ),
         to: domainIdentity.toKey(),
         reason: "required-target",

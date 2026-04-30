@@ -1,4 +1,9 @@
-import { type ModuleDefinition, TargetIdentity } from "@repo/domain/Catalog";
+import {
+  type ModuleDefinition,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import {
   aiAgenticLoopContents,
   aiChatServiceContents,
@@ -56,14 +61,17 @@ import {
 
 export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: "turbo",
+    id: ModuleId.make("turbo"),
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
-    supportedOn: [{ _tag: "kind", kind: "init" }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
         requiredTarget: {
-          identity: new TargetIdentity({ kind: "init", name: "root" }),
+          identity: new TargetIdentity({
+            kind: TargetKind.make("init"),
+            name: "root",
+          }),
         },
       },
     ],
@@ -111,14 +119,17 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "biome",
+    id: ModuleId.make("biome"),
     title: "Biome",
     description: "Fast linter and formatter",
-    supportedOn: [{ _tag: "kind", kind: "init" }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
         requiredTarget: {
-          identity: new TargetIdentity({ kind: "init", name: "root" }),
+          identity: new TargetIdentity({
+            kind: TargetKind.make("init"),
+            name: "root",
+          }),
         },
       },
     ],
@@ -160,14 +171,17 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "vitest",
+    id: ModuleId.make("vitest"),
     title: "Vitest",
     description: "Unit and integration testing framework",
-    supportedOn: [{ _tag: "kind", kind: "init" }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
         requiredTarget: {
-          identity: new TargetIdentity({ kind: "init", name: "root" }),
+          identity: new TargetIdentity({
+            kind: TargetKind.make("init"),
+            name: "root",
+          }),
         },
       },
     ],
@@ -202,14 +216,14 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   // add modules — app/package feature modules
   // ---------------------------------------------------------------------------
   {
-    id: "domain-api",
+    id: ModuleId.make("domain-api"),
     title: "Domain API",
     description: "Shared domain schemas and RPC definitions",
     supportedOn: [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "domain",
         }),
       },
@@ -241,29 +255,29 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "http-api-server",
+    id: ModuleId.make("http-api-server"),
     title: "HTTP API Server",
     description: "REST API endpoints with Effect HTTP",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "server",
+        kind: TargetKind.make("server"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-api",
+          moduleId: ModuleId.make("domain-api"),
         },
       },
     ],
@@ -286,33 +300,38 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "http-api-client",
+    id: ModuleId.make("http-api-client"),
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "client",
+        kind: TargetKind.make("client"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-api",
+          moduleId: ModuleId.make("domain-api"),
         },
       },
     ],
-    implies: [{ targetKind: "server", moduleId: "http-api-server" }],
+    implies: [
+      {
+        targetKind: TargetKind.make("server"),
+        moduleId: ModuleId.make("http-api-server"),
+      },
+    ],
     contributions: {
       files: [
         {
@@ -346,14 +365,14 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   // RPC modules — HTTP RPC streaming (tick)
   // ---------------------------------------------------------------------------
   {
-    id: "domain-rpc",
+    id: ModuleId.make("domain-rpc"),
     title: "Domain RPC",
     description: "Shared RPC definitions for streaming over HTTP",
     supportedOn: [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "domain",
         }),
       },
@@ -385,29 +404,29 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "http-rpc-server",
+    id: ModuleId.make("http-rpc-server"),
     title: "HTTP RPC Server",
     description: "RPC streaming server with tick handler",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "server",
+        kind: TargetKind.make("server"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-rpc",
+          moduleId: ModuleId.make("domain-rpc"),
         },
       },
     ],
@@ -426,33 +445,38 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "http-rpc-client",
+    id: ModuleId.make("http-rpc-client"),
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "client",
+        kind: TargetKind.make("client"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-rpc",
+          moduleId: ModuleId.make("domain-rpc"),
         },
       },
     ],
-    implies: [{ targetKind: "server", moduleId: "http-rpc-server" }],
+    implies: [
+      {
+        targetKind: TargetKind.make("server"),
+        moduleId: ModuleId.make("http-rpc-server"),
+      },
+    ],
     contributions: {
       files: [
         {
@@ -490,7 +514,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   // Chat modules — AI chat streaming over HTTP RPC
   // ---------------------------------------------------------------------------
   {
-    id: "domain-chat",
+    id: ModuleId.make("domain-chat"),
     title: "Domain Chat",
     description:
       "Chat stream protocol, message schemas, and client state machine",
@@ -498,7 +522,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "domain",
         }),
       },
@@ -543,44 +567,44 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "chat-server",
+    id: ModuleId.make("chat-server"),
     title: "Chat Server",
     description: "AI chat RPC handler with tool support",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "server",
+        kind: TargetKind.make("server"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-chat",
+          moduleId: ModuleId.make("domain-chat"),
         },
       },
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "ai",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "ai",
           }),
-          moduleId: "ai-chat-service",
+          moduleId: ModuleId.make("ai-chat-service"),
         },
       },
     ],
@@ -606,33 +630,38 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "chat-client",
+    id: ModuleId.make("chat-client"),
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "client",
+        kind: TargetKind.make("client"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-chat",
+          moduleId: ModuleId.make("domain-chat"),
         },
       },
     ],
-    implies: [{ targetKind: "server", moduleId: "chat-server" }],
+    implies: [
+      {
+        targetKind: TargetKind.make("server"),
+        moduleId: ModuleId.make("chat-server"),
+      },
+    ],
     contributions: {
       files: [
         {
@@ -666,14 +695,14 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   // WebSocket modules — presence over WebSocket RPC
   // ---------------------------------------------------------------------------
   {
-    id: "domain-websocket",
+    id: ModuleId.make("domain-websocket"),
     title: "Domain WebSocket",
     description: "WebSocket RPC definitions for real-time presence",
     supportedOn: [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "domain",
         }),
       },
@@ -705,44 +734,44 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "ws-presence-server",
+    id: ModuleId.make("ws-presence-server"),
     title: "WebSocket Presence Server",
     description: "Real-time presence tracking over WebSocket RPC",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "server",
+        kind: TargetKind.make("server"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-websocket",
+          moduleId: ModuleId.make("domain-websocket"),
         },
       },
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "presence",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "presence",
           }),
-          moduleId: "presence",
+          moduleId: ModuleId.make("presence"),
         },
       },
     ],
@@ -768,33 +797,38 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "ws-presence-client",
+    id: ModuleId.make("ws-presence-client"),
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
     supportedOn: [
       {
         _tag: "kind",
-        kind: "client",
+        kind: TargetKind.make("client"),
       },
     ],
     dependencies: [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-websocket",
+          moduleId: ModuleId.make("domain-websocket"),
         },
       },
     ],
-    implies: [{ targetKind: "server", moduleId: "ws-presence-server" }],
+    implies: [
+      {
+        targetKind: TargetKind.make("server"),
+        moduleId: ModuleId.make("ws-presence-server"),
+      },
+    ],
     contributions: {
       files: [
         {
@@ -834,7 +868,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   // Infrastructure packages — ai and presence
   // ---------------------------------------------------------------------------
   {
-    id: "ai",
+    id: ModuleId.make("ai"),
     title: "AI Package",
     description:
       "Anthropic language model configuration and workflow utilities",
@@ -842,7 +876,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "ai",
         }),
       },
@@ -884,14 +918,14 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "ai-sample-toolkit",
+    id: ModuleId.make("ai-sample-toolkit"),
     title: "Sample Toolkit",
     description: "Sample AI toolkit with calculator, echo, and time tools",
     supportedOn: [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "ai",
         }),
       },
@@ -917,7 +951,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "ai-chat-service",
+    id: ModuleId.make("ai-chat-service"),
     title: "Chat Service",
     description:
       "AI chat service with agentic loop for streaming tool-augmented conversations",
@@ -925,7 +959,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "ai",
         }),
       },
@@ -934,25 +968,25 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-chat",
+          moduleId: ModuleId.make("domain-chat"),
         },
       },
       {
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "ai",
           }),
-          moduleId: "ai-sample-toolkit",
+          moduleId: ModuleId.make("ai-sample-toolkit"),
         },
       },
     ],
@@ -991,7 +1025,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     },
   },
   {
-    id: "presence",
+    id: ModuleId.make("presence"),
     title: "Presence Package",
     description:
       "Real-time presence tracking service with PubSub and client generation",
@@ -999,7 +1033,7 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: "package",
+          kind: TargetKind.make("package"),
           name: "presence",
         }),
       },
@@ -1008,16 +1042,16 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         requiredTarget: {
           identity: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
         },
         requiredModule: {
           target: new TargetIdentity({
-            kind: "package",
+            kind: TargetKind.make("package"),
             name: "domain",
           }),
-          moduleId: "domain-websocket",
+          moduleId: ModuleId.make("domain-websocket"),
         },
       },
     ],
