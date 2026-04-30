@@ -5,6 +5,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Plan, PlanFailure, RepoSnapshot } from "@repo/domain/Plan";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
+import { PlanAssessor } from "./PlanAssessor";
 import { PlanService } from "./PlanService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
@@ -165,6 +166,7 @@ const makePlanServiceLayer = (
   Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
+    Layer.provide(PlanAssessor.layer),
   );
 
 const buildPlan = ({
@@ -222,13 +224,13 @@ describe("PlanService", () => {
           });
 
           expect(getOutcome(plan, "packages/domain/src/Api.ts")).toMatchObject({
-            _tag: "authoritative",
+            _tag: "complete",
             classification: "create",
           });
           expect(
             getOutcome(plan, "packages/domain/tsconfig.json"),
           ).toMatchObject({
-            _tag: "authoritative",
+            _tag: "complete",
             classification: "create",
           });
         }),
@@ -251,7 +253,7 @@ describe("PlanService", () => {
           expect(
             getOutcome(plan, "packages/domain/package.json"),
           ).toMatchObject({
-            _tag: "structural",
+            _tag: "partial",
             classification: "create",
             requiredStructure: {
               exports: [
@@ -271,7 +273,7 @@ describe("PlanService", () => {
           expect(
             getOutcome(plan, "packages/domain/src/index.ts"),
           ).toMatchObject({
-            _tag: "structural",
+            _tag: "partial",
             classification: "create",
             requiredStructure: {
               reExports: ["./Api"],
@@ -306,7 +308,7 @@ describe("PlanService", () => {
 
           expect(
             getOutcome(plan, "packages/domain/package.json").classification,
-          ).toBe("needsMergeStrategy");
+          ).toBe("conflict");
           expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({
@@ -343,7 +345,7 @@ describe("PlanService", () => {
 
           expect(
             getOutcome(plan, "packages/domain/src/index.ts").classification,
-          ).toBe("needsMergeStrategy");
+          ).toBe("conflict");
           expect(plan.conflicts).toEqual(
             expect.arrayContaining([
               expect.objectContaining({

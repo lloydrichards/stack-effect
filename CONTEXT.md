@@ -57,8 +57,12 @@ A projection of a **Blueprint** onto the current repository state to describe ca
 _Avoid_: Blueprint, changeset
 
 **PlanService**:
-The planning boundary that derives a **Plan** from a **Blueprint** and the current repository snapshot.
+The planning boundary that derives a **Plan** from a **Blueprint** and the current repository snapshot. Orchestrates contribution resolution, intent compilation, snapshot loading, and plan projection.
 _Avoid_: Intent builder, comparator pipeline, staged planner API
+
+**PlanAssessor**:
+The module that classifies planned paths against the repository snapshot and maps planning intents to **Planned File Outcomes**. Owns file-type-specific assessment (package.json, barrel, tsconfig) and conflict detection.
+_Avoid_: Classifier, merge engine, validator
 
 **Apply**:
 An execution intent that embeds a **Plan** and the user-provided **Apply Decisions** required to run apply.
@@ -69,20 +73,24 @@ The execution boundary that materializes a **Plan** into repository changes usin
 _Avoid_: Writer, patch runner, installer
 
 **Apply Decision**:
-A per-conflicted-path user policy for a `needsMergeStrategy` **Planned File Outcome**.
+A per-conflicted-path user policy for a `conflict` **Planned File Outcome**.
 _Avoid_: Plan policy, merge engine mode
 
 **Planned File Outcome**:
 The canonical desired state and classification for one planned file path after the **Plan** normalizes contributions against the current repository snapshot.
 _Avoid_: Entry, diff row, render node
 
-**Authoritative File Outcome**:
+**Complete File Outcome**:
 A **Planned File Outcome** where the **Plan** knows the full desired file contents.
-_Avoid_: Merge candidate, patch
+_Avoid_: Merge candidate, patch, authoritative
 
-**Structural Merge Outcome**:
-A **Planned File Outcome** where the **Plan** knows the required structural result for a file without treating the whole file as authoritative.
-_Avoid_: Free-form patch, generic diff
+**Partial File Outcome**:
+A **Planned File Outcome** where the **Plan** knows the required structural result for a file without knowing the full contents.
+_Avoid_: Free-form patch, generic diff, structural merge outcome
+
+**Composed File Outcome**:
+A **Planned File Outcome** where the **Plan** knows a base file (from a **Target Contribution**) plus additional structural contributions (from **Module Contributions**) that must be merged at apply time.
+_Avoid_: Hybrid outcome, authoritative+structural
 
 **Desired Contribution**:
 The repository state that a **Target Contribution** or **Module Contribution** wants to exist, without encoding merge policy.
@@ -133,19 +141,21 @@ _Avoid_: Host target, source target
 - A **Plan** contains one **Planned File Outcome** per planned file path
 - Directories implied by planned file paths are derived structure, not planned outcomes
 - Tree and directory views of a **Plan** are derived presentations, not core planning data
-- A **Planned File Outcome** is either an **Authoritative File Outcome** or a **Structural Merge Outcome**
-- A **Structural Merge Outcome** exposes required structure at the public boundary, not planner merge-strategy names
-- `tsconfig.json` is treated as an **Authoritative File Outcome** in this context
+- A **Planned File Outcome** is a **Complete File Outcome**, a **Partial File Outcome**, or a **Composed File Outcome**
+- A **Partial File Outcome** exposes required structure at the public boundary, not planner merge-strategy names
+- `tsconfig.json` is treated as a **Complete File Outcome** in this context
+- **PlanService** orchestrates the planning pipeline from **Blueprint** to **Plan**
+- **PlanAssessor** owns file-type assessment and outcome classification within the planning pipeline
 - **PlanService** owns both desired-outcome resolution from a **Blueprint** and comparison against the current repository snapshot
 - **PlanService** exposes a single public planning operation from **Blueprint** plus repo root to **Plan**
 - A **Plan** does not contain **Apply Decisions**
 - **Apply** embeds the **Plan** it executes
 - **Apply Service** consumes an **Apply** to materialize repository changes
 - Repository root is runtime execution context passed to **Apply Service**, not part of **Apply**
-- **Apply Decisions** are required only for `needsMergeStrategy` **Planned File Outcomes**
-- **Apply Decisions** contain entries only for `needsMergeStrategy` **Planned File Outcomes**
+- **Apply Decisions** are required only for `conflict` **Planned File Outcomes**
+- **Apply Decisions** contain entries only for `conflict` **Planned File Outcomes**
 - **Apply Decisions** are keyed by planned file path
-- An **Apply** is invalid when any `needsMergeStrategy` **Planned File Outcome** is missing an **Apply Decision**
+- An **Apply** is invalid when any `conflict` **Planned File Outcome** is missing an **Apply Decision**
 - An **Apply** is invalid when it contains an **Apply Decision** for a non-conflicted path
 - In this context, an **Apply Decision** is `override` or `skip`
 - `abort` is a UI cancellation action and is outside the domain model
@@ -253,11 +263,11 @@ _Avoid_: Host target, source target
 - it was unclear whether **Plan** should store both canonical planning data and pre-rendered navigation structure — resolved: **Plan** stores canonical planned file outcomes and conflicts; tree and directory views are derived presentations.
 - it was unclear whether directories should be first-class planned outcomes — resolved: **Plan** is about planned file outcomes only; directories are derived from file paths.
 - it was unclear whether **Plan** should expose only file classifications or also the desired file state — resolved: **Plan** carries a **Planned File Outcome** with the desired outcome for each planned file path.
-- it was unclear whether file kinds like `package.json`, barrel files, and `tsconfig` were separate planning concepts — resolved: the domain split is **Authoritative File Outcome** vs **Structural Merge Outcome**; file-specific strategies stay implementation details.
-- it was unclear whether `tsconfig.json` should be treated as mergeable structure or authoritative output — resolved: it is an **Authoritative File Outcome** because scaffold usually adds it once and treats later drift as conflict.
+- it was unclear whether file kinds like `package.json`, barrel files, and `tsconfig` were separate planning concepts — resolved: the domain split is **Complete File Outcome** vs **Partial File Outcome** vs **Composed File Outcome**; file-specific strategies stay implementation details inside **PlanAssessor**.
+- it was unclear whether `tsconfig.json` should be treated as mergeable structure or authoritative output — resolved: it is a **Complete File Outcome** because scaffold usually adds it once and treats later drift as conflict.
 - it was unclear whether the public **Plan** should expose merge strategy types like `package.json` or barrel handling — resolved: the public boundary exposes required structure only; merge strategy names stay internal to the planner.
-- it was unclear whether desired-outcome resolution and repo-state comparison should be separate planning services — resolved: **PlanService** keeps both responsibilities as one planning boundary.
-- it was unclear whether **PlanService** should expose intermediate planner stages publicly — resolved: it exposes a single public planning operation and keeps lower-level stages private.
+- it was unclear whether desired-outcome resolution and repo-state comparison should be separate planning services — resolved: **PlanService** orchestrates the pipeline; **PlanAssessor** owns assessment and classification as a separate module within the planning boundary.
+- it was unclear whether **PlanService** should expose intermediate planner stages publicly — resolved: it exposes a single public planning operation and keeps lower-level stages private. **PlanAssessor** is an internal dependency.
 - it was unclear whether file conflict policies like `override` and `skip` belong inside **Plan** — resolved: conflict policy is modeled as **Apply Decisions** consumed by **Apply Service**, while **Plan** remains policy-free.
 - it was unclear whether `abort` should be modeled in-domain — resolved: `abort` is a UI cancellation action outside the domain model and not part of **Apply**.
 - it was unclear whether **Apply** should carry only decisions or also the **Plan** — resolved: **Apply** is the execution intent and embeds the **Plan** it executes.

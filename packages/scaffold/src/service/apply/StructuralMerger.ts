@@ -21,6 +21,12 @@ type StructuralMergeInput = {
   readonly mode: StructuralMergeMode;
 };
 
+type StructuralMergeComposedInput = {
+  readonly path: string;
+  readonly baseContents: string;
+  readonly required: typeof RequiredStructure.Type;
+};
+
 export class StructuralMerger extends Context.Service<StructuralMerger>()(
   "@repo/scaffold/service/apply/StructuralMerger",
   {
@@ -67,6 +73,81 @@ export class StructuralMerger extends Context.Service<StructuralMerger>()(
         return {
           path,
           contents,
+        } as const;
+      }),
+      mergeComposed: Effect.fn("StructuralMerger.mergeComposed")(function* (
+        input: StructuralMergeComposedInput,
+      ) {
+        const { path, baseContents, required } = input;
+
+        const baseJson = Schema.decodeUnknownOption(
+          Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)),
+        )(baseContents);
+
+        if (Option.isNone(baseJson)) {
+          throw new ApplyFailure({
+            reason: "executionFailure",
+            message: `Composed base for ${path} is not valid JSON; cannot merge structural contributions.`,
+          });
+        }
+
+        const root = { ...baseJson.value };
+
+        if (required.exports !== undefined) {
+          root["exports"] = mergeFlatStringEntries({
+            base: parseFlatStringRecord({
+              path,
+              fieldName: "exports",
+              existing: root["exports"],
+              mode: "create",
+            }),
+            entries: sortByLocale(required.exports, (entry) => entry.name),
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+          });
+        }
+
+        if (required.dependencies !== undefined) {
+          Arr.reduce(
+            sortByLocale(required.dependencies, (section) => section.section),
+            root,
+            (nextRoot, section) => {
+              nextRoot[section.section] = mergeFlatStringEntries({
+                base: parseFlatStringRecord({
+                  path,
+                  fieldName: section.section,
+                  existing: nextRoot[section.section],
+                  mode: "create",
+                }),
+                entries: sortByLocale(section.entries, (entry) => entry.name),
+                keyOf: (entry) => entry.name,
+                valueOf: (entry) => entry.value,
+              });
+
+              return nextRoot;
+            },
+          );
+        }
+
+        if (required.scripts !== undefined) {
+          root["scripts"] = mergeFlatStringEntries({
+            base: parseFlatStringRecord({
+              path,
+              fieldName: "scripts",
+              existing: root["scripts"],
+              mode: "create",
+            }),
+            entries: sortByLocale(required.scripts, (entry) => entry.name),
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+          });
+        }
+
+        return {
+          path,
+          contents: `${Schema.encodeSync(
+            Schema.fromJsonString(Schema.Record(Schema.String, Schema.Json)),
+          )(root)}\n`,
         } as const;
       }),
     }),

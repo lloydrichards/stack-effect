@@ -14,8 +14,8 @@ describe("@repo/domain Plan", () => {
       "unchanged",
     );
     expect(
-      Schema.decodeUnknownSync(PlanEntryClassification)("needsMergeStrategy"),
-    ).toBe("needsMergeStrategy");
+      Schema.decodeUnknownSync(PlanEntryClassification)("conflict"),
+    ).toBe("conflict");
   });
 
   it("rejects unsupported classifications", () => {
@@ -28,7 +28,7 @@ describe("@repo/domain Plan", () => {
     const plan = new Plan({
       outcomes: [
         {
-          _tag: "structural",
+          _tag: "partial",
           path: "packages/domain/package.json",
           classification: "modify",
           requiredStructure: {
@@ -41,7 +41,7 @@ describe("@repo/domain Plan", () => {
           },
         },
         {
-          _tag: "authoritative",
+          _tag: "complete",
           path: "packages/domain/src/Api.ts",
           classification: "create",
           contents: 'export const Api = "Api";\n',
@@ -65,35 +65,35 @@ describe("@repo/domain Plan", () => {
 
   it("allows planned file outcomes to be decoded independently", () => {
     const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.schema)({
-      _tag: "authoritative",
+      _tag: "complete",
       path: "packages/domain/tsconfig.json",
       classification: "create",
       contents: '{"extends":"../../packages/config-typescript/base.json"}',
     });
 
-    expect(outcome._tag).toBe("authoritative");
+    expect(outcome._tag).toBe("complete");
   });
 
   it("allows conflicts to be decoded independently", () => {
     const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.schema)({
-      _tag: "authoritativeFile",
+      _tag: "completeFile",
       path: "package.json",
     });
 
-    expect(conflict._tag).toBe("authoritativeFile");
+    expect(conflict._tag).toBe("completeFile");
   });
 
   it("sorts planned file outcomes and conflicts deterministically", () => {
     const plan = new Plan({
       outcomes: [
         {
-          _tag: "authoritative",
+          _tag: "complete",
           path: "packages/domain/src/Api.ts",
           classification: "create",
           contents: 'export const Api = "Api";\n',
         },
         {
-          _tag: "authoritative",
+          _tag: "complete",
           path: "README.md",
           classification: "modify",
           contents: "# Repo\n",

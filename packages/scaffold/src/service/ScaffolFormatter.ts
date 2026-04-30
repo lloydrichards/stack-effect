@@ -146,7 +146,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
             create: 0,
             modify: 0,
             unchanged: 0,
-            needsMergeStrategy: 0,
+            conflict: 0,
           } satisfies Record<typeof PlanEntryClassification.Type, number>,
           (summary, outcome) => ({
             ...summary,
@@ -177,7 +177,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
         return {
           title: "Plan",
           legend: "[+] create  [~] modify  [=] unchanged  [!] needs merge",
-          summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.needsMergeStrategy} merge`,
+          summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.conflict} merge`,
           tree: [
             tree.name,
             ...renderPlanTreeChildren(tree.children, conflictsByPath),
@@ -328,7 +328,7 @@ const formatPlanClassificationBadge = (
     Match.when("create", () => "[+]"),
     Match.when("modify", () => "[~]"),
     Match.when("unchanged", () => "[=]"),
-    Match.when("needsMergeStrategy", () => "[!]"),
+    Match.when("conflict", () => "[!]"),
     Match.exhaustive,
   );
 
@@ -337,7 +337,7 @@ const formatConflictLine = (
 ): string =>
   Match.value(conflict).pipe(
     Match.tags({
-      authoritativeFile: () => "merge: authoritative file",
+      completeFile: () => "merge: complete file",
       barrelExport: (c) => `merge: export ${c.exportPath}`,
       dependencies: (c) => `merge: ${c.section}.${c.name}`,
       exports: (c) => `merge: exports ${c.name}`,

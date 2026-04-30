@@ -34,7 +34,7 @@ type StructuralMergeInput = {
   readonly path: string;
   readonly required: Extract<
     typeof Plan.fields.outcomes.schema.Type,
-    { _tag: "structural" }
+    { _tag: "partial" }
   >["requiredStructure"];
   readonly existing: Option.Option<string>;
   readonly mode: "create" | "modify" | "override";
@@ -148,6 +148,9 @@ const makeApplyServiceLayer = ({
         } as never),
         Layer.succeed(StructuralMerger, {
           merge: Effect.fn("MockStructuralMerger.merge")(merge),
+          mergeComposed: Effect.fn("MockStructuralMerger.mergeComposed")(
+            () => Effect.succeed({ path: "", contents: "" }),
+          ),
         } as never),
         makeFileSystemLayer(entries),
         Path.layer,
@@ -182,7 +185,7 @@ const runApply = ({
     return yield* applyService.apply({ apply, repoRoot: testRepoRoot });
   }).pipe(Effect.provide(layer));
 
-const authoritativeOutcome = ({
+const completeOutcome = ({
   path,
   classification,
   contents,
@@ -191,13 +194,13 @@ const authoritativeOutcome = ({
   classification: typeof PlanEntryClassification.Type;
   contents: string;
 }): typeof Plan.fields.outcomes.schema.Type => ({
-  _tag: "authoritative",
+  _tag: "complete",
   path,
   classification,
   contents,
 });
 
-const structuralOutcome = ({
+const partialOutcome = ({
   path,
   classification,
   requiredStructure,
@@ -206,7 +209,7 @@ const structuralOutcome = ({
   classification: typeof PlanEntryClassification.Type;
   requiredStructure: typeof RequiredStructure.Type;
 }): typeof Plan.fields.outcomes.schema.Type => ({
-  _tag: "structural",
+  _tag: "partial",
   path,
   classification,
   requiredStructure,
@@ -222,7 +225,7 @@ describe("ApplyService", () => {
         const result = yield* runApply({
           apply: makeApply({
             outcomes: [
-              authoritativeOutcome({
+              completeOutcome({
                 path: "packages/domain/src/Api.ts",
                 classification: "unchanged",
                 contents: "export const Api = {};\n",
@@ -264,7 +267,7 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                authoritativeOutcome({
+                completeOutcome({
                   path: "packages/domain/src/Api.ts",
                   classification: "create",
                   contents: "export const Api = {};\n",
@@ -309,9 +312,9 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                authoritativeOutcome({
+                completeOutcome({
                   path: "packages/domain/src/Api.ts",
-                  classification: "needsMergeStrategy",
+                  classification: "conflict",
                   contents: "export const Api = {};\n",
                 }),
               ],
@@ -354,9 +357,9 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                authoritativeOutcome({
+                completeOutcome({
                   path: "packages/domain/src/Api.ts",
-                  classification: "needsMergeStrategy",
+                  classification: "conflict",
                   contents: "export const Api = {};\n",
                 }),
               ],
@@ -400,7 +403,7 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                structuralOutcome({
+                partialOutcome({
                   path: "packages/domain/src/index.ts",
                   classification: "create",
                   requiredStructure: {
@@ -463,7 +466,7 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                structuralOutcome({
+                partialOutcome({
                   path: "packages/domain/src/index.ts",
                   classification: "modify",
                   requiredStructure: {
@@ -520,7 +523,7 @@ describe("ApplyService", () => {
             runApply({
               apply: makeApply({
                 outcomes: [
-                  structuralOutcome({
+                  partialOutcome({
                     path: "packages/domain/src/index.ts",
                     classification: "modify",
                     requiredStructure: {
@@ -570,7 +573,7 @@ describe("ApplyService", () => {
             runApply({
               apply: makeApply({
                 outcomes: [
-                  structuralOutcome({
+                  partialOutcome({
                     path: "packages/domain/src/index.ts",
                     classification: "modify",
                     requiredStructure: {
@@ -622,7 +625,7 @@ describe("ApplyService", () => {
         const result = yield* runApply({
           apply: makeApply({
             outcomes: [
-              authoritativeOutcome({
+              completeOutcome({
                 path: "packages/domain/src/Api.ts",
                 classification: "modify",
                 contents: "export const Api = {};\n",
@@ -658,12 +661,12 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                authoritativeOutcome({
+                completeOutcome({
                   path: "packages/domain/src/Api.ts",
                   classification: "create",
                   contents: "api",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "packages/domain/src/index.ts",
                   classification: "create",
                   contents: "index",
@@ -710,39 +713,39 @@ describe("ApplyService", () => {
           const result = yield* runApply({
             apply: makeApply({
               outcomes: [
-                authoritativeOutcome({
+                completeOutcome({
                   path: "z.ts",
                   classification: "create",
                   contents: "z",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "b.ts",
                   classification: "create",
                   contents: "b",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "y.ts",
                   classification: "modify",
                   contents: "y",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "a.ts",
                   classification: "modify",
                   contents: "a",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "x.ts",
                   classification: "unchanged",
                   contents: "x",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "c.ts",
                   classification: "modify",
                   contents: "c",
                 }),
-                authoritativeOutcome({
+                completeOutcome({
                   path: "d.ts",
-                  classification: "needsMergeStrategy",
+                  classification: "conflict",
                   contents: "d",
                 }),
               ],
