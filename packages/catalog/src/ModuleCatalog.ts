@@ -2,6 +2,7 @@ import { CatalogNotFound } from "@repo/domain/Blueprint";
 import type {
   ModuleDefinition,
   ModuleId,
+  ModuleImplication,
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
@@ -15,6 +16,10 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
     make: Effect.gen(function* () {
       const targetCatalog = yield* TargetCatalog;
       const index = new Map(moduleRegistry.map((m) => [m.id, m]));
+
+      const keys: ReadonlyArray<typeof ModuleId.Type> = Array.from(
+        index.keys(),
+      );
 
       const get = Effect.fn("ModuleCatalog.get")(function* (
         moduleId: typeof ModuleId.Type,
@@ -41,6 +46,32 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
           target.matches(supportedOn),
         );
       });
+
+      const isImpliedByAny = Effect.fn("ModuleCatalog.isImpliedByAny")(
+        function* (
+          moduleId: typeof ModuleId.Type,
+          targetKind: typeof TargetKind.Type,
+        ) {
+          const allImplies = moduleRegistry.flatMap((def) => def.implies ?? []);
+          return allImplies.some(
+            (imp: typeof ModuleImplication.Type) =>
+              imp.moduleId === moduleId && imp.targetKind === targetKind,
+          );
+        },
+      );
+
+      const getImplications = Effect.fn("ModuleCatalog.getImplications")(
+        function* (moduleIds: ReadonlyArray<typeof ModuleId.Type>) {
+          const active = new Set<string>();
+          for (const moduleId of moduleIds) {
+            const definition = yield* get(moduleId);
+            for (const imp of definition.implies ?? []) {
+              active.add(`${imp.targetKind}:${imp.moduleId}`);
+            }
+          }
+          return active;
+        },
+      );
 
       const targetModuleMap = Effect.gen(function* () {
         const result = new Map<
@@ -75,8 +106,11 @@ export class ModuleCatalog extends Context.Service<ModuleCatalog>()(
       });
 
       return {
+        keys,
         get,
         isSupportedOn,
+        isImpliedByAny,
+        getImplications,
         targetModuleMap,
       };
     }),
