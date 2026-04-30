@@ -1,5 +1,5 @@
 import { ApplyFailure } from "@repo/domain/Apply";
-import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Match, Path } from "effect";
 
 export type ApplyWriteRequest = {
   readonly path: string;
@@ -99,25 +99,25 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
 
       const existingPath = yield* inspect(absolutePath);
 
-      switch (write.writeMode) {
-        case "create":
+      Match.value(write.writeMode).pipe(
+        Match.when("create", () => {
           if (existingPath._tag !== "missing") {
             throw new ApplyFailure({
               reason: "repoRootInvalid",
               message: `Expected ${write.path} to be missing for create apply mode.`,
             });
           }
-          break;
-        case "modify":
-        case "override":
+        }),
+        Match.whenOr("modify", "override", () => {
           if (existingPath._tag !== "file") {
             throw new ApplyFailure({
               reason: "repoRootInvalid",
               message: `Expected ${write.path} to be an existing file for ${write.writeMode} apply mode.`,
             });
           }
-          break;
-      }
+        }),
+        Match.exhaustive,
+      );
 
       if (
         existingPath._tag === "file" &&

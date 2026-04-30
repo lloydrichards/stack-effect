@@ -12,6 +12,7 @@ import {
   Context,
   Effect,
   Layer,
+  Match,
   Order,
   pipe,
   String,
@@ -322,37 +323,29 @@ const sortPlanTreeDirectoryNode = (
 
 const formatPlanClassificationBadge = (
   classification: typeof PlanEntryClassification.Type,
-): string => {
-  switch (classification) {
-    case "create":
-      return "[+]";
-    case "modify":
-      return "[~]";
-    case "unchanged":
-      return "[=]";
-    case "needsMergeStrategy":
-      return "[!]";
-  }
-};
+): string =>
+  Match.value(classification).pipe(
+    Match.when("create", () => "[+]"),
+    Match.when("modify", () => "[~]"),
+    Match.when("unchanged", () => "[=]"),
+    Match.when("needsMergeStrategy", () => "[!]"),
+    Match.exhaustive,
+  );
 
 const formatConflictLine = (
   conflict: typeof Plan.fields.conflicts.schema.Type,
-): string => {
-  switch (conflict._tag) {
-    case "authoritativeFile":
-      return "merge: authoritative file";
-    case "barrelExport":
-      return `merge: export ${conflict.exportPath}`;
-    case "dependencies":
-      return `merge: ${conflict.section}.${conflict.name}`;
-    case "exports":
-      return `merge: exports ${conflict.name}`;
-    case "scripts":
-      return `merge: scripts ${conflict.name}`;
-    case "tsconfig":
-      return "merge: tsconfig";
-  }
-};
+): string =>
+  Match.value(conflict).pipe(
+    Match.tags({
+      authoritativeFile: () => "merge: authoritative file",
+      barrelExport: (c) => `merge: export ${c.exportPath}`,
+      dependencies: (c) => `merge: ${c.section}.${c.name}`,
+      exports: (c) => `merge: exports ${c.name}`,
+      scripts: (c) => `merge: scripts ${c.name}`,
+      tsconfig: () => "merge: tsconfig",
+    }),
+    Match.exhaustive,
+  );
 
 const nameFromPath = (path: string): string => {
   const parts = String.split(path, "/");

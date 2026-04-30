@@ -11,7 +11,17 @@ import {
   type RepoSnapshot,
   type RequiredStructure,
 } from "@repo/domain/Plan";
-import { Array as Arr, Context, Effect, Layer, Record, Schema } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  pipe,
+  Record,
+  Schema,
+} from "effect";
 import {
   ContributionResolver,
   type NormalizedContributions,
@@ -91,18 +101,22 @@ const projectPlan = ({
     ),
   );
 
-  const assertAncestorDirectories = (path: string) => {
-    const blockedAncestorPath = collectAncestorPaths(path).find(
-      (ancestorPath) => snapshotPaths.get(ancestorPath)?._tag === "file",
+  const assertAncestorDirectories = (path: string) =>
+    pipe(
+      Arr.findFirst(
+        collectAncestorPaths(path),
+        (ancestorPath) => snapshotPaths.get(ancestorPath)?._tag === "file",
+      ),
+      Option.match({
+        onNone: () => {},
+        onSome: (blockedAncestorPath) => {
+          throw new PlanFailure({
+            reason: "repoRootNotEmpty",
+            message: `Expected ${blockedAncestorPath} to be a directory during planning.`,
+          });
+        },
+      }),
     );
-
-    if (blockedAncestorPath !== undefined) {
-      throw new PlanFailure({
-        reason: "repoRootNotEmpty",
-        message: `Expected ${blockedAncestorPath} to be a directory during planning.`,
-      });
-    }
-  };
 
   const assessedPaths = planningPaths.map((planningPath) => {
     assertAncestorDirectories(planningPath.path);
@@ -132,41 +146,38 @@ const toPlannedFileOutcome = ({
 }: {
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
-}): typeof Plan.fields.outcomes.schema.Type => {
-  if (planningPath.contents !== undefined) {
-    return {
-      _tag: "authoritative",
-      path: planningPath.path,
+}): typeof Plan.fields.outcomes.schema.Type =>
+  Match.value(planningPath).pipe(
+    Match.when({ contents: Match.defined }, (pp) => ({
+      _tag: "authoritative" as const,
+      path: pp.path,
       classification,
-      contents: planningPath.contents,
-    };
-  }
-
-  if (planningPath.tsconfig !== undefined) {
-    return {
-      _tag: "authoritative",
-      path: planningPath.path,
+      contents: pp.contents,
+    })),
+    Match.when({ tsconfig: Match.defined }, (pp) => ({
+      _tag: "authoritative" as const,
+      path: pp.path,
       classification,
-      contents: planningPath.tsconfig.contents,
-    };
-  }
+      contents: pp.tsconfig.contents,
+    })),
+    Match.orElse((pp) => {
+      const requiredStructure = toRequiredStructure(pp);
 
-  const requiredStructure = toRequiredStructure(planningPath);
+      if (isRequiredStructureEmpty(requiredStructure)) {
+        throw new PlanFailure({
+          reason: "invalidPlanIntent",
+          message: `No planned outcome could be derived for ${pp.path}.`,
+        });
+      }
 
-  if (isRequiredStructureEmpty(requiredStructure)) {
-    throw new PlanFailure({
-      reason: "invalidPlanIntent",
-      message: `No planned outcome could be derived for ${planningPath.path}.`,
-    });
-  }
-
-  return {
-    _tag: "structural",
-    path: planningPath.path,
-    classification,
-    requiredStructure,
-  };
-};
+      return {
+        _tag: "structural" as const,
+        path: pp.path,
+        classification,
+        requiredStructure,
+      };
+    }),
+  );
 const toRequiredStructure = (
   planningPath: PlanningIntentPath,
 ): typeof RequiredStructure.Type => {
@@ -606,14 +617,13 @@ const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
 
 const parseJsonRecord = (
   contents: string,
-): Record<string, unknown> | undefined => {
-  try {
-    const parsed = JSON.parse(contents) as unknown;
-    return isRecord(parsed) ? parsed : undefined;
-  } catch {
-    return undefined;
-  }
-};
+): Record<string, unknown> | undefined =>
+  pipe(
+    Schema.decodeUnknownOption(
+      Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+    )(contents),
+    Option.getOrUndefined,
+  );
 
 const getExistingFileContents = ({
   path,
@@ -764,36 +774,6 @@ const toPlanningIntentEntries = (
   ),
 ];
 
-const isAuthoritativePlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "authoritative" }> =>
-  entry._tag === "authoritative";
-
-const isPackageJsonExportPlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonExport" }> =>
-  entry._tag === "packageJsonExport";
-
-const isPackageJsonDependencyPlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonDependency" }> =>
-  entry._tag === "packageJsonDependency";
-
-const isPackageJsonScriptPlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "packageJsonScript" }> =>
-  entry._tag === "packageJsonScript";
-
-const isBarrelExportPlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "barrelExport" }> =>
-  entry._tag === "barrelExport";
-
-const isTsconfigPlanningIntentEntry = (
-  entry: PlanningIntentEntry,
-): entry is Extract<PlanningIntentEntry, { _tag: "tsconfig" }> =>
-  entry._tag === "tsconfig";
-
 const derivePlanningIntentPath = ({
   path,
   entries,
@@ -803,22 +783,29 @@ const derivePlanningIntentPath = ({
 }) =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ path, entries });
-    const authoritativeEntries = entries.filter(
-      isAuthoritativePlanningIntentEntry,
-    );
-    const packageJsonExportEntries = entries.filter(
-      isPackageJsonExportPlanningIntentEntry,
-    );
-    const packageJsonDependencyEntries = entries.filter(
-      isPackageJsonDependencyPlanningIntentEntry,
-    );
-    const packageJsonScriptEntries = entries.filter(
-      isPackageJsonScriptPlanningIntentEntry,
-    );
-    const barrelExportEntries = entries.filter(
-      isBarrelExportPlanningIntentEntry,
-    );
-    const tsconfigEntries = entries.filter(isTsconfigPlanningIntentEntry);
+    const byTag = Arr.groupBy(entries, (entry) => entry._tag);
+    const authoritativeEntries = (byTag["authoritative"] ??
+      []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "authoritative" }>
+    >;
+    const packageJsonExportEntries = (byTag["packageJsonExport"] ??
+      []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "packageJsonExport" }>
+    >;
+    const packageJsonDependencyEntries = (byTag["packageJsonDependency"] ??
+      []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "packageJsonDependency" }>
+    >;
+    const packageJsonScriptEntries = (byTag["packageJsonScript"] ??
+      []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "packageJsonScript" }>
+    >;
+    const barrelExportEntries = (byTag["barrelExport"] ?? []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "barrelExport" }>
+    >;
+    const tsconfigEntries = (byTag["tsconfig"] ?? []) as ReadonlyArray<
+      Extract<PlanningIntentEntry, { _tag: "tsconfig" }>
+    >;
 
     switch (family.family) {
       case "authoritative":
@@ -1034,20 +1021,18 @@ type PlanningIntentFamily =
 
 const toPlanningIntentFamily = (
   entry: PlanningIntentEntry,
-): PlanningIntentFamily => {
-  switch (entry._tag) {
-    case "authoritative":
-      return "authoritative";
-    case "packageJsonExport":
-    case "packageJsonDependency":
-    case "packageJsonScript":
-      return "packageJson";
-    case "barrelExport":
-      return "barrel";
-    case "tsconfig":
-      return "tsconfig";
-  }
-};
+): PlanningIntentFamily =>
+  Match.value(entry).pipe(
+    Match.tags({
+      authoritative: () => "authoritative" as const,
+      packageJsonExport: () => "packageJson" as const,
+      packageJsonDependency: () => "packageJson" as const,
+      packageJsonScript: () => "packageJson" as const,
+      barrelExport: () => "barrel" as const,
+      tsconfig: () => "tsconfig" as const,
+    }),
+    Match.exhaustive,
+  );
 
 const requireSingleValue = <Value>({
   values,
