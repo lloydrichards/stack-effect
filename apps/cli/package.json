@@ -9,6 +9,7 @@
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts init -r ./.temp",
     "start:add": "bun run src/index.ts add -r ./.temp --dry-run",
+    "registry:analyse": "bun run src/index.ts graph",
     "type-check": "tsc --noEmit",
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },

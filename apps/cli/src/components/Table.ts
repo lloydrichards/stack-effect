@@ -22,20 +22,35 @@ export const Table = (
     sep,
   );
 
-  const divider = Box.text("─".repeat(headerRow.cols));
-
-  const dataRows = rows.map((row) =>
-    Box.punctuateH(
-      row.map((cell, i) => {
-        const col = columns[i];
-        return cell.pipe(
-          Box.alignHoriz(col?.align ?? Box.left, col?.width ?? 12),
-        );
-      }),
-      Box.top,
-      sep,
-    ),
+  const divider = Box.text(
+    columns.map(({ width }) => "─".repeat(width)).join("─┼─"),
   );
+
+  const dataRows = rows.map((row) => {
+    // First pass: align horizontally
+    const sized = row.map((cell, i) => {
+      const col = columns[i];
+      return cell.pipe(
+        Box.alignHoriz(col?.align ?? Box.left, col?.width ?? 12),
+      );
+    });
+
+    // Compute max height across all cells in the row
+    const maxHeight = Math.max(...sized.map((c) => Box.rows(c)));
+
+    // Second pass: align vertically so all cells share the same height
+    const aligned = sized.map((cell) =>
+      cell.pipe(Box.alignVert(Box.top, maxHeight)),
+    );
+
+    // Build a separator column matching the row height
+    const rowSep = Box.vcat(
+      Array.from({ length: maxHeight }, () => Box.text(" │ ")),
+      Box.left,
+    );
+
+    return Box.punctuateH(aligned, Box.top, rowSep);
+  });
 
   return Box.vcat([headerRow, divider, ...dataRows], Box.left);
 };
