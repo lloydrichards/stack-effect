@@ -14,8 +14,3 @@ export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withAlias("y"),
   Flag.withDescription("Accept all defaults, skip interactive prompts"),
 );
-
-export const formatFlag = Flag.choice("format", ["json"]).pipe(
-  Flag.optional,
-  Flag.withDescription("Output results as JSON"),
-);

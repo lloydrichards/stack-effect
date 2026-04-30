@@ -16,7 +16,7 @@ import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { Padding } from "../components/Padding";
 
-export class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
+class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
   retry?: boolean;
 }> {}

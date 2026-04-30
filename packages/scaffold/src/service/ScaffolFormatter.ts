@@ -18,13 +18,13 @@ import {
   String,
 } from "effect";
 
-export type FormattedBlueprint = {
+type FormattedBlueprint = {
   readonly title: string;
   readonly targetsLabel: string;
   readonly targets: ReadonlyArray<string>;
 };
 
-export type FormattedPlan = {
+type FormattedPlan = {
   readonly title: string;
   readonly legend: string;
   readonly summary: string;

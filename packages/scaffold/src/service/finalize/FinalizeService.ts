@@ -24,7 +24,7 @@ export type FinalizeConfig = {
   readonly repoRoot: string;
 };
 
-export type ResolvedScript = {
+type ResolvedScript = {
   readonly label: string;
   readonly command: string;
   readonly workdir: string;
