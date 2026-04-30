@@ -2,6 +2,7 @@ import { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import { DesiredContributions } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
+import type { StackConfig } from "@repo/domain/Scaffold";
 import {
   Array as Arr,
   Context,
@@ -32,11 +33,16 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
     const build = Effect.fn("PlanService.build")(function* ({
       blueprint,
       repoRoot,
+      config,
     }: {
       blueprint: typeof Blueprint.Type;
       repoRoot: string;
+      config: typeof StackConfig.Type;
     }) {
-      const normalizedContributions = yield* contribute.resolve(blueprint);
+      const normalizedContributions = yield* contribute.resolve(
+        blueprint,
+        config,
+      );
       const planningPaths = yield* compilePlanningPaths(
         normalizedContributions,
       );

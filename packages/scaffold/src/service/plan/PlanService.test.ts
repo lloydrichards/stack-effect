@@ -3,6 +3,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Plan, PlanFailure, RepoSnapshot } from "@repo/domain/Plan";
+import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { PlanAssessor } from "./PlanAssessor";
@@ -181,7 +182,14 @@ const buildPlan = ({
 }) =>
   Effect.gen(function* () {
     const planService = yield* PlanService;
-    return yield* planService.build({ blueprint, repoRoot: testRepoRoot });
+    return yield* planService.build({
+      blueprint,
+      repoRoot: testRepoRoot,
+      config: new StackConfig({
+        name: "test-project",
+        runtime: { _tag: "bun" },
+      }),
+    });
   }).pipe(Effect.provide(makePlanServiceLayer(load)));
 
 describe("PlanService", () => {

@@ -9,6 +9,7 @@ import {
   type ContributionTokenContext,
   emptyDesiredContributions,
   type ModuleContribution,
+  type StackConfig,
   type TargetContribution,
 } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
@@ -26,6 +27,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 
       const resolve = Effect.fn("ContributionResolver.resolve")(function* (
         blueprint: typeof Blueprint.Type,
+        config: typeof StackConfig.Type,
       ) {
         const targetResults = yield* Effect.forEach(
           Arr.filter(blueprint.nodes, isBlueprintTargetNode),
@@ -37,6 +39,9 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetPath: node.identity.toPath(),
                 targetKind: node.identity.kind,
                 targetName: node.identity.name,
+                runtime: config.runtimeName,
+                packageManager: config.packageManagerName,
+                projectName: config.name,
               };
 
               return {
@@ -98,16 +103,24 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
   ).pipe(Layer.provide(CatalogService.layer));
 }
 
+export const resolveTokenString = (
+  value: string,
+  context: typeof ContributionTokenContext.Type,
+): string =>
+  value
+    .replaceAll("{{targetPath}}", context.targetPath)
+    .replaceAll("{{targetDir}}", context.targetPath)
+    .replaceAll("{{targetKind}}", context.targetKind)
+    .replaceAll("{{targetName}}", context.targetName)
+    .replaceAll("{{runtime}}", context.runtime)
+    .replaceAll("{{packageManager}}", context.packageManager)
+    .replaceAll("{{projectName}}", context.projectName);
+
 const resolveContributionTokens = (
   contributions: typeof DesiredContributions.Type,
   context: typeof ContributionTokenContext.Type,
 ): typeof DesiredContributions.Type => {
-  const resolveString = (value: string) =>
-    value
-      .replaceAll("{{targetPath}}", context.targetPath)
-      .replaceAll("{{targetDir}}", context.targetPath)
-      .replaceAll("{{targetKind}}", context.targetKind)
-      .replaceAll("{{targetName}}", context.targetName);
+  const resolveString = (value: string) => resolveTokenString(value, context);
 
   return {
     ...emptyDesiredContributions(),
