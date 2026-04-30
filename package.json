@@ -15,6 +15,7 @@
     "prepare": "effect-language-service patch",
     "test": "turbo run test",
     "test:e2e": "playwright test",
+    "start": "bun apps/cli/src/index.ts",
     "type-check": "turbo run type-check",
     "complexity": "bun run scripts/complexity-report.ts"
   },
