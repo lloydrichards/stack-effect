@@ -86,7 +86,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       }
 
       selectedTargetKeys.add(targetKey);
-      yield* catalog.getTarget(target.identity.kind);
+      const targetDefinition = yield* catalog.getTarget(target.identity.kind);
 
       const selectedModuleIds = new Set<typeof ModuleId.Type>();
 
@@ -98,15 +98,24 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         }
 
         selectedModuleIds.add(moduleSelection.id);
+      }
 
+      const moduleIds = Arr.fromIterable(
+        new Set([
+          ...Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
+          ...(targetDefinition.requiredModules ?? []),
+        ]),
+      );
+
+      for (const moduleId of moduleIds) {
         const isSupported = yield* catalog.isSupportedOn(
-          moduleSelection.id,
+          moduleId,
           target.identity,
         );
 
         if (!isSupported) {
           throw new BlueprintFailure({
-            message: `Unsupported target-module combination: ${targetKey} requires module ${moduleSelection.id}`,
+            message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
           });
         }
       }
@@ -248,8 +257,16 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     for (const target of selection.targets) {
       yield* ensureTarget(target.identity);
 
-      for (const moduleSelection of target.modules) {
-        yield* ensureAttachedModule(target.identity, moduleSelection.id);
+      const targetDefinition = yield* catalog.getTarget(target.identity.kind);
+      const moduleIds = Arr.fromIterable(
+        new Set([
+          ...Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
+          ...(targetDefinition.requiredModules ?? []),
+        ]),
+      );
+
+      for (const moduleId of moduleIds) {
+        yield* ensureAttachedModule(target.identity, moduleId);
       }
     }
 

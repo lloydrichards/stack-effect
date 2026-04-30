@@ -140,6 +140,7 @@ const makeTokenContext = (
   targetName: identity.name,
   runtime: config.config.runtimeName,
   packageManager: config.config.packageManagerName,
+  packageManagerSpec: config.config.packageManagerSpec,
   projectName: config.config.name,
 });
 

@@ -1,4 +1,8 @@
-import { type TargetDefinition, TargetKind } from "@repo/domain/Catalog";
+import {
+  ModuleId,
+  type TargetDefinition,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { emptyDesiredContributions } from "@repo/domain/Scaffold";
 import {
   clientAppTsxContents,
@@ -6,6 +10,7 @@ import {
   clientIndexCssContents,
   clientIndexHtmlContents,
   clientMainTsxContents,
+  clientPackageJsonContents,
   clientTsconfigConfigContents,
   clientTsconfigContents,
   clientUtilsContents,
@@ -27,6 +32,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "Project Initialization",
     description:
       "Set up a new project with recommended structure and configuration",
+    requiredModules: [],
     contributions: {
       ...emptyDesiredContributions(),
       files: [
@@ -55,9 +61,14 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("client"),
     title: "Client Application",
     description: "A frontend application, such as one built with React or Vue",
+    requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: {
       ...emptyDesiredContributions(),
       files: [
+        {
+          path: "{{targetPath}}/package.json",
+          contents: clientPackageJsonContents,
+        },
         {
           path: "{{targetPath}}/index.html",
           contents: clientIndexHtmlContents,
@@ -136,6 +147,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("server"),
     title: "Server Application",
     description: "A backend application, such as an API server",
+    requiredModules: [],
     contributions: {
       ...emptyDesiredContributions(),
       files: [
@@ -189,6 +201,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("cli"),
     title: "CLI Application",
     description: "A command-line interface application",
+    requiredModules: [],
     contributions: emptyDesiredContributions(),
   },
 
@@ -196,6 +209,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("package"),
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
+    requiredModules: [],
     contributions: {
       ...emptyDesiredContributions(),
       scripts: [

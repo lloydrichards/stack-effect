@@ -22,6 +22,7 @@ import {
   domainChatRpcContents,
   serverChatContents,
 } from "./content/chat";
+import { configTypescriptViteContents } from "./content/client";
 import {
   clientHelloAtomContents,
   clientRestCardContents,
@@ -208,6 +209,37 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
           value: "turbo run test",
         },
       ],
+      barrelExports: [],
+      tsconfigs: [],
+    },
+  },
+  {
+    id: ModuleId.make("config-typescript-vite"),
+    title: "Config TypeScript Vite",
+    description: "Vite TypeScript preset for client applications",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    dependencies: [],
+    contributions: {
+      files: [
+        {
+          path: "packages/config-typescript/vite.json",
+          contents: configTypescriptViteContents,
+        },
+      ],
+      exports: [
+        {
+          path: "packages/config-typescript/package.json",
+          name: "./base.json",
+          value: "./base.json",
+        },
+        {
+          path: "packages/config-typescript/package.json",
+          name: "./vite.json",
+          value: "./vite.json",
+        },
+      ],
+      dependencies: [],
+      scripts: [],
       barrelExports: [],
       tsconfigs: [],
     },

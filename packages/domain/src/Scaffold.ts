@@ -29,6 +29,7 @@ export const ContributionTokenContext = Schema.Struct({
   targetName: Schema.NonEmptyString,
   runtime: Schema.NonEmptyString,
   packageManager: Schema.NonEmptyString,
+  packageManagerSpec: Schema.NonEmptyString,
   projectName: Schema.NonEmptyString,
 });
 
@@ -48,16 +49,27 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   test: Schema.optional(Schema.Literals(["vitest"])),
   monorepo: Schema.optional(Schema.Literals(["turbo"])),
 }) {
-  get runtimeName(): string {
+  get runtimeName(): "bun" | "node" {
     return this.runtime._tag;
   }
 
-  get packageManagerName(): string {
+  get packageManagerName(): "bun" | "npm" | "pnpm" {
     switch (this.runtime._tag) {
       case "bun":
         return "bun";
       case "node":
         return this.runtime.packageManager;
+    }
+  }
+
+  get packageManagerSpec(): string {
+    switch (this.packageManagerName) {
+      case "bun":
+        return "bun@1.2.21";
+      case "npm":
+        return "npm@10.9.0";
+      case "pnpm":
+        return "pnpm@10.17.0";
     }
   }
 }

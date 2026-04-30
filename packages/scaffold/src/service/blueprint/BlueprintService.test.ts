@@ -259,6 +259,71 @@ describe("BlueprintService", () => {
             ).toEqual(["apps/client-api", "apps/server-api"]);
           }),
       );
+
+      it.effect(
+        "should resolve the config-typescript-vite module on client selections",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const blueprint = yield* blueprintService.resolve({
+              targets: [
+                {
+                  identity: new TargetIdentity({
+                    kind: TargetKind.make("client"),
+                    name: "app",
+                  }),
+                  modules: [{ id: ModuleId.make("config-typescript-vite") }],
+                },
+              ],
+            });
+
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  new TargetIdentity({
+                    kind: TargetKind.make("client"),
+                    name: "app",
+                  }).toKey(),
+                  ModuleId.make("config-typescript-vite"),
+                ),
+              ),
+            ).toMatchObject({
+              _tag: "attached-module",
+              targetId: "apps/client-app",
+              moduleId: "config-typescript-vite",
+            });
+          }),
+      );
+
+      it.effect(
+        "should attach target-required modules for client even when none are selected",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const identity = new TargetIdentity({
+              kind: TargetKind.make("client"),
+              name: "required",
+            });
+            const blueprint = yield* blueprintService.resolve({
+              targets: [{ identity, modules: [] }],
+            });
+
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  identity.toKey(),
+                  ModuleId.make("config-typescript-vite"),
+                ),
+              ),
+            ).toMatchObject({
+              _tag: "attached-module",
+              targetId: "apps/client-required",
+              moduleId: "config-typescript-vite",
+            });
+          }),
+      );
     });
   });
 });

@@ -41,6 +41,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetName: node.identity.name,
                 runtime: config.runtimeName,
                 packageManager: config.packageManagerName,
+                packageManagerSpec: config.packageManagerSpec,
                 projectName: config.name,
               };
 
@@ -106,15 +107,22 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 export const resolveTokenString = (
   value: string,
   context: typeof ContributionTokenContext.Type,
-): string =>
-  value
+): string => {
+  const resolvedTargetName =
+    context.targetName.trim().length > 0
+      ? context.targetName
+      : context.targetKind;
+
+  return value
     .replaceAll("{{targetPath}}", context.targetPath)
     .replaceAll("{{targetDir}}", context.targetPath)
     .replaceAll("{{targetKind}}", context.targetKind)
-    .replaceAll("{{targetName}}", context.targetName)
+    .replaceAll("{{targetName}}", resolvedTargetName)
     .replaceAll("{{runtime}}", context.runtime)
     .replaceAll("{{packageManager}}", context.packageManager)
+    .replaceAll("{{packageManagerSpec}}", context.packageManagerSpec)
     .replaceAll("{{projectName}}", context.projectName);
+};
 
 const resolveContributionTokens = (
   contributions: typeof DesiredContributions.Type,

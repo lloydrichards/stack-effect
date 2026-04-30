@@ -166,6 +166,10 @@ export const TargetDefinition = Schema.Struct({
   kind: TargetKind,
   title: Schema.String,
   description: Schema.String,
+  requiredModules: Schema.Array(ModuleId).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
   contributions: DesiredContributions,
   scripts: Schema.Array(ScriptDefinition).pipe(
     Schema.optionalKey,

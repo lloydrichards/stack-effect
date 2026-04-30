@@ -34,6 +34,7 @@ test-results
 export const rootPackageJsonContents = `{
   "name": "{{targetName}}",
   "private": true,
+  "packageManager": "{{packageManagerSpec}}",
   "scripts": {},
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

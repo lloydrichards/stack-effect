@@ -1,3 +1,51 @@
+export const configTypescriptViteContents = `{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./base.json",
+  "display": "Vite React",
+  "compilerOptions": {
+    "target": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "allowJs": false,
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "incremental": true,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "types": ["vite/client"]
+  }
+}
+`;
+
+export const clientPackageJsonContents = `{
+  "name": "{{targetName}}",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "clsx": "^2.1.1",
+    "effect": "4.0.0-beta.59",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss": "^4.1.13"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@repo/config-typescript": "workspace:*",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^5.1.0",
+    "typescript": "6.0.2",
+    "vite": "^8.0.10",
+    "vitest": "^4.1.4"
+  }
+}
+`;
+
 export const clientTsconfigContents = `{
   "$schema": "https://json.schemastore.org/tsconfig",
   "extends": "@repo/config-typescript/vite.json",
@@ -78,9 +126,6 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
-  },
-  optimizeDeps: {
-    include: ["@repo/domain"],
   },
   server: {
     strictPort: true,
