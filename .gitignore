@@ -55,3 +55,6 @@ tsconfig.tsbuildinfo
 
 # Scaffold
 .temp/
+
+# Fallow 
+.fallow/
