@@ -2,8 +2,12 @@ import { ModuleCatalog } from "@repo/catalog";
 import type { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Effect, Option, Ref, Schedule } from "effect";
+import { Console, Effect, Option, Ref, Schedule } from "effect";
 import { Command, Prompt } from "effect/unstable/cli";
+import { Ansi, Box } from "effect-boxes";
+import { Border } from "../components/Border";
+import { HorizontalRadio } from "../components/HorizontalRadio";
+import { Padding } from "../components/Padding";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
@@ -15,15 +19,35 @@ interface CollectedTarget {
   confirmed: boolean;
 }
 
-const formatTargetSummary = (targets: ReadonlyArray<CollectedTarget>): string =>
-  targets
-    .map((t) => {
-      const status = t.confirmed ? "\u2713" : "\u25CB";
-      const modules =
-        t.modules.length > 0 ? t.modules.join(", ") : "(no modules)";
-      return `  ${status} ${t.kind}/${t.name}  [${modules}]`;
-    })
-    .join("\n");
+const formatTargetSummary = (
+  targets: ReadonlyArray<CollectedTarget>,
+): Box.Box<Ansi.AnsiStyle> => {
+  const statuses = targets.map((t) =>
+    t.confirmed
+      ? Box.char("✓").pipe(Box.annotate(Ansi.green))
+      : Box.char("○").pipe(Box.annotate(Ansi.dim)),
+  );
+
+  const labels = targets.map((t) =>
+    Box.text(`${t.kind}/${t.name}`).pipe(Box.annotate(Ansi.bold)),
+  );
+
+  const modules = targets.map((t) =>
+    t.modules.length > 0
+      ? Box.text(t.modules.join(", ")).pipe(Box.annotate(Ansi.cyan))
+      : Box.text("(no modules)").pipe(Box.annotate(Ansi.dim)),
+  );
+
+  return Box.hsep(
+    [
+      Box.vcat(statuses, Box.center1),
+      Box.vcat(labels, Box.left),
+      Box.vcat(modules, Box.left),
+    ],
+    2,
+    Box.top,
+  );
+};
 
 /**
  * Resolve module implications: when a module implies another module on a
@@ -107,8 +131,13 @@ const getActiveImplications = (targets: ReadonlyArray<CollectedTarget>) =>
 
 /**
  * Remove implications that are no longer needed after a user edits modules.
+ * Modules in `pinned` were explicitly selected by the user and must not be
+ * removed even if they are no longer actively implied.
  */
-const removeOrphanedImplications = (targets: Array<CollectedTarget>) =>
+const removeOrphanedImplications = (
+  targets: Array<CollectedTarget>,
+  pinned: ReadonlySet<string> = new Set(),
+) =>
   Effect.gen(function* () {
     const catalog = yield* ModuleCatalog;
     const activeImplications = yield* getActiveImplications(targets);
@@ -117,10 +146,8 @@ const removeOrphanedImplications = (targets: Array<CollectedTarget>) =>
     for (const target of targets) {
       const toRemove: Array<typeof ModuleId.Type> = [];
       for (const moduleId of target.modules) {
-        const isImplied = yield* catalog.isImpliedByAny(
-          moduleId,
-          target.kind,
-        );
+        if (pinned.has(`${target.kind}:${moduleId}`)) continue;
+        const isImplied = yield* catalog.isImpliedByAny(moduleId, target.kind);
         if (
           isImplied &&
           !activeImplications.has(`${target.kind}:${moduleId}`)
@@ -151,7 +178,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
   const targets: Array<CollectedTarget> = [];
 
   const addTarget = Effect.gen(function* () {
-    const kind = yield* Prompt.select({
+    const kind = yield* HorizontalRadio({
       message: "What kind of target do you want to add?",
       choices: Array.from(targetModuleMap.entries()).map(
         ([value, { title }]) => ({ title, value }),
@@ -182,6 +209,11 @@ const collectTargetsInteractive = Effect.gen(function* () {
   // Collect first target
   yield* addTarget;
 
+  // The user explicitly chose modules for the first target, mark it confirmed
+  if (targets[0] && targets[0].modules.length > 0) {
+    targets[0].confirmed = true;
+  }
+
   // Resolve implications (fixed-point)
   let implChanged = true;
   while (implChanged) {
@@ -191,21 +223,28 @@ const collectTargetsInteractive = Effect.gen(function* () {
   // Confirmation loop
   let allConfirmed = false;
   while (!allConfirmed) {
-    yield* Effect.log(`\nCurrent targets:\n${formatTargetSummary(targets)}`);
-
-    const unconfirmed = targets.filter((t) => !t.confirmed);
-    if (unconfirmed.length === 0) {
-      allConfirmed = true;
-      break;
-    }
+    yield* Console.log(
+      Box.renderPrettySync(
+        Box.vsep(
+          [
+            Box.text("Current targets and modules:").pipe(
+              Box.annotate(Ansi.bold),
+            ),
+            formatTargetSummary(targets),
+          ],
+          1,
+          Box.left,
+        ).pipe(Padding(0, 1), Border),
+      ),
+    );
 
     type Action = "confirm-all" | "edit" | "add";
-    const action = yield* Prompt.select<Action>({
+    const action = yield* HorizontalRadio<Action>({
       message: "What would you like to do?",
       choices: [
-        { title: "Confirm all targets", value: "confirm-all" as Action },
-        { title: "Edit a target's modules", value: "edit" as Action },
-        { title: "Add another target", value: "add" as Action },
+        { title: "Confirm all", value: "confirm-all" as Action },
+        { title: "Edit modules", value: "edit" as Action },
+        { title: "Add target", value: "add" as Action },
       ],
     });
 
@@ -240,7 +279,9 @@ const collectTargetsInteractive = Effect.gen(function* () {
           t.confirmed = true;
 
           // Cascade: remove orphaned implications then re-resolve
-          yield* removeOrphanedImplications(targets);
+          // Pin the user's explicit selections so they aren't stripped
+          const pinned = new Set(newModules.map((m) => `${t.kind}:${m}`));
+          yield* removeOrphanedImplications(targets, pinned);
           let changed = true;
           while (changed) {
             changed = yield* resolveImplications(targets);
