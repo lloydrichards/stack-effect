@@ -376,7 +376,7 @@ const planBarrelMerge = (
   });
 };
 
-export const parseSimpleBarrelExports = (contents: string) => {
+const parseSimpleBarrelExports = (contents: string) => {
   const parsedExports = Arr.map(
     Arr.filter(Str.split(contents, /\r?\n/u), (line) => Str.trim(line) !== ""),
     (line) => line.match(simpleBarrelExportPattern)?.[1],
