@@ -9,16 +9,32 @@ import {
 } from "@repo/domain/Blueprint";
 import type { ModuleId, TargetIdentity } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Array as Arr, Context, Effect, Layer } from "effect";
-
-type MutableTargetState = typeof BlueprintTargetNode.Type;
-
-type MutableAttachedModuleState = typeof BlueprintAttachedModuleNode.Type;
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  HashMap,
+  Layer,
+  Option,
+  Ref,
+} from "effect";
 
 type ResolutionState = {
-  readonly targets: Map<string, MutableTargetState>;
-  readonly attachedModules: Map<string, MutableAttachedModuleState>;
-  readonly edges: Map<string, (typeof Blueprint.fields.edges.Type)[0]>;
+  readonly targets: HashMap.HashMap<string, typeof BlueprintTargetNode.Type>;
+  readonly attachedModules: HashMap.HashMap<
+    string,
+    typeof BlueprintAttachedModuleNode.Type
+  >;
+  readonly edges: HashMap.HashMap<
+    string,
+    (typeof Blueprint.fields.edges.Type)[0]
+  >;
+};
+
+const emptyState: ResolutionState = {
+  targets: HashMap.empty(),
+  attachedModules: HashMap.empty(),
+  edges: HashMap.empty(),
 };
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
@@ -33,13 +49,14 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         yield* validateSelection(selection, catalog);
 
         const state = yield* resolveSelection(selection, catalog);
+        const finalState = yield* Ref.get(state);
 
         return new Blueprint({
           nodes: [
-            ...Arr.fromIterable(state.targets.values()),
-            ...Arr.fromIterable(state.attachedModules.values()),
+            ...HashMap.values(finalState.targets),
+            ...HashMap.values(finalState.attachedModules),
           ],
-          edges: Arr.fromIterable(state.edges.values()),
+          edges: Arr.fromIterable(HashMap.values(finalState.edges)),
         }).toSorted();
       });
 
@@ -104,29 +121,30 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     selection: typeof Selection.Type,
     catalog: typeof CatalogService.Service,
   ) {
-    const state: ResolutionState = {
-      targets: new Map(),
-      attachedModules: new Map(),
-      edges: new Map(),
-    };
+    const stateRef = yield* Ref.make<ResolutionState>(emptyState);
 
     const ensureTarget = Effect.fn(function* (identity: TargetIdentity) {
-      const targetKey = identity.toKey();
-      const current = state.targets.get(targetKey);
+      const current = yield* Ref.get(stateRef).pipe(
+        Effect.map((s) => HashMap.get(s.targets, identity.toKey())),
+      );
 
-      if (current !== undefined) {
-        return current;
+      if (Option.isSome(current)) {
+        return current.value;
       }
 
       yield* catalog.getTarget(identity.kind);
 
-      const next: MutableTargetState = {
+      const next: typeof BlueprintTargetNode.Type = {
         _tag: "target",
-        id: targetKey,
+        id: identity.toKey(),
         identity,
       };
 
-      state.targets.set(targetKey, next);
+      yield* Ref.update(stateRef, (s) => ({
+        ...s,
+        targets: HashMap.set(s.targets, identity.toKey(), next),
+      }));
+
       return next;
     });
 
@@ -136,22 +154,18 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     ) {
       const isSupported = yield* catalog.isSupportedOn(moduleId, target);
 
-      if (isSupported) {
-        return;
+      if (!isSupported) {
+        throw new BlueprintFailure({
+          message: `Unsupported target-module combination: ${target.toKey()} requires module ${moduleId}`,
+        });
       }
-
-      const targetKey = target.toKey();
-
-      throw new BlueprintFailure({
-        message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
-      });
     });
 
     const ensureAttachedModule: (
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
     ) => Effect.Effect<
-      MutableAttachedModuleState,
+      typeof BlueprintAttachedModuleNode.Type,
       BlueprintFailure | CatalogNotFound,
       never
     > = Effect.fn(function* (
@@ -165,22 +179,32 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         targetState.id,
         moduleId,
       );
-      const current = state.attachedModules.get(attachedModuleNodeId);
 
-      if (current !== undefined) {
-        return current;
+      const current = yield* Ref.get(stateRef).pipe(
+        Effect.map((s) => HashMap.get(s.attachedModules, attachedModuleNodeId)),
+      );
+
+      if (Option.isSome(current)) {
+        return current.value;
       }
 
-      const next: MutableAttachedModuleState = {
+      const next: typeof BlueprintAttachedModuleNode.Type = {
         _tag: "attached-module",
         id: attachedModuleNodeId,
         targetId: targetState.id,
         moduleId,
       };
 
-      state.attachedModules.set(attachedModuleNodeId, next);
+      yield* Ref.update(stateRef, (s) => ({
+        ...s,
+        attachedModules: HashMap.set(
+          s.attachedModules,
+          attachedModuleNodeId,
+          next,
+        ),
+      }));
 
-      appendEdge(state, {
+      yield* appendEdge(stateRef, {
         id: `owns-module=>${targetState.id}=>${attachedModuleNodeId}`,
         from: targetState.id,
         to: attachedModuleNodeId,
@@ -195,7 +219,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
             dependency.requiredTarget.identity,
           );
 
-          appendEdge(state, {
+          yield* appendEdge(stateRef, {
             id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
             from: attachedModuleNodeId,
             to: requiredTarget.id,
@@ -209,7 +233,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
             dependency.requiredModule.moduleId,
           );
 
-          appendEdge(state, {
+          yield* appendEdge(stateRef, {
             id: `required-module=>${attachedModuleNodeId}=>${requiredModule.id}`,
             from: attachedModuleNodeId,
             to: requiredModule.id,
@@ -229,17 +253,16 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       }
     }
 
-    return state;
+    return stateRef;
   },
 );
 
 const appendEdge = (
-  state: ResolutionState,
+  stateRef: Ref.Ref<ResolutionState>,
   edge: (typeof Blueprint.fields.edges.Type)[0],
-): void => {
-  if (state.edges.has(edge.id)) {
-    return;
-  }
-
-  state.edges.set(edge.id, edge);
-};
+): Effect.Effect<void> =>
+  Ref.update(stateRef, (s) =>
+    HashMap.has(s.edges, edge.id)
+      ? s
+      : { ...s, edges: HashMap.set(s.edges, edge.id, edge) },
+  );
