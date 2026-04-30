@@ -7,6 +7,7 @@ import {
   Layer,
   Match,
   Option,
+  Order,
   Schema,
   String as Str,
 } from "effect";
@@ -223,9 +224,10 @@ const mergeBarrelContents = ({
   existing,
   mode,
 }: StructuralMergeInput): string => {
-  const requiredReExports = Arr.fromIterable(
-    new Set(required.reExports ?? []),
-  ).sort((left, right) => left.localeCompare(right));
+  const requiredReExports = Arr.sort(
+    Arr.fromIterable(new Set(required.reExports ?? [])),
+    Order.String,
+  );
 
   if (requiredReExports.length === 0) {
     throw new ApplyFailure({
@@ -255,9 +257,12 @@ const mergeBarrelContents = ({
             }),
             Match.orElse((existingExports) =>
               serializeBarrelExports(
-                Arr.fromIterable(
-                  new Set([...existingExports, ...requiredReExports]),
-                ).sort((left, right) => left.localeCompare(right)),
+                Arr.sort(
+                  Arr.fromIterable(
+                    new Set([...existingExports, ...requiredReExports]),
+                  ),
+                  Order.String,
+                ),
               ),
             ),
           ),
@@ -317,9 +322,7 @@ const sortByLocale = <Value>(
   values: ReadonlyArray<Value>,
   toKey: (value: Value) => string,
 ): ReadonlyArray<Value> =>
-  Arr.fromIterable(values).sort((left, right) =>
-    toKey(left).localeCompare(toKey(right)),
-  );
+  Arr.sort(Arr.fromIterable(values), Order.mapInput(Order.String, toKey));
 
 const mergeFlatStringEntries = <Entry>({
   base,
