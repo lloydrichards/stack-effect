@@ -18,9 +18,11 @@ import {
   Layer,
   Match,
   Option,
+  Predicate,
   pipe,
   Record,
   Schema,
+  String as Str,
 } from "effect";
 import {
   ContributionResolver,
@@ -96,7 +98,8 @@ const projectPlan = ({
   repoSnapshot: typeof RepoSnapshot.Type;
 }) => {
   const snapshotPaths = new Map(
-    repoSnapshot.paths.map(
+    Arr.map(
+      repoSnapshot.paths,
       (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
     ),
   );
@@ -118,7 +121,7 @@ const projectPlan = ({
       }),
     );
 
-  const assessedPaths = planningPaths.map((planningPath) => {
+  const assessedPaths = Arr.map(planningPaths, (planningPath) => {
     assertAncestorDirectories(planningPath.path);
 
     return {
@@ -131,13 +134,16 @@ const projectPlan = ({
   });
 
   return new Plan({
-    outcomes: assessedPaths.map(({ planningPath, assessment }) =>
+    outcomes: Arr.map(assessedPaths, ({ planningPath, assessment }) =>
       toPlannedFileOutcome({
         planningPath,
         classification: assessment.classification,
       }),
     ),
-    conflicts: assessedPaths.flatMap(({ assessment }) => assessment.conflicts),
+    conflicts: Arr.flatMap(
+      assessedPaths,
+      ({ assessment }) => assessment.conflicts,
+    ),
   }).toSorted();
 };
 const toPlannedFileOutcome = ({
@@ -181,25 +187,29 @@ const toPlannedFileOutcome = ({
 const toRequiredStructure = (
   planningPath: PlanningIntentPath,
 ): typeof RequiredStructure.Type => {
-  const dependencies = (["dependencies", "devDependencies"] as const)
-    .map((dependencySection) => ({
+  const dependencies = pipe(
+    ["dependencies", "devDependencies"] as const,
+    Arr.map((dependencySection) => ({
       section: dependencySection,
-      entries: planningPath.dependencies
-        .filter(
+      entries: pipe(
+        planningPath.dependencies,
+        Arr.filter(
           (plannedDependency) =>
             plannedDependency.section === dependencySection,
-        )
-        .map((plannedDependency) => ({
+        ),
+        Arr.map((plannedDependency) => ({
           name: plannedDependency.name,
           value: plannedDependency.value,
         })),
-    }))
-    .filter((entry) => entry.entries.length > 0);
+      ),
+    })),
+    Arr.filter((entry) => entry.entries.length > 0),
+  );
 
   return {
     exports:
       planningPath.exports.length > 0
-        ? planningPath.exports.map((plannedExport) => ({
+        ? Arr.map(planningPath.exports, (plannedExport) => ({
             name: plannedExport.name,
             value: plannedExport.value,
           }))
@@ -207,14 +217,15 @@ const toRequiredStructure = (
     dependencies: dependencies.length > 0 ? dependencies : undefined,
     scripts:
       planningPath.scripts.length > 0
-        ? planningPath.scripts.map((plannedScript) => ({
+        ? Arr.map(planningPath.scripts, (plannedScript) => ({
             name: plannedScript.name,
             value: plannedScript.value,
           }))
         : undefined,
     reExports:
       planningPath.barrelExports.length > 0
-        ? planningPath.barrelExports.map(
+        ? Arr.map(
+            planningPath.barrelExports,
             (plannedReExport) => plannedReExport.exportPath,
           )
         : undefined,
@@ -418,12 +429,12 @@ const planPackageJsonMerge = ({
   });
   const conflicts = [
     ...exportAssessment.conflicts,
-    ...dependencyAssessments.flatMap((assessment) => assessment.conflicts),
+    ...Arr.flatMap(dependencyAssessments, (assessment) => assessment.conflicts),
     ...scriptAssessment.conflicts,
   ];
   const hasAdditions =
     exportAssessment.hasAdditions ||
-    dependencyAssessments.some((assessment) => assessment.hasAdditions) ||
+    Arr.some(dependencyAssessments, (assessment) => assessment.hasAdditions) ||
     scriptAssessment.hasAdditions;
 
   if (conflicts.length > 0) {
@@ -455,7 +466,7 @@ const planBarrelMerge = ({
   const existingExports = parseSimpleBarrelExports(existingContents);
 
   if (existingExports === undefined) {
-    const conflicts = requiredReExports.map((plannedReExport) =>
+    const conflicts = Arr.map(requiredReExports, (plannedReExport) =>
       createBarrelExportPlanConflict({ path, plannedReExport }),
     );
 
@@ -466,7 +477,8 @@ const planBarrelMerge = ({
   }
 
   const existingExportsSet = new Set(existingExports);
-  const hasAdditions = requiredReExports.some(
+  const hasAdditions = Arr.some(
+    requiredReExports,
     (plannedReExport) => !existingExportsSet.has(plannedReExport.exportPath),
   );
 
@@ -475,12 +487,14 @@ const planBarrelMerge = ({
   });
 };
 const parseSimpleBarrelExports = (contents: string) => {
-  const parsedExports = contents
-    .split(/\r?\n/u)
-    .filter((line) => line.trim() !== "")
-    .map((line) => line.match(simpleBarrelExportPattern)?.[1]);
+  const parsedExports = Arr.map(
+    Arr.filter(Str.split(contents, /\r?\n/u), (line) => Str.trim(line) !== ""),
+    (line) => line.match(simpleBarrelExportPattern)?.[1],
+  );
 
-  return parsedExports.every(isDefined) ? parsedExports : undefined;
+  return Arr.every(parsedExports, Predicate.isNotUndefined)
+    ? parsedExports
+    : undefined;
 };
 const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
 const createTsconfigPlanConflict = ({
@@ -551,16 +565,16 @@ const collectInvalidPackageJsonConflicts = ({
   requiredDependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
   requiredScripts: ReadonlyArray<typeof PlannedPackageJsonScript.Type>;
 }) => [
-  ...requiredExports.map((plannedExport) =>
+  ...Arr.map(requiredExports, (plannedExport) =>
     createPackageJsonExportPlanConflict({ path, plannedExport }),
   ),
-  ...requiredDependencies.map((plannedDependency) =>
+  ...Arr.map(requiredDependencies, (plannedDependency) =>
     createPackageJsonDependencyPlanConflict({
       path,
       plannedDependency,
     }),
   ),
-  ...requiredScripts.map((script) =>
+  ...Arr.map(requiredScripts, (script) =>
     createScriptPlanConflict({
       path,
       script,
@@ -583,13 +597,13 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 }): FlatStringRecordAssessment<Conflict> => {
   if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
     return {
-      conflicts: requiredEntries.map(toConflict),
+      conflicts: Arr.map(requiredEntries, toConflict),
       hasAdditions: false,
     };
   }
 
   const existingEntries = existingValue ?? {};
-  const conflicts = requiredEntries.flatMap((entry) => {
+  const conflicts = Arr.flatMap(requiredEntries, (entry) => {
     const existingEntry = existingEntries[keyOf(entry)];
 
     return existingEntry === undefined || existingEntry === valueOf(entry)
@@ -599,21 +613,19 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 
   return {
     conflicts,
-    hasAdditions: requiredEntries.some(
+    hasAdditions: Arr.some(
+      requiredEntries,
       (entry) => existingEntries[keyOf(entry)] === undefined,
     ),
   };
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-const isDefined = <Value>(value: Value | undefined): value is Value =>
-  value !== undefined;
-
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
-  isRecord(value) &&
-  Arr.every(Record.values(value), (entry) => typeof entry === "string");
+  Predicate.isReadonlyObject(value) &&
+  Arr.every(
+    Record.values(value as Record<string, unknown>),
+    (entry) => typeof entry === "string",
+  );
 
 const parseJsonRecord = (
   contents: string,
@@ -646,11 +658,12 @@ const getExistingFileContents = ({
   return snapshotPath.contents;
 };
 
-const collectAncestorPaths = (path: string): ReadonlyArray<string> =>
-  path
-    .split("/")
-    .map((_, index, parts) => parts.slice(0, index + 1).join("/"))
-    .slice(0, -1);
+const collectAncestorPaths = (path: string): ReadonlyArray<string> => {
+  const parts = Str.split(path, "/");
+  return Arr.map(Arr.take(parts, parts.length - 1), (_, index) =>
+    Arr.join(Arr.take(parts, index + 1), "/"),
+  );
+};
 
 type PlanningIntentPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
@@ -714,13 +727,14 @@ type PlanningIntentEntry =
 const flattenContributions = (
   normalizedContributions: NormalizedContributions,
 ) => [
-  ...normalizedContributions.targets.map((entry) => entry.contributions),
-  ...normalizedContributions.modules.map((entry) => entry.contributions),
+  ...Arr.map(normalizedContributions.targets, (entry) => entry.contributions),
+  ...Arr.map(normalizedContributions.modules, (entry) => entry.contributions),
 ];
 const toPlanningIntentEntries = (
   contributions: ReturnType<typeof flattenContributions>[number],
 ): ReadonlyArray<PlanningIntentEntry> => [
-  ...contributions.files.map(
+  ...Arr.map(
+    contributions.files,
     (file) =>
       ({
         _tag: "authoritative",
@@ -728,7 +742,8 @@ const toPlanningIntentEntries = (
         contents: file.contents,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.exports.map(
+  ...Arr.map(
+    contributions.exports,
     (entry) =>
       ({
         _tag: "packageJsonExport",
@@ -737,7 +752,8 @@ const toPlanningIntentEntries = (
         value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.dependencies.map(
+  ...Arr.map(
+    contributions.dependencies,
     (entry) =>
       ({
         _tag: "packageJsonDependency",
@@ -747,7 +763,8 @@ const toPlanningIntentEntries = (
         value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.scripts.map(
+  ...Arr.map(
+    contributions.scripts,
     (entry) =>
       ({
         _tag: "packageJsonScript",
@@ -756,7 +773,8 @@ const toPlanningIntentEntries = (
         value: entry.value,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.barrelExports.map(
+  ...Arr.map(
+    contributions.barrelExports,
     (entry) =>
       ({
         _tag: "barrelExport",
@@ -764,7 +782,8 @@ const toPlanningIntentEntries = (
         exportPath: entry.exportPath,
       }) satisfies PlanningIntentEntry,
   ),
-  ...contributions.tsconfigs.map(
+  ...Arr.map(
+    contributions.tsconfigs,
     (entry) =>
       ({
         _tag: "tsconfig",
@@ -812,7 +831,7 @@ const derivePlanningIntentPath = ({
         return {
           path,
           contents: yield* requireSingleValue({
-            values: authoritativeEntries.map((entry) => entry.contents),
+            values: Arr.map(authoritativeEntries, (entry) => entry.contents),
             errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
           }),
           exports: [],
@@ -886,14 +905,14 @@ const derivePlanningIntentPath = ({
           tsconfig: {
             path,
             contents: yield* requireSingleValue({
-              values: tsconfigEntries.map((entry) => entry.contents),
+              values: Arr.map(tsconfigEntries, (entry) => entry.contents),
               errorMessage: `Conflicting tsconfig outcomes for ${path}.`,
             }),
           },
         };
       case "authoritativePackageJson": {
         const baseContents = yield* requireSingleValue({
-          values: authoritativeEntries.map((entry) => entry.contents),
+          values: Arr.map(authoritativeEntries, (entry) => entry.contents),
           errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
         });
         const baseJson = parseJsonRecord(baseContents);
@@ -927,36 +946,37 @@ const derivePlanningIntentPath = ({
           errorMessage: `Conflicting package.json script outcomes for ${path}.`,
         });
 
-        const merged: Record<string, unknown> = Object.assign({}, baseJson);
-
-        for (const exp of mergedExports) {
-          const existing = merged["exports"];
-          const exports: Record<string, unknown> = isRecord(existing)
-            ? Object.assign({}, existing)
+        const resolveSection = (
+          root: Record<string, unknown>,
+          key: string,
+          entries: ReadonlyArray<{
+            readonly name: string;
+            readonly value: string;
+          }>,
+        ): Record<string, unknown> => {
+          const base = Predicate.isReadonlyObject(root[key])
+            ? (root[key] as Record<string, unknown>)
             : {};
-          exports[exp.name] = exp.value;
-          merged["exports"] = exports;
-        }
+          return {
+            ...root,
+            [key]: Arr.reduce(entries, base, (acc, entry) => ({
+              ...acc,
+              [entry.name]: entry.value,
+            })),
+          };
+        };
 
-        for (const dep of mergedDependencies) {
-          const existing = merged[dep.section];
-          const section: Record<string, unknown> = isRecord(existing)
-            ? Object.assign({}, existing)
-            : {};
-          section[dep.name] = dep.value;
-          merged[dep.section] = section;
-        }
-
-        const existingScriptsVal = merged["scripts"];
-        const mergedScriptsRecord: Record<string, unknown> = isRecord(
-          existingScriptsVal,
-        )
-          ? Object.assign({}, existingScriptsVal)
-          : {};
-        for (const script of mergedScripts) {
-          mergedScriptsRecord[script.name] = script.value;
-        }
-        merged["scripts"] = mergedScriptsRecord;
+        const merged = pipe(
+          { ...baseJson } as Record<string, unknown>,
+          (root) => resolveSection(root, "exports", mergedExports),
+          (root) =>
+            Arr.reduce(mergedDependencies, root, (r, dep) =>
+              resolveSection(r, dep.section, [
+                { name: dep.name, value: dep.value },
+              ]),
+            ),
+          (root) => resolveSection(root, "scripts", mergedScripts),
+        );
 
         const contents = yield* Schema.encodeEffect(
           Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
@@ -985,7 +1005,7 @@ const derivePlanningIntentFamily = ({
   { path: string; family: PlanningIntentFamily | "authoritativePackageJson" },
   PlanFailure
 > => {
-  const families = new Set(entries.map(toPlanningIntentFamily));
+  const families = new Set(Arr.map(entries, toPlanningIntentFamily));
 
   if (families.size === 1) {
     // entries is non-empty when families.size === 1
@@ -1074,7 +1094,7 @@ const collectUniqueEntries = <Entry, Result>({
   Effect.all(
     Record.collect(Arr.groupBy(entries, keyOf), (_, groupedEntries) =>
       requireSingleValue({
-        values: groupedEntries.map(valueOf),
+        values: Arr.map(groupedEntries, valueOf),
         errorMessage,
       }).pipe(Effect.as(toResult(groupedEntries[0]))),
     ),
