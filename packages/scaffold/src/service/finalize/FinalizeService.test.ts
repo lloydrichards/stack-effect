@@ -133,7 +133,7 @@ const makeSpawnerLayer = (
       const cmd = [command.command, ...command.args].join(" ");
       executed.push(cmd);
       if (failures.has(cmd)) {
-        return Effect.fail(new Error(`command failed: ${cmd}`));
+        return Effect.fail("Command failed: " + cmd);
       }
       return Effect.succeed(0);
     },
@@ -171,7 +171,7 @@ describe("FinalizeService", () => {
           );
 
           expect(scripts.map((s) => s.label)).toEqual(["Install dependencies"]);
-          expect(scripts[0].command).toBe("bun install");
+          expect(scripts[0]?.command).toBe("bun install");
           expect(executed).toEqual([]);
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
@@ -207,7 +207,7 @@ describe("FinalizeService", () => {
             makeConfig(nodeConfig),
           );
 
-          expect(scripts[0].command).toBe("pnpm install");
+          expect(scripts[0]?.command).toBe("pnpm install");
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
@@ -308,8 +308,8 @@ describe("FinalizeService", () => {
 
         const scripts = yield* svc.preview(blueprint, makeConfig());
 
-        expect(scripts[0].command).toBe("bun run build --cwd apps/server-api");
-        expect(scripts[0].workdir).toBe("apps/server-api");
+        expect(scripts[0]?.command).toBe("bun run build --cwd apps/server-api");
+        expect(scripts[0]?.workdir).toBe("apps/server-api");
       }).pipe(
         Effect.provide(
           makeFinalizeLayer([], {
@@ -343,7 +343,7 @@ describe("FinalizeService", () => {
 
           expect(report.succeeded).toBe(1);
           expect(report.failed).toBe(0);
-          expect(report.results[0].status).toBe("success");
+          expect(report.results[0]?.status).toBe("success");
           expect(executed.length).toBeGreaterThan(0);
         }).pipe(Effect.provide(makeFinalizeLayer(executed)));
       },
@@ -363,8 +363,8 @@ describe("FinalizeService", () => {
 
         // Both install and lint should execute even if install fails
         expect(report.results).toHaveLength(2);
-        expect(report.results[0].status).toBe("failure");
-        expect(report.results[1].status).toBe("success");
+        expect(report.results[0]?.status).toBe("failure");
+        expect(report.results[1]?.status).toBe("success");
       }).pipe(
         Effect.provide(
           makeFinalizeLayer([], {
