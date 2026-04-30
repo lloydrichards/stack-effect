@@ -6,73 +6,13 @@
 
 Shared schemas, types, and RPC definitions used by both client and server.
 
-## Schema Patterns
+## Domain Terminology References
 
-```typescript
-// 1. Branded types for type-safe IDs
-export const ClientId = Schema.String.pipe(Schema.brand("ClientId"));
+Use canonical domain language from:
 
-// 2. Literal unions for enums
-export const ClientStatus = Schema.Literal("online", "away", "busy");
-export type ClientStatus = Schema.Schema.Type<typeof ClientStatus>;
-
-// 3. Struct schemas with type export
-export const ClientInfo = Schema.Struct({
-  clientId: ClientId,
-  status: ClientStatus,
-  connectedAt: Schema.Number,
-});
-export type ClientInfo = Schema.Schema.Type<typeof ClientInfo>;
-
-// 4. Tagged unions for events (discriminated by _tag)
-export const MyEvent = Schema.Union(
-  Schema.TaggedStruct("started", { timestamp: Schema.Number }),
-  Schema.TaggedStruct("completed", { result: Schema.String }),
-  Schema.TaggedStruct("failed", { error: Schema.String })
-);
-```
-
-## Type Export Convention
-
-```typescript
-// Always export both schema and type for shared types
-export const MySchema = Schema.Struct({
-  /* ... */
-});
-export type MySchema = Schema.Schema.Type<typeof MySchema>;
-
-// For inline usage (not exported): typeof Schema.Type
-const data: typeof ApiResponse.Type = { message: "Hello", success: true };
-```
-
-## RPC Definition Pattern
-
-```typescript
-// HTTP API endpoints
-export class HelloGroup extends HttpApiGroup.make("hello")
-  .add(HttpApiEndpoint.get("get", "/").addSuccess(ApiResponse))
-  .prefix("/hello") {}
-
-export const Api = HttpApi.make("Api").add(HelloGroup);
-
-// RPC groups (streaming or request/response)
-export class EventRpc extends RpcGroup.make(
-  Rpc.make("tick", {
-    payload: Schema.Struct({ ticks: Schema.Number }),
-    success: TickEvent,
-    stream: true, // Enable streaming
-  })
-) {}
-```
-
-## File Organization
-
-```
-src/
-├── Api.ts       # HttpApi definitions (REST endpoints)
-├── Rpc.ts       # RPC definitions (HTTP streaming)
-└── WebSocket.ts # WebSocket RPC definitions (real-time)
-```
+- `docs/UBIQUITOUS_LANGUAGE.md` for conversation-ready phrasing
+- `docs/DOMAIN_LEXICON.md` for precise definitions and invariants
+- `CONTEXT.md` for current domain decisions and constraints
 
 ## Import Pattern
 
