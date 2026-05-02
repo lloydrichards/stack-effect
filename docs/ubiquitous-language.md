@@ -3,6 +3,14 @@
 This document is the speaking guide for domain conversations.
 For full definitions and invariants, see `docs/DOMAIN_LEXICON.md`.
 
+## When to Use This Document
+
+| Need | Use |
+|------|-----|
+| Quick phrasing for discussions, PRs, commits | This document |
+| Precise definitions, invariants, code identifiers | `DOMAIN_LEXICON.md` |
+| Current domain decisions and constraints | `CONTEXT.md` |
+
 ## Purpose
 
 - Keep planning, implementation, and review language aligned.
