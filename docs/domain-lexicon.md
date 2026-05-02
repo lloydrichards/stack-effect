@@ -3,6 +3,12 @@
 This is the dictionary for terms used in the `Scaffolding` bounded context.
 Each term has a plain-language meaning, invariants, and connections to related terms.
 
+## Reading Guide
+
+- Use this document for precise term lookup and invariants.
+- Use `UBIQUITOUS_LANGUAGE.md` for conversational phrasing in discussions and reviews.
+- Prefer code identifiers exactly as shown in each "In code" list.
+
 ## Scope
 
 - **Context**: `Scaffolding`
@@ -11,19 +17,13 @@ Each term has a plain-language meaning, invariants, and connections to related t
 - **Ends at**: final run communication in `FinalizeReport`
 - **Out of scope**: CLI/web transport details and long-term config persistence
 
-## Reading Guide
-
-- Use this document for precise term lookup.
-- Use `UBIQUITOUS_LANGUAGE.md` for conversational phrasing.
-- Prefer code identifiers exactly as shown in each "In code" list.
-
 ## Canonical Flow
 
 `Catalog -> Selection -> Blueprint -> Plan -> Apply -> FinalizeReport`
 
 ## Lifecycle Terms
 
-## Catalog
+### Catalog
 
 Definition:
 Read-only reference data that defines what targets and modules can exist, plus compatibility and dependency rules.
@@ -42,7 +42,7 @@ In code:
 
 - `CatalogNode`, `CatalogEdge`, `CatalogGraph`, `CatalogNotFound`
 
-## Selection
+### Selection
 
 Definition:
 The explicit user request: target identities and requested module IDs per target.
@@ -61,7 +61,7 @@ In code:
 
 - `Selection`
 
-## Blueprint
+### Blueprint
 
 Definition:
 The resolved dependency-closure graph generated from selection intent.
@@ -80,7 +80,7 @@ In code:
 
 - `Blueprint`, `BlueprintTargetNode`, `BlueprintAttachedModuleNode`, `BlueprintFailure`
 
-## Plan
+### Plan
 
 Definition:
 A repository-aware change model for one snapshot, with concrete outcomes and explicit conflicts.
@@ -99,7 +99,7 @@ In code:
 
 - `Plan`, `PlanFailure`
 
-## Apply
+### Apply
 
 Definition:
 Execution intent formed by one `Plan` and per-path conflict decisions.
@@ -118,7 +118,7 @@ In code:
 
 - `Apply`, `ApplyDecision`, `ApplyFailure`
 
-## ApplyResult
+### ApplyResult
 
 Definition:
 Structured execution result listing created, modified, skipped, and failed paths.
@@ -136,7 +136,7 @@ In code:
 
 - `ApplyResult`, `ApplyFailedPath`
 
-## FinalizeReport
+### FinalizeReport
 
 Definition:
 Structured result of finalize-phase commands after apply execution.
@@ -156,7 +156,7 @@ In code:
 
 ## Definition-Space Terms
 
-## TargetDefinition
+### TargetDefinition
 
 Definition:
 Catalog entity that describes a scaffoldable target kind and base contributions.
@@ -174,7 +174,7 @@ In code:
 
 - `TargetDefinition`
 
-## ModuleDefinition
+### ModuleDefinition
 
 Definition:
 Catalog entity that describes attachable capability, compatibility, dependencies, and contributions.
@@ -195,7 +195,7 @@ In code:
 
 ## Resolution-Space Terms
 
-## BlueprintTargetNode
+### BlueprintTargetNode
 
 Definition:
 A concrete target node in a blueprint closure.
@@ -213,7 +213,7 @@ In code:
 
 - `BlueprintTargetNode`
 
-## BlueprintAttachedModuleNode
+### BlueprintAttachedModuleNode
 
 Definition:
 A resolved module attachment node owned by a blueprint target node.
@@ -233,7 +233,7 @@ In code:
 
 ## Identity and Compatibility Terms
 
-## TargetIdentity
+### TargetIdentity
 
 Definition:
 Canonical target identity value `{ kind, name }` with behavior for keys, paths, and compatibility matching.
@@ -251,7 +251,7 @@ In code:
 
 - `TargetIdentity`
 
-## TargetKind
+### TargetKind
 
 Definition:
 Target category used for identity and compatibility checks.
@@ -269,7 +269,7 @@ In code:
 
 - `TargetKind`
 
-## TargetPath
+### TargetPath
 
 Definition:
 Canonical repository location for a target.
@@ -287,7 +287,7 @@ In code:
 
 - `TargetPath`
 
-## TargetKey
+### TargetKey
 
 Definition:
 Canonical lookup/address key for target identity and graph nodes.
@@ -305,7 +305,7 @@ In code:
 
 - `TargetKey`
 
-## ModuleId
+### ModuleId
 
 Definition:
 Canonical module identifier used across catalog, selection, and blueprint attachment IDs.
@@ -322,7 +322,7 @@ In code:
 
 - `ModuleId`
 
-## SupportedOn
+### SupportedOn
 
 Definition:
 Compatibility rule describing where a module may attach.
@@ -342,7 +342,7 @@ In code:
 
 ## Contribution and Execution Input Terms
 
-## DesiredContributions
+### DesiredContributions
 
 Definition:
 Declarative desired repository state from targets/modules.
@@ -360,7 +360,7 @@ In code:
 
 - `DesiredContributions`
 
-## TargetContribution
+### TargetContribution
 
 Definition:
 Target-scoped contribution value keyed by target key.
@@ -377,7 +377,7 @@ In code:
 
 - `TargetContribution`
 
-## ModuleContribution
+### ModuleContribution
 
 Definition:
 Module-scoped contribution value keyed by target key and module id.
@@ -394,7 +394,7 @@ In code:
 
 - `ModuleContribution`
 
-## ContributionTokenContext
+### ContributionTokenContext
 
 Definition:
 Token-resolution context used when templating contribution contents.
@@ -411,7 +411,7 @@ In code:
 
 - `ContributionTokenContext`
 
-## StackConfig
+### StackConfig
 
 Definition:
 Run-level configuration for runtime and toolchain choices.
@@ -431,7 +431,7 @@ In code:
 
 ## Planning and Conflict Terms
 
-## RepoSnapshot
+### RepoSnapshot
 
 Definition:
 Captured repository state used as planning input.
@@ -448,7 +448,7 @@ In code:
 
 - `RepoSnapshot`
 
-## RequiredStructure
+### RequiredStructure
 
 Definition:
 Structural requirements for partial/composed plan outcomes.
@@ -466,7 +466,7 @@ In code:
 
 - `RequiredStructure`
 
-## ApplyDecision
+### ApplyDecision
 
 Definition:
 Per-path conflict policy used at apply time.
