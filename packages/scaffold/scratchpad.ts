@@ -5,7 +5,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RepoSnapshot } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, FileSystem, Layer } from "effect";
+import { Console, Effect, FileSystem, Layer, Random } from "effect";
 import {
   ApplyService,
   BlueprintService,

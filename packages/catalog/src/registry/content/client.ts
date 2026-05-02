@@ -25,12 +25,17 @@ export const clientPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
+    "@base-ui/react": "^1.3.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "effect": "4.0.0-beta.59",
+    "lucide-react": "^1.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
+    "shadcn": "^4.1.0",
     "tailwind-merge": "^3.3.1",
-    "tailwindcss": "^4.1.13"
+    "tailwindcss": "^4.1.13",
+    "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
@@ -134,7 +139,35 @@ export default defineConfig({
 });
 `;
 
+export const clientShadcnComponentJson = `{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "base-lyra",
+  "rsc": false,
+  "tsx": true,
+  "tailwind": {
+    "config": "",
+    "css": "src/index.css",
+    "baseColor": "mist",
+    "cssVariables": true,
+    "prefix": ""
+  },
+  "iconLibrary": "lucide",
+  "rtl": false,
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "menuColor": "default",
+  "menuAccent": "subtle",
+  "registries": {}
+}`;
+
 export const clientIndexCssContents = `@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);

@@ -11,6 +11,7 @@ import {
   clientIndexHtmlContents,
   clientMainTsxContents,
   clientPackageJsonContents,
+  clientShadcnComponentJson,
   clientTsconfigConfigContents,
   clientTsconfigContents,
   clientUtilsContents,
@@ -72,6 +73,10 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         {
           path: "{{targetPath}}/index.html",
           contents: clientIndexHtmlContents,
+        },
+        {
+          path: "{{targetPath}}/component.json",
+          contents: clientShadcnComponentJson,
         },
         {
           path: "{{targetPath}}/src/main.tsx",
