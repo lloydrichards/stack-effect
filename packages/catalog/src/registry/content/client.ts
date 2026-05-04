@@ -255,15 +255,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 `;
 
-export const clientAtomContents = `import { Layer } from "effect";
-import { DevTools } from "effect/unstable/devtools";
-import { Atom } from "effect/unstable/reactivity";
+export const clientViteEnvContents = `/// <reference types="vite/client" />
 
-const ENABLE_DEVTOOLS = import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
+interface ImportMetaEnv {
+  readonly VITE_SERVER_URL: string;
+  readonly VITE_WS_URL: string;
+  readonly VITE_ENABLE_DEVTOOLS: string;
+}
 
-const MainLayer = Layer.mergeAll(
-  ENABLE_DEVTOOLS ? DevTools.layer() : Layer.empty,
-);
-
-export const runtime = Atom.runtime(MainLayer);
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
 `;

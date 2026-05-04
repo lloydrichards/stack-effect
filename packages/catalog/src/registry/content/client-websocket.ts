@@ -253,17 +253,3 @@ export function PresencePanel({ className }: { className?: string }) {
   );
 }
 `;
-
-// Client vite-env.d.ts with WS_URL
-export const clientViteEnvWithWsContents = `/// <reference types="vite/client" />
-
-interface ImportMetaEnv {
-  readonly VITE_SERVER_URL: string;
-  readonly VITE_WS_URL: string;
-  readonly VITE_ENABLE_DEVTOOLS: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-`;
