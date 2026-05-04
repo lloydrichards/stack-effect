@@ -65,25 +65,11 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           // Blueprint
           const blueprint = yield* blueprintService.resolve(selection);
 
-          const bp = yield* formatter.formatBlueprint(blueprint);
+          const blueprintBox = yield* formatter.formatBlueprint(blueprint);
 
-          const blueprintBox = Box.vcat(
-            [
-              Box.text(bp.title).pipe(
-                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
-              ),
-              Box.emptyBox(1, 0),
-              ...(bp.targets.length > 0
-                ? [
-                    Box.text(bp.targetsLabel).pipe(Box.annotate(Ansi.bold)),
-                    Box.text(bp.targets.join("\n")),
-                  ]
-                : []),
-            ],
-            Box.left,
-          ).pipe(Padding(1, 2), Border);
-
-          yield* Console.log(Box.renderPrettySync(blueprintBox));
+          yield* Console.log(
+            Box.renderPrettySync(blueprintBox.pipe(Padding(0, 2), Border)),
+          );
 
           if (!yes) {
             const confirm = yield* Prompt.confirm({
@@ -108,19 +94,18 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           });
           const pl = yield* formatter.formatPlan(plan);
 
-          const planBox = Box.vcat(
+          const planBox = Box.vsep(
             [
               Box.text(pl.title).pipe(
                 Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
               ),
-              Box.emptyBox(1, 0),
-              Box.text(pl.legend).pipe(Box.annotate(Ansi.dim)),
               Box.text(pl.summary),
-              Box.emptyBox(1, 0),
               Box.text(pl.tree.join("\n")),
+              Box.text(pl.legend).pipe(Box.annotate(Ansi.dim)),
             ],
+            1,
             Box.left,
-          ).pipe(Padding(1, 2), Border);
+          ).pipe(Padding(0, 2), Border);
 
           yield* Console.log(Box.renderPrettySync(planBox));
 

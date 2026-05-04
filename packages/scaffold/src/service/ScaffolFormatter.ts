@@ -19,8 +19,6 @@ import {
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
 
-export type FormattedBlueprint = Box.Box<Ansi.AnsiStyle>;
-
 type FormattedPlan = {
   readonly title: string;
   readonly legend: string;
@@ -28,10 +26,10 @@ type FormattedPlan = {
   readonly tree: ReadonlyArray<string>;
 };
 
-type TreeBranch = {
-  readonly line: string;
+type TreeBranch<A> = {
+  readonly line: Box.Box<A>;
   readonly prefix: "╌>" | "─>";
-  readonly children?: ReadonlyArray<TreeBranch>;
+  readonly children?: ReadonlyArray<TreeBranch<A>>;
 };
 
 type DerivedPlanTreeFileNode = {
@@ -57,13 +55,12 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   {
     make: Effect.gen(function* () {
       const formatBlueprint = Effect.fn("ScaffoldFormatter.formatBlueprint")(
-        function* (
-          blueprint: typeof Blueprint.Type,
-        ): Generator<never, FormattedBlueprint> {
+        function* (blueprint: typeof Blueprint.Type) {
+          const header = Box.text("Blueprint").pipe(
+            Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+          );
           if (blueprint.nodes.length === 0) {
-            return Box.text("Blueprint").pipe(
-              Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
-            );
+            return header;
           }
 
           const attachedModulesByTarget = pipe(
@@ -95,7 +92,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
               ),
           );
 
-          const targetBoxes = Arr.flatMap(
+          const targetBoxes = Arr.map(
             blueprint.nodes.filter(isBlueprintTargetNode),
             (targetNode) => {
               const attachedModules = Arr.sort(
@@ -118,7 +115,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
 
               const moduleLines = renderTreeBranchesAsBox(
                 Arr.map(attachedModules, (attachedModule) => ({
-                  line: attachedModule.id,
+                  line: Box.text(attachedModule.id),
                   prefix: "╌>" as const,
                   children: Arr.map(
                     Arr.sort(
@@ -131,27 +128,27 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                       idOrd,
                     ),
                     (edge) => ({
-                      line: `${edge.to} [${edge.reason}]`,
+                      line: Box.hsep(
+                        [
+                          Box.text(edge.to),
+                          Box.text(`[${edge.reason}]`).pipe(
+                            Box.annotate(Ansi.dim),
+                          ),
+                        ],
+                        1,
+                        Box.left,
+                      ),
                       prefix: "─>" as const,
                     }),
                   ),
                 })),
               );
 
-              return [targetHeader, moduleLines];
+              return Box.vcat([targetHeader, moduleLines], Box.left);
             },
           );
 
-          return Box.vcat(
-            [
-              Box.text("Blueprint").pipe(
-                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
-              ),
-              Box.emptyBox(0, 1),
-              ...targetBoxes,
-            ],
-            Box.left,
-          );
+          return Box.vsep([header, ...targetBoxes], 1, Box.left);
         },
       );
 
@@ -212,41 +209,42 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   );
 }
 
-const renderTreeBranchesAsBox = (
-  branches: ReadonlyArray<TreeBranch>,
+const renderTreeBranchesAsBox = <A>(
+  branches: ReadonlyArray<TreeBranch<A>>,
   indent = "  ",
 ): Box.Box<Ansi.AnsiStyle> => {
   if (branches.length === 0) {
     return Box.nullBox;
   }
 
-  const lines = Arr.flatMap(branches, (branch, index) => {
-    const isLast = index === branches.length - 1;
-    const connector = isLast ? "└" : "├";
-    const childIndent = String.concat(indent, isLast ? "    " : "│   ");
+  return Box.vcat(
+    Arr.flatMap(branches, (branch, index) => {
+      const isLast = index === branches.length - 1;
+      const connector = isLast ? "└" : "├";
+      const childIndent = String.concat(indent, isLast ? "    " : "│   ");
 
-    const branchLine = Box.hcat(
-      [
-        Box.text(`${indent}${connector}`),
-        Box.text(branch.prefix).pipe(Box.annotate(Ansi.cyan)),
-        Box.text(` ${branch.line}`),
-      ],
-      Box.top,
-    );
+      const branchLine = Box.hcat(
+        [
+          Box.text(`${indent}${connector}`),
+          Box.text(branch.prefix),
+          branch.line.pipe(Box.moveRight(1)),
+        ],
+        Box.top,
+      );
 
-    const childBox = renderTreeBranchesAsBox(
-      branch.children ?? [],
-      childIndent,
-    );
+      const childBox = renderTreeBranchesAsBox(
+        branch.children ?? [],
+        childIndent,
+      );
 
-    return childBox.rows > 0 ? [branchLine, childBox] : [branchLine];
-  });
-
-  return Box.vcat(lines, Box.left);
+      return childBox.rows > 0 ? [branchLine, childBox] : [branchLine];
+    }),
+    Box.left,
+  );
 };
 
-const renderTreeBranches = (
-  branches: ReadonlyArray<TreeBranch>,
+const renderTreeBranches = <A>(
+  branches: ReadonlyArray<TreeBranch<A>>,
   indent = "  ",
 ): ReadonlyArray<string> =>
   Arr.flatMap(branches, (branch, index) => {
