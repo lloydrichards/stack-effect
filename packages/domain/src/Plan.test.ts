@@ -28,17 +28,20 @@ describe("@repo/domain Plan", () => {
     const plan = new Plan({
       outcomes: [
         {
-          _tag: "partial",
+          _tag: "composed",
           path: "packages/domain/package.json",
           classification: "modify",
-          requiredStructure: {
-            exports: [
-              {
-                name: "./Api",
-                value: "./src/Api.ts",
-              },
-            ],
-          },
+          operations: [
+            {
+              _tag: "json-pkg-exports",
+              entries: [
+                {
+                  name: "./Api",
+                  value: "./src/Api.ts",
+                },
+              ],
+            },
+          ],
         },
         {
           _tag: "complete",

@@ -85,6 +85,33 @@ export const ModuleImplication = Schema.Struct({
   moduleId: ModuleId,
 });
 
+// =============================================================================
+// Composition Contributions
+// =============================================================================
+
+/**
+ * A composition contribution declares intent to append to a TypeScript
+ * composition point (e.g., Layer.mergeAll, Toolkit.merge).
+ *
+ * The PlanService will convert these into `ts-append-call-arg` operations.
+ */
+export const CompositionContribution = Schema.Struct({
+  /** Path to the file containing the composition point */
+  path: Schema.String,
+  /** Variable name being assigned (e.g., "AppLayers") */
+  targetVariable: Schema.String,
+  /** Function name being called (e.g., "Layer.mergeAll") */
+  functionName: Schema.String,
+  /** The argument to append (e.g., "AuthLayer") */
+  argument: Schema.String,
+  /** Import to add for the argument */
+  import: Schema.Struct({
+    moduleSpecifier: Schema.String,
+    namedImports: Schema.optional(Schema.Array(Schema.String)),
+    defaultImport: Schema.optional(Schema.String),
+  }),
+});
+
 export const DesiredContributions = Schema.Struct({
   files: Schema.Array(
     Schema.Struct({
@@ -128,6 +155,14 @@ export const DesiredContributions = Schema.Struct({
       path: Schema.String,
       contents: Schema.String,
     }),
+  ),
+  /**
+   * Composition contributions for TypeScript composition points.
+   * These declare intent to append to Layer.mergeAll, Toolkit.merge, etc.
+   */
+  compositions: Schema.Array(CompositionContribution).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
   ),
 });
 

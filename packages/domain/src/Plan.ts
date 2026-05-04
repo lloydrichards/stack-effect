@@ -26,38 +26,80 @@ export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
   },
 ) {}
 
-export const RequiredStructure = Schema.Struct({
-  exports: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        name: Schema.String,
-        value: Schema.String,
-      }),
-    ),
+// =============================================================================
+// Composition Operations
+// =============================================================================
+
+export const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
+  fileType: Schema.tag("json"),
+  entries: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      value: Schema.String,
+    }),
   ),
-  dependencies: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        section: Schema.Literals(["dependencies", "devDependencies"]),
-        entries: Schema.Array(
-          Schema.Struct({
-            name: Schema.String,
-            value: Schema.String,
-          }),
-        ),
-      }),
-    ),
-  ),
-  scripts: Schema.optional(
-    Schema.Array(
-      Schema.Struct({
-        name: Schema.String,
-        value: Schema.String,
-      }),
-    ),
-  ),
-  reExports: Schema.optional(Schema.Array(Schema.String)),
 });
+
+export const JsonPkgDepsOp = Schema.TaggedStruct("json-pkg-deps", {
+  fileType: Schema.tag("json"),
+  section: Schema.Literals(["dependencies", "devDependencies"]),
+  entries: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      value: Schema.String,
+    }),
+  ),
+});
+
+export const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
+  fileType: Schema.tag("json"),
+  entries: Schema.Array(
+    Schema.Struct({
+      name: Schema.String,
+      value: Schema.String,
+    }),
+  ),
+});
+
+/**
+ * TypeScript Operations - for AST manipulation via ts-morph
+ */
+export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
+  fileType: Schema.tag("typescript"),
+  moduleSpecifier: Schema.String,
+  namedImports: Schema.optional(Schema.Array(Schema.String)),
+  defaultImport: Schema.optional(Schema.String),
+  typeOnly: Schema.optional(Schema.Boolean),
+});
+
+export const TsAddReexportOp = Schema.TaggedStruct("ts-add-reexport", {
+  fileType: Schema.tag("typescript"),
+  moduleSpecifier: Schema.String,
+  namedExports: Schema.optional(Schema.Array(Schema.String)),
+  typeOnly: Schema.optional(Schema.Boolean),
+});
+
+export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
+  fileType: Schema.tag("typescript"),
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  argument: Schema.String,
+});
+
+export const CompositionOperation = Schema.Union([
+  // JSON operations
+  JsonPkgExportsOp,
+  JsonPkgDepsOp,
+  JsonPkgScriptsOp,
+  // TypeScript operations
+  TsAddImportOp,
+  TsAddReexportOp,
+  TsAppendCallArgOp,
+]).pipe(Schema.toTaggedUnion("fileType"));
+
+// =============================================================================
+// Plan Classification and Outcomes
+// =============================================================================
 
 export const PlanEntryClassification = Schema.Literals([
   "create",
@@ -74,16 +116,11 @@ export class Plan extends Schema.Class<Plan>("Plan")({
         classification: PlanEntryClassification,
         contents: Schema.String,
       }),
-      Schema.TaggedStruct("partial", {
-        path: Schema.String,
-        classification: PlanEntryClassification,
-        requiredStructure: RequiredStructure,
-      }),
       Schema.TaggedStruct("composed", {
         path: Schema.String,
         classification: PlanEntryClassification,
-        contents: Schema.String,
-        requiredStructure: RequiredStructure,
+        seedContents: Schema.optional(Schema.String),
+        operations: Schema.Array(CompositionOperation),
       }),
     ]),
   ),
@@ -112,6 +149,11 @@ export class Plan extends Schema.Class<Plan>("Plan")({
       Schema.TaggedStruct("completeFile", {
         path: Schema.String,
       }),
+      Schema.TaggedStruct("compositionTargetNotFound", {
+        path: Schema.String,
+        targetVariable: Schema.String,
+        functionName: Schema.String,
+      }),
     ]),
   ),
 }) {
@@ -135,6 +177,8 @@ export class Plan extends Schema.Class<Plan>("Plan")({
                 return `tsconfig:${conflict.path}`;
               case "completeFile":
                 return `completeFile:${conflict.path}`;
+              case "compositionTargetNotFound":
+                return `compositionTargetNotFound:${conflict.path}:${conflict.targetVariable}:${conflict.functionName}`;
             }
           },
         ),
