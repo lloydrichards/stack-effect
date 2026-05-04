@@ -6,7 +6,6 @@ import {
 import { emptyDesiredContributions } from "@repo/domain/Scaffold";
 import {
   clientAppTsxContents,
-  clientAtomContents,
   clientIndexCssContents,
   clientIndexHtmlContents,
   clientMainTsxContents,
@@ -16,6 +15,7 @@ import {
   clientTsconfigContents,
   clientUtilsContents,
   clientViteConfigContents,
+  clientViteEnvContents,
 } from "./content/client";
 import {
   configTypescriptBaseContents,
@@ -103,8 +103,8 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
           contents: clientUtilsContents,
         },
         {
-          path: "{{targetPath}}/src/lib/atom.ts",
-          contents: clientAtomContents,
+          path: "{{targetPath}}/src/vite-env.d.ts",
+          contents: clientViteEnvContents,
         },
       ],
       scripts: [

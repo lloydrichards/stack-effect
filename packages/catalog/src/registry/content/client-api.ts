@@ -1,22 +1,18 @@
-export const clientViteEnvContents = `/// <reference types="vite/client" />
-
-interface ImportMetaEnv {
-  readonly VITE_SERVER_URL: string;
-  readonly VITE_ENABLE_DEVTOOLS: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
-`;
-
 export const clientHelloAtomContents = `import { Api } from "@repo/domain/Api";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
 import { FetchHttpClient } from "effect/unstable/http";
 import { HttpApiClient } from "effect/unstable/httpapi";
-import { runtime } from "../atom";
+import { Atom } from "effect/unstable/reactivity";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:9000";
+const ENABLE_DEVTOOLS = import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
+
+const ApiLayer = Layer.mergeAll(
+  ENABLE_DEVTOOLS ? DevTools.layer() : Layer.empty,
+);
+
+const runtime = Atom.runtime(ApiLayer);
 
 export const helloAtom = runtime.fn(() =>
   Effect.gen(function* () {

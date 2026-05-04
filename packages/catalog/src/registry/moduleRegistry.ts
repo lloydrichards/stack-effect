@@ -26,7 +26,6 @@ import { configTypescriptViteContents } from "./content/client";
 import {
   clientHelloAtomContents,
   clientRestCardContents,
-  clientViteEnvContents,
 } from "./content/client-api";
 import {
   clientChatAtomContents,
@@ -34,14 +33,12 @@ import {
   clientChatRpcClientContents,
 } from "./content/client-chat";
 import {
-  clientAtomWithRpcContents,
   clientRpcCardContents,
   clientRpcClientContents,
   clientTickAtomContents,
 } from "./content/client-rpc";
 import {
   clientPresencePanelContents,
-  clientViteEnvWithWsContents,
   clientWebSocketClientContents,
 } from "./content/client-websocket";
 import {
@@ -367,10 +364,6 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     contributions: {
       files: [
         {
-          path: "{{targetPath}}/src/vite-env.d.ts",
-          contents: clientViteEnvContents,
-        },
-        {
           path: "{{targetPath}}/src/lib/atoms/hello-atom.ts",
           contents: clientHelloAtomContents,
         },
@@ -514,10 +507,6 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
         {
           path: "{{targetPath}}/src/lib/rpc-client.ts",
           contents: clientRpcClientContents,
-        },
-        {
-          path: "{{targetPath}}/src/lib/atom.ts",
-          contents: clientAtomWithRpcContents,
         },
         {
           path: "{{targetPath}}/src/lib/atoms/tick-atom.ts",
@@ -863,10 +852,6 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     contributions: {
       files: [
-        {
-          path: "{{targetPath}}/src/vite-env.d.ts",
-          contents: clientViteEnvWithWsContents,
-        },
         {
           path: "{{targetPath}}/src/lib/web-socket-client.ts",
           contents: clientWebSocketClientContents,
