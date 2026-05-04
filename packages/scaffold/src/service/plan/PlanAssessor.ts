@@ -1,9 +1,9 @@
 import {
+  CompositionOperation,
   Plan,
   type PlanEntryClassification,
   PlanFailure,
   type RepoSnapshot,
-  type RequiredStructure,
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -70,35 +70,35 @@ function toPlannedFileOutcome({
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
 }): typeof Plan.fields.outcomes.schema.Type {
-  const requiredStructure = toRequiredStructure(planningPath);
-  const hasStructure = !isRequiredStructureEmpty(requiredStructure);
+  const operations = toCompositionOperations(planningPath);
+  const hasOperations = operations.length > 0;
   const contents =
     planningPath.contents ?? planningPath.tsconfig?.contents ?? undefined;
 
   return Match.value({
     hasContents: contents !== undefined,
-    hasStructure,
+    hasOperations,
   }).pipe(
-    Match.when({ hasContents: true, hasStructure: true }, () => ({
+    Match.when({ hasContents: true, hasOperations: true }, () => ({
       _tag: "composed" as const,
       path: planningPath.path,
       classification,
-      contents: contents!,
-      requiredStructure,
+      seedContents: contents!,
+      operations,
     })),
-    Match.when({ hasContents: true, hasStructure: false }, () => ({
+    Match.when({ hasContents: true, hasOperations: false }, () => ({
       _tag: "complete" as const,
       path: planningPath.path,
       classification,
       contents: contents!,
     })),
-    Match.when({ hasContents: false, hasStructure: true }, () => ({
-      _tag: "partial" as const,
+    Match.when({ hasContents: false, hasOperations: true }, () => ({
+      _tag: "composed" as const,
       path: planningPath.path,
       classification,
-      requiredStructure,
+      operations,
     })),
-    Match.when({ hasContents: false, hasStructure: false }, () => {
+    Match.when({ hasContents: false, hasOperations: false }, () => {
       throw new PlanFailure({
         reason: "invalidPlanIntent",
         message: `No planned outcome could be derived for ${planningPath.path}.`,
@@ -108,51 +108,56 @@ function toPlannedFileOutcome({
   );
 }
 
-function toRequiredStructure(
+/**
+ * Convert planning path structural data into composition operations
+ */
+function toCompositionOperations(
   planningPath: PlanningIntentPath,
-): typeof RequiredStructure.Type {
-  const dependencies = pipe(
-    ["dependencies", "devDependencies"] as const,
-    Arr.map((section) => ({
-      section,
-      entries: pipe(
-        planningPath.dependencies,
-        Arr.filter((d) => d.section === section),
-        Arr.map(({ name, value }) => ({ name, value })),
-      ),
-    })),
-    Arr.filter((entry) => entry.entries.length > 0),
-  );
+): Array<typeof CompositionOperation.Type> {
+  const operations: Array<typeof CompositionOperation.Type> = [];
 
-  return {
-    exports: Arr.match(planningPath.exports, {
-      onEmpty: () => undefined,
-      onNonEmpty: Arr.map(({ name, value }) => ({ name, value })),
-    }),
-    dependencies: Arr.match(dependencies, {
-      onEmpty: () => undefined,
-      onNonEmpty: (deps) => deps,
-    }),
-    scripts: Arr.match(planningPath.scripts, {
-      onEmpty: () => undefined,
-      onNonEmpty: Arr.map(({ name, value }) => ({ name, value })),
-    }),
-    reExports: Arr.match(planningPath.barrelExports, {
-      onEmpty: () => undefined,
-      onNonEmpty: Arr.map((e) => e.exportPath),
-    }),
-  };
-}
+  // Package.json exports -> json-pkg-exports
+  if (planningPath.exports.length > 0) {
+    operations.push({
+      _tag: "json-pkg-exports",
+      fileType: "json",
+      entries: planningPath.exports.map(({ name, value }) => ({ name, value })),
+    });
+  }
 
-function isRequiredStructureEmpty(
-  requiredStructure: typeof RequiredStructure.Type,
-) {
-  return (
-    requiredStructure.exports === undefined &&
-    requiredStructure.dependencies === undefined &&
-    requiredStructure.scripts === undefined &&
-    requiredStructure.reExports === undefined
+  // Package.json dependencies -> json-pkg-deps (grouped by section)
+  const depsBySection = Arr.groupBy(
+    planningPath.dependencies,
+    (d) => d.section,
   );
+  for (const [section, deps] of Object.entries(depsBySection)) {
+    operations.push({
+      _tag: "json-pkg-deps",
+      fileType: "json",
+      section: section as "dependencies" | "devDependencies",
+      entries: deps.map(({ name, value }) => ({ name, value })),
+    });
+  }
+
+  // Package.json scripts -> json-pkg-scripts
+  if (planningPath.scripts.length > 0) {
+    operations.push({
+      _tag: "json-pkg-scripts",
+      fileType: "json",
+      entries: planningPath.scripts.map(({ name, value }) => ({ name, value })),
+    });
+  }
+
+  // Barrel exports -> ts-add-reexport
+  for (const { exportPath } of planningPath.barrelExports) {
+    operations.push({
+      _tag: "ts-add-reexport",
+      fileType: "typescript",
+      moduleSpecifier: exportPath,
+    });
+  }
+
+  return operations;
 }
 
 function assessPlanningPath({

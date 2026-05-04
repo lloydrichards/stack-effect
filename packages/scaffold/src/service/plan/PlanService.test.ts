@@ -261,31 +261,35 @@ describe("PlanService", () => {
           expect(
             getOutcome(plan, "packages/domain/package.json"),
           ).toMatchObject({
-            _tag: "partial",
+            _tag: "composed",
             classification: "create",
-            requiredStructure: {
-              exports: [
-                {
-                  name: "./Api",
-                  value: "./src/Api.ts",
-                },
-              ],
-              scripts: expect.arrayContaining([
-                expect.objectContaining({
-                  name: "type-check",
-                  value: "tsc --noEmit",
-                }),
-              ]),
-            },
+            operations: expect.arrayContaining([
+              expect.objectContaining({
+                _tag: "json-pkg-exports",
+                entries: [
+                  {
+                    name: "./Api",
+                    value: "./src/Api.ts",
+                  },
+                ],
+              }),
+              expect.objectContaining({
+                _tag: "json-pkg-scripts",
+                entries: expect.arrayContaining([
+                  expect.objectContaining({
+                    name: "type-check",
+                    value: "tsc --noEmit",
+                  }),
+                ]),
+              }),
+            ]),
           });
           expect(
             getOutcome(plan, "packages/domain/src/index.ts"),
           ).toMatchObject({
-            _tag: "partial",
+            _tag: "composed",
             classification: "create",
-            requiredStructure: {
-              reExports: ["./Api"],
-            },
+            operations: [{ _tag: "ts-add-reexport", moduleSpecifier: "./Api" }],
           });
         }),
     );
