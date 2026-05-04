@@ -4,13 +4,14 @@ import {
   ApplyFailure,
   ApplyResult,
 } from "@repo/domain/Apply";
-import type { CompositionOperations, Plan } from "@repo/domain/Plan";
+import { CompositionOperation } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
   Effect,
   FileSystem,
   Layer,
+  Match,
   Option,
   Path,
 } from "effect";

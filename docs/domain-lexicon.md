@@ -88,12 +88,12 @@ A repository-aware change model for one snapshot, with concrete outcomes and exp
 Invariants:
 
 - Plan is bound to repository reality (`RepoSnapshot`).
-- Outcomes are typed as `complete`, `partial`, or `composed`.
+- Outcomes are typed as `complete` or `composed`.
 - Conflicts are first-class entries, not side notes.
 
 Connected terms:
 
-- `RepoSnapshot`, `RequiredStructure`, `Apply`, `ApplyDecision`
+- `RepoSnapshot`, `CompositionOperations`, `Apply`, `ApplyDecision`
 
 In code:
 
@@ -448,23 +448,27 @@ In code:
 
 - `RepoSnapshot`
 
-### RequiredStructure
+### CompositionOperations
 
 Definition:
-Structural requirements for partial/composed plan outcomes.
+Array of tagged operations for composing file content (JSON or TypeScript).
 
 Invariants:
 
-- May contain exports, dependencies, scripts, and re-export requirements.
-- Used when full file replacement is not the right shape.
+- Operations are tagged unions with `_tag` and `fileType` discriminators.
+- `fileType` is `"json"` or `"typescript"` for type-safe filtering.
+- JSON operations: `json-pkg-exports`, `json-pkg-deps`, `json-pkg-scripts`.
+- TypeScript operations: `ts-add-import`, `ts-add-reexport`, `ts-append-call-arg`.
+- Operations are idempotent: duplicates skip silently.
+- Composition errors flow through Effect error channel as typed tagged errors.
 
 Connected terms:
 
-- `Plan`
+- `Plan`, `ComposedOutcome`
 
 In code:
 
-- `RequiredStructure`
+- `CompositionOperation`, `CompositionOperations`, `JsonCompositionOperation`, `TsCompositionOperation`
 
 ### ApplyDecision
 
