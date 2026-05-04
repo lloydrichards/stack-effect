@@ -94,7 +94,7 @@ Avoid:
 
 See also:
 
-- `RepoSnapshot`, `RequiredStructure`, `Apply`
+- `RepoSnapshot`, `CompositionOperations`, `Apply`
 
 ## Apply
 

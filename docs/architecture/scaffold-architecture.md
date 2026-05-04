@@ -31,7 +31,9 @@ packages/scaffold/
         │   └── RepoSnapshotService.ts
         ├── apply/
         │   ├── ApplyService.ts     # Plan -> ApplyResult
-        │   ├── StructuralMerger.ts
+        │   ├── CompositionEngine.ts
+        │   ├── JsonComposer.ts
+        │   ├── TypeScriptComposer.ts
         │   └── WriteEngine.ts
         └── finalize/
             └── FinalizeService.ts  # Script execution
@@ -49,7 +51,9 @@ packages/scaffold/
 | FinalizeService      | Public   | Post-apply script execution               |
 | ScaffoldFormatter    | Public   | Blueprint/Plan display formatting         |
 | RepoSnapshotService  | Internal | Filesystem state loading                  |
-| StructuralMerger     | Internal | package.json/barrel file merging          |
+| CompositionEngine    | Internal | Dispatches JSON/TypeScript composition    |
+| JsonComposer         | Internal | package.json field merging                |
+| TypeScriptComposer   | Internal | AST-based TypeScript manipulation         |
 | WriteEngine          | Internal | Atomic file writes                        |
 
 ## Pipeline Sequence
@@ -103,7 +107,9 @@ flowchart TB
         CR[ContributionResolver]
         PA[PlanAssessor]
         RSS[RepoSnapshotService]
-        SM[StructuralMerger]
+        CE[CompositionEngine]
+        JC[JsonComposer]
+        TSC[TypeScriptComposer]
         WE[WriteEngine]
     end
 
@@ -119,9 +125,10 @@ flowchart TB
     PS --> PA
     PS --> RSS
     RSS <--> FileSystem
-    AS --> SM
+    AS --> CE
+    CE --> JC
+    CE --> TSC
     AS --> WE
-    SM --> FileSystem
     WE --> FileSystem
 ```
 
@@ -217,29 +224,28 @@ stateDiagram-v2
         CheckExists --> Missing: file missing
         CheckExists --> Exists: file exists
 
-        Missing --> Create: has contents
+        Missing --> Create: has contents or operations
         Exists --> Compare: has contents
 
         Compare --> Unchanged: contents match
         Compare --> Modify: contents differ
 
-        Exists --> CheckStructure: structural only
-        CheckStructure --> Partial: no conflicts
+        Exists --> CheckStructure: operations only
+        CheckStructure --> Composed: no conflicts
         CheckStructure --> Conflict: has conflicts
     }
 
     Create --> CompleteOutcome
     Unchanged --> CompleteOutcome
     Modify --> CompleteOutcome
-    Partial --> PartialOutcome
+    Composed --> ComposedOutcome
     Conflict --> ConflictOutcome
 ```
 
 **Outcome Types**:
 
 - `complete`: Full file contents known (create/modify/unchanged)
-- `partial`: Structural requirements only (package.json merges)
-- `composed`: Base file + structural additions
+- `composed`: Base content + composition operations (JSON or TypeScript)
 
 **Classifications**:
 
@@ -260,14 +266,32 @@ stateDiagram-v2
    - Skip unchanged files
    - Apply conflict decisions (override/skip)
 
-2. **Structural Merging** (StructuralMerger)
-   - Merge package.json exports/dependencies/scripts
-   - Merge barrel export statements
+2. **Composition** (CompositionEngine)
+   - Filters operations by `fileType` discriminator (`"json"` or `"typescript"`)
+   - Dispatches to JsonComposer for package.json files
+   - Dispatches to TypeScriptComposer for .ts/.tsx files
+   - Returns typed errors in Effect error channel
 
 3. **File Writing** (WriteEngine)
    - Atomic writes (temp file + rename)
    - Validate writeMode vs file existence
    - Create parent directories as needed
+
+### Composition Operations
+
+Operations are tagged unions with a `fileType` discriminator for type-safe filtering:
+
+**JSON Operations** (`fileType: "json"`):
+
+- `json-pkg-exports`: Merge entries into package.json exports field
+- `json-pkg-deps`: Merge entries into dependencies/devDependencies
+- `json-pkg-scripts`: Merge entries into scripts field
+
+**TypeScript Operations** (`fileType: "typescript"`):
+
+- `ts-add-import`: Add import statement (named, default, or type-only)
+- `ts-add-reexport`: Add re-export statement (star or named)
+- `ts-append-call-arg`: Append argument to function call by variable/function name
 
 ### Materialized Actions
 
@@ -275,8 +299,7 @@ stateDiagram-v2
 | --------------------- | ------------------------------------ |
 | `skip`                | unchanged or decision=skip           |
 | `write-authoritative` | complete outcome, create/modify      |
-| `write-structural`    | partial outcome                      |
-| `write-composed`      | composed outcome (base + structural) |
+| `write-composed`      | composed outcome (base + operations) |
 
 ### WriteMode
 
@@ -335,12 +358,14 @@ Plan:
 
 ## Error Types
 
-| Error              | Service        | Causes                                    |
-| ------------------ | -------------- | ----------------------------------------- |
-| `BlueprintFailure` | Blueprint      | Duplicate selections, unsupported modules |
-| `CatalogNotFound`  | Blueprint/Plan | Missing target/module definitions         |
-| `PlanFailure`      | Plan           | File blocking directory, invalid intent   |
-| `ApplyFailure`     | Apply          | Invalid decisions, write failures         |
+| Error                   | Service            | Causes                                                |
+| ----------------------- | ------------------ | ----------------------------------------------------- |
+| `BlueprintFailure`      | Blueprint          | Duplicate selections, unsupported modules             |
+| `CatalogNotFound`       | Blueprint/Plan     | Missing target/module definitions                     |
+| `PlanFailure`           | Plan               | File blocking directory, invalid intent               |
+| `ApplyFailure`          | Apply              | Invalid decisions, write failures, composition errors |
+| `JsonCompositionError`  | JsonComposer       | JSON parse/stringify failure                          |
+| `TsTargetNotFoundError` | TypeScriptComposer | AST target variable or function not found             |
 
 ## Layer Composition
 
@@ -358,7 +383,9 @@ PlanService.layer
 
 ApplyService.layer
   ├── WriteEngine.layer
-  └── StructuralMerger.layer
+  └── CompositionEngine.layer
+        ├── JsonComposer.layer
+        └── TypeScriptComposer.layer
 
 FinalizeService.layer
   └── CatalogService.layer
