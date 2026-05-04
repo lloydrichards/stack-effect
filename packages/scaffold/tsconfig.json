@@ -2,7 +2,7 @@
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
     "rootDir": ".",
-    "lib": ["ES2023", "DOM"],
+    "lib": ["ES2024", "DOM"],
     "composite": true,
     "declaration": true,
     "declarationMap": true,
