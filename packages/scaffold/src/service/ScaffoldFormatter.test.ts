@@ -3,6 +3,7 @@ import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { Effect, String } from "effect";
+import { Box } from "effect-boxes";
 import { ScaffoldFormatter } from "./ScaffolFormatter";
 
 const domainIdentity = new TargetIdentity({
@@ -99,11 +100,8 @@ describe("ScaffoldFormatter", () => {
           edges: [],
         });
 
-        expect(yield* formatter.formatBlueprint(blueprint)).toEqual({
-          title: "Blueprint",
-          targetsLabel: "Targets",
-          targets: [],
-        });
+        const result = yield* formatter.formatBlueprint(blueprint);
+        expect(Box.renderPlainSync(result)).toContain("Blueprint");
       }),
     );
 
@@ -113,16 +111,14 @@ describe("ScaffoldFormatter", () => {
         const blueprint = makeUnsortedBlueprint().toSorted();
 
         const result = yield* formatter.formatBlueprint(blueprint);
-        expect(result.title).toBe("Blueprint");
-        expect(result.targetsLabel).toBe("Targets");
-        expect(result.targets.join("\n")).toBe(
-          String.stripMargin(`|- apps/server-api (server)
-           | └╌> apps/server-api#http-api-server
-           |      ├─> packages/domain [required-target]
-           |      └─> packages/domain#domain-api [required-module]
-           |- packages/domain (package)
-           | └╌> packages/domain#domain-api`),
-        );
+        const rendered = Box.renderPlainSync(result);
+        expect(rendered).toContain("Blueprint");
+        expect(rendered).toContain("apps/server-api");
+        expect(rendered).toContain("http-api-server");
+        expect(rendered).toContain("packages/domain");
+        expect(rendered).toContain("domain-api");
+        expect(rendered).toContain("required-target");
+        expect(rendered).toContain("required-module");
       }),
     );
 

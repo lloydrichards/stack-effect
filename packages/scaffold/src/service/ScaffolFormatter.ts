@@ -17,12 +17,9 @@ import {
   pipe,
   String,
 } from "effect";
+import { Ansi, Box } from "effect-boxes";
 
-type FormattedBlueprint = {
-  readonly title: string;
-  readonly targetsLabel: string;
-  readonly targets: ReadonlyArray<string>;
-};
+export type FormattedBlueprint = Box.Box<Ansi.AnsiStyle>;
 
 type FormattedPlan = {
   readonly title: string;
@@ -64,7 +61,9 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
           blueprint: typeof Blueprint.Type,
         ): Generator<never, FormattedBlueprint> {
           if (blueprint.nodes.length === 0) {
-            return { title: "Blueprint", targetsLabel: "Targets", targets: [] };
+            return Box.text("Blueprint").pipe(
+              Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+            );
           }
 
           const attachedModulesByTarget = pipe(
@@ -96,44 +95,63 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
               ),
           );
 
-          const targets = Arr.flatMap(
+          const targetBoxes = Arr.flatMap(
             blueprint.nodes.filter(isBlueprintTargetNode),
-            (targetNode) => [
-              `- ${targetNode.id} (${targetNode.identity.kind})`,
-              ...renderTreeBranches(
-                Arr.map(
-                  Arr.sort(
-                    Arr.fromIterable(
-                      attachedModulesByTarget.get(targetNode.id) ?? [],
-                    ),
-                    blueprintNodeOrd,
-                  ),
-                  (attachedModule) =>
-                    ({
-                      line: attachedModule.id,
-                      prefix: "╌>",
-                      children: Arr.map(
-                        Arr.sort(
-                          Arr.filter(
-                            Arr.fromIterable(
-                              outgoingEdgesByNode.get(attachedModule.id) ?? [],
-                            ),
-                            (edge) => edge.reason !== "owns-module",
-                          ),
-                          idOrd,
-                        ),
-                        (edge) => ({
-                          line: `${edge.to} [${edge.reason}]`,
-                          prefix: "─>",
-                        }),
-                      ),
-                    }) satisfies TreeBranch,
+            (targetNode) => {
+              const attachedModules = Arr.sort(
+                Arr.fromIterable(
+                  attachedModulesByTarget.get(targetNode.id) ?? [],
                 ),
-              ),
-            ],
+                blueprintNodeOrd,
+              );
+
+              const targetHeader = Box.hcat(
+                [
+                  Box.text("- "),
+                  Box.text(targetNode.id).pipe(Box.annotate(Ansi.bold)),
+                  Box.text(` (${targetNode.identity.kind})`).pipe(
+                    Box.annotate(Ansi.dim),
+                  ),
+                ],
+                Box.top,
+              );
+
+              const moduleLines = renderTreeBranchesAsBox(
+                Arr.map(attachedModules, (attachedModule) => ({
+                  line: attachedModule.id,
+                  prefix: "╌>" as const,
+                  children: Arr.map(
+                    Arr.sort(
+                      Arr.filter(
+                        Arr.fromIterable(
+                          outgoingEdgesByNode.get(attachedModule.id) ?? [],
+                        ),
+                        (edge) => edge.reason !== "owns-module",
+                      ),
+                      idOrd,
+                    ),
+                    (edge) => ({
+                      line: `${edge.to} [${edge.reason}]`,
+                      prefix: "─>" as const,
+                    }),
+                  ),
+                })),
+              );
+
+              return [targetHeader, moduleLines];
+            },
           );
 
-          return { title: "Blueprint", targetsLabel: "Targets", targets };
+          return Box.vcat(
+            [
+              Box.text("Blueprint").pipe(
+                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+              ),
+              Box.emptyBox(0, 1),
+              ...targetBoxes,
+            ],
+            Box.left,
+          );
         },
       );
 
@@ -194,16 +212,49 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   );
 }
 
+const renderTreeBranchesAsBox = (
+  branches: ReadonlyArray<TreeBranch>,
+  indent = "  ",
+): Box.Box<Ansi.AnsiStyle> => {
+  if (branches.length === 0) {
+    return Box.nullBox;
+  }
+
+  const lines = Arr.flatMap(branches, (branch, index) => {
+    const isLast = index === branches.length - 1;
+    const connector = isLast ? "└" : "├";
+    const childIndent = String.concat(indent, isLast ? "    " : "│   ");
+
+    const branchLine = Box.hcat(
+      [
+        Box.text(`${indent}${connector}`),
+        Box.text(branch.prefix).pipe(Box.annotate(Ansi.cyan)),
+        Box.text(` ${branch.line}`),
+      ],
+      Box.top,
+    );
+
+    const childBox = renderTreeBranchesAsBox(
+      branch.children ?? [],
+      childIndent,
+    );
+
+    return childBox.rows > 0 ? [branchLine, childBox] : [branchLine];
+  });
+
+  return Box.vcat(lines, Box.left);
+};
+
 const renderTreeBranches = (
   branches: ReadonlyArray<TreeBranch>,
-  indent = "",
+  indent = "  ",
 ): ReadonlyArray<string> =>
   Arr.flatMap(branches, (branch, index) => {
     const isLast = index === branches.length - 1;
-    const childIndent = String.concat(indent, isLast ? "     " : " │     ");
+    const childIndent = String.concat(indent, isLast ? "    " : "│   ");
 
     return [
-      `${indent}${isLast ? " └" : " ├"}${branch.prefix} ${branch.line}`,
+      `${indent}${isLast ? "└" : "├"}${branch.prefix} ${branch.line}`,
       ...renderTreeBranches(branch.children ?? [], childIndent),
     ];
   });
