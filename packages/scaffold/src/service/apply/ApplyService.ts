@@ -4,7 +4,7 @@ import {
   ApplyFailure,
   ApplyResult,
 } from "@repo/domain/Apply";
-import type { Plan } from "@repo/domain/Plan";
+import type { CompositionOperations, Plan } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -14,7 +14,7 @@ import {
   Option,
   Path,
 } from "effect";
-import { StructuralMerger } from "./StructuralMerger";
+import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
 type MaterializedPlannedOutcomeAction =
@@ -30,22 +30,10 @@ type MaterializedPlannedOutcomeAction =
       readonly writeMode: "create" | "modify" | "override";
     }
   | {
-      readonly _tag: "write-structural";
-      readonly path: string;
-      readonly requiredStructure: Extract<
-        typeof Plan.fields.outcomes.schema.Type,
-        { _tag: "partial" }
-      >["requiredStructure"];
-      readonly writeMode: "create" | "modify" | "override";
-    }
-  | {
       readonly _tag: "write-composed";
       readonly path: string;
-      readonly contents: string;
-      readonly requiredStructure: Extract<
-        typeof Plan.fields.outcomes.schema.Type,
-        { _tag: "partial" }
-      >["requiredStructure"];
+      readonly seedContents: string | undefined;
+      readonly operations: ReadonlyArray<typeof CompositionOperation.Type>;
       readonly writeMode: "create" | "modify" | "override";
     };
 
@@ -64,7 +52,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
   {
     make: Effect.gen(function* () {
       const writeEngine = yield* WriteEngine;
-      const merger = yield* StructuralMerger;
+      const compositionEngine = yield* CompositionEngine;
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
@@ -75,89 +63,70 @@ export class ApplyService extends Context.Service<ApplyService>()(
               (decision) => [decision.path, decision.value] as const,
             ),
           );
-
           return Arr.map(
             apply.plan.outcomes,
-            (outcome): MaterializedPlannedOutcomeAction => {
-              const decision = decisionsByPath.get(outcome.path);
-              switch (outcome.classification) {
-                case "unchanged":
-                  return {
-                    _tag: "skip",
-                    path: outcome.path,
-                    reason: "unchanged",
-                  };
-                case "create":
-                case "modify":
-                  if (outcome._tag === "complete") {
+            (outcome): MaterializedPlannedOutcomeAction =>
+              Match.value(outcome).pipe(
+                Match.withReturnType<MaterializedPlannedOutcomeAction>(),
+                Match.when({ classification: "unchanged" }, (o) => ({
+                  _tag: "skip" as const,
+                  path: o.path,
+                  reason: o.classification,
+                })),
+                Match.whenOr(
+                  { classification: "create" },
+                  { classification: "modify" },
+                  (o) =>
+                    Match.valueTags(o, {
+                      complete: (n) => ({
+                        _tag: "write-authoritative" as const,
+                        path: n.path,
+                        contents: n.contents,
+                        writeMode: n.classification,
+                      }),
+                      composed: (n) => ({
+                        _tag: "write-composed" as const,
+                        path: n.path,
+                        seedContents: n.seedContents,
+                        operations: n.operations,
+                        writeMode: n.classification,
+                      }),
+                    }),
+                ),
+                Match.when({ classification: "conflict" }, (o) => {
+                  if (decisionsByPath.get(outcome.path) === "skip") {
                     return {
-                      _tag: "write-authoritative",
-                      path: outcome.path,
-                      contents: outcome.contents,
-                      writeMode: outcome.classification,
+                      _tag: "skip" as const,
+                      path: o.path,
+                      reason: "decision" as const,
                     };
                   }
-
-                  if (outcome._tag === "composed") {
-                    return {
-                      _tag: "write-composed",
-                      path: outcome.path,
-                      contents: outcome.contents,
-                      requiredStructure: outcome.requiredStructure,
-                      writeMode: outcome.classification,
-                    };
-                  }
-
-                  return {
-                    _tag: "write-structural",
-                    path: outcome.path,
-                    requiredStructure: outcome.requiredStructure,
-                    writeMode: outcome.classification,
-                  };
-                case "conflict":
-                  if (decision === "skip") {
-                    return {
-                      _tag: "skip",
-                      path: outcome.path,
-                      reason: "decision",
-                    };
-                  }
-
-                  if (outcome._tag === "complete") {
-                    return {
-                      _tag: "write-authoritative",
-                      path: outcome.path,
-                      contents: outcome.contents,
-                      writeMode: "override",
-                    };
-                  }
-
-                  if (outcome._tag === "composed") {
-                    return {
-                      _tag: "write-composed",
-                      path: outcome.path,
-                      contents: outcome.contents,
-                      requiredStructure: outcome.requiredStructure,
-                      writeMode: "override",
-                    };
-                  }
-
-                  return {
-                    _tag: "write-structural",
-                    path: outcome.path,
-                    requiredStructure: outcome.requiredStructure,
-                    writeMode: "override",
-                  };
-              }
-            },
+                  return Match.valueTags(o, {
+                    complete: (n) => ({
+                      _tag: "write-authoritative" as const,
+                      path: n.path,
+                      contents: n.contents,
+                      writeMode: "override" as const,
+                    }),
+                    composed: (n) => ({
+                      _tag: "write-composed" as const,
+                      path: n.path,
+                      seedContents: n.seedContents,
+                      operations: n.operations,
+                      writeMode: "override" as const,
+                    }),
+                  });
+                }),
+                Match.exhaustive,
+              ),
           );
         },
       );
 
       const loadFileContents = Effect.fn("ApplyService.loadFileContents")(
-        function* (path: string) {
+        function* (filePath: string) {
           const pathStat = yield* fileSystem
-            .stat(path)
+            .stat(filePath)
             .pipe(
               Effect.catch((error) =>
                 error.reason._tag === "NotFound"
@@ -173,16 +142,16 @@ export class ApplyService extends Context.Service<ApplyService>()(
           if (pathStat.type === "Directory") {
             throw new ApplyFailure({
               reason: "repoRootInvalid",
-              message: `Expected ${path} to be a file during apply.`,
+              message: `Expected ${filePath} to be a file during apply.`,
             });
           }
 
-          const contents = yield* fileSystem.readFileString(path).pipe(
+          const contents = yield* fileSystem.readFileString(filePath).pipe(
             Effect.mapError(
               (error) =>
                 new ApplyFailure({
                   reason: "repoRootInvalid",
-                  message: `Could not read ${path} during apply: ${error.message}`,
+                  message: `Could not read ${filePath} during apply: ${error.message}`,
                 }),
             ),
           );
@@ -213,38 +182,39 @@ export class ApplyService extends Context.Service<ApplyService>()(
                 writeMode: action.writeMode,
               },
             } satisfies PreparedApplyAction;
-          case "write-structural": {
-            const existingContents = yield* loadFileContents(
-              path.join(repoRoot, action.path),
-            );
-            const merged = yield* merger.merge({
-              path: action.path,
-              required: action.requiredStructure,
-              existing: existingContents,
-              mode: action.writeMode,
-            });
-
-            return {
-              _tag: "write",
-              request: {
-                path: action.path,
-                contents: merged.contents,
-                writeMode: action.writeMode,
-              },
-            } satisfies PreparedApplyAction;
-          }
           case "write-composed": {
-            const merged = yield* merger.mergeComposed({
-              path: action.path,
-              baseContents: action.contents,
-              required: action.requiredStructure,
-            });
+            // Get base contents: use seedContents if provided, otherwise load from file
+            let baseContents: string;
+            if (action.seedContents !== undefined) {
+              baseContents = action.seedContents;
+            } else {
+              const existingContents = yield* loadFileContents(
+                path.join(repoRoot, action.path),
+              );
+              if (Option.isNone(existingContents)) {
+                // No existing file and no seed - start with empty for JSON, fail for TS
+                if (action.path.endsWith(".json")) {
+                  baseContents = "{}";
+                } else {
+                  baseContents = "";
+                }
+              } else {
+                baseContents = existingContents.value;
+              }
+            }
+
+            // Apply composition operations
+            const composedContents = yield* compositionEngine.compose(
+              action.path,
+              baseContents,
+              action.operations,
+            );
 
             return {
               _tag: "write",
               request: {
                 path: action.path,
-                contents: merged.contents,
+                contents: composedContents,
                 writeMode: action.writeMode,
               },
             } satisfies PreparedApplyAction;
@@ -277,27 +247,27 @@ export class ApplyService extends Context.Service<ApplyService>()(
             skippedPaths: new Set<string>(),
             writeRequests: [] as Array<ApplyWriteRequest>,
           },
-          (projection, preparedAction) => {
+          (proj, preparedAction) => {
             switch (preparedAction._tag) {
               case "skip":
-                projection.skippedPaths.add(preparedAction.path);
-                return projection;
+                proj.skippedPaths.add(preparedAction.path);
+                return proj;
               case "write":
-                projection.writeRequests.push(preparedAction.request);
-                return projection;
+                proj.writeRequests.push(preparedAction.request);
+                return proj;
             }
           },
         );
       });
 
       const apply = Effect.fn("ApplyService.apply")(function* ({
-        apply,
+        apply: applyIntent,
         repoRoot,
       }: {
         apply: typeof Apply.Type;
         repoRoot: string;
       }) {
-        const actions = yield* materializeFrom(apply);
+        const actions = yield* materializeFrom(applyIntent);
 
         const actionProjection = yield* projection({ actions, repoRoot });
 
@@ -325,23 +295,23 @@ export class ApplyService extends Context.Service<ApplyService>()(
             skippedPaths: actionProjection.skippedPaths,
             failed: [] as Array<typeof ApplyFailedPath.Type>,
           },
-          (projection, writeAttempt) => {
+          (proj, writeAttempt) => {
             switch (writeAttempt.status) {
               case "created":
-                projection.created.push(writeAttempt.path);
-                return projection;
+                proj.created.push(writeAttempt.path);
+                return proj;
               case "modified":
-                projection.modified.push(writeAttempt.path);
-                return projection;
+                proj.modified.push(writeAttempt.path);
+                return proj;
               case "unchanged":
-                projection.skippedPaths.add(writeAttempt.path);
-                return projection;
+                proj.skippedPaths.add(writeAttempt.path);
+                return proj;
               case "failure":
-                projection.failed.push({
+                proj.failed.push({
                   path: writeAttempt.path,
                   reason: writeAttempt.reason,
                 });
-                return projection;
+                return proj;
             }
           },
         );
@@ -360,6 +330,6 @@ export class ApplyService extends Context.Service<ApplyService>()(
 ) {
   static readonly layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
     Layer.provide(WriteEngine.layer),
-    Layer.provide(StructuralMerger.layer),
+    Layer.provide(CompositionEngine.layer),
   );
 }

@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { type ApplyDecision, Apply as ApplyIntent } from "@repo/domain/Apply";
 import {
+  CompositionOperation,
   Plan,
   type PlanEntryClassification,
-  type RequiredStructure,
 } from "@repo/domain/Plan";
 import {
   Cause,
@@ -18,7 +18,7 @@ import {
   PlatformError,
 } from "effect";
 import { ApplyService } from "./ApplyService";
-import { StructuralMerger } from "./StructuralMerger";
+import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
 const testRepoRoot = "/repo";
@@ -30,14 +30,10 @@ type MockPathEntry =
   | { readonly _tag: "statError"; readonly error: PlatformError.PlatformError }
   | { readonly _tag: "readError"; readonly error: PlatformError.PlatformError };
 
-type StructuralMergeInput = {
+type CompositionInput = {
   readonly path: string;
-  readonly required: Extract<
-    typeof Plan.fields.outcomes.schema.Type,
-    { _tag: "partial" }
-  >["requiredStructure"];
-  readonly existing: Option.Option<string>;
-  readonly mode: "create" | "modify" | "override";
+  readonly contents: string;
+  readonly operations: ReadonlyArray<typeof CompositionOperation.Type>;
 };
 
 const makeNotFoundError = (method: string, absolutePath: string) =>
@@ -121,7 +117,7 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
 
 const makeApplyServiceLayer = ({
   write,
-  merge,
+  compose,
   entries = {},
 }: {
   write: (args: {
@@ -135,9 +131,7 @@ const makeApplyServiceLayer = ({
     unknown,
     never
   >;
-  merge: (
-    input: StructuralMergeInput,
-  ) => Effect.Effect<{ readonly path: string; readonly contents: string }>;
+  compose?: (input: CompositionInput) => Effect.Effect<string>;
   entries?: Record<string, MockPathEntry>;
 }) =>
   Layer.effect(ApplyService)(ApplyService.make).pipe(
@@ -146,10 +140,16 @@ const makeApplyServiceLayer = ({
         Layer.succeed(WriteEngine, {
           write: Effect.fn("MockWriteEngine.write")(write),
         } as never),
-        Layer.succeed(StructuralMerger, {
-          merge: Effect.fn("MockStructuralMerger.merge")(merge),
-          mergeComposed: Effect.fn("MockStructuralMerger.mergeComposed")(() =>
-            Effect.succeed({ path: "", contents: "" }),
+        Layer.succeed(CompositionEngine, {
+          compose: Effect.fn("MockCompositionEngine.compose")(
+            (
+              path: string,
+              contents: string,
+              operations: ReadonlyArray<typeof CompositionOperation.Type>,
+            ) =>
+              compose
+                ? compose({ path, contents, operations })
+                : Effect.succeed(contents),
           ),
         } as never),
         makeFileSystemLayer(entries),
@@ -203,16 +203,16 @@ const completeOutcome = ({
 const partialOutcome = ({
   path,
   classification,
-  requiredStructure,
+  operations,
 }: {
   path: string;
   classification: typeof PlanEntryClassification.Type;
-  requiredStructure: typeof RequiredStructure.Type;
+  operations: ReadonlyArray<typeof CompositionOperation.Type>;
 }): typeof Plan.fields.outcomes.schema.Type => ({
-  _tag: "partial",
+  _tag: "composed",
   path,
   classification,
-  requiredStructure,
+  operations,
 });
 
 describe("ApplyService", () => {
@@ -220,7 +220,7 @@ describe("ApplyService", () => {
     it.effect("should skip unchanged outcomes and then avoid writes", () =>
       Effect.gen(function* () {
         const writeCalls: Array<ApplyWriteRequest> = [];
-        const mergeCalls: Array<StructuralMergeInput> = [];
+        const composeCalls: Array<CompositionInput> = [];
 
         const result = yield* runApply({
           apply: makeApply({
@@ -240,15 +240,15 @@ describe("ApplyService", () => {
                 status: "created" as const,
               });
             },
-            merge: (input) => {
-              mergeCalls.push(input);
-              return Effect.succeed({ path: input.path, contents: "unused" });
+            compose: (input) => {
+              composeCalls.push(input);
+              return Effect.succeed("unused");
             },
           }),
         });
 
         expect(writeCalls).toHaveLength(0);
-        expect(mergeCalls).toHaveLength(0);
+        expect(composeCalls).toHaveLength(0);
         expect(result).toMatchObject({
           created: [],
           modified: [],
@@ -282,8 +282,7 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              merge: (input) =>
-                Effect.succeed({ path: input.path, contents: "unused" }),
+              compose: (input) => Effect.succeed("unused"),
             }),
           });
 
@@ -333,8 +332,7 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              merge: (input) =>
-                Effect.succeed({ path: input.path, contents: "unused" }),
+              compose: (input) => Effect.succeed("unused"),
             }),
           });
 
@@ -372,8 +370,7 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              merge: (input) =>
-                Effect.succeed({ path: input.path, contents: "unused" }),
+              compose: (input) => Effect.succeed("unused"),
             }),
           });
 
@@ -398,7 +395,7 @@ describe("ApplyService", () => {
       () =>
         Effect.gen(function* () {
           const writeCalls: Array<ApplyWriteRequest> = [];
-          const mergeCalls: Array<StructuralMergeInput> = [];
+          const composeCalls: Array<CompositionInput> = [];
 
           const result = yield* runApply({
             apply: makeApply({
@@ -406,9 +403,13 @@ describe("ApplyService", () => {
                 partialOutcome({
                   path: "packages/domain/src/index.ts",
                   classification: "create",
-                  requiredStructure: {
-                    reExports: ["./Api"],
-                  },
+                  operations: [
+                    {
+                      _tag: "ts-add-reexport",
+                      fileType: "typescript",
+                      moduleSpecifier: "./Api",
+                    },
+                  ],
                 }),
               ],
             }),
@@ -423,23 +424,18 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              merge: (input) => {
-                mergeCalls.push(input);
-                return Effect.succeed({
-                  path: input.path,
-                  contents: 'export * from "./Api";\n',
-                });
+              compose: (input) => {
+                composeCalls.push(input);
+                return Effect.succeed('export * from "./Api";\n');
               },
             }),
           });
 
-          expect(mergeCalls).toHaveLength(1);
-          const firstMergeCall = mergeCalls[0];
-          assert(firstMergeCall !== undefined);
-          expect(Option.isNone(firstMergeCall.existing)).toBe(true);
-          expect(firstMergeCall).toMatchObject({
+          expect(composeCalls).toHaveLength(1);
+          const firstComposeCall = composeCalls[0];
+          assert(firstComposeCall !== undefined);
+          expect(firstComposeCall).toMatchObject({
             path: "packages/domain/src/index.ts",
-            mode: "create",
           });
           expect(writeCalls).toEqual([
             {
@@ -461,7 +457,7 @@ describe("ApplyService", () => {
       "should merge structural modify outcomes with existing file contents",
       () =>
         Effect.gen(function* () {
-          const mergeCalls: Array<StructuralMergeInput> = [];
+          const composeCalls: Array<CompositionInput> = [];
 
           const result = yield* runApply({
             apply: makeApply({
@@ -469,9 +465,13 @@ describe("ApplyService", () => {
                 partialOutcome({
                   path: "packages/domain/src/index.ts",
                   classification: "modify",
-                  requiredStructure: {
-                    reExports: ["./Api"],
-                  },
+                  operations: [
+                    {
+                      _tag: "ts-add-reexport",
+                      fileType: "typescript",
+                      moduleSpecifier: "./Api",
+                    },
+                  ],
                 }),
               ],
             }),
@@ -487,21 +487,17 @@ describe("ApplyService", () => {
                   path: write.path,
                   status: "modified" as const,
                 }),
-              merge: (input) => {
-                mergeCalls.push(input);
-                return Effect.succeed({
-                  path: input.path,
-                  contents: 'export * from "./Api";\n',
-                });
+              compose: (input) => {
+                composeCalls.push(input);
+                return Effect.succeed('export * from "./Api";\n');
               },
             }),
           });
 
-          expect(mergeCalls).toHaveLength(1);
-          const firstMergeCall = mergeCalls[0];
-          assert(firstMergeCall !== undefined);
-          expect(Option.isSome(firstMergeCall.existing)).toBe(true);
-          expect(Option.getOrUndefined(firstMergeCall.existing)).toBe(
+          expect(composeCalls).toHaveLength(1);
+          const firstComposeCall = composeCalls[0];
+          assert(firstComposeCall !== undefined);
+          expect(firstComposeCall.contents).toBe(
             'export * from "./Existing";\n',
           );
           expect(result).toMatchObject({
@@ -526,9 +522,13 @@ describe("ApplyService", () => {
                   partialOutcome({
                     path: "packages/domain/src/index.ts",
                     classification: "modify",
-                    requiredStructure: {
-                      reExports: ["./Api"],
-                    },
+                    operations: [
+                      {
+                        _tag: "ts-add-reexport",
+                        fileType: "typescript",
+                        moduleSpecifier: "./Api",
+                      },
+                    ],
                   }),
                 ],
               }),
@@ -545,8 +545,7 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                merge: (input) =>
-                  Effect.succeed({ path: input.path, contents: "unused" }),
+                compose: (input) => Effect.succeed("unused"),
               }),
             }),
           );
@@ -576,9 +575,13 @@ describe("ApplyService", () => {
                   partialOutcome({
                     path: "packages/domain/src/index.ts",
                     classification: "modify",
-                    requiredStructure: {
-                      reExports: ["./Api"],
-                    },
+                    operations: [
+                      {
+                        _tag: "ts-add-reexport",
+                        fileType: "typescript",
+                        moduleSpecifier: "./Api",
+                      },
+                    ],
                   }),
                 ],
               }),
@@ -602,8 +605,7 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                merge: (input) =>
-                  Effect.succeed({ path: input.path, contents: "unused" }),
+                compose: (input) => Effect.succeed("unused"),
               }),
             }),
           );
@@ -638,8 +640,7 @@ describe("ApplyService", () => {
                 path: write.path,
                 status: "unchanged" as const,
               }),
-            merge: (input) =>
-              Effect.succeed({ path: input.path, contents: "unused" }),
+            compose: (input) => Effect.succeed("unused"),
           }),
         });
 
@@ -686,8 +687,7 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              merge: (input) =>
-                Effect.succeed({ path: input.path, contents: "unused" }),
+              compose: (input) => Effect.succeed("unused"),
             }),
           });
 
@@ -782,8 +782,7 @@ describe("ApplyService", () => {
                     );
                 }
               },
-              merge: (input) =>
-                Effect.succeed({ path: input.path, contents: "unused" }),
+              compose: (input) => Effect.succeed("unused"),
             }),
           });
 

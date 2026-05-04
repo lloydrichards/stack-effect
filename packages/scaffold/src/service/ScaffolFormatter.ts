@@ -392,6 +392,8 @@ const formatConflictLine = (
       exports: (c) => `merge: exports ${c.name}`,
       scripts: (c) => `merge: scripts ${c.name}`,
       tsconfig: () => "merge: tsconfig",
+      compositionTargetNotFound: (c) =>
+        `composition target not found: ${c.targetVariable} (${c.functionName})`,
     }),
     Match.exhaustive,
   );

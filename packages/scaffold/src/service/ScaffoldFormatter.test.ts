@@ -154,10 +154,17 @@ describe("ScaffoldFormatter", () => {
                 contents: 'export const Api = "Api";\n',
               },
               {
-                _tag: "partial",
+                _tag: "composed",
                 path: "packages/domain/src/index.ts",
                 classification: "conflict",
-                requiredStructure: { reExports: ["./Api"] },
+                seedContents: "",
+                operations: [
+                  {
+                    _tag: "ts-add-reexport",
+                    fileType: "typescript",
+                    moduleSpecifier: "./Api",
+                  },
+                ],
               },
               {
                 _tag: "complete",
@@ -173,17 +180,22 @@ describe("ScaffoldFormatter", () => {
                 contents: "# Repo\n",
               },
               {
-                _tag: "partial",
+                _tag: "composed",
                 path: "package.json",
                 classification: "unchanged",
-                requiredStructure: {
-                  scripts: [
-                    {
-                      name: "build",
-                      value: "tsc -p tsconfig.json",
-                    },
-                  ],
-                },
+                seedContents: "{}",
+                operations: [
+                  {
+                    _tag: "json-pkg-scripts",
+                    fileType: "json",
+                    entries: [
+                      {
+                        name: "build",
+                        value: "tsc -p tsconfig.json",
+                      },
+                    ],
+                  },
+                ],
               },
             ],
             conflicts: [
