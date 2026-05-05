@@ -50,23 +50,21 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   }
 
   matches(supportedOn: typeof SupportedOn.Type): boolean {
-    switch (supportedOn._tag) {
-      case "identity":
-        return supportedOn.identity.toKey() === this.toKey();
-      case "kind":
-        return supportedOn.kind === this.kind;
-    }
+    return SupportedOn.match(supportedOn, {
+      identity: (s) => s.identity.toKey() === this.toKey(),
+      kind: (s) => s.kind === this.kind,
+    });
   }
 }
 
-export const SupportedOn = Schema.Union([
-  Schema.TaggedStruct("kind", {
+export const SupportedOn = Schema.TaggedUnion({
+  kind: {
     kind: TargetKind,
-  }),
-  Schema.TaggedStruct("identity", {
+  },
+  identity: {
     identity: TargetIdentity,
-  }),
-]);
+  },
+});
 
 export const ScriptPhase = Schema.Literals(["post", "finalize"]);
 
@@ -212,14 +210,14 @@ export const TargetDefinition = Schema.Struct({
   ),
 });
 
-export const CatalogNode = Schema.Union([
-  Schema.TaggedStruct("target", {
+export const CatalogNode = Schema.TaggedUnion({
+  target: {
     definition: TargetDefinition,
-  }),
-  Schema.TaggedStruct("module", {
+  },
+  module: {
     definition: ModuleDefinition,
-  }),
-]);
+  },
+});
 
 export const CatalogEdge = Schema.Literals([
   "supportedOn",

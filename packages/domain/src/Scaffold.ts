@@ -33,13 +33,12 @@ export const ContributionTokenContext = Schema.Struct({
   projectName: Schema.NonEmptyString,
 });
 
-const Runtime = Schema.Union([
-  Schema.TaggedStruct("bun", {}),
-  Schema.TaggedStruct("node", {
+const Runtime = Schema.TaggedUnion({
+  bun: {},
+  node: {
     packageManager: Schema.Literals(["pnpm", "npm"]),
-  }),
-]);
-export type Runtime = Schema.Schema.Type<typeof Runtime>;
+  },
+});
 
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   name: Schema.NonEmptyString,
@@ -54,12 +53,10 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   }
 
   get packageManagerName(): "bun" | "npm" | "pnpm" {
-    switch (this.runtime._tag) {
-      case "bun":
-        return "bun";
-      case "node":
-        return this.runtime.packageManager;
-    }
+    return Runtime.match(this.runtime, {
+      bun: () => "bun" as const,
+      node: (r) => r.packageManager,
+    });
   }
 
   get packageManagerSpec(): string {
