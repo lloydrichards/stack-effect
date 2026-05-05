@@ -1,9 +1,5 @@
 import { CatalogService } from "@repo/catalog";
-import {
-  type Blueprint,
-  isBlueprintAttachedModuleNode,
-  isBlueprintTargetNode,
-} from "@repo/domain/Blueprint";
+import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import type { DesiredContributions } from "@repo/domain/Catalog";
 import {
   type ContributionTokenContext,
@@ -30,7 +26,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         config: typeof StackConfig.Type,
       ) {
         const targetResults = yield* Effect.forEach(
-          Arr.filter(blueprint.nodes, isBlueprintTargetNode),
+          Arr.filter(blueprint.nodes, BlueprintNode.guards.target),
           (node) =>
             Effect.gen(function* () {
               const definition = yield* catalog.getTarget(node.identity.kind);
@@ -63,7 +59,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         );
 
         const moduleContributions = yield* pipe(
-          Arr.filter(blueprint.nodes, isBlueprintAttachedModuleNode),
+          Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
           Arr.filterMap((node) =>
             Result.map(
               Result.fromNullishOr(

@@ -41,20 +41,18 @@ export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
         yield* Effect.forEach(
           operations,
           (op) =>
-            Effect.gen(function* () {
-              yield* Match.value(op).pipe(
-                Match.tag("ts-add-import", (importOp) =>
-                  Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
-                ),
-                Match.tag("ts-add-reexport", (reexportOp) =>
-                  Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
-                ),
-                Match.tag("ts-append-call-arg", (appendOp) =>
-                  applyTsAppendCallArg(sourceFile, appendOp),
-                ),
-                Match.exhaustive,
-              );
-            }),
+            Match.value(op).pipe(
+              Match.tag("ts-add-import", (importOp) =>
+                Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
+              ),
+              Match.tag("ts-add-reexport", (reexportOp) =>
+                Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
+              ),
+              Match.tag("ts-append-call-arg", (appendOp) =>
+                applyTsAppendCallArg(sourceFile, appendOp),
+              ),
+              Match.exhaustive,
+            ),
           { discard: true },
         );
 

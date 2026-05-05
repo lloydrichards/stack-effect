@@ -6,6 +6,7 @@ import {
   CompositionOperation,
   Plan,
   type PlanEntryClassification,
+  type PlanOutcome,
 } from "@repo/domain/Plan";
 import {
   Cause,
@@ -193,7 +194,7 @@ const completeOutcome = ({
   path: string;
   classification: typeof PlanEntryClassification.Type;
   contents: string;
-}): typeof Plan.fields.outcomes.schema.Type => ({
+}): typeof PlanOutcome.Type => ({
   _tag: "complete",
   path,
   classification,
@@ -208,7 +209,7 @@ const partialOutcome = ({
   path: string;
   classification: typeof PlanEntryClassification.Type;
   operations: ReadonlyArray<typeof CompositionOperation.Type>;
-}): typeof Plan.fields.outcomes.schema.Type => ({
+}): typeof PlanOutcome.Type => ({
   _tag: "composed",
   path,
   classification,

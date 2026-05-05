@@ -1,9 +1,5 @@
 import { CatalogService } from "@repo/catalog";
-import {
-  type Blueprint,
-  isBlueprintAttachedModuleNode,
-  isBlueprintTargetNode,
-} from "@repo/domain/Blueprint";
+import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import type {
   ScriptDefinition,
   TargetIdentity,
@@ -42,9 +38,12 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
         const moduleNodes = Arr.filter(
           blueprint.nodes,
-          isBlueprintAttachedModuleNode,
+          BlueprintNode.guards["attached-module"],
         );
-        const targetNodes = Arr.filter(blueprint.nodes, isBlueprintTargetNode);
+        const targetNodes = Arr.filter(
+          blueprint.nodes,
+          BlueprintNode.guards.target,
+        );
 
         const sorted = topologicalSort(
           moduleNodes.map((n) => n.id),

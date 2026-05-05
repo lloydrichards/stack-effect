@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type { Plan, PlanFailure, RepoSnapshot } from "@repo/domain/Plan";
+import type {
+  Plan,
+  PlanFailure,
+  PlanOutcome,
+  RepoSnapshot,
+} from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
@@ -148,7 +153,7 @@ const makeServerApiBlueprint = () =>
 const getOutcome = (
   plan: typeof Plan.Type,
   path: string,
-): typeof Plan.fields.outcomes.schema.Type => {
+): typeof PlanOutcome.Type => {
   const outcome = plan.outcomes.find((candidate) => candidate.path === path);
   expect(outcome).toBeDefined();
   assert(

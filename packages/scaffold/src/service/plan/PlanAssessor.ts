@@ -3,6 +3,7 @@ import {
   Plan,
   type PlanEntryClassification,
   PlanFailure,
+  type PlanOutcome,
   type RepoSnapshot,
 } from "@repo/domain/Plan";
 import {
@@ -69,7 +70,7 @@ function toPlannedFileOutcome({
 }: {
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
-}): typeof Plan.fields.outcomes.schema.Type {
+}): typeof PlanOutcome.Type {
   const operations = toCompositionOperations(planningPath);
   const hasOperations = operations.length > 0;
   const contents =
