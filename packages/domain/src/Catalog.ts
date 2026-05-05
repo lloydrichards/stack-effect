@@ -84,84 +84,71 @@ export const ModuleImplication = Schema.Struct({
 });
 
 // =============================================================================
-// Composition Contributions
+// Contributions
 // =============================================================================
 
 /**
- * A composition contribution declares intent to append to a TypeScript
- * composition point (e.g., Layer.mergeAll, Toolkit.merge).
+ * A Contribution declares a single unit of desired repository state.
  *
- * The PlanService will convert these into `ts-append-call-arg` operations.
+ * Tagged union of contribution types:
+ * - `file`: Authoritative file content (replaces entire file)
+ * - `pkg-json-entry`: Entry in package.json (exports, dependencies, scripts)
+ * - `barrel-export`: Re-export statement in a TypeScript barrel file
+ * - `ts-call-arg`: Argument appended to a TypeScript function call
  */
-export const CompositionContribution = Schema.Struct({
-  /** Path to the file containing the composition point */
-  path: Schema.String,
-  /** Variable name being assigned (e.g., "AppLayers") */
-  targetVariable: Schema.String,
-  /** Function name being called (e.g., "Layer.mergeAll") */
-  functionName: Schema.String,
-  /** The argument to append (e.g., "AuthLayer") */
-  argument: Schema.String,
-  /** Import to add for the argument */
-  import: Schema.Struct({
-    moduleSpecifier: Schema.String,
-    namedImports: Schema.optional(Schema.Array(Schema.String)),
-    defaultImport: Schema.optional(Schema.String),
-  }),
-});
-
-export const DesiredContributions = Schema.Struct({
-  files: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      contents: Schema.String,
-    }),
-  ),
-  exports: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      name: Schema.String,
-      value: Schema.String,
-    }),
-  ),
-  dependencies: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      section: Schema.Union([
-        Schema.Literal("dependencies"),
-        Schema.Literal("devDependencies"),
-      ]),
-      name: Schema.String,
-      value: Schema.String,
-    }),
-  ),
-  scripts: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      name: Schema.String,
-      value: Schema.String,
-    }),
-  ),
-  barrelExports: Schema.Array(
-    Schema.Struct({
-      barrelPath: Schema.String,
-      exportPath: Schema.String,
-    }),
-  ),
-  tsconfigs: Schema.Array(
-    Schema.Struct({
-      path: Schema.String,
-      contents: Schema.String,
-    }),
-  ),
+export const Contribution = Schema.TaggedUnion({
   /**
-   * Composition contributions for TypeScript composition points.
-   * These declare intent to append to Layer.mergeAll, Toolkit.merge, etc.
+   * Authoritative file content - the complete desired file.
+   * Use `conflictOnModify: true` for files like tsconfig.json where
+   * modification should surface as a conflict rather than overwrite.
    */
-  compositions: Schema.Array(CompositionContribution).pipe(
-    Schema.optionalKey,
-    Schema.withConstructorDefault(Effect.succeed([])),
-  ),
+  file: {
+    path: Schema.String,
+    contents: Schema.String,
+    conflictOnModify: Schema.optional(Schema.Boolean),
+  },
+
+  /**
+   * Package.json entry - adds an entry to a specific field.
+   * Field determines the JSON path: exports, dependencies, devDependencies, or scripts.
+   */
+  "pkg-json-entry": {
+    path: Schema.String,
+    field: Schema.Literals([
+      "exports",
+      "dependencies",
+      "devDependencies",
+      "scripts",
+    ]),
+    name: Schema.String,
+    value: Schema.String,
+  },
+
+  /**
+   * Barrel file re-export - adds `export * from "..."` to a barrel file.
+   */
+  "barrel-export": {
+    barrelPath: Schema.String,
+    exportPath: Schema.String,
+  },
+
+  /**
+   * TypeScript call argument - appends an argument to a function call
+   * and adds the necessary import statement.
+   *
+   * Used for Layer composition points like Layer.provide(), Layer.mergeAll().
+   */
+  "ts-call-arg": {
+    path: Schema.String,
+    targetVariable: Schema.String,
+    functionName: Schema.String,
+    argument: Schema.String,
+    import: Schema.Struct({
+      moduleSpecifier: Schema.String,
+      namedImports: Schema.optional(Schema.Array(Schema.String)),
+      defaultImport: Schema.optional(Schema.String),
+    }),
+  },
 });
 
 export const ModuleDefinition = Schema.Struct({
@@ -188,7 +175,7 @@ export const ModuleDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
-  contributions: DesiredContributions,
+  contributions: Schema.Array(Contribution),
   scripts: Schema.Array(ScriptDefinition).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
@@ -203,7 +190,7 @@ export const TargetDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
-  contributions: DesiredContributions,
+  contributions: Schema.Array(Contribution),
   scripts: Schema.Array(ScriptDefinition).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),

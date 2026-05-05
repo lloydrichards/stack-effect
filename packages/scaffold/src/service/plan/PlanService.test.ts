@@ -250,6 +250,231 @@ describe("PlanService", () => {
     );
   });
 
+  describe("when planning compositions", () => {
+    // Simple blueprint that just has chat-server module without the full AI dependency chain
+    // This tests that composition contributions produce the correct operations
+    const makeChatServerOnlyBlueprint = () =>
+      new Blueprint({
+        nodes: [
+          {
+            _tag: "target",
+            id: serverApiIdentity.toKey(),
+            identity: serverApiIdentity,
+          },
+          {
+            _tag: "attached-module",
+            id: toAttachedModuleNodeId(
+              serverApiIdentity.toKey(),
+              ModuleId.make("chat-server"),
+            ),
+            targetId: serverApiIdentity.toKey(),
+            moduleId: ModuleId.make("chat-server"),
+          },
+        ],
+        edges: [
+          {
+            id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("chat-server"))}`,
+            from: serverApiIdentity.toKey(),
+            to: toAttachedModuleNodeId(
+              serverApiIdentity.toKey(),
+              ModuleId.make("chat-server"),
+            ),
+            reason: "owns-module",
+          },
+        ],
+      }).toSorted();
+
+    it.effect(
+      "should emit composition operations when module declares compositions",
+      () =>
+        Effect.gen(function* () {
+          const serverIndexContents = `import { Layer } from "effect";
+const HttpRpcRouter = Layer.empty;
+`;
+          const plan = yield* buildPlan({
+            blueprint: makeChatServerOnlyBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => {
+                  // Server index exists (for composition target)
+                  if (path === "apps/server-api/src/index.ts") {
+                    return {
+                      _tag: "file" as const,
+                      path,
+                      contents: serverIndexContents,
+                    };
+                  }
+                  return { _tag: "missing" as const, path };
+                }),
+              }),
+          });
+
+          // The server index should have composition operations
+          const serverOutcome = getOutcome(
+            plan,
+            "apps/server-api/src/index.ts",
+          );
+          expect(serverOutcome._tag).toBe("composed");
+          assert(serverOutcome._tag === "composed");
+
+          // Should have ts-add-import operations for the AI services
+          const importOps = serverOutcome.operations.filter(
+            (op) => op._tag === "ts-add-import",
+          );
+          expect(importOps).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                _tag: "ts-add-import",
+                moduleSpecifier: "@repo/ai",
+                namedImports: ["ChatServiceLive"],
+              }),
+              expect.objectContaining({
+                _tag: "ts-add-import",
+                moduleSpecifier: "@repo/ai",
+                namedImports: ["SampleToolkitLive"],
+              }),
+              expect.objectContaining({
+                _tag: "ts-add-import",
+                moduleSpecifier: "@repo/ai",
+                namedImports: ["FastModelLive"],
+              }),
+            ]),
+          );
+
+          // Should have ts-append-call-arg operations for Layer.provide
+          const appendOps = serverOutcome.operations.filter(
+            (op) => op._tag === "ts-append-call-arg",
+          );
+          expect(appendOps).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                _tag: "ts-append-call-arg",
+                targetVariable: "HttpRpcRouter",
+                functionName: "Layer.provide",
+                argument: "ChatServiceLive",
+              }),
+              expect.objectContaining({
+                _tag: "ts-append-call-arg",
+                targetVariable: "HttpRpcRouter",
+                functionName: "Layer.provide",
+                argument: "SampleToolkitLive",
+              }),
+              expect.objectContaining({
+                _tag: "ts-append-call-arg",
+                targetVariable: "HttpRpcRouter",
+                functionName: "Layer.provide",
+                argument: "FastModelLive",
+              }),
+            ]),
+          );
+        }),
+    );
+
+    it.effect(
+      "should report conflict when composition target file is missing and not created by target",
+      () =>
+        Effect.gen(function* () {
+          // Use a blueprint where the target does NOT produce the index.ts file
+          // and the composition targets a missing file
+          const presenceIdentity = new TargetIdentity({
+            kind: TargetKind.make("package"),
+            name: "presence",
+          });
+          const blueprint = new Blueprint({
+            nodes: [
+              {
+                _tag: "target",
+                id: serverApiIdentity.toKey(),
+                identity: serverApiIdentity,
+              },
+              {
+                _tag: "attached-module",
+                id: toAttachedModuleNodeId(
+                  serverApiIdentity.toKey(),
+                  ModuleId.make("ws-presence-server"),
+                ),
+                targetId: serverApiIdentity.toKey(),
+                moduleId: ModuleId.make("ws-presence-server"),
+              },
+              {
+                _tag: "target",
+                id: domainIdentity.toKey(),
+                identity: domainIdentity,
+              },
+              {
+                _tag: "attached-module",
+                id: toAttachedModuleNodeId(
+                  domainIdentity.toKey(),
+                  ModuleId.make("domain-websocket"),
+                ),
+                targetId: domainIdentity.toKey(),
+                moduleId: ModuleId.make("domain-websocket"),
+              },
+              {
+                _tag: "target",
+                id: presenceIdentity.toKey(),
+                identity: presenceIdentity,
+              },
+              {
+                _tag: "attached-module",
+                id: toAttachedModuleNodeId(
+                  presenceIdentity.toKey(),
+                  ModuleId.make("presence"),
+                ),
+                targetId: presenceIdentity.toKey(),
+                moduleId: ModuleId.make("presence"),
+              },
+            ],
+            edges: [
+              {
+                id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("ws-presence-server"))}`,
+                from: serverApiIdentity.toKey(),
+                to: toAttachedModuleNodeId(
+                  serverApiIdentity.toKey(),
+                  ModuleId.make("ws-presence-server"),
+                ),
+                reason: "owns-module",
+              },
+              {
+                id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-websocket"))}`,
+                from: domainIdentity.toKey(),
+                to: toAttachedModuleNodeId(
+                  domainIdentity.toKey(),
+                  ModuleId.make("domain-websocket"),
+                ),
+                reason: "owns-module",
+              },
+              {
+                id: `owns-module=>packages/presence=>${toAttachedModuleNodeId(presenceIdentity.toKey(), ModuleId.make("presence"))}`,
+                from: presenceIdentity.toKey(),
+                to: toAttachedModuleNodeId(
+                  presenceIdentity.toKey(),
+                  ModuleId.make("presence"),
+                ),
+                reason: "owns-module",
+              },
+            ],
+          }).toSorted();
+
+          const plan = yield* buildPlan({
+            blueprint,
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => ({ _tag: "missing", path })),
+              }),
+          });
+
+          // Server target creates index.ts, so composition should work with it
+          const serverOutcome = getOutcome(
+            plan,
+            "apps/server-api/src/index.ts",
+          );
+          // When file is created by target AND has compositions, it should be composed
+          expect(serverOutcome._tag).toBe("composed");
+        }),
+    );
+  });
+
   describe("when planning merges", () => {
     it.effect(
       "should emit structural outcomes with required structure for package files",
@@ -369,6 +594,181 @@ describe("PlanService", () => {
                 _tag: "barrelExport",
                 path: "packages/domain/src/index.ts",
                 exportPath: "./Api",
+              }),
+            ]),
+          );
+        }),
+    );
+  });
+
+  describe("when planning authoritative + barrel combinations", () => {
+    const aiIdentity = new TargetIdentity({
+      kind: TargetKind.make("package"),
+      name: "ai",
+    });
+
+    const makeAiBlueprint = () =>
+      new Blueprint({
+        nodes: [
+          {
+            _tag: "target",
+            id: aiIdentity.toKey(),
+            identity: aiIdentity,
+          },
+          {
+            _tag: "attached-module",
+            id: toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai")),
+            targetId: aiIdentity.toKey(),
+            moduleId: ModuleId.make("ai"),
+          },
+          {
+            _tag: "attached-module",
+            id: toAttachedModuleNodeId(
+              aiIdentity.toKey(),
+              ModuleId.make("ai-sample-toolkit"),
+            ),
+            targetId: aiIdentity.toKey(),
+            moduleId: ModuleId.make("ai-sample-toolkit"),
+          },
+        ],
+        edges: [
+          {
+            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai"))}`,
+            from: aiIdentity.toKey(),
+            to: toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai")),
+            reason: "owns-module",
+          },
+          {
+            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai-sample-toolkit"))}`,
+            from: aiIdentity.toKey(),
+            to: toAttachedModuleNodeId(
+              aiIdentity.toKey(),
+              ModuleId.make("ai-sample-toolkit"),
+            ),
+            reason: "owns-module",
+          },
+        ],
+      }).toSorted();
+
+    it.effect(
+      "should combine authoritative content with barrel exports in a single composed outcome",
+      () =>
+        Effect.gen(function* () {
+          const plan = yield* buildPlan({
+            blueprint: makeAiBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => ({ _tag: "missing", path })),
+              }),
+          });
+
+          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
+
+          // Should be composed with both authoritative content and barrel export operation
+          expect(indexOutcome._tag).toBe("composed");
+          expect(indexOutcome.classification).toBe("create");
+
+          // Should have ts-add-reexport for the barrel export from ai-sample-toolkit
+          expect(indexOutcome).toMatchObject({
+            operations: expect.arrayContaining([
+              expect.objectContaining({
+                _tag: "ts-add-reexport",
+                moduleSpecifier: "./toolkits/SampleToolkit",
+              }),
+            ]),
+          });
+        }),
+    );
+
+    it.effect(
+      "should detect unchanged when authoritative + barrel already present",
+      () =>
+        Effect.gen(function* () {
+          const existingContents = `export * from "./LanguageModel";
+export * from "./toolkits/SampleToolkit";
+`;
+
+          const plan = yield* buildPlan({
+            blueprint: makeAiBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => {
+                  if (path === "packages/ai/src/index.ts") {
+                    return {
+                      _tag: "file" as const,
+                      path,
+                      contents: existingContents,
+                    };
+                  }
+                  return { _tag: "missing" as const, path };
+                }),
+              }),
+          });
+
+          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
+          expect(indexOutcome.classification).toBe("unchanged");
+        }),
+    );
+
+    it.effect(
+      "should detect modify when authoritative present but barrel export missing",
+      () =>
+        Effect.gen(function* () {
+          const existingContents = `export * from "./LanguageModel";
+`;
+
+          const plan = yield* buildPlan({
+            blueprint: makeAiBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => {
+                  if (path === "packages/ai/src/index.ts") {
+                    return {
+                      _tag: "file" as const,
+                      path,
+                      contents: existingContents,
+                    };
+                  }
+                  return { _tag: "missing" as const, path };
+                }),
+              }),
+          });
+
+          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
+          expect(indexOutcome.classification).toBe("modify");
+        }),
+    );
+
+    it.effect(
+      "should conflict when existing file cannot be parsed as barrel",
+      () =>
+        Effect.gen(function* () {
+          const plan = yield* buildPlan({
+            blueprint: makeAiBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => {
+                  if (path === "packages/ai/src/index.ts") {
+                    return {
+                      _tag: "file" as const,
+                      path,
+                      contents:
+                        '// Custom index with named exports\nexport { FastModelLive } from "./LanguageModel";',
+                    };
+                  }
+                  return { _tag: "missing" as const, path };
+                }),
+              }),
+          });
+
+          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
+          expect(indexOutcome.classification).toBe("conflict");
+          expect(plan.conflicts).toEqual(
+            expect.arrayContaining([
+              expect.objectContaining({
+                _tag: "barrelExport",
+                path: "packages/ai/src/index.ts",
+                exportPath: "./toolkits/SampleToolkit",
               }),
             ]),
           );

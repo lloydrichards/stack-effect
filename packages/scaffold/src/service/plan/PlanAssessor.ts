@@ -26,6 +26,17 @@ type PlanningIntentPackageJsonDependency = {
   readonly value: string;
 };
 
+export type PlanningIntentComposition = {
+  readonly targetVariable: string;
+  readonly functionName: string;
+  readonly argument: string;
+  readonly import: {
+    readonly moduleSpecifier: string;
+    readonly namedImports: ReadonlyArray<string> | undefined;
+    readonly defaultImport: string | undefined;
+  };
+};
+
 export type PlanningIntentPath = {
   readonly path: string;
   readonly contents: string | undefined;
@@ -33,6 +44,7 @@ export type PlanningIntentPath = {
   readonly dependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
   readonly scripts: ReadonlyArray<{ name: string; value: string }>;
   readonly barrelExports: ReadonlyArray<{ exportPath: string }>;
+  readonly compositions: ReadonlyArray<PlanningIntentComposition>;
   readonly tsconfig:
     | {
         path: string;
@@ -158,6 +170,27 @@ function toCompositionOperations(
     });
   }
 
+  // Compositions -> ts-add-import + ts-append-call-arg
+  for (const composition of planningPath.compositions) {
+    // Add import for the composed argument
+    operations.push({
+      _tag: "ts-add-import",
+      fileType: "typescript",
+      moduleSpecifier: composition.import.moduleSpecifier,
+      namedImports: composition.import.namedImports,
+      defaultImport: composition.import.defaultImport,
+    });
+
+    // Append argument to the function call
+    operations.push({
+      _tag: "ts-append-call-arg",
+      fileType: "typescript",
+      targetVariable: composition.targetVariable,
+      functionName: composition.functionName,
+      argument: composition.argument,
+    });
+  }
+
   return operations;
 }
 
@@ -175,13 +208,23 @@ function assessPlanningPath({
     planningPath.scripts.length > 0;
   const hasBarrelExports = planningPath.barrelExports.length > 0;
   const hasTsconfig = planningPath.tsconfig !== undefined;
+  const hasCompositions = planningPath.compositions.length > 0;
 
   return Match.value({
     hasContents,
     hasPackageJsonFields,
     hasBarrelExports,
     hasTsconfig,
+    hasCompositions,
   }).pipe(
+    // Combined cases first (authoritative + something else)
+    Match.when({ hasContents: true, hasBarrelExports: true }, () =>
+      planAuthoritativeBarrelMerge(planningPath, snapshotPath),
+    ),
+    Match.when({ hasContents: true, hasCompositions: true }, () =>
+      planAuthoritativeCompositionMerge(planningPath, snapshotPath),
+    ),
+    // Pure single-family cases
     Match.when({ hasContents: true }, () =>
       assessAuthoritativeContents(planningPath, snapshotPath),
     ),
@@ -193,6 +236,9 @@ function assessPlanningPath({
     ),
     Match.when({ hasTsconfig: true }, () =>
       planTsconfigMerge(planningPath, snapshotPath),
+    ),
+    Match.when({ hasCompositions: true }, () =>
+      planCompositionMerge(planningPath, snapshotPath),
     ),
     Match.orElse(() => {
       throw new PlanFailure({
@@ -382,6 +428,124 @@ const planBarrelMerge = (
   });
 };
 
+/**
+ * Plan composition merge for TypeScript files with composition points.
+ * Compositions always target existing files - if file doesn't exist, it's a conflict.
+ * The actual composition target validation happens at apply time via ts-morph.
+ */
+const planCompositionMerge = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const existingContents = getExistingFileContents(
+    planningPath.path,
+    snapshotPath,
+  );
+
+  // Compositions require an existing file with composition points
+  if (existingContents === undefined) {
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts: Arr.map(planningPath.compositions, (composition) =>
+        planConflict.compositionTargetNotFound(
+          planningPath.path,
+          composition.targetVariable,
+          composition.functionName,
+        ),
+      ),
+    });
+  }
+
+  // File exists - mark as modify, actual target validation happens at apply time
+  return createPathAssessment({ classification: "modify" });
+};
+
+/**
+ * Plan authoritative barrel merge: seed content + barrel exports.
+ * Creates file with authoritative content, then appends barrel exports.
+ */
+const planAuthoritativeBarrelMerge = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const existingContents = getExistingFileContents(
+    planningPath.path,
+    snapshotPath,
+  );
+  const requiredContents = planningPath.contents!;
+
+  // File doesn't exist - create with authoritative content + barrel exports
+  if (existingContents === undefined) {
+    return createPathAssessment({ classification: "create" });
+  }
+
+  // File exists - check if authoritative content matches and parse for barrel exports
+  const existingExports = parseSimpleBarrelExports(existingContents);
+
+  // If we can parse the existing barrel exports, check for new additions
+  if (existingExports !== undefined) {
+    const existingExportsSet = new Set(existingExports);
+    const hasBarrelAdditions = Arr.some(
+      planningPath.barrelExports,
+      (plannedReExport) => !existingExportsSet.has(plannedReExport.exportPath),
+    );
+
+    // Check if the authoritative export is present
+    const authoritativeExportMatch = requiredContents.match(
+      simpleBarrelExportPattern,
+    );
+    const authoritativeExportPath = authoritativeExportMatch?.[1];
+    const hasAuthoritativeExport =
+      authoritativeExportPath === undefined ||
+      existingExportsSet.has(authoritativeExportPath);
+
+    if (hasAuthoritativeExport && !hasBarrelAdditions) {
+      return createPathAssessment({ classification: "unchanged" });
+    }
+
+    return createPathAssessment({ classification: "modify" });
+  }
+
+  // Can't parse as barrel - conflict on barrel exports
+  const conflicts = Arr.map(planningPath.barrelExports, (plannedReExport) =>
+    planConflict.barrelExport(planningPath.path, plannedReExport.exportPath),
+  );
+
+  return createPathAssessment({
+    classification: "conflict",
+    conflicts,
+  });
+};
+
+/**
+ * Plan authoritative composition merge: seed content + compositions.
+ * Creates file with authoritative content, then applies composition operations.
+ */
+const planAuthoritativeCompositionMerge = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const existingContents = getExistingFileContents(
+    planningPath.path,
+    snapshotPath,
+  );
+  const requiredContents = planningPath.contents!;
+
+  // File doesn't exist - create with authoritative content + compositions
+  if (existingContents === undefined) {
+    return createPathAssessment({ classification: "create" });
+  }
+
+  // File exists - always mark as modify since we need to apply compositions
+  // The authoritative content check could differ, but compositions still need applying
+  if (existingContents !== requiredContents) {
+    return createPathAssessment({ classification: "modify" });
+  }
+
+  // Contents match but we have compositions to apply
+  return createPathAssessment({ classification: "modify" });
+};
+
 const parseSimpleBarrelExports = (contents: string) => {
   const parsedExports = Arr.map(
     Arr.filter(Str.split(contents, /\r?\n/u), (line) => Str.trim(line) !== ""),
@@ -420,6 +584,16 @@ const planConflict = {
     path,
     section: dep.section,
     name: dep.name,
+  }),
+  compositionTargetNotFound: (
+    path: string,
+    targetVariable: string,
+    functionName: string,
+  ) => ({
+    _tag: "compositionTargetNotFound" as const,
+    path,
+    targetVariable,
+    functionName,
   }),
 } as const;
 

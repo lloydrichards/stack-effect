@@ -1,6 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
-import { DesiredContributions } from "@repo/domain/Catalog";
+import { Contribution } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import {
@@ -132,7 +132,7 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
 
 const compilePlanningPaths = (
   normalizedContributions: NormalizedContributions,
-) => {
+): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(
       [
@@ -164,23 +164,16 @@ type PlanningIntentEntry =
       readonly _tag: "authoritative";
       readonly path: string;
       readonly contents: string;
+      readonly conflictOnModify: boolean;
     }
   | {
-      readonly _tag: "packageJsonExport";
+      readonly _tag: "packageJsonEntry";
       readonly path: string;
-      readonly name: string;
-      readonly value: string;
-    }
-  | {
-      readonly _tag: "packageJsonDependency";
-      readonly path: string;
-      readonly section: "dependencies" | "devDependencies";
-      readonly name: string;
-      readonly value: string;
-    }
-  | {
-      readonly _tag: "packageJsonScript";
-      readonly path: string;
+      readonly field:
+        | "exports"
+        | "dependencies"
+        | "devDependencies"
+        | "scripts";
       readonly name: string;
       readonly value: string;
     }
@@ -190,79 +183,87 @@ type PlanningIntentEntry =
       readonly exportPath: string;
     }
   | {
-      readonly _tag: "tsconfig";
+      readonly _tag: "tsCallArg";
       readonly path: string;
-      readonly contents: string;
+      readonly targetVariable: string;
+      readonly functionName: string;
+      readonly argument: string;
+      readonly import: {
+        readonly moduleSpecifier: string;
+        readonly namedImports: ReadonlyArray<string> | undefined;
+        readonly defaultImport: string | undefined;
+      };
     };
 
 type PlanningIntentFamily =
   | "authoritative"
   | "packageJson"
   | "barrel"
-  | "tsconfig";
+  | "tsCallArg";
 
 const toPlanningIntentEntries = (
-  contributions: typeof DesiredContributions.Type,
-): ReadonlyArray<PlanningIntentEntry> => [
-  ...Arr.map(
-    contributions.files,
-    (file) =>
-      ({
-        _tag: "authoritative",
-        path: file.path,
-        contents: file.contents,
-      }) satisfies PlanningIntentEntry,
-  ),
-  ...Arr.map(
-    contributions.exports,
-    (entry) =>
-      ({
-        _tag: "packageJsonExport",
-        path: entry.path,
-        name: entry.name,
-        value: entry.value,
-      }) satisfies PlanningIntentEntry,
-  ),
-  ...Arr.map(
-    contributions.dependencies,
-    (entry) =>
-      ({
-        _tag: "packageJsonDependency",
-        path: entry.path,
-        section: entry.section,
-        name: entry.name,
-        value: entry.value,
-      }) satisfies PlanningIntentEntry,
-  ),
-  ...Arr.map(
-    contributions.scripts,
-    (entry) =>
-      ({
-        _tag: "packageJsonScript",
-        path: entry.path,
-        name: entry.name,
-        value: entry.value,
-      }) satisfies PlanningIntentEntry,
-  ),
-  ...Arr.map(
-    contributions.barrelExports,
-    (entry) =>
-      ({
-        _tag: "barrelExport",
-        path: entry.barrelPath,
-        exportPath: entry.exportPath,
-      }) satisfies PlanningIntentEntry,
-  ),
-  ...Arr.map(
-    contributions.tsconfigs,
-    (entry) =>
-      ({
-        _tag: "tsconfig",
-        path: entry.path,
-        contents: entry.contents,
-      }) satisfies PlanningIntentEntry,
-  ),
-];
+  contributions: ReadonlyArray<typeof Contribution.Type>,
+): ReadonlyArray<PlanningIntentEntry> =>
+  Arr.flatMap(
+    contributions,
+    (contribution): ReadonlyArray<PlanningIntentEntry> => {
+      switch (contribution._tag) {
+        case "file":
+          return [
+            {
+              _tag: "authoritative",
+              path: contribution.path,
+              contents: contribution.contents,
+              conflictOnModify: contribution.conflictOnModify ?? false,
+            },
+          ];
+        case "pkg-json-entry":
+          return [
+            {
+              _tag: "packageJsonEntry",
+              path: contribution.path,
+              field: contribution.field,
+              name: contribution.name,
+              value: contribution.value,
+            },
+          ];
+        case "barrel-export":
+          return [
+            {
+              _tag: "barrelExport",
+              path: contribution.barrelPath,
+              exportPath: contribution.exportPath,
+            },
+          ];
+        case "ts-call-arg":
+          return [
+            {
+              _tag: "tsCallArg",
+              path: contribution.path,
+              targetVariable: contribution.targetVariable,
+              functionName: contribution.functionName,
+              argument: contribution.argument,
+              import: {
+                moduleSpecifier: contribution.import.moduleSpecifier,
+                namedImports: contribution.import.namedImports,
+                defaultImport: contribution.import.defaultImport,
+              },
+            },
+          ];
+      }
+    },
+  );
+
+type AuthoritativeEntry = Extract<
+  PlanningIntentEntry,
+  { _tag: "authoritative" }
+>;
+type PackageJsonEntry = Extract<
+  PlanningIntentEntry,
+  { _tag: "packageJsonEntry" }
+>;
+type BarrelExportEntry = Extract<PlanningIntentEntry, { _tag: "barrelExport" }>;
+type TsCallArgEntry = Extract<PlanningIntentEntry, { _tag: "tsCallArg" }>;
 
 const derivePlanningIntentPath = ({
   path,
@@ -270,63 +271,108 @@ const derivePlanningIntentPath = ({
 }: {
   path: string;
   entries: ReadonlyArray<PlanningIntentEntry>;
-}) =>
+}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ path, entries });
     const byTag = Arr.groupBy(entries, (entry) => entry._tag);
 
-    const tagged = <T extends PlanningIntentEntry["_tag"]>(tag: T) =>
-      (byTag[tag] ?? []) as ReadonlyArray<
-        Extract<PlanningIntentEntry, { _tag: T }>
-      >;
+    const authoritativeEntries = (byTag["authoritative"] ??
+      []) as ReadonlyArray<AuthoritativeEntry>;
+    const packageJsonEntries = (byTag["packageJsonEntry"] ??
+      []) as ReadonlyArray<PackageJsonEntry>;
+    const barrelExportEntries = (byTag["barrelExport"] ??
+      []) as ReadonlyArray<BarrelExportEntry>;
+    const tsCallArgEntries = (byTag["tsCallArg"] ??
+      []) as ReadonlyArray<TsCallArgEntry>;
 
     const resolveContents = () =>
       requireSingleValue({
-        values: Arr.map(tagged("authoritative"), (entry) => entry.contents),
+        values: Arr.map(authoritativeEntries, (entry) => entry.contents),
         errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
       });
 
-    const resolvePackageJsonFields = () =>
-      Effect.all({
+    const resolveConflictOnModify = () =>
+      authoritativeEntries.length > 0 &&
+      authoritativeEntries.some((e) => e.conflictOnModify);
+
+    const resolvePackageJsonFields = () => {
+      const exportEntries = packageJsonEntries.filter(
+        (e): e is PackageJsonEntry & { field: "exports" } =>
+          e.field === "exports",
+      );
+      const depEntries = packageJsonEntries.filter(
+        (
+          e,
+        ): e is PackageJsonEntry & {
+          field: "dependencies" | "devDependencies";
+        } => e.field === "dependencies" || e.field === "devDependencies",
+      );
+      const scriptEntries = packageJsonEntries.filter(
+        (e): e is PackageJsonEntry & { field: "scripts" } =>
+          e.field === "scripts",
+      );
+
+      return Effect.all({
         exports: collectUniqueEntries({
-          entries: tagged("packageJsonExport"),
+          entries: exportEntries,
           keyOf: (entry) => entry.name,
           valueOf: (entry) => entry.value,
-          toResult: ({ name, value }) => ({ name, value }),
+          toResult: (entry) => ({ name: entry.name, value: entry.value }),
           errorMessage: `Conflicting package.json export outcomes for ${path}.`,
         }),
         dependencies: collectUniqueEntries({
-          entries: tagged("packageJsonDependency"),
-          keyOf: (entry) => `${entry.section}:${entry.name}`,
+          entries: depEntries,
+          keyOf: (entry) => `${entry.field}:${entry.name}`,
           valueOf: (entry) => entry.value,
-          toResult: ({ section, name, value }) => ({ section, name, value }),
+          toResult: (entry) => ({
+            section: entry.field,
+            name: entry.name,
+            value: entry.value,
+          }),
           errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
         }),
         scripts: collectUniqueEntries({
-          entries: tagged("packageJsonScript"),
+          entries: scriptEntries,
           keyOf: (entry) => entry.name,
           valueOf: (entry) => entry.value,
-          toResult: ({ name, value }) => ({ name, value }),
+          toResult: (entry) => ({ name: entry.name, value: entry.value }),
           errorMessage: `Conflicting package.json script outcomes for ${path}.`,
         }),
       });
+    };
 
     const emptyPackageJsonFields = {
-      exports: [],
-      dependencies: [],
-      scripts: [],
-    } as const;
+      exports: [] as ReadonlyArray<{ name: string; value: string }>,
+      dependencies: [] as ReadonlyArray<{
+        section: "dependencies" | "devDependencies";
+        name: string;
+        value: string;
+      }>,
+      scripts: [] as ReadonlyArray<{ name: string; value: string }>,
+    };
 
     return yield* Match.value(family.family).pipe(
       Match.when("authoritative", () =>
         Effect.gen(function* () {
+          const contents = yield* resolveContents();
+          const isConflictOnModify = resolveConflictOnModify();
           return {
             path,
-            contents: yield* resolveContents(),
+            contents: isConflictOnModify ? undefined : contents,
             ...emptyPackageJsonFields,
-            barrelExports: [],
-            tsconfig: undefined,
-          };
+            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            compositions: [] as ReadonlyArray<{
+              targetVariable: string;
+              functionName: string;
+              argument: string;
+              import: {
+                moduleSpecifier: string;
+                namedImports: ReadonlyArray<string> | undefined;
+                defaultImport: string | undefined;
+              };
+            }>,
+            tsconfig: isConflictOnModify ? { path, contents } : undefined,
+          } satisfies PlanningIntentPath;
         }),
       ),
       Match.when("packageJson", () =>
@@ -335,9 +381,19 @@ const derivePlanningIntentPath = ({
             path,
             contents: undefined,
             ...(yield* resolvePackageJsonFields()),
-            barrelExports: [],
+            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            compositions: [] as ReadonlyArray<{
+              targetVariable: string;
+              functionName: string;
+              argument: string;
+              import: {
+                moduleSpecifier: string;
+                namedImports: ReadonlyArray<string> | undefined;
+                defaultImport: string | undefined;
+              };
+            }>,
             tsconfig: undefined,
-          };
+          } satisfies PlanningIntentPath;
         }),
       ),
       Match.when("barrel", () =>
@@ -347,31 +403,41 @@ const derivePlanningIntentPath = ({
             contents: undefined,
             ...emptyPackageJsonFields,
             barrelExports: yield* collectUniqueEntries({
-              entries: tagged("barrelExport"),
+              entries: barrelExportEntries,
               keyOf: (entry) => entry.exportPath,
               valueOf: (entry) => entry.exportPath,
-              toResult: ({ exportPath }) => ({ exportPath }),
+              toResult: (entry) => ({ exportPath: entry.exportPath }),
               errorMessage: `Conflicting barrel export outcomes for ${path}.`,
             }),
+            compositions: [] as ReadonlyArray<{
+              targetVariable: string;
+              functionName: string;
+              argument: string;
+              import: {
+                moduleSpecifier: string;
+                namedImports: ReadonlyArray<string> | undefined;
+                defaultImport: string | undefined;
+              };
+            }>,
             tsconfig: undefined,
-          };
+          } satisfies PlanningIntentPath;
         }),
       ),
-      Match.when("tsconfig", () =>
+      Match.when("tsCallArg", () =>
         Effect.gen(function* () {
           return {
             path,
             contents: undefined,
             ...emptyPackageJsonFields,
-            barrelExports: [],
-            tsconfig: {
-              path,
-              contents: yield* requireSingleValue({
-                values: Arr.map(tagged("tsconfig"), (entry) => entry.contents),
-                errorMessage: `Conflicting tsconfig outcomes for ${path}.`,
-              }),
-            },
-          };
+            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            compositions: Arr.map(tsCallArgEntries, (entry) => ({
+              targetVariable: entry.targetVariable,
+              functionName: entry.functionName,
+              argument: entry.argument,
+              import: entry.import,
+            })),
+            tsconfig: undefined,
+          } satisfies PlanningIntentPath;
         }),
       ),
       Match.when("authoritativePackageJson", () =>
@@ -380,9 +446,63 @@ const derivePlanningIntentPath = ({
             path,
             contents: yield* resolveContents(),
             ...(yield* resolvePackageJsonFields()),
-            barrelExports: [],
+            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            compositions: [] as ReadonlyArray<{
+              targetVariable: string;
+              functionName: string;
+              argument: string;
+              import: {
+                moduleSpecifier: string;
+                namedImports: ReadonlyArray<string> | undefined;
+                defaultImport: string | undefined;
+              };
+            }>,
             tsconfig: undefined,
-          };
+          } satisfies PlanningIntentPath;
+        }),
+      ),
+      Match.when("authoritativeTsCallArg", () =>
+        Effect.gen(function* () {
+          return {
+            path,
+            contents: yield* resolveContents(),
+            ...emptyPackageJsonFields,
+            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            compositions: Arr.map(tsCallArgEntries, (entry) => ({
+              targetVariable: entry.targetVariable,
+              functionName: entry.functionName,
+              argument: entry.argument,
+              import: entry.import,
+            })),
+            tsconfig: undefined,
+          } satisfies PlanningIntentPath;
+        }),
+      ),
+      Match.when("authoritativeBarrel", () =>
+        Effect.gen(function* () {
+          return {
+            path,
+            contents: yield* resolveContents(),
+            ...emptyPackageJsonFields,
+            barrelExports: yield* collectUniqueEntries({
+              entries: barrelExportEntries,
+              keyOf: (entry) => entry.exportPath,
+              valueOf: (entry) => entry.exportPath,
+              toResult: (entry) => ({ exportPath: entry.exportPath }),
+              errorMessage: `Conflicting barrel export outcomes for ${path}.`,
+            }),
+            compositions: [] as ReadonlyArray<{
+              targetVariable: string;
+              functionName: string;
+              argument: string;
+              import: {
+                moduleSpecifier: string;
+                namedImports: ReadonlyArray<string> | undefined;
+                defaultImport: string | undefined;
+              };
+            }>,
+            tsconfig: undefined,
+          } satisfies PlanningIntentPath;
         }),
       ),
       Match.exhaustive,
@@ -396,7 +516,14 @@ const derivePlanningIntentFamily = ({
   path: string;
   entries: ReadonlyArray<PlanningIntentEntry>;
 }): Effect.Effect<
-  { path: string; family: PlanningIntentFamily | "authoritativePackageJson" },
+  {
+    path: string;
+    family:
+      | PlanningIntentFamily
+      | "authoritativePackageJson"
+      | "authoritativeTsCallArg"
+      | "authoritativeBarrel";
+  },
   PlanFailure
 > => {
   const families = new Set(Arr.map(entries, toPlanningIntentFamily));
@@ -419,6 +546,28 @@ const derivePlanningIntentFamily = ({
     });
   }
 
+  if (
+    families.size === 2 &&
+    families.has("authoritative") &&
+    families.has("tsCallArg")
+  ) {
+    return Effect.succeed({
+      path,
+      family: "authoritativeTsCallArg" as const,
+    });
+  }
+
+  if (
+    families.size === 2 &&
+    families.has("authoritative") &&
+    families.has("barrel")
+  ) {
+    return Effect.succeed({
+      path,
+      family: "authoritativeBarrel" as const,
+    });
+  }
+
   return Effect.fail(
     new PlanFailure({
       reason: "invalidPlanIntent",
@@ -429,18 +578,18 @@ const derivePlanningIntentFamily = ({
 
 const toPlanningIntentFamily = (
   entry: PlanningIntentEntry,
-): PlanningIntentFamily =>
-  Match.value(entry).pipe(
-    Match.tags({
-      authoritative: () => "authoritative" as const,
-      packageJsonExport: () => "packageJson" as const,
-      packageJsonDependency: () => "packageJson" as const,
-      packageJsonScript: () => "packageJson" as const,
-      barrelExport: () => "barrel" as const,
-      tsconfig: () => "tsconfig" as const,
-    }),
-    Match.exhaustive,
-  );
+): PlanningIntentFamily => {
+  switch (entry._tag) {
+    case "authoritative":
+      return "authoritative";
+    case "packageJsonEntry":
+      return "packageJson";
+    case "barrelExport":
+      return "barrel";
+    case "tsCallArg":
+      return "tsCallArg";
+  }
+};
 
 const requireSingleValue = <Value>({
   values,
@@ -484,6 +633,6 @@ const collectUniqueEntries = <Entry, Result>({
       requireSingleValue({
         values: Arr.map(groupedEntries, valueOf),
         errorMessage,
-      }).pipe(Effect.as(toResult(groupedEntries[0]))),
+      }).pipe(Effect.as(toResult(groupedEntries[0]!))),
     ),
   );
