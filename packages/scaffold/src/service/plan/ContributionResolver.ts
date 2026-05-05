@@ -1,14 +1,21 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import type { DesiredContributions } from "@repo/domain/Catalog";
+import { Contribution } from "@repo/domain/Catalog";
 import {
   type ContributionTokenContext,
-  emptyDesiredContributions,
   type ModuleContribution,
   type StackConfig,
   type TargetContribution,
 } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  Match,
+  pipe,
+  Result,
+} from "effect";
 
 export type NormalizedContributions = {
   readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
@@ -121,40 +128,43 @@ export const resolveTokenString = (
 };
 
 const resolveContributionTokens = (
-  contributions: typeof DesiredContributions.Type,
+  contributions: ReadonlyArray<typeof Contribution.Type>,
   context: typeof ContributionTokenContext.Type,
-): typeof DesiredContributions.Type => {
+): ReadonlyArray<typeof Contribution.Type> => {
   const resolveString = (value: string) => resolveTokenString(value, context);
 
-  return {
-    ...emptyDesiredContributions(),
-    files: contributions.files.map((file) => ({
-      path: resolveString(file.path),
-      contents: resolveString(file.contents),
-    })),
-    exports: contributions.exports.map((entry) => ({
-      path: resolveString(entry.path),
-      name: entry.name,
-      value: resolveString(entry.value),
-    })),
-    dependencies: contributions.dependencies.map((entry) => ({
-      path: resolveString(entry.path),
-      section: entry.section,
-      name: entry.name,
-      value: entry.value,
-    })),
-    scripts: contributions.scripts.map((entry) => ({
-      path: resolveString(entry.path),
-      name: entry.name,
-      value: entry.value,
-    })),
-    barrelExports: contributions.barrelExports.map((entry) => ({
-      barrelPath: resolveString(entry.barrelPath),
-      exportPath: entry.exportPath,
-    })),
-    tsconfigs: contributions.tsconfigs.map((entry) => ({
-      path: resolveString(entry.path),
-      contents: entry.contents,
-    })),
-  };
+  return Arr.map(contributions, (contribution): typeof Contribution.Type => {
+    switch (contribution._tag) {
+      case "file":
+        return {
+          _tag: "file",
+          path: resolveString(contribution.path),
+          contents: resolveString(contribution.contents),
+          conflictOnModify: contribution.conflictOnModify,
+        };
+      case "pkg-json-entry":
+        return {
+          _tag: "pkg-json-entry",
+          path: resolveString(contribution.path),
+          field: contribution.field,
+          name: contribution.name,
+          value: contribution.value,
+        };
+      case "barrel-export":
+        return {
+          _tag: "barrel-export",
+          barrelPath: resolveString(contribution.barrelPath),
+          exportPath: contribution.exportPath,
+        };
+      case "ts-call-arg":
+        return {
+          _tag: "ts-call-arg",
+          path: resolveString(contribution.path),
+          targetVariable: contribution.targetVariable,
+          functionName: contribution.functionName,
+          argument: contribution.argument,
+          import: contribution.import,
+        };
+    }
+  });
 };

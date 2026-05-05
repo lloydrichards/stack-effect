@@ -1,25 +1,15 @@
 import { Schema } from "effect";
-import { DesiredContributions, ModuleId, TargetKey } from "./Catalog";
-
-export const emptyDesiredContributions =
-  (): typeof DesiredContributions.Type => ({
-    files: [],
-    exports: [],
-    dependencies: [],
-    scripts: [],
-    barrelExports: [],
-    tsconfigs: [],
-  });
+import { Contribution, ModuleId, TargetKey } from "./Catalog";
 
 export const TargetContribution = Schema.Struct({
   targetKey: TargetKey,
-  contributions: DesiredContributions,
+  contributions: Schema.Array(Contribution),
 });
 
 export const ModuleContribution = Schema.Struct({
   targetKey: TargetKey,
   moduleId: ModuleId,
-  contributions: DesiredContributions,
+  contributions: Schema.Array(Contribution),
 });
 
 export const ContributionTokenContext = Schema.Struct({
