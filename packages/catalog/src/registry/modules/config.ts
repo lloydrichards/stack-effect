@@ -1,0 +1,40 @@
+import {
+  type ModuleDefinition,
+  ModuleId,
+  TargetKind,
+} from "@repo/domain/Catalog";
+import { configTypescriptViteContents } from "../content/client";
+
+/**
+ * Config modules - shared TypeScript configurations
+ */
+export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+  {
+    id: ModuleId.make("config-typescript-vite"),
+    title: "Config TypeScript Vite",
+    description: "Vite TypeScript preset for client applications",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "packages/config-typescript/vite.json",
+        contents: configTypescriptViteContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "packages/config-typescript/package.json",
+        field: "exports",
+        name: "./base.json",
+        value: "./base.json",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "packages/config-typescript/package.json",
+        field: "exports",
+        name: "./vite.json",
+        value: "./vite.json",
+      },
+    ],
+  },
+];

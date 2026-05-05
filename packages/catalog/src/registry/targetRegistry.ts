@@ -3,7 +3,6 @@ import {
   type TargetDefinition,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { emptyDesiredContributions } from "@repo/domain/Scaffold";
 import {
   clientAppTsxContents,
   clientIndexCssContents,
@@ -34,28 +33,33 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description:
       "Set up a new project with recommended structure and configuration",
     requiredModules: [],
-    contributions: {
-      ...emptyDesiredContributions(),
-      files: [
-        { path: "{{targetPath}}/.gitignore", contents: gitignoreContents },
-        {
-          path: "{{targetPath}}/package.json",
-          contents: rootPackageJsonContents,
-        },
-        {
-          path: "{{targetPath}}/tsconfig.json",
-          contents: rootTsconfigContents,
-        },
-        {
-          path: "{{targetPath}}/packages/config-typescript/base.json",
-          contents: configTypescriptBaseContents,
-        },
-        {
-          path: "{{targetPath}}/packages/config-typescript/package.json",
-          contents: configTypescriptPackageJsonContents,
-        },
-      ],
-    },
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/.gitignore",
+        contents: gitignoreContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: rootPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: rootTsconfigContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/packages/config-typescript/base.json",
+        contents: configTypescriptBaseContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/packages/config-typescript/package.json",
+        contents: configTypescriptPackageJsonContents,
+      },
+    ],
   },
 
   {
@@ -63,89 +67,109 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "Client Application",
     description: "A frontend application, such as one built with React or Vue",
     requiredModules: [ModuleId.make("config-typescript-vite")],
-    contributions: {
-      ...emptyDesiredContributions(),
-      files: [
-        {
-          path: "{{targetPath}}/package.json",
-          contents: clientPackageJsonContents,
-        },
-        {
-          path: "{{targetPath}}/index.html",
-          contents: clientIndexHtmlContents,
-        },
-        {
-          path: "{{targetPath}}/component.json",
-          contents: clientShadcnComponentJson,
-        },
-        {
-          path: "{{targetPath}}/src/main.tsx",
-          contents: clientMainTsxContents,
-        },
-        {
-          path: "{{targetPath}}/src/app.tsx",
-          contents: clientAppTsxContents,
-        },
-        {
-          path: "{{targetPath}}/src/index.css",
-          contents: clientIndexCssContents,
-        },
-        {
-          path: "{{targetPath}}/vite.config.ts",
-          contents: clientViteConfigContents,
-        },
-        {
-          path: "{{targetPath}}/tsconfig.config.json",
-          contents: clientTsconfigConfigContents,
-        },
-        {
-          path: "{{targetPath}}/src/lib/utils.ts",
-          contents: clientUtilsContents,
-        },
-        {
-          path: "{{targetPath}}/src/vite-env.d.ts",
-          contents: clientViteEnvContents,
-        },
-      ],
-      scripts: [
-        {
-          path: "{{targetPath}}/package.json",
-          name: "build",
-          value: "vite build",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "dev",
-          value: "vite --host --clearScreen false",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "test",
-          value: "vitest run",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "type-check",
-          value: "tsc --noEmit",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "preview",
-          value: "vite preview",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "clean",
-          value: "git clean -xdf .cache .turbo dist node_modules",
-        },
-      ],
-      tsconfigs: [
-        {
-          path: "{{targetPath}}/tsconfig.json",
-          contents: clientTsconfigContents,
-        },
-      ],
-    },
+    contributions: [
+      // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: clientPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/index.html",
+        contents: clientIndexHtmlContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/component.json",
+        contents: clientShadcnComponentJson,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/main.tsx",
+        contents: clientMainTsxContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/app.tsx",
+        contents: clientAppTsxContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.css",
+        contents: clientIndexCssContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/vite.config.ts",
+        contents: clientViteConfigContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.config.json",
+        contents: clientTsconfigConfigContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/lib/utils.ts",
+        contents: clientUtilsContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/vite-env.d.ts",
+        contents: clientViteEnvContents,
+      },
+      // TSConfig (conflict on modify)
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: clientTsconfigContents,
+        conflictOnModify: true,
+      },
+      // Scripts
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "vite build",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "vite --host --clearScreen false",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "preview",
+        value: "vite preview",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value: "git clean -xdf .cache .turbo dist node_modules",
+      },
+    ],
   },
 
   {
@@ -153,53 +177,64 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "Server Application",
     description: "A backend application, such as an API server",
     requiredModules: [],
-    contributions: {
-      ...emptyDesiredContributions(),
-      files: [
-        {
-          path: "{{targetPath}}/src/index.ts",
-          contents: serverIndexContents,
-        },
-      ],
-      scripts: [
-        {
-          path: "{{targetPath}}/package.json",
-          name: "build",
-          value: "bun build src/index.ts --outdir=dist --target=bun --minify",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "build:types",
-          value: "tsc --emitDeclarationOnly",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "dev",
-          value: "bun --watch run src/index.ts",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "test",
-          value: "vitest run",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "type-check",
-          value: "tsc --noEmit",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "clean",
-          value: "git clean -xdf .cache .turbo dist node_modules",
-        },
-      ],
-      tsconfigs: [
-        {
-          path: "{{targetPath}}/tsconfig.json",
-          contents: serverTsconfigContents,
-        },
-      ],
-    },
+    contributions: [
+      // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: serverIndexContents,
+      },
+      // TSConfig (conflict on modify)
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: serverTsconfigContents,
+        conflictOnModify: true,
+      },
+      // Scripts
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "bun build src/index.ts --outdir=dist --target=bun --minify",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build:types",
+        value: "tsc --emitDeclarationOnly",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "bun --watch run src/index.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value: "git clean -xdf .cache .turbo dist node_modules",
+      },
+    ],
   },
 
   {
@@ -207,7 +242,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "CLI Application",
     description: "A command-line interface application",
     requiredModules: [],
-    contributions: emptyDesiredContributions(),
+    contributions: [],
   },
 
   {
@@ -215,27 +250,30 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
     requiredModules: [],
-    contributions: {
-      ...emptyDesiredContributions(),
-      scripts: [
-        {
-          path: "{{targetPath}}/package.json",
-          name: "type-check",
-          value: "tsc --noEmit",
-        },
-        {
-          path: "{{targetPath}}/package.json",
-          name: "clean",
-          value:
-            "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo",
-        },
-      ],
-      tsconfigs: [
-        {
-          path: "{{targetPath}}/tsconfig.json",
-          contents: packageDomainTsconfigContents,
-        },
-      ],
-    },
+    contributions: [
+      // TSConfig (conflict on modify)
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: packageDomainTsconfigContents,
+        conflictOnModify: true,
+      },
+      // Scripts
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value:
+          "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo",
+      },
+    ],
   },
 ];

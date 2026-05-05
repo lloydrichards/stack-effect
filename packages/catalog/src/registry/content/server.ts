@@ -10,13 +10,24 @@ export const serverTsconfigContents = `{
   "exclude": ["node_modules", "dist"]
 }
 `;
+
+/**
+ * Server index template with composition points.
+ *
+ * This template defines the base server structure. Modules add their handlers
+ * to the routers via composition operations targeting `Layer.provide` calls.
+ *
+ * Composition points for ts-append-call-arg:
+ * - HttpRpcRouter: Layer.provide(...) - append RPC handler layers
+ * - WebSocketRpcRouter: Layer.provide(...) - append WebSocket RPC handler layers
+ *
+ * HTTP API groups are added via Layer.provide([...]) array pattern.
+ */
 export const serverIndexContents = `import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
-import { ChatServiceLive, FastModelLive, SampleToolkitLive } from "@repo/ai";
 import { Api } from "@repo/domain/Api";
 import { EventRpc } from "@repo/domain/Rpc";
 import { WebSocketRpc } from "@repo/domain/WebSocket";
 import { ObservabilityLive } from "@repo/observability";
-import { PresenceServiceLive } from "@repo/presence";
 import { Config, Effect, Layer } from "effect";
 import { DevTools } from "effect/unstable/devtools";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
@@ -34,7 +45,7 @@ import { PresenceRpcLive } from "./Rpc/Presence";
 const ServerConfig = Config.all({
   port: Config.number("PORT").pipe(Config.withDefault(9000)),
   hostname: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
-  idleTimeout: Config.number("IDLE_TIMEOUT").pipe(Config.withDefault(120)), // seconds (Bun default is 10)
+  idleTimeout: Config.number("IDLE_TIMEOUT").pipe(Config.withDefault(120)),
   allowedOrigins: Config.string("ALLOWED_ORIGINS").pipe(
     Config.withDefault("http://localhost:3000"),
   ),
@@ -51,29 +62,27 @@ const ApiRouter = HttpApiBuilder.layer(Api).pipe(
 );
 
 // HTTP RPC Router (for EventRpc - streaming over HTTP)
+// Modules compose additional layers via ts-append-call-arg targeting "Layer.provide"
 const HttpRpcRouter = RpcServer.layerHttp({
   group: EventRpc,
   path: "/rpc",
-  protocol: "http", // Use HTTP for EventRpc
+  protocol: "http",
   spanPrefix: "rpc",
 }).pipe(
   Layer.provide(EventRpcLive),
-  Layer.provide(ChatServiceLive),
-  Layer.provide(SampleToolkitLive),
-  Layer.provide(FastModelLive),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
 // WebSocket RPC Router (for PresenceRpc - real-time presence)
+// Modules compose additional layers via ts-append-call-arg targeting "Layer.provide"
 const WebSocketRpcRouter = RpcServer.layerHttp({
   group: WebSocketRpc,
   path: "/ws",
-  protocol: "websocket", // Use WebSocket for PresenceRpc!
+  protocol: "websocket",
   spanPrefix: "ws",
   disableFatalDefects: true,
 }).pipe(
   Layer.provide(PresenceRpcLive),
-  Layer.provide(PresenceServiceLive),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
