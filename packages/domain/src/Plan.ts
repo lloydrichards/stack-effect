@@ -1,21 +1,25 @@
 import { Order, Schema } from "effect";
 import { pathOrd } from "./Order";
 
+// =============================================================================
+// RepoSnapshot Path States
+// =============================================================================
+
+export const RepoSnapshotPath = Schema.TaggedUnion({
+  missing: {
+    path: Schema.String,
+  },
+  directory: {
+    path: Schema.String,
+  },
+  file: {
+    path: Schema.String,
+    contents: Schema.String,
+  },
+});
+
 export const RepoSnapshot = Schema.Struct({
-  paths: Schema.Array(
-    Schema.Union([
-      Schema.TaggedStruct("missing", {
-        path: Schema.String,
-      }),
-      Schema.TaggedStruct("directory", {
-        path: Schema.String,
-      }),
-      Schema.TaggedStruct("file", {
-        path: Schema.String,
-        contents: Schema.String,
-      }),
-    ]),
-  ),
+  paths: Schema.Array(RepoSnapshotPath),
 });
 
 export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
@@ -108,54 +112,54 @@ export const PlanEntryClassification = Schema.Literals([
   "conflict",
 ]);
 
+export const PlanOutcome = Schema.TaggedUnion({
+  complete: {
+    path: Schema.String,
+    classification: PlanEntryClassification,
+    contents: Schema.String,
+  },
+  composed: {
+    path: Schema.String,
+    classification: PlanEntryClassification,
+    seedContents: Schema.optional(Schema.String),
+    operations: Schema.Array(CompositionOperation),
+  },
+});
+
+export const PlanConflict = Schema.TaggedUnion({
+  exports: {
+    path: Schema.String,
+    name: Schema.String,
+  },
+  dependencies: {
+    path: Schema.String,
+    section: Schema.String,
+    name: Schema.String,
+  },
+  scripts: {
+    path: Schema.String,
+    name: Schema.String,
+  },
+  barrelExport: {
+    path: Schema.String,
+    exportPath: Schema.String,
+  },
+  tsconfig: {
+    path: Schema.String,
+  },
+  completeFile: {
+    path: Schema.String,
+  },
+  compositionTargetNotFound: {
+    path: Schema.String,
+    targetVariable: Schema.String,
+    functionName: Schema.String,
+  },
+});
+
 export class Plan extends Schema.Class<Plan>("Plan")({
-  outcomes: Schema.Array(
-    Schema.Union([
-      Schema.TaggedStruct("complete", {
-        path: Schema.String,
-        classification: PlanEntryClassification,
-        contents: Schema.String,
-      }),
-      Schema.TaggedStruct("composed", {
-        path: Schema.String,
-        classification: PlanEntryClassification,
-        seedContents: Schema.optional(Schema.String),
-        operations: Schema.Array(CompositionOperation),
-      }),
-    ]),
-  ),
-  conflicts: Schema.Array(
-    Schema.Union([
-      Schema.TaggedStruct("exports", {
-        path: Schema.String,
-        name: Schema.String,
-      }),
-      Schema.TaggedStruct("dependencies", {
-        path: Schema.String,
-        section: Schema.String,
-        name: Schema.String,
-      }),
-      Schema.TaggedStruct("scripts", {
-        path: Schema.String,
-        name: Schema.String,
-      }),
-      Schema.TaggedStruct("barrelExport", {
-        path: Schema.String,
-        exportPath: Schema.String,
-      }),
-      Schema.TaggedStruct("tsconfig", {
-        path: Schema.String,
-      }),
-      Schema.TaggedStruct("completeFile", {
-        path: Schema.String,
-      }),
-      Schema.TaggedStruct("compositionTargetNotFound", {
-        path: Schema.String,
-        targetVariable: Schema.String,
-        functionName: Schema.String,
-      }),
-    ]),
-  ),
+  outcomes: Schema.Array(PlanOutcome),
+  conflicts: Schema.Array(PlanConflict),
 }) {
   toSorted(): Plan {
     return new Plan({
@@ -163,24 +167,18 @@ export class Plan extends Schema.Class<Plan>("Plan")({
       conflicts: [...this.conflicts].sort(
         Order.mapInput(
           Order.String,
-          (conflict: typeof Plan.fields.conflicts.schema.Type): string => {
-            switch (conflict._tag) {
-              case "exports":
-                return `exports:${conflict.path}:${conflict.name}`;
-              case "dependencies":
-                return `dependencies:${conflict.path}:${conflict.section}:${conflict.name}`;
-              case "scripts":
-                return `scripts:${conflict.path}:${conflict.name}`;
-              case "barrelExport":
-                return `barrelExport:${conflict.path}:${conflict.exportPath}`;
-              case "tsconfig":
-                return `tsconfig:${conflict.path}`;
-              case "completeFile":
-                return `completeFile:${conflict.path}`;
-              case "compositionTargetNotFound":
-                return `compositionTargetNotFound:${conflict.path}:${conflict.targetVariable}:${conflict.functionName}`;
-            }
-          },
+          (conflict: typeof PlanConflict.Type): string =>
+            PlanConflict.match(conflict, {
+              exports: (c) => `exports:${c.path}:${c.name}`,
+              dependencies: (c) =>
+                `dependencies:${c.path}:${c.section}:${c.name}`,
+              scripts: (c) => `scripts:${c.path}:${c.name}`,
+              barrelExport: (c) => `barrelExport:${c.path}:${c.exportPath}`,
+              tsconfig: (c) => `tsconfig:${c.path}`,
+              completeFile: (c) => `completeFile:${c.path}`,
+              compositionTargetNotFound: (c) =>
+                `compositionTargetNotFound:${c.path}:${c.targetVariable}:${c.functionName}`,
+            }),
         ),
       ),
     });
