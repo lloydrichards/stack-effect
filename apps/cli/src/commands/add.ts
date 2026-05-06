@@ -7,6 +7,8 @@ import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { HorizontalSelect } from "../components/HorizontalSelect";
 import { Padding } from "../components/Padding";
+import { Select } from "../components/Select";
+import { TextInput } from "../components/TextInput";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
@@ -82,7 +84,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
           );
 
           if (candidates.length === 0) {
-            const name = yield* Prompt.text({
+            const name = yield* TextInput({
               message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
             });
             targets.push({
@@ -110,7 +112,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
               c.modules.includes(implication.moduleId),
             );
             if (!alreadyPresent) {
-              const chosen = yield* Prompt.select({
+              const chosen = yield* Select({
                 message: `Module "${definition.title}" implies "${implication.moduleId}". Which ${implication.targetKind} target should receive it?`,
                 choices: candidates.map((c) => ({
                   title: `${c.kind}/${c.name}`,
@@ -395,7 +397,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
       choices: targetChoices,
     });
 
-    const name = yield* Prompt.text({
+    const name = yield* TextInput({
       message: `What should this ${kind} target be called?`,
     });
 
@@ -460,7 +462,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
       for (const t of targets) t.confirmed = true;
       allConfirmed = true;
     } else if (action === "edit") {
-      const targetToEdit = yield* Prompt.select({
+      const targetToEdit = yield* Select({
         message: "Which target do you want to edit?",
         choices: targets.map((t, i) => ({
           title: `${t.kind}/${t.name}  [${t.modules.join(", ")}]`,

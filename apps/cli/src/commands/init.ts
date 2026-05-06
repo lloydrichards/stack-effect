@@ -1,8 +1,10 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
-import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
+import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Confirm } from "../components/Confirm";
+import { TextInput } from "../components/TextInput";
+import { Select } from "../components/Select";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
@@ -49,7 +51,7 @@ const optionalSelect = <A extends string>(
   choices: ReadonlyArray<{ title: string; value: A }>,
 ) =>
   Effect.gen(function* () {
-    const v = yield* Prompt.select({
+    const v = yield* Select({
       message,
       choices: [...choices, { title: "none", value: "none" as A }],
     });
@@ -104,7 +106,7 @@ export const init = Command.make(
 
       const projectName = Option.isSome(flags.name)
         ? flags.name.value
-        : yield* Prompt.text({
+        : yield* TextInput({
             message: "Project name:",
             validate: (v) =>
               v.trim().length > 0
@@ -117,7 +119,7 @@ export const init = Command.make(
         ? flags.packageManager.value
         : flags.yes
           ? ("bun" as const)
-          : yield* Prompt.select({
+          : yield* Select({
               message: "Runtime:",
               choices: [
                 { title: "bun", value: "bun" as const },
@@ -129,7 +131,7 @@ export const init = Command.make(
       if (runtimeChoice === "bun") {
         runtime = { _tag: "bun" };
       } else {
-        const pm = yield* Prompt.select({
+        const pm = yield* Select({
           message: "Package manager:",
           choices: [
             { title: "pnpm", value: "pnpm" as const },
