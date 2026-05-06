@@ -5,6 +5,6 @@
     "noEmit": true,
     "types": ["@types/bun"]
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "e2e/**/*"],
   "exclude": ["node_modules", "dist"]
 }
