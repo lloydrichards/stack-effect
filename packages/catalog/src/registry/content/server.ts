@@ -1,3 +1,23 @@
+export const serverPackageJsonContents = `{
+  "name": "{{packageName}}",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-beta.59",
+    "effect": "4.0.0-beta.59"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@repo/config-typescript": "workspace:*",
+    "@types/bun": "^1.2.17",
+    "typescript": "6.0.2",
+    "vitest": "^4.1.4"
+  }
+}
+`;
+
 export const serverTsconfigContents = `{
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
@@ -12,31 +32,23 @@ export const serverTsconfigContents = `{
 `;
 
 /**
- * Server index template with composition points.
+ * Server index template with HTTP API support.
  *
- * This template defines the base server structure. Modules add their handlers
- * to the routers via composition operations targeting `Layer.provide` calls.
+ * This is a minimal server template that includes:
+ * - Basic HTTP server with CORS
+ * - HTTP API router with Health and Hello endpoints
+ * - DevTools support (optional)
  *
- * Composition points for ts-append-call-arg:
- * - HttpRpcRouter: Layer.provide(...) - append RPC handler layers
- * - WebSocketRpcRouter: Layer.provide(...) - append WebSocket RPC handler layers
- *
- * HTTP API groups are added via Layer.provide([...]) array pattern.
+ * Additional capabilities (RPC, WebSocket) are added by modules.
  */
 export const serverIndexContents = `import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
 import { Api } from "@repo/domain/Api";
-import { EventRpc } from "@repo/domain/Rpc";
-import { WebSocketRpc } from "@repo/domain/WebSocket";
-import { ObservabilityLive } from "@repo/observability";
 import { Config, Effect, Layer } from "effect";
 import { DevTools } from "effect/unstable/devtools";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 import { HealthGroupLive } from "./Api/Health";
 import { HelloGroupLive } from "./Api/Hello";
-import { EventRpcLive } from "./Rpc/Event";
-import { PresenceRpcLive } from "./Rpc/Presence";
 
 // ============================================================================
 // Server Configuration
@@ -61,31 +73,6 @@ const ApiRouter = HttpApiBuilder.layer(Api).pipe(
   Layer.provide([HealthGroupLive, HelloGroupLive]),
 );
 
-// HTTP RPC Router (for EventRpc - streaming over HTTP)
-// Modules compose additional layers via ts-append-call-arg targeting "Layer.provide"
-const HttpRpcRouter = RpcServer.layerHttp({
-  group: EventRpc,
-  path: "/rpc",
-  protocol: "http",
-  spanPrefix: "rpc",
-}).pipe(
-  Layer.provide(EventRpcLive),
-  Layer.provide(RpcSerialization.layerNdjson),
-);
-
-// WebSocket RPC Router (for PresenceRpc - real-time presence)
-// Modules compose additional layers via ts-append-call-arg targeting "Layer.provide"
-const WebSocketRpcRouter = RpcServer.layerHttp({
-  group: WebSocketRpc,
-  path: "/ws",
-  protocol: "websocket",
-  spanPrefix: "ws",
-  disableFatalDefects: true,
-}).pipe(
-  Layer.provide(PresenceRpcLive),
-  Layer.provide(RpcSerialization.layerNdjson),
-);
-
 // ============================================================================
 // Server Launch
 // ============================================================================
@@ -106,14 +93,8 @@ const HttpLive = Effect.gen(function* () {
   yield* Effect.logInfo("CORS allowed origins: " + allowedOrigins.join(", "));
   yield* Effect.logInfo("Starting server with:");
   yield* Effect.logInfo("  - HTTP API at /");
-  yield* Effect.logInfo("  - HTTP RPC at /rpc (EventRpc)");
-  yield* Effect.logInfo("  - WebSocket RPC at /ws (PresenceRpc)");
 
-  const AllRouters = Layer.mergeAll(
-    ApiRouter,
-    HttpRpcRouter,
-    WebSocketRpcRouter,
-  ).pipe(
+  const AllRouters = Layer.mergeAll(ApiRouter).pipe(
     Layer.provide(
       HttpRouter.cors({
         allowedOrigins,
@@ -127,7 +108,6 @@ const HttpLive = Effect.gen(function* () {
   return HttpRouter.serve(AllRouters).pipe(
     HttpServer.withLogAddress,
     Layer.provideMerge(DevToolsLive),
-    Layer.provideMerge(ObservabilityLive),
     Layer.provideMerge(BunHttpServer.layerConfig(ServerConfig)),
   );
 }).pipe(Layer.unwrap, Layer.launch);

@@ -252,11 +252,16 @@ describe("BlueprintService", () => {
               ],
             });
 
+            // Server requires http-api-server which requires domain-api on packages/domain
             expect(
               blueprint.nodes
                 .filter((node) => node._tag === "target")
                 .map((node) => node.id),
-            ).toEqual(["apps/client-api", "apps/server-api"]);
+            ).toEqual([
+              "apps/client-api",
+              "apps/server-api",
+              "packages/domain",
+            ]);
           }),
       );
 

@@ -49,6 +49,25 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     }
   }
 
+  /**
+   * Returns the package.json "name" field value for this target.
+   * - Packages use scoped names: `@repo/<name>`
+   * - Apps use their folder name: `<kind>` or `<kind>-<name>`
+   */
+  toPackageName(): string {
+    const resolvedName = this.name.trim() || this.kind;
+    switch (this.kind) {
+      case "init":
+        return resolvedName;
+      case "package":
+        return `@repo/${Str.kebabCase(resolvedName)}`;
+      default:
+        return this.name
+          ? `${this.kind}-${Str.kebabCase(this.name.trim())}`
+          : this.kind;
+    }
+  }
+
   matches(supportedOn: typeof SupportedOn.Type): boolean {
     return SupportedOn.match(supportedOn, {
       identity: (s) => s.identity.toKey() === this.toKey(),

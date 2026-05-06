@@ -42,6 +42,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetPath: node.identity.toPath(),
                 targetKind: node.identity.kind,
                 targetName: node.identity.name,
+                packageName: node.identity.toPackageName(),
                 runtime: config.runtimeName,
                 packageManager: config.packageManagerName,
                 packageManagerSpec: config.packageManagerSpec,
@@ -121,6 +122,7 @@ export const resolveTokenString = (
     .replaceAll("{{targetDir}}", context.targetPath)
     .replaceAll("{{targetKind}}", context.targetKind)
     .replaceAll("{{targetName}}", resolvedTargetName)
+    .replaceAll("{{packageName}}", context.packageName)
     .replaceAll("{{runtime}}", context.runtime)
     .replaceAll("{{packageManager}}", context.packageManager)
     .replaceAll("{{packageManagerSpec}}", context.packageManagerSpec)

@@ -27,14 +27,8 @@ type ResolutionState = {
   >;
   readonly edges: HashMap.HashMap<
     string,
-    (typeof Blueprint.fields.edges.Type)[0]
+    typeof Blueprint.fields.edges.schema.Type
   >;
-};
-
-const emptyState: ResolutionState = {
-  targets: HashMap.empty(),
-  attachedModules: HashMap.empty(),
-  edges: HashMap.empty(),
 };
 
 export class BlueprintService extends Context.Service<BlueprintService>()(
@@ -130,7 +124,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     selection: typeof Selection.Type,
     catalog: typeof CatalogService.Service,
   ) {
-    const stateRef = yield* Ref.make<ResolutionState>(emptyState);
+    const stateRef = yield* Ref.make<ResolutionState>({
+      targets: HashMap.empty(),
+      attachedModules: HashMap.empty(),
+      edges: HashMap.empty(),
+    });
 
     const ensureTarget = Effect.fn(function* (identity: TargetIdentity) {
       const current = yield* Ref.get(stateRef).pipe(

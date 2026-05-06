@@ -23,13 +23,15 @@ describe("@repo/domain Scaffold", () => {
     expect(clientIdentity.toPath()).toBe("apps/client-admin-ui");
   });
 
-  it("rejects empty target names", () => {
-    expect(() =>
-      Schema.decodeUnknownSync(TargetIdentity)({
-        kind: "server",
-        name: "",
-      }),
-    ).toThrow();
+  it("accepts empty target names for apps (uses kind only)", () => {
+    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      kind: "server",
+      name: "",
+    });
+
+    expect(identity.toKey()).toBe("apps/server");
+    expect(identity.toPath()).toBe("apps/server");
+    expect(identity.toPackageName()).toBe("server");
   });
 
   it("slugifies uppercase names into canonical keys and paths", () => {
@@ -82,12 +84,68 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toPath()).toBe("apps/server-my-api");
   });
 
-  it("rejects unsupported target kinds", () => {
-    expect(() =>
-      Schema.decodeUnknownSync(TargetIdentity)({
-        kind: "worker",
-        name: "jobs",
-      }),
-    ).toThrow();
+  describe("toPackageName", () => {
+    it("returns scoped name for packages", () => {
+      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "package",
+        name: "domain",
+      });
+      expect(identity.toPackageName()).toBe("@repo/domain");
+    });
+
+    it("returns kind-name for apps with names", () => {
+      const serverIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "server",
+        name: "api",
+      });
+      const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "client",
+        name: "web",
+      });
+
+      expect(serverIdentity.toPackageName()).toBe("server-api");
+      expect(clientIdentity.toPackageName()).toBe("client-web");
+    });
+
+    it("returns just kind for apps without names", () => {
+      const serverIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "server",
+        name: "",
+      });
+      const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "client",
+        name: "",
+      });
+
+      expect(serverIdentity.toPackageName()).toBe("server");
+      expect(clientIdentity.toPackageName()).toBe("client");
+    });
+
+    it("slugifies package names", () => {
+      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "package",
+        name: "Domain Core",
+      });
+      expect(identity.toPackageName()).toBe("@repo/domain-core");
+    });
+
+    it("slugifies app names", () => {
+      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+        kind: "server",
+        name: "My API",
+      });
+      expect(identity.toPackageName()).toBe("server-my-api");
+    });
+  });
+
+  it("accepts arbitrary target kinds (extensible)", () => {
+    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      kind: "worker",
+      name: "jobs",
+    });
+
+    expect(identity.toKey()).toBe("apps/worker-jobs");
+    expect(identity.toPath()).toBe("apps/worker-jobs");
+    expect(identity.toPackageName()).toBe("worker-jobs");
   });
 });

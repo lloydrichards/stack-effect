@@ -17,6 +17,8 @@ export const ContributionTokenContext = Schema.Struct({
   targetPath: Schema.String,
   targetKind: Schema.String,
   targetName: Schema.NonEmptyString,
+  /** Scoped package name for workspace packages (e.g., @repo/domain) */
+  packageName: Schema.NonEmptyString,
   runtime: Schema.NonEmptyString,
   packageManager: Schema.NonEmptyString,
   packageManagerSpec: Schema.NonEmptyString,

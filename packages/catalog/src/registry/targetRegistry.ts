@@ -23,8 +23,15 @@ import {
   rootPackageJsonContents,
   rootTsconfigContents,
 } from "./content/init";
-import { serverIndexContents, serverTsconfigContents } from "./content/server";
-import { packageDomainTsconfigContents } from "./content/shared";
+import {
+  serverIndexContents,
+  serverPackageJsonContents,
+  serverTsconfigContents,
+} from "./content/server";
+import {
+  packageDomainTsconfigContents,
+  packagePackageJsonContents,
+} from "./content/shared";
 
 export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
@@ -176,9 +183,14 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("server"),
     title: "Server Application",
     description: "A backend application, such as an API server",
-    requiredModules: [],
+    requiredModules: [ModuleId.make("http-api-server")],
     contributions: [
       // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: serverPackageJsonContents,
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
@@ -251,6 +263,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A shared library package for code reuse across targets",
     requiredModules: [],
     contributions: [
+      // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: packagePackageJsonContents,
+      },
       // TSConfig (conflict on modify)
       {
         _tag: "file",

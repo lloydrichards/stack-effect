@@ -19,7 +19,7 @@ export const configTypescriptViteContents = `{
 `;
 
 export const clientPackageJsonContents = `{
-  "name": "{{targetName}}",
+  "name": "{{packageName}}",
   "private": true,
   "version": "0.0.0",
   "type": "module",

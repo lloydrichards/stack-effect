@@ -224,6 +224,9 @@ function assessPlanningPath({
     Match.when({ hasContents: true, hasCompositions: true }, () =>
       planAuthoritativeCompositionMerge(planningPath, snapshotPath),
     ),
+    Match.when({ hasContents: true, hasPackageJsonFields: true }, () =>
+      planAuthoritativePackageJsonMerge(planningPath, snapshotPath),
+    ),
     // Pure single-family cases
     Match.when({ hasContents: true }, () =>
       assessAuthoritativeContents(planningPath, snapshotPath),
@@ -543,6 +546,100 @@ const planAuthoritativeCompositionMerge = (
   }
 
   // Contents match but we have compositions to apply
+  return createPathAssessment({ classification: "modify" });
+};
+
+/**
+ * Plan authoritative package.json merge: seed content + package.json fields.
+ * Creates file with authoritative content, then applies package.json field operations.
+ * Detects conflicts when existing package.json has conflicting entries.
+ */
+const planAuthoritativePackageJsonMerge = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const {
+    path,
+    exports: requiredExports,
+    dependencies: requiredDependencies,
+    scripts: requiredScripts,
+  } = planningPath;
+  const existingContents = getExistingFileContents(path, snapshotPath);
+
+  // File doesn't exist - create with authoritative content + package.json fields
+  if (existingContents === undefined) {
+    return createPathAssessment({ classification: "create" });
+  }
+
+  const packageJson = parseJsonRecord(existingContents);
+
+  // Can't parse as JSON - conflict on all planned entries
+  if (packageJson === undefined) {
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts: collectInvalidPackageJsonConflicts(planningPath),
+    });
+  }
+
+  // Assess each package.json field for conflicts
+  const dependenciesBySection = Arr.groupBy(
+    requiredDependencies,
+    (plannedDependency) => plannedDependency.section,
+  );
+  const exportAssessment = assessFlatStringRecordEntries({
+    existingValue: packageJson["exports"],
+    requiredEntries: requiredExports,
+    keyOf: (plannedExport) => plannedExport.name,
+    valueOf: (plannedExport) => plannedExport.value,
+    toConflict: (plannedExport) =>
+      planConflict.exports(path, plannedExport.name),
+  });
+  const dependencyAssessments = Record.collect(
+    dependenciesBySection,
+    (section, sectionDependencies) =>
+      assessFlatStringRecordEntries({
+        existingValue: packageJson[section],
+        requiredEntries: sectionDependencies,
+        keyOf: (plannedDependency) => plannedDependency.name,
+        valueOf: (plannedDependency) => plannedDependency.value,
+        toConflict: (plannedDependency) =>
+          planConflict.dependencies(path, plannedDependency),
+      }),
+  );
+  const scriptAssessment = assessFlatStringRecordEntries({
+    existingValue: packageJson["scripts"],
+    requiredEntries: requiredScripts,
+    keyOf: (script) => script.name,
+    valueOf: (script) => script.value,
+    toConflict: (script) => planConflict.scripts(path, script.name),
+  });
+  const conflicts = [
+    ...exportAssessment.conflicts,
+    ...Arr.flatMap(dependencyAssessments, (assessment) => assessment.conflicts),
+    ...scriptAssessment.conflicts,
+  ];
+  const hasFieldAdditions =
+    exportAssessment.hasAdditions ||
+    Arr.some(dependencyAssessments, (assessment) => assessment.hasAdditions) ||
+    scriptAssessment.hasAdditions;
+
+  if (conflicts.length > 0) {
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts,
+    });
+  }
+
+  // Check if authoritative content differs from existing
+  const requiredContents = planningPath.contents!;
+  const authoritativeContentMatches = existingContents === requiredContents;
+
+  // If authoritative content matches and no field additions, unchanged
+  // Otherwise, we need to modify (either content differs or fields need adding)
+  if (authoritativeContentMatches && !hasFieldAdditions) {
+    return createPathAssessment({ classification: "unchanged" });
+  }
+
   return createPathAssessment({ classification: "modify" });
 };
 

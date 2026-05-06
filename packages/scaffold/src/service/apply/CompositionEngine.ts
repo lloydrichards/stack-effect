@@ -4,6 +4,26 @@ import { JsonComposer } from "./JsonComposer";
 import { TypeScriptComposer } from "./TypeScriptComposer";
 
 // =============================================================================
+// Type Guards
+// =============================================================================
+
+/**
+ * Check if an operation targets JSON files.
+ *
+ * Note: We use a simple field check instead of Schema.toTaggedUnion guards
+ * because the guards only match the last schema member for each tag value,
+ * not all members with the same tag.
+ */
+const isJsonOp = (
+  op: typeof CompositionOperation.Type,
+): op is typeof CompositionOperation.cases.json.Type => op.fileType === "json";
+
+const isTypeScriptOp = (
+  op: typeof CompositionOperation.Type,
+): op is typeof CompositionOperation.cases.typescript.Type =>
+  op.fileType === "typescript";
+
+// =============================================================================
 // Service Definition
 // =============================================================================
 
@@ -27,20 +47,14 @@ export class CompositionEngine extends Context.Service<CompositionEngine>()(
           let result = contents;
 
           // Filter and apply JSON operations if this is a JSON file
-          const jsonOps = Array.filter(
-            operations,
-            CompositionOperation.guards.json,
-          );
+          const jsonOps = Array.filter(operations, isJsonOp);
 
           if (isJsonFile(path) && jsonOps.length > 0) {
             result = yield* jsonComposer.compose(result, jsonOps);
           }
 
           // Filter and apply TypeScript operations if this is a TypeScript file
-          const tsOps = Array.filter(
-            operations,
-            CompositionOperation.guards.typescript,
-          );
+          const tsOps = Array.filter(operations, isTypeScriptOp);
 
           if (isTypeScriptFile(path) && tsOps.length > 0) {
             result = yield* typeScriptComposer.compose(result, tsOps);

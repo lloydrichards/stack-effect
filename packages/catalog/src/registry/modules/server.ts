@@ -39,6 +39,13 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/src/Api/Hello.ts",
         contents: serverHelloContents,
       },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "workspace:*",
+      },
     ],
   },
   {
@@ -61,6 +68,13 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Event.ts",
         contents: serverTickContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "workspace:*",
       },
     ],
   },
@@ -98,6 +112,13 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/ai",
+        value: "workspace:*",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
         value: "workspace:*",
       },
       {
@@ -169,6 +190,13 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/presence",
+        value: "workspace:*",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
         value: "workspace:*",
       },
       {

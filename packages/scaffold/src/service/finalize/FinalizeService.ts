@@ -137,6 +137,7 @@ const makeTokenContext = (
   targetPath: identity.toPath(),
   targetKind: identity.kind,
   targetName: identity.name,
+  packageName: identity.toPackageName(),
   runtime: config.config.runtimeName,
   packageManager: config.config.packageManagerName,
   packageManagerSpec: config.config.packageManagerSpec,
