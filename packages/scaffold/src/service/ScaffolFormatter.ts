@@ -4,7 +4,7 @@ import {
   BlueprintNode,
   blueprintNodeOrd,
 } from "@repo/domain/Blueprint";
-import { idOrd } from "@repo/domain/Order";
+import { idOrd, pathOrd } from "@repo/domain/Order";
 import type {
   Plan,
   PlanConflict,
@@ -23,36 +23,95 @@ import {
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
 
+const planLegendBox = [
+  Box.hsep(
+    [Box.text("[+]").pipe(Box.annotate(Ansi.green)), Box.text("create")],
+    1,
+    Box.left,
+  ),
+  Box.hsep(
+    [Box.text("[~]").pipe(Box.annotate(Ansi.yellow)), Box.text("modify")],
+    1,
+    Box.left,
+  ),
+  Box.hsep(
+    [Box.text("[=]").pipe(Box.annotate(Ansi.dim)), Box.text("unchanged")],
+    1,
+    Box.left,
+  ),
+  Box.hsep(
+    [Box.text("[!]").pipe(Box.annotate(Ansi.red)), Box.text("needs merge")],
+    1,
+    Box.left,
+  ),
+];
+
 type FormattedPlan = {
   readonly title: string;
-  readonly legend: string;
+  readonly legend: Box.Box<Ansi.AnsiStyle>;
   readonly summary: string;
-  readonly tree: ReadonlyArray<string>;
+  readonly tree: Box.Box<Ansi.AnsiStyle>;
 };
 
-type TreeBranch<A> = {
-  readonly line: Box.Box<A>;
-  readonly prefix: "╌>" | "─>";
-  readonly children?: ReadonlyArray<TreeBranch<A>>;
+// ============================================================================
+// Generic Tree Rendering
+// ============================================================================
+
+/**
+ * Generic tree node that can represent any hierarchical data.
+ * Used by both Blueprint and Plan formatters for consistent tree rendering.
+ */
+type TreeNode<A> = {
+  readonly label: Box.Box<A>;
+  readonly badge?: Box.Box<A>;
+  readonly connector: "dashed" | "solid" | "plain";
+  readonly children: ReadonlyArray<TreeNode<A>>;
 };
 
-type DerivedPlanTreeFileNode = {
-  readonly _tag: "file";
-  readonly name: string;
-  readonly path: string;
-  readonly classification: typeof PlanEntryClassification.Type;
-};
+/**
+ * Renders a list of tree nodes as a Box with proper tree connectors and indentation.
+ * Supports nested children recursively.
+ */
+const renderTreeNodes = <A>(
+  nodes: ReadonlyArray<TreeNode<A>>,
+  indent = "",
+): Box.Box<A> => {
+  if (nodes.length === 0) {
+    return Box.nullBox as Box.Box<A>;
+  }
 
-type DerivedPlanTreeDirectoryNode = {
-  readonly _tag: "directory";
-  readonly name: string;
-  readonly path: string;
-  readonly children: ReadonlyArray<DerivedPlanTreeNode>;
-};
+  return Box.vcat(
+    Arr.flatMap(nodes, (node, index) => {
+      const isLast = index === nodes.length - 1;
+      const connector = isLast ? "└" : "├";
+      const childIndent = String.concat(indent, isLast ? "    " : "│   ");
 
-type DerivedPlanTreeNode =
-  | DerivedPlanTreeDirectoryNode
-  | DerivedPlanTreeFileNode;
+      const connectorText = Match.value(node.connector).pipe(
+        Match.when("dashed", () => "╌>"),
+        Match.when("solid", () => "─>"),
+        Match.when("plain", () => "──"),
+        Match.exhaustive,
+      );
+      const labelWithBadge = node.badge
+        ? Box.hsep([node.badge, node.label], 1, Box.left)
+        : node.label;
+
+      const branchLine = Box.hcat(
+        [
+          Box.text(`${indent}${connector}`),
+          Box.text(connectorText),
+          labelWithBadge.pipe(Box.moveRight(1)),
+        ],
+        Box.top,
+      );
+
+      const childBox = renderTreeNodes(node.children, childIndent);
+
+      return childBox.rows > 0 ? [branchLine, childBox] : [branchLine];
+    }),
+    Box.left,
+  );
+};
 
 export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   "ScaffoldFormatter",
@@ -117,10 +176,10 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                 Box.top,
               );
 
-              const moduleLines = renderTreeBranchesAsBox(
+              const moduleNodes: ReadonlyArray<TreeNode<Ansi.AnsiStyle>> =
                 Arr.map(attachedModules, (attachedModule) => ({
-                  line: Box.text(attachedModule.id),
-                  prefix: "╌>" as const,
+                  label: Box.text(attachedModule.id),
+                  connector: "dashed" as const,
                   children: Arr.map(
                     Arr.sort(
                       Arr.filter(
@@ -132,7 +191,7 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                       idOrd,
                     ),
                     (edge) => ({
-                      line: Box.hsep(
+                      label: Box.hsep(
                         [
                           Box.text(edge.to),
                           Box.text(`[${edge.reason}]`).pipe(
@@ -142,11 +201,13 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                         1,
                         Box.left,
                       ),
-                      prefix: "─>" as const,
+                      connector: "solid" as const,
+                      children: [],
                     }),
                   ),
-                })),
-              );
+                }));
+
+              const moduleLines = renderTreeNodes(moduleNodes, "  ");
 
               return Box.vcat([targetHeader, moduleLines], Box.left);
             },
@@ -182,22 +243,26 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
               Arr.append(groups.get(conflict.path) ?? [], conflict),
             ),
         );
-        const tree = sortPlanTreeDirectoryNode(
-          Arr.reduce(
-            plan.outcomes,
-            emptyDirectoryNode("."),
-            appendOutcomeToDirectoryNode,
-          ),
+
+        const treeNodes = buildNodes(
+          Arr.map(Arr.sort(plan.outcomes, pathOrd), (outcome) => ({
+            segments: String.split(outcome.path, "/"),
+            outcome,
+          })),
+          0,
+          conflictsByPath,
+        );
+
+        const treeBox = Box.vcat(
+          [Box.text("."), renderTreeNodes(treeNodes)],
+          Box.left,
         );
 
         return {
           title: "Plan",
-          legend: "[+] create  [~] modify  [=] unchanged  [!] needs merge",
+          legend: Box.hsep(planLegendBox, 2, Box.left),
           summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.conflict} merge`,
-          tree: [
-            tree.name,
-            ...renderPlanTreeChildren(tree.children, conflictsByPath),
-          ],
+          tree: treeBox,
         };
       });
 
@@ -210,191 +275,116 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
   );
 }
 
-const renderTreeBranchesAsBox = <A>(
-  branches: ReadonlyArray<TreeBranch<A>>,
-  indent = "  ",
-): Box.Box<Ansi.AnsiStyle> => {
-  if (branches.length === 0) {
-    return Box.nullBox;
-  }
-
-  return Box.vcat(
-    Arr.flatMap(branches, (branch, index) => {
-      const isLast = index === branches.length - 1;
-      const connector = isLast ? "└" : "├";
-      const childIndent = String.concat(indent, isLast ? "    " : "│   ");
-
-      const branchLine = Box.hcat(
-        [
-          Box.text(`${indent}${connector}`),
-          Box.text(branch.prefix),
-          branch.line.pipe(Box.moveRight(1)),
-        ],
-        Box.top,
-      );
-
-      const childBox = renderTreeBranchesAsBox(
-        branch.children ?? [],
-        childIndent,
-      );
-
-      return childBox.rows > 0 ? [branchLine, childBox] : [branchLine];
-    }),
-    Box.left,
-  );
-};
-
-const renderTreeBranches = <A>(
-  branches: ReadonlyArray<TreeBranch<A>>,
-  indent = "  ",
-): ReadonlyArray<string> =>
-  Arr.flatMap(branches, (branch, index) => {
-    const isLast = index === branches.length - 1;
-    const childIndent = String.concat(indent, isLast ? "    " : "│   ");
-
-    return [
-      `${indent}${isLast ? "└" : "├"}${branch.prefix} ${branch.line}`,
-      ...renderTreeBranches(branch.children ?? [], childIndent),
-    ];
-  });
-
-const renderPlanTreeChildren = (
-  nodes: ReadonlyArray<DerivedPlanTreeNode>,
+const buildNodes = (
+  entries: ReadonlyArray<{
+    readonly segments: ReadonlyArray<string>;
+    readonly outcome: typeof PlanOutcome.Type;
+  }>,
+  depth: number,
   conflictsByPath: ReadonlyMap<string, ReadonlyArray<typeof PlanConflict.Type>>,
-  indent = "",
-): ReadonlyArray<string> =>
-  Arr.flatMap(nodes, (node, index) => {
-    const isLast = index === nodes.length - 1;
-    const connector = isLast ? "└── " : "├── ";
-    const childIndent = `${indent}${isLast ? "    " : "│   "}`;
+): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
+  if (entries.length === 0) return [];
 
-    switch (node._tag) {
-      case "directory":
-        return [
-          `${indent}${connector}${node.name}`,
-          ...renderPlanTreeChildren(
-            node.children,
-            conflictsByPath,
-            childIndent,
-          ),
-        ];
-      case "file":
-        return [
-          `${indent}${connector}${formatPlanClassificationBadge(node.classification)} ${node.name}`,
-          ...Arr.map(
-            conflictsByPath.get(node.path) ?? [],
-            (conflict) => `${childIndent}${formatConflictLine(conflict)}`,
-          ),
-        ];
-    }
-  });
-
-const appendOutcomeToDirectoryNode = (
-  root: DerivedPlanTreeDirectoryNode,
-  outcome: typeof PlanOutcome.Type,
-): DerivedPlanTreeDirectoryNode =>
-  appendNodeAtPath(root, String.split(outcome.path, "/"), {
-    _tag: "file",
-    name: nameFromPath(outcome.path),
-    path: outcome.path,
-    classification: outcome.classification,
-  });
-
-const appendNodeAtPath = (
-  directory: DerivedPlanTreeDirectoryNode,
-  pathParts: ReadonlyArray<string>,
-  fileNode: DerivedPlanTreeFileNode,
-): DerivedPlanTreeDirectoryNode => {
-  const [head, ...tail] = pathParts;
-
-  if (head === undefined) {
-    return directory;
-  }
-
-  if (tail.length === 0) {
-    return {
-      ...directory,
-      children: Arr.append(directory.children, fileNode),
-    };
-  }
-
-  const directoryPath =
-    directory.path === "." ? head : `${directory.path}/${head}`;
-  const currentChild = directory.children.find(
-    (child): child is DerivedPlanTreeDirectoryNode =>
-      child._tag === "directory" && child.path === directoryPath,
-  );
-  const nextChild = appendNodeAtPath(
-    currentChild ?? emptyDirectoryNode(directoryPath),
-    tail,
-    fileNode,
+  // Group entries by their segment at current depth
+  const groups = Arr.reduce(
+    entries,
+    [] as Array<{
+      readonly key: string;
+      readonly items: Array<(typeof entries)[number]>;
+    }>,
+    (groups, entry) => {
+      const segment = entry.segments[depth];
+      if (segment === undefined) return groups;
+      const existing = groups.find((g) => g.key === segment);
+      if (existing) {
+        existing.items.push(entry);
+      } else {
+        groups.push({ key: segment, items: [entry] });
+      }
+      return groups;
+    },
   );
 
-  return {
-    ...directory,
-    children: Arr.append(
-      Arr.filter(
-        directory.children,
-        (child) => child._tag !== "directory" || child.path !== nextChild.path,
-      ),
-      nextChild,
-    ),
-  };
+  // Classify each group as directory-only, file-only, or mixed
+  // Sort: directories first, then files, both case-insensitive alphabetically
+  const classified = Arr.map(groups, (group) => {
+    const hasDeep = group.items.some((e) => e.segments.length > depth + 1);
+    return { ...group, hasDeep };
+  });
+
+  const sorted = [...classified].sort((a, b) => {
+    // Directories before files
+    if (a.hasDeep && !b.hasDeep) return -1;
+    if (!a.hasDeep && b.hasDeep) return 1;
+    // Then alphabetical case-insensitive
+    return a.key.toLowerCase().localeCompare(b.key.toLowerCase());
+  });
+
+  return Arr.flatMap(
+    sorted,
+    (group): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
+      const files = group.items.filter((e) => e.segments.length === depth + 1);
+      const directories = group.items.filter(
+        (e) => e.segments.length > depth + 1,
+      );
+
+      const result: Array<TreeNode<Ansi.AnsiStyle>> = [];
+
+      if (directories.length > 0) {
+        result.push({
+          label: Box.text(group.key),
+          connector: "plain",
+          children: buildNodes(directories, depth + 1, conflictsByPath),
+        });
+      }
+
+      for (const file of files) {
+        const conflicts = conflictsByPath.get(file.outcome.path) ?? [];
+        result.push({
+          label: Box.text(group.key),
+          badge: formatPlanClassificationBadge(file.outcome.classification),
+          connector: "plain",
+          children: Arr.map(conflicts, (conflict) => ({
+            label: formatConflictLine(conflict),
+            connector: "plain" as const,
+            children: [],
+          })),
+        });
+      }
+
+      return result;
+    },
+  );
 };
-
-const emptyDirectoryNode = (path: string): DerivedPlanTreeDirectoryNode => ({
-  _tag: "directory",
-  name: nameFromPath(path),
-  path,
-  children: [],
-});
-
-const sortPlanTreeDirectoryNode = (
-  node: DerivedPlanTreeDirectoryNode,
-): DerivedPlanTreeDirectoryNode => ({
-  ...node,
-  children: Arr.sort(
-    Arr.map(node.children, (child) =>
-      child._tag === "directory" ? sortPlanTreeDirectoryNode(child) : child,
-    ),
-    Order.mapInput(
-      Order.combineAll<DerivedPlanTreeNode>([
-        Order.mapInput(Order.String, (node) => node._tag),
-        Order.mapInput(Order.String, (node) => String.toLowerCase(node.name)),
-        Order.mapInput(Order.String, (node) => String.toLowerCase(node.path)),
-      ]),
-      (node: DerivedPlanTreeNode) => node,
-    ),
-  ),
-});
 
 const formatPlanClassificationBadge = (
   classification: typeof PlanEntryClassification.Type,
-): string =>
-  Match.value(classification).pipe(
-    Match.when("create", () => "[+]"),
-    Match.when("modify", () => "[~]"),
-    Match.when("unchanged", () => "[=]"),
-    Match.when("conflict", () => "[!]"),
+): Box.Box<Ansi.AnsiStyle> => {
+  const [text, style] = Match.value(classification).pipe(
+    Match.when("create", () => ["[+]", Ansi.green] as const),
+    Match.when("modify", () => ["[~]", Ansi.yellow] as const),
+    Match.when("unchanged", () => ["[=]", Ansi.dim] as const),
+    Match.when("conflict", () => ["[!]", Ansi.red] as const),
     Match.exhaustive,
   );
-
-const formatConflictLine = (conflict: typeof PlanConflict.Type): string =>
-  Match.value(conflict).pipe(
-    Match.tags({
-      completeFile: () => "merge: complete file",
-      barrelExport: (c) => `merge: export ${c.exportPath}`,
-      dependencies: (c) => `merge: ${c.section}.${c.name}`,
-      exports: (c) => `merge: exports ${c.name}`,
-      scripts: (c) => `merge: scripts ${c.name}`,
-      tsconfig: () => "merge: tsconfig",
-      compositionTargetNotFound: (c) =>
-        `composition target not found: ${c.targetVariable} (${c.functionName})`,
-    }),
-    Match.exhaustive,
-  );
-
-const nameFromPath = (path: string): string => {
-  const parts = String.split(path, "/");
-  return parts[parts.length - 1] ?? path;
+  return Box.text(text).pipe(Box.annotate(style));
 };
+
+const formatConflictLine = (
+  conflict: typeof PlanConflict.Type,
+): Box.Box<Ansi.AnsiStyle> =>
+  Box.text(
+    Match.value(conflict).pipe(
+      Match.tags({
+        completeFile: () => "merge: complete file",
+        barrelExport: (c) => `merge: export ${c.exportPath}`,
+        dependencies: (c) => `merge: ${c.section}.${c.name}`,
+        exports: (c) => `merge: exports ${c.name}`,
+        scripts: (c) => `merge: scripts ${c.name}`,
+        tsconfig: () => "merge: tsconfig",
+        compositionTargetNotFound: (c) =>
+          `composition target not found: ${c.targetVariable} (${c.functionName})`,
+      }),
+      Match.exhaustive,
+    ),
+  ).pipe(Box.annotate(Ansi.dim));
