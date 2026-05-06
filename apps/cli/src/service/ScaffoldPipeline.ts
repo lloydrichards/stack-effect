@@ -11,7 +11,7 @@ import {
   ScaffoldFormatter,
 } from "@repo/scaffold";
 import { Console, Context, Data, Effect, Layer } from "effect";
-import { Prompt } from "effect/unstable/cli";
+import { Confirm } from "../components/Confirm";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { Padding } from "../components/Padding";
@@ -31,7 +31,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               Effect.gen(function* () {
                 const override = yes
                   ? false
-                  : yield* Prompt.confirm({
+                  : yield* Confirm({
                       message: `Conflict at ${conflict.path} (${conflict._tag}). Override?`,
                       initial: false,
                     });
@@ -72,7 +72,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           );
 
           if (!yes) {
-            const confirm = yield* Prompt.confirm({
+            const confirm = yield* Confirm({
               message: "Continue with these changes?",
               initial: true,
             });
@@ -136,7 +136,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           // Confirm
           if (!yes) {
-            const proceed = yield* Prompt.confirm({
+            const proceed = yield* Confirm({
               message: "Apply changes?",
               initial: true,
             });

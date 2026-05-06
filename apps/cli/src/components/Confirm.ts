@@ -1,58 +1,72 @@
-import { Data, Effect } from "effect";
+import { Array as Arr, Data, Effect, pipe } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
-import { Border } from "./Border";
 import { Padding } from "./Padding";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-export const HorizontalRadio = <A extends string>(
-  options: Prompt.SelectOptions<A>,
-): Prompt.Prompt<A> => {
-  const { message, choices } = options;
+export const Confirm = (
+  options: Prompt.ConfirmOptions,
+): Prompt.Prompt<boolean> => {
+  const message = options.message;
+  const initialValue = options.initial ?? false;
+  const confirmLabel = options.label?.confirm ?? "Yes";
+  const denyLabel = options.label?.deny ?? "No";
+
+  const choices = [
+    { title: confirmLabel, value: true },
+    { title: denyLabel, value: false },
+  ] as const;
 
   const renderLayout = (cursor: number, submitted: boolean) => {
-    const prefix = submitted
-      ? Box.text("✔").pipe(Box.annotate(Ansi.green))
-      : Box.text("?").pipe(Box.annotate(Ansi.cyan));
-
-    const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
-
     const items = choices.map((c, i) => {
       const isSelected = i === cursor;
 
       return Box.text(c.title).pipe(
-        Padding(0, 2),
-        Border,
+        Padding(0, 1),
         Box.annotate(
-          isSelected ? Ansi.combine(Ansi.cyan, Ansi.bold) : Ansi.dim,
+          isSelected
+            ? Ansi.combine(Ansi.bgCyan, Ansi.bold)
+            : Ansi.bgColorRGB(50, 50, 50),
         ),
       );
     });
 
     if (submitted) {
-      const selected = choices[cursor];
-      return Box.hsep(
-        [
-          prefix,
-          label,
-          Box.text(selected?.title ?? "").pipe(Box.annotate(Ansi.cyan)),
-        ],
-        1,
-        Box.top,
-      );
+      return Box.emptyBox();
     }
 
-    return Box.vcat(
+    const content = Box.vsep(
       [
-        Box.hsep([prefix, label, Box.text(" ")], 2, Box.center1),
+        Box.text(message).pipe(Box.annotate(Ansi.bold)),
         Box.hsep(items, 2, Box.center1),
       ],
+      1,
       Box.left,
     );
+
+    const verticalLine = pipe(
+      Arr.makeBy(content.rows, () => Box.char("│")),
+      Box.vcat(Box.left),
+      Box.annotate(Ansi.dim),
+    );
+
+    const hint = Box.punctuateH(
+      [Box.text("←/→ Toggle"), Box.text("enter next"), Box.text("esc cancel")],
+      Box.left,
+      Box.text(" ┆ "),
+    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
+
+    return Box.vsep(
+      [Box.hsep([verticalLine, content], 1, Box.left), hint],
+      1,
+      Box.left,
+    ).pipe(Box.moveDown(1));
   };
 
-  return Prompt.custom<number, A>(0, {
+  const initialCursor = initialValue ? 0 : 1;
+
+  return Prompt.custom<number, boolean>(initialCursor, {
     render: (cursor, action) => {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(cursor, false),
@@ -60,9 +74,14 @@ export const HorizontalRadio = <A extends string>(
         NextFrame: ({ state }) => renderLayout(state, false),
         default: () => renderLayout(cursor, false),
       });
-      const rendered = Box.renderPrettySync(layout);
       return Effect.succeed(
-        action._tag === "Submit" ? `${rendered}\n` : rendered,
+        Box.renderPrettySync(
+          layout.pipe(
+            Box.combine(
+              action._tag === "Submit" ? Cmd.cursorShow : Cmd.cursorHide,
+            ),
+          ),
+        ),
       );
     },
     process: (input, cursor) => {
@@ -80,6 +99,8 @@ export const HorizontalRadio = <A extends string>(
               state: (cursor - 1 + choices.length) % choices.length,
             }),
           );
+        case "escape":
+          return Effect.succeed(Action.Submit({ value: false }));
         case "enter":
         case "return": {
           const selected = choices[cursor];
