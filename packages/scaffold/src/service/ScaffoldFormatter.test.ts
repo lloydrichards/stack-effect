@@ -131,12 +131,12 @@ describe("ScaffoldFormatter", () => {
         });
 
         const result = yield* formatter.formatPlan(plan);
-        expect(result).toEqual({
-          title: "Plan",
-          legend: "[+] create  [~] modify  [=] unchanged  [!] needs merge",
-          summary: "0 create  0 modify  0 unchanged  0 merge",
-          tree: ["."],
-        });
+        expect(result.title).toBe("Plan");
+        expect(Box.renderPlainSync(result.legend)).toBe(
+          "[+] create  [~] modify  [=] unchanged  [!] needs merge",
+        );
+        expect(result.summary).toBe("0 create  0 modify  0 unchanged  0 merge");
+        expect(Box.renderPlainSync(result.tree).trim()).toBe(".");
       }),
     );
 
@@ -213,24 +213,30 @@ describe("ScaffoldFormatter", () => {
 
           const result = yield* formatter.formatPlan(plan);
           expect(result.title).toBe("Plan");
-          expect(result.legend).toBe(
+          expect(Box.renderPlainSync(result.legend)).toBe(
             "[+] create  [~] modify  [=] unchanged  [!] needs merge",
           );
           expect(result.summary).toBe(
             "1 create  1 modify  1 unchanged  2 merge",
           );
-          expect(result.tree.join("\n")).toBe(
+          // Box.renderPlainSync pads lines to equal width; trim trailing spaces per line
+          const trimmedTree = Box.renderPlainSync(result.tree)
+            .split("\n")
+            .map((line) => line.trimEnd())
+            .join("\n")
+            .trim();
+          expect(trimmedTree).toBe(
             String.stripMargin(`|.
-             |├── packages
-             |│   └── domain
-             |│       ├── src
-             |│       │   ├── [+] Api.ts
-             |│       │   └── [!] index.ts
-             |│       │       merge: export ./Api
-             |│       └── [!] tsconfig.json
-             |│           merge: tsconfig
-             |├── [=] package.json
-             |└── [~] README.md`),
+              |├── packages
+              |│   └── domain
+              |│       ├── src
+              |│       │   ├── [+] Api.ts
+              |│       │   └── [!] index.ts
+              |│       │       └── merge: export ./Api
+              |│       └── [!] tsconfig.json
+              |│           └── merge: tsconfig
+              |├── [=] package.json
+              |└── [~] README.md`),
           );
         }),
     );
