@@ -11,9 +11,9 @@ import {
   ScaffoldFormatter,
 } from "@repo/scaffold";
 import { Console, Context, Data, Effect, Layer } from "effect";
-import { Confirm } from "../components/Confirm";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
+import { Confirm } from "../components/Confirm";
 import { Padding } from "../components/Padding";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
@@ -67,13 +67,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           const blueprintBox = yield* formatter.formatBlueprint(blueprint);
 
-          yield* Console.log(
-            Box.renderPrettySync(blueprintBox.pipe(Padding(0, 2), Border)),
-          );
-
           if (!yes) {
             const confirm = yield* Confirm({
               message: "Continue with these changes?",
+              children: blueprintBox.pipe(Padding(0, 2), Border),
               initial: true,
             });
 
@@ -107,8 +104,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             Box.left,
           ).pipe(Padding(0, 2), Border);
 
-          yield* Console.log(Box.renderPrettySync(planBox));
-
           // Dry run exits here
           if (dryRun) {
             const finalizeConfig: FinalizeConfig = {
@@ -138,6 +133,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           if (!yes) {
             const proceed = yield* Confirm({
               message: "Apply changes?",
+              children: planBox,
               initial: true,
             });
             if (!proceed) {

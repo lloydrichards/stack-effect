@@ -5,13 +5,17 @@ import { Padding } from "./Padding";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-export const Confirm = (
-  options: Prompt.ConfirmOptions,
-): Prompt.Prompt<boolean> => {
+export interface ConfirmOptions extends Prompt.ConfirmOptions {
+  /** An optional Box to render between the message and the buttons. */
+  readonly children?: Box.Box<unknown>;
+}
+
+export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
   const message = options.message;
   const initialValue = options.initial ?? false;
   const confirmLabel = options.label?.confirm ?? "Yes";
   const denyLabel = options.label?.deny ?? "No";
+  const childrenBox = options.children;
 
   const choices = [
     { title: confirmLabel, value: true },
@@ -33,17 +37,20 @@ export const Confirm = (
     });
 
     if (submitted) {
-      return Box.emptyBox();
+      return childrenBox ?? Box.emptyBox();
     }
 
-    const content = Box.vsep(
-      [
-        Box.text(message).pipe(Box.annotate(Ansi.bold)),
-        Box.hsep(items, 2, Box.center1),
-      ],
-      1,
-      Box.left,
-    );
+    const sections: Box.Box<unknown>[] = [
+      Box.text(message).pipe(Box.annotate(Ansi.bold)),
+    ];
+
+    if (childrenBox) {
+      sections.push(childrenBox);
+    }
+
+    sections.push(Box.hsep(items, 2, Box.center1));
+
+    const content = Box.vsep(sections, 1, Box.left);
 
     const verticalLine = pipe(
       Arr.makeBy(content.rows, () => Box.char("│")),
