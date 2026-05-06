@@ -5,7 +5,7 @@ import { Console, Effect, Option, Schedule } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
-import { HorizontalRadio } from "../components/HorizontalRadio";
+import { HorizontalSelect } from "../components/HorizontalSelect";
 import { Padding } from "../components/Padding";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
@@ -390,7 +390,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
   const targets: Array<CollectedTarget> = [];
 
   const addTarget = Effect.gen(function* () {
-    const kind = yield* HorizontalRadio({
+    const kind = yield* HorizontalSelect({
       message: "What kind of target do you want to add?",
       choices: targetChoices,
     });
@@ -447,7 +447,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
       ),
     );
 
-    const action = yield* HorizontalRadio<"confirm-all" | "edit" | "add">({
+    const action = yield* HorizontalSelect<"confirm-all" | "edit" | "add">({
       message: "What would you like to do?",
       choices: [
         { title: "Confirm all", value: "confirm-all" },

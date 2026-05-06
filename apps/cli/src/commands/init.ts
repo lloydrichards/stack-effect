@@ -2,6 +2,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag, Prompt } from "effect/unstable/cli";
+import { Confirm } from "../components/Confirm";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
@@ -80,9 +81,13 @@ export const init = Command.make(
         );
         const reinit = flags.yes
           ? false
-          : yield* Prompt.confirm({
+          : yield* Confirm({
               message: "Re-initialize? This will overwrite stack.config.json.",
               initial: false,
+              label: {
+                confirm: "Re-initialize",
+                deny: "Cancel",
+              },
             });
         if (!reinit) {
           yield* Console.log("Aborted.");
@@ -199,7 +204,7 @@ export const init = Command.make(
       yield* Console.log(`  Config: ${configure.configPath(repoRoot)}`);
 
       if (!flags.yes) {
-        const proceed = yield* Prompt.confirm({
+        const proceed = yield* Confirm({
           message: "Create project?",
           initial: true,
         });
