@@ -34,19 +34,12 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-api"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-api"),
       },
     ],
     implies: [
@@ -82,19 +75,12 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-rpc"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-rpc"),
       },
     ],
     implies: [
@@ -135,19 +121,12 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-chat"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
       },
     ],
     implies: [
@@ -188,19 +167,12 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-websocket"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-websocket"),
       },
     ],
     implies: [

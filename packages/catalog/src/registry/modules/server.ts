@@ -20,19 +20,12 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-api"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-api"),
       },
     ],
     contributions: [
@@ -55,19 +48,12 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-rpc"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-rpc"),
       },
     ],
     contributions: [
@@ -85,34 +71,20 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-chat"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
       },
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "ai",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "ai",
-          }),
-          moduleId: ModuleId.make("ai-chat-service"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("ai-chat-service"),
       },
     ],
     contributions: [
@@ -170,34 +142,20 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-websocket"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-websocket"),
       },
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "presence",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "presence",
-          }),
-          moduleId: ModuleId.make("presence"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "presence",
+        }),
+        moduleId: ModuleId.make("presence"),
       },
     ],
     contributions: [

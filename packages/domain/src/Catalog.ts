@@ -151,26 +151,41 @@ export const Contribution = Schema.TaggedUnion({
   },
 });
 
+/**
+ * A ModuleDependency declares a requirement that must be satisfied before
+ * a module can be attached.
+ *
+ * Tagged union of dependency types:
+ * - `required-target`: Target must exist as a workspace (no specific module required)
+ * - `required-module`: Module must be attached to the specified target
+ *                      (target existence is implicit - you can't attach a module to a non-existent target)
+ */
+export const ModuleDependency = Schema.TaggedUnion({
+  /**
+   * Target must exist as a workspace.
+   * Use when the dependency is on the target itself, not a specific module.
+   */
+  "required-target": {
+    identity: TargetIdentity,
+  },
+
+  /**
+   * Module must be attached to the specified target.
+   * Target existence is implicit - the BlueprintService will create both
+   * a required-target edge and a required-module edge when resolving.
+   */
+  "required-module": {
+    target: TargetIdentity,
+    moduleId: ModuleId,
+  },
+});
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
   description: Schema.String,
   supportedOn: Schema.Array(SupportedOn),
-  dependencies: Schema.Array(
-    Schema.Struct({
-      requiredTarget: Schema.optional(
-        Schema.Struct({
-          identity: TargetIdentity,
-        }),
-      ),
-      requiredModule: Schema.optional(
-        Schema.Struct({
-          target: TargetIdentity,
-          moduleId: ModuleId,
-        }),
-      ),
-    }),
-  ),
+  dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),

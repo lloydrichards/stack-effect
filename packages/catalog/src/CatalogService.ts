@@ -143,8 +143,8 @@ export class CatalogService extends Context.Service<CatalogService>()(
           }
 
           for (const dep of mod.dependencies) {
-            if (dep.requiredModule) {
-              const depIdx = moduleNodes.get(dep.requiredModule.moduleId);
+            if (dep._tag === "required-module") {
+              const depIdx = moduleNodes.get(dep.moduleId);
               if (depIdx !== undefined) {
                 Graph.addEdge(g, modIdx, depIdx, "requiredModule");
               }

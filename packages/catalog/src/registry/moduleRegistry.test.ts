@@ -15,10 +15,10 @@ describe("moduleRegistry", () => {
 
     for (const mod of moduleRegistry) {
       for (const dep of mod.dependencies) {
-        if (dep.requiredModule && !knownIds.has(dep.requiredModule.moduleId)) {
+        if (dep._tag === "required-module" && !knownIds.has(dep.moduleId)) {
           missing.push({
             module: mod.id,
-            references: dep.requiredModule.moduleId,
+            references: dep.moduleId,
           });
         }
       }

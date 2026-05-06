@@ -112,28 +112,20 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-chat"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
       },
       {
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "ai",
-          }),
-          moduleId: ModuleId.make("ai-sample-toolkit"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("ai-sample-toolkit"),
       },
     ],
     contributions: [
@@ -182,19 +174,12 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-        },
-        requiredModule: {
-          target: new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "domain",
-          }),
-          moduleId: ModuleId.make("domain-websocket"),
-        },
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-websocket"),
       },
     ],
     contributions: [

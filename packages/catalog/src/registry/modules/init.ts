@@ -21,12 +21,11 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("init"),
-            name: "root",
-          }),
-        },
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: "root",
+        }),
       },
     ],
     contributions: [
@@ -80,12 +79,11 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("init"),
-            name: "root",
-          }),
-        },
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: "root",
+        }),
       },
     ],
     contributions: [
@@ -131,12 +129,11 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
-        requiredTarget: {
-          identity: new TargetIdentity({
-            kind: TargetKind.make("init"),
-            name: "root",
-          }),
-        },
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: "root",
+        }),
       },
     ],
     contributions: [
