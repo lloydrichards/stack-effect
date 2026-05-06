@@ -134,13 +134,15 @@ export const init = Command.make(
       if (runtimeChoice === "bun") {
         runtime = { _tag: "bun" };
       } else {
-        const pm = yield* Select({
-          message: "What package manager will you use?",
-          choices: [
-            { title: "pnpm", value: "pnpm" as const },
-            { title: "npm", value: "npm" as const },
-          ],
-        });
+        const pm = flags.yes
+          ? ("pnpm" as const)
+          : yield* Select({
+              message: "What package manager will you use?",
+              choices: [
+                { title: "pnpm", value: "pnpm" as const },
+                { title: "npm", value: "npm" as const },
+              ],
+            });
         runtime = { _tag: "node", packageManager: pm };
       }
 
