@@ -2,9 +2,12 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Ansi, Box } from "effect-boxes";
+import { Border } from "../components/Border";
 import { Confirm } from "../components/Confirm";
-import { TextInput } from "../components/TextInput";
+import { Padding } from "../components/Padding";
 import { Select } from "../components/Select";
+import { TextInput } from "../components/TextInput";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
@@ -107,7 +110,7 @@ export const init = Command.make(
       const projectName = Option.isSome(flags.name)
         ? flags.name.value
         : yield* TextInput({
-            message: "Project name:",
+            message: "What is your project name?",
             validate: (v) =>
               v.trim().length > 0
                 ? Effect.succeed(v.trim())
@@ -120,7 +123,7 @@ export const init = Command.make(
         : flags.yes
           ? ("bun" as const)
           : yield* Select({
-              message: "Runtime:",
+              message: "What runtime will you use?",
               choices: [
                 { title: "bun", value: "bun" as const },
                 { title: "node", value: "node" as const },
@@ -132,7 +135,7 @@ export const init = Command.make(
         runtime = { _tag: "bun" };
       } else {
         const pm = yield* Select({
-          message: "Package manager:",
+          message: "What package manager will you use?",
           choices: [
             { title: "pnpm", value: "pnpm" as const },
             { title: "npm", value: "npm" as const },
@@ -144,28 +147,28 @@ export const init = Command.make(
       // Monorepo
       const monorepo = flags.yes
         ? Option.some("turbo" as const)
-        : yield* optionalSelect("Monorepo tool:", [
+        : yield* optionalSelect("What monorepo tool will you use?", [
             { title: "turbo", value: "turbo" as const },
           ]);
 
       // Lint
       const lint = flags.yes
         ? Option.some("biome" as const)
-        : yield* optionalSelect("Linter:", [
+        : yield* optionalSelect("What will you use for linting?", [
             { title: "biome", value: "biome" as const },
           ]);
 
       // Format
       const format_ = flags.yes
         ? Option.some("biome" as const)
-        : yield* optionalSelect("Formatter:", [
+        : yield* optionalSelect("What will you use for formatting?", [
             { title: "biome", value: "biome" as const },
           ]);
 
       // Test
       const test = flags.yes
         ? Option.some("vitest" as const)
-        : yield* optionalSelect("Test framework:", [
+        : yield* optionalSelect("What test framework will you use?", [
             { title: "vitest", value: "vitest" as const },
           ]);
 
@@ -191,23 +194,52 @@ export const init = Command.make(
       });
 
       // Preview
-      yield* Console.log("\nProject configuration:");
-      yield* Console.log(`  Name: ${config.name}`);
-      yield* Console.log(`  Runtime: ${config.runtimeName}`);
-      yield* Console.log(`  Package manager: ${config.packageManagerName}`);
-      yield* Console.log(
-        `  Monorepo: ${Option.getOrElse(monorepo, () => "none")}`,
-      );
-      yield* Console.log(`  Lint: ${Option.getOrElse(lint, () => "none")}`);
-      yield* Console.log(
-        `  Format: ${Option.getOrElse(format_, () => "none")}`,
-      );
-      yield* Console.log(`  Test: ${Option.getOrElse(test, () => "none")}`);
-      yield* Console.log(`  Config: ${configure.configPath(repoRoot)}`);
+      const configBox = Box.vsep(
+        [
+          Box.text("Project Configuration").pipe(
+            Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+          ),
+          Box.hsep(
+            [
+              Box.vcat(
+                [
+                  Box.text("Name:"),
+                  Box.text("Runtime:"),
+                  Box.text("Package manager:"),
+                  Box.text("Monorepo:"),
+                  Box.text("Lint:"),
+                  Box.text("Format:"),
+                  Box.text("Test:"),
+                  Box.text("Config:"),
+                ],
+                Box.left,
+              ),
+              Box.vcat(
+                [
+                  Box.text(config.name),
+                  Box.text(config.runtimeName),
+                  Box.text(config.packageManagerName),
+                  Box.text(Option.getOrElse(monorepo, () => "none")),
+                  Box.text(Option.getOrElse(lint, () => "none")),
+                  Box.text(Option.getOrElse(format_, () => "none")),
+                  Box.text(Option.getOrElse(test, () => "none")),
+                  Box.text(configure.configPath(repoRoot)),
+                ],
+                Box.left,
+              ),
+            ],
+            1,
+            Box.left,
+          ).pipe(Box.moveRight(1)),
+        ],
+        1,
+        Box.left,
+      ).pipe(Padding(0, 2), Border);
 
       if (!flags.yes) {
         const proceed = yield* Confirm({
           message: "Create project?",
+          children: configBox,
           initial: true,
         });
         if (!proceed) {
