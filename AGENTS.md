@@ -10,7 +10,7 @@
 | --------------------------------- | ------------------------------------------ |
 | `bun install`                     | Install dependencies                       |
 | `bun dev`                         | Run workspace dev tasks via Turbo          |
-| `bun dev --filter=cli`            | Start CLI app in watch mode                |
+| `bun dev --filter=stack-effect`   | Start CLI app in watch mode                |
 | `bun run build`                   | Build all workspaces                       |
 | `bun lint`                        | Lint with Biome                            |
 | `bun format`                      | Format with Biome                          |

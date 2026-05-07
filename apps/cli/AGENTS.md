@@ -4,11 +4,11 @@
 
 ## Commands
 
-| Command                   | Purpose                 |
-| ------------------------- | ----------------------- |
-| `bun dev --filter=cli`    | Start the CLI app       |
-| `bun run build --filter=cli` | Build the CLI app    |
-| `bun type-check --filter=cli` | Type-check the CLI app |
+| Command                                | Purpose                |
+| -------------------------------------- | ---------------------- |
+| `bun dev --filter=stack-effect`        | Start the CLI app      |
+| `bun run build --filter=stack-effect`  | Build the CLI app      |
+| `bun type-check --filter=stack-effect` | Type-check the CLI app |
 
 ## Conventions
 

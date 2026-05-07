@@ -58,7 +58,7 @@ Run tests across the monorepo:
 bun run test
 
 # Run tests for specific apps
-bun run test --filter=client
+bun run test --filter=stack-effectent
 bun run test --filter=server
 
 # Run E2E and visual regression tests
@@ -150,7 +150,7 @@ should be committed to git. Update them when UI changes are intentional.
 # Start development server
 bun dev
 # Run specific app
-bun dev --filter=client
+bun dev --filter=stack-effectent
 bun dev --filter=server
 bun dev --filter=server-mcp
 

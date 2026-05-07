@@ -20,6 +20,8 @@ Type "export TMP_REPO=$(mktemp -d)" Enter
 Sleep 300ms
 Type "cd apps/cli" Enter
 Sleep 300ms
+Type "alias stack-effect='bun run start --'" Enter
+Sleep 300ms
 Type "clear" Enter
 Sleep 500ms
 Show
@@ -28,7 +30,7 @@ Show
 Sleep 1s
 
 # Run the init command
-Type "bun run start -- init --root $TMP_REPO"
+Type "stack-effect init --root $TMP_REPO"
 Enter
 Sleep 2s
 
@@ -85,7 +87,7 @@ Enter
 Sleep 5s
 
 # Show the generated config
-Type "cat $TMP_REPO/stack.config.json"
+Type "cat $TMP_REPO/stack.effect.json"
 Enter
 Sleep 2s
 
@@ -95,7 +97,7 @@ Sleep 2s
 Sleep 1s
 
 # Run the add command
-Type "bun run start -- add --root $TMP_REPO"
+Type "stack-effect add --root $TMP_REPO"
 Sleep 1s
 Enter
 Sleep 2s

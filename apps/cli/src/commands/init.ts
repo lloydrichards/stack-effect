@@ -87,7 +87,7 @@ export const init = Command.make(
         const reinit = flags.yes
           ? false
           : yield* Confirm({
-              message: "Re-initialize? This will overwrite stack.config.json.",
+              message: "Re-initialize? This will overwrite stack.effect.json.",
               initial: false,
               label: {
                 confirm: "Re-initialize",

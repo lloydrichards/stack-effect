@@ -3,7 +3,7 @@ import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 export { StackConfig };
 
-export const CONFIG_FILENAME = "stack.config.json" as const;
+export const CONFIG_FILENAME = "stack.effect.json" as const;
 
 export class ConfigureService extends Context.Service<ConfigureService>()(
   "ConfigureService",

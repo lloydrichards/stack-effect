@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Verify Types
-        run: bun type-check --filter=cli
+        run: bun type-check --filter=stack-effect
 
   formatting:
     name: "Formatting"
@@ -70,4 +70,4 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run Tests
-        run: bun run test --filter=cli
+        run: bun run test --filter=stack-effect
