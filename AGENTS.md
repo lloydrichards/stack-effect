@@ -92,7 +92,7 @@ The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*
 - `Plan` is policy-free and must not contain apply decisions.
 - `ApplyDecision` entries are only for conflicted planned paths; missing or extra decisions are invalid.
 - A module contributes only to its owning target; cross-target effects must be modeled via target/module dependencies.
-- Preserve canonical domain terminology from `docs/UBIQUITOUS_LANGUAGE.md`, `docs/DOMAIN_LEXICON.md`, and `CONTEXT.md` in code and docs.
+- Preserve canonical domain terminology from `.docs/ubiquitous-language.md`, `.docs/domain-lexicon.md`, and `CONTEXT.md` in code and docs.
 
 ## Code Style
 
@@ -130,8 +130,8 @@ Effect.gen(function* () {
 
 When working with domain language for this application, use these sources first:
 
-- `docs/UBIQUITOUS_LANGUAGE.md` for conversation-ready canonical wording
-- `docs/DOMAIN_LEXICON.md` for precise definitions, invariants, and code identifiers
+- `.docs/ubiquitous-language.md` for conversation-ready canonical wording
+- `.docs/domain-lexicon.md` for precise definitions, invariants, and code identifiers
 - `CONTEXT.md` for current domain decisions and relationship constraints
 
 Prefer these canonical terms in code reviews, issues, docs, commit messages, and implementation discussions.
