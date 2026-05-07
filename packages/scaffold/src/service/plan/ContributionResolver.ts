@@ -2,20 +2,12 @@ import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { Contribution } from "@repo/domain/Catalog";
 import {
-  type ContributionTokenContext,
+  ContributionTokenContext,
   type ModuleContribution,
   type StackConfig,
   type TargetContribution,
 } from "@repo/domain/Scaffold";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Match,
-  pipe,
-  Result,
-} from "effect";
+import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
 
 export type NormalizedContributions = {
   readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
@@ -37,17 +29,11 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
           (node) =>
             Effect.gen(function* () {
               const definition = yield* catalog.getTarget(node.identity.kind);
-              const context: typeof ContributionTokenContext.Type = {
+              const context = new ContributionTokenContext({
                 targetKey: node.id,
-                targetPath: node.identity.toPath(),
-                targetKind: node.identity.kind,
-                targetName: node.identity.name,
-                packageName: node.identity.toPackageName(),
-                runtime: config.runtimeName,
-                packageManager: config.packageManagerName,
-                packageManagerSpec: config.packageManagerSpec,
-                projectName: config.name,
-              };
+                identity: node.identity,
+                config,
+              });
 
               return {
                 context,
@@ -108,32 +94,11 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
   ).pipe(Layer.provide(CatalogService.layer));
 }
 
-export const resolveTokenString = (
-  value: string,
-  context: typeof ContributionTokenContext.Type,
-): string => {
-  const resolvedTargetName =
-    context.targetName.trim().length > 0
-      ? context.targetName
-      : context.targetKind;
-
-  return value
-    .replaceAll("{{targetPath}}", context.targetPath)
-    .replaceAll("{{targetDir}}", context.targetPath)
-    .replaceAll("{{targetKind}}", context.targetKind)
-    .replaceAll("{{targetName}}", resolvedTargetName)
-    .replaceAll("{{packageName}}", context.packageName)
-    .replaceAll("{{runtime}}", context.runtime)
-    .replaceAll("{{packageManager}}", context.packageManager)
-    .replaceAll("{{packageManagerSpec}}", context.packageManagerSpec)
-    .replaceAll("{{projectName}}", context.projectName);
-};
-
 const resolveContributionTokens = (
   contributions: ReadonlyArray<typeof Contribution.Type>,
-  context: typeof ContributionTokenContext.Type,
+  context: ContributionTokenContext,
 ): ReadonlyArray<typeof Contribution.Type> => {
-  const resolveString = (value: string) => resolveTokenString(value, context);
+  const resolveString = (value: string) => context.resolve(value);
 
   return Arr.map(contributions, (contribution): typeof Contribution.Type => {
     switch (contribution._tag) {

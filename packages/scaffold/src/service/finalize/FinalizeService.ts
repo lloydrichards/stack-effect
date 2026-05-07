@@ -1,13 +1,9 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import type {
-  ScriptDefinition,
-  TargetIdentity,
-  TargetKey,
-} from "@repo/domain/Catalog";
-import { FinalizeReport } from "@repo/domain/Finalize";
+import type { ScriptDefinition } from "@repo/domain/Catalog";
+import { type ScriptResult } from "@repo/domain/Finalize";
 import {
-  type ContributionTokenContext,
+  ContributionTokenContext,
   type StackConfig,
 } from "@repo/domain/Scaffold";
 import {
@@ -15,31 +11,12 @@ import {
   Context,
   Effect,
   Layer,
-  PlatformError,
-  Scope,
+  Option,
+  Result,
   Stream,
 } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { resolveTokenString } from "../plan/ContributionResolver";
-
-export type ScriptExecution = {
-  readonly label: string;
-  readonly command: string;
-  readonly workdir: string;
-  readonly output: Stream.Stream<string, PlatformError.PlatformError>;
-  readonly result: Effect.Effect<
-    {
-      readonly label: string;
-      readonly command: string;
-      readonly workdir: string;
-      readonly status: "success" | "failure";
-      readonly error?: string;
-    },
-    PlatformError.PlatformError,
-    never
-  >;
-};
 
 export type FinalizeConfig = {
   readonly config: typeof StackConfig.Type;
@@ -59,7 +36,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       const catalog = yield* CatalogService;
       const spawner = yield* ChildProcessSpawner;
 
-      const collectFinalizeScripts = Effect.fn(
+      const collectResolvedScripts = Effect.fn(
         "FinalizeService.collectScripts",
       )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
         const moduleNodes = Arr.filter(
@@ -71,50 +48,44 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
           BlueprintNode.guards.target,
         );
 
-        const sorted = topologicalSort(
-          moduleNodes.map((n) => n.id),
-          blueprint.edges
-            .filter((e) => e.reason === "required-module")
-            .map((e) => ({ from: e.from, to: e.to })),
-        );
-
         // Collect finalize scripts from targets
-        const targetScripts: ResolvedScript[] = [];
-        for (const node of targetNodes) {
-          const definition = yield* catalog.getTarget(node.identity.kind);
-          const scripts = definition.scripts ?? [];
-          const context = makeTokenContext(node.id, node.identity, config);
-          for (const script of scripts) {
-            if (script.phase === "finalize") {
-              targetScripts.push(resolveScript(script, context));
-            }
-          }
-        }
+        const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
+          Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
+            const context = new ContributionTokenContext({
+              targetKey: node.id,
+              identity: node.identity,
+              config: config.config,
+            });
+            return Arr.map(scripts ?? [], (s) => ({
+              label: s.label,
+              command: context.resolve(s.command),
+              workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+            }));
+          }),
+        ).pipe(Effect.map(Arr.flatten));
 
-        // Collect finalize scripts from modules in dependency order
-        const moduleScripts: ResolvedScript[] = [];
-        for (const nodeId of sorted) {
-          const moduleNode = moduleNodes.find((n) => n.id === nodeId);
-          if (!moduleNode) continue;
+        // Collect finalize scripts from modules (blueprint preserves dependency order)
+        const moduleScripts = yield* Effect.forEach(moduleNodes, (moduleNode) =>
+          Effect.gen(function* () {
+            const targetNode = Arr.findFirst(
+              targetNodes,
+              (t) => t.id === moduleNode.targetId,
+            );
+            if (Option.isNone(targetNode)) return [];
 
-          const definition = yield* catalog.getModule(moduleNode.moduleId);
-          const scripts = definition.scripts ?? [];
-          const targetNode = targetNodes.find(
-            (t) => t.id === moduleNode.targetId,
-          );
-          if (!targetNode) continue;
-
-          const context = makeTokenContext(
-            moduleNode.targetId,
-            targetNode.identity,
-            config,
-          );
-          for (const script of scripts) {
-            if (script.phase === "finalize") {
-              moduleScripts.push(resolveScript(script, context));
-            }
-          }
-        }
+            const definition = yield* catalog.getModule(moduleNode.moduleId);
+            const context = new ContributionTokenContext({
+              targetKey: moduleNode.targetId,
+              identity: targetNode.value.identity,
+              config: config.config,
+            });
+            return Arr.map(definition.scripts ?? [], (s) => ({
+              label: s.label,
+              command: context.resolve(s.command),
+              workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+            }));
+          }),
+        ).pipe(Effect.map(Arr.flatten));
 
         return [...targetScripts, ...moduleScripts];
       });
@@ -123,7 +94,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         blueprint: typeof Blueprint.Type,
         config: FinalizeConfig,
       ) {
-        const scripts = yield* collectFinalizeScripts(blueprint, config);
+        const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
         const allScripts = [...scripts, ...configScripts];
 
@@ -137,9 +108,12 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         blueprint: typeof Blueprint.Type,
         config: FinalizeConfig,
       ) {
-        const scripts = yield* collectFinalizeScripts(blueprint, config);
+        const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        return [...scripts, ...configScripts];
+        return [...scripts, ...configScripts].map(({ label, command }) => ({
+          label,
+          command,
+        }));
       });
 
       return { run, preview };
@@ -151,65 +125,36 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
   ).pipe(Layer.provide(CatalogService.layer));
 }
 
-const makeTokenContext = (
-  targetKey: typeof TargetKey.Type,
-  identity: typeof TargetIdentity.Type,
-  config: FinalizeConfig,
-): typeof ContributionTokenContext.Type => ({
-  targetKey,
-  targetPath: identity.toPath(),
-  targetKind: identity.kind,
-  targetName: identity.name,
-  packageName: identity.toPackageName(),
-  runtime: config.config.runtimeName,
-  packageManager: config.config.packageManagerName,
-  packageManagerSpec: config.config.packageManagerSpec,
-  projectName: config.config.name,
-});
-
-const resolveScript = (
-  script: typeof ScriptDefinition.Type,
-  context: typeof ContributionTokenContext.Type,
-): ResolvedScript => ({
-  label: script.label,
-  command: resolveTokenString(script.command, context),
-  workdir: resolveTokenString(script.workdir ?? "{{targetPath}}", context),
-});
-
 const buildConfigDerivedScripts = (
   config: FinalizeConfig,
 ): ResolvedScript[] => {
-  const { config: stackConfig } = config;
-  const pm = stackConfig.packageManagerName;
-  const scripts: ResolvedScript[] = [
-    {
-      label: "Install dependencies",
-      command: `${pm} install`,
-      workdir: ".",
-    },
-  ];
-  if (stackConfig.lint) {
-    scripts.push({
-      label: `Run ${stackConfig.lint} lint`,
-      command: `${pm} run lint`,
-      workdir: ".",
-    });
-  }
-  if (stackConfig.format) {
-    scripts.push({
-      label: `Run ${stackConfig.format} format`,
-      command: `${pm} run format`,
-      workdir: ".",
-    });
-  }
-  return scripts;
+  const { packageManagerName: pm, lint, format } = config.config;
+  return Arr.filterMap(
+    [
+      { when: true, label: "Install dependencies", command: `${pm} install` },
+      { when: !!lint, label: `Run ${lint} lint`, command: `${pm} run lint` },
+      {
+        when: !!format,
+        label: `Run ${format} format`,
+        command: `${pm} run format`,
+      },
+    ],
+    (entry): Result.Result<ResolvedScript, void> =>
+      entry.when
+        ? Result.succeed({
+            label: entry.label,
+            command: entry.command,
+            workdir: ".",
+          })
+        : Result.failVoid,
+  );
 };
 
 const executeScript = (
   spawner: typeof ChildProcessSpawner.Service,
   script: ResolvedScript,
   repoRoot: string,
-): Effect.Effect<ScriptExecution, PlatformError.PlatformError, Scope.Scope> => {
+) => {
   const workdir =
     script.workdir === "." ? repoRoot : `${repoRoot}/${script.workdir}`;
 
@@ -229,73 +174,24 @@ const executeScript = (
     );
 
     const result = handle.exitCode.pipe(
-      Effect.map((code) => {
+      Effect.map((code): ScriptResult => {
         if (code === 0) {
-          return {
+          return Result.succeed({
             label: script.label,
             command: script.command,
-            workdir: script.workdir,
-            status: "success" as const,
-          };
+          });
         }
-        return {
+        return Result.fail({
           label: script.label,
           command: script.command,
-          workdir: script.workdir,
-          status: "failure" as const,
           error: `Process exited with code ${code}`,
-        };
+        });
       }),
     );
 
     return {
-      label: script.label,
-      command: script.command,
-      workdir: script.workdir,
       output,
       result,
-    } satisfies ScriptExecution;
+    };
   });
-};
-
-const topologicalSort = (
-  nodeIds: readonly string[],
-  edges: readonly { from: string; to: string }[],
-): string[] => {
-  const inDegree = new Map<string, number>();
-  const adjacency = new Map<string, string[]>();
-
-  for (const id of nodeIds) {
-    inDegree.set(id, 0);
-    adjacency.set(id, []);
-  }
-
-  for (const edge of edges) {
-    if (inDegree.has(edge.from) && inDegree.has(edge.to)) {
-      adjacency.get(edge.to)!.push(edge.from);
-      inDegree.set(edge.from, (inDegree.get(edge.from) ?? 0) + 1);
-    }
-  }
-
-  const queue: string[] = [];
-  for (const [id, degree] of inDegree) {
-    if (degree === 0) queue.push(id);
-  }
-
-  const sorted: string[] = [];
-  while (queue.length > 0) {
-    const current = queue.shift()!;
-    sorted.push(current);
-    for (const neighbor of adjacency.get(current) ?? []) {
-      const newDegree = (inDegree.get(neighbor) ?? 1) - 1;
-      inDegree.set(neighbor, newDegree);
-      if (newDegree === 0) queue.push(neighbor);
-    }
-  }
-
-  for (const id of nodeIds) {
-    if (!sorted.includes(id)) sorted.push(id);
-  }
-
-  return sorted;
 };

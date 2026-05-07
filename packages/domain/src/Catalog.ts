@@ -85,10 +85,7 @@ export const SupportedOn = Schema.TaggedUnion({
   },
 });
 
-export const ScriptPhase = Schema.Literals(["post", "finalize"]);
-
 export const ScriptDefinition = Schema.Struct({
-  phase: ScriptPhase,
   label: Schema.String,
   command: Schema.String,
   workdir: Schema.String.pipe(

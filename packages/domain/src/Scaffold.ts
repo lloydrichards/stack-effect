@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { Contribution, ModuleId, TargetKey } from "./Catalog";
+import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 
 export const TargetContribution = Schema.Struct({
   targetKey: TargetKey,
@@ -10,19 +10,6 @@ export const ModuleContribution = Schema.Struct({
   targetKey: TargetKey,
   moduleId: ModuleId,
   contributions: Schema.Array(Contribution),
-});
-
-export const ContributionTokenContext = Schema.Struct({
-  targetKey: TargetKey,
-  targetPath: Schema.String,
-  targetKind: Schema.String,
-  targetName: Schema.NonEmptyString,
-  /** Scoped package name for workspace packages (e.g., @repo/domain) */
-  packageName: Schema.NonEmptyString,
-  runtime: Schema.NonEmptyString,
-  packageManager: Schema.NonEmptyString,
-  packageManagerSpec: Schema.NonEmptyString,
-  projectName: Schema.NonEmptyString,
 });
 
 const Runtime = Schema.TaggedUnion({
@@ -60,5 +47,31 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
       case "pnpm":
         return "pnpm@10.17.0";
     }
+  }
+}
+
+export class ContributionTokenContext extends Schema.Class<ContributionTokenContext>(
+  "ContributionTokenContext",
+)({
+  targetKey: TargetKey,
+  identity: TargetIdentity,
+  config: StackConfig,
+}) {
+  resolve(template: string): string {
+    const resolvedTargetName =
+      this.identity.name.trim().length > 0
+        ? this.identity.name
+        : this.identity.kind;
+
+    return template
+      .replaceAll("{{targetPath}}", this.identity.toPath())
+      .replaceAll("{{targetDir}}", this.identity.toPath())
+      .replaceAll("{{targetKind}}", this.identity.kind)
+      .replaceAll("{{targetName}}", resolvedTargetName)
+      .replaceAll("{{packageName}}", this.identity.toPackageName())
+      .replaceAll("{{runtime}}", this.config.runtimeName)
+      .replaceAll("{{packageManager}}", this.config.packageManagerName)
+      .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
+      .replaceAll("{{projectName}}", this.config.name);
   }
 }

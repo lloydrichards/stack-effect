@@ -11,7 +11,7 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Console, Context, Data, Effect, Layer, Stream } from "effect";
+import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { Confirm } from "../components/Confirm";
@@ -191,12 +191,14 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                     );
 
                     const result = yield* execution.result;
-                    const icon = result._tag === "Success" ? "+" : "x";
+                    const icon = Result.isSuccess(result) ? "+" : "x";
                     yield* Console.log(
-                      `  [${icon}] ${result._tag.toLowerCase()}`,
+                      `  [${icon}] ${Result.isSuccess(result) ? "success" : "failure"}`,
                     );
-                    if (result._tag === "Failure") {
-                      yield* Console.log(`      Error: ${result.error}`);
+                    if (Result.isFailure(result)) {
+                      yield* Console.log(
+                        `      Error: ${result.failure.error}`,
+                      );
                     }
                     return result;
                   }),

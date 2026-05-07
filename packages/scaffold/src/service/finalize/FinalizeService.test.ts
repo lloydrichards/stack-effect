@@ -10,7 +10,7 @@ import {
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Layer, Result, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
@@ -268,7 +268,6 @@ describe("FinalizeService", () => {
                 server: {
                   scripts: [
                     {
-                      phase: "finalize",
                       label: "Generate prisma client",
                       command: "bun prisma generate",
                     },
@@ -278,33 +277,6 @@ describe("FinalizeService", () => {
             }),
           ),
         ),
-    );
-
-    it.effect("ignores scripts with non-finalize phase", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const blueprint = singleTargetBlueprint(serverIdentity);
-
-        const scripts = yield* svc.preview(blueprint, makeConfig());
-
-        expect(scripts.map((s) => s.label)).toEqual(["Install dependencies"]);
-      }).pipe(
-        Effect.provide(
-          makeFinalizeLayer([], {
-            targets: {
-              server: {
-                scripts: [
-                  {
-                    phase: "post",
-                    label: "Post step",
-                    command: "echo post",
-                  },
-                ],
-              },
-            },
-          }),
-        ),
-      ),
     );
 
     it.effect("collects finalize scripts from module definitions", () =>
@@ -326,7 +298,6 @@ describe("FinalizeService", () => {
               "shadcn-init": {
                 scripts: [
                   {
-                    phase: "finalize",
                     label: "Initialize shadcn",
                     command: "bunx shadcn init",
                   },
@@ -346,7 +317,6 @@ describe("FinalizeService", () => {
         const scripts = yield* svc.preview(blueprint, makeConfig());
 
         expect(scripts[0]?.command).toBe("bun run build --cwd apps/server-api");
-        expect(scripts[0]?.workdir).toBe("apps/server-api");
       }).pipe(
         Effect.provide(
           makeFinalizeLayer([], {
@@ -354,7 +324,6 @@ describe("FinalizeService", () => {
               server: {
                 scripts: [
                   {
-                    phase: "finalize",
                     label: "Build",
                     command:
                       "{{packageManager}} run build --cwd {{targetPath}}",
@@ -380,7 +349,7 @@ describe("FinalizeService", () => {
 
           expect(report.succeeded).toBe(1);
           expect(report.failed).toBe(0);
-          expect(report.results[0]?.status).toBe("success");
+          expect(report.results[0]?._tag).toBe("Success");
           expect(executed.length).toBeGreaterThan(0);
         }).pipe(Effect.provide(makeFinalizeLayer(executed)));
       },
@@ -404,8 +373,8 @@ describe("FinalizeService", () => {
 
         // Both install and lint should execute even if install fails
         expect(report.results).toHaveLength(2);
-        expect(report.results[0]?.status).toBe("failure");
-        expect(report.results[1]?.status).toBe("success");
+        expect(report.results[0]?._tag).toBe("Failure");
+        expect(report.results[1]?._tag).toBe("Success");
       }).pipe(
         Effect.provide(
           makeFinalizeLayer([], {
@@ -426,7 +395,9 @@ describe("FinalizeService", () => {
 
           const report = yield* runToReport(svc, blueprint, makeConfig());
 
-          const labels = report.results.map((r) => r.label);
+          const labels = report.results.map((r) =>
+            Result.isSuccess(r) ? r.success.label : r.failure.label,
+          );
           expect(labels).toEqual(["Init shadcn", "Install dependencies"]);
         }).pipe(
           Effect.provide(
@@ -435,7 +406,6 @@ describe("FinalizeService", () => {
                 "shadcn-init": {
                   scripts: [
                     {
-                      phase: "finalize",
                       label: "Init shadcn",
                       command: "bunx shadcn init",
                     },
@@ -457,7 +427,9 @@ describe("FinalizeService", () => {
 
           const report = yield* runToReport(svc, blueprint, makeConfig());
 
-          const labels = report.results.map((r) => r.label);
+          const labels = report.results.map((r) =>
+            Result.isSuccess(r) ? r.success.label : r.failure.label,
+          );
           expect(labels).toEqual([
             "Target setup",
             "Module setup",
@@ -470,7 +442,6 @@ describe("FinalizeService", () => {
                 server: {
                   scripts: [
                     {
-                      phase: "finalize",
                       label: "Target setup",
                       command: "echo target",
                     },
@@ -481,7 +452,6 @@ describe("FinalizeService", () => {
                 "http-api": {
                   scripts: [
                     {
-                      phase: "finalize",
                       label: "Module setup",
                       command: "echo module",
                     },
