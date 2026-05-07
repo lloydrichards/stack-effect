@@ -1,4 +1,5 @@
 import { Apply } from "@repo/domain/Apply";
+import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
@@ -10,7 +11,7 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Console, Context, Data, Effect, Layer } from "effect";
+import { Console, Context, Data, Effect, Layer, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
 import { Confirm } from "../components/Confirm";
@@ -169,17 +170,41 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           );
           if (previewScripts.length > 0) {
             yield* Console.log("\nRunning finalize scripts...");
-            const report = yield* finalizeService.run(
+            const executables = yield* finalizeService.run(
               blueprint,
               finalizeConfig,
             );
-            for (const r of report.results) {
-              const icon = r.status === "success" ? "+" : "x";
-              yield* Console.log(`  [${icon}] ${r.label}: ${r.command}`);
-              if (r.error) {
-                yield* Console.log(`      Error: ${r.error}`);
-              }
-            }
+
+            const results = yield* Effect.forEach(
+              executables,
+              ({ script, execute }) =>
+                Effect.scoped(
+                  Effect.gen(function* () {
+                    yield* Console.log(
+                      `  [>] ${script.label}: ${script.command}`,
+                    );
+                    const execution = yield* execute();
+
+                    yield* execution.output.pipe(
+                      Stream.tap((line) => Console.log(`      ${line}`)),
+                      Stream.runDrain,
+                    );
+
+                    const result = yield* execution.result;
+                    const icon = result._tag === "Success" ? "+" : "x";
+                    yield* Console.log(
+                      `  [${icon}] ${result._tag.toLowerCase()}`,
+                    );
+                    if (result._tag === "Failure") {
+                      yield* Console.log(`      Error: ${result.error}`);
+                    }
+                    return result;
+                  }),
+                ),
+              { concurrency: 1 },
+            );
+
+            const report = new FinalizeReport({ results });
             if (report.failed > 0) {
               yield* Console.log(
                 `\n${report.failed} finalize script(s) failed. See errors above.`,
