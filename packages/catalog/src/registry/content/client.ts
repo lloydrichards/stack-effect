@@ -26,6 +26,7 @@ export const clientPackageJsonContents = `{
   "scripts": {},
   "dependencies": {
     "@base-ui/react": "^1.3.0",
+    "@effect/atom-react": "4.0.0-beta.59",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "effect": "4.0.0-beta.59",
