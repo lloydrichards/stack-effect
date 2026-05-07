@@ -8,8 +8,9 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
@@ -129,6 +130,19 @@ const makeSpawnerLayer = (
   failures: Set<string> = new Set(),
 ) =>
   Layer.succeed(ChildProcessSpawner, {
+    spawn: (command: { command: string; args: ReadonlyArray<string> }) => {
+      const cmd = [command.command, ...command.args].join(" ");
+      executed.push(cmd);
+      const failed = failures.has(cmd);
+      return Effect.succeed({
+        stdout: Stream.empty,
+        stderr: Stream.empty,
+        exitCode: failed ? Effect.succeed(1) : Effect.succeed(0),
+        pid: Effect.succeed(1234),
+        kill: () => Effect.void,
+        unref: Effect.void,
+      });
+    },
     exitCode: (command: { command: string; args: ReadonlyArray<string> }) => {
       const cmd = [command.command, ...command.args].join(" ");
       executed.push(cmd);
@@ -151,6 +165,29 @@ const makeFinalizeLayer = (
     Layer.provide(makeCatalogLayer(opts.targets, opts.modules)),
     Layer.provide(makeSpawnerLayer(executed, opts.failures)),
   );
+
+/** Helper: drives all script executions and builds a FinalizeReport */
+const runToReport = (
+  svc: typeof FinalizeService.Service,
+  blueprint: typeof Blueprint.Type,
+  config: FinalizeConfig,
+) =>
+  Effect.gen(function* () {
+    const executables = yield* svc.run(blueprint, config);
+    const results = yield* Effect.forEach(
+      executables,
+      ({ execute }) =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const execution = yield* execute();
+            yield* execution.output.pipe(Stream.runDrain);
+            return yield* execution.result;
+          }),
+        ),
+      { concurrency: 1 },
+    );
+    return new FinalizeReport({ results });
+  });
 
 // ---------------------------------------------------------------------------
 // Tests
@@ -339,7 +376,7 @@ describe("FinalizeService", () => {
         return Effect.gen(function* () {
           const svc = yield* FinalizeService;
 
-          const report = yield* svc.run(emptyBlueprint, makeConfig());
+          const report = yield* runToReport(svc, emptyBlueprint, makeConfig());
 
           expect(report.succeeded).toBe(1);
           expect(report.failed).toBe(0);
@@ -359,7 +396,11 @@ describe("FinalizeService", () => {
           lint: "biome",
         });
 
-        const report = yield* svc.run(emptyBlueprint, makeConfig(config));
+        const report = yield* runToReport(
+          svc,
+          emptyBlueprint,
+          makeConfig(config),
+        );
 
         // Both install and lint should execute even if install fails
         expect(report.results).toHaveLength(2);
@@ -383,7 +424,7 @@ describe("FinalizeService", () => {
           const moduleId = ModuleId.make("shadcn-init");
           const blueprint = targetWithModule(clientIdentity, moduleId);
 
-          const report = yield* svc.run(blueprint, makeConfig());
+          const report = yield* runToReport(svc, blueprint, makeConfig());
 
           const labels = report.results.map((r) => r.label);
           expect(labels).toEqual(["Init shadcn", "Install dependencies"]);
@@ -414,7 +455,7 @@ describe("FinalizeService", () => {
           const moduleId = ModuleId.make("http-api");
           const blueprint = targetWithModule(serverIdentity, moduleId);
 
-          const report = yield* svc.run(blueprint, makeConfig());
+          const report = yield* runToReport(svc, blueprint, makeConfig());
 
           const labels = report.results.map((r) => r.label);
           expect(labels).toEqual([
