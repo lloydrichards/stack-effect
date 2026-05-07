@@ -36,7 +36,16 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         }),
       },
     ],
-    dependencies: [],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
+      },
+    ],
     contributions: [
       {
         _tag: "file",
@@ -66,6 +75,13 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "dependencies",
         name: "effect",
         value: "4.0.0-beta.59",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "workspace:*",
       },
     ],
   },
@@ -126,6 +142,14 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           name: "ai",
         }),
         moduleId: ModuleId.make("ai-sample-toolkit"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("ai"),
       },
     ],
     contributions: [
