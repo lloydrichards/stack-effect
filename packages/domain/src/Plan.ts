@@ -157,6 +157,20 @@ export const PlanConflict = Schema.TaggedUnion({
   },
 });
 
+/**
+ * The repo-aware outcome of applying a Blueprint to the current filesystem.
+ *
+ * A Plan pairs each contributed file path with a classification (create,
+ * modify, unchanged, or conflict) and its resolved contents or composition
+ * operations. It also surfaces detected conflicts that require user decisions
+ * before execution.
+ *
+ * The Plan is policy-free: it records what *would* happen but does not make
+ * apply decisions. Those belong to the Apply stage via ApplyDecision entries.
+ *
+ * @category Plan
+ * @since 1.0.0
+ */
 export class Plan extends Schema.Class<Plan>("Plan")({
   outcomes: Schema.Array(PlanOutcome),
   conflicts: Schema.Array(PlanConflict),

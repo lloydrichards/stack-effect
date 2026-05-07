@@ -14,11 +14,24 @@ export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
   cause?: unknown;
 }> {}
 
+/**
+ * Represents a resolved target workspace in the blueprint graph.
+ *
+ * @category Blueprint
+ * @since 1.0.0
+ */
 export const BlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
 });
 
+/**
+ * Represents a module attached to a specific target in the blueprint graph.
+ * The composite ID encodes both the owning target and the module identity.
+ *
+ * @category Blueprint
+ * @since 1.0.0
+ */
 export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
   "attached-module",
   {
@@ -41,6 +54,20 @@ export const blueprintNodeOrd = Order.mapInput(
   (node: typeof BlueprintNode.Type) => node,
 );
 
+/**
+ * The resolved dependency closure for a Selection.
+ *
+ * A Blueprint expands user intent into a complete directed graph of targets
+ * and their attached modules, including all transitive dependencies (required
+ * targets and required modules). It is deterministic: identical Selections
+ * always produce identical Blueprints.
+ *
+ * The graph is policy-free — it does not consider the current repo state.
+ * That concern belongs to the Plan stage.
+ *
+ * @category Blueprint
+ * @since 1.0.0
+ */
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
   nodes: Schema.Array(BlueprintNode),
   edges: Schema.Array(
