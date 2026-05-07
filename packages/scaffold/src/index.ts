@@ -3,6 +3,7 @@ export { BlueprintService } from "./service/blueprint/BlueprintService";
 export {
   type FinalizeConfig,
   FinalizeService,
+  type ScriptExecution,
 } from "./service/finalize/FinalizeService";
 export { ContributionResolver } from "./service/plan/ContributionResolver";
 export { PlanAssessor } from "./service/plan/PlanAssessor";

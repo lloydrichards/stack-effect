@@ -10,10 +10,36 @@ import {
   type ContributionTokenContext,
   type StackConfig,
 } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  PlatformError,
+  Scope,
+  Stream,
+} from "effect";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { resolveTokenString } from "../plan/ContributionResolver";
+
+export type ScriptExecution = {
+  readonly label: string;
+  readonly command: string;
+  readonly workdir: string;
+  readonly output: Stream.Stream<string, PlatformError.PlatformError>;
+  readonly result: Effect.Effect<
+    {
+      readonly label: string;
+      readonly command: string;
+      readonly workdir: string;
+      readonly status: "success" | "failure";
+      readonly error?: string;
+    },
+    PlatformError.PlatformError,
+    never
+  >;
+};
 
 export type FinalizeConfig = {
   readonly config: typeof StackConfig.Type;
@@ -101,13 +127,10 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         const configScripts = buildConfigDerivedScripts(config);
         const allScripts = [...scripts, ...configScripts];
 
-        const results = yield* Effect.forEach(
-          allScripts,
-          (script) => executeScript(spawner, script, config.repoRoot),
-          { concurrency: 1 },
-        );
-
-        return new FinalizeReport({ results });
+        return allScripts.map((script) => ({
+          script,
+          execute: () => executeScript(spawner, script, config.repoRoot),
+        }));
       });
 
       const preview = Effect.fn("FinalizeService.preview")(function* (
@@ -186,32 +209,53 @@ const executeScript = (
   spawner: typeof ChildProcessSpawner.Service,
   script: ResolvedScript,
   repoRoot: string,
-) => {
+): Effect.Effect<ScriptExecution, PlatformError.PlatformError, Scope.Scope> => {
   const workdir =
     script.workdir === "." ? repoRoot : `${repoRoot}/${script.workdir}`;
 
   const command = ChildProcess.make({
     cwd: workdir,
     shell: true,
+    stdout: "pipe",
+    stderr: "pipe",
   })`${script.command}`;
 
-  return spawner.exitCode(command).pipe(
-    Effect.map(() => ({
+  return Effect.gen(function* () {
+    const handle = yield* spawner.spawn(command);
+
+    const output = Stream.merge(handle.stdout, handle.stderr).pipe(
+      Stream.decodeText(),
+      Stream.splitLines,
+    );
+
+    const result = handle.exitCode.pipe(
+      Effect.map((code) => {
+        if (code === 0) {
+          return {
+            label: script.label,
+            command: script.command,
+            workdir: script.workdir,
+            status: "success" as const,
+          };
+        }
+        return {
+          label: script.label,
+          command: script.command,
+          workdir: script.workdir,
+          status: "failure" as const,
+          error: `Process exited with code ${code}`,
+        };
+      }),
+    );
+
+    return {
       label: script.label,
       command: script.command,
       workdir: script.workdir,
-      status: "success" as const,
-    })),
-    Effect.catch((error: unknown) =>
-      Effect.succeed({
-        label: script.label,
-        command: script.command,
-        workdir: script.workdir,
-        status: "failure" as const,
-        error: String(error),
-      }),
-    ),
-  );
+      output,
+      result,
+    } satisfies ScriptExecution;
+  });
 };
 
 const topologicalSort = (

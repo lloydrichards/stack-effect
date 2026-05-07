@@ -9,6 +9,7 @@ export class FinalizeReport extends Schema.Class<FinalizeReport>(
       command: Schema.String,
       workdir: Schema.String,
       status: Schema.Literals(["success", "failure"]),
+      output: Schema.optional(Schema.String),
       error: Schema.optional(Schema.String),
     }),
   ),
