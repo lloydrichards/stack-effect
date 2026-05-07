@@ -341,7 +341,7 @@ const HttpRpcRouter = Layer.empty;
             ]),
           );
 
-          // Should have ts-append-call-arg operations for Layer.provide
+          // Should have ts-append-call-arg operations for Layer.mergeAll
           const appendOps = serverOutcome.operations.filter(
             (op) => op._tag === "ts-append-call-arg",
           );
@@ -349,20 +349,20 @@ const HttpRpcRouter = Layer.empty;
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "ts-append-call-arg",
-                targetVariable: "HttpRpcRouter",
-                functionName: "Layer.provide",
+                targetVariable: "AllRouters",
+                functionName: "Layer.mergeAll",
                 argument: "ChatServiceLive",
               }),
               expect.objectContaining({
                 _tag: "ts-append-call-arg",
-                targetVariable: "HttpRpcRouter",
-                functionName: "Layer.provide",
+                targetVariable: "AllRouters",
+                functionName: "Layer.mergeAll",
                 argument: "SampleToolkitLive",
               }),
               expect.objectContaining({
                 _tag: "ts-append-call-arg",
-                targetVariable: "HttpRpcRouter",
-                functionName: "Layer.provide",
+                targetVariable: "AllRouters",
+                functionName: "Layer.mergeAll",
                 argument: "FastModelLive",
               }),
             ]),
