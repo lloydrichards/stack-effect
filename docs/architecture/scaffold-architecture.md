@@ -8,7 +8,10 @@
 The scaffold package provides **runtime orchestration services** that transform
 user selections into repository changes. It implements the core pipeline:
 
-`Selection -> Blueprint -> Plan -> Apply -> ApplyResult -> FinalizeReport`
+```txt
+Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
+                        └───────────────────────────────────> FinalizeReport
+```
 
 **Package**: `@repo/scaffold`  
 **Role**: Executes the scaffold pipeline from resolved intent to filesystem
@@ -16,7 +19,7 @@ changes
 
 ## Package Structure
 
-```bash
+```txt
 packages/scaffold/
 └── src/
     ├── index.ts                    # Public exports
@@ -323,11 +326,28 @@ Operations are tagged unions with a `fileType` discriminator for type-safe filte
    - `{pm} run lint` (if lint: "biome")
    - `{pm} run format` (if format: "biome")
 
-### FinalizeReport
+### Domain Types
 
-| Field     | Type                                               |
-| --------- | -------------------------------------------------- |
-| `results` | Array of {label, command, workdir, status, error?} |
+**FinalizeScript** (input — resolved, ready-to-run):
+
+| Field     | Type   |
+| --------- | ------ |
+| `label`   | String |
+| `command` | String |
+| `workdir` | String |
+
+**ScriptResult** (output — tagged union):
+
+| Variant   | Fields                        |
+| --------- | ----------------------------- |
+| `Success` | label, command, output        |
+| `Failure` | label, command, output, error |
+
+**FinalizeReport** (aggregate):
+
+| Field     | Type           |
+| --------- | -------------- |
+| `results` | ScriptResult[] |
 
 ## ScaffoldFormatter
 

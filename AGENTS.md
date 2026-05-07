@@ -57,7 +57,11 @@ Notes:
 
 This repository is an Effect-based scaffolding monorepo. The core flow is:
 
-`Catalog -> Selection -> Blueprint -> Plan -> Apply -> ApplyResult -> FinalizeReport`
+```text
+Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
+                        └───────────────────────────────────> FinalizeReport
+
+```
 
 The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*`.
 
