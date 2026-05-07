@@ -21,7 +21,8 @@ For full definitions and invariants, see `docs/DOMAIN_LEXICON.md`.
 
 Use this sequence when describing the pipeline:
 
-`Catalog -> Selection -> Blueprint -> Plan -> Apply -> ApplyResult -> FinalizeReport`
+`Catalog -> Selection -> Blueprint -> Plan -> Apply -> ApplyResult`
+`Blueprint -> FinalizeScript[] -> ScriptResult[] -> FinalizeReport`
 
 ## Core Terms (conversation-ready)
 
