@@ -1,7 +1,7 @@
 import { CatalogService } from "@repo/catalog";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, Option, Schedule } from "effect";
+import { Console, Effect, FileSystem, Option, Schedule } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
@@ -187,9 +187,13 @@ const removeOrphanedImplications = (
     return changed;
   });
 
-const resolveImplicationsNonInteractive = (targets: Array<CollectedTarget>) =>
+const resolveImplicationsNonInteractive = (
+  targets: Array<CollectedTarget>,
+  repoRoot: string,
+) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
+    const fs = yield* FileSystem.FileSystem;
 
     let changed = true;
     while (changed) {
@@ -205,8 +209,36 @@ const resolveImplicationsNonInteractive = (targets: Array<CollectedTarget>) =>
             );
 
             if (candidates.length === 0) {
+              // Check if the implied target/module already exists on disk
+              // by scanning for any directory matching the target kind pattern
+              const appsDir = `${repoRoot}/apps`;
+              const packagesDir = `${repoRoot}/packages`;
+              const searchDir =
+                implication.targetKind === "package" ? packagesDir : appsDir;
+              const prefix =
+                implication.targetKind === "package"
+                  ? ""
+                  : `${implication.targetKind}-`;
+
+              const dirExists = yield* fs.readDirectory(searchDir).pipe(
+                Effect.map((entries) =>
+                  entries.some((entry) =>
+                    implication.targetKind === "package"
+                      ? true
+                      : entry.startsWith(prefix) ||
+                        entry === implication.targetKind,
+                  ),
+                ),
+                Effect.catch(() => Effect.succeed(false)),
+              );
+
+              if (dirExists) {
+                // Implication is already satisfied by existing project state
+                continue;
+              }
+
               return yield* Effect.fail(
-                `Module \"${definition.id}\" implies \"${implication.moduleId}\" on target kind \"${implication.targetKind}\". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
+                `Module "${definition.id}" implies "${implication.moduleId}" on target kind "${implication.targetKind}". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
               );
             }
 
@@ -216,7 +248,7 @@ const resolveImplicationsNonInteractive = (targets: Array<CollectedTarget>) =>
               );
               if (!alreadyPresent) {
                 return yield* Effect.fail(
-                  `Module \"${definition.id}\" implies \"${implication.moduleId}\" for target kind \"${implication.targetKind}\", but multiple candidate targets exist. Use interactive add to disambiguate.`,
+                  `Module "${definition.id}" implies "${implication.moduleId}" for target kind "${implication.targetKind}", but multiple candidate targets exist. Use interactive add to disambiguate.`,
                 );
               }
             }
@@ -308,6 +340,7 @@ const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
 const collectTargetsFromFlags = (
   targetId: string,
   rawModules: ReadonlyArray<string>,
+  repoRoot: string,
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
@@ -363,7 +396,7 @@ const collectTargetsFromFlags = (
       },
     ];
 
-    yield* resolveImplicationsNonInteractive(targets);
+    yield* resolveImplicationsNonInteractive(targets, repoRoot);
 
     return targets;
   });
@@ -546,6 +579,7 @@ export const add = Command.make(
           ? yield* collectTargetsFromFlags(
               flags.target.value,
               flags.modules.value,
+              repoRoot,
             )
           : yield* collectTargetsInteractive;
 
