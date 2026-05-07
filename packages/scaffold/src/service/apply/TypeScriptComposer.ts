@@ -4,13 +4,18 @@ import type {
   TsAddReexportOp,
   TsAppendCallArgOp,
 } from "@repo/domain/Plan";
-import { Context, Data, Effect, Layer, Match } from "effect";
 import {
-  type CallExpression,
-  Project,
-  type SourceFile,
-  SyntaxKind,
-} from "ts-morph";
+  Array as Arr,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Match,
+  Option,
+  pipe,
+} from "effect";
+import type { CallExpression, ImportDeclaration, SourceFile } from "ts-morph";
+import { Project, SyntaxKind } from "ts-morph";
 
 class TargetNotFoundError extends Data.TaggedError("TargetNotFoundError")<{
   targetVariable: string;
@@ -73,44 +78,34 @@ export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
 const applyTsAddImport = (
   sourceFile: SourceFile,
   op: typeof TsAddImportOp.Type,
-): void => {
-  const existingImport = sourceFile.getImportDeclaration(
-    (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
+) =>
+  pipe(
+    Option.fromNullishOr(
+      sourceFile.getImportDeclaration(
+        (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
+      ),
+    ),
+    Option.match({
+      onNone: () => {
+        sourceFile.addImportDeclaration({
+          moduleSpecifier: op.moduleSpecifier,
+          isTypeOnly: op.typeOnly ?? false,
+          ...(op.namedImports && { namedImports: [...op.namedImports] }),
+          ...(op.defaultImport && { defaultImport: op.defaultImport }),
+        });
+      },
+      onSome: (decl) => {
+        if (op.namedImports)
+          Arr.forEach(
+            Arr.difference(
+              op.namedImports,
+              decl.getNamedImports().map((ni) => ni.getName()),
+            ),
+            (name) => decl.addNamedImport(name),
+          );
+      },
+    }),
   );
-
-  if (existingImport) {
-    // Add to existing import if named imports are specified
-    if (op.namedImports) {
-      const existingNamedImports = existingImport.getNamedImports();
-      for (const namedImport of op.namedImports) {
-        const alreadyExists = existingNamedImports.some(
-          (ni) => ni.getName() === namedImport,
-        );
-        if (!alreadyExists) {
-          existingImport.addNamedImport(namedImport);
-        }
-      }
-    }
-  } else {
-    // Add new import declaration
-    const importDecl: {
-      moduleSpecifier: string;
-      namedImports?: string[];
-      defaultImport?: string;
-      isTypeOnly: boolean;
-    } = {
-      moduleSpecifier: op.moduleSpecifier,
-      isTypeOnly: op.typeOnly ?? false,
-    };
-    if (op.namedImports) {
-      importDecl.namedImports = [...op.namedImports];
-    }
-    if (op.defaultImport) {
-      importDecl.defaultImport = op.defaultImport;
-    }
-    sourceFile.addImportDeclaration(importDecl);
-  }
-};
 
 const applyTsAddReexport = (
   sourceFile: SourceFile,

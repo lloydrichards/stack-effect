@@ -273,7 +273,7 @@ const derivePlanningIntentPath = ({
   entries: ReadonlyArray<PlanningIntentEntry>;
 }): Effect.Effect<PlanningIntentPath, PlanFailure> =>
   Effect.gen(function* () {
-    const family = yield* derivePlanningIntentFamily({ path, entries });
+    const family = yield* derivePlanningIntentFamily({ entries, path });
     const byTag = Arr.groupBy(entries, (entry) => entry._tag);
 
     const authoritativeEntries = (byTag["authoritative"] ??
@@ -342,16 +342,12 @@ const derivePlanningIntentPath = ({
     };
 
     const emptyPackageJsonFields = {
-      exports: [] as ReadonlyArray<{ name: string; value: string }>,
-      dependencies: [] as ReadonlyArray<{
-        section: "dependencies" | "devDependencies";
-        name: string;
-        value: string;
-      }>,
-      scripts: [] as ReadonlyArray<{ name: string; value: string }>,
+      exports: [],
+      dependencies: [],
+      scripts: [],
     };
 
-    return yield* Match.value(family.family).pipe(
+    return yield* Match.value(family).pipe(
       Match.when("authoritative", () =>
         Effect.gen(function* () {
           const contents = yield* resolveContents();
@@ -360,17 +356,8 @@ const derivePlanningIntentPath = ({
             path,
             contents: isConflictOnModify ? undefined : contents,
             ...emptyPackageJsonFields,
-            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
-            compositions: [] as ReadonlyArray<{
-              targetVariable: string;
-              functionName: string;
-              argument: string;
-              import: {
-                moduleSpecifier: string;
-                namedImports: ReadonlyArray<string> | undefined;
-                defaultImport: string | undefined;
-              };
-            }>,
+            barrelExports: [],
+            compositions: [],
             tsconfig: isConflictOnModify ? { path, contents } : undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -381,17 +368,8 @@ const derivePlanningIntentPath = ({
             path,
             contents: undefined,
             ...(yield* resolvePackageJsonFields()),
-            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
-            compositions: [] as ReadonlyArray<{
-              targetVariable: string;
-              functionName: string;
-              argument: string;
-              import: {
-                moduleSpecifier: string;
-                namedImports: ReadonlyArray<string> | undefined;
-                defaultImport: string | undefined;
-              };
-            }>,
+            barrelExports: [],
+            compositions: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -409,16 +387,7 @@ const derivePlanningIntentPath = ({
               toResult: (entry) => ({ exportPath: entry.exportPath }),
               errorMessage: `Conflicting barrel export outcomes for ${path}.`,
             }),
-            compositions: [] as ReadonlyArray<{
-              targetVariable: string;
-              functionName: string;
-              argument: string;
-              import: {
-                moduleSpecifier: string;
-                namedImports: ReadonlyArray<string> | undefined;
-                defaultImport: string | undefined;
-              };
-            }>,
+            compositions: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -429,7 +398,7 @@ const derivePlanningIntentPath = ({
             path,
             contents: undefined,
             ...emptyPackageJsonFields,
-            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            barrelExports: [],
             compositions: Arr.map(tsCallArgEntries, (entry) => ({
               targetVariable: entry.targetVariable,
               functionName: entry.functionName,
@@ -446,17 +415,8 @@ const derivePlanningIntentPath = ({
             path,
             contents: yield* resolveContents(),
             ...(yield* resolvePackageJsonFields()),
-            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
-            compositions: [] as ReadonlyArray<{
-              targetVariable: string;
-              functionName: string;
-              argument: string;
-              import: {
-                moduleSpecifier: string;
-                namedImports: ReadonlyArray<string> | undefined;
-                defaultImport: string | undefined;
-              };
-            }>,
+            barrelExports: [],
+            compositions: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -467,7 +427,7 @@ const derivePlanningIntentPath = ({
             path,
             contents: yield* resolveContents(),
             ...emptyPackageJsonFields,
-            barrelExports: [] as ReadonlyArray<{ exportPath: string }>,
+            barrelExports: [],
             compositions: Arr.map(tsCallArgEntries, (entry) => ({
               targetVariable: entry.targetVariable,
               functionName: entry.functionName,
@@ -491,16 +451,7 @@ const derivePlanningIntentPath = ({
               toResult: (entry) => ({ exportPath: entry.exportPath }),
               errorMessage: `Conflicting barrel export outcomes for ${path}.`,
             }),
-            compositions: [] as ReadonlyArray<{
-              targetVariable: string;
-              functionName: string;
-              argument: string;
-              import: {
-                moduleSpecifier: string;
-                namedImports: ReadonlyArray<string> | undefined;
-                defaultImport: string | undefined;
-              };
-            }>,
+            compositions: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -509,63 +460,47 @@ const derivePlanningIntentPath = ({
     );
   });
 
-const derivePlanningIntentFamily = ({
-  path,
-  entries,
-}: {
-  path: string;
-  entries: ReadonlyArray<PlanningIntentEntry>;
-}): Effect.Effect<
+type CompositePlanningIntentFamily =
+  | "authoritativePackageJson"
+  | "authoritativeTsCallArg"
+  | "authoritativeBarrel";
+
+const COMPOSITE_FAMILIES: ReadonlyArray<{
+  pair: [PlanningIntentFamily, PlanningIntentFamily];
+  result: CompositePlanningIntentFamily;
+}> = [
   {
-    path: string;
-    family:
-      | PlanningIntentFamily
-      | "authoritativePackageJson"
-      | "authoritativeTsCallArg"
-      | "authoritativeBarrel";
+    pair: ["authoritative", "packageJson"],
+    result: "authoritativePackageJson",
   },
+  { pair: ["authoritative", "tsCallArg"], result: "authoritativeTsCallArg" },
+  { pair: ["authoritative", "barrel"], result: "authoritativeBarrel" },
+];
+
+const derivePlanningIntentFamily = ({
+  entries,
+  path,
+}: {
+  entries: ReadonlyArray<PlanningIntentEntry>;
+  path: string;
+}): Effect.Effect<
+  PlanningIntentFamily | CompositePlanningIntentFamily,
   PlanFailure
 > => {
   const families = new Set(Arr.map(entries, toPlanningIntentFamily));
 
   if (families.size === 1) {
-    // entries is non-empty when families.size === 1
-    // biome-ignore lint/style/noNonNullAssertion: guaranteed by size check
-    const family = toPlanningIntentFamily(entries[0]!);
-    return Effect.succeed({ path, family });
+    // biome-ignore lint/style/noNonNullAssertion: entries is non-empty when families.size === 1
+    return Effect.succeed(toPlanningIntentFamily(entries[0]!));
   }
 
-  if (
-    families.size === 2 &&
-    families.has("authoritative") &&
-    families.has("packageJson")
-  ) {
-    return Effect.succeed({
-      path,
-      family: "authoritativePackageJson" as const,
-    });
-  }
-
-  if (
-    families.size === 2 &&
-    families.has("authoritative") &&
-    families.has("tsCallArg")
-  ) {
-    return Effect.succeed({
-      path,
-      family: "authoritativeTsCallArg" as const,
-    });
-  }
-
-  if (
-    families.size === 2 &&
-    families.has("authoritative") &&
-    families.has("barrel")
-  ) {
-    return Effect.succeed({
-      path,
-      family: "authoritativeBarrel" as const,
-    });
+  if (families.size === 2) {
+    const match = COMPOSITE_FAMILIES.find(
+      ({ pair }) => families.has(pair[0]) && families.has(pair[1]),
+    );
+    if (match) {
+      return Effect.succeed(match.result);
+    }
   }
 
   return Effect.fail(
