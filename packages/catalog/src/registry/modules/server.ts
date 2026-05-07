@@ -124,8 +124,8 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
-        targetVariable: "HttpRpcRouter",
-        functionName: "Layer.provide",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
         argument: "ChatServiceLive",
         import: {
           moduleSpecifier: "@repo/ai",
@@ -135,8 +135,8 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
-        targetVariable: "HttpRpcRouter",
-        functionName: "Layer.provide",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
         argument: "SampleToolkitLive",
         import: {
           moduleSpecifier: "@repo/ai",
@@ -146,8 +146,8 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
-        targetVariable: "HttpRpcRouter",
-        functionName: "Layer.provide",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
         argument: "FastModelLive",
         import: {
           moduleSpecifier: "@repo/ai",
@@ -202,8 +202,8 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
-        targetVariable: "WebSocketRpcRouter",
-        functionName: "Layer.provide",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
         argument: "PresenceServiceLive",
         import: {
           moduleSpecifier: "@repo/presence",
