@@ -73,6 +73,9 @@ const ApiRouter = HttpApiBuilder.layer(Api).pipe(
   Layer.provide([HealthGroupLive, HelloGroupLive]),
 );
 
+// All Routers - modules append additional routers here via Layer.mergeAll
+const AllRouters = Layer.mergeAll(ApiRouter);
+
 // ============================================================================
 // Server Launch
 // ============================================================================
@@ -94,7 +97,7 @@ const HttpLive = Effect.gen(function* () {
   yield* Effect.logInfo("Starting server with:");
   yield* Effect.logInfo("  - HTTP API at /");
 
-  const AllRouters = Layer.mergeAll(ApiRouter).pipe(
+  const CorsRouters = AllRouters.pipe(
     Layer.provide(
       HttpRouter.cors({
         allowedOrigins,
@@ -105,7 +108,7 @@ const HttpLive = Effect.gen(function* () {
     ),
   );
 
-  return HttpRouter.serve(AllRouters).pipe(
+  return HttpRouter.serve(CorsRouters).pipe(
     HttpServer.withLogAddress,
     Layer.provideMerge(DevToolsLive),
     Layer.provideMerge(BunHttpServer.layerConfig(ServerConfig)),
