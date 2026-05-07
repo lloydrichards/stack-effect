@@ -83,6 +83,13 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         name: "@repo/domain",
         value: "workspace:*",
       },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: ".",
+        value: "./src/index.ts",
+      },
     ],
   },
   {
@@ -235,6 +242,13 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "dependencies",
         name: "effect",
         value: "4.0.0-beta.59",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: ".",
+        value: "./src/index.ts",
       },
     ],
   },
