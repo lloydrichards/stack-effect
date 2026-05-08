@@ -1,204 +1,106 @@
-# bEvr Stack
+# stack-effect
 
-A modern full-stack TypeScript monorepo with end-to-end type safety, using Bun,
-Effect, Vite, and React. Heavily inspired by the [bhvr](https://bhvr.dev/) stack
-but the addition of Effect and Turborepo. Includes a Model Context Protocol
-(MCP) server for AI assistant integrations.
+Scaffolding CLI for full-stack TypeScript apps built on Effect.
 
-![screenshot of client app](./e2e/smoke.spec.ts-snapshots/app-layout-chromium-darwin.png)
-
-## Features
-
-- **End-to-end TypeScript**: Full type safety from client to server
-- **Shared Domain**: Common types and utilities across all apps
-- **Effect Integration**: Built for composable, functional programming with
-  [Effect](https://effect.website)
-- **MCP Server**: [Model Context Protocol](https://modelcontextprotocol.io/)
-  server for AI assistant tools and resources
-- **Modern Tooling**: [Turborepo](https://turbo.build/), [Bun](https://bun.sh/),
-  [Vite](https://vitejs.dev/), and [React](https://react.dev/)
-- **Zero Config**: Pre-configured linting and formatting with
-  [Biome](https://biomejs.dev)
-- **Flexible Deployment**: Deploy anywhere without vendor lock-in
+![init demo](./media/init-demo.gif)
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-bun install
-
-# Start development
-bun dev
-
-# Build for production
-bun run build
+bunx stack-effect init my-app
+# or with npx
+npx stack-effect init my-app
 ```
 
-### Formatting and Linting
-
-Format and lint the codebase using Ultracite:
+Then add targets and modules to your project:
 
 ```bash
-# Format code
-bun format
+# Interactive mode — guided prompts
+bunx stack-effect add
 
-# Lint code
-bun lint
-
-# Type check
-bun run type-check
+# Non-interactive — specify what you need
+bunx stack-effect add --target server/api --modules http-api-server --yes
 ```
 
-### Testing
+## What You Get
 
-Run tests across the monorepo:
+A structured Effect-first monorepo:
 
-```bash
-# Run all unit tests
-bun run test
-
-# Run tests for specific apps
-bun run test --filter=stack-effectent
-bun run test --filter=server
-
-# Run E2E and visual regression tests
-bun run test:e2e
-
-# Update visual regression baselines
-bun run test:e2e -- --update-snapshots
 ```
-
-### Ralph Loop
-
-This repo includes a local Ralph-style loop for OpenCode in `.ralph/`.
-
-```bash
-# Run one supervised iteration
-bun run ralph:once
-
-# Run a bounded AFK loop
-bun run ralph:afk -- 5
-
-# Sync GitHub issues into .ralph/prd.json
-bun run ralph:sync-issues
-
-# Close completed GitHub issues from .ralph/prd.json
-bun run ralph:github-update
-```
-
-Before running it, replace the placeholder task in `.ralph/prd.json` with a real,
-scoped backlog item and review `.ralph/prompt.md`.
-
-### Test Stack
-
-- **Client**: Vitest 4.x with Browser Mode (Playwright), vitest-browser-react
-- **Server**: Vitest 4.x with Node environment, @effect/vitest
-- **E2E**: Playwright with visual regression testing
-
-### CI/CD Workflows
-
-| Workflow       | Trigger   | Purpose                       |
-| -------------- | --------- | ----------------------------- |
-| `check-client` | PR + main | Fast: lint, types, unit tests |
-| `check-server` | PR + main | Fast: lint, types, unit tests |
-| `post-merge`   | main only | Slow: E2E, visual regression  |
-
-Visual regression baselines are stored in `e2e/smoke.spec.ts-snapshots/` and
-should be committed to git. Update them when UI changes are intentional.
-
-## Project Structure
-
-```txt
-.
-├── apps/
-│   ├── client/             # React frontend (Vite + React)
-│   ├── server/             # Bun + Effect backend API
-│   └── server-mcp/         # Model Context Protocol server
-├── e2e/                     # Playwright end-to-end tests
+my-app/
+├── stack.effect.json
+├── package.json
+├── tsconfig.json
+├── turbo.json
 ├── packages/
-│   ├── ai/                 # AI services and toolkits
-│   ├── config-typescript/  # TypeScript configurations
-│   ├── domain/             # Shared Schema definitions
-│   ├── observability/      # OpenTelemetry setup
-│   └── presence/           # Presence tracking service
-├── docker-compose.yaml     # Docker Compose configuration for deployment
-├── package.json            # Root package.json with workspaces
-└── turbo.json              # Turborepo configuration
+│   ├── config-typescript/
+│   └── domain/
+│       └── src/
+│           ├── [+] Api.ts
+│           └── [+] index.ts
+└── apps/
+    ├── web/
+    │   └── src/
+    │       ├── [+] main.tsx
+    │       └── [+] app.tsx
+    └── api/
+        └── src/
+            ├── [+] index.ts
+            └── Api/
+                ├── [+] Health.ts
+                └── [+] Hello.ts
 ```
 
-### Apps
+## Usage
 
-| App          | Description                                                                                                     |
-| ------------ | --------------------------------------------------------------------------------------------------------------- |
-| `client`     | A [React](https://react.dev) app built with [Vite](https://vitejs.dev)                                          |
-| `server`     | A [Effect Platform](https://effect.website) backend API                                                         |
-| `server-mcp` | A [Model Context Protocol](https://modelcontextprotocol.io/) server built with [Effect](https://effect.website) |
+### `stack-effect init [project-name]`
 
-### Packages
+Scaffolds a new project. Prompts for runtime (bun/node), monorepo tool, linting, formatting, and test framework.
 
-| Package                   | Description                                                                                                        |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `@repo/config-typescript` | TypeScript configurations used throughout the monorepo                                                             |
-| `@repo/domain`            | Shared Schema definitions using [Effect Schema](https://effect.website/docs/schema) used by both client and server |
-| `@repo/ai`                | AI tooling and service layers built on [@effect/ai](https://github.com/tim-smart/effect-io-ai)                     |
-| `@repo/observability`     | Shared OpenTelemetry setup                                                                                         |
-| `@repo/presence`          | Presence tracking service for WebSocket clients                                                                    |
+| Flag                    | Description                   |
+| ----------------------- | ----------------------------- |
+| `--yes`                 | Accept defaults, skip prompts |
+| `--dry-run`             | Preview without writing files |
+| `--root <path>`         | Output directory              |
+| `--runtime <bun\|node>` | Runtime selection             |
 
-## Development
+### `stack-effect add`
+
+Adds targets and modules to an existing project. In interactive mode, select a target kind (client, server, cli, package), name it, then pick modules. Dependencies between modules are resolved automatically.
+
+| Flag                   | Description                       |
+| ---------------------- | --------------------------------- |
+| `--target <kind/name>` | Target to add (e.g. `client/web`) |
+| `--modules <id,...>`   | Modules to include                |
+| `--yes`                | Skip confirmation prompts         |
+| `--dry-run`            | Preview the plan without applying |
+
+### `stack-effect graph`
+
+Visualize the full catalog of available targets and modules.
+
+| Flag                             | Description   |
+| -------------------------------- | ------------- |
+| `--format <table\|mermaid\|dot>` | Output format |
+
+Run `stack-effect graph` to see all available targets and modules.
+
+## Examples
+
+Initialize a project with bun and add a client with an API connection:
 
 ```bash
-# Start development server
-bun dev
-# Run specific app
-bun dev --filter=stack-effectent
-bun dev --filter=server
-bun dev --filter=server-mcp
-
-
-# Build all apps
-bun run build
-
-# Test MCP server functionality (MCPJam Inspector)
-bun --filter=server-mcp run inspector
+bunx stack-effect init my-app --runtime bun --yes
+cd my-app
+bunx stack-effect add --target client/web --modules http-api-client --yes
 ```
 
-## Deployment
+The `http-api-client` module automatically implies `http-api-server` on a server target, so both sides of the API are scaffolded together.
 
-To run the application using Docker, you can use the provided
-`docker-compose.yaml` file.
+## Contributing
 
-First, ensure you have Docker and Docker Compose installed on your system.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
 
-Then, run the following command to build and start the services in the
-background:
+## License
 
-```bash
-docker-compose up -d --build
-```
-
-This will start all three services: `client`, `server`, and `server-mcp`.
-
-### Environment Variables
-
-You can configure the deployment using environment variables:
-
-```bash
-# Example .env file
-CLIENT_PORT=3000
-SERVER_PORT=9000
-MCP_PORT=9009
-```
-
-## Type Safety
-
-Import shared types from the domain package:
-
-```typescript
-import { ApiResponse } from "@repo/domain/Api";
-```
-
-## Learn More
-
-- [Turborepo](https://turborepo.com/docs)
-- [Effect](https://effect.website/docs/introduction)
-- [Vite](https://vitejs.dev/guide/)
+MIT
