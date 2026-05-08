@@ -15,6 +15,7 @@ import {
   Option,
   pipe,
   Record,
+  Schema,
 } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import {
@@ -159,86 +160,77 @@ const compilePlanningPaths = (
 
 // --- Planning intent types and derivation ---
 
-type PlanningIntentEntry =
-  | {
-      readonly _tag: "authoritative";
-      readonly path: string;
-      readonly contents: string;
-      readonly conflictOnModify: boolean;
-    }
-  | {
-      readonly _tag: "packageJsonEntry";
-      readonly path: string;
-      readonly field:
-        | "exports"
-        | "dependencies"
-        | "devDependencies"
-        | "scripts";
-      readonly name: string;
-      readonly value: string;
-    }
-  | {
-      readonly _tag: "barrelExport";
-      readonly path: string;
-      readonly exportPath: string;
-    }
-  | {
-      readonly _tag: "tsCallArg";
-      readonly path: string;
-      readonly targetVariable: string;
-      readonly functionName: string;
-      readonly argument: string;
-      readonly import: {
-        readonly moduleSpecifier: string;
-        readonly namedImports: ReadonlyArray<string> | undefined;
-        readonly defaultImport: string | undefined;
-      };
-    };
-
-type PlanningIntentFamily =
-  | "authoritative"
-  | "packageJson"
-  | "barrel"
-  | "tsCallArg";
+export const PlanningIntentEntry = Schema.TaggedUnion({
+  authoritative: {
+    path: Schema.String,
+    contents: Schema.String,
+    conflictOnModify: Schema.Boolean,
+  },
+  packageJsonEntry: {
+    path: Schema.String,
+    field: Schema.Literals([
+      "exports",
+      "dependencies",
+      "devDependencies",
+      "scripts",
+    ]),
+    name: Schema.String,
+    value: Schema.String,
+  },
+  barrelExport: {
+    path: Schema.String,
+    exportPath: Schema.String,
+  },
+  tsCallArg: {
+    path: Schema.String,
+    targetVariable: Schema.String,
+    functionName: Schema.String,
+    argument: Schema.String,
+    import: Schema.Struct({
+      moduleSpecifier: Schema.String,
+      namedImports: Schema.Union([
+        Schema.Array(Schema.String),
+        Schema.Undefined,
+      ]),
+      defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
+    }),
+  },
+});
 
 const toPlanningIntentEntries = (
   contributions: ReadonlyArray<typeof Contribution.Type>,
-): ReadonlyArray<PlanningIntentEntry> =>
+): ReadonlyArray<typeof PlanningIntentEntry.Type> =>
   Arr.flatMap(
     contributions,
-    (contribution): ReadonlyArray<PlanningIntentEntry> => {
+    (contribution): ReadonlyArray<typeof PlanningIntentEntry.Type> => {
       switch (contribution._tag) {
         case "file":
           return [
-            {
-              _tag: "authoritative",
+            PlanningIntentEntry.cases.authoritative.make({
               path: contribution.path,
               contents: contribution.contents,
               conflictOnModify: contribution.conflictOnModify ?? false,
-            },
+            }),
           ];
         case "pkg-json-entry":
           return [
-            {
-              _tag: "packageJsonEntry",
+            PlanningIntentEntry.cases.packageJsonEntry.make({
               path: contribution.path,
               field: contribution.field,
               name: contribution.name,
               value: contribution.value,
-            },
+            }),
           ];
         case "barrel-export":
           return [
-            {
-              _tag: "barrelExport",
+            PlanningIntentEntry.cases.barrelExport.make({
               path: contribution.barrelPath,
               exportPath: contribution.exportPath,
-            },
+            }),
           ];
         case "ts-call-arg":
           return [
-            {
-              _tag: "tsCallArg",
+            PlanningIntentEntry.cases.tsCallArg.make({
               path: contribution.path,
               targetVariable: contribution.targetVariable,
               functionName: contribution.functionName,
@@ -248,42 +240,33 @@ const toPlanningIntentEntries = (
                 namedImports: contribution.import.namedImports,
                 defaultImport: contribution.import.defaultImport,
               },
-            },
+            }),
           ];
       }
     },
   );
-
-type AuthoritativeEntry = Extract<
-  PlanningIntentEntry,
-  { _tag: "authoritative" }
->;
-type PackageJsonEntry = Extract<
-  PlanningIntentEntry,
-  { _tag: "packageJsonEntry" }
->;
-type BarrelExportEntry = Extract<PlanningIntentEntry, { _tag: "barrelExport" }>;
-type TsCallArgEntry = Extract<PlanningIntentEntry, { _tag: "tsCallArg" }>;
 
 const derivePlanningIntentPath = ({
   path,
   entries,
 }: {
   path: string;
-  entries: ReadonlyArray<PlanningIntentEntry>;
+  entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
 }): Effect.Effect<PlanningIntentPath, PlanFailure> =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ entries, path });
-    const byTag = Arr.groupBy(entries, (entry) => entry._tag);
-
-    const authoritativeEntries = (byTag["authoritative"] ??
-      []) as ReadonlyArray<AuthoritativeEntry>;
-    const packageJsonEntries = (byTag["packageJsonEntry"] ??
-      []) as ReadonlyArray<PackageJsonEntry>;
-    const barrelExportEntries = (byTag["barrelExport"] ??
-      []) as ReadonlyArray<BarrelExportEntry>;
-    const tsCallArgEntries = (byTag["tsCallArg"] ??
-      []) as ReadonlyArray<TsCallArgEntry>;
+    const authoritativeEntries = entries.filter(
+      PlanningIntentEntry.guards.authoritative,
+    );
+    const packageJsonEntries = entries.filter(
+      PlanningIntentEntry.guards.packageJsonEntry,
+    );
+    const barrelExportEntries = entries.filter(
+      PlanningIntentEntry.guards.barrelExport,
+    );
+    const tsCallArgEntries = entries.filter(
+      PlanningIntentEntry.guards.tsCallArg,
+    );
 
     const resolveContents = () =>
       requireSingleValue({
@@ -296,19 +279,22 @@ const derivePlanningIntentPath = ({
       authoritativeEntries.some((e) => e.conflictOnModify);
 
     const resolvePackageJsonFields = () => {
+      type PackageJsonCase =
+        typeof PlanningIntentEntry.cases.packageJsonEntry.Type;
+
       const exportEntries = packageJsonEntries.filter(
-        (e): e is PackageJsonEntry & { field: "exports" } =>
+        (e): e is PackageJsonCase & { field: "exports" } =>
           e.field === "exports",
       );
       const depEntries = packageJsonEntries.filter(
         (
           e,
-        ): e is PackageJsonEntry & {
+        ): e is PackageJsonCase & {
           field: "dependencies" | "devDependencies";
         } => e.field === "dependencies" || e.field === "devDependencies",
       );
       const scriptEntries = packageJsonEntries.filter(
-        (e): e is PackageJsonEntry & { field: "scripts" } =>
+        (e): e is PackageJsonCase & { field: "scripts" } =>
           e.field === "scripts",
       );
 
@@ -481,7 +467,7 @@ const derivePlanningIntentFamily = ({
   entries,
   path,
 }: {
-  entries: ReadonlyArray<PlanningIntentEntry>;
+  entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
   path: string;
 }): Effect.Effect<
   PlanningIntentFamily | CompositePlanningIntentFamily,
@@ -511,20 +497,18 @@ const derivePlanningIntentFamily = ({
   );
 };
 
-const toPlanningIntentFamily = (
-  entry: PlanningIntentEntry,
-): PlanningIntentFamily => {
-  switch (entry._tag) {
-    case "authoritative":
-      return "authoritative";
-    case "packageJsonEntry":
-      return "packageJson";
-    case "barrelExport":
-      return "barrel";
-    case "tsCallArg":
-      return "tsCallArg";
-  }
-};
+type PlanningIntentFamily =
+  | "authoritative"
+  | "packageJson"
+  | "barrel"
+  | "tsCallArg";
+
+const toPlanningIntentFamily = PlanningIntentEntry.match({
+  authoritative: () => "authoritative" as const,
+  packageJsonEntry: () => "packageJson" as const,
+  barrelExport: () => "barrel" as const,
+  tsCallArg: () => "tsCallArg" as const,
+}) satisfies (entry: typeof PlanningIntentEntry.Type) => PlanningIntentFamily;
 
 const requireSingleValue = <Value>({
   values,
