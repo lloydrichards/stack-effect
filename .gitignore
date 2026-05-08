@@ -58,3 +58,6 @@ tsconfig.tsbuildinfo
 
 # Fallow 
 .fallow/
+
+# Nix
+.direnv/
