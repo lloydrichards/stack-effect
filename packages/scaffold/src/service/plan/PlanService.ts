@@ -2,7 +2,10 @@ import { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import { Contribution } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
-import type { StackConfig } from "@repo/domain/Scaffold";
+import type {
+  NormalizedContributions,
+  StackConfig,
+} from "@repo/domain/Scaffold";
 import {
   Array as Arr,
   Context,
@@ -13,10 +16,7 @@ import {
   pipe,
   Record,
 } from "effect";
-import {
-  ContributionResolver,
-  type NormalizedContributions,
-} from "./ContributionResolver";
+import { ContributionResolver } from "./ContributionResolver";
 import {
   collectAncestorPaths,
   PlanAssessor,
@@ -131,7 +131,7 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
 }
 
 const compilePlanningPaths = (
-  normalizedContributions: NormalizedContributions,
+  normalizedContributions: typeof NormalizedContributions.Type,
 ): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(

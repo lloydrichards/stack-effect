@@ -3,16 +3,12 @@ import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { Contribution } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
-  type ModuleContribution,
+  ModuleContribution,
+  NormalizedContributions,
   type StackConfig,
-  type TargetContribution,
+  TargetContribution,
 } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
-
-export type NormalizedContributions = {
-  readonly targets: ReadonlyArray<typeof TargetContribution.Type>;
-  readonly modules: ReadonlyArray<typeof ModuleContribution.Type>;
-};
 
 export class ContributionResolver extends Context.Service<ContributionResolver>()(
   "ContributionResolver",
@@ -37,13 +33,13 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 
               return {
                 context,
-                contribution: {
+                contribution: TargetContribution.make({
                   targetKey: node.id,
                   contributions: resolveContributionTokens(
                     definition.contributions,
                     context,
                   ),
-                } satisfies typeof TargetContribution.Type,
+                }),
               } as const;
             }),
         );
@@ -67,14 +63,14 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
             Effect.gen(function* () {
               const moduleDefinition = yield* catalog.getModule(node.moduleId);
 
-              return {
+              return ModuleContribution.make({
                 targetKey: node.targetId,
                 moduleId: node.moduleId,
                 contributions: resolveContributionTokens(
                   moduleDefinition.contributions,
                   context,
                 ),
-              } satisfies typeof ModuleContribution.Type;
+              });
             }),
           ),
         );
@@ -82,7 +78,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         return {
           targets: Arr.map(targetResults, (r) => r.contribution),
           modules: moduleContributions,
-        } satisfies NormalizedContributions;
+        } satisfies typeof NormalizedContributions.Type;
       });
 
       return { resolve };
