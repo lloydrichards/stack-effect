@@ -3,9 +3,7 @@ import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { Border } from "../components/Border";
 import { Confirm } from "../components/Confirm";
-import { Padding } from "../components/Padding";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
@@ -236,7 +234,7 @@ export const init = Command.make(
         ],
         1,
         Box.left,
-      ).pipe(Padding(0, 2), Border);
+      ).pipe(Box.pad(0, 2), Box.border("rounded"));
 
       if (!flags.yes) {
         const proceed = yield* Confirm({

@@ -5,8 +5,8 @@ export const serverPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.59",
-    "effect": "4.0.0-beta.59"
+    "@effect/platform-bun": "4.0.0-beta.64",
+    "effect": "4.0.0-beta.64"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",

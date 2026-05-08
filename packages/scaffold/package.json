@@ -17,13 +17,13 @@
   "dependencies": {
     "@repo/domain": "workspace:*",
     "@repo/catalog": "workspace:*",
-    "effect": "4.0.0-beta.59",
-    "effect-boxes": "^0.11.2",
-    "ts-morph": "^26.0.0"
+    "effect": "4.0.0-beta.64",
+    "effect-boxes": "^0.13.0",
+    "ts-morph": "^28.0.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.59",
-    "@types/node": "^25.6.0",
+    "@effect/vitest": "4.0.0-beta.64",
+    "@types/node": "^25.6.2",
     "@repo/config-typescript": "workspace:*",
     "vitest": "^4.1.5"
   }

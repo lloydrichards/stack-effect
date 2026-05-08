@@ -16,8 +16,6 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { Border } from "../components/Border";
-import { Padding } from "../components/Padding";
 import { Table } from "../components/Table";
 
 const formatFlag = Flag.choice("format", ["table", "mermaid", "dot"]).pipe(
@@ -313,7 +311,7 @@ const renderTable = (g: CatalogGraph) => {
     [summary, structureSection, Box.emptyBox(0, 1), table],
     1,
     Box.left,
-  ).pipe(Padding(0, 1), Border);
+  ).pipe(Box.pad(0, 1), Box.border("rounded"));
 };
 
 // ── Command ─────────────────────────────────────────────────────────
