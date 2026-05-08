@@ -1,8 +1,9 @@
 # stack-effect
 
-Scaffolding CLI for full-stack TypeScript apps built on Effect.
+Scaffolding CLI for full-stack TypeScript apps built on [Effect](https://effect.website).
 
-![init demo](./media/init-demo.gif)
+[![npm version](https://img.shields.io/npm/v/stack-effect)](https://www.npmjs.com/package/stack-effect)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/lloydrichards/stack-effect/blob/main/LICENSE)
 
 ## Quick Start
 
@@ -97,10 +98,6 @@ bunx stack-effect add --target client/web --modules http-api-client --yes
 
 The `http-api-client` module automatically implies `http-api-server` on a server target, so both sides of the API are scaffolded together.
 
-## Contributing
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup and guidelines.
-
 ## License
 
-MIT
+MIT — see [LICENSE](https://github.com/lloydrichards/stack-effect/blob/main/LICENSE) for details.
