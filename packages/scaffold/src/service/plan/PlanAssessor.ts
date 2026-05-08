@@ -750,10 +750,7 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   Predicate.isReadonlyObject(value) &&
-  Arr.every(
-    Record.values(value as Record<string, unknown>),
-    (entry) => typeof entry === "string",
-  );
+  Arr.every(Object.values(value), (entry) => typeof entry === "string");
 
 const parseJsonRecord = (
   contents: string,

@@ -242,11 +242,17 @@ export class ApplyService extends Context.Service<ApplyService>()(
           },
         );
 
-        return Arr.reduce(
+        return Arr.reduce<
+          PreparedApplyAction,
+          {
+            skippedPaths: Set<string>;
+            writeRequests: Array<ApplyWriteRequest>;
+          }
+        >(
           preparedActions,
           {
             skippedPaths: new Set<string>(),
-            writeRequests: [] as Array<ApplyWriteRequest>,
+            writeRequests: [],
           },
           (proj, preparedAction) => {
             switch (preparedAction._tag) {
@@ -288,13 +294,21 @@ export class ApplyService extends Context.Service<ApplyService>()(
             concurrency: 1,
           },
         );
-        const writeProjection = Arr.reduce(
+        const writeProjection = Arr.reduce<
+          (typeof writeAttempts)[number],
+          {
+            created: Array<string>;
+            modified: Array<string>;
+            skippedPaths: Set<string>;
+            failed: Array<typeof ApplyFailedPath.Type>;
+          }
+        >(
           writeAttempts,
           {
-            created: [] as Array<string>,
-            modified: [] as Array<string>,
+            created: [],
+            modified: [],
             skippedPaths: actionProjection.skippedPaths,
-            failed: [] as Array<typeof ApplyFailedPath.Type>,
+            failed: [],
           },
           (proj, writeAttempt) => {
             switch (writeAttempt.status) {

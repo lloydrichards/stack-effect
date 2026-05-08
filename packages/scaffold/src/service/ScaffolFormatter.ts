@@ -286,24 +286,23 @@ const buildNodes = (
   if (entries.length === 0) return [];
 
   // Group entries by their segment at current depth
-  const groups = Arr.reduce(
-    entries,
-    [] as Array<{
+  const groups = Arr.reduce<
+    (typeof entries)[number],
+    Array<{
       readonly key: string;
       readonly items: Array<(typeof entries)[number]>;
-    }>,
-    (groups, entry) => {
-      const segment = entry.segments[depth];
-      if (segment === undefined) return groups;
-      const existing = groups.find((g) => g.key === segment);
-      if (existing) {
-        existing.items.push(entry);
-      } else {
-        groups.push({ key: segment, items: [entry] });
-      }
-      return groups;
-    },
-  );
+    }>
+  >(entries, [], (groups, entry) => {
+    const segment = entry.segments[depth];
+    if (segment === undefined) return groups;
+    const existing = groups.find((g) => g.key === segment);
+    if (existing) {
+      existing.items.push(entry);
+    } else {
+      groups.push({ key: segment, items: [entry] });
+    }
+    return groups;
+  });
 
   // Classify each group as directory-only, file-only, or mixed
   // Sort: directories first, then files, both case-insensitive alphabetically
