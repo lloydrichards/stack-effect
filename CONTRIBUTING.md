@@ -31,16 +31,16 @@ bun install
 
 ## Running the Project
 
-| Command | Purpose |
-|---------|---------|
-| `bun dev` | Run all workspaces in watch mode |
-| `bun dev --filter=stack-effect` | Run the CLI in watch mode |
-| `bun run build` | Build all workspaces |
-| `bun run test` | Run all tests (Turbo + Vitest) |
-| `bun run test --filter=<package>` | Run tests for a specific workspace |
-| `bun lint` | Lint with Biome |
-| `bun format` | Format with Biome |
-| `bun run type-check` | TypeScript checks across all workspaces |
+| Command                           | Purpose                                 |
+| --------------------------------- | --------------------------------------- |
+| `bun dev`                         | Run all workspaces in watch mode        |
+| `bun dev --filter=stack-effect`   | Run the CLI in watch mode               |
+| `bun run build`                   | Build all workspaces                    |
+| `bun run test`                    | Run all tests (Turbo + Vitest)          |
+| `bun run test --filter=<package>` | Run tests for a specific workspace      |
+| `bun lint`                        | Lint with Biome                         |
+| `bun format`                      | Format with Biome                       |
+| `bun run type-check`              | TypeScript checks across all workspaces |
 
 All of `bun format`, `bun lint`, and `bun run type-check` must pass before submitting a PR.
 
@@ -58,14 +58,14 @@ Each phase is a distinct domain concept with its own schema and service.
 
 ### Package Roles
 
-| Package | Role |
-|---------|------|
-| `apps/cli` | CLI commands, prompts, and pipeline orchestration |
-| `packages/domain` | Effect Schema contracts for every pipeline phase |
-| `packages/catalog` | Read-only target and module definitions |
-| `packages/scaffold` | Blueprint resolution, planning, apply, and finalize services |
-| `packages/observability` | Shared OpenTelemetry layer |
-| `packages/config-typescript` | Shared TypeScript configuration |
+| Package                      | Role                                                         |
+| ---------------------------- | ------------------------------------------------------------ |
+| `apps/cli`                   | CLI commands, prompts, and pipeline orchestration            |
+| `packages/domain`            | Effect Schema contracts for every pipeline phase             |
+| `packages/catalog`           | Read-only target and module definitions                      |
+| `packages/scaffold`          | Blueprint resolution, planning, apply, and finalize services |
+| `packages/observability`     | Shared OpenTelemetry layer                                   |
+| `packages/config-typescript` | Shared TypeScript configuration                              |
 
 ## Common Contributions
 
@@ -78,6 +78,7 @@ Modules are features that get scaffolded into a target (e.g., `http-api-client` 
 3. **Registry** — if you created a new module file, import and spread it into `packages/catalog/src/registry/moduleRegistry.ts`
 
 Each module definition specifies:
+
 - `id`, `title`, `description`
 - `supportedOn` — which target kinds can use this module
 - `dependencies` — other modules that must be present
@@ -110,12 +111,12 @@ bun run type-check
 
 Services in `packages/scaffold/src/service/` are organized by pipeline phase:
 
-| Directory | Phase |
-|-----------|-------|
+| Directory    | Phase                                                  |
+| ------------ | ------------------------------------------------------ |
 | `blueprint/` | Resolving selections into dependency-closed blueprints |
-| `plan/` | Building repo-aware file operations from blueprints |
-| `apply/` | Executing file writes with conflict handling |
-| `finalize/` | Running post-apply scripts |
+| `plan/`      | Building repo-aware file operations from blueprints    |
+| `apply/`     | Executing file writes with conflict handling           |
+| `finalize/`  | Running post-apply scripts                             |
 
 Tests are co-located (e.g., `BlueprintService.test.ts` next to `BlueprintService.ts`) and use `@effect/vitest`:
 
@@ -128,7 +129,7 @@ describe("MyService", () => {
       Effect.gen(function* () {
         const service = yield* MyService;
         // assertions
-      })
+      }),
     );
   });
 });
