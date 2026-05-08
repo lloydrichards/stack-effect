@@ -41,16 +41,16 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules"
   },
   "devDependencies": {
-    "@effect/platform-bun": "4.0.0-beta.59",
-    "@effect/platform-node": "4.0.0-beta.59",
-    "@effect/vitest": "4.0.0-beta.59",
+    "@effect/platform-bun": "4.0.0-beta.64",
+    "@effect/platform-node": "4.0.0-beta.64",
+    "@effect/vitest": "4.0.0-beta.64",
     "@repo/catalog": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",
     "@types/bun": "1.3.13",
-    "effect": "4.0.0-beta.59",
-    "effect-boxes": "^0.11.2",
+    "effect": "4.0.0-beta.64",
+    "effect-boxes": "^0.13.0",
     "vitest": "^4.0.0"
   }
 }

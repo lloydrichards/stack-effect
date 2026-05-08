@@ -13,9 +13,7 @@ import {
 } from "@repo/scaffold";
 import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
-import { Border } from "../components/Border";
 import { Confirm } from "../components/Confirm";
-import { Padding } from "../components/Padding";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
@@ -71,7 +69,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           if (!yes) {
             const confirm = yield* Confirm({
               message: "Continue with these changes?",
-              children: blueprintBox.pipe(Padding(0, 2), Border),
+              children: blueprintBox.pipe(Box.pad(0, 2), Box.border("rounded")),
               initial: true,
             });
 
@@ -103,7 +101,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             ],
             1,
             Box.left,
-          ).pipe(Padding(0, 2), Border);
+          ).pipe(Box.pad(0, 2), Box.border("rounded"));
 
           // Dry run exits here
           if (dryRun) {

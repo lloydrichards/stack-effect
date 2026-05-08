@@ -1,7 +1,6 @@
 import { Array as Arr, Data, Effect, pipe } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
-import { Padding } from "./Padding";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -27,11 +26,9 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
       const isSelected = i === cursor;
 
       return Box.text(c.title).pipe(
-        Padding(0, 1),
+        Box.pad(0, 2),
         Box.annotate(
-          isSelected
-            ? Ansi.combine(Ansi.bgCyan, Ansi.bold)
-            : Ansi.bgColorRGB(50, 50, 50),
+          isSelected ? Ansi.combine(Ansi.bgCyan, Ansi.bold) : Ansi.bgBlack,
         ),
       );
     });
@@ -48,7 +45,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
       sections.push(childrenBox);
     }
 
-    sections.push(Box.hsep(items, 2, Box.center1));
+    sections.push(Box.hsep(items, 1, Box.center1));
 
     const content = Box.vsep(sections, 1, Box.left);
 

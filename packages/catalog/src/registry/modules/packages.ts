@@ -67,14 +67,14 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/ai-anthropic",
-        value: "4.0.0-beta.59",
+        value: "4.0.0-beta.64",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.0.0-beta.59",
+        value: "4.0.0-beta.64",
       },
       {
         _tag: "pkg-json-entry",
@@ -241,7 +241,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.0.0-beta.59",
+        value: "4.0.0-beta.64",
       },
       {
         _tag: "pkg-json-entry",

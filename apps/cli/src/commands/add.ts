@@ -11,9 +11,7 @@ import {
 } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { Border } from "../components/Border";
 import { HorizontalSelect } from "../components/HorizontalSelect";
-import { Padding } from "../components/Padding";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
 import { dryRunFlag, rootFlag, yesFlag } from "../flags";
@@ -482,7 +480,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
           ],
           1,
           Box.left,
-        ).pipe(Padding(0, 1), Border),
+        ).pipe(Box.pad(0, 1), Box.border("rounded")),
       ),
     );
 

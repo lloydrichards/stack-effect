@@ -1,8 +1,6 @@
 import { Data, Effect } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
-import { Border } from "./Border";
-import { Padding } from "./Padding";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -22,8 +20,8 @@ export const HorizontalSelect = <A extends string>(
       const isSelected = i === cursor;
 
       return Box.text(c.title).pipe(
-        Padding(0, 2),
-        Border,
+        Box.pad(0, 2),
+        Box.border("rounded"),
         Box.annotate(
           isSelected ? Ansi.combine(Ansi.cyan, Ansi.bold) : Ansi.dim,
         ),
