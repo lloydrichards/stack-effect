@@ -1,6 +1,6 @@
 {
   "name": "stack-effect",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Scaffolding CLI for full-stack TypeScript apps built on Effect",
   "license": "MIT",
   "type": "module",
