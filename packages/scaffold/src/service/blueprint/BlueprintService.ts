@@ -7,7 +7,11 @@ import {
   type CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import type { ModuleId, TargetIdentity } from "@repo/domain/Catalog";
+import {
+  ModuleDependency,
+  type ModuleId,
+  type TargetIdentity,
+} from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import {
   Array as Arr,
@@ -221,45 +225,45 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       const definition = yield* catalog.getModule(moduleId);
 
       for (const dependency of definition.dependencies) {
-        switch (dependency._tag) {
-          case "required-target": {
-            const requiredTarget = yield* ensureTarget(dependency.identity);
+        yield* ModuleDependency.match(dependency, {
+          "required-target": (dep) =>
+            Effect.gen(function* () {
+              const requiredTarget = yield* ensureTarget(dep.identity);
 
-            yield* appendEdge(stateRef, {
-              id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
-              from: attachedModuleNodeId,
-              to: requiredTarget.id,
-              reason: "required-target",
-            });
-            break;
-          }
+              yield* appendEdge(stateRef, {
+                id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
+                from: attachedModuleNodeId,
+                to: requiredTarget.id,
+                reason: "required-target",
+              });
+            }),
 
-          case "required-module": {
-            // Requiring a module implicitly requires the target to exist,
-            // so we create both a required-target edge and a required-module edge
-            const requiredTarget = yield* ensureTarget(dependency.target);
+          "required-module": (dep) =>
+            Effect.gen(function* () {
+              // Requiring a module implicitly requires the target to exist,
+              // so we create both a required-target edge and a required-module edge
+              const requiredTarget = yield* ensureTarget(dep.target);
 
-            yield* appendEdge(stateRef, {
-              id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
-              from: attachedModuleNodeId,
-              to: requiredTarget.id,
-              reason: "required-target",
-            });
+              yield* appendEdge(stateRef, {
+                id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
+                from: attachedModuleNodeId,
+                to: requiredTarget.id,
+                reason: "required-target",
+              });
 
-            const requiredModule = yield* ensureAttachedModule(
-              dependency.target,
-              dependency.moduleId,
-            );
+              const requiredModule = yield* ensureAttachedModule(
+                dep.target,
+                dep.moduleId,
+              );
 
-            yield* appendEdge(stateRef, {
-              id: `required-module=>${attachedModuleNodeId}=>${requiredModule.id}`,
-              from: attachedModuleNodeId,
-              to: requiredModule.id,
-              reason: "required-module",
-            });
-            break;
-          }
-        }
+              yield* appendEdge(stateRef, {
+                id: `required-module=>${attachedModuleNodeId}=>${requiredModule.id}`,
+                from: attachedModuleNodeId,
+                to: requiredModule.id,
+                reason: "required-module",
+              });
+            }),
+        });
       }
 
       return next;

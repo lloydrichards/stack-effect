@@ -1,6 +1,7 @@
 import {
   CompositionOperation,
   Plan,
+  PlanConflict,
   type PlanEntryClassification,
   PlanFailure,
   type PlanOutcome,
@@ -657,41 +658,29 @@ const parseSimpleBarrelExports = (contents: string) => {
 const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
 
 const planConflict = {
-  tsconfig: (path: string) => ({
-    _tag: "tsconfig" as const,
-    path,
-  }),
-  barrelExport: (path: string, exportPath: string) => ({
-    _tag: "barrelExport" as const,
-    path,
-    exportPath,
-  }),
-  exports: (path: string, name: string) => ({
-    _tag: "exports" as const,
-    path,
-    name,
-  }),
-  scripts: (path: string, name: string) => ({
-    _tag: "scripts" as const,
-    path,
-    name,
-  }),
-  dependencies: (path: string, dep: PlanningIntentPackageJsonDependency) => ({
-    _tag: "dependencies" as const,
-    path,
-    section: dep.section,
-    name: dep.name,
-  }),
+  tsconfig: (path: string) => PlanConflict.cases.tsconfig.make({ path }),
+  barrelExport: (path: string, exportPath: string) =>
+    PlanConflict.cases.barrelExport.make({ path, exportPath }),
+  exports: (path: string, name: string) =>
+    PlanConflict.cases.exports.make({ path, name }),
+  scripts: (path: string, name: string) =>
+    PlanConflict.cases.scripts.make({ path, name }),
+  dependencies: (path: string, dep: PlanningIntentPackageJsonDependency) =>
+    PlanConflict.cases.dependencies.make({
+      path,
+      section: dep.section,
+      name: dep.name,
+    }),
   compositionTargetNotFound: (
     path: string,
     targetVariable: string,
     functionName: string,
-  ) => ({
-    _tag: "compositionTargetNotFound" as const,
-    path,
-    targetVariable,
-    functionName,
-  }),
+  ) =>
+    PlanConflict.cases.compositionTargetNotFound.make({
+      path,
+      targetVariable,
+      functionName,
+    }),
 } as const;
 
 const collectInvalidPackageJsonConflicts = (

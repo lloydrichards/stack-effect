@@ -1,7 +1,14 @@
 import { CatalogService } from "@repo/catalog";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, FileSystem, Option, Schedule } from "effect";
+import {
+  Console,
+  Effect,
+  FileSystem,
+  Option,
+  Predicate,
+  Schedule,
+} from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Border } from "../components/Border";
@@ -404,10 +411,7 @@ const collectTargetsFromFlags = (
 const isScaffoldAborted = (
   err: unknown,
 ): err is { _tag: "ScaffoldAborted"; retry?: boolean } =>
-  typeof err === "object" &&
-  err !== null &&
-  "_tag" in err &&
-  (err as { _tag?: unknown })._tag === "ScaffoldAborted";
+  Predicate.isTagged("ScaffoldAborted")(err);
 
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;

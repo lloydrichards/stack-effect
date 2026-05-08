@@ -14,39 +14,41 @@ import {
   Match,
   Option,
   Path,
+  Schema,
 } from "effect";
 import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
-type MaterializedPlannedOutcomeAction =
-  | {
-      readonly _tag: "skip";
-      readonly path: string;
-      readonly reason: "unchanged" | "decision";
-    }
-  | {
-      readonly _tag: "write-authoritative";
-      readonly path: string;
-      readonly contents: string;
-      readonly writeMode: "create" | "modify" | "override";
-    }
-  | {
-      readonly _tag: "write-composed";
-      readonly path: string;
-      readonly seedContents: string | undefined;
-      readonly operations: ReadonlyArray<typeof CompositionOperation.Type>;
-      readonly writeMode: "create" | "modify" | "override";
-    };
+const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
+  skip: {
+    path: Schema.String,
+    reason: Schema.Literals(["unchanged", "decision"]),
+  },
+  "write-authoritative": {
+    path: Schema.String,
+    contents: Schema.String,
+    writeMode: Schema.Literals(["create", "modify", "override"]),
+  },
+  "write-composed": {
+    path: Schema.String,
+    seedContents: Schema.Union([Schema.String, Schema.Undefined]),
+    operations: Schema.Array(CompositionOperation),
+    writeMode: Schema.Literals(["create", "modify", "override"]),
+  },
+});
 
-type PreparedApplyAction =
-  | {
-      readonly _tag: "skip";
-      readonly path: string;
-    }
-  | {
-      readonly _tag: "write";
-      readonly request: ApplyWriteRequest;
-    };
+const PreparedApplyAction = Schema.TaggedUnion({
+  skip: {
+    path: Schema.String,
+  },
+  write: {
+    request: Schema.Struct({
+      path: Schema.String,
+      contents: Schema.String,
+      writeMode: Schema.Literals(["create", "modify", "override"]),
+    }),
+  },
+});
 
 export class ApplyService extends Context.Service<ApplyService>()(
   "ApplyService",
@@ -66,56 +68,66 @@ export class ApplyService extends Context.Service<ApplyService>()(
           );
           return Arr.map(
             apply.plan.outcomes,
-            (outcome): MaterializedPlannedOutcomeAction =>
+            (outcome): typeof MaterializedPlannedOutcomeAction.Type =>
               Match.value(outcome).pipe(
-                Match.withReturnType<MaterializedPlannedOutcomeAction>(),
-                Match.when({ classification: "unchanged" }, (o) => ({
-                  _tag: "skip" as const,
-                  path: o.path,
-                  reason: o.classification,
-                })),
+                Match.withReturnType<
+                  typeof MaterializedPlannedOutcomeAction.Type
+                >(),
+                Match.when({ classification: "unchanged" }, (o) =>
+                  MaterializedPlannedOutcomeAction.cases.skip.make({
+                    path: o.path,
+                    reason: o.classification,
+                  }),
+                ),
                 Match.whenOr(
                   { classification: "create" },
                   { classification: "modify" },
                   (o) =>
                     Match.valueTags(o, {
-                      complete: (n) => ({
-                        _tag: "write-authoritative" as const,
-                        path: n.path,
-                        contents: n.contents,
-                        writeMode: n.classification,
-                      }),
-                      composed: (n) => ({
-                        _tag: "write-composed" as const,
-                        path: n.path,
-                        seedContents: n.seedContents,
-                        operations: n.operations,
-                        writeMode: n.classification,
-                      }),
+                      complete: (n) =>
+                        MaterializedPlannedOutcomeAction.cases[
+                          "write-authoritative"
+                        ].make({
+                          path: n.path,
+                          contents: n.contents,
+                          writeMode: n.classification,
+                        }),
+                      composed: (n) =>
+                        MaterializedPlannedOutcomeAction.cases[
+                          "write-composed"
+                        ].make({
+                          path: n.path,
+                          seedContents: n.seedContents,
+                          operations: n.operations,
+                          writeMode: n.classification,
+                        }),
                     }),
                 ),
                 Match.when({ classification: "conflict" }, (o) => {
                   if (decisionsByPath.get(outcome.path) === "skip") {
-                    return {
-                      _tag: "skip" as const,
+                    return MaterializedPlannedOutcomeAction.cases.skip.make({
                       path: o.path,
-                      reason: "decision" as const,
-                    };
+                      reason: "decision",
+                    });
                   }
                   return Match.valueTags(o, {
-                    complete: (n) => ({
-                      _tag: "write-authoritative" as const,
-                      path: n.path,
-                      contents: n.contents,
-                      writeMode: "override" as const,
-                    }),
-                    composed: (n) => ({
-                      _tag: "write-composed" as const,
-                      path: n.path,
-                      seedContents: n.seedContents,
-                      operations: n.operations,
-                      writeMode: "override" as const,
-                    }),
+                    complete: (n) =>
+                      MaterializedPlannedOutcomeAction.cases[
+                        "write-authoritative"
+                      ].make({
+                        path: n.path,
+                        contents: n.contents,
+                        writeMode: "override",
+                      }),
+                    composed: (n) =>
+                      MaterializedPlannedOutcomeAction.cases[
+                        "write-composed"
+                      ].make({
+                        path: n.path,
+                        seedContents: n.seedContents,
+                        operations: n.operations,
+                        writeMode: "override",
+                      }),
                   });
                 }),
                 Match.exhaustive,
@@ -165,24 +177,22 @@ export class ApplyService extends Context.Service<ApplyService>()(
         action,
         repoRoot,
       }: {
-        action: MaterializedPlannedOutcomeAction;
+        action: typeof MaterializedPlannedOutcomeAction.Type;
         repoRoot: string;
       }) {
         switch (action._tag) {
           case "skip":
-            return {
-              _tag: "skip",
+            return PreparedApplyAction.cases.skip.make({
               path: action.path,
-            } satisfies PreparedApplyAction;
+            });
           case "write-authoritative":
-            return {
-              _tag: "write",
+            return PreparedApplyAction.cases.write.make({
               request: {
                 path: action.path,
                 contents: action.contents,
                 writeMode: action.writeMode,
               },
-            } satisfies PreparedApplyAction;
+            });
           case "write-composed": {
             // Get base contents: use seedContents if provided, otherwise load from file
             let baseContents: string;
@@ -211,14 +221,13 @@ export class ApplyService extends Context.Service<ApplyService>()(
               action.operations,
             );
 
-            return {
-              _tag: "write",
+            return PreparedApplyAction.cases.write.make({
               request: {
                 path: action.path,
                 contents: composedContents,
                 writeMode: action.writeMode,
               },
-            } satisfies PreparedApplyAction;
+            });
           }
         }
       });
@@ -227,7 +236,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
         actions,
         repoRoot,
       }: {
-        actions: ReadonlyArray<MaterializedPlannedOutcomeAction>;
+        actions: ReadonlyArray<typeof MaterializedPlannedOutcomeAction.Type>;
         repoRoot: string;
       }) {
         const preparedActions = yield* Effect.all(
@@ -243,7 +252,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
         );
 
         return Arr.reduce<
-          PreparedApplyAction,
+          typeof PreparedApplyAction.Type,
           {
             skippedPaths: Set<string>;
             writeRequests: Array<ApplyWriteRequest>;

@@ -96,38 +96,35 @@ const resolveContributionTokens = (
 ): ReadonlyArray<typeof Contribution.Type> => {
   const resolveString = (value: string) => context.resolve(value);
 
-  return Arr.map(contributions, (contribution): typeof Contribution.Type => {
-    switch (contribution._tag) {
-      case "file":
-        return {
-          _tag: "file",
-          path: resolveString(contribution.path),
-          contents: resolveString(contribution.contents),
-          conflictOnModify: contribution.conflictOnModify,
-        };
-      case "pkg-json-entry":
-        return {
-          _tag: "pkg-json-entry",
-          path: resolveString(contribution.path),
-          field: contribution.field,
-          name: contribution.name,
-          value: contribution.value,
-        };
-      case "barrel-export":
-        return {
-          _tag: "barrel-export",
-          barrelPath: resolveString(contribution.barrelPath),
-          exportPath: contribution.exportPath,
-        };
-      case "ts-call-arg":
-        return {
-          _tag: "ts-call-arg",
-          path: resolveString(contribution.path),
-          targetVariable: contribution.targetVariable,
-          functionName: contribution.functionName,
-          argument: contribution.argument,
-          import: contribution.import,
-        };
-    }
-  });
+  return Arr.map(
+    contributions,
+    Contribution.match({
+      file: (c): typeof Contribution.Type =>
+        Contribution.cases.file.make({
+          path: resolveString(c.path),
+          contents: resolveString(c.contents),
+          conflictOnModify: c.conflictOnModify,
+        }),
+      "pkg-json-entry": (c): typeof Contribution.Type =>
+        Contribution.cases["pkg-json-entry"].make({
+          path: resolveString(c.path),
+          field: c.field,
+          name: c.name,
+          value: c.value,
+        }),
+      "barrel-export": (c): typeof Contribution.Type =>
+        Contribution.cases["barrel-export"].make({
+          barrelPath: resolveString(c.barrelPath),
+          exportPath: c.exportPath,
+        }),
+      "ts-call-arg": (c): typeof Contribution.Type =>
+        Contribution.cases["ts-call-arg"].make({
+          path: resolveString(c.path),
+          targetVariable: c.targetVariable,
+          functionName: c.functionName,
+          argument: c.argument,
+          import: c.import,
+        }),
+    }),
+  );
 };

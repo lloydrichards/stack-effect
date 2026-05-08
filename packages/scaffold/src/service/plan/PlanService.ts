@@ -202,48 +202,42 @@ const toPlanningIntentEntries = (
 ): ReadonlyArray<typeof PlanningIntentEntry.Type> =>
   Arr.flatMap(
     contributions,
-    (contribution): ReadonlyArray<typeof PlanningIntentEntry.Type> => {
-      switch (contribution._tag) {
-        case "file":
-          return [
-            PlanningIntentEntry.cases.authoritative.make({
-              path: contribution.path,
-              contents: contribution.contents,
-              conflictOnModify: contribution.conflictOnModify ?? false,
-            }),
-          ];
-        case "pkg-json-entry":
-          return [
-            PlanningIntentEntry.cases.packageJsonEntry.make({
-              path: contribution.path,
-              field: contribution.field,
-              name: contribution.name,
-              value: contribution.value,
-            }),
-          ];
-        case "barrel-export":
-          return [
-            PlanningIntentEntry.cases.barrelExport.make({
-              path: contribution.barrelPath,
-              exportPath: contribution.exportPath,
-            }),
-          ];
-        case "ts-call-arg":
-          return [
-            PlanningIntentEntry.cases.tsCallArg.make({
-              path: contribution.path,
-              targetVariable: contribution.targetVariable,
-              functionName: contribution.functionName,
-              argument: contribution.argument,
-              import: {
-                moduleSpecifier: contribution.import.moduleSpecifier,
-                namedImports: contribution.import.namedImports,
-                defaultImport: contribution.import.defaultImport,
-              },
-            }),
-          ];
-      }
-    },
+    Contribution.match({
+      file: (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.authoritative.make({
+          path: c.path,
+          contents: c.contents,
+          conflictOnModify: c.conflictOnModify ?? false,
+        }),
+      ],
+      "pkg-json-entry": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.packageJsonEntry.make({
+          path: c.path,
+          field: c.field,
+          name: c.name,
+          value: c.value,
+        }),
+      ],
+      "barrel-export": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.barrelExport.make({
+          path: c.barrelPath,
+          exportPath: c.exportPath,
+        }),
+      ],
+      "ts-call-arg": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.tsCallArg.make({
+          path: c.path,
+          targetVariable: c.targetVariable,
+          functionName: c.functionName,
+          argument: c.argument,
+          import: {
+            moduleSpecifier: c.import.moduleSpecifier,
+            namedImports: c.import.namedImports,
+            defaultImport: c.import.defaultImport,
+          },
+        }),
+      ],
+    }),
   );
 
 const derivePlanningIntentPath = ({
