@@ -12,7 +12,6 @@ Use canonical domain language from:
 
 - `.docs/ubiquitous-language.md` for conversation-ready phrasing
 - `.docs/domain-lexicon.md` for precise definitions and invariants
-- `CONTEXT.md` for current domain decisions and constraints
 
 ## Import Pattern
 
