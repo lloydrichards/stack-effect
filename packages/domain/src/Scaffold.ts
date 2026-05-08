@@ -12,6 +12,11 @@ export const ModuleContribution = Schema.Struct({
   contributions: Schema.Array(Contribution),
 });
 
+export const NormalizedContributions = Schema.Struct({
+  targets: Schema.Array(TargetContribution),
+  modules: Schema.Array(ModuleContribution),
+});
+
 const Runtime = Schema.TaggedUnion({
   bun: {},
   node: {
