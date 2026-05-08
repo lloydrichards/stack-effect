@@ -18,13 +18,13 @@ PlanService
 
 ```bash
 packages/catalog/
-└── src/
+╰── src/
     ├── index.ts              # Public export (CatalogService only)
     ├── CatalogService.ts     # Service layer with lookup methods
-    └── registry/
+    ╰── registry/
         ├── targetRegistry.ts # Target definitions
         ├── moduleRegistry.ts # Module definitions
-        └── content/          # Template files with token placeholders
+        ╰── content/          # Template files with token placeholders
 ```
 
 ## Internal Entities

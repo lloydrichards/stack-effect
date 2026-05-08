@@ -7,11 +7,11 @@ export const Border = <A>(self: Box.Box<A>): Box.Box<A> => {
     Box.vcat(Box.left),
   );
   const topBorder = pipe(
-    [Box.char("┌"), Box.text("─".repeat(self.cols)), Box.char("┐")],
+    [Box.char("╭"), Box.text("─".repeat(self.cols)), Box.char("╮")],
     Box.hcat(Box.top),
   );
   const bottomBorder = pipe(
-    [Box.char("└"), Box.text("─".repeat(self.cols)), Box.char("┘")],
+    [Box.char("╰"), Box.text("─".repeat(self.cols)), Box.char("╯")],
     Box.hcat(Box.top),
   );
   const middleSection = pipe(

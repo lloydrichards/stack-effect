@@ -228,15 +228,15 @@ describe("ScaffoldFormatter", () => {
           expect(trimmedTree).toBe(
             String.stripMargin(`|.
               |├── packages
-              |│   └── domain
+              |│   ╰── domain
               |│       ├── src
               |│       │   ├── [+] Api.ts
-              |│       │   └── [!] index.ts
-              |│       │       └── merge: export ./Api
-              |│       └── [!] tsconfig.json
-              |│           └── merge: tsconfig
+              |│       │   ╰── [!] index.ts
+              |│       │       ╰── merge: export ./Api
+              |│       ╰── [!] tsconfig.json
+              |│           ╰── merge: tsconfig
               |├── [=] package.json
-              |└── [~] README.md`),
+              |╰── [~] README.md`),
           );
         }),
     );

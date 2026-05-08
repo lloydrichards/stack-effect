@@ -59,7 +59,7 @@ Notes:
 
 ```text
 Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
-                        └───────────────────────────────────> FinalizeReport
+                        ╰───────────────────────────────────> FinalizeReport
 
 ```
 

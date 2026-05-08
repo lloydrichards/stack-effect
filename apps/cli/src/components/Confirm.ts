@@ -61,7 +61,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     const hint = Box.punctuateH(
       [Box.text("←/→ Toggle"), Box.text("enter next"), Box.text("esc cancel")],
       Box.left,
-      Box.text(" ┆ "),
+      Box.text(" • "),
     ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
 
     return Box.vsep(

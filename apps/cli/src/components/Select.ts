@@ -46,7 +46,7 @@ export const Select = <A>(
     const hint = Box.punctuateH(
       [Box.text("↑ up"), Box.text("↓ down"), Box.text("enter select")],
       Box.left,
-      Box.text(" ┆ "),
+      Box.text(" • "),
     ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
 
     return Box.vsep(

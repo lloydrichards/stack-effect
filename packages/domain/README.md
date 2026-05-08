@@ -16,7 +16,7 @@ src/
 ├── Plan.ts          # Repo-aware file operations
 ├── Apply.ts         # Execution intent with conflict decisions
 ├── Finalize.ts      # Post-apply command results
-└── StackConfig.ts   # Project configuration schema
+╰── StackConfig.ts   # Project configuration schema
 ```
 
 ## Usage

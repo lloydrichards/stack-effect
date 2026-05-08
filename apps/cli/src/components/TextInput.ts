@@ -77,7 +77,7 @@ export const TextInput = (
         Box.text("esc cancel"),
       ],
       Box.left,
-      Box.text(" ┆ "),
+      Box.text(" • "),
     ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
 
     return Box.vsep(

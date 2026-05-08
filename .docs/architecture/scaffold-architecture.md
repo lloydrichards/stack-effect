@@ -10,7 +10,7 @@ user selections into repository changes. It implements the core pipeline:
 
 ```txt
 Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
-                        └───────────────────────────────────> FinalizeReport
+                        ╰───────────────────────────────────> FinalizeReport
 ```
 
 **Package**: `@repo/scaffold`  
@@ -21,25 +21,25 @@ changes
 
 ```txt
 packages/scaffold/
-└── src/
+╰── src/
     ├── index.ts                    # Public exports
-    └── service/
+    ╰── service/
         ├── ScaffolFormatter.ts     # Display formatting
         ├── blueprint/
-        │   └── BlueprintService.ts # Selection -> Blueprint
+        │   ╰── BlueprintService.ts # Selection -> Blueprint
         ├── plan/
         │   ├── PlanService.ts      # Blueprint -> Plan
         │   ├── ContributionResolver.ts
         │   ├── PlanAssessor.ts
-        │   └── RepoSnapshotService.ts
+        │   ╰── RepoSnapshotService.ts
         ├── apply/
         │   ├── ApplyService.ts     # Plan -> ApplyResult
         │   ├── CompositionEngine.ts
         │   ├── JsonComposer.ts
         │   ├── TypeScriptComposer.ts
-        │   └── WriteEngine.ts
-        └── finalize/
-            └── FinalizeService.ts  # Script execution
+        │   ╰── WriteEngine.ts
+        ╰── finalize/
+            ╰── FinalizeService.ts  # Script execution
 ```
 
 ## Services Overview
@@ -358,9 +358,9 @@ Formats Blueprint and Plan for CLI display.
 ```bash
 Blueprint:
 - apps/server-api (server)
-  └╌> apps/server-api#http-api-server
+  ╰╌> apps/server-api#http-api-server
        ├─> packages/domain [required-target]
-       └─> packages/domain#domain-api [required-module]
+       ╰─> packages/domain#domain-api [required-module]
 ```
 
 **Plan Output**:
@@ -371,9 +371,9 @@ Plan:
 1 create  1 modify  1 unchanged  2 conflict
 .
 ├── packages/domain/
-│   └── src/
-│       └── [+] Api.ts
-└── [~] README.md
+│   ╰── src/
+│       ╰── [+] Api.ts
+╰── [~] README.md
 ```
 
 ## Error Types
@@ -393,22 +393,22 @@ Services declare dependencies via Effect Layers:
 
 ```bash
 BlueprintService.layer
-  └── CatalogService.layer
+  ╰── CatalogService.layer
 
 PlanService.layer
   ├── ContributionResolver.layer
   ├── RepoSnapshotService.layer
   ├── PlanAssessor.layer
-  └── CatalogService.layer
+  ╰── CatalogService.layer
 
 ApplyService.layer
   ├── WriteEngine.layer
-  └── CompositionEngine.layer
+  ╰── CompositionEngine.layer
         ├── JsonComposer.layer
-        └── TypeScriptComposer.layer
+        ╰── TypeScriptComposer.layer
 
 FinalizeService.layer
-  └── CatalogService.layer
+  ╰── CatalogService.layer
 ```
 
 ## Invariants

@@ -83,7 +83,7 @@ const renderTreeNodes = <A>(
   return Box.vcat(
     Arr.flatMap(nodes, (node, index) => {
       const isLast = index === nodes.length - 1;
-      const connector = isLast ? "└" : "├";
+      const connector = isLast ? "╰" : "├";
       const childIndent = String.concat(indent, isLast ? "    " : "│   ");
 
       const connectorText = Match.value(node.connector).pipe(
