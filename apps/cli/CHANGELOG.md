@@ -1,5 +1,11 @@
 # stack-effect
 
+## 0.1.1
+
+### Patch Changes
+
+- [#95](https://github.com/lloydrichards/stack-effect/pull/95) [`ee38545`](https://github.com/lloydrichards/stack-effect/commit/ee3854564a7df294b8dcf03c8431e75f759e616c) Thanks [@lloydrichards](https://github.com/lloydrichards)! - move runtime dependecies to devDep
+
 ## 0.1.0
 
 ### Minor Changes
