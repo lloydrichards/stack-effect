@@ -1,12 +1,13 @@
 import { Array as Arr, Data, Effect, pipe } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { AnsiStyle } from "effect-boxes/Ansi";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
 export interface ConfirmOptions extends Prompt.ConfirmOptions {
   /** An optional Box to render between the message and the buttons. */
-  readonly children?: Box.Box<unknown>;
+  readonly children?: Box.Box<AnsiStyle>;
 }
 
 export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
@@ -37,7 +38,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
       return childrenBox ?? Box.emptyBox();
     }
 
-    const sections: Box.Box<unknown>[] = [
+    const sections: Box.Box<AnsiStyle>[] = [
       Box.text(message).pipe(Box.annotate(Ansi.bold)),
     ];
 
@@ -49,12 +50,6 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
 
     const content = Box.vsep(sections, 1, Box.left);
 
-    const verticalLine = pipe(
-      Arr.makeBy(content.rows, () => Box.char("│")),
-      Box.vcat(Box.left),
-      Box.annotate(Ansi.dim),
-    );
-
     const hint = Box.punctuateH(
       [Box.text("←/→ Toggle"), Box.text("enter next"), Box.text("esc cancel")],
       Box.left,
@@ -62,7 +57,16 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
 
     return Box.vsep(
-      [Box.hsep([verticalLine, content], 1, Box.left), hint],
+      [
+        content.pipe(
+          Box.pad(0, 0, 0, 1),
+          Box.border("thick", {
+            annotation: Ansi.dim,
+            sides: { top: false, bottom: false, right: false },
+          }),
+        ),
+        hint,
+      ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
