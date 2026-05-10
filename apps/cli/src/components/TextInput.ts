@@ -64,12 +64,6 @@ export const TextInput = (
 
     const content = Box.vcat([label, inputBox], Box.left);
 
-    const verticalLine = pipe(
-      Arr.makeBy(content.rows, () => Box.char("│")),
-      Box.vcat(Box.left),
-      Box.annotate(Ansi.dim),
-    );
-
     const hint = Box.punctuateH(
       [
         Box.text("type to edit"),
@@ -81,7 +75,16 @@ export const TextInput = (
     ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
 
     return Box.vsep(
-      [Box.hsep([verticalLine, content], 1, Box.left), hint],
+      [
+        content.pipe(
+          Box.pad(0, 0, 0, 1),
+          Box.border("thick", {
+            annotation: Ansi.dim,
+            sides: { top: false, bottom: false, right: false },
+          }),
+        ),
+        hint,
+      ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
