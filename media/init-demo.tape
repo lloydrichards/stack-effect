@@ -8,7 +8,7 @@ Require bun
 Output media/init-demo.gif
 Set Shell "zsh"
 Set FontSize 16
-Set Width 1200
+Set Width 1350
 Set Height 600
 Set TypingSpeed 60ms
 Set WindowBar Colorful

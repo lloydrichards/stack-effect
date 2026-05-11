@@ -8,7 +8,7 @@ Scaffolding CLI for full-stack TypeScript apps built on [Effect](https://effect.
 ## Quick Start
 
 ```bash
-bunx stack-effect init my-app
+bunx stack-effect@latest init my-app
 # or with npx
 npx stack-effect init my-app
 ```
@@ -17,10 +17,10 @@ Then add targets and modules to your project:
 
 ```bash
 # Interactive mode — guided prompts
-bunx stack-effect add
+bunx stack-effect@latest add
 
 # Non-interactive — specify what you need
-bunx stack-effect add --target server/api --modules http-api-server --yes
+bunx stack-effect@latest add --target server/api --modules http-api-server --yes
 ```
 
 ## What You Get
@@ -91,9 +91,9 @@ Run `stack-effect graph` to see all available targets and modules.
 Initialize a project with bun and add a client with an API connection:
 
 ```bash
-bunx stack-effect init my-app --runtime bun --yes
+bunx stack-effect@latest init my-app --runtime bun --yes
 
-bunx stack-effect add --target client/web --modules http-api-client --yes
+bunx stack-effect@latest add --target client/web --modules http-api-client --yes
 ```
 
 The `http-api-client` module automatically implies `http-api-server` on a server target, so both sides of the API are scaffolded together.
