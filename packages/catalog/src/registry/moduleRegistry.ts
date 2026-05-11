@@ -1,4 +1,5 @@
 import type { ModuleDefinition } from "@repo/domain/Catalog";
+import { cliModules } from "./modules/cli";
 import { clientModules } from "./modules/client";
 import { configModules } from "./modules/config";
 import { domainModules } from "./modules/domain";
@@ -13,4 +14,5 @@ export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   ...serverModules,
   ...clientModules,
   ...packageModules,
+  ...cliModules,
 ];
