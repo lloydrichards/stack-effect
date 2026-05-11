@@ -69,7 +69,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           if (!yes) {
             const confirm = yield* Confirm({
               message: "Continue with these changes?",
-              children: blueprintBox.pipe(Box.pad(0, 2), Box.border("rounded")),
+              children: blueprintBox,
               initial: true,
             });
 
@@ -101,7 +101,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             ],
             1,
             Box.left,
-          ).pipe(Box.pad(0, 2), Box.border("rounded"));
+          );
 
           // Dry run exits here
           if (dryRun) {
