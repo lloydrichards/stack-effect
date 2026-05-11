@@ -481,7 +481,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
           ],
           1,
           Box.left,
-        ).pipe(Box.pad(0, 1), Box.border("rounded")),
+        ).pipe(Box.pad(0, 1), Box.border("rounded", { annotation: Ansi.dim })),
       ),
     );
 

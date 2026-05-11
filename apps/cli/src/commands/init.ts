@@ -234,7 +234,7 @@ export const init = Command.make(
         ],
         1,
         Box.left,
-      ).pipe(Box.pad(0, 2), Box.border("rounded"));
+      ).pipe(Box.pad(0, 2), Box.border("rounded", { annotation: Ansi.dim }));
 
       if (!flags.yes) {
         const proceed = yield* Confirm({
