@@ -35,7 +35,18 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     });
 
     if (submitted) {
-      return childrenBox ?? Box.emptyBox();
+      const selected = choices[cursor];
+      return Box.hsep(
+        [
+          Box.text("✔").pipe(Box.annotate(Ansi.green)),
+          Box.text(message).pipe(Box.annotate(Ansi.bold)),
+          Box.text(selected?.value ? confirmLabel : denyLabel).pipe(
+            Box.annotate(Ansi.cyan),
+          ),
+        ],
+        1,
+        Box.top,
+      );
     }
 
     const sections: Box.Box<AnsiStyle>[] = [
@@ -86,7 +97,9 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
         Box.renderPrettySync(
           layout.pipe(
             Box.combine(
-              action._tag === "Submit" ? Cmd.cursorShow : Cmd.cursorHide,
+              action._tag === "Submit"
+                ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+                : Cmd.cursorHide,
             ),
           ),
         ),

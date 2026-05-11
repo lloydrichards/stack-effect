@@ -51,8 +51,15 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
     const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
 
     if (submitted) {
+      const value = joinLines(state.lines) || defaultValue;
+      const preview = value.split("\n")[0] ?? "";
+      const displayValue = value.includes("\n") ? `${preview}...` : preview;
       return Box.hsep(
-        [Box.text("✔").pipe(Box.annotate(Ansi.green)), label],
+        [
+          Box.text("✔").pipe(Box.annotate(Ansi.green)),
+          label,
+          Box.text(displayValue).pipe(Box.annotate(Ansi.cyan)),
+        ],
         1,
         Box.top,
       );

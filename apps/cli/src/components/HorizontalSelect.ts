@@ -41,13 +41,38 @@ export const HorizontalSelect = <A extends string>(
       );
     }
 
-    return Box.vcat(
+    const content = Box.vcat(
       [
         Box.hsep([prefix, label, Box.text(" ")], 2, Box.center1),
         Box.hsep(items, 2, Box.center1),
       ],
       Box.left,
     );
+
+    const hint = Box.punctuateH(
+      [
+        Box.text("←/→ Toggle"),
+        Box.text("enter select"),
+        Box.text("esc cancel"),
+      ],
+      Box.left,
+      Box.text(" • "),
+    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
+
+    return Box.vsep(
+      [
+        content.pipe(
+          Box.pad(0, 0, 0, 1),
+          Box.border("thick", {
+            annotation: Ansi.dim,
+            sides: { top: false, bottom: false, right: false },
+          }),
+        ),
+        hint,
+      ],
+      1,
+      Box.left,
+    ).pipe(Box.moveDown(1));
   };
 
   return Prompt.custom<number, A>(0, {
