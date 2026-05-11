@@ -81,6 +81,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
       Box.left,
     ).pipe(
       Box.minWidth(childrenBox?.cols ?? 0),
+      Box.maxWidth((process.stdout.columns ?? 80) - 10),
       Box.border("rounded", { annotation: Ansi.dim }),
     );
 
