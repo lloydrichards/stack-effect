@@ -4,6 +4,11 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  cliIndexContents,
+  cliPackageJsonContents,
+  cliTsconfigContents,
+} from "./content/cli";
+import {
   clientAppTsxContents,
   clientIndexCssContents,
   clientIndexHtmlContents,
@@ -254,8 +259,70 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("cli"),
     title: "CLI Application",
     description: "A command-line interface application",
-    requiredModules: [],
-    contributions: [],
+    requiredModules: [ModuleId.make("hello-command")],
+    contributions: [
+      // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: cliPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: cliIndexContents,
+      },
+      // TSConfig (conflict on modify)
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: cliTsconfigContents,
+        conflictOnModify: true,
+      },
+      // Scripts
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "bun build src/index.ts --outdir=dist --target=bun --minify",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build:types",
+        value: "tsc --emitDeclarationOnly",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "bun --watch run src/index.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value: "git clean -xdf .cache .turbo dist node_modules",
+      },
+    ],
   },
 
   {
