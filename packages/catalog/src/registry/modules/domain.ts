@@ -17,6 +17,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("domain-api"),
     title: "Domain API",
     description: "Shared domain schemas and RPC definitions",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",
@@ -51,6 +52,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("domain-rpc"),
     title: "Domain RPC",
     description: "Shared RPC definitions for streaming over HTTP",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",
@@ -86,6 +88,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Domain Chat",
     description:
       "Chat stream protocol, message schemas, and client state machine",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",
@@ -137,6 +140,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("domain-websocket"),
     title: "Domain WebSocket",
     description: "WebSocket RPC definitions for real-time presence",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",

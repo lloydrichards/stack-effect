@@ -18,6 +18,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("turbo"),
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
+    visibility: "internal",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -76,6 +77,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("biome"),
     title: "Biome",
     description: "Fast linter and formatter",
+    visibility: "internal",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -126,6 +128,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("vitest"),
     title: "Vitest",
     description: "Unit and integration testing framework",
+    visibility: "internal",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {

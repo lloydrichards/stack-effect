@@ -196,10 +196,16 @@ export const ModuleDependency = Schema.TaggedUnion({
   },
 });
 
+export const Visibility = Schema.Literals(["public", "internal"]);
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
   description: Schema.String,
+  visibility: Visibility.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed("public" as const)),
+  ),
   supportedOn: Schema.Array(SupportedOn),
   dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(
@@ -217,6 +223,10 @@ export const TargetDefinition = Schema.Struct({
   kind: TargetKind,
   title: Schema.String,
   description: Schema.String,
+  visibility: Visibility.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed("public" as const)),
+  ),
   requiredModules: Schema.Array(ModuleId).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),

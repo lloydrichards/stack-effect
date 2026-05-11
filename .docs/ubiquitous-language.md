@@ -182,6 +182,21 @@ Avoid:
 
 - "Runtime predicate" as the canonical term
 
+## Visibility
+
+Say:
+
+- "Visibility controls whether a target or module is shown in interactive CLI flows: public entities are user-facing, internal entities are resolved only through dependencies or implications."
+
+Avoid:
+
+- "Hidden" or "visible" as substitutes for the canonical values
+- Treating visibility as an access-control mechanism
+
+See also:
+
+- `TargetDefinition`, `ModuleDefinition`
+
 ## Ambiguities We Explicitly Resolve
 
 - `Selection` means user intent; `Blueprint` means resolved implication.

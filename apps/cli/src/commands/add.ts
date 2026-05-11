@@ -21,7 +21,7 @@ import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 interface CollectedTarget {
-  kind: Exclude<typeof TargetKind.Type, "init">;
+  kind: typeof TargetKind.Type;
   name: string;
   modules: Array<typeof ModuleId.Type>;
   confirmed: boolean;
@@ -95,10 +95,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
               message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
             });
             targets.push({
-              kind: implication.targetKind as Exclude<
-                typeof TargetKind.Type,
-                "init"
-              >,
+              kind: implication.targetKind,
               name,
               modules: [implication.moduleId],
               confirmed: false,
@@ -304,7 +301,7 @@ const parseTargetIdentity = (targetId: string) =>
     }
 
     return {
-      kind: kind as Exclude<typeof TargetKind.Type, "init">,
+      kind,
       name,
     };
   });
@@ -416,12 +413,12 @@ const isScaffoldAborted = (
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
-  // Build target kind choices from catalog
+  // Build target kind choices from catalog (public targets only)
   const targetChoices: Array<{
     title: string;
-    value: Exclude<typeof TargetKind.Type, "init">;
+    value: typeof TargetKind.Type;
   }> = [];
-  for (const kind of catalog.targetKinds) {
+  for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
     const target = yield* catalog.getTarget(kind);
     targetChoices.push({ title: target.title, value: kind });
   }
@@ -438,7 +435,9 @@ const collectTargetsInteractive = Effect.gen(function* () {
       message: `What should this ${kind} target be called?`,
     });
 
-    const availableModules = yield* catalog.getSupportedModules(kind);
+    const availableModules = yield* catalog.getSupportedModules(kind, {
+      visibility: "public",
+    });
     const modules =
       availableModules.length > 0
         ? yield* Prompt.multiSelect({
@@ -509,7 +508,9 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
       const t = targets[targetToEdit];
       if (t) {
-        const availableModules = yield* catalog.getSupportedModules(t.kind);
+        const availableModules = yield* catalog.getSupportedModules(t.kind, {
+          visibility: "public",
+        });
 
         if (availableModules.length > 0) {
           const newModules = yield* Prompt.multiSelect({

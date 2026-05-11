@@ -4,6 +4,7 @@ import type {
   ModuleImplication,
   TargetIdentity,
   TargetKind,
+  Visibility,
 } from "@repo/domain/Catalog";
 import { CatalogNotFound } from "@repo/domain/Catalog";
 import { Array as Arr, Context, Effect, Graph, Layer, Match } from "effect";
@@ -96,21 +97,37 @@ export class CatalogService extends Context.Service<CatalogService>()(
         },
       );
 
-      const targetKinds: ReadonlyArray<
-        Exclude<typeof TargetKind.Type, "init">
-      > = Arr.filter(
-        Arr.fromIterable(targetIndex.keys()),
-        (kind): kind is Exclude<typeof TargetKind.Type, "init"> =>
-          kind !== "init",
-      );
+      const getTargetKinds = (options?: {
+        visibility?: typeof Visibility.Type;
+      }): ReadonlyArray<typeof TargetKind.Type> => {
+        const kinds = Arr.fromIterable(targetIndex.keys());
+        if (options?.visibility) {
+          return Arr.filter(kinds, (kind) => {
+            const target = targetIndex.get(kind);
+            return (target?.visibility ?? "public") === options.visibility;
+          });
+        }
+        return kinds;
+      };
 
       const getSupportedModules = Effect.fn(
         "CatalogService.getSupportedModules",
-      )(function* (kind: typeof TargetKind.Type) {
+      )(function* (
+        kind: typeof TargetKind.Type,
+        options?: { visibility?: typeof Visibility.Type },
+      ) {
         yield* getTarget(kind);
-        return Arr.filter(Arr.fromIterable(moduleIndex.values()), (mod) =>
-          Arr.some(mod.supportedOn, (s) => supportedOnTargetKind(s) === kind),
-        );
+        return Arr.filter(Arr.fromIterable(moduleIndex.values()), (mod) => {
+          const kindMatch = Arr.some(
+            mod.supportedOn,
+            (s) => supportedOnTargetKind(s) === kind,
+          );
+          if (!kindMatch) return false;
+          if (options?.visibility) {
+            return (mod.visibility ?? "public") === options.visibility;
+          }
+          return true;
+        });
       });
 
       const toGraph: CatalogGraph = Graph.directed((g) => {
@@ -161,13 +178,13 @@ export class CatalogService extends Context.Service<CatalogService>()(
       });
 
       return {
-        getTarget,
-        getModule,
         getImplications,
+        getModule,
         getSupportedModules,
+        getTarget,
+        getTargetKinds,
         isSupportedOn,
         isImpliedByAny,
-        targetKinds,
         toGraph,
       };
     }),

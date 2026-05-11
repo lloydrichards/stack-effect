@@ -194,6 +194,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Presence Package",
     description:
       "Real-time presence tracking service with PubSub and client generation",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",

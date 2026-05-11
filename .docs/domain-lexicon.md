@@ -322,6 +322,26 @@ In code:
 
 - `ModuleId`
 
+### Visibility
+
+Definition:
+Classification that controls whether a catalog entity (target or module) is presented to users in interactive CLI flows.
+
+Invariants:
+
+- Value is either `"public"` (shown in interactive pickers) or `"internal"` (resolved only through dependencies, implications, or required-module rules).
+- Defaults to `"public"` when omitted from a definition.
+- Non-interactive (flag-based) CLI paths bypass visibility filtering.
+- Blueprint resolution ignores visibility and operates on all catalog entities.
+
+Connected terms:
+
+- `TargetDefinition`, `ModuleDefinition`, `CatalogService`
+
+In code:
+
+- `Visibility`
+
 ### SupportedOn
 
 Definition:

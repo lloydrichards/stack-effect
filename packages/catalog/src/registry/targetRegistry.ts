@@ -39,6 +39,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     title: "Project Initialization",
     description:
       "Set up a new project with recommended structure and configuration",
+    visibility: "internal",
     requiredModules: [],
     contributions: [
       {
@@ -261,6 +262,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("package"),
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
+    visibility: "internal",
     requiredModules: [],
     contributions: [
       // Files
