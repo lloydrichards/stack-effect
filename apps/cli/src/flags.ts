@@ -16,3 +16,7 @@ export const yesFlag = Flag.boolean("yes").pipe(
     "Skip confirmation prompts (uses defaults where available)",
   ),
 );
+
+export const noGitFlag = Flag.boolean("no-git").pipe(
+  Flag.withDescription("Skip git repository initialization"),
+);

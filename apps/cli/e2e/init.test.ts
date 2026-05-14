@@ -162,5 +162,51 @@ describe("init", () => {
         }),
       { timeout: 30_000 },
     );
+
+    it.effect(
+      "init --yes initializes a git repository by default",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "git-app",
+            "--yes",
+            "--root",
+            `${cli.workdir}/git-app`,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileExists("git-app/.git/HEAD");
+          yield* cli.expectFileContaining(
+            "git-app/.git/HEAD",
+            "refs/heads/main",
+          );
+        }),
+      { timeout: 60_000 },
+    );
+
+    it.effect(
+      "init --yes --no-git skips git initialization",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "nogit-app",
+            "--yes",
+            "--no-git",
+            "--root",
+            `${cli.workdir}/nogit-app`,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileExists("nogit-app/package.json");
+          yield* cli.expectFileNotExists("nogit-app/.git");
+        }),
+      { timeout: 30_000 },
+    );
   });
 });
