@@ -85,12 +85,18 @@ export const SupportedOn = Schema.TaggedUnion({
   },
 });
 
+export const ScriptPhase = Schema.Literals(["finalize", "post-finalize"]);
+
 export const ScriptDefinition = Schema.Struct({
   label: Schema.String,
   command: Schema.String,
   workdir: Schema.String.pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed("{{targetPath}}")),
+  ),
+  phase: ScriptPhase.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed("finalize" as const)),
   ),
 });
 

@@ -27,6 +27,7 @@ type ResolvedScript = {
   readonly label: string;
   readonly command: string;
   readonly workdir: string;
+  readonly phase: "finalize" | "post-finalize";
 };
 
 export class FinalizeService extends Context.Service<FinalizeService>()(
@@ -60,6 +61,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               label: s.label,
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+              phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
             }));
           }),
         ).pipe(Effect.map(Arr.flatten));
@@ -83,6 +85,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               label: s.label,
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+              phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
             }));
           }),
         ).pipe(Effect.map(Arr.flatten));
@@ -96,7 +99,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       ) {
         const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        const allScripts = [...scripts, ...configScripts];
+        const allScripts = orderScripts(scripts, configScripts);
 
         return allScripts.map((script) => ({
           script,
@@ -110,10 +113,12 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       ) {
         const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        return [...scripts, ...configScripts].map(({ label, command }) => ({
-          label,
-          command,
-        }));
+        return orderScripts(scripts, configScripts).map(
+          ({ label, command }) => ({
+            label,
+            command,
+          }),
+        );
       });
 
       return { run, preview };
@@ -124,6 +129,22 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
     FinalizeService.make,
   ).pipe(Layer.provide(CatalogService.layer));
 }
+
+/**
+ * Orders scripts so that finalize-phase module/target scripts run first,
+ * then config-derived scripts (install, lint, format), then post-finalize
+ * scripts (e.g. git init).
+ */
+const orderScripts = (
+  resolvedScripts: ResolvedScript[],
+  configScripts: ResolvedScript[],
+): ResolvedScript[] => {
+  const finalize = resolvedScripts.filter((s) => s.phase === "finalize");
+  const postFinalize = resolvedScripts.filter(
+    (s) => s.phase === "post-finalize",
+  );
+  return [...finalize, ...configScripts, ...postFinalize];
+};
 
 const buildConfigDerivedScripts = (
   config: FinalizeConfig,
@@ -145,6 +166,7 @@ const buildConfigDerivedScripts = (
             label: entry.label,
             command: entry.command,
             workdir: ".",
+            phase: "finalize" as const,
           })
         : Result.failVoid,
   );

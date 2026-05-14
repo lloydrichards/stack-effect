@@ -462,5 +462,75 @@ describe("FinalizeService", () => {
           ),
         ),
     );
+
+    it.effect("runs post-finalize scripts after config-derived scripts", () =>
+      Effect.gen(function* () {
+        const svc = yield* FinalizeService;
+        const moduleId = ModuleId.make("git-init");
+        const blueprint = targetWithModule(serverIdentity, moduleId);
+
+        const report = yield* runToReport(svc, blueprint, makeConfig());
+
+        const labels = report.results.map((r) =>
+          Result.isSuccess(r) ? r.success.label : r.failure.label,
+        );
+        expect(labels).toEqual(["Install dependencies", "Git init"]);
+      }).pipe(
+        Effect.provide(
+          makeFinalizeLayer([], {
+            modules: {
+              "git-init": {
+                scripts: [
+                  {
+                    label: "Git init",
+                    command: "git init",
+                    phase: "post-finalize",
+                  },
+                ],
+              },
+            },
+          }),
+        ),
+      ),
+    );
+
+    it.effect(
+      "orders finalize scripts, then config-derived, then post-finalize",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const moduleId = ModuleId.make("git-init");
+          const blueprint = targetWithModule(serverIdentity, moduleId);
+          const config = new StackConfig({
+            name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
+            runtime: { _tag: "bun" },
+            lint: "biome",
+          });
+
+          const scripts = yield* svc.preview(blueprint, makeConfig(config));
+
+          expect(scripts.map((s) => s.label)).toEqual([
+            "Install dependencies",
+            "Run biome lint",
+            "Git init",
+          ]);
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              modules: {
+                "git-init": {
+                  scripts: [
+                    {
+                      label: "Git init",
+                      command: "git init",
+                      phase: "post-finalize",
+                    },
+                  ],
+                },
+              },
+            }),
+          ),
+        ),
+    );
   });
 });
