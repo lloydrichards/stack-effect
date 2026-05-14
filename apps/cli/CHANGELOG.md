@@ -1,5 +1,36 @@
 # stack-effect
 
+## 0.3.0
+
+### Minor Changes
+
+- [#116](https://github.com/lloydrichards/stack-effect/pull/116) [`98ad4f6`](https://github.com/lloydrichards/stack-effect/commit/98ad4f625e537486c42f7a8eab35b424657bb5cf) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add git init module and flags, closes [#106](https://github.com/lloydrichards/stack-effect/issues/106)
+
+- [#116](https://github.com/lloydrichards/stack-effect/pull/116) [`4ad8be8`](https://github.com/lloydrichards/stack-effect/commit/4ad8be824cf72da690e111d248e2d9ab11801733) Thanks [@lloydrichards](https://github.com/lloydrichards)! - init now creates a subdirectory from the project name
+
+  The 'init' command uses the positional name to create and write into a subdirectory, and '.' initializes in the current directory using the folder name as the project name:
+
+  ```bash
+      # Create a new project in ./my-app
+    stack-effect init my-app --yes
+
+    # Initialize in the current directory, deriving name from folder
+    cd my-app && stack-effect init . --yes
+
+    # Create in a specific parent directory
+    stack-effect init my-app --yes --root /tmp
+  ```
+
+- [#115](https://github.com/lloydrichards/stack-effect/pull/115) [`aeecb7e`](https://github.com/lloydrichards/stack-effect/commit/aeecb7ea97fa647c50382f559f3ab91de9a2c56b) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add oxlint (linter) and dprint (formatter) modules
+
+### Patch Changes
+
+- [#112](https://github.com/lloydrichards/stack-effect/pull/112) [`27fc011`](https://github.com/lloydrichards/stack-effect/commit/27fc0116fbc388f7fcbaa0b01b1444cc01c10959) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add a KeyBinding abstraction to ensure input processing and hints align
+
+- [#113](https://github.com/lloydrichards/stack-effect/pull/113) [`35c5a64`](https://github.com/lloydrichards/stack-effect/commit/35c5a64799e2509a27b094e2935fb240a5cad531) Thanks [@lloydrichards](https://github.com/lloydrichards)! - append args to call or array literal
+
+- [#113](https://github.com/lloydrichards/stack-effect/pull/113) [`23b5229`](https://github.com/lloydrichards/stack-effect/commit/23b522960e82b962b8b416aed84531de7f02f11a) Thanks [@lloydrichards](https://github.com/lloydrichards)! - preserve existing file contents on modify
+
 ## 0.2.0
 
 ### Minor Changes
