@@ -1,13 +1,51 @@
 import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
 interface TextState {
   readonly value: string;
   readonly cursor: number;
+  readonly prevRows: number;
 }
+
+const TextInputKeys = {
+  Type: new KeyBinding({
+    keys: [],
+    label: "type",
+    action: "to edit",
+  }),
+  Submit: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "submit",
+  }),
+  Cancel: new KeyBinding({
+    keys: ["escape"],
+    label: "esc",
+    action: "cancel",
+  }),
+};
+
+const TextInputNavKeys = {
+  Left: new KeyBinding({ keys: ["left"], label: "left", action: "left" }),
+  Right: new KeyBinding({ keys: ["right"], label: "right", action: "right" }),
+  Backspace: new KeyBinding({
+    keys: ["backspace"],
+    label: "backspace",
+    action: "delete",
+  }),
+  Delete: new KeyBinding({
+    keys: ["delete"],
+    label: "delete",
+    action: "delete forward",
+  }),
+  Home: new KeyBinding({ keys: ["home"], label: "home", action: "start" }),
+  End: new KeyBinding({ keys: ["end"], label: "end", action: "end" }),
+};
 
 export const TextInput = (
   options: Prompt.TextOptions,
@@ -64,16 +102,6 @@ export const TextInput = (
 
     const content = Box.vcat([label, inputBox], Box.left);
 
-    const hint = Box.punctuateH(
-      [
-        Box.text("type to edit"),
-        Box.text("enter submit"),
-        Box.text("esc cancel"),
-      ],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-
     return Box.vsep(
       [
         content.pipe(
@@ -83,17 +111,18 @@ export const TextInput = (
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        hint,
+        Hint(TextInputKeys),
       ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
   };
 
-  const initialState: TextState = { value: "", cursor: 0 };
+  const initialState: TextState = { value: "", cursor: 0, prevRows: 0 };
 
   return Prompt.custom<TextState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
+      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -101,76 +130,65 @@ export const TextInput = (
         default: () => renderLayout(state, false),
       });
 
+      // Clear previous output and render new in a single write to avoid flicker
+      const clear =
+        currentState.prevRows > 0
+          ? Cmd.clearLines(currentState.prevRows)
+          : Cmd.cursorHide;
+
       const cmds =
         action._tag === "Submit"
           ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
           : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+      return yield* Box.renderPretty(
+        Box.combine(clear, layout.pipe(Box.combine(cmds))),
+      );
     }),
     process: Effect.fnUntraced(function* (input, state) {
       const char = Option.getOrElse(input.input, () => "");
+      const prevRows = renderLayout(state, false).rows;
 
-      return yield* Match.value(input.key.name).pipe(
-        Match.when("left", () =>
-          Effect.succeed(
-            Action.NextFrame({
-              state: { ...state, cursor: Math.max(0, state.cursor - 1) },
-            }),
-          ),
+      const next = (patch: Partial<TextState>) =>
+        Effect.succeed(
+          Action.NextFrame({ state: { ...state, prevRows, ...patch } }),
+        );
+
+      return yield* Match.value(input).pipe(
+        whenBinding(TextInputNavKeys.Left, () =>
+          next({ cursor: Math.max(0, state.cursor - 1) }),
         ),
-        Match.when("right", () =>
-          Effect.succeed(
-            Action.NextFrame({
-              state: {
-                ...state,
-                cursor: Math.min(state.value.length, state.cursor + 1),
-              },
-            }),
-          ),
+        whenBinding(TextInputNavKeys.Right, () =>
+          next({ cursor: Math.min(state.value.length, state.cursor + 1) }),
         ),
-        Match.when("backspace", () => {
+        whenBinding(TextInputNavKeys.Backspace, () => {
           if (state.cursor === 0) return Effect.succeed(Action.Beep());
           const newValue =
             state.value.slice(0, state.cursor - 1) +
             state.value.slice(state.cursor);
-          return Effect.succeed(
-            Action.NextFrame({
-              state: { value: newValue, cursor: state.cursor - 1 },
-            }),
-          );
+          return next({ value: newValue, cursor: state.cursor - 1 });
         }),
-        Match.when("delete", () => {
+        whenBinding(TextInputNavKeys.Delete, () => {
           if (state.cursor >= state.value.length)
             return Effect.succeed(Action.Beep());
           const newValue =
             state.value.slice(0, state.cursor) +
             state.value.slice(state.cursor + 1);
-          return Effect.succeed(
-            Action.NextFrame({
-              state: { value: newValue, cursor: state.cursor },
-            }),
-          );
+          return next({ value: newValue, cursor: state.cursor });
         }),
-        Match.when("home", () =>
-          Effect.succeed(Action.NextFrame({ state: { ...state, cursor: 0 } })),
+        whenBinding(TextInputNavKeys.Home, () => next({ cursor: 0 })),
+        whenBinding(TextInputNavKeys.End, () =>
+          next({ cursor: state.value.length }),
         ),
-        Match.when("end", () =>
-          Effect.succeed(
-            Action.NextFrame({
-              state: { ...state, cursor: state.value.length },
-            }),
-          ),
-        ),
-        Match.when("escape", () =>
+        whenBinding(TextInputKeys.Cancel, () =>
           Effect.succeed(Action.Submit({ value: defaultValue })),
         ),
-        Match.whenOr("enter", "return", () => {
+        whenBinding(TextInputKeys.Submit, () => {
           const finalValue = state.value || defaultValue;
           if (options.validate) {
             return options.validate(finalValue).pipe(
               Effect.map((v) => Action.Submit({ value: v })),
-              Effect.catch(() => Effect.succeed(Action.NextFrame({ state }))),
+              Effect.catch(() => next({})),
             );
           }
           return Effect.succeed(Action.Submit({ value: finalValue }));
@@ -181,20 +199,14 @@ export const TextInput = (
               state.value.slice(0, state.cursor) +
               char +
               state.value.slice(state.cursor);
-            return Effect.succeed(
-              Action.NextFrame({
-                state: { value: newValue, cursor: state.cursor + 1 },
-              }),
-            );
+            return next({ value: newValue, cursor: state.cursor + 1 });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
       );
     }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines(renderLayout(state, false).rows),
-      );
+    clear: Effect.fnUntraced(function* (_state) {
+      return "";
     }),
   });
 };

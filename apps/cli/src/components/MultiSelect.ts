@@ -1,13 +1,52 @@
 import { Data, Effect, Match } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
 interface MultiSelectState {
   readonly cursor: number;
   readonly selected: ReadonlySet<number>;
+  readonly prevRows: number;
 }
+
+const MultiSelectKeys = {
+  Down: new KeyBinding({
+    keys: ["down", "j", "tab"],
+    label: "↑/↓",
+    action: "navigate",
+  }),
+  Up: new KeyBinding({
+    keys: ["up", "k"],
+    label: "↑/↓",
+    action: "navigate",
+  }),
+  Toggle: new KeyBinding({
+    keys: ["space"],
+    label: "space",
+    action: "toggle",
+  }),
+  ToggleAll: new KeyBinding({
+    keys: ["a"],
+    label: "a",
+    action: "toggle all",
+  }),
+  Submit: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "submit",
+  }),
+};
+
+/** Hint shows deduplicated labels — Up/Down share the same label. */
+const MultiSelectHintKeys = {
+  Navigate: MultiSelectKeys.Down,
+  Toggle: MultiSelectKeys.Toggle,
+  ToggleAll: MultiSelectKeys.ToggleAll,
+  Submit: MultiSelectKeys.Submit,
+};
 
 export const MultiSelect = <A>(
   options: Prompt.SelectOptions<A> & Prompt.MultiSelectOptions,
@@ -65,17 +104,6 @@ export const MultiSelect = <A>(
       Box.left,
     );
 
-    const hint = Box.punctuateH(
-      [
-        Box.text("↑/↓ navigate"),
-        Box.text("space toggle"),
-        Box.text("a toggle all"),
-        Box.text("enter submit"),
-      ],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-
     return Box.vsep(
       [
         content.pipe(
@@ -85,7 +113,7 @@ export const MultiSelect = <A>(
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        hint,
+        Hint(MultiSelectHintKeys),
       ],
       1,
       Box.left,
@@ -99,10 +127,12 @@ export const MultiSelect = <A>(
   const initialState: MultiSelectState = {
     cursor: 0,
     selected: initialSelected,
+    prevRows: 0,
   };
 
   return Prompt.custom<MultiSelectState, Array<A>>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
+      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -110,64 +140,67 @@ export const MultiSelect = <A>(
         default: () => renderLayout(state, false),
       });
 
+      // Clear previous output and render new in a single write to avoid flicker
+      const clear =
+        currentState.prevRows > 0
+          ? Cmd.clearLines(currentState.prevRows)
+          : Cmd.cursorHide;
+
       const cmds =
         action._tag === "Submit"
           ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
           : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+      return yield* Box.renderPretty(
+        Box.combine(clear, layout.pipe(Box.combine(cmds))),
+      );
     }),
     process: Effect.fnUntraced(function* (input, state) {
-      return Match.value(input.key.name).pipe(
-        Match.whenOr("down", "j", "tab", () =>
-          Action.NextFrame({
-            state: {
-              ...state,
-              cursor: (state.cursor + 1) % choices.length,
-            },
+      const prevRows = renderLayout(state, false).rows;
+
+      const next = (patch: Partial<MultiSelectState>) =>
+        Action.NextFrame({ state: { ...state, prevRows, ...patch } });
+
+      return Match.value(input).pipe(
+        whenBinding(MultiSelectKeys.Down, () =>
+          next({ cursor: (state.cursor + 1) % choices.length }),
+        ),
+        whenBinding(MultiSelectKeys.Up, () =>
+          next({
+            cursor: (state.cursor - 1 + choices.length) % choices.length,
           }),
         ),
-        Match.whenOr("up", "k", () =>
-          Action.NextFrame({
-            state: {
-              ...state,
-              cursor: (state.cursor - 1 + choices.length) % choices.length,
-            },
-          }),
-        ),
-        Match.when("space", () => {
+        whenBinding(MultiSelectKeys.Toggle, () => {
           const choice = choices[state.cursor];
           if (choice?.disabled) return Action.Beep();
-          const next = new Set(state.selected);
-          if (next.has(state.cursor)) {
-            next.delete(state.cursor);
+          const nextSet = new Set(state.selected);
+          if (nextSet.has(state.cursor)) {
+            nextSet.delete(state.cursor);
           } else {
-            if (next.size >= max) return Action.Beep();
-            next.add(state.cursor);
+            if (nextSet.size >= max) return Action.Beep();
+            nextSet.add(state.cursor);
           }
-          return Action.NextFrame({ state: { ...state, selected: next } });
+          return next({ selected: nextSet });
         }),
-        Match.when("a", () => {
+        whenBinding(MultiSelectKeys.ToggleAll, () => {
           const allSelected = state.selected.size === choices.length;
-          const next = allSelected
+          const nextSet = allSelected
             ? new Set<number>()
             : new Set<number>(choices.map((_, i) => i));
-          return Action.NextFrame({ state: { ...state, selected: next } });
+          return next({ selected: nextSet });
         }),
-        Match.whenOr("enter", "return", () => {
+        whenBinding(MultiSelectKeys.Submit, () => {
           if (state.selected.size < min) return Action.Beep();
           const values = choices
             .filter((_, i) => state.selected.has(i))
             .map((c) => c.value);
           return Action.Submit({ value: values });
         }),
-        Match.orElse(() => Action.NextFrame({ state })),
+        Match.orElse(() => next({})),
       );
     }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines(renderLayout(state, false).rows),
-      );
+    clear: Effect.fnUntraced(function* (_state) {
+      return "";
     }),
   });
 };

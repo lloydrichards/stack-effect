@@ -1,8 +1,34 @@
 import { Data, Effect, Match } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
+
+const HorizontalSelectKeys = {
+  Right: new KeyBinding({
+    keys: ["right", "l", "tab"],
+    label: "←/→",
+    action: "toggle",
+  }),
+  Left: new KeyBinding({
+    keys: ["left", "h"],
+    label: "←/→",
+    action: "toggle",
+    enabled: false,
+  }),
+  Submit: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "select",
+  }),
+  Cancel: new KeyBinding({
+    keys: ["escape"],
+    label: "esc",
+    action: "cancel",
+  }),
+};
 
 export const HorizontalSelect = <A extends string>(
   options: Prompt.SelectOptions<A>,
@@ -49,16 +75,6 @@ export const HorizontalSelect = <A extends string>(
       Box.left,
     );
 
-    const hint = Box.punctuateH(
-      [
-        Box.text("←/→ Toggle"),
-        Box.text("enter select"),
-        Box.text("esc cancel"),
-      ],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-
     return Box.vsep(
       [
         content.pipe(
@@ -68,53 +84,78 @@ export const HorizontalSelect = <A extends string>(
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        hint,
+        Hint(HorizontalSelectKeys),
       ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
   };
 
-  return Prompt.custom<number, A>(0, {
-    render: Effect.fnUntraced(function* (cursor, action) {
-      const layout = Action.$match(action, {
-        Beep: () => renderLayout(cursor, false),
-        Submit: () => renderLayout(cursor, true),
-        NextFrame: ({ state }) => renderLayout(state, false),
-        default: () => renderLayout(cursor, false),
-      });
+  return Prompt.custom<{ cursor: number; prevRows: number }, A>(
+    { cursor: 0, prevRows: 0 },
+    {
+      render: Effect.fnUntraced(function* (state, action) {
+        const currentState = action._tag === "NextFrame" ? action.state : state;
+        const layout = Action.$match(action, {
+          Beep: () => renderLayout(state.cursor, false),
+          Submit: () => renderLayout(state.cursor, true),
+          NextFrame: ({ state: s }) => renderLayout(s.cursor, false),
+          default: () => renderLayout(state.cursor, false),
+        });
 
-      const cmds =
-        action._tag === "Submit"
-          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-          : Cmd.cursorHide;
+        // Clear previous output and render new in a single write to avoid flicker
+        const clear =
+          currentState.prevRows > 0
+            ? Cmd.clearLines(currentState.prevRows)
+            : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
-    }),
-    process: Effect.fnUntraced(function* (input, cursor) {
-      return Match.value(input.key.name).pipe(
-        Match.whenOr("right", "l", "tab", () =>
-          Action.NextFrame({ state: (cursor + 1) % choices.length }),
-        ),
-        Match.whenOr("left", "h", () =>
-          Action.NextFrame({
-            state: (cursor - 1 + choices.length) % choices.length,
+        const cmds =
+          action._tag === "Submit"
+            ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+            : Cmd.cursorHide;
+
+        return yield* Box.renderPretty(
+          Box.combine(clear, layout.pipe(Box.combine(cmds))),
+        );
+      }),
+      process: Effect.fnUntraced(function* (input, state) {
+        const prevRows = renderLayout(state.cursor, false).rows;
+
+        return Match.value(input).pipe(
+          whenBinding(HorizontalSelectKeys.Right, () =>
+            Action.NextFrame({
+              state: {
+                cursor: (state.cursor + 1) % choices.length,
+                prevRows,
+              },
+            }),
+          ),
+          whenBinding(HorizontalSelectKeys.Left, () =>
+            Action.NextFrame({
+              state: {
+                cursor: (state.cursor - 1 + choices.length) % choices.length,
+                prevRows,
+              },
+            }),
+          ),
+          whenBinding(HorizontalSelectKeys.Submit, () => {
+            const selected = choices[state.cursor];
+            if (selected) {
+              return Action.Submit({ value: selected.value });
+            }
+            return Action.Beep();
           }),
-        ),
-        Match.whenOr("enter", "return", () => {
-          const selected = choices[cursor];
-          if (selected) {
-            return Action.Submit({ value: selected.value });
-          }
-          return Action.Beep();
-        }),
-        Match.orElse(() => Action.NextFrame({ state: cursor })),
-      );
-    }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines(renderLayout(state, false).rows),
-      );
-    }),
-  });
+          whenBinding(HorizontalSelectKeys.Cancel, () =>
+            Action.Submit({ value: choices[0]!.value }),
+          ),
+          Match.orElse(() =>
+            Action.NextFrame({ state: { ...state, prevRows } }),
+          ),
+        );
+      }),
+      clear: Effect.fnUntraced(function* (_state) {
+        return "";
+      }),
+    },
+  );
 };
