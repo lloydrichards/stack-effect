@@ -69,68 +69,54 @@ export const Select = <A>(
     ).pipe(Box.moveDown(1));
   };
 
-  return Prompt.custom<{ cursor: number; prevRows: number }, A>(
-    { cursor: 0, prevRows: 0 },
-    {
-      render: Effect.fnUntraced(function* (state, action) {
-        const currentState = action._tag === "NextFrame" ? action.state : state;
-        const layout = Action.$match(action, {
-          Beep: () => renderLayout(state.cursor, false),
-          Submit: () => renderLayout(state.cursor, true),
-          NextFrame: ({ state: s }) => renderLayout(s.cursor, false),
-          default: () => renderLayout(state.cursor, false),
-        });
+  let hasRendered = false;
 
-        // Clear previous output and render new in a single write to avoid flicker
-        const clear =
-          currentState.prevRows > 0
-            ? Cmd.clearLines(currentState.prevRows)
-            : Cmd.cursorHide;
+  return Prompt.custom<number, A>(0, {
+    render: Effect.fnUntraced(function* (cursor, action) {
+      const layout = Action.$match(action, {
+        Beep: () => renderLayout(cursor, false),
+        Submit: () => renderLayout(cursor, true),
+        NextFrame: ({ state }) => renderLayout(state, false),
+        default: () => renderLayout(cursor, false),
+      });
 
-        const cmds =
-          action._tag === "Submit"
-            ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-            : Cmd.cursorHide;
+      // Compute previous frame height from old state; skip on initial render
+      const clear = hasRendered
+        ? Cmd.clearLines(renderLayout(cursor, false).rows)
+        : Cmd.cursorHide;
+      hasRendered = true;
 
-        return yield* Box.renderPretty(
-          Box.combine(clear, layout.pipe(Box.combine(cmds))),
-        );
-      }),
-      process: Effect.fnUntraced(function* (input, state) {
-        const prevRows = renderLayout(state.cursor, false).rows;
+      const cmds =
+        action._tag === "Submit"
+          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+          : Cmd.cursorHide;
 
-        return Match.value(input).pipe(
-          whenBinding(SelectKeys.Down, () =>
-            Action.NextFrame({
-              state: {
-                cursor: (state.cursor + 1) % choices.length,
-                prevRows,
-              },
-            }),
-          ),
-          whenBinding(SelectKeys.Up, () =>
-            Action.NextFrame({
-              state: {
-                cursor: (state.cursor - 1 + choices.length) % choices.length,
-                prevRows,
-              },
-            }),
-          ),
-          whenBinding(SelectKeys.Submit, () => {
-            const selected = choices[state.cursor];
-            if (selected) {
-              return Action.Submit({ value: selected.value });
-            }
-            return Action.Beep();
+      return yield* Box.renderPretty(
+        Box.combine(clear, layout.pipe(Box.combine(cmds))),
+      );
+    }),
+    process: Effect.fnUntraced(function* (input, cursor) {
+      return Match.value(input).pipe(
+        whenBinding(SelectKeys.Down, () =>
+          Action.NextFrame({ state: (cursor + 1) % choices.length }),
+        ),
+        whenBinding(SelectKeys.Up, () =>
+          Action.NextFrame({
+            state: (cursor - 1 + choices.length) % choices.length,
           }),
-          Match.orElse(() =>
-            Action.NextFrame({ state: { ...state, prevRows } }),
-          ),
-        );
-      }),
-      clear: Effect.fnUntraced(function* (_state) {
-        return "";
-      }),
-    },
-  );
+        ),
+        whenBinding(SelectKeys.Submit, () => {
+          const selected = choices[cursor];
+          if (selected) {
+            return Action.Submit({ value: selected.value });
+          }
+          return Action.Beep();
+        }),
+        Match.orElse(() => Action.NextFrame({ state: cursor })),
+      );
+    }),
+    clear: Effect.fnUntraced(function* (_state) {
+      return "";
+    }),
+  });
 };

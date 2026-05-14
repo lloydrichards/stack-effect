@@ -9,7 +9,6 @@ const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 interface MultiSelectState {
   readonly cursor: number;
   readonly selected: ReadonlySet<number>;
-  readonly prevRows: number;
 }
 
 const MultiSelectKeys = {
@@ -127,12 +126,12 @@ export const MultiSelect = <A>(
   const initialState: MultiSelectState = {
     cursor: 0,
     selected: initialSelected,
-    prevRows: 0,
   };
+
+  let hasRendered = false;
 
   return Prompt.custom<MultiSelectState, Array<A>>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
-      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -140,11 +139,11 @@ export const MultiSelect = <A>(
         default: () => renderLayout(state, false),
       });
 
-      // Clear previous output and render new in a single write to avoid flicker
-      const clear =
-        currentState.prevRows > 0
-          ? Cmd.clearLines(currentState.prevRows)
-          : Cmd.cursorHide;
+      // Compute previous frame height from old state; skip on initial render
+      const clear = hasRendered
+        ? Cmd.clearLines(renderLayout(state, false).rows)
+        : Cmd.cursorHide;
+      hasRendered = true;
 
       const cmds =
         action._tag === "Submit"
@@ -156,10 +155,8 @@ export const MultiSelect = <A>(
       );
     }),
     process: Effect.fnUntraced(function* (input, state) {
-      const prevRows = renderLayout(state, false).rows;
-
       const next = (patch: Partial<MultiSelectState>) =>
-        Action.NextFrame({ state: { ...state, prevRows, ...patch } });
+        Action.NextFrame({ state: { ...state, ...patch } });
 
       return Match.value(input).pipe(
         whenBinding(MultiSelectKeys.Down, () =>

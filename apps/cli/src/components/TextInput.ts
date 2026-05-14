@@ -9,7 +9,7 @@ const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 interface TextState {
   readonly value: string;
   readonly cursor: number;
-  readonly prevRows: number;
+  readonly error: Option.Option<string>;
 }
 
 const TextInputKeys = {
@@ -54,6 +54,7 @@ export const TextInput = (
   const defaultValue = options.default ?? "";
 
   const renderLayout = (state: TextState, submitted: boolean) => {
+    const hasError = Option.isSome(state.error);
     const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
 
     const displayValue = state.value || defaultValue;
@@ -69,7 +70,7 @@ export const TextInput = (
         )
       : Box.hsep(
           [
-            Box.text("? ").pipe(Box.annotate(Ansi.cyan)),
+            Box.text("? ").pipe(Box.annotate(hasError ? Ansi.red : Ansi.cyan)),
             Box.text(textBeforeCursor).pipe(
               Box.annotate(
                 isPlaceholder ? Ansi.dim : Ansi.combine(Ansi.white, Ansi.bold),
@@ -102,27 +103,39 @@ export const TextInput = (
 
     const content = Box.vcat([label, inputBox], Box.left);
 
+    const footer = hasError
+      ? Box.text(`✘ ${state.error.value}`).pipe(
+          Box.moveRight(2),
+          Box.annotate(Ansi.red),
+        )
+      : Hint(TextInputKeys);
+
     return Box.vsep(
       [
         content.pipe(
           Box.pad(0, 0, 0, 1),
           Box.border("thick", {
-            annotation: Ansi.dim,
+            annotation: hasError ? Ansi.red : Ansi.dim,
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        Hint(TextInputKeys),
+        footer,
       ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
   };
 
-  const initialState: TextState = { value: "", cursor: 0, prevRows: 0 };
+  const initialState: TextState = {
+    value: "",
+    cursor: 0,
+    error: Option.none(),
+  };
+
+  let hasRendered = false;
 
   return Prompt.custom<TextState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
-      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -130,11 +143,11 @@ export const TextInput = (
         default: () => renderLayout(state, false),
       });
 
-      // Clear previous output and render new in a single write to avoid flicker
-      const clear =
-        currentState.prevRows > 0
-          ? Cmd.clearLines(currentState.prevRows)
-          : Cmd.cursorHide;
+      // Compute previous frame height from old state; skip on initial render
+      const clear = hasRendered
+        ? Cmd.clearLines(renderLayout(state, false).rows)
+        : Cmd.cursorHide;
+      hasRendered = true;
 
       const cmds =
         action._tag === "Submit"
@@ -147,11 +160,13 @@ export const TextInput = (
     }),
     process: Effect.fnUntraced(function* (input, state) {
       const char = Option.getOrElse(input.input, () => "");
-      const prevRows = renderLayout(state, false).rows;
 
+      /** Advance to next frame, clearing any active error on edits. */
       const next = (patch: Partial<TextState>) =>
         Effect.succeed(
-          Action.NextFrame({ state: { ...state, prevRows, ...patch } }),
+          Action.NextFrame({
+            state: { ...state, error: Option.none(), ...patch },
+          }),
         );
 
       return yield* Match.value(input).pipe(
@@ -188,7 +203,13 @@ export const TextInput = (
           if (options.validate) {
             return options.validate(finalValue).pipe(
               Effect.map((v) => Action.Submit({ value: v })),
-              Effect.catch(() => next({})),
+              Effect.catch((err) =>
+                next({
+                  error: Option.some(
+                    typeof err === "string" ? err : String(err),
+                  ),
+                }),
+              ),
             );
           }
           return Effect.succeed(Action.Submit({ value: finalValue }));
