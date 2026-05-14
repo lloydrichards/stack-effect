@@ -12,7 +12,7 @@ import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
-import { dryRunFlag, rootFlag, yesFlag } from "../flags";
+import { dryRunFlag, noGitFlag, rootFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -32,6 +32,10 @@ const buildInitSelection = (
     config.test,
   ]) {
     if (field !== undefined) moduleIds.add(field);
+  }
+
+  if (config.git !== false) {
+    moduleIds.add("git-init");
   }
 
   return {
@@ -79,6 +83,7 @@ export const init = Command.make(
     yes: yesFlag,
     dryRun: dryRunFlag,
     packageManager: runtimeFlag,
+    noGit: noGitFlag,
   },
   (flags) =>
     Effect.gen(function* () {
@@ -216,6 +221,16 @@ export const init = Command.make(
             testChoices,
           );
 
+      // Git
+      const git = flags.noGit
+        ? false
+        : flags.yes
+          ? true
+          : yield* Confirm({
+              message: "Initialize a git repository?",
+              initial: true,
+            });
+
       const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,
         runtime,
@@ -235,6 +250,7 @@ export const init = Command.make(
           onNone: () => ({}),
           onSome: (v) => ({ monorepo: v }),
         }),
+        git,
       });
 
       // Preview
@@ -254,6 +270,7 @@ export const init = Command.make(
                   Box.text("Lint:"),
                   Box.text("Format:"),
                   Box.text("Test:"),
+                  Box.text("Git:"),
                   Box.text("Config:"),
                 ],
                 Box.left,
@@ -267,6 +284,7 @@ export const init = Command.make(
                   Box.text(config.lint ?? "none"),
                   Box.text(config.format ?? "none"),
                   Box.text(config.test ?? "none"),
+                  Box.text(config.git === false ? "no" : "yes"),
                   Box.text(configure.configPath(repoRoot)),
                 ],
                 Box.left,

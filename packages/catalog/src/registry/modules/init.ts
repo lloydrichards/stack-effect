@@ -15,6 +15,42 @@ import {
 /**
  * Init modules - project-wide tooling (turbo, biome, vitest)
  */
+const gitInitModule: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("git-init"),
+  title: "Git",
+  description: "Initialize a git repository with an initial commit",
+  visibility: "internal",
+  categories: [ModuleCategory.make("git")],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  dependencies: [
+    {
+      _tag: "required-target",
+      identity: new TargetIdentity({
+        kind: TargetKind.make("init"),
+        name: "root",
+      }),
+    },
+  ],
+  contributions: [],
+  scripts: [
+    {
+      label: "Initialize git repository",
+      command: "git init --initial-branch=main",
+      phase: "post-finalize",
+    },
+    {
+      label: "Stage all files",
+      command: "git add -A",
+      phase: "post-finalize",
+    },
+    {
+      label: "Create initial commit",
+      command: 'git commit -m "initial commit"',
+      phase: "post-finalize",
+    },
+  ],
+};
+
 export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("turbo"),
@@ -251,4 +287,5 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
+  gitInitModule,
 ];
