@@ -8,8 +8,9 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Config, Effect, Layer } from "effect";
+import { Cause, Config, Console, Effect, Layer } from "effect";
 import { Command } from "effect/unstable/cli";
+import { Ansi, Box } from "effect-boxes";
 import { add } from "./commands/add";
 import { graph } from "./commands/graph";
 import { init } from "./commands/init";
@@ -44,6 +45,26 @@ const program = root.pipe(
   Command.withSubcommands([init, add, graph]),
   Command.run({ version: "1.0.0" }),
   Effect.provide(MainLayer),
+  Effect.catchCause((cause) => {
+    if (Cause.hasInterruptsOnly(cause)) {
+      const message = Box.vsep(
+        [
+          Box.text("Interrupted.").pipe(
+            Box.annotate(Ansi.combine(Ansi.bold, Ansi.yellow)),
+          ),
+          Box.text("Goodbye! Come back when you're ready to stack."),
+        ],
+        1,
+        Box.center1,
+      ).pipe(
+        Box.pad(0, 1),
+        Box.border("rounded", { annotation: Ansi.yellow }),
+        Box.moveDown(1),
+      );
+      return Console.log(`\n${Box.renderPrettySync(message)}`);
+    }
+    return Effect.failCause(cause);
+  }),
 );
 
 NodeRuntime.runMain(program);
