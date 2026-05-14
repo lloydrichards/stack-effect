@@ -27,10 +27,10 @@ const Runtime = Schema.TaggedUnion({
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   name: Schema.NonEmptyString,
   runtime: Runtime,
-  lint: Schema.optional(Schema.Literals(["biome"])),
-  format: Schema.optional(Schema.Literals(["biome"])),
-  test: Schema.optional(Schema.Literals(["vitest"])),
-  monorepo: Schema.optional(Schema.Literals(["turbo"])),
+  lint: Schema.optional(Schema.String),
+  format: Schema.optional(Schema.String),
+  test: Schema.optional(Schema.String),
+  monorepo: Schema.optional(Schema.String),
 }) {
   get runtimeName(): "bun" | "node" {
     return this.runtime._tag;

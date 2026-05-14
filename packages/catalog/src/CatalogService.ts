@@ -1,5 +1,6 @@
 import type {
   CatalogGraph,
+  ModuleCategory,
   ModuleId,
   ModuleImplication,
   TargetIdentity,
@@ -177,8 +178,31 @@ export class CatalogService extends Context.Service<CatalogService>()(
         }
       });
 
+      const getModules = (options?: {
+        category?: typeof ModuleCategory.Type;
+        visibility?: typeof Visibility.Type;
+      }): ReadonlyArray<
+        typeof import("@repo/domain/Catalog").ModuleDefinition.Type
+      > =>
+        Arr.filter(Arr.fromIterable(moduleIndex.values()), (mod) => {
+          if (
+            options?.category &&
+            !Arr.contains(mod.categories ?? [], options.category)
+          ) {
+            return false;
+          }
+          if (
+            options?.visibility &&
+            (mod.visibility ?? "public") !== options.visibility
+          ) {
+            return false;
+          }
+          return true;
+        });
+
       return {
         getImplications,
+        getModules,
         getModule,
         getSupportedModules,
         getTarget,
