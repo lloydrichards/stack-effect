@@ -10,7 +10,7 @@ Set Shell "zsh"
 Set FontSize 16
 Set Width 1350
 Set Height 600
-Set TypingSpeed 60ms
+Set TypingSpeed 100ms
 Set WindowBar Colorful
 Set Padding 20
 
@@ -23,7 +23,7 @@ Sleep 300ms
 Type "alias stack-effect='bun run start --'" Enter
 Sleep 300ms
 Type "clear" Enter
-Sleep 500ms
+Sleep 300ms
 Show
 
 # --- Demo Start ---
@@ -42,21 +42,29 @@ Sleep 1.5s
 
 # Prompt: Runtime selection (browse options then select bun)
 Down
-Sleep 500ms
 Up
-Sleep 500ms
+Sleep 300ms
 Enter
 Sleep 1.5s
 
 # Prompt: Monorepo tool (turbo is first option)
+Down
+Up
+Sleep 300ms
 Enter
 Sleep 1.5s
 
 # Prompt: Lint tool (biome is first option)
+Down
+Up
+Sleep 300ms
 Enter
 Sleep 1.5s
 
 # Prompt: Format tool (biome is first option)
+Down
+Up
+Sleep 300ms
 Enter
 Sleep 1.5s
 
@@ -64,30 +72,35 @@ Sleep 1.5s
 Enter
 Sleep 1.5s
 
+# Prompt: Git initialization
+Right
+Left
+Sleep 300ms
+Enter
+Sleep 1.5s
+
 # Prompt: Confirm creation (browse then confirm)
 Right
-Sleep 500ms
 Left
-Sleep 500ms
+Sleep 300ms
 Enter
-Sleep 3s
+Sleep 1.5s
 
 Right
-Sleep 500ms
 Left
-Sleep 500ms
+Sleep 300ms
 Enter
-Sleep 3s
+Sleep 1.5s
 
 Right
-Sleep 500ms
 Left
-Sleep 500ms
+Sleep 300ms
 Enter
 Sleep 5s
 
 # Show the generated config
-Type "cat $TMP_REPO/stack.effect.json"
+Enter 2
+Type "cat $TMP_REPO/my-awesome-app/stack.effect.json"
 Enter
 Sleep 2s
 
@@ -97,15 +110,16 @@ Sleep 2s
 Sleep 1s
 
 # Run the add command
-Type "stack-effect add --root $TMP_REPO"
+Enter 2
+Type "stack-effect add --root $TMP_REPO/my-awesome-app"
 Sleep 1s
 Enter
-Sleep 2s
+Sleep 1.5s
 
 # Prompt: Target kind selection (HorizontalSelect)
 # Options: client, server, package (adjust arrows to land on "server")
 Right
-Sleep 500ms
+Sleep 300ms
 Enter
 Sleep 1.5s
 
@@ -117,37 +131,44 @@ Sleep 1.5s
 
 # Prompt: Module selection (multiSelect - select chat-server)
 # Navigate to chat-server and toggle with Space
-Down
-Sleep 400ms
-Down
-Sleep 400ms
+Down 2
 Space
-Sleep 500ms
+Sleep 300ms
 Enter
 Sleep 2s
 
-# Prompt: Implication resolution - domain-chat needs a package target name
-# (auto-prompted: "Module chat-server requires a package target. What should it be called?")
-Type "domain"
-Sleep 1s
-Enter
-Sleep 1.5s
-
 # Prompt: Action selection (HorizontalSelect: Confirm all / Edit modules / Add target)
 # Select "Confirm all"
+Right 2
+Left 2
+Sleep 300ms
 Enter
 Sleep 2s
 
 # Prompt: Blueprint confirmation ("Continue with these changes?")
+Down 10
+Up 5
+Down 10
+Sleep 300ms
+Right
+Left
+Sleep 300ms
 Enter
 Sleep 2s
 
 # Prompt: Apply confirmation ("Apply changes?")
+Down 10
+Up 5
+Down 10
+Sleep 300ms
+Right
+Left
+Sleep 300ms
 Enter
-Sleep 5s
+Sleep 10s
 
 # Show result
 Sleep 2s
 
 # Final pause
-Sleep 3s
+Sleep 1.5s
