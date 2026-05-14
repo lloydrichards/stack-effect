@@ -1,8 +1,24 @@
 import { Data, Effect, Match } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
+
+const SelectKeys = {
+  Down: new KeyBinding({
+    keys: ["down", "j", "tab"],
+    label: "↓",
+    action: "down",
+  }),
+  Up: new KeyBinding({ keys: ["up", "k"], label: "↑", action: "up" }),
+  Submit: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "select",
+  }),
+};
 
 export const Select = <A>(
   options: Prompt.SelectOptions<A>,
@@ -37,12 +53,6 @@ export const Select = <A>(
 
     const content = Box.vcat([label, Box.vcat(items, Box.left)], Box.left);
 
-    const hint = Box.punctuateH(
-      [Box.text("↑ up"), Box.text("↓ down"), Box.text("enter select")],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-
     return Box.vsep(
       [
         content.pipe(
@@ -52,53 +62,75 @@ export const Select = <A>(
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        hint,
+        Hint(SelectKeys),
       ],
       1,
       Box.left,
     ).pipe(Box.moveDown(1));
   };
 
-  return Prompt.custom<number, A>(0, {
-    render: Effect.fnUntraced(function* (cursor, action) {
-      const layout = Action.$match(action, {
-        Beep: () => renderLayout(cursor, false),
-        Submit: () => renderLayout(cursor, true),
-        NextFrame: ({ state }) => renderLayout(state, false),
-        default: () => renderLayout(cursor, false),
-      });
+  return Prompt.custom<{ cursor: number; prevRows: number }, A>(
+    { cursor: 0, prevRows: 0 },
+    {
+      render: Effect.fnUntraced(function* (state, action) {
+        const currentState = action._tag === "NextFrame" ? action.state : state;
+        const layout = Action.$match(action, {
+          Beep: () => renderLayout(state.cursor, false),
+          Submit: () => renderLayout(state.cursor, true),
+          NextFrame: ({ state: s }) => renderLayout(s.cursor, false),
+          default: () => renderLayout(state.cursor, false),
+        });
 
-      const cmds =
-        action._tag === "Submit"
-          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-          : Cmd.cursorHide;
+        // Clear previous output and render new in a single write to avoid flicker
+        const clear =
+          currentState.prevRows > 0
+            ? Cmd.clearLines(currentState.prevRows)
+            : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
-    }),
-    process: Effect.fnUntraced(function* (input, cursor) {
-      return Match.value(input.key.name).pipe(
-        Match.whenOr("down", "j", "tab", () =>
-          Action.NextFrame({ state: (cursor + 1) % choices.length }),
-        ),
-        Match.whenOr("up", "k", () =>
-          Action.NextFrame({
-            state: (cursor - 1 + choices.length) % choices.length,
+        const cmds =
+          action._tag === "Submit"
+            ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+            : Cmd.cursorHide;
+
+        return yield* Box.renderPretty(
+          Box.combine(clear, layout.pipe(Box.combine(cmds))),
+        );
+      }),
+      process: Effect.fnUntraced(function* (input, state) {
+        const prevRows = renderLayout(state.cursor, false).rows;
+
+        return Match.value(input).pipe(
+          whenBinding(SelectKeys.Down, () =>
+            Action.NextFrame({
+              state: {
+                cursor: (state.cursor + 1) % choices.length,
+                prevRows,
+              },
+            }),
+          ),
+          whenBinding(SelectKeys.Up, () =>
+            Action.NextFrame({
+              state: {
+                cursor: (state.cursor - 1 + choices.length) % choices.length,
+                prevRows,
+              },
+            }),
+          ),
+          whenBinding(SelectKeys.Submit, () => {
+            const selected = choices[state.cursor];
+            if (selected) {
+              return Action.Submit({ value: selected.value });
+            }
+            return Action.Beep();
           }),
-        ),
-        Match.whenOr("enter", "return", () => {
-          const selected = choices[cursor];
-          if (selected) {
-            return Action.Submit({ value: selected.value });
-          }
-          return Action.Beep();
-        }),
-        Match.orElse(() => Action.NextFrame({ state: cursor })),
-      );
-    }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines(renderLayout(state, false).rows),
-      );
-    }),
-  });
+          Match.orElse(() =>
+            Action.NextFrame({ state: { ...state, prevRows } }),
+          ),
+        );
+      }),
+      clear: Effect.fnUntraced(function* (_state) {
+        return "";
+      }),
+    },
+  );
 };

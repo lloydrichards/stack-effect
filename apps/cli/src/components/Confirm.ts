@@ -2,7 +2,9 @@ import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import type { AnsiStyle } from "effect-boxes/Ansi";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -14,6 +16,7 @@ export interface ConfirmOptions extends Prompt.ConfirmOptions {
 interface ConfirmState {
   readonly cursor: number;
   readonly viewport: Viewport.State;
+  readonly prevRows: number;
 }
 
 /** Rows reserved for prompt chrome (margin, message, gaps, buttons, hint). */
@@ -21,6 +24,30 @@ const CHROME_ROWS = 10;
 
 /** Minimum rows for the children viewport. */
 const MIN_VIEWPORT_ROWS = 3;
+
+const ConfirmKeys = (hasChildren: boolean) => ({
+  Scroll: new KeyBinding({
+    keys: ["up", "down", "k", "j"],
+    label: "↑/↓",
+    action: "scroll",
+    enabled: hasChildren,
+  }),
+  Toggle: new KeyBinding({
+    keys: ["right", "left", "l", "h", "tab"],
+    label: "←/→",
+    action: "toggle",
+  }),
+  Submit: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "next",
+  }),
+  Cancel: new KeyBinding({
+    keys: ["escape"],
+    label: "esc",
+    action: "cancel",
+  }),
+});
 
 export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
   const message = options.message;
@@ -86,19 +113,6 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     );
   });
 
-  const renderHint = () => {
-    return Box.punctuateH(
-      [
-        ...(hasChildren ? [Box.text("↑/↓ scroll")] : []),
-        Box.text("←/→ Toggle"),
-        Box.text("enter next"),
-        Box.text("esc cancel"),
-      ],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-  };
-
   const renderActive = Effect.fnUntraced(function* (state: ConfirmState) {
     const content = Box.vsep(
       [
@@ -119,7 +133,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        renderHint(),
+        Hint(ConfirmKeys(hasChildren)),
       ],
       1,
       Box.left,
@@ -138,10 +152,12 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
   const initialState: ConfirmState = {
     cursor: initialValue ? 0 : 1,
     viewport: Viewport.initial,
+    prevRows: 0,
   };
 
   return Prompt.custom<ConfirmState, boolean>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
+      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = yield* Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -149,12 +165,20 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
         default: () => renderLayout(state, false),
       });
 
+      // Clear previous output and render new in a single write to avoid flicker
+      const clear =
+        currentState.prevRows > 0
+          ? Cmd.clearLines(currentState.prevRows)
+          : Cmd.cursorHide;
+
       const cmds =
         action._tag === "Submit"
           ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
           : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+      return yield* Box.renderPretty(
+        Box.combine(clear, layout.pipe(Box.combine(cmds))),
+      );
     }),
     process: Effect.fnUntraced(function* (input, state) {
       const maxVisible = viewportHeight(process.stdout.rows ?? 24);
@@ -162,61 +186,46 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
         contentHeight: childrenRenderedLines.length,
         visibleHeight: maxVisible,
       };
+      const prevRows = (yield* renderActive(state)).rows;
 
-      return Match.value(input.key.name).pipe(
-        Match.whenOr("up", "k", () => {
+      const next = (patch: Partial<ConfirmState>) =>
+        Action.NextFrame({ state: { ...state, prevRows, ...patch } });
+
+      return Match.value(input).pipe(
+        whenBinding(ConfirmKeys(hasChildren).Scroll, (i) => {
           if (hasChildren) {
-            const next = Viewport.scroll(state.viewport, "up", bounds);
-            if (Option.isSome(next)) {
-              return Action.NextFrame({
-                state: { ...state, viewport: next.value },
-              });
+            const direction =
+              i.key.name === "up" || i.key.name === "k" ? "up" : "down";
+            const nextVp = Viewport.scroll(state.viewport, direction, bounds);
+            if (Option.isSome(nextVp)) {
+              return next({ viewport: nextVp.value });
             }
           }
-          return Action.NextFrame({ state });
+          return next({});
         }),
-        Match.whenOr("down", "j", () => {
-          if (hasChildren) {
-            const next = Viewport.scroll(state.viewport, "down", bounds);
-            if (Option.isSome(next)) {
-              return Action.NextFrame({
-                state: { ...state, viewport: next.value },
-              });
-            }
-          }
-          return Action.NextFrame({ state });
+        whenBinding(ConfirmKeys(hasChildren).Toggle, (i) => {
+          const direction =
+            i.key.name === "left" || i.key.name === "h" ? -1 : 1;
+          return next({
+            cursor:
+              (state.cursor + direction + choices.length) % choices.length,
+          });
         }),
-        Match.whenOr("right", "l", "tab", () =>
-          Action.NextFrame({
-            state: {
-              ...state,
-              cursor: (state.cursor + 1) % choices.length,
-            },
-          }),
+        whenBinding(ConfirmKeys(hasChildren).Cancel, () =>
+          Action.Submit({ value: false }),
         ),
-        Match.whenOr("left", "h", () =>
-          Action.NextFrame({
-            state: {
-              ...state,
-              cursor: (state.cursor - 1 + choices.length) % choices.length,
-            },
-          }),
-        ),
-        Match.when("escape", () => Action.Submit({ value: false })),
-        Match.whenOr("enter", "return", () => {
+        whenBinding(ConfirmKeys(hasChildren).Submit, () => {
           const selected = choices[state.cursor];
           if (selected) {
             return Action.Submit({ value: selected.value });
           }
           return Action.Beep();
         }),
-        Match.orElse(() => Action.NextFrame({ state })),
+        Match.orElse(() => next({})),
       );
     }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines((yield* renderLayout(state, false)).rows),
-      );
+    clear: Effect.fnUntraced(function* (_state) {
+      return "";
     }),
   });
 };

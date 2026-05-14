@@ -1,7 +1,9 @@
 import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
+import { Hint } from "./Hint.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -29,6 +31,44 @@ const joinLines = (lines: ReadonlyArray<string>): string => lines.join("\n");
 
 const clampCol = (col: number, line: string): number =>
   Math.min(col, line.length);
+
+const TextAreaKeys = {
+  NewLine: new KeyBinding({
+    keys: ["enter", "return"],
+    label: "enter",
+    action: "new line",
+  }),
+  Submit: new KeyBinding({
+    keys: ["d"],
+    label: "ctrl+d",
+    action: "submit",
+    ctrl: true,
+  }),
+  Cancel: new KeyBinding({
+    keys: ["escape"],
+    label: "esc",
+    action: "cancel",
+  }),
+};
+
+const TextAreaNavKeys = {
+  Left: new KeyBinding({ keys: ["left"], label: "left", action: "left" }),
+  Right: new KeyBinding({ keys: ["right"], label: "right", action: "right" }),
+  Up: new KeyBinding({ keys: ["up"], label: "up", action: "up" }),
+  Down: new KeyBinding({ keys: ["down"], label: "down", action: "down" }),
+  Backspace: new KeyBinding({
+    keys: ["backspace"],
+    label: "backspace",
+    action: "delete",
+  }),
+  Delete: new KeyBinding({
+    keys: ["delete"],
+    label: "delete",
+    action: "delete forward",
+  }),
+  Home: new KeyBinding({ keys: ["home"], label: "home", action: "start" }),
+  End: new KeyBinding({ keys: ["end"], label: "end", action: "end" }),
+};
 
 export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
   const message = options.message;
@@ -116,16 +156,6 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
 
     const content = Box.vcat([label, inputContent], Box.left);
 
-    const hint = Box.punctuateH(
-      [
-        Box.text("enter new line"),
-        Box.text("ctrl+d submit"),
-        Box.text("esc cancel"),
-      ],
-      Box.left,
-      Box.text(" • "),
-    ).pipe(Box.moveRight(2), Box.annotate(Ansi.dim));
-
     return Box.vsep(
       [
         content.pipe(
@@ -135,7 +165,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        hint,
+        Hint(TextAreaKeys),
       ],
       1,
       Box.left,
@@ -200,8 +230,23 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         );
       };
 
-      return yield* Match.value(input.key.name).pipe(
-        Match.when("left", () => {
+      return yield* Match.value(input).pipe(
+        // Modifier-aware bindings first (ctrl+d must match before 'd' is inserted)
+        whenBinding(TextAreaKeys.Submit, () => {
+          const finalValue = joinLines(state.lines) || defaultValue;
+          if (options.validate) {
+            return options.validate(finalValue).pipe(
+              Effect.map((v) => Action.Submit({ value: v })),
+              Effect.catch(() => next({})),
+            );
+          }
+          return Effect.succeed(Action.Submit({ value: finalValue }));
+        }),
+        whenBinding(TextAreaKeys.Cancel, () =>
+          Effect.succeed(Action.Submit({ value: defaultValue })),
+        ),
+        // Navigation
+        whenBinding(TextAreaNavKeys.Left, () => {
           if (state.col > 0) {
             const newCol = state.col - 1;
             return next({ col: newCol, stickyCol: newCol });
@@ -214,9 +259,9 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
               stickyCol: prevLine.length,
             });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
-        Match.when("right", () => {
+        whenBinding(TextAreaNavKeys.Right, () => {
           if (state.col < currentLine.length) {
             const newCol = state.col + 1;
             return next({ col: newCol, stickyCol: newCol });
@@ -224,23 +269,21 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
           if (state.row < state.lines.length - 1) {
             return next({ row: state.row + 1, col: 0, stickyCol: 0 });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
-        Match.when("up", () => {
-          if (state.row === 0)
-            return Effect.succeed(Action.NextFrame({ state }));
+        whenBinding(TextAreaNavKeys.Up, () => {
+          if (state.row === 0) return next({});
           const targetLine = state.lines[state.row - 1] ?? "";
           const newCol = clampCol(state.stickyCol, targetLine);
           return next({ row: state.row - 1, col: newCol });
         }),
-        Match.when("down", () => {
-          if (state.row >= state.lines.length - 1)
-            return Effect.succeed(Action.NextFrame({ state }));
+        whenBinding(TextAreaNavKeys.Down, () => {
+          if (state.row >= state.lines.length - 1) return next({});
           const targetLine = state.lines[state.row + 1] ?? "";
           const newCol = clampCol(state.stickyCol, targetLine);
           return next({ row: state.row + 1, col: newCol });
         }),
-        Match.when("backspace", () => {
+        whenBinding(TextAreaNavKeys.Backspace, () => {
           if (state.col > 0) {
             const newLine =
               currentLine.slice(0, state.col - 1) +
@@ -248,7 +291,11 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             const newLines = [...state.lines];
             newLines[state.row] = newLine;
             const newCol = state.col - 1;
-            return next({ lines: newLines, col: newCol, stickyCol: newCol });
+            return next({
+              lines: newLines,
+              col: newCol,
+              stickyCol: newCol,
+            });
           }
           if (state.row > 0) {
             const prevLine = state.lines[state.row - 1] ?? "";
@@ -262,9 +309,9 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
               stickyCol: prevLine.length,
             });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
-        Match.when("delete", () => {
+        whenBinding(TextAreaNavKeys.Delete, () => {
           if (state.col < currentLine.length) {
             const newLine =
               currentLine.slice(0, state.col) +
@@ -280,49 +327,17 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             newLines.splice(state.row, 2, mergedLine);
             return next({ lines: newLines });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
-        Match.when("home", () => next({ col: 0, stickyCol: 0 })),
-        Match.when("end", () =>
+        whenBinding(TextAreaNavKeys.Home, () => next({ col: 0, stickyCol: 0 })),
+        whenBinding(TextAreaNavKeys.End, () =>
           next({
             col: currentLine.length,
             stickyCol: currentLine.length,
           }),
         ),
-        Match.when("escape", () =>
-          Effect.succeed(Action.Submit({ value: defaultValue })),
-        ),
-        Match.when("d", () => {
-          if (input.key.ctrl) {
-            const finalValue = joinLines(state.lines) || defaultValue;
-            if (options.validate) {
-              return options.validate(finalValue).pipe(
-                Effect.map((v) => Action.Submit({ value: v })),
-                Effect.catch(() => Effect.succeed(Action.NextFrame({ state }))),
-              );
-            }
-            return Effect.succeed(Action.Submit({ value: finalValue }));
-          }
-          const newLine =
-            currentLine.slice(0, state.col) +
-            "d" +
-            currentLine.slice(state.col);
-          const newLines = [...state.lines];
-          newLines[state.row] = newLine;
-          const newCol = state.col + 1;
-          return next({ lines: newLines, col: newCol, stickyCol: newCol });
-        }),
-        Match.whenOr("enter", "return", "j", () => {
-          if (input.key.name === "j" && !input.key.ctrl) {
-            const newLine =
-              currentLine.slice(0, state.col) +
-              "j" +
-              currentLine.slice(state.col);
-            const newLines = [...state.lines];
-            newLines[state.row] = newLine;
-            const newCol = state.col + 1;
-            return next({ lines: newLines, col: newCol, stickyCol: newCol });
-          }
+        // Enter/return inserts new line (non-ctrl)
+        whenBinding(TextAreaKeys.NewLine, () => {
           const before = currentLine.slice(0, state.col);
           const after = currentLine.slice(state.col);
           const insertLines = [...state.lines];
@@ -334,6 +349,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             stickyCol: 0,
           });
         }),
+        // Insert printable characters or no-op
         Match.orElse(() => {
           if (char && char.length === 1 && !input.key.ctrl && !input.key.meta) {
             const newLine =
@@ -343,9 +359,13 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             const newLines = [...state.lines];
             newLines[state.row] = newLine;
             const newCol = state.col + 1;
-            return next({ lines: newLines, col: newCol, stickyCol: newCol });
+            return next({
+              lines: newLines,
+              col: newCol,
+              stickyCol: newCol,
+            });
           }
-          return Effect.succeed(Action.NextFrame({ state }));
+          return next({});
         }),
       );
     }),
