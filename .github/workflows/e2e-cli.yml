@@ -1,0 +1,35 @@
+name: E2E - cli
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/cli/**"
+      - "packages/domain/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/cli/**"
+      - "packages/domain/**"
+
+jobs:
+  e2e:
+    name: "E2E Test (init + add)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Dependencies
+        uses: ./.github/actions/setup
+
+      - name: Build
+        run: bun build src/index.ts --outdir=dist --target=bun --minify --banner '#!/usr/bin/env bun'
+        working-directory: apps/cli
+
+      - name: Run E2E Tests
+        run: bunx vitest run --config vitest.e2e.config.ts e2e/init.test.ts e2e/add.test.ts
+        working-directory: apps/cli
