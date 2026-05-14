@@ -16,7 +16,6 @@ export interface ConfirmOptions extends Prompt.ConfirmOptions {
 interface ConfirmState {
   readonly cursor: number;
   readonly viewport: Viewport.State;
-  readonly prevRows: number;
 }
 
 /** Rows reserved for prompt chrome (margin, message, gaps, buttons, hint). */
@@ -152,12 +151,12 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
   const initialState: ConfirmState = {
     cursor: initialValue ? 0 : 1,
     viewport: Viewport.initial,
-    prevRows: 0,
   };
+
+  let hasRendered = false;
 
   return Prompt.custom<ConfirmState, boolean>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
-      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = yield* Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -165,11 +164,11 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
         default: () => renderLayout(state, false),
       });
 
-      // Clear previous output and render new in a single write to avoid flicker
-      const clear =
-        currentState.prevRows > 0
-          ? Cmd.clearLines(currentState.prevRows)
-          : Cmd.cursorHide;
+      // Compute previous frame height from old state; skip on initial render
+      const clear = hasRendered
+        ? Cmd.clearLines((yield* renderActive(state)).rows)
+        : Cmd.cursorHide;
+      hasRendered = true;
 
       const cmds =
         action._tag === "Submit"
@@ -186,10 +185,9 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
         contentHeight: childrenRenderedLines.length,
         visibleHeight: maxVisible,
       };
-      const prevRows = (yield* renderActive(state)).rows;
 
       const next = (patch: Partial<ConfirmState>) =>
-        Action.NextFrame({ state: { ...state, prevRows, ...patch } });
+        Action.NextFrame({ state: { ...state, ...patch } });
 
       return Match.value(input).pipe(
         whenBinding(ConfirmKeys(hasChildren).Scroll, (i) => {

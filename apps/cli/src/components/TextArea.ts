@@ -19,7 +19,7 @@ interface TextAreaState {
   readonly col: number;
   readonly stickyCol: number;
   readonly viewport: Viewport.State;
-  readonly prevRows: number;
+  readonly error: Option.Option<string>;
 }
 
 const splitLines = (value: string): Array<string> => {
@@ -78,6 +78,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
   const placeholder = options.placeholder ?? "";
 
   const renderLayout = (state: TextAreaState, submitted: boolean) => {
+    const hasError = Option.isSome(state.error);
     const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
 
     if (submitted) {
@@ -150,22 +151,32 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         });
 
     const inputContent = Box.vcat(
-      [Box.text("? ").pipe(Box.annotate(Ansi.cyan)), ...lineBoxes],
+      [
+        Box.text("? ").pipe(Box.annotate(hasError ? Ansi.red : Ansi.cyan)),
+        ...lineBoxes,
+      ],
       Box.left,
     ).pipe(Box.minHeight(minRows + 1), Box.minWidth(40), Box.border("rounded"));
 
     const content = Box.vcat([label, inputContent], Box.left);
+
+    const footer = hasError
+      ? Box.text(`✘ ${state.error.value}`).pipe(
+          Box.moveRight(2),
+          Box.annotate(Ansi.red),
+        )
+      : Hint(TextAreaKeys);
 
     return Box.vsep(
       [
         content.pipe(
           Box.pad(0, 0, 0, 1),
           Box.border("thick", {
-            annotation: Ansi.dim,
+            annotation: hasError ? Ansi.red : Ansi.dim,
             sides: { top: false, bottom: false, right: false },
           }),
         ),
-        Hint(TextAreaKeys),
+        footer,
       ],
       1,
       Box.left,
@@ -179,12 +190,13 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
     col: 0,
     stickyCol: 0,
     viewport: Viewport.initial,
-    prevRows: 0,
+    error: Option.none(),
   };
+
+  let hasRendered = false;
 
   return Prompt.custom<TextAreaState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
-      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -192,11 +204,11 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         default: () => renderLayout(state, false),
       });
 
-      // Clear previous output and render new in a single write to avoid flicker
-      const clear =
-        currentState.prevRows > 0
-          ? Cmd.clearLines(currentState.prevRows)
-          : Cmd.cursorHide;
+      // Compute previous frame height from old state; skip on initial render
+      const clear = hasRendered
+        ? Cmd.clearLines(renderLayout(state, false).rows)
+        : Cmd.cursorHide;
+      hasRendered = true;
 
       const cmds =
         action._tag === "Submit"
@@ -211,20 +223,23 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
       const char = Option.getOrElse(input.input, () => "");
       const currentLine = state.lines[state.row] ?? "";
 
+      /** Advance to next frame, clearing any active error on edits. */
       const next = (patch: Partial<TextAreaState>) => {
-        const newState = { ...state, ...patch };
+        const newState = {
+          ...state,
+          error: Option.none() as Option.Option<string>,
+          ...patch,
+        };
         const newViewport = Viewport.scrollToReveal(
           newState.viewport ?? state.viewport,
           newState.row ?? state.row,
           maxRows,
         );
-        const layout = renderLayout(state, false);
         return Effect.succeed(
           Action.NextFrame({
             state: {
               ...newState,
               viewport: newViewport,
-              prevRows: layout.rows,
             },
           }),
         );
@@ -237,7 +252,13 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
           if (options.validate) {
             return options.validate(finalValue).pipe(
               Effect.map((v) => Action.Submit({ value: v })),
-              Effect.catch(() => next({})),
+              Effect.catch((err) =>
+                next({
+                  error: Option.some(
+                    typeof err === "string" ? err : String(err),
+                  ),
+                }),
+              ),
             );
           }
           return Effect.succeed(Action.Submit({ value: finalValue }));
