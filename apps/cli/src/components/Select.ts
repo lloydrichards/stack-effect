@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Effect, pipe } from "effect";
+import { Data, Effect, Match } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 
@@ -60,57 +60,45 @@ export const Select = <A>(
   };
 
   return Prompt.custom<number, A>(0, {
-    render: (cursor, action) => {
+    render: Effect.fnUntraced(function* (cursor, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(cursor, false),
         Submit: () => renderLayout(cursor, true),
         NextFrame: ({ state }) => renderLayout(state, false),
         default: () => renderLayout(cursor, false),
       });
-      return Effect.succeed(
-        Box.renderPrettySync(
-          layout.pipe(
-            Box.combine(
-              action._tag === "Submit"
-                ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-                : Cmd.cursorHide,
-            ),
-          ),
+
+      const cmds =
+        action._tag === "Submit"
+          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+          : Cmd.cursorHide;
+
+      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+    }),
+    process: Effect.fnUntraced(function* (input, cursor) {
+      return Match.value(input.key.name).pipe(
+        Match.whenOr("down", "j", "tab", () =>
+          Action.NextFrame({ state: (cursor + 1) % choices.length }),
         ),
-      );
-    },
-    process: (input, cursor) => {
-      switch (input.key.name) {
-        case "down":
-        case "j":
-        case "tab":
-          return Effect.succeed(
-            Action.NextFrame({ state: (cursor + 1) % choices.length }),
-          );
-        case "up":
-        case "k":
-          return Effect.succeed(
-            Action.NextFrame({
-              state: (cursor - 1 + choices.length) % choices.length,
-            }),
-          );
-        case "enter":
-        case "return": {
+        Match.whenOr("up", "k", () =>
+          Action.NextFrame({
+            state: (cursor - 1 + choices.length) % choices.length,
+          }),
+        ),
+        Match.whenOr("enter", "return", () => {
           const selected = choices[cursor];
           if (selected) {
-            return Effect.succeed(Action.Submit({ value: selected.value }));
+            return Action.Submit({ value: selected.value });
           }
-          return Effect.succeed(Action.Beep());
-        }
-        default:
-          return Effect.succeed(Action.NextFrame({ state: cursor }));
-      }
-    },
-    clear: (_state, _action) =>
-      Effect.gen(function* () {
-        return Cmd.clearLines(renderLayout(_state, false).rows).pipe(
-          Box.renderPrettySync,
-        );
-      }),
+          return Action.Beep();
+        }),
+        Match.orElse(() => Action.NextFrame({ state: cursor })),
+      );
+    }),
+    clear: Effect.fnUntraced(function* (state) {
+      return yield* Box.renderPretty(
+        Cmd.clearLines(renderLayout(state, false).rows),
+      );
+    }),
   });
 };

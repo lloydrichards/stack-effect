@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 
@@ -164,27 +164,22 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
   };
 
   return Prompt.custom<TextAreaState, string>(initialState, {
-    render: (state, action) => {
+    render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
         NextFrame: ({ state: s }) => renderLayout(s, false),
         default: () => renderLayout(state, false),
       });
-      return Effect.succeed(
-        Box.renderPrettySync(
-          layout.pipe(
-            Box.combine(
-              action._tag === "Submit"
-                ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-                : Cmd.cursorHide,
-            ),
-          ),
-        ),
-      );
-    },
-    process: (input, state) => {
-      const key = input.key.name;
+
+      const cmds =
+        action._tag === "Submit"
+          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+          : Cmd.cursorHide;
+
+      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+    }),
+    process: Effect.fnUntraced(function* (input, state) {
       const char = Option.getOrElse(input.input, () => "");
       const currentLine = state.lines[state.row] ?? "";
 
@@ -203,8 +198,8 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         );
       };
 
-      switch (key) {
-        case "left": {
+      return yield* Match.value(input.key.name).pipe(
+        Match.when("left", () => {
           if (state.col > 0) {
             const newCol = state.col - 1;
             return next({ col: newCol, stickyCol: newCol });
@@ -218,8 +213,8 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             });
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-        case "right": {
+        }),
+        Match.when("right", () => {
           if (state.col < currentLine.length) {
             const newCol = state.col + 1;
             return next({ col: newCol, stickyCol: newCol });
@@ -228,22 +223,22 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             return next({ row: state.row + 1, col: 0, stickyCol: 0 });
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-        case "up": {
+        }),
+        Match.when("up", () => {
           if (state.row === 0)
             return Effect.succeed(Action.NextFrame({ state }));
           const targetLine = state.lines[state.row - 1] ?? "";
           const newCol = clampCol(state.stickyCol, targetLine);
           return next({ row: state.row - 1, col: newCol });
-        }
-        case "down": {
+        }),
+        Match.when("down", () => {
           if (state.row >= state.lines.length - 1)
             return Effect.succeed(Action.NextFrame({ state }));
           const targetLine = state.lines[state.row + 1] ?? "";
           const newCol = clampCol(state.stickyCol, targetLine);
           return next({ row: state.row + 1, col: newCol });
-        }
-        case "backspace": {
+        }),
+        Match.when("backspace", () => {
           if (state.col > 0) {
             const newLine =
               currentLine.slice(0, state.col - 1) +
@@ -266,8 +261,8 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             });
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-        case "delete": {
+        }),
+        Match.when("delete", () => {
           if (state.col < currentLine.length) {
             const newLine =
               currentLine.slice(0, state.col) +
@@ -284,28 +279,24 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             return next({ lines: newLines });
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-        case "home": {
-          return next({ col: 0, stickyCol: 0 });
-        }
-        case "end": {
-          return next({
+        }),
+        Match.when("home", () => next({ col: 0, stickyCol: 0 })),
+        Match.when("end", () =>
+          next({
             col: currentLine.length,
             stickyCol: currentLine.length,
-          });
-        }
-        case "escape":
-          return Effect.succeed(Action.Submit({ value: defaultValue }));
-        case "d": {
+          }),
+        ),
+        Match.when("escape", () =>
+          Effect.succeed(Action.Submit({ value: defaultValue })),
+        ),
+        Match.when("d", () => {
           if (input.key.ctrl) {
             const finalValue = joinLines(state.lines) || defaultValue;
             if (options.validate) {
               return options.validate(finalValue).pipe(
                 Effect.map((v) => Action.Submit({ value: v })),
-                Effect.catchIf(
-                  () => true,
-                  () => Effect.succeed(Action.NextFrame({ state })),
-                ),
+                Effect.catch(() => Effect.succeed(Action.NextFrame({ state }))),
               );
             }
             return Effect.succeed(Action.Submit({ value: finalValue }));
@@ -318,11 +309,9 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
           newLines[state.row] = newLine;
           const newCol = state.col + 1;
           return next({ lines: newLines, col: newCol, stickyCol: newCol });
-        }
-        case "enter":
-        case "return":
-        case "j": {
-          if (key === "j" && !input.key.ctrl) {
+        }),
+        Match.whenOr("enter", "return", "j", () => {
+          if (input.key.name === "j" && !input.key.ctrl) {
             const newLine =
               currentLine.slice(0, state.col) +
               "j" +
@@ -342,8 +331,8 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             col: 0,
             stickyCol: 0,
           });
-        }
-        default: {
+        }),
+        Match.orElse(() => {
           if (char && char.length === 1 && !input.key.ctrl && !input.key.meta) {
             const newLine =
               currentLine.slice(0, state.col) +
@@ -355,14 +344,13 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
             return next({ lines: newLines, col: newCol, stickyCol: newCol });
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-      }
-    },
-    clear: (state, _action) =>
-      Effect.gen(function* () {
-        return Cmd.clearLines(renderLayout(state, false).rows).pipe(
-          Box.renderPrettySync,
-        );
-      }),
+        }),
+      );
+    }),
+    clear: Effect.fnUntraced(function* (state) {
+      return yield* Box.renderPretty(
+        Cmd.clearLines(renderLayout(state, false).rows),
+      );
+    }),
   });
 };
