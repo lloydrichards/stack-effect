@@ -80,7 +80,7 @@ export const MultiSelect = <A>(
       const checkbox = Box.char(isChecked ? "◼" : "◻").pipe(
         Box.annotate(isChecked ? Ansi.green : Ansi.dim),
       );
-      const indicator = Box.char(isCursor ? ">" : " ").pipe(
+      const indicator = Box.char(isCursor ? "⏵" : " ").pipe(
         Box.annotate(Ansi.cyan),
       );
       const title = Box.text(c.title).pipe(
