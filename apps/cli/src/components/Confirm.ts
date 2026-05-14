@@ -1,8 +1,8 @@
-import { Data, Effect, Match } from "effect";
-import { has } from "effect/Filter";
+import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import type { AnsiStyle } from "effect-boxes/Ansi";
+import * as Viewport from "../lib/Viewport.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -13,7 +13,7 @@ export interface ConfirmOptions extends Prompt.ConfirmOptions {
 
 interface ConfirmState {
   readonly cursor: number;
-  readonly scrollOffset: number;
+  readonly viewport: Viewport.State;
 }
 
 /** Rows reserved for prompt chrome (margin, message, gaps, buttons, hint). */
@@ -36,9 +36,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
 
   // Pre-render children to lines for viewport scrolling
   const childrenRenderedLines: readonly Box.Box<AnsiStyle>[] = childrenBox
-    ? Box.renderPrettySync(childrenBox)
-        .split("\n")
-        .map((l) => Box.line(l))
+    ? Viewport.linesFromBox(childrenBox)
     : [];
   const hasChildren = childrenRenderedLines.length > 0;
 
@@ -73,16 +71,15 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     );
 
   const renderChildrenViewport = Effect.fnUntraced(function* (
-    scrollOffset: number,
+    viewport: Viewport.State,
   ) {
     const terminalRows = process.stdout.rows ?? 24;
-    return Box.vcat(
-      childrenRenderedLines.slice(
-        scrollOffset,
-        scrollOffset + viewportHeight(terminalRows),
-      ),
-      Box.left,
-    ).pipe(
+    const { items } = Viewport.render(
+      childrenRenderedLines,
+      viewport,
+      viewportHeight(terminalRows),
+    );
+    return Box.vcat(items, Box.left).pipe(
       Box.minWidth(childrenBox?.cols ?? 0),
       Box.maxWidth((process.stdout.columns ?? 80) - 10),
       Box.border("rounded", { annotation: Ansi.dim }),
@@ -106,9 +103,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     const content = Box.vsep(
       [
         Box.text(message).pipe(Box.annotate(Ansi.bold)),
-        ...(hasChildren
-          ? [yield* renderChildrenViewport(state.scrollOffset)]
-          : []),
+        ...(hasChildren ? [yield* renderChildrenViewport(state.viewport)] : []),
         renderButtons(state.cursor),
       ],
       1,
@@ -142,7 +137,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
 
   const initialState: ConfirmState = {
     cursor: initialValue ? 0 : 1,
-    scrollOffset: 0,
+    viewport: Viewport.initial,
   };
 
   return Prompt.custom<ConfirmState, boolean>(initialState, {
@@ -163,22 +158,31 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     }),
     process: Effect.fnUntraced(function* (input, state) {
       const maxVisible = viewportHeight(process.stdout.rows ?? 24);
-      const maxOffset = Math.max(0, childrenRenderedLines.length - maxVisible);
+      const bounds: Viewport.Bounds = {
+        contentHeight: childrenRenderedLines.length,
+        visibleHeight: maxVisible,
+      };
 
       return Match.value(input.key.name).pipe(
         Match.whenOr("up", "k", () => {
-          if (hasChildren && state.scrollOffset > 0) {
-            return Action.NextFrame({
-              state: { ...state, scrollOffset: state.scrollOffset - 1 },
-            });
+          if (hasChildren) {
+            const next = Viewport.scroll(state.viewport, "up", bounds);
+            if (Option.isSome(next)) {
+              return Action.NextFrame({
+                state: { ...state, viewport: next.value },
+              });
+            }
           }
           return Action.NextFrame({ state });
         }),
         Match.whenOr("down", "j", () => {
-          if (hasChildren && state.scrollOffset < maxOffset) {
-            return Action.NextFrame({
-              state: { ...state, scrollOffset: state.scrollOffset + 1 },
-            });
+          if (hasChildren) {
+            const next = Viewport.scroll(state.viewport, "down", bounds);
+            if (Option.isSome(next)) {
+              return Action.NextFrame({
+                state: { ...state, viewport: next.value },
+              });
+            }
           }
           return Action.NextFrame({ state });
         }),

@@ -170,9 +170,7 @@ export const TextInput = (
           if (options.validate) {
             return options.validate(finalValue).pipe(
               Effect.map((v) => Action.Submit({ value: v })),
-              Effect.catch(() =>
-                Effect.succeed(Action.NextFrame({ state })),
-              ),
+              Effect.catch(() => Effect.succeed(Action.NextFrame({ state }))),
             );
           }
           return Effect.succeed(Action.Submit({ value: finalValue }));
