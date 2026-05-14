@@ -191,6 +191,37 @@ export const biomeJsoncContents = `{
 }
 `;
 
+// -- dprint -----------------------------------------------------------------
+
+export const dprintJsonContents = `{
+  "$schema": "https://dprint.dev/schemas/v0.json",
+  "includes": ["**/*.{ts,tsx,js,jsx,json,md}"],
+  "indentWidth": 2,
+  "lineWidth": 120,
+  "newLineKind": "lf",
+  "typescript": {
+    "semiColons": "asi",
+    "quoteStyle": "alwaysDouble",
+    "trailingCommas": "never",
+    "operatorPosition": "maintain",
+    "arrowFunction.useParentheses": "force"
+  },
+  "excludes": [
+    "**/dist",
+    "**/build",
+    "**/node_modules",
+    "**/coverage",
+    "**/.turbo",
+    "**/.cache"
+  ],
+  "plugins": [
+    "https://plugins.dprint.dev/typescript-0.93.4.wasm",
+    "https://plugins.dprint.dev/markdown-0.20.0.wasm",
+    "https://plugins.dprint.dev/json-0.21.1.wasm"
+  ]
+}
+`;
+
 // -- vitest -----------------------------------------------------------------
 
 export const vitestConfigContents = `import { defineConfig } from "vitest/config";

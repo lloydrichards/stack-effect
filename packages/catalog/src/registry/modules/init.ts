@@ -6,6 +6,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   biomeJsoncContents,
+  dprintJsonContents,
   turboJsonContents,
   vitestConfigContents,
 } from "../content/init";
@@ -19,6 +20,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
+    initCategory: ["monorepo"],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -78,6 +80,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Biome",
     description: "Fast linter and formatter",
     visibility: "internal",
+    initCategory: ["lint", "format"],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -125,10 +128,96 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
+    id: ModuleId.make("dprint"),
+    title: "dprint",
+    description: "Fast pluggable formatter used by the Effect team",
+    visibility: "internal",
+    initCategory: ["format"],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/dprint.json",
+        contents: dprintJsonContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "dprint",
+        value: "^0.54.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "format",
+        value: "dprint fmt",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "format:check",
+        value: "dprint check",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("oxlint"),
+    title: "oxlint",
+    description: "Fast Rust-based linter used by the Effect team",
+    visibility: "internal",
+    initCategory: ["lint"],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("init"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "oxlint",
+        value: "^1.42.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "lint",
+        value: "oxlint",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "lint:fix",
+        value: "oxlint --fix",
+      },
+    ],
+  },
+  {
     id: ModuleId.make("vitest"),
     title: "Vitest",
     description: "Unit and integration testing framework",
     visibility: "internal",
+    initCategory: ["test"],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
