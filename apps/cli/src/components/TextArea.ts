@@ -1,6 +1,7 @@
 import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import * as Viewport from "../lib/Viewport.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -15,7 +16,8 @@ interface TextAreaState {
   readonly row: number;
   readonly col: number;
   readonly stickyCol: number;
-  readonly scrollOffset: number;
+  readonly viewport: Viewport.State;
+  readonly prevRows: number;
 }
 
 const splitLines = (value: string): Array<string> => {
@@ -27,18 +29,6 @@ const joinLines = (lines: ReadonlyArray<string>): string => lines.join("\n");
 
 const clampCol = (col: number, line: string): number =>
   Math.min(col, line.length);
-
-const computeScrollOffset = (
-  row: number,
-  maxRows: number,
-  totalLines: number,
-  currentOffset: number,
-): number => {
-  if (totalLines <= maxRows) return 0;
-  if (row < currentOffset) return row;
-  if (row >= currentOffset + maxRows) return row - maxRows + 1;
-  return currentOffset;
-};
 
 export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
   const message = options.message;
@@ -68,12 +58,11 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
     const isEmpty =
       state.lines.length === 1 && state.lines[0] === "" && placeholder !== "";
 
-    const visibleOffset = computeScrollOffset(
+    const visibleOffset = Viewport.scrollToReveal(
+      state.viewport,
       state.row,
       maxRows,
-      state.lines.length,
-      state.scrollOffset,
-    );
+    ).row;
     const visibleLines = state.lines.slice(
       visibleOffset,
       visibleOffset + maxRows,
@@ -84,18 +73,17 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
       : visibleLines.map((line, visibleIdx) => {
           const actualRow = visibleIdx + visibleOffset;
           const isCursorRow = actualRow === state.row;
-          const rowNummber = Box.text(`${actualRow} `).pipe(
-            Box.minWidth(2),
-            Box.annotate(Ansi.dim),
+          const rowNummber = Box.text(String(actualRow + 1)).pipe(
+            Box.alignHoriz(Box.left, 3),
+            Box.annotate(isCursorRow ? Ansi.white : Ansi.dim),
           );
 
           if (!isCursorRow) {
-            return Box.hsep(
+            return Box.hcat(
               [
                 rowNummber,
                 Box.text(line || " ").pipe(Box.annotate(Ansi.white)),
               ],
-              1,
               Box.left,
             );
           }
@@ -105,7 +93,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
           const cursorChar = line[col] ?? " ";
           const after = line.slice(col + 1);
 
-          return Box.hsep(
+          return Box.hcat(
             [
               rowNummber,
               Box.combineAll([
@@ -116,7 +104,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
                 Box.text(after).pipe(Box.annotate(Ansi.white)),
               ]),
             ],
-            1,
+
             Box.left,
           );
         });
@@ -160,11 +148,13 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
     row: 0,
     col: 0,
     stickyCol: 0,
-    scrollOffset: 0,
+    viewport: Viewport.initial,
+    prevRows: 0,
   };
 
   return Prompt.custom<TextAreaState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
+      const currentState = action._tag === "NextFrame" ? action.state : state;
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
@@ -172,12 +162,20 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         default: () => renderLayout(state, false),
       });
 
+      // Clear previous output and render new in a single write to avoid flicker
+      const clear =
+        currentState.prevRows > 0
+          ? Cmd.clearLines(currentState.prevRows)
+          : Cmd.cursorHide;
+
       const cmds =
         action._tag === "Submit"
           ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
           : Cmd.cursorHide;
 
-      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+      return yield* Box.renderPretty(
+        Box.combine(clear, layout.pipe(Box.combine(cmds))),
+      );
     }),
     process: Effect.fnUntraced(function* (input, state) {
       const char = Option.getOrElse(input.input, () => "");
@@ -185,15 +183,19 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
 
       const next = (patch: Partial<TextAreaState>) => {
         const newState = { ...state, ...patch };
-        const newOffset = computeScrollOffset(
-          newState.row,
+        const newViewport = Viewport.scrollToReveal(
+          newState.viewport ?? state.viewport,
+          newState.row ?? state.row,
           maxRows,
-          newState.lines.length,
-          newState.scrollOffset,
         );
+        const layout = renderLayout(state, false);
         return Effect.succeed(
           Action.NextFrame({
-            state: { ...newState, scrollOffset: newOffset },
+            state: {
+              ...newState,
+              viewport: newViewport,
+              prevRows: layout.rows,
+            },
           }),
         );
       };
@@ -347,10 +349,8 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         }),
       );
     }),
-    clear: Effect.fnUntraced(function* (state) {
-      return yield* Box.renderPretty(
-        Cmd.clearLines(renderLayout(state, false).rows),
-      );
+    clear: Effect.fnUntraced(function* (_state) {
+      return "";
     }),
   });
 };
