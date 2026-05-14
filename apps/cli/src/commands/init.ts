@@ -6,7 +6,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Array as Arr, Console, Effect, Option, Schema } from "effect";
+import { Array as Arr, Console, Effect, Option, Path, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
@@ -61,6 +61,30 @@ const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
 );
 
 /**
+ * Resolve project name and output directory from the positional name argument
+ * and the `--root` flag, matching the convention used by create-t3-app and
+ * create-better-t-stack:
+ *
+ * - `stack-effect init my-app`       → dir=cwd/my-app, name="my-app"
+ * - `stack-effect init .`            → dir=cwd,        name=basename(cwd)
+ * - `stack-effect init my-app -r /d` → dir=/d/my-app,  name="my-app"
+ * - `stack-effect init . -r /d`      → dir=/d,         name=basename(/d)
+ */
+const resolveNameAndRoot = Effect.fn("resolveNameAndRoot")(function* (
+  nameInput: string,
+  rootFlag: Option.Option<string>,
+) {
+  const path = yield* Path.Path;
+  const base = Option.getOrElse(rootFlag, () => process.cwd());
+  if (nameInput === ".") {
+    const resolved = path.resolve(base);
+    return { projectName: path.basename(resolved), repoRoot: resolved };
+  }
+  const repoRoot = path.resolve(base, nameInput);
+  return { projectName: nameInput, repoRoot };
+});
+
+/**
  * Prompt for an optional tool choice, returning Option.none for "none".
  */
 const optionalSelect = <A extends string>(
@@ -89,7 +113,6 @@ export const init = Command.make(
     Effect.gen(function* () {
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogService;
-      const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
 
       // Build choices from catalog for each init category
       const monorepoChoices = catalog
@@ -121,6 +144,28 @@ export const init = Command.make(
           value: m.id,
         }));
 
+      // Project name and output directory
+      if (flags.yes && Option.isNone(flags.name)) {
+        return yield* Effect.fail(
+          "When using --yes with init, provide a project name as the positional argument.",
+        );
+      }
+
+      const nameInput = Option.isSome(flags.name)
+        ? flags.name.value
+        : yield* TextInput({
+            message: "What is your project name?",
+            validate: (v) =>
+              v.trim().length > 0
+                ? Effect.succeed(v.trim())
+                : Effect.fail("Name cannot be empty"),
+          });
+
+      const { projectName, repoRoot } = yield* resolveNameAndRoot(
+        nameInput,
+        flags.root,
+      );
+
       // Check if already initialized
       const existing = yield* configure
         .readConfig(repoRoot)
@@ -145,23 +190,6 @@ export const init = Command.make(
           return;
         }
       }
-
-      // Project name
-      if (flags.yes && Option.isNone(flags.name)) {
-        return yield* Effect.fail(
-          "When using --yes with init, provide a project name as the positional argument.",
-        );
-      }
-
-      const projectName = Option.isSome(flags.name)
-        ? flags.name.value
-        : yield* TextInput({
-            message: "What is your project name?",
-            validate: (v) =>
-              v.trim().length > 0
-                ? Effect.succeed(v.trim())
-                : Effect.fail("Name cannot be empty"),
-          });
 
       // Runtime
       const runtimeChoice = Option.isSome(flags.packageManager)
@@ -264,6 +292,7 @@ export const init = Command.make(
               Box.vcat(
                 [
                   Box.text("Name:"),
+                  Box.text("Directory:"),
                   Box.text("Runtime:"),
                   Box.text("Package manager:"),
                   Box.text("Monorepo:"),
@@ -278,6 +307,7 @@ export const init = Command.make(
               Box.vcat(
                 [
                   Box.text(config.name),
+                  Box.text(repoRoot),
                   Box.text(config.runtimeName),
                   Box.text(config.packageManagerName),
                   Box.text(config.monorepo ?? "none"),

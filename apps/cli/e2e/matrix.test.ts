@@ -164,7 +164,7 @@ describe("matrix", () => {
             const root = `${cli.workdir}/${name}`;
 
             // Init project
-            yield* cli.run("init", name, "--yes", "--root", root);
+            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
             // Add modules to target
@@ -201,7 +201,7 @@ describe("matrix", () => {
             const root = `${cli.workdir}/${name}`;
 
             // Init project
-            yield* cli.run("init", name, "--yes", "--root", root);
+            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
             // Add server modules first (satisfies implications)
@@ -250,7 +250,7 @@ describe("matrix", () => {
           const root = `${cli.workdir}/${name}`;
 
           // Init
-          yield* cli.run("init", name, "--yes", "--root", root);
+          yield* cli.run("init", name, "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           // Add all server modules
