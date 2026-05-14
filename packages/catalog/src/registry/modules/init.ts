@@ -1,4 +1,5 @@
 import {
+  ModuleCategory,
   type ModuleDefinition,
   ModuleId,
   TargetIdentity,
@@ -20,7 +21,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
-    initCategory: ["monorepo"],
+    categories: [ModuleCategory.make("monorepo")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -80,7 +81,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Biome",
     description: "Fast linter and formatter",
     visibility: "internal",
-    initCategory: ["lint", "format"],
+    categories: [ModuleCategory.make("lint"), ModuleCategory.make("format")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -132,7 +133,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "dprint",
     description: "Fast pluggable formatter used by the Effect team",
     visibility: "internal",
-    initCategory: ["format"],
+    categories: [ModuleCategory.make("format")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -177,7 +178,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "oxlint",
     description: "Fast Rust-based linter used by the Effect team",
     visibility: "internal",
-    initCategory: ["lint"],
+    categories: [ModuleCategory.make("lint")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {
@@ -217,7 +218,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Vitest",
     description: "Unit and integration testing framework",
     visibility: "internal",
-    initCategory: ["test"],
+    categories: [ModuleCategory.make("test")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
     dependencies: [
       {

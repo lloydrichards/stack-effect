@@ -198,6 +198,14 @@ export const ModuleDependency = Schema.TaggedUnion({
 
 export const Visibility = Schema.Literals(["public", "internal"]);
 
+/**
+ * Freeform tag for grouping modules into selectable categories.
+ * Modules sharing a category are presented as alternatives in prompts.
+ */
+export const ModuleCategory = Schema.String.pipe(
+  Schema.brand("ModuleCategory"),
+);
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
@@ -205,6 +213,10 @@ export const ModuleDefinition = Schema.Struct({
   visibility: Visibility.pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed("public" as const)),
+  ),
+  categories: Schema.Array(ModuleCategory).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
   ),
   supportedOn: Schema.Array(SupportedOn),
   dependencies: Schema.Array(ModuleDependency),

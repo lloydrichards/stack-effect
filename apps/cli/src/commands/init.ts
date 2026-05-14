@@ -1,6 +1,12 @@
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { CatalogService } from "@repo/catalog";
+import {
+  ModuleCategory,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, Option, Schema } from "effect";
+import { Array as Arr, Console, Effect, Option, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
@@ -17,12 +23,16 @@ import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 const buildInitSelection = (
   config: typeof StackConfig.Type,
 ): typeof Selection.Type => {
-  const modules: Array<{ id: typeof ModuleId.Type }> = [];
-
-  if (config.monorepo === "turbo") modules.push({ id: ModuleId.make("turbo") });
-  if (config.lint === "biome" || config.format === "biome")
-    modules.push({ id: ModuleId.make("biome") });
-  if (config.test === "vitest") modules.push({ id: ModuleId.make("vitest") });
+  // Collect unique module IDs from all category fields
+  const moduleIds = new Set<string>();
+  for (const field of [
+    config.monorepo,
+    config.lint,
+    config.format,
+    config.test,
+  ]) {
+    if (field !== undefined) moduleIds.add(field);
+  }
 
   return {
     targets: [
@@ -31,7 +41,9 @@ const buildInitSelection = (
           kind: TargetKind.make("init"),
           name: config.name,
         }),
-        modules,
+        modules: Arr.fromIterable(moduleIds).map((id) => ({
+          id: ModuleId.make(id),
+        })),
       },
     ],
   };
@@ -54,7 +66,7 @@ const optionalSelect = <A extends string>(
   Effect.gen(function* () {
     const v = yield* Select({
       message,
-      choices: [...choices, { title: "none", value: "none" as A }],
+      choices: [...choices, { title: "< skip >", value: "none" as A }],
     });
     return v === "none" ? Option.none<A>() : Option.some(v);
   });
@@ -71,7 +83,38 @@ export const init = Command.make(
   (flags) =>
     Effect.gen(function* () {
       const configure = yield* ConfigureService;
+      const catalog = yield* CatalogService;
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
+
+      // Build choices from catalog for each init category
+      const monorepoChoices = catalog
+        .getModules({ category: ModuleCategory.make("monorepo") })
+        .map((m) => ({
+          title: m.title,
+          description: m.description,
+          value: m.id,
+        }));
+      const lintChoices = catalog
+        .getModules({ category: ModuleCategory.make("lint") })
+        .map((m) => ({
+          title: m.title,
+          description: m.description,
+          value: m.id,
+        }));
+      const formatChoices = catalog
+        .getModules({ category: ModuleCategory.make("format") })
+        .map((m) => ({
+          title: m.title,
+          description: m.description,
+          value: m.id,
+        }));
+      const testChoices = catalog
+        .getModules({ category: ModuleCategory.make("test") })
+        .map((m) => ({
+          title: m.title,
+          description: m.description,
+          value: m.id,
+        }));
 
       // Check if already initialized
       const existing = yield* configure
@@ -146,31 +189,32 @@ export const init = Command.make(
 
       // Monorepo
       const monorepo = flags.yes
-        ? Option.some("turbo" as const)
-        : yield* optionalSelect("What monorepo tool will you use?", [
-            { title: "turbo", value: "turbo" as const },
-          ]);
+        ? Option.some(monorepoChoices[0]?.value ?? "turbo")
+        : yield* optionalSelect(
+            "What monorepo tool will you use?",
+            monorepoChoices,
+          );
 
       // Lint
       const lint = flags.yes
-        ? Option.some("biome" as const)
-        : yield* optionalSelect("What will you use for linting?", [
-            { title: "biome", value: "biome" as const },
-          ]);
+        ? Option.some(lintChoices[0]?.value ?? "biome")
+        : yield* optionalSelect("What will you use for linting?", lintChoices);
 
       // Format
       const format_ = flags.yes
-        ? Option.some("biome" as const)
-        : yield* optionalSelect("What will you use for formatting?", [
-            { title: "biome", value: "biome" as const },
-          ]);
+        ? Option.some(formatChoices[0]?.value ?? "biome")
+        : yield* optionalSelect(
+            "What will you use for formatting?",
+            formatChoices,
+          );
 
       // Test
       const test = flags.yes
-        ? Option.some("vitest" as const)
-        : yield* optionalSelect("What test framework will you use?", [
-            { title: "vitest", value: "vitest" as const },
-          ]);
+        ? Option.some(testChoices[0]?.value ?? "vitest")
+        : yield* optionalSelect(
+            "What test framework will you use?",
+            testChoices,
+          );
 
       const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,
@@ -219,10 +263,10 @@ export const init = Command.make(
                   Box.text(config.name),
                   Box.text(config.runtimeName),
                   Box.text(config.packageManagerName),
-                  Box.text(Option.getOrElse(monorepo, () => "none")),
-                  Box.text(Option.getOrElse(lint, () => "none")),
-                  Box.text(Option.getOrElse(format_, () => "none")),
-                  Box.text(Option.getOrElse(test, () => "none")),
+                  Box.text(config.monorepo ?? "none"),
+                  Box.text(config.lint ?? "none"),
+                  Box.text(config.format ?? "none"),
+                  Box.text(config.test ?? "none"),
                   Box.text(configure.configPath(repoRoot)),
                 ],
                 Box.left,
