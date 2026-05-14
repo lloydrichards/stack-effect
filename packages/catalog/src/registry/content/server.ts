@@ -93,7 +93,7 @@ const HttpLive = Effect.gen(function* () {
   const config = yield* ServerConfig;
   const allowedOrigins = config.allowedOrigins.split(",").map((o) => o.trim());
 
-  yield* Effect.logInfo("CORS allowed origins: " + allowedOrigins.join(", "));
+  yield* Effect.logInfo(\`CORS allowed origins: \${allowedOrigins.join(", ")}\`);
   yield* Effect.logInfo("Starting server with:");
   yield* Effect.logInfo("  - HTTP API at /");
 
