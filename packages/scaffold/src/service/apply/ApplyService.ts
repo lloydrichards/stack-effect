@@ -194,15 +194,25 @@ export class ApplyService extends Context.Service<ApplyService>()(
               },
             });
           case "write-composed": {
-            // Get base contents: use seedContents if provided, otherwise load from file
+            // Get base contents:
+            // For "modify" mode, always prefer the existing file so we don't
+            // overwrite fields added by prior apply runs. Fall back to
+            // seedContents (used for "create") or a sensible default.
             let baseContents: string;
-            if (action.seedContents !== undefined) {
+            const existingContents =
+              action.writeMode === "modify"
+                ? yield* loadFileContents(path.join(repoRoot, action.path))
+                : Option.none<string>();
+
+            if (Option.isSome(existingContents)) {
+              baseContents = existingContents.value;
+            } else if (action.seedContents !== undefined) {
               baseContents = action.seedContents;
             } else {
-              const existingContents = yield* loadFileContents(
+              const fallbackContents = yield* loadFileContents(
                 path.join(repoRoot, action.path),
               );
-              if (Option.isNone(existingContents)) {
+              if (Option.isNone(fallbackContents)) {
                 // No existing file and no seed - start with empty for JSON, fail for TS
                 if (action.path.endsWith(".json")) {
                   baseContents = "{}";
@@ -210,7 +220,7 @@ export class ApplyService extends Context.Service<ApplyService>()(
                   baseContents = "";
                 }
               } else {
-                baseContents = existingContents.value;
+                baseContents = fallbackContents.value;
               }
             }
 
