@@ -30,12 +30,18 @@ export const Select = <A>(
 
     const items = choices.map((c, i) => {
       const isSelected = i === cursor;
-      const indicator = isSelected ? "> " : "  ";
-      return Box.text(`${indicator}${c.title}`).pipe(
-        Box.annotate(
-          isSelected ? Ansi.combine(Ansi.cyan, Ansi.bold) : Ansi.dim,
-        ),
+      const indicator = Box.char(isSelected ? "⏵" : " ").pipe(
+        Box.annotate(Ansi.cyan),
       );
+      const title = Box.text(c.title).pipe(
+        Box.annotate(isSelected ? Ansi.bold : Ansi.dim),
+      );
+      const description =
+        isSelected && c.description
+          ? Box.text(c.description).pipe(Box.annotate(Ansi.dim))
+          : Box.nullBox;
+
+      return Box.hsep([indicator, title, description], 1, Box.left);
     });
 
     if (submitted) {
