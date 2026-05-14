@@ -204,7 +204,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0-beta.64",
+        value: "4.0.0-beta.65",
       },
     ],
   },
