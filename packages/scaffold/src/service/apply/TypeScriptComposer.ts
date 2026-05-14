@@ -148,6 +148,38 @@ const applyTsAddReexport = (
   }
 };
 
+/**
+ * Append an argument to a call expression. If the call's sole argument is an
+ * array literal, the new value is added as an element of that array instead
+ * of as a second function argument. This handles patterns like
+ * `Command.withSubcommands([])` where new entries belong inside the array.
+ */
+const appendToCallOrArray = (call: CallExpression, argument: string): void => {
+  const args = call.getArguments();
+
+  // If the only argument is an array literal, add inside it
+  if (
+    args.length === 1 &&
+    args[0] !== undefined &&
+    args[0].isKind(SyntaxKind.ArrayLiteralExpression)
+  ) {
+    const array = args[0].asKindOrThrow(SyntaxKind.ArrayLiteralExpression);
+    const alreadyExists = array
+      .getElements()
+      .some((el) => el.getText() === argument);
+    if (!alreadyExists) {
+      array.addElement(argument);
+    }
+    return;
+  }
+
+  // Otherwise add as a regular function argument
+  const alreadyExists = args.some((arg) => arg.getText() === argument);
+  if (!alreadyExists) {
+    call.addArgument(argument);
+  }
+};
+
 const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   sourceFile: SourceFile,
   op: typeof TsAppendCallArgOp.Type,
@@ -199,12 +231,7 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   // First check if initializer itself is the call expression
   if (initializer.isKind(SyntaxKind.CallExpression)) {
     if (isMatchingCall(initializer)) {
-      // Check if argument already exists
-      const args = initializer.getArguments();
-      const alreadyExists = args.some((arg) => arg.getText() === op.argument);
-      if (!alreadyExists) {
-        initializer.addArgument(op.argument);
-      }
+      appendToCallOrArray(initializer, op.argument);
       return;
     }
   }
@@ -216,12 +243,7 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
 
   for (const call of callExpressions) {
     if (isMatchingCall(call)) {
-      // Check if argument already exists
-      const args = call.getArguments();
-      const alreadyExists = args.some((arg) => arg.getText() === op.argument);
-      if (!alreadyExists) {
-        call.addArgument(op.argument);
-      }
+      appendToCallOrArray(call, op.argument);
       return;
     }
   }
