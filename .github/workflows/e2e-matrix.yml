@@ -1,0 +1,37 @@
+name: E2E - matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "packages/scaffold/**"
+      - "packages/catalog/**"
+      - "packages/domain/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "packages/scaffold/**"
+      - "packages/catalog/**"
+      - "packages/domain/**"
+
+jobs:
+  e2e:
+    name: "E2E Test (matrix)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install Dependencies
+        uses: ./.github/actions/setup
+
+      - name: Build
+        run: bun build src/index.ts --outdir=dist --target=bun --minify --banner '#!/usr/bin/env bun'
+        working-directory: apps/cli
+
+      - name: Run Matrix E2E Tests
+        run: bunx vitest run --config vitest.e2e.config.ts e2e/matrix.test.ts
+        working-directory: apps/cli
