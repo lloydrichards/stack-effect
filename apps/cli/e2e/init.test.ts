@@ -16,13 +16,7 @@ describe("init", () => {
         Effect.gen(function* () {
           const cli = yield* CLI;
 
-          yield* cli.run(
-            "init",
-            "my-app",
-            "--yes",
-            "--root",
-            `${cli.workdir}/my-app`,
-          );
+          yield* cli.run("init", "my-app", "--yes", "--root", cli.workdir);
 
           yield* cli.expectExitCode(0);
           yield* cli.expectFileExists("my-app/package.json");
@@ -38,13 +32,7 @@ describe("init", () => {
         Effect.gen(function* () {
           const cli = yield* CLI;
 
-          yield* cli.run(
-            "init",
-            "mono-app",
-            "--yes",
-            "--root",
-            `${cli.workdir}/mono-app`,
-          );
+          yield* cli.run("init", "mono-app", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.expectFileExists("mono-app/turbo.json");
@@ -66,7 +54,7 @@ describe("init", () => {
             "--yes",
             "--dry-run",
             "--root",
-            `${cli.workdir}/ghost-app`,
+            cli.workdir,
           );
 
           yield* cli.expectExitCode(1);
@@ -81,13 +69,7 @@ describe("init", () => {
         Effect.gen(function* () {
           const cli = yield* CLI;
 
-          yield* cli.run(
-            "init",
-            "lint-app",
-            "--yes",
-            "--root",
-            `${cli.workdir}/lint-app`,
-          );
+          yield* cli.run("init", "lint-app", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("lint-app", function* (project) {
@@ -103,13 +85,7 @@ describe("init", () => {
         Effect.gen(function* () {
           const cli = yield* CLI;
 
-          yield* cli.run(
-            "init",
-            "format-app",
-            "--yes",
-            "--root",
-            `${cli.workdir}/format-app`,
-          );
+          yield* cli.run("init", "format-app", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("format-app", function* (project) {
@@ -130,7 +106,7 @@ describe("init", () => {
             "typecheck-app",
             "--yes",
             "--root",
-            `${cli.workdir}/typecheck-app`,
+            cli.workdir,
           );
           yield* cli.expectExitCode(0);
 
@@ -154,7 +130,7 @@ describe("init", () => {
             "--runtime",
             "node",
             "--root",
-            `${cli.workdir}/node-app`,
+            cli.workdir,
           );
 
           yield* cli.expectExitCode(0);
@@ -169,13 +145,7 @@ describe("init", () => {
         Effect.gen(function* () {
           const cli = yield* CLI;
 
-          yield* cli.run(
-            "init",
-            "git-app",
-            "--yes",
-            "--root",
-            `${cli.workdir}/git-app`,
-          );
+          yield* cli.run("init", "git-app", "--yes", "--root", cli.workdir);
 
           yield* cli.expectExitCode(0);
           yield* cli.expectFileExists("git-app/.git/HEAD");
@@ -199,7 +169,7 @@ describe("init", () => {
             "--yes",
             "--no-git",
             "--root",
-            `${cli.workdir}/nogit-app`,
+            cli.workdir,
           );
 
           yield* cli.expectExitCode(0);

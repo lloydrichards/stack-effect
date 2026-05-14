@@ -17,7 +17,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/add-test`;
 
-          yield* cli.run("init", "add-test", "--yes", "--root", root);
+          yield* cli.run("init", "add-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.run(
@@ -47,7 +47,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/impl-test`;
 
-          yield* cli.run("init", "impl-test", "--yes", "--root", root);
+          yield* cli.run("init", "impl-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           // http-api-client implies http-api-server on server — rejected non-interactively
@@ -74,7 +74,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/dry-add`;
 
-          yield* cli.run("init", "dry-add", "--yes", "--root", root);
+          yield* cli.run("init", "dry-add", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.run(
@@ -104,7 +104,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/impl-exists`;
 
-          yield* cli.run("init", "impl-exists", "--yes", "--root", root);
+          yield* cli.run("init", "impl-exists", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           // First add domain-api (required by server)
@@ -157,7 +157,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/dep-test`;
 
-          yield* cli.run("init", "dep-test", "--yes", "--root", root);
+          yield* cli.run("init", "dep-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           // Add chat-server which depends on domain-chat on package/domain
@@ -188,7 +188,7 @@ describe("add", () => {
           const cli = yield* CLI;
           const root = `${cli.workdir}/ai-test`;
 
-          yield* cli.run("init", "ai-test", "--yes", "--root", root);
+          yield* cli.run("init", "ai-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
           yield* cli.run(
