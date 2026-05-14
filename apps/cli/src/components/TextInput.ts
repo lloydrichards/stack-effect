@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Effect, Option, pipe } from "effect";
+import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 
@@ -93,46 +93,43 @@ export const TextInput = (
   const initialState: TextState = { value: "", cursor: 0 };
 
   return Prompt.custom<TextState, string>(initialState, {
-    render: (state, action) => {
+    render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),
         Submit: () => renderLayout(state, true),
         NextFrame: ({ state: s }) => renderLayout(s, false),
         default: () => renderLayout(state, false),
       });
-      return Effect.succeed(
-        Box.renderPrettySync(
-          layout.pipe(
-            Box.combine(
-              action._tag === "Submit"
-                ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
-                : Cmd.cursorHide,
-            ),
-          ),
-        ),
-      );
-    },
-    process: (input, state) => {
-      const key = input.key.name;
+
+      const cmds =
+        action._tag === "Submit"
+          ? Box.combine(Cmd.cursorShow, Cmd.cursorNextLine(1))
+          : Cmd.cursorHide;
+
+      return yield* Box.renderPretty(layout.pipe(Box.combine(cmds)));
+    }),
+    process: Effect.fnUntraced(function* (input, state) {
       const char = Option.getOrElse(input.input, () => "");
 
-      switch (key) {
-        case "left":
-          return Effect.succeed(
+      return yield* Match.value(input.key.name).pipe(
+        Match.when("left", () =>
+          Effect.succeed(
             Action.NextFrame({
               state: { ...state, cursor: Math.max(0, state.cursor - 1) },
             }),
-          );
-        case "right":
-          return Effect.succeed(
+          ),
+        ),
+        Match.when("right", () =>
+          Effect.succeed(
             Action.NextFrame({
               state: {
                 ...state,
                 cursor: Math.min(state.value.length, state.cursor + 1),
               },
             }),
-          );
-        case "backspace": {
+          ),
+        ),
+        Match.when("backspace", () => {
           if (state.cursor === 0) return Effect.succeed(Action.Beep());
           const newValue =
             state.value.slice(0, state.cursor - 1) +
@@ -142,8 +139,8 @@ export const TextInput = (
               state: { value: newValue, cursor: state.cursor - 1 },
             }),
           );
-        }
-        case "delete": {
+        }),
+        Match.when("delete", () => {
           if (state.cursor >= state.value.length)
             return Effect.succeed(Action.Beep());
           const newValue =
@@ -154,34 +151,33 @@ export const TextInput = (
               state: { value: newValue, cursor: state.cursor },
             }),
           );
-        }
-        case "home":
-          return Effect.succeed(
-            Action.NextFrame({ state: { ...state, cursor: 0 } }),
-          );
-        case "end":
-          return Effect.succeed(
+        }),
+        Match.when("home", () =>
+          Effect.succeed(Action.NextFrame({ state: { ...state, cursor: 0 } })),
+        ),
+        Match.when("end", () =>
+          Effect.succeed(
             Action.NextFrame({
               state: { ...state, cursor: state.value.length },
             }),
-          );
-        case "escape":
-          return Effect.succeed(Action.Submit({ value: defaultValue }));
-        case "enter":
-        case "return": {
+          ),
+        ),
+        Match.when("escape", () =>
+          Effect.succeed(Action.Submit({ value: defaultValue })),
+        ),
+        Match.whenOr("enter", "return", () => {
           const finalValue = state.value || defaultValue;
           if (options.validate) {
             return options.validate(finalValue).pipe(
               Effect.map((v) => Action.Submit({ value: v })),
-              Effect.catchIf(
-                () => true,
-                () => Effect.succeed(Action.Beep()),
+              Effect.catch(() =>
+                Effect.succeed(Action.NextFrame({ state })),
               ),
             );
           }
           return Effect.succeed(Action.Submit({ value: finalValue }));
-        }
-        default: {
+        }),
+        Match.orElse(() => {
           if (char && char.length === 1 && !input.key.ctrl && !input.key.meta) {
             const newValue =
               state.value.slice(0, state.cursor) +
@@ -194,14 +190,13 @@ export const TextInput = (
             );
           }
           return Effect.succeed(Action.NextFrame({ state }));
-        }
-      }
-    },
-    clear: (state, _action) =>
-      Effect.gen(function* () {
-        return Cmd.clearLines(renderLayout(state, false).rows).pipe(
-          Box.renderPrettySync,
-        );
-      }),
+        }),
+      );
+    }),
+    clear: Effect.fnUntraced(function* (state) {
+      return yield* Box.renderPretty(
+        Cmd.clearLines(renderLayout(state, false).rows),
+      );
+    }),
   });
 };
