@@ -31,7 +31,7 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
 
 // Client chat atom (uses ChatRpcClient instead of RpcClient)
 export const clientChatAtomContents = `import type { ChatMessage, ChatResponse, ToolCall } from "@repo/domain/Chat";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Stream } from "effect";
 import { Atom, type Atom as AtomType } from "effect/unstable/reactivity";
 import { ChatRpcClient } from "../chat-rpc-client";
 
@@ -298,7 +298,7 @@ export const chatAtom: AtomType.AtomResultFn<
 export const clientChatBoxContents = `import { useAtom } from "@effect/atom-react";
 import type { ChatResponse, MessageSegment } from "@repo/domain/Chat";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { type FC, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { chatAtom } from "@/lib/atoms/chat-atom";
 import { cn } from "@/lib/utils";
 

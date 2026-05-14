@@ -43,7 +43,8 @@ export const cliTsconfigContents = `{
  *
  * Additional subcommands are added by modules.
  */
-export const cliIndexContents = `import { BunRuntime } from "@effect/platform-bun";
+export const cliIndexContents = `import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { Effect } from "effect";
 import { Command } from "effect/unstable/cli";
 
 // ============================================================================
@@ -59,12 +60,12 @@ const root = Command.make("{{packageName}}");
 // Subcommands - modules inject additional subcommands via Command.withSubcommands
 const AllCommands = Command.withSubcommands([]);
 
-const program = root.pipe(
+root.pipe(
   AllCommands,
   Command.run({ version: "0.0.0" }),
+  Effect.provide(BunServices.layer),
+  BunRuntime.runMain,
 );
-
-BunRuntime.runMain(program);
 `;
 
 /**
@@ -72,10 +73,10 @@ BunRuntime.runMain(program);
  *
  * A simple subcommand that prints a greeting message.
  */
-export const cliHelloCommandContents = `import { Console, Effect } from "effect";
+export const cliHelloCommandContents = `import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-const name = Argument.text({ name: "name" }).pipe(
+const name = Argument.string("name").pipe(
   Argument.optional,
 );
 
@@ -86,8 +87,8 @@ const shout = Flag.boolean("shout").pipe(
 
 export const hello = Command.make("hello", { name, shout }, ({ name, shout }) =>
   Effect.gen(function* () {
-    const greeting = \`Hello, \${name ?? "World"}!\`;
-    yield* Console.log(shout ? greeting.toUpperCase() : greeting);
+    const greeting = \`Hello, \${Option.getOrElse(name, () => "World")}!\`;
+    yield* Console.log(Option.getOrElse(shout, () => false) ? greeting.toUpperCase() : greeting);
   }),
 ).pipe(Command.withDescription("Print a greeting message"));
 `;
