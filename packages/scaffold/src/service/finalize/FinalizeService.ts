@@ -126,7 +126,57 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         );
       });
 
-      return { run, preview };
+      const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
+        function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
+          const moduleNodes = Arr.filter(
+            blueprint.nodes,
+            BlueprintNode.guards["attached-module"],
+          );
+          const targetNodes = Arr.filter(
+            blueprint.nodes,
+            BlueprintNode.guards.target,
+          );
+
+          const steps: string[] = [];
+
+          // Collect target-level next steps
+          for (const node of targetNodes) {
+            const definition = yield* catalog.getTarget(node.identity.kind);
+            const context = new ContributionTokenContext({
+              targetKey: node.id,
+              identity: node.identity,
+              config: config.config,
+            });
+            for (const step of definition.nextSteps ?? []) {
+              steps.push(context.resolve(step));
+            }
+          }
+
+          // Collect module-level next steps (dependency order from blueprint)
+          for (const moduleNode of moduleNodes) {
+            const targetNode = Arr.findFirst(
+              targetNodes,
+              (t) => t.id === moduleNode.targetId,
+            );
+            if (Option.isNone(targetNode)) continue;
+
+            const definition = yield* catalog.getModule(moduleNode.moduleId);
+            const context = new ContributionTokenContext({
+              targetKey: moduleNode.targetId,
+              identity: targetNode.value.identity,
+              config: config.config,
+            });
+            for (const step of definition.nextSteps ?? []) {
+              steps.push(context.resolve(step));
+            }
+          }
+
+          // Deduplicate by exact string match, preserving order
+          return [...new Set(steps)];
+        },
+      );
+
+      return { run, preview, collectNextSteps };
     }),
   },
 ) {

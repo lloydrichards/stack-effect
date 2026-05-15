@@ -358,7 +358,5 @@ export const init = Command.make(
         trust: flags.trust || flags.yes,
         config,
       });
-
-      yield* Console.log("Run 'stack-effect add' to add targets and modules.");
     }),
 );
