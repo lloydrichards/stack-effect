@@ -4,6 +4,7 @@ import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
 import { Hint } from "./Hint.js";
+import { Panel, PromptChrome } from "./Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -156,7 +157,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         ...lineBoxes,
       ],
       Box.left,
-    ).pipe(Box.minHeight(minRows + 1), Box.minWidth(40), Box.border("rounded"));
+    ).pipe(Box.minHeight(minRows + 1), Box.minWidth(40), Panel.make());
 
     const content = Box.vcat([label, inputContent], Box.left);
 
@@ -167,20 +168,10 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
         )
       : Hint(TextAreaKeys);
 
-    return Box.vsep(
-      [
-        content.pipe(
-          Box.pad(0, 0, 0, 1),
-          Box.border("thick", {
-            annotation: hasError ? Ansi.red : Ansi.dim,
-            sides: { top: false, bottom: false, right: false },
-          }),
-        ),
-        footer,
-      ],
-      1,
+    return Box.vcat(
+      [content.pipe(PromptChrome(hasError ? Ansi.red : Ansi.dim)), footer],
       Box.left,
-    ).pipe(Box.moveDown(1));
+    );
   };
 
   const initialLines = defaultValue ? splitLines(defaultValue) : [""];

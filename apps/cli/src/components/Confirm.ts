@@ -5,6 +5,7 @@ import type { AnsiStyle } from "effect-boxes/Ansi";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
 import { Hint } from "./Hint.js";
+import { Panel, PromptChrome } from "./Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -108,7 +109,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     return Box.vcat(items, Box.left).pipe(
       Box.minWidth(childrenBox?.cols ?? 0),
       Box.maxWidth((process.stdout.columns ?? 80) - 10),
-      Box.border("rounded", { annotation: Ansi.dim }),
+      Panel.make({ border: Box.border("rounded", { annotation: Ansi.dim }) }),
     );
   });
 
@@ -123,20 +124,10 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
       Box.left,
     );
 
-    return Box.vsep(
-      [
-        content.pipe(
-          Box.pad(0, 0, 0, 1),
-          Box.border("thick", {
-            annotation: Ansi.dim,
-            sides: { top: false, bottom: false, right: false },
-          }),
-        ),
-        Hint(ConfirmKeys(hasChildren)),
-      ],
-      1,
+    return Box.vcat(
+      [content.pipe(PromptChrome()), Hint(ConfirmKeys(hasChildren))],
       Box.left,
-    ).pipe(Box.moveDown(1));
+    );
   });
 
   const renderLayout = Effect.fnUntraced(function* (

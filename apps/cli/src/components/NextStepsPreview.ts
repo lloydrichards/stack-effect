@@ -1,4 +1,6 @@
 import { Ansi, Box } from "effect-boxes";
+import { Container } from "../lib/Layout.js";
+import { Panel } from "./Panel.js";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));
@@ -69,26 +71,29 @@ export const NextStepsPreview = ({
 
   // Stack sections vertically with borders
   const terminalWidth = process.stdout.columns ?? 80;
-  const contentWidth = terminalWidth - 4;
 
-  const panels = sections.map((section, i) => {
-    const isFirst = i === 0;
-    const isLast = i === sections.length - 1;
-    return section.pipe(
-      Box.minWidth(contentWidth),
-      Box.pad(0, 1),
-      Box.border("rounded", {
-        annotation: Ansi.dim,
-        sides: { top: isFirst, bottom: isLast },
-      }),
+  return Container.make({ width: terminalWidth, paddingX: 2 }, (ctx) => {
+    const panels = sections.map((section, i) => {
+      const isFirst = i === 0;
+      const isLast = i === sections.length - 1;
+      return section.pipe(
+        Box.minWidth(ctx.innerWidth),
+        Panel.make({
+          padding: Box.pad(0, 1),
+          border: Box.border("rounded", {
+            annotation: Ansi.dim,
+            sides: { top: isFirst, bottom: isLast },
+          }),
+        }),
+      );
+    });
+
+    const footer = Box.text(
+      "Add modules with 'stack-effect add' or explore available options with 'stack-effect graph'",
+    ).pipe(Box.annotate(Ansi.dim));
+
+    return Box.vsep([Box.vcat(panels, Box.left), footer], 1, Box.left).pipe(
+      Box.moveDown(1),
     );
   });
-
-  const footer = Box.text(
-    "Add modules with 'stack-effect add' or explore available options with 'stack-effect graph'",
-  ).pipe(Box.annotate(Ansi.dim));
-
-  return Box.vsep([Box.vcat(panels, Box.left), footer], 1, Box.left).pipe(
-    Box.moveDown(1),
-  );
 };

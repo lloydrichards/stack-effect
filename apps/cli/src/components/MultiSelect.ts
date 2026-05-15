@@ -3,6 +3,7 @@ import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import { Hint } from "./Hint.js";
+import { PromptChrome } from "./Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -145,20 +146,10 @@ export const MultiSelect = <A>(
       Box.left,
     );
 
-    return Box.vsep(
-      [
-        content.pipe(
-          Box.pad(0, 0, 0, 1),
-          Box.border("thick", {
-            annotation: Ansi.dim,
-            sides: { top: false, bottom: false, right: false },
-          }),
-        ),
-        Hint(MultiSelectHintKeys),
-      ],
-      1,
+    return Box.vcat(
+      [content.pipe(PromptChrome()), Hint(MultiSelectHintKeys)],
       Box.left,
-    ).pipe(Box.moveDown(1));
+    );
   };
 
   const initialSelected = new Set<number>(

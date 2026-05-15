@@ -1,5 +1,7 @@
 import type { ApplyResult } from "@repo/domain/Apply";
 import { Ansi, Box } from "effect-boxes";
+import { Breakpoint, Container } from "../lib/Layout.js";
+import { Panel } from "./Panel.js";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));
@@ -105,81 +107,93 @@ export const DryRunPreview = ({
   // Footer
   const footer = Box.text("No changes written.").pipe(Box.annotate(Ansi.dim));
 
-  // Determine layout based on natural content width vs terminal
+  // Natural width needed for horizontal layout
   const naturalHorizontalWidth =
     Box.cols(blueprintContent) +
     Box.cols(applyContent) +
     Box.cols(finalizeContent) +
     18; // padding + borders overhead
 
-  if (naturalHorizontalWidth <= terminalWidth) {
-    // Wide layout: horizontal panels
-    const maxHeight = Math.max(
-      Box.rows(blueprintContent),
-      Box.rows(applyContent),
-      Box.rows(finalizeContent),
-    );
+  const panels = Breakpoint.select(terminalWidth, [
+    {
+      minWidth: naturalHorizontalWidth,
+      render: () => {
+        const maxHeight = Math.max(
+          Box.rows(blueprintContent),
+          Box.rows(applyContent),
+          Box.rows(finalizeContent),
+        );
 
-    const leftPanel = blueprintContent.pipe(
-      Box.minHeight(maxHeight),
-      Box.pad(0, 2),
-      Box.border("rounded", { annotation: Ansi.dim }),
-    );
+        const leftPanel = blueprintContent.pipe(
+          Box.minHeight(maxHeight),
+          Panel.make({
+            padding: Box.pad(0, 2),
+            border: Box.border("rounded", { annotation: Ansi.dim }),
+          }),
+        );
+        const middlePanel = applyContent.pipe(
+          Box.minHeight(maxHeight),
+          Panel.make({
+            padding: Box.pad(0, 2),
+            border: Box.border("rounded", {
+              annotation: Ansi.dim,
+              sides: { left: false },
+            }),
+          }),
+        );
+        const rightPanel = finalizeContent.pipe(
+          Box.minHeight(maxHeight),
+          Panel.make({
+            padding: Box.pad(0, 2),
+            border: Box.border("rounded", {
+              annotation: Ansi.dim,
+              sides: { left: false },
+            }),
+          }),
+        );
 
-    const middlePanel = applyContent.pipe(
-      Box.minHeight(maxHeight),
-      Box.pad(0, 2),
-      Box.border("rounded", {
-        annotation: Ansi.dim,
-        sides: { left: false },
-      }),
-    );
+        return Box.hcat([leftPanel, middlePanel, rightPanel], Box.top);
+      },
+    },
+    {
+      minWidth: 0,
+      render: () =>
+        Container.make({ width: terminalWidth, paddingX: 2 }, (ctx) => {
+          const topPanel = blueprintContent.pipe(
+            Box.minWidth(ctx.innerWidth),
+            Panel.make({
+              padding: Box.pad(0, 1),
+              border: Box.border("rounded", {
+                annotation: Ansi.dim,
+                sides: { bottom: false },
+              }),
+            }),
+          );
+          const midPanel = applyContent.pipe(
+            Box.minWidth(ctx.innerWidth),
+            Panel.make({
+              padding: Box.pad(0, 1),
+              border: Box.border("rounded", {
+                annotation: Ansi.dim,
+                sides: { top: false, bottom: false },
+              }),
+            }),
+          );
+          const botPanel = finalizeContent.pipe(
+            Box.minWidth(ctx.innerWidth),
+            Panel.make({
+              padding: Box.pad(0, 1),
+              border: Box.border("rounded", {
+                annotation: Ansi.dim,
+                sides: { top: false },
+              }),
+            }),
+          );
 
-    const rightPanel = finalizeContent.pipe(
-      Box.minHeight(maxHeight),
-      Box.pad(0, 2),
-      Box.border("rounded", {
-        annotation: Ansi.dim,
-        sides: { left: false },
-      }),
-    );
+          return Box.vcat([topPanel, midPanel, botPanel], Box.left);
+        }),
+    },
+  ]);
 
-    const panels = Box.hcat([leftPanel, middlePanel, rightPanel], Box.top);
-
-    return Box.vsep([panels, footer], 1, Box.left).pipe(Box.moveDown(1));
-  }
-
-  // Narrow layout: stacked panels
-  const stackedWidth = terminalWidth - 4; // border + padding
-
-  const topPanel = blueprintContent.pipe(
-    Box.minWidth(stackedWidth),
-    Box.pad(0, 1),
-    Box.border("rounded", {
-      annotation: Ansi.dim,
-      sides: { bottom: false },
-    }),
-  );
-
-  const midPanel = applyContent.pipe(
-    Box.minWidth(stackedWidth),
-    Box.pad(0, 1),
-    Box.border("rounded", {
-      annotation: Ansi.dim,
-      sides: { top: false, bottom: false },
-    }),
-  );
-
-  const botPanel = finalizeContent.pipe(
-    Box.minWidth(stackedWidth),
-    Box.pad(0, 1),
-    Box.border("rounded", {
-      annotation: Ansi.dim,
-      sides: { top: false },
-    }),
-  );
-
-  const stacked = Box.vcat([topPanel, midPanel, botPanel], Box.left);
-
-  return Box.vsep([stacked, footer], 1, Box.left).pipe(Box.moveDown(1));
+  return Box.vsep([panels, footer], 1, Box.left).pipe(Box.moveDown(1));
 };

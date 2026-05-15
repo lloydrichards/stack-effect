@@ -1,9 +1,9 @@
 import { dual } from "effect/Function";
-import { Box, type Box as BoxType } from "effect-boxes";
+import { Ansi, Box, type Box as BoxType } from "effect-boxes";
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
 
-type BoxOperator = (box: BoxType.Box<unknown>) => BoxType.Box<unknown>;
+type BoxOperator = (box: BoxType.Box<any>) => BoxType.Box<any>;
 type PanelOptions = {
   readonly padding?: BoxOperator;
   readonly border?: BoxOperator;
@@ -63,6 +63,36 @@ export const Panel = {
       options?.margin,
     ].filter((op): op is BoxOperator => op != null);
 
-    return ops.reduce((box, op) => op(box), self as BoxType.Box<unknown>) as BoxType.Box<A>;
+    return ops.reduce((box, op) => op(box), self);
   }),
 };
+
+// ─── PromptChrome ────────────────────────────────────────────────────────────
+
+/**
+ * Shared prompt wrapper used by all interactive prompt components.
+ * Applies a left-side thick border with inner left-padding, plus
+ * consistent top/bottom margin (1 row each), matching the standard
+ * prompt chrome pattern.
+ *
+ * @param annotation - Border colour, defaults to `Ansi.dim`
+ *
+ * @example
+ * ```typescript
+ * import { pipe } from "effect"
+ * import { Ansi, Box } from "effect-boxes"
+ * import { PromptChrome } from "./Panel"
+ *
+ * const wrapped = pipe(content, PromptChrome())
+ * const errorWrapped = pipe(content, PromptChrome(Ansi.red))
+ * ```
+ */
+export const PromptChrome = (annotation: Ansi.AnsiAnnotation = Ansi.dim) =>
+  Panel.make({
+    padding: Box.pad(0, 0, 0, 1),
+    border: Box.border("thick", {
+      annotation,
+      sides: { top: false, bottom: false, right: false },
+    }),
+    margin: Box.pad(1, 0),
+  });

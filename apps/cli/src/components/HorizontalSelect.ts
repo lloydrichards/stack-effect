@@ -3,6 +3,7 @@ import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import { Hint } from "./Hint.js";
+import { Panel, PromptChrome } from "./Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -46,8 +47,7 @@ export const HorizontalSelect = <A extends string>(
       const isSelected = i === cursor;
 
       return Box.text(c.title).pipe(
-        Box.pad(0, 2),
-        Box.border("rounded"),
+        Panel.make({ padding: Box.pad(0, 2) }),
         Box.annotate(
           isSelected ? Ansi.combine(Ansi.cyan, Ansi.bold) : Ansi.dim,
         ),
@@ -75,20 +75,10 @@ export const HorizontalSelect = <A extends string>(
       Box.left,
     );
 
-    return Box.vsep(
-      [
-        content.pipe(
-          Box.pad(0, 0, 0, 1),
-          Box.border("thick", {
-            annotation: Ansi.dim,
-            sides: { top: false, bottom: false, right: false },
-          }),
-        ),
-        Hint(HorizontalSelectKeys),
-      ],
-      1,
+    return Box.vcat(
+      [content.pipe(PromptChrome()), Hint(HorizontalSelectKeys)],
       Box.left,
-    ).pipe(Box.moveDown(1));
+    );
   };
 
   let hasRendered = false;

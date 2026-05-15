@@ -3,6 +3,7 @@ import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import { Hint } from "./Hint.js";
+import { PromptChrome } from "./Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
@@ -110,20 +111,10 @@ export const TextInput = (
         )
       : Hint(TextInputKeys);
 
-    return Box.vsep(
-      [
-        content.pipe(
-          Box.pad(0, 0, 0, 1),
-          Box.border("thick", {
-            annotation: hasError ? Ansi.red : Ansi.dim,
-            sides: { top: false, bottom: false, right: false },
-          }),
-        ),
-        footer,
-      ],
-      1,
+    return Box.vcat(
+      [content.pipe(PromptChrome(hasError ? Ansi.red : Ansi.dim)), footer],
       Box.left,
-    ).pipe(Box.moveDown(1));
+    );
   };
 
   const initialState: TextState = {
