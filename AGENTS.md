@@ -106,6 +106,12 @@ The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*
   composition for DI
 - **Error handling**: Use Effect error channel; avoid try/catch
 - **Type safety**: Never use `as unknown as` casts; if a type cannot be expressed safely, fix the model or use framework-provided typed test stubs/helpers
+- **Declarative over imperative**: Prefer declarative, expression-based code
+  over imperative mutation and branching. Use Effect modules (`Array`, `Match`,
+  `Record`, `Option`, `pipe`, `flow`) to express transformations as data
+  pipelines rather than step-by-step procedures with `let`, `if/else`, or
+  `for` loops. When composing operations, build a declarative pipeline
+  (filter, map, reduce) instead of accumulating results imperatively.
 
 ## Effect Essentials
 
