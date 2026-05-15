@@ -14,6 +14,7 @@ import {
 import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
+import { DryRunPreview } from "../components/DryRunPreview";
 import { MultiSelect } from "../components/MultiSelect";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
@@ -63,13 +64,25 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const blueprintService = yield* BlueprintService;
           const planService = yield* PlanService;
           const finalizeService = yield* FinalizeService;
+          const applyService = yield* ApplyService;
 
           // Blueprint
           const blueprint = yield* blueprintService.resolve(selection);
 
-          const blueprintBox = yield* formatter.formatBlueprint(blueprint);
+          const formattedBlueprint =
+            yield* formatter.formatBlueprint(blueprint);
+          const blueprintBox = Box.vsep(
+            [
+              Box.text(formattedBlueprint.title).pipe(
+                Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+              ),
+              formattedBlueprint.content,
+            ],
+            1,
+            Box.left,
+          );
 
-          if (!yes) {
+          if (!yes && !dryRun) {
             const confirm = yield* Confirm({
               message: "Continue with these changes?",
               children: blueprintBox,
@@ -83,6 +96,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 retry: true,
               });
             }
+          }
+
+          if (dryRun) {
+            // no-op: blueprint shown inside DryRunPreview
           }
 
           // Plan
@@ -106,8 +123,15 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             Box.left,
           );
 
-          // Dry run exits here
+          // Dry run: show full preview without writing or executing
           if (dryRun) {
+            // Preview apply outcomes
+            const result = yield* applyService.preview({
+              apply: new Apply({ plan, decisions: [] }),
+              repoRoot,
+            });
+
+            // Preview finalize scripts
             const finalizeConfig: FinalizeConfig = {
               config,
               repoRoot,
@@ -116,16 +140,18 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               blueprint,
               finalizeConfig,
             );
-            if (previewScripts.length > 0) {
-              yield* Console.log("\nFinalize scripts:");
-              for (const script of previewScripts) {
-                yield* Console.log(`  ${script.label}: ${script.command}`);
-              }
-            }
-            yield* Console.log("\n[dry-run] No changes written.");
-            return yield* new ScaffoldAborted({
-              message: "Dry run completed. No changes written.",
-            });
+
+            yield* Console.log(
+              Box.renderPrettySync(
+                DryRunPreview({
+                  blueprint: formattedBlueprint.content,
+                  plan: pl,
+                  apply: result,
+                  scripts: previewScripts,
+                }),
+              ),
+            );
+            return;
           }
 
           // Resolve conflicts
@@ -147,7 +173,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           }
 
           // Apply
-          const applyService = yield* ApplyService;
           const result = yield* applyService.apply({
             apply: new Apply({ plan, decisions }),
             repoRoot,

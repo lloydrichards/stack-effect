@@ -358,7 +358,31 @@ export class ApplyService extends Context.Service<ApplyService>()(
         }).toSorted();
       });
 
-      return { apply } as const;
+      const preview = Effect.fn("ApplyService.preview")(function* ({
+        apply: applyIntent,
+        repoRoot,
+      }: {
+        apply: typeof Apply.Type;
+        repoRoot: string;
+      }) {
+        const actions = yield* materializeFrom(applyIntent);
+        const actionProjection = yield* projection({ actions, repoRoot });
+
+        return new ApplyResult({
+          created: actionProjection.writeRequests
+            .filter((r) => r.writeMode === "create")
+            .map((r) => r.path),
+          modified: actionProjection.writeRequests
+            .filter(
+              (r) => r.writeMode === "modify" || r.writeMode === "override",
+            )
+            .map((r) => r.path),
+          skipped: [...actionProjection.skippedPaths],
+          failed: [],
+        }).toSorted();
+      });
+
+      return { apply, preview } as const;
     }),
   },
 ) {
