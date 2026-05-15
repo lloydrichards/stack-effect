@@ -1,5 +1,15 @@
 # stack-effect
 
+## 0.4.0
+
+### Minor Changes
+
+- [#120](https://github.com/lloydrichards/stack-effect/pull/120) [`8cb7e00`](https://github.com/lloydrichards/stack-effect/commit/8cb7e00c4d3405e5103b6914ae2fac73aad21e3e) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add contextual next-steps output, closes [#107](https://github.com/lloydrichards/stack-effect/issues/107)
+
+- [#118](https://github.com/lloydrichards/stack-effect/pull/118) [`17a665e`](https://github.com/lloydrichards/stack-effect/commit/17a665ee3a231fb8e25189563c4c3716a91b471d) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add progressive disclosure of scripts to be run for opt out, closes [#103](https://github.com/lloydrichards/stack-effect/issues/103)
+
+- [#121](https://github.com/lloydrichards/stack-effect/pull/121) [`6227123`](https://github.com/lloydrichards/stack-effect/commit/62271234bda993285cdc299ac2e5e915d0f4dae3) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add Layout and Panel helpers for responsive composition
+
 ## 0.3.0
 
 ### Minor Changes
