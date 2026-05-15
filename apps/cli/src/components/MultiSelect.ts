@@ -1,4 +1,4 @@
-import { Data, Effect, Match } from "effect";
+import { Array as Arr, Data, Effect, Match, pipe } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
@@ -47,10 +47,23 @@ const MultiSelectHintKeys = {
   Submit: MultiSelectKeys.Submit,
 };
 
+export interface GroupedSelectChoice<A> extends Prompt.SelectChoice<A> {
+  readonly group?: string;
+}
+
+export interface GroupedSelectOptions<A> extends Prompt.MultiSelectOptions {
+  readonly message: string;
+  readonly choices: ReadonlyArray<GroupedSelectChoice<A>>;
+  readonly groups?: ReadonlyArray<{
+    readonly key: string;
+    readonly label: string;
+  }>;
+}
+
 export const MultiSelect = <A>(
-  options: Prompt.SelectOptions<A> & Prompt.MultiSelectOptions,
+  options: GroupedSelectOptions<A>,
 ): Prompt.Prompt<Array<A>> => {
-  const { message, choices } = options;
+  const { message, choices, groups } = options;
   const min = options.min ?? 0;
   const max = options.max ?? choices.length;
 
@@ -74,25 +87,54 @@ export const MultiSelect = <A>(
       );
     }
 
-    const items = choices.map((c, i) => {
-      const isCursor = i === state.cursor;
-      const isChecked = state.selected.has(i);
-      const checkbox = Box.char(isChecked ? "◼" : "◻").pipe(
-        Box.annotate(isChecked ? Ansi.green : Ansi.dim),
-      );
-      const indicator = Box.char(isCursor ? "⏵" : " ").pipe(
-        Box.annotate(Ansi.cyan),
-      );
-      const title = Box.text(c.title).pipe(
-        Box.annotate(isChecked ? Ansi.green : Ansi.white),
-      );
-      const description =
-        isCursor && c.description
-          ? Box.text(c.description).pipe(Box.annotate(Ansi.dim))
-          : Box.nullBox;
+    // Build group label lookup
+    const groupLabelMap = new Map((groups ?? []).map((g) => [g.key, g.label]));
 
-      return Box.hsep([indicator, checkbox, title, description], 1, Box.left);
-    });
+    // Group choices by their group key, preserving order
+    const grouped = Arr.groupBy(
+      Arr.map(choices, (choice, index) => ({ choice, index })),
+      ({ choice }) => choice.group ?? "",
+    );
+
+    const items = pipe(
+      Object.entries(grouped),
+      Arr.flatMap(([groupKey, groupChoices]) => {
+        const header =
+          groupKey !== ""
+            ? Box.text(`── ${groupLabelMap.get(groupKey) ?? groupKey} ──`).pipe(
+                Box.annotate(Ansi.dim),
+              )
+            : Box.nullBox;
+
+        const rows = Arr.map(groupChoices, ({ choice: c, index: i }) => {
+          const isCursor = i === state.cursor;
+          const isChecked = state.selected.has(i);
+          const indicator = Box.char(isCursor ? "⏵" : " ").pipe(
+            Box.annotate(Ansi.cyan),
+          );
+          const checkbox = Box.char(isChecked ? "◼" : "◻").pipe(
+            Box.annotate(isChecked ? Ansi.green : Ansi.dim),
+          );
+          const title = Box.text(c.title).pipe(
+            Box.annotate(isChecked ? Ansi.green : Ansi.white),
+          );
+          const description =
+            isCursor && c.description
+              ? Box.text(c.description).pipe(Box.annotate(Ansi.dim))
+              : Box.nullBox;
+
+          return Box.hsep(
+            [indicator, checkbox, title, description],
+            1,
+            Box.left,
+          );
+        });
+
+        return [header, ...rows];
+      }),
+      // Remove leading empty line if first element is a spacer
+      Arr.dropWhile((item) => Box.renderPrettySync(item).trim() === ""),
+    );
 
     const count = Box.text(`(${state.selected.size}/${choices.length})`).pipe(
       Box.annotate(Ansi.dim),
