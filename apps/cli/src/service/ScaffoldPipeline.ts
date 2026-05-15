@@ -16,6 +16,7 @@ import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
 import { DryRunPreview } from "../components/DryRunPreview";
 import { MultiSelect } from "../components/MultiSelect";
+import { NextStepsPreview } from "../components/NextStepsPreview";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
@@ -281,6 +282,45 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 );
               }
             }
+
+            // Determine skipped scripts (deselected by user)
+            const selectedCommands = new Set(
+              selectedScripts.map((s) => s.command),
+            );
+            const skippedScripts = previewScripts
+              .filter((s) => !selectedCommands.has(s.command))
+              .map((s) => ({ label: s.label, command: s.command }));
+
+            // Collect and render post-scaffold summary
+            const nextSteps = yield* finalizeService.collectNextSteps(
+              blueprint,
+              finalizeConfig,
+            );
+
+            const isInit = selection.targets.some(
+              (t) => t.identity.kind === "init",
+            );
+
+            const allSteps: string[] = [];
+            if (isInit) {
+              allSteps.push(`cd ${config.name}`);
+              allSteps.push(`${config.packageManagerName} install`);
+            }
+            if (result.skipped.length > 0) {
+              allSteps.push("Resolve conflicts listed above");
+            }
+            allSteps.push(...nextSteps);
+            if (!isInit) {
+              allSteps.push(`${config.packageManagerName} run dev`);
+            }
+
+            const preview = NextStepsPreview({
+              conflicts: result.skipped,
+              skippedScripts,
+              steps: allSteps,
+            });
+
+            yield* Console.log(Box.renderPrettySync(preview));
           }
         });
 

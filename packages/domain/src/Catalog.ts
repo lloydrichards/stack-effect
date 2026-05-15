@@ -235,6 +235,10 @@ export const ModuleDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
+  nextSteps: Schema.Array(Schema.String).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
 });
 
 export const TargetDefinition = Schema.Struct({
@@ -251,6 +255,10 @@ export const TargetDefinition = Schema.Struct({
   ),
   contributions: Schema.Array(Contribution),
   scripts: Schema.Array(ScriptDefinition).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
+  nextSteps: Schema.Array(Schema.String).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
