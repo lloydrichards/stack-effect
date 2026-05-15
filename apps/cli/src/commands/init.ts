@@ -12,7 +12,7 @@ import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
-import { dryRunFlag, noGitFlag, rootFlag, yesFlag } from "../flags";
+import { dryRunFlag, noGitFlag, rootFlag, trustFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -108,6 +108,7 @@ export const init = Command.make(
     dryRun: dryRunFlag,
     packageManager: runtimeFlag,
     noGit: noGitFlag,
+    trust: trustFlag,
   },
   (flags) =>
     Effect.gen(function* () {
@@ -359,6 +360,7 @@ export const init = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        trust: flags.trust || flags.yes,
         config,
       });
 

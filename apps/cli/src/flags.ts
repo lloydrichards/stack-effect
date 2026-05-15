@@ -20,3 +20,9 @@ export const yesFlag = Flag.boolean("yes").pipe(
 export const noGitFlag = Flag.boolean("no-git").pipe(
   Flag.withDescription("Skip git repository initialization"),
 );
+
+export const trustFlag = Flag.boolean("trust").pipe(
+  Flag.withDescription(
+    "Skip finalize script approval prompt and run all scripts",
+  ),
+);

@@ -15,7 +15,7 @@ import { HorizontalSelect } from "../components/HorizontalSelect";
 import { MultiSelect } from "../components/MultiSelect";
 import { Select } from "../components/Select";
 import { TextInput } from "../components/TextInput";
-import { dryRunFlag, rootFlag, yesFlag } from "../flags";
+import { dryRunFlag, rootFlag, trustFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
@@ -557,6 +557,7 @@ export const add = Command.make(
     modules: modulesFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
+    trust: trustFlag,
   },
   (flags) =>
     Effect.gen(function* () {
@@ -600,6 +601,7 @@ export const add = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        trust: flags.trust || flags.yes,
         config,
       });
     }).pipe(

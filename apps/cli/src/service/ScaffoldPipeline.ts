@@ -14,6 +14,7 @@ import {
 import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Confirm } from "../components/Confirm";
+import { MultiSelect } from "../components/MultiSelect";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
@@ -47,12 +48,14 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         repoRoot,
         yes,
         dryRun,
+        trust,
         config,
       }: {
         selection: typeof Selection.Type;
         repoRoot: string;
         yes: boolean;
         dryRun: boolean;
+        trust: boolean;
         config: typeof StackConfig.Type;
       }) =>
         Effect.gen(function* () {
@@ -167,48 +170,91 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             finalizeConfig,
           );
           if (previewScripts.length > 0) {
-            yield* Console.log("\nRunning finalize scripts...");
-            const executables = yield* finalizeService.run(
-              blueprint,
-              finalizeConfig,
-            );
+            const skipPrompt = yes || trust;
 
-            const results = yield* Effect.forEach(
-              executables,
-              ({ script, execute }) =>
-                Effect.scoped(
-                  Effect.gen(function* () {
-                    yield* Console.log(
-                      `  [>] ${script.label}: ${script.command}`,
-                    );
-                    const execution = yield* execute();
+            // Determine which scripts to run
+            const selectedScripts = skipPrompt
+              ? previewScripts
+              : yield* MultiSelect({
+                  message: "Finalize scripts to run:",
+                  groups: [
+                    { key: "finalize", label: "Finalize" },
+                    { key: "config", label: "Install & Format" },
+                    { key: "post-finalize", label: "Post-Finalize" },
+                  ],
+                  choices: previewScripts.map((s) => ({
+                    title: `${s.command}`,
+                    description: s.origin,
+                    value: s,
+                    selected: true,
+                    group: s.phase,
+                  })),
+                });
 
-                    yield* execution.output.pipe(
-                      Stream.tap((line) => Console.log(`      ${line}`)),
-                      Stream.runDrain,
-                    );
+            // Print script list for non-interactive (audit trail)
+            if (skipPrompt) {
+              yield* Console.log("\nFinalize scripts:");
+              for (const script of previewScripts) {
+                yield* Console.log(
+                  `  ${script.label}: ${script.command} (${script.origin})`,
+                );
+              }
+            }
 
-                    const result = yield* execution.result;
-                    const icon = Result.isSuccess(result) ? "+" : "x";
-                    yield* Console.log(
-                      `  [${icon}] ${Result.isSuccess(result) ? "success" : "failure"}`,
-                    );
-                    if (Result.isFailure(result)) {
-                      yield* Console.log(
-                        `      Error: ${result.failure.error}`,
-                      );
-                    }
-                    return result;
-                  }),
-                ),
-              { concurrency: 1 },
-            );
-
-            const report = new FinalizeReport({ results });
-            if (report.failed > 0) {
-              yield* Console.log(
-                `\n${report.failed} finalize script(s) failed. See errors above.`,
+            if (selectedScripts.length === 0) {
+              yield* Console.log("\nNo finalize scripts selected. Skipping.");
+            } else {
+              yield* Console.log("\nRunning finalize scripts...");
+              const executables = yield* finalizeService.run(
+                blueprint,
+                finalizeConfig,
               );
+
+              // Filter executables to only selected scripts
+              const selectedCommands = new Set(
+                selectedScripts.map((s) => s.command),
+              );
+              const filteredExecutables = executables.filter((e) =>
+                selectedCommands.has(e.script.command),
+              );
+
+              const results = yield* Effect.forEach(
+                filteredExecutables,
+                ({ script, execute }) =>
+                  Effect.scoped(
+                    Effect.gen(function* () {
+                      yield* Console.log(
+                        `  [>] ${script.label}: ${script.command}`,
+                      );
+                      const execution = yield* execute();
+
+                      yield* execution.output.pipe(
+                        Stream.tap((line) => Console.log(`      ${line}`)),
+                        Stream.runDrain,
+                      );
+
+                      const result = yield* execution.result;
+                      const icon = Result.isSuccess(result) ? "+" : "x";
+                      yield* Console.log(
+                        `  [${icon}] ${Result.isSuccess(result) ? "success" : "failure"}`,
+                      );
+                      if (Result.isFailure(result)) {
+                        yield* Console.log(
+                          `      Error: ${result.failure.error}`,
+                        );
+                      }
+                      return result;
+                    }),
+                  ),
+                { concurrency: 1 },
+              );
+
+              const report = new FinalizeReport({ results });
+              if (report.failed > 0) {
+                yield* Console.log(
+                  `\n${report.failed} finalize script(s) failed. See errors above.`,
+                );
+              }
             }
           }
         });

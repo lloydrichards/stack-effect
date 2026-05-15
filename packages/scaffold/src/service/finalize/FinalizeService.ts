@@ -27,7 +27,8 @@ type ResolvedScript = {
   readonly label: string;
   readonly command: string;
   readonly workdir: string;
-  readonly phase: "finalize" | "post-finalize";
+  readonly phase: "finalize" | "config" | "post-finalize";
+  readonly origin: string;
 };
 
 export class FinalizeService extends Context.Service<FinalizeService>()(
@@ -62,6 +63,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
               phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+              origin: `target: ${node.identity.kind}`,
             }));
           }),
         ).pipe(Effect.map(Arr.flatten));
@@ -86,6 +88,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
               phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+              origin: `module: ${moduleNode.moduleId}`,
             }));
           }),
         ).pipe(Effect.map(Arr.flatten));
@@ -114,9 +117,11 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
         return orderScripts(scripts, configScripts).map(
-          ({ label, command }) => ({
+          ({ label, command, phase, origin }) => ({
             label,
             command,
+            phase,
+            origin,
           }),
         );
       });
@@ -166,7 +171,8 @@ const buildConfigDerivedScripts = (
             label: entry.label,
             command: entry.command,
             workdir: ".",
-            phase: "finalize" as const,
+            phase: "config" as const,
+            origin: "config",
           })
         : Result.failVoid,
   );
