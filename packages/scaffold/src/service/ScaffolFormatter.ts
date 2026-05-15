@@ -119,11 +119,11 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
     make: Effect.gen(function* () {
       const formatBlueprint = Effect.fn("ScaffoldFormatter.formatBlueprint")(
         function* (blueprint: typeof Blueprint.Type) {
-          const header = Box.text("Blueprint").pipe(
-            Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
-          );
           if (blueprint.nodes.length === 0) {
-            return header;
+            return {
+              title: "Blueprint",
+              content: Box.text("(empty)").pipe(Box.annotate(Ansi.dim)),
+            };
           }
 
           const attachedModulesByTarget = pipe(
@@ -186,7 +186,12 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
                         Arr.fromIterable(
                           outgoingEdgesByNode.get(attachedModule.id) ?? [],
                         ),
-                        (edge) => edge.reason !== "owns-module",
+                        (edge) =>
+                          edge.reason !== "owns-module" &&
+                          !(
+                            edge.reason === "required-target" &&
+                            edge.to === attachedModule.targetId
+                          ),
                       ),
                       idOrd,
                     ),
@@ -213,7 +218,10 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
             },
           );
 
-          return Box.vsep([header, ...targetBoxes], 1, Box.left);
+          return {
+            title: "Blueprint",
+            content: Box.vsep(targetBoxes, 1, Box.left),
+          };
         },
       );
 
@@ -246,7 +254,12 @@ export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
 
         const treeNodes = buildNodes(
           Arr.map(Arr.sort(plan.outcomes, pathOrd), (outcome) => ({
-            segments: String.split(outcome.path, "/"),
+            segments: String.split(
+              outcome.path.startsWith("./")
+                ? outcome.path.slice(2)
+                : outcome.path,
+              "/",
+            ),
             outcome,
           })),
           0,

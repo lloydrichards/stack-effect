@@ -101,7 +101,7 @@ describe("ScaffoldFormatter", () => {
         });
 
         const result = yield* formatter.formatBlueprint(blueprint);
-        expect(Box.renderPlainSync(result)).toContain("Blueprint");
+        expect(result.title).toBe("Blueprint");
       }),
     );
 
@@ -111,8 +111,8 @@ describe("ScaffoldFormatter", () => {
         const blueprint = makeUnsortedBlueprint().toSorted();
 
         const result = yield* formatter.formatBlueprint(blueprint);
-        const rendered = Box.renderPlainSync(result);
-        expect(rendered).toContain("Blueprint");
+        const rendered = Box.renderPlainSync(result.content);
+        expect(result.title).toBe("Blueprint");
         expect(rendered).toContain("apps/server-api");
         expect(rendered).toContain("http-api-server");
         expect(rendered).toContain("packages/domain");

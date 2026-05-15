@@ -57,7 +57,7 @@ describe("init", () => {
             cli.workdir,
           );
 
-          yield* cli.expectExitCode(1);
+          yield* cli.expectExitCode(0);
           yield* cli.expectFileNotExists("ghost-app/package.json");
         }),
       { timeout: 15_000 },

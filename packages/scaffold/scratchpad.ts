@@ -6,6 +6,7 @@ import type { RepoSnapshot } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Console, Effect, FileSystem, Layer, Random } from "effect";
+import { Box } from "effect-boxes";
 import {
   ApplyService,
   BlueprintService,
@@ -119,7 +120,9 @@ const main = Effect.gen(function* () {
     // Step 1: Selection → Blueprint
     const blueprint = yield* blueprintService.resolve(example.selection);
     const formattedBlueprint = yield* formatter.formatBlueprint(blueprint);
-    yield* Console.log(`\n${formattedBlueprint}`);
+    yield* Console.log(
+      Box.renderPrettySync(formattedBlueprint.content.pipe(Box.moveDown(1))),
+    );
 
     // Step 2: Blueprint → Plan
     const plan = yield* planService.build({

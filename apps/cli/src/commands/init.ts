@@ -329,7 +329,7 @@ export const init = Command.make(
         Box.left,
       );
 
-      if (!flags.yes) {
+      if (!flags.yes && !flags.dryRun) {
         const proceed = yield* Confirm({
           message: "Create project?",
           children: configBox,
@@ -344,11 +344,6 @@ export const init = Command.make(
       if (!flags.dryRun) {
         yield* configure.writeConfig(repoRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
-      } else {
-        yield* Console.log("[dry-run] skipping config write:");
-        yield* Console.log(
-          Schema.encodeSync(Schema.fromJsonString(StackConfig))(config),
-        );
       }
 
       // Scaffold root monorepo files
