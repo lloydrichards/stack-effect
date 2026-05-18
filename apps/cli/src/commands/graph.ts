@@ -4,6 +4,7 @@ import type {
   CatalogGraph,
   CatalogNode,
 } from "@repo/domain/Catalog";
+import { Table } from "@repo/tui";
 import {
   Array as Arr,
   Console,
@@ -16,7 +17,6 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { Table } from "../components/Table";
 
 const formatFlag = Flag.choice("format", ["table", "mermaid", "dot"]).pipe(
   Flag.optional,

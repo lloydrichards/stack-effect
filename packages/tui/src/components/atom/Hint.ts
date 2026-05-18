@@ -8,7 +8,7 @@
  */
 import { Ansi, Box } from "effect-boxes";
 import type { AnsiStyle } from "effect-boxes/Ansi";
-import type { KeyBinding, KeyMap } from "../lib/KeyBinding.js";
+import type { KeyBinding, KeyMap } from "../../lib/KeyBinding.js";
 
 // ─── Kbd ─────────────────────────────────────────────────────────────────────
 
@@ -18,8 +18,8 @@ import type { KeyBinding, KeyMap } from "../lib/KeyBinding.js";
 export const Kbd = (binding: KeyBinding): Box.Box<AnsiStyle> =>
   Box.hcat(
     [
-      Box.text(binding["label"]).pipe(Box.annotate(Ansi.bold)),
-      Box.text(` ${binding["action"]}`),
+      Box.text(binding.label).pipe(Box.annotate(Ansi.bold)),
+      Box.text(` ${binding.action}`),
     ],
     Box.left,
   );
@@ -40,7 +40,7 @@ export const Kbd = (binding: KeyBinding): Box.Box<AnsiStyle> =>
 export const Hint = (keymap: KeyMap): Box.Box<AnsiStyle> =>
   Box.punctuateH(
     Object.values(keymap)
-      .filter((b) => b["enabled"] ?? true)
+      .filter((b) => b.enabled ?? true)
       .map(Kbd),
     Box.left,
     Box.text(" • "),

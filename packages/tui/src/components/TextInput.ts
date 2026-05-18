@@ -2,8 +2,8 @@ import { Data, Effect, Match, Option } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
-import { Hint } from "./Hint.js";
-import { PromptChrome } from "./Panel.js";
+import { Hint } from "./atom/Hint.js";
+import { PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 

@@ -1,7 +1,6 @@
 import type { ApplyResult } from "@repo/domain/Apply";
+import { Breakpoint, Container, Panel } from "@repo/tui";
 import { Ansi, Box } from "effect-boxes";
-import { Breakpoint, Container } from "../lib/Layout.js";
-import { Panel } from "./Panel.js";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));

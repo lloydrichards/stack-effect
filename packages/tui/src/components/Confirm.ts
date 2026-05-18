@@ -4,8 +4,8 @@ import { Ansi, Box, Cmd } from "effect-boxes";
 import type { AnsiStyle } from "effect-boxes/Ansi";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
-import { Hint } from "./Hint.js";
-import { Panel, PromptChrome } from "./Panel.js";
+import { Hint } from "./atom/Hint.js";
+import { Panel, PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 

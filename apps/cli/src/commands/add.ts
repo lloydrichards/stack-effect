@@ -1,6 +1,7 @@
 import { CatalogService } from "@repo/catalog";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
+import { HorizontalSelect, MultiSelect, Select, TextInput } from "@repo/tui";
 import {
   Console,
   Effect,
@@ -11,10 +12,6 @@ import {
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { HorizontalSelect } from "../components/HorizontalSelect";
-import { MultiSelect } from "../components/MultiSelect";
-import { Select } from "../components/Select";
-import { TextInput } from "../components/TextInput";
 import { dryRunFlag, rootFlag, trustFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";

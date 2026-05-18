@@ -11,11 +11,10 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
+import { Confirm, MultiSelect } from "@repo/tui";
 import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
 import { Ansi, Box } from "effect-boxes";
-import { Confirm } from "../components/Confirm";
 import { DryRunPreview } from "../components/DryRunPreview";
-import { MultiSelect } from "../components/MultiSelect";
 import { NextStepsPreview } from "../components/NextStepsPreview";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{

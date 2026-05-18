@@ -6,12 +6,10 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
+import { Confirm, Select, TextInput } from "@repo/tui";
 import { Array as Arr, Console, Effect, Option, Path, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { Confirm } from "../components/Confirm";
-import { Select } from "../components/Select";
-import { TextInput } from "../components/TextInput";
 import { dryRunFlag, noGitFlag, rootFlag, trustFlag, yesFlag } from "../flags";
 import {
   CONFIG_FILENAME,

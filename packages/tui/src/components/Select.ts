@@ -2,63 +2,54 @@ import { Data, Effect, Match } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
-import { Hint } from "./Hint.js";
-import { Panel, PromptChrome } from "./Panel.js";
+import { Hint } from "./atom/Hint.js";
+import { PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-const HorizontalSelectKeys = {
-  Right: new KeyBinding({
-    keys: ["right", "l", "tab"],
-    label: "←/→",
-    action: "toggle",
+const SelectKeys = {
+  Down: new KeyBinding({
+    keys: ["down", "j", "tab"],
+    label: "↓",
+    action: "down",
   }),
-  Left: new KeyBinding({
-    keys: ["left", "h"],
-    label: "←/→",
-    action: "toggle",
-    enabled: false,
-  }),
+  Up: new KeyBinding({ keys: ["up", "k"], label: "↑", action: "up" }),
   Submit: new KeyBinding({
     keys: ["enter", "return"],
     label: "enter",
     action: "select",
   }),
-  Cancel: new KeyBinding({
-    keys: ["escape"],
-    label: "esc",
-    action: "cancel",
-  }),
 };
 
-export const HorizontalSelect = <A extends string>(
+export const Select = <A>(
   options: Prompt.SelectOptions<A>,
 ): Prompt.Prompt<A> => {
   const { message, choices } = options;
 
   const renderLayout = (cursor: number, submitted: boolean) => {
-    const prefix = submitted
-      ? Box.text("✔").pipe(Box.annotate(Ansi.green))
-      : Box.text("?").pipe(Box.annotate(Ansi.cyan));
-
     const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
 
     const items = choices.map((c, i) => {
       const isSelected = i === cursor;
-
-      return Box.text(c.title).pipe(
-        Panel.make({ padding: Box.pad(0, 2) }),
-        Box.annotate(
-          isSelected ? Ansi.combine(Ansi.cyan, Ansi.bold) : Ansi.dim,
-        ),
+      const indicator = Box.char(isSelected ? "⏵" : " ").pipe(
+        Box.annotate(Ansi.cyan),
       );
+      const title = Box.text(c.title).pipe(
+        Box.annotate(isSelected ? Ansi.bold : Ansi.dim),
+      );
+      const description =
+        isSelected && c.description
+          ? Box.text(c.description).pipe(Box.annotate(Ansi.dim))
+          : Box.nullBox;
+
+      return Box.hsep([indicator, title, description], 1, Box.left);
     });
 
     if (submitted) {
       const selected = choices[cursor];
       return Box.hsep(
         [
-          prefix,
+          Box.text("✔").pipe(Box.annotate(Ansi.green)),
           label,
           Box.text(selected?.title ?? "").pipe(Box.annotate(Ansi.cyan)),
         ],
@@ -67,18 +58,9 @@ export const HorizontalSelect = <A extends string>(
       );
     }
 
-    const content = Box.vcat(
-      [
-        Box.hsep([prefix, label, Box.text(" ")], 2, Box.center1),
-        Box.hsep(items, 2, Box.center1),
-      ],
-      Box.left,
-    );
+    const content = Box.vcat([label, Box.vcat(items, Box.left)], Box.left);
 
-    return Box.vcat(
-      [content.pipe(PromptChrome()), Hint(HorizontalSelectKeys)],
-      Box.left,
-    );
+    return Box.vcat([content.pipe(PromptChrome()), Hint(SelectKeys)], Box.left);
   };
 
   let hasRendered = false;
@@ -109,24 +91,21 @@ export const HorizontalSelect = <A extends string>(
     }),
     process: Effect.fnUntraced(function* (input, cursor) {
       return Match.value(input).pipe(
-        whenBinding(HorizontalSelectKeys.Right, () =>
+        whenBinding(SelectKeys.Down, () =>
           Action.NextFrame({ state: (cursor + 1) % choices.length }),
         ),
-        whenBinding(HorizontalSelectKeys.Left, () =>
+        whenBinding(SelectKeys.Up, () =>
           Action.NextFrame({
             state: (cursor - 1 + choices.length) % choices.length,
           }),
         ),
-        whenBinding(HorizontalSelectKeys.Submit, () => {
+        whenBinding(SelectKeys.Submit, () => {
           const selected = choices[cursor];
           if (selected) {
             return Action.Submit({ value: selected.value });
           }
           return Action.Beep();
         }),
-        whenBinding(HorizontalSelectKeys.Cancel, () =>
-          Action.Submit({ value: choices[0]!.value }),
-        ),
         Match.orElse(() => Action.NextFrame({ state: cursor })),
       );
     }),

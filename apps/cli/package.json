@@ -48,6 +48,7 @@
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",
+    "@repo/tui": "workspace:*",
     "@types/bun": "1.3.14",
     "effect": "4.0.0-beta.65",
     "effect-boxes": "^0.14.0",
