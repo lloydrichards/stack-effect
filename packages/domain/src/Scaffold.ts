@@ -69,15 +69,27 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         ? this.identity.name
         : this.identity.kind;
 
-    return template
-      .replaceAll("{{targetPath}}", this.identity.toPath())
-      .replaceAll("{{targetDir}}", this.identity.toPath())
-      .replaceAll("{{targetKind}}", this.identity.kind)
-      .replaceAll("{{targetName}}", resolvedTargetName)
-      .replaceAll("{{packageName}}", this.identity.toPackageName())
-      .replaceAll("{{runtime}}", this.config.runtimeName)
-      .replaceAll("{{packageManager}}", this.config.packageManagerName)
-      .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
-      .replaceAll("{{projectName}}", this.config.name);
+    const targetPath = this.identity.toPath();
+    // When targetPath is "." (init target), avoid producing "./foo" paths —
+    // strip the leading "./" so paths stay consistent with module contributions.
+    const resolveTargetToken = (t: string, token: string) =>
+      targetPath === "."
+        ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
+        : t.replaceAll(token, targetPath);
+
+    return resolveTargetToken(
+      resolveTargetToken(
+        template
+          .replaceAll("{{targetKind}}", this.identity.kind)
+          .replaceAll("{{targetName}}", resolvedTargetName)
+          .replaceAll("{{packageName}}", this.identity.toPackageName())
+          .replaceAll("{{runtime}}", this.config.runtimeName)
+          .replaceAll("{{packageManager}}", this.config.packageManagerName)
+          .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
+          .replaceAll("{{projectName}}", this.config.name),
+        "{{targetDir}}",
+      ),
+      "{{targetPath}}",
+    );
   }
 }

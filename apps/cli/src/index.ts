@@ -14,6 +14,7 @@ import { Ansi, Box } from "effect-boxes";
 import { add } from "./commands/add";
 import { graph } from "./commands/graph";
 import { init } from "./commands/init";
+import { plan } from "./commands/plan";
 import { schema } from "./commands/schema";
 import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
@@ -43,7 +44,7 @@ const MainLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(PlatformLayer));
 
 const program = root.pipe(
-  Command.withSubcommands([init, add, graph, schema]),
+  Command.withSubcommands([init, add, graph, plan, schema]),
   Command.run({ version: "1.0.0" }),
   Effect.provide(MainLayer),
   Effect.catchCause((cause) => {
