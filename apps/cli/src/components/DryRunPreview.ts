@@ -1,6 +1,6 @@
 import type { ApplyResult } from "@repo/domain/Apply";
-import { Breakpoint, Container, Panel } from "@repo/tui";
-import { Ansi, Box } from "effect-boxes";
+import { Breakpoint, Panel } from "@repo/tui";
+import { Ansi, Box, Container, Flex } from "effect-boxes";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));
@@ -35,17 +35,23 @@ export const DryRunPreview = ({
   );
 
   // Apply panel
-  const changesStats = Box.hsep(
+  const changesStats = Flex.row(
     [
-      Box.text(`${apply.created.length}`).pipe(Box.annotate(Ansi.green)),
-      Box.text("create").pipe(Box.annotate(Ansi.dim)),
-      Box.text(`${apply.modified.length}`).pipe(Box.annotate(Ansi.yellow)),
-      Box.text("modify").pipe(Box.annotate(Ansi.dim)),
-      Box.text(`${apply.skipped.length}`).pipe(Box.annotate(Ansi.dim)),
-      Box.text("skip").pipe(Box.annotate(Ansi.dim)),
+      Flex.fixed(
+        Box.text(`${apply.created.length}`).pipe(Box.annotate(Ansi.green)),
+      ),
+      Flex.fixed(Box.text("create").pipe(Box.annotate(Ansi.dim))),
+      Flex.fixed(
+        Box.text(`${apply.modified.length}`).pipe(Box.annotate(Ansi.yellow)),
+      ),
+      Flex.fixed(Box.text("modify").pipe(Box.annotate(Ansi.dim))),
+      Flex.fixed(
+        Box.text(`${apply.skipped.length}`).pipe(Box.annotate(Ansi.dim)),
+      ),
+      Flex.fixed(Box.text("skip").pipe(Box.annotate(Ansi.dim))),
     ],
-    1,
-    Box.left,
+    terminalWidth,
+    { gap: 1 },
   );
 
   const applyContent = Box.vsep(
@@ -151,13 +157,21 @@ export const DryRunPreview = ({
           }),
         );
 
-        return Box.hcat([leftPanel, middlePanel, rightPanel], Box.top);
+        return Flex.row(
+          [
+            Flex.fixed(leftPanel),
+            Flex.fixed(middlePanel),
+            Flex.fixed(rightPanel),
+          ],
+          terminalWidth,
+          { align: Box.top },
+        );
       },
     },
     {
       minWidth: 0,
       render: () =>
-        Container.make({ width: terminalWidth, paddingX: 2 }, (ctx) => {
+        Container.make({ width: terminalWidth, padding: [0, 2] }, (ctx) => {
           const topPanel = blueprintContent.pipe(
             Box.minWidth(ctx.innerWidth),
             Panel.make({

@@ -1,5 +1,5 @@
-import { Container, Panel } from "@repo/tui";
-import { Ansi, Box } from "effect-boxes";
+import { Panel } from "@repo/tui";
+import { Ansi, Box, Container, Flex } from "effect-boxes";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));
@@ -18,10 +18,13 @@ export const NextStepsPreview = ({
   // Conflicts section
   if (conflicts.length > 0) {
     const items = conflicts.map((path) =>
-      Box.hsep(
-        [Box.text("\u2022").pipe(Box.annotate(Ansi.yellow)), Box.text(path)],
-        1,
-        Box.left,
+      Flex.row(
+        [
+          Flex.fixed(Box.text("\u2022").pipe(Box.annotate(Ansi.yellow))),
+          Flex.fixed(Box.text(path)),
+        ],
+        80,
+        { gap: 1 },
       ),
     );
     sections.push(
@@ -36,13 +39,13 @@ export const NextStepsPreview = ({
   // Skipped scripts section
   if (skippedScripts.length > 0) {
     const items = skippedScripts.map((s) =>
-      Box.hsep(
+      Flex.row(
         [
-          Box.text("\u2022").pipe(Box.annotate(Ansi.yellow)),
-          Box.text(s.command).pipe(Box.annotate(Ansi.dim)),
+          Flex.fixed(Box.text("\u2022").pipe(Box.annotate(Ansi.yellow))),
+          Flex.fixed(Box.text(s.command).pipe(Box.annotate(Ansi.dim))),
         ],
-        1,
-        Box.left,
+        80,
+        { gap: 1 },
       ),
     );
     sections.push(
@@ -53,10 +56,13 @@ export const NextStepsPreview = ({
   // Next steps section
   if (steps.length > 0) {
     const items = steps.map((step, i) =>
-      Box.hsep(
-        [Box.text(`${i + 1}.`).pipe(Box.annotate(Ansi.cyan)), Box.text(step)],
-        1,
-        Box.left,
+      Flex.row(
+        [
+          Flex.fixed(Box.text(`${i + 1}.`).pipe(Box.annotate(Ansi.cyan))),
+          Flex.fixed(Box.text(step)),
+        ],
+        80,
+        { gap: 1 },
       ),
     );
     sections.push(
@@ -71,7 +77,7 @@ export const NextStepsPreview = ({
   // Stack sections vertically with borders
   const terminalWidth = process.stdout.columns ?? 80;
 
-  return Container.make({ width: terminalWidth, paddingX: 2 }, (ctx) => {
+  return Container.make({ width: terminalWidth, padding: [0, 2] }, (ctx) => {
     const panels = sections.map((section, i) => {
       const isFirst = i === 0;
       const isLast = i === sections.length - 1;
