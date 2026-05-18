@@ -3,9 +3,9 @@
   "compilerOptions": {
     "rootDir": ".",
     "lib": ["ES2024", "DOM"],
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
     "outDir": "./dist",
     "skipLibCheck": true,
     "types": ["node"]

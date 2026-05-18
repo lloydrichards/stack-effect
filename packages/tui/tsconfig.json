@@ -10,10 +10,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": [
-    "src",
-    "scratchpad.ts",
-    "../../apps/cli/src/components/DryRunPreview.ts"
-  ],
+  "include": ["src", "scratchpad.ts"],
   "exclude": ["dist", "build", "node_modules"]
 }

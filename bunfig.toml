@@ -1,2 +1,6 @@
+[install]
+# Reject packages published less than 1 day ago to mitigate supply chain attacks
+minimumAgeOfNewDependencies = "1d"
+
 [test]
 pathIgnorePatterns = ["e2e/**", "apps/client/**"]

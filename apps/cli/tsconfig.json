@@ -3,6 +3,8 @@
   "compilerOptions": {
     "outDir": "dist",
     "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
     "types": ["@types/bun"]
   },
   "include": ["src/**/*", "e2e/**/*"],

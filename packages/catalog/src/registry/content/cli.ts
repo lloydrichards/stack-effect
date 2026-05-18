@@ -8,8 +8,8 @@ export const cliPackageJsonContents = `{
   },
   "scripts": {},
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.65",
-    "effect": "4.0.0-beta.65"
+    "@effect/platform-bun": "4.0.0-beta.67",
+    "effect": "4.0.0-beta.67"
   },
   "devDependencies": {
     "@effect/language-service": "^0.85.1",
