@@ -1,5 +1,6 @@
 import type {
   CatalogGraph,
+  CatalogTree,
   ModuleCategory,
   ModuleId,
   ModuleImplication,
@@ -8,7 +9,15 @@ import type {
   Visibility,
 } from "@repo/domain/Catalog";
 import { CatalogNotFound } from "@repo/domain/Catalog";
-import { Array as Arr, Context, Effect, Graph, Layer, Match } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Graph,
+  Layer,
+  Match,
+  Result,
+} from "effect";
 import { moduleRegistry } from "./registry/moduleRegistry";
 import { targetRegistry } from "./registry/targetRegistry";
 
@@ -200,6 +209,44 @@ export class CatalogService extends Context.Service<CatalogService>()(
           return true;
         });
 
+      const toCatalogTree: typeof CatalogTree.Type = {
+        targets: Arr.map(Arr.fromIterable(targetIndex.values()), (target) => ({
+          kind: target.kind,
+          title: target.title,
+          description: target.description,
+          requiredModules: target.requiredModules ?? [],
+          modules: Arr.filterMap(
+            Arr.fromIterable(moduleIndex.values()),
+            (mod) => {
+              const supported = Arr.some(
+                mod.supportedOn,
+                (s) => supportedOnTargetKind(s) === target.kind,
+              );
+              if (!supported) return Result.fail("skip" as const);
+              return Result.succeed({
+                id: mod.id,
+                title: mod.title,
+                description: mod.description,
+                categories: mod.categories ?? [],
+                requires: Arr.filterMap(mod.dependencies, (dep) => {
+                  if (dep._tag !== "required-module")
+                    return Result.fail("skip" as const);
+                  return Result.succeed({
+                    targetKind: dep.target.kind,
+                    targetName: dep.target.name,
+                    moduleId: dep.moduleId,
+                  });
+                }),
+                implies: (mod.implies ?? []).map((imp) => ({
+                  targetKind: imp.targetKind,
+                  moduleId: imp.moduleId,
+                })),
+              });
+            },
+          ),
+        })),
+      };
+
       return {
         getImplications,
         getModules,
@@ -209,6 +256,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
         getTargetKinds,
         isSupportedOn,
         isImpliedByAny,
+        toCatalogTree,
         toGraph,
       };
     }),
