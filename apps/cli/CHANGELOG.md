@@ -1,5 +1,43 @@
 # stack-effect
 
+## 0.4.0
+
+### Minor Changes
+
+- [#124](https://github.com/lloydrichards/stack-effect/pull/124) [`c5d0872`](https://github.com/lloydrichards/stack-effect/commit/c5d0872dcdaa00f974978d749ce7ceea8d004a57) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add `schema` command to serialize the catalog and plan input schema, closes [#109](https://github.com/lloydrichards/stack-effect/issues/109)
+
+  Outputs a JSON object with the full catalog (targets, modules, dependencies, implications) and a JSON Schema for the `plan` command's stdin input. Designed for LLMs, CI pipelines, and external tooling to discover available scaffolding options programmatically:
+
+  ```bash
+    # Dump catalog and plan input schema
+    stack-effect schema
+
+    # Pipe into jq for inspection
+    stack-effect schema | jq '.catalog.targets'
+    stack-effect schema | jq '.planInput'
+  ```
+
+- [#120](https://github.com/lloydrichards/stack-effect/pull/120) [`8cb7e00`](https://github.com/lloydrichards/stack-effect/commit/8cb7e00c4d3405e5103b6914ae2fac73aad21e3e) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add contextual next-steps output, closes [#107](https://github.com/lloydrichards/stack-effect/issues/107)
+
+- [#124](https://github.com/lloydrichards/stack-effect/pull/124) [`4d0ee6b`](https://github.com/lloydrichards/stack-effect/commit/4d0ee6be4927fad4695b6d5713372f5afbe6b57e) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add `plan` command for non-interactive blueprint and plan generation, closes [#102](https://github.com/lloydrichards/stack-effect/issues/102)
+
+  Reads a Selection + optional config from stdin, runs the Blueprint → Plan pipeline, and outputs structured JSON. Supports three output formats for different consumers:
+
+  ```bash
+    # Pipe a selection to get raw plan output
+    echo '{"selection":{"targets":[{"kind":"server","name":"api"}]}}' | stack-effect plan --root ./my-app
+
+    # Get an LLM-friendly format with resolved file contents
+    echo '{"selection":{"targets":[...]}}' | stack-effect plan -f llm
+
+    # Get a visual tree summary
+    echo '{"selection":{"targets":[...]}}' | stack-effect plan -f tree
+  ```
+
+- [#118](https://github.com/lloydrichards/stack-effect/pull/118) [`17a665e`](https://github.com/lloydrichards/stack-effect/commit/17a665ee3a231fb8e25189563c4c3716a91b471d) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add progressive disclosure of scripts to be run for opt out, closes [#103](https://github.com/lloydrichards/stack-effect/issues/103)
+
+- [#121](https://github.com/lloydrichards/stack-effect/pull/121) [`6227123`](https://github.com/lloydrichards/stack-effect/commit/62271234bda993285cdc299ac2e5e915d0f4dae3) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add Layout and Panel helpers for responsive composition
+
 ## 0.3.0
 
 ### Minor Changes
