@@ -11,6 +11,7 @@ import {
 import { Cause, Config, Console, Effect, Layer } from "effect";
 import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
+import pkg from "../package.json";
 import { add } from "./commands/add";
 import { graph } from "./commands/graph";
 import { init } from "./commands/init";
@@ -49,7 +50,7 @@ const MainLayer = Layer.mergeAll(
 
 const program = root.pipe(
   Command.withSubcommands([init, add, graph, plan, schema]),
-  Command.run({ version: "1.0.0" }),
+  Command.run({ version: pkg.version }),
   Effect.provide(MainLayer),
   Effect.catchCause((cause) => {
     if (Cause.hasInterruptsOnly(cause)) {
