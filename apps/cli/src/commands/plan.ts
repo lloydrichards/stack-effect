@@ -181,7 +181,9 @@ export const plan = Command.make(
   Command.withDescription(
     "Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption.",
   ),
-  Command.withShortDescription("(for LLMs) Generate a scaffold plan from stdin"),
+  Command.withShortDescription(
+    "(for LLMs) Generate a scaffold plan from stdin",
+  ),
   Command.withExamples([
     {
       command:

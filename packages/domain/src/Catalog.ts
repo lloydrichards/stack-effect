@@ -283,3 +283,47 @@ export type CatalogGraph = Graph.DirectedGraph<
   typeof CatalogNode.Type,
   typeof CatalogEdge.Type
 >;
+
+// =============================================================================
+// Catalog Tree (selection-oriented view)
+// =============================================================================
+
+/**
+ * A module entry within the catalog tree, showing what it requires and implies
+ * so an LLM can understand the consequences of selecting it.
+ */
+export const CatalogTreeModule = Schema.Struct({
+  id: ModuleId,
+  title: Schema.String,
+  description: Schema.String,
+  categories: Schema.Array(ModuleCategory),
+  requires: Schema.Array(
+    Schema.Struct({
+      targetKind: TargetKind,
+      targetName: Schema.String,
+      moduleId: ModuleId,
+    }),
+  ),
+  implies: Schema.Array(ModuleImplication),
+});
+
+/**
+ * A target node in the catalog tree with its available modules nested inside.
+ * This makes it trivial to see "for target X, I can pick modules [A, B, C]"
+ * along with their dependency/implication edges.
+ */
+export const CatalogTreeTarget = Schema.Struct({
+  kind: TargetKind,
+  title: Schema.String,
+  description: Schema.String,
+  requiredModules: Schema.Array(ModuleId),
+  modules: Schema.Array(CatalogTreeModule),
+});
+
+/**
+ * The full catalog as a tree: targets at the top level, modules nested within.
+ * Designed for LLM consumption where the question is "what can I select?"
+ */
+export const CatalogTree = Schema.Struct({
+  targets: Schema.Array(CatalogTreeTarget),
+});
