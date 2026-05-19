@@ -177,4 +177,26 @@ export const plan = Command.make(
         onNone: () => Effect.succeed(Console.log(outputText)),
       });
     }),
+).pipe(
+  Command.withDescription(
+    "Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption.",
+  ),
+  Command.withShortDescription("(for LLMs) Generate a scaffold plan from stdin"),
+  Command.withExamples([
+    {
+      command:
+        'echo \'{"selection":{"targets":[{"kind":"server","name":"api"}]}}\' | stack-effect plan',
+      description: "Output raw plan JSON",
+    },
+    {
+      command:
+        'echo \'{"selection":{"targets":[...]}}\' | stack-effect plan -f llm',
+      description: "LLM-friendly format with resolved file contents",
+    },
+    {
+      command:
+        'echo \'{"selection":{"targets":[...]}}\' | stack-effect plan -f tree',
+      description: "Visual tree summary",
+    },
+  ]),
 );

@@ -345,4 +345,19 @@ export const graph = Command.make("graph", { format: formatFlag }, (flags) =>
       }
     }
   }),
+).pipe(
+  Command.withDescription(
+    "Output the catalog dependency graph in table, Mermaid, or DOT format for visualization or tooling.",
+  ),
+  Command.withShortDescription("Visualize the module dependency graph"),
+  Command.withExamples([
+    {
+      command: "stack-effect graph --format mermaid",
+      description: "Output as Mermaid diagram syntax",
+    },
+    {
+      command: "stack-effect graph --format dot | dot -Tsvg -o graph.svg",
+      description: "Render as SVG via Graphviz",
+    },
+  ]),
 );

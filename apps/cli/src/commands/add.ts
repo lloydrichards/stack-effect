@@ -614,4 +614,24 @@ export const add = Command.make(
         }
       }),
     ),
+).pipe(
+  Command.withDescription(
+    "Incrementally add targets and modules to a scaffolded project. Resolves dependencies and implications automatically.",
+  ),
+  Command.withShortDescription("Add targets or modules to an existing project"),
+  Command.withExamples([
+    {
+      command: "stack-effect add",
+      description: "Interactively select targets and modules",
+    },
+    {
+      command: "stack-effect add --target server/api --modules http-api",
+      description: "Add a specific module to a target",
+    },
+    {
+      command:
+        "stack-effect add --yes --target package/domain --modules domain-api --dry-run",
+      description: "Non-interactive dry run for CI/LLM usage",
+    },
+  ]),
 );

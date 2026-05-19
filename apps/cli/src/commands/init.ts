@@ -357,4 +357,23 @@ export const init = Command.make(
         config,
       });
     }),
+).pipe(
+  Command.withDescription(
+    "Scaffold a new Effect project in a subdirectory (or '.' for the current directory). Runs interactively unless --yes is passed.",
+  ),
+  Command.withShortDescription("Create a new project"),
+  Command.withExamples([
+    {
+      command: "stack-effect init my-app",
+      description: "Create a new project in ./my-app interactively",
+    },
+    {
+      command: "stack-effect init . --yes",
+      description: "Initialize in the current directory using the folder name",
+    },
+    {
+      command: "stack-effect init my-app --yes --package-manager bun --no-git",
+      description: "Non-interactive with explicit options",
+    },
+  ]),
 );

@@ -30,7 +30,11 @@ const PlatformLayer = Layer.unwrap(
   }),
 );
 
-const root = Command.make("stack-effect");
+const root = Command.make("stack-effect").pipe(
+  Command.withDescription(
+    "Interactive CLI for scaffolding and extending Effect-powered TypeScript projects. Compose targets (server, client, cli, package) with incrementally-addable modules.",
+  ),
+);
 
 const MainLayer = Layer.mergeAll(
   ApplyService.layer,

@@ -85,4 +85,21 @@ export const schema = Command.make("schema", {}, () =>
       }),
     );
   }),
+).pipe(
+  Command.withDescription(
+    "Serialize the full catalog (targets, modules, dependencies) and the JSON Schema for plan input. Useful for LLMs, CI, and external tooling.",
+  ),
+  Command.withShortDescription(
+    "(for LLMs) Export catalog and input schema as JSON",
+  ),
+  Command.withExamples([
+    {
+      command: "stack-effect schema",
+      description: "Output full catalog and plan input schema",
+    },
+    {
+      command: "stack-effect schema | jq '.catalog.targets'",
+      description: "Inspect available targets",
+    },
+  ]),
 );
