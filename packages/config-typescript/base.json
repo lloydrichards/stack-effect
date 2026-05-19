@@ -4,8 +4,8 @@
   "compilerOptions": {
     "moduleResolution": "bundler",
     "module": "ESNext",
-    "target": "ES2024",
-    "lib": ["ES2023"],
+    "target": "esnext",
+    "lib": ["ESNext"],
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
