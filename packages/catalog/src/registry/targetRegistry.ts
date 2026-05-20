@@ -94,7 +94,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       },
       {
         _tag: "file",
-        path: "{{targetPath}}/component.json",
+        path: "{{targetPath}}/components.json",
         contents: clientShadcnComponentJson,
       },
       {

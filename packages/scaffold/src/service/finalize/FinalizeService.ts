@@ -96,13 +96,28 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         return [...targetScripts, ...moduleScripts];
       });
 
+      const deduplicateScripts = (
+        scripts: ReadonlyArray<ResolvedScript>,
+      ): ResolvedScript[] => {
+        const seen = new Set<string>();
+        return scripts.filter((s) => {
+          const key = `${s.command}::${s.workdir}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      };
+
       const run = Effect.fn("FinalizeService.run")(function* (
         blueprint: typeof Blueprint.Type,
         config: FinalizeConfig,
       ) {
         const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        const allScripts = orderScripts(scripts, configScripts);
+        const allScripts = orderScripts(
+          deduplicateScripts(scripts),
+          configScripts,
+        );
 
         return allScripts.map((script) => ({
           script,
@@ -116,7 +131,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       ) {
         const scripts = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        return orderScripts(scripts, configScripts).map(
+        return orderScripts(deduplicateScripts(scripts), configScripts).map(
           ({ label, command, phase, origin }) => ({
             label,
             command,
