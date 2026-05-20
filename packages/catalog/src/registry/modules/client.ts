@@ -66,6 +66,26 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         name: "@repo/domain",
         value: "workspace:*",
       },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: "<RestCard />",
+        import: {
+          moduleSpecifier: "./components/rest-card",
+          namedImports: ["RestCard"],
+        },
+      },
+    ],
+    scripts: [
+      {
+        label: "Install shadcn button component",
+        command: "bunx shadcn@latest add button --yes --overwrite",
+      },
+      {
+        label: "Install shadcn card component",
+        command: "bunx shadcn@latest add card --yes --overwrite",
+      },
     ],
   },
   {
@@ -112,6 +132,26 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         name: "@repo/domain",
         value: "workspace:*",
       },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: "<RpcCard />",
+        import: {
+          moduleSpecifier: "./components/rpc-card",
+          namedImports: ["RpcCard"],
+        },
+      },
+    ],
+    scripts: [
+      {
+        label: "Install shadcn button component",
+        command: "bunx shadcn@latest add button --yes --overwrite",
+      },
+      {
+        label: "Install shadcn card component",
+        command: "bunx shadcn@latest add card --yes --overwrite",
+      },
     ],
   },
   {
@@ -157,6 +197,30 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "dependencies",
         name: "@repo/domain",
         value: "workspace:*",
+      },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: "<ChatBox />",
+        import: {
+          moduleSpecifier: "./components/chat-box",
+          namedImports: ["ChatBox"],
+        },
+      },
+    ],
+    scripts: [
+      {
+        label: "Install shadcn button component",
+        command: "bunx shadcn@latest add button --yes --overwrite",
+      },
+      {
+        label: "Install shadcn card component",
+        command: "bunx shadcn@latest add card --yes --overwrite",
+      },
+      {
+        label: "Install shadcn input component",
+        command: "bunx shadcn@latest add input --yes --overwrite",
       },
     ],
   },
@@ -205,6 +269,26 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "dependencies",
         name: "@effect/platform-browser",
         value: "4.0.0-beta.67",
+      },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: `<PresencePanel className="h-full" />`,
+        import: {
+          moduleSpecifier: "./components/presence-panel",
+          namedImports: ["PresencePanel"],
+        },
+      },
+    ],
+    scripts: [
+      {
+        label: "Install shadcn button component",
+        command: "bunx shadcn@latest add button --yes --overwrite",
+      },
+      {
+        label: "Install shadcn card component",
+        command: "bunx shadcn@latest add card --yes --overwrite",
       },
     ],
   },

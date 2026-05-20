@@ -27,6 +27,7 @@ export const clientPackageJsonContents = `{
   "dependencies": {
     "@base-ui/react": "^1.3.0",
     "@effect/atom-react": "4.0.0-beta.67",
+    "@fontsource-variable/jetbrains-mono": "^5.2.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "effect": "4.0.0-beta.67",
@@ -110,10 +111,21 @@ if (rootElement) {
 }
 `;
 
-export const clientAppTsxContents = `function App() {
+export const clientAppTsxContents = `import { ThemeToggle } from "./components/theme-toggle";
+
+function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <h1 className="font-bold text-4xl">{{targetName}}</h1>
+    <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center gap-8 p-4">
+      <ThemeToggle />
+
+      <div className="text-center">
+        <h1 className="font-black text-5xl">{{targetName}}</h1>
+        <p className="text-muted-foreground">A typesafe fullstack monorepo</p>
+      </div>
+
+      <div className="grid w-full grid-cols-1 gap-6 auto-rows-[30rem] lg:auto-rows-[22rem] lg:grid-cols-2">
+        {/* @slot:components */}
+      </div>
     </div>
   );
 }
@@ -132,6 +144,9 @@ export default defineConfig({
     alias: {
       "@": path.resolve(__dirname, "./src"),
     },
+  },
+  optimizeDeps: {
+    include: ["@repo/domain"],
   },
   server: {
     strictPort: true,
@@ -169,6 +184,9 @@ export const clientShadcnComponentJson = `{
 export const clientIndexCssContents = `@import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
@@ -193,6 +211,24 @@ export const clientIndexCssContents = `@import "tailwindcss";
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --font-heading: var(--font-mono);
+  --font-mono: "JetBrains Mono Variable", monospace;
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
 :root {
@@ -215,6 +251,19 @@ export const clientIndexCssContents = `@import "tailwindcss";
   --border: oklch(0.925 0.005 214.3);
   --input: oklch(0.925 0.005 214.3);
   --ring: oklch(0.723 0.014 214.4);
+  --chart-1: oklch(0.823 0.12 346.018);
+  --chart-2: oklch(0.656 0.241 354.308);
+  --chart-3: oklch(0.592 0.249 0.584);
+  --chart-4: oklch(0.525 0.223 3.958);
+  --chart-5: oklch(0.459 0.187 3.815);
+  --sidebar: oklch(0.987 0.002 197.1);
+  --sidebar-foreground: oklch(0.148 0.004 228.8);
+  --sidebar-primary: oklch(0.609 0.126 221.723);
+  --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
+  --sidebar-accent: oklch(0.963 0.002 197.1);
+  --sidebar-accent-foreground: oklch(0.218 0.008 223.9);
+  --sidebar-border: oklch(0.925 0.005 214.3);
+  --sidebar-ring: oklch(0.723 0.014 214.4);
 }
 
 .dark {
@@ -236,6 +285,19 @@ export const clientIndexCssContents = `@import "tailwindcss";
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.56 0.021 213.5);
+  --chart-1: oklch(0.823 0.12 346.018);
+  --chart-2: oklch(0.656 0.241 354.308);
+  --chart-3: oklch(0.592 0.249 0.584);
+  --chart-4: oklch(0.525 0.223 3.958);
+  --chart-5: oklch(0.459 0.187 3.815);
+  --sidebar: oklch(0.218 0.008 223.9);
+  --sidebar-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-primary: oklch(0.715 0.143 215.221);
+  --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
+  --sidebar-accent: oklch(0.275 0.011 216.9);
+  --sidebar-accent-foreground: oklch(0.987 0.002 197.1);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.56 0.021 213.5);
 }
 
 @layer base {
@@ -245,7 +307,60 @@ export const clientIndexCssContents = `@import "tailwindcss";
   body {
     @apply bg-background text-foreground;
   }
+  html {
+    @apply font-mono;
+  }
 }
+`;
+
+export const clientAtomContents = `import { Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
+import { Atom } from "effect/unstable/reactivity";
+
+const ENABLE_DEVTOOLS = import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
+
+export const runtime = Atom.runtime(
+  ENABLE_DEVTOOLS ? DevTools.layer() : Layer.empty,
+);
+`;
+
+export const clientThemeToggleContents = `import { useLayoutEffect, useState } from "react";
+import { Card, CardContent } from "./ui/card";
+import { Switch } from "./ui/switch";
+
+export const ThemeToggle = () => {
+  const [isDark, setIsDark] = useState(false);
+
+  useLayoutEffect(() => {
+    const storedTheme = localStorage.getItem("theme");
+    const prefersDark = window.matchMedia(
+      "(prefers-color-scheme: dark)",
+    ).matches;
+    const shouldUseDark = storedTheme ? storedTheme === "dark" : prefersDark;
+
+    document.documentElement.classList.toggle("dark", shouldUseDark);
+    setIsDark(shouldUseDark);
+  }, []);
+
+  const handleThemeToggle = () => {
+    const nextIsDark = !isDark;
+    setIsDark(nextIsDark);
+    document.documentElement.classList.toggle("dark", nextIsDark);
+    localStorage.setItem("theme", nextIsDark ? "dark" : "light");
+  };
+  return (
+    <Card className="absolute right-4 top-4" size="sm">
+      <CardContent className="gap-2 flex items-center justify-between">
+        <label htmlFor="theme-toggle">Theme</label>
+        <Switch
+          id="theme-toggle"
+          checked={isDark}
+          onCheckedChange={handleThemeToggle}
+        />
+      </CardContent>
+    </Card>
+  );
+};
 `;
 
 export const clientUtilsContents = `import { type ClassValue, clsx } from "clsx";

@@ -195,6 +195,22 @@ export const PlanningIntentEntry = Schema.TaggedUnion({
       defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
     }),
   },
+  jsxSlot: {
+    path: Schema.String,
+    slotId: Schema.String,
+    content: Schema.String,
+    import: Schema.Union([
+      Schema.Struct({
+        moduleSpecifier: Schema.String,
+        namedImports: Schema.Union([
+          Schema.Array(Schema.String),
+          Schema.Undefined,
+        ]),
+        defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
+      }),
+      Schema.Undefined,
+    ]),
+  },
 });
 
 const toPlanningIntentEntries = (
@@ -237,6 +253,20 @@ const toPlanningIntentEntries = (
           },
         }),
       ],
+      "jsx-slot": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.jsxSlot.make({
+          path: c.path,
+          slotId: c.slotId,
+          content: c.content,
+          import: c.import
+            ? {
+                moduleSpecifier: c.import.moduleSpecifier,
+                namedImports: c.import.namedImports,
+                defaultImport: c.import.defaultImport,
+              }
+            : undefined,
+        }),
+      ],
     }),
   );
 
@@ -261,6 +291,7 @@ const derivePlanningIntentPath = ({
     const tsCallArgEntries = entries.filter(
       PlanningIntentEntry.guards.tsCallArg,
     );
+    const jsxSlotEntries = entries.filter(PlanningIntentEntry.guards.jsxSlot);
 
     const resolveContents = () =>
       requireSingleValue({
@@ -338,6 +369,7 @@ const derivePlanningIntentPath = ({
             ...emptyPackageJsonFields,
             barrelExports: [],
             compositions: [],
+            jsxSlots: [],
             tsconfig: isConflictOnModify ? { path, contents } : undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -350,6 +382,7 @@ const derivePlanningIntentPath = ({
             ...(yield* resolvePackageJsonFields()),
             barrelExports: [],
             compositions: [],
+            jsxSlots: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -368,6 +401,7 @@ const derivePlanningIntentPath = ({
               errorMessage: `Conflicting barrel export outcomes for ${path}.`,
             }),
             compositions: [],
+            jsxSlots: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -385,6 +419,24 @@ const derivePlanningIntentPath = ({
               argument: entry.argument,
               import: entry.import,
             })),
+            jsxSlots: [],
+            tsconfig: undefined,
+          } satisfies PlanningIntentPath;
+        }),
+      ),
+      Match.when("jsxSlot", () =>
+        Effect.gen(function* () {
+          return {
+            path,
+            contents: undefined,
+            ...emptyPackageJsonFields,
+            barrelExports: [],
+            compositions: [],
+            jsxSlots: Arr.map(jsxSlotEntries, (entry) => ({
+              slotId: entry.slotId,
+              content: entry.content,
+              import: entry.import,
+            })),
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -397,6 +449,7 @@ const derivePlanningIntentPath = ({
             ...(yield* resolvePackageJsonFields()),
             barrelExports: [],
             compositions: [],
+            jsxSlots: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -414,6 +467,7 @@ const derivePlanningIntentPath = ({
               argument: entry.argument,
               import: entry.import,
             })),
+            jsxSlots: [],
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -432,6 +486,24 @@ const derivePlanningIntentPath = ({
               errorMessage: `Conflicting barrel export outcomes for ${path}.`,
             }),
             compositions: [],
+            jsxSlots: [],
+            tsconfig: undefined,
+          } satisfies PlanningIntentPath;
+        }),
+      ),
+      Match.when("authoritativeJsxSlot", () =>
+        Effect.gen(function* () {
+          return {
+            path,
+            contents: yield* resolveContents(),
+            ...emptyPackageJsonFields,
+            barrelExports: [],
+            compositions: [],
+            jsxSlots: Arr.map(jsxSlotEntries, (entry) => ({
+              slotId: entry.slotId,
+              content: entry.content,
+              import: entry.import,
+            })),
             tsconfig: undefined,
           } satisfies PlanningIntentPath;
         }),
@@ -443,7 +515,8 @@ const derivePlanningIntentPath = ({
 type CompositePlanningIntentFamily =
   | "authoritativePackageJson"
   | "authoritativeTsCallArg"
-  | "authoritativeBarrel";
+  | "authoritativeBarrel"
+  | "authoritativeJsxSlot";
 
 const COMPOSITE_FAMILIES: ReadonlyArray<{
   pair: [PlanningIntentFamily, PlanningIntentFamily];
@@ -455,6 +528,7 @@ const COMPOSITE_FAMILIES: ReadonlyArray<{
   },
   { pair: ["authoritative", "tsCallArg"], result: "authoritativeTsCallArg" },
   { pair: ["authoritative", "barrel"], result: "authoritativeBarrel" },
+  { pair: ["authoritative", "jsxSlot"], result: "authoritativeJsxSlot" },
 ];
 
 const derivePlanningIntentFamily = ({
@@ -495,13 +569,15 @@ type PlanningIntentFamily =
   | "authoritative"
   | "packageJson"
   | "barrel"
-  | "tsCallArg";
+  | "tsCallArg"
+  | "jsxSlot";
 
 const toPlanningIntentFamily = PlanningIntentEntry.match({
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
   barrelExport: () => "barrel" as const,
   tsCallArg: () => "tsCallArg" as const,
+  jsxSlot: () => "jsxSlot" as const,
 }) satisfies (entry: typeof PlanningIntentEntry.Type) => PlanningIntentFamily;
 
 const requireSingleValue = <Value>({

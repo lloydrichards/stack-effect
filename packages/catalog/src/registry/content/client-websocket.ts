@@ -61,6 +61,8 @@ import type {
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   presenceSubscriptionAtom,
   WebSocketClient,
@@ -157,11 +159,11 @@ export function PresencePanel({ className }: { className?: string }) {
   const isConnecting = AsyncResult.isInitial(eventsResult);
 
   return (
-    <div className={cn("flex h-full flex-col rounded-lg border border-border bg-card text-card-foreground", className)}>
-      <div className="border-b border-border p-4">
+    <Card className={cn("flex h-full flex-col", className)}>
+      <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <div>
-            <h2 className="font-bold text-lg">WebSocket Presence (RPC)</h2>
+            <CardTitle>WebSocket Presence (RPC)</CardTitle>
             <p className="text-xs text-muted-foreground">Realtime status updates over RPC.</p>
           </div>
           <span
@@ -181,34 +183,33 @@ export function PresencePanel({ className }: { className?: string }) {
                 : "disconnected"}
           </span>
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="flex flex-col gap-4 p-4">
+      <CardContent className="flex flex-col gap-4">
         <div className="flex gap-2">
-          <button
-            type="button"
+          <Button
             onClick={() => handleSetStatus("online")}
-            className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            className="flex-1"
             disabled={!isConnected || !myClientId}
           >
             Online
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="secondary"
             onClick={() => handleSetStatus("away")}
-            className="flex-1 rounded-md bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground hover:bg-secondary/90 disabled:opacity-50"
+            className="flex-1"
             disabled={!isConnected || !myClientId}
           >
             Away
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="outline"
             onClick={() => handleSetStatus("busy")}
-            className="flex-1 rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-muted disabled:opacity-50"
+            className="flex-1"
             disabled={!isConnected || !myClientId}
           >
             Busy
-          </button>
+          </Button>
         </div>
 
         <div className="rounded-none border border-border bg-muted/50 p-3">
@@ -248,8 +249,8 @@ export function PresencePanel({ className }: { className?: string }) {
             </ul>
           )}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 `;

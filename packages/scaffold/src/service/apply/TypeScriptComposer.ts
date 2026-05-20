@@ -3,6 +3,7 @@ import type {
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
+  TsJsxSlotOp,
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -55,6 +56,9 @@ export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
               ),
               Match.tag("ts-append-call-arg", (appendOp) =>
                 applyTsAppendCallArg(sourceFile, appendOp),
+              ),
+              Match.tag("ts-jsx-slot", (slotOp) =>
+                Effect.sync(() => applyTsJsxSlot(sourceFile, slotOp)),
               ),
               Match.exhaustive,
             ),
@@ -253,3 +257,23 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
     functionName: op.functionName,
   });
 });
+
+// =============================================================================
+// JSX Slot Injection
+// =============================================================================
+
+const applyTsJsxSlot = (
+  sourceFile: SourceFile,
+  op: typeof TsJsxSlotOp.Type,
+): void => {
+  const text = sourceFile.getFullText();
+  const slotMarker = `{/* @slot:${op.slotId} */}`;
+  const index = text.indexOf(slotMarker);
+
+  if (index === -1) return;
+
+  // Insert content after the slot marker (on the next line)
+  const insertPos = index + slotMarker.length;
+  const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
+  sourceFile.replaceWithText(newText);
+};

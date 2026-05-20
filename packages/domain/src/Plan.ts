@@ -90,6 +90,12 @@ export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
   argument: Schema.String,
 });
 
+export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
+  fileType: Schema.tag("typescript"),
+  slotId: Schema.String,
+  content: Schema.String,
+});
+
 export const CompositionOperation = Schema.Union([
   // JSON operations
   JsonPkgExportsOp,
@@ -99,6 +105,7 @@ export const CompositionOperation = Schema.Union([
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
+  TsJsxSlotOp,
 ]).pipe(Schema.toTaggedUnion("fileType"));
 
 // =============================================================================

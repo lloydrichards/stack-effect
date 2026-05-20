@@ -92,6 +92,8 @@ export const tickAtom = runtime.fn(
 export const clientRpcCardContents = `import { useAtom } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { tickAtom } from "@/lib/atoms/tick-atom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const RpcCard = () => {
   const [result, search] = useAtom(tickAtom);
@@ -102,16 +104,16 @@ export const RpcCard = () => {
   };
   return (
     <div className="flex h-full flex-col gap-4">
-      <div className="rounded-lg border border-border bg-card p-6 text-card-foreground">
-        <h2 className="mb-4 font-bold text-lg">RPC API</h2>
-        <button
-          type="button"
-          className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-          onClick={handleSearch}
-        >
-          Call RPC API
-        </button>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>RPC API</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button className="w-full" onClick={handleSearch}>
+            Call RPC API
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="flex-1 rounded-lg border border-border bg-muted/50 p-4">
         {event ? (

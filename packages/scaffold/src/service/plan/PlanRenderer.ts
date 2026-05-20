@@ -92,6 +92,9 @@ const renderOperation = (
     Match.tag("ts-append-call-arg", (o) => {
       return `In \`${path}\`, find \`const ${o.targetVariable} = ${o.functionName}(...)\` and append \`${o.argument}\` as an additional argument`;
     }),
+    Match.tag("ts-jsx-slot", (o) => {
+      return `In \`${path}\`, inject content at slot \`@slot:${o.slotId}\``;
+    }),
     Match.exhaustive,
   );
 

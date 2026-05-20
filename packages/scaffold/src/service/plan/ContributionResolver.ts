@@ -125,6 +125,13 @@ const resolveContributionTokens = (
           argument: c.argument,
           import: c.import,
         }),
+      "jsx-slot": (c): typeof Contribution.Type =>
+        Contribution.cases["jsx-slot"].make({
+          path: resolveString(c.path),
+          slotId: c.slotId,
+          content: c.content,
+          import: c.import,
+        }),
     }),
   );
 };

@@ -38,6 +38,18 @@ export type PlanningIntentComposition = {
   };
 };
 
+export type PlanningIntentJsxSlot = {
+  readonly slotId: string;
+  readonly content: string;
+  readonly import:
+    | {
+        readonly moduleSpecifier: string;
+        readonly namedImports: ReadonlyArray<string> | undefined;
+        readonly defaultImport: string | undefined;
+      }
+    | undefined;
+};
+
 export type PlanningIntentPath = {
   readonly path: string;
   readonly contents: string | undefined;
@@ -46,6 +58,7 @@ export type PlanningIntentPath = {
   readonly scripts: ReadonlyArray<{ name: string; value: string }>;
   readonly barrelExports: ReadonlyArray<{ exportPath: string }>;
   readonly compositions: ReadonlyArray<PlanningIntentComposition>;
+  readonly jsxSlots: ReadonlyArray<PlanningIntentJsxSlot>;
   readonly tsconfig:
     | {
         path: string;
@@ -189,6 +202,26 @@ function toCompositionOperations(
       targetVariable: composition.targetVariable,
       functionName: composition.functionName,
       argument: composition.argument,
+    });
+  }
+
+  // JSX slots -> ts-add-import (optional) + ts-jsx-slot
+  for (const jsxSlot of planningPath.jsxSlots) {
+    if (jsxSlot.import) {
+      operations.push({
+        _tag: "ts-add-import",
+        fileType: "typescript",
+        moduleSpecifier: jsxSlot.import.moduleSpecifier,
+        namedImports: jsxSlot.import.namedImports,
+        defaultImport: jsxSlot.import.defaultImport,
+      });
+    }
+
+    operations.push({
+      _tag: "ts-jsx-slot",
+      fileType: "typescript",
+      slotId: jsxSlot.slotId,
+      content: jsxSlot.content,
     });
   }
 

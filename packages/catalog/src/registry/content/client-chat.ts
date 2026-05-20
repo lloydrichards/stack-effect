@@ -301,6 +301,9 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { chatAtom } from "@/lib/atoms/chat-atom";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 
 type Message = {
   role: "user" | "assistant" | "system";
@@ -437,9 +440,9 @@ export function ChatBox() {
   }, [scrollTrigger]);
 
   return (
-    <div className="flex h-full w-full flex-col rounded-lg border border-border bg-card text-card-foreground">
-      <div className="border-b border-border p-4">
-        <h2 className="font-bold text-lg">Chat (RPC)</h2>
+    <Card className="flex h-full w-full flex-col">
+      <CardHeader>
+        <CardTitle>Chat (RPC)</CardTitle>
         <div className="flex gap-2 mt-1">
           {isStreaming && (
             <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-secondary-foreground">
@@ -457,9 +460,10 @@ export function ChatBox() {
             </span>
           )}
         </div>
-      </div>
+      </CardHeader>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-4" ref={scrollContainerRef}>
+      <CardContent className="flex-1 min-h-0 flex flex-col gap-0 p-0">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4" ref={scrollContainerRef}>
         <div className="space-y-6 py-6">
           {displayHistory.length === 0 && currentSegments.length === 0 && (
             <div className="flex flex-col items-start gap-2 rounded-none border border-border bg-muted/50 px-4 py-6 text-xs text-muted-foreground">
@@ -535,16 +539,17 @@ export function ChatBox() {
                 {currentResult.error.message}
               </p>
               {currentResult.error.recoverable && (
-                <button
-                  type="button"
-                  className="mt-2 rounded-md border border-border px-3 py-1 text-xs hover:bg-muted"
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2"
                   onClick={() => {
                     const messages = historyToMessages(history);
                     sendMessages(messages);
                   }}
                 >
                   Retry
-                </button>
+                </Button>
               )}
             </div>
           )}
@@ -553,26 +558,24 @@ export function ChatBox() {
 
       <div className="border-t border-border p-4">
         <div className="flex w-full gap-2">
-          <input
+          <Input
             type="text"
             placeholder="Send a message"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend()}
             disabled={isWaiting || isStreaming}
-            className="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm"
           />
-          <button
-            type="button"
+          <Button
             onClick={handleSend}
             disabled={!input.trim() || isWaiting || isStreaming}
-            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
           >
             Send
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 

@@ -10,11 +10,13 @@ import {
 } from "./content/cli";
 import {
   clientAppTsxContents,
+  clientAtomContents,
   clientIndexCssContents,
   clientIndexHtmlContents,
   clientMainTsxContents,
   clientPackageJsonContents,
   clientShadcnComponentJson,
+  clientThemeToggleContents,
   clientTsconfigConfigContents,
   clientTsconfigContents,
   clientUtilsContents,
@@ -129,6 +131,16 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/src/lib/atom.ts",
+        contents: clientAtomContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/components/theme-toggle.tsx",
+        contents: clientThemeToggleContents,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/src/vite-env.d.ts",
         contents: clientViteEnvContents,
       },
@@ -181,6 +193,16 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "clean",
         value: "git clean -xdf .cache .turbo dist node_modules",
+      },
+    ],
+    scripts: [
+      {
+        label: "Install shadcn card component",
+        command: "bunx shadcn@latest add card --yes --overwrite",
+      },
+      {
+        label: "Install shadcn switch component",
+        command: "bunx shadcn@latest add switch --yes --overwrite",
       },
     ],
   },

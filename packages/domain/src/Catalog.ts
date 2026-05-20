@@ -171,6 +171,26 @@ export const Contribution = Schema.TaggedUnion({
       defaultImport: Schema.optional(Schema.String),
     }),
   },
+
+  /**
+   * JSX slot injection - inserts content at a named slot marker in a file.
+   *
+   * Template files use `{/* @slot:<slotId> *​/}` comments as injection points.
+   * Multiple contributions targeting the same slot are concatenated in order.
+   * Optionally adds import statements to the top of the file.
+   */
+  "jsx-slot": {
+    path: Schema.String,
+    slotId: Schema.String,
+    content: Schema.String,
+    import: Schema.optional(
+      Schema.Struct({
+        moduleSpecifier: Schema.String,
+        namedImports: Schema.optional(Schema.Array(Schema.String)),
+        defaultImport: Schema.optional(Schema.String),
+      }),
+    ),
+  },
 });
 
 /**
