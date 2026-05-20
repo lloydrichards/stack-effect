@@ -171,6 +171,7 @@ commits in these repos to ensure the LLM references current code:
 - `.reference/shadcn/`
 - `.reference/effect-boxes/`
 - `.reference/base_bevr-stack/`
+- `.reference/foldkit/`
 
 If any of the folders are missing (they are git ignored), clone them into
 `reference/`:
@@ -181,6 +182,7 @@ If any of the folders are missing (they are git ignored), clone them into
 - `https://github.com/shadcn-ui/ui.git` -> `.reference/shadcn/`
 - `https://github.com/lloydrichards/proj_effect-boxes.git` -> `.reference/effect-boxes/`
 - `https://github.com/lloydrichards/base_bevr-stack.git` -> `.reference/base_bevr-stack/`
+- `https://github.com/foldkit/foldkit.git` -> `.reference/foldkit/`
 
 ---
 

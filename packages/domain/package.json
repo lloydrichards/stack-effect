@@ -10,6 +10,7 @@
     "./Blueprint": "./src/Blueprint.ts",
     "./Catalog": "./src/Catalog.ts",
     "./Chat": "./src/Chat.ts",
+    "./ChatRpc": "./src/ChatRpc.ts",
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",
     "./Rpc": "./src/Rpc.ts",
