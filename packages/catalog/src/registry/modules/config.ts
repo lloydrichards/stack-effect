@@ -14,7 +14,7 @@ export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Config TypeScript Vite",
     description: "Vite TypeScript preset for client applications",
     visibility: "internal",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
     dependencies: [],
     contributions: [
       {
