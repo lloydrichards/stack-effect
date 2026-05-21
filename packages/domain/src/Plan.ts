@@ -73,6 +73,7 @@ export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
   moduleSpecifier: Schema.String,
   namedImports: Schema.optional(Schema.Array(Schema.String)),
   defaultImport: Schema.optional(Schema.String),
+  namespaceImport: Schema.optional(Schema.String),
   typeOnly: Schema.optional(Schema.Boolean),
 });
 
@@ -90,6 +91,14 @@ export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
   argument: Schema.String,
 });
 
+export const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
+  fileType: Schema.tag("typescript"),
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  field: Schema.String,
+  value: Schema.String,
+});
+
 export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
   fileType: Schema.tag("typescript"),
   slotId: Schema.String,
@@ -105,6 +114,7 @@ export const CompositionOperation = Schema.Union([
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
+  TsObjectFieldOp,
   TsJsxSlotOp,
 ]).pipe(Schema.toTaggedUnion("fileType"));
 

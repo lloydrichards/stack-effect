@@ -169,7 +169,30 @@ export const Contribution = Schema.TaggedUnion({
       moduleSpecifier: Schema.String,
       namedImports: Schema.optional(Schema.Array(Schema.String)),
       defaultImport: Schema.optional(Schema.String),
+      namespaceImport: Schema.optional(Schema.String),
     }),
+  },
+
+  /**
+   * TypeScript object field - adds a property to an object literal argument
+   * of a function call on a named variable.
+   *
+   * Used for composing Schema.Struct fields, Match.tagsExhaustive cases, etc.
+   */
+  "ts-object-field": {
+    path: Schema.String,
+    targetVariable: Schema.String,
+    functionName: Schema.String,
+    field: Schema.String,
+    value: Schema.String,
+    import: Schema.optional(
+      Schema.Struct({
+        moduleSpecifier: Schema.String,
+        namedImports: Schema.optional(Schema.Array(Schema.String)),
+        defaultImport: Schema.optional(Schema.String),
+        namespaceImport: Schema.optional(Schema.String),
+      }),
+    ),
   },
 
   /**
@@ -188,6 +211,7 @@ export const Contribution = Schema.TaggedUnion({
         moduleSpecifier: Schema.String,
         namedImports: Schema.optional(Schema.Array(Schema.String)),
         defaultImport: Schema.optional(Schema.String),
+        namespaceImport: Schema.optional(Schema.String),
       }),
     ),
   },
