@@ -24,6 +24,19 @@ import {
   clientViteEnvContents,
 } from "./content/client";
 import {
+  foldkitComposeContents,
+  foldkitEntryContents,
+  foldkitIndexHtmlContents,
+  foldkitMainContents,
+  foldkitPackageJsonContents,
+  foldkitStylesContents,
+  foldkitThemeFeatureContents,
+  foldkitThemeInitContents,
+  foldkitTsconfigConfigContents,
+  foldkitTsconfigContents,
+  foldkitViteConfigContents,
+} from "./content/client-foldkit";
+import {
   configTypescriptBaseContents,
   configTypescriptPackageJsonContents,
   gitignoreContents,
@@ -81,7 +94,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("client-react"),
     title: "Client React Application",
     description: "A frontend application built with React",
-    requiredModules: [ModuleId.make("config-typescript-react-vite")],
+    requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: [
       // Files
       {
@@ -203,6 +216,116 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       {
         label: "Install shadcn switch component",
         command: "bunx shadcn@latest add switch --yes --overwrite",
+      },
+    ],
+  },
+
+  {
+    kind: TargetKind.make("client-foldkit"),
+    title: "Client Foldkit Application",
+    description: "A frontend application built with Foldkit (Elm Architecture)",
+    requiredModules: [ModuleId.make("config-typescript-vite")],
+    contributions: [
+      // Files
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: foldkitPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/index.html",
+        contents: foldkitIndexHtmlContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/public/theme-init.js",
+        contents: foldkitThemeInitContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/entry.ts",
+        contents: foldkitEntryContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/main.ts",
+        contents: foldkitMainContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/features/theme.ts",
+        contents: foldkitThemeFeatureContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/lib/compose.ts",
+        contents: foldkitComposeContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/styles.css",
+        contents: foldkitStylesContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/vite.config.ts",
+        contents: foldkitViteConfigContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.config.json",
+        contents: foldkitTsconfigConfigContents,
+      },
+      // TSConfig (conflict on modify)
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: foldkitTsconfigContents,
+        conflictOnModify: true,
+      },
+      // Scripts
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "vite build",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "vite --host --port 5174 --clearScreen false",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "preview",
+        value: "vite preview",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value: "git clean -xdf .cache .turbo dist node_modules",
       },
     ],
   },

@@ -10,11 +10,14 @@ import { configTypescriptViteContents } from "../content/client";
  */
 export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("config-typescript-react-vite"),
+    id: ModuleId.make("config-typescript-vite"),
     title: "Config TypeScript Vite",
     description: "Vite TypeScript preset for client applications",
     visibility: "internal",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
+    supportedOn: [
+      { _tag: "kind", kind: TargetKind.make("client-react") },
+      { _tag: "kind", kind: TargetKind.make("client-foldkit") },
+    ],
     dependencies: [],
     contributions: [
       {
