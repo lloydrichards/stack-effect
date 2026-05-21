@@ -81,7 +81,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("client-react"),
     title: "Client React Application",
     description: "A frontend application built with React",
-    requiredModules: [ModuleId.make("config-typescript-vite")],
+    requiredModules: [ModuleId.make("config-typescript-react-vite")],
     contributions: [
       // Files
       {

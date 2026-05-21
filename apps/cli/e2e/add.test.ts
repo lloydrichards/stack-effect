@@ -59,7 +59,7 @@ describe("add", () => {
             "--target",
             "client-react/web",
             "--modules",
-            "http-api-client",
+            "http-api-react-client",
           );
           yield* cli.expectExitCode(1);
           yield* cli.expectOutputContaining("implies");
@@ -142,7 +142,7 @@ describe("add", () => {
             "--target",
             "client-react/web",
             "--modules",
-            "http-api-client",
+            "http-api-react-client",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);

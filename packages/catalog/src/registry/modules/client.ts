@@ -28,7 +28,7 @@ import {
  */
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("http-api-client"),
+    id: ModuleId.make("http-api-react-client"),
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -89,7 +89,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("http-rpc-client"),
+    id: ModuleId.make("http-rpc-react-client"),
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -155,7 +155,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-client"),
+    id: ModuleId.make("chat-react-client"),
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -225,7 +225,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ws-presence-client"),
+    id: ModuleId.make("ws-presence-react-client"),
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],

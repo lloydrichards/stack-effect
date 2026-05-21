@@ -44,7 +44,7 @@ bun run start -- init smoke-app --yes --root "$TMP_REPO"
 bun run start -- add --yes --root "$TMP_REPO" --target package/domain --modules domain-api --dry-run
 
 # 3) Optional negative test: cross-target implication should fail in non-interactive mode
-bun run start -- add --yes --root "$TMP_REPO" --target client/web --modules http-api-client --dry-run
+bun run start -- add --yes --root "$TMP_REPO" --target client-react/web --modules http-api-react-client --dry-run
 ```
 
 Notes:
