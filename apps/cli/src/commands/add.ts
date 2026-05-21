@@ -26,7 +26,7 @@ interface CollectedTarget {
 const targetFlag = Flag.string("target").pipe(
   Flag.optional,
   Flag.withDescription(
-    "Target identity as <targetKind>/<targetName>, e.g. client/web",
+    "Target identity as <targetKind>/<targetName>, e.g. client-react/web",
   ),
 );
 

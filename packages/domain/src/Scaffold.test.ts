@@ -13,14 +13,14 @@ describe("@repo/domain Scaffold", () => {
       name: "api",
     });
     const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
-      kind: "client",
+      kind: "client-react",
       name: "admin-ui",
     });
 
     expect(packageIdentity.toKey()).toBe("packages/domain");
     expect(packageIdentity.toPath()).toBe("packages/domain");
     expect(serverIdentity.toKey()).toBe("apps/server-api");
-    expect(clientIdentity.toPath()).toBe("apps/client-admin-ui");
+    expect(clientIdentity.toPath()).toBe("apps/client-react-admin-ui");
   });
 
   it("accepts empty target names for apps (uses kind only)", () => {
@@ -66,12 +66,12 @@ describe("@repo/domain Scaffold", () => {
 
   it("slugifies names with underscores into canonical keys and paths", () => {
     const identity = Schema.decodeUnknownSync(TargetIdentity)({
-      kind: "client",
+      kind: "client-react",
       name: "admin_ui",
     });
 
-    expect(identity.toKey()).toBe("apps/client-admin-ui");
-    expect(identity.toPath()).toBe("apps/client-admin-ui");
+    expect(identity.toKey()).toBe("apps/client-react-admin-ui");
+    expect(identity.toPath()).toBe("apps/client-react-admin-ui");
   });
 
   it("normalizes surrounding whitespace before deriving canonical keys and paths", () => {
@@ -99,12 +99,12 @@ describe("@repo/domain Scaffold", () => {
         name: "api",
       });
       const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
-        kind: "client",
+        kind: "client-react",
         name: "web",
       });
 
       expect(serverIdentity.toPackageName()).toBe("server-api");
-      expect(clientIdentity.toPackageName()).toBe("client-web");
+      expect(clientIdentity.toPackageName()).toBe("client-react-web");
     });
 
     it("returns just kind for apps without names", () => {
@@ -113,12 +113,12 @@ describe("@repo/domain Scaffold", () => {
         name: "",
       });
       const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
-        kind: "client",
+        kind: "client-react",
         name: "",
       });
 
       expect(serverIdentity.toPackageName()).toBe("server");
-      expect(clientIdentity.toPackageName()).toBe("client");
+      expect(clientIdentity.toPackageName()).toBe("client-react");
     });
 
     it("slugifies package names", () => {

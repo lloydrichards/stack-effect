@@ -31,7 +31,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("http-api-client"),
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
     dependencies: [
       {
         _tag: "required-module",
@@ -92,7 +92,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("http-rpc-client"),
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
     dependencies: [
       {
         _tag: "required-module",
@@ -158,7 +158,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("chat-client"),
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
     dependencies: [
       {
         _tag: "required-module",
@@ -228,7 +228,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("ws-presence-client"),
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
     dependencies: [
       {
         _tag: "required-module",

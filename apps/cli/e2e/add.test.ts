@@ -57,7 +57,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client/web",
+            "client-react/web",
             "--modules",
             "http-api-client",
           );
@@ -140,7 +140,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client/web",
+            "client-react/web",
             "--modules",
             "http-api-client",
             "--dry-run",

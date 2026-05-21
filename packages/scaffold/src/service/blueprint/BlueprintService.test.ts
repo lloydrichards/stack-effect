@@ -244,7 +244,7 @@ describe("BlueprintService", () => {
                 },
                 {
                   identity: new TargetIdentity({
-                    kind: TargetKind.make("client"),
+                    kind: TargetKind.make("client-react"),
                     name: "api",
                   }),
                   modules: [],
@@ -258,7 +258,7 @@ describe("BlueprintService", () => {
                 .filter((node) => node._tag === "target")
                 .map((node) => node.id),
             ).toEqual([
-              "apps/client-api",
+              "apps/client-react-api",
               "apps/server-api",
               "packages/domain",
             ]);
@@ -274,7 +274,7 @@ describe("BlueprintService", () => {
               targets: [
                 {
                   identity: new TargetIdentity({
-                    kind: TargetKind.make("client"),
+                    kind: TargetKind.make("client-react"),
                     name: "app",
                   }),
                   modules: [{ id: ModuleId.make("config-typescript-vite") }],
@@ -287,7 +287,7 @@ describe("BlueprintService", () => {
                 blueprint,
                 toAttachedModuleNodeId(
                   new TargetIdentity({
-                    kind: TargetKind.make("client"),
+                    kind: TargetKind.make("client-react"),
                     name: "app",
                   }).toKey(),
                   ModuleId.make("config-typescript-vite"),
@@ -295,7 +295,7 @@ describe("BlueprintService", () => {
               ),
             ).toMatchObject({
               _tag: "attached-module",
-              targetId: "apps/client-app",
+              targetId: "apps/client-react-app",
               moduleId: "config-typescript-vite",
             });
           }),
@@ -307,7 +307,7 @@ describe("BlueprintService", () => {
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
             const identity = new TargetIdentity({
-              kind: TargetKind.make("client"),
+              kind: TargetKind.make("client-react"),
               name: "required",
             });
             const blueprint = yield* blueprintService.resolve({
@@ -324,7 +324,7 @@ describe("BlueprintService", () => {
               ),
             ).toMatchObject({
               _tag: "attached-module",
-              targetId: "apps/client-required",
+              targetId: "apps/client-react-required",
               moduleId: "config-typescript-vite",
             });
           }),

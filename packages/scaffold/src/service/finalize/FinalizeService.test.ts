@@ -24,7 +24,7 @@ const serverIdentity = new TargetIdentity({
 });
 
 const clientIdentity = new TargetIdentity({
-  kind: TargetKind.make("client"),
+  kind: TargetKind.make("client-react"),
   name: "web",
 });
 

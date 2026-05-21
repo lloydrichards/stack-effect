@@ -112,7 +112,7 @@ describe("@repo/domain Blueprint", () => {
       identity.matches({
         _tag: "identity",
         identity: new TargetIdentity({
-          kind: TargetKind.make("client"),
+          kind: TargetKind.make("client-react"),
           name: "api",
         }),
       }),

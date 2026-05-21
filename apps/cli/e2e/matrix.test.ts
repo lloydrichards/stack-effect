@@ -25,7 +25,7 @@ interface MatrixEntry {
  */
 const defaultTargetNames = new Map([
   ["server", "api"],
-  ["client", "web"],
+  ["client-react", "web"],
   ["cli", "app"],
   ["package", "domain"], // fallback; overridden by identity modules
 ]);
@@ -105,7 +105,7 @@ const matrix = Effect.runSync(
 
 // Separate entries that have cross-target implications (client modules)
 const singleTargetEntries = matrix.filter(
-  (e) => !e.target.startsWith("client"),
+  (e) => !e.target.startsWith("client-react"),
 );
 
 // ---------------------------------------------------------------------------
@@ -116,7 +116,7 @@ const buildFullStackMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
   const clientModules = yield* catalog.getSupportedModules(
-    TargetKind.make("client"),
+    TargetKind.make("client-react"),
   );
 
   return Arr.map(clientModules, (clientMod) => {
@@ -132,7 +132,7 @@ const buildFullStackMatrix = Effect.gen(function* () {
         label: `full-stack: ${clientMod.id} → server [${serverModuleIds.join(", ")}]`,
         serverTarget: `server/${defaultTargetNames.get("server")}`,
         serverModules: serverModuleIds,
-        clientTarget: `client/${defaultTargetNames.get("client")}`,
+        clientTarget: `client-react/${defaultTargetNames.get("client-react")}`,
         clientModules: [clientMod.id],
       };
     }
@@ -279,7 +279,7 @@ describe("matrix", () => {
             "--root",
             root,
             "--target",
-            `client/${defaultTargetNames.get("client")}`,
+            `client-react/${defaultTargetNames.get("client-react")}`,
             "--modules",
             allClientModules.join(","),
           );
