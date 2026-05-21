@@ -29,6 +29,11 @@ Thumbs.db
 coverage
 playwright-report
 test-results
+
+# nix
+result
+result-*
+.direnv/
 `;
 
 export const rootPackageJsonContents = `{
@@ -244,4 +249,46 @@ export default defineConfig({
     },
   },
 });
+`;
+
+// -- nix flake --------------------------------------------------------------
+
+export const flakeNixContents = `{
+  description = "{{projectName}} development environment";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+  };
+
+  outputs = { self, nixpkgs }:
+    let
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
+      pkgsFor = system: import nixpkgs { inherit system; };
+    in
+    {
+      devShells = forAllSystems (system:
+        let
+          pkgs = pkgsFor system;
+        in
+        {
+          default = pkgs.mkShell {
+            packages = with pkgs; [
+              {{#if runtime=bun}}bun
+              {{/if}}nodejs_22
+              git
+            ];
+
+            shellHook = ''
+              {{#if runtime=bun}}echo "Bun $(bun --version)"
+              {{/if}}echo "Node $(node --version)"
+            '';
+          };
+        }
+      );
+    };
+}
+`;
+
+export const envrcContents = `use flake
 `;
