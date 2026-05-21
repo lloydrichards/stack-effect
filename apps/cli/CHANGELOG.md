@@ -1,5 +1,34 @@
 # stack-effect
 
+## 0.5.0
+
+### Minor Changes
+
+- [#130](https://github.com/lloydrichards/stack-effect/pull/130) [`2228396`](https://github.com/lloydrichards/stack-effect/commit/22283964ec26cfb503aa4d88f5d67b3640d5abe0) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add `client-foldkit` target kind.
+
+  Includes four feature modules:
+
+  - `http-api-foldkit-client`
+  - `http-rpc-foldkit-client`
+  - `ws-presence-foldkit-client`
+  - `chat-foldkit-client`
+
+  also added new deterministic AST-based composition via new `ts-object-field` and `namespaceImport` contribution primitives.
+
+- [#128](https://github.com/lloydrichards/stack-effect/pull/128) [`9959c69`](https://github.com/lloydrichards/stack-effect/commit/9959c69e3dd53d1a9ff2e22e22332abf9a1f2004) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add JSX slot injection system and upgrade client templates to shadcn components.
+
+### Patch Changes
+
+- [#127](https://github.com/lloydrichards/stack-effect/pull/127) [`1983994`](https://github.com/lloydrichards/stack-effect/commit/198399421bbd7966425a9918aead48882cf358ef) Thanks [@lloydrichards](https://github.com/lloydrichards)! - correct shadcn config filename and deduplicate finalize scripts
+
+- [#129](https://github.com/lloydrichards/stack-effect/pull/129) [`4a3acc8`](https://github.com/lloydrichards/stack-effect/commit/4a3acc84f5a1573962d3f5f1394bd61c28c04bea) Thanks [@lloydrichards](https://github.com/lloydrichards)! - rename `client` target kind to `client-react` and prefix client module IDs with `react`
+
+  - `http-api-client` becomes `http-api-react-client`
+  - `http-rpc-client` becomes `http-rpc-react-client`
+  - `ws-presence-client` becomes `ws-presence-react-client`
+
+- [#125](https://github.com/lloydrichards/stack-effect/pull/125) [`6204bc1`](https://github.com/lloydrichards/stack-effect/commit/6204bc169ba45bc8beee080d9221f60bdd2d6a01) Thanks [@lloydrichards](https://github.com/lloydrichards)! - update cli version to use package version
+
 ## 0.4.0
 
 ### Minor Changes
