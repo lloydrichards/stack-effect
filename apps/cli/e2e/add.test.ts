@@ -211,5 +211,109 @@ describe("add", () => {
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 90_000 },
     );
+
+    it.effect(
+      "client-foldkit target scaffolds with rest module when server exists",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const root = `${cli.workdir}/foldkit-test`;
+
+          yield* cli.run(
+            "init",
+            "foldkit-test",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          // Add domain-api (required by server and foldkit rest)
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "package/domain",
+            "--modules",
+            "domain-api",
+          );
+          yield* cli.expectExitCode(0);
+
+          // Add server (satisfies implication)
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "server/api",
+            "--modules",
+            "http-api-server",
+          );
+          yield* cli.expectExitCode(0);
+
+          // Add client-foldkit with rest module
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "client-foldkit/app",
+            "--modules",
+            "http-api-foldkit-client",
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("foldkit-test", function* (project) {
+            yield* project.expectFileExists(
+              "apps/client-foldkit-app/package.json",
+            );
+            yield* project.expectFileExists(
+              "apps/client-foldkit-app/src/main.ts",
+            );
+            yield* project.expectFileExists(
+              "apps/client-foldkit-app/src/features/rest.ts",
+            );
+            yield* project.expectTypeCheckPasses();
+          });
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 120_000 },
+    );
+
+    it.effect(
+      "rejects client-foldkit cross-target implications in non-interactive mode",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const root = `${cli.workdir}/foldkit-impl`;
+
+          yield* cli.run(
+            "init",
+            "foldkit-impl",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          // http-api-foldkit-client implies http-api-server — rejected non-interactively
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "client-foldkit/app",
+            "--modules",
+            "http-api-foldkit-client",
+          );
+          yield* cli.expectExitCode(1);
+          yield* cli.expectOutputContaining("implies");
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 30_000 },
+    );
   });
 });

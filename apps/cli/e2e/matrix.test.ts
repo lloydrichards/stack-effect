@@ -1,7 +1,7 @@
 import { describe, layer } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { TargetKind } from "@repo/domain/Catalog";
-import { Array as Arr, Effect } from "effect";
+import { Effect } from "effect";
 import { CLI } from "./harness";
 
 // ---------------------------------------------------------------------------
@@ -26,6 +26,7 @@ interface MatrixEntry {
 const defaultTargetNames = new Map([
   ["server", "api"],
   ["client-react", "web"],
+  ["client-foldkit", "app"],
   ["cli", "app"],
   ["package", "domain"], // fallback; overridden by identity modules
 ]);
@@ -105,7 +106,9 @@ const matrix = Effect.runSync(
 
 // Separate entries that have cross-target implications (client modules)
 const singleTargetEntries = matrix.filter(
-  (e) => !e.target.startsWith("client-react"),
+  (e) =>
+    !e.target.startsWith("client-react") &&
+    !e.target.startsWith("client-foldkit"),
 );
 
 // ---------------------------------------------------------------------------
@@ -115,29 +118,43 @@ const singleTargetEntries = matrix.filter(
 const buildFullStackMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
-  const clientModules = yield* catalog.getSupportedModules(
+  const clientKinds = [
     TargetKind.make("client-react"),
-  );
+    TargetKind.make("client-foldkit"),
+  ] as const;
 
-  return Arr.map(clientModules, (clientMod) => {
-    const implies = clientMod.implies ?? [];
-    if (implies.length === 0) return null;
+  const results: Array<{
+    label: string;
+    serverTarget: string;
+    serverModules: ReadonlyArray<string>;
+    clientTarget: string;
+    clientModules: ReadonlyArray<string>;
+  }> = [];
 
-    const serverModuleIds = implies
-      .filter((imp) => imp.targetKind === "server")
-      .map((imp) => imp.moduleId);
+  for (const kind of clientKinds) {
+    const clientModules = yield* catalog.getSupportedModules(kind);
 
-    if (serverModuleIds.length > 0) {
-      return {
-        label: `full-stack: ${clientMod.id} → server [${serverModuleIds.join(", ")}]`,
-        serverTarget: `server/${defaultTargetNames.get("server")}`,
-        serverModules: serverModuleIds,
-        clientTarget: `client-react/${defaultTargetNames.get("client-react")}`,
-        clientModules: [clientMod.id],
-      };
+    for (const clientMod of clientModules) {
+      const implies = clientMod.implies ?? [];
+      if (implies.length === 0) continue;
+
+      const serverModuleIds = implies
+        .filter((imp) => imp.targetKind === "server")
+        .map((imp) => imp.moduleId);
+
+      if (serverModuleIds.length > 0) {
+        results.push({
+          label: `full-stack: ${clientMod.id} → server [${serverModuleIds.join(", ")}]`,
+          serverTarget: `server/${defaultTargetNames.get("server")}`,
+          serverModules: serverModuleIds,
+          clientTarget: `${kind}/${defaultTargetNames.get(kind)}`,
+          clientModules: [clientMod.id],
+        });
+      }
     }
-    return null;
-  }).filter((entry) => entry !== null);
+  }
+
+  return results;
 });
 
 const fullStackMatrix = Effect.runSync(
@@ -241,56 +258,71 @@ describe("matrix", () => {
   });
 
   layer(CLI.layer)("full-stack all client modules together", (it) => {
-    it.effect(
-      "all client modules with all server dependencies",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-          const name = "matrix-fullstack-all";
-          const root = `${cli.workdir}/${name}`;
+    // Group full-stack entries by client target kind
+    const byClientKind = new Map<
+      string,
+      { serverModules: Set<string>; clientModules: Set<string> }
+    >();
+    for (const entry of fullStackMatrix) {
+      const kind = entry.clientTarget;
+      if (!byClientKind.has(kind)) {
+        byClientKind.set(kind, {
+          serverModules: new Set(),
+          clientModules: new Set(),
+        });
+      }
+      const group = byClientKind.get(kind)!;
+      for (const m of entry.serverModules) group.serverModules.add(m);
+      for (const m of entry.clientModules) group.clientModules.add(m);
+    }
 
-          // Init
-          yield* cli.run("init", name, "--yes", "--root", cli.workdir);
-          yield* cli.expectExitCode(0);
+    for (const [clientTarget, group] of byClientKind) {
+      const kindSlug = clientTarget.replace("/", "-");
+      it.effect(
+        `all ${clientTarget} modules with server dependencies`,
+        () =>
+          Effect.gen(function* () {
+            const cli = yield* CLI;
+            const name = `matrix-fullstack-all-${kindSlug}`;
+            const root = `${cli.workdir}/${name}`;
 
-          // Add all server modules
-          const allServerModules = [
-            ...new Set(fullStackMatrix.flatMap((e) => e.serverModules)),
-          ];
-          yield* cli.run(
-            "add",
-            "--yes",
-            "--root",
-            root,
-            "--target",
-            `server/${defaultTargetNames.get("server")}`,
-            "--modules",
-            allServerModules.join(","),
-          );
-          yield* cli.expectExitCode(0);
+            // Init
+            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
+            yield* cli.expectExitCode(0);
 
-          // Add all client modules
-          const allClientModules = [
-            ...new Set(fullStackMatrix.flatMap((e) => e.clientModules)),
-          ];
-          yield* cli.run(
-            "add",
-            "--yes",
-            "--root",
-            root,
-            "--target",
-            `client-react/${defaultTargetNames.get("client-react")}`,
-            "--modules",
-            allClientModules.join(","),
-          );
-          yield* cli.expectExitCode(0);
+            // Add all server modules
+            yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              `server/${defaultTargetNames.get("server")}`,
+              "--modules",
+              [...group.serverModules].join(","),
+            );
+            yield* cli.expectExitCode(0);
 
-          // Validate
-          yield* cli.withinProject(name, function* (project) {
-            yield* project.expectTypeCheckPasses();
-          });
-        }).pipe(Effect.provide(CLI.layer)),
-      { timeout: 180_000 },
-    );
+            // Add all client modules
+            yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              clientTarget,
+              "--modules",
+              [...group.clientModules].join(","),
+            );
+            yield* cli.expectExitCode(0);
+
+            // Validate
+            yield* cli.withinProject(name, function* (project) {
+              yield* project.expectTypeCheckPasses();
+            });
+          }).pipe(Effect.provide(CLI.layer)),
+        { timeout: 180_000 },
+      );
+    }
   });
 });
