@@ -8,6 +8,8 @@ import {
 import {
   biomeJsoncContents,
   dprintJsonContents,
+  envrcContents,
+  flakeNixContents,
   turboJsonContents,
   vitestConfigContents,
 } from "../content/init";
@@ -48,6 +50,41 @@ const gitInitModule: typeof ModuleDefinition.Type = {
       command: 'git commit -m "initial commit"',
       phase: "post-finalize",
     },
+  ],
+};
+
+const nixFlakeModule: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("nix-flake"),
+  title: "Nix Flake",
+  description: "Declarative development environment with Nix",
+  visibility: "internal",
+  categories: [ModuleCategory.make("devenv")],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  dependencies: [
+    {
+      _tag: "required-target",
+      identity: new TargetIdentity({
+        kind: TargetKind.make("init"),
+        name: "root",
+      }),
+    },
+  ],
+  contributions: [
+    {
+      _tag: "file",
+      path: "{{targetPath}}/flake.nix",
+      contents: flakeNixContents,
+    },
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.envrc",
+      contents: envrcContents,
+    },
+  ],
+  nextSteps: [
+    "Nix Flake: Install Nix with flakes enabled (https://github.com/DeterminateSystems/nix-installer)",
+    "Nix Flake: Run `git add flake.nix .envrc` then `nix develop` to enter the dev shell",
+    "Nix Flake: Or use direnv: install direnv, then run `direnv allow`",
   ],
 };
 
@@ -288,4 +325,5 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   gitInitModule,
+  nixFlakeModule,
 ];
