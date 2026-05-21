@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity } from "./Catalog";
+import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import { ContributionTokenContext, StackConfig } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
   it("accepts realistic target identities users are expected to provide", () => {
@@ -147,5 +148,146 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toKey()).toBe("apps/worker-jobs");
     expect(identity.toPath()).toBe("apps/worker-jobs");
     expect(identity.toPackageName()).toBe("worker-jobs");
+  });
+});
+
+describe("ContributionTokenContext.resolve", () => {
+  const makeContext = (
+    configOverrides: Partial<typeof StackConfig.Type> = {},
+  ) =>
+    new ContributionTokenContext({
+      targetKey: TargetKey.make("apps/server-api"),
+      identity: new TargetIdentity({
+        kind: TargetKind.make("server"),
+        name: "api",
+      }),
+      config: new StackConfig({
+        name: "my-project" as typeof Schema.NonEmptyString.Type,
+        runtime: { _tag: "bun" },
+        ...configOverrides,
+      }),
+    });
+
+  describe("simple tokens", () => {
+    it("resolves {{lint}} token", () => {
+      const ctx = makeContext({ lint: "biome" });
+      expect(ctx.resolve("{{lint}}")).toBe("biome");
+    });
+
+    it("resolves {{format}} token", () => {
+      const ctx = makeContext({ format: "dprint" });
+      expect(ctx.resolve("{{format}}")).toBe("dprint");
+    });
+
+    it("resolves {{test}} token", () => {
+      const ctx = makeContext({ test: "vitest" });
+      expect(ctx.resolve("{{test}}")).toBe("vitest");
+    });
+
+    it("resolves {{monorepo}} token", () => {
+      const ctx = makeContext({ monorepo: "turbo" });
+      expect(ctx.resolve("{{monorepo}}")).toBe("turbo");
+    });
+
+    it("resolves undefined config fields to empty string", () => {
+      const ctx = makeContext({});
+      expect(ctx.resolve("{{lint}}")).toBe("");
+      expect(ctx.resolve("{{format}}")).toBe("");
+      expect(ctx.resolve("{{test}}")).toBe("");
+      expect(ctx.resolve("{{monorepo}}")).toBe("");
+    });
+  });
+
+  describe("truthy conditionals", () => {
+    it("includes content when field is set", () => {
+      const ctx = makeContext({ lint: "biome" });
+      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("has lint");
+    });
+
+    it("excludes content when field is undefined", () => {
+      const ctx = makeContext({});
+      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("");
+    });
+
+    it("excludes content when field is empty string", () => {
+      const ctx = makeContext({ lint: "" });
+      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("");
+    });
+  });
+
+  describe("equality conditionals", () => {
+    it("includes content when field equals value", () => {
+      const ctx = makeContext({ lint: "biome" });
+      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("is biome");
+    });
+
+    it("excludes content when field does not equal value", () => {
+      const ctx = makeContext({ lint: "oxlint" });
+      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("");
+    });
+
+    it("excludes content when field is undefined", () => {
+      const ctx = makeContext({});
+      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("");
+    });
+
+    it("works with runtime field", () => {
+      const bunCtx = makeContext({});
+      expect(bunCtx.resolve("{{#if runtime=bun}}is bun{{/if}}")).toBe("is bun");
+
+      const nodeCtx = new ContributionTokenContext({
+        targetKey: TargetKey.make("apps/server-api"),
+        identity: new TargetIdentity({
+          kind: TargetKind.make("server"),
+          name: "api",
+        }),
+        config: new StackConfig({
+          name: "my-project" as typeof Schema.NonEmptyString.Type,
+          runtime: { _tag: "node", packageManager: "pnpm" },
+        }),
+      });
+      expect(nodeCtx.resolve("{{#if runtime=bun}}is bun{{/if}}")).toBe("");
+      expect(nodeCtx.resolve("{{#if runtime=node}}is node{{/if}}")).toBe(
+        "is node",
+      );
+    });
+  });
+
+  describe("unknown fields", () => {
+    it("treats unknown field as falsy in truthy check", () => {
+      const ctx = makeContext({ lint: "biome" });
+      expect(ctx.resolve("{{#if unknown}}content{{/if}}")).toBe("");
+    });
+
+    it("treats unknown field as falsy in equality check", () => {
+      const ctx = makeContext({ lint: "biome" });
+      expect(ctx.resolve("{{#if unknown=value}}content{{/if}}")).toBe("");
+    });
+  });
+
+  describe("multiple conditionals", () => {
+    it("resolves multiple conditionals in same template", () => {
+      const ctx = makeContext({ lint: "biome", format: "biome" });
+      const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
+      expect(ctx.resolve(template)).toBe("lint-biome format-biome");
+    });
+
+    it("handles mixed true and false conditionals", () => {
+      const ctx = makeContext({ lint: "biome", format: "dprint" });
+      const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
+      expect(ctx.resolve(template)).toBe("lint-biome ");
+    });
+  });
+
+  describe("multiline content", () => {
+    it("preserves multiline content in conditionals", () => {
+      const ctx = makeContext({ lint: "biome" });
+      const template = `{{#if lint=biome}}line1
+line2
+line3{{/if}}`;
+      expect(ctx.resolve(template)).toBe(`line1
+line2
+line3`);
+    });
   });
 });

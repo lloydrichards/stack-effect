@@ -22,6 +22,7 @@
   "types": "./src/Api.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
+    "test": "vitest run",
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {

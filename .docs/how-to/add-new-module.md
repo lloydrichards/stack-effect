@@ -36,6 +36,31 @@ Use contribution tokens for dynamic values:
 | `{{packageManager}}`     | "bun", "npm", or "pnpm"        |
 | `{{packageManagerSpec}}` | Full spec (e.g., "bun@1.2.21") |
 | `{{projectName}}`        | Project name from config       |
+| `{{lint}}`               | Lint tool ("biome", "oxlint", or "") |
+| `{{format}}`             | Format tool ("biome", "dprint", or "") |
+| `{{test}}`               | Test framework ("vitest" or "") |
+| `{{monorepo}}`           | Monorepo tool ("turbo" or "") |
+
+### Conditional Blocks
+
+Use conditionals to include content based on config values:
+
+```typescript
+// Truthy check - include if field has any value
+{{#if lint}}
+  // This content appears if any lint tool is configured
+{{/if}}
+
+// Equality check - include if field equals specific value
+{{#if format=biome}}
+  "editor.defaultFormatter": "biomejs.biome"
+{{/if}}
+```
+
+**Notes:**
+- Unknown fields silently evaluate as falsy
+- Whitespace is preserved as-is (formatters clean up during finalize)
+- For JSON arrays, place conditionals before required items to avoid trailing comma issues
 
 ## Step 2: Define the Module
 

@@ -34,6 +34,7 @@ describe("@repo/domain Plan", () => {
           operations: [
             {
               _tag: "json-pkg-exports",
+              fileType: "json",
               entries: [
                 {
                   name: "./Api",
