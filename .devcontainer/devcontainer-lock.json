@@ -1,0 +1,25 @@
+{
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils": {
+      "version": "2.5.9",
+      "resolved": "ghcr.io/devcontainers/features/common-utils@sha256:cb0c4d3c276f157eed17935747e364178d75fee17f55c4e129966f64633deb3a",
+      "integrity": "sha256:cb0c4d3c276f157eed17935747e364178d75fee17f55c4e129966f64633deb3a"
+    },
+    "ghcr.io/lloydrichards/devcontainer-features/oh-my-posh-theme:1": {
+      "version": "1.1.1",
+      "resolved": "ghcr.io/lloydrichards/devcontainer-features/oh-my-posh-theme@sha256:b48fdd364c71f3ca2f558f3d3d2dc9690db7f0bb20cc72064a154a136e00b68f",
+      "integrity": "sha256:b48fdd364c71f3ca2f558f3d3d2dc9690db7f0bb20cc72064a154a136e00b68f",
+      "dependsOn": ["ghcr.io/devcontainers/features/common-utils"]
+    },
+    "ghcr.io/shyim/devcontainers-features/bun:0": {
+      "version": "0.0.1",
+      "resolved": "ghcr.io/shyim/devcontainers-features/bun@sha256:689eae681aa08981175829a59953ba67a7d311f6a05c15d1bbbcb2da2839827e",
+      "integrity": "sha256:689eae681aa08981175829a59953ba67a7d311f6a05c15d1bbbcb2da2839827e"
+    },
+    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {
+      "version": "0.1.0",
+      "resolved": "ghcr.io/stu-bell/devcontainer-features/open-code@sha256:516bca36d585d6bb1d91024345dadcd99b6adb639f3ca128e266f3947f0d2c8d",
+      "integrity": "sha256:516bca36d585d6bb1d91024345dadcd99b6adb639f3ca128e266f3947f0d2c8d"
+    }
+  }
+}

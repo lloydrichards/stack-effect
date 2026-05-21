@@ -9,11 +9,7 @@
   "features": {
     "ghcr.io/lloydrichards/devcontainer-features/oh-my-posh-theme:1": {},
     "ghcr.io/shyim/devcontainers-features/bun:0": {},
-    "ghcr.io/devcontainers/features/docker-in-docker:2": {
-      "moby": false
-    },
-    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {},
-    "ghcr.io/schlich/devcontainer-features/playwright:0": {}
+    "ghcr.io/stu-bell/devcontainer-features/open-code:0": {}
   },
 
   // Use 'forwardPorts' to make a list of ports inside the container available locally.
