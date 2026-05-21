@@ -292,3 +292,36 @@ export const flakeNixContents = `{
 
 export const envrcContents = `use flake
 `;
+
+// -- devcontainer -----------------------------------------------------------
+
+export const devcontainerJsonContents = `{
+  "name": "{{projectName}}",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node",
+
+  "features": {
+    "ghcr.io/shyim/devcontainers-features/bun:0": {}
+  },
+
+  "postCreateCommand": "{{packageManager}} install",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true{{#if format=biome}},
+        "editor.defaultFormatter": "biomejs.biome"{{/if}}{{#if format=dprint}},
+        "editor.defaultFormatter": "dprint.dprint"{{/if}}
+      },
+      "extensions": [
+        {{#if lint=biome}}"biomejs.biome",
+        {{/if}}{{#if format=biome}}"biomejs.biome",
+        {{/if}}{{#if lint=oxlint}}"oxlint.oxlint-vscode",
+        {{/if}}{{#if format=dprint}}"dprint.dprint",
+        {{/if}}{{#if runtime=bun}}"oven.bun-vscode",
+        {{/if}}"effectful-tech.effect-vscode",
+        "YoavBls.pretty-ts-errors"
+      ]
+    }
+  }
+}
+`;

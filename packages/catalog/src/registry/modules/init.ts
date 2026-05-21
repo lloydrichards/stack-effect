@@ -7,6 +7,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   biomeJsoncContents,
+  devcontainerJsonContents,
   dprintJsonContents,
   envrcContents,
   flakeNixContents,
@@ -85,6 +86,35 @@ const nixFlakeModule: typeof ModuleDefinition.Type = {
     "Nix Flake: Install Nix with flakes enabled (https://github.com/DeterminateSystems/nix-installer)",
     "Nix Flake: Run `git add flake.nix .envrc` then `nix develop` to enter the dev shell",
     "Nix Flake: Or use direnv: install direnv, then run `direnv allow`",
+  ],
+};
+
+const devcontainerModule: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("devcontainer"),
+  title: "Dev Container",
+  description: "VS Code/GitHub Codespaces development container",
+  visibility: "internal",
+  categories: [ModuleCategory.make("devenv")],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  dependencies: [
+    {
+      _tag: "required-target",
+      identity: new TargetIdentity({
+        kind: TargetKind.make("init"),
+        name: "root",
+      }),
+    },
+  ],
+  contributions: [
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.devcontainer/devcontainer.json",
+      contents: devcontainerJsonContents,
+    },
+  ],
+  nextSteps: [
+    "Dev Container: Open in VS Code and run 'Dev Containers: Reopen in Container'",
+    "Dev Container: Or create a GitHub Codespace from the repository",
   ],
 };
 
@@ -326,4 +356,5 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   gitInitModule,
   nixFlakeModule,
+  devcontainerModule,
 ];
