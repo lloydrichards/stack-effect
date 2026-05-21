@@ -31,7 +31,6 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
-  git: Schema.optional(Schema.Boolean),
 }) {
   get runtimeName(): "bun" | "node" {
     return this.runtime._tag;
