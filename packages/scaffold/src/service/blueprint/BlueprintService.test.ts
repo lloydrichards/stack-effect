@@ -277,9 +277,7 @@ describe("BlueprintService", () => {
                     kind: TargetKind.make("client-react"),
                     name: "app",
                   }),
-                  modules: [
-                    { id: ModuleId.make("config-typescript-react-vite") },
-                  ],
+                  modules: [{ id: ModuleId.make("config-typescript-vite") }],
                 },
               ],
             });
@@ -292,13 +290,13 @@ describe("BlueprintService", () => {
                     kind: TargetKind.make("client-react"),
                     name: "app",
                   }).toKey(),
-                  ModuleId.make("config-typescript-react-vite"),
+                  ModuleId.make("config-typescript-vite"),
                 ),
               ),
             ).toMatchObject({
               _tag: "attached-module",
               targetId: "apps/client-react-app",
-              moduleId: "config-typescript-react-vite",
+              moduleId: "config-typescript-vite",
             });
           }),
       );
@@ -321,13 +319,13 @@ describe("BlueprintService", () => {
                 blueprint,
                 toAttachedModuleNodeId(
                   identity.toKey(),
-                  ModuleId.make("config-typescript-react-vite"),
+                  ModuleId.make("config-typescript-vite"),
                 ),
               ),
             ).toMatchObject({
               _tag: "attached-module",
               targetId: "apps/client-react-required",
-              moduleId: "config-typescript-react-vite",
+              moduleId: "config-typescript-vite",
             });
           }),
       );
