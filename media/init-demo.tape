@@ -98,6 +98,12 @@ Sleep 300ms
 Enter
 Sleep 5s
 
+# Prompt: Finalize confirmation
+Down 2
+Up 2
+Enter
+Sleep 10s
+
 # Show the generated config
 Enter 2
 Type "cat $TMP_REPO/my-awesome-app/stack.effect.json"
@@ -118,7 +124,7 @@ Sleep 1.5s
 
 # Prompt: Target kind selection (HorizontalSelect)
 # Options: client, server, package (adjust arrows to land on "server")
-Right
+Right 2
 Sleep 300ms
 Enter
 Sleep 1.5s
@@ -164,6 +170,12 @@ Sleep 300ms
 Right
 Left
 Sleep 300ms
+Enter
+Sleep 2s
+
+# Prompt: Finalize confirmation
+Down 2
+Up 2
 Enter
 Sleep 10s
 
