@@ -35,7 +35,23 @@ export type PlanningIntentComposition = {
     readonly moduleSpecifier: string;
     readonly namedImports: ReadonlyArray<string> | undefined;
     readonly defaultImport: string | undefined;
+    readonly namespaceImport: string | undefined;
   };
+};
+
+export type PlanningIntentObjectField = {
+  readonly targetVariable: string;
+  readonly functionName: string;
+  readonly field: string;
+  readonly value: string;
+  readonly import:
+    | {
+        readonly moduleSpecifier: string;
+        readonly namedImports: ReadonlyArray<string> | undefined;
+        readonly defaultImport: string | undefined;
+        readonly namespaceImport: string | undefined;
+      }
+    | undefined;
 };
 
 export type PlanningIntentJsxSlot = {
@@ -46,6 +62,7 @@ export type PlanningIntentJsxSlot = {
         readonly moduleSpecifier: string;
         readonly namedImports: ReadonlyArray<string> | undefined;
         readonly defaultImport: string | undefined;
+        readonly namespaceImport: string | undefined;
       }
     | undefined;
 };
@@ -58,6 +75,7 @@ export type PlanningIntentPath = {
   readonly scripts: ReadonlyArray<{ name: string; value: string }>;
   readonly barrelExports: ReadonlyArray<{ exportPath: string }>;
   readonly compositions: ReadonlyArray<PlanningIntentComposition>;
+  readonly objectFields: ReadonlyArray<PlanningIntentObjectField>;
   readonly jsxSlots: ReadonlyArray<PlanningIntentJsxSlot>;
   readonly tsconfig:
     | {
@@ -193,6 +211,7 @@ function toCompositionOperations(
       moduleSpecifier: composition.import.moduleSpecifier,
       namedImports: composition.import.namedImports,
       defaultImport: composition.import.defaultImport,
+      namespaceImport: composition.import.namespaceImport,
     });
 
     // Append argument to the function call
@@ -205,6 +224,29 @@ function toCompositionOperations(
     });
   }
 
+  // Object fields -> ts-add-import (optional) + ts-object-field
+  for (const objectField of planningPath.objectFields) {
+    if (objectField.import) {
+      operations.push({
+        _tag: "ts-add-import",
+        fileType: "typescript",
+        moduleSpecifier: objectField.import.moduleSpecifier,
+        namedImports: objectField.import.namedImports,
+        defaultImport: objectField.import.defaultImport,
+        namespaceImport: objectField.import.namespaceImport,
+      });
+    }
+
+    operations.push({
+      _tag: "ts-object-field",
+      fileType: "typescript",
+      targetVariable: objectField.targetVariable,
+      functionName: objectField.functionName,
+      field: objectField.field,
+      value: objectField.value,
+    });
+  }
+
   // JSX slots -> ts-add-import (optional) + ts-jsx-slot
   for (const jsxSlot of planningPath.jsxSlots) {
     if (jsxSlot.import) {
@@ -214,6 +256,7 @@ function toCompositionOperations(
         moduleSpecifier: jsxSlot.import.moduleSpecifier,
         namedImports: jsxSlot.import.namedImports,
         defaultImport: jsxSlot.import.defaultImport,
+        namespaceImport: jsxSlot.import.namespaceImport,
       });
     }
 
@@ -242,7 +285,9 @@ function assessPlanningPath({
     planningPath.scripts.length > 0;
   const hasBarrelExports = planningPath.barrelExports.length > 0;
   const hasTsconfig = planningPath.tsconfig !== undefined;
-  const hasCompositions = planningPath.compositions.length > 0;
+  const hasCompositions =
+    planningPath.compositions.length > 0 ||
+    planningPath.objectFields.length > 0;
 
   return Match.value({
     hasContents,

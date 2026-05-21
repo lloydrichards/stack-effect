@@ -4,6 +4,7 @@ import type {
   TsAddReexportOp,
   TsAppendCallArgOp,
   TsJsxSlotOp,
+  TsObjectFieldOp,
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -57,6 +58,9 @@ export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
               Match.tag("ts-append-call-arg", (appendOp) =>
                 applyTsAppendCallArg(sourceFile, appendOp),
               ),
+              Match.tag("ts-object-field", (fieldOp) =>
+                applyTsObjectField(sourceFile, fieldOp),
+              ),
               Match.tag("ts-jsx-slot", (slotOp) =>
                 Effect.sync(() => applyTsJsxSlot(sourceFile, slotOp)),
               ),
@@ -96,6 +100,7 @@ const applyTsAddImport = (
           isTypeOnly: op.typeOnly ?? false,
           ...(op.namedImports && { namedImports: [...op.namedImports] }),
           ...(op.defaultImport && { defaultImport: op.defaultImport }),
+          ...(op.namespaceImport && { namespaceImport: op.namespaceImport }),
         });
       },
       onSome: (decl) => {
@@ -235,7 +240,14 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   // First check if initializer itself is the call expression
   if (initializer.isKind(SyntaxKind.CallExpression)) {
     if (isMatchingCall(initializer)) {
-      appendToCallOrArray(initializer, op.argument);
+      // Check if this is a curried call: the matching call might be the callee
+      // of an outer call expression (e.g., Subscription.aggregate<M, Msg>()())
+      const parent = initializer.getParent();
+      if (parent && parent.isKind(SyntaxKind.CallExpression)) {
+        appendToCallOrArray(parent, op.argument);
+      } else {
+        appendToCallOrArray(initializer, op.argument);
+      }
       return;
     }
   }
@@ -247,9 +259,109 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
 
   for (const call of callExpressions) {
     if (isMatchingCall(call)) {
+      // Check if the matching call is the callee of a parent call (curried pattern)
+      const parent = call.getParent();
+      if (parent && parent.isKind(SyntaxKind.CallExpression)) {
+        const parentCall = parent as CallExpression;
+        // Verify the parent's expression is our matching call
+        if (parentCall.getExpression() === call) {
+          appendToCallOrArray(parentCall, op.argument);
+          return;
+        }
+      }
       appendToCallOrArray(call, op.argument);
       return;
     }
+  }
+
+  return yield* new TargetNotFoundError({
+    targetVariable: op.targetVariable,
+    functionName: op.functionName,
+  });
+});
+
+// =============================================================================
+// Object Field Injection
+// =============================================================================
+
+const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
+  sourceFile: SourceFile,
+  op: typeof TsObjectFieldOp.Type,
+) {
+  // Find variable declaration with the target name
+  const variableDeclaration = sourceFile.getVariableDeclaration(
+    op.targetVariable,
+  );
+
+  if (!variableDeclaration) {
+    return yield* new TargetNotFoundError({
+      targetVariable: op.targetVariable,
+      functionName: op.functionName,
+    });
+  }
+
+  const initializer = variableDeclaration.getInitializer();
+  if (!initializer) {
+    return yield* new TargetNotFoundError({
+      targetVariable: op.targetVariable,
+      functionName: op.functionName,
+    });
+  }
+
+  // Helper to check if a call expression matches the function name
+  const isMatchingCall = (call: CallExpression): boolean => {
+    const expression = call.getExpression();
+
+    if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+      if (expression.getText() === op.functionName) return true;
+    }
+
+    if (expression.isKind(SyntaxKind.Identifier)) {
+      const name = expression.getText();
+      if (name === op.functionName || op.functionName.endsWith(`.${name}`))
+        return true;
+    }
+
+    return false;
+  };
+
+  const addFieldToCall = (call: CallExpression): boolean => {
+    const args = call.getArguments();
+    // Find the first object literal argument
+    const objectArg = args.find((arg) =>
+      arg.isKind(SyntaxKind.ObjectLiteralExpression),
+    );
+
+    if (!objectArg) return false;
+
+    const objectLiteral = objectArg.asKindOrThrow(
+      SyntaxKind.ObjectLiteralExpression,
+    );
+
+    // Check if field already exists
+    const existingProp = objectLiteral.getProperty(op.field);
+    if (existingProp) return true;
+
+    // Add the new property
+    objectLiteral.addPropertyAssignment({
+      name: op.field,
+      initializer: op.value,
+    });
+    return true;
+  };
+
+  // First check if initializer itself is the call expression
+  if (initializer.isKind(SyntaxKind.CallExpression)) {
+    if (isMatchingCall(initializer) && addFieldToCall(initializer)) return;
+  }
+
+  // Search descendants for the call
+  const callExpressions = initializer.getDescendantsOfKind(
+    SyntaxKind.CallExpression,
+  );
+
+  for (const call of callExpressions) {
+    if (isMatchingCall(call) && addFieldToCall(call)) return;
   }
 
   return yield* new TargetNotFoundError({

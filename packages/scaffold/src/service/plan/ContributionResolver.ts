@@ -125,6 +125,15 @@ const resolveContributionTokens = (
           argument: c.argument,
           import: c.import,
         }),
+      "ts-object-field": (c): typeof Contribution.Type =>
+        Contribution.cases["ts-object-field"].make({
+          path: resolveString(c.path),
+          targetVariable: c.targetVariable,
+          functionName: c.functionName,
+          field: c.field,
+          value: c.value,
+          import: c.import,
+        }),
       "jsx-slot": (c): typeof Contribution.Type =>
         Contribution.cases["jsx-slot"].make({
           path: resolveString(c.path),
