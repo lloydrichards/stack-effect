@@ -6,7 +6,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
-import { Confirm, Select, TextInput } from "@repo/tui";
+import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Array as Arr, Console, Effect, Option, Path, Schema } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
@@ -20,6 +20,7 @@ import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 const buildInitSelection = (
   config: typeof StackConfig.Type,
+  extraModules: ReadonlyArray<string> = [],
 ): typeof Selection.Type => {
   // Collect unique module IDs from all category fields
   const moduleIds = new Set<string>();
@@ -32,8 +33,9 @@ const buildInitSelection = (
     if (field !== undefined) moduleIds.add(field);
   }
 
-  if (config.git !== false) {
-    moduleIds.add("git-init");
+  // Add optional DX modules
+  for (const id of extraModules) {
+    moduleIds.add(id);
   }
 
   return {
@@ -137,6 +139,13 @@ export const init = Command.make(
         }));
       const testChoices = catalog
         .getModules({ category: ModuleCategory.make("test") })
+        .map((m) => ({
+          title: m.title,
+          description: m.description,
+          value: m.id,
+        }));
+      const devenvChoices = catalog
+        .getModules({ category: ModuleCategory.make("devenv") })
         .map((m) => ({
           title: m.title,
           description: m.description,
@@ -258,6 +267,20 @@ export const init = Command.make(
               initial: true,
             });
 
+      // DX Extras (optional modules for developer experience)
+      const dxExtras =
+        devenvChoices.length === 0
+          ? []
+          : flags.yes
+            ? devenvChoices.map((c) => c.value) // Select all DX modules in non-interactive mode
+            : yield* MultiSelect({
+                message: "Developer experience extras (optional)",
+                choices: devenvChoices.map((c) => ({
+                  ...c,
+                  selected: false,
+                })),
+              });
+
       const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,
         runtime,
@@ -277,10 +300,11 @@ export const init = Command.make(
           onNone: () => ({}),
           onSome: (v) => ({ monorepo: v }),
         }),
-        git,
       });
 
       // Preview
+      const dxExtrasDisplay =
+        dxExtras.length === 0 ? "none" : dxExtras.join(", ");
       const configBox = Box.vsep(
         [
           Box.text("Project Configuration").pipe(
@@ -299,6 +323,7 @@ export const init = Command.make(
                   Box.text("Format:"),
                   Box.text("Test:"),
                   Box.text("Git:"),
+                  Box.text("DX Extras:"),
                   Box.text("Config:"),
                 ],
                 Box.left,
@@ -313,7 +338,8 @@ export const init = Command.make(
                   Box.text(config.lint ?? "none"),
                   Box.text(config.format ?? "none"),
                   Box.text(config.test ?? "none"),
-                  Box.text(config.git === false ? "no" : "yes"),
+                  Box.text(git === false ? "no" : "yes"),
+                  Box.text(dxExtrasDisplay),
                   Box.text(configure.configPath(repoRoot)),
                 ],
                 Box.left,
@@ -346,7 +372,10 @@ export const init = Command.make(
 
       // Scaffold root monorepo files
       const pipeline = yield* ScaffoldPipeline;
-      const selection = buildInitSelection(config);
+      const selection = buildInitSelection(config, [
+        ...(git ? [ModuleId.make("git-init")] : []),
+        ...dxExtras,
+      ]);
 
       yield* pipeline.run({
         selection,
