@@ -11,6 +11,7 @@ import {
   aiLanguageModelContents,
   aiMailboxEventsContents,
   aiSampleToolkitContents,
+  aiThinkToolkitContents,
 } from "../content/ai";
 import {
   presenceClientGeneratorContents,
@@ -93,6 +94,35 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
+    id: ModuleId.make("ai-think-toolkit"),
+    title: "Think Toolkit",
+    description:
+      "Minimal AI toolkit with a think tool for step-by-step reasoning",
+    visibility: "internal",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/toolkits/ThinkToolkit.ts",
+        contents: aiThinkToolkitContents,
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./toolkits/ThinkToolkit",
+      },
+    ],
+  },
+  {
     id: ModuleId.make("ai-sample-toolkit"),
     title: "Sample Toolkit",
     description: "Sample AI toolkit with calculator, echo, and time tools",
@@ -116,6 +146,30 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "barrel-export",
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./toolkits/SampleToolkit",
+      },
+      // Add SampleToolkit to ChatToolkit merge
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/services/ChatService.ts",
+        targetVariable: "ChatToolkit",
+        functionName: "Toolkit.merge",
+        argument: "SampleToolkit",
+        import: {
+          moduleSpecifier: "../toolkits/SampleToolkit",
+          namedImports: ["SampleToolkit"],
+        },
+      },
+      // Add SampleToolkitLive to ChatToolkitLive merge
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/services/ChatService.ts",
+        targetVariable: "ChatToolkitLive",
+        functionName: "Layer.mergeAll",
+        argument: "SampleToolkitLive",
+        import: {
+          moduleSpecifier: "../toolkits/SampleToolkit",
+          namedImports: ["SampleToolkitLive"],
+        },
       },
     ],
   },
@@ -149,6 +203,14 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           name: "ai",
         }),
         moduleId: ModuleId.make("ai"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("ai-think-toolkit"),
       },
     ],
     children: [
