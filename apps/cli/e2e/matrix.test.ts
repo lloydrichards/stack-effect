@@ -1,6 +1,6 @@
 import { describe, layer } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
-import { TargetKind } from "@repo/domain/Catalog";
+import { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
 
@@ -16,6 +16,20 @@ import { CLI } from "./harness";
 interface MatrixEntry {
   readonly target: string; // "kind/name" for --target
   readonly modules: ReadonlyArray<string>; // module IDs for --modules
+  readonly label: string; // human-readable test name
+}
+
+/**
+ * Entry for testing modules with their optional children.
+ * Tracks parent module and all optional children to add separately.
+ */
+interface ChildrenMatrixEntry {
+  readonly target: string; // "kind/name" for --target
+  readonly parentModule: string; // parent module ID
+  readonly optionalChildren: ReadonlyArray<{
+    readonly moduleId: string;
+    readonly childTarget: string; // target for the child module
+  }>;
   readonly label: string; // human-readable test name
 }
 
@@ -74,7 +88,7 @@ const buildMatrix = Effect.gen(function* () {
   // For each non-init target kind, get supported modules and group by identity
   for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
     const modules = yield* catalog.getSupportedModules(kind);
-    const grouped = groupModulesByTarget(modules as any);
+    const grouped = groupModulesByTarget(modules);
 
     for (const [target, moduleIds] of grouped) {
       // Individual module tests
@@ -109,6 +123,76 @@ const singleTargetEntries = matrix.filter(
   (e) =>
     !e.target.startsWith("client-react") &&
     !e.target.startsWith("client-foldkit"),
+);
+
+// ---------------------------------------------------------------------------
+// Build the optional children matrix - tests modules with all optional children
+// ---------------------------------------------------------------------------
+
+/**
+ * Get the target string for a module based on its supportedOn configuration.
+ */
+function getModuleTarget(mod: {
+  supportedOn: ReadonlyArray<
+    | { _tag: "kind"; kind: string }
+    | { _tag: "identity"; identity: { kind: string; name: string } }
+  >;
+}): string {
+  const s = mod.supportedOn[0];
+  if (!s) return "unknown/unknown";
+  return s._tag === "identity"
+    ? `${s.identity.kind}/${s.identity.name}`
+    : `${s.kind}/${defaultTargetNames.get(s.kind) ?? s.kind}`;
+}
+
+const buildChildrenMatrix = Effect.gen(function* () {
+  const catalog = yield* CatalogService;
+  const entries: Array<ChildrenMatrixEntry> = [];
+
+  // Get all modules and find those with optional children
+  const allModules = catalog.getModules();
+
+  // Build a lookup map for quick module access
+  const moduleMap = new Map(allModules.map((m) => [m.id, m]));
+
+  for (const mod of allModules) {
+    const children = mod.children as
+      | Array<{ moduleId: string; requirement: "required" | "optional" }>
+      | undefined;
+
+    if (!children || children.length === 0) continue;
+
+    // Filter to only optional children
+    const optionalChildren = children.filter(
+      (c) => c.requirement === "optional",
+    );
+    if (optionalChildren.length === 0) continue;
+
+    // Get target for parent module
+    const parentTarget = getModuleTarget(mod);
+
+    // Get targets for each optional child
+    const childrenWithTargets = optionalChildren.map((child) => {
+      const childMod = moduleMap.get(ModuleId.make(child.moduleId));
+      return {
+        moduleId: child.moduleId,
+        childTarget: childMod ? getModuleTarget(childMod) : parentTarget,
+      };
+    });
+
+    entries.push({
+      target: parentTarget,
+      parentModule: mod.id,
+      optionalChildren: childrenWithTargets,
+      label: `${parentTarget} + ${mod.id} (with optional: ${optionalChildren.map((c) => c.moduleId).join(", ")})`,
+    });
+  }
+
+  return entries;
+});
+
+const childrenMatrix = Effect.runSync(
+  buildChildrenMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
 // ---------------------------------------------------------------------------
@@ -315,6 +399,62 @@ describe("matrix", () => {
               [...group.clientModules].join(","),
             );
             yield* cli.expectExitCode(0);
+
+            // Validate
+            yield* cli.withinProject(name, function* (project) {
+              yield* project.expectTypeCheckPasses();
+            });
+          }).pipe(Effect.provide(CLI.layer)),
+        { timeout: 180_000 },
+      );
+    }
+  });
+
+  layer(CLI.layer)("modules with optional children (maximal)", (it) => {
+    for (const entry of childrenMatrix) {
+      it.effect(
+        entry.label,
+        () =>
+          Effect.gen(function* () {
+            const cli = yield* CLI;
+            const sluggedModules = [
+              entry.parentModule,
+              ...entry.optionalChildren.map((c) => c.moduleId),
+            ].join("-");
+            const name = `matrix-children-${entry.target.replace("/", "-")}-${sluggedModules}`;
+            const root = `${cli.workdir}/${name}`;
+
+            // Init project
+            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
+            yield* cli.expectExitCode(0);
+
+            // Add parent module to its target
+            yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              entry.target,
+              "--modules",
+              entry.parentModule,
+            );
+            yield* cli.expectExitCode(0);
+
+            // Add each optional child to its respective target
+            for (const child of entry.optionalChildren) {
+              yield* cli.run(
+                "add",
+                "--yes",
+                "--root",
+                root,
+                "--target",
+                child.childTarget,
+                "--modules",
+                child.moduleId,
+              );
+              yield* cli.expectExitCode(0);
+            }
 
             // Validate
             yield* cli.withinProject(name, function* (project) {

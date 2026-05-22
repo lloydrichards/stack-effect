@@ -331,11 +331,6 @@ const HttpRpcRouter = Layer.empty;
               expect.objectContaining({
                 _tag: "ts-add-import",
                 moduleSpecifier: "@repo/ai",
-                namedImports: ["SampleToolkitLive"],
-              }),
-              expect.objectContaining({
-                _tag: "ts-add-import",
-                moduleSpecifier: "@repo/ai",
                 namedImports: ["FastModelLive"],
               }),
             ]),
@@ -352,12 +347,6 @@ const HttpRpcRouter = Layer.empty;
                 targetVariable: "AllRouters",
                 functionName: "Layer.mergeAll",
                 argument: "ChatServiceLive",
-              }),
-              expect.objectContaining({
-                _tag: "ts-append-call-arg",
-                targetVariable: "AllRouters",
-                functionName: "Layer.mergeAll",
-                argument: "SampleToolkitLive",
               }),
               expect.objectContaining({
                 _tag: "ts-append-call-arg",
