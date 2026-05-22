@@ -256,6 +256,20 @@ export const ModuleCategory = Schema.String.pipe(
   Schema.brand("ModuleCategory"),
 );
 
+/**
+ * Declares a parent-child relationship between modules on the same target.
+ * Used by the TUI to render nested selection trees.
+ *
+ * - `required` children are auto-selected when the parent is selected (display-only)
+ * - `optional` children can be toggled by the user
+ *
+ * Children must share at least one `supportedOn` rule with their parent.
+ */
+export const ModuleChild = Schema.Struct({
+  moduleId: ModuleId,
+  requirement: Schema.Literals(["required", "optional"]),
+});
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
@@ -271,6 +285,14 @@ export const ModuleDefinition = Schema.Struct({
   supportedOn: Schema.Array(SupportedOn),
   dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
+  /**
+   * Same-target child modules shown in nested selection UI.
+   * Children must share at least one `supportedOn` rule with the parent.
+   */
+  children: Schema.Array(ModuleChild).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
