@@ -121,7 +121,16 @@ export const MultiSelect = <A>(
           );
           const description =
             isCursor && c.description
-              ? Box.text(c.description).pipe(Box.annotate(Ansi.dim))
+              ? Box.hsep(
+                  [
+                    Box.text("·").pipe(Box.annotate(Ansi.dim)),
+                    Box.text(c.description).pipe(
+                      Box.annotate(Ansi.combine(Ansi.dim, Ansi.italic)),
+                    ),
+                  ],
+                  1,
+                  Box.left,
+                )
               : Box.nullBox;
 
           return Box.hsep(

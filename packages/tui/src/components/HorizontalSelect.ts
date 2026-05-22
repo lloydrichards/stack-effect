@@ -1,4 +1,4 @@
-import { Data, Effect, Match } from "effect";
+import { Array as Arr, Data, Effect, Match, pipe, Terminal } from "effect";
 import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
@@ -31,12 +31,56 @@ const HorizontalSelectKeys = {
   }),
 };
 
+/**
+ * Groups items into rows that fit within the given width.
+ * Similar to CSS flex-wrap behavior.
+ */
+const wrapItems = <A>(
+  items: ReadonlyArray<Box.Box<A>>,
+  maxWidth: number,
+  gap: number,
+): ReadonlyArray<ReadonlyArray<Box.Box<A>>> =>
+  pipe(
+    items,
+    Arr.reduce(
+      {
+        rows: [] as Array<Array<Box.Box<A>>>,
+        currentRow: [] as Array<Box.Box<A>>,
+        currentWidth: 0,
+      },
+      (acc, item) => {
+        const itemWidth = item.cols;
+        const widthWithGap =
+          acc.currentWidth > 0 ? acc.currentWidth + gap + itemWidth : itemWidth;
+
+        if (widthWithGap <= maxWidth || acc.currentRow.length === 0) {
+          return {
+            ...acc,
+            currentRow: [...acc.currentRow, item],
+            currentWidth: widthWithGap,
+          };
+        }
+        return {
+          rows: [...acc.rows, acc.currentRow],
+          currentRow: [item],
+          currentWidth: itemWidth,
+        };
+      },
+    ),
+    ({ rows, currentRow }) =>
+      currentRow.length > 0 ? [...rows, currentRow] : rows,
+  );
+
 export const HorizontalSelect = <A extends string>(
   options: Prompt.SelectOptions<A>,
 ): Prompt.Prompt<A> => {
   const { message, choices } = options;
 
-  const renderLayout = (cursor: number, submitted: boolean) => {
+  const renderLayout = Effect.fnUntraced(function* (
+    cursor: number,
+    submitted: boolean,
+  ) {
+    const terminal = yield* Terminal.Terminal;
     const prefix = submitted
       ? Box.text("✔").pipe(Box.annotate(Ansi.green))
       : Box.text("?").pipe(Box.annotate(Ansi.cyan));
@@ -67,11 +111,17 @@ export const HorizontalSelect = <A extends string>(
       );
     }
 
+    const terminalWidth = yield* terminal.columns ?? 80;
+    const gap = 2;
+    const wrappedRows = wrapItems(items, terminalWidth - 4, gap); // -4 for chrome padding
+
+    const itemsLayout = Box.vcat(
+      Arr.map(wrappedRows, (row) => Box.hsep(row, gap, Box.center1)),
+      Box.left,
+    );
+
     const content = Box.vcat(
-      [
-        Box.hsep([prefix, label, Box.text(" ")], 2, Box.center1),
-        Box.hsep(items, 2, Box.center1),
-      ],
+      [Box.hsep([prefix, label, Box.text(" ")], 2, Box.center1), itemsLayout],
       Box.left,
     );
 
@@ -79,13 +129,13 @@ export const HorizontalSelect = <A extends string>(
       [content.pipe(PromptChrome()), Hint(HorizontalSelectKeys)],
       Box.left,
     );
-  };
+  });
 
   let hasRendered = false;
 
   return Prompt.custom<number, A>(0, {
     render: Effect.fnUntraced(function* (cursor, action) {
-      const layout = Action.$match(action, {
+      const layout = yield* Action.$match(action, {
         Beep: () => renderLayout(cursor, false),
         Submit: () => renderLayout(cursor, true),
         NextFrame: ({ state }) => renderLayout(state, false),
@@ -94,7 +144,7 @@ export const HorizontalSelect = <A extends string>(
 
       // Compute previous frame height from old state; skip on initial render
       const clear = hasRendered
-        ? Cmd.clearLines(renderLayout(cursor, false).rows)
+        ? Cmd.clearLines((yield* renderLayout(cursor, false)).rows)
         : Cmd.cursorHide;
       hasRendered = true;
 
