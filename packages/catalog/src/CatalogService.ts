@@ -184,6 +184,14 @@ export class CatalogService extends Context.Service<CatalogService>()(
               Graph.addEdge(g, modIdx, impliedIdx, "implies");
             }
           }
+
+          for (const child of mod.children ?? []) {
+            const childIdx = moduleNodes.get(child.moduleId);
+            if (childIdx !== undefined) {
+              // Edge direction: child points to parent (childOf relationship)
+              Graph.addEdge(g, childIdx, modIdx, "childOf");
+            }
+          }
         }
       });
 

@@ -343,6 +343,7 @@ export const CatalogEdge = Schema.Literals([
   "supportedOn",
   "requiredModule",
   "implies",
+  "childOf",
 ]);
 
 export type CatalogGraph = Graph.DirectedGraph<

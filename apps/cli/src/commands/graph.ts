@@ -54,12 +54,14 @@ interface RowData {
   readonly supportedOn: ReadonlyArray<string>;
   readonly requires: ReadonlyArray<string>;
   readonly implies: ReadonlyArray<string>;
+  readonly childOf: ReadonlyArray<string>;
 }
 
 const classifyEdge = Match.type<typeof CatalogEdge.Type>().pipe(
   Match.when("supportedOn", () => "supportedOn" as const),
   Match.when("requiredModule", () => "requires" as const),
   Match.when("implies", () => "implies" as const),
+  Match.when("childOf", () => "childOf" as const),
   Match.exhaustive,
 );
 
@@ -84,6 +86,7 @@ const collectRowData = (g: CatalogGraph): Array<RowData> => {
       supportedOn: resolve("supportedOn"),
       requires: resolve("requires"),
       implies: resolve("implies"),
+      childOf: resolve("childOf"),
     };
   });
 };
@@ -234,6 +237,7 @@ const countEdges = (g: CatalogGraph) => {
     supportedOn: (counts["supportedOn"] ?? []).length,
     requiredModule: (counts["requiredModule"] ?? []).length,
     implies: (counts["implies"] ?? []).length,
+    childOf: (counts["childOf"] ?? []).length,
   };
 };
 
@@ -254,7 +258,7 @@ const renderTable = (g: CatalogGraph) => {
         `Nodes: ${nodeCount} (${targets.length} targets, ${modules.length} modules)`,
       ),
       Box.text(
-        `Edges: ${edgeCount} (${edgeCounts.supportedOn} supportedOn, ${edgeCounts.requiredModule} requiredModule, ${edgeCounts.implies} implies)`,
+        `Edges: ${edgeCount} (${edgeCounts.supportedOn} supportedOn, ${edgeCounts.requiredModule} requiredModule, ${edgeCounts.implies} implies, ${edgeCounts.childOf} childOf)`,
       ),
       Box.text(`Acyclic: ${acyclic ? "yes" : "no"}`),
     ],
@@ -274,6 +278,7 @@ const renderTable = (g: CatalogGraph) => {
     { header: "supportedOn →", width: 16 },
     { header: "requires →", width: 16 },
     { header: "implies →", width: 16 },
+    { header: "childOf →", width: 16 },
   ] as const;
 
   const sortedRows = Arr.sortBy(
@@ -301,6 +306,9 @@ const renderTable = (g: CatalogGraph) => {
       Box.annotate(Ansi.dim),
     ),
     Box.para(Arr.join(r.implies, "\n") || "—", Box.left, 16).pipe(
+      Box.annotate(Ansi.dim),
+    ),
+    Box.para(Arr.join(r.childOf, "\n") || "—", Box.left, 16).pipe(
       Box.annotate(Ansi.dim),
     ),
   ]);
