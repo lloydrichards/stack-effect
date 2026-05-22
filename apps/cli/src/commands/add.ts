@@ -1,8 +1,22 @@
 import { CatalogService } from "@repo/catalog";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type { Selection } from "@repo/domain/Selection";
-import { HorizontalSelect, MultiSelect, Select, TextInput } from "@repo/tui";
 import {
+  ModuleDefinition,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
+import type { Selection } from "@repo/domain/Selection";
+import {
+  HorizontalSelect,
+  MultiSelect,
+  type NestedModuleChild,
+  type NestedModuleNode,
+  NestedMultiSelect,
+  Select,
+  TextInput,
+} from "@repo/tui";
+import {
+  Array as Arr,
   Console,
   Effect,
   FileSystem,
@@ -67,6 +81,171 @@ const formatTargetSummary = (
     Box.top,
   );
 };
+
+/**
+ * Build a tree structure for nested module selection showing the full
+ * cross-target dependency graph. Each module shows its required dependencies
+ * and implied modules as nested children.
+ */
+const buildModuleTree = (
+  modules: ReadonlyArray<typeof ModuleDefinition.Type>,
+): Effect.Effect<
+  ReadonlyArray<NestedModuleNode<typeof ModuleId.Type>>,
+  never,
+  CatalogService
+> =>
+  Effect.gen(function* () {
+    const catalog = yield* CatalogService;
+
+    // Build tree node recursively, following dependencies and implies
+    // visited is a Ref for mutable tracking across sibling branches
+    const buildNode = (
+      mod: typeof ModuleDefinition.Type,
+      requirement: "root" | "required" | "optional",
+      visitedRef: Ref.Ref<Set<string>>,
+    ): Effect.Effect<
+      NestedModuleChild<typeof ModuleId.Type>,
+      never,
+      CatalogService
+    > =>
+      Effect.gen(function* () {
+        const visited = yield* Ref.get(visitedRef);
+
+        // Skip if already visited (cycle prevention)
+        if (visited.has(mod.id)) {
+          return {
+            node: {
+              id: mod.id,
+              title: mod.title,
+              description: mod.description,
+              value: mod.id,
+            },
+            requirement: requirement === "root" ? "required" : requirement,
+          };
+        }
+
+        // Mark as visited before processing children
+        yield* Ref.update(visitedRef, (s) => new Set([...s, mod.id]));
+
+        // Process required dependencies
+        const depChildren = yield* pipe(
+          mod.dependencies,
+          Arr.filter(
+            (dep): dep is typeof dep & { _tag: "required-module" } =>
+              dep._tag === "required-module",
+          ),
+          Effect.forEach((dep) =>
+            Effect.gen(function* () {
+              const depMod = yield* catalog
+                .getModule(dep.moduleId)
+                .pipe(Effect.orElseSucceed(() => null));
+
+              const currentVisited = yield* Ref.get(visitedRef);
+              if (!depMod || currentVisited.has(depMod.id)) {
+                return Result.failVoid;
+              }
+
+              const childNode = yield* buildNode(
+                depMod,
+                "required",
+                visitedRef,
+              );
+              return Result.succeed({
+                node: {
+                  ...childNode.node,
+                  title: childNode.node.title,
+                  description: childNode.node.description ?? "",
+                },
+                requirement: "required" as const,
+              });
+            }),
+          ),
+          Effect.map(Arr.filterMap((x) => x)),
+        );
+
+        // Process implied modules (cross-target)
+        const impChildren = yield* pipe(
+          mod.implies ?? [],
+          Effect.forEach((imp) =>
+            Effect.gen(function* () {
+              const impMod = yield* catalog
+                .getModule(imp.moduleId)
+                .pipe(Effect.orElseSucceed(() => null));
+
+              const currentVisited = yield* Ref.get(visitedRef);
+              if (!impMod || currentVisited.has(impMod.id)) {
+                return Result.failVoid;
+              }
+
+              const childNode = yield* buildNode(
+                impMod,
+                "required",
+                visitedRef,
+              );
+              return Result.succeed({
+                node: {
+                  ...childNode.node,
+                  title: childNode.node.title,
+                  description: childNode.node.description ?? "",
+                },
+                requirement: "required" as const,
+              });
+            }),
+          ),
+          Effect.map(Arr.filterMap((x) => x)),
+        );
+
+        // Process same-target children (optional sub-modules)
+        const subChildren = yield* pipe(
+          mod.children ?? [],
+          Effect.forEach((child) =>
+            Effect.gen(function* () {
+              const childMod = yield* catalog
+                .getModule(child.moduleId)
+                .pipe(Effect.orElseSucceed(() => null));
+
+              const currentVisited = yield* Ref.get(visitedRef);
+              if (!childMod || currentVisited.has(childMod.id)) {
+                return Result.failVoid;
+              }
+
+              const childNode = yield* buildNode(
+                childMod,
+                child.requirement,
+                visitedRef,
+              );
+              return Result.succeed({
+                node: childNode.node,
+                requirement: child.requirement,
+              });
+            }),
+          ),
+          Effect.map(Arr.filterMap((x) => x)),
+        );
+
+        const children = [...depChildren, ...impChildren, ...subChildren];
+        const base = {
+          id: mod.id,
+          title: mod.title,
+          description: mod.description,
+          value: mod.id,
+        };
+
+        return {
+          node: Arr.isArrayNonEmpty(children) ? { ...base, children } : base,
+          requirement: requirement === "root" ? "required" : requirement,
+        };
+      });
+
+    // Build tree for each top-level module (each with fresh visited Ref)
+    return yield* Effect.forEach(modules, (mod) =>
+      Effect.gen(function* () {
+        const visitedRef = yield* Ref.make(new Set<string>());
+        const result = yield* buildNode(mod, "root", visitedRef);
+        return result.node;
+      }),
+    );
+  });
 
 /**
  * Resolve module implications: when a module implies another module on a
@@ -434,17 +613,16 @@ const collectTargetsInteractive = Effect.gen(function* () {
     const availableModules = yield* catalog.getSupportedModules(kind, {
       visibility: "public",
     });
-    const modules =
-      availableModules.length > 0
-        ? yield* MultiSelect({
-            message: `Which modules do you want to add to "${kind}/${name}"?`,
-            choices: availableModules.map((mod) => ({
-              title: mod.title,
-              value: mod.id,
-              description: mod.description,
-            })),
-          })
-        : [];
+
+    // Build nested tree structure for module selection
+    const moduleTree = yield* buildModuleTree(availableModules);
+
+    const modules = Arr.isReadonlyArrayNonEmpty(moduleTree)
+      ? yield* NestedMultiSelect({
+          message: `Which modules do you want to add to "${kind}/${name}"?`,
+          choices: moduleTree,
+        })
+      : [];
 
     targets.push({ kind, name, modules: [...modules], confirmed: false });
   });
@@ -490,57 +668,77 @@ const collectTargetsInteractive = Effect.gen(function* () {
       ],
     });
 
-    if (action === "confirm-all") {
-      for (const t of targets) t.confirmed = true;
-      allConfirmed = true;
-    } else if (action === "edit") {
-      const targetToEdit = yield* Select({
-        message: "Which target do you want to edit?",
-        choices: targets.map((t, i) => ({
-          title: `${t.kind}/${t.name}  [${t.modules.join(", ")}]`,
-          value: i,
-        })),
-      });
-
-      const t = targets[targetToEdit];
-      if (t) {
-        const availableModules = yield* catalog.getSupportedModules(t.kind, {
-          visibility: "public",
-        });
-
-        if (availableModules.length > 0) {
-          const newModules = yield* MultiSelect({
-            message: `Select modules for "${t.kind}/${t.name}":`,
-            choices: availableModules.map((mod) => ({
-              title: mod.title,
-              value: mod.id,
-              description: mod.description,
-              selected: t.modules.includes(mod.id),
+    yield* pipe(
+      Match.value(action),
+      Match.when("confirm-all", () =>
+        Effect.sync(() => {
+          Arr.forEach(targets, (t) => {
+            t.confirmed = true;
+          });
+          allConfirmed = true;
+        }),
+      ),
+      Match.when("edit", () =>
+        Effect.gen(function* () {
+          const targetToEdit = yield* Select({
+            message: "Which target do you want to edit?",
+            choices: Arr.map(targets, (t, i) => ({
+              title: `${t.kind}/${t.name}  [${Arr.join(t.modules, ", ")}]`,
+              value: i,
             })),
           });
-          t.modules = [...newModules];
-          t.confirmed = true;
 
-          // Cascade: remove orphaned implications then re-resolve
-          // Pin the user's explicit selections so they aren't stripped
-          const pinned = new Set(newModules.map((m) => `${t.kind}:${m}`));
-          yield* removeOrphanedImplications(targets, pinned);
+          yield* pipe(
+            Option.fromNullishOr(targets[targetToEdit]),
+            Option.match({
+              onNone: () => Effect.void,
+              onSome: (t) =>
+                Effect.gen(function* () {
+                  const availableModules = yield* catalog.getSupportedModules(
+                    t.kind,
+                    { visibility: "public" },
+                  );
+
+                  if (Arr.isReadonlyArrayNonEmpty(availableModules)) {
+                    const moduleTree = yield* buildModuleTree(availableModules);
+
+                    const newModules = yield* NestedMultiSelect({
+                      message: `Select modules for "${t.kind}/${t.name}":`,
+                      choices: moduleTree,
+                      initialSelected: t.modules,
+                    });
+                    t.modules = [...newModules];
+                    t.confirmed = true;
+
+                    // Cascade: remove orphaned implications then re-resolve
+                    const pinned = new Set(
+                      Arr.map(newModules, (m) => `${t.kind}:${m}`),
+                    );
+                    yield* removeOrphanedImplications(targets, pinned);
+                    let changed = true;
+                    while (changed) {
+                      changed = yield* resolveImplications(targets);
+                    }
+                  } else {
+                    t.confirmed = true;
+                  }
+                }),
+            }),
+          );
+        }),
+      ),
+      Match.when("add", () =>
+        Effect.gen(function* () {
+          yield* addTarget;
+
           let changed = true;
           while (changed) {
             changed = yield* resolveImplications(targets);
           }
-        } else {
-          t.confirmed = true;
-        }
-      }
-    } else {
-      yield* addTarget;
-
-      let changed = true;
-      while (changed) {
-        changed = yield* resolveImplications(targets);
-      }
-    }
+        }),
+      ),
+      Match.exhaustive,
+    );
   }
 
   return targets;
