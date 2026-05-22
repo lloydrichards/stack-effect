@@ -148,16 +148,11 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "ai",
         }),
-        moduleId: ModuleId.make("ai-sample-toolkit"),
-      },
-      {
-        _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "ai",
-        }),
         moduleId: ModuleId.make("ai"),
       },
+    ],
+    children: [
+      { moduleId: ModuleId.make("ai-sample-toolkit"), requirement: "optional" },
     ],
     contributions: [
       {
