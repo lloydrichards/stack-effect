@@ -261,58 +261,78 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
     const catalog = yield* CatalogService;
     let changed = false;
 
-    for (const target of targets) {
-      for (const moduleId of target.modules) {
-        const definition = yield* catalog.getModule(moduleId);
-        for (const implication of definition.implies ?? []) {
-          const candidates = targets.filter(
-            (t) => t.kind === implication.targetKind,
-          );
+    yield* Effect.forEach(targets, (target) =>
+      Effect.forEach(target.modules, (moduleId) =>
+        Effect.gen(function* () {
+          const definition = yield* catalog.getModule(moduleId);
 
-          if (candidates.length === 0) {
-            const name = yield* TextInput({
-              message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
-            });
-            targets.push({
-              kind: implication.targetKind,
-              name,
-              modules: [implication.moduleId],
-              confirmed: false,
-            });
-            changed = true;
-          } else if (candidates.length === 1) {
-            const candidate = candidates[0];
-            if (
-              candidate &&
-              !candidate.modules.includes(implication.moduleId)
-            ) {
-              candidate.modules.push(implication.moduleId);
-              candidate.confirmed = false;
-              changed = true;
-            }
-          } else {
-            const alreadyPresent = candidates.some((c) =>
-              c.modules.includes(implication.moduleId),
-            );
-            if (!alreadyPresent) {
-              const chosen = yield* Select({
-                message: `Module "${definition.title}" implies "${implication.moduleId}". Which ${implication.targetKind} target should receive it?`,
-                choices: candidates.map((c) => ({
-                  title: `${c.kind}/${c.name}`,
-                  value: c.name,
-                })),
-              });
-              const found = candidates.find((c) => c.name === chosen);
-              if (found) {
-                found.modules.push(implication.moduleId);
-                found.confirmed = false;
-                changed = true;
-              }
-            }
-          }
-        }
-      }
-    }
+          yield* Effect.forEach(definition.implies ?? [], (implication) =>
+            Effect.gen(function* () {
+              const candidates = Arr.filter(
+                targets,
+                (t) => t.kind === implication.targetKind,
+              );
+
+              yield* pipe(
+                Match.value(candidates.length),
+                Match.when(0, () =>
+                  Effect.gen(function* () {
+                    const name = yield* TextInput({
+                      message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
+                    });
+                    targets.push({
+                      kind: implication.targetKind,
+                      name,
+                      modules: [implication.moduleId],
+                      confirmed: false,
+                    });
+                    changed = true;
+                  }),
+                ),
+                Match.when(1, () =>
+                  Effect.gen(function* () {
+                    const candidate = candidates[0];
+                    if (
+                      candidate &&
+                      !Arr.contains(candidate.modules, implication.moduleId)
+                    ) {
+                      candidate.modules.push(implication.moduleId);
+                      candidate.confirmed = false;
+                      changed = true;
+                    }
+                  }),
+                ),
+                Match.orElse(() =>
+                  Effect.gen(function* () {
+                    const alreadyPresent = Arr.some(candidates, (c) =>
+                      Arr.contains(c.modules, implication.moduleId),
+                    );
+                    if (!alreadyPresent) {
+                      const chosen = yield* Select({
+                        message: `Module "${definition.title}" implies "${implication.moduleId}". Which ${implication.targetKind} target should receive it?`,
+                        choices: Arr.map(candidates, (c) => ({
+                          title: `${c.kind}/${c.name}`,
+                          value: c.name,
+                        })),
+                      });
+                      const found = Arr.findFirst(
+                        candidates,
+                        (c) => c.name === chosen,
+                      );
+                      if (Option.isSome(found)) {
+                        found.value.modules.push(implication.moduleId);
+                        found.value.confirmed = false;
+                        changed = true;
+                      }
+                    }
+                  }),
+                ),
+              );
+            }),
+          );
+        }),
+      ),
+    );
 
     return changed;
   });
@@ -324,7 +344,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
 const getActiveImplications = (targets: ReadonlyArray<CollectedTarget>) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
-    const allModuleIds = targets.flatMap((t) => t.modules);
+    const allModuleIds = Arr.flatMap(targets, (t) => t.modules);
     return yield* catalog.getImplications(allModuleIds);
   });
 
@@ -342,27 +362,40 @@ const removeOrphanedImplications = (
     const activeImplications = yield* getActiveImplications(targets);
     let changed = false;
 
-    for (const target of targets) {
-      const toRemove: Array<typeof ModuleId.Type> = [];
-      for (const moduleId of target.modules) {
-        if (pinned.has(`${target.kind}:${moduleId}`)) continue;
-        const isImplied = yield* catalog.isImpliedByAny(moduleId, target.kind);
-        if (
-          isImplied &&
-          !activeImplications.has(`${target.kind}:${moduleId}`)
-        ) {
-          toRemove.push(moduleId);
+    yield* Effect.forEach(targets, (target) =>
+      Effect.gen(function* () {
+        const toRemove = yield* pipe(
+          target.modules,
+          Effect.filter((moduleId) =>
+            Effect.gen(function* () {
+              if (pinned.has(`${target.kind}:${moduleId}`)) return false;
+              const isImplied = yield* catalog.isImpliedByAny(
+                moduleId,
+                target.kind,
+              );
+              return (
+                isImplied &&
+                !activeImplications.has(`${target.kind}:${moduleId}`)
+              );
+            }),
+          ),
+        );
+
+        if (Arr.isArrayNonEmpty(toRemove)) {
+          target.modules = Arr.filter(
+            target.modules,
+            (m) => !Arr.contains(toRemove, m),
+          );
+          changed = true;
         }
-      }
-      if (toRemove.length > 0) {
-        target.modules = target.modules.filter((m) => !toRemove.includes(m));
-        changed = true;
-      }
-    }
+      }),
+    );
 
     // Remove empty targets
     const before = targets.length;
-    const remaining = targets.filter((t) => t.modules.length > 0);
+    const remaining = Arr.filter(targets, (t) =>
+      Arr.isArrayNonEmpty(t.modules),
+    );
     targets.length = 0;
     targets.push(...remaining);
     if (targets.length !== before) changed = true;
@@ -382,71 +415,87 @@ const resolveImplicationsNonInteractive = (
     while (changed) {
       changed = false;
 
-      for (const target of targets) {
-        for (const moduleId of target.modules) {
-          const definition = yield* catalog.getModule(moduleId);
+      yield* Effect.forEach(targets, (target) =>
+        Effect.forEach(target.modules, (moduleId) =>
+          Effect.gen(function* () {
+            const definition = yield* catalog.getModule(moduleId);
 
-          for (const implication of definition.implies ?? []) {
-            const candidates = targets.filter(
-              (t) => t.kind === implication.targetKind,
-            );
-
-            if (candidates.length === 0) {
-              // Check if the implied target/module already exists on disk
-              // by scanning for any directory matching the target kind pattern
-              const appsDir = `${repoRoot}/apps`;
-              const packagesDir = `${repoRoot}/packages`;
-              const searchDir =
-                implication.targetKind === "package" ? packagesDir : appsDir;
-              const prefix =
-                implication.targetKind === "package"
-                  ? ""
-                  : `${implication.targetKind}-`;
-
-              const dirExists = yield* fs.readDirectory(searchDir).pipe(
-                Effect.map((entries) =>
-                  entries.some((entry) =>
-                    implication.targetKind === "package"
-                      ? true
-                      : entry.startsWith(prefix) ||
-                        entry === implication.targetKind,
-                  ),
-                ),
-                Effect.catch(() => Effect.succeed(false)),
-              );
-
-              if (dirExists) {
-                // Implication is already satisfied by existing project state
-                continue;
-              }
-
-              return yield* Effect.fail(
-                `Module "${definition.id}" implies "${implication.moduleId}" on target kind "${implication.targetKind}". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
-              );
-            }
-
-            if (candidates.length > 1) {
-              const alreadyPresent = candidates.some((c) =>
-                c.modules.includes(implication.moduleId),
-              );
-              if (!alreadyPresent) {
-                return yield* Effect.fail(
-                  `Module "${definition.id}" implies "${implication.moduleId}" for target kind "${implication.targetKind}", but multiple candidate targets exist. Use interactive add to disambiguate.`,
+            yield* Effect.forEach(definition.implies ?? [], (implication) =>
+              Effect.gen(function* () {
+                const candidates = Arr.filter(
+                  targets,
+                  (t) => t.kind === implication.targetKind,
                 );
-              }
-            }
 
-            const candidate = candidates[0];
-            if (
-              candidate &&
-              !candidate.modules.includes(implication.moduleId)
-            ) {
-              candidate.modules.push(implication.moduleId);
-              changed = true;
-            }
-          }
-        }
-      }
+                yield* pipe(
+                  Match.value(candidates.length),
+                  Match.when(0, () =>
+                    Effect.gen(function* () {
+                      // Check if the implied target/module already exists on disk
+                      const appsDir = `${repoRoot}/apps`;
+                      const packagesDir = `${repoRoot}/packages`;
+                      const searchDir =
+                        implication.targetKind === "package"
+                          ? packagesDir
+                          : appsDir;
+                      const prefix =
+                        implication.targetKind === "package"
+                          ? ""
+                          : `${implication.targetKind}-`;
+
+                      const dirExists = yield* pipe(
+                        fs.readDirectory(searchDir),
+                        Effect.map((entries) =>
+                          Arr.some(
+                            entries,
+                            (entry) =>
+                              implication.targetKind === "package" ||
+                              entry.startsWith(prefix) ||
+                              entry === implication.targetKind,
+                          ),
+                        ),
+                        Effect.catch(() => Effect.succeed(false)),
+                      );
+
+                      if (!dirExists) {
+                        return yield* Effect.fail(
+                          `Module "${definition.id}" implies "${implication.moduleId}" on target kind "${implication.targetKind}". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
+                        );
+                      }
+                    }),
+                  ),
+                  Match.when(
+                    (n) => n > 1,
+                    () =>
+                      Effect.gen(function* () {
+                        const alreadyPresent = Arr.some(candidates, (c) =>
+                          Arr.contains(c.modules, implication.moduleId),
+                        );
+                        if (!alreadyPresent) {
+                          return yield* Effect.fail(
+                            `Module "${definition.id}" implies "${implication.moduleId}" for target kind "${implication.targetKind}", but multiple candidate targets exist. Use interactive add to disambiguate.`,
+                          );
+                        }
+                      }),
+                  ),
+                  Match.orElse(() =>
+                    Effect.gen(function* () {
+                      const candidate = candidates[0];
+                      if (
+                        candidate &&
+                        !Arr.contains(candidate.modules, implication.moduleId)
+                      ) {
+                        candidate.modules.push(implication.moduleId);
+                        changed = true;
+                      }
+                    }),
+                  ),
+                );
+              }),
+            );
+          }),
+        ),
+      );
     }
 
     return targets;
@@ -487,37 +536,38 @@ const parseTargetIdentity = (targetId: string) =>
 
 const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const parts = rawModules.flatMap((entry) =>
-      entry
-        .split(",")
-        .map((part) => part.trim())
-        .filter((part) => part.length > 0),
+    const parts = pipe(
+      rawModules,
+      Arr.flatMap((entry) =>
+        pipe(
+          entry.split(","),
+          Arr.map((part) => part.trim()),
+          Arr.filter((part) => part.length > 0),
+        ),
+      ),
     );
 
-    if (parts.length === 0) {
+    if (Arr.isArrayEmpty(parts)) {
       return yield* Effect.fail(
         "At least one module ID is required when using --modules.",
       );
     }
 
-    const seen = new Set<string>();
-    const duplicates = new Set<string>();
+    // Find duplicates using Array.groupBy
+    const grouped = Arr.groupBy(parts, (id) => id);
+    const duplicates = pipe(
+      Object.entries(grouped),
+      Arr.filter(([, items]) => items.length > 1),
+      Arr.map(([id]) => id),
+    );
 
-    for (const moduleId of parts) {
-      if (seen.has(moduleId)) {
-        duplicates.add(moduleId);
-      } else {
-        seen.add(moduleId);
-      }
-    }
-
-    if (duplicates.size > 0) {
+    if (Arr.isArrayNonEmpty(duplicates)) {
       return yield* Effect.fail(
-        `Duplicate module IDs provided: ${Array.from(duplicates).join(", ")}`,
+        `Duplicate module IDs provided: ${Arr.join(duplicates, ", ")}`,
       );
     }
 
-    return parts.map((moduleId) => ModuleId.make(moduleId));
+    return Arr.map(parts, (moduleId) => ModuleId.make(moduleId));
   });
 
 const collectTargetsFromFlags = (
@@ -534,39 +584,39 @@ const collectTargetsFromFlags = (
       name: parsedTarget.name,
     });
 
-    yield* catalog
-      .getTarget(targetIdentity.kind)
-      .pipe(
-        Effect.mapError(
-          () =>
-            `Unknown target kind \"${targetIdentity.kind}\" in --target value \"${targetId}\".`,
-        ),
-      );
+    yield* pipe(
+      catalog.getTarget(targetIdentity.kind),
+      Effect.mapError(
+        () =>
+          `Unknown target kind "${targetIdentity.kind}" in --target value "${targetId}".`,
+      ),
+    );
 
     const moduleIds = yield* parseModuleInputs(rawModules);
-    const unsupported: Array<string> = [];
 
-    for (const moduleId of moduleIds) {
-      yield* catalog
-        .getModule(moduleId)
-        .pipe(
-          Effect.mapError(
-            () => `Unknown module ID \"${moduleId}\" provided via --modules.`,
-          ),
-        );
+    // Validate modules and collect unsupported ones
+    const unsupported = yield* pipe(
+      moduleIds,
+      Effect.filter((moduleId) =>
+        Effect.gen(function* () {
+          yield* pipe(
+            catalog.getModule(moduleId),
+            Effect.mapError(
+              () => `Unknown module ID "${moduleId}" provided via --modules.`,
+            ),
+          );
+          const isSupported = yield* catalog.isSupportedOn(
+            moduleId,
+            targetIdentity,
+          );
+          return !isSupported;
+        }),
+      ),
+    );
 
-      const isSupported = yield* catalog.isSupportedOn(
-        moduleId,
-        targetIdentity,
-      );
-      if (!isSupported) {
-        unsupported.push(moduleId);
-      }
-    }
-
-    if (unsupported.length > 0) {
+    if (Arr.isArrayNonEmpty(unsupported)) {
       return yield* Effect.fail(
-        `Unsupported module(s) for target ${targetIdentity.kind}/${targetIdentity.name}: ${unsupported.join(", ")}`,
+        `Unsupported module(s) for target ${targetIdentity.kind}/${targetIdentity.name}: ${Arr.join(unsupported, ", ")}`,
       );
     }
 
@@ -574,7 +624,7 @@ const collectTargetsFromFlags = (
       {
         kind: parsedTarget.kind,
         name: parsedTarget.name,
-        modules: moduleIds,
+        modules: [...moduleIds],
         confirmed: true,
       },
     ];
@@ -593,14 +643,15 @@ const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
   // Build target kind choices from catalog (public targets only)
-  const targetChoices: Array<{
-    title: string;
-    value: typeof TargetKind.Type;
-  }> = [];
-  for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
-    const target = yield* catalog.getTarget(kind);
-    targetChoices.push({ title: target.title, value: kind });
-  }
+  const targetChoices = yield* pipe(
+    catalog.getTargetKinds({ visibility: "public" }),
+    Effect.forEach((kind) =>
+      Effect.gen(function* () {
+        const target = yield* catalog.getTarget(kind);
+        return { title: target.title, value: kind };
+      }),
+    ),
+  );
 
   const targets: Array<CollectedTarget> = [];
 
@@ -635,9 +686,13 @@ const collectTargetsInteractive = Effect.gen(function* () {
   yield* addTarget;
 
   // The user explicitly chose modules for the first target, mark it confirmed
-  if (targets[0] && targets[0].modules.length > 0) {
-    targets[0].confirmed = true;
-  }
+  pipe(
+    Option.fromNullishOr(targets[0]),
+    Option.filter((t) => Arr.isArrayNonEmpty(t.modules)),
+    Option.map((t) => {
+      t.confirmed = true;
+    }),
+  );
 
   // Resolve implications (fixed-point)
   let implChanged = true;
@@ -789,9 +844,9 @@ export const add = Command.make(
 
       // Build selection
       const selection: typeof Selection.Type = {
-        targets: collected.map((t) => ({
+        targets: Arr.map(collected, (t) => ({
           identity: new TargetIdentity({ kind: t.kind, name: t.name }),
-          modules: t.modules.map((id) => ({ id })),
+          modules: Arr.map(t.modules, (id) => ({ id })),
         })),
       };
 
