@@ -20,14 +20,57 @@ export const FastModelLive = AnthropicLanguageModel.layer({
 }).pipe(Layer.provide(AnthropicLive));
 `;
 
+// Think Toolkit - minimal required toolkit for ChatService
+export const aiThinkToolkitContents = `import { Effect, Schema } from "effect";
+import { Tool, Toolkit } from "effect/unstable/ai";
+
+/**
+ * Think Tool - Allows the AI to reason through complex problems step-by-step.
+ * This is a minimal tool that simply returns the thought, enabling the model
+ * to "think out loud" without requiring external computation.
+ */
+const thinkTool = Tool.make("think", {
+  description:
+    "Use this tool to think through a problem step-by-step before responding. " +
+    "Output your reasoning process. This helps with complex tasks that require " +
+    "multi-step reasoning. Example: think(thought: 'Let me break this down...')",
+  parameters: Schema.Struct({
+    thought: Schema.String,
+  }),
+  success: Schema.String,
+});
+
+export const ThinkToolkit = Toolkit.make(thinkTool);
+
+export const ThinkToolkitLive = ThinkToolkit.toLayer(
+  Effect.succeed({
+    think: (params) =>
+      Effect.gen(function* () {
+        yield* Effect.logDebug(\`Thinking: \${params.thought}\`);
+        return params.thought;
+      }),
+  }),
+);
+`;
+
 export const aiChatServiceContents = `import type { ChatStreamPart } from "@repo/domain/Chat";
 import { Cause, Context, Effect, Layer, Queue, String } from "effect";
-import { Chat, Prompt } from "effect/unstable/ai";
-import { SampleToolkit } from "../toolkits/SampleToolkit";
+import { Chat, Prompt, Toolkit } from "effect/unstable/ai";
+import { ThinkToolkit, ThinkToolkitLive } from "../toolkits/ThinkToolkit";
 import { runAgenticLoop } from "../workflow/AgenticLoop";
+
+// ChatToolkit - Merged toolkit for the chat service
+// AST can append additional toolkits to this merge call
+export const ChatToolkit = Toolkit.merge(ThinkToolkit);
+
+// ChatToolkitLive - Merged layer providing handlers for all toolkits
+// AST can append additional toolkit layers to this merge call
+export const ChatToolkitLive = Layer.mergeAll(ThinkToolkitLive);
 
 export class ChatService extends Context.Service<ChatService>()("ChatService", {
   make: Effect.gen(function* () {
+    const toolkit = yield* ChatToolkit;
+
     const chat = Effect.fn("chat")(function* (history: Array<Prompt.Message>) {
       const queue = yield* Queue.make<typeof ChatStreamPart.Type, Cause.Done>();
 
@@ -42,8 +85,6 @@ export class ChatService extends Context.Service<ChatService>()("ChatService", {
           const session = yield* Chat.fromPrompt(
             Prompt.make(history).pipe(Prompt.setSystem(systemMessage)),
           );
-
-          const toolkit = yield* SampleToolkit;
 
           yield* runAgenticLoop({
             chat: session,
@@ -72,7 +113,9 @@ export class ChatService extends Context.Service<ChatService>()("ChatService", {
   }),
 }) {}
 
-export const ChatServiceLive = Layer.effect(ChatService)(ChatService.make);
+export const ChatServiceLive = Layer.effect(ChatService)(ChatService.make).pipe(
+  Layer.provide(ChatToolkitLive),
+);
 `;
 
 export const aiSampleToolkitContents = `import { Data, DateTime, Effect, Schema } from "effect";

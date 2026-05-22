@@ -20,8 +20,12 @@ import {
   Console,
   Effect,
   FileSystem,
+  Match,
   Option,
   Predicate,
+  pipe,
+  Ref,
+  Result,
   Schedule,
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
@@ -30,12 +34,12 @@ import { dryRunFlag, rootFlag, trustFlag, yesFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-interface CollectedTarget {
+type CollectedTarget = {
   kind: typeof TargetKind.Type;
   name: string;
   modules: Array<typeof ModuleId.Type>;
   confirmed: boolean;
-}
+};
 
 const targetFlag = Flag.string("target").pipe(
   Flag.optional,

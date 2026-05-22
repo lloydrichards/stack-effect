@@ -137,17 +137,6 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "SampleToolkitLive",
-        import: {
-          moduleSpecifier: "@repo/ai",
-          namedImports: ["SampleToolkitLive"],
-        },
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "AllRouters",
-        functionName: "Layer.mergeAll",
         argument: "FastModelLive",
         import: {
           moduleSpecifier: "@repo/ai",
