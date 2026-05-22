@@ -238,7 +238,37 @@ different target kind, add the `implies` field:
 This means: when `http-api-client` is selected on a client target, the
 blueprint will also include `http-api-server` on any server target.
 
-## Step 7: Verify
+## Step 7: Add Children (Optional)
+
+If this module should have sub-modules that appear nested in the selection UI,
+add the `children` field. Children must be on the **same target** as the parent.
+
+```typescript
+{
+  id: ModuleId.make("ai-chat-service"),
+  // ... other fields
+  children: [
+    { moduleId: ModuleId.make("ai-sample-toolkit"), requirement: "optional" },
+    { moduleId: ModuleId.make("ai-weather-toolkit"), requirement: "optional" },
+  ],
+}
+```
+
+**Requirement types:**
+
+| Value      | Behavior                                              |
+| ---------- | ----------------------------------------------------- |
+| `required` | Auto-selected when parent selected, not user-toggleable |
+| `optional` | User can toggle on/off when parent is selected        |
+
+**Key points:**
+
+- Children are a **UI concept only** - they don't affect Blueprint resolution
+- Modules listed as children are **excluded from top-level** selection lists
+- Children must share at least one `supportedOn` rule with their parent
+- For cross-target relationships, use `dependencies` or `implies` instead
+
+## Step 8: Verify
 
 Run the validation suite:
 

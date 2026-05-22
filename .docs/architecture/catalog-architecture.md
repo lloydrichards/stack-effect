@@ -75,6 +75,11 @@ Defines modules organized by category:
 - **Infrastructure modules**: ai, ai-sample-toolkit, ai-chat-service, presence
   (supported on specific package identities)
 
+Modules may declare `children` for same-target parent-child relationships used
+in nested selection UI. Children are either `required` (auto-selected with
+parent) or `optional` (user-toggleable). Modules listed as children are excluded
+from top-level selection lists.
+
 ### Content Templates
 
 Template files in `content/` use a token substitution system:
@@ -110,6 +115,11 @@ erDiagram
         string description
     }
 
+    ModuleChild {
+        ModuleId moduleId
+        string requirement "required | optional"
+    }
+
     SupportedOn {
         string _tag "kind | identity"
         TargetKind kind "optional"
@@ -135,6 +145,7 @@ erDiagram
     ModuleDefinition ||--o{ SupportedOn : "supportedOn"
     ModuleDefinition ||--o{ ModuleDefinition : "dependencies"
     ModuleDefinition ||--o{ ModuleImplication : "implies"
+    ModuleDefinition ||--o{ ModuleChild : "children"
 ```
 
 ## Catalog Graph Structure
@@ -175,6 +186,7 @@ graph TB
 - `supportedOn`: Module can attach to target
 - `requiredModule`: Module depends on another module
 - `implies`: Module implies another module on a different target
+- `childOf`: Module is a child of another module (same-target parent-child)
 
 ## Dependency Chains
 
@@ -205,8 +217,12 @@ flowchart LR
     E -->|requires| B
     E -->|requires| C
     C -->|requires| B
-    C -->|requires| D
+    C -.->|optional child| D
 ```
+
+Note: `ai-sample-toolkit` is an **optional child** of `ai-chat-service`, shown
+in nested selection UI when the parent is selected. This differs from
+dependencies which are always resolved by BlueprintService.
 
 ## Integration Points
 

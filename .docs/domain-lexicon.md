@@ -184,14 +184,35 @@ Invariants:
 - Identity is `id: ModuleId`.
 - Compatibility is declared via `SupportedOn` rules.
 - Dependencies can require a target, a module attachment, or both.
+- Children declare same-target parent-child relationships for nested selection UI.
 
 Connected terms:
 
-- `ModuleId`, `SupportedOn`, `DesiredContributions`, `ModuleImplication`
+- `ModuleId`, `SupportedOn`, `DesiredContributions`, `ModuleImplication`, `ModuleChild`
 
 In code:
 
 - `ModuleDefinition`
+
+### ModuleChild
+
+Definition:
+A parent-child relationship between modules on the same target, used to organize nested selection in interactive CLI flows.
+
+Invariants:
+
+- Children must share at least one `SupportedOn` rule with their parent (same-target constraint).
+- Requirement is either `"required"` (auto-selected when parent selected, not user-toggleable) or `"optional"` (user can toggle).
+- A module listed as a child is excluded from top-level selection lists (inferred from parent relationship).
+- Children are a UI/selection concept only; they do not affect Blueprint dependency resolution.
+
+Connected terms:
+
+- `ModuleDefinition`, `ModuleId`, `Visibility`
+
+In code:
+
+- `ModuleChild`
 
 ## Resolution-Space Terms
 
