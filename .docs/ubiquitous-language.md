@@ -197,6 +197,23 @@ See also:
 
 - `TargetDefinition`, `ModuleDefinition`
 
+## ModuleChild
+
+Say:
+
+- "ModuleChild declares a parent-child relationship between modules on the same target for nested selection."
+- "Required children are auto-selected when the parent is selected; optional children are user-toggleable."
+- "Children are inferred from parent relationships and excluded from top-level selection."
+
+Avoid:
+
+- Confusing children with dependencies (children are UI-only, dependencies affect Blueprint resolution)
+- Using children for cross-target relationships (use dependencies or implications instead)
+
+See also:
+
+- `ModuleDefinition`, `Visibility`
+
 ## Ambiguities We Explicitly Resolve
 
 - `Selection` means user intent; `Blueprint` means resolved implication.
