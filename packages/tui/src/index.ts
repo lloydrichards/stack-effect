@@ -4,6 +4,7 @@ export * from "./components/atom/Table";
 export * from "./components/Confirm";
 export * from "./components/HorizontalSelect";
 export * from "./components/MultiSelect";
+export * from "./components/NestedMultiSelect";
 export * from "./components/Select";
 export * from "./components/TextArea";
 export * from "./components/TextInput";
