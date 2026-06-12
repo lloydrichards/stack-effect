@@ -26,11 +26,11 @@ export const clientPackageJsonContents = `{
   "scripts": {},
   "dependencies": {
     "@base-ui/react": "^1.3.0",
-    "@effect/atom-react": "4.0.0-beta.67",
+    "@effect/atom-react": "4.0.0-beta.80",
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "effect": "4.0.0-beta.67",
+    "effect": "4.0.0-beta.80",
     "lucide-react": "^1.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

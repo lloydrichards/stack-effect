@@ -17,16 +17,16 @@
     "complexity": "bun run scripts/complexity-report.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.4.15",
+    "@biomejs/biome": "2.5.0",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.0",
-    "@effect/language-service": "^0.86.1",
-    "@effect/platform-bun": "4.0.0-beta.67",
+    "@effect/language-service": "^0.86.2",
+    "@effect/platform-bun": "4.0.0-beta.80",
     "@types/bun": "^1.3.14",
-    "effect": "4.0.0-beta.67",
-    "turbo": "^2.9.14",
+    "effect": "4.0.0-beta.80",
+    "turbo": "^2.9.18",
     "typescript": "6.0.3",
-    "vitest": "^4.1.6"
+    "vitest": "^4.1.8"
   },
   "engines": {
     "node": ">=24"

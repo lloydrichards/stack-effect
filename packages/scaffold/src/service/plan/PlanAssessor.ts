@@ -276,7 +276,7 @@ function assessPlanningPath({
   snapshotPath,
 }: {
   planningPath: PlanningIntentPath;
-  snapshotPath: typeof RepoSnapshot.fields.paths.schema.Type | undefined;
+  snapshotPath: typeof RepoSnapshot.fields.paths.value.Type | undefined;
 }): PathAssessment {
   const hasContents = planningPath.contents !== undefined;
   const hasPackageJsonFields =
@@ -340,7 +340,7 @@ export function collectAncestorPaths(path: string): ReadonlyArray<string> {
 
 // --- Internal helpers ---
 
-type SnapshotPath = typeof RepoSnapshot.fields.paths.schema.Type | undefined;
+type SnapshotPath = typeof RepoSnapshot.fields.paths.value.Type | undefined;
 
 const createPathAssessment = ({
   classification,

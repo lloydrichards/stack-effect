@@ -68,7 +68,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows planned file outcomes to be decoded independently", () => {
-    const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.schema)({
+    const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value)({
       _tag: "complete",
       path: "packages/domain/tsconfig.json",
       classification: "create",
@@ -79,7 +79,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("allows conflicts to be decoded independently", () => {
-    const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.schema)({
+    const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.value)({
       _tag: "completeFile",
       path: "package.json",
     });

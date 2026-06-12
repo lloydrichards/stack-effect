@@ -50,14 +50,14 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 return {
                   _tag: "missing",
                   path: snapshotPath,
-                } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
+                } satisfies typeof RepoSnapshot.fields.paths.value.Type;
               }
 
               if (pathStat.type === "Directory") {
                 return {
                   _tag: "directory",
                   path: snapshotPath,
-                } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
+                } satisfies typeof RepoSnapshot.fields.paths.value.Type;
               }
 
               const contents = yield* fileSystem
@@ -76,7 +76,7 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 _tag: "file",
                 path: snapshotPath,
                 contents,
-              } satisfies typeof RepoSnapshot.fields.paths.schema.Type;
+              } satisfies typeof RepoSnapshot.fields.paths.value.Type;
             }),
           ),
         );

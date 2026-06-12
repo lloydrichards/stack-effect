@@ -31,7 +31,7 @@ type ResolutionState = {
   >;
   readonly edges: HashMap.HashMap<
     string,
-    typeof Blueprint.fields.edges.schema.Type
+    typeof Blueprint.fields.edges.value.Type
   >;
 };
 

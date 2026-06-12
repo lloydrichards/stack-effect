@@ -5,9 +5,9 @@ export const foldkitPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "@effect/platform-browser": "4.0.0-beta.67",
+    "@effect/platform-browser": "4.0.0-beta.80",
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
-    "effect": "4.0.0-beta.67",
+    "effect": "4.0.0-beta.80",
     "foldkit": "^0.101.0",
     "shadcn": "^4.1.0",
     "tailwindcss": "^4.1.13",
