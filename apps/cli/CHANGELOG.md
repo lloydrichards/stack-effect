@@ -1,5 +1,31 @@
 # stack-effect
 
+## 0.6.0
+
+### Minor Changes
+
+- [#138](https://github.com/lloydrichards/stack-effect/pull/138) [`174784e`](https://github.com/lloydrichards/stack-effect/commit/174784eeb9eb373bb519150aa91ed594d1db2479) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add new Toolkits for the ai module
+
+  - **DateTimeToolkit** <- provides functions for working with dates and times
+  - **MathToolkit** <- provides functions for mathematical operations
+  - **MemoryToolkit** <- provides functions for working with memory and data storage
+  - **PlanToolkit** <- provides functions for creating and managing plans and tasks
+  - **WebFetchToolkit** <- provides functions for making web requests and fetching data from the internet
+
+- [#131](https://github.com/lloydrichards/stack-effect/pull/131) [`94b927d`](https://github.com/lloydrichards/stack-effect/commit/94b927daa9b6c15a0663ef9652117eb173ee4649) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add nix flake module for init devenv
+
+- [#131](https://github.com/lloydrichards/stack-effect/pull/131) [`16231f0`](https://github.com/lloydrichards/stack-effect/commit/16231f0522ac4ecea7ffb768224891068cdd58e3) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add devcontainer module for init devenv
+
+### Patch Changes
+
+- [#138](https://github.com/lloydrichards/stack-effect/pull/138) [`7d3f2db`](https://github.com/lloydrichards/stack-effect/commit/7d3f2dbcd228ff450a40e75ddc6b36cad09003b4) Thanks [@lloydrichards](https://github.com/lloydrichards)! - fix strip cross-target module from autoselect
+
+- [#135](https://github.com/lloydrichards/stack-effect/pull/135) [`f7bf08b`](https://github.com/lloydrichards/stack-effect/commit/f7bf08be8e2e67bcf2e478712bd0aa64400eae49) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add ModuleChild schema for nested module selection
+
+- [#137](https://github.com/lloydrichards/stack-effect/pull/137) [`e5c249a`](https://github.com/lloydrichards/stack-effect/commit/e5c249a995490e6fe52ba5746a9ce34449b14a02) Thanks [@lloydrichards](https://github.com/lloydrichards)! - upgrade to effect@v4-beta.80 and use the new Crypto module
+
+- [#135](https://github.com/lloydrichards/stack-effect/pull/135) [`35ea7e0`](https://github.com/lloydrichards/stack-effect/commit/35ea7e0fceeea60bead6680a32a089dc442f4b59) Thanks [@lloydrichards](https://github.com/lloydrichards)! - add Think toolkit as default toolkit for chat service
+
 ## 0.5.0
 
 ### Minor Changes
