@@ -1,0 +1,29 @@
+{
+  "name": "demo",
+  "private": true,
+  "packageManager": "bun@1.2.21",
+  "scripts": {
+    "lint": "biome lint .",
+    "format": "biome check --write .",
+    "format:check": "biome check .",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "type-check": "turbo run type-check",
+    "clean": "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo",
+    "test": "turbo run test"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "typescript": "6.0.2",
+    "@biomejs/biome": "2.4.11",
+    "turbo": "^2.9.6",
+    "vitest": "^4.1.4"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}

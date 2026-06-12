@@ -1,0 +1,34 @@
+# dependencies
+node_modules
+
+# build
+dist
+build
+.cache
+.turbo
+tsconfig.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# ide
+.idea
+.vscode
+*.swp
+*.swo
+
+# os
+.DS_Store
+Thumbs.db
+
+# test
+coverage
+playwright-report
+test-results
+
+# nix
+result
+result-*
+.direnv/

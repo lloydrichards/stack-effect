@@ -1,0 +1,27 @@
+{
+  "name": "server",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/index.ts --outdir=dist --target=bun --minify",
+    "build:types": "tsc --emitDeclarationOnly",
+    "dev": "bun --watch run src/index.ts",
+    "test": "vitest run",
+    "type-check": "tsc --noEmit",
+    "clean": "git clean -xdf .cache .turbo dist node_modules"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0-beta.80",
+    "effect": "4.0.0-beta.80",
+    "@repo/ai": "workspace:*",
+    "@repo/domain": "workspace:*"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@repo/config-typescript": "workspace:*",
+    "@types/bun": "^1.2.17",
+    "typescript": "6.0.2",
+    "vitest": "^4.1.4"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@repo/domain",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit",
+    "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "effect": "4.0.0-beta.80"
+  },
+  "devDependencies": {
+    "@effect/language-service": "^0.85.1",
+    "@repo/config-typescript": "workspace:*",
+    "@types/bun": "^1.2.17",
+    "typescript": "6.0.2",
+    "vitest": "^4.1.4"
+  },
+  "exports": {
+    "./Api": "./src/Api.ts",
+    "./Chat": "./src/Chat.ts",
+    "./ChatRpc": "./src/ChatRpc.ts"
+  }
+}

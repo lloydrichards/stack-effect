@@ -1,0 +1,49 @@
+{
+  "$schema": "../../node_modules/@effect/language-service/schema.json",
+  "display": "Default",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "useDefineForClassFields": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": false,
+    "preserveWatchOutput": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false,
+    "skipLibCheck": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "barrelImportPackages": ["effect"],
+        "includeSuggestionsInTsc": true,
+        "quickinfoMaximumLength": 1200,
+        "diagnosticSeverity": {
+          "cryptoRandomUUIDInEffect": "suggestion",
+          "globalDateInEffect": "suggestion",
+          "layerMergeAllWithDependencies": "warning",
+          "missingEffectServiceDependency": "warning"
+        }
+      }
+    ]
+  },
+  "exclude": ["node_modules", "dist", "build", ".next", "coverage"]
+}

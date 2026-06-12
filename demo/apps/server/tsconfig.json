@@ -1,0 +1,11 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "dist",
+    "noEmit": true,
+    "types": ["@types/bun"]
+  },
+  "include": ["src/**/*", "../../packages/ai/src/LanguageModel.ts"],
+  "exclude": ["node_modules", "dist"]
+}

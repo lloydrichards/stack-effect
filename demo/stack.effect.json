@@ -1,0 +1,8 @@
+{
+  "name": "demo",
+  "runtime": { "_tag": "bun" },
+  "lint": "biome",
+  "format": "biome",
+  "test": "vitest",
+  "monorepo": "turbo"
+}
