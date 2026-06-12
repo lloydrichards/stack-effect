@@ -317,7 +317,7 @@ const HttpRpcRouter = Layer.empty;
           expect(serverOutcome._tag).toBe("composed");
           assert(serverOutcome._tag === "composed");
 
-          // Should have ts-add-import operations for the AI services
+          // Should have ts-add-import operations for the ChatRpcLive layer
           const importOps = serverOutcome.operations.filter(
             (op) => op._tag === "ts-add-import",
           );
@@ -325,13 +325,8 @@ const HttpRpcRouter = Layer.empty;
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "ts-add-import",
-                moduleSpecifier: "@repo/ai",
-                namedImports: ["ChatServiceLive"],
-              }),
-              expect.objectContaining({
-                _tag: "ts-add-import",
-                moduleSpecifier: "@repo/ai",
-                namedImports: ["FastModelLive"],
+                moduleSpecifier: "./Rpc/Chat",
+                namedImports: ["ChatRpcLive"],
               }),
             ]),
           );
@@ -346,13 +341,7 @@ const HttpRpcRouter = Layer.empty;
                 _tag: "ts-append-call-arg",
                 targetVariable: "AllRouters",
                 functionName: "Layer.mergeAll",
-                argument: "ChatServiceLive",
-              }),
-              expect.objectContaining({
-                _tag: "ts-append-call-arg",
-                targetVariable: "AllRouters",
-                functionName: "Layer.mergeAll",
-                argument: "FastModelLive",
+                argument: "ChatRpcLive",
               }),
             ]),
           );
@@ -614,10 +603,10 @@ const HttpRpcRouter = Layer.empty;
             _tag: "attached-module",
             id: toAttachedModuleNodeId(
               aiIdentity.toKey(),
-              ModuleId.make("ai-sample-toolkit"),
+              ModuleId.make("ai-datetime-toolkit"),
             ),
             targetId: aiIdentity.toKey(),
-            moduleId: ModuleId.make("ai-sample-toolkit"),
+            moduleId: ModuleId.make("ai-datetime-toolkit"),
           },
         ],
         edges: [
@@ -628,11 +617,11 @@ const HttpRpcRouter = Layer.empty;
             reason: "owns-module",
           },
           {
-            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai-sample-toolkit"))}`,
+            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai-datetime-toolkit"))}`,
             from: aiIdentity.toKey(),
             to: toAttachedModuleNodeId(
               aiIdentity.toKey(),
-              ModuleId.make("ai-sample-toolkit"),
+              ModuleId.make("ai-datetime-toolkit"),
             ),
             reason: "owns-module",
           },
@@ -657,12 +646,12 @@ const HttpRpcRouter = Layer.empty;
           expect(indexOutcome._tag).toBe("composed");
           expect(indexOutcome.classification).toBe("create");
 
-          // Should have ts-add-reexport for the barrel export from ai-sample-toolkit
+          // Should have ts-add-reexport for the barrel export from ai-datetime-toolkit
           expect(indexOutcome).toMatchObject({
             operations: expect.arrayContaining([
               expect.objectContaining({
                 _tag: "ts-add-reexport",
-                moduleSpecifier: "./toolkits/SampleToolkit",
+                moduleSpecifier: "./toolkits/DateTimeToolkit",
               }),
             ]),
           });
@@ -674,7 +663,7 @@ const HttpRpcRouter = Layer.empty;
       () =>
         Effect.gen(function* () {
           const existingContents = `export * from "./LanguageModel";
-export * from "./toolkits/SampleToolkit";
+export * from "./toolkits/DateTimeToolkit";
 `;
 
           const plan = yield* buildPlan({
@@ -757,7 +746,7 @@ export * from "./toolkits/SampleToolkit";
               expect.objectContaining({
                 _tag: "barrelExport",
                 path: "packages/ai/src/index.ts",
-                exportPath: "./toolkits/SampleToolkit",
+                exportPath: "./toolkits/DateTimeToolkit",
               }),
             ]),
           );

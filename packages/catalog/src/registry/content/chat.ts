@@ -164,12 +164,13 @@ export class ChatRpc extends RpcGroup.make(
 `;
 
 // Server chat handler (separate from EventRpc)
-export const serverChatContents = `import { ChatService } from "@repo/ai";
+export const serverChatContents = `import { ChatService, ChatServiceLive, FastModelLive } from "@repo/ai";
 import { ChatRpc } from "@repo/domain/ChatRpc";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { Prompt } from "effect/unstable/ai";
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
-export const ChatRpcLive = ChatRpc.toLayer(
+const ChatRpcHandlers = ChatRpc.toLayer(
   Effect.gen(function* () {
     const bot = yield* ChatService;
     yield* Effect.logInfo("Starting Chat RPC Live Implementation");
@@ -189,5 +190,15 @@ export const ChatRpcLive = ChatRpc.toLayer(
         ),
     });
   }),
+);
+
+export const ChatRpcLive = RpcServer.layerHttp({
+  group: ChatRpc,
+  path: "/chat-rpc",
+  protocol: "http",
+}).pipe(
+  Layer.provide(ChatRpcHandlers),
+  Layer.provide(RpcSerialization.layerNdjson),
+  Layer.provide([ChatServiceLive, FastModelLive]),
 );
 `;

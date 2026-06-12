@@ -23,9 +23,10 @@ export class EventRpc extends RpcGroup.make(
 
 // Server tick handler
 export const serverTickContents = `import { EventRpc, type TickEvent } from "@repo/domain/Rpc";
-import { Effect, Queue } from "effect";
+import { Effect, Layer, Queue } from "effect";
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
-export const EventRpcLive = EventRpc.toLayer(
+const EventRpcHandlers = EventRpc.toLayer(
   Effect.gen(function* () {
     yield* Effect.logInfo("Starting Event RPC Live Implementation");
     return EventRpc.of({
@@ -48,5 +49,14 @@ export const EventRpcLive = EventRpc.toLayer(
       }),
     });
   }),
+);
+
+export const EventRpcLive = RpcServer.layerHttp({
+  group: EventRpc,
+  path: "/rpc",
+  protocol: "http",
+}).pipe(
+  Layer.provide(EventRpcHandlers),
+  Layer.provide(RpcSerialization.layerNdjson),
 );
 `;
