@@ -149,6 +149,7 @@ export default defineConfig({
     include: ["@repo/domain"],
   },
   server: {
+    port: 3000,
     strictPort: true,
     host: "127.0.0.1",
   },

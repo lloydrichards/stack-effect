@@ -66,15 +66,17 @@ export class WebSocketRpc extends RpcGroup.make(
 `;
 
 // Server Presence RPC handler
-export const serverPresenceContents = `import {
+export const serverPresenceContents = `import { BunCrypto } from "@effect/platform-bun";
+import {
   type ClientInfo,
   type WebSocketEvent,
   WebSocketRpc,
 } from "@repo/domain/WebSocket";
 import { ClientGenerator, PresenceService } from "@repo/presence";
 import { DateTime, Effect, Layer, Queue, Stream } from "effect";
+import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
-export const PresenceRpcLive = WebSocketRpc.toLayer(
+const PresenceRpcHandlers = WebSocketRpc.toLayer(
   Effect.gen(function* () {
     const presence = yield* PresenceService;
     const gen = yield* ClientGenerator;
@@ -164,5 +166,14 @@ export const PresenceRpcLive = WebSocketRpc.toLayer(
 ).pipe(
   Layer.provide(PresenceService.layer),
   Layer.provide(ClientGenerator.layer),
+  Layer.provide(BunCrypto.layer),
+);
+
+export const PresenceRpcLive = RpcServer.layerHttp({
+  group: WebSocketRpc,
+  path: "/ws",
+}).pipe(
+  Layer.provide(PresenceRpcHandlers),
+  Layer.provide(RpcSerialization.layerNdjson),
 );
 `;
