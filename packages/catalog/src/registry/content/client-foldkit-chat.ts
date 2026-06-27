@@ -55,8 +55,7 @@ export const Model = Schema.Struct({
   chatHistory: Schema.Array(ChatMessageSchema),
   chatState: ChatStateSchema,
   chatSegments: Schema.Array(MessageSegment),
-  chatThinking: Schema.Option(Schema.String),
-  chatCurrentIteration: Schema.Option(Schema.Number),
+  chatReasoning: Schema.Option(Schema.String),
   chatError: Schema.Option(Schema.String),
   chatStreaming: Schema.Boolean,
 });
@@ -96,8 +95,7 @@ export const init = (): readonly [
     chatHistory: [],
     chatState: "idle",
     chatSegments: [],
-    chatThinking: Option.none(),
-    chatCurrentIteration: Option.none(),
+    chatReasoning: Option.none(),
     chatError: Option.none(),
     chatStreaming: false,
   },
@@ -116,17 +114,17 @@ const applyChatPart = (
 ): Model => {
   const segments: Array<MutableSegment> = [...model.chatSegments];
 
-  return Match.valueTags(part, {
-    "text-delta": ({ delta }) => {
+  return ChatStreamPart.match<Model>(part, {
+    text: ({ delta }) => {
       const last = segments[segments.length - 1];
-      if (last?._tag === "text" && !last.isComplete) {
+      if (last?._tag === "text") {
         return evo(model, {
           chatSegments: () => [
             ...segments.slice(0, -1),
             {
               _tag: "text" as const,
               content: last.content + delta,
-              isComplete: false,
+              isComplete: true,
             },
           ],
         });
@@ -134,29 +132,16 @@ const applyChatPart = (
       return evo(model, {
         chatSegments: () => [
           ...segments,
-          { _tag: "text" as const, content: delta, isComplete: false },
+          { _tag: "text" as const, content: delta, isComplete: true },
         ],
       });
     },
-    "text-complete": () => {
-      const last = segments[segments.length - 1];
-      if (last?._tag === "text" && !last.isComplete) {
-        return evo(model, {
-          chatSegments: () => [
-            ...segments.slice(0, -1),
-            { ...last, isComplete: true },
-          ],
-        });
-      }
-      return model;
-    },
-    thinking: ({ message }) =>
-      evo(model, { chatThinking: () => Option.some(message) }),
-    "iteration-start": ({ iteration }) =>
-      evo(model, { chatCurrentIteration: () => Option.some(iteration) }),
-    "iteration-end": () =>
-      evo(model, { chatCurrentIteration: () => Option.none() }),
-    "tool-call-start": ({ id, name }) =>
+    reasoning: ({ delta }) =>
+      evo(model, {
+        chatReasoning: (previous) =>
+          Option.some(Option.getOrElse(previous, () => "") + delta),
+      }),
+    "tool-start": ({ id, name, input }) =>
       evo(model, {
         chatSegments: () => [
           ...segments,
@@ -165,14 +150,13 @@ const applyChatPart = (
             tool: {
               id,
               name,
-              arguments: null,
-              argumentsText: "",
-              status: "proposed" as const,
+              status: "running" as const,
+              ...(input === undefined ? {} : { input }),
             },
           },
         ],
       }),
-    "tool-call-delta": ({ id, argumentsDelta }) =>
+    "tool-success": ({ id, output }) =>
       evo(model, {
         chatSegments: () =>
           segments.map((seg) =>
@@ -181,34 +165,14 @@ const applyChatPart = (
                   ...seg,
                   tool: {
                     ...seg.tool,
-                    argumentsText: seg.tool.argumentsText + argumentsDelta,
+                    status: "complete" as const,
+                    result: output,
                   },
                 }
               : seg,
           ),
       }),
-    "tool-call-complete": ({ id, arguments: args }) =>
-      evo(model, {
-        chatSegments: () =>
-          segments.map((seg) =>
-            seg._tag === "tool-call" && seg.tool.id === id
-              ? { ...seg, tool: { ...seg.tool, arguments: args } }
-              : seg,
-          ),
-      }),
-    "tool-execution-start": ({ id }) =>
-      evo(model, {
-        chatSegments: () =>
-          segments.map((seg) =>
-            seg._tag === "tool-call" && seg.tool.id === id
-              ? {
-                  ...seg,
-                  tool: { ...seg.tool, status: "executing" as const },
-                }
-              : seg,
-          ),
-      }),
-    "tool-execution-complete": ({ id, success, result }) =>
+    "tool-failure": ({ id, error }) =>
       evo(model, {
         chatSegments: () =>
           segments.map((seg) =>
@@ -217,11 +181,8 @@ const applyChatPart = (
                   ...seg,
                   tool: {
                     ...seg.tool,
-                    status: success
-                      ? ("complete" as const)
-                      : ("failed" as const),
-                    result,
-                    success,
+                    status: "failed" as const,
+                    result: error,
                   },
                 }
               : seg,
@@ -279,8 +240,7 @@ export const update = (
           chatState: () => "streaming" as const,
           chatStreaming: () => true,
           chatSegments: () => [],
-          chatThinking: () => Option.none(),
-          chatCurrentIteration: () => Option.none(),
+          chatReasoning: () => Option.none(),
           chatError: () => Option.none(),
         }),
         [],
@@ -301,8 +261,7 @@ export const update = (
             },
           ],
           chatSegments: () => [],
-          chatThinking: () => Option.none(),
-          chatCurrentIteration: () => Option.none(),
+          chatReasoning: () => Option.none(),
         }),
         [],
       ] as const,
@@ -340,7 +299,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
           ? Effect.gen(function* () {
               const client = yield* ChatClient;
               const messages: Array<ChatMessage> = JSON.parse(messagesJson);
-              return client.chat({ messages }).pipe(
+              return client.chat_ask({ messages }).pipe(
                 Stream.map((part) => ReceivedChatPart({ part })),
                 Stream.concat(Stream.make(CompletedChatStream())),
                 Stream.catch(() =>
@@ -398,16 +357,16 @@ export const view = <ParentMessage>(
                     ),
                   ]
                 : []),
-              ...Option.match(model.chatCurrentIteration, {
+              ...Option.match(model.chatReasoning, {
                 onNone: (): Array<Html> => [],
-                onSome: (iteration) => [
+                onSome: (reasoning) => [
                   h.span(
                     [
                       h.Class(
                         "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-border bg-secondary text-[0.65rem] uppercase tracking-[0.2em] text-secondary-foreground",
                       ),
                     ],
-                    [\`Iteration \${iteration}\`],
+                    [\`Reasoning: \${reasoning}\`],
                   ),
                 ],
               }),
@@ -436,7 +395,7 @@ export const view = <ParentMessage>(
               ...emptyStateView(h, model),
               ...historyView(h, model),
               ...streamingSegmentsView(h, model),
-              ...thinkingView(h, model),
+              ...reasoningView(h, model),
               ...errorView(h, model),
             ],
           ),
@@ -573,7 +532,7 @@ const toolCallView = <ParentMessage>(
   tool: ToolCall,
 ): Html => {
   const statusIcon =
-    tool.status === "executing"
+    tool.status === "running"
       ? "..."
       : tool.status === "complete"
         ? "ok"
@@ -621,13 +580,13 @@ const toolCallView = <ParentMessage>(
   );
 };
 
-const thinkingView = <ParentMessage>(
+const reasoningView = <ParentMessage>(
   h: ReturnType<typeof html<ParentMessage>>,
   model: Model,
 ): Array<Html> =>
-  Option.match(model.chatThinking, {
+  Option.match(model.chatReasoning, {
     onNone: () => [],
-    onSome: (thinking) => [
+    onSome: (reasoning) => [
       h.div(
         [h.Class("flex w-full flex-col gap-2 items-start")],
         [
@@ -637,7 +596,7 @@ const thinkingView = <ParentMessage>(
                 "inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.2em] text-muted-foreground",
               ),
             ],
-            [\`Thinking: \${thinking}\`],
+            [\`Reasoning: \${reasoning}\`],
           ),
         ],
       ),
