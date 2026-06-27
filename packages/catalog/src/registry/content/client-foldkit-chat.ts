@@ -22,7 +22,7 @@ export const ChatClientLive = Layer.effect(
 `;
 
 export const foldkitChatFeatureContents = `import {
-  type ChatMessage,
+  ChatMessage,
   ChatStreamPart,
   MessageSegment,
   type ToolCall,
@@ -42,6 +42,8 @@ const ChatMessageSchema = Schema.Struct({
   content: Schema.String,
   segments: Schema.Option(Schema.Array(MessageSegment)),
 });
+
+const ChatMessagesJson = Schema.fromJsonString(Schema.Array(ChatMessage));
 
 const ChatStateSchema = Schema.Literals([
   "idle",
@@ -286,7 +288,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
       modelToDependencies: (model) => ({
         isStreaming: model.chatStreaming,
         messagesJson: model.chatStreaming
-          ? JSON.stringify(
+          ? Schema.encodeUnknownSync(ChatMessagesJson)(
               model.chatHistory.map((msg) => ({
                 role: msg.role,
                 content: msg.content,
@@ -298,17 +300,21 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
         isStreaming
           ? Effect.gen(function* () {
               const client = yield* ChatClient;
-              const messages: Array<ChatMessage> = JSON.parse(messagesJson);
+              const messages =
+                yield* Schema.decodeUnknownEffect(ChatMessagesJson)(
+                  messagesJson,
+                );
               return client.chat_ask({ messages }).pipe(
                 Stream.map((part) => ReceivedChatPart({ part })),
                 Stream.concat(Stream.make(CompletedChatStream())),
-                Stream.catch(() =>
-                  Stream.make(
-                    FailedChatStream({ error: "Chat stream failed" }),
-                  ),
-                ),
               );
-            }).pipe(Stream.unwrap, Stream.provide(ChatClientLive))
+            }).pipe(
+              Stream.unwrap,
+              Stream.catch(() =>
+                Stream.make(FailedChatStream({ error: "Chat stream failed" })),
+              ),
+              Stream.provide(ChatClientLive),
+            )
           : Stream.empty,
     },
   ),
