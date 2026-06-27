@@ -4,6 +4,7 @@ import { CatalogService } from "@repo/catalog";
 import {
   ApplyService,
   BlueprintService,
+  ContributionResolver,
   FinalizeService,
   PlanService,
   ScaffoldFormatter,
@@ -13,6 +14,7 @@ import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import pkg from "../package.json";
 import { add } from "./commands/add";
+import { catalog } from "./commands/catalog";
 import { graph } from "./commands/graph";
 import { init } from "./commands/init";
 import { plan } from "./commands/plan";
@@ -41,6 +43,7 @@ const MainLayer = Layer.mergeAll(
   ApplyService.layer,
   BlueprintService.layer,
   CatalogService.layer,
+  ContributionResolver.layer,
   FinalizeService.layer,
   PlanService.layer,
   ScaffoldFormatter.layer,
@@ -49,7 +52,7 @@ const MainLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(PlatformLayer));
 
 const program = root.pipe(
-  Command.withSubcommands([init, add, graph, plan, schema]),
+  Command.withSubcommands([init, add, graph, plan, schema, catalog]),
   Command.run({ version: pkg.version }),
   Effect.provide(MainLayer),
   Effect.catchCause((cause) => {
