@@ -30,12 +30,143 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
 `;
 
 // Client chat atom (uses ChatRpcClient instead of RpcClient)
-export const clientChatAtomContents = `import type { ChatMessage, ChatResponse, ToolCall } from "@repo/domain/Chat";
+export const clientChatAtomContents = `import { ChatStreamPart, type ChatMessage, type ChatResponse, type ToolCall } from "@repo/domain/Chat";
 import { Effect, Stream } from "effect";
 import { Atom, type Atom as AtomType } from "effect/unstable/reactivity";
 import { ChatRpcClient } from "../chat-rpc-client";
 
 const chatRuntime = Atom.runtime(ChatRpcClient.layer);
+
+export const accumulateChatResponse = (
+  state: ChatResponse,
+  part: ChatStreamPart,
+): ChatResponse =>
+  ChatStreamPart.match(part, {
+    text: (part) => {
+      const currentSegments = state._tag === "initial" ? [] : state.segments;
+      const lastSegment = currentSegments[currentSegments.length - 1];
+
+      if (lastSegment?._tag === "text") {
+        return {
+          _tag: "streaming",
+          segments: [
+            ...currentSegments.slice(0, -1),
+            {
+              _tag: "text",
+              content: lastSegment.content + part.delta,
+              isComplete: true,
+            },
+          ],
+          reasoning: state._tag === "streaming" ? state.reasoning : undefined,
+        };
+      }
+
+      return {
+        _tag: "streaming",
+        segments: [
+          ...currentSegments,
+          {
+            _tag: "text",
+            content: part.delta,
+            isComplete: true,
+          },
+        ],
+        reasoning: state._tag === "streaming" ? state.reasoning : undefined,
+      };
+    },
+
+    reasoning: (part) => {
+      const currentSegments = state._tag === "initial" ? [] : state.segments;
+      return {
+        _tag: "streaming",
+        segments: currentSegments,
+        reasoning:
+          (state._tag === "streaming" ? state.reasoning ?? "" : "") +
+          part.delta,
+      };
+    },
+
+    "tool-start": (part) => {
+      const currentSegments = state._tag === "initial" ? [] : state.segments;
+      return {
+        _tag: "streaming",
+        segments: [
+          ...currentSegments,
+          {
+            _tag: "tool-call",
+                  tool: {
+                    id: part.id,
+                    name: part.name,
+                    status: "running",
+                    ...(part.input === undefined ? {} : { input: part.input }),
+                  },
+                },
+        ],
+        reasoning: state._tag === "streaming" ? state.reasoning : undefined,
+      };
+    },
+
+    "tool-success": (part) => updateToolResult(state, {
+      id: part.id,
+      status: "complete",
+      result: part.output,
+    }),
+
+    "tool-failure": (part) => updateToolResult(state, {
+      id: part.id,
+      status: "failed",
+      result: part.error,
+    }),
+
+    finish: (part) => {
+      const segments = state._tag === "streaming" ? state.segments : [];
+      return {
+        _tag: "complete",
+        segments,
+        usage: part.usage,
+        finishReason: part.reason,
+      };
+    },
+
+    error: (part) => {
+      console.error("[chatAtom] Chat stream error received:", part);
+      const segments = state._tag === "streaming" ? state.segments : [];
+      return {
+        _tag: "error",
+        segments,
+        error: {
+          message: part.message,
+          recoverable: part.recoverable,
+        },
+      };
+    },
+  });
+
+const updateToolResult = (
+  state: ChatResponse,
+  update: {
+    id: string;
+    status: ToolCall["status"];
+    result: string;
+  },
+): ChatResponse => {
+      if (state._tag !== "streaming") return state;
+      return {
+        ...state,
+        segments: state.segments.map((seg) =>
+          seg._tag === "tool-call" && seg.tool.id === update.id
+            ? {
+                ...seg,
+                tool: {
+                  ...seg.tool,
+                  status: update.status,
+                  result: update.result,
+                },
+              }
+            : seg,
+        ),
+      };
+};
 
 export const chatAtom: AtomType.AtomResultFn<
   readonly ChatMessage[],
@@ -45,7 +176,7 @@ export const chatAtom: AtomType.AtomResultFn<
   return Stream.unwrap(
     Effect.gen(function* () {
       const rpc = yield* ChatRpcClient;
-      return rpc.client.chat({ messages });
+      return rpc.client.chat_ask({ messages });
     }),
   ).pipe(
     Stream.tapError((error: unknown) =>
@@ -55,224 +186,7 @@ export const chatAtom: AtomType.AtomResultFn<
       {
         _tag: "initial",
       },
-      (state, part): ChatResponse => {
-        switch (part._tag) {
-          case "text-delta": {
-            const currentSegments =
-              state._tag === "initial" ? [] : state.segments;
-            const lastSegment = currentSegments[currentSegments.length - 1];
-
-            if (lastSegment?._tag === "text" && !lastSegment.isComplete) {
-              return {
-                _tag: "streaming",
-                segments: [
-                  ...currentSegments.slice(0, -1),
-                  {
-                    _tag: "text",
-                    content: lastSegment.content + part.delta,
-                    isComplete: false,
-                  },
-                ],
-                thinking:
-                  state._tag === "streaming" ? state.thinking : undefined,
-                currentIteration:
-                  state._tag === "streaming" ? state.currentIteration : null,
-              };
-            }
-
-            return {
-              _tag: "streaming",
-              segments: [
-                ...currentSegments,
-                {
-                  _tag: "text",
-                  content: part.delta,
-                  isComplete: false,
-                },
-              ],
-              thinking: state._tag === "streaming" ? state.thinking : undefined,
-              currentIteration:
-                state._tag === "streaming" ? state.currentIteration : null,
-            };
-          }
-
-          case "text-complete": {
-            if (state._tag !== "streaming") return state;
-            const currentSegments = state.segments;
-            const lastSegment = currentSegments[currentSegments.length - 1];
-
-            if (lastSegment?._tag === "text" && !lastSegment.isComplete) {
-              return {
-                ...state,
-                segments: [
-                  ...currentSegments.slice(0, -1),
-                  {
-                    ...lastSegment,
-                    isComplete: true,
-                  },
-                ],
-              };
-            }
-            return state;
-          }
-
-          case "iteration-start": {
-            const currentSegments =
-              state._tag === "initial" ? [] : state.segments;
-            return {
-              _tag: "streaming",
-              segments: currentSegments,
-              currentIteration: part.iteration,
-              thinking: state._tag === "streaming" ? state.thinking : undefined,
-            };
-          }
-
-          case "iteration-end": {
-            if (state._tag !== "streaming") return state;
-            return {
-              ...state,
-              currentIteration: null,
-            };
-          }
-
-          case "tool-call-start": {
-            const currentSegments =
-              state._tag === "initial" ? [] : state.segments;
-            return {
-              _tag: "streaming",
-              segments: [
-                ...currentSegments,
-                {
-                  _tag: "tool-call",
-                  tool: {
-                    id: part.id,
-                    name: part.name,
-                    arguments: null,
-                    argumentsText: "",
-                    status: "proposed",
-                  },
-                },
-              ],
-              thinking: state._tag === "streaming" ? state.thinking : undefined,
-              currentIteration:
-                state._tag === "streaming" ? state.currentIteration : null,
-            };
-          }
-
-          case "tool-call-delta": {
-            if (state._tag !== "streaming") return state;
-            return {
-              ...state,
-              segments: state.segments.map((seg) =>
-                seg._tag === "tool-call" && seg.tool.id === part.id
-                  ? {
-                      ...seg,
-                      tool: {
-                        ...seg.tool,
-                        argumentsText:
-                          seg.tool.argumentsText + part.argumentsDelta,
-                      },
-                    }
-                  : seg,
-              ),
-            };
-          }
-
-          case "tool-call-complete": {
-            if (state._tag !== "streaming") return state;
-            return {
-              ...state,
-              segments: state.segments.map((seg) =>
-                seg._tag === "tool-call" && seg.tool.id === part.id
-                  ? {
-                      ...seg,
-                      tool: { ...seg.tool, arguments: part.arguments },
-                    }
-                  : seg,
-              ),
-            };
-          }
-
-          case "tool-execution-start": {
-            if (state._tag !== "streaming") return state;
-            return {
-              ...state,
-              segments: state.segments.map((seg) =>
-                seg._tag === "tool-call" && seg.tool.id === part.id
-                  ? {
-                      ...seg,
-                      tool: {
-                        ...seg.tool,
-                        status: "executing" as ToolCall["status"],
-                      },
-                    }
-                  : seg,
-              ),
-            };
-          }
-
-          case "tool-execution-complete": {
-            if (state._tag !== "streaming") return state;
-            const newStatus: ToolCall["status"] = part.success
-              ? "complete"
-              : "failed";
-            return {
-              ...state,
-              segments: state.segments.map((seg) =>
-                seg._tag === "tool-call" && seg.tool.id === part.id
-                  ? {
-                      ...seg,
-                      tool: {
-                        ...seg.tool,
-                        status: newStatus,
-                        result: part.result,
-                        success: part.success,
-                      },
-                    }
-                  : seg,
-              ),
-            };
-          }
-
-          case "finish": {
-            const segments = state._tag === "streaming" ? state.segments : [];
-            return {
-              _tag: "complete",
-              segments,
-              usage: part.usage,
-              finishReason: part.finishReason,
-            };
-          }
-
-          case "thinking": {
-            const currentSegments =
-              state._tag === "initial" ? [] : state.segments;
-            return {
-              _tag: "streaming",
-              segments: currentSegments,
-              thinking: part.message,
-              currentIteration:
-                state._tag === "streaming" ? state.currentIteration : null,
-            };
-          }
-
-          case "error": {
-            console.error("[chatAtom] Chat stream error received:", part);
-            const segments = state._tag === "streaming" ? state.segments : [];
-            return {
-              _tag: "error",
-              segments,
-              error: {
-                message: part.message,
-                recoverable: part.recoverable,
-              },
-            };
-          }
-
-          default:
-            return state;
-        }
-      },
+      accumulateChatResponse,
     ),
     Stream.drop(1),
     Stream.catch((error: unknown) => {
@@ -525,10 +439,10 @@ export function ChatBox() {
             </div>
           ))}
 
-          {currentResult._tag === "streaming" && currentResult.thinking && (
+          {currentResult._tag === "streaming" && currentResult.reasoning && (
             <div className="flex w-full flex-col gap-2 items-start">
               <div className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[0.65rem] font-medium uppercase tracking-[0.2em] text-muted-foreground">
-                Thinking: {currentResult.thinking}
+                Reasoning: {currentResult.reasoning}
               </div>
             </div>
           )}
