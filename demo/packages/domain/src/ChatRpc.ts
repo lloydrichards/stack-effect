@@ -3,7 +3,7 @@ import { Rpc, RpcGroup } from "effect/unstable/rpc";
 import { ChatMessage, ChatStreamPart } from "./Chat";
 
 export class ChatRpc extends RpcGroup.make(
-  Rpc.make("chat", {
+  Rpc.make("chat_ask", {
     payload: {
       messages: Schema.Array(ChatMessage),
     },

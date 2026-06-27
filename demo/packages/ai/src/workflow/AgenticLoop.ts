@@ -6,7 +6,6 @@ import {
   type Queue,
   Ref,
   Schema,
-  SchemaGetter,
   Stream,
 } from "effect";
 import type { Chat, Tool, Toolkit } from "effect/unstable/ai";
@@ -17,21 +16,12 @@ export const AgenticLoopState = Schema.Struct({
   iteration: Schema.Number,
 });
 
-export const ToolParamsSchema = Schema.fromJsonString(
-  Schema.Record(Schema.String, Schema.Unknown),
-);
-
 const stringifyJson = (value: unknown) =>
-  Schema.encodeUnknownEffect(
-    Schema.String.pipe(
-      Schema.decodeTo(Schema.Unknown, {
-        decode: SchemaGetter.parseJson<string>({}),
-        encode: SchemaGetter.stringifyJson({ space: 2 }),
-      }),
-    ),
-  )(value).pipe(
-    Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
-  );
+  Effect.try({
+    try: (): string =>
+      JSON.stringify(value, null, 2) ?? Inspectable.toStringUnknown(value, 2),
+    catch: () => new Error("Failed to stringify JSON"),
+  }).pipe(Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)));
 
 const loop = Effect.fn("loop")(function* <
   Tools extends Record<string, Tool.Any>,
@@ -67,7 +57,7 @@ const loop = Effect.fn("loop")(function* <
         Effect.gen(function* () {
           switch (part.type) {
             case "text-delta":
-              yield* events.textDelta(part.delta);
+              yield* events.text(part.delta);
               break;
 
             case "tool-params-start":
@@ -83,9 +73,6 @@ const loop = Effect.fn("loop")(function* <
                 return newMap;
               });
 
-              yield* events.toolCallStart(part.id, {
-                name: part.name,
-              });
               break;
 
             case "tool-params-delta": {
@@ -108,9 +95,6 @@ const loop = Effect.fn("loop")(function* <
                 return newMap;
               });
 
-              yield* events.toolCallDelta(part.id, {
-                argumentsDelta: part.delta,
-              });
               break;
             }
 
@@ -125,33 +109,23 @@ const loop = Effect.fn("loop")(function* <
                 break;
               }
 
-              const parsedParams = yield* Schema.decodeUnknownEffect(
-                ToolParamsSchema,
-              )(toolCall.params?.trim() || "{}").pipe(
-                Effect.tapError((error) =>
-                  Effect.logError(
-                    `Failed to parse tool arguments for ${toolCall.name}: ${Inspectable.toStringUnknown(error, 2)}`,
-                  ),
-                ),
-                Effect.orElseSucceed(() => ({})),
+              const input = toolCall.params.trim();
+
+              yield* events.toolStart(
+                toolCall.id,
+                input === ""
+                  ? { name: toolCall.name }
+                  : { name: toolCall.name, input },
               );
-
-              yield* events.toolCallComplete(toolCall.id, {
-                name: toolCall.name,
-                arguments: parsedParams,
-              });
-
-              yield* events.toolExecutionStart(toolCall.id, {
-                name: toolCall.name,
-              });
               break;
             }
 
             case "tool-result": {
-              const resultText =
+              const resultTextEffect =
                 typeof part.result === "string"
-                  ? part.result
-                  : yield* stringifyJson(part.result);
+                  ? Effect.succeed(part.result)
+                  : stringifyJson(part.result);
+              const resultText = yield* resultTextEffect;
 
               if (part.isFailure) {
                 yield* Effect.logError(
@@ -159,10 +133,17 @@ const loop = Effect.fn("loop")(function* <
                 );
               }
 
-              yield* events.toolExecutionComplete(part.id, {
+              if (part.isFailure) {
+                yield* events.toolFailure(part.id, {
+                  name: part.name,
+                  error: resultText,
+                });
+                break;
+              }
+
+              yield* events.toolSuccess(part.id, {
                 name: part.name,
-                result: resultText,
-                success: !part.isFailure,
+                output: resultText,
               });
               break;
             }
@@ -181,12 +162,12 @@ const loop = Effect.fn("loop")(function* <
               break;
 
             case "error":
-              yield* events.error(
-                typeof part.error === "string"
-                  ? part.error
-                  : yield* stringifyJson(part.error),
-                false,
-              );
+              if (typeof part.error === "string") {
+                yield* events.error(part.error, false);
+                break;
+              }
+
+              yield* events.error(yield* stringifyJson(part.error), false);
               break;
 
             default:
@@ -222,8 +203,6 @@ export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
   ) {
     const iteration = state.iteration + 1;
 
-    yield* events.iterationStart(iteration);
-
     const finishReason = yield* loop({ chat, queue, toolkit });
 
     yield* Effect.logDebug(
@@ -239,7 +218,7 @@ export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
     finalState.finishReason === "tool-calls" &&
     finalState.iteration >= maxIterations
   ) {
-    yield* events.thinking(
+    yield* events.reasoning(
       `Reached maximum iterations (${maxIterations}). Stopping here.`,
     );
   }

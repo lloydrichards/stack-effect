@@ -9,7 +9,7 @@ const ChatRpcHandlers = ChatRpc.toLayer(
     const bot = yield* ChatService;
     yield* Effect.logInfo("Starting Chat RPC Live Implementation");
     return ChatRpc.of({
-      chat: ({ messages }) =>
+      chat_ask: ({ messages }) =>
         bot.chat(
           messages.map((msg) => {
             if (msg.role === "system") {
