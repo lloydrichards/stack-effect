@@ -17,7 +17,6 @@ tsconfig.tsbuildinfo
 
 # ide
 .idea
-.vscode
 *.swp
 *.swo
 
@@ -155,7 +154,7 @@ export const turboJsonContents = `{
 // -- biome ------------------------------------------------------------------
 
 export const biomeJsoncContents = `{
-  "$schema": "https://biomejs.dev/schemas/2.4.11/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.0/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -173,7 +172,7 @@ export const biomeJsoncContents = `{
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true,
+      "preset": "recommended",
       "suspicious": {
         "noShadowRestrictedNames": "off",
         "noUnknownAtRules": "off"
@@ -192,6 +191,33 @@ export const biomeJsoncContents = `{
         "organizeImports": "on"
       }
     }
+  }
+}
+`;
+
+export const biomeVscodeSettingsContents = `{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.codeActionsOnSave": {
+    "source.organizeImports.biome": "explicit"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "biomejs.biome"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "biomejs.biome"
   }
 }
 `;
