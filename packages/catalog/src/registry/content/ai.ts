@@ -683,6 +683,7 @@ import {
   type Queue,
   Ref,
   Schema,
+  SchemaGetter,
   Stream,
 } from "effect";
 import type { Chat, Tool, Toolkit } from "effect/unstable/ai";
@@ -693,12 +694,17 @@ export const AgenticLoopState = Schema.Struct({
   iteration: Schema.Number,
 });
 
+const JsonString = Schema.String.pipe(
+  Schema.decodeTo(Schema.Unknown, {
+    decode: SchemaGetter.parseJson<string>({}),
+    encode: SchemaGetter.stringifyJson({ space: 2 }),
+  }),
+);
+
 const stringifyJson = (value: unknown) =>
-  Effect.try({
-    try: (): string =>
-      JSON.stringify(value, null, 2) ?? Inspectable.toStringUnknown(value, 2),
-    catch: () => new Error("Failed to stringify JSON"),
-  }).pipe(Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)));
+  Schema.encodeUnknownEffect(JsonString)(value).pipe(
+    Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
+  );
 
 const loop = Effect.fn("loop")(function* <
   Tools extends Record<string, Tool.Any>,
