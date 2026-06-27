@@ -7,6 +7,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   biomeJsoncContents,
+  biomeVscodeSettingsContents,
   devcontainerJsonContents,
   dprintJsonContents,
   envrcContents,
@@ -202,11 +203,16 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         contents: biomeJsoncContents,
       },
       {
+        _tag: "file",
+        path: "{{targetPath}}/.vscode/settings.json",
+        contents: biomeVscodeSettingsContents,
+      },
+      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@biomejs/biome",
-        value: "2.4.11",
+        value: "2.5.0",
       },
       {
         _tag: "pkg-json-entry",

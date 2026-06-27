@@ -265,7 +265,6 @@ export const aiMemoryToolkitContents = `import {
   Effect,
   HashMap,
   Option,
-  pipe,
   Ref,
   Schema,
   String,
