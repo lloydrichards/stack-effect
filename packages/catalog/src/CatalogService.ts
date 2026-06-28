@@ -1,6 +1,7 @@
 import type {
   CatalogGraph,
   CatalogTree,
+  ModuleCapability,
   ModuleCategory,
   ModuleId,
   ModuleImplication,
@@ -35,6 +36,19 @@ export class CatalogService extends Context.Service<CatalogService>()(
     make: Effect.gen(function* () {
       const targetIndex = new Map(targetRegistry.map((t) => [t.kind, t]));
       const moduleIndex = new Map(moduleRegistry.map((m) => [m.id, m]));
+
+      const capabilityProviderIndex = Arr.reduce(
+        moduleRegistry,
+        new Map<string, Array<(typeof moduleRegistry)[number]>>(),
+        (index, definition) => {
+          for (const capability of definition.provides ?? []) {
+            const providers = index.get(capability) ?? [];
+            providers.push(definition);
+            index.set(capability, providers);
+          }
+          return index;
+        },
+      );
 
       const allImplications = Arr.flatMap(
         moduleRegistry,
@@ -140,6 +154,20 @@ export class CatalogService extends Context.Service<CatalogService>()(
         });
       });
 
+      const getCapabilityProviders = (options: {
+        capability: typeof ModuleCapability.Type;
+        target: TargetIdentity;
+        visibility?: typeof Visibility.Type;
+      }) =>
+        Arr.filter(
+          capabilityProviderIndex.get(options.capability) ?? [],
+          (mod) =>
+            hasVisibility(mod, options.visibility) &&
+            Arr.some(mod.supportedOn, (supportedOn) =>
+              options.target.matches(supportedOn),
+            ),
+        );
+
       const toGraph: CatalogGraph = Graph.directed((g) => {
         const targetNodes = new Map<string, number>();
         for (const target of targetRegistry) {
@@ -226,25 +254,23 @@ export class CatalogService extends Context.Service<CatalogService>()(
           modules: Arr.filterMap(
             Arr.fromIterable(moduleIndex.values()),
             (mod) => {
-              const supported = Arr.some(
-                mod.supportedOn,
-                (s) => supportedOnTargetKind(s) === target.kind,
-              );
-              if (!supported) return Result.fail("skip" as const);
+              if (!moduleSupportsTargetKind(mod, target.kind)) {
+                return Result.fail("skip" as const);
+              }
               return Result.succeed({
                 id: mod.id,
                 title: mod.title,
                 description: mod.description,
                 categories: mod.categories ?? [],
-                requires: Arr.filterMap(mod.dependencies, (dep) => {
-                  if (dep._tag !== "required-module")
-                    return Result.fail("skip" as const);
-                  return Result.succeed({
-                    targetKind: dep.target.kind,
-                    targetName: dep.target.name,
-                    moduleId: dep.moduleId,
-                  });
-                }),
+                requires: Arr.filterMap(
+                  mod.dependencies,
+                  requiredModuleDependency,
+                ),
+                requiredCapabilities: Arr.filterMap(
+                  mod.dependencies,
+                  requiredCapabilityDependency,
+                ),
+                provides: mod.provides ?? [],
                 implies: (mod.implies ?? []).map((imp) => ({
                   targetKind: imp.targetKind,
                   moduleId: imp.moduleId,
@@ -257,6 +283,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
 
       return {
         getImplications,
+        getCapabilityProviders,
         getModules,
         getModule,
         getSupportedModules,

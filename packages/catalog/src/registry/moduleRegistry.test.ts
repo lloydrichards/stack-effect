@@ -27,6 +27,38 @@ describe("moduleRegistry", () => {
     expect(missing).toEqual([]);
   });
 
+  it("should only require capabilities with compatible providers", () => {
+    const missing: Array<{
+      module: string;
+      capability: string;
+      target: string;
+    }> = [];
+
+    for (const mod of moduleRegistry) {
+      for (const dep of mod.dependencies) {
+        if (dep._tag !== "required-capability") continue;
+
+        const providers = moduleRegistry.filter(
+          (provider) =>
+            provider.provides?.includes(dep.capability) &&
+            provider.supportedOn.some((supportedOn) =>
+              dep.target.matches(supportedOn),
+            ),
+        );
+
+        if (providers.length === 0) {
+          missing.push({
+            module: mod.id,
+            capability: dep.capability,
+            target: dep.target.toKey(),
+          });
+        }
+      }
+    }
+
+    expect(missing).toEqual([]);
+  });
+
   it("should only reference existing modules in implies", () => {
     const missing: Array<{ module: string; references: string }> = [];
 
