@@ -5,7 +5,13 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { serverHealthContents, serverHelloContents } from "../content/api";
-import { serverChatContents, serverChatRuntimeContents } from "../content/chat";
+import {
+  serverChatContents,
+  serverChatManagedContents,
+  serverChatManagedRuntimeContents,
+  serverChatRuntimeContents,
+  serverChatSessionsContents,
+} from "../content/chat";
 import { serverTickContents } from "../content/rpc";
 import { serverPresenceContents } from "../content/websocket";
 
@@ -120,6 +126,11 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/src/runtime/ChatSessions.ts",
+        contents: serverChatSessionsContents,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/src/runtime/ChatRuntime.ts",
         contents: serverChatRuntimeContents,
       },
@@ -146,6 +157,64 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./Rpc/Chat",
           namedImports: ["ChatRpcLive"],
+        },
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "RouterDependencies",
+        functionName: "Layer.mergeAll",
+        argument: "ChatSessionsLive",
+        import: {
+          moduleSpecifier: "./runtime/ChatSessions",
+          namedImports: ["ChatSessionsLive"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("chat-managed-runtime"),
+    title: "Managed Chat Runtime",
+    description: "In-memory managed chat send, watch, and interrupt runtime",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat-managed"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("server"),
+          name: "api",
+        }),
+        moduleId: ModuleId.make("chat-server"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Rpc/ChatManaged.ts",
+        contents: serverChatManagedContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/runtime/ChatManagedRuntime.ts",
+        contents: serverChatManagedRuntimeContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
+        argument: "ChatManagedRpcLive",
+        import: {
+          moduleSpecifier: "./Rpc/ChatManaged",
+          namedImports: ["ChatManagedRpcLive"],
         },
       },
     ],

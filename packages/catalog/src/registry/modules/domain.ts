@@ -5,7 +5,11 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { domainApiContents } from "../content/api";
-import { domainChatContents, domainChatRpcContents } from "../content/chat";
+import {
+  domainChatContents,
+  domainChatManagedRpcContents,
+  domainChatRpcContents,
+} from "../content/chat";
 import { domainRpcContents } from "../content/rpc";
 import { domainWebSocketContents } from "../content/websocket";
 
@@ -133,6 +137,50 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "barrel-export",
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./ChatRpc",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("domain-chat-managed"),
+    title: "Domain Managed Chat",
+    description: "Managed chat send, watch, and interrupt RPC definitions",
+    visibility: "internal",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+      },
+    ],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/ChatManagedRpc.ts",
+        contents: domainChatManagedRpcContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./ChatManagedRpc",
+        value: "./src/ChatManagedRpc.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./ChatManagedRpc",
       },
     ],
   },
