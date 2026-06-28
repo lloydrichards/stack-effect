@@ -1,6 +1,9 @@
 // Domain Chat schema
 export const domainChatContents = `import { Schema } from "effect";
 
+export const ChatId = Schema.String.pipe(Schema.brand("ChatId"));
+export type ChatId = Schema.Schema.Type<typeof ChatId>;
+
 // ============================================================================
 // Wire Protocol: ChatStreamPart
 // ============================================================================
@@ -121,14 +124,31 @@ export type ChatResponse = Schema.Schema.Type<typeof ChatResponse>;
 // Separate ChatRpc group (does NOT touch Rpc.ts)
 export const domainChatRpcContents = `import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
-import { ChatMessage, ChatStreamPart } from "./Chat";
+import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
+
+export class ChatNotFoundError extends Schema.TaggedErrorClass<ChatNotFoundError>()(
+  "ChatNotFoundError",
+  { chatId: ChatId },
+) {}
+
+export class GenerationInProgressError extends Schema.TaggedErrorClass<GenerationInProgressError>()(
+  "GenerationInProgressError",
+  { chatId: ChatId },
+) {}
 
 export class ChatRpc extends RpcGroup.make(
+  Rpc.make("chat_start", {
+    success: Schema.Struct({
+      chatId: ChatId,
+    }),
+  }),
   Rpc.make("chat_ask", {
     payload: {
+      chatId: ChatId,
       messages: Schema.Array(ChatMessage),
     },
     success: ChatStreamPart,
+    error: Schema.Union([ChatNotFoundError, GenerationInProgressError]),
     stream: true,
   }),
 ) {}
@@ -136,9 +156,17 @@ export class ChatRpc extends RpcGroup.make(
 
 // Server chat handler (separate from EventRpc)
 export const serverChatRuntimeContents = `import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
-import type { ChatMessage } from "@repo/domain/Chat";
-import { Context, Effect, Layer } from "effect";
+import { ChatId, type ChatMessage } from "@repo/domain/Chat";
+import {
+  ChatNotFoundError,
+  GenerationInProgressError,
+} from "@repo/domain/ChatRpc";
+import { Context, Effect, HashMap, Layer, Option, Ref, Stream } from "effect";
 import { Prompt } from "effect/unstable/ai";
+
+type ChatSession = {
+  readonly active: boolean;
+};
 
 const toPromptMessage = (message: ChatMessage) => {
   if (message.role === "system") {
@@ -155,12 +183,66 @@ const toPromptMessage = (message: ChatMessage) => {
 export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
   make: Effect.gen(function* () {
     const chat = yield* AiChatService;
+    const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
+      HashMap.empty(),
+    );
+
+    const release = (chatId: ChatId) =>
+      Ref.update(sessions, (current) =>
+        Option.match(HashMap.get(current, chatId), {
+          onNone: () => current,
+          onSome: (session) =>
+            HashMap.set(current, chatId, { ...session, active: false }),
+        }),
+      );
+
+    const reserve = (chatId: ChatId) =>
+      Ref.modify(
+        sessions,
+        (
+          current,
+        ): readonly [
+          Effect.Effect<void, ChatNotFoundError | GenerationInProgressError>,
+          HashMap.HashMap<ChatId, ChatSession>,
+        ] =>
+          Option.match(HashMap.get(current, chatId), {
+            onNone: () =>
+              [
+                Effect.fail(new ChatNotFoundError({ chatId })),
+                current,
+              ] as const,
+            onSome: (session) =>
+              session.active
+                ? ([
+                    Effect.fail(new GenerationInProgressError({ chatId })),
+                    current,
+                  ] as const)
+                : ([
+                    Effect.succeed(void 0),
+                    HashMap.set(current, chatId, { ...session, active: true }),
+                  ] as const),
+          }),
+      ).pipe(Effect.flatten);
 
     return {
-      ask: (messages: ReadonlyArray<ChatMessage>) =>
-        chat
-          .chat(messages.map(toPromptMessage))
-          .pipe(Effect.provide(FastModelLive), Effect.orDie),
+      start: Effect.gen(function* () {
+        const chatId = ChatId.make(crypto.randomUUID());
+        const session: ChatSession = { active: false };
+        yield* Ref.update(sessions, HashMap.set(chatId, session));
+        return { chatId };
+      }),
+      ask: (chatId: ChatId, messages: ReadonlyArray<ChatMessage>) =>
+        Stream.unwrap(
+          Effect.gen(function* () {
+            yield* reserve(chatId);
+            const queue = yield* chat
+              .chat(messages.map(toPromptMessage))
+              .pipe(Effect.provide(FastModelLive), Effect.orDie);
+            return Stream.fromQueue(queue).pipe(
+              Stream.ensuring(release(chatId)),
+            );
+          }),
+        ),
     } as const;
   }),
 }) {}
@@ -180,7 +262,8 @@ const ChatRpcHandlers = ChatRpc.toLayer(
     const runtime = yield* ChatRuntime;
     yield* Effect.logInfo("Starting Chat RPC Live Implementation");
     return ChatRpc.of({
-      chat_ask: ({ messages }) => runtime.ask(messages),
+      chat_start: () => runtime.start,
+      chat_ask: ({ chatId, messages }) => runtime.ask(chatId, messages),
     });
   }),
 );
