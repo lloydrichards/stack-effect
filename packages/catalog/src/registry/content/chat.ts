@@ -135,30 +135,52 @@ export class ChatRpc extends RpcGroup.make(
 `;
 
 // Server chat handler (separate from EventRpc)
-export const serverChatContents = `import { ChatService, ChatServiceLive, FastModelLive } from "@repo/ai";
-import { ChatRpc } from "@repo/domain/ChatRpc";
-import { Effect, Layer } from "effect";
+export const serverChatRuntimeContents = `import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
+import type { ChatMessage } from "@repo/domain/Chat";
+import { Context, Effect, Layer } from "effect";
 import { Prompt } from "effect/unstable/ai";
+
+const toPromptMessage = (message: ChatMessage) => {
+  if (message.role === "system") {
+    return Prompt.makeMessage(message.role, {
+      content: message.content,
+    });
+  }
+
+  return Prompt.makeMessage(message.role, {
+    content: [Prompt.makePart("text", { text: message.content })],
+  });
+};
+
+export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
+  make: Effect.gen(function* () {
+    const chat = yield* AiChatService;
+
+    return {
+      ask: (messages: ReadonlyArray<ChatMessage>) =>
+        chat
+          .chat(messages.map(toPromptMessage))
+          .pipe(Effect.provide(FastModelLive), Effect.orDie),
+    } as const;
+  }),
+}) {}
+
+export const ChatRuntimeLive = Layer.effect(ChatRuntime)(
+  ChatRuntime.make,
+).pipe(Layer.provide(AiChatServiceLive));
+`;
+
+export const serverChatContents = `import { ChatRpc } from "@repo/domain/ChatRpc";
+import { Effect, Layer } from "effect";
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { ChatRuntime, ChatRuntimeLive } from "../runtime/ChatRuntime";
 
 const ChatRpcHandlers = ChatRpc.toLayer(
   Effect.gen(function* () {
-    const bot = yield* ChatService;
+    const runtime = yield* ChatRuntime;
     yield* Effect.logInfo("Starting Chat RPC Live Implementation");
     return ChatRpc.of({
-      chat_ask: ({ messages }) =>
-        bot.chat(
-          messages.map((msg) => {
-            if (msg.role === "system") {
-              return Prompt.makeMessage(msg.role, {
-                content: msg.content,
-              });
-            }
-            return Prompt.makeMessage(msg.role, {
-              content: [Prompt.makePart("text", { text: msg.content })],
-            });
-          }),
-        ),
+      chat_ask: ({ messages }) => runtime.ask(messages),
     });
   }),
 );
@@ -170,6 +192,6 @@ export const ChatRpcLive = RpcServer.layerHttp({
 }).pipe(
   Layer.provide(ChatRpcHandlers),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide([ChatServiceLive, FastModelLive]),
+  Layer.provide(ChatRuntimeLive),
 );
 `;

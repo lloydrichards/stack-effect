@@ -5,7 +5,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { serverHealthContents, serverHelloContents } from "../content/api";
-import { serverChatContents } from "../content/chat";
+import { serverChatContents, serverChatRuntimeContents } from "../content/chat";
 import { serverTickContents } from "../content/rpc";
 import { serverPresenceContents } from "../content/websocket";
 
@@ -117,6 +117,11 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Chat.ts",
         contents: serverChatContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/runtime/ChatRuntime.ts",
+        contents: serverChatRuntimeContents,
       },
       {
         _tag: "pkg-json-entry",

@@ -154,7 +154,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkit",
         functionName: "Toolkit.merge",
         argument: "DateTimeToolkit",
@@ -165,7 +165,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitLive",
         functionName: "Layer.mergeAll",
         argument: "DateTimeToolkitLive",
@@ -203,7 +203,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkit",
         functionName: "Toolkit.merge",
         argument: "MathToolkit",
@@ -214,7 +214,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitLive",
         functionName: "Layer.mergeAll",
         argument: "MathToolkitLive",
@@ -253,7 +253,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkit",
         functionName: "Toolkit.merge",
         argument: "MemoryToolkit",
@@ -264,7 +264,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitLive",
         functionName: "Layer.mergeAll",
         argument: "InMemoryToolkitLive",
@@ -303,7 +303,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkit",
         functionName: "Toolkit.merge",
         argument: "PlanToolkit",
@@ -314,7 +314,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitLive",
         functionName: "Layer.mergeAll",
         argument: "PlanToolkitLive",
@@ -353,7 +353,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkit",
         functionName: "Toolkit.merge",
         argument: "WebFetchToolkit",
@@ -364,7 +364,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitLive",
         functionName: "Layer.mergeAll",
         argument: "WebFetchToolkitLive",
@@ -431,7 +431,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/services/ChatService.ts",
+        path: "{{targetPath}}/src/services/AiChatService.ts",
         contents: aiChatServiceContents,
       },
       {
@@ -449,7 +449,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "barrel-export",
         barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./services/ChatService",
+        exportPath: "./services/AiChatService",
       },
       {
         _tag: "barrel-export",
