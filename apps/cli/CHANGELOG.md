@@ -1,5 +1,17 @@
 # stack-effect
 
+## 0.7.0
+
+### Minor Changes
+
+- 693ab31: add chat-managed-runtime module for managing multiple chat sessions
+- f5f3ed2: add catalog workspace flow for working on catalog change
+
+### Patch Changes
+
+- 41729af: improve the agentic loop with a service and cleaner events mailbox
+- ac4a390: simplify the chat interface and stream parts
+
 ## 0.6.0
 
 ### Minor Changes
