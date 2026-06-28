@@ -180,6 +180,23 @@ run, treat that as a network/package-resolution/finalizer failure. If reset
 succeeds, missing package typings such as `vite/client` are real
 generated-workspace validation failures.
 
+When `catalog:reset-workspace` fails during a `bunx shadcn@latest add ...`
+finalizer step with:
+
+```text
+error: bun is unable to write files to tempdir: PermissionDenied
+```
+
+rerun the same reset command with sandbox escalation. The shadcn/bunx finalizer
+needs temp/cache writes outside the repo sandbox even though the generated
+workspace itself lives under `workspace/catalog-built`.
+
+Use this justification:
+
+```text
+catalog workspace reset runs bunx/finalizer steps that need temp/cache writes outside the workspace sandbox
+```
+
 ## Completion Checklist
 
 Before final response:
