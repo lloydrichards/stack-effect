@@ -56,10 +56,13 @@ export const ThinkToolkitLive = ThinkToolkit.toLayer(
 `;
 
 export const aiChatServiceContents = `import type { ChatStreamPart } from "@repo/domain/Chat";
-import { Cause, Context, Effect, Layer, Queue, String } from "effect";
+import { Cause, Context, Effect, Layer, Option, Queue, String } from "effect";
 import { Chat, Prompt, Toolkit } from "effect/unstable/ai";
 import { ThinkToolkit, ThinkToolkitLive } from "../toolkits/ThinkToolkit";
-import { runAgenticLoop } from "../workflow/AgenticLoop";
+import {
+  AgenticLoopService,
+  AgenticLoopServiceLive,
+} from "../workflow/AgenticLoop";
 
 // ChatToolkit - Merged toolkit for the chat service
 // AST can append additional toolkits to this merge call
@@ -72,28 +75,50 @@ export const ChatToolkitLive = Layer.mergeAll(ThinkToolkitLive);
 export class AiChatService extends Context.Service<AiChatService>()("AiChatService", {
   make: Effect.gen(function* () {
     const toolkit = yield* ChatToolkit;
+    const loop = yield* AgenticLoopService;
 
     const chat = Effect.fn("chat")(function* (history: Array<Prompt.Message>) {
       const queue = yield* Queue.make<typeof ChatStreamPart.Type, Cause.Done>();
+      const currentSpan = yield* Effect.currentSpan.pipe(Effect.option);
+      const currentParentSpan = yield* Effect.currentParentSpan.pipe(
+        Effect.option,
+      );
+      const generationParentSpan = Option.flatMap(
+        currentSpan,
+        (span) => span.parent,
+      ).pipe(Option.orElse(() => currentParentSpan));
 
-      yield* Effect.forkScoped(
-        Effect.gen(function* () {
-          const systemMessage = String.stripMargin(\`
+      const runGeneration = Effect.gen(function* () {
+        const systemMessage = String.stripMargin(\`
               |You are a helpful general assistant.
               |You have access to tools and should use them when appropriate.
               |Be concise and direct in your responses.
             \`);
 
-          const session = yield* Chat.fromPrompt(
-            Prompt.make(history).pipe(Prompt.setSystem(systemMessage)),
-          );
+        const session = yield* Chat.fromPrompt(
+          Prompt.make(history).pipe(Prompt.setSystem(systemMessage)),
+        );
 
-          yield* runAgenticLoop({
-            chat: session,
-            queue,
-            toolkit,
-          });
-        }).pipe(
+        yield* loop.run({
+          chat: session,
+          queue,
+          toolkit,
+        });
+      }).pipe(
+        Effect.withSpan("AiChatService.generation", {
+          attributes: {
+            "chat.messageCount": history.length,
+          },
+        }),
+      );
+
+      const tracedGeneration = Option.match(generationParentSpan, {
+        onNone: () => runGeneration,
+        onSome: (span) => runGeneration.pipe(Effect.withParentSpan(span)),
+      });
+
+      yield* Effect.forkChild(
+        tracedGeneration.pipe(
           Effect.catchCause((cause) =>
             Effect.gen(function* () {
               yield* Effect.logError(\`Chat error: \${cause}\`);
@@ -117,6 +142,7 @@ export class AiChatService extends Context.Service<AiChatService>()("AiChatServi
 
 export const AiChatServiceLive = Layer.effect(AiChatService)(AiChatService.make).pipe(
   Layer.provide(ChatToolkitLive),
+  Layer.provide(AgenticLoopServiceLive),
 );
 `;
 
@@ -678,21 +704,283 @@ export const WebFetchToolkitLive = WebFetchToolkit.toLayer(
 export const aiAgenticLoopContents = `import type { ChatStreamPart } from "@repo/domain/Chat";
 import {
   type Cause,
+  Context,
   Effect,
-  Inspectable,
+  Layer,
   type Queue,
-  Ref,
   Schema,
-  SchemaGetter,
   Stream,
 } from "effect";
-import type { Chat, Tool, Toolkit } from "effect/unstable/ai";
+import type {
+  AiError,
+  Chat,
+  LanguageModel,
+  Tool,
+  Toolkit,
+} from "effect/unstable/ai";
 import { createMailboxEvents } from "./MailboxEvents";
 
 export const AgenticLoopState = Schema.Struct({
   finishReason: Schema.String,
   iteration: Schema.Number,
 });
+
+type LoopState = typeof AgenticLoopState.Type;
+
+type LoopError<Tools extends Record<string, Tool.Any>> =
+  | AiError.AiError
+  | Tool.HandlerError<Tools[keyof Tools]>;
+
+type LoopRequirements<Tools extends Record<string, Tool.Any>> =
+  | LanguageModel.LanguageModel
+  | Tool.HandlerServices<Tools[keyof Tools]>
+  | Tool.ResultDecodingServices<Tools[keyof Tools]>;
+
+type ToolParams = {
+  id: string;
+  name: string;
+  params: string;
+};
+
+type TurnState = {
+  finishReason: string;
+  toolResults: number;
+  toolParams: Map<string, ToolParams>;
+};
+
+const upsertToolParams = (
+  state: TurnState,
+  id: string,
+  update: (current: ToolParams | undefined) => ToolParams | undefined,
+) => {
+  const toolParams = new Map(state.toolParams);
+  const next = update(toolParams.get(id));
+
+  if (next === undefined) {
+    toolParams.delete(id);
+  } else {
+    toolParams.set(id, next);
+  }
+
+  return { ...state, toolParams };
+};
+
+export type AgenticLoopRunOptions<Tools extends Record<string, Tool.Any>> = {
+  chat: Chat.Service;
+  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
+  toolkit: Toolkit.WithHandler<Tools>;
+  maxIterations?: number;
+};
+
+const runTurn = <Tools extends Record<string, Tool.Any>>({
+  chat,
+  queue,
+  toolkit,
+}: {
+  chat: Chat.Service;
+  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
+  toolkit: Toolkit.WithHandler<Tools>;
+}) =>
+  Effect.gen(function* () {
+    const events = createMailboxEvents(queue);
+
+    const state = yield* chat
+      .streamText({
+        prompt: [],
+        toolkit,
+      })
+      .pipe(
+        Stream.runFoldEffect(
+          () =>
+            ({
+              finishReason: "stop",
+              toolResults: 0,
+              toolParams: new Map(),
+            }) satisfies TurnState,
+          (state, part) =>
+            Effect.gen(function* () {
+              switch (part.type) {
+                case "text-delta":
+                  yield* events.text(part.delta);
+                  return state;
+
+                case "tool-params-start":
+                  yield* Effect.logInfo(\`Selected tool: \${part.name}\`);
+                  return upsertToolParams(state, part.id, () => ({
+                    id: part.id,
+                    name: part.name,
+                    params: "",
+                  }));
+
+                case "tool-params-delta":
+                  if (!state.toolParams.has(part.id)) {
+                    yield* Effect.logError(
+                      \`Received tool-params-delta for unknown tool: \${part.id}\`,
+                    );
+                    return state;
+                  }
+
+                  return upsertToolParams(state, part.id, (current) =>
+                    current === undefined
+                      ? undefined
+                      : {
+                          ...current,
+                          params: current.params + part.delta,
+                        },
+                  );
+
+                case "tool-params-end": {
+                  const toolCall = state.toolParams.get(part.id);
+
+                  if (toolCall === undefined) {
+                    yield* Effect.logError(
+                      \`Received tool-params-end for unknown tool: \${part.id}\`,
+                    );
+                    return state;
+                  }
+
+                  yield* events.toolStart(toolCall);
+
+                  return upsertToolParams(state, part.id, () => undefined);
+                }
+
+                case "tool-call": {
+                  yield* events.toolStart(part);
+
+                  return upsertToolParams(state, part.id, () => ({
+                    id: part.id,
+                    name: part.name,
+                    params: "",
+                  }));
+                }
+
+                case "tool-result": {
+                  if (part.isFailure) {
+                    yield* Effect.logError(
+                      \`Tool \${part.name}(\${part.id}) failed\`,
+                    );
+                  }
+
+                  yield* events.toolResult(part);
+                  return {
+                    ...state,
+                    toolResults: state.toolResults + 1,
+                  };
+                }
+
+                case "finish":
+                  if (part.reason !== "tool-calls") {
+                    const promptTokens = part.usage.inputTokens.total ?? 0;
+                    const completionTokens = part.usage.outputTokens.total ?? 0;
+                    yield* events.finish(part.reason, {
+                      promptTokens,
+                      completionTokens,
+                      totalTokens: promptTokens + completionTokens,
+                    });
+                  }
+                  return { ...state, finishReason: part.reason };
+
+                case "error":
+                  yield* events.unknownError(part.error);
+                  return state;
+
+                default:
+                  return state;
+              }
+            }),
+        ),
+      );
+
+    return state.finishReason;
+  });
+
+export class AgenticLoopService extends Context.Service<AgenticLoopService>()(
+  "AgenticLoopService",
+  {
+    make: Effect.succeed({
+      run: Effect.fnUntraced(function* <
+        Tools extends Record<string, Tool.Any>,
+      >({
+        chat,
+        queue,
+        toolkit,
+        maxIterations = 12,
+      }: AgenticLoopRunOptions<Tools>) {
+        const events = createMailboxEvents(queue);
+
+        const runNextTurn: (
+          state: LoopState,
+        ) => Effect.Effect<
+          LoopState,
+          LoopError<Tools>,
+          LoopRequirements<Tools>
+        > = (state: LoopState) =>
+          Effect.suspend(() =>
+            Effect.gen(function* () {
+              if (
+                state.finishReason !== "tool-calls" ||
+                state.iteration >= maxIterations
+              ) {
+                return state;
+              }
+
+              const iteration = state.iteration + 1;
+              const finishReason = yield* runTurn({
+                chat,
+                queue,
+                toolkit,
+              }).pipe(
+                Effect.withSpan("AgenticLoop.turn", {
+                  attributes: {
+                    "agentic.iteration": iteration,
+                    "agentic.maxIterations": maxIterations,
+                  },
+                }),
+              );
+
+              yield* Effect.logDebug(
+                \`Iteration \${iteration} completed with finishReason: \${finishReason}\`,
+              );
+
+              return yield* runNextTurn({ finishReason, iteration });
+            }),
+          );
+
+        const finalState = yield* runNextTurn({
+          finishReason: "tool-calls",
+          iteration: 0,
+        });
+
+        if (
+          finalState.finishReason === "tool-calls" &&
+          finalState.iteration >= maxIterations
+        ) {
+          yield* events.reasoning(
+            \`Reached maximum iterations (\${maxIterations}). Stopping here.\`,
+          );
+        }
+
+        return finalState;
+      }, Effect.withSpan("AgenticLoop.run")),
+    }),
+  },
+) {
+  static layer = Layer.effect(AgenticLoopService)(AgenticLoopService.make);
+}
+
+export const AgenticLoopServiceLive = AgenticLoopService.layer;
+`;
+
+export const aiMailboxEventsContents = `import { ChatStreamPart } from "@repo/domain/Chat";
+import {
+  type Cause,
+  Effect,
+  Inspectable,
+  Queue,
+  Schema,
+  SchemaGetter,
+  String,
+} from "effect";
 
 const JsonString = Schema.String.pipe(
   Schema.decodeTo(Schema.Unknown, {
@@ -706,212 +994,43 @@ const stringifyJson = (value: unknown) =>
     Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
   );
 
-const loop = Effect.fn("loop")(function* <
-  Tools extends Record<string, Tool.Any>,
->({
-  chat,
-  queue,
-  toolkit,
-}: {
-  chat: Chat.Service;
-  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
-  toolkit: Toolkit.WithHandler<Tools>;
-}) {
-  const events = createMailboxEvents(queue);
-  const finishReasonRef = yield* Ref.make("stop");
-  const toolParamsRef = yield* Ref.make(
-    new Map<
-      string,
-      {
-        id: string;
-        name: string;
-        params: string;
-      }
-    >(),
-  );
+const stringifyValue = (value: unknown) =>
+  typeof value === "string" ? Effect.succeed(value) : stringifyJson(value);
 
-  yield* chat
-    .streamText({
-      prompt: [],
-      toolkit,
-    })
-    .pipe(
-      Stream.runForEach((part) =>
-        Effect.gen(function* () {
-          switch (part.type) {
-            case "text-delta":
-              yield* events.text(part.delta);
-              break;
-
-            case "tool-params-start":
-              yield* Effect.logInfo(\`Selected tool: \${part.name}\`);
-
-              yield* Ref.update(toolParamsRef, (map) => {
-                const newMap = new Map(map);
-                newMap.set(part.id, {
-                  id: part.id,
-                  name: part.name,
-                  params: "",
-                });
-                return newMap;
-              });
-
-              break;
-
-            case "tool-params-delta": {
-              const toolParamsMap = yield* Ref.get(toolParamsRef);
-              const existing = toolParamsMap.get(part.id);
-
-              if (!existing) {
-                yield* Effect.logError(
-                  \`Received tool-params-delta for unknown tool: \${part.id}\`,
-                );
-                break;
-              }
-
-              yield* Ref.update(toolParamsRef, (map) => {
-                const newMap = new Map(map);
-                newMap.set(part.id, {
-                  ...existing,
-                  params: existing.params + part.delta,
-                });
-                return newMap;
-              });
-
-              break;
-            }
-
-            case "tool-params-end": {
-              const toolParamsMap = yield* Ref.get(toolParamsRef);
-              const toolCall = toolParamsMap.get(part.id);
-
-              if (!toolCall) {
-                yield* Effect.logError(
-                  \`Received tool-params-end for unknown tool: \${part.id}\`,
-                );
-                break;
-              }
-
-              const input = toolCall.params.trim();
-
-              yield* events.toolStart(
-                toolCall.id,
-                input === ""
-                  ? { name: toolCall.name }
-                  : { name: toolCall.name, input },
-              );
-              break;
-            }
-
-            case "tool-result": {
-              const resultTextEffect =
-                typeof part.result === "string"
-                  ? Effect.succeed(part.result)
-                  : stringifyJson(part.result);
-              const resultText = yield* resultTextEffect;
-
-              if (part.isFailure) {
-                yield* Effect.logError(
-                  \`Tool \${part.name}(\${part.id}) failed: \${resultText}\`,
-                );
-              }
-
-              if (part.isFailure) {
-                yield* events.toolFailure(part.id, {
-                  name: part.name,
-                  error: resultText,
-                });
-                break;
-              }
-
-              yield* events.toolSuccess(part.id, {
-                name: part.name,
-                output: resultText,
-              });
-              break;
-            }
-
-            case "finish":
-              yield* Ref.set(finishReasonRef, part.reason);
-              if (part.reason !== "tool-calls") {
-                yield* events.finish(part.reason, {
-                  promptTokens: part.usage.inputTokens.total ?? 0,
-                  completionTokens: part.usage.outputTokens.total ?? 0,
-                  totalTokens:
-                    (part.usage.inputTokens.total ?? 0) +
-                    (part.usage.outputTokens.total ?? 0),
-                });
-              }
-              break;
-
-            case "error":
-              if (typeof part.error === "string") {
-                yield* events.error(part.error, false);
-                break;
-              }
-
-              yield* events.error(yield* stringifyJson(part.error), false);
-              break;
-
-            default:
-              break;
-          }
-        }),
-      ),
-    );
-
-  return yield* Ref.get(finishReasonRef);
-});
-
-export const runAgenticLoop = Effect.fn("runAgenticLoop")(function* <
-  Tools extends Record<string, Tool.Any>,
->({
-  chat,
-  queue,
-  toolkit,
-  maxIterations = 12,
-}: {
-  chat: Chat.Service;
-  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
-  toolkit: Toolkit.WithHandler<Tools>;
-  maxIterations?: number;
-}) {
-  const events = createMailboxEvents(queue);
-
-  let state = { finishReason: "tool-calls", iteration: 0 };
-
-  while (
-    state.finishReason === "tool-calls" &&
-    state.iteration < maxIterations
-  ) {
-    const iteration = state.iteration + 1;
-
-    const finishReason = yield* loop({ chat, queue, toolkit });
-
-    yield* Effect.logDebug(
-      \`Iteration \${iteration} completed with finishReason: \${finishReason}\`,
-    );
-
-    state = { finishReason, iteration };
+const optionalNonEmpty = (value: string | undefined) => {
+  if (value === undefined) {
+    return {};
   }
 
-  const finalState = state;
+  const input = String.trim(value);
+  return String.isEmpty(input) ? {} : { input };
+};
 
-  if (
-    finalState.finishReason === "tool-calls" &&
-    finalState.iteration >= maxIterations
-  ) {
-    yield* events.reasoning(
-      \`Reached maximum iterations (\${maxIterations}). Stopping here.\`,
-    );
+type ToolStart = {
+  id: string;
+  name: string;
+  input?: string;
+  params?: unknown;
+};
+
+type ToolResult = {
+  id: string;
+  name: string;
+  result: unknown;
+  isFailure: boolean;
+};
+
+const toolStartInput = (part: ToolStart) => {
+  if (part.input !== undefined) {
+    return Effect.succeed(part.input);
   }
 
-  return finalState;
-});
-`;
+  if (part.params === undefined) {
+    return Effect.succeed(undefined);
+  }
 
-export const aiMailboxEventsContents = `import { ChatStreamPart } from "@repo/domain/Chat";
-import { type Cause, Queue } from "effect";
+  return stringifyValue(part.params);
+};
 
 /**
  * MailboxEvents - Typed event emitter for ChatStreamPart
@@ -925,21 +1044,44 @@ export const createMailboxEvents = (
       Queue.offer(queue, ChatStreamPart.cases.text.make({ delta })),
     reasoning: (delta: string) =>
       Queue.offer(queue, ChatStreamPart.cases.reasoning.make({ delta })),
-    toolStart: (
-      id: string,
-      params: {
-        name: string;
-        input?: string;
-      },
-    ) =>
-      Queue.offer(
-        queue,
-        ChatStreamPart.cases["tool-start"].make({
-          id,
-          name: params.name,
-          ...(params.input === undefined ? {} : { input: params.input }),
-        }),
-      ),
+    toolStart: (part: ToolStart) =>
+      Effect.gen(function* () {
+        const input = yield* toolStartInput(part);
+
+        yield* Queue.offer(
+          queue,
+          ChatStreamPart.cases["tool-start"].make({
+            id: part.id,
+            name: part.name,
+            ...optionalNonEmpty(input),
+          }),
+        );
+      }),
+    toolResult: (part: ToolResult) =>
+      Effect.gen(function* () {
+        const result = yield* stringifyValue(part.result);
+
+        if (part.isFailure) {
+          yield* Queue.offer(
+            queue,
+            ChatStreamPart.cases["tool-failure"].make({
+              id: part.id,
+              name: part.name,
+              error: result,
+            }),
+          );
+          return;
+        }
+
+        yield* Queue.offer(
+          queue,
+          ChatStreamPart.cases["tool-success"].make({
+            id: part.id,
+            name: part.name,
+            output: result,
+          }),
+        );
+      }),
     toolSuccess: (id: string, params: { name: string; output: string }) =>
       Queue.offer(
         queue,
@@ -978,6 +1120,16 @@ export const createMailboxEvents = (
         queue,
         ChatStreamPart.cases.error.make({ message, recoverable }),
       ),
+    unknownError: (error: unknown, recoverable = false) =>
+      Effect.gen(function* () {
+        const message =
+          typeof error === "string" ? error : yield* stringifyValue(error);
+
+        yield* Queue.offer(
+          queue,
+          ChatStreamPart.cases.error.make({ message, recoverable }),
+        );
+      }),
     end: Queue.end(queue),
   }) as const;
 `;
