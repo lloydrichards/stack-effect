@@ -268,6 +268,12 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
                 reason: "required-module",
               });
             }),
+          "required-capability": (dep) =>
+            Effect.fail(
+              new BlueprintFailure({
+                message: `Unresolved capability dependency: ${target.toKey()} requires module ${moduleId}, which needs ${dep.capability} on ${dep.target.toKey()}. Select a provider module explicitly.`,
+              }),
+            ),
         });
       }
 

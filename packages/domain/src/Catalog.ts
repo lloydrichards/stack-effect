@@ -8,6 +8,10 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
+export const ModuleCapability = Schema.String.pipe(
+  Schema.brand("ModuleCapability"),
+);
+
 export const TargetKind = Schema.Union([
   Schema.Literal("workspace"),
   Schema.Literal("package"),
@@ -225,6 +229,9 @@ export const Contribution = Schema.TaggedUnion({
  * - `required-target`: Target must exist as a workspace (no specific module required)
  * - `required-module`: Module must be attached to the specified target
  *                      (target existence is implicit - you can't attach a module to a non-existent target)
+ * - `required-capability`: Target must have a module that provides a capability
+ *                          such as `db-sql`. CLI prompts should resolve this to
+ *                          a concrete provider module before Blueprint resolution.
  */
 export const ModuleDependency = Schema.TaggedUnion({
   /**
@@ -243,6 +250,16 @@ export const ModuleDependency = Schema.TaggedUnion({
   "required-module": {
     target: TargetIdentity,
     moduleId: ModuleId,
+  },
+
+  /**
+   * Target must have a module that provides the requested capability.
+   * Interactive selection resolves this to a concrete provider module before
+   * Blueprint resolution; Blueprint treats unresolved capabilities as invalid.
+   */
+  "required-capability": {
+    target: TargetIdentity,
+    capability: ModuleCapability,
   },
 });
 
@@ -279,6 +296,10 @@ export const ModuleDefinition = Schema.Struct({
     Schema.withConstructorDefault(Effect.succeed("public" as const)),
   ),
   categories: Schema.Array(ModuleCategory).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
+  provides: Schema.Array(ModuleCapability).pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
@@ -371,6 +392,14 @@ export const CatalogTreeModule = Schema.Struct({
       moduleId: ModuleId,
     }),
   ),
+  requiredCapabilities: Schema.Array(
+    Schema.Struct({
+      targetKind: TargetKind,
+      targetName: Schema.String,
+      capability: ModuleCapability,
+    }),
+  ),
+  provides: Schema.Array(ModuleCapability),
   implies: Schema.Array(ModuleImplication),
 });
 
