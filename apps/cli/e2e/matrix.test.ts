@@ -4,19 +4,15 @@ import { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
 
-// ---------------------------------------------------------------------------
-// Matrix generation – derives valid combos from CatalogService at import time
-// ---------------------------------------------------------------------------
-
 /**
  * Target identity used in CLI --target flag (kind/name).
  * Modules that use identity-based supportedOn dictate the target name.
  * For kind-based modules (server, client), we use a conventional name.
  */
 interface MatrixEntry {
-  readonly target: string; // "kind/name" for --target
-  readonly modules: ReadonlyArray<string>; // module IDs for --modules
-  readonly label: string; // human-readable test name
+  readonly target: string;
+  readonly modules: ReadonlyArray<string>;
+  readonly label: string;
 }
 
 /**
@@ -24,13 +20,27 @@ interface MatrixEntry {
  * Tracks parent module and all optional children to add separately.
  */
 interface ChildrenMatrixEntry {
-  readonly target: string; // "kind/name" for --target
-  readonly parentModule: string; // parent module ID
+  readonly target: string;
+  readonly parentModule: string;
   readonly optionalChildren: ReadonlyArray<{
     readonly moduleId: string;
-    readonly childTarget: string; // target for the child module
+    readonly childTarget: string;
   }>;
-  readonly label: string; // human-readable test name
+  readonly label: string;
+}
+
+/**
+ * Entry for testing a module that requires a catalog capability with a concrete
+ * provider module selected from the current catalog.
+ */
+interface CapabilityMatrixEntry {
+  readonly requiringTarget: string;
+  readonly requiringModule: string;
+  readonly providerTarget: string;
+  readonly providerModule: string;
+  readonly providerCount: number;
+  readonly capability: string;
+  readonly label: string;
 }
 
 /**
@@ -42,7 +52,7 @@ const defaultTargetNames = new Map([
   ["client-react", "web"],
   ["client-foldkit", "app"],
   ["cli", "app"],
-  ["package", "domain"], // fallback; overridden by identity modules
+  ["package", "domain"],
 ]);
 
 /**
@@ -77,21 +87,15 @@ function groupModulesByTarget(
   return groups;
 }
 
-// ---------------------------------------------------------------------------
-// Build the matrix using CatalogService
-// ---------------------------------------------------------------------------
-
 const buildMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const entries: Array<MatrixEntry> = [];
 
-  // For each public target kind, get supported modules and group by identity
   for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
     const modules = yield* catalog.getSupportedModules(kind);
     const grouped = groupModulesByTarget(modules);
 
     for (const [target, moduleIds] of grouped) {
-      // Individual module tests
       for (const moduleId of moduleIds) {
         entries.push({
           target,
@@ -100,7 +104,6 @@ const buildMatrix = Effect.gen(function* () {
         });
       }
 
-      // All modules together (only if > 1 module)
       if (moduleIds.length > 1) {
         entries.push({
           target,
@@ -118,20 +121,12 @@ const matrix = Effect.runSync(
   buildMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
-// Separate entries that have cross-target implications (client modules)
 const singleTargetEntries = matrix.filter(
   (e) =>
     !e.target.startsWith("client-react") &&
     !e.target.startsWith("client-foldkit"),
 );
 
-// ---------------------------------------------------------------------------
-// Build the optional children matrix - tests modules with all optional children
-// ---------------------------------------------------------------------------
-
-/**
- * Get the target string for a module based on its supportedOn configuration.
- */
 function getModuleTarget(mod: {
   supportedOn: ReadonlyArray<
     | { _tag: "kind"; kind: string }
@@ -145,14 +140,16 @@ function getModuleTarget(mod: {
     : `${s.kind}/${defaultTargetNames.get(s.kind) ?? s.kind}`;
 }
 
+function identityToTarget(identity: { kind: string; name: string }): string {
+  return `${identity.kind}/${identity.name}`;
+}
+
 const buildChildrenMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const entries: Array<ChildrenMatrixEntry> = [];
 
-  // Get all modules and find those with optional children
   const allModules = catalog.getModules();
 
-  // Build a lookup map for quick module access
   const moduleMap = new Map(allModules.map((m) => [m.id, m]));
 
   for (const mod of allModules) {
@@ -162,16 +159,13 @@ const buildChildrenMatrix = Effect.gen(function* () {
 
     if (!children || children.length === 0) continue;
 
-    // Filter to only optional children
     const optionalChildren = children.filter(
       (c) => c.requirement === "optional",
     );
     if (optionalChildren.length === 0) continue;
 
-    // Get target for parent module
     const parentTarget = getModuleTarget(mod);
 
-    // Get targets for each optional child
     const childrenWithTargets = optionalChildren.map((child) => {
       const childMod = moduleMap.get(ModuleId.make(child.moduleId));
       return {
@@ -195,9 +189,40 @@ const childrenMatrix = Effect.runSync(
   buildChildrenMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
-// ---------------------------------------------------------------------------
-// Full-stack combos: pair each client combo with its required server modules
-// ---------------------------------------------------------------------------
+const buildCapabilityMatrix = Effect.gen(function* () {
+  const catalog = yield* CatalogService;
+  const entries: Array<CapabilityMatrixEntry> = [];
+  const allModules = catalog.getModules();
+
+  for (const mod of allModules) {
+    for (const dependency of mod.dependencies) {
+      if (dependency._tag !== "required-capability") continue;
+
+      const providers = catalog.getCapabilityProviders({
+        capability: dependency.capability,
+        target: dependency.target,
+      });
+
+      for (const provider of providers) {
+        entries.push({
+          requiringTarget: getModuleTarget(mod),
+          requiringModule: mod.id,
+          providerTarget: identityToTarget(dependency.target),
+          providerModule: provider.id,
+          providerCount: providers.length,
+          capability: dependency.capability,
+          label: `${getModuleTarget(mod)} + ${mod.id} with ${dependency.capability} provider ${provider.id}`,
+        });
+      }
+    }
+  }
+
+  return entries;
+});
+
+const capabilityMatrix = Effect.runSync(
+  buildCapabilityMatrix.pipe(Effect.provide(CatalogService.layer)),
+);
 
 const buildFullStackMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
@@ -245,6 +270,27 @@ const fullStackMatrix = Effect.runSync(
   buildFullStackMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
+const expectInstallPasses = (project: {
+  install: () => Effect.Effect<{
+    readonly exitCode: number;
+    readonly stdout: string;
+    readonly stderr: string;
+  }>;
+}) =>
+  project
+    .install()
+    .pipe(
+      Effect.flatMap((result) =>
+        result.exitCode === 0
+          ? Effect.void
+          : Effect.die(
+              new Error(
+                `Install failed (exit ${result.exitCode})\nstdout: ${result.stdout.slice(0, 500)}\nstderr: ${result.stderr.slice(0, 500)}`,
+              ),
+            ),
+      ),
+    );
+
 /**
  * Acceptance tests for various module combinations in the matrix.
  *
@@ -264,11 +310,9 @@ describe("matrix", () => {
             const name = `matrix-${entry.target.replace("/", "-")}-${entry.modules.join("-")}`;
             const root = `${cli.workdir}/${name}`;
 
-            // Init project
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            // Add modules to target
             yield* cli.run(
               "add",
               "--yes",
@@ -281,8 +325,8 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Validate
             yield* cli.withinProject(name, function* (project) {
+              yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
           }).pipe(Effect.provide(CLI.layer)),
@@ -301,11 +345,9 @@ describe("matrix", () => {
             const name = `matrix-fullstack-${entry.clientModules.join("-")}`;
             const root = `${cli.workdir}/${name}`;
 
-            // Init project
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            // Add server modules first (satisfies implications)
             yield* cli.run(
               "add",
               "--yes",
@@ -318,7 +360,6 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Add client modules
             yield* cli.run(
               "add",
               "--yes",
@@ -331,8 +372,8 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Validate full project
             yield* cli.withinProject(name, function* (project) {
+              yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
           }).pipe(Effect.provide(CLI.layer)),
@@ -342,7 +383,6 @@ describe("matrix", () => {
   });
 
   layer(CLI.layer)("full-stack all client modules together", (it) => {
-    // Group full-stack entries by client target kind
     const byClientKind = new Map<
       string,
       { serverModules: Set<string>; clientModules: Set<string> }
@@ -370,11 +410,9 @@ describe("matrix", () => {
             const name = `matrix-fullstack-all-${kindSlug}`;
             const root = `${cli.workdir}/${name}`;
 
-            // Init
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            // Add all server modules
             yield* cli.run(
               "add",
               "--yes",
@@ -387,7 +425,6 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Add all client modules
             yield* cli.run(
               "add",
               "--yes",
@@ -400,8 +437,8 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Validate
             yield* cli.withinProject(name, function* (project) {
+              yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
           }).pipe(Effect.provide(CLI.layer)),
@@ -424,11 +461,9 @@ describe("matrix", () => {
             const name = `matrix-children-${entry.target.replace("/", "-")}-${sluggedModules}`;
             const root = `${cli.workdir}/${name}`;
 
-            // Init project
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            // Add parent module to its target
             yield* cli.run(
               "add",
               "--yes",
@@ -441,7 +476,6 @@ describe("matrix", () => {
             );
             yield* cli.expectExitCode(0);
 
-            // Add each optional child to its respective target
             for (const child of entry.optionalChildren) {
               yield* cli.run(
                 "add",
@@ -456,8 +490,8 @@ describe("matrix", () => {
               yield* cli.expectExitCode(0);
             }
 
-            // Validate
             yield* cli.withinProject(name, function* (project) {
+              yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
           }).pipe(Effect.provide(CLI.layer)),
@@ -465,4 +499,46 @@ describe("matrix", () => {
       );
     }
   });
+
+  if (capabilityMatrix.length > 0) {
+    layer(CLI.layer)("modules with required capabilities", (it) => {
+      for (const entry of capabilityMatrix) {
+        it.effect(
+          entry.label,
+          () =>
+            Effect.gen(function* () {
+              const cli = yield* CLI;
+              const name = `matrix-capability-${entry.capability}-${entry.requiringModule}-${entry.providerModule}`;
+              const root = `${cli.workdir}/${name}`;
+
+              yield* cli.run("init", name, "--yes", "--root", cli.workdir);
+              yield* cli.expectExitCode(0);
+
+              yield* cli.run(
+                "add",
+                "--yes",
+                "--root",
+                root,
+                "--target",
+                entry.requiringTarget,
+                "--modules",
+                entry.requiringModule,
+              );
+
+              if (entry.providerCount === 1) {
+                yield* cli.expectExitCode(0);
+
+                yield* cli.withinProject(name, function* (project) {
+                  yield* expectInstallPasses(project);
+                  yield* project.expectTypeCheckPasses();
+                });
+              } else {
+                yield* cli.expectExitCode(1);
+              }
+            }).pipe(Effect.provide(CLI.layer)),
+          { timeout: 180_000 },
+        );
+      }
+    });
+  }
 });
