@@ -96,28 +96,36 @@ const resolveContributionTokens = (
 ): ReadonlyArray<typeof Contribution.Type> => {
   const resolveString = (value: string) => context.resolve(value);
 
-  return Arr.map(
+  return Arr.flatMap(
     contributions,
     Contribution.match({
-      file: (c): typeof Contribution.Type =>
+      file: (c): ReadonlyArray<typeof Contribution.Type> => [
         Contribution.cases.file.make({
           path: resolveString(c.path),
           contents: resolveString(c.contents),
           conflictOnModify: c.conflictOnModify,
         }),
-      "pkg-json-entry": (c): typeof Contribution.Type =>
-        Contribution.cases["pkg-json-entry"].make({
-          path: resolveString(c.path),
-          field: c.field,
-          name: c.name,
-          value: c.value,
-        }),
-      "barrel-export": (c): typeof Contribution.Type =>
+      ],
+      "pkg-json-entry": (c): ReadonlyArray<typeof Contribution.Type> => {
+        const name = resolveString(c.name).trim();
+        if (name.length === 0) return [];
+
+        return [
+          Contribution.cases["pkg-json-entry"].make({
+            path: resolveString(c.path),
+            field: c.field,
+            name,
+            value: resolveString(c.value),
+          }),
+        ];
+      },
+      "barrel-export": (c): ReadonlyArray<typeof Contribution.Type> => [
         Contribution.cases["barrel-export"].make({
           barrelPath: resolveString(c.barrelPath),
           exportPath: c.exportPath,
         }),
-      "ts-call-arg": (c): typeof Contribution.Type =>
+      ],
+      "ts-call-arg": (c): ReadonlyArray<typeof Contribution.Type> => [
         Contribution.cases["ts-call-arg"].make({
           path: resolveString(c.path),
           targetVariable: c.targetVariable,
@@ -125,7 +133,8 @@ const resolveContributionTokens = (
           argument: c.argument,
           import: c.import,
         }),
-      "ts-object-field": (c): typeof Contribution.Type =>
+      ],
+      "ts-object-field": (c): ReadonlyArray<typeof Contribution.Type> => [
         Contribution.cases["ts-object-field"].make({
           path: resolveString(c.path),
           targetVariable: c.targetVariable,
@@ -134,13 +143,15 @@ const resolveContributionTokens = (
           value: c.value,
           import: c.import,
         }),
-      "jsx-slot": (c): typeof Contribution.Type =>
+      ],
+      "jsx-slot": (c): ReadonlyArray<typeof Contribution.Type> => [
         Contribution.cases["jsx-slot"].make({
           path: resolveString(c.path),
           slotId: c.slotId,
           content: c.content,
           import: c.import,
         }),
+      ],
     }),
   );
 };
