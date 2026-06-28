@@ -74,7 +74,10 @@ const ApiRouter = HttpApiBuilder.layer(Api).pipe(
 );
 
 // All Routers - modules append additional routers here via Layer.mergeAll
-const AllRouters = Layer.mergeAll(ApiRouter);
+const RouterDependencies = Layer.mergeAll(Layer.empty);
+const AllRouters = Layer.mergeAll(ApiRouter).pipe(
+  Layer.provide(RouterDependencies),
+);
 
 // ============================================================================
 // Server Launch
