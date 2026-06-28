@@ -22,6 +22,7 @@ export const ChatClientLive = Layer.effect(
 `;
 
 export const foldkitChatFeatureContents = `import {
+  ChatId,
   ChatMessage,
   ChatStreamPart,
   MessageSegment,
@@ -53,6 +54,7 @@ const ChatStateSchema = Schema.Literals([
 ]);
 
 export const Model = Schema.Struct({
+  chatId: Schema.Option(ChatId),
   chatInput: Schema.String,
   chatHistory: Schema.Array(ChatMessageSchema),
   chatState: ChatStateSchema,
@@ -67,6 +69,11 @@ export type Model = typeof Model.Type;
 
 export const UpdatedChatInput = m("UpdatedChatInput", { value: Schema.String });
 export const SubmittedChatMessage = m("SubmittedChatMessage");
+export const StartedChat = m("StartedChat", {
+  chatId: ChatId,
+  messagesJson: Schema.String,
+});
+export const FailedStartChat = m("FailedStartChat", { error: Schema.String });
 export const ReceivedChatPart = m("ReceivedChatPart", {
   part: ChatStreamPart,
 });
@@ -76,6 +83,8 @@ export const FailedChatStream = m("FailedChatStream", { error: Schema.String });
 export const Message = Schema.Union([
   UpdatedChatInput,
   SubmittedChatMessage,
+  StartedChat,
+  FailedStartChat,
   ReceivedChatPart,
   CompletedChatStream,
   FailedChatStream,
@@ -93,6 +102,7 @@ export const init = (): readonly [
   ReadonlyArray<Command.Command<Message>>,
 ] => [
   {
+    chatId: Option.none(),
     chatInput: "",
     chatHistory: [],
     chatState: "idle",
@@ -227,27 +237,54 @@ export const update = (
     SubmittedChatMessage: () => {
       const trimmed = model.chatInput.trim();
       if (trimmed === "") return [model, []] as const;
+      const nextHistory = [
+        ...model.chatHistory,
+        {
+          role: "user" as const,
+          content: trimmed,
+          segments: Option.none(),
+        },
+      ];
+      const messagesJson = Schema.encodeUnknownSync(ChatMessagesJson)(
+        nextHistory.map((msg) => ({
+          role: msg.role,
+          content: msg.content,
+        })),
+      );
 
       return [
         evo(model, {
           chatInput: () => "",
-          chatHistory: (prev) => [
-            ...prev,
-            {
-              role: "user" as const,
-              content: trimmed,
-              segments: Option.none(),
-            },
-          ],
+          chatHistory: () => nextHistory,
           chatState: () => "streaming" as const,
-          chatStreaming: () => true,
+          chatStreaming: () => Option.isSome(model.chatId),
           chatSegments: () => [],
           chatReasoning: () => Option.none(),
           chatError: () => Option.none(),
         }),
-        [],
+        Option.match(model.chatId, {
+          onNone: () => [StartChat({ messagesJson })],
+          onSome: () => [],
+        }),
       ] as const;
     },
+    StartedChat: ({ chatId }) =>
+      [
+        evo(model, {
+          chatId: () => Option.some(chatId),
+          chatStreaming: () => true,
+        }),
+        [],
+      ] as const,
+    FailedStartChat: ({ error }) =>
+      [
+        evo(model, {
+          chatState: () => "error" as const,
+          chatStreaming: () => false,
+          chatError: () => Option.some(error),
+        }),
+        [],
+      ] as const,
     ReceivedChatPart: ({ part }) => [applyChatPart(model, part), []] as const,
     CompletedChatStream: () =>
       [
@@ -279,13 +316,38 @@ export const update = (
   });
 };
 
+// COMMAND
+
+export const StartChat = Command.define(
+  "StartChat",
+  { messagesJson: Schema.String },
+  StartedChat,
+  FailedStartChat,
+)(({ messagesJson }) =>
+  Effect.gen(function* () {
+    const client = yield* ChatClient;
+    const { chatId } = yield* client.chat_start();
+    return StartedChat({ chatId, messagesJson });
+  }).pipe(
+    Effect.catch(() =>
+      Effect.succeed(FailedStartChat({ error: "Failed to start chat" })),
+    ),
+    Effect.provide(ChatClientLive),
+  ),
+);
+
 // SUBSCRIPTION
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   chatStream: entry(
-    { isStreaming: Schema.Boolean, messagesJson: Schema.String },
+    {
+      chatId: Schema.Option(ChatId),
+      isStreaming: Schema.Boolean,
+      messagesJson: Schema.String,
+    },
     {
       modelToDependencies: (model) => ({
+        chatId: model.chatId,
         isStreaming: model.chatStreaming,
         messagesJson: model.chatStreaming
           ? Schema.encodeUnknownSync(ChatMessagesJson)(
@@ -296,7 +358,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
             )
           : "[]",
       }),
-      dependenciesToStream: ({ isStreaming, messagesJson }) =>
+      dependenciesToStream: ({ chatId, isStreaming, messagesJson }) =>
         isStreaming
           ? Effect.gen(function* () {
               const client = yield* ChatClient;
@@ -304,10 +366,14 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                 yield* Schema.decodeUnknownEffect(ChatMessagesJson)(
                   messagesJson,
                 );
-              return client.chat_ask({ messages }).pipe(
-                Stream.map((part) => ReceivedChatPart({ part })),
-                Stream.concat(Stream.make(CompletedChatStream())),
-              );
+              return Option.match(chatId, {
+                onNone: () => Stream.empty,
+                onSome: (id) =>
+                  client.chat_ask({ chatId: id, messages }).pipe(
+                    Stream.map((part) => ReceivedChatPart({ part })),
+                    Stream.concat(Stream.make(CompletedChatStream())),
+                  ),
+              });
             }).pipe(
               Stream.unwrap,
               Stream.catch(() =>
@@ -351,6 +417,19 @@ export const view = <ParentMessage>(
           h.div(
             [h.Class("flex gap-2")],
             [
+              ...Option.match(model.chatId, {
+                onNone: (): Array<Html> => [],
+                onSome: (chatId) => [
+                  h.span(
+                    [
+                      h.Class(
+                        "inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] text-muted-foreground",
+                      ),
+                    ],
+                    [chatId],
+                  ),
+                ],
+              }),
               ...(isStreaming
                 ? [
                     h.span(

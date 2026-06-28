@@ -30,12 +30,23 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
 `;
 
 // Client chat atom (uses ChatRpcClient instead of RpcClient)
-export const clientChatAtomContents = `import { ChatStreamPart, type ChatMessage, type ChatResponse, type ToolCall } from "@repo/domain/Chat";
+export const clientChatAtomContents = `import { ChatStreamPart, type ChatId, type ChatMessage, type ChatResponse, type ToolCall } from "@repo/domain/Chat";
 import { Effect, Stream } from "effect";
 import { Atom, type Atom as AtomType } from "effect/unstable/reactivity";
 import { ChatRpcClient } from "../chat-rpc-client";
 
 const chatRuntime = Atom.runtime(ChatRpcClient.layer);
+
+export const chatStartAtom: AtomType.AtomResultFn<
+  void,
+  { readonly chatId: ChatId },
+  unknown
+> = chatRuntime.fn(() =>
+  Effect.gen(function* () {
+    const rpc = yield* ChatRpcClient;
+    return yield* rpc.client.chat_start();
+  }),
+);
 
 export const accumulateChatResponse = (
   state: ChatResponse,
@@ -169,14 +180,17 @@ const updateToolResult = (
 };
 
 export const chatAtom: AtomType.AtomResultFn<
-  readonly ChatMessage[],
+  {
+    readonly chatId: ChatId;
+    readonly messages: readonly ChatMessage[];
+  },
   ChatResponse,
   unknown
-> = chatRuntime.fn((messages: readonly ChatMessage[]) => {
+> = chatRuntime.fn(({ chatId, messages }) => {
   return Stream.unwrap(
     Effect.gen(function* () {
       const rpc = yield* ChatRpcClient;
-      return rpc.client.chat_ask({ messages });
+      return rpc.client.chat_ask({ chatId, messages });
     }),
   ).pipe(
     Stream.tapError((error: unknown) =>
@@ -210,10 +224,10 @@ export const chatAtom: AtomType.AtomResultFn<
 
 // Client chat box component (unchanged from before)
 export const clientChatBoxContents = `import { useAtom } from "@effect/atom-react";
-import type { ChatResponse, MessageSegment } from "@repo/domain/Chat";
+import type { ChatId, ChatResponse, MessageSegment } from "@repo/domain/Chat";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { chatAtom } from "@/lib/atoms/chat-atom";
+import { chatAtom, chatStartAtom } from "@/lib/atoms/chat-atom";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -235,6 +249,8 @@ type Message = {
 
 export function ChatBox() {
   const [result, runChat] = useAtom(chatAtom);
+  const [startResult, startChat] = useAtom(chatStartAtom);
+  const [chatId, setChatId] = useState<ChatId | null>(null);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState<Message[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -244,6 +260,9 @@ export function ChatBox() {
       content: string;
     }>
   >([]);
+  const pendingMessagesRef = useRef<typeof lastSentMessagesRef.current | null>(
+    null,
+  );
   const readinessAttemptRef = useRef(0);
   const lastCompletionKeyRef = useRef<string | null>(null);
 
@@ -256,8 +275,19 @@ export function ChatBox() {
     currentResult._tag === "initial" ? [] : currentResult.segments;
 
   const isWaiting = AsyncResult.isWaiting(result);
+  const isStarting = AsyncResult.isWaiting(startResult);
   const isFailure = AsyncResult.isFailure(result);
   const isStreaming = currentResult._tag === "streaming";
+
+  useEffect(() => {
+    const started = AsyncResult.getOrElse(startResult, () => null);
+    if (!started) return;
+    setChatId(started.chatId);
+    const pending = pendingMessagesRef.current;
+    if (!pending) return;
+    pendingMessagesRef.current = null;
+    runChat({ chatId: started.chatId, messages: pending });
+  }, [runChat, startResult]);
 
   const sendMessages = (
     messages: Array<{
@@ -267,7 +297,12 @@ export function ChatBox() {
   ) => {
     lastSentMessagesRef.current = messages;
     readinessAttemptRef.current = 0;
-    runChat(messages);
+    if (chatId) {
+      runChat({ chatId, messages });
+      return;
+    }
+    pendingMessagesRef.current = messages;
+    startChat();
   };
 
   useEffect(() => {
@@ -280,11 +315,16 @@ export function ChatBox() {
 
     readinessAttemptRef.current += 1;
     const timeoutId = window.setTimeout(() => {
-      runChat(lastSentMessagesRef.current);
+      if (chatId) {
+        runChat({ chatId, messages: lastSentMessagesRef.current });
+        return;
+      }
+      pendingMessagesRef.current = lastSentMessagesRef.current;
+      startChat();
     }, 600 * readinessAttemptRef.current);
 
     return () => window.clearTimeout(timeoutId);
-  }, [currentResult, isFailure, runChat]);
+  }, [chatId, currentResult, isFailure, runChat, startChat]);
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -358,6 +398,16 @@ export function ChatBox() {
       <CardHeader>
         <CardTitle>Chat (RPC)</CardTitle>
         <div className="flex gap-2 mt-1">
+          {chatId && (
+            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 font-mono text-[0.65rem] text-muted-foreground">
+              {chatId}
+            </span>
+          )}
+          {isStarting && (
+            <span className="inline-flex items-center rounded-full border border-border bg-muted px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-muted-foreground">
+              Starting
+            </span>
+          )}
           {isStreaming && (
             <span className="inline-flex items-center rounded-full border border-border bg-secondary px-2 py-0.5 text-[0.65rem] uppercase tracking-[0.2em] text-secondary-foreground">
               Streaming
@@ -475,15 +525,15 @@ export function ChatBox() {
           <Input
             type="text"
             placeholder="Send a message"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSend()}
-            disabled={isWaiting || isStreaming}
-          />
-          <Button
-            onClick={handleSend}
-            disabled={!input.trim() || isWaiting || isStreaming}
-          >
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSend()}
+              disabled={isStarting || isWaiting || isStreaming}
+            />
+            <Button
+              onClick={handleSend}
+              disabled={!input.trim() || isStarting || isWaiting || isStreaming}
+            >
             Send
           </Button>
         </div>
