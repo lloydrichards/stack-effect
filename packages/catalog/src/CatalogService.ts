@@ -30,6 +30,48 @@ const supportedOnTargetKind = Match.type<
   Match.exhaustive,
 );
 
+const hasVisibility = (
+  definition: { readonly visibility?: typeof Visibility.Type },
+  visibility: typeof Visibility.Type | undefined,
+): boolean =>
+  visibility === undefined ||
+  (definition.visibility ?? "public") === visibility;
+
+const moduleSupportsTargetKind = (
+  mod: typeof import("@repo/domain/Catalog").ModuleDefinition.Type,
+  kind: typeof TargetKind.Type,
+): boolean =>
+  Arr.some(
+    mod.supportedOn,
+    (supportedOn) => supportedOnTargetKind(supportedOn) === kind,
+  );
+
+const requiredModuleDependency = Match.type<
+  typeof import("@repo/domain/Catalog").ModuleDependency.Type
+>().pipe(
+  Match.tag("required-module", (dep) =>
+    Result.succeed({
+      targetKind: dep.target.kind,
+      targetName: dep.target.name,
+      moduleId: dep.moduleId,
+    }),
+  ),
+  Match.orElse(() => Result.fail("skip" as const)),
+);
+
+const requiredCapabilityDependency = Match.type<
+  typeof import("@repo/domain/Catalog").ModuleDependency.Type
+>().pipe(
+  Match.tag("required-capability", (dep) =>
+    Result.succeed({
+      targetKind: dep.target.kind,
+      targetName: dep.target.name,
+      capability: dep.capability,
+    }),
+  ),
+  Match.orElse(() => Result.fail("skip" as const)),
+);
+
 export class CatalogService extends Context.Service<CatalogService>()(
   "CatalogService",
   {
@@ -124,14 +166,12 @@ export class CatalogService extends Context.Service<CatalogService>()(
       const getTargetKinds = (options?: {
         visibility?: typeof Visibility.Type;
       }): ReadonlyArray<typeof TargetKind.Type> => {
-        const kinds = Arr.fromIterable(targetIndex.keys());
-        if (options?.visibility) {
-          return Arr.filter(kinds, (kind) => {
-            const target = targetIndex.get(kind);
-            return (target?.visibility ?? "public") === options.visibility;
-          });
-        }
-        return kinds;
+        return Arr.map(
+          Arr.filter(Arr.fromIterable(targetIndex.values()), (target) =>
+            hasVisibility(target, options?.visibility),
+          ),
+          (target) => target.kind,
+        );
       };
 
       const getSupportedModules = Effect.fn(
@@ -141,17 +181,12 @@ export class CatalogService extends Context.Service<CatalogService>()(
         options?: { visibility?: typeof Visibility.Type },
       ) {
         yield* getTarget(kind);
-        return Arr.filter(Arr.fromIterable(moduleIndex.values()), (mod) => {
-          const kindMatch = Arr.some(
-            mod.supportedOn,
-            (s) => supportedOnTargetKind(s) === kind,
-          );
-          if (!kindMatch) return false;
-          if (options?.visibility) {
-            return (mod.visibility ?? "public") === options.visibility;
-          }
-          return true;
-        });
+        return Arr.filter(
+          Arr.fromIterable(moduleIndex.values()),
+          (mod) =>
+            moduleSupportsTargetKind(mod, kind) &&
+            hasVisibility(mod, options?.visibility),
+        );
       });
 
       const getCapabilityProviders = (options: {

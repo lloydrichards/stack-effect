@@ -36,6 +36,7 @@
     "build:types": "tsc --emitDeclarationOnly",
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts",
+    "test": "vitest run src",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "type-check": "tsc --noEmit",
     "clean": "git clean -xdf .cache .turbo dist node_modules"
