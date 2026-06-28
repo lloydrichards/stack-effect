@@ -1,4 +1,5 @@
 import {
+  ModuleCapability,
   type ModuleDefinition,
   ModuleId,
   TargetIdentity,
@@ -17,6 +18,15 @@ import {
   aiThinkToolkitContents,
   aiWebFetchToolkitContents,
 } from "../content/ai";
+import {
+  dbDatabaseContents,
+  dbHealthCheckContents,
+  dbHealthScriptContents,
+  dbIndexContents,
+  dbMigrateScriptContents,
+  dbMigration0001CreateDbHealthContents,
+  dbMigrationsContents,
+} from "../content/db";
 import {
   presenceClientGeneratorContents,
   presenceIndexContents,
@@ -464,6 +474,103 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "barrel-export",
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./workflow/AgenticLoop",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("package-db-sqlite"),
+    title: "SQLite Database",
+    description: "Reusable Effect SQL SQLite package with migrations",
+    provides: [ModuleCapability.make("db-sql")],
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "db",
+        }),
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: dbIndexContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Database.ts",
+        contents: dbDatabaseContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Migrations.ts",
+        contents: dbMigrationsContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/HealthCheck.ts",
+        contents: dbHealthCheckContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/migrations/0001_create_db_health.ts",
+        contents: dbMigration0001CreateDbHealthContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scripts/migrate.ts",
+        contents: dbMigrateScriptContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scripts/health.ts",
+        contents: dbHealthScriptContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}",
+        value: "4.0.0-beta.80",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}",
+        value: "4.0.0-beta.80",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}tsx{{/if}}",
+        value: "^4.21.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: ".",
+        value: "./src/index.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "db:migrate",
+        value:
+          "{{#if runtime=bun}}bun run scripts/migrate.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/migrate.ts{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "db:health",
+        value:
+          "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}",
       },
     ],
   },
