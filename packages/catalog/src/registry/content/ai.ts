@@ -11,16 +11,16 @@ const AnthropicLive = AnthropicClient.layerConfig({
   apiKey: Config.redacted("ANTHROPIC_API_KEY"),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
-export const SmartModelLive = AnthropicLanguageModel.layer({
-  model: "claude-sonnet-4-5",
-}).pipe(Layer.provide(AnthropicLive));
+export const SmartModelLive = AnthropicLanguageModel.model(
+  "claude-sonnet-4-5",
+).pipe(Layer.provide(AnthropicLive));
 
-export const FastModelLive = AnthropicLanguageModel.layer({
-  model: "claude-haiku-4-5",
-}).pipe(Layer.provide(AnthropicLive));
+export const FastModelLive = AnthropicLanguageModel.model(
+  "claude-haiku-4-5",
+).pipe(Layer.provide(AnthropicLive));
 `;
 
-// Think Toolkit - minimal required toolkit for ChatService
+// Think Toolkit - minimal required toolkit for AiChatService
 export const aiThinkToolkitContents = `import { Effect, Schema, String } from "effect";
 import { Tool, Toolkit } from "effect/unstable/ai";
 
@@ -69,7 +69,7 @@ export const ChatToolkit = Toolkit.merge(ThinkToolkit);
 // AST can append additional toolkit layers to this merge call
 export const ChatToolkitLive = Layer.mergeAll(ThinkToolkitLive);
 
-export class ChatService extends Context.Service<ChatService>()("ChatService", {
+export class AiChatService extends Context.Service<AiChatService>()("AiChatService", {
   make: Effect.gen(function* () {
     const toolkit = yield* ChatToolkit;
 
@@ -115,7 +115,7 @@ export class ChatService extends Context.Service<ChatService>()("ChatService", {
   }),
 }) {}
 
-export const ChatServiceLive = Layer.effect(ChatService)(ChatService.make).pipe(
+export const AiChatServiceLive = Layer.effect(AiChatService)(AiChatService.make).pipe(
   Layer.provide(ChatToolkitLive),
 );
 `;
