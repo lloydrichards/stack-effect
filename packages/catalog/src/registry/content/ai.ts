@@ -96,7 +96,7 @@ export class AiChatService extends Context.Service<AiChatService>()("AiChatServi
             \`);
 
         const session = yield* Chat.fromPrompt(
-          Prompt.make(history).pipe(Prompt.setSystem(systemMessage)),
+          Prompt.make(history).pipe(Prompt.appendSystem(systemMessage)),
         );
 
         yield* loop.run({
