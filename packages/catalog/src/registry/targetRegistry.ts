@@ -374,6 +374,13 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "dev",
+        value: "bun run src/index.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev:watch",
         value: "bun --watch run src/index.ts",
       },
       {

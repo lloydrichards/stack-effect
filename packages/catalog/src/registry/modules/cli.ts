@@ -1,9 +1,14 @@
 import {
   type ModuleDefinition,
   ModuleId,
+  TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { cliHelloCommandContents } from "../content/cli";
+import {
+  cliAskCommandContents,
+  cliChatDriverContents,
+  cliHelloCommandContents,
+} from "../content/cli";
 
 /**
  * CLI modules - subcommands and services for CLI applications
@@ -30,6 +35,86 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./commands/hello",
           namedImports: ["hello"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("chat-cli-driver"),
+    title: "Chat CLI Driver",
+    description: "Shared direct-AI chat plumbing for CLI chat commands",
+    visibility: "internal",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-chat"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("ai-chat-service"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/chat/ChatDriver.ts",
+        contents: cliChatDriverContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/ai",
+        value: "workspace:*",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "workspace:*",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("chat-ask-command"),
+    title: "Ask Command",
+    description: "One-shot AI ask command for CLI applications",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("cli"),
+          name: "app",
+        }),
+        moduleId: ModuleId.make("chat-cli-driver"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/commands/ask.ts",
+        contents: cliAskCommandContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "AllCommands",
+        functionName: "Command.withSubcommands",
+        argument: "ask",
+        import: {
+          moduleSpecifier: "./commands/ask",
+          namedImports: ["ask"],
         },
       },
     ],
