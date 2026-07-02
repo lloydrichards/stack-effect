@@ -260,6 +260,72 @@ describe("add", () => {
     );
 
     it.effect(
+      "terminal chat command scaffolds interactive CLI chat without ask command",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const root = `${cli.workdir}/terminal-chat-test`;
+
+          yield* cli.run(
+            "init",
+            "terminal-chat-test",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "cli/app",
+            "--modules",
+            "terminal-chat-command",
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("terminal-chat-test", function* (project) {
+            yield* project.expectFileExists(
+              "apps/cli-app/src/commands/chat.ts",
+            );
+            yield* project.expectFileExists(
+              "apps/cli-app/src/chat/TerminalChat.ts",
+            );
+            yield* project.expectFileExists(
+              "apps/cli-app/src/chat/ChatDriver.ts",
+            );
+            yield* project.expectFileExists("packages/ai/package.json");
+            yield* project.expectFileExists("packages/domain/package.json");
+            yield* project.expectFileContaining(
+              "apps/cli-app/src/index.ts",
+              "chat",
+            );
+            yield* project.expectFileContaining(
+              "apps/cli-app/package.json",
+              '"@repo/ai": "workspace:*"',
+            );
+            yield* project.expectFileContaining(
+              "apps/cli-app/package.json",
+              '"@repo/domain": "workspace:*"',
+            );
+            yield* project.expectFileContaining(
+              "apps/cli-app/package.json",
+              '"effect-boxes": "^0.16.1"',
+            );
+            yield* project.expectFileNotExists(
+              "apps/cli-app/src/commands/ask.ts",
+            );
+            yield* project.expectFileNotExists("apps/server-api/package.json");
+            yield* project.expectTypeCheckPasses();
+          });
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 120_000 },
+    );
+
+    it.effect(
       "client-foldkit target scaffolds with rest module when server exists",
       () =>
         Effect.gen(function* () {

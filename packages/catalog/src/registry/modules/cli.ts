@@ -8,6 +8,8 @@ import {
   cliAskCommandContents,
   cliChatDriverContents,
   cliHelloCommandContents,
+  cliTerminalChatCommandContents,
+  cliTerminalChatContents,
 } from "../content/cli";
 
 /**
@@ -115,6 +117,52 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./commands/ask",
           namedImports: ["ask"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("terminal-chat-command"),
+    title: "Terminal Chat Command",
+    description: "Interactive terminal AI chat command for CLI applications",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("cli"),
+          name: "app",
+        }),
+        moduleId: ModuleId.make("chat-cli-driver"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/commands/chat.ts",
+        contents: cliTerminalChatCommandContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/chat/TerminalChat.ts",
+        contents: cliTerminalChatContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect-boxes",
+        value: "^0.16.1",
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "AllCommands",
+        functionName: "Command.withSubcommands",
+        argument: "chat",
+        import: {
+          moduleSpecifier: "./commands/chat",
+          namedImports: ["chat"],
         },
       },
     ],
