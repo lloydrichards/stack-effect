@@ -118,6 +118,7 @@ export interface ProjectContext {
   readonly expectTypeCheckPasses: () => Effect.Effect<void>;
   readonly expectTestsPasses: () => Effect.Effect<void>;
   readonly expectFileExists: (relativePath: string) => Effect.Effect<void>;
+  readonly expectFileNotExists: (relativePath: string) => Effect.Effect<void>;
   readonly expectFileContaining: (
     relativePath: string,
     pattern: string | RegExp,
@@ -167,6 +168,18 @@ const makeProjectContext = (
           exists
             ? Effect.void
             : Effect.die(new Error(`Expected file to exist: ${relativePath}`)),
+        ),
+        Effect.orDie,
+      ),
+
+    expectFileNotExists: (relativePath) =>
+      fs.exists(path.join(projectDir, relativePath)).pipe(
+        Effect.flatMap((exists) =>
+          exists
+            ? Effect.die(
+                new Error(`Expected file NOT to exist: ${relativePath}`),
+              )
+            : Effect.void,
         ),
         Effect.orDie,
       ),
