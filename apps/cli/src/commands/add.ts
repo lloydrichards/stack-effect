@@ -27,6 +27,8 @@ import {
   Ref,
   Result,
   Schedule,
+  Schema,
+  Terminal,
 } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
@@ -56,9 +58,25 @@ const modulesFlag = Flag.string("modules").pipe(
   ),
 );
 
+const TargetNameInput = Schema.Trim.check(
+  Schema.isNonEmpty({ message: "Target name cannot be empty" }),
+);
+
+const validateTargetName = (value: string) =>
+  Schema.decodeUnknownEffect(TargetNameInput)(value).pipe(
+    Effect.mapError(() => "Target name cannot be empty"),
+  );
+
 const formatTargetSummary = (
   targets: ReadonlyArray<CollectedTarget>,
+  width: number,
 ): Box.Box<Ansi.AnsiStyle> => {
+  const labelWidth = Math.max(
+    ...targets.map((t) => `${t.kind}/${t.name}`.length),
+    0,
+  );
+  const moduleWidth = Math.max(20, width - labelWidth - 5);
+
   const statuses = targets.map((t) =>
     t.confirmed
       ? Box.char("✓").pipe(Box.annotate(Ansi.green))
@@ -71,7 +89,9 @@ const formatTargetSummary = (
 
   const modules = targets.map((t) =>
     t.modules.length > 0
-      ? Box.text(t.modules.join(", ")).pipe(Box.annotate(Ansi.cyan))
+      ? Box.para(t.modules.join(", "), Box.left, moduleWidth).pipe(
+          Box.annotate(Ansi.cyan),
+        )
       : Box.text("(no modules)").pipe(Box.annotate(Ansi.dim)),
   );
 
@@ -294,6 +314,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
                   Effect.gen(function* () {
                     const name = yield* TextInput({
                       message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
+                      validate: validateTargetName,
                     });
                     targets.push({
                       kind: implication.targetKind,
@@ -656,6 +677,7 @@ const isScaffoldAborted = (
 
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
+  const terminal = yield* Terminal.Terminal;
 
   // Build target kind choices from catalog (public targets only)
   const targetChoices = yield* pipe(
@@ -678,10 +700,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
     const name = yield* TextInput({
       message: `What should this ${kind} target be called?`,
-      validate: (v) =>
-        v.trim().length > 0
-          ? Effect.succeed(v.trim())
-          : Effect.fail("Target name cannot be empty"),
+      validate: validateTargetName,
     });
 
     const availableModules = yield* catalog.getSupportedModules(kind, {
@@ -722,6 +741,9 @@ const collectTargetsInteractive = Effect.gen(function* () {
   // Confirmation loop
   let allConfirmed = false;
   while (!allConfirmed) {
+    const terminalWidth = yield* terminal.columns;
+    const panelContentWidth = Math.max(20, terminalWidth - 4);
+
     yield* Console.log(
       Box.renderPrettySync(
         Box.vsep(
@@ -729,11 +751,15 @@ const collectTargetsInteractive = Effect.gen(function* () {
             Box.text("Current targets and modules:").pipe(
               Box.annotate(Ansi.bold),
             ),
-            formatTargetSummary(targets),
+            formatTargetSummary(targets, panelContentWidth),
           ],
           1,
           Box.left,
-        ).pipe(Box.pad(0, 1), Box.border("rounded", { annotation: Ansi.dim })),
+        ).pipe(
+          Box.maxWidth(panelContentWidth),
+          Box.pad(0, 1),
+          Box.border("rounded", { annotation: Ansi.dim }),
+        ),
       ),
     );
 
