@@ -30,7 +30,7 @@ const buildInitSelection = (
     config.format,
     config.test,
   ]) {
-    if (field !== undefined) moduleIds.add(field);
+    if (field !== undefined) moduleIds.add(toWorkspaceModuleId(field));
   }
 
   // Add optional DX modules
@@ -42,7 +42,7 @@ const buildInitSelection = (
     targets: [
       {
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: config.name,
         }),
         modules: Arr.fromIterable(moduleIds).map((id) => ({
@@ -99,6 +99,40 @@ const optionalSelect = <A extends string>(
     return v === "none" ? Option.none<A>() : Option.some(v);
   });
 
+const toWorkspaceToolValue = (moduleId: string): string => {
+  switch (moduleId) {
+    case "workspace-monorepo-turbo":
+      return "turbo";
+    case "workspace-quality-biome":
+      return "biome";
+    case "workspace-quality-dprint":
+      return "dprint";
+    case "workspace-quality-oxlint":
+      return "oxlint";
+    case "workspace-test-vitest":
+      return "vitest";
+    default:
+      return moduleId;
+  }
+};
+
+const toWorkspaceModuleId = (toolValue: string): string => {
+  switch (toolValue) {
+    case "turbo":
+      return "workspace-monorepo-turbo";
+    case "biome":
+      return "workspace-quality-biome";
+    case "dprint":
+      return "workspace-quality-dprint";
+    case "oxlint":
+      return "workspace-quality-oxlint";
+    case "vitest":
+      return "workspace-test-vitest";
+    default:
+      return toolValue;
+  }
+};
+
 export const init = Command.make(
   "init",
   {
@@ -121,28 +155,28 @@ export const init = Command.make(
         .map((m) => ({
           title: m.title,
           description: m.description,
-          value: m.id,
+          value: toWorkspaceToolValue(m.id),
         }));
       const lintChoices = catalog
         .getModules({ category: ModuleCategory.make("lint") })
         .map((m) => ({
           title: m.title,
           description: m.description,
-          value: m.id,
+          value: toWorkspaceToolValue(m.id),
         }));
       const formatChoices = catalog
         .getModules({ category: ModuleCategory.make("format") })
         .map((m) => ({
           title: m.title,
           description: m.description,
-          value: m.id,
+          value: toWorkspaceToolValue(m.id),
         }));
       const testChoices = catalog
         .getModules({ category: ModuleCategory.make("test") })
         .map((m) => ({
           title: m.title,
           description: m.description,
-          value: m.id,
+          value: toWorkspaceToolValue(m.id),
         }));
       const devenvChoices = catalog
         .getModules({ category: ModuleCategory.make("devenv") })
@@ -373,7 +407,7 @@ export const init = Command.make(
       // Scaffold root monorepo files
       const pipeline = yield* ScaffoldPipeline;
       const selection = buildInitSelection(config, [
-        ...(git ? [ModuleId.make("git-init")] : []),
+        ...(git ? [ModuleId.make("workspace-devenv-git")] : []),
         ...dxExtras,
       ]);
 

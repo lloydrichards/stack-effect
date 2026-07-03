@@ -28,7 +28,7 @@ import {
  */
 export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("ai"),
+    id: ModuleId.make("package-ai-core"),
     title: "AI Package",
     description:
       "Anthropic language model configuration and workflow utilities",
@@ -48,7 +48,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
     ],
     contributions: [
@@ -98,7 +98,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-think-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-think"),
     title: "Think Toolkit",
     description:
       "Minimal AI toolkit with a think tool for step-by-step reasoning",
@@ -127,7 +127,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-datetime-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-datetime"),
     title: "DateTime Toolkit",
     description:
       "Timezone-aware date and time tool for time-sensitive agent behavior",
@@ -177,7 +177,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-math-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-math"),
     title: "Math Toolkit",
     description: "Deterministic arithmetic evaluator for safe math computation",
     supportedOn: [
@@ -226,7 +226,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-memory-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-memory"),
     title: "Memory Toolkit",
     description:
       "Key-value scratchpad for persisting facts across tool invocations",
@@ -276,7 +276,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-plan-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-plan"),
     title: "Plan Toolkit",
     description:
       "Structured task tracking that forces plan-before-act discipline",
@@ -326,7 +326,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-webfetch-toolkit"),
+    id: ModuleId.make("package-ai-toolkit-webfetch"),
     title: "WebFetch Toolkit",
     description:
       "URL content retrieval with HTML stripping for retrieval-augmented workflows",
@@ -376,7 +376,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ai-chat-service"),
+    id: ModuleId.make("package-ai-chat-service"),
     title: "Chat Service",
     description:
       "AI chat service with agentic loop for streaming tool-augmented conversations",
@@ -396,7 +396,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
       {
         _tag: "required-module",
@@ -404,7 +404,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "ai",
         }),
-        moduleId: ModuleId.make("ai"),
+        moduleId: ModuleId.make("package-ai-core"),
       },
       {
         _tag: "required-module",
@@ -412,19 +412,28 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "ai",
         }),
-        moduleId: ModuleId.make("ai-think-toolkit"),
+        moduleId: ModuleId.make("package-ai-toolkit-think"),
       },
     ],
     children: [
       {
-        moduleId: ModuleId.make("ai-datetime-toolkit"),
+        moduleId: ModuleId.make("package-ai-toolkit-datetime"),
         requirement: "optional",
       },
-      { moduleId: ModuleId.make("ai-math-toolkit"), requirement: "optional" },
-      { moduleId: ModuleId.make("ai-memory-toolkit"), requirement: "optional" },
-      { moduleId: ModuleId.make("ai-plan-toolkit"), requirement: "optional" },
       {
-        moduleId: ModuleId.make("ai-webfetch-toolkit"),
+        moduleId: ModuleId.make("package-ai-toolkit-math"),
+        requirement: "optional",
+      },
+      {
+        moduleId: ModuleId.make("package-ai-toolkit-memory"),
+        requirement: "optional",
+      },
+      {
+        moduleId: ModuleId.make("package-ai-toolkit-plan"),
+        requirement: "optional",
+      },
+      {
+        moduleId: ModuleId.make("package-ai-toolkit-webfetch"),
         requirement: "optional",
       },
     ],
@@ -459,7 +468,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("presence"),
+    id: ModuleId.make("package-presence-service"),
     title: "Presence Package",
     description:
       "Real-time presence tracking service with PubSub and client generation",
@@ -480,7 +489,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-websocket"),
+        moduleId: ModuleId.make("domain-ws-contracts"),
       },
     ],
     contributions: [

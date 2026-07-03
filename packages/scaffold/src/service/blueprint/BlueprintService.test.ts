@@ -78,8 +78,8 @@ describe("BlueprintService", () => {
                     name: "api",
                   }),
                   modules: [
-                    { id: ModuleId.make("http-api-server") },
-                    { id: ModuleId.make("http-api-server") },
+                    { id: ModuleId.make("server-http-api") },
+                    { id: ModuleId.make("server-http-api") },
                   ],
                 },
               ],
@@ -90,7 +90,7 @@ describe("BlueprintService", () => {
           expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
             message:
-              "Duplicate module selection: apps/server-api requires module http-api-server",
+              "Duplicate module selection: apps/server-api requires module server-http-api",
           });
         }),
       );
@@ -108,7 +108,7 @@ describe("BlueprintService", () => {
                       kind: TargetKind.make("package"),
                       name: "domain",
                     }),
-                    modules: [{ id: ModuleId.make("http-api-server") }],
+                    modules: [{ id: ModuleId.make("server-http-api") }],
                   },
                 ],
               }),
@@ -118,7 +118,7 @@ describe("BlueprintService", () => {
             expect(error).toBeInstanceOf(BlueprintFailure);
             expect(error).toMatchObject({
               message:
-                "Unsupported target-module combination: packages/domain requires module http-api-server",
+                "Unsupported target-module combination: packages/domain requires module server-http-api",
             });
           }),
       );
@@ -155,7 +155,7 @@ describe("BlueprintService", () => {
 
     describe("when resolving dependencies", () => {
       it.effect(
-        "should imply required targets and modules when http-api-server is selected",
+        "should imply required targets and modules when server-http-api is selected",
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
@@ -166,7 +166,7 @@ describe("BlueprintService", () => {
                     kind: TargetKind.make("server"),
                     name: "api",
                   }),
-                  modules: [{ id: ModuleId.make("http-api-server") }],
+                  modules: [{ id: ModuleId.make("server-http-api") }],
                 },
               ],
             });
@@ -184,43 +184,43 @@ describe("BlueprintService", () => {
                 blueprint,
                 toAttachedModuleNodeId(
                   serverApiIdentity.toKey(),
-                  ModuleId.make("http-api-server"),
+                  ModuleId.make("server-http-api"),
                 ),
               ),
             ).toMatchObject({
               _tag: "attached-module",
               targetId: "apps/server-api",
-              moduleId: "http-api-server",
+              moduleId: "server-http-api",
             });
             expect(
               getNode(
                 blueprint,
                 toAttachedModuleNodeId(
                   domainIdentity.toKey(),
-                  ModuleId.make("domain-api"),
+                  ModuleId.make("domain-api-contracts"),
                 ),
               ),
             ).toMatchObject({
               _tag: "attached-module",
               targetId: "packages/domain",
-              moduleId: "domain-api",
+              moduleId: "domain-api-contracts",
             });
             expect(blueprint.edges).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({
-                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}`,
+                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}`,
                   reason: "owns-module",
                 }),
                 expect.objectContaining({
-                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api"))}`,
+                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
                   reason: "owns-module",
                 }),
                 expect.objectContaining({
-                  id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}=>packages/domain`,
+                  id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>packages/domain`,
                   reason: "required-target",
                 }),
                 expect.objectContaining({
-                  id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api"))}`,
+                  id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
                   reason: "required-module",
                 }),
               ]),
@@ -252,7 +252,7 @@ describe("BlueprintService", () => {
               ],
             });
 
-            // Server requires http-api-server which requires domain-api on packages/domain
+            // Server requires server-http-api which requires domain-api-contracts on packages/domain
             expect(
               blueprint.nodes
                 .filter((node) => node._tag === "target")

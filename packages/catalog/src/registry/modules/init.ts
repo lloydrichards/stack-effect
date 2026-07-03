@@ -17,20 +17,20 @@ import {
 } from "../content/init";
 
 /**
- * Init modules - project-wide tooling (turbo, biome, vitest)
+ * Workspace modules - project-wide tooling (turbo, biome, vitest)
  */
 const gitInitModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("git-init"),
+  id: ModuleId.make("workspace-devenv-git"),
   title: "Git",
   description: "Initialize a git repository with an initial commit",
   visibility: "internal",
   categories: [ModuleCategory.make("git")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
   dependencies: [
     {
       _tag: "required-target",
       identity: new TargetIdentity({
-        kind: TargetKind.make("init"),
+        kind: TargetKind.make("workspace"),
         name: "root",
       }),
     },
@@ -56,17 +56,17 @@ const gitInitModule: typeof ModuleDefinition.Type = {
 };
 
 const nixFlakeModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("nix-flake"),
+  id: ModuleId.make("workspace-devenv-nix-flake"),
   title: "Nix Flake",
   description: "Declarative development environment with Nix",
   visibility: "internal",
   categories: [ModuleCategory.make("devenv")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
   dependencies: [
     {
       _tag: "required-target",
       identity: new TargetIdentity({
-        kind: TargetKind.make("init"),
+        kind: TargetKind.make("workspace"),
         name: "root",
       }),
     },
@@ -91,17 +91,17 @@ const nixFlakeModule: typeof ModuleDefinition.Type = {
 };
 
 const devcontainerModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("devcontainer"),
+  id: ModuleId.make("workspace-devenv-devcontainer"),
   title: "Dev Container",
   description: "VS Code/GitHub Codespaces development container",
   visibility: "internal",
   categories: [ModuleCategory.make("devenv")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
   dependencies: [
     {
       _tag: "required-target",
       identity: new TargetIdentity({
-        kind: TargetKind.make("init"),
+        kind: TargetKind.make("workspace"),
         name: "root",
       }),
     },
@@ -121,17 +121,17 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
 
 export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("turbo"),
+    id: ModuleId.make("workspace-monorepo-turbo"),
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
     categories: [ModuleCategory.make("monorepo")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
         _tag: "required-target",
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: "root",
         }),
       },
@@ -181,17 +181,17 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("biome"),
+    id: ModuleId.make("workspace-quality-biome"),
     title: "Biome",
     description: "Fast linter and formatter",
     visibility: "internal",
     categories: [ModuleCategory.make("lint"), ModuleCategory.make("format")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
         _tag: "required-target",
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: "root",
         }),
       },
@@ -238,17 +238,17 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("dprint"),
+    id: ModuleId.make("workspace-quality-dprint"),
     title: "dprint",
     description: "Fast pluggable formatter used by the Effect team",
     visibility: "internal",
     categories: [ModuleCategory.make("format")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
         _tag: "required-target",
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: "root",
         }),
       },
@@ -283,17 +283,17 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("oxlint"),
+    id: ModuleId.make("workspace-quality-oxlint"),
     title: "oxlint",
     description: "Fast Rust-based linter used by the Effect team",
     visibility: "internal",
     categories: [ModuleCategory.make("lint")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
         _tag: "required-target",
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: "root",
         }),
       },
@@ -323,17 +323,17 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("vitest"),
+    id: ModuleId.make("workspace-test-vitest"),
     title: "Vitest",
     description: "Unit and integration testing framework",
     visibility: "internal",
     categories: [ModuleCategory.make("test")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("init") }],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
         _tag: "required-target",
         identity: new TargetIdentity({
-          kind: TargetKind.make("init"),
+          kind: TargetKind.make("workspace"),
           name: "root",
         }),
       },

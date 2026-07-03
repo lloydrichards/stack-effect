@@ -19,10 +19,10 @@ const makeUnsortedBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         targetId: domainIdentity.toKey(),
-        moduleId: ModuleId.make("domain-api"),
+        moduleId: ModuleId.make("domain-api-contracts"),
       },
       {
         _tag: "target",
@@ -33,10 +33,10 @@ const makeUnsortedBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         targetId: serverApiIdentity.toKey(),
-        moduleId: ModuleId.make("http-api-server"),
+        moduleId: ModuleId.make("server-http-api"),
       },
       {
         _tag: "target",
@@ -49,11 +49,11 @@ const makeUnsortedBlueprint = () =>
         id: "z-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         to: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         reason: "required-module",
       },
@@ -62,7 +62,7 @@ const makeUnsortedBlueprint = () =>
         from: domainIdentity.toKey(),
         to: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         reason: "owns-module",
       },
@@ -71,7 +71,7 @@ const makeUnsortedBlueprint = () =>
         from: serverApiIdentity.toKey(),
         to: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         reason: "owns-module",
       },
@@ -79,7 +79,7 @@ const makeUnsortedBlueprint = () =>
         id: "a-edge",
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         to: domainIdentity.toKey(),
         reason: "required-target",
@@ -163,11 +163,11 @@ describe("@repo/domain Blueprint", () => {
     expect(blueprint.nodes.map((node) => node.id)).toEqual([
       toAttachedModuleNodeId(
         serverApiIdentity.toKey(),
-        ModuleId.make("http-api-server"),
+        ModuleId.make("server-http-api"),
       ),
       toAttachedModuleNodeId(
         domainIdentity.toKey(),
-        ModuleId.make("domain-api"),
+        ModuleId.make("domain-api-contracts"),
       ),
       "apps/server-api",
       "packages/domain",
@@ -215,8 +215,8 @@ describe("@repo/domain Blueprint", () => {
       Schema.decodeUnknownPromise(TargetKey)("packages/domain"),
     ).resolves.toBe("packages/domain");
     await expect(
-      Schema.decodeUnknownPromise(TargetKey)("apps/server-api#http-api-server"),
-    ).resolves.toBe("apps/server-api#http-api-server");
+      Schema.decodeUnknownPromise(TargetKey)("apps/server-api#server-http-api"),
+    ).resolves.toBe("apps/server-api#server-http-api");
     await expect(
       Schema.decodeUnknownPromise(TargetKey)("server-api"),
     ).resolves.toBe("server-api");

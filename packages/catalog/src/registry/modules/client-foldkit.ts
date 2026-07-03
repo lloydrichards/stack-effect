@@ -44,7 +44,7 @@ const updateCaseValue = (namespace: string, modelField: string) =>
 export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
   [
     {
-      id: ModuleId.make("http-api-foldkit-client"),
+      id: ModuleId.make("client-foldkit-http-api"),
       title: "HTTP API Client (Foldkit)",
       description: "REST API client with Command pattern for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -52,13 +52,13 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
         {
           _tag: "required-module",
           target: domainTarget,
-          moduleId: ModuleId.make("domain-api"),
+          moduleId: ModuleId.make("domain-api-contracts"),
         },
       ],
       implies: [
         {
           targetKind: TargetKind.make("server"),
-          moduleId: ModuleId.make("http-api-server"),
+          moduleId: ModuleId.make("server-http-api"),
         },
       ],
       contributions: [
@@ -139,7 +139,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
       ],
     },
     {
-      id: ModuleId.make("http-rpc-foldkit-client"),
+      id: ModuleId.make("client-foldkit-http-rpc"),
       title: "HTTP RPC Client (Foldkit)",
       description: "RPC streaming client with Subscription pattern for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -147,13 +147,13 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
         {
           _tag: "required-module",
           target: domainTarget,
-          moduleId: ModuleId.make("domain-rpc"),
+          moduleId: ModuleId.make("domain-rpc-contracts"),
         },
       ],
       implies: [
         {
           targetKind: TargetKind.make("server"),
-          moduleId: ModuleId.make("http-rpc-server"),
+          moduleId: ModuleId.make("server-http-rpc"),
         },
       ],
       contributions: [
@@ -254,7 +254,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
       ],
     },
     {
-      id: ModuleId.make("ws-presence-foldkit-client"),
+      id: ModuleId.make("client-foldkit-ws-presence"),
       title: "WebSocket Presence (Foldkit)",
       description: "Real-time presence UI with WebSocket RPC for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -262,13 +262,13 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
         {
           _tag: "required-module",
           target: domainTarget,
-          moduleId: ModuleId.make("domain-websocket"),
+          moduleId: ModuleId.make("domain-ws-contracts"),
         },
       ],
       implies: [
         {
           targetKind: TargetKind.make("server"),
-          moduleId: ModuleId.make("ws-presence-server"),
+          moduleId: ModuleId.make("server-ws-presence"),
         },
       ],
       contributions: [
@@ -369,7 +369,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
       ],
     },
     {
-      id: ModuleId.make("chat-foldkit-client"),
+      id: ModuleId.make("client-foldkit-chat"),
       title: "Chat Client (Foldkit)",
       description: "AI chat UI with streaming and tool calls for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -377,18 +377,18 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
         {
           _tag: "required-module",
           target: domainTarget,
-          moduleId: ModuleId.make("domain-chat"),
+          moduleId: ModuleId.make("domain-chat-contracts"),
         },
         {
           _tag: "required-module",
           target: domainTarget,
-          moduleId: ModuleId.make("domain-rpc"),
+          moduleId: ModuleId.make("domain-rpc-contracts"),
         },
       ],
       implies: [
         {
           targetKind: TargetKind.make("server"),
-          moduleId: ModuleId.make("chat-server"),
+          moduleId: ModuleId.make("server-chat-rpc"),
         },
       ],
       contributions: [

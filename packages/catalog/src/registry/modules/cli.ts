@@ -17,7 +17,7 @@ import {
  */
 export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("hello-command"),
+    id: ModuleId.make("cli-command-hello"),
     title: "Hello Command",
     description: "A simple hello-world subcommand for the CLI",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -42,7 +42,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-cli-driver"),
+    id: ModuleId.make("cli-chat-driver"),
     title: "Chat CLI Driver",
     description: "Shared direct-AI chat plumbing for CLI chat commands",
     visibility: "internal",
@@ -54,7 +54,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
       {
         _tag: "required-module",
@@ -62,7 +62,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "ai",
         }),
-        moduleId: ModuleId.make("ai-chat-service"),
+        moduleId: ModuleId.make("package-ai-chat-service"),
       },
     ],
     contributions: [
@@ -88,7 +88,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-ask-command"),
+    id: ModuleId.make("cli-command-chat-ask"),
     title: "Ask Command",
     description: "One-shot AI ask command for CLI applications",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -99,7 +99,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("cli"),
           name: "app",
         }),
-        moduleId: ModuleId.make("chat-cli-driver"),
+        moduleId: ModuleId.make("cli-chat-driver"),
       },
     ],
     contributions: [
@@ -122,7 +122,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("terminal-chat-command"),
+    id: ModuleId.make("cli-command-chat-terminal"),
     title: "Terminal Chat Command",
     description: "Interactive terminal AI chat command for CLI applications",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -133,7 +133,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("cli"),
           name: "app",
         }),
-        moduleId: ModuleId.make("chat-cli-driver"),
+        moduleId: ModuleId.make("cli-chat-driver"),
       },
     ],
     contributions: [

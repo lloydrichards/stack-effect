@@ -71,7 +71,7 @@ Adds targets and modules to an existing project. In interactive mode, select a t
 
 | Flag                   | Description                       |
 | ---------------------- | --------------------------------- |
-| `--target <kind/name>` | Target to add (e.g. `client/web`) |
+| `--target <kind/name>` | Target to add (e.g. `client-react/web`) |
 | `--modules <id,...>`   | Modules to include                |
 | `--yes`                | Skip confirmation prompts         |
 | `--dry-run`            | Preview the plan without applying |

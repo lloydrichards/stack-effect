@@ -50,19 +50,19 @@ const makeDomainBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         targetId: domainIdentity.toKey(),
-        moduleId: ModuleId.make("domain-api"),
+        moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
     edges: [
       {
-        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api"))}`,
+        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
         from: domainIdentity.toKey(),
         to: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         reason: "owns-module",
       },
@@ -84,10 +84,10 @@ const makeServerApiBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         targetId: serverApiIdentity.toKey(),
-        moduleId: ModuleId.make("http-api-server"),
+        moduleId: ModuleId.make("server-http-api"),
       },
       {
         _tag: "target",
@@ -101,49 +101,49 @@ const makeServerApiBlueprint = () =>
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         targetId: domainIdentity.toKey(),
-        moduleId: ModuleId.make("domain-api"),
+        moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
     edges: [
       {
-        id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}`,
+        id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}`,
         from: serverApiIdentity.toKey(),
         to: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         reason: "owns-module",
       },
       {
-        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api"))}`,
+        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
         from: domainIdentity.toKey(),
         to: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         reason: "owns-module",
       },
       {
-        id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}=>packages/domain`,
+        id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>packages/domain`,
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         to: domainIdentity.toKey(),
         reason: "required-target",
       },
       {
-        id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("http-api-server"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api"))}`,
+        id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
         from: toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
-          ModuleId.make("http-api-server"),
+          ModuleId.make("server-http-api"),
         ),
         to: toAttachedModuleNodeId(
           domainIdentity.toKey(),
-          ModuleId.make("domain-api"),
+          ModuleId.make("domain-api-contracts"),
         ),
         reason: "required-module",
       },
@@ -251,7 +251,7 @@ describe("PlanService", () => {
   });
 
   describe("when planning compositions", () => {
-    // Simple blueprint that just has chat-server module without the full AI dependency chain
+    // Simple blueprint that just has server-chat-rpc module without the full AI dependency chain
     // This tests that composition contributions produce the correct operations
     const makeChatServerOnlyBlueprint = () =>
       new Blueprint({
@@ -265,19 +265,19 @@ describe("PlanService", () => {
             _tag: "attached-module",
             id: toAttachedModuleNodeId(
               serverApiIdentity.toKey(),
-              ModuleId.make("chat-server"),
+              ModuleId.make("server-chat-rpc"),
             ),
             targetId: serverApiIdentity.toKey(),
-            moduleId: ModuleId.make("chat-server"),
+            moduleId: ModuleId.make("server-chat-rpc"),
           },
         ],
         edges: [
           {
-            id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("chat-server"))}`,
+            id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-chat-rpc"))}`,
             from: serverApiIdentity.toKey(),
             to: toAttachedModuleNodeId(
               serverApiIdentity.toKey(),
-              ModuleId.make("chat-server"),
+              ModuleId.make("server-chat-rpc"),
             ),
             reason: "owns-module",
           },
@@ -369,10 +369,10 @@ const HttpRpcRouter = Layer.empty;
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
                   serverApiIdentity.toKey(),
-                  ModuleId.make("ws-presence-server"),
+                  ModuleId.make("server-ws-presence"),
                 ),
                 targetId: serverApiIdentity.toKey(),
-                moduleId: ModuleId.make("ws-presence-server"),
+                moduleId: ModuleId.make("server-ws-presence"),
               },
               {
                 _tag: "target",
@@ -383,10 +383,10 @@ const HttpRpcRouter = Layer.empty;
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
                   domainIdentity.toKey(),
-                  ModuleId.make("domain-websocket"),
+                  ModuleId.make("domain-ws-contracts"),
                 ),
                 targetId: domainIdentity.toKey(),
-                moduleId: ModuleId.make("domain-websocket"),
+                moduleId: ModuleId.make("domain-ws-contracts"),
               },
               {
                 _tag: "target",
@@ -397,37 +397,37 @@ const HttpRpcRouter = Layer.empty;
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
                   presenceIdentity.toKey(),
-                  ModuleId.make("presence"),
+                  ModuleId.make("package-presence-service"),
                 ),
                 targetId: presenceIdentity.toKey(),
-                moduleId: ModuleId.make("presence"),
+                moduleId: ModuleId.make("package-presence-service"),
               },
             ],
             edges: [
               {
-                id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("ws-presence-server"))}`,
+                id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-ws-presence"))}`,
                 from: serverApiIdentity.toKey(),
                 to: toAttachedModuleNodeId(
                   serverApiIdentity.toKey(),
-                  ModuleId.make("ws-presence-server"),
+                  ModuleId.make("server-ws-presence"),
                 ),
                 reason: "owns-module",
               },
               {
-                id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-websocket"))}`,
+                id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-ws-contracts"))}`,
                 from: domainIdentity.toKey(),
                 to: toAttachedModuleNodeId(
                   domainIdentity.toKey(),
-                  ModuleId.make("domain-websocket"),
+                  ModuleId.make("domain-ws-contracts"),
                 ),
                 reason: "owns-module",
               },
               {
-                id: `owns-module=>packages/presence=>${toAttachedModuleNodeId(presenceIdentity.toKey(), ModuleId.make("presence"))}`,
+                id: `owns-module=>packages/presence=>${toAttachedModuleNodeId(presenceIdentity.toKey(), ModuleId.make("package-presence-service"))}`,
                 from: presenceIdentity.toKey(),
                 to: toAttachedModuleNodeId(
                   presenceIdentity.toKey(),
-                  ModuleId.make("presence"),
+                  ModuleId.make("package-presence-service"),
                 ),
                 reason: "owns-module",
               },
@@ -595,33 +595,39 @@ const HttpRpcRouter = Layer.empty;
           },
           {
             _tag: "attached-module",
-            id: toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai")),
+            id: toAttachedModuleNodeId(
+              aiIdentity.toKey(),
+              ModuleId.make("package-ai-core"),
+            ),
             targetId: aiIdentity.toKey(),
-            moduleId: ModuleId.make("ai"),
+            moduleId: ModuleId.make("package-ai-core"),
           },
           {
             _tag: "attached-module",
             id: toAttachedModuleNodeId(
               aiIdentity.toKey(),
-              ModuleId.make("ai-datetime-toolkit"),
+              ModuleId.make("package-ai-toolkit-datetime"),
             ),
             targetId: aiIdentity.toKey(),
-            moduleId: ModuleId.make("ai-datetime-toolkit"),
+            moduleId: ModuleId.make("package-ai-toolkit-datetime"),
           },
         ],
         edges: [
           {
-            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai"))}`,
-            from: aiIdentity.toKey(),
-            to: toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai")),
-            reason: "owns-module",
-          },
-          {
-            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("ai-datetime-toolkit"))}`,
+            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("package-ai-core"))}`,
             from: aiIdentity.toKey(),
             to: toAttachedModuleNodeId(
               aiIdentity.toKey(),
-              ModuleId.make("ai-datetime-toolkit"),
+              ModuleId.make("package-ai-core"),
+            ),
+            reason: "owns-module",
+          },
+          {
+            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("package-ai-toolkit-datetime"))}`,
+            from: aiIdentity.toKey(),
+            to: toAttachedModuleNodeId(
+              aiIdentity.toKey(),
+              ModuleId.make("package-ai-toolkit-datetime"),
             ),
             reason: "owns-module",
           },
@@ -646,7 +652,7 @@ const HttpRpcRouter = Layer.empty;
           expect(indexOutcome._tag).toBe("composed");
           expect(indexOutcome.classification).toBe("create");
 
-          // Should have ts-add-reexport for the barrel export from ai-datetime-toolkit
+          // Should have ts-add-reexport for the barrel export from package-ai-toolkit-datetime
           expect(indexOutcome).toMatchObject({
             operations: expect.arrayContaining([
               expect.objectContaining({

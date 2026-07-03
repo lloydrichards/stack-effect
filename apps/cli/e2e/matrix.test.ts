@@ -85,7 +85,7 @@ const buildMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const entries: Array<MatrixEntry> = [];
 
-  // For each non-init target kind, get supported modules and group by identity
+  // For each public target kind, get supported modules and group by identity
   for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
     const modules = yield* catalog.getSupportedModules(kind);
     const grouped = groupModulesByTarget(modules);

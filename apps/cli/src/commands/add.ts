@@ -537,9 +537,9 @@ const parseTargetIdentity = (targetId: string) =>
     }
 
     const kind = TargetKind.make(kindText);
-    if (kind === "init") {
+    if (kind === "workspace") {
       return yield* Effect.fail(
-        'The add command cannot target kind "init". Use stack-effect init for project initialization.',
+        'The add command cannot target kind "workspace". Use stack-effect init for project initialization.',
       );
     }
 
@@ -975,7 +975,7 @@ export const add = Command.make(
     },
     {
       command:
-        "stack-effect add --yes --target package/domain --modules domain-api --dry-run",
+        "stack-effect add --yes --target package/domain --modules domain-api-contracts --dry-run",
       description: "Non-interactive dry run for CI/LLM usage",
     },
   ]),
