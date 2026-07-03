@@ -136,7 +136,7 @@ dependencies: [
         kind: TargetKind.make("package"),
         name: "domain",
       }),
-      moduleId: ModuleId.make("domain-api"),
+      moduleId: ModuleId.make("domain-api-contracts"),
     },
   },
 ]
@@ -158,7 +158,7 @@ dependencies: [
         kind: TargetKind.make("package"),
         name: "domain",
       }),
-      moduleId: ModuleId.make("domain-api"),
+      moduleId: ModuleId.make("domain-api-contracts"),
     },
   },
 ]
@@ -229,14 +229,14 @@ different target kind, add the `implies` field:
   implies: [
     {
       targetKind: TargetKind.make("server"),
-      moduleId: ModuleId.make("http-api-server"),
+      moduleId: ModuleId.make("server-http-api"),
     },
   ],
 }
 ```
 
 This means: when `http-api-client` is selected on a client target, the
-blueprint will also include `http-api-server` on any server target.
+blueprint will also include `server-http-api` on any server target.
 
 ## Step 7: Add Children (Optional)
 
@@ -245,7 +245,7 @@ add the `children` field. Children must be on the **same target** as the parent.
 
 ```typescript
 {
-  id: ModuleId.make("ai-chat-service"),
+  id: ModuleId.make("package-ai-chat-service"),
   // ... other fields
   children: [
     { moduleId: ModuleId.make("ai-sample-toolkit"), requirement: "optional" },

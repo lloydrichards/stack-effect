@@ -46,33 +46,35 @@ Properties:
 
 | Property      | Purpose                                     |
 | ------------- | ------------------------------------------- |
-| `targetKinds` | All available target kinds (excluding init) |
+| `targetKinds` | All available target kinds (excluding workspace) |
 | `toGraph`     | Full catalog as a directed graph            |
 
 ### Target Registry
 
-Defines 5 target kinds with their base contributions:
+Defines target kinds with their base contributions:
 
-| Kind      | Purpose                | Key Contributions             |
-| --------- | ---------------------- | ----------------------------- |
-| `init`    | Project initialization | .gitignore, root package.json |
-| `client`  | Client application     | React app, Vite config        |
-| `server`  | Server application     | Bun HTTP server               |
-| `cli`     | CLI application        | Effect CLI entrypoint         |
-| `package` | Shared package         | tsconfig, scripts             |
+| Kind             | Purpose                | Key Contributions             |
+| ---------------- | ---------------------- | ----------------------------- |
+| `workspace`      | Workspace setup        | .gitignore, root package.json |
+| `client-react`   | React client app       | React app, Vite config        |
+| `client-foldkit` | Foldkit client app     | Foldkit app, Vite config      |
+| `server`         | Server application     | Bun HTTP server               |
+| `cli`            | CLI application        | Effect CLI entrypoint         |
+| `package`        | Shared package         | tsconfig, scripts             |
 
 ### Module Registry
 
 Defines modules organized by category:
 
-- **Init modules**: turbo, biome, vitest (supported on `init` target)
-- **Client modules**: http-api-client, http-rpc-client, chat-client,
-  ws-presence-client (supported on `client` target, imply server counterparts)
-- **Server modules**: http-api-server, http-rpc-server, chat-server,
-  ws-presence-server (supported on `server` target)
-- **Domain modules**: domain-api, domain-rpc, domain-chat, domain-websocket
+- **Workspace modules**: workspace-monorepo-turbo, workspace-quality-biome, workspace-test-vitest
+  (supported on `workspace` target)
+- **Client modules**: client-react-http-api, client-react-http-rpc, client-react-chat,
+  client-react-ws-presence (supported on `client-react` target, imply server counterparts)
+- **Server modules**: server-http-api, server-http-rpc, server-chat-rpc,
+  server-ws-presence (supported on `server` target)
+- **Domain modules**: domain-api-contracts, domain-rpc-contracts, domain-chat-contracts, domain-ws-contracts
   (supported on `package/domain` identity)
-- **Infrastructure modules**: ai, ai-sample-toolkit, ai-chat-service, presence
+- **Infrastructure modules**: package-ai-core, package AI toolkits, package-ai-chat-service, package-presence-service
   (supported on specific package identities)
 
 Modules may declare `children` for same-target parent-child relationships used
@@ -158,14 +160,14 @@ graph TB
   classDef target fill:#6cc5b0,color:#000
   classDef module fill:#efb116,color:#000
 
-  T1[Target: init]:::target
-  T2[Target: client]:::target
+  T1[Target: workspace]:::target
+  T2[Target: client-react]:::target
   T3[Target: server]:::target
   T4[Target: package]:::target
-  M1[Module: turbo]:::module
-  M2[Module: http-api-client]:::module
-  M3[Module: http-api-server]:::module
-  M4[Module: domain-api]:::module
+  M1[Module: workspace-monorepo-turbo]:::module
+  M2[Module: client-react-http-api]:::module
+  M3[Module: server-http-api]:::module
+  M4[Module: domain-api-contracts]:::module
 
   M1 -->|supportedOn| T1
   M2 -->|supportedOn| T2
@@ -200,16 +202,16 @@ flowchart LR
     end
 
     subgraph Domain Package
-        B[domain-chat]
+        B[domain-chat-contracts]
     end
 
     subgraph AI Package
-        C[ai-chat-service]
+        C[package-ai-chat-service]
         D[ai-sample-toolkit]
     end
 
     subgraph Server Target
-        E[chat-server]
+        E[server-chat-rpc]
     end
 
     A -->|implies| E
@@ -220,7 +222,7 @@ flowchart LR
     C -.->|optional child| D
 ```
 
-Note: `ai-sample-toolkit` is an **optional child** of `ai-chat-service`, shown
+Note: `ai-sample-toolkit` is an **optional child** of `package-ai-chat-service`, shown
 in nested selection UI when the parent is selected. This differs from
 dependencies which are always resolved by BlueprintService.
 

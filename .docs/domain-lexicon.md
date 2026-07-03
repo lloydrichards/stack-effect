@@ -279,7 +279,7 @@ Target category used for identity and compatibility checks.
 
 Invariants:
 
-- Built-in kinds include `init` and `package`.
+- Built-in kinds include `workspace` and `package`.
 - Additional kinds are supported as branded strings.
 
 Connected terms:

@@ -53,8 +53,8 @@ Sleep 1.5s
 
 Set TypingSpeed 130ms
 
-# Prompt: Module selection (multiSelect - select chat-server)
-# Navigate to chat-server and toggle with Space
+# Prompt: Module selection (multiSelect - select server-chat-rpc)
+# Navigate to server-chat-rpc and toggle with Space
 Down 2
 Sleep 300ms
 Up 2

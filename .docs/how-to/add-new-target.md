@@ -12,7 +12,7 @@ This guide walks through adding a new target kind to the scaffold catalog.
 ## Step 1: Register the Target Kind
 
 The `TargetKind` schema in `packages/domain/src/Catalog.ts` uses a union
-that accepts any string as a valid kind. Built-in kinds (`init`, `package`)
+that accepts any string as a valid kind. Built-in kinds (`workspace`, `package`)
 have special path derivation rules; custom kinds use the default `apps/`
 convention.
 
@@ -144,7 +144,7 @@ paths from the target kind and name:
 
 | Kind      | Identity Example               | Derived Path            |
 | --------- | ------------------------------ | ----------------------- |
-| `init`    | `{ kind: "init", name: "root" }` | `.`                   |
+| `workspace` | `{ kind: "workspace", name: "root" }` | `.`                   |
 | `package` | `{ kind: "package", name: "domain" }` | `packages/domain` |
 | `server`  | `{ kind: "server", name: "api" }` | `apps/server-api`    |
 | `client`  | `{ kind: "client", name: "web" }` | `apps/client-web`    |
