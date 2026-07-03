@@ -323,6 +323,15 @@ export const TargetDefinition = Schema.Struct({
   kind: TargetKind,
   title: Schema.String,
   description: Schema.String,
+  /**
+   * Default target name for greenfield non-interactive creation.
+   *
+   * Used by `create` when an implication needs a missing target and by `add`
+   * when the user supplies an empty target name such as
+   * `--target server/ --modules server-chat-rpc`. Identity-specific package
+   * modules should remain explicit.
+   */
+  defaultName: Schema.optional(Schema.String),
   visibility: Visibility.pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed("public" as const)),
