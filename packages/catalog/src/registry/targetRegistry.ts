@@ -94,6 +94,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("client-react"),
     title: "Client React Application",
     description: "A frontend application built with React",
+    defaultName: "web",
     requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: [
       {
@@ -221,6 +222,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("client-foldkit"),
     title: "Client Foldkit Application",
     description: "A frontend application built with Foldkit (Elm Architecture)",
+    defaultName: "web",
     requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: [
       {
@@ -328,6 +330,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("server"),
     title: "Server Application",
     description: "A backend application, such as an API server",
+    defaultName: "api",
     requiredModules: [ModuleId.make("server-http-api")],
     contributions: [
       {
@@ -402,6 +405,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("cli"),
     title: "CLI Application",
     description: "A command-line interface application",
+    defaultName: "app",
     requiredModules: [ModuleId.make("cli-command-hello")],
     contributions: [
       {

@@ -15,11 +15,13 @@ import { Ansi, Box } from "effect-boxes";
 import pkg from "../package.json";
 import { add } from "./commands/add";
 import { catalog } from "./commands/catalog";
+import { create } from "./commands/create";
 import { graph } from "./commands/graph";
 import { init } from "./commands/init";
 import { plan } from "./commands/plan";
 import { schema } from "./commands/schema";
 import { ConfigureService } from "./service/ConfigureService";
+import { CreateRequestService } from "./service/CreateRequestService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
 const CliConfig = Config.all({
@@ -42,17 +44,20 @@ const root = Command.make("stack-effect").pipe(
 const MainLayer = Layer.mergeAll(
   ApplyService.layer,
   BlueprintService.layer,
-  CatalogService.layer,
   ContributionResolver.layer,
   FinalizeService.layer,
   PlanService.layer,
   ScaffoldFormatter.layer,
   ConfigureService.layer,
+  CreateRequestService.layer,
   ScaffoldPipeline.layer,
-).pipe(Layer.provideMerge(PlatformLayer));
+).pipe(
+  Layer.provideMerge(CatalogService.layer),
+  Layer.provideMerge(PlatformLayer),
+);
 
 const program = root.pipe(
-  Command.withSubcommands([init, add, graph, plan, schema, catalog]),
+  Command.withSubcommands([init, create, add, graph, plan, schema, catalog]),
   Command.run({ version: pkg.version }),
   Effect.provide(MainLayer),
   Effect.catchCause((cause) => {

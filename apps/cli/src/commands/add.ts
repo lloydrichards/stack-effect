@@ -707,21 +707,22 @@ const resolveDependenciesNonInteractive = (
 
 const parseTargetIdentity = (targetId: string) =>
   Effect.gen(function* () {
+    const catalog = yield* CatalogService;
     const value = targetId.trim();
     const separatorIndex = value.indexOf("/");
 
-    if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
+    if (separatorIndex <= 0) {
       return yield* Effect.fail(
         "Invalid --target value. Expected format: <targetKind>/<targetName>.",
       );
     }
 
     const kindText = value.slice(0, separatorIndex).trim();
-    const name = value.slice(separatorIndex + 1).trim();
+    const rawName = value.slice(separatorIndex + 1).trim();
 
-    if (kindText.length === 0 || name.length === 0) {
+    if (kindText.length === 0) {
       return yield* Effect.fail(
-        "Invalid --target value. targetKind and targetName must both be non-empty.",
+        "Invalid --target value. targetKind must be non-empty.",
       );
     }
 
@@ -731,6 +732,23 @@ const parseTargetIdentity = (targetId: string) =>
         'The add command cannot target kind "workspace". Use stack-effect init for project initialization.',
       );
     }
+
+    const target = yield* catalog
+      .getTarget(kind)
+      .pipe(
+        Effect.mapError(
+          () =>
+            `Unknown target kind "${kind}" in --target value "${targetId}".`,
+        ),
+      );
+
+    const name =
+      rawName.length > 0
+        ? rawName
+        : (target.defaultName ??
+          (yield* Effect.fail(
+            `Target kind "${kind}" does not define a default name. Provide an explicit target name.`,
+          )));
 
     return {
       kind,
