@@ -9,7 +9,7 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
 export const TargetKind = Schema.Union([
-  Schema.Literal("init"),
+  Schema.Literal("workspace"),
   Schema.Literal("package"),
   Schema.String,
 ]).pipe(Schema.brand("TargetKind"));
@@ -25,7 +25,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 }) {
   toPath(): typeof TargetPath.Type {
     switch (this.kind) {
-      case "init":
+      case "workspace":
         return TargetPath.make(".");
       case "package":
         return TargetPath.make(`packages/${Str.kebabCase(this.name.trim())}`);
@@ -38,7 +38,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 
   toKey(): typeof TargetKey.Type {
     switch (this.kind) {
-      case "init":
+      case "workspace":
         return TargetKey.make(".");
       case "package":
         return TargetKey.make(`packages/${Str.kebabCase(this.name.trim())}`);
@@ -57,7 +57,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   toPackageName(): string {
     const resolvedName = this.name.trim() || this.kind;
     switch (this.kind) {
-      case "init":
+      case "workspace":
         return resolvedName;
       case "package":
         return `@repo/${Str.kebabCase(resolvedName)}`;

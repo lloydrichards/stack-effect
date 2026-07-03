@@ -466,7 +466,7 @@ describe("FinalizeService", () => {
     it.effect("runs post-finalize scripts after config-derived scripts", () =>
       Effect.gen(function* () {
         const svc = yield* FinalizeService;
-        const moduleId = ModuleId.make("git-init");
+        const moduleId = ModuleId.make("workspace-devenv-git");
         const blueprint = targetWithModule(serverIdentity, moduleId);
 
         const report = yield* runToReport(svc, blueprint, makeConfig());
@@ -479,7 +479,7 @@ describe("FinalizeService", () => {
         Effect.provide(
           makeFinalizeLayer([], {
             modules: {
-              "git-init": {
+              "workspace-devenv-git": {
                 scripts: [
                   {
                     label: "Git init",
@@ -499,7 +499,7 @@ describe("FinalizeService", () => {
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
-          const moduleId = ModuleId.make("git-init");
+          const moduleId = ModuleId.make("workspace-devenv-git");
           const blueprint = targetWithModule(serverIdentity, moduleId);
           const config = new StackConfig({
             name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
@@ -518,7 +518,7 @@ describe("FinalizeService", () => {
           Effect.provide(
             makeFinalizeLayer([], {
               modules: {
-                "git-init": {
+                "workspace-devenv-git": {
                   scripts: [
                     {
                       label: "Git init",

@@ -28,7 +28,7 @@ import {
  */
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("http-api-react-client"),
+    id: ModuleId.make("client-react-http-api"),
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -39,13 +39,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-api"),
+        moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
     implies: [
       {
         targetKind: TargetKind.make("server"),
-        moduleId: ModuleId.make("http-api-server"),
+        moduleId: ModuleId.make("server-http-api"),
       },
     ],
     contributions: [
@@ -89,7 +89,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("http-rpc-react-client"),
+    id: ModuleId.make("client-react-http-rpc"),
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -100,13 +100,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-rpc"),
+        moduleId: ModuleId.make("domain-rpc-contracts"),
       },
     ],
     implies: [
       {
         targetKind: TargetKind.make("server"),
-        moduleId: ModuleId.make("http-rpc-server"),
+        moduleId: ModuleId.make("server-http-rpc"),
       },
     ],
     contributions: [
@@ -155,7 +155,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-react-client"),
+    id: ModuleId.make("client-react-chat"),
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -166,13 +166,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
     ],
     implies: [
       {
         targetKind: TargetKind.make("server"),
-        moduleId: ModuleId.make("chat-server"),
+        moduleId: ModuleId.make("server-chat-rpc"),
       },
     ],
     contributions: [
@@ -225,7 +225,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ws-presence-react-client"),
+    id: ModuleId.make("client-react-ws-presence"),
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
@@ -236,13 +236,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-websocket"),
+        moduleId: ModuleId.make("domain-ws-contracts"),
       },
     ],
     implies: [
       {
         targetKind: TargetKind.make("server"),
-        moduleId: ModuleId.make("ws-presence-server"),
+        moduleId: ModuleId.make("server-ws-presence"),
       },
     ],
     contributions: [

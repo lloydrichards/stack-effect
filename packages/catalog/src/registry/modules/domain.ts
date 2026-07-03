@@ -18,7 +18,7 @@ import { domainWebSocketContents } from "../content/websocket";
  */
 export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("domain-api"),
+    id: ModuleId.make("domain-api-contracts"),
     title: "Domain API",
     description: "Shared domain schemas and RPC definitions",
     visibility: "internal",
@@ -53,7 +53,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-rpc"),
+    id: ModuleId.make("domain-rpc-contracts"),
     title: "Domain RPC",
     description: "Shared RPC definitions for streaming over HTTP",
     visibility: "internal",
@@ -88,7 +88,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-chat"),
+    id: ModuleId.make("domain-chat-contracts"),
     title: "Domain Chat",
     description:
       "Chat stream protocol, message schemas, and client state machine",
@@ -141,7 +141,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-chat-managed"),
+    id: ModuleId.make("domain-chat-managed-contracts"),
     title: "Domain Managed Chat",
     description: "Managed chat send, watch, and interrupt RPC definitions",
     visibility: "internal",
@@ -161,7 +161,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
     ],
     contributions: [
@@ -185,7 +185,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-websocket"),
+    id: ModuleId.make("domain-ws-contracts"),
     title: "Domain WebSocket",
     description: "WebSocket RPC definitions for real-time presence",
     visibility: "internal",

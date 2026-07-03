@@ -123,7 +123,7 @@ const buildCatalogWorkspaceSelection = Effect.fn(
       new TargetIdentity({
         kind: targetKind,
         name:
-          targetKind === "init"
+          targetKind === "workspace"
             ? "catalog-built"
             : (defaultTargetNames.get(targetKind) ?? targetKind),
       }),
@@ -148,7 +148,7 @@ const buildCatalogWorkspaceSelection = Effect.fn(
 
   const initTarget = ensureTarget(
     new TargetIdentity({
-      kind: TargetKind.make("init"),
+      kind: TargetKind.make("workspace"),
       name: "catalog-built",
     }),
   );
@@ -158,7 +158,7 @@ const buildCatalogWorkspaceSelection = Effect.fn(
 
   for (const moduleDefinition of catalog.getModules()) {
     for (const supportedOn of moduleDefinition.supportedOn) {
-      if (supportedOn._tag === "kind" && supportedOn.kind === "init") {
+      if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
         continue;
       }
       ensureTarget(targetIdentityForSupportedOn(supportedOn)).modules.add(

@@ -11,7 +11,7 @@ import { CLI } from "./harness";
 describe("add", () => {
   layer(CLI.layer)("layer", (it) => {
     it.effect(
-      "adds a domain-api module to a package target",
+      "adds a domain-api-contracts module to a package target",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -28,7 +28,7 @@ describe("add", () => {
             "--target",
             "package/domain",
             "--modules",
-            "domain-api",
+            "domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -50,7 +50,7 @@ describe("add", () => {
           yield* cli.run("init", "impl-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // http-api-client implies http-api-server on server — rejected non-interactively
+          // client-react-http-api implies server-http-api on server — rejected non-interactively
           yield* cli.run(
             "add",
             "--yes",
@@ -59,7 +59,7 @@ describe("add", () => {
             "--target",
             "client-react/web",
             "--modules",
-            "http-api-react-client",
+            "client-react-http-api",
           );
           yield* cli.expectExitCode(1);
           yield* cli.expectOutputContaining("implies");
@@ -85,7 +85,7 @@ describe("add", () => {
             "--target",
             "package/domain",
             "--modules",
-            "domain-api",
+            "domain-api-contracts",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);
@@ -107,7 +107,7 @@ describe("add", () => {
           yield* cli.run("init", "impl-exists", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // First add domain-api (required by server)
+          // First add domain-api-contracts (required by server)
           yield* cli.run(
             "add",
             "--yes",
@@ -116,7 +116,7 @@ describe("add", () => {
             "--target",
             "package/domain",
             "--modules",
-            "domain-api",
+            "domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -129,7 +129,7 @@ describe("add", () => {
             "--target",
             "server/api",
             "--modules",
-            "http-api-server",
+            "server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -142,7 +142,7 @@ describe("add", () => {
             "--target",
             "client-react/web",
             "--modules",
-            "http-api-react-client",
+            "client-react-http-api",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);
@@ -160,7 +160,7 @@ describe("add", () => {
           yield* cli.run("init", "dep-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // Add chat-server which depends on domain-chat on package/domain
+          // Add server-chat-rpc which depends on domain-chat-contracts on package/domain
           yield* cli.run(
             "add",
             "--yes",
@@ -169,7 +169,7 @@ describe("add", () => {
             "--target",
             "server/api",
             "--modules",
-            "chat-server",
+            "server-chat-rpc",
           );
           yield* cli.expectExitCode(0);
 
@@ -182,7 +182,7 @@ describe("add", () => {
     );
 
     it.effect(
-      "ai module scaffolds with correct domain-chat dependency (issue #77)",
+      "ai module scaffolds with correct domain-chat-contracts dependency (issue #77)",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -199,7 +199,7 @@ describe("add", () => {
             "--target",
             "package/ai",
             "--modules",
-            "ai",
+            "package-ai-core",
           );
           yield* cli.expectExitCode(0);
 
@@ -230,7 +230,7 @@ describe("add", () => {
             "--target",
             "cli/app",
             "--modules",
-            "chat-ask-command",
+            "cli-command-chat-ask",
           );
           yield* cli.expectExitCode(0);
 
@@ -283,7 +283,7 @@ describe("add", () => {
             "--target",
             "cli/app",
             "--modules",
-            "terminal-chat-command",
+            "cli-command-chat-terminal",
           );
           yield* cli.expectExitCode(0);
 
@@ -341,7 +341,7 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Add domain-api (required by server and foldkit rest)
+          // Add domain-api-contracts (required by server and foldkit rest)
           yield* cli.run(
             "add",
             "--yes",
@@ -350,7 +350,7 @@ describe("add", () => {
             "--target",
             "package/domain",
             "--modules",
-            "domain-api",
+            "domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -363,7 +363,7 @@ describe("add", () => {
             "--target",
             "server/api",
             "--modules",
-            "http-api-server",
+            "server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -376,7 +376,7 @@ describe("add", () => {
             "--target",
             "client-foldkit/app",
             "--modules",
-            "http-api-foldkit-client",
+            "client-foldkit-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -412,7 +412,7 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // http-api-foldkit-client implies http-api-server — rejected non-interactively
+          // client-foldkit-http-api implies server-http-api — rejected non-interactively
           yield* cli.run(
             "add",
             "--yes",
@@ -421,7 +421,7 @@ describe("add", () => {
             "--target",
             "client-foldkit/app",
             "--modules",
-            "http-api-foldkit-client",
+            "client-foldkit-http-api",
           );
           yield* cli.expectExitCode(1);
           yield* cli.expectOutputContaining("implies");

@@ -224,7 +224,7 @@ different target kind, add the `implies` field:
 
 ```typescript
 {
-  id: ModuleId.make("http-api-client"),
+  id: ModuleId.make("client-react-http-api"),
   // ... other fields
   implies: [
     {
@@ -235,7 +235,7 @@ different target kind, add the `implies` field:
 }
 ```
 
-This means: when `http-api-client` is selected on a client target, the
+This means: when `client-react-http-api` is selected on a client-react target, the
 blueprint will also include `server-http-api` on any server target.
 
 ## Step 7: Add Children (Optional)

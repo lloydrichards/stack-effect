@@ -90,7 +90,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 
     const targetPath = this.identity.toPath();
 
-    // When targetPath is "." (init target), avoid producing "./foo" paths —
+    // When targetPath is "." (workspace target), avoid producing "./foo" paths —
     // strip the leading "./" so paths stay consistent with module contributions.
     const resolveTargetToken = (t: string, token: string) =>
       targetPath === "."

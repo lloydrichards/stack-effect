@@ -20,7 +20,7 @@ import { serverPresenceContents } from "../content/websocket";
  */
 export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
-    id: ModuleId.make("http-api-server"),
+    id: ModuleId.make("server-http-api"),
     title: "HTTP API Server",
     description: "REST API endpoints with Effect HTTP",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
@@ -31,7 +31,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-api"),
+        moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
     contributions: [
@@ -55,7 +55,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("http-rpc-server"),
+    id: ModuleId.make("server-http-rpc"),
     title: "HTTP RPC Server",
     description: "RPC streaming server with tick handler",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
@@ -66,7 +66,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-rpc"),
+        moduleId: ModuleId.make("domain-rpc-contracts"),
       },
     ],
     contributions: [
@@ -96,7 +96,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-server"),
+    id: ModuleId.make("server-chat-rpc"),
     title: "Chat Server",
     description: "AI chat RPC handler with tool support",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
@@ -107,7 +107,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat"),
+        moduleId: ModuleId.make("domain-chat-contracts"),
       },
       {
         _tag: "required-module",
@@ -115,7 +115,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "ai",
         }),
-        moduleId: ModuleId.make("ai-chat-service"),
+        moduleId: ModuleId.make("package-ai-chat-service"),
       },
     ],
     contributions: [
@@ -173,7 +173,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("chat-managed-runtime"),
+    id: ModuleId.make("server-chat-runtime-managed"),
     title: "Managed Chat Runtime",
     description: "In-memory managed chat send, watch, and interrupt runtime",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
@@ -184,7 +184,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-chat-managed"),
+        moduleId: ModuleId.make("domain-chat-managed-contracts"),
       },
       {
         _tag: "required-module",
@@ -192,7 +192,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("server"),
           name: "api",
         }),
-        moduleId: ModuleId.make("chat-server"),
+        moduleId: ModuleId.make("server-chat-rpc"),
       },
     ],
     contributions: [
@@ -220,7 +220,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("ws-presence-server"),
+    id: ModuleId.make("server-ws-presence"),
     title: "WebSocket Presence Server",
     description: "Real-time presence tracking over WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
@@ -231,7 +231,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "domain",
         }),
-        moduleId: ModuleId.make("domain-websocket"),
+        moduleId: ModuleId.make("domain-ws-contracts"),
       },
       {
         _tag: "required-module",
@@ -239,7 +239,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           kind: TargetKind.make("package"),
           name: "presence",
         }),
-        moduleId: ModuleId.make("presence"),
+        moduleId: ModuleId.make("package-presence-service"),
       },
     ],
     contributions: [

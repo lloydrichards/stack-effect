@@ -55,7 +55,7 @@ import {
 
 export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
-    kind: TargetKind.make("init"),
+    kind: TargetKind.make("workspace"),
     title: "Project Initialization",
     description:
       "Set up a new project with recommended structure and configuration",
@@ -334,7 +334,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("server"),
     title: "Server Application",
     description: "A backend application, such as an API server",
-    requiredModules: [ModuleId.make("http-api-server")],
+    requiredModules: [ModuleId.make("server-http-api")],
     contributions: [
       // Files
       {
@@ -411,7 +411,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("cli"),
     title: "CLI Application",
     description: "A command-line interface application",
-    requiredModules: [ModuleId.make("hello-command")],
+    requiredModules: [ModuleId.make("cli-command-hello")],
     contributions: [
       // Files
       {

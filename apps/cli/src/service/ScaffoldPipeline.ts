@@ -296,12 +296,12 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               finalizeConfig,
             );
 
-            const isInit = selection.targets.some(
-              (t) => t.identity.kind === "init",
+            const isWorkspaceInit = selection.targets.some(
+              (t) => t.identity.kind === "workspace",
             );
 
             const allSteps: string[] = [];
-            if (isInit) {
+            if (isWorkspaceInit) {
               allSteps.push(`cd ${config.name}`);
               allSteps.push(`${config.packageManagerName} install`);
             }
@@ -309,7 +309,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               allSteps.push("Resolve conflicts listed above");
             }
             allSteps.push(...nextSteps);
-            if (!isInit) {
+            if (!isWorkspaceInit) {
               allSteps.push(`${config.packageManagerName} run dev`);
             }
 
