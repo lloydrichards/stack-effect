@@ -678,6 +678,10 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
     const name = yield* TextInput({
       message: `What should this ${kind} target be called?`,
+      validate: (v) =>
+        v.trim().length > 0
+          ? Effect.succeed(v.trim())
+          : Effect.fail("Target name cannot be empty"),
     });
 
     const availableModules = yield* catalog.getSupportedModules(kind, {

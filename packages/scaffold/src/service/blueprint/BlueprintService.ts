@@ -240,9 +240,14 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
           "required-module": (dep) =>
             Effect.gen(function* () {
+              const dependencyTarget =
+                dep.target.kind !== "package" && dep.target.kind === target.kind
+                  ? target
+                  : dep.target;
+
               // Requiring a module implicitly requires the target to exist,
               // so we create both a required-target edge and a required-module edge
-              const requiredTarget = yield* ensureTarget(dep.target);
+              const requiredTarget = yield* ensureTarget(dependencyTarget);
 
               yield* appendEdge(stateRef, {
                 id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
@@ -252,7 +257,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
               });
 
               const requiredModule = yield* ensureAttachedModule(
-                dep.target,
+                dependencyTarget,
                 dep.moduleId,
               );
 
