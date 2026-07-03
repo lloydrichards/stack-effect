@@ -135,8 +135,8 @@ Sleep 1s
 Enter
 Sleep 1.5s
 
-# Prompt: Module selection (multiSelect - select chat-server)
-# Navigate to chat-server and toggle with Space
+# Prompt: Module selection (multiSelect - select server-chat-rpc)
+# Navigate to server-chat-rpc and toggle with Space
 Down 2
 Space
 Sleep 300ms

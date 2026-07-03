@@ -358,9 +358,9 @@ Formats Blueprint and Plan for CLI display.
 ```bash
 Blueprint:
 - apps/server-api (server)
-  ╰╌> apps/server-api#http-api-server
+  ╰╌> apps/server-api#server-http-api
        ├─> packages/domain [required-target]
-       ╰─> packages/domain#domain-api [required-module]
+       ╰─> packages/domain#domain-api-contracts [required-module]
 ```
 
 **Plan Output**:

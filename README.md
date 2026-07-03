@@ -19,7 +19,7 @@ Then add targets and modules to your project:
 bunx stack-effect@latest add
 
 # Non-interactive — specify what you need
-bunx stack-effect@latest add --target server/api --modules http-api-server --yes
+bunx stack-effect@latest add --target server/api --modules server-http-api --yes
 ```
 
 ## What You Get
@@ -92,10 +92,10 @@ Initialize a project with bun and add a client with an API connection:
 ```bash
 bunx stack-effect@latest init my-app --runtime bun --yes
 
-bunx stack-effect@latest add --target client/web --modules http-api-client --yes
+bunx stack-effect@latest add --target client-react/web --modules client-react-http-api --yes
 ```
 
-The `http-api-client` module automatically implies `http-api-server` on a server target, so both sides of the API are scaffolded together.
+The `client-react-http-api` module automatically implies `server-http-api` on a server target, so both sides of the API are scaffolded together.
 
 ## Contributing
 

@@ -115,7 +115,7 @@ client-foldkit-http-rpc
 ```
 
 ```text
-domain-websocket-contracts
+domain-ws-contracts
 server-ws-presence
 client-react-ws-presence
 client-foldkit-ws-presence
