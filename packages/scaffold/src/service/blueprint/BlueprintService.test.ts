@@ -229,6 +229,47 @@ describe("BlueprintService", () => {
       );
 
       it.effect(
+        "should resolve same-kind required modules on the selected target",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const cliCustomIdentity = new TargetIdentity({
+              kind: TargetKind.make("cli"),
+              name: "custom",
+            });
+            const blueprint = yield* blueprintService.resolve({
+              targets: [
+                {
+                  identity: cliCustomIdentity,
+                  modules: [{ id: ModuleId.make("cli-command-chat-terminal") }],
+                },
+              ],
+            });
+
+            expect(getNode(blueprint, "apps/cli-custom")).toMatchObject({
+              _tag: "target",
+              id: "apps/cli-custom",
+            });
+            expect(
+              blueprint.nodes.some((node) => node.id === "apps/cli-app"),
+            ).toBe(false);
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  cliCustomIdentity.toKey(),
+                  ModuleId.make("cli-chat-driver"),
+                ),
+              ),
+            ).toMatchObject({
+              _tag: "attached-module",
+              targetId: "apps/cli-custom",
+              moduleId: "cli-chat-driver",
+            });
+          }),
+      );
+
+      it.effect(
         "should keep distinct target ids when app kinds share the same name",
         () =>
           Effect.gen(function* () {

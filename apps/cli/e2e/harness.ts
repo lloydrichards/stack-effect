@@ -127,6 +127,10 @@ export interface ProjectContext {
     relativePath: string,
     entries: ReadonlyArray<string>,
   ) => Effect.Effect<void>;
+  readonly expectDirectoryExactly: (
+    relativePath: string,
+    entries: ReadonlyArray<string>,
+  ) => Effect.Effect<void>;
 }
 
 const makeProjectContext = (
@@ -215,6 +219,26 @@ const makeProjectContext = (
             }
           }
           return Effect.void;
+        }),
+        Effect.orDie,
+      ),
+
+    expectDirectoryExactly: (relativePath, entries) =>
+      fs.readDirectory(path.join(projectDir, relativePath)).pipe(
+        Effect.flatMap((dirEntries) => {
+          const actual = [...dirEntries].sort();
+          const expected = [...entries].sort();
+          const matches =
+            actual.length === expected.length &&
+            actual.every((entry, index) => entry === expected[index]);
+
+          return matches
+            ? Effect.void
+            : Effect.die(
+                new Error(
+                  `Directory ${relativePath} expected exactly: ${expected.join(", ")}. Found: ${actual.join(", ")}`,
+                ),
+              );
         }),
         Effect.orDie,
       ),

@@ -235,6 +235,7 @@ describe("add", () => {
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("ask-test", function* (project) {
+            yield* project.expectDirectoryExactly("apps", ["cli-app"]);
             yield* project.expectFileExists("apps/cli-app/src/commands/ask.ts");
             yield* project.expectFileExists(
               "apps/cli-app/src/chat/ChatDriver.ts",
@@ -281,42 +282,43 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "cli/app",
+            "cli/custom",
             "--modules",
             "cli-command-chat-terminal",
           );
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("terminal-chat-test", function* (project) {
+            yield* project.expectDirectoryExactly("apps", ["cli-custom"]);
             yield* project.expectFileExists(
-              "apps/cli-app/src/commands/chat.ts",
+              "apps/cli-custom/src/commands/chat.ts",
             );
             yield* project.expectFileExists(
-              "apps/cli-app/src/chat/TerminalChat.ts",
+              "apps/cli-custom/src/chat/TerminalChat.ts",
             );
             yield* project.expectFileExists(
-              "apps/cli-app/src/chat/ChatDriver.ts",
+              "apps/cli-custom/src/chat/ChatDriver.ts",
             );
             yield* project.expectFileExists("packages/ai/package.json");
             yield* project.expectFileExists("packages/domain/package.json");
             yield* project.expectFileContaining(
-              "apps/cli-app/src/index.ts",
+              "apps/cli-custom/src/index.ts",
               "chat",
             );
             yield* project.expectFileContaining(
-              "apps/cli-app/package.json",
+              "apps/cli-custom/package.json",
               '"@repo/ai": "workspace:*"',
             );
             yield* project.expectFileContaining(
-              "apps/cli-app/package.json",
+              "apps/cli-custom/package.json",
               '"@repo/domain": "workspace:*"',
             );
             yield* project.expectFileContaining(
-              "apps/cli-app/package.json",
+              "apps/cli-custom/package.json",
               '"effect-boxes": "^0.16.1"',
             );
             yield* project.expectFileNotExists(
-              "apps/cli-app/src/commands/ask.ts",
+              "apps/cli-custom/src/commands/ask.ts",
             );
             yield* project.expectFileNotExists("apps/server-api/package.json");
             yield* project.expectTypeCheckPasses();
