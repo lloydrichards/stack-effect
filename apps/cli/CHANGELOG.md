@@ -1,5 +1,18 @@
 # stack-effect
 
+## 0.8.0
+
+### Minor Changes
+
+- 951e712: add `terminal-chat-command` modules which adds an interactive chat app in the cli app
+- 91b5f69: add `chat-cli-driver` and `chat-ask-command` modules
+
+### Patch Changes
+
+- 3158d40: define a semantic guide for catalog IDs and align it across all current modules and targets.
+- 0cf68fc: fix confirmation tui width when lots of modules added
+- 48e3d5f: fix chat CLI scaffolding creating duplicate CLI apps
+
 ## 0.7.0
 
 ### Minor Changes
