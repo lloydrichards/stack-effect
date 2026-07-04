@@ -295,12 +295,10 @@ export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
     const generate = (messages: ReadonlyArray<ChatMessage>) =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const queue = yield* chat
-            .chat(messages.map(toPromptMessage))
-            .pipe(Effect.provide(FastModelLive), Effect.orDie);
+          const queue = yield* chat.chat(messages.map(toPromptMessage));
           return Stream.fromQueue(queue);
         }),
-      );
+      ).pipe(Stream.provide(FastModelLive), Stream.orDie);
 
     return {
       start: sessions.start,
