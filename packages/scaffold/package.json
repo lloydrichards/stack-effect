@@ -17,14 +17,14 @@
   "dependencies": {
     "@repo/domain": "workspace:*",
     "@repo/catalog": "workspace:*",
-    "effect": "4.0.0-beta.80",
-    "effect-boxes": "^0.16.1",
+    "effect": "4.0.0-beta.93",
+    "effect-boxes": "^0.17.0",
     "ts-morph": "^28.0.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.80",
-    "@types/node": "^25.9.3",
+    "@effect/vitest": "4.0.0-beta.93",
+    "@types/node": "^25.9.4",
     "@repo/config-typescript": "workspace:*",
-    "vitest": "^4.1.8"
+    "vitest": "^4.1.9"
   }
 }
