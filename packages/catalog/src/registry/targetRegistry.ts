@@ -208,12 +208,9 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     ],
     scripts: [
       {
-        label: "Install shadcn card component",
-        command: "bunx shadcn@latest add card --yes --overwrite",
-      },
-      {
-        label: "Install shadcn switch component",
-        command: "bunx shadcn@latest add switch --yes --overwrite",
+        label: "Install shadcn client components",
+        command:
+          "bunx shadcn@latest add button card input switch --yes --overwrite",
       },
     ],
   },
