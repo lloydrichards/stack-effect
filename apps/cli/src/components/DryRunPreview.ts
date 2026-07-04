@@ -27,14 +27,12 @@ export const DryRunPreview = ({
 }): Box.Box<Ansi.AnsiStyle> => {
   const terminalWidth = process.stdout.columns ?? 80;
 
-  // Blueprint panel
   const blueprintContent = Box.vsep(
     [sectionTitle("Blueprint"), blueprint],
     1,
     Box.left,
   );
 
-  // Apply panel
   const changesStats = Flex.row(
     [
       Flex.fixed(
@@ -60,7 +58,6 @@ export const DryRunPreview = ({
     Box.left,
   );
 
-  // Finalize panel
   const phaseLabels: Record<string, string> = {
     finalize: "Finalize",
     config: "Install & Format",
@@ -109,15 +106,13 @@ export const DryRunPreview = ({
     Box.left,
   );
 
-  // Footer
   const footer = Box.text("No changes written.").pipe(Box.annotate(Ansi.dim));
 
-  // Natural width needed for horizontal layout
   const naturalHorizontalWidth =
     Box.cols(blueprintContent) +
     Box.cols(applyContent) +
     Box.cols(finalizeContent) +
-    18; // padding + borders overhead
+    18;
 
   const panels = Breakpoint.select(terminalWidth, [
     {

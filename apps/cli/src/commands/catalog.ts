@@ -81,7 +81,7 @@ class WorkspaceValidationFailed extends Data.TaggedError(
   exitCode: number;
 }> {}
 
-const targetIdentityForSupportedOn = (supportedOn: typeof SupportedOn.Type) =>
+const targetIdentityFrom = (supportedOn: typeof SupportedOn.Type) =>
   supportedOn._tag === "identity"
     ? supportedOn.identity
     : new TargetIdentity({
@@ -94,90 +94,90 @@ const contributionPath = (contribution: typeof Contribution.Type): string =>
     ? contribution.barrelPath
     : contribution.path;
 
-const buildCatalogWorkspaceSelection = Effect.fn(
-  "catalog.workspace.buildSelection",
-)(function* () {
-  const catalog = yield* CatalogService;
-  const targets = new Map<
-    string,
-    {
-      identity: TargetIdentity;
-      modules: Set<typeof ModuleId.Type>;
-    }
-  >();
-
-  const ensureTarget = (identity: TargetIdentity) => {
-    const key = identity.toKey();
-    const current = targets.get(key);
-    if (current) return current;
-    const next = {
-      identity,
-      modules: new Set<typeof ModuleId.Type>(),
-    };
-    targets.set(key, next);
-    return next;
-  };
-
-  for (const targetKind of catalog.getTargetKinds()) {
-    ensureTarget(
-      new TargetIdentity({
-        kind: targetKind,
-        name:
-          targetKind === "workspace"
-            ? "catalog-built"
-            : (defaultTargetNames.get(targetKind) ?? targetKind),
-      }),
-    );
-  }
-
-  const initDefaultModules = [
-    ModuleCategory.make("monorepo"),
-    ModuleCategory.make("lint"),
-    ModuleCategory.make("format"),
-    ModuleCategory.make("test"),
-  ].flatMap((category) =>
-    pipe(
-      catalog.getModules({ category }),
-      Arr.head,
-      Option.match({
-        onNone: () => [],
-        onSome: (moduleDefinition) => [moduleDefinition.id],
-      }),
-    ),
-  );
-
-  const initTarget = ensureTarget(
-    new TargetIdentity({
-      kind: TargetKind.make("workspace"),
-      name: "catalog-built",
-    }),
-  );
-  for (const moduleId of initDefaultModules) {
-    initTarget.modules.add(moduleId);
-  }
-
-  for (const moduleDefinition of catalog.getModules()) {
-    for (const supportedOn of moduleDefinition.supportedOn) {
-      if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
-        continue;
+const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
+  function* () {
+    const catalog = yield* CatalogService;
+    const targets = new Map<
+      string,
+      {
+        identity: TargetIdentity;
+        modules: Set<typeof ModuleId.Type>;
       }
-      ensureTarget(targetIdentityForSupportedOn(supportedOn)).modules.add(
-        moduleDefinition.id,
+    >();
+
+    const ensureTarget = (identity: TargetIdentity) => {
+      const key = identity.toKey();
+      const current = targets.get(key);
+      if (current) return current;
+      const next = {
+        identity,
+        modules: new Set<typeof ModuleId.Type>(),
+      };
+      targets.set(key, next);
+      return next;
+    };
+
+    for (const targetKind of catalog.getTargetKinds()) {
+      ensureTarget(
+        new TargetIdentity({
+          kind: targetKind,
+          name:
+            targetKind === "workspace"
+              ? "catalog-built"
+              : (defaultTargetNames.get(targetKind) ?? targetKind),
+        }),
       );
     }
-  }
 
-  const selectedTargets = Array.from(targets.values())
-    .map((target) => ({
-      identity: target.identity,
-      modules: Array.from(target.modules)
-        .sort((a, b) => a.localeCompare(b))
-        .map((id) => ({ id })),
-    }))
-    .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
+    const initDefaultModules = [
+      ModuleCategory.make("monorepo"),
+      ModuleCategory.make("lint"),
+      ModuleCategory.make("format"),
+      ModuleCategory.make("test"),
+    ].flatMap((category) =>
+      pipe(
+        catalog.getModules({ category }),
+        Arr.head,
+        Option.match({
+          onNone: () => [],
+          onSome: (moduleDefinition) => [moduleDefinition.id],
+        }),
+      ),
+    );
 
-  return { targets: selectedTargets } satisfies typeof Selection.Type;
-});
+    const initTarget = ensureTarget(
+      new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "catalog-built",
+      }),
+    );
+    for (const moduleId of initDefaultModules) {
+      initTarget.modules.add(moduleId);
+    }
+
+    for (const moduleDefinition of catalog.getModules()) {
+      for (const supportedOn of moduleDefinition.supportedOn) {
+        if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
+          continue;
+        }
+        ensureTarget(targetIdentityFrom(supportedOn)).modules.add(
+          moduleDefinition.id,
+        );
+      }
+    }
+
+    const selectedTargets = Array.from(targets.values())
+      .map((target) => ({
+        identity: target.identity,
+        modules: Array.from(target.modules)
+          .sort((a, b) => a.localeCompare(b))
+          .map((id) => ({ id })),
+      }))
+      .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
+
+    return { targets: selectedTargets } satisfies typeof Selection.Type;
+  },
+);
 
 const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
   blueprint,
@@ -503,7 +503,7 @@ const reset = Command.make("reset", { root: rootFlag }, (flags) =>
       monorepo: "turbo",
     });
 
-    const selection = yield* buildCatalogWorkspaceSelection();
+    const selection = yield* buildWorkspaceSelection();
     const blueprintService = yield* BlueprintService;
     const blueprint = yield* blueprintService.resolve(selection);
     const planService = yield* PlanService;

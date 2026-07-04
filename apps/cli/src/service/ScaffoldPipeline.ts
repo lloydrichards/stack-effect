@@ -22,6 +22,18 @@ class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   retry?: boolean;
 }> {}
 
+const selectedCommandSet = (
+  scripts: ReadonlyArray<{ command: string }>,
+): ReadonlySet<string> => new Set(scripts.map((script) => script.command));
+
+const skippedFinalizeScripts = (
+  previewScripts: ReadonlyArray<{ label: string; command: string }>,
+  selectedCommands: ReadonlySet<string>,
+) =>
+  previewScripts
+    .filter((script) => !selectedCommands.has(script.command))
+    .map((script) => ({ label: script.label, command: script.command }));
+
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
   "ScaffoldPipeline",
   {
@@ -66,7 +78,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const finalizeService = yield* FinalizeService;
           const applyService = yield* ApplyService;
 
-          // Blueprint
           const blueprint = yield* blueprintService.resolve(selection);
 
           const formattedBlueprint =
@@ -98,11 +109,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             }
           }
 
-          if (dryRun) {
-            // no-op: blueprint shown inside DryRunPreview
-          }
-
-          // Plan
           const plan = yield* planService.build({
             blueprint,
             repoRoot,
@@ -123,15 +129,12 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             Box.left,
           );
 
-          // Dry run: show full preview without writing or executing
           if (dryRun) {
-            // Preview apply outcomes
             const result = yield* applyService.preview({
               apply: new Apply({ plan, decisions: [] }),
               repoRoot,
             });
 
-            // Preview finalize scripts
             const finalizeConfig: FinalizeConfig = {
               config,
               repoRoot,
@@ -154,10 +157,8 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             return;
           }
 
-          // Resolve conflicts
           const decisions = yield* resolveConflicts(plan, yes);
 
-          // Confirm
           if (!yes) {
             const proceed = yield* Confirm({
               message: "Apply changes?",
@@ -172,7 +173,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             }
           }
 
-          // Apply
           const result = yield* applyService.apply({
             apply: new Apply({ plan, decisions }),
             repoRoot,
@@ -185,7 +185,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             yield* Console.log(`Failed: ${result.failed.length} files`);
           }
 
-          // Finalize
           const finalizeConfig: FinalizeConfig = {
             config,
             repoRoot,
@@ -197,7 +196,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           if (previewScripts.length > 0) {
             const skipPrompt = yes || trust;
 
-            // Determine which scripts to run
             const selectedScripts = skipPrompt
               ? previewScripts
               : yield* MultiSelect({
@@ -216,7 +214,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                   })),
                 });
 
-            // Print script list for non-interactive (audit trail)
+            // NOTE: Non-interactive runs still print the script list as an audit trail.
             if (skipPrompt) {
               yield* Console.log("\nFinalize scripts:");
               for (const script of previewScripts) {
@@ -235,10 +233,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 finalizeConfig,
               );
 
-              // Filter executables to only selected scripts
-              const selectedCommands = new Set(
-                selectedScripts.map((s) => s.command),
-              );
+              const selectedCommands = selectedCommandSet(selectedScripts);
               const filteredExecutables = executables.filter((e) =>
                 selectedCommands.has(e.script.command),
               );
@@ -282,15 +277,11 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               }
             }
 
-            // Determine skipped scripts (deselected by user)
-            const selectedCommands = new Set(
-              selectedScripts.map((s) => s.command),
+            const skippedScripts = skippedFinalizeScripts(
+              previewScripts,
+              selectedCommandSet(selectedScripts),
             );
-            const skippedScripts = previewScripts
-              .filter((s) => !selectedCommands.has(s.command))
-              .map((s) => ({ label: s.label, command: s.command }));
 
-            // Collect and render post-scaffold summary
             const nextSteps = yield* finalizeService.collectNextSteps(
               blueprint,
               finalizeConfig,

@@ -15,7 +15,6 @@ export const NextStepsPreview = ({
 }): Box.Box<Ansi.AnsiStyle> => {
   const sections: Box.Box<Ansi.AnsiStyle>[] = [];
 
-  // Conflicts section
   if (conflicts.length > 0) {
     const items = conflicts.map((path) =>
       Flex.row(
@@ -36,7 +35,6 @@ export const NextStepsPreview = ({
     );
   }
 
-  // Skipped scripts section
   if (skippedScripts.length > 0) {
     const items = skippedScripts.map((s) =>
       Flex.row(
@@ -53,7 +51,6 @@ export const NextStepsPreview = ({
     );
   }
 
-  // Next steps section
   if (steps.length > 0) {
     const items = steps.map((step, i) =>
       Flex.row(
@@ -74,7 +71,6 @@ export const NextStepsPreview = ({
     return Box.text("");
   }
 
-  // Stack sections vertically with borders
   const terminalWidth = process.stdout.columns ?? 80;
 
   return Container.make({ width: terminalWidth, padding: [0, 2] }, (ctx) => {

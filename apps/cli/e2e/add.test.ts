@@ -50,7 +50,6 @@ describe("add", () => {
           yield* cli.run("init", "impl-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // client-react-http-api implies server-http-api on server — rejected non-interactively
           yield* cli.run(
             "add",
             "--yes",
@@ -107,7 +106,6 @@ describe("add", () => {
           yield* cli.run("init", "impl-exists", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // First add domain-api-contracts (required by server)
           yield* cli.run(
             "add",
             "--yes",
@@ -120,7 +118,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Add server module first
           yield* cli.run(
             "add",
             "--yes",
@@ -133,7 +130,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Now add client module — should succeed since server already exists
           yield* cli.run(
             "add",
             "--yes",
@@ -160,7 +156,6 @@ describe("add", () => {
           yield* cli.run("init", "dep-test", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          // Add server-chat-rpc which depends on domain-chat-contracts on package/domain
           yield* cli.run(
             "add",
             "--yes",
@@ -343,7 +338,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Add domain-api-contracts (required by server and foldkit rest)
           yield* cli.run(
             "add",
             "--yes",
@@ -356,7 +350,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Add server (satisfies implication)
           yield* cli.run(
             "add",
             "--yes",
@@ -369,7 +362,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // Add client-foldkit with rest module
           yield* cli.run(
             "add",
             "--yes",
@@ -414,7 +406,6 @@ describe("add", () => {
           );
           yield* cli.expectExitCode(0);
 
-          // client-foldkit-http-api implies server-http-api — rejected non-interactively
           yield* cli.run(
             "add",
             "--yes",

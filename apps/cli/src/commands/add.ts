@@ -34,6 +34,8 @@ import {
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { dryRunFlag, rootFlag, trustFlag, yesFlag } from "../flags";
+import { buildSelectionFrom } from "../lib/routing";
+import { duplicatedValues, splitCommaSeparated } from "../lib/utils";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
@@ -108,9 +110,9 @@ const formatTargetSummary = (
 };
 
 /**
- * Build a tree structure for nested module selection showing the full
- * cross-target dependency graph. Each module shows its required dependencies
- * and implied modules as nested children.
+ * Build the nested module picker from catalog dependency metadata. Cross-target
+ * children are shown for visibility, but Selection construction routes each
+ * chosen module back to its owning target.
  */
 const buildModuleTree = (
   modules: ReadonlyArray<typeof ModuleDefinition.Type>,
@@ -122,16 +124,12 @@ const buildModuleTree = (
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
 
-    // Collect all module IDs that appear as children of other modules
-    // so they are excluded from the top-level list (they appear nested instead)
     const childModuleIds = new Set(
       Arr.flatMap(modules, (mod) =>
         Arr.map(mod.children ?? [], (child) => child.moduleId),
       ),
     );
 
-    // Build tree node recursively, following dependencies and implies
-    // visited is a Ref for mutable tracking across sibling branches
     const buildNode = (
       mod: typeof ModuleDefinition.Type,
       requirement: "root" | "required" | "optional",
@@ -144,7 +142,6 @@ const buildModuleTree = (
       Effect.gen(function* () {
         const visited = yield* Ref.get(visitedRef);
 
-        // Skip if already visited (cycle prevention)
         if (visited.has(mod.id)) {
           return {
             node: {
@@ -157,12 +154,8 @@ const buildModuleTree = (
           };
         }
 
-        // Mark as visited before processing children
         yield* Ref.update(visitedRef, (s) => new Set([...s, mod.id]));
 
-        // Process required dependencies (cross-target required-module deps)
-        // These are included in the tree for visibility, but are filtered out
-        // when building the Selection (BlueprintService resolves them automatically).
         const depChildren = yield* pipe(
           mod.dependencies,
           Arr.filter(
@@ -198,7 +191,6 @@ const buildModuleTree = (
           Effect.map(Arr.filterMap((x) => x)),
         );
 
-        // Process implied modules (cross-target)
         const impChildren = yield* pipe(
           mod.implies ?? [],
           Effect.forEach((imp) =>
@@ -230,7 +222,6 @@ const buildModuleTree = (
           Effect.map(Arr.filterMap((x) => x)),
         );
 
-        // Process same-target children (optional sub-modules)
         const subChildren = yield* pipe(
           mod.children ?? [],
           Effect.forEach((child) =>
@@ -272,8 +263,6 @@ const buildModuleTree = (
         };
       });
 
-    // Build tree for each top-level module (each with fresh visited Ref)
-    // Exclude modules that are children of other modules in this set
     const topLevelModules = Arr.filter(
       modules,
       (mod) => !childModuleIds.has(mod.id),
@@ -302,6 +291,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
         Effect.gen(function* () {
           const definition = yield* catalog.getModule(moduleId);
 
+          // NOTE: BlueprintService resolves required-module deps; this prompt only places implied modules.
           yield* Effect.forEach(definition.implies ?? [], (implication) =>
             Effect.gen(function* () {
               const candidates = Arr.filter(
@@ -428,7 +418,6 @@ const removeOrphanedImplications = (
       }),
     );
 
-    // Remove empty targets
     const before = targets.length;
     const remaining = Arr.filter(targets, (t) =>
       Arr.isArrayNonEmpty(t.modules),
@@ -626,7 +615,6 @@ const resolveImplicationsNonInteractive = (
                   Match.value(candidates.length),
                   Match.when(0, () =>
                     Effect.gen(function* () {
-                      // Check if the implied target/module already exists on disk
                       const appsDir = `${repoRoot}/apps`;
                       const packagesDir = `${repoRoot}/packages`;
                       const searchDir =
@@ -756,16 +744,7 @@ const parseTargetIdentity = (targetId: string) =>
 
 const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const parts = pipe(
-      rawModules,
-      Arr.flatMap((entry) =>
-        pipe(
-          entry.split(","),
-          Arr.map((part) => part.trim()),
-          Arr.filter((part) => part.length > 0),
-        ),
-      ),
-    );
+    const parts = splitCommaSeparated(rawModules);
 
     if (Arr.isArrayEmpty(parts)) {
       return yield* Effect.fail(
@@ -773,13 +752,7 @@ const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
       );
     }
 
-    // Find duplicates using Array.groupBy
-    const grouped = Arr.groupBy(parts, (id) => id);
-    const duplicates = pipe(
-      Object.entries(grouped),
-      Arr.filter(([, items]) => items.length > 1),
-      Arr.map(([id]) => id),
-    );
+    const duplicates = duplicatedValues(parts);
 
     if (Arr.isArrayNonEmpty(duplicates)) {
       return yield* Effect.fail(
@@ -814,7 +787,6 @@ const collectTargetsFromFlags = (
 
     const moduleIds = yield* parseModuleInputs(rawModules);
 
-    // Validate modules and collect unsupported ones
     const unsupported = yield* pipe(
       moduleIds,
       Effect.filter((moduleId) =>
@@ -863,7 +835,6 @@ const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const terminal = yield* Terminal.Terminal;
 
-  // Build target kind choices from catalog (public targets only)
   const targetChoices = yield* pipe(
     catalog.getTargetKinds({ visibility: "public" }),
     Effect.forEach((kind) =>
@@ -891,7 +862,6 @@ const collectTargetsInteractive = Effect.gen(function* () {
       visibility: "public",
     });
 
-    // Build nested tree structure for module selection
     const moduleTree = yield* buildModuleTree(availableModules);
 
     const modules = Arr.isReadonlyArrayNonEmpty(moduleTree)
@@ -904,10 +874,8 @@ const collectTargetsInteractive = Effect.gen(function* () {
     targets.push({ kind, name, modules: [...modules], confirmed: false });
   });
 
-  // Collect first target
   yield* addTarget;
 
-  // The user explicitly chose modules for the first target, mark it confirmed
   pipe(
     Option.fromNullishOr(targets[0]),
     Option.filter((t) => Arr.isArrayNonEmpty(t.modules)),
@@ -918,7 +886,6 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
   yield* resolveDependenciesInteractive(targets);
 
-  // Confirmation loop
   let allConfirmed = false;
   while (!allConfirmed) {
     const terminalWidth = yield* terminal.columns;
@@ -994,7 +961,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
                     t.modules = [...newModules];
                     t.confirmed = true;
 
-                    // Cascade: remove orphaned implications then re-resolve
+                    // NOTE: Prune implied modules that were invalidated by explicit edits before resolving again.
                     const pinned = new Set(
                       Arr.map(newModules, (m) => `${t.kind}:${m}`),
                     );
@@ -1040,7 +1007,6 @@ export const add = Command.make(
 
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
 
-      // Require init
       const config = yield* configure.requireConfig(repoRoot);
 
       const hasTarget = Option.isSome(flags.target);
@@ -1052,7 +1018,6 @@ export const add = Command.make(
         );
       }
 
-      // Collect targets: use flags if provided, otherwise interactive loop
       const collected =
         hasTarget && hasModules
           ? yield* collectTargetsFromFlags(
@@ -1062,85 +1027,10 @@ export const add = Command.make(
             )
           : yield* collectTargetsInteractive;
 
-      // Build selection, routing each module to the target it's supported on.
-      // Cross-target module IDs that appeared in the TUI tree (e.g., toolkit
-      // children of a parent on another target) are placed on the correct target.
-      // BlueprintService will also resolve required-module deps automatically.
-      const selectionTargets = new Map<
-        string,
-        { identity: TargetIdentity; modules: Set<string> }
-      >();
-
-      // Seed with collected targets
-      for (const t of collected) {
-        const identity = new TargetIdentity({ kind: t.kind, name: t.name });
-        selectionTargets.set(identity.toKey(), {
-          identity,
-          modules: new Set(),
-        });
-      }
-
-      // Route each module to its supported target
-      yield* Effect.forEach(collected, (t) =>
-        Effect.gen(function* () {
-          const identity = new TargetIdentity({ kind: t.kind, name: t.name });
-          yield* Effect.forEach(Arr.dedupe(t.modules), (id) =>
-            Effect.gen(function* () {
-              // Check if supported on the collected target first
-              const ownSupported = yield* catalog
-                .isSupportedOn(id, identity)
-                .pipe(Effect.orElseSucceed(() => false));
-              if (ownSupported) {
-                selectionTargets.get(identity.toKey())!.modules.add(id);
-                return;
-              }
-
-              // Find which target this module belongs to
-              const mod = yield* catalog
-                .getModule(id)
-                .pipe(Effect.orElseSucceed(() => null));
-              if (!mod) return;
-
-              for (const rule of mod.supportedOn) {
-                if (rule._tag === "identity") {
-                  const targetKey = new TargetIdentity(rule.identity).toKey();
-                  if (!selectionTargets.has(targetKey)) {
-                    selectionTargets.set(targetKey, {
-                      identity: new TargetIdentity(rule.identity),
-                      modules: new Set(),
-                    });
-                  }
-                  selectionTargets.get(targetKey)!.modules.add(id);
-                  return;
-                }
-                if (rule._tag === "kind") {
-                  // Find existing target of this kind
-                  const existing = Arr.findFirst(collected, (c) =>
-                    c.kind === rule.kind ? true : false,
-                  );
-                  if (Option.isSome(existing)) {
-                    const key = new TargetIdentity({
-                      kind: existing.value.kind,
-                      name: existing.value.name,
-                    }).toKey();
-                    selectionTargets.get(key)!.modules.add(id);
-                    return;
-                  }
-                }
-              }
-            }),
-          );
-        }),
-      );
-
-      const selection: typeof Selection.Type = {
-        targets: Arr.fromIterable(selectionTargets.values()).map((entry) => ({
-          identity: entry.identity,
-          modules: Arr.fromIterable(entry.modules).map((id) => ({
-            id: id as typeof ModuleId.Type,
-          })),
-        })),
-      };
+      const selection = yield* buildSelectionFrom({
+        catalog,
+        collected,
+      });
 
       yield* pipeline.run({
         selection,
