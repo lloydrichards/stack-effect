@@ -133,7 +133,7 @@ export class PlanService extends Context.Service<PlanService>()("PlanService", {
 
 const compilePlanningPaths = (
   normalizedContributions: typeof NormalizedContributions.Type,
-): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
+) => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(
       [
@@ -316,7 +316,7 @@ const derivePlanningIntentPath = ({
 }: {
   path: string;
   entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
-}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
+}) =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ entries, path });
     const authoritativeEntries = entries.filter(
@@ -601,10 +601,7 @@ const derivePlanningIntentFamily = ({
 }: {
   entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
   path: string;
-}): Effect.Effect<
-  PlanningIntentFamily | CompositePlanningIntentFamily,
-  PlanFailure
-> => {
+}) => {
   const families = new Set(Arr.map(entries, toPlanningIntentFamily));
 
   if (families.size === 1) {
@@ -651,7 +648,7 @@ const requireSingleValue = <Value>({
 }: {
   values: ReadonlyArray<Value>;
   errorMessage: string;
-}): Effect.Effect<Value, PlanFailure> => {
+}) => {
   const firstValue = values[0];
 
   if (
@@ -681,7 +678,7 @@ const collectUniqueEntries = <Entry, Result>({
   valueOf: (entry: Entry) => string;
   toResult: (entry: Entry) => Result;
   errorMessage: string;
-}): Effect.Effect<ReadonlyArray<Result>, PlanFailure> =>
+}) =>
   Effect.all(
     Record.collect(Arr.groupBy(entries, keyOf), (_, groupedEntries) =>
       requireSingleValue({

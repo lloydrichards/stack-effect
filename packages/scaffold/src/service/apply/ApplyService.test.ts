@@ -64,7 +64,7 @@ const makeFileInfo = (type: FileSystem.File.Type): FileSystem.File.Info => ({
 });
 
 const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
-  const getEntry = (absolutePath: string): MockPathEntry =>
+  const getEntry = (absolutePath: string) =>
     entries[absolutePath] ?? { _tag: "missing" };
 
   return FileSystem.layerNoop({

@@ -302,7 +302,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 const appendEdge = (
   stateRef: Ref.Ref<ResolutionState>,
   edge: (typeof Blueprint.fields.edges.Type)[0],
-): Effect.Effect<void> =>
+) =>
   Ref.update(stateRef, (s) =>
     HashMap.has(s.edges, edge.id)
       ? s

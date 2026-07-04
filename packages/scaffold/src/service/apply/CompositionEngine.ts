@@ -58,9 +58,9 @@ export class CompositionEngine extends Context.Service<CompositionEngine>()(
   );
 }
 
-const isJsonFile = (path: string): boolean => path.endsWith(".json");
+const isJsonFile = (path: string) => path.endsWith(".json");
 
-const isTypeScriptFile = (path: string): boolean =>
+const isTypeScriptFile = (path: string) =>
   path.endsWith(".ts") ||
   path.endsWith(".tsx") ||
   path.endsWith(".js") ||

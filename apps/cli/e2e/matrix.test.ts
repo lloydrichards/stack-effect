@@ -132,7 +132,7 @@ function getModuleTarget(mod: {
     | { _tag: "kind"; kind: string }
     | { _tag: "identity"; identity: { kind: string; name: string } }
   >;
-}): string {
+}) {
   const s = mod.supportedOn[0];
   if (!s) return "unknown/unknown";
   return s._tag === "identity"
@@ -140,7 +140,7 @@ function getModuleTarget(mod: {
     : `${s.kind}/${defaultTargetNames.get(s.kind) ?? s.kind}`;
 }
 
-function identityToTarget(identity: { kind: string; name: string }): string {
+function identityToTarget(identity: { kind: string; name: string }) {
   return `${identity.kind}/${identity.name}`;
 }
 

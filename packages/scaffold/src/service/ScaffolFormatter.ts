@@ -363,7 +363,7 @@ const buildNodes = (
 
 const formatPlanClassificationBadge = (
   classification: typeof PlanEntryClassification.Type,
-): Box.Box<Ansi.AnsiStyle> => {
+) => {
   const [text, style] = Match.value(classification).pipe(
     Match.when("create", () => ["[+]", Ansi.green] as const),
     Match.when("modify", () => ["[~]", Ansi.yellow] as const),
@@ -374,9 +374,7 @@ const formatPlanClassificationBadge = (
   return Box.text(text).pipe(Box.annotate(style));
 };
 
-const formatConflictLine = (
-  conflict: typeof PlanConflict.Type,
-): Box.Box<Ansi.AnsiStyle> =>
+const formatConflictLine = (conflict: typeof PlanConflict.Type) =>
   Box.text(
     Match.value(conflict).pipe(
       Match.tags({

@@ -12,7 +12,7 @@ export const NextStepsPreview = ({
   conflicts: ReadonlyArray<string>;
   skippedScripts: ReadonlyArray<{ label: string; command: string }>;
   steps: ReadonlyArray<string>;
-}): Box.Box<Ansi.AnsiStyle> => {
+}) => {
   const sections: Box.Box<Ansi.AnsiStyle>[] = [];
 
   if (conflicts.length > 0) {
