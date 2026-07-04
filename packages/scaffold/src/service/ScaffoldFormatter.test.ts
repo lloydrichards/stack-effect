@@ -219,7 +219,7 @@ describe("ScaffoldFormatter", () => {
           expect(result.summary).toBe(
             "1 create  1 modify  1 unchanged  2 merge",
           );
-          // Box.renderPlainSync pads lines to equal width; trim trailing spaces per line
+          // NOTE: Box.renderPlainSync pads lines to equal width, so assertions trim trailing spaces.
           const trimmedTree = Box.renderPlainSync(result.tree)
             .split("\n")
             .map((line) => line.trimEnd())

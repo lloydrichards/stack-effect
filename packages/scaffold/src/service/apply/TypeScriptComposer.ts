@@ -16,17 +16,18 @@ import {
   Option,
   pipe,
 } from "effect";
-import type { CallExpression, ImportDeclaration, SourceFile } from "ts-morph";
+import type {
+  CallExpression,
+  ImportDeclaration,
+  Node,
+  SourceFile,
+} from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
 class TargetNotFoundError extends Data.TaggedError("TargetNotFoundError")<{
   targetVariable: string;
   functionName: string;
 }> {}
-
-// =============================================================================
-// Service Definition
-// =============================================================================
 
 export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
   "TypeScriptComposer",
@@ -79,10 +80,6 @@ export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
   );
 }
 
-// =============================================================================
-// Implementation Helpers
-// =============================================================================
-
 const applyTsAddImport = (
   sourceFile: SourceFile,
   op: typeof TsAddImportOp.Type,
@@ -120,13 +117,11 @@ const applyTsAddReexport = (
   sourceFile: SourceFile,
   op: typeof TsAddReexportOp.Type,
 ): void => {
-  // Check if re-export already exists
   const existingExport = sourceFile.getExportDeclaration(
     (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
   );
 
   if (existingExport) {
-    // If namedExports specified, add them to existing export
     if (op.namedExports) {
       const existingNamedExports = existingExport.getNamedExports();
       for (const namedExport of op.namedExports) {
@@ -141,7 +136,6 @@ const applyTsAddReexport = (
     return;
   }
 
-  // Add new export declaration
   if (op.namedExports && op.namedExports.length > 0) {
     sourceFile.addExportDeclaration({
       moduleSpecifier: op.moduleSpecifier,
@@ -149,7 +143,6 @@ const applyTsAddReexport = (
       isTypeOnly: op.typeOnly ?? false,
     });
   } else {
-    // Star export: export * from "..."
     sourceFile.addExportDeclaration({
       moduleSpecifier: op.moduleSpecifier,
       isTypeOnly: op.typeOnly ?? false,
@@ -166,7 +159,6 @@ const applyTsAddReexport = (
 const appendToCallOrArray = (call: CallExpression, argument: string): void => {
   const args = call.getArguments();
 
-  // If the only argument is an array literal, add inside it
   if (
     args.length === 1 &&
     args[0] !== undefined &&
@@ -182,96 +174,82 @@ const appendToCallOrArray = (call: CallExpression, argument: string): void => {
     return;
   }
 
-  // Otherwise add as a regular function argument
   const alreadyExists = args.some((arg) => arg.getText() === argument);
   if (!alreadyExists) {
     call.addArgument(argument);
   }
 };
 
+const getTargetInitializer = (sourceFile: SourceFile, targetVariable: string) =>
+  pipe(
+    Option.fromNullishOr(sourceFile.getVariableDeclaration(targetVariable)),
+    Option.flatMap((declaration) =>
+      Option.fromNullishOr(declaration.getInitializer()),
+    ),
+  );
+
+const isMatchingFunctionCall = (
+  call: CallExpression,
+  functionName: string,
+): boolean => {
+  const expression = call.getExpression();
+
+  if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
+    return expression.getText() === functionName;
+  }
+
+  if (expression.isKind(SyntaxKind.Identifier)) {
+    const name = expression.getText();
+    return name === functionName || functionName.endsWith(`.${name}`);
+  }
+
+  return false;
+};
+
+const findCallExpression = (
+  initializer: Node,
+  functionName: string,
+): CallExpression | undefined => {
+  if (
+    initializer.isKind(SyntaxKind.CallExpression) &&
+    isMatchingFunctionCall(initializer, functionName)
+  ) {
+    return initializer;
+  }
+
+  return initializer
+    .getDescendantsOfKind(SyntaxKind.CallExpression)
+    .find((call) => isMatchingFunctionCall(call, functionName));
+};
+
+const toOuterCurriedCall = (call: CallExpression): CallExpression => {
+  const parent = call.getParent();
+  if (
+    parent?.isKind(SyntaxKind.CallExpression) &&
+    parent.getExpression() === call
+  ) {
+    // NOTE: Curried calls carry the composition argument on the outer call.
+    return parent;
+  }
+  return call;
+};
+
 const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   sourceFile: SourceFile,
   op: typeof TsAppendCallArgOp.Type,
 ) {
-  // Find variable declaration with the target name
-  const variableDeclaration = sourceFile.getVariableDeclaration(
-    op.targetVariable,
-  );
-
-  if (!variableDeclaration) {
+  const initializer = getTargetInitializer(sourceFile, op.targetVariable);
+  if (Option.isNone(initializer)) {
     return yield* new TargetNotFoundError({
       targetVariable: op.targetVariable,
       functionName: op.functionName,
     });
   }
 
-  const initializer = variableDeclaration.getInitializer();
-  if (!initializer) {
-    return yield* new TargetNotFoundError({
-      targetVariable: op.targetVariable,
-      functionName: op.functionName,
-    });
-  }
-
-  // Helper to check if a call expression matches the function name
-  const isMatchingCall = (call: CallExpression): boolean => {
-    const expression = call.getExpression();
-
-    // Check for property access (e.g., Layer.mergeAll)
-    if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
-      const fullText = expression.getText();
-      if (fullText === op.functionName) {
-        return true;
-      }
-    }
-
-    // Check for identifier (e.g., mergeAll)
-    if (expression.isKind(SyntaxKind.Identifier)) {
-      const name = expression.getText();
-      // Match if function name is just the identifier or ends with it
-      if (name === op.functionName || op.functionName.endsWith(`.${name}`)) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  // First check if initializer itself is the call expression
-  if (initializer.isKind(SyntaxKind.CallExpression)) {
-    if (isMatchingCall(initializer)) {
-      // Check if this is a curried call: the matching call might be the callee
-      // of an outer call expression (e.g., Subscription.aggregate<M, Msg>()())
-      const parent = initializer.getParent();
-      if (parent && parent.isKind(SyntaxKind.CallExpression)) {
-        appendToCallOrArray(parent, op.argument);
-      } else {
-        appendToCallOrArray(initializer, op.argument);
-      }
-      return;
-    }
-  }
-
-  // Search descendants for the call
-  const callExpressions = initializer.getDescendantsOfKind(
-    SyntaxKind.CallExpression,
-  );
-
-  for (const call of callExpressions) {
-    if (isMatchingCall(call)) {
-      // Check if the matching call is the callee of a parent call (curried pattern)
-      const parent = call.getParent();
-      if (parent && parent.isKind(SyntaxKind.CallExpression)) {
-        const parentCall = parent as CallExpression;
-        // Verify the parent's expression is our matching call
-        if (parentCall.getExpression() === call) {
-          appendToCallOrArray(parentCall, op.argument);
-          return;
-        }
-      }
-      appendToCallOrArray(call, op.argument);
-      return;
-    }
+  const call = findCallExpression(initializer.value, op.functionName);
+  if (call) {
+    appendToCallOrArray(toOuterCurriedCall(call), op.argument);
+    return;
   }
 
   return yield* new TargetNotFoundError({
@@ -280,54 +258,20 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   });
 });
 
-// =============================================================================
-// Object Field Injection
-// =============================================================================
-
 const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
   sourceFile: SourceFile,
   op: typeof TsObjectFieldOp.Type,
 ) {
-  // Find variable declaration with the target name
-  const variableDeclaration = sourceFile.getVariableDeclaration(
-    op.targetVariable,
-  );
-
-  if (!variableDeclaration) {
+  const initializer = getTargetInitializer(sourceFile, op.targetVariable);
+  if (Option.isNone(initializer)) {
     return yield* new TargetNotFoundError({
       targetVariable: op.targetVariable,
       functionName: op.functionName,
     });
   }
-
-  const initializer = variableDeclaration.getInitializer();
-  if (!initializer) {
-    return yield* new TargetNotFoundError({
-      targetVariable: op.targetVariable,
-      functionName: op.functionName,
-    });
-  }
-
-  // Helper to check if a call expression matches the function name
-  const isMatchingCall = (call: CallExpression): boolean => {
-    const expression = call.getExpression();
-
-    if (expression.isKind(SyntaxKind.PropertyAccessExpression)) {
-      if (expression.getText() === op.functionName) return true;
-    }
-
-    if (expression.isKind(SyntaxKind.Identifier)) {
-      const name = expression.getText();
-      if (name === op.functionName || op.functionName.endsWith(`.${name}`))
-        return true;
-    }
-
-    return false;
-  };
 
   const addFieldToCall = (call: CallExpression): boolean => {
     const args = call.getArguments();
-    // Find the first object literal argument
     const objectArg = args.find((arg) =>
       arg.isKind(SyntaxKind.ObjectLiteralExpression),
     );
@@ -338,11 +282,9 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
       SyntaxKind.ObjectLiteralExpression,
     );
 
-    // Check if field already exists
     const existingProp = objectLiteral.getProperty(op.field);
     if (existingProp) return true;
 
-    // Add the new property
     objectLiteral.addPropertyAssignment({
       name: op.field,
       initializer: op.value,
@@ -350,18 +292,9 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
     return true;
   };
 
-  // First check if initializer itself is the call expression
-  if (initializer.isKind(SyntaxKind.CallExpression)) {
-    if (isMatchingCall(initializer) && addFieldToCall(initializer)) return;
-  }
-
-  // Search descendants for the call
-  const callExpressions = initializer.getDescendantsOfKind(
-    SyntaxKind.CallExpression,
-  );
-
-  for (const call of callExpressions) {
-    if (isMatchingCall(call) && addFieldToCall(call)) return;
+  const call = findCallExpression(initializer.value, op.functionName);
+  if (call && addFieldToCall(call)) {
+    return;
   }
 
   return yield* new TargetNotFoundError({
@@ -369,10 +302,6 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
     functionName: op.functionName,
   });
 });
-
-// =============================================================================
-// JSX Slot Injection
-// =============================================================================
 
 const applyTsJsxSlot = (
   sourceFile: SourceFile,
@@ -384,7 +313,6 @@ const applyTsJsxSlot = (
 
   if (index === -1) return;
 
-  // Insert content after the slot marker (on the next line)
   const insertPos = index + slotMarker.length;
   const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
   sourceFile.replaceWithText(newText);

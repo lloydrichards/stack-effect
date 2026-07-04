@@ -90,14 +90,12 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 
     const targetPath = this.identity.toPath();
 
-    // When targetPath is "." (workspace target), avoid producing "./foo" paths —
-    // strip the leading "./" so paths stay consistent with module contributions.
+    // NOTE: Workspace targets omit "./" so token output matches contribution paths.
     const resolveTargetToken = (t: string, token: string) =>
       targetPath === "."
         ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
         : t.replaceAll(token, targetPath);
 
-    // Config field lookup for conditionals and tokens
     const getConfigValue = (field: string): string => {
       switch (field) {
         case "runtime":
@@ -117,22 +115,18 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
       }
     };
 
-    // Process conditionals: {{#if field}}...{{/if}} or {{#if field=value}}...{{/if}}
     const resolveConditionals = (t: string): string => {
       const conditionalRegex =
         /\{\{#if\s+(\w+)(?:=(\w+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
       return t.replace(conditionalRegex, (_, field, value, content) => {
         const configValue = getConfigValue(field);
         if (value !== undefined) {
-          // Equality check: {{#if field=value}}
           return configValue === value ? content : "";
         }
-        // Truthy check: {{#if field}}
         return configValue.length > 0 ? content : "";
       });
     };
 
-    // First resolve conditionals, then simple tokens
     const withConditionals = resolveConditionals(template);
 
     return resolveTargetToken(

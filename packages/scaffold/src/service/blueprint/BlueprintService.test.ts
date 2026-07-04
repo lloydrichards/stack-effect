@@ -293,7 +293,7 @@ describe("BlueprintService", () => {
               ],
             });
 
-            // Server requires server-http-api which requires domain-api-contracts on packages/domain
+            // NOTE: This fixture checks the transitive module requirement chain.
             expect(
               blueprint.nodes
                 .filter((node) => node._tag === "target")

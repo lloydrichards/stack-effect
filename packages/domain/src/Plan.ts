@@ -1,10 +1,6 @@
 import { Order, Schema } from "effect";
 import { pathOrd } from "./Order";
 
-// =============================================================================
-// RepoSnapshot Path States
-// =============================================================================
-
 export const RepoSnapshotPath = Schema.TaggedUnion({
   missing: {
     path: Schema.String,
@@ -29,10 +25,6 @@ export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
     message: Schema.String,
   },
 ) {}
-
-// =============================================================================
-// Composition Operations
-// =============================================================================
 
 export const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
   fileType: Schema.tag("json"),
@@ -106,21 +98,15 @@ export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
 });
 
 export const CompositionOperation = Schema.Union([
-  // JSON operations
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
-  // TypeScript operations
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
   TsObjectFieldOp,
   TsJsxSlotOp,
 ]).pipe(Schema.toTaggedUnion("fileType"));
-
-// =============================================================================
-// Plan Classification and Outcomes
-// =============================================================================
 
 export const PlanEntryClassification = Schema.Literals([
   "create",

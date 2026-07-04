@@ -206,8 +206,7 @@ describe("@repo/domain Blueprint", () => {
   });
 
   it("should enforce canonical target key formatting", async () => {
-    // TargetKey is a branded string that accepts any string value.
-    // Format validation is done at a higher level (e.g., during blueprint construction).
+    // NOTE: TargetKey is only branded here; blueprint construction owns format validation.
     await expect(
       Schema.decodeUnknownPromise(TargetKey)("apps/server-api"),
     ).resolves.toBe("apps/server-api");

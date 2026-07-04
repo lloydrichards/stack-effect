@@ -1,22 +1,9 @@
-import type {
-  CompositionOperation,
-  JsonPkgDepsOp,
-  JsonPkgExportsOp,
-  JsonPkgScriptsOp,
-} from "@repo/domain/Plan";
+import type { CompositionOperation } from "@repo/domain/Plan";
 import { Context, Effect, Layer, Match, Schema } from "effect";
-
-// =============================================================================
-// Schemas
-// =============================================================================
 
 const PackageJsonFromString = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Unknown),
 );
-
-// =============================================================================
-// Service Definition
-// =============================================================================
 
 export class JsonComposer extends Context.Service<JsonComposer>()(
   "JsonComposer",
@@ -34,39 +21,8 @@ export class JsonComposer extends Context.Service<JsonComposer>()(
           const mutablePkg = { ...pkg } as Record<string, unknown>;
 
           yield* Effect.forEach(operations, (op) =>
-            Effect.gen(function* () {
-              Match.typeTags<typeof CompositionOperation.cases.json.Type>()({
-                "json-pkg-exports": (o) => {
-                  const exports = (mutablePkg["exports"] ?? {}) as Record<
-                    string,
-                    string
-                  >;
-                  for (const entry of o.entries) {
-                    exports[entry.name] = entry.value;
-                  }
-                  mutablePkg["exports"] = exports;
-                },
-                "json-pkg-deps": (o) => {
-                  const section = (mutablePkg[o.section] ?? {}) as Record<
-                    string,
-                    string
-                  >;
-                  for (const entry of o.entries) {
-                    section[entry.name] = entry.value;
-                  }
-                  mutablePkg[o.section] = section;
-                },
-                "json-pkg-scripts": (o) => {
-                  const scripts = (mutablePkg["scripts"] ?? {}) as Record<
-                    string,
-                    string
-                  >;
-                  for (const entry of o.entries) {
-                    scripts[entry.name] = entry.value;
-                  }
-                  mutablePkg["scripts"] = scripts;
-                },
-              })(op);
+            Effect.sync(() => {
+              applyJsonOperation(mutablePkg, op);
             }),
           );
 
@@ -79,3 +35,27 @@ export class JsonComposer extends Context.Service<JsonComposer>()(
 ) {
   static readonly layer = Layer.effect(JsonComposer)(JsonComposer.make);
 }
+
+const applyJsonOperation = (
+  pkg: Record<string, unknown>,
+  op: typeof CompositionOperation.cases.json.Type,
+): void =>
+  Match.typeTags<typeof CompositionOperation.cases.json.Type>()({
+    "json-pkg-exports": (o) =>
+      assignPackageJsonEntries(pkg, "exports", o.entries),
+    "json-pkg-deps": (o) => assignPackageJsonEntries(pkg, o.section, o.entries),
+    "json-pkg-scripts": (o) =>
+      assignPackageJsonEntries(pkg, "scripts", o.entries),
+  })(op);
+
+const assignPackageJsonEntries = (
+  pkg: Record<string, unknown>,
+  sectionName: string,
+  entries: ReadonlyArray<{ readonly name: string; readonly value: string }>,
+): void => {
+  const section = (pkg[sectionName] ?? {}) as Record<string, string>;
+  for (const entry of entries) {
+    section[entry.name] = entry.value;
+  }
+  pkg[sectionName] = section;
+};

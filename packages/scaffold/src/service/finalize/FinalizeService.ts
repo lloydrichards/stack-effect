@@ -1,6 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import type { ScriptDefinition } from "@repo/domain/Catalog";
+import { type TargetIdentity, TargetKey } from "@repo/domain/Catalog";
 import { type ScriptResult } from "@repo/domain/Finalize";
 import {
   ContributionTokenContext,
@@ -50,14 +50,9 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
           BlueprintNode.guards.target,
         );
 
-        // Collect finalize scripts from targets
         const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
           Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
-            const context = new ContributionTokenContext({
-              targetKey: node.id,
-              identity: node.identity,
-              config: config.config,
-            });
+            const context = createTokenContext(config, node.id, node.identity);
             return Arr.map(scripts ?? [], (s) => ({
               label: s.label,
               command: context.resolve(s.command),
@@ -68,7 +63,6 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
           }),
         ).pipe(Effect.map(Arr.flatten));
 
-        // Collect finalize scripts from modules (blueprint preserves dependency order)
         const moduleScripts = yield* Effect.forEach(moduleNodes, (moduleNode) =>
           Effect.gen(function* () {
             const targetNode = Arr.findFirst(
@@ -78,11 +72,11 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
             if (Option.isNone(targetNode)) return [];
 
             const definition = yield* catalog.getModule(moduleNode.moduleId);
-            const context = new ContributionTokenContext({
-              targetKey: moduleNode.targetId,
-              identity: targetNode.value.identity,
-              config: config.config,
-            });
+            const context = createTokenContext(
+              config,
+              moduleNode.targetId,
+              targetNode.value.identity,
+            );
             return Arr.map(definition.scripts ?? [], (s) => ({
               label: s.label,
               command: context.resolve(s.command),
@@ -152,42 +146,37 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
             BlueprintNode.guards.target,
           );
 
-          const steps: string[] = [];
+          const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
+            Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
+              resolveNextSteps(
+                definition.nextSteps,
+                createTokenContext(config, node.id, node.identity),
+              ),
+            ),
+          ).pipe(Effect.map(Arr.flatten));
 
-          // Collect target-level next steps
-          for (const node of targetNodes) {
-            const definition = yield* catalog.getTarget(node.identity.kind);
-            const context = new ContributionTokenContext({
-              targetKey: node.id,
-              identity: node.identity,
-              config: config.config,
-            });
-            for (const step of definition.nextSteps ?? []) {
-              steps.push(context.resolve(step));
-            }
-          }
+          const moduleSteps = yield* Effect.forEach(moduleNodes, (moduleNode) =>
+            Effect.gen(function* () {
+              const targetNode = Arr.findFirst(
+                targetNodes,
+                (t) => t.id === moduleNode.targetId,
+              );
+              if (Option.isNone(targetNode)) return [];
 
-          // Collect module-level next steps (dependency order from blueprint)
-          for (const moduleNode of moduleNodes) {
-            const targetNode = Arr.findFirst(
-              targetNodes,
-              (t) => t.id === moduleNode.targetId,
-            );
-            if (Option.isNone(targetNode)) continue;
+              const definition = yield* catalog.getModule(moduleNode.moduleId);
+              return resolveNextSteps(
+                definition.nextSteps,
+                createTokenContext(
+                  config,
+                  moduleNode.targetId,
+                  targetNode.value.identity,
+                ),
+              );
+            }),
+          ).pipe(Effect.map(Arr.flatten));
 
-            const definition = yield* catalog.getModule(moduleNode.moduleId);
-            const context = new ContributionTokenContext({
-              targetKey: moduleNode.targetId,
-              identity: targetNode.value.identity,
-              config: config.config,
-            });
-            for (const step of definition.nextSteps ?? []) {
-              steps.push(context.resolve(step));
-            }
-          }
-
-          // Deduplicate by exact string match, preserving order
-          return [...new Set(steps)];
+          // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
+          return [...new Set([...targetSteps, ...moduleSteps])];
         },
       );
 
@@ -199,6 +188,22 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
     FinalizeService.make,
   ).pipe(Layer.provide(CatalogService.layer));
 }
+
+const createTokenContext = (
+  config: FinalizeConfig,
+  targetKey: typeof TargetKey.Type,
+  identity: TargetIdentity,
+) =>
+  new ContributionTokenContext({
+    targetKey,
+    identity,
+    config: config.config,
+  });
+
+const resolveNextSteps = (
+  steps: ReadonlyArray<string> | undefined,
+  context: ContributionTokenContext,
+) => Arr.map(steps ?? [], (step) => context.resolve(step));
 
 /**
  * Orders scripts so that finalize-phase module/target scripts run first,

@@ -28,29 +28,11 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   name: Schema.String,
 }) {
   toPath(): typeof TargetPath.Type {
-    switch (this.kind) {
-      case "workspace":
-        return TargetPath.make(".");
-      case "package":
-        return TargetPath.make(`packages/${Str.kebabCase(this.name.trim())}`);
-      default:
-        return TargetPath.make(
-          `apps/${this.kind}${this.name ? `-${Str.kebabCase(this.name.trim())}` : ""}`,
-        );
-    }
+    return TargetPath.make(toTargetPathString(this));
   }
 
   toKey(): typeof TargetKey.Type {
-    switch (this.kind) {
-      case "workspace":
-        return TargetKey.make(".");
-      case "package":
-        return TargetKey.make(`packages/${Str.kebabCase(this.name.trim())}`);
-      default:
-        return TargetKey.make(
-          `apps/${this.kind}${this.name ? `-${Str.kebabCase(this.name.trim())}` : ""}`,
-        );
-    }
+    return TargetKey.make(toTargetPathString(this));
   }
 
   /**
@@ -80,6 +62,19 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   }
 }
 
+const toTargetPathString = (identity: TargetIdentity): string => {
+  const trimmedName = identity.name.trim();
+
+  switch (identity.kind) {
+    case "workspace":
+      return ".";
+    case "package":
+      return `packages/${Str.kebabCase(trimmedName)}`;
+    default:
+      return `apps/${identity.kind}${identity.name ? `-${Str.kebabCase(trimmedName)}` : ""}`;
+  }
+};
+
 export const SupportedOn = Schema.TaggedUnion({
   kind: {
     kind: TargetKind,
@@ -108,10 +103,6 @@ export const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
   moduleId: ModuleId,
 });
-
-// =============================================================================
-// Contributions
-// =============================================================================
 
 /**
  * A Contribution declares a single unit of desired repository state.
@@ -371,10 +362,6 @@ export type CatalogGraph = Graph.DirectedGraph<
   typeof CatalogNode.Type,
   typeof CatalogEdge.Type
 >;
-
-// =============================================================================
-// Catalog Tree (selection-oriented view)
-// =============================================================================
 
 /**
  * A module entry within the catalog tree, showing what it requires and implies
