@@ -1,6 +1,5 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import { type TargetIdentity, TargetKey } from "@repo/domain/Catalog";
 import { type ScriptResult } from "@repo/domain/Finalize";
 import {
   ContributionTokenContext,
@@ -52,7 +51,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
         const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
           Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
-            const context = createTokenContext(config, node.id, node.identity);
+            const context = createTokenContext(config, node);
             return Arr.map(scripts ?? [], (s) => ({
               label: s.label,
               command: context.resolve(s.command),
@@ -72,11 +71,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
             if (Option.isNone(targetNode)) return [];
 
             const definition = yield* catalog.getModule(moduleNode.moduleId);
-            const context = createTokenContext(
-              config,
-              moduleNode.targetId,
-              targetNode.value.identity,
-            );
+            const context = createTokenContext(config, targetNode.value);
             return Arr.map(definition.scripts ?? [], (s) => ({
               label: s.label,
               command: context.resolve(s.command),
@@ -150,7 +145,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
             Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
               resolveNextSteps(
                 definition.nextSteps,
-                createTokenContext(config, node.id, node.identity),
+                createTokenContext(config, node),
               ),
             ),
           ).pipe(Effect.map(Arr.flatten));
@@ -166,11 +161,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               const definition = yield* catalog.getModule(moduleNode.moduleId);
               return resolveNextSteps(
                 definition.nextSteps,
-                createTokenContext(
-                  config,
-                  moduleNode.targetId,
-                  targetNode.value.identity,
-                ),
+                createTokenContext(config, targetNode.value),
               );
             }),
           ).pipe(Effect.map(Arr.flatten));
@@ -191,12 +182,11 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
 const createTokenContext = (
   config: FinalizeConfig,
-  targetKey: typeof TargetKey.Type,
-  identity: TargetIdentity,
+  target: typeof BlueprintNode.cases.target.Type,
 ) =>
   new ContributionTokenContext({
-    targetKey,
-    identity,
+    targetKey: target.id,
+    identity: target.identity,
     config: config.config,
   });
 
