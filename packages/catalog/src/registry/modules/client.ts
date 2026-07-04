@@ -260,7 +260,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0-beta.80",
+        value: "4.0.0-beta.93",
       },
       {
         _tag: "jsx-slot",
