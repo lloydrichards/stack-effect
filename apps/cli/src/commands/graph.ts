@@ -23,8 +23,6 @@ const formatFlag = Flag.choice("format", ["table", "mermaid", "dot"]).pipe(
   Flag.withDescription("Output format: table (default), mermaid, or dot"),
 );
 
-// ── Helpers ──────────────────────────────────────────────────────────
-
 type IndexedNode = readonly [idx: number, node: typeof CatalogNode.Type];
 
 const nodeLabel = Match.type<typeof CatalogNode.Type>().pipe(
@@ -46,8 +44,6 @@ const splitByTag = (nodes: ReadonlyArray<IndexedNode>) => ({
 
 const labelsOf = (nodes: ReadonlyArray<IndexedNode>): string =>
   Arr.map(nodes, ([, n]) => nodeLabel(n)).join(", ");
-
-// ── Edge classification ─────────────────────────────────────────────
 
 interface RowData {
   readonly node: typeof CatalogNode.Type;
@@ -91,8 +87,6 @@ const collectRowData = (g: CatalogGraph): Array<RowData> => {
   });
 };
 
-// ── Compute dependency layers ───────────────────────────────────────
-
 const computeLayers = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   const allNodes = collectNodes(g);
   const allEdges = collectEdges(g);
@@ -101,7 +95,6 @@ const computeLayers = (g: CatalogGraph): Array<Array<IndexedNode>> => {
 
   const topoOrder = Array.from(Graph.indices(Graph.topo(g)));
 
-  // Longest path depth per node (reversed topo = dependencies first)
   const depth = new Map<number, number>();
   for (const idx of topoOrder.reverse()) {
     const deps = (outgoing[String(idx)] ?? []).map(([, e]) => e.target);
@@ -125,13 +118,10 @@ const computeLayers = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   });
 };
 
-// ── Compute connected clusters ──────────────────────────────────────
-
 const computeClusters = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   const allNodes = collectNodes(g);
   const allEdges = collectEdges(g);
 
-  // Build undirected adjacency via groupBy on both directions
   const adj = new Map<number, Set<number>>();
   for (const [idx] of allNodes) adj.set(idx, new Set());
   for (const [, edge] of allEdges) {
@@ -162,8 +152,6 @@ const computeClusters = (g: CatalogGraph): Array<Array<IndexedNode>> => {
     return Result.succeed(cluster);
   });
 };
-
-// ── Render sections ─────────────────────────────────────────────────
 
 const renderLayers = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
   const layerRows = Arr.map(computeLayers(g), (layer, i) => {
@@ -228,8 +216,6 @@ const renderClusters = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
   );
 };
 
-// ── Edge count summary ──────────────────────────────────────────────
-
 const countEdges = (g: CatalogGraph) => {
   const edges = collectEdges(g);
   const counts = Arr.groupBy(edges, ([, e]) => e.data);
@@ -240,8 +226,6 @@ const countEdges = (g: CatalogGraph) => {
     childOf: (counts["childOf"] ?? []).length,
   };
 };
-
-// ── Main render ─────────────────────────────────────────────────────
 
 const renderTable = (g: CatalogGraph) => {
   const nodeCount = Graph.nodeCount(g);
@@ -271,7 +255,6 @@ const renderTable = (g: CatalogGraph) => {
         Box.annotate(Ansi.yellow),
       );
 
-  // Adjacency table
   const columns = [
     { header: "Node", width: 24 },
     { header: "Type", width: 8 },
@@ -321,8 +304,6 @@ const renderTable = (g: CatalogGraph) => {
     Box.left,
   ).pipe(Box.pad(0, 1), Box.border("rounded"));
 };
-
-// ── Command ─────────────────────────────────────────────────────────
 
 export const graph = Command.make("graph", { format: formatFlag }, (flags) =>
   Effect.gen(function* () {

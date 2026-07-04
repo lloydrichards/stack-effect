@@ -37,20 +37,12 @@ import {
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 
-// ---------------------------------------------------------------------------
-// Helpers – process spawning via Effect ChildProcess
-// ---------------------------------------------------------------------------
-
 export interface CommandResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
 }
 
-/**
- * Spawn a command capturing stdout, stderr, and exit code.
- * Requires ChildProcessSpawner in context.
- */
 const spawnCommand = (
   spawner: ChildProcessSpawner["Service"],
   args: ReadonlyArray<string>,
@@ -70,10 +62,6 @@ const spawnCommand = (
     }),
   ).pipe(Effect.orDie);
 };
-
-// ---------------------------------------------------------------------------
-// WorkspaceContainer – isolated temp directory with lifecycle
-// ---------------------------------------------------------------------------
 
 export class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
   "e2e/WorkspaceContainer",
@@ -101,10 +89,6 @@ export class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
     WorkspaceContainer.make,
   ).pipe(Layer.provide(NodeServices.layer));
 }
-
-// ---------------------------------------------------------------------------
-// ProjectContext – assertions within a generated project
-// ---------------------------------------------------------------------------
 
 export interface ProjectContext {
   readonly dir: string;
@@ -244,10 +228,6 @@ const makeProjectContext = (
       ),
   };
 };
-
-// ---------------------------------------------------------------------------
-// CLI Service – the primary DSL interface
-// ---------------------------------------------------------------------------
 
 const cliEntrypoint = new URL("../src/index.ts", import.meta.url).pathname;
 

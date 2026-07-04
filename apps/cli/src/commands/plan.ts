@@ -1,4 +1,3 @@
-import * as fs from "node:fs/promises";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Selection } from "@repo/domain/Selection";
 import {
@@ -71,7 +70,6 @@ export const plan = Command.make(
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
       const format = Option.getOrElse(flags.format, () => "llm" as const);
 
-      // Read PlanInput from stdin
       const stdio = yield* Stdio;
       const stdin = yield* stdio.stdin.pipe(
         Stream.decodeText(),
@@ -81,11 +79,10 @@ export const plan = Command.make(
         Schema.fromJsonString(PlanInput),
       )(stdin);
 
-      // Resolve config: stdin > file > fail
       const configureService = yield* ConfigureService;
       const fileConfig = yield* configureService
         .readConfig(repoRoot)
-        .pipe(Effect.catch(() => Effect.succeed(undefined)));
+        .pipe(Effect.catch(() => Effect.void));
 
       const config = input.config ?? fileConfig;
       if (!config) {
@@ -94,11 +91,9 @@ export const plan = Command.make(
         );
       }
 
-      // Blueprint: resolve dependency closure from Selection
       const blueprintService = yield* BlueprintService;
       const blueprint = yield* blueprintService.resolve(input.selection);
 
-      // Plan: assess outcomes against repo state
       const planService = yield* PlanService;
       const planResult = yield* planService.build({
         blueprint,
@@ -106,7 +101,6 @@ export const plan = Command.make(
         config,
       });
 
-      // Finalize: collect post-scaffold scripts
       const finalizeService = yield* FinalizeService;
       const scripts = yield* finalizeService
         .preview(blueprint, { repoRoot, config })
@@ -121,7 +115,6 @@ export const plan = Command.make(
         command: s.command,
       }));
 
-      // Compute summary and tree
       const formatter = yield* ScaffoldFormatter;
       const formattedPlan = yield* formatter.formatPlan(planResult);
       const tree = Box.renderPlainSync(formattedPlan.tree);
@@ -136,7 +129,6 @@ export const plan = Command.make(
         }),
       );
 
-      // Output based on format
       const outputText = yield* Match.value(format).pipe(
         Match.when("tree", () =>
           Box.renderPlain(

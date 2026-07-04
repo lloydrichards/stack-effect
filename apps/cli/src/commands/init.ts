@@ -7,10 +7,19 @@ import {
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
-import { Array as Arr, Console, Effect, Option, Path, Schema } from "effect";
+import {
+  Array as Arr,
+  Console,
+  Effect,
+  Option,
+  Path,
+  pipe,
+  Schema,
+} from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import { dryRunFlag, noGitFlag, rootFlag, trustFlag, yesFlag } from "../flags";
+import { toWorkspaceModuleId, toWorkspaceToolValue } from "../lib/workspace";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -22,21 +31,12 @@ const buildInitSelection = (
   config: typeof StackConfig.Type,
   extraModules: ReadonlyArray<string> = [],
 ): typeof Selection.Type => {
-  // Collect unique module IDs from all category fields
-  const moduleIds = new Set<string>();
-  for (const field of [
-    config.monorepo,
-    config.lint,
-    config.format,
-    config.test,
-  ]) {
-    if (field !== undefined) moduleIds.add(toWorkspaceModuleId(field));
-  }
-
-  // Add optional DX modules
-  for (const id of extraModules) {
-    moduleIds.add(id);
-  }
+  const moduleIds = pipe(
+    [config.monorepo, config.lint, config.format, config.test, ...extraModules],
+    Arr.filter((moduleId): moduleId is string => moduleId !== undefined),
+    Arr.map(toWorkspaceModuleId),
+    Arr.dedupe,
+  );
 
   return {
     targets: [
@@ -45,7 +45,7 @@ const buildInitSelection = (
           kind: TargetKind.make("workspace"),
           name: config.name,
         }),
-        modules: Arr.fromIterable(moduleIds).map((id) => ({
+        modules: moduleIds.map((id) => ({
           id: ModuleId.make(id),
         })),
       },
@@ -99,39 +99,40 @@ const optionalSelect = <A extends string>(
     return v === "none" ? Option.none<A>() : Option.some(v);
   });
 
-const toWorkspaceToolValue = (moduleId: string): string => {
-  switch (moduleId) {
-    case "workspace-monorepo-turbo":
-      return "turbo";
-    case "workspace-quality-biome":
-      return "biome";
-    case "workspace-quality-dprint":
-      return "dprint";
-    case "workspace-quality-oxlint":
-      return "oxlint";
-    case "workspace-test-vitest":
-      return "vitest";
-    default:
-      return moduleId;
-  }
-};
+const workspaceChoices = (
+  catalog: typeof CatalogService.Service,
+  category: typeof ModuleCategory.Type,
+) =>
+  catalog.getModules({ category }).map((m) => ({
+    title: m.title,
+    description: m.description,
+    value: toWorkspaceToolValue(m.id),
+  }));
 
-const toWorkspaceModuleId = (toolValue: string): string => {
-  switch (toolValue) {
-    case "turbo":
-      return "workspace-monorepo-turbo";
-    case "biome":
-      return "workspace-quality-biome";
-    case "dprint":
-      return "workspace-quality-dprint";
-    case "oxlint":
-      return "workspace-quality-oxlint";
-    case "vitest":
-      return "workspace-test-vitest";
-    default:
-      return toolValue;
-  }
-};
+const moduleChoices = (
+  catalog: typeof CatalogService.Service,
+  category: typeof ModuleCategory.Type,
+) =>
+  catalog.getModules({ category }).map((m) => ({
+    title: m.title,
+    description: m.description,
+    value: m.id,
+  }));
+
+const defaultChoice = <A extends string>(
+  choices: ReadonlyArray<{ value: A }>,
+  fallback: A,
+) => choices[0]?.value ?? fallback;
+
+const chooseOptionalTool = <A extends string>(
+  yes: boolean,
+  message: string,
+  choices: ReadonlyArray<{ title: string; value: A }>,
+  fallback: A,
+) =>
+  yes
+    ? Effect.succeed(Option.some(defaultChoice(choices, fallback)))
+    : optionalSelect(message, choices);
 
 export const init = Command.make(
   "init",
@@ -149,44 +150,27 @@ export const init = Command.make(
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogService;
 
-      // Build choices from catalog for each init category
-      const monorepoChoices = catalog
-        .getModules({ category: ModuleCategory.make("monorepo") })
-        .map((m) => ({
-          title: m.title,
-          description: m.description,
-          value: toWorkspaceToolValue(m.id),
-        }));
-      const lintChoices = catalog
-        .getModules({ category: ModuleCategory.make("lint") })
-        .map((m) => ({
-          title: m.title,
-          description: m.description,
-          value: toWorkspaceToolValue(m.id),
-        }));
-      const formatChoices = catalog
-        .getModules({ category: ModuleCategory.make("format") })
-        .map((m) => ({
-          title: m.title,
-          description: m.description,
-          value: toWorkspaceToolValue(m.id),
-        }));
-      const testChoices = catalog
-        .getModules({ category: ModuleCategory.make("test") })
-        .map((m) => ({
-          title: m.title,
-          description: m.description,
-          value: toWorkspaceToolValue(m.id),
-        }));
-      const devenvChoices = catalog
-        .getModules({ category: ModuleCategory.make("devenv") })
-        .map((m) => ({
-          title: m.title,
-          description: m.description,
-          value: m.id,
-        }));
+      const monorepoChoices = workspaceChoices(
+        catalog,
+        ModuleCategory.make("monorepo"),
+      );
+      const lintChoices = workspaceChoices(
+        catalog,
+        ModuleCategory.make("lint"),
+      );
+      const formatChoices = workspaceChoices(
+        catalog,
+        ModuleCategory.make("format"),
+      );
+      const testChoices = workspaceChoices(
+        catalog,
+        ModuleCategory.make("test"),
+      );
+      const devenvChoices = moduleChoices(
+        catalog,
+        ModuleCategory.make("devenv"),
+      );
 
-      // Project name and output directory
       if (flags.yes && Option.isNone(flags.name)) {
         return yield* Effect.fail(
           "When using --yes with init, provide a project name as the positional argument.",
@@ -208,7 +192,6 @@ export const init = Command.make(
         flags.root,
       );
 
-      // Check if already initialized
       const existing = yield* configure
         .readConfig(repoRoot)
         .pipe(Effect.option);
@@ -233,7 +216,6 @@ export const init = Command.make(
         }
       }
 
-      // Runtime
       const runtimeChoice = Option.isSome(flags.packageManager)
         ? flags.packageManager.value
         : flags.yes
@@ -262,36 +244,31 @@ export const init = Command.make(
         runtime = { _tag: "node", packageManager: pm };
       }
 
-      // Monorepo
-      const monorepo = flags.yes
-        ? Option.some(monorepoChoices[0]?.value ?? "turbo")
-        : yield* optionalSelect(
-            "What monorepo tool will you use?",
-            monorepoChoices,
-          );
+      const monorepo = yield* chooseOptionalTool(
+        flags.yes,
+        "What monorepo tool will you use?",
+        monorepoChoices,
+        "turbo",
+      );
+      const lint = yield* chooseOptionalTool(
+        flags.yes,
+        "What will you use for linting?",
+        lintChoices,
+        "biome",
+      );
+      const format_ = yield* chooseOptionalTool(
+        flags.yes,
+        "What will you use for formatting?",
+        formatChoices,
+        "biome",
+      );
+      const test = yield* chooseOptionalTool(
+        flags.yes,
+        "What test framework will you use?",
+        testChoices,
+        "vitest",
+      );
 
-      // Lint
-      const lint = flags.yes
-        ? Option.some(lintChoices[0]?.value ?? "biome")
-        : yield* optionalSelect("What will you use for linting?", lintChoices);
-
-      // Format
-      const format_ = flags.yes
-        ? Option.some(formatChoices[0]?.value ?? "biome")
-        : yield* optionalSelect(
-            "What will you use for formatting?",
-            formatChoices,
-          );
-
-      // Test
-      const test = flags.yes
-        ? Option.some(testChoices[0]?.value ?? "vitest")
-        : yield* optionalSelect(
-            "What test framework will you use?",
-            testChoices,
-          );
-
-      // Git
       const git = flags.noGit
         ? false
         : flags.yes
@@ -301,12 +278,11 @@ export const init = Command.make(
               initial: true,
             });
 
-      // DX Extras (optional modules for developer experience)
       const dxExtras =
         devenvChoices.length === 0
           ? []
           : flags.yes
-            ? devenvChoices.map((c) => c.value) // Select all DX modules in non-interactive mode
+            ? devenvChoices.map((c) => c.value)
             : yield* MultiSelect({
                 message: "Developer experience extras (optional)",
                 choices: devenvChoices.map((c) => ({
@@ -336,7 +312,6 @@ export const init = Command.make(
         }),
       });
 
-      // Preview
       const dxExtrasDisplay =
         dxExtras.length === 0 ? "none" : dxExtras.join(", ");
       const configBox = Box.vsep(
@@ -404,7 +379,6 @@ export const init = Command.make(
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
-      // Scaffold root monorepo files
       const pipeline = yield* ScaffoldPipeline;
       const selection = buildInitSelection(config, [
         ...(git ? [ModuleId.make("workspace-devenv-git")] : []),

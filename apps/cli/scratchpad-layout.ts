@@ -10,8 +10,6 @@ import * as Box from "effect-boxes/Box";
 import { Panel } from "./src/components/Panel";
 import { Breakpoint, Container, Flex, Grid } from "./src/lib/Layout";
 
-// ─── Styling Helpers ─────────────────────────────────────────────────────────
-
 const title = (text: string) =>
   Box.text(text).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.white)));
 
@@ -32,8 +30,6 @@ const propNote = (prop: string, explanation: string) =>
     1,
     Box.left,
   );
-
-// ─── 1. Flex ─────────────────────────────────────────────────────────────────
 
 const flexDemo = (termWidth: number) =>
   Container.make({ width: termWidth - 4, padding: 0 }, (ctx) => {
@@ -112,13 +108,10 @@ const flexDemo = (termWidth: number) =>
     );
   });
 
-// ─── 2. Grid ─────────────────────────────────────────────────────────────────
-
 const gridLabels = ["Alpha", "Beta", "Gamma", "Delta", "Epsilon", "Zeta"];
 
 const gridDemo = (termWidth: number) =>
   Container.make({ width: termWidth - 4, padding: 0 }, (ctx) => {
-    // Build items with target width so borders span the full cell
     const makeGridItems = (colWidth: number) =>
       gridLabels.map((name) =>
         Panel.make(Box.text(name).pipe(Box.minWidth(colWidth - 4)), {
@@ -170,8 +163,6 @@ const gridDemo = (termWidth: number) =>
     );
   });
 
-// ─── 3. Panel ────────────────────────────────────────────────────────────────
-
 const panelDemo = Box.vcat(
   [
     sectionTitle("Panel.make"),
@@ -212,8 +203,6 @@ const panelDemo = Box.vcat(
   Box.top,
 );
 
-// ─── 4. Breakpoint ───────────────────────────────────────────────────────────
-
 const breakpointDemo = (termWidth: number) =>
   Container.make({ width: termWidth - 4, padding: 0 }, (ctx) => {
     const current = Breakpoint.select(ctx.width, [
@@ -243,8 +232,6 @@ const breakpointDemo = (termWidth: number) =>
       Box.top,
     );
   });
-
-// ─── 5. Container ────────────────────────────────────────────────────────────
 
 const containerDemo = (termWidth: number) =>
   Container.make({ width: termWidth - 4, padding: 0 }, (ctx) =>
@@ -282,8 +269,6 @@ const containerDemo = (termWidth: number) =>
     ),
   );
 
-// ─── Main ────────────────────────────────────────────────────────────────────
-
 const main = Effect.gen(function* () {
   const terminal = yield* Terminal.Terminal;
   const termWidth = yield* terminal.columns;
@@ -316,8 +301,6 @@ const main = Effect.gen(function* () {
 
   yield* Console.log(Box.renderPrettySync(layout));
 });
-
-// ─── Run ─────────────────────────────────────────────────────────────────────
 
 void Effect.runPromise(main.pipe(Effect.provide(BunServices.layer))).catch(
   (error) => {
