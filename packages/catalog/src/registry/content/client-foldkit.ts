@@ -49,8 +49,8 @@ export const foldkitThemeInitContents = `(function () {
 })();
 `;
 
-export const foldkitViteConfigContents = `import tailwindcss from "@tailwindcss/vite";
-import foldkit from "@foldkit/vite-plugin";
+export const foldkitViteConfigContents = `import { foldkit } from "@foldkit/vite-plugin";
+import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
@@ -136,7 +136,7 @@ export const foldkitStylesContents = `@import "tailwindcss";
 `;
 
 export const foldkitEntryContents = `import { Runtime } from "foldkit";
-
+import "./styles.css";
 import { init, Model, subscriptions, update, view } from "./main";
 
 const program = Runtime.makeProgram({
