@@ -23,15 +23,14 @@ interface TextAreaState {
   readonly error: Option.Option<string>;
 }
 
-const splitLines = (value: string): Array<string> => {
+const splitLines = (value: string) => {
   const lines = value.split("\n");
   return lines.length === 0 ? [""] : lines;
 };
 
-const joinLines = (lines: ReadonlyArray<string>): string => lines.join("\n");
+const joinLines = (lines: ReadonlyArray<string>) => lines.join("\n");
 
-const clampCol = (col: number, line: string): number =>
-  Math.min(col, line.length);
+const clampCol = (col: number, line: string) => Math.min(col, line.length);
 
 const TextAreaKeys = {
   NewLine: new KeyBinding({

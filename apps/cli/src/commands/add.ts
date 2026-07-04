@@ -73,7 +73,7 @@ const validateTargetName = (value: string) =>
 const formatTargetSummary = (
   targets: ReadonlyArray<CollectedTarget>,
   width: number,
-): Box.Box<Ansi.AnsiStyle> => {
+) => {
   const labelWidth = Math.max(
     ...targets.map((t) => `${t.kind}/${t.name}`.length),
     0,
@@ -116,11 +116,7 @@ const formatTargetSummary = (
  */
 const buildModuleTree = (
   modules: ReadonlyArray<typeof ModuleDefinition.Type>,
-): Effect.Effect<
-  ReadonlyArray<NestedModuleNode<typeof ModuleId.Type>>,
-  never,
-  CatalogService
-> =>
+) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
 

@@ -7,7 +7,6 @@
  * @module
  */
 import { Ansi, Box } from "effect-boxes";
-import type { AnsiStyle } from "effect-boxes/Ansi";
 import type { KeyBinding, KeyMap } from "../../lib/KeyBinding.js";
 
 // ─── Kbd ─────────────────────────────────────────────────────────────────────
@@ -15,7 +14,7 @@ import type { KeyBinding, KeyMap } from "../../lib/KeyBinding.js";
 /**
  * Render a single key binding as `**key** action` (bold key, normal action).
  */
-export const Kbd = (binding: KeyBinding): Box.Box<AnsiStyle> =>
+export const Kbd = (binding: KeyBinding) =>
   Box.hcat(
     [
       Box.text(binding.label).pipe(Box.annotate(Ansi.bold)),
@@ -37,7 +36,7 @@ export const Kbd = (binding: KeyBinding): Box.Box<AnsiStyle> =>
  * // => "↑ up • ↓ down • enter select"  (dimmed, indented)
  * ```
  */
-export const Hint = (keymap: KeyMap): Box.Box<AnsiStyle> =>
+export const Hint = (keymap: KeyMap) =>
   Box.punctuateH(
     Object.values(keymap)
       .filter((b) => b.enabled ?? true)

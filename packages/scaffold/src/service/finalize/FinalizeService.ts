@@ -203,7 +203,7 @@ const resolveNextSteps = (
 const orderScripts = (
   resolvedScripts: ResolvedScript[],
   configScripts: ResolvedScript[],
-): ResolvedScript[] => {
+) => {
   const finalize = resolvedScripts.filter((s) => s.phase === "finalize");
   const postFinalize = resolvedScripts.filter(
     (s) => s.phase === "post-finalize",

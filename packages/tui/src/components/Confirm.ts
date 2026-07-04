@@ -67,7 +67,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
     : [];
   const hasChildren = childrenRenderedLines.length > 0;
 
-  const viewportHeight = (terminalRows: number): number =>
+  const viewportHeight = (terminalRows: number) =>
     Math.max(MIN_VIEWPORT_ROWS, terminalRows - CHROME_ROWS);
 
   const renderSubmitted = (cursor: number) =>

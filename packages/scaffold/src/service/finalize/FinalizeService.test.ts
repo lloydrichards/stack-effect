@@ -34,9 +34,7 @@ const nodeConfig = new StackConfig({
   runtime: { _tag: "node", packageManager: "pnpm" },
 });
 
-const makeConfig = (
-  config: typeof StackConfig.Type = bunConfig,
-): FinalizeConfig => ({
+const makeConfig = (config: typeof StackConfig.Type = bunConfig) => ({
   config,
   repoRoot: "/repo",
 });

@@ -24,7 +24,7 @@ export const DryRunPreview = ({
     phase: string;
     origin: string;
   }>;
-}): Box.Box<Ansi.AnsiStyle> => {
+}) => {
   const terminalWidth = process.stdout.columns ?? 80;
 
   const blueprintContent = Box.vsep(

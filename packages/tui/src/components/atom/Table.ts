@@ -8,7 +8,7 @@ export const Table = (
     readonly headerAlign?: typeof Box.left;
   }>,
   rows: Box.Box<Ansi.AnsiStyle>[][],
-): Box.Box<Ansi.AnsiStyle> => {
+) => {
   const sep = Box.text(" │ ");
 
   const headerRow = Box.punctuateH(

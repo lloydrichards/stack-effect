@@ -33,14 +33,14 @@ const supportedOnTargetKind = Match.type<
 const hasVisibility = (
   definition: { readonly visibility?: typeof Visibility.Type },
   visibility: typeof Visibility.Type | undefined,
-): boolean =>
+) =>
   visibility === undefined ||
   (definition.visibility ?? "public") === visibility;
 
 const moduleSupportsTargetKind = (
   mod: typeof import("@repo/domain/Catalog").ModuleDefinition.Type,
   kind: typeof TargetKind.Type,
-): boolean =>
+) =>
   Arr.some(
     mod.supportedOn,
     (supportedOn) => supportedOnTargetKind(supportedOn) === kind,

@@ -31,7 +31,7 @@ const nodeLabel = Match.type<typeof CatalogNode.Type>().pipe(
   Match.exhaustive,
 );
 
-const collectNodes = (g: CatalogGraph): Array<IndexedNode> =>
+const collectNodes = (g: CatalogGraph) =>
   Array.from(Graph.entries(Graph.nodes(g)));
 
 const collectEdges = (g: CatalogGraph) =>
@@ -42,7 +42,7 @@ const splitByTag = (nodes: ReadonlyArray<IndexedNode>) => ({
   modules: Arr.filter(nodes, ([, n]) => n._tag === "module"),
 });
 
-const labelsOf = (nodes: ReadonlyArray<IndexedNode>): string =>
+const labelsOf = (nodes: ReadonlyArray<IndexedNode>) =>
   Arr.map(nodes, ([, n]) => nodeLabel(n)).join(", ");
 
 interface RowData {
@@ -153,7 +153,7 @@ const computeClusters = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   });
 };
 
-const renderLayers = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
+const renderLayers = (g: CatalogGraph) => {
   const layerRows = Arr.map(computeLayers(g), (layer, i) => {
     const { targets, modules } = splitByTag(layer);
     const parts = [labelsOf(targets), labelsOf(modules)].filter(Boolean);
@@ -183,7 +183,7 @@ const renderLayers = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
   );
 };
 
-const renderClusters = (g: CatalogGraph): Box.Box<Ansi.AnsiStyle> => {
+const renderClusters = (g: CatalogGraph) => {
   const clusterRows = Arr.map(computeClusters(g), (cluster, i) => {
     const { targets, modules } = splitByTag(cluster);
     const label =

@@ -125,7 +125,7 @@ export const inputText = (
 // Utilities
 // =============================================================================
 
-const shouldQuit = (input: Terminal.UserInput): boolean =>
+const shouldQuit = (input: Terminal.UserInput) =>
   input.key.ctrl && (input.key.name === "c" || input.key.name === "d");
 
 const toUserInput = (

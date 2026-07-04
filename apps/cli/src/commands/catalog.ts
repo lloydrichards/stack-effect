@@ -89,7 +89,7 @@ const targetIdentityFrom = (supportedOn: typeof SupportedOn.Type) =>
         name: defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind,
       });
 
-const contributionPath = (contribution: typeof Contribution.Type): string =>
+const contributionPath = (contribution: typeof Contribution.Type) =>
   contribution._tag === "barrel-export"
     ? contribution.barrelPath
     : contribution.path;
@@ -241,9 +241,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
   });
 });
 
-const annotationFor = (
-  file: typeof ManifestFile.Type,
-): Option.Option<string> => {
+const annotationFor = (file: typeof ManifestFile.Type) => {
   const sourceLines = pipe(
     file.contributors,
     Arr.map((contributor) =>
