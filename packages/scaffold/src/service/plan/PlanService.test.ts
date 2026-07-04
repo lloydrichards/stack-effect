@@ -12,6 +12,7 @@ import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { PlanAssessor } from "./PlanAssessor";
+import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
 import { PlanService } from "./PlanService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
@@ -171,6 +172,7 @@ const makePlanServiceLayer = (
 ) =>
   Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
+    Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
     Layer.provide(PlanAssessor.layer),
   );

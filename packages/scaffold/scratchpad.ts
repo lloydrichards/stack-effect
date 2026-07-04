@@ -2,46 +2,16 @@ import { BunServices } from "@effect/platform-bun";
 import { CatalogService } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type { RepoSnapshot } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, FileSystem, Layer, Random } from "effect";
+import { Console, Effect, FileSystem, Random } from "effect";
 import { Box } from "effect-boxes";
 import {
   ApplyService,
   BlueprintService,
-  ContributionResolver,
   PlanService,
   ScaffoldFormatter,
 } from "./src";
-import { PlanAssessor } from "./src/service/plan/PlanAssessor";
-import { RepoSnapshotService } from "./src/service/plan/RepoSnapshotService";
-
-// ---------------------------------------------------------------------------
-// Mock RepoSnapshotService — returns every requested path as "missing"
-// to simulate scaffolding into a fresh, empty repository.
-// ---------------------------------------------------------------------------
-const EmptyRepoSnapshotLayer = Layer.succeed(RepoSnapshotService, {
-  load: Effect.fn("MockRepoSnapshotService.load")(function* ({
-    paths,
-  }: {
-    readonly paths: ReadonlyArray<string>;
-    readonly repoRoot: string;
-  }) {
-    return {
-      paths: paths.map((path) => ({ _tag: "missing", path })),
-    } satisfies typeof RepoSnapshot.Type;
-  }),
-} as never);
-
-// ---------------------------------------------------------------------------
-// PlanService layer wired with the mock snapshot
-// ---------------------------------------------------------------------------
-const PlanServiceLayer = Layer.effect(PlanService)(PlanService.make).pipe(
-  Layer.provide(ContributionResolver.layer),
-  Layer.provide(EmptyRepoSnapshotLayer),
-  Layer.provide(PlanAssessor.layer),
-);
 
 // ---------------------------------------------------------------------------
 // Test selections
@@ -172,7 +142,7 @@ void Effect.runPromise(
   main.pipe(
     Effect.provide(ApplyService.layer),
     Effect.provide(BlueprintService.layer),
-    Effect.provide(PlanServiceLayer),
+    Effect.provide(PlanService.layer),
     Effect.provide(ScaffoldFormatter.layer),
     Effect.provide(BunServices.layer),
     Effect.provide(CatalogService.layer),
