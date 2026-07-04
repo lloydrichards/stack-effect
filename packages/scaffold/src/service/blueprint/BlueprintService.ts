@@ -245,8 +245,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
                   ? target
                   : dep.target;
 
-              // Requiring a module implicitly requires the target to exist,
-              // so we create both a required-target edge and a required-module edge
+              // NOTE: Required modules emit both target and module edges so graph consumers can see the full closure.
               const requiredTarget = yield* ensureTarget(dependencyTarget);
 
               yield* appendEdge(stateRef, {

@@ -251,8 +251,7 @@ describe("PlanService", () => {
   });
 
   describe("when planning compositions", () => {
-    // Simple blueprint that just has server-chat-rpc module without the full AI dependency chain
-    // This tests that composition contributions produce the correct operations
+    // NOTE: This fixture isolates server-chat-rpc so composition operations are the only behavior under test.
     const makeChatServerOnlyBlueprint = () =>
       new Blueprint({
         nodes: [
@@ -296,7 +295,6 @@ const HttpRpcRouter = Layer.empty;
             load: ({ paths }) =>
               Effect.succeed({
                 paths: paths.map((path) => {
-                  // Server index exists (for composition target)
                   if (path === "apps/server-api/src/index.ts") {
                     return {
                       _tag: "file" as const,
@@ -309,7 +307,6 @@ const HttpRpcRouter = Layer.empty;
               }),
           });
 
-          // The server index should have composition operations
           const serverOutcome = getOutcome(
             plan,
             "apps/server-api/src/index.ts",
@@ -317,7 +314,6 @@ const HttpRpcRouter = Layer.empty;
           expect(serverOutcome._tag).toBe("composed");
           assert(serverOutcome._tag === "composed");
 
-          // Should have ts-add-import operations for the ChatRpcLive layer
           const importOps = serverOutcome.operations.filter(
             (op) => op._tag === "ts-add-import",
           );
@@ -331,7 +327,6 @@ const HttpRpcRouter = Layer.empty;
             ]),
           );
 
-          // Should have ts-append-call-arg operations for Layer.mergeAll
           const appendOps = serverOutcome.operations.filter(
             (op) => op._tag === "ts-append-call-arg",
           );
@@ -352,8 +347,6 @@ const HttpRpcRouter = Layer.empty;
       "should report conflict when composition target file is missing and not created by target",
       () =>
         Effect.gen(function* () {
-          // Use a blueprint where the target does NOT produce the index.ts file
-          // and the composition targets a missing file
           const presenceIdentity = new TargetIdentity({
             kind: TargetKind.make("package"),
             name: "presence",
@@ -442,12 +435,10 @@ const HttpRpcRouter = Layer.empty;
               }),
           });
 
-          // Server target creates index.ts, so composition should work with it
           const serverOutcome = getOutcome(
             plan,
             "apps/server-api/src/index.ts",
           );
-          // When file is created by target AND has compositions, it should be composed
           expect(serverOutcome._tag).toBe("composed");
         }),
     );
@@ -648,11 +639,9 @@ const HttpRpcRouter = Layer.empty;
 
           const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
 
-          // Should be composed with both authoritative content and barrel export operation
           expect(indexOutcome._tag).toBe("composed");
           expect(indexOutcome.classification).toBe("create");
 
-          // Should have ts-add-reexport for the barrel export from package-ai-toolkit-datetime
           expect(indexOutcome).toMatchObject({
             operations: expect.arrayContaining([
               expect.objectContaining({

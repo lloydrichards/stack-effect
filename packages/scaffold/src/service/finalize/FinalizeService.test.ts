@@ -14,10 +14,6 @@ import { Effect, Layer, Result, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 const serverIdentity = new TargetIdentity({
   kind: TargetKind.make("server"),
   name: "api",
@@ -77,7 +73,6 @@ const targetWithModule = (
     ],
   });
 
-// Stub catalog that returns definitions with configurable scripts
 const makeCatalogLayer = (
   targets: Record<string, Partial<typeof TargetDefinition.Type>> = {},
   modules: Record<string, Partial<typeof ModuleDefinition.Type>> = {},
@@ -124,11 +119,11 @@ const makeCatalogLayer = (
     }),
   } as never);
 
-// Stub spawner that records commands and can simulate failures
 const makeSpawnerLayer = (
   executed: string[],
   failures: Set<string> = new Set(),
 ) =>
+  // NOTE: The fake spawner records the exact shell command and can fail selected commands.
   Layer.succeed(ChildProcessSpawner, {
     spawn: (command: { command: string; args: ReadonlyArray<string> }) => {
       const cmd = [command.command, ...command.args].join(" ");
@@ -166,7 +161,6 @@ const makeFinalizeLayer = (
     Layer.provide(makeSpawnerLayer(executed, opts.failures)),
   );
 
-/** Helper: drives all script executions and builds a FinalizeReport */
 const runToReport = (
   svc: typeof FinalizeService.Service,
   blueprint: typeof Blueprint.Type,
@@ -188,10 +182,6 @@ const runToReport = (
     );
     return new FinalizeReport({ results });
   });
-
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
 
 describe("FinalizeService", () => {
   describe("preview", () => {
@@ -371,7 +361,7 @@ describe("FinalizeService", () => {
           makeConfig(config),
         );
 
-        // Both install and lint should execute even if install fails
+        // NOTE: Finalize reports failures after attempting every configured script.
         expect(report.results).toHaveLength(2);
         expect(report.results[0]?._tag).toBe("Failure");
         expect(report.results[1]?._tag).toBe("Success");

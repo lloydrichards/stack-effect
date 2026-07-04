@@ -37,6 +37,11 @@ const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
   },
 });
 
+type WriteComposedAction = Extract<
+  typeof MaterializedPlannedOutcomeAction.Type,
+  { readonly _tag: "write-composed" }
+>;
+
 const PreparedApplyAction = Schema.TaggedUnion({
   skip: {
     path: Schema.String,
@@ -173,6 +178,35 @@ export class ApplyService extends Context.Service<ApplyService>()(
         },
       );
 
+      const loadComposedBaseContents = Effect.fn(
+        "ApplyService.loadComposedBaseContents",
+      )(function* ({
+        action,
+        repoRoot,
+      }: {
+        action: WriteComposedAction;
+        repoRoot: string;
+      }) {
+        const fullPath = path.join(repoRoot, action.path);
+        const existingContents =
+          action.writeMode === "modify"
+            ? yield* loadFileContents(fullPath)
+            : Option.none<string>();
+
+        if (Option.isSome(existingContents)) {
+          return existingContents.value;
+        }
+
+        if (action.seedContents !== undefined) {
+          return action.seedContents;
+        }
+
+        const fallbackContents = yield* loadFileContents(fullPath);
+        return Option.getOrElse(fallbackContents, () =>
+          action.path.endsWith(".json") ? "{}" : "",
+        );
+      });
+
       const prepare = Effect.fn("ApplyService.prepare")(function* ({
         action,
         repoRoot,
@@ -194,37 +228,11 @@ export class ApplyService extends Context.Service<ApplyService>()(
               },
             });
           case "write-composed": {
-            // Get base contents:
-            // For "modify" mode, always prefer the existing file so we don't
-            // overwrite fields added by prior apply runs. Fall back to
-            // seedContents (used for "create") or a sensible default.
-            let baseContents: string;
-            const existingContents =
-              action.writeMode === "modify"
-                ? yield* loadFileContents(path.join(repoRoot, action.path))
-                : Option.none<string>();
-
-            if (Option.isSome(existingContents)) {
-              baseContents = existingContents.value;
-            } else if (action.seedContents !== undefined) {
-              baseContents = action.seedContents;
-            } else {
-              const fallbackContents = yield* loadFileContents(
-                path.join(repoRoot, action.path),
-              );
-              if (Option.isNone(fallbackContents)) {
-                // No existing file and no seed - start with empty for JSON, fail for TS
-                if (action.path.endsWith(".json")) {
-                  baseContents = "{}";
-                } else {
-                  baseContents = "";
-                }
-              } else {
-                baseContents = fallbackContents.value;
-              }
-            }
-
-            // Apply composition operations
+            // NOTE: Modify composes from disk first so repeat applies preserve unrelated fields.
+            const baseContents = yield* loadComposedBaseContents({
+              action,
+              repoRoot,
+            });
             const composedContents = yield* compositionEngine.compose(
               action.path,
               baseContents,

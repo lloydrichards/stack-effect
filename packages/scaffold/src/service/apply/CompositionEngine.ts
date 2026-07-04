@@ -3,17 +3,7 @@ import { Array, Context, Effect, Layer } from "effect";
 import { JsonComposer } from "./JsonComposer";
 import { TypeScriptComposer } from "./TypeScriptComposer";
 
-// =============================================================================
-// Type Guards
-// =============================================================================
-
-/**
- * Check if an operation targets JSON files.
- *
- * Note: We use a simple field check instead of Schema.toTaggedUnion guards
- * because the guards only match the last schema member for each tag value,
- * not all members with the same tag.
- */
+// NOTE: Use fileType instead of Schema.toTaggedUnion guards; those only match the last member per tag value.
 const isJsonOp = (
   op: typeof CompositionOperation.Type,
 ): op is typeof CompositionOperation.cases.json.Type => op.fileType === "json";
@@ -22,10 +12,6 @@ const isTypeScriptOp = (
   op: typeof CompositionOperation.Type,
 ): op is typeof CompositionOperation.cases.typescript.Type =>
   op.fileType === "typescript";
-
-// =============================================================================
-// Service Definition
-// =============================================================================
 
 export class CompositionEngine extends Context.Service<CompositionEngine>()(
   "CompositionEngine",
@@ -46,14 +32,12 @@ export class CompositionEngine extends Context.Service<CompositionEngine>()(
 
           let result = contents;
 
-          // Filter and apply JSON operations if this is a JSON file
           const jsonOps = Array.filter(operations, isJsonOp);
 
           if (isJsonFile(path) && jsonOps.length > 0) {
             result = yield* jsonComposer.compose(result, jsonOps);
           }
 
-          // Filter and apply TypeScript operations if this is a TypeScript file
           const tsOps = Array.filter(operations, isTypeScriptOp);
 
           if (isTypeScriptFile(path) && tsOps.length > 0) {
@@ -73,10 +57,6 @@ export class CompositionEngine extends Context.Service<CompositionEngine>()(
     Layer.provide(TypeScriptComposer.layer),
   );
 }
-
-// =============================================================================
-// Helpers
-// =============================================================================
 
 const isJsonFile = (path: string): boolean => path.endsWith(".json");
 

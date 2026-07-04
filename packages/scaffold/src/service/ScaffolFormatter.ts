@@ -53,10 +53,6 @@ type FormattedPlan = {
   readonly tree: Box.Box<Ansi.AnsiStyle>;
 };
 
-// ============================================================================
-// Generic Tree Rendering
-// ============================================================================
-
 /**
  * Generic tree node that can represent any hierarchical data.
  * Used by both Blueprint and Plan formatters for consistent tree rendering.
@@ -298,7 +294,6 @@ const buildNodes = (
 ): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
   if (entries.length === 0) return [];
 
-  // Group entries by their segment at current depth
   const groups = Arr.reduce<
     (typeof entries)[number],
     Array<{
@@ -317,18 +312,15 @@ const buildNodes = (
     return groups;
   });
 
-  // Classify each group as directory-only, file-only, or mixed
-  // Sort: directories first, then files, both case-insensitive alphabetically
+  // NOTE: Directory groups sort before file leaves so paths render like a filesystem tree.
   const classified = Arr.map(groups, (group) => {
     const hasDeep = group.items.some((e) => e.segments.length > depth + 1);
     return { ...group, hasDeep };
   });
 
   const sorted = [...classified].sort((a, b) => {
-    // Directories before files
     if (a.hasDeep && !b.hasDeep) return -1;
     if (!a.hasDeep && b.hasDeep) return 1;
-    // Then alphabetical case-insensitive
     return a.key.toLowerCase().localeCompare(b.key.toLowerCase());
   });
 

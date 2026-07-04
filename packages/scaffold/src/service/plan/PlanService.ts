@@ -158,8 +158,6 @@ const compilePlanningPaths = (
   );
 };
 
-// --- Planning intent types and derivation ---
-
 export const PlanningIntentEntry = Schema.TaggedUnion({
   authoritative: {
     path: Schema.String,

@@ -5,10 +5,6 @@ import {
 } from "@repo/domain/Plan";
 import { Array, Effect, Match, pipe } from "effect";
 
-// =============================================================================
-// Types
-// =============================================================================
-
 /**
  * A file outcome fully resolved for LLM consumption.
  *
@@ -47,10 +43,6 @@ export interface LlmPlanOutput {
     readonly command: string;
   }>;
 }
-
-// =============================================================================
-// Operation → Instruction Rendering
-// =============================================================================
 
 const renderOperation = (
   path: string,
@@ -101,10 +93,6 @@ const renderOperation = (
     Match.exhaustive,
   );
 
-// =============================================================================
-// Conflict Rendering
-// =============================================================================
-
 const renderConflict = (
   conflict: typeof PlanConflict.Type,
 ): { path: string; kind: string; description: string } =>
@@ -146,10 +134,6 @@ const renderConflict = (
     })),
     Match.exhaustive,
   );
-
-// =============================================================================
-// Plan Renderer
-// =============================================================================
 
 /**
  * Render a Plan into LLM-consumable output.
