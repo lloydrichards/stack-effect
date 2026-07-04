@@ -40,16 +40,12 @@ import { m } from "foldkit/message";
 import { evo } from "foldkit/struct";
 import { RpcClient, RpcClientLive } from "../services/rpc-client";
 
-// MODEL
-
 export const Model = Schema.Struct({
   ticksEnabled: Schema.Boolean,
   tickProgress: Schema.String,
   tickCount: Schema.Number,
 });
 export type Model = typeof Model.Type;
-
-// MESSAGE
 
 export const ClickedStartTicks = m("ClickedStartTicks");
 export const ClickedStopTicks = m("ClickedStopTicks");
@@ -64,18 +60,12 @@ export const Message = Schema.Union([
 ]);
 export type Message = typeof Message.Type;
 
-// GOT MESSAGE (parent wrapper)
-
 export const GotMessage = m("GotTicksMessage", { message: Message });
-
-// INIT
 
 export const init = (): readonly [
   Model,
   ReadonlyArray<Command.Command<Message>>,
 ] => [{ ticksEnabled: false, tickProgress: "", tickCount: 0 }, []];
-
-// UPDATE
 
 export const update = (
   model: Model,
@@ -120,8 +110,6 @@ export const update = (
       ] as const,
   });
 
-// SUBSCRIPTION
-
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   tickStream: entry(
     { isEnabled: Schema.Boolean },
@@ -140,8 +128,6 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
     },
   ),
 }));
-
-// VIEW
 
 export const view = <ParentMessage>(
   model: Model,

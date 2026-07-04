@@ -1,12 +1,7 @@
-// Domain Chat schema
 export const domainChatContents = `import { Schema } from "effect";
 
 export const ChatId = Schema.String.pipe(Schema.brand("ChatId"));
 export type ChatId = Schema.Schema.Type<typeof ChatId>;
-
-// ============================================================================
-// Wire Protocol: ChatStreamPart
-// ============================================================================
 
 export const ChatStreamPart = Schema.TaggedUnion({
   text: {
@@ -49,20 +44,12 @@ export const ChatStreamPart = Schema.TaggedUnion({
 
 export type ChatStreamPart = Schema.Schema.Type<typeof ChatStreamPart>;
 
-// ============================================================================
-// Chat Message (sent from client to server)
-// ============================================================================
-
 export const ChatMessage = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "system"]),
   content: Schema.String,
 });
 
 export type ChatMessage = Schema.Schema.Type<typeof ChatMessage>;
-
-// ============================================================================
-// Client-Side State Machine: ChatResponse
-// ============================================================================
 
 export const ToolCall = Schema.Struct({
   id: Schema.String,

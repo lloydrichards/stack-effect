@@ -12,9 +12,6 @@ import {
   cliTerminalChatContents,
 } from "../content/cli";
 
-/**
- * CLI modules - subcommands and services for CLI applications
- */
 export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("cli-command-hello"),

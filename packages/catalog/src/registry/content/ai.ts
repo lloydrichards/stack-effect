@@ -64,12 +64,10 @@ import {
   AgenticLoopServiceLive,
 } from "../workflow/AgenticLoop";
 
-// ChatToolkit - Merged toolkit for the chat service
-// AST can append additional toolkits to this merge call
+// NOTE: Catalog composition appends additional toolkits to this merge call.
 export const ChatToolkit = Toolkit.merge(ThinkToolkit);
 
-// ChatToolkitLive - Merged layer providing handlers for all toolkits
-// AST can append additional toolkit layers to this merge call
+// NOTE: Catalog composition appends additional toolkit layers to this merge call.
 export const ChatToolkitLive = Layer.mergeAll(ThinkToolkitLive);
 
 export class AiChatService extends Context.Service<AiChatService>()("AiChatService", {

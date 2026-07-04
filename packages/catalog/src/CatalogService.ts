@@ -251,7 +251,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
           for (const child of mod.children ?? []) {
             const childIdx = moduleNodes.get(child.moduleId);
             if (childIdx !== undefined) {
-              // Edge direction: child points to parent (childOf relationship)
+              // NOTE: Child edges point to parents so graph consumers can traverse childOf relationships directly.
               Graph.addEdge(g, childIdx, modIdx, "childOf");
             }
           }
@@ -264,21 +264,13 @@ export class CatalogService extends Context.Service<CatalogService>()(
       }): ReadonlyArray<
         typeof import("@repo/domain/Catalog").ModuleDefinition.Type
       > =>
-        Arr.filter(Arr.fromIterable(moduleIndex.values()), (mod) => {
-          if (
-            options?.category &&
-            !Arr.contains(mod.categories ?? [], options.category)
-          ) {
-            return false;
-          }
-          if (
-            options?.visibility &&
-            (mod.visibility ?? "public") !== options.visibility
-          ) {
-            return false;
-          }
-          return true;
-        });
+        Arr.filter(
+          Arr.fromIterable(moduleIndex.values()),
+          (mod) =>
+            (options?.category === undefined ||
+              Arr.contains(mod.categories ?? [], options.category)) &&
+            hasVisibility(mod, options?.visibility),
+        );
 
       const toCatalogTree: typeof CatalogTree.Type = {
         targets: Arr.map(Arr.fromIterable(targetIndex.values()), (target) => ({

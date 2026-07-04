@@ -50,10 +50,6 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { HealthGroupLive } from "./Api/Health";
 import { HelloGroupLive } from "./Api/Hello";
 
-// ============================================================================
-// Server Configuration
-// ============================================================================
-
 const ServerConfig = Config.all({
   port: Config.number("PORT").pipe(Config.withDefault(9000)),
   hostname: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
@@ -64,24 +60,16 @@ const ServerConfig = Config.all({
   enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
 });
 
-// ============================================================================
-// Router Composition
-// ============================================================================
-
 // HTTP API Router
 const ApiRouter = HttpApiBuilder.layer(Api).pipe(
   Layer.provide([HealthGroupLive, HelloGroupLive]),
 );
 
-// All Routers - modules append additional routers here via Layer.mergeAll
+// NOTE: Modules append additional routers through Layer.mergeAll.
 const RouterDependencies = Layer.mergeAll(Layer.empty);
 const AllRouters = Layer.mergeAll(ApiRouter).pipe(
   Layer.provide(RouterDependencies),
 );
-
-// ============================================================================
-// Server Launch
-// ============================================================================
 
 const DevToolsLive = Effect.gen(function* () {
   const config = yield* ServerConfig;

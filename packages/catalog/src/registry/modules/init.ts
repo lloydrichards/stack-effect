@@ -16,9 +16,6 @@ import {
   vitestConfigContents,
 } from "../content/init";
 
-/**
- * Workspace modules - project-wide tooling (turbo, biome, vitest)
- */
 const gitInitModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-devenv-git"),
   title: "Git",

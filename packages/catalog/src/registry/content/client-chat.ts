@@ -1,4 +1,3 @@
-// Client chat RPC client
 export const clientChatRpcClientContents = `import { ChatRpc } from "@repo/domain/ChatRpc";
 import { Context, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
@@ -222,7 +221,6 @@ export const chatAtom: AtomType.AtomResultFn<
 });
 `;
 
-// Client chat box component (unchanged from before)
 export const clientChatBoxContents = `import { useAtom } from "@effect/atom-react";
 import type { ChatId, ChatResponse, MessageSegment } from "@repo/domain/Chat";
 import { AsyncResult } from "effect/unstable/reactivity";

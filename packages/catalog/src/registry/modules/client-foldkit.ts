@@ -24,9 +24,6 @@ const domainTarget = new TargetIdentity({
   name: "domain",
 });
 
-/**
- * Helper to generate the update case body for a foldkit child feature module.
- */
 const updateCaseValue = (namespace: string, modelField: string) =>
   `({ message }) => {
   const [nextChild, cmds] = ${namespace}.update(model.${modelField}, message);
@@ -38,9 +35,6 @@ const updateCaseValue = (namespace: string, modelField: string) =>
   return [{ ...model, ${modelField}: nextChild }, mappedCommands];
 }`;
 
-/**
- * Client Foldkit modules - TEA-based frontend features
- */
 export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
   [
     {
@@ -74,7 +68,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           name: "@repo/domain",
           value: "workspace:*",
         },
-        // Model composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -87,7 +80,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Rest",
           },
         },
-        // Message composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -99,7 +91,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Rest",
           },
         },
-        // Update composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -112,7 +103,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Rest",
           },
         },
-        // Init composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -124,7 +114,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Rest",
           },
         },
-        // View composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -174,7 +163,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           name: "@repo/domain",
           value: "workspace:*",
         },
-        // Model composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -187,7 +175,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Ticks",
           },
         },
-        // Message composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -199,7 +186,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Ticks",
           },
         },
-        // Update composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -212,7 +198,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Ticks",
           },
         },
-        // Init composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -224,7 +209,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Ticks",
           },
         },
-        // Subscription composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -239,7 +223,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Ticks",
           },
         },
-        // View composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -289,7 +272,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           name: "@repo/domain",
           value: "workspace:*",
         },
-        // Model composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -302,7 +284,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Presence",
           },
         },
-        // Message composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -314,7 +295,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Presence",
           },
         },
-        // Update composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -327,7 +307,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Presence",
           },
         },
-        // Init composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -339,7 +318,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Presence",
           },
         },
-        // Subscription composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -354,7 +332,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Presence",
           },
         },
-        // View composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -414,7 +391,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           name: "@repo/domain",
           value: "workspace:*",
         },
-        // Model composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -427,7 +403,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Chat",
           },
         },
-        // Message composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -439,7 +414,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Chat",
           },
         },
-        // Update composition
         {
           _tag: "ts-object-field",
           path: "{{targetPath}}/src/main.ts",
@@ -452,7 +426,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Chat",
           },
         },
-        // Init composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -464,7 +437,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Chat",
           },
         },
-        // Subscription composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",
@@ -479,7 +451,6 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
             namespaceImport: "Chat",
           },
         },
-        // View composition
         {
           _tag: "ts-call-arg",
           path: "{{targetPath}}/src/main.ts",

@@ -161,21 +161,15 @@ import { type Document, html } from "foldkit/html";
 import * as Theme from "./features/theme";
 import { Init, Views } from "./lib/compose";
 
-// MODEL
-
 export const Model = S.Struct({
   theme: Theme.Model,
 });
 export type Model = typeof Model.Type;
 
-// MESSAGE
-
 export const Message = S.Union([
   Theme.GotMessage,
 ]);
 export type Message = typeof Message.Type;
-
-// UPDATE
 
 export const update = (model: Model, message: Message) =>
   M.value(message).pipe(
@@ -195,18 +189,12 @@ export const update = (model: Model, message: Message) =>
     }),
   );
 
-// INIT
-
 export const init: Runtime.ProgramInit<Model, Message> = () =>
   Init.compose(
     Init.child(Theme, "theme", Theme.GotMessage),
   );
 
-// SUBSCRIPTIONS
-
 export const subscriptions = Subscription.aggregate<Model, Message>()();
-
-// VIEW
 
 export const view = (model: Model): Document => {
   const h = html<Message>();
@@ -254,8 +242,6 @@ import { html } from "foldkit/html";
 import { m } from "foldkit/message";
 import { evo } from "foldkit/struct";
 
-// MODEL
-
 const ThemeSchema = Schema.Literals(["Light", "Dark"]);
 export type Theme = typeof ThemeSchema.Type;
 
@@ -264,19 +250,13 @@ export const Model = Schema.Struct({
 });
 export type Model = typeof Model.Type;
 
-// MESSAGE
-
 export const ClickedToggleTheme = m("ClickedToggleTheme");
 export const CompletedSaveTheme = m("CompletedSaveTheme");
 
 export const Message = Schema.Union([ClickedToggleTheme, CompletedSaveTheme]);
 export type Message = typeof Message.Type;
 
-// GOT MESSAGE (parent wrapper)
-
 export const GotMessage = m("GotThemeMessage", { message: Message });
-
-// INIT
 
 export const init = (): readonly [
   Model,
@@ -290,8 +270,6 @@ export const init = (): readonly [
   return [{ theme }, [ApplyTheme({ theme })]];
 };
 
-// UPDATE
-
 export const update = (model: Model, message: Message) =>
   Match.valueTags(message, {
     ClickedToggleTheme: () => {
@@ -303,8 +281,6 @@ export const update = (model: Model, message: Message) =>
     },
     CompletedSaveTheme: () => [model, []] as const,
   });
-
-// COMMAND
 
 const resolveTheme = (theme: Theme): boolean => theme === "Dark";
 
@@ -331,8 +307,6 @@ export const ApplyTheme = Command.define(
     return CompletedSaveTheme();
   }),
 );
-
-// VIEW
 
 export const view = <ParentMessage>(
   model: Model,
@@ -393,10 +367,6 @@ import type { Html } from "foldkit/html";
  * Used by the scaffold to compose child features into the root main.ts.
  */
 
-// =============================================================================
-// Init Composition
-// =============================================================================
-
 /** Structural shape of a Command without the conditional type indirection. */
 type AnyCommand<T> = Readonly<{
   name: string;
@@ -445,10 +415,6 @@ export const Init = {
     return [model, commands] as const;
   },
 };
-
-// =============================================================================
-// View Composition
-// =============================================================================
 
 export const Views = {
   compose: (...children: ReadonlyArray<Html>): ReadonlyArray<Html> => children,

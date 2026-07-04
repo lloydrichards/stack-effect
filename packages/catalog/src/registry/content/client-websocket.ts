@@ -1,4 +1,3 @@
-// Client WebSocket RPC service + presence atom
 export const clientWebSocketClientContents = `import { BrowserSocket } from "@effect/platform-browser";
 import type { WebSocketEvent } from "@repo/domain/WebSocket";
 import { WebSocketRpc } from "@repo/domain/WebSocket";
@@ -38,7 +37,7 @@ export const presenceSubscriptionAtom: Atom.AtomResultFn<
   }).pipe(
     Effect.map((stream) =>
       stream.pipe(
-        // Cap event accumulation at 100 to prevent memory growth in long sessions
+        // NOTE: Cap event accumulation at 100 to prevent memory growth in long sessions.
         Stream.scan<WebSocketEvent[], WebSocketEvent>([], (acc, event) => {
           const updated = [...acc, event];
           return updated.length > 100 ? updated.slice(-100) : updated;
@@ -50,7 +49,6 @@ export const presenceSubscriptionAtom: Atom.AtomResultFn<
 );
 `;
 
-// Client presence panel component
 export const clientPresencePanelContents = `import { useAtom, useAtomSet } from "@effect/atom-react";
 import type {
   ClientId,

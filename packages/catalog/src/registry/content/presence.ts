@@ -1,5 +1,3 @@
-// Presence package: PresenceService, ClientGenerator
-
 export const presenceIndexContents = `export * from "./services/ClientGenerator";
 export * from "./services/PresenceService";
 `;
