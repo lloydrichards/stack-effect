@@ -315,14 +315,23 @@ export const clientIndexCssContents = `@import "tailwindcss";
 `;
 
 export const clientAtomContents = `import { Layer } from "effect";
-import { DevTools } from "effect/unstable/devtools";
 import { Atom } from "effect/unstable/reactivity";
 
-const ENABLE_DEVTOOLS = import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
+// NOTE: Modules append additional runtime layers through Layer.mergeAll.
+const RuntimeLayer = Layer.mergeAll(Layer.empty);
 
-export const runtime = Atom.runtime(
-  ENABLE_DEVTOOLS ? DevTools.layer() : Layer.empty,
-);
+export const runtime = Atom.runtime(RuntimeLayer);
+`;
+
+export const clientDevToolsContents = `import { Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
+
+export const DevToolsLive =
+  import.meta.env.VITE_ENABLE_DEVTOOLS === "true"
+    ? DevTools.layer(
+        import.meta.env.VITE_DEVTOOLS_URL || "ws://localhost:34437",
+      )
+    : Layer.empty;
 `;
 
 export const clientThemeToggleContents = `import { useLayoutEffect, useState } from "react";
@@ -378,6 +387,7 @@ interface ImportMetaEnv {
   readonly VITE_SERVER_URL: string;
   readonly VITE_WS_URL: string;
   readonly VITE_ENABLE_DEVTOOLS: string;
+  readonly VITE_DEVTOOLS_URL?: string;
 }
 
 interface ImportMeta {

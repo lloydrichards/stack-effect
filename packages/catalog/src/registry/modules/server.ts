@@ -13,6 +13,7 @@ import {
   serverChatSessionsContents,
 } from "../content/chat";
 import { serverTickContents } from "../content/rpc";
+import { serverDevToolsContents } from "../content/server";
 import { serverPresenceContents } from "../content/websocket";
 
 const serverKind = TargetKind.make("server");
@@ -262,6 +263,31 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./Rpc/Presence",
           namedImports: ["PresenceRpcLive"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("server-devtools"),
+    title: "Effect DevTools Server",
+    description: "Optional Effect DevTools tracer layer for server apps",
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/observability/DevTools.ts",
+        contents: serverDevToolsContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "ServerLayers",
+        functionName: "Layer.mergeAll",
+        argument: "DevToolsLive",
+        import: {
+          moduleSpecifier: "./observability/DevTools",
+          namedImports: ["DevToolsLive"],
         },
       },
     ],

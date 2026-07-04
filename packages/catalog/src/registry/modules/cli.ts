@@ -7,6 +7,7 @@ import {
 import {
   cliAskCommandContents,
   cliChatDriverContents,
+  cliDevToolsContents,
   cliHelloCommandContents,
   cliTerminalChatCommandContents,
   cliTerminalChatContents,
@@ -160,6 +161,31 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./commands/chat",
           namedImports: ["chat"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("cli-devtools"),
+    title: "Effect DevTools CLI",
+    description: "Optional Effect DevTools tracer layer for CLI apps",
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/observability/DevTools.ts",
+        contents: cliDevToolsContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "RuntimeLayers",
+        functionName: "Layer.mergeAll",
+        argument: "DevToolsLive",
+        import: {
+          moduleSpecifier: "./observability/DevTools",
+          namedImports: ["DevToolsLive"],
         },
       },
     ],
