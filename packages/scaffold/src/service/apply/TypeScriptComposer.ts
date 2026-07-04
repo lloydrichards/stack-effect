@@ -1,3 +1,4 @@
+import { ApplyFailure } from "@repo/domain/Apply";
 import type {
   CompositionOperation,
   TsAddImportOp,
@@ -9,7 +10,6 @@ import type {
 import {
   Array as Arr,
   Context,
-  Data,
   Effect,
   Layer,
   Match,
@@ -24,60 +24,64 @@ import type {
 } from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 
-class TargetNotFoundError extends Data.TaggedError("TargetNotFoundError")<{
-  targetVariable: string;
-  functionName: string;
-}> {}
+export interface TypeScriptComposerShape {
+  readonly compose: (
+    contents: string,
+    operations: ReadonlyArray<
+      typeof CompositionOperation.cases.typescript.Type
+    >,
+  ) => Effect.Effect<string, ApplyFailure, never>;
+}
 
-export class TypeScriptComposer extends Context.Service<TypeScriptComposer>()(
-  "TypeScriptComposer",
-  {
-    make: Effect.succeed({
-      compose: Effect.fn(function* (
-        contents: string,
-        operations: ReadonlyArray<
-          typeof CompositionOperation.cases.typescript.Type
-        >,
-      ) {
-        const project = new Project({
-          useInMemoryFileSystem: true,
-          skipAddingFilesFromTsConfig: true,
-        });
+export class TypeScriptComposer extends Context.Service<
+  TypeScriptComposer,
+  TypeScriptComposerShape
+>()("TypeScriptComposer", {
+  make: Effect.succeed({
+    compose: Effect.fn(function* (
+      contents: string,
+      operations: ReadonlyArray<
+        typeof CompositionOperation.cases.typescript.Type
+      >,
+    ) {
+      const project = new Project({
+        useInMemoryFileSystem: true,
+        skipAddingFilesFromTsConfig: true,
+      });
 
-        const sourceFile = project.createSourceFile("temp.ts", contents);
+      const sourceFile = project.createSourceFile("temp.ts", contents);
 
-        yield* Effect.forEach(
-          operations,
-          (op) =>
-            Match.value(op).pipe(
-              Match.tag("ts-add-import", (importOp) =>
-                Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
-              ),
-              Match.tag("ts-add-reexport", (reexportOp) =>
-                Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
-              ),
-              Match.tag("ts-append-call-arg", (appendOp) =>
-                applyTsAppendCallArg(sourceFile, appendOp),
-              ),
-              Match.tag("ts-object-field", (fieldOp) =>
-                applyTsObjectField(sourceFile, fieldOp),
-              ),
-              Match.tag("ts-jsx-slot", (slotOp) =>
-                Effect.sync(() => applyTsJsxSlot(sourceFile, slotOp)),
-              ),
-              Match.exhaustive,
+      yield* Effect.forEach(
+        operations,
+        (op) =>
+          Match.value(op).pipe(
+            Match.tag("ts-add-import", (importOp) =>
+              Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
             ),
-          { discard: true },
-        );
+            Match.tag("ts-add-reexport", (reexportOp) =>
+              Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
+            ),
+            Match.tag("ts-append-call-arg", (appendOp) =>
+              applyTsAppendCallArg(sourceFile, appendOp),
+            ),
+            Match.tag("ts-object-field", (fieldOp) =>
+              applyTsObjectField(sourceFile, fieldOp),
+            ),
+            Match.tag("ts-jsx-slot", (slotOp) =>
+              Effect.sync(() => applyTsJsxSlot(sourceFile, slotOp)),
+            ),
+            Match.exhaustive,
+          ),
+        { discard: true },
+      );
 
-        return sourceFile.getFullText();
-      }),
+      return sourceFile.getFullText();
     }),
-  },
-) {
+  } satisfies TypeScriptComposerShape),
+}) {
   static readonly layer = Layer.effect(TypeScriptComposer)(
     TypeScriptComposer.make,
-  );
+  ).pipe(Layer.satisfiesServicesType<never>());
 }
 
 const applyTsAddImport = (
@@ -124,14 +128,14 @@ const applyTsAddReexport = (
   if (existingExport) {
     if (op.namedExports) {
       const existingNamedExports = existingExport.getNamedExports();
-      for (const namedExport of op.namedExports) {
-        const alreadyExists = existingNamedExports.some(
-          (ne) => ne.getName() === namedExport,
-        );
-        if (!alreadyExists) {
-          existingExport.addNamedExport(namedExport);
-        }
-      }
+      Arr.forEach(
+        Arr.filter(
+          op.namedExports,
+          (namedExport) =>
+            !existingNamedExports.some((ne) => ne.getName() === namedExport),
+        ),
+        (namedExport) => existingExport.addNamedExport(namedExport),
+      );
     }
     return;
   }
@@ -240,10 +244,7 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
 ) {
   const initializer = getTargetInitializer(sourceFile, op.targetVariable);
   if (Option.isNone(initializer)) {
-    return yield* new TargetNotFoundError({
-      targetVariable: op.targetVariable,
-      functionName: op.functionName,
-    });
+    return yield* missingTarget(op.targetVariable, op.functionName);
   }
 
   const call = findCallExpression(initializer.value, op.functionName);
@@ -252,10 +253,7 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
     return;
   }
 
-  return yield* new TargetNotFoundError({
-    targetVariable: op.targetVariable,
-    functionName: op.functionName,
-  });
+  return yield* missingTarget(op.targetVariable, op.functionName);
 });
 
 const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
@@ -264,10 +262,7 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
 ) {
   const initializer = getTargetInitializer(sourceFile, op.targetVariable);
   if (Option.isNone(initializer)) {
-    return yield* new TargetNotFoundError({
-      targetVariable: op.targetVariable,
-      functionName: op.functionName,
-    });
+    return yield* missingTarget(op.targetVariable, op.functionName);
   }
 
   const addFieldToCall = (call: CallExpression): boolean => {
@@ -297,11 +292,16 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
     return;
   }
 
-  return yield* new TargetNotFoundError({
-    targetVariable: op.targetVariable,
-    functionName: op.functionName,
-  });
+  return yield* missingTarget(op.targetVariable, op.functionName);
 });
+
+const missingTarget = (targetVariable: string, functionName: string) =>
+  Effect.fail(
+    new ApplyFailure({
+      reason: "repoRootInvalid",
+      message: `Could not find ${functionName} on ${targetVariable} during TypeScript composition.`,
+    }),
+  );
 
 const applyTsJsxSlot = (
   sourceFile: SourceFile,
