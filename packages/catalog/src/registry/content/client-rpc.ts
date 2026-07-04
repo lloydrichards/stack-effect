@@ -1,4 +1,3 @@
-// Client RPC service
 export const clientRpcClientContents = `import { EventRpc } from "@repo/domain/Rpc";
 import { Context, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
@@ -29,7 +28,6 @@ export class RpcClient extends Context.Service<RpcClient>()("RpcClient", {
 }
 `;
 
-// Client tick atom
 export const clientTickAtomContents = `import type { TickEvent } from "@repo/domain/Rpc";
 import { Effect, Layer, Stream } from "effect";
 import { DevTools } from "effect/unstable/devtools";
@@ -88,7 +86,6 @@ export const tickAtom = runtime.fn(
 );
 `;
 
-// Client RPC card component
 export const clientRpcCardContents = `import { useAtom } from "@effect/atom-react";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { tickAtom } from "@/lib/atoms/tick-atom";

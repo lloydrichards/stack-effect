@@ -1,8 +1,5 @@
-// Domain RPC schema (tick only — chat is separate module)
 export const domainRpcContents = `import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
-
-// Define Event RPC
 
 export const TickEvent = Schema.Union([
   Schema.TaggedStruct("starting", {}),
@@ -21,7 +18,6 @@ export class EventRpc extends RpcGroup.make(
 ) {}
 `;
 
-// Server tick handler
 export const serverTickContents = `import { EventRpc, type TickEvent } from "@repo/domain/Rpc";
 import { Effect, Layer, Queue } from "effect";
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc";

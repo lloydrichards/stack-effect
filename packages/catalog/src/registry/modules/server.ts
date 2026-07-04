@@ -15,22 +15,31 @@ import {
 import { serverTickContents } from "../content/rpc";
 import { serverPresenceContents } from "../content/websocket";
 
-/**
- * Server modules - backend API handlers and services
- */
+const serverKind = TargetKind.make("server");
+const packageKind = TargetKind.make("package");
+const domainTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "domain",
+});
+const aiTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "ai",
+});
+const presenceTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "presence",
+});
+
 export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("server-http-api"),
     title: "HTTP API Server",
     description: "REST API endpoints with Effect HTTP",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
@@ -58,14 +67,11 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("server-http-rpc"),
     title: "HTTP RPC Server",
     description: "RPC streaming server with tick handler",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-rpc-contracts"),
       },
     ],
@@ -99,22 +105,16 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("server-chat-rpc"),
     title: "Chat Server",
     description: "AI chat RPC handler with tool support",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-chat-contracts"),
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "ai",
-        }),
+        target: aiTarget,
         moduleId: ModuleId.make("package-ai-chat-service"),
       },
     ],
@@ -176,14 +176,11 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("server-chat-runtime-managed"),
     title: "Managed Chat Runtime",
     description: "In-memory managed chat send, watch, and interrupt runtime",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-chat-managed-contracts"),
       },
       {
@@ -223,22 +220,16 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("server-ws-presence"),
     title: "WebSocket Presence Server",
     description: "Real-time presence tracking over WebSocket RPC",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-ws-contracts"),
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "presence",
-        }),
+        target: presenceTarget,
         moduleId: ModuleId.make("package-presence-service"),
       },
     ],

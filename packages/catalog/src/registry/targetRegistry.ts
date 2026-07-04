@@ -96,7 +96,6 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A frontend application built with React",
     requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: [
-      // Files
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -157,14 +156,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/src/vite-env.d.ts",
         contents: clientViteEnvContents,
       },
-      // TSConfig (conflict on modify)
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: clientTsconfigContents,
         conflictOnModify: true,
       },
-      // Scripts
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -226,7 +223,6 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A frontend application built with Foldkit (Elm Architecture)",
     requiredModules: [ModuleId.make("config-typescript-vite")],
     contributions: [
-      // Files
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -277,14 +273,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/tsconfig.config.json",
         contents: foldkitTsconfigConfigContents,
       },
-      // TSConfig (conflict on modify)
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: foldkitTsconfigContents,
         conflictOnModify: true,
       },
-      // Scripts
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -336,7 +330,6 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A backend application, such as an API server",
     requiredModules: [ModuleId.make("server-http-api")],
     contributions: [
-      // Files
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -347,14 +340,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/src/index.ts",
         contents: serverIndexContents,
       },
-      // TSConfig (conflict on modify)
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: serverTsconfigContents,
         conflictOnModify: true,
       },
-      // Scripts
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -413,7 +404,6 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A command-line interface application",
     requiredModules: [ModuleId.make("cli-command-hello")],
     contributions: [
-      // Files
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -424,14 +414,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/src/index.ts",
         contents: cliIndexContents,
       },
-      // TSConfig (conflict on modify)
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: cliTsconfigContents,
         conflictOnModify: true,
       },
-      // Scripts
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -484,20 +472,17 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     visibility: "internal",
     requiredModules: [],
     contributions: [
-      // Files
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: packagePackageJsonContents,
       },
-      // TSConfig (conflict on modify)
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: packageDomainTsconfigContents,
         conflictOnModify: true,
       },
-      // Scripts
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",

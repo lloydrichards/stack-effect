@@ -5,9 +5,6 @@ import {
 } from "@repo/domain/Catalog";
 import { configTypescriptViteContents } from "../content/client";
 
-/**
- * Config modules - shared TypeScript configurations
- */
 export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("config-typescript-vite"),

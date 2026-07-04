@@ -13,9 +13,12 @@ import {
 import { domainRpcContents } from "../content/rpc";
 import { domainWebSocketContents } from "../content/websocket";
 
-/**
- * Domain modules - shared domain schemas and RPC definitions
- */
+const packageKind = TargetKind.make("package");
+const domainTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "domain",
+});
+
 export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("domain-api-contracts"),
@@ -25,10 +28,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        identity: domainTarget,
       },
     ],
     dependencies: [],
@@ -60,10 +60,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        identity: domainTarget,
       },
     ],
     dependencies: [],
@@ -96,10 +93,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        identity: domainTarget,
       },
     ],
     dependencies: [],
@@ -148,19 +142,13 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        identity: domainTarget,
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-chat-contracts"),
       },
     ],
@@ -192,10 +180,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        identity: domainTarget,
       },
     ],
     dependencies: [],

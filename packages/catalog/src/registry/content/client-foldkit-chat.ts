@@ -36,8 +36,6 @@ import { m } from "foldkit/message";
 import { evo } from "foldkit/struct";
 import { ChatClient, ChatClientLive } from "../services/chat-client";
 
-// MODEL
-
 const ChatMessageSchema = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "system"]),
   content: Schema.String,
@@ -65,8 +63,6 @@ export const Model = Schema.Struct({
 });
 export type Model = typeof Model.Type;
 
-// MESSAGE
-
 export const UpdatedChatInput = m("UpdatedChatInput", { value: Schema.String });
 export const SubmittedChatMessage = m("SubmittedChatMessage");
 export const StartedChat = m("StartedChat", {
@@ -91,11 +87,7 @@ export const Message = Schema.Union([
 ]);
 export type Message = typeof Message.Type;
 
-// GOT MESSAGE (parent wrapper)
-
 export const GotMessage = m("GotChatMessage", { message: Message });
-
-// INIT
 
 export const init = (): readonly [
   Model,
@@ -113,8 +105,6 @@ export const init = (): readonly [
   },
   [],
 ];
-
-// HELPERS
 
 type MutableSegment =
   | { _tag: "text"; content: string; isComplete: boolean }
@@ -225,8 +215,6 @@ const extractTextFromSegments = (
     .map((seg) => seg.content)
     .join("");
 
-// UPDATE
-
 export const update = (
   model: Model,
   message: Message,
@@ -316,8 +304,6 @@ export const update = (
   });
 };
 
-// COMMAND
-
 export const StartChat = Command.define(
   "StartChat",
   { messagesJson: Schema.String },
@@ -335,8 +321,6 @@ export const StartChat = Command.define(
     Effect.provide(ChatClientLive),
   ),
 );
-
-// SUBSCRIPTION
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   chatStream: entry(
@@ -385,8 +369,6 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
     },
   ),
 }));
-
-// VIEW
 
 export const view = <ParentMessage>(
   model: Model,
@@ -526,8 +508,6 @@ export const view = <ParentMessage>(
     ],
   );
 };
-
-// VIEW HELPERS
 
 const emptyStateView = <ParentMessage>(
   h: ReturnType<typeof html<ParentMessage>>,

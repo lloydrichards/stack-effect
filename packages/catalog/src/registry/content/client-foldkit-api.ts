@@ -14,8 +14,6 @@ import { evo } from "foldkit/struct";
 
 const SERVER_URL = "http://localhost:9000";
 
-// MODEL
-
 const ApiInit = ts("ApiInit");
 const ApiLoading = ts("ApiLoading");
 const ApiSuccess = ts("ApiSuccess", { data: ApiResponse });
@@ -34,8 +32,6 @@ export const Model = Schema.Struct({
 });
 export type Model = typeof Model.Type;
 
-// MESSAGE
-
 export const ClickedFetchHello = m("ClickedFetchHello");
 export const SucceededFetchHello = m("SucceededFetchHello", {
   data: ApiResponse,
@@ -49,18 +45,12 @@ export const Message = Schema.Union([
 ]);
 export type Message = typeof Message.Type;
 
-// GOT MESSAGE (parent wrapper)
-
 export const GotMessage = m("GotRestMessage", { message: Message });
-
-// INIT
 
 export const init = (): readonly [
   Model,
   ReadonlyArray<Command.Command<Message>>,
 ] => [{ api: ApiInit() }, []];
-
-// UPDATE
 
 export const update = (model: Model, message: Message) =>
   Match.valueTags(message, {
@@ -71,8 +61,6 @@ export const update = (model: Model, message: Message) =>
     FailedFetchHello: ({ error }) =>
       [evo(model, { api: () => ApiFailure({ error }) }), []] as const,
   });
-
-// COMMAND
 
 export const FetchHello = Command.define(
   "FetchHello",
@@ -103,8 +91,6 @@ export const FetchHello = Command.define(
     Effect.provide(FetchHttpClient.layer),
   ),
 );
-
-// VIEW
 
 export const view = <ParentMessage>(
   model: Model,

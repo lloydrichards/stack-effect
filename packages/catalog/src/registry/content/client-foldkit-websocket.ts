@@ -48,8 +48,6 @@ import { m } from "foldkit/message";
 import { evo } from "foldkit/struct";
 import { WsClient, WsClientLive } from "../services/ws-client";
 
-// MODEL
-
 const PresenceClient = Schema.Struct({
   clientId: Schema.String,
   status: Schema.String,
@@ -63,8 +61,6 @@ export const Model = Schema.Struct({
   myStatus: Schema.String,
 });
 export type Model = typeof Model.Type;
-
-// MESSAGE
 
 export const ClickedConnectPresence = m("ClickedConnectPresence");
 export const ClickedDisconnectPresence = m("ClickedDisconnectPresence");
@@ -91,11 +87,7 @@ export const Message = Schema.Union([
 ]);
 export type Message = typeof Message.Type;
 
-// GOT MESSAGE (parent wrapper)
-
 export const GotMessage = m("GotPresenceMessage", { message: Message });
-
-// INIT
 
 export const init = (): readonly [
   Model,
@@ -109,8 +101,6 @@ export const init = (): readonly [
   },
   [],
 ];
-
-// UPDATE
 
 const applyPresenceEvent = (
   model: Model,
@@ -196,8 +186,6 @@ export const update = (model: Model, message: Message) => {
   });
 };
 
-// COMMAND
-
 export const SetStatus = Command.define(
   "SetStatus",
   { clientId: ClientId, status: ClientStatus },
@@ -215,8 +203,6 @@ export const SetStatus = Command.define(
     Effect.provide(WsClientLive),
   ),
 );
-
-// SUBSCRIPTION
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   presenceStream: entry(
@@ -236,8 +222,6 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
     },
   ),
 }));
-
-// VIEW
 
 export const view = <ParentMessage>(
   model: Model,

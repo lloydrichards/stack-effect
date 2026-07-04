@@ -10,7 +10,6 @@ export const ApiResponse = Schema.Struct({
   success: Schema.Literal(true),
 });
 
-// Define Domain of API
 export class HealthGroup extends HttpApiGroup.make("health")
   .add(HttpApiEndpoint.get("get", "/", { success: Schema.String }))
   .prefix("/") {}

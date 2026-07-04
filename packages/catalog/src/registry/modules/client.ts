@@ -23,28 +23,29 @@ import {
   clientWebSocketClientContents,
 } from "../content/client-websocket";
 
-/**
- * Client modules - frontend UI components and API clients
- */
+const clientReactKind = TargetKind.make("client-react");
+const serverKind = TargetKind.make("server");
+const domainTarget = new TargetIdentity({
+  kind: TargetKind.make("package"),
+  name: "domain",
+});
+
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("client-react-http-api"),
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
     implies: [
       {
-        targetKind: TargetKind.make("server"),
+        targetKind: serverKind,
         moduleId: ModuleId.make("server-http-api"),
       },
     ],
@@ -92,20 +93,17 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("client-react-http-rpc"),
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-rpc-contracts"),
       },
     ],
     implies: [
       {
-        targetKind: TargetKind.make("server"),
+        targetKind: serverKind,
         moduleId: ModuleId.make("server-http-rpc"),
       },
     ],
@@ -158,20 +156,17 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("client-react-chat"),
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-chat-contracts"),
       },
     ],
     implies: [
       {
-        targetKind: TargetKind.make("server"),
+        targetKind: serverKind,
         moduleId: ModuleId.make("server-chat-rpc"),
       },
     ],
@@ -228,20 +223,17 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     id: ModuleId.make("client-react-ws-presence"),
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("client-react") }],
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
+        target: domainTarget,
         moduleId: ModuleId.make("domain-ws-contracts"),
       },
     ],
     implies: [
       {
-        targetKind: TargetKind.make("server"),
+        targetKind: serverKind,
         moduleId: ModuleId.make("server-ws-presence"),
       },
     ],

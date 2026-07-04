@@ -47,17 +47,9 @@ export const cliIndexContents = `import { BunRuntime, BunServices } from "@effec
 import { Effect } from "effect";
 import { Command } from "effect/unstable/cli";
 
-// ============================================================================
-// Root Command
-// ============================================================================
-
 const root = Command.make("{{packageName}}");
 
-// ============================================================================
-// Program
-// ============================================================================
-
-// Subcommands - modules inject additional subcommands via Command.withSubcommands
+// NOTE: Modules inject additional subcommands through Command.withSubcommands.
 const AllCommands = Command.withSubcommands([]);
 
 root.pipe(
@@ -98,9 +90,7 @@ import type { ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
 import { Array, Context, Effect, Layer, Match, pipe, Stream } from "effect";
 import { Prompt } from "effect/unstable/ai";
 
-// The server runtime has a similar helper, but the CLI module must not depend on
-// server/RPC modules. If this duplication grows after the interactive chat command
-// lands, consider moving a pure conversion helper to a shared package boundary.
+// NOTE: CLI chat keeps this converter local to avoid depending on server/RPC modules.
 const toPromptMessage = (message: ChatMessage) => {
   return pipe(
     Match.value(message.role),

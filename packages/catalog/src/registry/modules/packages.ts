@@ -33,9 +33,6 @@ import {
   presenceServiceContents,
 } from "../content/presence";
 
-/**
- * Package modules - infrastructure packages (ai, presence)
- */
 export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("package-ai-core"),
