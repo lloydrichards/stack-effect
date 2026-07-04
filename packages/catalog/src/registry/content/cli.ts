@@ -44,7 +44,7 @@ export const cliTsconfigContents = `{
  * Additional subcommands are added by modules.
  */
 export const cliIndexContents = `import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { Command } from "effect/unstable/cli";
 
 const root = Command.make("{{packageName}}");
@@ -52,11 +52,38 @@ const root = Command.make("{{packageName}}");
 // NOTE: Modules inject additional subcommands through Command.withSubcommands.
 const AllCommands = Command.withSubcommands([]);
 
+// NOTE: Modules append additional runtime layers through Layer.mergeAll.
+const RuntimeLayers = Layer.mergeAll(BunServices.layer);
+
 root.pipe(
   AllCommands,
   Command.run({ version: "0.0.0" }),
-  Effect.provide(BunServices.layer),
+  Effect.provide(RuntimeLayers),
   BunRuntime.runMain,
+);
+`;
+
+export const cliDevToolsContents = `import { Config, Effect, Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
+
+const DevToolsConfig = Config.all({
+  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
+  devToolsUrl: Config.string("DEVTOOLS_URL").pipe(
+    Config.withDefault("ws://localhost:34437"),
+  ),
+});
+
+export const DevToolsLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* DevToolsConfig;
+
+    if (!config.enableDevTools) {
+      return Layer.empty;
+    }
+
+    yield* Effect.logDebug("Enabling DevTools Layer");
+    return DevTools.layer(config.devToolsUrl);
+  }),
 );
 `;
 

@@ -37,27 +37,24 @@ export const serverTsconfigContents = `{
  * This is a minimal server template that includes:
  * - Basic HTTP server with CORS
  * - HTTP API router with Health and Hello endpoints
- * - DevTools support (optional)
  *
  * Additional capabilities (RPC, WebSocket) are added by modules.
  */
 export const serverIndexContents = `import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
 import { Api } from "@repo/domain/Api";
 import { Config, Effect, Layer } from "effect";
-import { DevTools } from "effect/unstable/devtools";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { HealthGroupLive } from "./Api/Health";
 import { HelloGroupLive } from "./Api/Hello";
 
-const ServerConfig = Config.all({
+export const ServerConfig = Config.all({
   port: Config.number("PORT").pipe(Config.withDefault(9000)),
   hostname: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
   idleTimeout: Config.number("IDLE_TIMEOUT").pipe(Config.withDefault(120)),
   allowedOrigins: Config.string("ALLOWED_ORIGINS").pipe(
     Config.withDefault("http://localhost:3000"),
   ),
-  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
 });
 
 // HTTP API Router
@@ -71,14 +68,8 @@ const AllRouters = Layer.mergeAll(ApiRouter).pipe(
   Layer.provide(RouterDependencies),
 );
 
-const DevToolsLive = Effect.gen(function* () {
-  const config = yield* ServerConfig;
-  if (!config.enableDevTools) {
-    return Layer.empty;
-  }
-  yield* Effect.logDebug("Enabling DevTools Layer");
-  return DevTools.layer();
-}).pipe(Layer.unwrap);
+// NOTE: Modules append additional server layers through Layer.mergeAll.
+const ServerLayers = Layer.mergeAll(BunHttpServer.layerConfig(ServerConfig));
 
 const HttpLive = Effect.gen(function* () {
   const config = yield* ServerConfig;
@@ -101,10 +92,33 @@ const HttpLive = Effect.gen(function* () {
 
   return HttpRouter.serve(CorsRouters).pipe(
     HttpServer.withLogAddress,
-    Layer.provideMerge(DevToolsLive),
-    Layer.provideMerge(BunHttpServer.layerConfig(ServerConfig)),
+    Layer.provideMerge(ServerLayers),
   );
 }).pipe(Layer.unwrap, Layer.launch);
 
 BunRuntime.runMain(HttpLive);
+`;
+
+export const serverDevToolsContents = `import { Config, Effect, Layer } from "effect";
+import { DevTools } from "effect/unstable/devtools";
+
+const DevToolsConfig = Config.all({
+  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
+  devToolsUrl: Config.string("DEVTOOLS_URL").pipe(
+    Config.withDefault("ws://localhost:34437"),
+  ),
+});
+
+export const DevToolsLive = Layer.unwrap(
+  Effect.gen(function* () {
+    const config = yield* DevToolsConfig;
+
+    if (!config.enableDevTools) {
+      return Layer.empty;
+    }
+
+    yield* Effect.logDebug("Enabling DevTools Layer");
+    return DevTools.layer(config.devToolsUrl);
+  }),
+);
 `;

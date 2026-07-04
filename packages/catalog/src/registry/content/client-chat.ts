@@ -31,20 +31,19 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
 // Client chat atom (uses ChatRpcClient instead of RpcClient)
 export const clientChatAtomContents = `import { ChatStreamPart, type ChatId, type ChatMessage, type ChatResponse, type ToolCall } from "@repo/domain/Chat";
 import { Effect, Stream } from "effect";
-import { Atom, type Atom as AtomType } from "effect/unstable/reactivity";
+import type { Atom as AtomType } from "effect/unstable/reactivity";
+import { runtime } from "../atom";
 import { ChatRpcClient } from "../chat-rpc-client";
-
-const chatRuntime = Atom.runtime(ChatRpcClient.layer);
 
 export const chatStartAtom: AtomType.AtomResultFn<
   void,
   { readonly chatId: ChatId },
   unknown
-> = chatRuntime.fn(() =>
+> = runtime.fn(() =>
   Effect.gen(function* () {
     const rpc = yield* ChatRpcClient;
     return yield* rpc.client.chat_start();
-  }),
+  }).pipe(Effect.provide(ChatRpcClient.layer)),
 );
 
 export const accumulateChatResponse = (
@@ -185,12 +184,12 @@ export const chatAtom: AtomType.AtomResultFn<
   },
   ChatResponse,
   unknown
-> = chatRuntime.fn(({ chatId, messages }) => {
+> = runtime.fn(({ chatId, messages }) => {
   return Stream.unwrap(
     Effect.gen(function* () {
       const rpc = yield* ChatRpcClient;
       return rpc.client.chat_ask({ chatId, messages });
-    }),
+    }).pipe(Effect.provide(ChatRpcClient.layer)),
   ).pipe(
     Stream.tapError((error: unknown) =>
       Effect.logError("[chatAtom] Stream error occurred:", error),

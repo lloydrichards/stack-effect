@@ -137,7 +137,7 @@ export const foldkitStylesContents = `@import "tailwindcss";
 
 export const foldkitEntryContents = `import { Runtime } from "foldkit";
 
-import { init, Message, Model, subscriptions, update, view } from "./main";
+import { init, Model, subscriptions, update, view } from "./main";
 
 const program = Runtime.makeProgram({
   Model,
@@ -146,12 +146,16 @@ const program = Runtime.makeProgram({
   view,
   subscriptions,
   container: document.getElementById("root"),
-  devTools: {
-    Message,
-  },
 });
 
 Runtime.run(program);
+`;
+
+export const foldkitDevToolsContents = `import { Message } from "./main";
+
+export const devTools = {
+  Message,
+};
 `;
 
 export const foldkitMainContents = `import { Effect, Match as M, Schema as S } from "effect";

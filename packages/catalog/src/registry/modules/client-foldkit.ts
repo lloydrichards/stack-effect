@@ -4,6 +4,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { foldkitDevToolsContents } from "../content/client-foldkit";
 import { foldkitRestFeatureContents } from "../content/client-foldkit-api";
 import {
   foldkitChatClientContents,
@@ -37,6 +38,32 @@ const updateCaseValue = (namespace: string, modelField: string) =>
 
 export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
   [
+    {
+      id: ModuleId.make("client-foldkit-devtools"),
+      title: "Foldkit DevTools",
+      description: "Optional Foldkit runtime devtools for message inspection",
+      supportedOn: [{ _tag: "kind", kind: foldkitKind }],
+      dependencies: [],
+      contributions: [
+        {
+          _tag: "file",
+          path: "{{targetPath}}/src/devtools.ts",
+          contents: foldkitDevToolsContents,
+        },
+        {
+          _tag: "ts-object-field",
+          path: "{{targetPath}}/src/entry.ts",
+          targetVariable: "program",
+          functionName: "Runtime.makeProgram",
+          field: "devTools",
+          value: "devTools",
+          import: {
+            moduleSpecifier: "./devtools",
+            namedImports: ["devTools"],
+          },
+        },
+      ],
+    },
     {
       id: ModuleId.make("client-foldkit-http-api"),
       title: "HTTP API Client (Foldkit)",

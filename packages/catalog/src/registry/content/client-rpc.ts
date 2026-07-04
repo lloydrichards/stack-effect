@@ -29,19 +29,9 @@ export class RpcClient extends Context.Service<RpcClient>()("RpcClient", {
 `;
 
 export const clientTickAtomContents = `import type { TickEvent } from "@repo/domain/Rpc";
-import { Effect, Layer, Stream } from "effect";
-import { DevTools } from "effect/unstable/devtools";
-import { Atom } from "effect/unstable/reactivity";
+import { Effect, Stream } from "effect";
+import { runtime } from "../atom";
 import { RpcClient } from "../rpc-client";
-
-const ENABLE_DEVTOOLS = import.meta.env.VITE_ENABLE_DEVTOOLS === "true";
-
-const RpcLayer = Layer.mergeAll(
-  RpcClient.layer,
-  ENABLE_DEVTOOLS ? DevTools.layer() : Layer.empty,
-);
-
-const runtime = Atom.runtime(RpcLayer);
 
 export const tickAtom = runtime.fn(
   ({ abort = false }: { readonly abort?: boolean }) =>
@@ -50,7 +40,10 @@ export const tickAtom = runtime.fn(
         yield* Effect.logDebug("Starting Tick Atom Stream");
         const rpc = yield* RpcClient;
         return rpc.client.tick({ ticks: 10 });
-      }).pipe((self) => (abort ? Effect.interrupt : self)),
+      }).pipe(
+        Effect.provide(RpcClient.layer),
+        (self) => (abort ? Effect.interrupt : self),
+      ),
     ).pipe(
       Stream.catchTags({
         RpcClientError: (e) => Stream.die(e),

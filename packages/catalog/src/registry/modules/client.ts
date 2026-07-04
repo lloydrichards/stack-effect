@@ -4,6 +4,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { clientDevToolsContents } from "../content/client";
 import {
   clientHelloAtomContents,
   clientRestCardContents,
@@ -281,6 +282,31 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         label: "Install shadcn card component",
         command: "bunx shadcn@latest add card --yes --overwrite",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("client-react-devtools"),
+    title: "Effect DevTools React Client",
+    description: "Optional Effect DevTools tracer layer for React atom runtime",
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/lib/devtools.ts",
+        contents: clientDevToolsContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/lib/atom.ts",
+        targetVariable: "RuntimeLayer",
+        functionName: "Layer.mergeAll",
+        argument: "DevToolsLive",
+        import: {
+          moduleSpecifier: "./devtools",
+          namedImports: ["DevToolsLive"],
+        },
       },
     ],
   },
