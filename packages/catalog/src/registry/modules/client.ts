@@ -195,6 +195,20 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         value: "workspace:*",
       },
       {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@effect/platform-browser",
+        value: "4.0.0-beta.93",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@shadcn/react",
+        value: "^0.2.0",
+      },
+      {
         _tag: "jsx-slot",
         path: "{{targetPath}}/src/app.tsx",
         slotId: "components",
@@ -207,16 +221,9 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     scripts: [
       {
-        label: "Install shadcn button component",
-        command: "bunx shadcn@latest add button --yes --overwrite",
-      },
-      {
-        label: "Install shadcn card component",
-        command: "bunx shadcn@latest add card --yes --overwrite",
-      },
-      {
-        label: "Install shadcn input component",
-        command: "bunx shadcn@latest add input --yes --overwrite",
+        label: "Install shadcn chat UI components",
+        command:
+          "bunx shadcn@latest add message-scroller message bubble attachment marker --yes --overwrite",
       },
     ],
   },
