@@ -1,7 +1,11 @@
 /** @effect-diagnostics globalErrorInEffectFailure:skip-file */
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
-import { type ApplyDecision, Apply as ApplyIntent } from "@repo/domain/Apply";
+import {
+  type ApplyDecision,
+  ApplyFailure,
+  Apply as ApplyIntent,
+} from "@repo/domain/Apply";
 import {
   CompositionOperation,
   Plan,
@@ -19,8 +23,16 @@ import {
   PlatformError,
 } from "effect";
 import { ApplyService } from "./ApplyService";
-import { CompositionEngine } from "./CompositionEngine";
-import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
+import {
+  CompositionEngine,
+  type CompositionEngineShape,
+} from "./CompositionEngine";
+import {
+  type ApplyWriteOutcome,
+  type ApplyWriteRequest,
+  WriteEngine,
+  type WriteEngineShape,
+} from "./WriteEngine";
 
 const testRepoRoot = "/repo";
 
@@ -124,15 +136,10 @@ const makeApplyServiceLayer = ({
   write: (args: {
     readonly repoRoot: string;
     readonly write: ApplyWriteRequest;
-  }) => Effect.Effect<
-    {
-      readonly path: string;
-      readonly status: "created" | "modified" | "unchanged";
-    },
-    unknown,
-    never
-  >;
-  compose?: (input: CompositionInput) => Effect.Effect<string>;
+  }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
+  compose?: (
+    input: CompositionInput,
+  ) => Effect.Effect<string, ApplyFailure, never>;
   entries?: Record<string, MockPathEntry>;
 }) =>
   Layer.effect(ApplyService)(ApplyService.make).pipe(
@@ -140,7 +147,7 @@ const makeApplyServiceLayer = ({
       Layer.mergeAll(
         Layer.succeed(WriteEngine, {
           write: Effect.fn("MockWriteEngine.write")(write),
-        } as never),
+        } satisfies WriteEngineShape),
         Layer.succeed(CompositionEngine, {
           compose: Effect.fn("MockCompositionEngine.compose")(
             (
@@ -152,7 +159,7 @@ const makeApplyServiceLayer = ({
                 ? compose({ path, contents, operations })
                 : Effect.succeed(contents),
           ),
-        } as never),
+        } satisfies CompositionEngineShape),
         makeFileSystemLayer(entries),
         Path.layer,
       ),
@@ -348,7 +355,7 @@ describe("ApplyService", () => {
     );
 
     it.effect(
-      "should default conflicted authoritative outcomes to override when decision is absent",
+      "should override conflicted authoritative outcomes when decision is override",
       () =>
         Effect.gen(function* () {
           const writeCalls: Array<ApplyWriteRequest> = [];
@@ -361,6 +368,12 @@ describe("ApplyService", () => {
                   classification: "conflict",
                   contents: "export const Api = {};\n",
                 }),
+              ],
+              decisions: [
+                {
+                  path: "packages/domain/src/Api.ts",
+                  value: "override",
+                },
               ],
             }),
             layer: makeApplyServiceLayer({
@@ -387,6 +400,150 @@ describe("ApplyService", () => {
             modified: ["packages/domain/src/Api.ts"],
             skipped: [],
             failed: [],
+          });
+        }),
+    );
+
+    it.effect(
+      "should fail before repo access when a conflicted path is missing a decision",
+      () =>
+        Effect.gen(function* () {
+          const writeCalls: Array<ApplyWriteRequest> = [];
+          const composeCalls: Array<CompositionInput> = [];
+
+          const exit = yield* Effect.exit(
+            runApply({
+              apply: makeApply({
+                outcomes: [
+                  completeOutcome({
+                    path: "packages/domain/src/Api.ts",
+                    classification: "conflict",
+                    contents: "export const Api = {};\n",
+                  }),
+                ],
+              }),
+              layer: makeApplyServiceLayer({
+                write: ({ write }) => {
+                  writeCalls.push(write);
+                  return Effect.succeed({
+                    path: write.path,
+                    status: "modified" as const,
+                  });
+                },
+                compose: (input) => {
+                  composeCalls.push(input);
+                  return Effect.succeed("unused");
+                },
+              }),
+            }),
+          );
+
+          expect(Exit.isFailure(exit)).toBe(true);
+          assert(Exit.isFailure(exit));
+          expect(writeCalls).toHaveLength(0);
+          expect(composeCalls).toHaveLength(0);
+          expect(Cause.squash(exit.cause)).toMatchObject({
+            _tag: "ApplyFailure",
+            reason: "invalidApplyIntent",
+            message:
+              "Missing apply decision for conflicted path packages/domain/src/Api.ts.",
+          });
+        }),
+    );
+
+    it.effect(
+      "should fail before repo access when a decision targets a non-conflicted path",
+      () =>
+        Effect.gen(function* () {
+          const writeCalls: Array<ApplyWriteRequest> = [];
+
+          const exit = yield* Effect.exit(
+            runApply({
+              apply: makeApply({
+                outcomes: [
+                  completeOutcome({
+                    path: "packages/domain/src/Api.ts",
+                    classification: "create",
+                    contents: "export const Api = {};\n",
+                  }),
+                ],
+                decisions: [
+                  {
+                    path: "packages/domain/src/Api.ts",
+                    value: "override",
+                  },
+                ],
+              }),
+              layer: makeApplyServiceLayer({
+                write: ({ write }) => {
+                  writeCalls.push(write);
+                  return Effect.succeed({
+                    path: write.path,
+                    status: "created" as const,
+                  });
+                },
+              }),
+            }),
+          );
+
+          expect(Exit.isFailure(exit)).toBe(true);
+          assert(Exit.isFailure(exit));
+          expect(writeCalls).toHaveLength(0);
+          expect(Cause.squash(exit.cause)).toMatchObject({
+            _tag: "ApplyFailure",
+            reason: "invalidApplyIntent",
+            message:
+              "Unexpected apply decision for non-conflicted path packages/domain/src/Api.ts.",
+          });
+        }),
+    );
+
+    it.effect(
+      "should fail before repo access when decisions contain duplicate paths",
+      () =>
+        Effect.gen(function* () {
+          const writeCalls: Array<ApplyWriteRequest> = [];
+
+          const exit = yield* Effect.exit(
+            runApply({
+              apply: makeApply({
+                outcomes: [
+                  completeOutcome({
+                    path: "packages/domain/src/Api.ts",
+                    classification: "conflict",
+                    contents: "export const Api = {};\n",
+                  }),
+                ],
+                decisions: [
+                  {
+                    path: "packages/domain/src/Api.ts",
+                    value: "override",
+                  },
+                  {
+                    path: "packages/domain/src/Api.ts",
+                    value: "skip",
+                  },
+                ],
+              }),
+              layer: makeApplyServiceLayer({
+                write: ({ write }) => {
+                  writeCalls.push(write);
+                  return Effect.succeed({
+                    path: write.path,
+                    status: "modified" as const,
+                  });
+                },
+              }),
+            }),
+          );
+
+          expect(Exit.isFailure(exit)).toBe(true);
+          assert(Exit.isFailure(exit));
+          expect(writeCalls).toHaveLength(0);
+          expect(Cause.squash(exit.cause)).toMatchObject({
+            _tag: "ApplyFailure",
+            reason: "invalidApplyIntent",
+            message: "Duplicate apply decision for packages/domain/src/Api.ts.",
           });
         }),
     );
@@ -623,6 +780,138 @@ describe("ApplyService", () => {
         }),
     );
 
+    it.effect("should fail when composition fails and then avoid writes", () =>
+      Effect.gen(function* () {
+        const writeCalls: Array<ApplyWriteRequest> = [];
+
+        const layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
+          Layer.provide(
+            Layer.mergeAll(
+              Layer.succeed(WriteEngine, {
+                write: Effect.fn("MockWriteEngine.write")(({ write }) => {
+                  writeCalls.push(write);
+                  return Effect.succeed({
+                    path: write.path,
+                    status: "created" as const,
+                  });
+                }),
+              } satisfies WriteEngineShape),
+              CompositionEngine.layer,
+              makeFileSystemLayer({
+                "/repo/packages/domain/src/index.ts": {
+                  _tag: "missing",
+                },
+              }),
+              Path.layer,
+            ),
+          ),
+        );
+
+        const exit = yield* Effect.exit(
+          runApply({
+            apply: makeApply({
+              outcomes: [
+                partialOutcome({
+                  path: "packages/domain/src/index.ts",
+                  classification: "create",
+                  operations: [
+                    {
+                      _tag: "ts-append-call-arg",
+                      fileType: "typescript",
+                      targetVariable: "program",
+                      functionName: "Command.withSubcommands",
+                      argument: "apiCommand",
+                    },
+                  ],
+                }),
+              ],
+            }),
+            layer,
+          }),
+        );
+
+        expect(Exit.isFailure(exit)).toBe(true);
+        assert(Exit.isFailure(exit));
+        expect(writeCalls).toHaveLength(0);
+        expect(Cause.squash(exit.cause)).toMatchObject({
+          _tag: "ApplyFailure",
+          reason: "repoRootInvalid",
+          message:
+            "Could not find Command.withSubcommands on program during TypeScript composition.",
+        });
+      }),
+    );
+
+    it.effect(
+      "should fail when package.json composition finds a non-object section and then avoid writes",
+      () =>
+        Effect.gen(function* () {
+          const writeCalls: Array<ApplyWriteRequest> = [];
+
+          const layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
+            Layer.provide(
+              Layer.mergeAll(
+                Layer.succeed(WriteEngine, {
+                  write: Effect.fn("MockWriteEngine.write")(({ write }) => {
+                    writeCalls.push(write);
+                    return Effect.succeed({
+                      path: write.path,
+                      status: "modified" as const,
+                    });
+                  }),
+                } satisfies WriteEngineShape),
+                CompositionEngine.layer,
+                makeFileSystemLayer({
+                  "/repo/package.json": {
+                    _tag: "file",
+                    contents: JSON.stringify({
+                      scripts: "vite dev",
+                    }),
+                  },
+                }),
+                Path.layer,
+              ),
+            ),
+          );
+
+          const exit = yield* Effect.exit(
+            runApply({
+              apply: makeApply({
+                outcomes: [
+                  partialOutcome({
+                    path: "package.json",
+                    classification: "modify",
+                    operations: [
+                      {
+                        _tag: "json-pkg-scripts",
+                        fileType: "json",
+                        entries: [
+                          {
+                            name: "dev",
+                            value: "vite dev",
+                          },
+                        ],
+                      },
+                    ],
+                  }),
+                ],
+              }),
+              layer,
+            }),
+          );
+
+          expect(Exit.isFailure(exit)).toBe(true);
+          assert(Exit.isFailure(exit));
+          expect(writeCalls).toHaveLength(0);
+          expect(Cause.squash(exit.cause)).toMatchObject({
+            _tag: "ApplyFailure",
+            reason: "repoRootInvalid",
+            message:
+              'Expected package.json field "scripts" to be an object during apply.',
+          });
+        }),
+    );
+
     it.effect("should map unchanged write outcomes into skipped paths", () =>
       Effect.gen(function* () {
         const result = yield* runApply({
@@ -680,7 +969,12 @@ describe("ApplyService", () => {
                 writeCalls.push(write);
 
                 if (write.path === "packages/domain/src/Api.ts") {
-                  return Effect.fail(new Error("disk full"));
+                  return Effect.fail(
+                    new ApplyFailure({
+                      reason: "executionFailure",
+                      message: "disk full",
+                    }),
+                  );
                 }
 
                 return Effect.succeed({
@@ -779,7 +1073,10 @@ describe("ApplyService", () => {
                     });
                   default:
                     return Effect.fail(
-                      new Error(`Unexpected write path ${write.path}`),
+                      new ApplyFailure({
+                        reason: "executionFailure",
+                        message: `Unexpected write path ${write.path}`,
+                      }),
                     );
                 }
               },

@@ -7,12 +7,27 @@ export type ApplyWriteRequest = {
   readonly writeMode: "create" | "modify" | "override";
 };
 
-type ApplyWriteOutcome = {
+export type ApplyWriteOutcome = {
   readonly path: string;
   readonly status: "created" | "modified" | "unchanged";
 };
 
-export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
+type InspectedPath =
+  | { readonly _tag: "missing" }
+  | { readonly _tag: "directory" }
+  | { readonly _tag: "file"; readonly contents: string };
+
+export interface WriteEngineShape {
+  readonly write: (input: {
+    readonly repoRoot: string;
+    readonly write: ApplyWriteRequest;
+  }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
+}
+
+export class WriteEngine extends Context.Service<
+  WriteEngine,
+  WriteEngineShape
+>()("WriteEngine", {
   make: Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -58,15 +73,18 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
     };
 
     const inspect = Effect.fn("WriteEngine.inspect")(function* (path: string) {
-      const pathStat = yield* fileSystem
-        .stat(path)
-        .pipe(
-          Effect.catch((error) =>
-            error.reason._tag === "NotFound"
-              ? Effect.succeed(null)
-              : Effect.fail(error),
-          ),
-        );
+      const pathStat = yield* fileSystem.stat(path).pipe(
+        Effect.catch((error) =>
+          error.reason._tag === "NotFound"
+            ? Effect.succeed(null)
+            : Effect.fail(
+                new ApplyFailure({
+                  reason: "repoRootInvalid",
+                  message: `Could not inspect ${path} during apply: ${error.message}`,
+                }),
+              ),
+        ),
+      );
 
       if (pathStat === null) {
         return {
@@ -80,13 +98,49 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
         };
       }
 
-      const contents = yield* fileSystem.readFileString(path);
+      const contents = yield* fileSystem.readFileString(path).pipe(
+        Effect.mapError(
+          (error) =>
+            new ApplyFailure({
+              reason: "repoRootInvalid",
+              message: `Could not read ${path} during apply: ${error.message}`,
+            }),
+        ),
+      );
 
       return {
         _tag: "file" as const,
         contents,
-      };
+      } satisfies InspectedPath;
     });
+
+    const validateWriteMode = Effect.fn("WriteEngine.validateWriteMode")(
+      function* (write: ApplyWriteRequest, existingPath: InspectedPath) {
+        return yield* Match.value(write.writeMode).pipe(
+          Match.when("create", () =>
+            existingPath._tag === "missing"
+              ? Effect.void
+              : Effect.fail(
+                  new ApplyFailure({
+                    reason: "repoRootInvalid",
+                    message: `Expected ${write.path} to be missing for create apply mode.`,
+                  }),
+                ),
+          ),
+          Match.whenOr("modify", "override", () =>
+            existingPath._tag === "file"
+              ? Effect.void
+              : Effect.fail(
+                  new ApplyFailure({
+                    reason: "repoRootInvalid",
+                    message: `Expected ${write.path} to be an existing file for ${write.writeMode} apply mode.`,
+                  }),
+                ),
+          ),
+          Match.exhaustive,
+        );
+      },
+    );
 
     const write = Effect.fn("WriteEngine.write")(function* ({
       repoRoot,
@@ -99,25 +153,7 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
 
       const existingPath = yield* inspect(absolutePath);
 
-      Match.value(write.writeMode).pipe(
-        Match.when("create", () => {
-          if (existingPath._tag !== "missing") {
-            throw new ApplyFailure({
-              reason: "repoRootInvalid",
-              message: `Expected ${write.path} to be missing for create apply mode.`,
-            });
-          }
-        }),
-        Match.whenOr("modify", "override", () => {
-          if (existingPath._tag !== "file") {
-            throw new ApplyFailure({
-              reason: "repoRootInvalid",
-              message: `Expected ${write.path} to be an existing file for ${write.writeMode} apply mode.`,
-            });
-          }
-        }),
-        Match.exhaustive,
-      );
+      yield* validateWriteMode(write, existingPath);
 
       if (
         existingPath._tag === "file" &&
@@ -129,9 +165,19 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
         } satisfies ApplyWriteOutcome;
       }
 
-      yield* fileSystem.makeDirectory(path.dirname(absolutePath), {
-        recursive: true,
-      });
+      yield* fileSystem
+        .makeDirectory(path.dirname(absolutePath), {
+          recursive: true,
+        })
+        .pipe(
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                reason: "executionFailure",
+                message: `Could not create directory ${path.dirname(absolutePath)} during apply: ${error.message}`,
+              }),
+          ),
+        );
 
       yield* atomicWrite({
         path: absolutePath,
@@ -144,7 +190,7 @@ export class WriteEngine extends Context.Service<WriteEngine>()("WriteEngine", {
       } satisfies ApplyWriteOutcome;
     });
 
-    return { write } as const;
+    return { write } satisfies WriteEngineShape;
   }),
 }) {
   static readonly layer = Layer.effect(WriteEngine)(WriteEngine.make);
