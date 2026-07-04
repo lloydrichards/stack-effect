@@ -242,11 +242,10 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
 });
 
 const annotationFor = (
-  path: string,
-  contributors: ReadonlyArray<ManifestContributor>,
+  file: typeof ManifestFile.Type,
 ): Option.Option<string> => {
   const sourceLines = pipe(
-    contributors,
+    file.contributors,
     Arr.map((contributor) =>
       contributor.origin === "module"
         ? `${contributor.targetKey}#${contributor.moduleId}:${contributor.contributionTag}`
@@ -260,21 +259,21 @@ const annotationFor = (
   ];
 
   if (
-    path.endsWith(".ts") ||
-    path.endsWith(".tsx") ||
-    path.endsWith(".js") ||
-    path.endsWith(".jsx")
+    file.path.endsWith(".ts") ||
+    file.path.endsWith(".tsx") ||
+    file.path.endsWith(".js") ||
+    file.path.endsWith(".jsx")
   ) {
     return Option.some(`${body.map((line) => `// ${line}`).join("\n")}\n\n`);
   }
 
-  if (path.endsWith(".css")) {
+  if (file.path.endsWith(".css")) {
     return Option.some(
       `/*\n${body.map((line) => ` * ${line}`).join("\n")}\n */\n\n`,
     );
   }
 
-  if (path.endsWith(".html")) {
+  if (file.path.endsWith(".html")) {
     return Option.some(
       `<!--\n${body.map((line) => `  ${line}`).join("\n")}\n-->\n`,
     );
@@ -297,7 +296,7 @@ const annotateWorkspace = Effect.fn("catalog.workspace.annotate")(function* ({
     manifest.files,
     (file) =>
       Effect.gen(function* () {
-        const annotation = annotationFor(file.path, file.contributors);
+        const annotation = annotationFor(file);
         if (Option.isNone(annotation)) return;
 
         const filePath = path.join(repoRoot, file.path);
