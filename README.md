@@ -19,7 +19,7 @@ Then add targets and modules to your project:
 bunx stack-effect@latest add
 
 # Non-interactive — specify what you need
-bunx stack-effect@latest add --target server/api --modules server-http-api --yes
+bunx stack-effect@latest add --target server/api:server-http-api --yes
 ```
 
 ## What You Get
@@ -68,12 +68,11 @@ Scaffolds a new project. Prompts for runtime (bun/node), monorepo tool, linting,
 
 Adds targets and modules to an existing project. In interactive mode, select a target kind (client, server, cli, package), name it, then pick modules. Dependencies between modules are resolved automatically.
 
-| Flag                   | Description                       |
-| ---------------------- | --------------------------------- |
-| `--target <kind/name>` | Target to add (e.g. `client-react/web`) |
-| `--modules <id,...>`   | Modules to include                |
-| `--yes`                | Skip confirmation prompts         |
-| `--dry-run`            | Preview the plan without applying |
+| Flag                              | Description                       |
+| --------------------------------- | --------------------------------- |
+| `--target <kind/name:id[,id...]>` | Target and modules to add         |
+| `--yes`                           | Skip confirmation prompts         |
+| `--dry-run`                       | Preview the plan without applying |
 
 ### `stack-effect graph`
 
@@ -92,7 +91,7 @@ Initialize a project with bun and add a client with an API connection:
 ```bash
 bunx stack-effect@latest init my-app --runtime bun --yes
 
-bunx stack-effect@latest add --target client-react/web --modules client-react-http-api --yes
+bunx stack-effect@latest add --target client-react/web:client-react-http-api --yes
 ```
 
 The `client-react-http-api` module automatically implies `server-http-api` on a server target, so both sides of the API are scaffolded together.

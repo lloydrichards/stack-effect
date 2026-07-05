@@ -37,7 +37,7 @@ import {
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 
-export interface CommandResult {
+interface CommandResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
@@ -63,7 +63,7 @@ const spawnCommand = (
   ).pipe(Effect.orDie);
 };
 
-export class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
+class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
   "e2e/WorkspaceContainer",
   {
     make: Effect.gen(function* () {
@@ -90,7 +90,7 @@ export class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
   ).pipe(Layer.provide(NodeServices.layer));
 }
 
-export interface ProjectContext {
+interface ProjectContext {
   readonly dir: string;
   readonly install: () => Effect.Effect<CommandResult>;
   readonly exec: (

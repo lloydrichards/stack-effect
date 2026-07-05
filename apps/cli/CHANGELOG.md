@@ -159,7 +159,7 @@
   - Wire module into the CLI entrypoint via `ts-call-arg` composition contribution
   - CLI target now supports incremental module additions:
     ```sh
-    bunx stack-effect@latest add --target cli --modules hello-command
+    bunx stack-effect@latest add --target cli/app:hello-command
     ```
 
 - [#98](https://github.com/lloydrichards/stack-effect/pull/98) [`d12bbc8`](https://github.com/lloydrichards/stack-effect/commit/d12bbc8d92fff766e8afce40a2a3b2f4b8e4f4f3) Thanks [@lloydrichards](https://github.com/lloydrichards)! - Improve consistency and usability of TUI prompt components

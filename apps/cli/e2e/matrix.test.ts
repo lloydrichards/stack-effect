@@ -319,9 +319,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              entry.target,
-              "--modules",
-              entry.modules.join(","),
+              `${entry.target}:${entry.modules.join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -354,9 +352,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              entry.serverTarget,
-              "--modules",
-              entry.serverModules.join(","),
+              `${entry.serverTarget}:${entry.serverModules.join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -366,9 +362,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              entry.clientTarget,
-              "--modules",
-              entry.clientModules.join(","),
+              `${entry.clientTarget}:${entry.clientModules.join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -419,9 +413,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              `server/${defaultTargetNames.get("server")}`,
-              "--modules",
-              [...group.serverModules].join(","),
+              `server/${defaultTargetNames.get("server")}:${[...group.serverModules].join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -431,9 +423,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              clientTarget,
-              "--modules",
-              [...group.clientModules].join(","),
+              `${clientTarget}:${[...group.clientModules].join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -470,9 +460,7 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              entry.target,
-              "--modules",
-              entry.parentModule,
+              `${entry.target}:${entry.parentModule}`,
             );
             yield* cli.expectExitCode(0);
 
@@ -483,9 +471,7 @@ describe("matrix", () => {
                 "--root",
                 root,
                 "--target",
-                child.childTarget,
-                "--modules",
-                child.moduleId,
+                `${child.childTarget}:${child.moduleId}`,
               );
               yield* cli.expectExitCode(0);
             }
@@ -520,9 +506,7 @@ describe("matrix", () => {
                 "--root",
                 root,
                 "--target",
-                entry.requiringTarget,
-                "--modules",
-                entry.requiringModule,
+                `${entry.requiringTarget}:${entry.requiringModule}`,
               );
 
               if (entry.providerCount === 1) {

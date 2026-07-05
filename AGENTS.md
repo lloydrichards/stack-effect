@@ -41,10 +41,10 @@ trap 'rm -rf "$TMP_REPO"' EXIT
 bun run start -- init smoke-app --yes --root "$TMP_REPO"
 
 # 2) Non-interactive add with explicit Selection inputs
-bun run start -- add --yes --root "$TMP_REPO" --target package/domain --modules domain-api-contracts --dry-run
+bun run start -- add --yes --root "$TMP_REPO" --target package/domain:domain-api-contracts --dry-run
 
-# 3) Optional negative test: cross-target implication should fail in non-interactive mode
-bun run start -- add --yes --root "$TMP_REPO" --target client-react/web --modules client-react-http-api --dry-run
+# 3) Cross-target implication should resolve in non-interactive mode
+bun run start -- add --yes --root "$TMP_REPO" --target client-react/web:client-react-http-api --dry-run
 ```
 
 Notes:
