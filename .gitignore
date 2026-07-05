@@ -55,7 +55,7 @@ tsconfig.tsbuildinfo
 
 # Scaffold
 .temp/
-workspace/catalog-built/
+workspace/
 
 # Fallow 
 .fallow/

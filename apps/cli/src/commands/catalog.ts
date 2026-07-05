@@ -9,8 +9,8 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import type { RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import type { Selection } from "@repo/domain/Selection";
 import {
   ApplyService,
   BlueprintService,
@@ -35,7 +35,9 @@ import {
 import { Command } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { rootFlag } from "../flags";
+import { recipeTargetFlag, rootFlag } from "../flags";
+import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
+import { RecipeService } from "../service/RecipeService";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
 
@@ -95,13 +97,35 @@ const contributionPath = (contribution: typeof Contribution.Type) =>
     : contribution.path;
 
 const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
-  function* () {
+  function* (
+    config: typeof StackConfig.Type,
+    targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
+  ) {
     const catalog = yield* CatalogService;
+    const recipes = yield* RecipeService;
+
+    if (Option.isSome(targetSpecs)) {
+      const targets = yield* parseRecipeTargetSpecs(targetSpecs.value);
+      return yield* recipes.resolve(
+        {
+          targets: Arr.map(targets, (target) => ({
+            target: target.target,
+            modules: target.modules,
+          })),
+        },
+        {
+          config,
+          providerStrategy: { _tag: "fail-on-ambiguous" },
+        },
+      );
+    }
+
     const targets = new Map<
       string,
       {
         identity: TargetIdentity;
         modules: Set<typeof ModuleId.Type>;
+        capabilities: Set<string>;
       }
     >();
 
@@ -112,6 +136,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       const next = {
         identity,
         modules: new Set<typeof ModuleId.Type>(),
+        capabilities: new Set<string>(),
       };
       targets.set(key, next);
       return next;
@@ -160,9 +185,18 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
         if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
           continue;
         }
-        ensureTarget(targetIdentityFrom(supportedOn)).modules.add(
-          moduleDefinition.id,
+        const target = ensureTarget(targetIdentityFrom(supportedOn));
+        const provides = moduleDefinition.provides ?? [];
+        const hasExistingProvider = provides.some((capability) =>
+          target.capabilities.has(capability),
         );
+
+        if (!hasExistingProvider) {
+          target.modules.add(moduleDefinition.id);
+          for (const capability of provides) {
+            target.capabilities.add(capability);
+          }
+        }
       }
     }
 
@@ -175,7 +209,18 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       }))
       .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
 
-    return { targets: selectedTargets } satisfies typeof Selection.Type;
+    return yield* recipes.resolve(
+      {
+        targets: Arr.map(selectedTargets, (target) => ({
+          target: target.identity,
+          modules: Arr.map(target.modules, (module) => module.id),
+        })),
+      },
+      {
+        config,
+        providerStrategy: { _tag: "first-provider" },
+      },
+    );
   },
 );
 
@@ -474,72 +519,75 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
   },
 );
 
-const reset = Command.make("reset", { root: rootFlag }, (flags) =>
-  Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const repoRoot = path.resolve(
-      Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
-    );
-
-    yield* fs
-      .remove(repoRoot, { recursive: true })
-      .pipe(
-        Effect.catch((error) =>
-          error.reason._tag === "NotFound" ? Effect.void : Effect.fail(error),
-        ),
+const reset = Command.make(
+  "reset",
+  { root: rootFlag, target: recipeTargetFlag },
+  (flags) =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const repoRoot = path.resolve(
+        Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
-    yield* fs.makeDirectory(repoRoot, { recursive: true });
 
-    const config = new StackConfig({
-      name: "catalog-built" as typeof Schema.NonEmptyString.Type,
-      runtime: { _tag: "bun" },
-      lint: "biome",
-      format: "biome",
-      test: "vitest",
-      monorepo: "turbo",
-    });
+      yield* fs
+        .remove(repoRoot, { recursive: true })
+        .pipe(
+          Effect.catch((error) =>
+            error.reason._tag === "NotFound" ? Effect.void : Effect.fail(error),
+          ),
+        );
+      yield* fs.makeDirectory(repoRoot, { recursive: true });
 
-    const selection = yield* buildWorkspaceSelection();
-    const blueprintService = yield* BlueprintService;
-    const blueprint = yield* blueprintService.resolve(selection);
-    const planService = yield* PlanService;
-    const plan = yield* planService.build({ blueprint, repoRoot, config });
-    const applyService = yield* ApplyService;
-    const result = yield* applyService.apply({
-      apply: new Apply({ plan, decisions: [] }),
-      repoRoot,
-    });
+      const config = new StackConfig({
+        name: "catalog-built" as typeof Schema.NonEmptyString.Type,
+        runtime: { _tag: "bun" },
+        lint: "biome",
+        format: "biome",
+        test: "vitest",
+        monorepo: "turbo",
+      });
 
-    const manifest = yield* buildManifest({ blueprint, config });
-    yield* annotateWorkspace({ repoRoot, manifest });
-    yield* fs.writeFileString(
-      path.join(repoRoot, ".catalog-build-manifest.json"),
-      `${JSON.stringify(manifest, null, 2)}\n`,
-    );
+      const selection = yield* buildWorkspaceSelection(config, flags.target);
+      const blueprintService = yield* BlueprintService;
+      const blueprint = yield* blueprintService.resolve(selection);
+      const planService = yield* PlanService;
+      const plan = yield* planService.build({ blueprint, repoRoot, config });
+      const applyService = yield* ApplyService;
+      const result = yield* applyService.apply({
+        apply: new Apply({ plan, decisions: [] }),
+        repoRoot,
+      });
 
-    yield* runFinalizeScripts({ blueprint, config, repoRoot });
+      const manifest = yield* buildManifest({ blueprint, config });
+      yield* annotateWorkspace({ repoRoot, manifest });
+      yield* fs.writeFileString(
+        path.join(repoRoot, ".catalog-build-manifest.json"),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+      );
 
-    yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
-    yield* runGit(repoRoot, ["add", "."]);
-    yield* runGit(repoRoot, [
-      "-c",
-      "user.name=stack-effect",
-      "-c",
-      "user.email=stack-effect@example.invalid",
-      "commit",
-      "-m",
-      "catalog workspace baseline",
-    ]);
-    yield* linkWorkspacePackages(repoRoot);
+      yield* runFinalizeScripts({ blueprint, config, repoRoot });
 
-    yield* Console.log(`Catalog workspace reset at ${repoRoot}`);
-    yield* Console.log(`Created: ${result.created.length}`);
-    yield* Console.log(`Modified: ${result.modified.length}`);
-    if (result.failed.length > 0) {
-      yield* Console.log(`Failed: ${result.failed.length}`);
-    }
-  }),
+      yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
+      yield* runGit(repoRoot, ["add", "."]);
+      yield* runGit(repoRoot, [
+        "-c",
+        "user.name=stack-effect",
+        "-c",
+        "user.email=stack-effect@example.invalid",
+        "commit",
+        "-m",
+        "catalog workspace baseline",
+      ]);
+      yield* linkWorkspacePackages(repoRoot);
+
+      yield* Console.log(`Catalog workspace reset at ${repoRoot}`);
+      yield* Console.log(`Created: ${result.created.length}`);
+      yield* Console.log(`Modified: ${result.modified.length}`);
+      if (result.failed.length > 0) {
+        yield* Console.log(`Failed: ${result.failed.length}`);
+      }
+    }),
 ).pipe(
   Command.withDescription(
     "Reset an editable generated catalog workspace and commit a git baseline.",

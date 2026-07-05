@@ -21,7 +21,7 @@ import { init } from "./commands/init";
 import { plan } from "./commands/plan";
 import { schema } from "./commands/schema";
 import { ConfigureService } from "./service/ConfigureService";
-import { CreateRequestService } from "./service/CreateRequestService";
+import { RecipeService } from "./service/RecipeService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
 const CliConfig = Config.all({
@@ -41,6 +41,8 @@ const root = Command.make("stack-effect").pipe(
   ),
 );
 
+const RecipeLayer = RecipeService.layer;
+
 const MainLayer = Layer.mergeAll(
   ApplyService.layer,
   BlueprintService.layer,
@@ -49,7 +51,7 @@ const MainLayer = Layer.mergeAll(
   PlanService.layer,
   ScaffoldFormatter.layer,
   ConfigureService.layer,
-  CreateRequestService.layer,
+  RecipeLayer,
   ScaffoldPipeline.layer,
 ).pipe(
   Layer.provideMerge(CatalogService.layer),
@@ -60,6 +62,12 @@ const program = root.pipe(
   Command.withSubcommands([init, create, add, graph, plan, schema, catalog]),
   Command.run({ version: pkg.version }),
   Effect.provide(MainLayer),
+  Effect.catchTags({
+    InvalidRecipeSpec: (error) => Effect.fail(error.message),
+    MissingRecipeProvider: (error) => Effect.fail(error.message),
+    AmbiguousRecipeProvider: (error) => Effect.fail(error.message),
+    UnresolvedRecipeTarget: (error) => Effect.fail(error.message),
+  }),
   Effect.catchCause((cause) => {
     if (Cause.hasInterruptsOnly(cause)) {
       const message = Box.vsep(

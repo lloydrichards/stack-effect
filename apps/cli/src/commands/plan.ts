@@ -22,10 +22,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { Box } from "effect-boxes";
 import { rootFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
-import {
-  CreateInput,
-  CreateRequestService,
-} from "../service/CreateRequestService";
 
 /**
  * Reads a PlanInput from stdin, runs Blueprint → Plan, and outputs structured
@@ -53,15 +49,10 @@ const PlanInput = Schema.Struct({
   config: Schema.optional(StackConfig),
 });
 
-const formatFlag = Flag.choice("format", [
-  "llm",
-  "raw",
-  "tree",
-  "command",
-]).pipe(
+const formatFlag = Flag.choice("format", ["llm", "raw", "tree"]).pipe(
   Flag.optional,
   Flag.withAlias("f"),
-  Flag.withDescription("Output format: llm (default), raw, tree, or command"),
+  Flag.withDescription("Output format: llm (default), raw, or tree"),
 );
 
 const outputFlag = Flag.string("output").pipe(
@@ -84,24 +75,6 @@ export const plan = Command.make(
         Stream.decodeText(),
         Stream.mkString,
       );
-
-      if (format === "command") {
-        const createInput = yield* Schema.decodeUnknownEffect(
-          Schema.fromJsonString(CreateInput),
-        )(stdin);
-        const createRequests = yield* CreateRequestService;
-        const normalized = yield* createRequests.normalizeInput(
-          createInput,
-          flags.root,
-        );
-        return yield* Option.match(flags.output, {
-          onSome: Effect.fnUntraced(function* (outputPath) {
-            yield* fs.writeFileString(outputPath, normalized.command);
-            yield* Console.log(`Command written to ${outputPath}`);
-          }),
-          onNone: () => Console.log(normalized.command),
-        });
-      }
 
       const input = yield* Schema.decodeUnknownEffect(
         Schema.fromJsonString(PlanInput),
