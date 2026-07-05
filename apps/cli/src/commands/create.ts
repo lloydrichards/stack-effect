@@ -1,69 +1,206 @@
-import { Console, Effect, Option } from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
-import { dryRunFlag, noGitFlag, rootFlag, trustFlag, yesFlag } from "../flags";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
+import { StackConfig } from "@repo/domain/Scaffold";
+import { Console, Effect, Option, Schema } from "effect";
+import { Command } from "effect/unstable/cli";
+import {
+  dryRunFlag,
+  formatFlag,
+  lintFlag,
+  monorepoFlag,
+  noGitFlag,
+  packageManagerFlag,
+  projectNameArg,
+  recipeTargetFlag,
+  rootFlag,
+  runtimeFlag,
+  testFlag,
+  trustFlag,
+  yesFlag,
+} from "../flags";
+import { resolveNameAndRoot } from "../lib/project";
+import { encodeRecipeTargetSpecs } from "../lib/recipeTargets";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
-import { CreateRequestService } from "../service/CreateRequestService";
+import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-const nameArg = Argument.string("project-name").pipe(Argument.optional);
+const DEFAULTS = {
+  runtime: "bun",
+  packageManager: "bun",
+  monorepo: "turbo",
+  lint: "biome",
+  format: "biome",
+  test: "vitest",
+} as const;
 
-const fromFlag = Flag.string("from").pipe(
-  Flag.optional,
-  Flag.withDescription(
-    'Read create input JSON from a file path, or use "-" to read from stdin.',
-  ),
+const quoteShellArg = (value: string) =>
+  /^[A-Za-z0-9_./:,@+-]+$/.test(value)
+    ? value
+    : `'${value.replaceAll("'", "'\\''")}'`;
+
+const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
+  function* ({
+    runtime,
+    packageManager,
+  }: {
+    readonly runtime: Option.Option<"bun" | "node">;
+    readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+  }) {
+    if (
+      Option.isSome(runtime) &&
+      runtime.value === "bun" &&
+      Option.isSome(packageManager) &&
+      packageManager.value !== "bun"
+    ) {
+      return yield* Effect.fail(
+        `Invalid create options: --runtime bun conflicts with --package-manager ${packageManager.value}.`,
+      );
+    }
+
+    if (
+      Option.isSome(runtime) &&
+      runtime.value === "node" &&
+      Option.isSome(packageManager) &&
+      packageManager.value === "bun"
+    ) {
+      return yield* Effect.fail(
+        "Invalid create options: --runtime node conflicts with --package-manager bun.",
+      );
+    }
+  },
 );
 
-const targetFlag = Flag.string("target").pipe(
-  Flag.atLeast(1),
-  Flag.optional,
-  Flag.withDescription(
-    "Target spec as <targetKind>/<targetName>:<moduleId>[,<moduleId>...]",
-  ),
-);
+const buildConfig = ({
+  projectName,
+  runtime,
+  packageManager,
+  monorepo,
+  lint,
+  format,
+  test,
+}: {
+  readonly projectName: string;
+  readonly runtime: Option.Option<"bun" | "node">;
+  readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+  readonly monorepo: Option.Option<string>;
+  readonly lint: Option.Option<string>;
+  readonly format: Option.Option<string>;
+  readonly test: Option.Option<string>;
+}): typeof StackConfig.Type => {
+  const packageManagerName = Option.getOrElse(
+    packageManager,
+    () => DEFAULTS.packageManager,
+  );
+  const runtimeName = Option.getOrElse(
+    runtime,
+    () => (packageManagerName === "bun" ? "bun" : "node") as "bun" | "node",
+  );
+  const runtimeConfig =
+    runtimeName === "bun"
+      ? ({ _tag: "bun" } as const)
+      : ({
+          _tag: "node",
+          packageManager:
+            packageManagerName === "bun" ? "pnpm" : packageManagerName,
+        } as const);
 
-const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
-  Flag.optional,
-  Flag.withDescription("Override the default runtime"),
-);
+  return new StackConfig({
+    name: projectName as typeof Schema.NonEmptyString.Type,
+    runtime: runtimeConfig,
+    monorepo: Option.getOrElse(monorepo, () => DEFAULTS.monorepo),
+    lint: Option.getOrElse(lint, () => DEFAULTS.lint),
+    format: Option.getOrElse(format, () => DEFAULTS.format),
+    test: Option.getOrElse(test, () => DEFAULTS.test),
+  });
+};
 
-const packageManagerFlag = Flag.choice("package-manager", [
-  "bun",
-  "pnpm",
-  "npm",
-]).pipe(
-  Flag.optional,
-  Flag.withDescription(
-    "Override the default package manager. bun implies --runtime bun; pnpm/npm imply --runtime node.",
-  ),
-);
+const buildRecipeSpec = (
+  targets: ReadonlyArray<RecipeTargetSpec>,
+  includeGit: boolean,
+): RecipeSpec => ({
+  targets: [
+    ...(includeGit
+      ? [
+          {
+            target: new TargetIdentity({
+              kind: TargetKind.make("workspace"),
+              name: "",
+            }),
+            modules: [ModuleId.make("workspace-devenv-git")],
+          },
+        ]
+      : []),
+    ...targets,
+  ],
+});
 
-const monorepoFlag = Flag.string("monorepo").pipe(
-  Flag.optional,
-  Flag.withDescription("Override the default monorepo tool"),
-);
-
-const lintFlag = Flag.string("lint").pipe(
-  Flag.optional,
-  Flag.withDescription("Override the default lint tool"),
-);
-
-const formatFlag = Flag.string("format").pipe(
-  Flag.optional,
-  Flag.withDescription("Override the default format tool"),
-);
-
-const testFlag = Flag.string("test").pipe(
-  Flag.optional,
-  Flag.withDescription("Override the default test framework"),
-);
+const renderCreateCommand = ({
+  name,
+  targets,
+  runtime,
+  packageManager,
+  monorepo,
+  lint,
+  format,
+  test,
+  noGit,
+}: {
+  readonly name: string;
+  readonly targets: ReadonlyArray<RecipeTargetSpec>;
+  readonly runtime: Option.Option<"bun" | "node">;
+  readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+  readonly monorepo: Option.Option<string>;
+  readonly lint: Option.Option<string>;
+  readonly format: Option.Option<string>;
+  readonly test: Option.Option<string>;
+  readonly noGit: boolean;
+}) =>
+  [
+    "stack-effect",
+    "create",
+    quoteShellArg(name),
+    ...encodeRecipeTargetSpecs(targets).flatMap((target) => [
+      "--target",
+      quoteShellArg(target),
+    ]),
+    ...Option.match(runtime, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.runtime ? [] : ["--runtime", value],
+    }),
+    ...Option.match(packageManager, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.packageManager ? [] : ["--package-manager", value],
+    }),
+    ...Option.match(monorepo, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.monorepo ? [] : ["--monorepo", quoteShellArg(value)],
+    }),
+    ...Option.match(lint, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.lint ? [] : ["--lint", quoteShellArg(value)],
+    }),
+    ...Option.match(format, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.format ? [] : ["--format", quoteShellArg(value)],
+    }),
+    ...Option.match(test, {
+      onNone: () => [],
+      onSome: (value) =>
+        value === DEFAULTS.test ? [] : ["--test", quoteShellArg(value)],
+    }),
+    ...(noGit ? ["--no-git"] : []),
+  ].join(" ");
 
 export const create = Command.make(
   "create",
   {
-    name: nameArg,
-    from: fromFlag,
-    target: targetFlag,
+    name: projectNameArg,
+    target: recipeTargetFlag,
     root: rootFlag,
     runtime: runtimeFlag,
     packageManager: packageManagerFlag,
@@ -78,55 +215,89 @@ export const create = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
-      const createRequests = yield* CreateRequestService;
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
+      const recipes = yield* RecipeService;
 
-      const normalized = yield* createRequests.normalize({
-        name: flags.name,
-        from: flags.from,
-        targets: flags.target,
-        root: flags.root,
+      if (Option.isNone(flags.name)) {
+        return yield* Effect.fail(
+          "Project name is required. Use a name such as 'chat-app', or '.' for the resolved --root directory.",
+        );
+      }
+
+      if (Option.isNone(flags.target)) {
+        return yield* Effect.fail(
+          "At least one --target is required for non-interactive create.",
+        );
+      }
+
+      yield* validateRuntimeOptions({
+        runtime: flags.runtime,
+        packageManager: flags.packageManager,
+      });
+
+      const { projectName, repoRoot } = yield* resolveNameAndRoot(
+        flags.name.value,
+        flags.root,
+      );
+      const config = buildConfig({
+        projectName,
         runtime: flags.runtime,
         packageManager: flags.packageManager,
         monorepo: flags.monorepo,
         lint: flags.lint,
         format: flags.format,
         test: flags.test,
-        noGit: flags.noGit,
+      });
+      const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);
+      const selection = yield* recipes.resolve(recipeSpec, {
+        config,
+        providerStrategy: { _tag: "fail-on-ambiguous" },
       });
 
       const existing = yield* configure
-        .readConfig(normalized.repoRoot)
+        .readConfig(repoRoot)
         .pipe(Effect.option);
 
       if (Option.isSome(existing)) {
         return yield* Effect.fail(
           `${CONFIG_FILENAME} already exists at ${configure.configPath(
-            normalized.repoRoot,
+            repoRoot,
           )}. This looks like an existing stack-effect project; use 'stack-effect init' and 'stack-effect add' for existing or incremental workflows.`,
         );
       }
 
-      yield* Console.log(`Create command: ${normalized.command}`);
+      yield* Console.log(
+        `Create command: ${renderCreateCommand({
+          name: flags.name.value,
+          targets: flags.target.value,
+          runtime: flags.runtime,
+          packageManager: flags.packageManager,
+          monorepo: flags.monorepo,
+          lint: flags.lint,
+          format: flags.format,
+          test: flags.test,
+          noGit: flags.noGit,
+        })}`,
+      );
 
       if (!flags.dryRun) {
-        yield* configure.writeConfig(normalized.repoRoot, normalized.config);
+        yield* configure.writeConfig(repoRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
       yield* pipeline.run({
-        selection: normalized.selection,
-        repoRoot: normalized.repoRoot,
+        selection,
+        repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
         trust: flags.trust || flags.yes,
-        config: normalized.config,
+        config,
       });
     }),
 ).pipe(
   Command.withDescription(
-    "Create a greenfield stack-effect project from compact target specs or create input JSON.",
+    "Create a greenfield stack-effect project from compact target specs.",
   ),
   Command.withShortDescription("Create a full project in one command"),
   Command.withExamples([
@@ -140,14 +311,6 @@ export const create = Command.make(
       command:
         "stack-effect create chat-app --target client-react/web:client-react-chat --target package/ai:package-ai-chat-service,package-ai-toolkit-math --dry-run",
       description: "Preview a create command without writing files",
-    },
-    {
-      command: "stack-effect create --from create.json",
-      description: "Create from simple JSON input",
-    },
-    {
-      command: "stack-effect create --from - --dry-run",
-      description: "Preview create input read from stdin",
     },
   ]),
 );

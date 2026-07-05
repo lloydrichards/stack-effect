@@ -5,84 +5,28 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import type { Selection } from "@repo/domain/Selection";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
-import {
-  Array as Arr,
-  Console,
-  Effect,
-  Option,
-  Path,
-  pipe,
-  Schema,
-} from "effect";
-import { Argument, Command, Flag } from "effect/unstable/cli";
+import { Console, Effect, Option, Schema } from "effect";
+import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { dryRunFlag, noGitFlag, rootFlag, trustFlag, yesFlag } from "../flags";
-import { toWorkspaceModuleId, toWorkspaceToolValue } from "../lib/workspace";
+import {
+  dryRunFlag,
+  noGitFlag,
+  projectNameArg,
+  rootFlag,
+  runtimeFlag,
+  trustFlag,
+  yesFlag,
+} from "../flags";
+import { resolveNameAndRoot } from "../lib/project";
+import { toWorkspaceToolValue } from "../lib/workspace";
 import {
   CONFIG_FILENAME,
   ConfigureService,
   StackConfig,
 } from "../service/ConfigureService";
+import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
-
-const buildInitSelection = (
-  config: typeof StackConfig.Type,
-  extraModules: ReadonlyArray<string> = [],
-): typeof Selection.Type => {
-  const moduleIds = pipe(
-    [config.monorepo, config.lint, config.format, config.test, ...extraModules],
-    Arr.filter((moduleId): moduleId is string => moduleId !== undefined),
-    Arr.map(toWorkspaceModuleId),
-    Arr.dedupe,
-  );
-
-  return {
-    targets: [
-      {
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
-          name: config.name,
-        }),
-        modules: moduleIds.map((id) => ({
-          id: ModuleId.make(id),
-        })),
-      },
-    ],
-  };
-};
-
-const nameArg = Argument.string("project-name").pipe(Argument.optional);
-
-const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
-  Flag.optional,
-  Flag.withDescription("Runtime to use"),
-);
-
-/**
- * Resolve project name and output directory from the positional name argument
- * and the `--root` flag, matching the convention used by create-t3-app and
- * create-better-t-stack:
- *
- * - `stack-effect init my-app`       → dir=cwd/my-app, name="my-app"
- * - `stack-effect init .`            → dir=cwd,        name=basename(cwd)
- * - `stack-effect init my-app -r /d` → dir=/d/my-app,  name="my-app"
- * - `stack-effect init . -r /d`      → dir=/d,         name=basename(/d)
- */
-const resolveNameAndRoot = Effect.fn("resolveNameAndRoot")(function* (
-  nameInput: string,
-  rootFlag: Option.Option<string>,
-) {
-  const path = yield* Path.Path;
-  const base = Option.getOrElse(rootFlag, () => process.cwd());
-  if (nameInput === ".") {
-    const resolved = path.resolve(base);
-    return { projectName: path.basename(resolved), repoRoot: resolved };
-  }
-  const repoRoot = path.resolve(base, nameInput);
-  return { projectName: nameInput, repoRoot };
-});
 
 /**
  * Prompt for an optional tool choice, returning Option.none for "none".
@@ -137,11 +81,11 @@ const chooseOptionalTool = <A extends string>(
 export const init = Command.make(
   "init",
   {
-    name: nameArg,
+    name: projectNameArg,
     root: rootFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
-    packageManager: runtimeFlag,
+    runtime: runtimeFlag,
     noGit: noGitFlag,
     trust: trustFlag,
   },
@@ -216,8 +160,8 @@ export const init = Command.make(
         }
       }
 
-      const runtimeChoice = Option.isSome(flags.packageManager)
-        ? flags.packageManager.value
+      const runtimeChoice = Option.isSome(flags.runtime)
+        ? flags.runtime.value
         : flags.yes
           ? ("bun" as const)
           : yield* Select({
@@ -380,10 +324,31 @@ export const init = Command.make(
       }
 
       const pipeline = yield* ScaffoldPipeline;
-      const selection = buildInitSelection(config, [
+      const recipe = yield* RecipeService;
+      const explicitWorkspaceModules = [
         ...(git ? [ModuleId.make("workspace-devenv-git")] : []),
-        ...dxExtras,
-      ]);
+        ...dxExtras.map((moduleId) => ModuleId.make(moduleId)),
+      ];
+      const selection = yield* recipe.resolve(
+        {
+          targets:
+            explicitWorkspaceModules.length === 0
+              ? []
+              : [
+                  {
+                    target: new TargetIdentity({
+                      kind: TargetKind.make("workspace"),
+                      name: config.name,
+                    }),
+                    modules: explicitWorkspaceModules,
+                  },
+                ],
+        },
+        {
+          config,
+          providerStrategy: { _tag: "fail-on-ambiguous" },
+        },
+      );
 
       yield* pipeline.run({
         selection,

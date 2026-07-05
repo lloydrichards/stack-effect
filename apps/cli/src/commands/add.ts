@@ -6,7 +6,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import type { Selection } from "@repo/domain/Selection";
+import type { RecipeTargetSpec } from "@repo/domain/Recipe";
 import {
   HorizontalSelect,
   MultiSelect,
@@ -20,7 +20,6 @@ import {
   Array as Arr,
   Console,
   Effect,
-  FileSystem,
   Match,
   Option,
   Predicate,
@@ -31,35 +30,26 @@ import {
   Schema,
   Terminal,
 } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
-import { dryRunFlag, rootFlag, trustFlag, yesFlag } from "../flags";
-import { buildSelectionFrom } from "../lib/routing";
-import { duplicatedValues, splitCommaSeparated } from "../lib/utils";
+import {
+  dryRunFlag,
+  recipeTargetFlag,
+  rootFlag,
+  trustFlag,
+  yesFlag,
+} from "../flags";
+import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
 import { ConfigureService } from "../service/ConfigureService";
+import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-export type CollectedTarget = {
+type CollectedTarget = {
   kind: typeof TargetKind.Type;
   name: string;
   modules: Array<typeof ModuleId.Type>;
   confirmed: boolean;
 };
-
-const targetFlag = Flag.string("target").pipe(
-  Flag.optional,
-  Flag.withDescription(
-    "Target identity as <targetKind>/<targetName>, e.g. client-react/web",
-  ),
-);
-
-const modulesFlag = Flag.string("modules").pipe(
-  Flag.atLeast(1),
-  Flag.optional,
-  Flag.withDescription(
-    "Module IDs (repeat --modules or use comma-separated values)",
-  ),
-);
 
 const TargetNameInput = Schema.Trim.check(
   Schema.isNonEmpty({ message: "Target name cannot be empty" }),
@@ -554,18 +544,6 @@ const resolveCapabilities = <E, R>(
     return changed;
   });
 
-export const resolveCapabilitiesNonInteractive = (
-  targets: Array<CollectedTarget>,
-) =>
-  resolveCapabilities(targets, true, (options) =>
-    Effect.fail(
-      `Module "${options.definition.id}" requires capability "${options.dependency.capability}" on ${options.requiredTarget.toKey()}, but multiple providers are available: ${Arr.join(
-        Arr.map(options.providers, (provider) => provider.id),
-        ", ",
-      )}. Use interactive add to choose a provider.`,
-    ),
-  );
-
 const resolveCapabilitiesInteractive = (targets: Array<CollectedTarget>) =>
   resolveCapabilities(
     targets,
@@ -583,103 +561,6 @@ const resolveCapabilitiesInteractive = (targets: Array<CollectedTarget>) =>
       }),
   );
 
-const resolveImplicationsNonInteractive = (
-  targets: Array<CollectedTarget>,
-  repoRoot: string,
-) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogService;
-    const fs = yield* FileSystem.FileSystem;
-
-    let changed = true;
-    while (changed) {
-      changed = false;
-
-      yield* Effect.forEach(targets, (target) =>
-        Effect.forEach(target.modules, (moduleId) =>
-          Effect.gen(function* () {
-            const definition = yield* catalog.getModule(moduleId);
-
-            yield* Effect.forEach(definition.implies ?? [], (implication) =>
-              Effect.gen(function* () {
-                const candidates = Arr.filter(
-                  targets,
-                  (t) => t.kind === implication.targetKind,
-                );
-
-                yield* pipe(
-                  Match.value(candidates.length),
-                  Match.when(0, () =>
-                    Effect.gen(function* () {
-                      const appsDir = `${repoRoot}/apps`;
-                      const packagesDir = `${repoRoot}/packages`;
-                      const searchDir =
-                        implication.targetKind === "package"
-                          ? packagesDir
-                          : appsDir;
-                      const prefix =
-                        implication.targetKind === "package"
-                          ? ""
-                          : `${implication.targetKind}-`;
-
-                      const dirExists = yield* pipe(
-                        fs.readDirectory(searchDir),
-                        Effect.map((entries) =>
-                          Arr.some(
-                            entries,
-                            (entry) =>
-                              implication.targetKind === "package" ||
-                              entry.startsWith(prefix) ||
-                              entry === implication.targetKind,
-                          ),
-                        ),
-                        Effect.catch(() => Effect.succeed(false)),
-                      );
-
-                      if (!dirExists) {
-                        return yield* Effect.fail(
-                          `Module "${definition.id}" implies "${implication.moduleId}" on target kind "${implication.targetKind}". Non-interactive mode requires explicit support for implied targets. Use interactive add or choose modules without cross-target implications.`,
-                        );
-                      }
-                    }),
-                  ),
-                  Match.when(
-                    (n) => n > 1,
-                    () =>
-                      Effect.gen(function* () {
-                        const alreadyPresent = Arr.some(candidates, (c) =>
-                          Arr.contains(c.modules, implication.moduleId),
-                        );
-                        if (!alreadyPresent) {
-                          return yield* Effect.fail(
-                            `Module "${definition.id}" implies "${implication.moduleId}" for target kind "${implication.targetKind}", but multiple candidate targets exist. Use interactive add to disambiguate.`,
-                          );
-                        }
-                      }),
-                  ),
-                  Match.orElse(() =>
-                    Effect.gen(function* () {
-                      const candidate = candidates[0];
-                      if (
-                        candidate &&
-                        !Arr.contains(candidate.modules, implication.moduleId)
-                      ) {
-                        candidate.modules.push(implication.moduleId);
-                        changed = true;
-                      }
-                    }),
-                  ),
-                );
-              }),
-            );
-          }),
-        ),
-      );
-    }
-
-    return targets;
-  });
-
 const resolveDependenciesInteractive = (targets: Array<CollectedTarget>) =>
   Effect.gen(function* () {
     let changed = true;
@@ -691,154 +572,17 @@ const resolveDependenciesInteractive = (targets: Array<CollectedTarget>) =>
     }
   });
 
-const resolveDependenciesNonInteractive = (
-  targets: Array<CollectedTarget>,
-  repoRoot: string,
+const collectTargetsFromSpecs = (
+  targetSpecs: ReadonlyArray<RecipeTargetSpec>,
 ) =>
-  Effect.gen(function* () {
-    let changed = true;
-    while (changed) {
-      yield* resolveImplicationsNonInteractive(targets, repoRoot);
-      changed = yield* resolveCapabilitiesNonInteractive(targets);
-    }
-
-    return targets;
-  });
-
-const parseTargetIdentity = (targetId: string) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogService;
-    const value = targetId.trim();
-    const separatorIndex = value.indexOf("/");
-
-    if (separatorIndex <= 0) {
-      return yield* Effect.fail(
-        "Invalid --target value. Expected format: <targetKind>/<targetName>.",
-      );
-    }
-
-    const kindText = value.slice(0, separatorIndex).trim();
-    const rawName = value.slice(separatorIndex + 1).trim();
-
-    if (kindText.length === 0) {
-      return yield* Effect.fail(
-        "Invalid --target value. targetKind must be non-empty.",
-      );
-    }
-
-    const kind = TargetKind.make(kindText);
-    if (kind === "workspace") {
-      return yield* Effect.fail(
-        'The add command cannot target kind "workspace". Use stack-effect init for project initialization.',
-      );
-    }
-
-    const target = yield* catalog
-      .getTarget(kind)
-      .pipe(
-        Effect.mapError(
-          () =>
-            `Unknown target kind "${kind}" in --target value "${targetId}".`,
-        ),
-      );
-
-    const name =
-      rawName.length > 0
-        ? rawName
-        : (target.defaultName ??
-          (yield* Effect.fail(
-            `Target kind "${kind}" does not define a default name. Provide an explicit target name.`,
-          )));
-
-    return {
-      kind,
-      name,
-    };
-  });
-
-const parseModuleInputs = (rawModules: ReadonlyArray<string>) =>
-  Effect.gen(function* () {
-    const parts = splitCommaSeparated(rawModules);
-
-    if (Arr.isArrayEmpty(parts)) {
-      return yield* Effect.fail(
-        "At least one module ID is required when using --modules.",
-      );
-    }
-
-    const duplicates = duplicatedValues(parts);
-
-    if (Arr.isArrayNonEmpty(duplicates)) {
-      return yield* Effect.fail(
-        `Duplicate module IDs provided: ${Arr.join(duplicates, ", ")}`,
-      );
-    }
-
-    return Arr.map(parts, (moduleId) => ModuleId.make(moduleId));
-  });
-
-const collectTargetsFromFlags = (
-  targetId: string,
-  rawModules: ReadonlyArray<string>,
-  repoRoot: string,
-) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogService;
-
-    const parsedTarget = yield* parseTargetIdentity(targetId);
-    const targetIdentity = new TargetIdentity({
-      kind: parsedTarget.kind,
-      name: parsedTarget.name,
-    });
-
-    yield* pipe(
-      catalog.getTarget(targetIdentity.kind),
-      Effect.mapError(
-        () =>
-          `Unknown target kind "${targetIdentity.kind}" in --target value "${targetId}".`,
-      ),
-    );
-
-    const moduleIds = yield* parseModuleInputs(rawModules);
-
-    const unsupported = yield* pipe(
-      moduleIds,
-      Effect.filter((moduleId) =>
-        Effect.gen(function* () {
-          yield* pipe(
-            catalog.getModule(moduleId),
-            Effect.mapError(
-              () => `Unknown module ID "${moduleId}" provided via --modules.`,
-            ),
-          );
-          const isSupported = yield* catalog.isSupportedOn(
-            moduleId,
-            targetIdentity,
-          );
-          return !isSupported;
-        }),
-      ),
-    );
-
-    if (Arr.isArrayNonEmpty(unsupported)) {
-      return yield* Effect.fail(
-        `Unsupported module(s) for target ${targetIdentity.kind}/${targetIdentity.name}: ${Arr.join(unsupported, ", ")}`,
-      );
-    }
-
-    const targets: Array<CollectedTarget> = [
-      {
-        kind: parsedTarget.kind,
-        name: parsedTarget.name,
-        modules: [...moduleIds],
-        confirmed: true,
-      },
-    ];
-
-    yield* resolveDependenciesNonInteractive(targets, repoRoot);
-
-    return targets;
-  });
+  Effect.map(parseRecipeTargetSpecs(targetSpecs), (targets) =>
+    Arr.map(targets, (target) => ({
+      kind: target.target.kind,
+      name: target.target.name,
+      modules: [...target.modules],
+      confirmed: true,
+    })),
+  );
 
 const isScaffoldAborted = (
   err: unknown,
@@ -1007,8 +751,7 @@ export const add = Command.make(
   "add",
   {
     root: rootFlag,
-    target: targetFlag,
-    modules: modulesFlag,
+    target: recipeTargetFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
     trust: trustFlag,
@@ -1018,33 +761,31 @@ export const add = Command.make(
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const catalog = yield* CatalogService;
+      const recipes = yield* RecipeService;
 
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
 
       const config = yield* configure.requireConfig(repoRoot);
 
-      const hasTarget = Option.isSome(flags.target);
-      const hasModules = Option.isSome(flags.modules);
+      const collected = Option.isSome(flags.target)
+        ? yield* collectTargetsFromSpecs(flags.target.value)
+        : yield* collectTargetsInteractive;
 
-      if (hasTarget !== hasModules) {
-        return yield* Effect.fail(
-          "Use --target and --modules together, or omit both to use interactive mode.",
-        );
-      }
-
-      const collected =
-        hasTarget && hasModules
-          ? yield* collectTargetsFromFlags(
-              flags.target.value,
-              flags.modules.value,
-              repoRoot,
-            )
-          : yield* collectTargetsInteractive;
-
-      const selection = yield* buildSelectionFrom({
-        catalog,
-        collected,
-      });
+      const selection = yield* recipes.resolve(
+        {
+          targets: Arr.map(collected, (target) => ({
+            target: new TargetIdentity({
+              kind: target.kind,
+              name: target.name,
+            }),
+            modules: target.modules,
+          })),
+        },
+        {
+          config,
+          providerStrategy: { _tag: "fail-on-ambiguous" },
+        },
+      );
 
       yield* pipeline.run({
         selection,
@@ -1078,12 +819,12 @@ export const add = Command.make(
       description: "Interactively select targets and modules",
     },
     {
-      command: "stack-effect add --target server/api --modules http-api",
+      command: "stack-effect add --target server/api:http-api",
       description: "Add a specific module to a target",
     },
     {
       command:
-        "stack-effect add --yes --target package/domain --modules domain-api-contracts --dry-run",
+        "stack-effect add --yes --target package/domain:domain-api-contracts --dry-run",
       description: "Non-interactive dry run for CI/LLM usage",
     },
   ]),
