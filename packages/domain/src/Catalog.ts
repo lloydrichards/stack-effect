@@ -4,7 +4,11 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   catalog: "target" | "module";
   entity: "target-kind" | "module";
   id: string;
-}> {}
+}> {
+  override get message(): string {
+    return `Catalog ${this.entity} "${this.id}" was not found.`;
+  }
+}
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 

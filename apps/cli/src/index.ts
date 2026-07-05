@@ -62,12 +62,6 @@ const program = root.pipe(
   Command.withSubcommands([init, create, add, graph, plan, schema, catalog]),
   Command.run({ version: pkg.version }),
   Effect.provide(MainLayer),
-  Effect.catchTags({
-    InvalidRecipeSpec: (error) => Effect.fail(error.message),
-    MissingRecipeProvider: (error) => Effect.fail(error.message),
-    AmbiguousRecipeProvider: (error) => Effect.fail(error.message),
-    UnresolvedRecipeTarget: (error) => Effect.fail(error.message),
-  }),
   Effect.catchCause((cause) => {
     if (Cause.hasInterruptsOnly(cause)) {
       const message = Box.vsep(
@@ -86,8 +80,22 @@ const program = root.pipe(
       );
       return Console.log(`\n${Box.renderPrettySync(message)}`);
     }
-    return Effect.failCause(cause);
+
+    const message = Cause.prettyErrors(cause)
+      .map((error) => error.message)
+      .filter((message) => message.length > 0)
+      .join("\n");
+
+    return Console.error(
+      message.length > 0 ? message : Cause.pretty(cause),
+    ).pipe(
+      Effect.andThen(
+        Effect.sync(() => {
+          process.exitCode = 1;
+        }),
+      ),
+    );
   }),
 );
 
-NodeRuntime.runMain(program);
+NodeRuntime.runMain(program, { disableErrorReporting: true });

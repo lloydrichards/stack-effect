@@ -6,16 +6,22 @@ on:
     branches:
       - main
     paths:
+      - "apps/cli/**"
       - "packages/scaffold/**"
       - "packages/catalog/**"
       - "packages/domain/**"
+      - "flake.lock"
+      - "flake.nix"
   pull_request:
     branches:
       - main
     paths:
+      - "apps/cli/**"
       - "packages/scaffold/**"
       - "packages/catalog/**"
       - "packages/domain/**"
+      - "flake.lock"
+      - "flake.nix"
 
 jobs:
   e2e:
@@ -25,13 +31,32 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+
       - name: Install Dependencies
-        uses: ./.github/actions/setup
+        run: |
+          nix develop --command bash -lc '
+            bun install --frozen-lockfile --silent
+          '
+
+      - name: Configure Git
+        run: |
+          nix develop --command bash -lc '
+            git config --global user.name "stack-effect-ci"
+            git config --global user.email "stack-effect-ci@example.com"
+          '
 
       - name: Build
-        run: bun build src/index.ts --outdir=dist --target=bun --minify --banner '#!/usr/bin/env bun'
-        working-directory: apps/cli
+        run: |
+          nix develop --command bash -lc '
+            cd apps/cli
+            bun build src/index.ts --outdir=dist --target=bun --minify --banner "#!/usr/bin/env bun"
+          '
 
       - name: Run Matrix E2E Tests
-        run: bunx vitest run --config vitest.e2e.config.ts e2e/matrix.test.ts
-        working-directory: apps/cli
+        run: |
+          nix develop --command bash -lc '
+            cd apps/cli
+            bunx vitest run --config vitest.e2e.config.ts e2e/matrix.test.ts
+          '

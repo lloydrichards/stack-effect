@@ -11,6 +11,19 @@ import { CLI } from "./harness";
 describe("add", () => {
   layer(CLI.layer)("layer", (it) => {
     it.effect(
+      "fails fast when --yes --target is missing a value",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run("add", "--yes", "--target");
+          yield* cli.expectExitCode(1);
+          yield* cli.expectErrorContaining("Missing value for --target");
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 30_000 },
+    );
+
+    it.effect(
       "adds a domain-api-contracts module to a package target",
       () =>
         Effect.gen(function* () {

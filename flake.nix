@@ -16,6 +16,7 @@
           bun
           corepack
           nodejs_24
+          pnpm
         ];
       };
     });

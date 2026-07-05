@@ -69,19 +69,27 @@ const CatalogWorkspaceManifest = Schema.Struct({
 
 type ManifestContributor = typeof ManifestContribution.Type;
 
-class WorkspaceCommandFailed extends Data.TaggedError(
+export class WorkspaceCommandFailed extends Data.TaggedError(
   "WorkspaceCommandFailed",
 )<{
   command: string;
   cause: unknown;
-}> {}
+}> {
+  override get message(): string {
+    return `Workspace command failed: ${this.command}`;
+  }
+}
 
-class WorkspaceValidationFailed extends Data.TaggedError(
+export class WorkspaceValidationFailed extends Data.TaggedError(
   "WorkspaceValidationFailed",
 )<{
   command: string;
   exitCode: number;
-}> {}
+}> {
+  override get message(): string {
+    return `Workspace validation failed: ${this.command} exited with code ${this.exitCode}.`;
+  }
+}
 
 const targetIdentityFrom = (supportedOn: typeof SupportedOn.Type) =>
   supportedOn._tag === "identity"
@@ -446,6 +454,30 @@ const runCommandCapture = (
     }),
   );
 
+const runValidationCommand = Effect.fn(
+  "catalog.workspace.runValidationCommand",
+)(function* (
+  repoRoot: string,
+  commandName: string,
+  args: ReadonlyArray<string>,
+) {
+  const commandText = `${commandName} ${args.join(" ")}`;
+  yield* Console.log(`$ ${commandText}`);
+  const { exitCode, stdout, stderr } = yield* runCommandCapture(
+    repoRoot,
+    commandName,
+    args,
+  );
+  if (stdout.trim().length > 0) yield* Console.log(stdout.trimEnd());
+  if (stderr.trim().length > 0) yield* Console.log(stderr.trimEnd());
+  if (exitCode !== 0) {
+    return yield* new WorkspaceValidationFailed({
+      command: commandText,
+      exitCode,
+    });
+  }
+});
+
 const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
   function* (repoRoot: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -567,6 +599,9 @@ const reset = Command.make(
       );
 
       yield* runFinalizeScripts({ blueprint, config, repoRoot });
+      yield* Console.log(
+        "Finalize complete; run catalog workspace validate for post-format format/lint/type-check results.",
+      );
 
       yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
       yield* runGit(repoRoot, ["add", "."]);
@@ -615,23 +650,19 @@ const validate = Command.make("validate", { root: rootFlag }, (flags) =>
     const repoRoot = path.resolve(
       Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
     );
-    const { exitCode, stdout, stderr } = yield* runCommandCapture(
-      repoRoot,
-      "bun",
-      ["run", "type-check"],
+    yield* Effect.forEach(
+      [
+        ["run", "format:check"],
+        ["run", "lint"],
+        ["run", "type-check"],
+      ] as const,
+      (args) => runValidationCommand(repoRoot, "bun", args),
+      { concurrency: 1 },
     );
-    if (stdout.trim().length > 0) yield* Console.log(stdout.trimEnd());
-    if (stderr.trim().length > 0) yield* Console.log(stderr.trimEnd());
-    if (exitCode !== 0) {
-      return yield* new WorkspaceValidationFailed({
-        command: "bun run type-check",
-        exitCode,
-      });
-    }
   }),
 ).pipe(
   Command.withDescription(
-    "Run the generated catalog workspace type-check command.",
+    "Run generated catalog workspace format, lint, and type-check commands.",
   ),
 );
 
