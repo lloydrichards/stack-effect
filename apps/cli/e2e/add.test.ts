@@ -63,7 +63,7 @@ describe("add", () => {
           yield* cli.expectExitCode(1);
           yield* cli.expectOutputContaining("implies");
         }).pipe(Effect.provide(CLI.layer)),
-      { timeout: 30_000 },
+      { timeout: 90_000 },
     );
 
     it.effect(

@@ -3,13 +3,13 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Effect, Option } from "effect";
 
-export type CollectedSelectionTarget = {
+type CollectedSelectionTarget = {
   readonly kind: typeof TargetKind.Type;
   readonly name: string;
   readonly modules: ReadonlyArray<typeof ModuleId.Type>;
 };
 
-export type SeedSelectionTarget = {
+type SeedSelectionTarget = {
   readonly identity: TargetIdentity;
   readonly modules: ReadonlyArray<typeof ModuleId.Type>;
 };
