@@ -26,9 +26,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "package/domain",
-            "--modules",
-            "domain-api-contracts",
+            "package/domain:domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -41,7 +39,7 @@ describe("add", () => {
     );
 
     it.effect(
-      "rejects cross-target implications in non-interactive mode",
+      "resolves cross-target implications in non-interactive mode",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -56,12 +54,9 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client-react/web",
-            "--modules",
-            "client-react-http-api",
+            "client-react/web:client-react-http-api",
           );
-          yield* cli.expectExitCode(1);
-          yield* cli.expectOutputContaining("implies");
+          yield* cli.expectExitCode(0);
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 90_000 },
     );
@@ -82,9 +77,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "package/domain",
-            "--modules",
-            "domain-api-contracts",
+            "package/domain:domain-api-contracts",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);
@@ -112,9 +105,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "package/domain",
-            "--modules",
-            "domain-api-contracts",
+            "package/domain:domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -124,9 +115,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "server/api",
-            "--modules",
-            "server-http-api",
+            "server/api:server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -136,9 +125,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client-react/web",
-            "--modules",
-            "client-react-http-api",
+            "client-react/web:client-react-http-api",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);
@@ -162,9 +149,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "server/api",
-            "--modules",
-            "server-chat-rpc",
+            "server/api:server-chat-rpc",
           );
           yield* cli.expectExitCode(0);
 
@@ -192,9 +177,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "package/ai",
-            "--modules",
-            "package-ai-core",
+            "package/ai:package-ai-core",
           );
           yield* cli.expectExitCode(0);
 
@@ -223,9 +206,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "cli/app",
-            "--modules",
-            "cli-command-chat-ask",
+            "cli/app:cli-command-chat-ask",
           );
           yield* cli.expectExitCode(0);
 
@@ -277,9 +258,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "cli/custom",
-            "--modules",
-            "cli-command-chat-terminal",
+            "cli/custom:cli-command-chat-terminal",
           );
           yield* cli.expectExitCode(0);
 
@@ -344,9 +323,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "package/domain",
-            "--modules",
-            "domain-api-contracts",
+            "package/domain:domain-api-contracts",
           );
           yield* cli.expectExitCode(0);
 
@@ -356,9 +333,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "server/api",
-            "--modules",
-            "server-http-api",
+            "server/api:server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -368,9 +343,7 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client-foldkit/app",
-            "--modules",
-            "client-foldkit-http-api",
+            "client-foldkit/app:client-foldkit-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -391,7 +364,7 @@ describe("add", () => {
     );
 
     it.effect(
-      "rejects client-foldkit cross-target implications in non-interactive mode",
+      "resolves client-foldkit cross-target implications in non-interactive mode",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -412,12 +385,9 @@ describe("add", () => {
             "--root",
             root,
             "--target",
-            "client-foldkit/app",
-            "--modules",
-            "client-foldkit-http-api",
+            "client-foldkit/app:client-foldkit-http-api",
           );
-          yield* cli.expectExitCode(1);
-          yield* cli.expectOutputContaining("implies");
+          yield* cli.expectExitCode(0);
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 30_000 },
     );

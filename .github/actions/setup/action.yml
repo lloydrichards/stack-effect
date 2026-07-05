@@ -21,6 +21,10 @@ runs:
       with:
         node-version: ${{ inputs.node-version }}
 
+    - name: Setup pnpm
+      shell: bash
+      run: corepack enable && corepack prepare pnpm@10.17.0 --activate
+
     - name: Cache dependencies
       uses: actions/cache@v4
       with:
