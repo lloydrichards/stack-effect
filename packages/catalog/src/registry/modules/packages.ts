@@ -575,6 +575,9 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}",
       },
     ],
+    nextSteps: [
+      "SQLite Database: Set `DATABASE_FILE` for `{{targetPath}}` if you want a database path other than the default `../../data/app.sqlite`.",
+    ],
   },
   {
     id: ModuleId.make("package-db-postgres"),
@@ -681,6 +684,9 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         value:
           "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}",
       },
+    ],
+    nextSteps: [
+      "Postgres Database: Copy `{{targetPath}}/.env.example` to `{{targetPath}}/.env`, update the connection settings if needed, then start Postgres with `docker compose -f {{targetPath}}/docker-compose.yml up -d` before running database scripts.",
     ],
   },
   {

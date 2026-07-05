@@ -84,6 +84,9 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         value: "workspace:*",
       },
     ],
+    nextSteps: [
+      "Chat CLI: Set `ANTHROPIC_API_KEY` in the `{{targetPath}}` runtime environment before using chat commands.",
+    ],
   },
   {
     id: ModuleId.make("cli-command-chat-ask"),
