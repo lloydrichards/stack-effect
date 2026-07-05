@@ -39,6 +39,32 @@ export const SqliteLive = Layer.unwrap(
 ).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
 `;
 
+export const dbPostgresDatabaseContents = `import { PgClient } from "@effect/sql-pg";
+import { Config, Redacted, String } from "effect";
+
+export const DatabaseConfig = Config.all({
+  url: Config.redacted("DATABASE_URL").pipe(
+    Config.withDefault(
+      Redacted.make(
+        "postgres://stack_effect:stack_effect@localhost:5432/stack_effect",
+      ),
+    ),
+  ),
+  maxConnections: Config.int("DATABASE_MAX_CONNECTIONS").pipe(
+    Config.withDefault(10),
+  ),
+});
+
+export const PostgresLive = PgClient.layerConfig({
+  url: DatabaseConfig.pipe(Config.map((config) => config.url)),
+  maxConnections: DatabaseConfig.pipe(
+    Config.map((config) => config.maxConnections),
+  ),
+  transformQueryNames: Config.succeed(String.camelToSnake),
+  transformResultNames: Config.succeed(String.snakeToCamel),
+});
+`;
+
 export const dbMigrationsContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { SqliteMigrator } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { SqliteMigrator } from "@effect/sql-sqlite-node";{{/if}}
@@ -67,6 +93,35 @@ export const MigratedLive = MigrationsLive.pipe(
 );
 
 export const DatabaseLive = Layer.mergeAll(SqliteLive, MigratedLive);
+`;
+
+export const dbPostgresMigrationsContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";{{/if}}
+import { PgMigrator } from "@effect/sql-pg";
+import { Effect, Layer, Path } from "effect";
+import { PostgresLive } from "./Database";
+
+const MigrationsDirectory = Effect.gen(function* () {
+  const path = yield* Path.Path;
+  return path.join(
+    path.dirname(new URL(import.meta.url).pathname),
+    "migrations",
+  );
+});
+
+export const MigrationsLive = Layer.unwrap(
+  Effect.map(MigrationsDirectory, (directory) =>
+    PgMigrator.layer({
+      loader: PgMigrator.fromFileSystem(directory),
+    }),
+  ),
+).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
+
+export const MigratedLive = MigrationsLive.pipe(
+  Layer.provide(PostgresLive),
+  Layer.orDie,
+);
+
+export const DatabaseLive = Layer.mergeAll(PostgresLive, MigratedLive);
 `;
 
 export const dbHealthCheckContents = `import { Effect } from "effect";
@@ -98,6 +153,52 @@ export default Effect.gen(function* () {
     ON CONFLICT(id) DO UPDATE SET checked_at = current_timestamp
   \`;
 });
+`;
+
+export const dbPostgresMigration0001CreateDbHealthContents = `import { Effect } from "effect";
+import { SqlClient } from "effect/unstable/sql/SqlClient";
+
+export default Effect.gen(function* () {
+  const sql = yield* SqlClient;
+
+  yield* sql\`
+    CREATE TABLE IF NOT EXISTS db_health (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      checked_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  \`;
+
+  yield* sql\`
+    INSERT INTO db_health (id)
+    VALUES (1)
+    ON CONFLICT(id) DO UPDATE SET checked_at = now()
+  \`;
+});
+`;
+
+export const dbPostgresEnvExampleContents = `DATABASE_URL=postgres://stack_effect:stack_effect@localhost:5432/stack_effect
+DATABASE_MAX_CONNECTIONS=10
+`;
+
+export const dbPostgresDockerComposeContents = `services:
+  postgres:
+    image: postgres:17-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: stack_effect
+      POSTGRES_USER: stack_effect
+      POSTGRES_PASSWORD: stack_effect
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stack_effect -d stack_effect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:
 `;
 
 export const dbMigrateScriptContents = `{{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}
