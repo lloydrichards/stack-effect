@@ -172,6 +172,9 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
+    nextSteps: [
+      "Chat Server: Set `ANTHROPIC_API_KEY` in the `{{targetPath}}` runtime environment before using chat RPCs.",
+    ],
   },
   {
     id: ModuleId.make("server-chat-runtime-managed"),
