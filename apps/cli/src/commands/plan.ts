@@ -87,7 +87,7 @@ export const plan = Command.make(
 
       const config = input.config ?? fileConfig;
       if (!config) {
-        return yield* Effect.die(
+        return yield* Effect.fail(
           "No config found. Provide 'config' in stdin or ensure stack.effect.json exists at --root.",
         );
       }
@@ -167,7 +167,7 @@ export const plan = Command.make(
           yield* fs.writeFileString(outputPath, outputText);
           yield* Console.log(`Plan written to ${outputPath}`);
         }),
-        onNone: () => Effect.succeed(Console.log(outputText)),
+        onNone: () => Console.log(outputText),
       });
     }),
 ).pipe(
@@ -180,17 +180,17 @@ export const plan = Command.make(
   Command.withExamples([
     {
       command:
-        'echo \'{"selection":{"targets":[{"kind":"server","name":"api"}]}}\' | stack-effect plan',
+        'echo \'{"selection":{"targets":[{"identity":{"kind":"server","name":"api"},"modules":[{"id":"server-http-api"}]}]}}\' | stack-effect plan -f raw',
       description: "Output raw plan JSON",
     },
     {
       command:
-        'echo \'{"selection":{"targets":[...]}}\' | stack-effect plan -f llm',
+        'echo \'{"selection":{"targets":[{"identity":{"kind":"client-react","name":"web"},"modules":[{"id":"client-react-http-api"}]}]}}\' | stack-effect plan -f llm',
       description: "LLM-friendly format with resolved file contents",
     },
     {
       command:
-        'echo \'{"selection":{"targets":[...]}}\' | stack-effect plan -f tree',
+        'echo \'{"selection":{"targets":[{"identity":{"kind":"package","name":"domain"},"modules":[{"id":"domain-api-contracts"}]}]}}\' | stack-effect plan -f tree',
       description: "Visual tree summary",
     },
   ]),

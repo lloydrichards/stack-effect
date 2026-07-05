@@ -60,6 +60,9 @@ const validateTargetName = (value: string) =>
     Effect.mapError(() => "Target name cannot be empty"),
   );
 
+const wasTargetFlagProvided = (args: ReadonlyArray<string>) =>
+  Arr.some(args, (arg) => arg === "--target" || arg.startsWith("--target="));
+
 const formatTargetSummary = (
   targets: ReadonlyArray<CollectedTarget>,
   width: number,
@@ -758,6 +761,16 @@ export const add = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
+      if (
+        flags.yes &&
+        Option.isNone(flags.target) &&
+        wasTargetFlagProvided(process.argv)
+      ) {
+        return yield* Effect.fail(
+          "Missing value for --target. Use --target <targetKind>/<targetName>:<moduleId>[,...] for non-interactive add.",
+        );
+      }
+
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const catalog = yield* CatalogService;

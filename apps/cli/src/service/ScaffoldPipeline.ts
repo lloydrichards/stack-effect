@@ -22,6 +22,13 @@ class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   retry?: boolean;
 }> {}
 
+export class FinalizeScriptFailure extends Data.TaggedError(
+  "FinalizeScriptFailure",
+)<{
+  message: string;
+  failed: number;
+}> {}
+
 const selectedCommandSet = (
   scripts: ReadonlyArray<{ command: string }>,
 ): ReadonlySet<string> => new Set(scripts.map((script) => script.command));
@@ -274,6 +281,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 yield* Console.log(
                   `\n${report.failed} finalize script(s) failed. See errors above.`,
                 );
+                return yield* new FinalizeScriptFailure({
+                  message: `${report.failed} finalize script(s) failed.`,
+                  failed: report.failed,
+                });
               }
             }
 
