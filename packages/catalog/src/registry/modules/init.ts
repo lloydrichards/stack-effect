@@ -209,7 +209,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@biomejs/biome",
-        value: "2.5.0",
+        value: "2.5.2",
       },
       {
         _tag: "pkg-json-entry",
