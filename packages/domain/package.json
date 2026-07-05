@@ -12,6 +12,7 @@
     "./Chat": "./src/Chat.ts",
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",
+    "./Recipe": "./src/Recipe.ts",
     "./Rpc": "./src/Rpc.ts",
     "./Scaffold": "./src/Scaffold.ts",
     "./Finalize": "./src/Finalize.ts",
