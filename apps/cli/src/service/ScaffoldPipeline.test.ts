@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { ApplyResult } from "@repo/domain/Apply";
+import { type Apply, ApplyResult } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
@@ -18,6 +18,17 @@ import { FinalizeScriptFailure, ScaffoldPipeline } from "./ScaffoldPipeline";
 
 const blueprint = new Blueprint({ nodes: [], edges: [] });
 const plan = new Plan({ outcomes: [], conflicts: [] });
+const conflictPlan = new Plan({
+  outcomes: [
+    {
+      _tag: "complete",
+      path: "package.json",
+      classification: "conflict",
+      contents: "{}",
+    },
+  ],
+  conflicts: [{ _tag: "completeFile", path: "package.json" }],
+});
 const applyResult = new ApplyResult({
   created: [],
   modified: [],
@@ -60,7 +71,18 @@ const executable = {
     }),
 };
 
-const layerWithFinalizeRun = (run: (typeof FinalizeService.Service)["run"]) =>
+const layerWithServices = ({
+  plan: planned = plan,
+  preview = () => Effect.succeed(applyResult),
+  run,
+}: {
+  plan?: Plan;
+  preview?: (input: {
+    readonly apply: typeof Apply.Type;
+    readonly repoRoot: string;
+  }) => Effect.Effect<ApplyResult, never, never>;
+  run: (typeof FinalizeService.Service)["run"];
+}) =>
   Layer.mergeAll(
     ScaffoldPipeline.layer,
     Layer.succeed(ScaffoldFormatter, {
@@ -78,11 +100,11 @@ const layerWithFinalizeRun = (run: (typeof FinalizeService.Service)["run"]) =>
       resolve: () => Effect.succeed(blueprint),
     }),
     Layer.succeed(PlanService, {
-      build: () => Effect.succeed(plan),
+      build: () => Effect.succeed(planned),
     }),
     Layer.succeed(ApplyService, {
       apply: () => Effect.succeed(applyResult),
-      preview: () => Effect.succeed(applyResult),
+      preview,
     }),
     Layer.succeed(FinalizeService, {
       preview: () => Effect.succeed([script]),
@@ -111,7 +133,9 @@ describe("ScaffoldPipeline", () => {
         failed: 1,
       });
     }).pipe(
-      Effect.provide(layerWithFinalizeRun(() => Effect.succeed([executable]))),
+      Effect.provide(
+        layerWithServices({ run: () => Effect.succeed([executable]) }),
+      ),
     ),
   );
 
@@ -125,9 +149,35 @@ describe("ScaffoldPipeline", () => {
       expect(Exit.isSuccess(exit)).toBe(true);
     }).pipe(
       Effect.provide(
-        layerWithFinalizeRun(() =>
-          Effect.die(new Error("dry-run should not run finalize scripts")),
-        ),
+        layerWithServices({
+          run: () =>
+            Effect.die(new Error("dry-run should not run finalize scripts")),
+        }),
+      ),
+    ),
+  );
+
+  it.effect("previews dry-run conflicts as skipped decisions", () =>
+    Effect.gen(function* () {
+      const pipeline = yield* ScaffoldPipeline;
+      const exit = yield* Effect.exit(
+        pipeline.run({ ...runInput, dryRun: true }),
+      );
+
+      expect(Exit.isSuccess(exit)).toBe(true);
+    }).pipe(
+      Effect.provide(
+        layerWithServices({
+          plan: conflictPlan,
+          preview: ({ apply }) => {
+            expect(apply.decisions).toEqual([
+              { path: "package.json", value: "skip" },
+            ]);
+            return Effect.succeed(applyResult);
+          },
+          run: () =>
+            Effect.die(new Error("dry-run should not run finalize scripts")),
+        }),
       ),
     ),
   );

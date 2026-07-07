@@ -41,6 +41,12 @@ const skippedFinalizeScripts = (
     .filter((script) => !selectedCommands.has(script.command))
     .map((script) => ({ label: script.label, command: script.command }));
 
+const skipConflictDecisions = (plan: Plan) =>
+  plan.conflicts.map((conflict) => ({
+    path: conflict.path,
+    value: "skip" as const,
+  }));
+
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
   "ScaffoldPipeline",
   {
@@ -140,7 +146,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           if (dryRun) {
             const result = yield* applyService.preview({
-              apply: new Apply({ plan, decisions: [] }),
+              apply: new Apply({
+                plan,
+                decisions: skipConflictDecisions(plan),
+              }),
               repoRoot,
             });
 
