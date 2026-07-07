@@ -452,6 +452,18 @@ const ensureTargetModule = (
   });
 };
 
+const supportedModulesForTarget = (
+  identity: TargetIdentity,
+  moduleIds: ReadonlyArray<typeof ModuleId.Type>,
+) =>
+  Effect.gen(function* () {
+    const catalog = yield* CatalogService;
+
+    return yield* Effect.filter(moduleIds, (moduleId) =>
+      catalog.isSupportedOn(moduleId, identity),
+    );
+  });
+
 const resolveCapabilities = <E, R>(
   targets: Array<CollectedTarget>,
   confirmed: boolean,
@@ -629,8 +641,17 @@ const collectTargetsInteractive = Effect.gen(function* () {
           choices: moduleTree,
         })
       : [];
+    const supportedModules = yield* supportedModulesForTarget(
+      new TargetIdentity({ kind, name }),
+      modules,
+    );
 
-    targets.push({ kind, name, modules: [...modules], confirmed: false });
+    targets.push({
+      kind,
+      name,
+      modules: [...supportedModules],
+      confirmed: false,
+    });
   });
 
   yield* addTarget;
@@ -717,12 +738,16 @@ const collectTargetsInteractive = Effect.gen(function* () {
                       choices: moduleTree,
                       initialSelected: t.modules,
                     });
-                    t.modules = [...newModules];
+                    const supportedModules = yield* supportedModulesForTarget(
+                      new TargetIdentity({ kind: t.kind, name: t.name }),
+                      newModules,
+                    );
+                    t.modules = [...supportedModules];
                     t.confirmed = true;
 
                     // NOTE: Prune implied modules that were invalidated by explicit edits before resolving again.
                     const pinned = new Set(
-                      Arr.map(newModules, (m) => `${t.kind}:${m}`),
+                      Arr.map(supportedModules, (m) => `${t.kind}:${m}`),
                     );
                     yield* removeOrphanedImplications(targets, pinned);
                     yield* resolveDependenciesInteractive(targets);
