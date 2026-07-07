@@ -51,9 +51,7 @@ type CollectedTarget = {
   confirmed: boolean;
 };
 
-const TargetNameInput = Schema.Trim.check(
-  Schema.isNonEmpty({ message: "Target name cannot be empty" }),
-);
+const TargetNameInput = Schema.Trim;
 
 const validateTargetName = (value: string) =>
   Schema.decodeUnknownEffect(TargetNameInput)(value).pipe(
