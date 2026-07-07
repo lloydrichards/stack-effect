@@ -1,5 +1,34 @@
 # stack-effect
 
+## 0.9.0
+
+### Minor Changes
+
+- 1c363c1: add module capabilities for module validation
+- cc243fc: add `db-sqlite` module
+- 36ad3e1: Extract DevTools into its own module for each target
+- 2022bfc: add `db-sql-postgres` module
+- e8a2769: dry-run and plan previews show the equivalent `stack-effect create` command for the selected scaffold.
+
+  For example, a preview can show `stack-effect create my-app --target server/api:server-http-api` so the same scaffold can be repeated non-interactively.
+
+- bbfaa1a: add create command to one-shot create a scaffold in a green-field project
+
+### Patch Changes
+
+- 1a7ee05: bump effect in catalog to v4-beta.93
+- 2de0386: `stack-effect add` ignores selected modules that are not supported by the edited target.
+- 03b1258: empty or punctuation-only target names resolve to catalog defaults instead of generating punctuation-only target paths.
+- 9dfd158: Refactor recipe target handling so `--target` works consistently across `create`, `add`, and catalog workspace commands.
+
+  This also removes older command surface that was replaced by the unified recipe flow, including `stack-effect create --from ...` and the file-input `stack-effect plan -f ...` usage. Use explicit `--target <targetKind>/<targetName>:<moduleId>[,...]` inputs for non-interactive scaffolding and pipe structured plan input through stdin for `stack-effect plan`.
+
+- d78a24d: dry-run previews skip conflicted planned paths instead of failing because conflict decisions are missing.
+- ea7cc10: fix RPC chat stream lifetime by providing the client layer across the full stream
+- 47868de: fix the Foldkit Vite plugin import to use the named `foldkit` export
+- 6d4acb1: use the shadcn components for messages and markers for the ChatBox
+- 8844b46: provide which env need to be added in the nextStep to the user
+
 ## 0.8.0
 
 ### Minor Changes
