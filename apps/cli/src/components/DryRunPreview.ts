@@ -10,6 +10,7 @@ export const DryRunPreview = ({
   plan,
   apply,
   scripts,
+  createCommand,
 }: {
   blueprint: Box.Box<Ansi.AnsiStyle>;
   plan: {
@@ -24,8 +25,10 @@ export const DryRunPreview = ({
     phase: string;
     origin: string;
   }>;
+  createCommand?: string | undefined;
 }) => {
   const terminalWidth = process.stdout.columns ?? 80;
+  const commandWidth = Math.max(32, terminalWidth - 8);
 
   const blueprintContent = Box.vsep(
     [sectionTitle("Blueprint"), blueprint],
@@ -101,7 +104,18 @@ export const DryRunPreview = ({
       : Box.text("(none)").pipe(Box.annotate(Ansi.dim));
 
   const finalizeContent = Box.vsep(
-    [sectionTitle("Finalize"), scriptGroups],
+    [
+      ...(createCommand === undefined
+        ? []
+        : [
+            sectionTitle("Create Command"),
+            Box.para(createCommand, Box.left, commandWidth).pipe(
+              Box.annotate(Ansi.bold),
+            ),
+          ]),
+      sectionTitle("Finalize"),
+      scriptGroups,
+    ],
     1,
     Box.left,
   );

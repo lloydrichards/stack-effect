@@ -70,6 +70,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         dryRun,
         trust,
         config,
+        createCommand,
       }: {
         selection: typeof Selection.Type;
         repoRoot: string;
@@ -77,6 +78,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         dryRun: boolean;
         trust: boolean;
         config: typeof StackConfig.Type;
+        createCommand?: string;
       }) =>
         Effect.gen(function* () {
           const formatter = yield* ScaffoldFormatter;
@@ -158,6 +160,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                   plan: pl,
                   apply: result,
                   scripts: previewScripts,
+                  createCommand,
                 }),
               ),
             );

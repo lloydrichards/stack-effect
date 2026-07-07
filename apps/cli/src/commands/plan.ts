@@ -22,6 +22,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { Box } from "effect-boxes";
 import { rootFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
+import { RecipeService } from "../service/RecipeService";
 
 /**
  * Reads a PlanInput from stdin, runs Blueprint → Plan, and outputs structured
@@ -94,6 +95,11 @@ export const plan = Command.make(
 
       const blueprintService = yield* BlueprintService;
       const blueprint = yield* blueprintService.resolve(input.selection);
+      const recipes = yield* RecipeService;
+      const createCommand = recipes.renderCreateCommand({
+        config,
+        selection: input.selection,
+      });
 
       const planService = yield* PlanService;
       const planResult = yield* planService.build({
@@ -111,10 +117,15 @@ export const plan = Command.make(
           ),
         );
 
-      const finalize = scripts.map((s) => ({
-        label: s.label,
-        command: s.command,
+      const finalize = Arr.map(scripts, (script) => ({
+        label: script.label,
+        command: script.command,
       }));
+      const createFinalizeCommand = {
+        label: "Create equivalent project",
+        command: createCommand,
+      };
+      const finalizeWithCreateCommand = [createFinalizeCommand, ...finalize];
 
       const formatter = yield* ScaffoldFormatter;
       const formattedPlan = yield* formatter.formatPlan(planResult);
@@ -133,8 +144,15 @@ export const plan = Command.make(
       const outputText = yield* Match.value(format).pipe(
         Match.when("tree", () =>
           Box.renderPlain(
-            Box.hcat(
-              [Box.text(formattedPlan.summary), formattedPlan.tree],
+            Box.vsep(
+              [
+                Box.hcat(
+                  [Box.text(formattedPlan.summary), formattedPlan.tree],
+                  Box.left,
+                ),
+                Box.text(`Create command: ${createCommand}`),
+              ],
+              1,
               Box.left,
             ),
           ),
@@ -144,7 +162,7 @@ export const plan = Command.make(
             renderPlanForLlm({
               outcomes: planResult.outcomes,
               conflicts: planResult.conflicts,
-              finalize,
+              finalize: finalizeWithCreateCommand,
               summary,
               tree,
             }),
@@ -155,6 +173,7 @@ export const plan = Command.make(
             outcomes: planResult.outcomes,
             conflicts: planResult.conflicts,
             summary,
+            createCommand,
             finalize,
             tree,
           }),
