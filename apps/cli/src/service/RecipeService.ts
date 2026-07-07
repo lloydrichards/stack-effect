@@ -61,7 +61,7 @@ const resolveTargetIdentity = (
       });
     }
 
-    if (identity.name.length > 0) return identity;
+    if (identity.hasExplicitName()) return identity;
 
     const targetDefinition = yield* catalog.getTarget(identity.kind).pipe(
       Effect.mapError(

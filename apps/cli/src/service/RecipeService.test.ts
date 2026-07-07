@@ -315,6 +315,45 @@ describe("RecipeService", () => {
         }).pipe(Effect.provide(TestLayer)),
     );
 
+    it.effect(
+      "should resolve empty and punctuation-only app target names to catalog defaults",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const selection = yield* service.resolve(
+            {
+              targets: [
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("client-react"),
+                    name: "",
+                  }),
+                  modules: [ModuleId.make("client-react-http-api")],
+                },
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("server"),
+                    name: ".",
+                  }),
+                  modules: [ModuleId.make("server-http-api")],
+                },
+              ],
+            },
+            {
+              config: testConfig,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          assertTargetModules(selection, "apps/client-react-web", [
+            ModuleId.make("client-react-http-api"),
+          ]);
+          assertTargetModules(selection, "apps/server-api", [
+            ModuleId.make("server-http-api"),
+          ]);
+        }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect("should allow recipes to omit explicit workspace targets", () =>
       Effect.gen(function* () {
         const service = yield* RecipeService;

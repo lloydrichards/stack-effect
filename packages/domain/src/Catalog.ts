@@ -31,6 +31,10 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   kind: TargetKind,
   name: Schema.String,
 }) {
+  hasExplicitName(): boolean {
+    return targetNameSlug(this).length > 0;
+  }
+
   toPath(): typeof TargetPath.Type {
     return TargetPath.make(toTargetPathString(this));
   }
@@ -45,16 +49,15 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
    * - Apps use their folder name: `<kind>` or `<kind>-<name>`
    */
   toPackageName(): string {
-    const resolvedName = this.name.trim() || this.kind;
+    const slug = targetNameSlug(this);
+    const resolvedName = slug || this.kind;
     switch (this.kind) {
       case "workspace":
         return resolvedName;
       case "package":
-        return `@repo/${Str.kebabCase(resolvedName)}`;
+        return `@repo/${resolvedName}`;
       default:
-        return this.name
-          ? `${this.kind}-${Str.kebabCase(this.name.trim())}`
-          : this.kind;
+        return slug ? `${this.kind}-${slug}` : this.kind;
     }
   }
 
@@ -66,16 +69,19 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   }
 }
 
+const targetNameSlug = (identity: TargetIdentity): string =>
+  Str.kebabCase(identity.name.trim());
+
 const toTargetPathString = (identity: TargetIdentity): string => {
-  const trimmedName = identity.name.trim();
+  const slug = targetNameSlug(identity);
 
   switch (identity.kind) {
     case "workspace":
       return ".";
     case "package":
-      return `packages/${Str.kebabCase(trimmedName)}`;
+      return `packages/${slug}`;
     default:
-      return `apps/${identity.kind}${identity.name ? `-${Str.kebabCase(trimmedName)}` : ""}`;
+      return `apps/${identity.kind}${slug ? `-${slug}` : ""}`;
   }
 };
 

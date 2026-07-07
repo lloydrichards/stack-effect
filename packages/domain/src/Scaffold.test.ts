@@ -35,6 +35,18 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toPackageName()).toBe("server");
   });
 
+  it("treats punctuation-only app target names as unnamed", () => {
+    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      kind: "client-react",
+      name: ".",
+    });
+
+    expect(identity.hasExplicitName()).toBe(false);
+    expect(identity.toKey()).toBe("apps/client-react");
+    expect(identity.toPath()).toBe("apps/client-react");
+    expect(identity.toPackageName()).toBe("client-react");
+  });
+
   it("slugifies uppercase names into canonical keys and paths", () => {
     const identity = Schema.decodeUnknownSync(TargetIdentity)({
       kind: "server",
