@@ -692,6 +692,82 @@ describe("RecipeService", () => {
     );
   });
 
+  describe("renderCreateCommand", () => {
+    it.effect("should render selected targets as create target flags", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const selection = yield* service.resolve(
+          {
+            targets: [
+              {
+                target: new TargetIdentity({
+                  kind: TargetKind.make("server"),
+                  name: "api",
+                }),
+                modules: [ModuleId.make("server-http-api")],
+              },
+              {
+                target: new TargetIdentity({
+                  kind: TargetKind.make("workspace"),
+                  name: "recipe-app",
+                }),
+                modules: [ModuleId.make("workspace-devenv-git")],
+              },
+            ],
+          },
+          {
+            config: testConfig,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assert.strictEqual(
+          service.renderCreateCommand({ config: testConfig, selection }),
+          "stack-effect create recipe-app --target server/api:server-http-api",
+        );
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
+    it.effect("should render non-default config flags and --no-git", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          name: "node app" as typeof Schema.NonEmptyString.Type,
+          runtime: { _tag: "node", packageManager: "pnpm" },
+          monorepo: "turbo",
+          lint: "eslint",
+          format: "prettier",
+          test: "vitest",
+        });
+        const selection = yield* service.resolve(
+          {
+            targets: [
+              {
+                target: new TargetIdentity({
+                  kind: TargetKind.make("client-react"),
+                  name: "web",
+                }),
+                modules: [
+                  ModuleId.make("client-react-vite"),
+                  ModuleId.make("client-react-chat"),
+                ],
+              },
+            ],
+          },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assert.strictEqual(
+          service.renderCreateCommand({ config, selection }),
+          "stack-effect create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --lint eslint --format prettier --no-git",
+        );
+      }).pipe(Effect.provide(TestLayer)),
+    );
+  });
+
   describe("errors", () => {
     it("should expose recoverable error tags when recipe resolution fails", () => {
       const invalid = new InvalidRecipeSpec({

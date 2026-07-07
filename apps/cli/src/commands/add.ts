@@ -822,6 +822,7 @@ export const add = Command.make(
           providerStrategy: { _tag: "fail-on-ambiguous" },
         },
       );
+      const createCommand = recipes.renderCreateCommand({ config, selection });
 
       yield* pipeline.run({
         selection,
@@ -830,6 +831,7 @@ export const add = Command.make(
         dryRun: flags.dryRun,
         trust: flags.trust || flags.yes,
         config,
+        createCommand,
       });
     }).pipe(
       Effect.retry({

@@ -19,7 +19,6 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
-import { encodeRecipeTargetSpecs } from "../lib/recipeTargets";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
@@ -32,11 +31,6 @@ const DEFAULTS = {
   format: "biome",
   test: "vitest",
 } as const;
-
-const quoteShellArg = (value: string) =>
-  /^[A-Za-z0-9_./:,@+-]+$/.test(value)
-    ? value
-    : `'${value.replaceAll("'", "'\\''")}'`;
 
 const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
   function* ({
@@ -134,68 +128,6 @@ const buildRecipeSpec = (
   ],
 });
 
-const renderCreateCommand = ({
-  name,
-  targets,
-  runtime,
-  packageManager,
-  monorepo,
-  lint,
-  format,
-  test,
-  noGit,
-}: {
-  readonly name: string;
-  readonly targets: ReadonlyArray<RecipeTargetSpec>;
-  readonly runtime: Option.Option<"bun" | "node">;
-  readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
-  readonly monorepo: Option.Option<string>;
-  readonly lint: Option.Option<string>;
-  readonly format: Option.Option<string>;
-  readonly test: Option.Option<string>;
-  readonly noGit: boolean;
-}) =>
-  [
-    "stack-effect",
-    "create",
-    quoteShellArg(name),
-    ...encodeRecipeTargetSpecs(targets).flatMap((target) => [
-      "--target",
-      quoteShellArg(target),
-    ]),
-    ...Option.match(runtime, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.runtime ? [] : ["--runtime", value],
-    }),
-    ...Option.match(packageManager, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.packageManager ? [] : ["--package-manager", value],
-    }),
-    ...Option.match(monorepo, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.monorepo ? [] : ["--monorepo", quoteShellArg(value)],
-    }),
-    ...Option.match(lint, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.lint ? [] : ["--lint", quoteShellArg(value)],
-    }),
-    ...Option.match(format, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.format ? [] : ["--format", quoteShellArg(value)],
-    }),
-    ...Option.match(test, {
-      onNone: () => [],
-      onSome: (value) =>
-        value === DEFAULTS.test ? [] : ["--test", quoteShellArg(value)],
-    }),
-    ...(noGit ? ["--no-git"] : []),
-  ].join(" ");
-
 export const create = Command.make(
   "create",
   {
@@ -254,6 +186,7 @@ export const create = Command.make(
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },
       });
+      const createCommand = recipes.renderCreateCommand({ config, selection });
 
       const existing = yield* configure
         .readConfig(repoRoot)
@@ -267,19 +200,9 @@ export const create = Command.make(
         );
       }
 
-      yield* Console.log(
-        `Create command: ${renderCreateCommand({
-          name: flags.name.value,
-          targets: flags.target.value,
-          runtime: flags.runtime,
-          packageManager: flags.packageManager,
-          monorepo: flags.monorepo,
-          lint: flags.lint,
-          format: flags.format,
-          test: flags.test,
-          noGit: flags.noGit,
-        })}`,
-      );
+      if (!flags.dryRun) {
+        yield* Console.log(`Create command: ${createCommand}`);
+      }
 
       if (!flags.dryRun) {
         yield* configure.writeConfig(repoRoot, config);
@@ -293,6 +216,7 @@ export const create = Command.make(
         dryRun: flags.dryRun,
         trust: flags.trust || flags.yes,
         config,
+        createCommand,
       });
     }),
 ).pipe(
