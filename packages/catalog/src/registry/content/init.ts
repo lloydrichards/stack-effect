@@ -41,11 +41,11 @@ export const rootPackageJsonContents = `{
   "packageManager": "{{packageManagerSpec}}",
   "scripts": {},
   "devDependencies": {
-    "@effect/language-service": "^0.85.1",
+    "@effect/language-service": "^0.87.0",
     "typescript": "6.0.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "workspaces": [
     "apps/*",

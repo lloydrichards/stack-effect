@@ -26,11 +26,11 @@ export const clientPackageJsonContents = `{
   "scripts": {},
   "dependencies": {
     "@base-ui/react": "^1.3.0",
-    "@effect/atom-react": "4.0.0-beta.93",
+    "@effect/atom-react": "4.0.0-beta.98",
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "effect": "4.0.0-beta.93",
+    "effect": "4.0.0-beta.98",
     "lucide-react": "^1.0.1",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
@@ -40,7 +40,7 @@ export const clientPackageJsonContents = `{
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
-    "@effect/language-service": "^0.85.1",
+    "@effect/language-service": "^0.87.0",
     "@repo/config-typescript": "workspace:*",
     "@tailwindcss/vite": "^4.1.13",
     "@types/react": "^19.2.2",
