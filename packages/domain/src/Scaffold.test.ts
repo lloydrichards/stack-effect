@@ -201,6 +201,26 @@ describe("ContributionTokenContext.resolve", () => {
       expect(ctx.resolve("{{monorepo}}")).toBe("turbo");
     });
 
+    it("resolves workspace dependencies for Bun", () => {
+      expect(makeContext().resolve("{{workspaceDependency}}")).toBe(
+        "workspace:*",
+      );
+    });
+
+    it("resolves workspace dependencies for pnpm", () => {
+      const ctx = makeContext({
+        runtime: { _tag: "node", packageManager: "pnpm" },
+      });
+      expect(ctx.resolve("{{workspaceDependency}}")).toBe("workspace:*");
+    });
+
+    it("resolves workspace dependencies for npm", () => {
+      const ctx = makeContext({
+        runtime: { _tag: "node", packageManager: "npm" },
+      });
+      expect(ctx.resolve("{{workspaceDependency}}")).toBe("*");
+    });
+
     it("resolves undefined config fields to empty string", () => {
       const ctx = makeContext({});
       expect(ctx.resolve("{{lint}}")).toBe("");

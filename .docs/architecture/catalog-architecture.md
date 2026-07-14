@@ -95,6 +95,7 @@ Template files in `content/` use a token substitution system:
 | `{{runtime}}`            | "bun" or "node"                    |
 | `{{packageManager}}`     | "bun", "npm", or "pnpm"            |
 | `{{packageManagerSpec}}` | Full spec (e.g., "bun@1.2.21")     |
+| `{{workspaceDependency}}` | Local range compatible with the selected package manager |
 | `{{projectName}}`        | Project name from config           |
 
 Templates are organized by target type (init.ts, client.ts, server.ts) and

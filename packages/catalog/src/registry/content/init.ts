@@ -61,6 +61,15 @@ export const rootTsconfigContents = `{
 }
 `;
 
+export const pnpmWorkspaceContents = `packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true
+`;
+
 export const configTypescriptBaseContents = `{
   "$schema": "../../node_modules/@effect/language-service/schema.json",
   "display": "Default",
