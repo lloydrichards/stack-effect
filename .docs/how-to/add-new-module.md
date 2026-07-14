@@ -35,6 +35,7 @@ Use contribution tokens for dynamic values:
 | `{{runtime}}`            | "bun" or "node"                |
 | `{{packageManager}}`     | "bun", "npm", or "pnpm"        |
 | `{{packageManagerSpec}}` | Full spec (e.g., "bun@1.2.21") |
+| `{{workspaceDependency}}` | Compatible local workspace dependency range |
 | `{{projectName}}`        | Project name from config       |
 | `{{lint}}`               | Lint tool ("biome", "oxlint", or "") |
 | `{{format}}`             | Format tool ("biome", "dprint", or "") |

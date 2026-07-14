@@ -50,8 +50,12 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
       case "npm":
         return "npm@10.9.0";
       case "pnpm":
-        return "pnpm@10.17.0";
+        return "pnpm@11.7.0";
     }
+  }
+
+  get workspaceDependency(): "*" | "workspace:*" {
+    return this.packageManagerName === "npm" ? "*" : "workspace:*";
   }
 }
 
@@ -70,6 +74,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{runtime}}` - "bun" or "node"
    * - `{{packageManager}}` - "bun", "npm", or "pnpm"
    * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.2.21")
+   * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
    * - `{{format}}` - Format tool ("biome", "dprint", or "")
    * - `{{test}}` - Test framework ("vitest" or "")
@@ -138,6 +143,10 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           .replaceAll("{{runtime}}", this.config.runtimeName)
           .replaceAll("{{packageManager}}", this.config.packageManagerName)
           .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
+          .replaceAll(
+            "{{workspaceDependency}}",
+            this.config.workspaceDependency,
+          )
           .replaceAll("{{projectName}}", this.config.name)
           .replaceAll("{{lint}}", this.config.lint ?? "")
           .replaceAll("{{format}}", this.config.format ?? "")

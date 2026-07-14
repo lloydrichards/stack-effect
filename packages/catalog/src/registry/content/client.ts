@@ -41,7 +41,7 @@ export const clientPackageJsonContents = `{
   },
   "devDependencies": {
     "@effect/language-service": "^0.87.0",
-    "@repo/config-typescript": "workspace:*",
+    "@repo/config-typescript": "{{workspaceDependency}}",
     "@tailwindcss/vite": "^4.1.13",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",

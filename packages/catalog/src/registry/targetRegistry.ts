@@ -40,6 +40,7 @@ import {
   configTypescriptBaseContents,
   configTypescriptPackageJsonContents,
   gitignoreContents,
+  pnpmWorkspaceContents,
   rootPackageJsonContents,
   rootTsconfigContents,
 } from "./content/init";
@@ -71,6 +72,11 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: rootPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{#if packageManager=pnpm}}{{targetPath}}/pnpm-workspace.yaml{{/if}}",
+        contents: pnpmWorkspaceContents,
       },
       {
         _tag: "file",

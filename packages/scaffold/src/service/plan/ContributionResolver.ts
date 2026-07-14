@@ -99,13 +99,18 @@ const resolveContributionTokens = (
   return Arr.flatMap(
     contributions,
     Contribution.match({
-      file: (c): ReadonlyArray<typeof Contribution.Type> => [
-        Contribution.cases.file.make({
-          path: resolveString(c.path),
-          contents: resolveString(c.contents),
-          conflictOnModify: c.conflictOnModify,
-        }),
-      ],
+      file: (c): ReadonlyArray<typeof Contribution.Type> => {
+        const path = resolveString(c.path).trim();
+        if (path.length === 0) return [];
+
+        return [
+          Contribution.cases.file.make({
+            path,
+            contents: resolveString(c.contents),
+            conflictOnModify: c.conflictOnModify,
+          }),
+        ];
+      },
       "pkg-json-entry": (c): ReadonlyArray<typeof Contribution.Type> => {
         const name = resolveString(c.name).trim();
         if (name.length === 0) return [];

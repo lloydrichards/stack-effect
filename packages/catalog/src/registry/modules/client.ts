@@ -66,7 +66,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/domain",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "jsx-slot",
@@ -129,7 +129,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/domain",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "jsx-slot",
@@ -192,7 +192,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/domain",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -261,7 +261,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/domain",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "pkg-json-entry",

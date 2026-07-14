@@ -53,6 +53,7 @@ Use contribution tokens for dynamic values:
 | `{{targetKind}}`     | Target kind                    |
 | `{{runtime}}`        | "bun" or "node"                |
 | `{{packageManager}}` | "bun", "npm", or "pnpm"        |
+| `{{workspaceDependency}}` | Compatible local workspace dependency range |
 | `{{projectName}}`    | Project name from config       |
 
 ## Step 3: Define the Target

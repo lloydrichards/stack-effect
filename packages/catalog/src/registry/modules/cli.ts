@@ -74,14 +74,14 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/ai",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@repo/domain",
-        value: "workspace:*",
+        value: "{{workspaceDependency}}",
       },
     ],
     nextSteps: [

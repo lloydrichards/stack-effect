@@ -93,7 +93,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           path: "{{targetPath}}/package.json",
           field: "dependencies",
           name: "@repo/domain",
-          value: "workspace:*",
+          value: "{{workspaceDependency}}",
         },
         {
           _tag: "ts-object-field",
@@ -188,7 +188,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           path: "{{targetPath}}/package.json",
           field: "dependencies",
           name: "@repo/domain",
-          value: "workspace:*",
+          value: "{{workspaceDependency}}",
         },
         {
           _tag: "ts-object-field",
@@ -297,7 +297,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           path: "{{targetPath}}/package.json",
           field: "dependencies",
           name: "@repo/domain",
-          value: "workspace:*",
+          value: "{{workspaceDependency}}",
         },
         {
           _tag: "ts-object-field",
@@ -416,7 +416,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
           path: "{{targetPath}}/package.json",
           field: "dependencies",
           name: "@repo/domain",
-          value: "workspace:*",
+          value: "{{workspaceDependency}}",
         },
         {
           _tag: "ts-object-field",

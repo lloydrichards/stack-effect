@@ -13,7 +13,7 @@ export const cliPackageJsonContents = `{
   },
   "devDependencies": {
     "@effect/language-service": "^0.87.0",
-    "@repo/config-typescript": "workspace:*",
+    "@repo/config-typescript": "{{workspaceDependency}}",
     "@types/bun": "^1.2.17",
     "typescript": "6.0.2",
     "vitest": "^4.1.4"
