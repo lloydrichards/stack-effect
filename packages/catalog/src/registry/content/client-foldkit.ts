@@ -5,16 +5,16 @@ export const foldkitPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "@effect/platform-browser": "4.0.0-beta.93",
+    "@effect/platform-browser": "4.0.0-beta.98",
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
-    "effect": "4.0.0-beta.93",
+    "effect": "4.0.0-beta.98",
     "foldkit": "^0.101.0",
     "shadcn": "^4.1.0",
     "tailwindcss": "^4.1.13",
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
-    "@effect/language-service": "^0.85.1",
+    "@effect/language-service": "^0.87.0",
     "@foldkit/vite-plugin": "^0.6.0",
     "@repo/config-typescript": "workspace:*",
     "@tailwindcss/vite": "^4.1.13",
