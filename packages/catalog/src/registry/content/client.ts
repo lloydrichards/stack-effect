@@ -40,13 +40,11 @@ export const clientPackageJsonContents = `{
     "tw-animate-css": "^1.4.0"
   },
   "devDependencies": {
-    "@effect/language-service": "^0.87.0",
     "@repo/config-typescript": "{{workspaceDependency}}",
     "@tailwindcss/vite": "^4.1.13",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "@vitejs/plugin-react": "^5.1.0",
-    "typescript": "6.0.2",
     "vite": "^8.0.10",
     "vitest": "^4.1.4"
   }

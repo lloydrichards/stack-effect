@@ -12,10 +12,8 @@ export const cliPackageJsonContents = `{
     "effect": "4.0.0-beta.98"
   },
   "devDependencies": {
-    "@effect/language-service": "^0.87.0",
     "@repo/config-typescript": "{{workspaceDependency}}",
     "@types/bun": "^1.2.17",
-    "typescript": "6.0.2",
     "vitest": "^4.1.4"
   }
 }

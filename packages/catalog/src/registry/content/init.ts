@@ -39,13 +39,8 @@ export const rootPackageJsonContents = `{
   "name": "{{targetName}}",
   "private": true,
   "packageManager": "{{packageManagerSpec}}",
-  "scripts": {
-    "prepare": "effect-language-service patch"
-  },
-  "devDependencies": {
-    "@effect/language-service": "^0.87.0",
-    "typescript": "6.0.2"
-  },
+  "scripts": {},
+  "devDependencies": {},
   "engines": {
     "node": ">=24"
   },
@@ -57,7 +52,7 @@ export const rootPackageJsonContents = `{
 `;
 
 export const rootTsconfigContents = `{
-  "$schema": "./node_modules/@effect/language-service/schema.json",
+  "$schema": "{{#if typescript=6}}./node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}./node_modules/@effect/tsgo/schema.json{{/if}}",
   "extends": "./packages/config-typescript/base.json",
   "files": []
 }
@@ -73,7 +68,7 @@ allowBuilds:
 `;
 
 export const configTypescriptBaseContents = `{
-  "$schema": "../../node_modules/@effect/language-service/schema.json",
+  "$schema": "{{#if typescript=6}}../../node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}../../node_modules/@effect/tsgo/schema.json{{/if}}",
   "display": "Default",
   "compilerOptions": {
     "moduleResolution": "bundler",
