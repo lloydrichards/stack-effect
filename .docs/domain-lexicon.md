@@ -442,7 +442,7 @@ Token-resolution context used when templating contribution contents.
 
 Invariants:
 
-- Includes target identity fields plus runtime, package manager, and project name inputs.
+- Includes target identity fields plus runtime, package manager, TypeScript version, and project name inputs.
 
 Connected terms:
 
@@ -460,6 +460,7 @@ Run-level configuration for runtime and toolchain choices.
 Invariants:
 
 - Runtime is `bun` or `node` with `pnpm|npm`.
+- TypeScript version is `6` or `7`; legacy configs without the field resolve to `6`.
 - Helper behavior derives runtime and package manager names from runtime shape.
 
 Connected terms:
@@ -468,7 +469,7 @@ Connected terms:
 
 In code:
 
-- `StackConfig`, `Runtime`
+- `StackConfig`, `Runtime`, `TypeScriptVersion`
 
 ## Planning and Conflict Terms
 

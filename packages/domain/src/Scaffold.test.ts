@@ -163,6 +163,44 @@ describe("@repo/domain Scaffold", () => {
   });
 });
 
+describe("StackConfig TypeScript version", () => {
+  it("accepts supported TypeScript major versions", () => {
+    const typescript6 = Schema.decodeUnknownSync(StackConfig)({
+      name: "typescript-6",
+      runtime: { _tag: "bun" },
+      typescript: "6",
+    });
+    const typescript7 = Schema.decodeUnknownSync(StackConfig)({
+      name: "typescript-7",
+      runtime: { _tag: "bun" },
+      typescript: "7",
+    });
+
+    expect(typescript6.typescript).toBe("6");
+    expect(typescript7.typescript).toBe("7");
+  });
+
+  it("keeps existing configs without a TypeScript version decodable", () => {
+    const config = Schema.decodeUnknownSync(StackConfig)({
+      name: "existing-project",
+      runtime: { _tag: "bun" },
+    });
+
+    expect(config.typescript).toBeUndefined();
+    expect(config.typescriptVersion).toBe("6");
+  });
+
+  it("rejects unsupported TypeScript major versions", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(StackConfig)({
+        name: "unsupported-version",
+        runtime: { _tag: "bun" },
+        typescript: "8",
+      }),
+    ).toThrow();
+  });
+});
+
 describe("ContributionTokenContext.resolve", () => {
   const makeContext = (
     configOverrides: Partial<typeof StackConfig.Type> = {},
@@ -201,6 +239,11 @@ describe("ContributionTokenContext.resolve", () => {
       expect(ctx.resolve("{{monorepo}}")).toBe("turbo");
     });
 
+    it("resolves {{typescript}} token", () => {
+      const ctx = makeContext({ typescript: "7" });
+      expect(ctx.resolve("{{typescript}}")).toBe("7");
+    });
+
     it("resolves workspace dependencies for Bun", () => {
       expect(makeContext().resolve("{{workspaceDependency}}")).toBe(
         "workspace:*",
@@ -227,6 +270,7 @@ describe("ContributionTokenContext.resolve", () => {
       expect(ctx.resolve("{{format}}")).toBe("");
       expect(ctx.resolve("{{test}}")).toBe("");
       expect(ctx.resolve("{{monorepo}}")).toBe("");
+      expect(ctx.resolve("{{typescript}}")).toBe("6");
     });
   });
 
