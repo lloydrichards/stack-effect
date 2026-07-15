@@ -118,6 +118,89 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
 
 export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
+    id: ModuleId.make("workspace-typescript-6"),
+    title: "TypeScript 6",
+    description: "TypeScript 6 with the Effect language-service plugin",
+    visibility: "internal",
+    categories: [ModuleCategory.make("typescript")],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "@effect/language-service",
+        value: "^0.87.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "typescript",
+        value: "6.0.3",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "prepare",
+        value: "effect-language-service patch",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("workspace-typescript-7"),
+    title: "TypeScript 7",
+    description: "TypeScript 7 with the native Effect TypeScript-Go server",
+    visibility: "internal",
+    categories: [ModuleCategory.make("typescript")],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "@effect/tsgo",
+        value: "^0.22.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "typescript",
+        value: "7.0.2",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "prepare",
+        value: "effect-tsgo patch",
+      },
+    ],
+    nextSteps: [
+      "TypeScript 7: Configure your editor to use Effect TSGo as its sole TypeScript language server.",
+    ],
+  },
+  {
     id: ModuleId.make("workspace-monorepo-turbo"),
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
