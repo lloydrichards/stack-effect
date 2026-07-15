@@ -22,6 +22,11 @@ describe("init", () => {
           yield* cli.expectFileExists("my-app/package.json");
           yield* cli.expectFileExists("my-app/tsconfig.json");
           yield* cli.expectJsonFile("my-app/package.json", "name", "my-app");
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.prepare",
+            "effect-language-service patch",
+          );
         }),
       { timeout: 30_000 },
     );
