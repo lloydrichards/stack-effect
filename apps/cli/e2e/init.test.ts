@@ -32,6 +32,26 @@ describe("init", () => {
             "scripts.prepare",
             "effect-language-service patch",
           );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "devDependencies.typescript",
+            "6.0.3",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "devDependencies.@effect/language-service",
+            "^0.87.0",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/tsconfig.json",
+            "$schema",
+            "./node_modules/@effect/language-service/schema.json",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/packages/config-typescript/base.json",
+            "$schema",
+            "../../node_modules/@effect/language-service/schema.json",
+          );
         }),
       { timeout: 30_000 },
     );
@@ -58,8 +78,33 @@ describe("init", () => {
             "typescript",
             "7",
           );
+          yield* cli.expectJsonFile(
+            "typescript-7-app/package.json",
+            "scripts.prepare",
+            "effect-tsgo patch",
+          );
+          yield* cli.expectJsonFile(
+            "typescript-7-app/package.json",
+            "devDependencies.typescript",
+            "7.0.2",
+          );
+          yield* cli.expectJsonFile(
+            "typescript-7-app/package.json",
+            "devDependencies.@effect/tsgo",
+            "^0.22.0",
+          );
+          yield* cli.expectJsonFile(
+            "typescript-7-app/tsconfig.json",
+            "$schema",
+            "./node_modules/@effect/tsgo/schema.json",
+          );
+          yield* cli.expectJsonFile(
+            "typescript-7-app/packages/config-typescript/base.json",
+            "$schema",
+            "../../node_modules/@effect/tsgo/schema.json",
+          );
         }),
-      { timeout: 30_000 },
+      { timeout: 60_000 },
     );
 
     it.effect(

@@ -19,3 +19,6 @@ export const toWorkspaceModuleId = (toolValue: string): string =>
 
 export const toWorkspaceToolValue = (moduleId: string): string =>
   moduleToolValues[moduleId] ?? moduleId;
+
+export const toTypeScriptModuleId = (version: "6" | "7"): string =>
+  `workspace-typescript-${version}`;

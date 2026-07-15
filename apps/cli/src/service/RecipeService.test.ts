@@ -200,11 +200,36 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
             ModuleId.make("workspace-quality-biome"),
             ModuleId.make("workspace-test-vitest"),
           ]);
         }).pipe(Effect.provide(TestLayer)),
+    );
+
+    it.effect("should select the TypeScript 7 workspace module", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          ...testConfig,
+          typescript: "7",
+        });
+        const selection = yield* service.resolve(
+          { targets: [] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assertTargetModules(selection, ".", [
+          ModuleId.make("workspace-typescript-7"),
+          ModuleId.make("workspace-monorepo-turbo"),
+          ModuleId.make("workspace-quality-biome"),
+          ModuleId.make("workspace-test-vitest"),
+        ]);
+      }).pipe(Effect.provide(TestLayer)),
     );
 
     it.effect(
@@ -231,6 +256,7 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
             ModuleId.make("workspace-quality-biome"),
             ModuleId.make("workspace-test-vitest"),
@@ -271,6 +297,7 @@ describe("RecipeService", () => {
             testConfig.name,
           );
           assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
             ModuleId.make("workspace-quality-biome"),
             ModuleId.make("workspace-test-vitest"),
@@ -307,6 +334,7 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
             ModuleId.make("workspace-quality-biome"),
             ModuleId.make("workspace-test-vitest"),
@@ -366,6 +394,7 @@ describe("RecipeService", () => {
         );
 
         assertTargetModules(selection, ".", [
+          ModuleId.make("workspace-typescript-6"),
           ModuleId.make("workspace-monorepo-turbo"),
           ModuleId.make("workspace-quality-biome"),
           ModuleId.make("workspace-test-vitest"),

@@ -35,8 +35,9 @@ import {
 import { Command } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { recipeTargetFlag, rootFlag } from "../flags";
+import { recipeTargetFlag, rootFlag, typescriptFlag } from "../flags";
 import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
+import { toTypeScriptModuleId } from "../lib/workspace";
 import { RecipeService } from "../service/RecipeService";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
@@ -163,20 +164,23 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
     }
 
     const initDefaultModules = [
-      ModuleCategory.make("monorepo"),
-      ModuleCategory.make("lint"),
-      ModuleCategory.make("format"),
-      ModuleCategory.make("test"),
-    ].flatMap((category) =>
-      pipe(
-        catalog.getModules({ category }),
-        Arr.head,
-        Option.match({
-          onNone: () => [],
-          onSome: (moduleDefinition) => [moduleDefinition.id],
-        }),
+      ModuleId.make(toTypeScriptModuleId(config.typescriptVersion)),
+      ...[
+        ModuleCategory.make("monorepo"),
+        ModuleCategory.make("lint"),
+        ModuleCategory.make("format"),
+        ModuleCategory.make("test"),
+      ].flatMap((category) =>
+        pipe(
+          catalog.getModules({ category }),
+          Arr.head,
+          Option.match({
+            onNone: () => [],
+            onSome: (moduleDefinition) => [moduleDefinition.id],
+          }),
+        ),
       ),
-    );
+    ];
 
     const initTarget = ensureTarget(
       new TargetIdentity({
@@ -553,7 +557,7 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
 
 const reset = Command.make(
   "reset",
-  { root: rootFlag, target: recipeTargetFlag },
+  { root: rootFlag, target: recipeTargetFlag, typescript: typescriptFlag },
   (flags) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -574,6 +578,7 @@ const reset = Command.make(
       const config = new StackConfig({
         name: "catalog-built" as typeof Schema.NonEmptyString.Type,
         runtime: { _tag: "bun" },
+        typescript: Option.getOrElse(flags.typescript, () => "6" as const),
         lint: "biome",
         format: "biome",
         test: "vitest",
