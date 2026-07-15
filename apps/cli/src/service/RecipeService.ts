@@ -5,7 +5,7 @@ import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer, Option, pipe } from "effect";
 import { encodeRecipeTargetSpecs } from "../lib/recipeTargets";
-import { toWorkspaceModuleId } from "../lib/workspace";
+import { toTypeScriptModuleId, toWorkspaceModuleId } from "../lib/workspace";
 import {
   AmbiguousRecipeProvider,
   InvalidRecipeSpec,
@@ -65,11 +65,16 @@ const configWorkspaceModules = (
   config: typeof StackConfig.Type,
 ): ReadonlyArray<typeof ModuleId.Type> =>
   Arr.dedupe(
-    [config.monorepo, config.lint, config.format, config.test].flatMap(
-      (moduleId) =>
-        moduleId === undefined
-          ? []
-          : [ModuleId.make(toWorkspaceModuleId(moduleId))],
+    [
+      toTypeScriptModuleId(config.typescriptVersion),
+      config.monorepo,
+      config.lint,
+      config.format,
+      config.test,
+    ].flatMap((moduleId) =>
+      moduleId === undefined
+        ? []
+        : [ModuleId.make(toWorkspaceModuleId(moduleId))],
     ),
   );
 
