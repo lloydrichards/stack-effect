@@ -24,14 +24,21 @@ const Runtime = Schema.TaggedUnion({
   },
 });
 
+export const TypeScriptVersion = Schema.Literals(["6", "7"]);
+
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   name: Schema.NonEmptyString,
   runtime: Runtime,
+  typescript: Schema.optional(TypeScriptVersion),
   lint: Schema.optional(Schema.String),
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
 }) {
+  get typescriptVersion(): typeof TypeScriptVersion.Type {
+    return this.typescript ?? "6";
+  }
+
   get runtimeName(): "bun" | "node" {
     return this.runtime._tag;
   }
@@ -74,6 +81,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{runtime}}` - "bun" or "node"
    * - `{{packageManager}}` - "bun", "npm", or "pnpm"
    * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.2.21")
+   * - `{{typescript}}` - TypeScript major version ("6" or "7"; defaults to "6")
    * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
    * - `{{format}}` - Format tool ("biome", "dprint", or "")
@@ -107,6 +115,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           return this.config.runtimeName;
         case "packageManager":
           return this.config.packageManagerName;
+        case "typescript":
+          return this.config.typescriptVersion;
         case "lint":
           return this.config.lint ?? "";
         case "format":
@@ -143,6 +153,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           .replaceAll("{{runtime}}", this.config.runtimeName)
           .replaceAll("{{packageManager}}", this.config.packageManagerName)
           .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
+          .replaceAll("{{typescript}}", this.config.typescriptVersion)
           .replaceAll(
             "{{workspaceDependency}}",
             this.config.workspaceDependency,
