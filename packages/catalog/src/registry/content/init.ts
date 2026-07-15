@@ -39,7 +39,9 @@ export const rootPackageJsonContents = `{
   "name": "{{targetName}}",
   "private": true,
   "packageManager": "{{packageManagerSpec}}",
-  "scripts": {},
+  "scripts": {
+    "prepare": "effect-language-service patch"
+  },
   "devDependencies": {
     "@effect/language-service": "^0.87.0",
     "typescript": "6.0.2"
