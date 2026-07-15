@@ -44,6 +44,7 @@ type CollectedRecipeTarget = {
 const DEFAULTS = {
   runtime: "bun",
   packageManager: "bun",
+  typescript: "6",
   monorepo: "turbo",
   lint: "biome",
   format: "biome",
@@ -246,6 +247,11 @@ export class RecipeService extends Context.Service<
         ...(packageManager === DEFAULTS.packageManager
           ? []
           : ["--package-manager", packageManager]),
+        ...renderChangedFlag(
+          "--typescript",
+          config.typescriptVersion,
+          DEFAULTS.typescript,
+        ),
         ...renderChangedFlag("--monorepo", config.monorepo, DEFAULTS.monorepo),
         ...renderChangedFlag("--lint", config.lint, DEFAULTS.lint),
         ...renderChangedFlag("--format", config.format, DEFAULTS.format),

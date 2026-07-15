@@ -52,6 +52,11 @@ export const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
   Flag.withDescription("Runtime to use"),
 );
 
+export const typescriptFlag = Flag.choice("typescript", ["6", "7"]).pipe(
+  Flag.optional,
+  Flag.withDescription("TypeScript major version to configure"),
+);
+
 export const packageManagerFlag = Flag.choice("package-manager", [
   "bun",
   "pnpm",

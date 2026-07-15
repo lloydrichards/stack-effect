@@ -16,6 +16,7 @@ import {
   rootFlag,
   runtimeFlag,
   trustFlag,
+  typescriptFlag,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
@@ -86,6 +87,7 @@ export const init = Command.make(
     yes: yesFlag,
     dryRun: dryRunFlag,
     runtime: runtimeFlag,
+    typescript: typescriptFlag,
     noGit: noGitFlag,
     trust: trustFlag,
   },
@@ -172,6 +174,18 @@ export const init = Command.make(
               ],
             });
 
+      const typescript = Option.isSome(flags.typescript)
+        ? flags.typescript.value
+        : flags.yes
+          ? ("6" as const)
+          : yield* Select({
+              message: "What TypeScript version will you use?",
+              choices: [
+                { title: "TypeScript 6", value: "6" as const },
+                { title: "TypeScript 7", value: "7" as const },
+              ],
+            });
+
       let runtime: typeof StackConfig.fields.runtime.Type;
       if (runtimeChoice === "bun") {
         runtime = { _tag: "bun" };
@@ -238,6 +252,7 @@ export const init = Command.make(
       const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,
         runtime,
+        typescript,
         ...Option.match(lint, {
           onNone: () => ({}),
           onSome: (v) => ({ lint: v }),
@@ -271,6 +286,7 @@ export const init = Command.make(
                   Box.text("Directory:"),
                   Box.text("Runtime:"),
                   Box.text("Package manager:"),
+                  Box.text("TypeScript:"),
                   Box.text("Monorepo:"),
                   Box.text("Lint:"),
                   Box.text("Format:"),
@@ -287,6 +303,7 @@ export const init = Command.make(
                   Box.text(repoRoot),
                   Box.text(config.runtimeName),
                   Box.text(config.packageManagerName),
+                  Box.text(config.typescriptVersion),
                   Box.text(config.monorepo ?? "none"),
                   Box.text(config.lint ?? "none"),
                   Box.text(config.format ?? "none"),
