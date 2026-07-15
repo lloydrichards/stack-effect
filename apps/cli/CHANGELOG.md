@@ -1,5 +1,22 @@
 # stack-effect
 
+## 0.10.0
+
+### Minor Changes
+
+- 6387aec: The `init` and `create` commands now support TypeScript 6 and 7 selection with `--typescript`.
+
+  For example:
+
+  ```sh
+  stack-effect init my-app --typescript 7
+  ```
+
+### Patch Changes
+
+- dac44ba: New projects now apply the patch for their configured Effect TypeScript integration during dependency installation.
+- bf07e7c: fix the workspace import for npm packages
+
 ## 0.9.0
 
 ### Minor Changes
