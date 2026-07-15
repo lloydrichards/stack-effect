@@ -16,6 +16,7 @@ import {
   runtimeFlag,
   testFlag,
   trustFlag,
+  typescriptFlag,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
@@ -26,6 +27,7 @@ import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 const DEFAULTS = {
   runtime: "bun",
   packageManager: "bun",
+  typescript: "6",
   monorepo: "turbo",
   lint: "biome",
   format: "biome",
@@ -68,6 +70,7 @@ const buildConfig = ({
   projectName,
   runtime,
   packageManager,
+  typescript,
   monorepo,
   lint,
   format,
@@ -76,6 +79,7 @@ const buildConfig = ({
   readonly projectName: string;
   readonly runtime: Option.Option<"bun" | "node">;
   readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+  readonly typescript: Option.Option<"6" | "7">;
   readonly monorepo: Option.Option<string>;
   readonly lint: Option.Option<string>;
   readonly format: Option.Option<string>;
@@ -101,6 +105,7 @@ const buildConfig = ({
   return new StackConfig({
     name: projectName as typeof Schema.NonEmptyString.Type,
     runtime: runtimeConfig,
+    typescript: Option.getOrElse(typescript, () => DEFAULTS.typescript),
     monorepo: Option.getOrElse(monorepo, () => DEFAULTS.monorepo),
     lint: Option.getOrElse(lint, () => DEFAULTS.lint),
     format: Option.getOrElse(format, () => DEFAULTS.format),
@@ -136,6 +141,7 @@ export const create = Command.make(
     root: rootFlag,
     runtime: runtimeFlag,
     packageManager: packageManagerFlag,
+    typescript: typescriptFlag,
     monorepo: monorepoFlag,
     lint: lintFlag,
     format: formatFlag,
@@ -176,6 +182,7 @@ export const create = Command.make(
         projectName,
         runtime: flags.runtime,
         packageManager: flags.packageManager,
+        typescript: flags.typescript,
         monorepo: flags.monorepo,
         lint: flags.lint,
         format: flags.format,

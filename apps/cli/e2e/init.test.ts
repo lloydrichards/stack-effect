@@ -23,9 +23,40 @@ describe("init", () => {
           yield* cli.expectFileExists("my-app/tsconfig.json");
           yield* cli.expectJsonFile("my-app/package.json", "name", "my-app");
           yield* cli.expectJsonFile(
+            "my-app/stack.effect.json",
+            "typescript",
+            "6",
+          );
+          yield* cli.expectJsonFile(
             "my-app/package.json",
             "scripts.prepare",
             "effect-language-service patch",
+          );
+        }),
+      { timeout: 30_000 },
+    );
+
+    it.effect(
+      "records an explicit TypeScript version",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "typescript-7-app",
+            "--yes",
+            "--typescript",
+            "7",
+            "--root",
+            cli.workdir,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectJsonFile(
+            "typescript-7-app/stack.effect.json",
+            "typescript",
+            "7",
           );
         }),
       { timeout: 30_000 },

@@ -738,6 +738,7 @@ describe("RecipeService", () => {
           lint: "eslint",
           format: "prettier",
           test: "vitest",
+          typescript: "7",
         });
         const selection = yield* service.resolve(
           {
@@ -762,7 +763,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config, selection }),
-          "stack-effect create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --lint eslint --format prettier --no-git",
+          "stack-effect create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --typescript 7 --lint eslint --format prettier --no-git",
         );
       }).pipe(Effect.provide(TestLayer)),
     );
