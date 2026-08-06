@@ -1,12 +1,12 @@
 /** @effect-diagnostics globalErrorInEffectFailure:skip-file */
 import { describe, expect, it } from "@effect/vitest";
-import type { CompositionOperation } from "@repo/domain/Plan";
+import type { TypeScriptCompositionOperation } from "@repo/domain/Plan";
 import { Effect } from "effect";
 import { TypeScriptComposer } from "./TypeScriptComposer";
 
 const compose = (
   contents: string,
-  operations: ReadonlyArray<typeof CompositionOperation.cases.typescript.Type>,
+  operations: ReadonlyArray<TypeScriptCompositionOperation>,
 ) =>
   Effect.gen(function* () {
     const composer = yield* TypeScriptComposer;

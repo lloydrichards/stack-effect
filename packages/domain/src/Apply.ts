@@ -36,7 +36,7 @@ export class Apply extends Schema.Class<Apply>("Apply")({
   }
 }
 
-export class ApplyFailure extends Schema.TaggedErrorClass<ApplyFailure>()(
+export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
   "ApplyFailure",
   {
     reason: Schema.Literals([

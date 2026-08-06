@@ -160,7 +160,7 @@ export const turboJsonContents = `{
 // -- biome ------------------------------------------------------------------
 
 export const biomeJsoncContents = `{
-  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",

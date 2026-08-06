@@ -20,15 +20,15 @@
     "complexity": "bun run scripts/complexity-report.ts"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.2",
-    "@changesets/cli": "^2.31.0",
-    "@effect/language-service": "^0.87.0",
-    "@effect/platform-bun": "4.0.0-beta.98",
+    "@biomejs/biome": "2.5.7",
+    "@changesets/cli": "^2.31.1",
+    "@effect/language-service": "^0.87.1",
+    "@effect/platform-bun": "4.0.0-beta.104",
     "@types/bun": "^1.3.14",
-    "effect": "4.0.0-beta.98",
-    "turbo": "^2.10.3",
+    "effect": "4.0.0-beta.104",
+    "turbo": "^2.10.8",
     "typescript": "6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=24"

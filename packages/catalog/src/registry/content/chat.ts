@@ -113,12 +113,12 @@ export const domainChatRpcContents = `import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
 import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
 
-export class ChatNotFoundError extends Schema.TaggedErrorClass<ChatNotFoundError>()(
+export class ChatNotFoundError extends Schema.TaggedError<ChatNotFoundError>()(
   "ChatNotFoundError",
   { chatId: ChatId },
 ) {}
 
-export class GenerationInProgressError extends Schema.TaggedErrorClass<GenerationInProgressError>()(
+export class GenerationInProgressError extends Schema.TaggedError<GenerationInProgressError>()(
   "GenerationInProgressError",
   { chatId: ChatId },
 ) {}

@@ -18,7 +18,7 @@ export const RepoSnapshot = Schema.Struct({
   paths: Schema.Array(RepoSnapshotPath),
 });
 
-export class PlanFailure extends Schema.TaggedErrorClass<PlanFailure>()(
+export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
   "PlanFailure",
   {
     reason: Schema.Literals(["repoRootNotEmpty", "invalidPlanIntent"]),
@@ -97,16 +97,32 @@ export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
   content: Schema.String,
 });
 
-export const CompositionOperation = Schema.Union([
+const JsonCompositionOperationSchema = Schema.Union([
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
+]);
+
+const TypeScriptCompositionOperationSchema = Schema.Union([
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
   TsObjectFieldOp,
   TsJsxSlotOp,
-]).pipe(Schema.toTaggedUnion("fileType"));
+]);
+
+export type JsonCompositionOperation = Schema.Schema.Type<
+  typeof JsonCompositionOperationSchema
+>;
+
+export type TypeScriptCompositionOperation = Schema.Schema.Type<
+  typeof TypeScriptCompositionOperationSchema
+>;
+
+export const CompositionOperation = Schema.Union([
+  JsonCompositionOperationSchema,
+  TypeScriptCompositionOperationSchema,
+]);
 
 export const PlanEntryClassification = Schema.Literals([
   "create",

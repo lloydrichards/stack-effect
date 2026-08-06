@@ -25,7 +25,7 @@ export const schema = Command.make("schema", {}, () =>
     ].jsonSchema.input({ target: "draft-2020-12" });
 
     yield* Console.log(
-      Schema.encodeSync(Schema.UnknownFromJsonString)({
+      Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))({
         catalog: catalog.toCatalogTree,
         planInput,
       }),

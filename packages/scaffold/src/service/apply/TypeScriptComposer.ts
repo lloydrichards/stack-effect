@@ -1,11 +1,11 @@
 import { ApplyFailure } from "@repo/domain/Apply";
 import type {
-  CompositionOperation,
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
   TsJsxSlotOp,
   TsObjectFieldOp,
+  TypeScriptCompositionOperation,
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -28,9 +28,7 @@ import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 export interface TypeScriptComposerShape {
   readonly compose: (
     contents: string,
-    operations: ReadonlyArray<
-      typeof CompositionOperation.cases.typescript.Type
-    >,
+    operations: ReadonlyArray<TypeScriptCompositionOperation>,
   ) => Effect.Effect<string, ApplyFailure, never>;
 }
 
@@ -41,9 +39,7 @@ export class TypeScriptComposer extends Context.Service<
   make: Effect.succeed({
     compose: Effect.fn(function* (
       contents: string,
-      operations: ReadonlyArray<
-        typeof CompositionOperation.cases.typescript.Type
-      >,
+      operations: ReadonlyArray<TypeScriptCompositionOperation>,
     ) {
       const project = new Project({
         useInMemoryFileSystem: true,
