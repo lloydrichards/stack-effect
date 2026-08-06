@@ -88,38 +88,7 @@ const makeUnsortedBlueprint = () =>
   });
 
 describe("@repo/domain Blueprint", () => {
-  it("should expose target identity domain methods", () => {
-    const identity = new TargetIdentity({
-      kind: TargetKind.make("server"),
-      name: "api",
-    });
-
-    expect(identity.toKey()).toBe("apps/server-api");
-    expect(identity.toPath()).toBe("apps/server-api");
-    expect(
-      identity.matches({ _tag: "kind", kind: TargetKind.make("server") }),
-    ).toBe(true);
-    expect(
-      identity.matches({
-        _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("server"),
-          name: "api",
-        }),
-      }),
-    ).toBe(true);
-    expect(
-      identity.matches({
-        _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("client-react"),
-          name: "api",
-        }),
-      }),
-    ).toBe(false);
-  });
-
-  it("should slugify user-provided names when deriving key and path", () => {
+  it("should derive canonical paths and match identity rules when names need normalization", () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("server"),
       name: "My Api",
@@ -127,14 +96,9 @@ describe("@repo/domain Blueprint", () => {
 
     expect(identity.toKey()).toBe("apps/server-my-api");
     expect(identity.toPath()).toBe("apps/server-my-api");
-  });
-
-  it("should compare exact identity rules by canonical target identity", () => {
-    const identity = new TargetIdentity({
-      kind: TargetKind.make("server"),
-      name: "My Api",
-    });
-
+    expect(
+      identity.matches({ _tag: "kind", kind: TargetKind.make("server") }),
+    ).toBe(true);
     expect(
       identity.matches({
         _tag: "identity",
@@ -144,9 +108,18 @@ describe("@repo/domain Blueprint", () => {
         }),
       }),
     ).toBe(true);
+    expect(
+      identity.matches({
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("client-react"),
+          name: "my-api",
+        }),
+      }),
+    ).toBe(false);
   });
 
-  it("should decode target identities as domain class instances", () => {
+  it("should preserve target identity behavior when decoding", () => {
     const identity = Schema.decodeUnknownSync(TargetIdentity)({
       kind: "package",
       name: "domain",
@@ -157,7 +130,7 @@ describe("@repo/domain Blueprint", () => {
     expect(identity.toPath()).toBe("packages/domain");
   });
 
-  it("should sort blueprint nodes and edges deterministically", () => {
+  it("should sort nodes and edges deterministically when normalizing a Blueprint", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     expect(blueprint.nodes.map((node) => node.id)).toEqual([
@@ -180,8 +153,9 @@ describe("@repo/domain Blueprint", () => {
     ]);
   });
 
-  it("should expose helper methods for querying targets", () => {
+  it("should return present and absent targets when querying a Blueprint", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
+    const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
 
     expect(blueprint.hasTarget("apps/server-api")).toBe(true);
     expect(blueprint.hasTarget("apps/cli-tooling")).toBe(false);
@@ -193,31 +167,143 @@ describe("@repo/domain Blueprint", () => {
         name: "domain",
       },
     });
+    expect(emptyBlueprint.hasTarget("apps/server-api")).toBe(false);
+    expect(emptyBlueprint.getTarget("apps/server-api")).toBeUndefined();
   });
 
-  it("should expose safe helper behavior for an empty blueprint", () => {
-    const blueprint = new Blueprint({
-      nodes: [],
-      edges: [],
+  const invalidBlueprints = [
+    {
+      name: "duplicate node IDs",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: [...blueprint.nodes, ...blueprint.nodes.slice(0, 1)],
+        edges: blueprint.edges,
+      }),
+      message: "Blueprint node id must be unique",
+    },
+    {
+      name: "duplicate edge IDs",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes,
+        edges: [
+          ...blueprint.edges,
+          {
+            id: "z-edge",
+            from: domainIdentity.toKey(),
+            to: serverApiIdentity.toKey(),
+            reason: "required-target" as const,
+          },
+        ],
+      }),
+      message: "Blueprint edge id must be unique",
+    },
+    {
+      name: "a non-canonical target ID",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes.map((node) =>
+          node._tag === "target" && node.id === domainIdentity.toKey()
+            ? { ...node, id: TargetKey.make("packages/not-domain") }
+            : node,
+        ),
+        edges: blueprint.edges,
+      }),
+      message: "Blueprint target id must match its canonical identity",
+    },
+    {
+      name: "a non-canonical attached-module ID",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes.map((node) =>
+          node._tag === "attached-module" &&
+          node.targetId === domainIdentity.toKey()
+            ? {
+                ...node,
+                id: toAttachedModuleNodeId(
+                  domainIdentity.toKey(),
+                  ModuleId.make("wrong-module"),
+                ),
+              }
+            : node,
+        ),
+        edges: blueprint.edges,
+      }),
+      message: "Blueprint attached-module id must match",
+    },
+    {
+      name: "a missing target",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes.filter(
+          (node) =>
+            !(node._tag === "target" && node.id === domainIdentity.toKey()),
+        ),
+        edges: blueprint.edges,
+      }),
+      message: "must resolve to exactly one target",
+    },
+    {
+      name: "a missing ownership edge",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes,
+        edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
+      }),
+      message: "must have exactly one owns-module edge",
+    },
+    {
+      name: "multiple ownership edges for one attached module",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes,
+        edges: [
+          ...blueprint.edges,
+          {
+            id: "x-edge",
+            from: domainIdentity.toKey(),
+            to: toAttachedModuleNodeId(
+              domainIdentity.toKey(),
+              ModuleId.make("domain-api-contracts"),
+            ),
+            reason: "owns-module" as const,
+          },
+        ],
+      }),
+      message: "must have exactly one owns-module edge",
+    },
+    {
+      name: "a contradictory ownership edge",
+      mutate: (blueprint: Blueprint) => ({
+        nodes: blueprint.nodes,
+        edges: [
+          ...blueprint.edges,
+          {
+            id: "contradictory-edge",
+            from: serverApiIdentity.toKey(),
+            to: toAttachedModuleNodeId(
+              domainIdentity.toKey(),
+              ModuleId.make("domain-api-contracts"),
+            ),
+            reason: "owns-module" as const,
+          },
+        ],
+      }),
+      message: "does not match an attached module ownership relationship",
+    },
+  ] as const;
+
+  it("should reject invalid identities and ownership relationships during checked construction", () => {
+    invalidBlueprints.forEach(({ mutate, message, name }) => {
+      expect(
+        () => new Blueprint(mutate(makeUnsortedBlueprint())),
+        name,
+      ).toThrow(message);
     });
-
-    expect(blueprint.hasTarget("apps/server-api")).toBe(false);
-    expect(blueprint.getTarget("apps/server-api")).toBeUndefined();
   });
 
-  it("should enforce canonical target key formatting", async () => {
-    // NOTE: TargetKey is only branded here; blueprint construction owns format validation.
+  it("should reject invalid ownership relationships when decoding", async () => {
+    const blueprint = makeUnsortedBlueprint();
+    const invalid = {
+      nodes: blueprint.nodes,
+      edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
+    };
+
     await expect(
-      Schema.decodeUnknownPromise(TargetKey)("apps/server-api"),
-    ).resolves.toBe("apps/server-api");
-    await expect(
-      Schema.decodeUnknownPromise(TargetKey)("packages/domain"),
-    ).resolves.toBe("packages/domain");
-    await expect(
-      Schema.decodeUnknownPromise(TargetKey)("apps/server-api#server-http-api"),
-    ).resolves.toBe("apps/server-api#server-http-api");
-    await expect(
-      Schema.decodeUnknownPromise(TargetKey)("server-api"),
-    ).resolves.toBe("server-api");
+      Schema.decodeUnknownPromise(Blueprint)(invalid),
+    ).rejects.toThrow("must have exactly one owns-module edge");
   });
 });

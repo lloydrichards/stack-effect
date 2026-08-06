@@ -1,4 +1,4 @@
-import { Order, Schema } from "effect";
+import { Array as Arr, Order, Schema } from "effect";
 import { pathOrd } from "./Order";
 
 export const RepoSnapshotPath = Schema.TaggedUnion({
@@ -164,6 +164,66 @@ export const PlanConflict = Schema.TaggedUnion({
   },
 });
 
+const planConflictKey = (conflict: typeof PlanConflict.Type): string =>
+  PlanConflict.match(conflict, {
+    exports: (c) => JSON.stringify([c._tag, c.path, c.name]),
+    dependencies: (c) => JSON.stringify([c._tag, c.path, c.section, c.name]),
+    scripts: (c) => JSON.stringify([c._tag, c.path, c.name]),
+    barrelExport: (c) => JSON.stringify([c._tag, c.path, c.exportPath]),
+    tsconfig: (c) => JSON.stringify([c._tag, c.path]),
+    completeFile: (c) => JSON.stringify([c._tag, c.path]),
+    compositionTargetNotFound: (c) =>
+      JSON.stringify([c._tag, c.path, c.targetVariable, c.functionName]),
+    jsxSlotTargetNotFound: (c) => JSON.stringify([c._tag, c.path, c.slotId]),
+  });
+
+const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
+  Arr.map(
+    Arr.filter(
+      Object.entries(Arr.groupBy(values, (value) => value)),
+      ([, groupedValues]) => groupedValues.length > 1,
+    ),
+    ([value]) => value,
+  );
+
+const PlanFields = Schema.Struct({
+  outcomes: Schema.Array(PlanOutcome),
+  conflicts: Schema.Array(PlanConflict),
+}).check(
+  Schema.makeFilter(({ conflicts, outcomes }) => {
+    const outcomePaths = outcomes.map((outcome) => outcome.path);
+    const conflictKeys = conflicts.map(planConflictKey);
+    const conflictedOutcomePaths = new Set(
+      outcomes
+        .filter((outcome) => outcome.classification === "conflict")
+        .map((outcome) => outcome.path),
+    );
+    const conflictPaths = new Set(conflicts.map((conflict) => conflict.path));
+
+    return [
+      ...duplicates(outcomePaths).map(
+        (path) => `Plan outcome paths must be unique; duplicate path: ${path}`,
+      ),
+      ...duplicates(conflictKeys).map(
+        (key) =>
+          `Plan conflict diagnostics must be unique; duplicate identity: ${key}`,
+      ),
+      ...[...conflictPaths]
+        .filter((path) => !conflictedOutcomePaths.has(path))
+        .map(
+          (path) =>
+            `Plan conflict diagnostic path must reference a conflicted outcome: ${path}`,
+        ),
+      ...[...conflictedOutcomePaths]
+        .filter((path) => !conflictPaths.has(path))
+        .map(
+          (path) =>
+            `Plan conflicted outcome must have at least one conflict diagnostic: ${path}`,
+        ),
+    ];
+  }),
+);
+
 /**
  * The repo-aware outcome of applying a Blueprint to the current filesystem.
  *
@@ -178,31 +238,12 @@ export const PlanConflict = Schema.TaggedUnion({
  * @category Plan
  * @since 1.0.0
  */
-export class Plan extends Schema.Class<Plan>("Plan")({
-  outcomes: Schema.Array(PlanOutcome),
-  conflicts: Schema.Array(PlanConflict),
-}) {
+export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
   toSorted(): Plan {
     return new Plan({
       outcomes: [...this.outcomes].sort(pathOrd),
       conflicts: [...this.conflicts].sort(
-        Order.mapInput(
-          Order.String,
-          (conflict: typeof PlanConflict.Type): string =>
-            PlanConflict.match(conflict, {
-              exports: (c) => `exports:${c.path}:${c.name}`,
-              dependencies: (c) =>
-                `dependencies:${c.path}:${c.section}:${c.name}`,
-              scripts: (c) => `scripts:${c.path}:${c.name}`,
-              barrelExport: (c) => `barrelExport:${c.path}:${c.exportPath}`,
-              tsconfig: (c) => `tsconfig:${c.path}`,
-              completeFile: (c) => `completeFile:${c.path}`,
-              compositionTargetNotFound: (c) =>
-                `compositionTargetNotFound:${c.path}:${c.targetVariable}:${c.functionName}`,
-              jsxSlotTargetNotFound: (c) =>
-                `jsxSlotTargetNotFound:${c.path}:${c.slotId}`,
-            }),
-        ),
+        Order.mapInput(Order.String, planConflictKey),
       ),
     });
   }

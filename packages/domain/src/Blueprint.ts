@@ -1,4 +1,4 @@
-import { Data, Order, Schema } from "effect";
+import { Array as Arr, Data, Order, Schema } from "effect";
 import {
   CatalogNotFound,
   ModuleId,
@@ -54,6 +54,103 @@ export const blueprintNodeOrd = Order.mapInput(
   (node: typeof BlueprintNode.Type) => node,
 );
 
+const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
+  Arr.map(
+    Arr.filter(
+      Object.entries(Arr.groupBy(values, (value) => value)),
+      ([, groupedValues]) => groupedValues.length > 1,
+    ),
+    ([value]) => value,
+  );
+
+const BlueprintFields = Schema.Struct({
+  nodes: Schema.Array(BlueprintNode),
+  edges: Schema.Array(
+    Schema.Struct({
+      id: Schema.NonEmptyString,
+      from: Schema.NonEmptyString,
+      to: Schema.NonEmptyString,
+      reason: Schema.Literals([
+        "owns-module",
+        "required-target",
+        "required-module",
+      ]),
+    }),
+  ),
+}).check(
+  Schema.makeFilter((blueprint) => {
+    const duplicateNodeIds = Arr.map(
+      duplicates(Arr.map(blueprint.nodes, (node) => node.id)),
+      (id) => `Blueprint node id must be unique: ${id}`,
+    );
+    const duplicateEdgeIds = Arr.map(
+      duplicates(Arr.map(blueprint.edges, (edge) => edge.id)),
+      (id) => `Blueprint edge id must be unique: ${id}`,
+    );
+    const targetIdentityIssues = blueprint.nodes.flatMap((node) =>
+      node._tag === "target" && node.id !== node.identity.toKey()
+        ? [
+            `Blueprint target id must match its canonical identity: expected ${node.identity.toKey()}, received ${node.id}`,
+          ]
+        : [],
+    );
+    const attachedModules = blueprint.nodes.filter(
+      BlueprintNode.guards["attached-module"],
+    );
+    const attachedModuleIssues = attachedModules.flatMap((node) => {
+      const expectedId = toAttachedModuleNodeId(node.targetId, node.moduleId);
+      const matchingTargets = blueprint.nodes.filter(
+        (candidate) =>
+          candidate._tag === "target" && candidate.id === node.targetId,
+      );
+      const matchingOwnershipEdges = blueprint.edges.filter(
+        (edge) =>
+          edge.reason === "owns-module" &&
+          edge.from === node.targetId &&
+          edge.to === node.id,
+      );
+
+      return [
+        ...(node.id === expectedId
+          ? []
+          : [
+              `Blueprint attached-module id must match its target and module identities: expected ${expectedId}, received ${node.id}`,
+            ]),
+        ...(matchingTargets.length === 1
+          ? []
+          : [
+              `Blueprint attached module ${node.id} must resolve to exactly one target ${node.targetId}`,
+            ]),
+        ...(matchingOwnershipEdges.length === 1
+          ? []
+          : [
+              `Blueprint attached module ${node.id} must have exactly one owns-module edge from ${node.targetId}`,
+            ]),
+      ];
+    });
+    const contradictoryOwnershipIssues = blueprint.edges
+      .filter(
+        (edge) =>
+          edge.reason === "owns-module" &&
+          !attachedModules.some(
+            (node) => node.targetId === edge.from && node.id === edge.to,
+          ),
+      )
+      .map(
+        (edge) =>
+          `Blueprint owns-module edge ${edge.id} does not match an attached module ownership relationship`,
+      );
+
+    return [
+      ...duplicateNodeIds,
+      ...duplicateEdgeIds,
+      ...targetIdentityIssues,
+      ...attachedModuleIssues,
+      ...contradictoryOwnershipIssues,
+    ];
+  }),
+);
+
 /**
  * The resolved dependency closure for a Selection.
  *
@@ -68,21 +165,9 @@ export const blueprintNodeOrd = Order.mapInput(
  * @category Blueprint
  * @since 1.0.0
  */
-export class Blueprint extends Schema.Class<Blueprint>("Blueprint")({
-  nodes: Schema.Array(BlueprintNode),
-  edges: Schema.Array(
-    Schema.Struct({
-      id: Schema.NonEmptyString,
-      from: Schema.NonEmptyString,
-      to: Schema.NonEmptyString,
-      reason: Schema.Literals([
-        "owns-module",
-        "required-target",
-        "required-module",
-      ]),
-    }),
-  ),
-}) {
+export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
+  BlueprintFields,
+) {
   toSorted(): Blueprint {
     return new Blueprint({
       nodes: [...this.nodes].sort(blueprintNodeOrd),
