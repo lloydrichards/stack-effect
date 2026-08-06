@@ -13,9 +13,14 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
+import type { ConfirmOptions } from "@repo/tui";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
 import { Box } from "effect-boxes";
-import { FinalizeScriptFailure, ScaffoldPipeline } from "./ScaffoldPipeline";
+import {
+  FinalizeScriptFailure,
+  resolveConflictDecisions,
+  ScaffoldPipeline,
+} from "./ScaffoldPipeline";
 
 const blueprint = new Blueprint({ nodes: [], edges: [] });
 const plan = new Plan({ outcomes: [], conflicts: [] });
@@ -28,7 +33,10 @@ const conflictPlan = new Plan({
       contents: "{}",
     },
   ],
-  conflicts: [{ _tag: "completeFile", path: "package.json" }],
+  conflicts: [
+    { _tag: "completeFile", path: "package.json" },
+    { _tag: "scripts", path: "package.json", name: "test" },
+  ],
 });
 const applyResult = new ApplyResult({
   created: [],
@@ -129,7 +137,46 @@ const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
 };
 
 describe("ScaffoldPipeline", () => {
-  it.effect("fails non-dry-run commands when a finalize script fails", () =>
+  it.effect(
+    "should resolve one decision per path in interactive and automatic modes",
+    () =>
+      Effect.gen(function* () {
+        const prompts: Array<ConfirmOptions> = [];
+        const planBox = Box.text("formatted plan");
+
+        const decisions = yield* resolveConflictDecisions({
+          plan: conflictPlan,
+          yes: false,
+          planBox,
+          confirm: (options) => {
+            prompts.push(options);
+            return Effect.succeed(false);
+          },
+        });
+
+        expect(prompts).toHaveLength(1);
+        expect(decisions).toEqual([{ path: "package.json", value: "skip" }]);
+        const options = prompts[0];
+        expect(options?.message).toBe(
+          "Conflict at package.json (completeFile, scripts). Override?",
+        );
+        expect(options?.children).toBe(planBox);
+
+        const automaticDecisions = yield* resolveConflictDecisions({
+          plan: conflictPlan,
+          yes: true,
+          planBox,
+          confirm: () =>
+            Effect.die(new Error("automatic mode should not prompt")),
+        });
+
+        expect(automaticDecisions).toEqual([
+          { path: "package.json", value: "skip" },
+        ]);
+      }),
+  );
+
+  it.effect("should fail when a non-dry-run finalize script fails", () =>
     Effect.gen(function* () {
       const pipeline = yield* ScaffoldPipeline;
       const exit = yield* Effect.exit(pipeline.run(runInput));
@@ -147,7 +194,7 @@ describe("ScaffoldPipeline", () => {
     ),
   );
 
-  it.effect("keeps dry-run finalize scripts as preview-only", () =>
+  it.effect("should not execute finalize scripts when running a dry run", () =>
     Effect.gen(function* () {
       const pipeline = yield* ScaffoldPipeline;
       const exit = yield* Effect.exit(
@@ -165,61 +212,69 @@ describe("ScaffoldPipeline", () => {
     ),
   );
 
-  it.effect("uses memory-backed apply when show-files is enabled", () =>
-    Effect.gen(function* () {
-      const exit = yield* Effect.gen(function* () {
-        const pipeline = yield* ScaffoldPipeline;
-        return yield* Effect.exit(
-          pipeline.run({ ...runInput, dryRun: true, showFiles: true }),
+  it.effect(
+    "should use memory-backed Apply when generated files are requested",
+    () =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.gen(function* () {
+          const pipeline = yield* ScaffoldPipeline;
+          return yield* Effect.exit(
+            pipeline.run({ ...runInput, dryRun: true, showFiles: true }),
+          );
+        }).pipe(
+          Effect.provide(
+            layerWithServices({
+              preview: () =>
+                Effect.die(
+                  new Error("ordinary preview should not be requested"),
+                ),
+              previewFiles: () =>
+                Effect.succeed({
+                  apply: applyResult,
+                  files: [
+                    {
+                      path: "package.json",
+                      status: "created",
+                      contents: "{}\n",
+                    },
+                  ],
+                }),
+              run: () =>
+                Effect.die(
+                  new Error("dry-run should not run finalize scripts"),
+                ),
+            }),
+          ),
         );
+
+        expect(Exit.isSuccess(exit)).toBe(true);
+      }),
+  );
+
+  it.effect(
+    "should preview one skipped decision per conflicted path during a dry run",
+    () =>
+      Effect.gen(function* () {
+        const pipeline = yield* ScaffoldPipeline;
+        const exit = yield* Effect.exit(
+          pipeline.run({ ...runInput, dryRun: true }),
+        );
+
+        expect(Exit.isSuccess(exit)).toBe(true);
       }).pipe(
         Effect.provide(
           layerWithServices({
-            preview: () =>
-              Effect.die(new Error("ordinary preview should not be requested")),
-            previewFiles: () =>
-              Effect.succeed({
-                apply: applyResult,
-                files: [
-                  {
-                    path: "package.json",
-                    status: "created",
-                    contents: "{}\n",
-                  },
-                ],
-              }),
+            plan: conflictPlan,
+            preview: ({ apply }) => {
+              expect(apply.decisions).toEqual([
+                { path: "package.json", value: "skip" },
+              ]);
+              return Effect.succeed(applyResult);
+            },
             run: () =>
               Effect.die(new Error("dry-run should not run finalize scripts")),
           }),
         ),
-      );
-
-      expect(Exit.isSuccess(exit)).toBe(true);
-    }),
-  );
-
-  it.effect("previews dry-run conflicts as skipped decisions", () =>
-    Effect.gen(function* () {
-      const pipeline = yield* ScaffoldPipeline;
-      const exit = yield* Effect.exit(
-        pipeline.run({ ...runInput, dryRun: true }),
-      );
-
-      expect(Exit.isSuccess(exit)).toBe(true);
-    }).pipe(
-      Effect.provide(
-        layerWithServices({
-          plan: conflictPlan,
-          preview: ({ apply }) => {
-            expect(apply.decisions).toEqual([
-              { path: "package.json", value: "skip" },
-            ]);
-            return Effect.succeed(applyResult);
-          },
-          run: () =>
-            Effect.die(new Error("dry-run should not run finalize scripts")),
-        }),
       ),
-    ),
   );
 });

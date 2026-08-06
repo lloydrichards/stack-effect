@@ -92,7 +92,7 @@ const makeUnsortedBlueprint = () =>
 
 describe("ScaffoldFormatter", () => {
   layer(ScaffoldFormatter.layer)("formatters", (it) => {
-    it.effect("formats an empty blueprint", () =>
+    it.effect("should format an empty Blueprint when no nodes exist", () =>
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const blueprint = new Blueprint({
@@ -105,7 +105,7 @@ describe("ScaffoldFormatter", () => {
       }),
     );
 
-    it.effect("formats a normalized dependency blueprint", () =>
+    it.effect("should format dependencies when a Blueprint is normalized", () =>
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const blueprint = makeUnsortedBlueprint().toSorted();
@@ -122,7 +122,7 @@ describe("ScaffoldFormatter", () => {
       }),
     );
 
-    it.effect("formats an empty plan", () =>
+    it.effect("should format an empty Plan when no outcomes exist", () =>
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const plan = new Plan({
@@ -141,7 +141,7 @@ describe("ScaffoldFormatter", () => {
     );
 
     it.effect(
-      "formats a plan with create, modify, unchanged, and merge conflicts",
+      "should format outcomes and diagnostics when a Plan is mixed",
       () =>
         Effect.gen(function* () {
           const formatter = yield* ScaffoldFormatter;
@@ -205,6 +205,11 @@ describe("ScaffoldFormatter", () => {
                 exportPath: "./Api",
               },
               {
+                _tag: "barrelExport",
+                path: "packages/domain/src/index.ts",
+                exportPath: "./Health",
+              },
+              {
                 _tag: "tsconfig",
                 path: "packages/domain/tsconfig.json",
               },
@@ -232,7 +237,8 @@ describe("ScaffoldFormatter", () => {
               |│       ├── src
               |│       │   ├── [+] Api.ts
               |│       │   ╰── [!] index.ts
-              |│       │       ╰── merge: export ./Api
+              |│       │       ├── merge: export ./Api
+              |│       │       ╰── merge: export ./Health
               |│       ╰── [!] tsconfig.json
               |│           ╰── merge: tsconfig
               |├── [=] package.json
@@ -241,7 +247,7 @@ describe("ScaffoldFormatter", () => {
         }),
     );
 
-    it.effect("formats a missing JSX slot conflict", () =>
+    it.effect("should identify the slot when JSX composition conflicts", () =>
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const plan = new Plan({
