@@ -20,6 +20,7 @@ import {
   Schema,
   String as Str,
 } from "effect";
+import { findJsxSlotMarker, makeJsxSourceFile } from "../JsxSlot";
 
 type PlanningIntentPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
@@ -275,7 +276,8 @@ function assessPlanningPath({
   const hasTsconfig = planningPath.tsconfig !== undefined;
   const hasCompositions =
     planningPath.compositions.length > 0 ||
-    planningPath.objectFields.length > 0;
+    planningPath.objectFields.length > 0 ||
+    planningPath.jsxSlots.length > 0;
 
   return Match.value({
     hasContents,
@@ -471,13 +473,28 @@ const planCompositionMerge = (
   if (existingContents === undefined) {
     return createPathAssessment({
       classification: "conflict",
-      conflicts: Arr.map(planningPath.compositions, (composition) =>
-        planConflict.compositionTargetNotFound(
-          planningPath.path,
-          composition.targetVariable,
-          composition.functionName,
+      conflicts: [
+        ...Arr.map(planningPath.compositions, (composition) =>
+          planConflict.compositionTargetNotFound(
+            planningPath.path,
+            composition.targetVariable,
+            composition.functionName,
+          ),
         ),
-      ),
+        ...collectMissingJsxSlotConflicts(planningPath, existingContents),
+      ],
+    });
+  }
+
+  const jsxSlotConflicts = collectMissingJsxSlotConflicts(
+    planningPath,
+    existingContents,
+  );
+
+  if (jsxSlotConflicts.length > 0) {
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts: jsxSlotConflicts,
     });
   }
 
@@ -554,7 +571,34 @@ const assessCompositionMerge = (
     return createPathAssessment({ classification: "create" });
   }
 
+  const jsxSlotConflicts = collectMissingJsxSlotConflicts(
+    planningPath,
+    existingContents,
+  );
+
+  if (jsxSlotConflicts.length > 0) {
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts: jsxSlotConflicts,
+    });
+  }
+
   return createPathAssessment({ classification: "modify" });
+};
+
+const collectMissingJsxSlotConflicts = (
+  planningPath: PlanningIntentPath,
+  contents: string | undefined,
+) => {
+  const sourceFile =
+    contents === undefined ? undefined : makeJsxSourceFile(contents);
+
+  return Arr.flatMap(planningPath.jsxSlots, ({ slotId }) =>
+    sourceFile !== undefined &&
+    findJsxSlotMarker(sourceFile, slotId) !== undefined
+      ? []
+      : [planConflict.jsxSlotTargetNotFound(planningPath.path, slotId)],
+  );
 };
 
 /**
@@ -641,6 +685,8 @@ const planConflict = {
       targetVariable,
       functionName,
     }),
+  jsxSlotTargetNotFound: (path: string, slotId: string) =>
+    PlanConflict.cases.jsxSlotTargetNotFound.make({ path, slotId }),
 } as const;
 
 const collectInvalidPackageJsonConflicts = (

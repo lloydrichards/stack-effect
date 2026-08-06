@@ -158,6 +158,10 @@ export const PlanConflict = Schema.TaggedUnion({
     targetVariable: Schema.String,
     functionName: Schema.String,
   },
+  jsxSlotTargetNotFound: {
+    path: Schema.String,
+    slotId: Schema.String,
+  },
 });
 
 /**
@@ -195,6 +199,8 @@ export class Plan extends Schema.Class<Plan>("Plan")({
               completeFile: (c) => `completeFile:${c.path}`,
               compositionTargetNotFound: (c) =>
                 `compositionTargetNotFound:${c.path}:${c.targetVariable}:${c.functionName}`,
+              jsxSlotTargetNotFound: (c) =>
+                `jsxSlotTargetNotFound:${c.path}:${c.slotId}`,
             }),
         ),
       ),

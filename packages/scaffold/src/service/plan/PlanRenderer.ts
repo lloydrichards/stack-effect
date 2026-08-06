@@ -132,6 +132,11 @@ const renderConflict = (
       kind: "target-not-found",
       description: `Cannot find \`const ${c.targetVariable} = ${c.functionName}(...)\` in ${c.path}; add the argument manually`,
     })),
+    Match.tag("jsxSlotTargetNotFound", (c) => ({
+      path: c.path,
+      kind: "jsx-slot-target-not-found",
+      description: `Cannot find JSX slot \`@slot:${c.slotId}\` in ${c.path}; add the content manually`,
+    })),
     Match.exhaustive,
   );
 

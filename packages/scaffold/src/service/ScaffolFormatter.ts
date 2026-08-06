@@ -386,6 +386,7 @@ const formatConflictLine = (conflict: typeof PlanConflict.Type) =>
         tsconfig: () => "merge: tsconfig",
         compositionTargetNotFound: (c) =>
           `composition target not found: ${c.targetVariable} (${c.functionName})`,
+        jsxSlotTargetNotFound: (c) => `JSX slot target not found: ${c.slotId}`,
       }),
       Match.exhaustive,
     ),
