@@ -12,8 +12,17 @@ import {
   PlanService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Confirm, MultiSelect } from "@repo/tui";
-import { Console, Context, Data, Effect, Layer, Result, Stream } from "effect";
+import { Confirm, type ConfirmOptions, MultiSelect } from "@repo/tui";
+import {
+  Array as Arr,
+  Console,
+  Context,
+  Data,
+  Effect,
+  Layer,
+  Result,
+  Stream,
+} from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { DryRunPreview } from "../components/DryRunPreview";
 import { NextStepsPreview } from "../components/NextStepsPreview";
@@ -42,34 +51,58 @@ const skippedFinalizeScripts = (
     .filter((script) => !selectedCommands.has(script.command))
     .map((script) => ({ label: script.label, command: script.command }));
 
+const conflictGroupsFrom = (plan: Plan) =>
+  Arr.map(
+    Arr.dedupe(Arr.map(plan.conflicts, (conflict) => conflict.path)),
+    (path) => ({
+      path,
+      conflicts: Arr.filter(
+        plan.conflicts,
+        (conflict) => conflict.path === path,
+      ),
+    }),
+  );
+
 const skipConflictDecisions = (plan: Plan) =>
-  plan.conflicts.map((conflict) => ({
-    path: conflict.path,
+  conflictGroupsFrom(plan).map(({ path }) => ({
+    path,
     value: "skip" as const,
   }));
+
+export const resolveConflictDecisions = <E, R>({
+  plan,
+  yes,
+  planBox,
+  confirm,
+}: {
+  readonly plan: Plan;
+  readonly yes: boolean;
+  readonly planBox: Box.Box<Ansi.AnsiStyle>;
+  readonly confirm: (options: ConfirmOptions) => Effect.Effect<boolean, E, R>;
+}) =>
+  Effect.forEach(conflictGroupsFrom(plan), ({ path, conflicts }) =>
+    Effect.gen(function* () {
+      const override = yes
+        ? false
+        : yield* confirm({
+            message: `Conflict at ${path} (${Arr.join(
+              Arr.map(conflicts, (conflict) => conflict._tag),
+              ", ",
+            )}). Override?`,
+            children: planBox,
+            initial: false,
+          });
+      return {
+        path,
+        value: override ? ("override" as const) : ("skip" as const),
+      };
+    }),
+  );
 
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
   "ScaffoldPipeline",
   {
     make: Effect.gen(function* () {
-      const resolveConflicts = (plan: Plan, yes: boolean) =>
-        plan.conflicts.length > 0
-          ? Effect.forEach(plan.conflicts, (conflict) =>
-              Effect.gen(function* () {
-                const override = yes
-                  ? false
-                  : yield* Confirm({
-                      message: `Conflict at ${conflict.path} (${conflict._tag}). Override?`,
-                      initial: false,
-                    });
-                return {
-                  path: conflict.path,
-                  value: override ? ("override" as const) : ("skip" as const),
-                };
-              }),
-            )
-          : Effect.succeed([]);
-
       const run = ({
         selection,
         repoRoot,
@@ -187,7 +220,12 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             return;
           }
 
-          const decisions = yield* resolveConflicts(plan, yes);
+          const decisions = yield* resolveConflictDecisions({
+            plan,
+            yes,
+            planBox,
+            confirm: Confirm,
+          });
 
           if (!yes) {
             const proceed = yield* Confirm({
