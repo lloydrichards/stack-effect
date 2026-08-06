@@ -8,12 +8,12 @@ export const cliPackageJsonContents = `{
   },
   "scripts": {},
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.98",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-beta.98",
     "effect": "4.0.0-beta.98"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "@types/bun": "^1.2.17",
+    "{{#if runtime=bun}}@types/bun{{/if}}{{#if runtime=node}}@types/node{{/if}}": "{{#if runtime=bun}}^1.2.17{{/if}}{{#if runtime=node}}^24.0.0{{/if}}",
     "vitest": "^4.1.4"
   }
 }
@@ -25,7 +25,7 @@ export const cliTsconfigContents = `{
     "rootDir": "../..",
     "outDir": "dist",
     "noEmit": true,
-    "types": ["@types/bun"]
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
@@ -37,11 +37,11 @@ export const cliTsconfigContents = `{
  *
  * This is a minimal CLI entrypoint that includes:
  * - A root command with version flag
- * - BunRuntime for execution
+ * - Runtime-specific platform services for execution
  *
  * Additional subcommands are added by modules.
  */
-export const cliIndexContents = `import { BunRuntime, BunServices } from "@effect/platform-bun";
+export const cliIndexContents = `{{#if runtime=bun}}import { BunRuntime, BunServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime, NodeServices } from "@effect/platform-node";{{/if}}
 import { Effect, Layer } from "effect";
 import { Command } from "effect/unstable/cli";
 
@@ -51,13 +51,13 @@ const root = Command.make("{{packageName}}");
 const AllCommands = Command.withSubcommands([]);
 
 // NOTE: Modules append additional runtime layers through Layer.mergeAll.
-const RuntimeLayers = Layer.mergeAll(BunServices.layer);
+const RuntimeLayers = Layer.mergeAll({{#if runtime=bun}}BunServices{{/if}}{{#if runtime=node}}NodeServices{{/if}}.layer);
 
 root.pipe(
   AllCommands,
   Command.run({ version: "0.0.0" }),
   Effect.provide(RuntimeLayers),
-  BunRuntime.runMain,
+  {{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain,
 );
 `;
 

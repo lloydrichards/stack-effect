@@ -355,9 +355,24 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}esbuild{{/if}}",
+        value: "^0.27.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}tsx{{/if}}",
+        value: "^4.20.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "build",
-        value: "bun build src/index.ts --outdir=dist --target=bun --minify",
+        value:
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -371,14 +386,16 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "dev",
-        value: "bun run src/index.ts",
+        value:
+          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "dev:watch",
-        value: "bun --watch run src/index.ts",
+        value:
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -430,9 +447,24 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}esbuild{{/if}}",
+        value: "^0.27.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}tsx{{/if}}",
+        value: "^4.20.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "build",
-        value: "bun build src/index.ts --outdir=dist --target=bun --minify",
+        value:
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -446,7 +478,8 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "dev",
-        value: "bun --watch run src/index.ts",
+        value:
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",

@@ -9,7 +9,6 @@ export const packagePackageJsonContents = `{
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "@types/bun": "^1.2.17",
     "vitest": "^4.1.4"
   }
 }
