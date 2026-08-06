@@ -1,3 +1,4 @@
+export * as MemoryFileSystem from "./MemoryFileSystem";
 export { ApplyService } from "./service/apply/ApplyService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export {
