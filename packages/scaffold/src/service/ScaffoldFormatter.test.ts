@@ -240,5 +240,40 @@ describe("ScaffoldFormatter", () => {
           );
         }),
     );
+
+    it.effect("formats a missing JSX slot conflict", () =>
+      Effect.gen(function* () {
+        const formatter = yield* ScaffoldFormatter;
+        const plan = new Plan({
+          outcomes: [
+            {
+              _tag: "composed",
+              path: "apps/web/src/App.tsx",
+              classification: "conflict",
+              operations: [
+                {
+                  _tag: "ts-jsx-slot",
+                  fileType: "typescript",
+                  slotId: "components",
+                  content: "<Card />",
+                },
+              ],
+            },
+          ],
+          conflicts: [
+            {
+              _tag: "jsxSlotTargetNotFound",
+              path: "apps/web/src/App.tsx",
+              slotId: "components",
+            },
+          ],
+        });
+
+        const result = yield* formatter.formatPlan(plan);
+        expect(Box.renderPlainSync(result.tree)).toContain(
+          "JSX slot target not found: components",
+        );
+      }),
+    );
   });
 });

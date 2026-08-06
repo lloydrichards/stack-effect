@@ -105,6 +105,16 @@ describe("@repo/domain Plan", () => {
       ],
       conflicts: [
         {
+          _tag: "jsxSlotTargetNotFound",
+          path: "apps/web/src/App.tsx",
+          slotId: "footer",
+        },
+        {
+          _tag: "jsxSlotTargetNotFound",
+          path: "apps/web/src/App.tsx",
+          slotId: "components",
+        },
+        {
           _tag: "tsconfig",
           path: "packages/domain/tsconfig.json",
         },
@@ -122,7 +132,21 @@ describe("@repo/domain Plan", () => {
     ]);
     expect(plan.conflicts.map((conflict) => conflict.path)).toEqual([
       "packages/domain/src/index.ts",
+      "apps/web/src/App.tsx",
+      "apps/web/src/App.tsx",
       "packages/domain/tsconfig.json",
+    ]);
+    expect(plan.conflicts.slice(1, 3)).toEqual([
+      {
+        _tag: "jsxSlotTargetNotFound",
+        path: "apps/web/src/App.tsx",
+        slotId: "components",
+      },
+      {
+        _tag: "jsxSlotTargetNotFound",
+        path: "apps/web/src/App.tsx",
+        slotId: "footer",
+      },
     ]);
   });
 });
