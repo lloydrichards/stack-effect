@@ -1,4 +1,9 @@
 export * as MemoryFileSystem from "./MemoryFileSystem";
+export {
+  type ApplyPreview,
+  type ApplyPreviewFile,
+  ApplyPreviewService,
+} from "./service/apply/ApplyPreviewService";
 export { ApplyService } from "./service/apply/ApplyService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export {
