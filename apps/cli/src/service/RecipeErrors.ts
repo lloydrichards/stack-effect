@@ -30,7 +30,7 @@ export const RecipeResolveOptions = Schema.Struct({
 
 export type RecipeResolveOptions = typeof RecipeResolveOptions.Type;
 
-export class InvalidRecipeSpec extends Schema.TaggedErrorClass<InvalidRecipeSpec>()(
+export class InvalidRecipeSpec extends Schema.TaggedError<InvalidRecipeSpec>()(
   "InvalidRecipeSpec",
   {
     issues: Schema.Array(
@@ -46,7 +46,7 @@ export class InvalidRecipeSpec extends Schema.TaggedErrorClass<InvalidRecipeSpec
   }
 }
 
-export class MissingRecipeProvider extends Schema.TaggedErrorClass<MissingRecipeProvider>()(
+export class MissingRecipeProvider extends Schema.TaggedError<MissingRecipeProvider>()(
   "MissingRecipeProvider",
   {
     requestingModuleId: ModuleId,
@@ -59,7 +59,7 @@ export class MissingRecipeProvider extends Schema.TaggedErrorClass<MissingRecipe
   }
 }
 
-export class AmbiguousRecipeProvider extends Schema.TaggedErrorClass<AmbiguousRecipeProvider>()(
+export class AmbiguousRecipeProvider extends Schema.TaggedError<AmbiguousRecipeProvider>()(
   "AmbiguousRecipeProvider",
   {
     requestingModuleId: ModuleId,
@@ -83,7 +83,7 @@ export class AmbiguousRecipeProvider extends Schema.TaggedErrorClass<AmbiguousRe
   }
 }
 
-export class UnresolvedRecipeTarget extends Schema.TaggedErrorClass<UnresolvedRecipeTarget>()(
+export class UnresolvedRecipeTarget extends Schema.TaggedError<UnresolvedRecipeTarget>()(
   "UnresolvedRecipeTarget",
   {
     requestingModuleId: ModuleId,

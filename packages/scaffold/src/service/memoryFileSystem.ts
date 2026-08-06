@@ -44,7 +44,7 @@ const Inode: Brand.Constructor<Inode> = Brand.nominal<Inode>();
 
 const RootInode = Inode(1);
 
-type FileDescriptor = FileSystem.File.Descriptor;
+type FileDescriptor = Brand.Branded<number, "MemoryFileSystemFileDescriptor">;
 
 const FileDescriptor: Brand.Constructor<FileDescriptor> =
   Brand.nominal<FileDescriptor>();

@@ -1,18 +1,20 @@
 import { ApplyFailure } from "@repo/domain/Apply";
-import { CompositionOperation } from "@repo/domain/Plan";
+import {
+  CompositionOperation,
+  type JsonCompositionOperation,
+  type TypeScriptCompositionOperation,
+} from "@repo/domain/Plan";
 import { Array, Context, Effect, Layer } from "effect";
 import { JsonComposer } from "./JsonComposer";
 import { TypeScriptComposer } from "./TypeScriptComposer";
 
-// NOTE: Use fileType instead of Schema.toTaggedUnion guards; those only match the last member per tag value.
 const isJsonOp = (
   op: typeof CompositionOperation.Type,
-): op is typeof CompositionOperation.cases.json.Type => op.fileType === "json";
+): op is JsonCompositionOperation => op.fileType === "json";
 
 const isTypeScriptOp = (
   op: typeof CompositionOperation.Type,
-): op is typeof CompositionOperation.cases.typescript.Type =>
-  op.fileType === "typescript";
+): op is TypeScriptCompositionOperation => op.fileType === "typescript";
 
 export interface CompositionEngineShape {
   readonly compose: (

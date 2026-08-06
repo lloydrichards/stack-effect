@@ -158,7 +158,7 @@ export const plan = Command.make(
           ),
         ),
         Match.when("llm", () =>
-          Schema.encodeEffect(Schema.UnknownFromJsonString)(
+          Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
             renderPlanForLlm({
               outcomes: planResult.outcomes,
               conflicts: planResult.conflicts,
@@ -169,7 +169,7 @@ export const plan = Command.make(
           ),
         ),
         Match.when("raw", () =>
-          Schema.encodeEffect(Schema.UnknownFromJsonString)({
+          Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
             outcomes: planResult.outcomes,
             conflicts: planResult.conflicts,
             summary,

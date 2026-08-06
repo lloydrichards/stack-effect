@@ -1,5 +1,5 @@
 import { ApplyFailure } from "@repo/domain/Apply";
-import type { CompositionOperation } from "@repo/domain/Plan";
+import type { JsonCompositionOperation } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, Layer, Match, Schema } from "effect";
 
 const PackageJsonFromString = Schema.fromJsonString(
@@ -9,7 +9,7 @@ const PackageJsonFromString = Schema.fromJsonString(
 export interface JsonComposerShape {
   readonly compose: (
     contents: string,
-    operations: ReadonlyArray<typeof CompositionOperation.cases.json.Type>,
+    operations: ReadonlyArray<JsonCompositionOperation>,
   ) => Effect.Effect<string, ApplyFailure, never>;
 }
 
@@ -20,7 +20,7 @@ export class JsonComposer extends Context.Service<
   make: Effect.succeed({
     compose: (
       contents: string,
-      operations: ReadonlyArray<typeof CompositionOperation.cases.json.Type>,
+      operations: ReadonlyArray<JsonCompositionOperation>,
     ) =>
       Effect.gen(function* () {
         const pkg = yield* Schema.decodeUnknownEffect(PackageJsonFromString)(
@@ -64,9 +64,9 @@ export class JsonComposer extends Context.Service<
 
 const applyJsonOperation = (
   pkg: Record<string, unknown>,
-  op: typeof CompositionOperation.cases.json.Type,
+  op: JsonCompositionOperation,
 ): Effect.Effect<void, ApplyFailure, never> =>
-  Match.typeTags<typeof CompositionOperation.cases.json.Type>()({
+  Match.typeTags<JsonCompositionOperation>()({
     "json-pkg-exports": (o) =>
       assignPackageJsonEntries(pkg, "exports", o.entries),
     "json-pkg-deps": (o) => assignPackageJsonEntries(pkg, o.section, o.entries),
