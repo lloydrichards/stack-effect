@@ -23,6 +23,7 @@ import type {
   SourceFile,
 } from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
+import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
 export interface TypeScriptComposerShape {
   readonly compose: (
@@ -49,7 +50,14 @@ export class TypeScriptComposer extends Context.Service<
         skipAddingFilesFromTsConfig: true,
       });
 
-      const sourceFile = project.createSourceFile("temp.ts", contents);
+      const sourceFile = project.createSourceFile(
+        operations.some((operation) => operation._tag === "ts-jsx-slot")
+          ? "temp.tsx"
+          : "temp.ts",
+        contents,
+      );
+
+      const previousJsxSlotContents = new Map<string, string>();
 
       yield* Effect.forEach(
         operations,
@@ -68,7 +76,7 @@ export class TypeScriptComposer extends Context.Service<
               applyTsObjectField(sourceFile, fieldOp),
             ),
             Match.tag("ts-jsx-slot", (slotOp) =>
-              Effect.sync(() => applyTsJsxSlot(sourceFile, slotOp)),
+              applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
             ),
             Match.exhaustive,
           ),
@@ -306,14 +314,59 @@ const missingTarget = (targetVariable: string, functionName: string) =>
 const applyTsJsxSlot = (
   sourceFile: SourceFile,
   op: typeof TsJsxSlotOp.Type,
-): void => {
-  const text = sourceFile.getFullText();
-  const slotMarker = `{/* @slot:${op.slotId} */}`;
-  const index = text.indexOf(slotMarker);
+  previousContents: Map<string, string>,
+) =>
+  Effect.suspend(() => {
+    const text = sourceFile.getFullText();
+    const marker = findJsxSlotMarker(sourceFile, op.slotId);
 
-  if (index === -1) return;
+    if (!marker) {
+      return Effect.fail(
+        new ApplyFailure({
+          reason: "repoRootInvalid",
+          message: `Could not find JSX slot ${jsxSlotMarker(op.slotId)} during TypeScript composition.`,
+        }),
+      );
+    }
 
-  const insertPos = index + slotMarker.length;
-  const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
-  sourceFile.replaceWithText(newText);
-};
+    const markerEnd = marker.getEnd();
+    const parent = marker.getParent();
+    const children =
+      parent.getKind() === SyntaxKind.JsxElement
+        ? parent.asKindOrThrow(SyntaxKind.JsxElement).getJsxChildren()
+        : parent.getKind() === SyntaxKind.JsxFragment
+          ? parent.asKindOrThrow(SyntaxKind.JsxFragment).getJsxChildren()
+          : [];
+    const markerIndex = children.findIndex((child) => child === marker);
+    const slotChildren = children.slice(markerIndex + 1);
+    const nextMarkerIndex = slotChildren.findIndex(
+      (child) =>
+        child.getKind() === SyntaxKind.JsxExpression &&
+        isJsxSlotMarker(child.asKindOrThrow(SyntaxKind.JsxExpression)),
+    );
+    const boundedSlotChildren =
+      nextMarkerIndex === -1
+        ? slotChildren
+        : slotChildren.slice(0, nextMarkerIndex);
+    const existingChild = boundedSlotChildren.find(
+      (child) => child.getText().trim() === op.content.trim(),
+    );
+
+    if (existingChild !== undefined) {
+      previousContents.set(op.slotId, op.content);
+      return Effect.void;
+    }
+
+    const previousContent = previousContents.get(op.slotId);
+    const previousChild = boundedSlotChildren.find(
+      (child) => child.getText().trim() === previousContent?.trim(),
+    );
+    const insertPos =
+      previousContent !== undefined && previousChild !== undefined
+        ? previousChild.getEnd()
+        : markerEnd;
+    const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
+    sourceFile.replaceWithText(newText);
+    previousContents.set(op.slotId, op.content);
+    return Effect.void;
+  });
