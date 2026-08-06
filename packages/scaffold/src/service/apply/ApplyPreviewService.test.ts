@@ -40,7 +40,15 @@ const makeApply = (
   decisions: ReadonlyArray<typeof ApplyDecision.Type> = [],
 ) =>
   new Apply({
-    plan: new Plan({ outcomes: [...outcomes], conflicts: [] }),
+    plan: new Plan({
+      outcomes: [...outcomes],
+      conflicts: outcomes
+        .filter((outcome) => outcome.classification === "conflict")
+        .map((outcome) => ({
+          _tag: "completeFile" as const,
+          path: outcome.path,
+        })),
+    }),
     decisions: [...decisions],
   });
 
@@ -63,7 +71,7 @@ const runWithHost = <A, E>(
   });
 
 describe("ApplyPreviewService", () => {
-  it.effect("returns generated contents for a greenfield create", () =>
+  it.effect("should return contents when creating a file", () =>
     runWithHost(
       Effect.gen(function* () {
         const service = yield* ApplyPreviewService;
@@ -86,39 +94,37 @@ describe("ApplyPreviewService", () => {
     ),
   );
 
-  it.effect(
-    "uses an isolated Apply layer when a host Apply layer is live",
-    () =>
-      Effect.gen(function* () {
-        const hostFileSystem = yield* MemoryFileSystem.make;
-        const hostLayer = Layer.mergeAll(
-          Layer.succeed(FileSystem.FileSystem, hostFileSystem),
-          Path.layer,
-        );
-        const layer = Layer.mergeAll(
-          ApplyService.layer,
-          ApplyPreviewService.layer,
-        ).pipe(Layer.provide(hostLayer));
+  it.effect("should isolate writes when host Apply is live", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* MemoryFileSystem.make;
+      const hostLayer = Layer.mergeAll(
+        Layer.succeed(FileSystem.FileSystem, hostFileSystem),
+        Path.layer,
+      );
+      const layer = Layer.mergeAll(
+        ApplyService.layer,
+        ApplyPreviewService.layer,
+      ).pipe(Layer.provide(hostLayer));
 
-        const result = yield* Effect.gen(function* () {
-          const service = yield* ApplyPreviewService;
-          return yield* service.preview({
-            apply: makeApply([
-              complete("src/index.ts", "create", "export const ok = true;\n"),
-            ]),
-            repoRoot,
-          });
-        }).pipe(Effect.provide(layer));
+      const result = yield* Effect.gen(function* () {
+        const service = yield* ApplyPreviewService;
+        return yield* service.preview({
+          apply: makeApply([
+            complete("src/index.ts", "create", "export const ok = true;\n"),
+          ]),
+          repoRoot,
+        });
+      }).pipe(Effect.provide(layer));
 
-        expect(result.apply.failed).toEqual([]);
-        expect(result.files.map((file) => file.path)).toEqual(["src/index.ts"]);
-        expect(yield* hostFileSystem.exists("/workspace/src/index.ts")).toBe(
-          false,
-        );
-      }),
+      expect(result.apply.failed).toEqual([]);
+      expect(result.files.map((file) => file.path)).toEqual(["src/index.ts"]);
+      expect(yield* hostFileSystem.exists("/workspace/src/index.ts")).toBe(
+        false,
+      );
+    }),
   );
 
-  it.effect("composes from an existing host file without mutating it", () =>
+  it.effect("should preserve the host file when composing", () =>
     runWithHost(
       Effect.gen(function* () {
         const hostFileSystem = yield* FileSystem.FileSystem;
@@ -156,7 +162,7 @@ describe("ApplyPreviewService", () => {
     ),
   );
 
-  it.effect("keeps virtual paths POSIX with a Windows host path service", () =>
+  it.effect("should use POSIX paths when the host uses Windows", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* MemoryFileSystem.make;
       const posixPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
@@ -217,7 +223,7 @@ describe("ApplyPreviewService", () => {
     }),
   );
 
-  it.effect("does not return contents for skipped conflicts", () =>
+  it.effect("should omit contents when a conflict is skipped", () =>
     runWithHost(
       Effect.gen(function* () {
         const service = yield* ApplyPreviewService;
@@ -235,7 +241,7 @@ describe("ApplyPreviewService", () => {
     ),
   );
 
-  it.effect("sorts returned files by path", () =>
+  it.effect("should sort files when returning a preview", () =>
     runWithHost(
       Effect.gen(function* () {
         const service = yield* ApplyPreviewService;

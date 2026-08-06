@@ -176,7 +176,12 @@ const makeApply = ({
   new ApplyIntent({
     plan: new Plan({
       outcomes: [...outcomes],
-      conflicts: [],
+      conflicts: outcomes
+        .filter((outcome) => outcome.classification === "conflict")
+        .map((outcome) => ({
+          _tag: "completeFile" as const,
+          path: outcome.path,
+        })),
     }),
     decisions: [...decisions],
   });
