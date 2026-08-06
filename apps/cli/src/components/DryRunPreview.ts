@@ -1,9 +1,20 @@
 import type { ApplyResult } from "@repo/domain/Apply";
+import type { ApplyPreviewFile } from "@repo/scaffold";
 import { Breakpoint, Panel } from "@repo/tui";
+import { Array as Arr, String as Str } from "effect";
 import { Ansi, Box, Container, Flex } from "effect-boxes";
 
 const sectionTitle = (title: string) =>
   Box.text(title).pipe(Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)));
+
+const wrapFileContents = (contents: string, width: number) =>
+  Arr.flatMap(Str.split(contents, "\n"), (line) =>
+    line.length === 0
+      ? [""]
+      : Arr.makeBy(Math.ceil(line.length / width), (index) =>
+          line.slice(index * width, (index + 1) * width),
+        ),
+  );
 
 export const DryRunPreview = ({
   blueprint,
@@ -11,6 +22,7 @@ export const DryRunPreview = ({
   apply,
   scripts,
   createCommand,
+  generatedFiles,
 }: {
   blueprint: Box.Box<Ansi.AnsiStyle>;
   plan: {
@@ -26,9 +38,11 @@ export const DryRunPreview = ({
     origin: string;
   }>;
   createCommand?: string | undefined;
+  generatedFiles?: ReadonlyArray<ApplyPreviewFile> | undefined;
 }) => {
   const terminalWidth = process.stdout.columns ?? 80;
   const commandWidth = Math.max(32, terminalWidth - 8);
+  const fileContentWidth = Math.max(16, terminalWidth - 10);
 
   const blueprintContent = Box.vsep(
     [sectionTitle("Blueprint"), blueprint],
@@ -217,5 +231,59 @@ export const DryRunPreview = ({
     },
   ]);
 
-  return Box.vsep([panels, footer], 1, Box.left).pipe(Box.moveDown(1));
+  const generatedFilesContent =
+    generatedFiles === undefined
+      ? []
+      : [
+          Box.vsep(
+            [
+              sectionTitle("Generated Files"),
+              ...(generatedFiles.length === 0
+                ? [Box.text("(none)").pipe(Box.annotate(Ansi.dim))]
+                : generatedFiles.map((file) =>
+                    Box.vsep(
+                      [
+                        Box.hsep(
+                          [
+                            Box.text(
+                              file.status === "created" ? "+" : "~",
+                            ).pipe(
+                              Box.annotate(
+                                file.status === "created"
+                                  ? Ansi.green
+                                  : Ansi.yellow,
+                              ),
+                            ),
+                            Box.text(file.path).pipe(Box.annotate(Ansi.bold)),
+                          ],
+                          1,
+                          Box.left,
+                        ),
+                        Box.vcat(
+                          Arr.map(
+                            wrapFileContents(file.contents, fileContentWidth),
+                            Box.text,
+                          ),
+                          Box.left,
+                        ).pipe(Box.moveRight(2)),
+                      ],
+                      1,
+                      Box.left,
+                    ),
+                  )),
+            ],
+            1,
+            Box.left,
+          ).pipe(
+            Box.minWidth(Math.max(1, terminalWidth - 6)),
+            Panel.make({
+              padding: Box.pad(0, 2),
+              border: Box.border("rounded", { annotation: Ansi.dim }),
+            }),
+          ),
+        ];
+
+  return Box.vsep([panels, ...generatedFilesContent, footer], 1, Box.left).pipe(
+    Box.moveDown(1),
+  );
 };

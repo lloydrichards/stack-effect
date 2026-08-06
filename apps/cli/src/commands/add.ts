@@ -36,7 +36,9 @@ import {
   dryRunFlag,
   recipeTargetFlag,
   rootFlag,
+  showFilesFlag,
   trustFlag,
+  validateShowFiles,
   yesFlag,
 } from "../flags";
 import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
@@ -780,10 +782,12 @@ export const add = Command.make(
     target: recipeTargetFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
+    showFiles: showFilesFlag,
     trust: trustFlag,
   },
   (flags) =>
     Effect.gen(function* () {
+      yield* validateShowFiles(flags);
       if (
         flags.yes &&
         Option.isNone(flags.target) &&
@@ -829,6 +833,7 @@ export const add = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        showFiles: flags.showFiles,
         trust: flags.trust || flags.yes,
         config,
         createCommand,

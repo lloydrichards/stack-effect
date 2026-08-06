@@ -6,6 +6,7 @@ import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
+  ApplyPreviewService,
   ApplyService,
   BlueprintService,
   FinalizeService,
@@ -52,6 +53,7 @@ const runInput = {
   repoRoot: "/tmp/pipeline-app",
   yes: true,
   dryRun: false,
+  showFiles: false,
   trust: true,
   config,
 };
@@ -74,6 +76,8 @@ const executable = {
 const layerWithServices = ({
   plan: planned = plan,
   preview = () => Effect.succeed(applyResult),
+  previewFiles = () =>
+    Effect.die(new Error("memory preview should not be requested")),
   run,
 }: {
   plan?: Plan;
@@ -81,6 +85,7 @@ const layerWithServices = ({
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
   }) => Effect.Effect<ApplyResult, never, never>;
+  previewFiles?: (typeof ApplyPreviewService.Service)["preview"];
   run: (typeof FinalizeService.Service)["run"];
 }) =>
   Layer.mergeAll(
@@ -105,6 +110,9 @@ const layerWithServices = ({
     Layer.succeed(ApplyService, {
       apply: () => Effect.succeed(applyResult),
       preview,
+    }),
+    Layer.succeed(ApplyPreviewService, {
+      preview: previewFiles,
     }),
     Layer.succeed(FinalizeService, {
       preview: () => Effect.succeed([script]),
@@ -155,6 +163,39 @@ describe("ScaffoldPipeline", () => {
         }),
       ),
     ),
+  );
+
+  it.effect("uses memory-backed apply when show-files is enabled", () =>
+    Effect.gen(function* () {
+      const exit = yield* Effect.gen(function* () {
+        const pipeline = yield* ScaffoldPipeline;
+        return yield* Effect.exit(
+          pipeline.run({ ...runInput, dryRun: true, showFiles: true }),
+        );
+      }).pipe(
+        Effect.provide(
+          layerWithServices({
+            preview: () =>
+              Effect.die(new Error("ordinary preview should not be requested")),
+            previewFiles: () =>
+              Effect.succeed({
+                apply: applyResult,
+                files: [
+                  {
+                    path: "package.json",
+                    status: "created",
+                    contents: "{}\n",
+                  },
+                ],
+              }),
+            run: () =>
+              Effect.die(new Error("dry-run should not run finalize scripts")),
+          }),
+        ),
+      );
+
+      expect(Exit.isSuccess(exit)).toBe(true);
+    }),
   );
 
   it.effect("previews dry-run conflicts as skipped decisions", () =>

@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
 import {
+  ApplyPreviewService,
   ApplyService,
   BlueprintService,
   ContributionResolver,
@@ -44,6 +45,7 @@ const root = Command.make("stack-effect").pipe(
 const RecipeLayer = RecipeService.layer;
 
 const MainLayer = Layer.mergeAll(
+  ApplyPreviewService.layer,
   ApplyService.layer,
   BlueprintService.layer,
   ContributionResolver.layer,
