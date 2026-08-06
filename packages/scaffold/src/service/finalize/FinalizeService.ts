@@ -64,14 +64,21 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
         const moduleScripts = yield* Effect.forEach(moduleNodes, (moduleNode) =>
           Effect.gen(function* () {
-            const targetNode = Arr.findFirst(
-              targetNodes,
-              (t) => t.id === moduleNode.targetId,
+            const targetNode = yield* Option.match(
+              Arr.findFirst(targetNodes, (t) => t.id === moduleNode.targetId),
+              {
+                onNone: () =>
+                  Effect.die(
+                    new Error(
+                      `Validated Blueprint is missing target ${moduleNode.targetId}`,
+                    ),
+                  ),
+                onSome: Effect.succeed,
+              },
             );
-            if (Option.isNone(targetNode)) return [];
 
             const definition = yield* catalog.getModule(moduleNode.moduleId);
-            const context = createTokenContext(config, targetNode.value);
+            const context = createTokenContext(config, targetNode);
             return Arr.map(definition.scripts ?? [], (s) => ({
               label: s.label,
               command: context.resolve(s.command),
@@ -152,16 +159,23 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
           const moduleSteps = yield* Effect.forEach(moduleNodes, (moduleNode) =>
             Effect.gen(function* () {
-              const targetNode = Arr.findFirst(
-                targetNodes,
-                (t) => t.id === moduleNode.targetId,
+              const targetNode = yield* Option.match(
+                Arr.findFirst(targetNodes, (t) => t.id === moduleNode.targetId),
+                {
+                  onNone: () =>
+                    Effect.die(
+                      new Error(
+                        `Validated Blueprint is missing target ${moduleNode.targetId}`,
+                      ),
+                    ),
+                  onSome: Effect.succeed,
+                },
               );
-              if (Option.isNone(targetNode)) return [];
 
               const definition = yield* catalog.getModule(moduleNode.moduleId);
               return resolveNextSteps(
                 definition.nextSteps,
-                createTokenContext(config, targetNode.value),
+                createTokenContext(config, targetNode),
               );
             }),
           ).pipe(Effect.map(Arr.flatten));

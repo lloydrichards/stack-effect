@@ -49,13 +49,23 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         const state = yield* resolveSelection(selection, catalog);
         const finalState = yield* Ref.get(state);
 
-        return new Blueprint({
+        const blueprint = yield* Blueprint.makeEffect({
           nodes: [
             ...HashMap.values(finalState.targets),
             ...HashMap.values(finalState.attachedModules),
           ],
           edges: Arr.fromIterable(HashMap.values(finalState.edges)),
-        }).toSorted();
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new BlueprintFailure({
+                message: `Invalid resolved Blueprint: ${cause.message}`,
+                cause,
+              }),
+          ),
+        );
+
+        return blueprint.toSorted();
       });
 
       return { resolve };

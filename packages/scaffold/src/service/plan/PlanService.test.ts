@@ -2,11 +2,11 @@ import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type {
-  Plan,
+import {
+  type Plan,
   PlanFailure,
-  PlanOutcome,
-  RepoSnapshot,
+  type PlanOutcome,
+  type RepoSnapshot,
 } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
@@ -164,28 +164,37 @@ const getOutcome = (
   return outcome;
 };
 
+const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
+  expect(Exit.isFailure(exit)).toBe(true);
+  assert(Exit.isFailure(exit), "Expected effect to fail");
+  return Cause.squash(exit.cause);
+};
+
 const makePlanServiceLayer = (
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
   }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
+  assessorLayer = PlanAssessor.layer,
 ) =>
   Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
-    Layer.provide(PlanAssessor.layer),
+    Layer.provide(assessorLayer),
   );
 
 const buildPlan = ({
   blueprint,
   load,
+  assessorLayer,
 }: {
   blueprint: typeof Blueprint.Type;
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
   }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>;
+  assessorLayer?: Layer.Layer<PlanAssessor>;
 }) =>
   Effect.gen(function* () {
     const planService = yield* PlanService;
@@ -197,9 +206,43 @@ const buildPlan = ({
         runtime: { _tag: "bun" },
       }),
     });
-  }).pipe(Effect.provide(makePlanServiceLayer(load)));
+  }).pipe(Effect.provide(makePlanServiceLayer(load, assessorLayer)));
 
 describe("PlanService", () => {
+  it.effect(
+    "should return PlanFailure when projection violates Plan invariants",
+    () =>
+      Effect.gen(function* () {
+        const invalidAssessorLayer = Layer.effect(PlanAssessor)(
+          PlanAssessor.make.pipe(
+            Effect.map((assessor) => ({
+              ...assessor,
+              assessPlanningPath: (input) => ({
+                ...assessor.assessPlanningPath(input),
+                classification: "conflict" as const,
+                conflicts: [],
+              }),
+            })),
+          ),
+        );
+
+        const exit = yield* Effect.exit(
+          buildPlan({
+            blueprint: makeDomainBlueprint(),
+            load: ({ paths }) =>
+              Effect.succeed({
+                paths: paths.map((path) => ({ _tag: "missing", path })),
+              }),
+            assessorLayer: invalidAssessorLayer,
+          }),
+        );
+
+        const failure = squashFailure(exit);
+        expect(failure).toBeInstanceOf(PlanFailure);
+        expect(failure).toMatchObject({ reason: "invalidPlanIntent" });
+      }),
+  );
+
   describe("when building target plans", () => {
     it.effect(
       "should classify projected target and module files as create when they are missing",

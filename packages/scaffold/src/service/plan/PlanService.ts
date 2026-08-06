@@ -111,7 +111,7 @@ export class PlanService extends Context.Service<
             }),
         );
 
-        return new Plan({
+        const plan = yield* Plan.makeEffect({
           outcomes: Arr.map(assessedPaths, ({ planningPath, assessment }) =>
             assessor.toPlannedFileOutcome({
               planningPath,
@@ -122,7 +122,17 @@ export class PlanService extends Context.Service<
             assessedPaths,
             ({ assessment }) => assessment.conflicts,
           ),
-        }).toSorted();
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new PlanFailure({
+                reason: "invalidPlanIntent",
+                message: `Invalid projected Plan: ${cause.message}`,
+              }),
+          ),
+        );
+
+        return plan.toSorted();
       });
 
     return { build } satisfies PlanServiceShape;

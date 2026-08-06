@@ -8,7 +8,7 @@ import {
   type StackConfig,
   TargetContribution,
 } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, pipe, Result } from "effect";
+import { Array as Arr, Context, Effect, Layer, Option } from "effect";
 
 export class ContributionResolver extends Context.Service<ContributionResolver>()(
   "ContributionResolver",
@@ -48,19 +48,22 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
           Arr.map(targetResults, (r) => [r.contribution.targetKey, r.context]),
         );
 
-        const moduleContributions = yield* pipe(
+        const moduleContributions = yield* Effect.forEach(
           Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
-          Arr.filterMap((node) =>
-            Result.map(
-              Result.fromNullishOr(
-                targetContexts.get(node.targetId),
-                () => "missing" as const,
-              ),
-              (context) => ({ node, context }) as const,
-            ),
-          ),
-          Effect.forEach(({ node, context }) =>
+          (node) =>
             Effect.gen(function* () {
+              const context = yield* Option.match(
+                Option.fromNullishOr(targetContexts.get(node.targetId)),
+                {
+                  onNone: () =>
+                    Effect.die(
+                      new Error(
+                        `Validated Blueprint is missing target context ${node.targetId}`,
+                      ),
+                    ),
+                  onSome: Effect.succeed,
+                },
+              );
               const moduleDefinition = yield* catalog.getModule(node.moduleId);
 
               return ModuleContribution.make({
@@ -72,7 +75,6 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 ),
               });
             }),
-          ),
         );
 
         return {
