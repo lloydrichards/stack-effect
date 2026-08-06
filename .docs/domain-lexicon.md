@@ -90,6 +90,11 @@ Invariants:
 - Plan is bound to repository reality (`RepoSnapshot`).
 - Outcomes are typed as `complete` or `composed`.
 - Conflicts are first-class entries, not side notes.
+- Outcome paths are unique.
+- Exact conflict diagnostics are unique, while one conflicted path may carry
+  multiple distinct diagnostics.
+- The set of conflicted outcome paths is exactly the set of paths represented
+  by conflict diagnostics.
 
 Connected terms:
 
@@ -107,7 +112,9 @@ Execution intent formed by one `Plan` and per-path conflict decisions.
 Invariants:
 
 - Apply always carries exactly one plan instance.
-- Decisions are path-based and currently only `override` or `skip`.
+- Decisions are path-based and currently only `override` or `skip`; each
+  conflicted path receives exactly one decision regardless of how many
+  diagnostics describe it.
 - Execution may fail with `ApplyFailure` reasons.
 
 Connected terms:
@@ -224,6 +231,8 @@ A concrete target node in a blueprint closure.
 Invariants:
 
 - Node ID is a `TargetKey`.
+- Node IDs are unique within a Blueprint.
+- A target node ID is the canonical key derived from its identity.
 - Carries full target identity.
 
 Connected terms:
@@ -242,7 +251,10 @@ A resolved module attachment node owned by a blueprint target node.
 Invariants:
 
 - Node ID shape is `TargetKey#ModuleId`.
+- The composite node ID agrees with the node's `targetId` and `moduleId`.
 - Each node links to exactly one owning `targetId`.
+- Each attached module has exactly one matching `owns-module` edge, and edge
+  IDs are unique within the Blueprint.
 
 Connected terms:
 

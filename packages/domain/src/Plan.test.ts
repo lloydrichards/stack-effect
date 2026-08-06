@@ -3,7 +3,7 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
-  it("accepts the supported plan classifications", () => {
+  it("should accept supported classifications and reject unsupported values", () => {
     expect(Schema.decodeUnknownSync(PlanEntryClassification)("create")).toBe(
       "create",
     );
@@ -16,58 +16,12 @@ describe("@repo/domain Plan", () => {
     expect(Schema.decodeUnknownSync(PlanEntryClassification)("conflict")).toBe(
       "conflict",
     );
-  });
-
-  it("rejects unsupported classifications", () => {
     expect(() =>
       Schema.decodeUnknownSync(PlanEntryClassification)("delete"),
     ).toThrow();
   });
 
-  it("models a deterministic narrow public plan", () => {
-    const plan = new Plan({
-      outcomes: [
-        {
-          _tag: "composed",
-          path: "packages/domain/package.json",
-          classification: "modify",
-          operations: [
-            {
-              _tag: "json-pkg-exports",
-              fileType: "json",
-              entries: [
-                {
-                  name: "./Api",
-                  value: "./src/Api.ts",
-                },
-              ],
-            },
-          ],
-        },
-        {
-          _tag: "complete",
-          path: "packages/domain/src/Api.ts",
-          classification: "create",
-          contents: 'export const Api = "Api";\n',
-        },
-      ],
-      conflicts: [
-        {
-          _tag: "exports",
-          path: "packages/domain/package.json",
-          name: "./Api",
-        },
-      ],
-    });
-
-    expect(plan.outcomes.map((outcome) => outcome.path)).toStrictEqual([
-      "packages/domain/package.json",
-      "packages/domain/src/Api.ts",
-    ]);
-    expect(plan.conflicts).toHaveLength(1);
-  });
-
-  it("allows planned file outcomes to be decoded independently", () => {
+  it("should decode outcome and conflict fields independently", () => {
     const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value)({
       _tag: "complete",
       path: "packages/domain/tsconfig.json",
@@ -76,9 +30,6 @@ describe("@repo/domain Plan", () => {
     });
 
     expect(outcome._tag).toBe("complete");
-  });
-
-  it("allows conflicts to be decoded independently", () => {
     const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.value)({
       _tag: "completeFile",
       path: "package.json",
@@ -87,7 +38,7 @@ describe("@repo/domain Plan", () => {
     expect(conflict._tag).toBe("completeFile");
   });
 
-  it("sorts planned file outcomes and conflicts deterministically", () => {
+  it("should sort outcomes and distinct same-path diagnostics deterministically", () => {
     const plan = new Plan({
       outcomes: [
         {
@@ -98,9 +49,21 @@ describe("@repo/domain Plan", () => {
         },
         {
           _tag: "complete",
-          path: "README.md",
-          classification: "modify",
-          contents: "# Repo\n",
+          path: "apps/web/src/App.tsx",
+          classification: "conflict",
+          contents: "export const App = () => null;\n",
+        },
+        {
+          _tag: "complete",
+          path: "packages/domain/tsconfig.json",
+          classification: "conflict",
+          contents: "{}\n",
+        },
+        {
+          _tag: "complete",
+          path: "packages/domain/src/index.ts",
+          classification: "conflict",
+          contents: "export {};\n",
         },
       ],
       conflicts: [
@@ -127,8 +90,10 @@ describe("@repo/domain Plan", () => {
     }).toSorted();
 
     expect(plan.outcomes.map((outcome) => outcome.path)).toEqual([
-      "README.md",
+      "apps/web/src/App.tsx",
       "packages/domain/src/Api.ts",
+      "packages/domain/src/index.ts",
+      "packages/domain/tsconfig.json",
     ]);
     expect(plan.conflicts.map((conflict) => conflict.path)).toEqual([
       "packages/domain/src/index.ts",
@@ -148,5 +113,88 @@ describe("@repo/domain Plan", () => {
         slotId: "footer",
       },
     ]);
+  });
+
+  const invalidPlans: ReadonlyArray<{
+    readonly name: string;
+    readonly construct: () => Plan;
+  }> = [
+    {
+      name: "duplicate outcome paths",
+      construct: () =>
+        new Plan({
+          outcomes: [
+            {
+              _tag: "complete",
+              path: "README.md",
+              classification: "create",
+              contents: "# Repo\n",
+            },
+            {
+              _tag: "complete",
+              path: "README.md",
+              classification: "modify",
+              contents: "# Updated\n",
+            },
+          ],
+          conflicts: [],
+        }),
+    },
+    {
+      name: "duplicate exact conflict diagnostics",
+      construct: () =>
+        new Plan({
+          outcomes: [
+            {
+              _tag: "complete",
+              path: "package.json",
+              classification: "conflict",
+              contents: "{}\n",
+            },
+          ],
+          conflicts: [
+            { _tag: "scripts", path: "package.json", name: "test" },
+            { _tag: "scripts", path: "package.json", name: "test" },
+          ],
+        }),
+    },
+    {
+      name: "orphan conflict diagnostics",
+      construct: () =>
+        new Plan({
+          outcomes: [],
+          conflicts: [{ _tag: "completeFile", path: "README.md" }],
+        }),
+    },
+    {
+      name: "conflicted outcomes without diagnostics",
+      construct: () =>
+        new Plan({
+          outcomes: [
+            {
+              _tag: "complete",
+              path: "README.md",
+              classification: "conflict",
+              contents: "# Repo\n",
+            },
+          ],
+          conflicts: [],
+        }),
+    },
+  ];
+
+  it("should reject invalid relationships during checked construction", () => {
+    invalidPlans.forEach(({ construct, name }) => {
+      expect(construct, name).toThrow();
+    });
+  });
+
+  it("should reject invalid relationships when decoding", () => {
+    expect(() =>
+      Schema.decodeUnknownSync(Plan)({
+        outcomes: [],
+        conflicts: [{ _tag: "completeFile", path: "README.md" }],
+      }),
+    ).toThrow();
   });
 });
