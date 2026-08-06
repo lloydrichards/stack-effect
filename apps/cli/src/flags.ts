@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { Argument, Flag } from "effect/unstable/cli";
 import { RecipeTargetString } from "./lib/recipeTargets";
 
@@ -29,6 +29,21 @@ export const rootFlag = Flag.directory("root").pipe(
 export const dryRunFlag = Flag.boolean("dry-run").pipe(
   Flag.withDescription("Preview changes without writing to disk"),
 );
+
+export const showFilesFlag = Flag.boolean("show-files").pipe(
+  Flag.withDescription("Include generated file contents in a dry-run preview"),
+);
+
+export const validateShowFiles = ({
+  dryRun,
+  showFiles,
+}: {
+  readonly dryRun: boolean;
+  readonly showFiles: boolean;
+}) =>
+  showFiles && !dryRun
+    ? Effect.fail("--show-files requires --dry-run.")
+    : Effect.void;
 
 export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withAlias("y"),

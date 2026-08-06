@@ -4,6 +4,7 @@ import type { Plan } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
+  ApplyPreviewService,
   ApplyService,
   BlueprintService,
   type FinalizeConfig,
@@ -74,6 +75,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         repoRoot,
         yes,
         dryRun,
+        showFiles,
         trust,
         config,
         createCommand,
@@ -82,6 +84,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         repoRoot: string;
         yes: boolean;
         dryRun: boolean;
+        showFiles: boolean;
         trust: boolean;
         config: typeof StackConfig.Type;
         createCommand?: string;
@@ -92,6 +95,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const planService = yield* PlanService;
           const finalizeService = yield* FinalizeService;
           const applyService = yield* ApplyService;
+          const applyPreviewService = yield* ApplyPreviewService;
 
           const blueprint = yield* blueprintService.resolve(selection);
 
@@ -145,13 +149,19 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           );
 
           if (dryRun) {
-            const result = yield* applyService.preview({
-              apply: new Apply({
-                plan,
-                decisions: skipConflictDecisions(plan),
-              }),
-              repoRoot,
+            const apply = new Apply({
+              plan,
+              decisions: skipConflictDecisions(plan),
             });
+            const applyPreview = showFiles
+              ? yield* applyPreviewService.preview({ apply, repoRoot })
+              : undefined;
+            const result =
+              applyPreview?.apply ??
+              (yield* applyService.preview({
+                apply,
+                repoRoot,
+              }));
 
             const finalizeConfig: FinalizeConfig = {
               config,
@@ -170,6 +180,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                   apply: result,
                   scripts: previewScripts,
                   createCommand,
+                  generatedFiles: applyPreview?.files,
                 }),
               ),
             );

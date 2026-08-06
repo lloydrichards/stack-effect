@@ -14,9 +14,11 @@ import {
   recipeTargetFlag,
   rootFlag,
   runtimeFlag,
+  showFilesFlag,
   testFlag,
   trustFlag,
   typescriptFlag,
+  validateShowFiles,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
@@ -150,9 +152,11 @@ export const create = Command.make(
     yes: yesFlag,
     trust: trustFlag,
     dryRun: dryRunFlag,
+    showFiles: showFilesFlag,
   },
   (flags) =>
     Effect.gen(function* () {
+      yield* validateShowFiles(flags);
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeService;
@@ -221,6 +225,7 @@ export const create = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        showFiles: flags.showFiles,
         trust: flags.trust || flags.yes,
         config,
         createCommand,

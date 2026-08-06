@@ -15,8 +15,10 @@ import {
   projectNameArg,
   rootFlag,
   runtimeFlag,
+  showFilesFlag,
   trustFlag,
   typescriptFlag,
+  validateShowFiles,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
@@ -86,6 +88,7 @@ export const init = Command.make(
     root: rootFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
+    showFiles: showFilesFlag,
     runtime: runtimeFlag,
     typescript: typescriptFlag,
     noGit: noGitFlag,
@@ -93,6 +96,7 @@ export const init = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
+      yield* validateShowFiles(flags);
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogService;
 
@@ -372,6 +376,7 @@ export const init = Command.make(
         repoRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
+        showFiles: flags.showFiles,
         trust: flags.trust || flags.yes,
         config,
       });
