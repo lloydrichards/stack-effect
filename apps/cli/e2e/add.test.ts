@@ -52,6 +52,75 @@ describe("add", () => {
     );
 
     it.effect(
+      "generates Node-compatible package, server, and CLI targets",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const root = `${cli.workdir}/node-targets`;
+
+          yield* cli.run(
+            "init",
+            "node-targets",
+            "--yes",
+            "--runtime",
+            "node",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* Effect.forEach(
+            [
+              "package/domain:domain-api-contracts",
+              "server/api:server-http-api",
+              "cli/app:cli-command-hello",
+            ],
+            (target) =>
+              Effect.gen(function* () {
+                yield* cli.run(
+                  "add",
+                  "--yes",
+                  "--root",
+                  root,
+                  "--target",
+                  target,
+                );
+                yield* cli.expectExitCode(0);
+              }),
+            { discard: true },
+          );
+
+          yield* cli.withinProject("node-targets", function* (project) {
+            yield* Effect.forEach(
+              [
+                "packages/domain/package.json",
+                "apps/server-api/package.json",
+                "apps/cli-app/package.json",
+              ],
+              (packageJson) =>
+                project.expectFileContaining(
+                  packageJson,
+                  /^(?![\s\S]*@types\/bun)[\s\S]*$/,
+                ),
+              { discard: true },
+            );
+
+            yield* project.expectFileContaining(
+              "apps/server-api/src/index.ts",
+              'from "@effect/platform-node"',
+            );
+            yield* project.expectFileContaining(
+              "apps/cli-app/src/index.ts",
+              'from "@effect/platform-node"',
+            );
+            yield* project.expectTypeCheckPasses();
+            yield* project.expectBuildSucceeds();
+          });
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 180_000 },
+    );
+
+    it.effect(
       "resolves cross-target implications in non-interactive mode",
       () =>
         Effect.gen(function* () {

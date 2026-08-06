@@ -5,12 +5,12 @@ export const serverPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "@effect/platform-bun": "4.0.0-beta.98",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-beta.98",
     "effect": "4.0.0-beta.98"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "@types/bun": "^1.2.17",
+    "{{#if runtime=bun}}@types/bun{{/if}}{{#if runtime=node}}@types/node{{/if}}": "{{#if runtime=bun}}^1.2.17{{/if}}{{#if runtime=node}}^24.0.0{{/if}}",
     "vitest": "^4.1.4"
   }
 }
@@ -22,7 +22,7 @@ export const serverTsconfigContents = `{
     "rootDir": "../..",
     "outDir": "dist",
     "noEmit": true,
-    "types": ["@types/bun"]
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
   },
   "include": ["src/**/*", "../../packages/ai/src/LanguageModel.ts"],
   "exclude": ["node_modules", "dist"]
@@ -38,7 +38,8 @@ export const serverTsconfigContents = `{
  *
  * Additional capabilities (RPC, WebSocket) are added by modules.
  */
-export const serverIndexContents = `import { BunHttpServer, BunRuntime } from "@effect/platform-bun";
+export const serverIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+import { createServer } from "node:http";{{/if}}
 import { Api } from "@repo/domain/Api";
 import { Config, Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
@@ -67,7 +68,7 @@ const AllRouters = Layer.mergeAll(ApiRouter).pipe(
 );
 
 // NOTE: Modules append additional server layers through Layer.mergeAll.
-const ServerLayers = Layer.mergeAll(BunHttpServer.layerConfig(ServerConfig));
+const ServerLayers = Layer.mergeAll({{#if runtime=bun}}BunHttpServer.layerConfig(ServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, ServerConfig){{/if}});
 
 const HttpLive = Effect.gen(function* () {
   const config = yield* ServerConfig;
@@ -94,7 +95,7 @@ const HttpLive = Effect.gen(function* () {
   );
 }).pipe(Layer.unwrap, Layer.launch);
 
-BunRuntime.runMain(HttpLive);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(HttpLive);
 `;
 
 export const serverDevToolsContents = `import { Config, Effect, Layer } from "effect";
