@@ -1,5 +1,23 @@
 # stack-effect
 
+## 0.11.0
+
+### Minor Changes
+
+- 27c5d1b: render complete generated file contents during `init`, `create`, and `add` dry runs with `--show-files` (#108).
+
+  For example:
+
+  ```sh
+  stack-effect init my-app --yes --dry-run --show-files
+  ```
+
+### Patch Changes
+
+- 7869d25: missing JSX slots explicitly and avoids duplicate slot content on repeated application (#178).
+- d524cad: generate Node-compatible shared, server, and CLI targets when the Node runtime is selected (#185).
+- 14cb48d: shows all diagnostics for a conflicted path and requests a single conflict decision per file (#176)
+
 ## 0.10.0
 
 ### Minor Changes
