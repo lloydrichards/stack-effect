@@ -48,7 +48,15 @@ const spawnCommand = (
   args: ReadonlyArray<string>,
   cwd: string,
 ) => {
-  const command = ChildProcess.make(args.join(" "), [], { cwd, shell: true });
+  const command = ChildProcess.make(args.join(" "), [], {
+    cwd,
+    env: {
+      pnpm_config_frozen_lockfile: "false",
+      pnpm_config_minimum_release_age: "0",
+    },
+    extendEnv: true,
+    shell: true,
+  });
 
   return Effect.scoped(
     Effect.gen(function* () {
@@ -96,10 +104,14 @@ interface ProjectContext {
   readonly exec: (
     ...args: ReadonlyArray<string>
   ) => Effect.Effect<CommandResult>;
-  readonly expectBuildSucceeds: () => Effect.Effect<void>;
+  readonly expectBuildSucceeds: (
+    packageManager?: "bun" | "pnpm",
+  ) => Effect.Effect<void>;
   readonly expectLintPasses: () => Effect.Effect<void>;
   readonly expectFormatPasses: () => Effect.Effect<void>;
-  readonly expectTypeCheckPasses: () => Effect.Effect<void>;
+  readonly expectTypeCheckPasses: (
+    packageManager?: "bun" | "pnpm",
+  ) => Effect.Effect<void>;
   readonly expectTestsPasses: () => Effect.Effect<void>;
   readonly expectFileExists: (relativePath: string) => Effect.Effect<void>;
   readonly expectFileNotExists: (relativePath: string) => Effect.Effect<void>;
@@ -143,11 +155,12 @@ const makeProjectContext = (
     dir: projectDir,
     install: () => run(["bun", "install"]),
     exec: (...args) => run(args),
-    expectBuildSucceeds: () => assertCommand("Build", "bun", "run", "build"),
+    expectBuildSucceeds: (packageManager = "bun") =>
+      assertCommand("Build", packageManager, "run", "build"),
     expectLintPasses: () => assertCommand("Lint", "bun", "lint"),
     expectFormatPasses: () => assertCommand("Format", "bun", "format:check"),
-    expectTypeCheckPasses: () =>
-      assertCommand("TypeCheck", "bun", "run", "type-check"),
+    expectTypeCheckPasses: (packageManager = "bun") =>
+      assertCommand("TypeCheck", packageManager, "run", "type-check"),
     expectTestsPasses: () => assertCommand("Tests", "bun", "run", "test"),
 
     expectFileExists: (relativePath) =>
