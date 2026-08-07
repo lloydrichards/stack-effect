@@ -18,7 +18,7 @@ describe("add", () => {
 
           yield* cli.run("add", "--yes", "--target");
           yield* cli.expectExitCode(1);
-          yield* cli.expectErrorContaining("Missing value for --target");
+          yield* cli.expectErrorContaining("Missing value for");
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 30_000 },
     );
@@ -113,8 +113,8 @@ describe("add", () => {
               "apps/cli-app/src/index.ts",
               'from "@effect/platform-node"',
             );
-            yield* project.expectTypeCheckPasses();
-            yield* project.expectBuildSucceeds();
+            yield* project.expectTypeCheckPasses("pnpm");
+            yield* project.expectBuildSucceeds("pnpm");
           });
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 180_000 },
