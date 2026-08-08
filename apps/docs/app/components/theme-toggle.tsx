@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 
-function getInitialTheme(): "light" | "dark" {
-  if (typeof document === "undefined") return "dark";
-  return document.documentElement.classList.contains("dark") ? "dark" : "light";
-}
-
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">(getInitialTheme);
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    setTheme(
+      document.documentElement.classList.contains("dark") ? "dark" : "light",
+    );
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     const root = document.documentElement;
     if (theme === "dark") {
       root.classList.add("dark");
@@ -16,7 +21,7 @@ export function ThemeToggle() {
       root.classList.remove("dark");
     }
     localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [mounted, theme]);
 
   const toggle = useCallback(() => {
     setTheme((t) => (t === "dark" ? "light" : "dark"));
@@ -26,7 +31,7 @@ export function ThemeToggle() {
     <button
       type="button"
       onClick={toggle}
-      className="rounded-sm p-2 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors duration-150"
+      className="flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground sm:size-8"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       {theme === "dark" ? (

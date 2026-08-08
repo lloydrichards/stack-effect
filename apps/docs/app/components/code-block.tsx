@@ -30,7 +30,7 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
       </pre>
       <CopyButton
         getValue={getValue}
-        className="opacity-0 group-hover:opacity-100"
+        className="opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
       />
     </div>
   );

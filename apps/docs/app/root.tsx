@@ -7,6 +7,7 @@ import {
   Outlet,
   Scripts,
   ScrollRestoration,
+  useLocation,
   useMatches,
 } from "react-router";
 import { AppSidebar } from "~/components/app-sidebar";
@@ -21,6 +22,7 @@ import {
   useSidebar,
 } from "~/components/ui/sidebar";
 import type { TOCItem } from "~/lib/remark-toc-export";
+import { cn } from "~/lib/utils";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -67,6 +69,9 @@ const themeScript = `
 const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
 
 export function Layout({ children }: { children: React.ReactNode }) {
+  const { pathname } = useLocation();
+  const isLandingPage = pathname === "/";
+
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -84,15 +89,24 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        <SidebarProvider>
-          <AppSidebar />
-          <div className="flex-1 flex flex-col min-w-0">
-            <SiteHeader />
-            <main className="flex-1 w-full px-6 xl:px-12 xl:pr-[14rem] py-10">
+        {isLandingPage ? (
+          <div className="flex min-h-screen flex-col">
+            <LandingHeader />
+            <main className="w-full min-w-0 flex-1 overflow-x-hidden px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
               {children}
             </main>
           </div>
-        </SidebarProvider>
+        ) : (
+          <SidebarProvider>
+            <AppSidebar />
+            <div className="flex-1 flex flex-col min-w-0">
+              <SiteHeader />
+              <main className="flex-1 w-full px-6 xl:px-12 xl:pr-[14rem] py-10">
+                {children}
+              </main>
+            </div>
+          </SidebarProvider>
+        )}
         <ScrollRestoration />
         <Scripts />
       </body>
@@ -101,20 +115,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   const matches = useMatches();
   const lastMatch = matches[matches.length - 1];
   // biome-ignore lint/suspicious/noExplicitAny: React Router's useMatches handle is untyped
   const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
   const hasToc = toc.length > 0;
+  const isLandingPage = pathname === "/";
 
   return (
     <MDXProvider components={proseComponents}>
-      {hasToc && <TableOfContents toc={toc} />}
-      <div className="mx-auto w-full max-w-[72ch]">
+      {!isLandingPage && hasToc && <TableOfContents toc={toc} />}
+      <div
+        className={cn(
+          "mx-auto w-full",
+          isLandingPage ? "max-w-[90rem]" : "max-w-[72ch]",
+        )}
+      >
         <Outlet />
         <DocFooter />
       </div>
-      {hasToc && <TableOfContents toc={toc} desktopOnly />}
+      {!isLandingPage && hasToc && <TableOfContents toc={toc} desktopOnly />}
     </MDXProvider>
   );
 }
@@ -174,6 +195,39 @@ function SiteHeader() {
         <GithubIcon className="size-5" />
       </a>
       <ThemeToggle />
+    </header>
+  );
+}
+
+function LandingHeader() {
+  return (
+    <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur-sm">
+      <div className="mx-auto flex h-14 w-full max-w-[90rem] items-center gap-4 px-5 sm:px-8 lg:px-12">
+        <Link
+          to="/"
+          className="font-heading text-base font-bold tracking-[-0.02em]"
+        >
+          Stack Effect
+        </Link>
+        <nav className="ml-auto flex items-center gap-1" aria-label="Primary">
+          <Link
+            to="/getting-started"
+            className="flex h-11 items-center rounded-sm px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:h-9"
+          >
+            Documentation
+          </Link>
+          <a
+            href="https://github.com/lloydrichards/stack-effect"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:size-9"
+            aria-label="GitHub"
+          >
+            <GithubIcon className="size-5" />
+          </a>
+          <ThemeToggle />
+        </nav>
+      </div>
     </header>
   );
 }
