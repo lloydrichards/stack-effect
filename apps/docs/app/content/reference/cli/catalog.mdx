@@ -1,0 +1,85 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect catalog
+
+Catalog maintenance helper commands.
+
+## Usage
+
+```sh
+stack-effect catalog <subcommand> [flags]
+```
+
+## Subcommands
+
+| Command | Description |
+| --- | --- |
+| [`workspace`](#stack-effect-catalog-workspace) | Manage the generated catalog workspace |
+
+## stack-effect catalog workspace
+
+Create and inspect an editable generated catalog workspace.
+
+### Usage
+
+```sh
+stack-effect catalog workspace <subcommand> [flags]
+```
+
+### Subcommands
+
+| Command | Description |
+| --- | --- |
+| [`reset`](#stack-effect-catalog-workspace-reset) | Rebuild the generated catalog workspace |
+| [`diff`](#stack-effect-catalog-workspace-diff) | Inspect generated catalog changes |
+| [`validate`](#stack-effect-catalog-workspace-validate) | Validate the generated catalog workspace |
+
+## stack-effect catalog workspace reset
+
+Reset an editable generated catalog workspace and commit a git baseline.
+
+### Usage
+
+```sh
+stack-effect catalog workspace reset [flags]
+```
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+| `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
+| `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
+
+## stack-effect catalog workspace diff
+
+Print git diff for the generated catalog workspace.
+
+### Usage
+
+```sh
+stack-effect catalog workspace diff [flags]
+```
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+
+## stack-effect catalog workspace validate
+
+Run generated catalog workspace format, lint, and type-check commands.
+
+### Usage
+
+```sh
+stack-effect catalog workspace validate [flags]
+```
+
+### Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |

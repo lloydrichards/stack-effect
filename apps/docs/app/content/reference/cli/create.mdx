@@ -1,0 +1,50 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect create
+
+Create a greenfield stack-effect project from compact target specs.
+
+## Usage
+
+```sh
+stack-effect create [flags] [<project-name>]
+```
+
+## Arguments
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `project-name` | `string` | Optional. |
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+| `--runtime choice` | Runtime to use (choices: bun, node) |
+| `--package-manager choice` | Override the default package manager. bun implies --runtime bun; pnpm/npm imply --runtime node. (choices: bun, pnpm, npm) |
+| `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
+| `--monorepo string` | Override the default monorepo tool |
+| `--lint string` | Override the default lint tool |
+| `--format string` | Override the default format tool |
+| `--test string` | Override the default test framework |
+| `--no-git` | Skip git repository initialization |
+| `--yes, -y` | Skip confirmation prompts (uses defaults where available) |
+| `--trust` | Skip finalize script approval prompt and run all scripts |
+| `--dry-run` | Preview changes without writing to disk |
+| `--show-files` | Include generated file contents in a dry-run preview |
+
+## Examples
+
+Create a full-stack chat app, expanding default targets and required dependencies
+
+```sh
+stack-effect create chat-app --target client-react/web:client-react-chat
+```
+
+Preview a create command without writing files
+
+```sh
+stack-effect create chat-app --target client-react/web:client-react-chat --target package/ai:package-ai-chat-service,package-ai-toolkit-math --dry-run
+```

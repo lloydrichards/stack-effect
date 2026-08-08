@@ -862,7 +862,7 @@ export const add = Command.make(
       description: "Interactively select targets and modules",
     },
     {
-      command: "stack-effect add --target server/api:http-api",
+      command: "stack-effect add --target server/api:server-http-api",
       description: "Add a specific module to a target",
     },
     {

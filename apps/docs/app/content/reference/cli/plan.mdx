@@ -1,0 +1,39 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect plan
+
+Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption.
+
+## Usage
+
+```sh
+stack-effect plan [flags]
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+| `--format, -f choice` | Output format: llm (default), raw, or tree (choices: llm, raw, tree) |
+| `--output, -o string` | Write output to a file instead of stdout |
+
+## Examples
+
+Output raw plan JSON
+
+```sh
+echo '{"selection":{"targets":[{"identity":{"kind":"server","name":"api"},"modules":[{"id":"server-http-api"}]}]}}' | stack-effect plan -f raw
+```
+
+LLM-friendly format with resolved file contents
+
+```sh
+echo '{"selection":{"targets":[{"identity":{"kind":"client-react","name":"web"},"modules":[{"id":"client-react-http-api"}]}]}}' | stack-effect plan -f llm
+```
+
+Visual tree summary
+
+```sh
+echo '{"selection":{"targets":[{"identity":{"kind":"package","name":"domain"},"modules":[{"id":"domain-api-contracts"}]}]}}' | stack-effect plan -f tree
+```

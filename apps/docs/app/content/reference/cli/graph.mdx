@@ -1,0 +1,31 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect graph
+
+Output the catalog dependency graph in table, Mermaid, or DOT format for visualization or tooling.
+
+## Usage
+
+```sh
+stack-effect graph [flags]
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--format choice` | Output format: table (default), mermaid, or dot (choices: table, mermaid, dot) |
+
+## Examples
+
+Output as Mermaid diagram syntax
+
+```sh
+stack-effect graph --format mermaid
+```
+
+Render as SVG via Graphviz
+
+```sh
+stack-effect graph --format dot | dot -Tsvg -o graph.svg
+```

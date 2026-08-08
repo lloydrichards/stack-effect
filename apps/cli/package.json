@@ -34,6 +34,7 @@
   "scripts": {
     "build": "bun build src/index.ts --outdir=dist --target=node --minify --banner '#!/usr/bin/env node'",
     "build:types": "tsc --emitDeclarationOnly",
+    "docs:generate": "bun run scripts/generate-cli-reference.ts",
     "dev": "bun --watch run src/index.ts",
     "start": "bun run src/index.ts",
     "test": "vitest run src",

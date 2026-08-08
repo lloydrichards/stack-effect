@@ -7,6 +7,6 @@
     "declarationMap": false,
     "types": ["@types/bun"]
   },
-  "include": ["src/**/*", "e2e/**/*"],
+  "include": ["src/**/*", "scripts/**/*", "e2e/**/*"],
   "exclude": ["node_modules", "dist"]
 }

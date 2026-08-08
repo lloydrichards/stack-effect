@@ -629,6 +629,7 @@ const reset = Command.make(
       }
     }),
 ).pipe(
+  Command.withShortDescription("Rebuild the generated catalog workspace"),
   Command.withDescription(
     "Reset an editable generated catalog workspace and commit a git baseline.",
   ),
@@ -644,6 +645,7 @@ const diff = Command.make("diff", { root: rootFlag }, (flags) =>
     yield* Console.log(output.trimEnd());
   }),
 ).pipe(
+  Command.withShortDescription("Inspect generated catalog changes"),
   Command.withDescription(
     "Print git diff for the generated catalog workspace.",
   ),
@@ -666,6 +668,7 @@ const validate = Command.make("validate", { root: rootFlag }, (flags) =>
     );
   }),
 ).pipe(
+  Command.withShortDescription("Validate the generated catalog workspace"),
   Command.withDescription(
     "Run generated catalog workspace format, lint, and type-check commands.",
   ),
@@ -673,6 +676,7 @@ const validate = Command.make("validate", { root: rootFlag }, (flags) =>
 
 const workspace = Command.make("workspace").pipe(
   Command.withSubcommands([reset, diff, validate]),
+  Command.withShortDescription("Manage the generated catalog workspace"),
   Command.withDescription(
     "Create and inspect an editable generated catalog workspace.",
   ),
@@ -680,5 +684,6 @@ const workspace = Command.make("workspace").pipe(
 
 export const catalog = Command.make("catalog").pipe(
   Command.withSubcommands([workspace]),
+  Command.withShortDescription("Maintain the scaffold catalog"),
   Command.withDescription("Catalog maintenance helper commands."),
 );

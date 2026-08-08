@@ -1,0 +1,33 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# CLI reference
+
+Commands, arguments, options, and examples for `stack-effect v0.11.0`. These pages are generated from the current Effect CLI command tree.
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| [`stack-effect init`](/reference/cli/init) | Scaffold a new Effect project in a subdirectory (or '.' for the current directory). Runs interactively unless --yes is passed. |
+| [`stack-effect create`](/reference/cli/create) | Create a greenfield stack-effect project from compact target specs. |
+| [`stack-effect add`](/reference/cli/add) | Incrementally add targets and modules to a scaffolded project. Resolves dependencies and implications automatically. |
+| [`stack-effect graph`](/reference/cli/graph) | Output the catalog dependency graph in table, Mermaid, or DOT format for visualization or tooling. |
+| [`stack-effect plan`](/reference/cli/plan) | Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption. |
+| [`stack-effect schema`](/reference/cli/schema) | Serialize the full catalog (targets with nested modules) and the JSON Schema for plan input. Useful for LLMs, CI, and external tooling. |
+| [`stack-effect catalog`](/reference/cli/catalog) | Catalog maintenance helper commands. |
+
+## Usage
+
+```sh
+stack-effect <subcommand> [flags]
+```
+
+## Global options
+
+| Option | Description |
+| --- | --- |
+| `--help, -h` | Show help information |
+| `--version, -v` | Show version information |
+| `--wizard` | Start wizard mode for a command |
+| `--completions <bash\|zsh\|fish\|sh>` | Print shell completion script (choices: bash, zsh, fish, sh) |
+| `--log-level <all\|trace\|debug\|info\|warn\|warning\|error\|fatal\|none>` | Sets the minimum log level (choices: all, trace, debug, info, warn, warning, error, fatal, none) |

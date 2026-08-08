@@ -1,0 +1,50 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect init
+
+Scaffold a new Effect project in a subdirectory (or '.' for the current directory). Runs interactively unless --yes is passed.
+
+## Usage
+
+```sh
+stack-effect init [flags] [<project-name>]
+```
+
+## Arguments
+
+| Argument | Type | Description |
+| --- | --- | --- |
+| `project-name` | `string` | Optional. |
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+| `--yes, -y` | Skip confirmation prompts (uses defaults where available) |
+| `--dry-run` | Preview changes without writing to disk |
+| `--show-files` | Include generated file contents in a dry-run preview |
+| `--runtime choice` | Runtime to use (choices: bun, node) |
+| `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
+| `--no-git` | Skip git repository initialization |
+| `--trust` | Skip finalize script approval prompt and run all scripts |
+
+## Examples
+
+Create a new project in ./my-app interactively
+
+```sh
+stack-effect init my-app
+```
+
+Initialize in the current directory using the folder name
+
+```sh
+stack-effect init . --yes
+```
+
+Non-interactive with explicit options
+
+```sh
+stack-effect init my-app --yes --runtime bun --no-git
+```
