@@ -1,0 +1,220 @@
+import { Plus } from "lucide-react";
+import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
+import { Button } from "~/components/ui/button";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "~/components/ui/empty";
+import { Skeleton } from "~/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import { cn } from "~/lib/utils";
+import type { BuilderCatalogOutputWire } from "../../../worker/recipe-preview-protocol";
+import type {
+  CatalogModule,
+  SupportConfiguration,
+  SupportSelection,
+  TargetInstance,
+} from "../use-recipe-builder-state";
+import { TargetConfiguration } from "./target-configuration";
+
+type TargetSelectorProps = {
+  readonly activeId: string;
+  readonly activeModules: ReadonlyArray<CatalogModule>;
+  readonly activeTarget: TargetInstance | undefined;
+  readonly availableTargets: BuilderCatalogOutputWire["targets"];
+  readonly catalog: BuilderCatalogOutputWire | undefined;
+  readonly dependencySourceNames: ReadonlyArray<string>;
+  readonly newTargetOpen: boolean;
+  readonly requiredModuleIds: ReadonlySet<string>;
+  readonly supportSelections: ReadonlyArray<SupportSelection>;
+  readonly targets: ReadonlyArray<TargetInstance>;
+  readonly addTarget: (kind: string) => void;
+  readonly openTargetSelector: () => void;
+  readonly registerTargetTab: (
+    id: string,
+    element: HTMLButtonElement | null,
+  ) => void;
+  readonly removeTarget: (id: string) => void;
+  readonly renameActiveTarget: (name: string) => void;
+  readonly selectTarget: (id: string) => void;
+  readonly toggleModule: (module: CatalogModule) => void;
+  readonly toggleSupportModule: (
+    configuration: SupportConfiguration,
+    module: CatalogModule,
+  ) => void;
+};
+
+export function TargetSelector({
+  activeId,
+  activeModules,
+  activeTarget,
+  availableTargets,
+  catalog,
+  dependencySourceNames,
+  newTargetOpen,
+  requiredModuleIds,
+  supportSelections,
+  targets,
+  addTarget,
+  openTargetSelector,
+  registerTargetTab,
+  removeTarget,
+  renameActiveTarget,
+  selectTarget,
+  toggleModule,
+  toggleSupportModule,
+}: TargetSelectorProps) {
+  return (
+    <DisclosurePanel
+      title="Targets"
+      description="Choose applications and attach their modules."
+      defaultOpen
+      meta={
+        <span className="font-mono text-xs text-muted-foreground">
+          {targets.length} app {targets.length === 1 ? "target" : "targets"}
+        </span>
+      }
+    >
+      <Tabs value={activeId} onValueChange={selectTarget} className="gap-0">
+        <div className="flex min-w-0 items-center gap-2 border-b p-2">
+          <div className="min-w-0 flex-1 overflow-x-auto">
+            <TabsList aria-label="Recipe targets">
+              {targets.map((target) => (
+                <TabsTrigger
+                  key={target.id}
+                  ref={(element) => {
+                    registerTargetTab(target.id, element);
+                  }}
+                  value={target.id}
+                >
+                  {target.name} · {target.kind}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
+          <Button
+            variant="ghost"
+            size="lg"
+            className="size-11 shrink-0 p-0 sm:w-auto sm:px-4 lg:h-9"
+            aria-label="Add target"
+            disabled={newTargetOpen}
+            onClick={openTargetSelector}
+          >
+            <Plus data-icon="inline-start" />
+            <span className="hidden sm:inline">Add target</span>
+          </Button>
+        </div>
+        {targets.map((target) => (
+          <TabsContent key={target.id} value={target.id}>
+            {activeTarget?.id === target.id ? (
+              <TargetConfiguration
+                target={activeTarget}
+                targets={targets}
+                modules={activeModules}
+                catalog={catalog}
+                requiredModuleIds={requiredModuleIds}
+                dependencySourceNames={dependencySourceNames}
+                supportSelections={supportSelections}
+                rename={renameActiveTarget}
+                remove={() => removeTarget(activeTarget.id)}
+                toggleModule={toggleModule}
+                toggleSupportModule={toggleSupportModule}
+              />
+            ) : null}
+          </TabsContent>
+        ))}
+        {activeTarget ? null : (
+          <TargetOptions
+            firstTarget={targets.length === 0}
+            targets={availableTargets}
+            addTarget={addTarget}
+          />
+        )}
+      </Tabs>
+    </DisclosurePanel>
+  );
+}
+
+type TargetOptionsProps = {
+  readonly firstTarget: boolean;
+  readonly targets: BuilderCatalogOutputWire["targets"];
+  readonly addTarget: (kind: string) => void;
+};
+
+function TargetOptions({
+  firstTarget,
+  targets,
+  addTarget,
+}: TargetOptionsProps) {
+  return (
+    <Empty className="min-h-64 items-stretch gap-5 p-5 md:p-6">
+      <EmptyHeader className="mx-0 max-w-xl items-start text-left">
+        <EmptyTitle>
+          {firstTarget ? "Add your first target" : "Choose another target"}
+        </EmptyTitle>
+        <EmptyDescription>
+          {firstTarget
+            ? "Start with the application you want to build. Its modules will bring in supporting targets automatically."
+            : "Select an application type for this tab. You can use the same kind more than once and give each target its own name."}
+        </EmptyDescription>
+      </EmptyHeader>
+      {targets.length > 0 ? (
+        <div
+          className="grid w-full overflow-hidden rounded-md border sm:grid-cols-2"
+          aria-label="Available target types"
+        >
+          {targets.map((target, index) => (
+            <button
+              key={target.kind}
+              type="button"
+              className={cn(
+                "group flex min-h-24 w-full items-start gap-3 bg-background p-3.5 text-left transition-colors hover:bg-muted/35 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
+                index > 0 && "border-t",
+                "sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:border-l",
+              )}
+              onClick={() => addTarget(target.kind)}
+            >
+              <span className="min-w-0 flex-1">
+                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                  <span className="font-heading text-sm font-semibold text-foreground">
+                    {target.title}
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {target.kind}
+                  </span>
+                </span>
+                <span className="mt-1.5 block text-sm leading-5 text-muted-foreground">
+                  {target.description}
+                </span>
+              </span>
+              <Plus
+                className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+                aria-hidden="true"
+              />
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div
+          className="grid w-full overflow-hidden rounded-md border sm:grid-cols-2"
+          aria-label="Loading target types"
+          aria-busy="true"
+        >
+          {[0, 1, 2].map((index) => (
+            <div
+              key={index}
+              className="min-h-24 border-b p-3.5 last:border-b-0 sm:border-r sm:last:border-r-0"
+            >
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="mt-4 h-3 w-full" />
+              <Skeleton className="mt-2 h-3 w-4/5" />
+            </div>
+          ))}
+          <span className="sr-only">Loading target types</span>
+        </div>
+      )}
+    </Empty>
+  );
+}

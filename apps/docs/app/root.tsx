@@ -78,6 +78,7 @@ const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const isLandingPage = pathname === "/";
+  const isBuilderPage = pathname === "/builder";
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -96,10 +97,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <Links />
       </head>
       <body>
-        {isLandingPage ? (
+        {isLandingPage || isBuilderPage ? (
           <div className="flex min-h-screen flex-col">
             <LandingHeader />
-            <main className="w-full min-w-0 flex-1 overflow-x-hidden px-5 py-10 sm:px-8 lg:px-12 lg:py-14">
+            <main className="w-full min-w-0 flex-1 overflow-x-clip px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
               {children}
             </main>
           </div>
@@ -129,20 +130,25 @@ export default function App() {
   const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
   const hasToc = toc.length > 0;
   const isLandingPage = pathname === "/";
+  const isBuilderPage = pathname === "/builder";
 
   return (
     <MDXProvider components={proseComponents}>
-      {!isLandingPage && hasToc && <TableOfContents toc={toc} />}
+      {!isLandingPage && !isBuilderPage && hasToc && (
+        <TableOfContents toc={toc} />
+      )}
       <div
         className={cn(
           "mx-auto w-full",
-          isLandingPage ? "max-w-[90rem]" : "max-w-[72ch]",
+          isLandingPage || isBuilderPage ? "max-w-[96rem]" : "max-w-[72ch]",
         )}
       >
         <Outlet />
-        <DocFooter />
+        {!isBuilderPage ? <DocFooter /> : null}
       </div>
-      {!isLandingPage && hasToc && <TableOfContents toc={toc} desktopOnly />}
+      {!isLandingPage && !isBuilderPage && hasToc && (
+        <TableOfContents toc={toc} desktopOnly />
+      )}
     </MDXProvider>
   );
 }
