@@ -6,11 +6,11 @@ import {
   ContributionResolver,
   FinalizeService,
   PlanService,
+  RecipeService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
 import { Layer } from "effect";
 import { ConfigureService } from "./service/ConfigureService";
-import { RecipeService } from "./service/RecipeService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
 export const StackEffectServicesLayer = Layer.mergeAll(

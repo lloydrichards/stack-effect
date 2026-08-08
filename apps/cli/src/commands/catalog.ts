@@ -17,6 +17,9 @@ import {
   ContributionResolver,
   FinalizeService,
   PlanService,
+  parseRecipeTargetSpecs,
+  RecipeService,
+  toTypeScriptModuleId,
 } from "@repo/scaffold";
 import {
   Array as Arr,
@@ -36,9 +39,6 @@ import { Command } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { recipeTargetFlag, rootFlag, typescriptFlag } from "../flags";
-import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
-import { toTypeScriptModuleId } from "../lib/workspace";
-import { RecipeService } from "../service/RecipeService";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
 

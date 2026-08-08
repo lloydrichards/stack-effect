@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { RecipeTargetString } from "@repo/scaffold";
 import { Schema } from "effect";
-import { RecipeTargetString } from "./recipeTargets";
 
 describe("RecipeTargetString", () => {
   it("decodes compact target specs", () => {

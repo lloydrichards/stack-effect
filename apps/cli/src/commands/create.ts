@@ -1,6 +1,7 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
+import { RecipeService } from "@repo/scaffold";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
@@ -23,7 +24,6 @@ import {
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
-import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 const DEFAULTS = {
