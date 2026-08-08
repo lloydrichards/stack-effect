@@ -1,43 +1,43 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-08-08T06:49:16Z",
+  "generatedAt": "2026-08-08T09:30:00Z",
   "title": "Design System: Stack Effect Docs",
   "extensions": {
     "colorMeta": {
-      "signal-violet-light": {
+      "spectral-signal-light": {
         "role": "primary",
-        "displayName": "Signal Violet Light",
-        "canonical": "oklch(0.55 0.18 285)",
+        "displayName": "Spectral Signal Light",
+        "canonical": "oklch(0.44 0.12 174)",
         "tonalRamp": [
-          "oklch(0.15 0.06 285)",
-          "oklch(0.26 0.09 285)",
-          "oklch(0.38 0.13 285)",
-          "oklch(0.50 0.17 285)",
-          "oklch(0.62 0.18 285)",
-          "oklch(0.73 0.15 285)",
-          "oklch(0.84 0.09 285)",
-          "oklch(0.95 0.03 285)"
+          "oklch(0.15 0.03 174)",
+          "oklch(0.26 0.055 174)",
+          "oklch(0.38 0.09 174)",
+          "oklch(0.50 0.12 174)",
+          "oklch(0.62 0.125 174)",
+          "oklch(0.73 0.12 174)",
+          "oklch(0.84 0.085 174)",
+          "oklch(0.95 0.025 174)"
         ]
       },
-      "signal-violet-dark": {
+      "spectral-signal-dark": {
         "role": "primary",
-        "displayName": "Signal Violet Dark",
-        "canonical": "oklch(0.72 0.17 285)",
+        "displayName": "Spectral Signal Dark",
+        "canonical": "oklch(0.79 0.125 174)",
         "tonalRamp": [
-          "oklch(0.15 0.06 285)",
-          "oklch(0.26 0.09 285)",
-          "oklch(0.38 0.13 285)",
-          "oklch(0.50 0.17 285)",
-          "oklch(0.62 0.18 285)",
-          "oklch(0.73 0.15 285)",
-          "oklch(0.84 0.09 285)",
-          "oklch(0.95 0.03 285)"
+          "oklch(0.15 0.03 174)",
+          "oklch(0.26 0.055 174)",
+          "oklch(0.38 0.09 174)",
+          "oklch(0.50 0.12 174)",
+          "oklch(0.62 0.125 174)",
+          "oklch(0.73 0.12 174)",
+          "oklch(0.84 0.085 174)",
+          "oklch(0.95 0.025 174)"
         ]
       },
-      "cool-paper": {
+      "precision-paper": {
         "role": "neutral",
-        "displayName": "Cool Paper",
-        "canonical": "oklch(0.98 0.004 250)",
+        "displayName": "Precision Paper",
+        "canonical": "oklch(0.98 0.003 255)",
         "tonalRamp": [
           "oklch(0.15 0.008 250)",
           "oklch(0.27 0.008 250)",
@@ -52,7 +52,7 @@
       "workbench-ink": {
         "role": "neutral",
         "displayName": "Workbench Ink",
-        "canonical": "oklch(0.16 0.012 250)",
+        "canonical": "oklch(0.145 0.004 255)",
         "tonalRamp": [
           "oklch(0.15 0.012 250)",
           "oklch(0.27 0.011 250)",
@@ -103,16 +103,16 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "Compact primary action with a single violet signal.",
+      "description": "Compact primary action with a sparse spectral-teal signal.",
       "html": "<button class=\"ds-button-primary\">CONTINUE</button>",
-      "css": ".ds-button-primary { height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius, 0); background: var(--primary); color: var(--primary-foreground); font: 500 12px/1 Inter, sans-serif; transition: background-color 150ms, border-color 150ms, transform 150ms; } .ds-button-primary:hover { background: color-mix(in oklch, var(--primary) 80%, transparent); } .ds-button-primary:focus-visible { outline: 1px solid var(--ring); outline-offset: 1px; } .ds-button-primary:active { transform: translateY(1px); }"
+      "css": ".ds-button-primary { height: 32px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; background: var(--primary); color: var(--primary-foreground); font: 500 12px/1 Inter, sans-serif; transition: background-color 150ms, border-color 150ms, transform 150ms; } .ds-button-primary:hover { background: color-mix(in oklch, var(--primary) 80%, transparent); } .ds-button-primary:focus-visible { outline: 2px solid color-mix(in oklch, var(--ring) 30%, transparent); outline-offset: 1px; } .ds-button-primary:active { transform: translateY(1px); }"
     },
     {
       "name": "Outline Button",
       "kind": "button",
       "description": "Quiet secondary action defined by structure rather than fill.",
       "html": "<button class=\"ds-button-outline\">PREVIEW</button>",
-      "css": ".ds-button-outline { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius, 0); background: var(--background); color: var(--foreground); font: 500 12px/1 Inter, sans-serif; transition: background-color 150ms, border-color 150ms; } .ds-button-outline:hover { background: var(--muted); } .ds-button-outline:focus-visible { outline: 1px solid var(--ring); outline-offset: 1px; }"
+      "css": ".ds-button-outline { height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--background); color: var(--foreground); font: 500 12px/1 Inter, sans-serif; transition: background-color 150ms, border-color 150ms; } .ds-button-outline:hover { background: var(--muted); } .ds-button-outline:focus-visible { outline: 2px solid color-mix(in oklch, var(--ring) 30%, transparent); outline-offset: 1px; }"
     },
     {
       "name": "Text Input",
@@ -120,7 +120,7 @@
       "refersTo": "input",
       "description": "Compact repository and command input with explicit focus.",
       "html": "<input class=\"ds-input\" value=\"my-effect-app\" aria-label=\"Project name\">",
-      "css": ".ds-input { width: 100%; height: 32px; padding: 4px 10px; border: 1px solid var(--input); border-radius: var(--radius, 0); background: transparent; color: var(--foreground); font: 400 12px/1.5 Inter, sans-serif; transition: border-color 150ms, box-shadow 150ms; } .ds-input:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 1px color-mix(in oklch, var(--ring) 50%, transparent); }"
+      "css": ".ds-input { width: 100%; height: 32px; padding: 4px 10px; border: 1px solid var(--input); border-radius: 6px; background: transparent; color: var(--foreground); font: 400 12px/1.5 Inter, sans-serif; transition: border-color 150ms, box-shadow 150ms; } .ds-input:focus { outline: none; border-color: var(--ring); box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent); }"
     },
     {
       "name": "Documentation Navigation",
@@ -135,30 +135,30 @@
       "refersTo": "code-block",
       "description": "Flat bordered code surface for commands and source examples.",
       "html": "<pre class=\"ds-code\"><code>bunx stack-effect@latest init my-app</code></pre>",
-      "css": ".ds-code { overflow-x: auto; margin: 0; padding: 16px; border: 1px solid var(--code-block-border); border-radius: var(--radius, 0); background: var(--code-block); color: var(--code-block-foreground); font: 400 14px/1.5 'JetBrains Mono Variable', monospace; } .ds-code:focus-visible { outline: 1px solid var(--ring); outline-offset: 2px; }"
+      "css": ".ds-code { overflow-x: auto; margin: 0; padding: 16px; border: 1px solid var(--code-block-border); border-radius: 6px; background: var(--code-block); color: var(--code-block-foreground); font: 400 14px/1.5 'JetBrains Mono Variable', monospace; } .ds-code:focus-visible { outline: 2px solid color-mix(in oklch, var(--ring) 30%, transparent); outline-offset: 2px; }"
     },
     {
       "name": "Table of Contents Item",
       "kind": "nav",
-      "description": "Muted document location that becomes violet when active.",
+      "description": "Muted document location that becomes spectral teal when active.",
       "html": "<nav class=\"ds-toc\"><a href=\"#\">Start a project</a><a class=\"is-active\" href=\"#\">Grow incrementally</a></nav>",
       "css": ".ds-toc { display: grid; font: 400 14px/1.5 Inter, sans-serif; } .ds-toc a { padding: 4px 0; color: var(--muted-foreground); text-decoration: none; transition: color 150ms; } .ds-toc a:hover { color: var(--foreground); } .ds-toc a:focus-visible { outline: 1px solid var(--ring); outline-offset: 2px; } .ds-toc a.is-active { color: var(--primary); font-weight: 500; }"
     }
   ],
   "narrative": {
     "northStar": "The Organized Workbench",
-    "overview": "The current Stack Effect documentation is a quiet technical workspace. It uses monospaced headings, cool neutral surfaces, fine structural borders, and a single violet signal to make dense developer material feel ordered rather than ornamental. The system is refined and tool-like without becoming a systems console.",
+    "overview": "The Stack Effect documentation is a quiet technical workspace. It uses monospaced headings, precision-neutral surfaces, fine structural borders, and a sparse spectral-teal signal that connects the docs to the CLI. The system is refined and tool-like without becoming a systems console.",
     "keyCharacteristics": [
       "Code-forward hierarchy with monospaced headings and terminal content.",
-      "Cool, low-chroma neutral surfaces in both themes.",
+      "Precision Mono, low-chroma neutral surfaces in both themes.",
       "Flat tonal layering reinforced by fine borders.",
-      "One violet accent for links, focus, selection, and active location.",
+      "One spectral-teal accent for links, focus, selection, and active location.",
       "Restrained, functional transitions and documentation-first density."
     ],
     "rules": [
       {
         "name": "The One Signal Rule",
-        "body": "Violet identifies the next meaningful action or the current location; it is not a decorative fill for large regions.",
+        "body": "Spectral teal identifies the next meaningful action or the current location; it is not a decorative fill for large regions.",
         "section": "colors"
       },
       {
@@ -167,14 +167,14 @@
         "section": "typography"
       },
       {
-        "name": "The Flat Workbench Rule",
-        "body": "Surfaces are separated by tone and structural rules; shadows are not part of the current depth vocabulary.",
+        "name": "The Workbench Depth Rule",
+        "body": "Surfaces are separated primarily by tone and structural rules. Shadows are a light-mode exception, never a default layer.",
         "section": "elevation"
       }
     ],
     "dos": [
       "Do keep prose centered within the 72ch reading measure.",
-      "Do use Signal Violet for navigation, focus, selection, and meaningful actions.",
+      "Do use Spectral Signal for navigation, focus, selection, and meaningful actions.",
       "Do use fine borders and tonal contrast to organize technical material.",
       "Do preserve clear light- and dark-mode semantic relationships.",
       "Do keep motion brief, functional, and respectful of reduced-motion needs."
@@ -183,7 +183,7 @@
       "Don't turn the interface into a dense operational dashboard.",
       "Don't introduce decorative gradients, glass effects, or nested card grids.",
       "Don't use semantic status colors as competing brand accents.",
-      "Don't add shadows to the incumbent system and describe them as established tokens.",
+      "Don't tint general surfaces teal or turn the signal into decoration.",
       "Don't sacrifice body readability for an all-monospace interface."
     ]
   }

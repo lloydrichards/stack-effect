@@ -24,8 +24,8 @@ export function CopyButton({ getValue, className }: CopyButtonProps) {
       type="button"
       onClick={handleCopy}
       className={cn(
-        "absolute top-3 right-3 p-1.5 text-code-block-foreground/50 hover:text-code-block-foreground transition-opacity duration-150",
-        className
+        "absolute top-3 right-3 rounded-sm p-1.5 text-code-block-foreground/50 hover:bg-accent hover:text-code-block-foreground transition-colors duration-150",
+        className,
       )}
       aria-label={copied ? "Copied" : "Copy code"}
     >

@@ -11,6 +11,9 @@ export type NavSection = {
 export const navigation: NavSection[] = [
   {
     title: "Documentation",
-    items: [{ label: "Getting Started", href: "/getting-started" }],
+    items: [
+      { label: "Getting Started", href: "/getting-started" },
+      { label: "Brand System", href: "/brand" },
+    ],
   },
 ];

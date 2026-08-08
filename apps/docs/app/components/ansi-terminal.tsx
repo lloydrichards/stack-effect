@@ -23,7 +23,7 @@ const vscodePalette = {
   "--ansi-bright-white": "#e5e5e5",
 } as React.CSSProperties;
 
-interface AnsiTerminalProps {
+export interface AnsiTerminalProps {
   input: string;
   title?: string;
   className?: string;
@@ -36,8 +36,8 @@ export const AnsiTerminal = ({
 }: AnsiTerminalProps) => (
   <div
     className={cn(
-      "my-6 overflow-hidden border border-code-block-border bg-code-block",
-      className
+      "my-6 overflow-hidden rounded-md border border-code-block-border bg-code-block",
+      className,
     )}
   >
     {/* Title bar */}
@@ -54,7 +54,7 @@ export const AnsiTerminal = ({
       )}
     </div>
     {/* Terminal body */}
-    <pre className="font-terminal overflow-x-auto bg-code-block p-4 text-sm leading-[1.2] text-code-block-foreground">
+    <pre className="font-terminal overflow-x-auto bg-code-block p-3 text-xs leading-[1.25] text-code-block-foreground sm:p-4 sm:text-sm sm:leading-[1.2]">
       <AnsiHtml text={input} style={vscodePalette} />
     </pre>
   </div>
