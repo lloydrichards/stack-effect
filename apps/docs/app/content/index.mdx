@@ -1,0 +1,55 @@
+# Stack Effect
+
+Stack Effect is a CLI for scaffolding and extending full-stack TypeScript
+projects built on [Effect](https://effect.website).
+
+Start with the parts of an application you need—server, client, CLI, and shared
+packages—then add modules as the project grows. Stack Effect resolves the
+dependencies between those choices and turns them into repository changes.
+
+## Start a project
+
+```bash
+bunx stack-effect@latest init my-app
+```
+
+Or use npm's runner:
+
+```bash
+npx stack-effect init my-app
+```
+
+The interactive flow helps you choose a runtime, package manager, linting,
+formatting, testing, and the first parts of your project.
+
+## Grow it incrementally
+
+After initialization, run `add` from the project directory to select more
+targets and modules:
+
+```bash
+stack-effect add
+```
+
+For repeatable scripts, CI, or agent-driven workflows, specify the selection
+directly:
+
+```bash
+stack-effect add --target server/api:server-http-api --yes
+```
+
+Stack Effect makes the requested selection explicit, resolves its dependency
+closure into a blueprint, plans the repository-aware changes, and applies the
+result. You can preview either workflow without writing files with `--dry-run`.
+
+## Explore the catalog
+
+Use `graph` to inspect the available targets, modules, and their relationships:
+
+```bash
+stack-effect graph
+stack-effect graph --format mermaid
+```
+
+This documentation is an early guide to the CLI. It will grow with the catalog
+and the workflows it can compose.

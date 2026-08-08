@@ -1,0 +1,60 @@
+# Getting started
+
+Create a new Effect-powered TypeScript project with Stack Effect, then add the
+targets and modules it needs.
+
+## Create a project
+
+Run the initializer with a project name:
+
+```bash
+bunx stack-effect@latest init my-app
+```
+
+The interactive prompts choose the initial project shape. To accept defaults
+without prompts, pass `--yes`:
+
+```bash
+bunx stack-effect@latest init my-app --yes
+```
+
+You can also initialize the current directory:
+
+```bash
+stack-effect init . --yes
+```
+
+## Add capabilities
+
+Move into the generated project and run the interactive add flow:
+
+```bash
+cd my-app
+stack-effect add
+```
+
+Or add a known module directly. The target is written as
+`<kind>/<name>:<module>`:
+
+```bash
+stack-effect add --target server/api:server-http-api --yes
+```
+
+Stack Effect resolves required targets and modules automatically. For example,
+adding a React client with its HTTP API connection also introduces the server
+API it needs:
+
+```bash
+stack-effect add --target client-react/web:client-react-http-api --yes
+```
+
+## Preview before writing
+
+Add `--dry-run` to inspect a command's plan without changing the filesystem:
+
+```bash
+stack-effect add --target server/api:server-http-api --yes --dry-run
+```
+
+Use `stack-effect graph` whenever you want to see the available catalog entries
+and their dependency relationships.
