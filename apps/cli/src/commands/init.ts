@@ -5,6 +5,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { RecipeService, toWorkspaceToolValue } from "@repo/scaffold";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
@@ -22,13 +23,11 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
-import { toWorkspaceToolValue } from "../lib/workspace";
 import {
   CONFIG_FILENAME,
   ConfigureService,
   StackConfig,
 } from "../service/ConfigureService";
-import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 /**

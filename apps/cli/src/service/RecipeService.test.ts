@@ -8,7 +8,6 @@ import {
 } from "@repo/domain/Catalog";
 import { RecipeSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Layer, Schema } from "effect";
 import {
   AmbiguousRecipeProvider,
   InvalidRecipeSpec,
@@ -17,7 +16,8 @@ import {
   RecipeResolveOptions,
   RecipeService,
   UnresolvedRecipeTarget,
-} from "./RecipeService";
+} from "@repo/scaffold";
+import { Effect, Layer, Schema } from "effect";
 
 const TestLayer = RecipeService.layer.pipe(Layer.provide(CatalogService.layer));
 
@@ -752,7 +752,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config: testConfig, selection }),
-          "stack-effect create recipe-app --target server/api:server-http-api",
+          "bunx stack-effect@latest create recipe-app --target server/api:server-http-api",
         );
       }).pipe(Effect.provide(TestLayer)),
     );
@@ -792,7 +792,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config, selection }),
-          "stack-effect create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --typescript 7 --lint eslint --format prettier --no-git",
+          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --typescript 7 --lint eslint --format prettier --no-git",
         );
       }).pipe(Effect.provide(TestLayer)),
     );

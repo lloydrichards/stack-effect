@@ -4,16 +4,13 @@ import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer, Option, pipe } from "effect";
-import { encodeRecipeTargetSpecs } from "../lib/recipeTargets";
-import { toTypeScriptModuleId, toWorkspaceModuleId } from "../lib/workspace";
 import {
-  AmbiguousRecipeProvider,
   InvalidRecipeSpec,
-  MissingRecipeProvider,
   type RecipeError,
   type RecipeResolveOptions,
-  UnresolvedRecipeTarget,
 } from "./RecipeErrors";
+import { encodeRecipeTargetSpecs } from "./RecipeTargets";
+import { toTypeScriptModuleId, toWorkspaceModuleId } from "./WorkspaceModules";
 
 export {
   AmbiguousRecipeProvider,
@@ -232,17 +229,37 @@ export class RecipeService extends Context.Service<
       config,
       selection,
     }) => {
+      const commandRunner = config.runtime._tag === "bun" ? "bunx" : "npx";
       const packageManager = configPackageManager(config.runtime);
+      const configModuleIds = new Set(configWorkspaceModules(config));
       const targetFlags = pipe(
         selection.targets,
-        Arr.filter((target) => target.identity.kind !== "workspace"),
-        Arr.map(selectionTargetToRecipeTargetSpec),
+        Arr.flatMap((target) => {
+          if (target.identity.kind !== "workspace") {
+            return [selectionTargetToRecipeTargetSpec(target)];
+          }
+          const modules = Arr.filter(
+            target.modules,
+            (module) =>
+              !configModuleIds.has(module.id) &&
+              module.id !== "workspace-devenv-git",
+          );
+          return modules.length === 0
+            ? []
+            : [
+                {
+                  target: target.identity,
+                  modules: Arr.map(modules, (module) => module.id),
+                },
+              ];
+        }),
         encodeRecipeTargetSpecs,
         Arr.flatMap((target) => ["--target", quoteShellArg(target)]),
       );
 
       return [
-        "stack-effect",
+        commandRunner,
+        "stack-effect@latest",
         "create",
         quoteShellArg(config.name),
         ...targetFlags,

@@ -4,6 +4,7 @@ import {
   BlueprintService,
   FinalizeService,
   PlanService,
+  RecipeService,
   renderPlanForLlm,
   ScaffoldFormatter,
 } from "@repo/scaffold";
@@ -22,7 +23,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import { Box } from "effect-boxes";
 import { rootFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
-import { RecipeService } from "../service/RecipeService";
 
 /**
  * Reads a PlanInput from stdin, runs Blueprint → Plan, and outputs structured

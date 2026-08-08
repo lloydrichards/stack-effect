@@ -7,6 +7,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { RecipeTargetSpec } from "@repo/domain/Recipe";
+import { parseRecipeTargetSpecs, RecipeService } from "@repo/scaffold";
 import {
   HorizontalSelect,
   MultiSelect,
@@ -41,9 +42,7 @@ import {
   validateShowFiles,
   yesFlag,
 } from "../flags";
-import { parseRecipeTargetSpecs } from "../lib/recipeTargets";
 import { ConfigureService } from "../service/ConfigureService";
-import { RecipeService } from "../service/RecipeService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 type CollectedTarget = {

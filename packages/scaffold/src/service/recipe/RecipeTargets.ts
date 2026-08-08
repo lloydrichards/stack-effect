@@ -4,7 +4,23 @@ import {
   type RecipeTargetSpec as RecipeTargetSpecType,
 } from "@repo/domain/Recipe";
 import { Array as Arr, Effect, pipe, Schema, SchemaGetter } from "effect";
-import { duplicatedValues, splitCommaSeparated } from "./utils";
+
+const splitCommaSeparated = (values: ReadonlyArray<string>): Array<string> =>
+  Arr.flatMap(values, (value) =>
+    pipe(
+      value.split(","),
+      Arr.map((part) => part.trim()),
+      Arr.filter((part) => part.length > 0),
+    ),
+  );
+
+const duplicatedValues = (values: ReadonlyArray<string>): Array<string> =>
+  pipe(
+    Arr.groupBy(values, (value) => value),
+    Object.entries,
+    Arr.filter(([, grouped]) => grouped.length > 1),
+    Arr.map(([value]) => value),
+  );
 
 const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
 
@@ -69,8 +85,8 @@ export const renderRecipeTargetSpec = (spec: RecipeTargetSpecType): string =>
 const recipeTargetSpecToCollected = Effect.fn("recipeTargetSpecToCollected")(
   function* (spec: typeof RecipeTargetSpec.Type) {
     const rawSpec = renderRecipeTargetSpec(spec);
-
     const duplicateModules = duplicatedValues(spec.modules);
+
     if (Arr.isArrayNonEmpty(duplicateModules)) {
       return yield* Effect.fail(
         `Duplicate module IDs in target spec "${rawSpec}": ${Arr.join(duplicateModules, ", ")}`,
