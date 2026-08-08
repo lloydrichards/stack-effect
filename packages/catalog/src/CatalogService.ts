@@ -3,8 +3,11 @@ import type {
   CatalogTree,
   ModuleCapability,
   ModuleCategory,
+  ModuleDefinition,
+  ModuleDependency,
   ModuleId,
   ModuleImplication,
+  SupportedOn,
   TargetIdentity,
   TargetKind,
   Visibility,
@@ -21,6 +24,41 @@ import {
 } from "effect";
 import { moduleRegistry } from "./registry/moduleRegistry";
 import { targetRegistry } from "./registry/targetRegistry";
+
+export type BuilderCatalogTarget = {
+  readonly kind: typeof TargetKind.Type;
+  readonly title: string;
+  readonly description: string;
+  readonly defaultName?: string;
+  readonly requiredModules: ReadonlyArray<typeof ModuleId.Type>;
+};
+
+export type BuilderCatalogModule = {
+  readonly id: typeof ModuleId.Type;
+  readonly title: string;
+  readonly description: string;
+  readonly visibility: typeof Visibility.Type;
+  readonly owner: TargetIdentity;
+  readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
+  readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
+  readonly implications: ReadonlyArray<typeof ModuleImplication.Type>;
+  readonly children: ReadonlyArray<BuilderCatalogModuleChild>;
+};
+
+export type BuilderCatalogModuleChild = {
+  readonly requirement: "required" | "optional";
+  readonly module: BuilderCatalogModule;
+};
+
+export type BuilderCatalogTargetModules = {
+  readonly owner: TargetIdentity;
+  readonly modules: ReadonlyArray<BuilderCatalogModule>;
+};
+
+export type BuilderCatalog = {
+  readonly targets: ReadonlyArray<BuilderCatalogTarget>;
+  readonly targetModules: ReadonlyArray<BuilderCatalogTargetModules>;
+};
 
 const supportedOnTargetKind = Match.type<
   typeof import("@repo/domain/Catalog").SupportedOn.Type
@@ -203,6 +241,92 @@ export class CatalogService extends Context.Service<CatalogService>()(
             ),
         );
 
+      const toBuilderCatalog = Effect.fn("CatalogService.toBuilderCatalog")(
+        function* (owners: ReadonlyArray<TargetIdentity>) {
+          const projectModules = (owner: TargetIdentity) => {
+            const supportedModules = Arr.filter(
+              Arr.fromIterable(moduleIndex.values()),
+              (module) =>
+                Arr.some(module.supportedOn, (supportedOn) =>
+                  owner.matches(supportedOn),
+                ),
+            );
+            const supportedIds = new Set(
+              Arr.map(supportedModules, (module) => module.id),
+            );
+            const childIds = new Set(
+              Arr.flatMap(supportedModules, (module) =>
+                Arr.map(module.children ?? [], (child) => child.moduleId),
+              ),
+            );
+
+            const projectModule = (
+              module: typeof ModuleDefinition.Type,
+              ancestors: ReadonlySet<string>,
+            ): BuilderCatalogModule => {
+              const nextAncestors = new Set([...ancestors, module.id]);
+              return {
+                id: module.id,
+                title: module.title,
+                description: module.description,
+                visibility: module.visibility ?? "public",
+                owner,
+                supportedOn: module.supportedOn,
+                dependencies: module.dependencies,
+                implications: module.implies ?? [],
+                children: Arr.filterMap(module.children ?? [], (child) => {
+                  const childModule = moduleIndex.get(child.moduleId);
+                  if (
+                    childModule === undefined ||
+                    !supportedIds.has(child.moduleId) ||
+                    nextAncestors.has(child.moduleId)
+                  ) {
+                    return Result.fail("skip" as const);
+                  }
+                  return Result.succeed({
+                    requirement: child.requirement,
+                    module: projectModule(childModule, nextAncestors),
+                  });
+                }),
+              };
+            };
+
+            return Arr.map(
+              Arr.filter(
+                supportedModules,
+                (module) => !childIds.has(module.id),
+              ),
+              (module) => projectModule(module, new Set()),
+            );
+          };
+
+          yield* Effect.forEach(owners, (owner) => getTarget(owner.kind), {
+            discard: true,
+          });
+
+          return {
+            targets: Arr.map(
+              Arr.filter(Arr.fromIterable(targetIndex.values()), (target) =>
+                hasVisibility(target, "public"),
+              ),
+              (target) => ({
+                kind: target.kind,
+                title: target.title,
+                description: target.description,
+                ...(target.defaultName === undefined
+                  ? {}
+                  : { defaultName: target.defaultName }),
+                requiredModules: target.requiredModules ?? [],
+              }),
+            ),
+            targetModules: Arr.map(owners, (owner) => ({
+              owner,
+              modules: projectModules(owner),
+            })),
+          } satisfies BuilderCatalog;
+        },
+      );
+
       const toGraph: CatalogGraph = Graph.directed((g) => {
         const targetNodes = new Map<string, number>();
         for (const target of targetRegistry) {
@@ -316,6 +440,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
         getSupportedModules,
         getTarget,
         getTargetKinds,
+        toBuilderCatalog,
         isSupportedOn,
         isImpliedByAny,
         toCatalogTree,
