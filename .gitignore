@@ -62,3 +62,10 @@ workspace/
 
 # Nix
 .direnv/
+
+# Impeccable local tooling
+/.agents/skills/impeccable/
+/.codex/hooks.json
+/.github/hooks/impeccable.json
+/.github/skills/impeccable/
+/.impeccable/critique/
