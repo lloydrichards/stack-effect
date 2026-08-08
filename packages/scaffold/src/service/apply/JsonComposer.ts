@@ -2,9 +2,8 @@ import { ApplyFailure } from "@repo/domain/Apply";
 import type { JsonCompositionOperation } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, Layer, Match, Schema } from "effect";
 
-const PackageJsonFromString = Schema.fromJsonString(
-  Schema.Record(Schema.String, Schema.Unknown),
-);
+const PackageJson = Schema.Record(Schema.String, Schema.Unknown);
+const PackageJsonFromString = Schema.fromJsonString(PackageJson);
 
 export interface JsonComposerShape {
   readonly compose: (
@@ -43,7 +42,7 @@ export class JsonComposer extends Context.Service<
           { discard: true },
         );
 
-        return yield* Schema.encodeUnknownEffect(PackageJsonFromString)(
+        const encoded = yield* Schema.encodeUnknownEffect(PackageJson)(
           mutablePkg,
         ).pipe(
           Effect.mapError(
@@ -54,6 +53,8 @@ export class JsonComposer extends Context.Service<
               }),
           ),
         );
+
+        return `${JSON.stringify(encoded, null, 2)}\n`;
       }),
   } satisfies JsonComposerShape),
 }) {
