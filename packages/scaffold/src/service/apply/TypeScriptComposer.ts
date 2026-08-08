@@ -16,12 +16,7 @@ import {
   Option,
   pipe,
 } from "effect";
-import type {
-  CallExpression,
-  ImportDeclaration,
-  Node,
-  SourceFile,
-} from "ts-morph";
+import type { CallExpression, Node, SourceFile } from "ts-morph";
 import { Project, SyntaxKind } from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
