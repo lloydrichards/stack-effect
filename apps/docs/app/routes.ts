@@ -7,6 +7,7 @@ import {
 
 export default [
   index("content/index.mdx"),
+  route("builder", "routes/builder.tsx"),
   route("getting-started", "content/getting-started.mdx"),
   ...prefix("reference/cli", [
     index("content/reference/cli/index.mdx"),
