@@ -1,0 +1,145 @@
+/* Shiki dual theme: apply light variant colors by default */
+pre[data-theme] span,
+code[data-theme] span {
+  color: var(--shiki-light);
+  background-color: var(--shiki-light-bg);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+/* Character-level highlighting: override shiki theme colors */
+pre [data-chars-id] span {
+  @apply !text-inherit;
+}
+
+/* Shiki dual theme: switch to dark variant colors when .dark is active */
+html.dark pre[data-theme] span,
+html.dark code[data-theme] span {
+  color: var(--shiki-dark);
+  background-color: var(--shiki-dark-bg);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+
+/* Shiki transformer: diff notation */
+.diff.add {
+  @apply bg-success/10;
+}
+.diff.add::before {
+  content: "+";
+  @apply text-success absolute left-1;
+}
+.diff.remove {
+  @apply bg-destructive/10 opacity-70;
+}
+.diff.remove::before {
+  content: "-";
+  @apply text-destructive absolute left-1;
+}
+.diff {
+  @apply relative pl-5;
+}
+
+/* Shiki transformer: focus notation */
+.has-focused .line:not(.focused) {
+  @apply opacity-40 transition-opacity duration-150;
+}
+.has-focused:hover .line:not(.focused) {
+  @apply opacity-100;
+}
+
+/* Shiki transformer: highlight notation */
+.highlighted {
+  @apply bg-accent/20 border-l-primary border-l-2 px-2 py-0.5;
+}
+
+pre > code {
+  counter-reset: line;
+}
+
+code[data-line-numbers] {
+  counter-reset: line;
+}
+
+code[data-line-numbers] > [data-line]::before {
+  counter-increment: line;
+  content: counter(line);
+  @apply text-code-foreground/40 mr-4 inline-block w-4 text-right;
+}
+
+pre [data-line]:not([data-highlighted-line]):not(.highlighted) {
+  @apply border-l-2 border-l-transparent px-2 py-0.5;
+}
+
+[data-highlighted-line] {
+  @apply bg-accent/20 border-l-primary border-l-2 px-2 py-0.5;
+}
+
+[data-highlighted-chars] {
+  @apply bg-accent/20;
+}
+
+[data-highlighted-line-id="success"] {
+  @apply border-l-success bg-success/20 !text-success;
+}
+[data-highlighted-line-id="warning"] {
+  @apply border-l-warning bg-warning/20 !text-warning;
+}
+[data-highlighted-line-id="destructive"] {
+  @apply border-l-destructive bg-destructive/20 !text-destructive;
+}
+[data-highlighted-line-id="info"] {
+  @apply border-l-info bg-info/20 !text-info;
+}
+
+[data-chars-id] {
+  @apply border-b-1 px-1 py-0.5 shadow-none;
+}
+
+[data-chars-id="success"] {
+  @apply border-b-success bg-success/20 !text-success font-bold;
+}
+[data-chars-id="warning"] {
+  @apply border-b-warning bg-warning/20 !text-warning font-bold;
+}
+[data-chars-id="destructive"] {
+  @apply border-b-destructive bg-destructive/20 !text-destructive font-bold;
+}
+[data-chars-id="info"] {
+  @apply border-b-info bg-info/20 !text-info font-bold;
+}
+
+[data-rehype-pretty-code-title] {
+  @apply bg-code-block text-code-block-foreground border border-code-block-border border-b-0 px-3 py-2 text-sm font-semibold;
+}
+
+figure[data-rehype-pretty-code-figure]:has(> [data-rehype-pretty-code-title])
+  pre {
+  @apply border-t-0;
+}
+
+/* Autolink headings */
+.subheading-anchor {
+  @apply no-underline inline-flex items-center justify-center size-8 ml-2 text-muted-foreground/0 align-middle transition-colors duration-150;
+}
+
+.subheading-anchor::after {
+  content: "#";
+  @apply font-mono text-[0.75em] font-bold;
+}
+
+h2:hover > .subheading-anchor,
+h3:hover > .subheading-anchor,
+h4:hover > .subheading-anchor,
+h5:hover > .subheading-anchor,
+h6:hover > .subheading-anchor,
+.subheading-anchor:hover,
+.subheading-anchor:focus-visible {
+  @apply text-primary;
+}
+
+.subheading-anchor:focus-visible {
+  @apply outline-2 outline-offset-2 outline-ring;
+}
