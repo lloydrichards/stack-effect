@@ -17,12 +17,19 @@ import { TableOfContents } from "~/components/table-of-contents";
 import { ThemeToggle } from "~/components/theme-toggle";
 import { proseComponents } from "~/components/tokens/prose-components";
 import {
+  NavigationMenu,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+} from "~/components/ui/navigation-menu";
+import {
   SidebarProvider,
   SidebarTrigger,
   useSidebar,
 } from "~/components/ui/sidebar";
 import type { TOCItem } from "~/lib/remark-toc-export";
 import { cn } from "~/lib/utils";
+import { isPrimaryNavigationActive, primaryNavigation } from "~/nav.config";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -179,17 +186,17 @@ function SiteHeader() {
       {!sidebarVisible && (
         <Link
           to="/"
-          className="font-heading text-base font-bold tracking-[-0.02em]"
+          className="hidden h-11 items-center font-heading text-base font-bold tracking-[-0.02em] whitespace-nowrap min-[30rem]:flex lg:h-9"
         >
           Stack Effect
         </Link>
       )}
-      <div className="flex-1" />
+      <PrimaryNavigation className="ml-auto" />
       <a
         href="https://github.com/lloydrichards/stack-effect"
         target="_blank"
         rel="noopener noreferrer"
-        className="text-muted-foreground hover:text-foreground transition-colors"
+        className="hidden size-11 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:flex lg:size-9"
         aria-label="GitHub"
       >
         <GithubIcon className="size-5" />
@@ -205,29 +212,53 @@ function LandingHeader() {
       <div className="mx-auto flex h-14 w-full max-w-[90rem] items-center gap-4 px-5 sm:px-8 lg:px-12">
         <Link
           to="/"
-          className="font-heading text-base font-bold tracking-[-0.02em]"
+          className="hidden h-11 items-center font-heading text-base font-bold tracking-[-0.02em] min-[30rem]:flex lg:h-9"
         >
           Stack Effect
         </Link>
-        <nav className="ml-auto flex items-center gap-1" aria-label="Primary">
-          <Link
-            to="/getting-started"
-            className="flex h-11 items-center rounded-sm px-3 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:h-9"
-          >
-            Documentation
-          </Link>
+        <div className="ml-auto flex items-center gap-1">
+          <PrimaryNavigation />
           <a
             href="https://github.com/lloydrichards/stack-effect"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex size-11 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground sm:size-9"
+            className="hidden size-11 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground min-[23rem]:flex lg:size-9"
             aria-label="GitHub"
           >
             <GithubIcon className="size-5" />
           </a>
           <ThemeToggle />
-        </nav>
+        </div>
       </div>
     </header>
+  );
+}
+
+function PrimaryNavigation({ className }: { className?: string }) {
+  const { pathname } = useLocation();
+
+  return (
+    <NavigationMenu className={className} aria-label="Primary">
+      <NavigationMenuList>
+        {primaryNavigation.map((item) => (
+          <NavigationMenuItem key={item.href}>
+            <NavigationMenuLink
+              render={<Link to={item.href} />}
+              data-active={
+                isPrimaryNavigationActive(pathname, item.href) || undefined
+              }
+              aria-current={
+                isPrimaryNavigationActive(pathname, item.href)
+                  ? "page"
+                  : undefined
+              }
+              className="h-11 px-2 text-xs sm:px-2.5 lg:h-9"
+            >
+              {item.label}
+            </NavigationMenuLink>
+          </NavigationMenuItem>
+        ))}
+      </NavigationMenuList>
+    </NavigationMenu>
   );
 }
