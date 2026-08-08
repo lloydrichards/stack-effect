@@ -52,8 +52,9 @@ simulating an experience the product does not yet provide.
 - Add capabilities incrementally rather than requiring a fixed template.
 - Preserve the distinct domain meanings of Selection, Blueprint, Plan, Apply,
   and Finalize.
-- Keep the initial website demonstration simple. An interactive configurator is
-  a possible later product capability, not a current claim.
+- Keep the website demonstration representative and explicitly labeled as a
+  dry run. It explains catalog composition but does not claim to write files or
+  execute the CLI engine in-browser.
 
 ## Brand Commitments
 
@@ -77,8 +78,9 @@ simulating an experience the product does not yet provide.
 - Existing design tokens and themes: `apps/docs/app/app.css`.
 - Existing typography roles: `apps/docs/app/components/tokens/typeface.ts`.
 - Existing prose components: `apps/docs/app/components/tokens/prose-components.tsx`.
-- Existing VHS recordings in the repository can provide authentic workflow
-  demonstrations.
+- The landing page includes a representative interactive dry run that explains
+  Selection, Blueprint, Plan, and the runnable outcome without executing the
+  CLI engine in-browser.
 - The Stack Effect lab article at
   `https://lloydrichards.dev/labs/060-stack-effect-intro` provides authored
   product narrative and voice evidence.

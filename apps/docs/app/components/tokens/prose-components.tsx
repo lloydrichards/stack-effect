@@ -29,7 +29,7 @@ export const proseComponents = {
       className={cn(
         typefaceHeading2(),
         "mt-12 scroll-m-20 first:mt-0",
-        className
+        className,
       )}
       {...props}
     />
@@ -86,8 +86,8 @@ export const proseComponents = {
     <blockquote
       className={cn(
         typefaceBody(),
-        "[&>*]:text-muted-foreground mt-5 bg-muted/50 px-5 py-4 italic",
-        className
+        "[&>*]:text-muted-foreground mt-5 rounded-md border border-border bg-muted/50 px-5 py-4 italic",
+        className,
       )}
       {...props}
     />
@@ -142,7 +142,7 @@ export const proseComponents = {
     <th
       className={cn(
         "border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right",
-        className
+        className,
       )}
       {...props}
     />
@@ -151,7 +151,7 @@ export const proseComponents = {
     <td
       className={cn(
         "border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
-        className
+        className,
       )}
       {...props}
     />
@@ -173,8 +173,8 @@ export const proseComponents = {
     return (
       <code
         className={cn(
-          "bg-code text-code-foreground border border-code-border px-1.5 py-0.5 font-mono text-[0.875em]",
-          className
+          "bg-code text-code-foreground border border-code-border rounded-sm px-1.5 py-0.5 font-mono text-[0.875em]",
+          className,
         )}
         {...props}
       />

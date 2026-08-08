@@ -21,8 +21,8 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
       <pre
         ref={preRef}
         className={cn(
-          "bg-code-block text-code-block-foreground border border-code-block-border overflow-x-auto p-4 font-mono text-sm",
-          className
+          "bg-code-block text-code-block-foreground border border-code-block-border overflow-x-auto rounded-sm p-4 font-mono text-sm",
+          className,
         )}
         {...props}
       >
