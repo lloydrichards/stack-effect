@@ -150,11 +150,14 @@ describe("ApplyPreviewService", () => {
         });
 
         expect(result.apply.modified).toEqual(["package.json"]);
-        expect(JSON.parse(result.files[0]?.contents ?? "")).toEqual({
-          name: "app",
-          private: true,
-          scripts: { dev: "vite" },
-        });
+        expect(result.files[0]?.contents).toBe(`{
+  "name": "app",
+  "private": true,
+  "scripts": {
+    "dev": "vite"
+  }
+}
+`);
         expect(
           yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
         ).toBe(original);
