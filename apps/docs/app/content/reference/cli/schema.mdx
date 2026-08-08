@@ -1,0 +1,25 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect schema
+
+Serialize the full catalog (targets with nested modules) and the JSON Schema for plan input. Useful for LLMs, CI, and external tooling.
+
+## Usage
+
+```sh
+stack-effect schema [flags]
+```
+
+## Examples
+
+Output full catalog and plan input schema
+
+```sh
+stack-effect schema
+```
+
+Inspect available targets
+
+```sh
+stack-effect schema | jq '.catalog.targets'
+```

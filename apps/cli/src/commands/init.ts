@@ -396,7 +396,7 @@ export const init = Command.make(
       description: "Initialize in the current directory using the folder name",
     },
     {
-      command: "stack-effect init my-app --yes --package-manager bun --no-git",
+      command: "stack-effect init my-app --yes --runtime bun --no-git",
       description: "Non-interactive with explicit options",
     },
   ]),

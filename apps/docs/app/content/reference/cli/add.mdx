@@ -1,0 +1,42 @@
+{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}
+
+# stack-effect add
+
+Incrementally add targets and modules to a scaffolded project. Resolves dependencies and implications automatically.
+
+## Usage
+
+```sh
+stack-effect add [flags]
+```
+
+## Options
+
+| Option | Description |
+| --- | --- |
+| `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
+| `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
+| `--yes, -y` | Skip confirmation prompts (uses defaults where available) |
+| `--dry-run` | Preview changes without writing to disk |
+| `--show-files` | Include generated file contents in a dry-run preview |
+| `--trust` | Skip finalize script approval prompt and run all scripts |
+
+## Examples
+
+Interactively select targets and modules
+
+```sh
+stack-effect add
+```
+
+Add a specific module to a target
+
+```sh
+stack-effect add --target server/api:server-http-api
+```
+
+Non-interactive dry run for CI/LLM usage
+
+```sh
+stack-effect add --yes --target package/domain:domain-api-contracts --dry-run
+```

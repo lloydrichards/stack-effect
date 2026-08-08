@@ -5,9 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "react-router build",
-    "clean": "rm -rf build node_modules .react-router",
-    "dev": "react-router dev",
+    "clean": "rm -rf build node_modules .turbo .react-router tsconfig.tsbuildinfo",
+    "dev": "bun run --cwd ../cli docs:generate && react-router dev",
     "lint": "biome lint .",
+    "prebuild": "bun run --cwd ../cli docs:generate",
     "start": "react-router-serve ./build/server/index.js",
     "type-check": "react-router typegen && tsc"
   },

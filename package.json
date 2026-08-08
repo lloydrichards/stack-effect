@@ -9,6 +9,8 @@
     "catalog:validate-workspace": "bun run start -- catalog workspace validate --root workspace/catalog-built",
     "clean": "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo playwright-report test-results",
     "dev": "turbo run dev",
+    "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",
+    "docs:generate": "bun run --cwd apps/cli docs:generate",
     "lint": "biome lint .",
     "format": "biome check --write .",
     "format:check": "biome check .",
