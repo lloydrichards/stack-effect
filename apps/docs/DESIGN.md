@@ -202,6 +202,10 @@ floating or raised structures where a border alone does not express separation.
 **The Workbench Depth Rule.** Surfaces are separated primarily by tone and
 structural rules. Shadows are a light-mode exception, never a default layer.
 
+**The Workbench Motion Rule.** Lifecycle changes preserve spatial continuity by
+animating the content region to its measured height over 300ms with a natural
+deceleration. Reduced-motion preferences remove the transition entirely.
+
 ## Shapes
 
 The dominant form language is subtly rounded and exact. Compact controls use a
@@ -213,6 +217,8 @@ circular terminal indicators remain an intentional exception.
 ### Buttons
 
 - **Shape:** Compact with a 6px radius, generally 32px high.
+- **Touch targets:** Controls expand to at least 44px on small screens while
+  retaining compact desktop density.
 - **Primary:** Spectral Signal background with high-contrast foreground.
 - **Hover / Focus:** Short color transitions, a one-pixel focus ring, and a
   one-pixel active press offset.
@@ -247,10 +253,13 @@ collapse rather than competing with the article.
 ### Code Blocks and Terminal
 
 Code blocks use the darkest or quietest local surface, monospaced type, a
-one-pixel border, and 16px padding. Copy actions remain hidden until hover.
+one-pixel border, and 16px padding. Copy actions remain visible on touch-sized
+layouts, then reveal on hover or keyboard focus where a pointer is expected.
 Syntax, diffs, focused lines, and annotations use semantic color without
 changing the surrounding surface language. Terminal examples add only a thin
-title bar and three small semantic indicators.
+title bar and three small semantic indicators. Long terminal lines scroll
+horizontally without compressing the output; constrained layouts include a
+visible scrolling cue and keep the region keyboard-focusable.
 
 ## Do's and Don'ts
 

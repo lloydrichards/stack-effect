@@ -35,6 +35,7 @@ export const AnsiTerminal = ({
   className,
 }: AnsiTerminalProps) => (
   <div
+    dir="ltr"
     className={cn(
       "my-6 overflow-hidden rounded-md border border-code-block-border bg-code-block",
       className,
@@ -54,8 +55,15 @@ export const AnsiTerminal = ({
       )}
     </div>
     {/* Terminal body */}
-    <pre className="font-terminal overflow-x-auto bg-code-block p-3 text-xs leading-[1.25] text-code-block-foreground sm:p-4 sm:text-sm sm:leading-[1.2]">
+    <pre
+      className="font-terminal overflow-x-auto bg-code-block p-3 text-xs leading-[1.25] text-code-block-foreground sm:p-4 sm:text-sm sm:leading-[1.2]"
+      tabIndex={0}
+      aria-label={title ? `${title} output` : "Terminal output"}
+    >
       <AnsiHtml text={input} style={vscodePalette} />
     </pre>
+    <p className="border-t border-code-block-border px-3 py-2 text-xs text-muted-foreground sm:hidden">
+      Swipe horizontally to inspect long lines.
+    </p>
   </div>
 );

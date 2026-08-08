@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback } from "react";
+import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
 import { cn } from "~/lib/utils";
 
 interface CopyButtonProps {
@@ -9,27 +10,29 @@ interface CopyButtonProps {
 }
 
 export function CopyButton({ getValue, className }: CopyButtonProps) {
-  const [copied, setCopied] = useState(false);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const { status, copy } = useCopyToClipboard();
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(getValue());
-    setCopied(true);
-    if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    timeoutRef.current = setTimeout(() => setCopied(false), 2000);
-  }, [getValue]);
+  const handleCopy = useCallback(async () => {
+    await copy(getValue());
+  }, [copy, getValue]);
 
   return (
     <button
       type="button"
       onClick={handleCopy}
       className={cn(
-        "absolute top-3 right-3 rounded-sm p-1.5 text-code-block-foreground/50 hover:bg-accent hover:text-code-block-foreground transition-colors duration-150",
+        "absolute top-1.5 right-1.5 flex size-11 items-center justify-center rounded-sm bg-code-block text-code-block-foreground/50 transition-colors duration-150 hover:bg-accent hover:text-code-block-foreground sm:top-3 sm:right-3 sm:size-8 sm:bg-transparent",
         className,
       )}
-      aria-label={copied ? "Copied" : "Copy code"}
+      aria-label={
+        status === "copied"
+          ? "Code copied"
+          : status === "error"
+            ? "Copy failed; select the code manually"
+            : "Copy code"
+      }
     >
-      {copied ? (
+      {status === "copied" ? (
         <svg
           xmlns="http://www.w3.org/2000/svg"
           width="14"
@@ -61,6 +64,14 @@ export function CopyButton({ getValue, className }: CopyButtonProps) {
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       )}
+      {status === "error" ? (
+        <span
+          role="status"
+          className="absolute top-full right-0 mt-1 w-max max-w-40 rounded-sm bg-destructive px-2 py-1 text-right text-xs leading-tight text-destructive-foreground shadow-sm"
+        >
+          Couldn’t copy. Select manually.
+        </span>
+      ) : null}
     </button>
   );
 }

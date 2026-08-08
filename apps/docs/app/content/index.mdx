@@ -1,55 +1,48 @@
-# Stack Effect
+import { BlueprintWorkbench } from "../components/blueprint-workbench";
 
-Stack Effect is a CLI for scaffolding and extending full-stack TypeScript
-projects built on [Effect](https://effect.website).
+<div className="mx-auto max-w-4xl">
 
-Start with the parts of an application you need—server, client, CLI, and shared
-packages—then add modules as the project grows. Stack Effect resolves the
-dependencies between those choices and turns them into repository changes.
+<h1 className="mt-2 scroll-m-20 font-heading text-[2.488rem] font-bold leading-[1.15] tracking-[-0.02em]">Scaffold an Effect application.</h1>
 
-## Start a project
+Stack Effect is a CLI for creating and extending TypeScript repositories built
+with Effect. Choose the targets and capabilities you need; Stack Effect resolves
+their dependencies and shows the repository changes before writing them.
+
+Copy and run:
+
+```bash
+bunx stack-effect@latest init my-app --yes
+```
+
+[Choose your first project step by step →](/getting-started)
+
+</div>
+
+<BlueprintWorkbench />
+
+<div className="mx-auto max-w-[72ch]">
+
+## How Stack Effect composes a project
+
+**Targets** define the parts of the repository: a CLI, server, client, or shared
+package. **Modules** add capabilities to those targets, such as chat, HTTP APIs,
+or shared contracts.
+
+Stack Effect resolves your selection into a dependency-complete **Blueprint**,
+then compares it with the repository to produce an explicit **Plan**. Use
+`--dry-run` to inspect every affected path before anything is written.
+
+## Create your first project
+
+Initialize a repository, move into it, then use `add` to choose what to include
+through the interactive TUI.
 
 ```bash
 bunx stack-effect@latest init my-app
+cd my-app
+bunx stack-effect@latest add
 ```
 
-Or use npm's runner:
+[Create your first project →](/getting-started)
 
-```bash
-npx stack-effect init my-app
-```
-
-The interactive flow helps you choose a runtime, package manager, linting,
-formatting, testing, and the first parts of your project.
-
-## Grow it incrementally
-
-After initialization, run `add` from the project directory to select more
-targets and modules:
-
-```bash
-stack-effect add
-```
-
-For repeatable scripts, CI, or agent-driven workflows, specify the selection
-directly:
-
-```bash
-stack-effect add --target server/api:server-http-api --yes
-```
-
-Stack Effect makes the requested selection explicit, resolves its dependency
-closure into a blueprint, plans the repository-aware changes, and applies the
-result. You can preview either workflow without writing files with `--dry-run`.
-
-## Explore the catalog
-
-Use `graph` to inspect the available targets, modules, and their relationships:
-
-```bash
-stack-effect graph
-stack-effect graph --format mermaid
-```
-
-This documentation is an early guide to the CLI. It will grow with the catalog
-and the workflows it can compose.
+</div>
