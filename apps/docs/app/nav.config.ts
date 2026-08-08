@@ -8,6 +8,19 @@ export type NavSection = {
   items: NavItem[];
 };
 
+export const primaryNavigation: NavItem[] = [
+  { label: "Home", href: "/" },
+  { label: "Builder", href: "/builder" },
+  { label: "Documentation", href: "/getting-started" },
+];
+
+export const isPrimaryNavigationActive = (pathname: string, href: string) =>
+  href === "/"
+    ? pathname === "/"
+    : href === "/builder"
+      ? pathname === "/builder"
+      : pathname !== "/" && pathname !== "/builder";
+
 export const navigation: NavSection[] = [
   {
     title: "Documentation",
