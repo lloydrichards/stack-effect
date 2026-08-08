@@ -274,20 +274,17 @@ export function ComponentCatalog() {
   );
 }
 
-export function RulesCatalog() {
-  const rules = [
-    ["Signal", "Primary marks action, focus, active location, or execution."],
-    [
-      "Shape",
-      "rounded-sm controls · rounded-md containers · pills for status only.",
-    ],
-    [
-      "Depth",
-      "Tonal surfaces and borders first; no ambient dark-mode shadows.",
-    ],
-    ["Color", "Use semantic tokens in components; never paste palette values."],
-  ];
+const rules = [
+  ["Signal", "Primary marks action, focus, active location, or execution."],
+  [
+    "Shape",
+    "rounded-sm controls · rounded-md containers · pills for status only.",
+  ],
+  ["Depth", "Tonal surfaces and borders first; no ambient dark-mode shadows."],
+  ["Color", "Use semantic tokens in components; never paste palette values."],
+];
 
+export function RulesCatalog() {
   return (
     <div className="my-6 grid gap-px overflow-hidden rounded-md border bg-border sm:grid-cols-2">
       {rules.map(([name, detail]) => (
