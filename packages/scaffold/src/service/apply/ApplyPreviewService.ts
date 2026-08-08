@@ -2,13 +2,14 @@ import { type Apply, ApplyFailure, type ApplyResult } from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
 import * as MemoryFileSystem from "../../MemoryFileSystem";
+import {
+  type ApplyPreviewFile,
+  ApplyPreviewFileSchema,
+} from "../../RecipePreviewSchema";
 import { ApplyService } from "./ApplyService";
 
-export type ApplyPreviewFile = {
-  readonly path: string;
-  readonly status: "created" | "modified";
-  readonly contents: string;
-};
+export type { ApplyPreviewFile };
+export { ApplyPreviewFileSchema };
 
 export type ApplyPreview = {
   readonly apply: ApplyResult;
