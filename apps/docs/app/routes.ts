@@ -19,5 +19,4 @@ export default [
     route("schema", "content/reference/cli/schema.mdx"),
     route("catalog", "content/reference/cli/catalog.mdx"),
   ]),
-  route("brand", "content/brand.mdx"),
 ] satisfies RouteConfig;

@@ -24,10 +24,7 @@ export const isPrimaryNavigationActive = (pathname: string, href: string) =>
 export const navigation: NavSection[] = [
   {
     title: "Documentation",
-    items: [
-      { label: "Getting Started", href: "/getting-started" },
-      { label: "Brand System", href: "/brand" },
-    ],
+    items: [{ label: "Getting Started", href: "/getting-started" }],
   },
   {
     title: "CLI Reference",
