@@ -41,7 +41,7 @@ export const BuilderCatalogRequestWire = Schema.toEncoded(
   BuilderCatalogRequestSchema,
 );
 
-const ModuleChoiceWire = Schema.Struct({
+export const ModuleChoiceWire = Schema.Struct({
   id: Schema.String,
   title: Schema.String,
   description: Schema.String,
@@ -50,6 +50,26 @@ const ModuleChoiceWire = Schema.Struct({
 const ConfigurationChoiceWire = Schema.Struct({
   ...ModuleChoiceWire.fields,
   value: Schema.String,
+});
+
+export const CatalogModuleWire = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  description: Schema.String,
+  visibility: Schema.Literals(["public", "internal"]),
+  dependencies: Schema.Array(ModuleDependencyWire),
+  implications: Schema.Array(
+    Schema.Struct({
+      targetKind: Schema.String,
+      moduleId: Schema.String,
+    }),
+  ),
+  children: Schema.Array(
+    Schema.Struct({
+      requirement: Schema.Literals(["required", "optional"]),
+      moduleId: Schema.String,
+    }),
+  ),
 });
 
 export const BuilderCatalogOutputWire = Schema.Struct({
@@ -65,27 +85,7 @@ export const BuilderCatalogOutputWire = Schema.Struct({
   targetModules: Schema.Array(
     Schema.Struct({
       owner: TargetIdentityWire,
-      modules: Schema.Array(
-        Schema.Struct({
-          id: Schema.String,
-          title: Schema.String,
-          description: Schema.String,
-          visibility: Schema.Literals(["public", "internal"]),
-          dependencies: Schema.Array(ModuleDependencyWire),
-          implications: Schema.Array(
-            Schema.Struct({
-              targetKind: Schema.String,
-              moduleId: Schema.String,
-            }),
-          ),
-          children: Schema.Array(
-            Schema.Struct({
-              requirement: Schema.Literals(["required", "optional"]),
-              moduleId: Schema.String,
-            }),
-          ),
-        }),
-      ),
+      modules: Schema.Array(CatalogModuleWire),
     }),
   ),
   configuration: Schema.Struct({

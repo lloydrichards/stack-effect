@@ -5,7 +5,7 @@ import type {
   SupportSelection,
   TargetInstance,
   TargetModuleRequirement,
-} from "./use-recipe-builder-state";
+} from "./recipe-builder-form";
 
 export type ModuleRelationshipNode = {
   readonly owner: { readonly kind: string; readonly name: string };
@@ -195,6 +195,32 @@ export function removeModuleImplications(
       ? []
       : [{ ...target, modules, requirements }];
   });
+}
+
+export function removeTargetAndDependencies(
+  targets: ReadonlyArray<TargetInstance>,
+  id: string,
+): ReadonlyArray<TargetInstance> {
+  const removed = targets.find((target) => target.id === id);
+  const withoutSources = (removed?.requirements ?? []).reduce(
+    (current, requirement) =>
+      removeModuleImplications(
+        current.map((target) =>
+          target.id === requirement.sourceTargetId
+            ? {
+                ...target,
+                modules: target.modules.filter(
+                  (moduleId) => moduleId !== requirement.sourceModuleId,
+                ),
+              }
+            : target,
+        ),
+        requirement.sourceTargetId,
+        requirement.sourceModuleId,
+      ),
+    targets,
+  );
+  return withoutSources.filter((target) => target.id !== id);
 }
 
 export function toggleTargetModule(

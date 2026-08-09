@@ -8,7 +8,6 @@ import {
 } from "~/components/ui/empty";
 import {
   Field,
-  FieldContent,
   FieldDescription,
   FieldError,
   FieldGroup,
@@ -18,51 +17,37 @@ import {
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
-import type { BuilderCatalogOutputWire } from "../../../worker/recipe-preview-protocol";
-import {
-  buildModuleRelationshipNodes,
-  targetNameError,
-} from "../builder-state";
-import type {
-  CatalogModule,
-  SupportConfiguration,
-  SupportSelection,
-  TargetInstance,
-} from "../use-recipe-builder-state";
+import { buildModuleRelationshipNodes } from "../builder-state";
+import { useRecipeBuilder } from "../recipe-builder-context";
 import { ModuleBranch } from "./module-branch";
 
 type TargetConfigurationProps = {
-  readonly target: TargetInstance;
-  readonly targets: ReadonlyArray<TargetInstance>;
-  readonly modules: ReadonlyArray<CatalogModule>;
-  readonly catalog: BuilderCatalogOutputWire | undefined;
-  readonly requiredModuleIds: ReadonlySet<string>;
-  readonly dependencySourceNames: ReadonlyArray<string>;
-  readonly supportSelections: ReadonlyArray<SupportSelection>;
-  readonly rename: (name: string) => void;
-  readonly remove: () => void;
-  readonly toggleModule: (module: CatalogModule) => void;
-  readonly toggleSupportModule: (
-    configuration: SupportConfiguration,
-    module: CatalogModule,
-  ) => void;
+  readonly targetIndex: number;
+  readonly targetId: string;
 };
 
 export function TargetConfiguration({
-  target,
-  targets,
-  modules,
-  catalog,
-  requiredModuleIds,
-  dependencySourceNames,
-  supportSelections,
-  rename,
-  remove,
-  toggleModule,
-  toggleSupportModule,
+  targetIndex,
+  targetId,
 }: TargetConfigurationProps) {
-  const error = targetNameError(target, targets);
+  const {
+    state: {
+      activeModules: modules,
+      catalog,
+      dependencySourceNames,
+      form,
+      requiredModuleIds,
+      targets,
+    },
+    actions: { removeTarget },
+  } = useRecipeBuilder();
+  const target = targets.find((candidate) => candidate.id === targetId);
+  if (!target) return null;
+
   const targetNameDescriptionId = `target-name-description-${target.id}`;
+  const targetNameDescription = target.addedByDependency
+    ? `Set by ${dependencySourceNames.join(", ")}.`
+    : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
   const childIds = new Set(
     modules.flatMap((module) => module.children.map((child) => child.moduleId)),
   );
@@ -73,39 +58,40 @@ export function TargetConfiguration({
     <section className="p-5 md:p-7">
       <div className="border-b pb-5">
         <FieldGroup>
-          <Field
-            data-invalid={Boolean(error)}
-            data-disabled={target.addedByDependency || undefined}
-          >
-            <FieldLabel htmlFor={`target-name-${target.id}`}>
-              Target name
-            </FieldLabel>
-            <FieldContent>
-              <Input
-                id={`target-name-${target.id}`}
-                value={target.name}
-                className="h-11 lg:h-8"
-                disabled={target.addedByDependency}
-                required
-                spellCheck={false}
-                onChange={(event) => rename(event.target.value)}
-                aria-describedby={targetNameDescriptionId}
-                aria-invalid={Boolean(error)}
-              />
-              {error ? (
-                <FieldError id={targetNameDescriptionId}>{error}</FieldError>
-              ) : target.addedByDependency ? (
-                <FieldDescription id={targetNameDescriptionId}>
-                  Set by {dependencySourceNames.join(", ")}.
-                </FieldDescription>
-              ) : (
-                <FieldDescription id={targetNameDescriptionId}>
-                  Lowercase letters, numbers, and hyphens; used in paths and
-                  package names.
-                </FieldDescription>
-              )}
-            </FieldContent>
-          </Field>
+          <form.Field
+            name={`targets[${targetIndex}].name`}
+            children={(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field
+                  data-invalid={isInvalid}
+                  data-disabled={target.addedByDependency || undefined}
+                >
+                  <FieldLabel htmlFor={`target-name-${target.id}`}>
+                    Target name
+                  </FieldLabel>
+                  <Input
+                    id={`target-name-${target.id}`}
+                    name={field.name}
+                    value={field.state.value}
+                    className="h-11 lg:h-8"
+                    disabled={target.addedByDependency}
+                    required
+                    spellCheck={false}
+                    onBlur={field.handleBlur}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    aria-describedby={targetNameDescriptionId}
+                    aria-invalid={isInvalid}
+                  />
+                  <FieldDescription id={targetNameDescriptionId}>
+                    {targetNameDescription}
+                  </FieldDescription>
+                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                </Field>
+              );
+            }}
+          />
         </FieldGroup>
       </div>
       {modules.length === 0 ? (
@@ -122,14 +108,16 @@ export function TargetConfiguration({
           <FieldLegend variant="label" className="mb-3">
             Modules
           </FieldLegend>
-          <div className="overflow-hidden rounded-md border bg-background">
+          <FieldGroup
+            data-slot="checkbox-group"
+            className="gap-0 overflow-hidden rounded-md border bg-background"
+          >
             {roots.map((module, index) => (
               <ModuleBranch
                 key={module.id}
                 module={module}
                 modules={modules}
                 selected={target.modules}
-                toggleModule={toggleModule}
                 divided={index > 0}
                 relationships={
                   target.modules.includes(module.id) ||
@@ -141,14 +129,12 @@ export function TargetConfiguration({
                       )
                     : []
                 }
-                supportSelections={supportSelections}
-                toggleSupportModule={toggleSupportModule}
                 {...(requiredModuleIds.has(module.id)
                   ? { requirement: "required" as const }
                   : {})}
               />
             ))}
-          </div>
+          </FieldGroup>
         </FieldSet>
       )}
       <div className="mt-6 flex flex-col items-end gap-5">
@@ -161,7 +147,7 @@ export function TargetConfiguration({
               ? `Remove ${target.name} and dependent selections`
               : `Remove ${target.name}`
           }
-          onClick={remove}
+          onClick={() => removeTarget(target.id)}
         >
           <Trash2 data-icon="inline-start" />
           Remove target

@@ -11,61 +11,14 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import type { BuilderCatalogOutputWire } from "../../../worker/recipe-preview-protocol";
-import type {
-  CatalogModule,
-  SupportConfiguration,
-  SupportSelection,
-  TargetInstance,
-} from "../use-recipe-builder-state";
+import { useRecipeBuilder } from "../recipe-builder-context";
 import { TargetConfiguration } from "./target-configuration";
 
-type TargetSelectorProps = {
-  readonly activeId: string;
-  readonly activeModules: ReadonlyArray<CatalogModule>;
-  readonly activeTarget: TargetInstance | undefined;
-  readonly availableTargets: BuilderCatalogOutputWire["targets"];
-  readonly catalog: BuilderCatalogOutputWire | undefined;
-  readonly dependencySourceNames: ReadonlyArray<string>;
-  readonly newTargetOpen: boolean;
-  readonly requiredModuleIds: ReadonlySet<string>;
-  readonly supportSelections: ReadonlyArray<SupportSelection>;
-  readonly targets: ReadonlyArray<TargetInstance>;
-  readonly addTarget: (kind: string) => void;
-  readonly openTargetSelector: () => void;
-  readonly registerTargetTab: (
-    id: string,
-    element: HTMLButtonElement | null,
-  ) => void;
-  readonly removeTarget: (id: string) => void;
-  readonly renameActiveTarget: (name: string) => void;
-  readonly selectTarget: (id: string) => void;
-  readonly toggleModule: (module: CatalogModule) => void;
-  readonly toggleSupportModule: (
-    configuration: SupportConfiguration,
-    module: CatalogModule,
-  ) => void;
-};
-
-export function TargetSelector({
-  activeId,
-  activeModules,
-  activeTarget,
-  availableTargets,
-  catalog,
-  dependencySourceNames,
-  newTargetOpen,
-  requiredModuleIds,
-  supportSelections,
-  targets,
-  addTarget,
-  openTargetSelector,
-  registerTargetTab,
-  removeTarget,
-  renameActiveTarget,
-  selectTarget,
-  toggleModule,
-  toggleSupportModule,
-}: TargetSelectorProps) {
+export function TargetSelector() {
+  const {
+    state: { activeId, activeTarget, availableTargets, newTargetOpen, targets },
+    actions: { openTargetSelector, registerTargetTab, selectTarget },
+  } = useRecipeBuilder();
   return (
     <DisclosurePanel
       title="Targets"
@@ -106,21 +59,12 @@ export function TargetSelector({
             <span className="hidden sm:inline">Add target</span>
           </Button>
         </div>
-        {targets.map((target) => (
+        {targets.map((target, targetIndex) => (
           <TabsContent key={target.id} value={target.id}>
             {activeTarget?.id === target.id ? (
               <TargetConfiguration
-                target={activeTarget}
-                targets={targets}
-                modules={activeModules}
-                catalog={catalog}
-                requiredModuleIds={requiredModuleIds}
-                dependencySourceNames={dependencySourceNames}
-                supportSelections={supportSelections}
-                rename={renameActiveTarget}
-                remove={() => removeTarget(activeTarget.id)}
-                toggleModule={toggleModule}
-                toggleSupportModule={toggleSupportModule}
+                targetIndex={targetIndex}
+                targetId={activeTarget.id}
               />
             ) : null}
           </TabsContent>
@@ -129,7 +73,6 @@ export function TargetSelector({
           <TargetOptions
             firstTarget={targets.length === 0}
             targets={availableTargets}
-            addTarget={addTarget}
           />
         )}
       </Tabs>
@@ -140,14 +83,12 @@ export function TargetSelector({
 type TargetOptionsProps = {
   readonly firstTarget: boolean;
   readonly targets: BuilderCatalogOutputWire["targets"];
-  readonly addTarget: (kind: string) => void;
 };
 
-function TargetOptions({
-  firstTarget,
-  targets,
-  addTarget,
-}: TargetOptionsProps) {
+function TargetOptions({ firstTarget, targets }: TargetOptionsProps) {
+  const {
+    actions: { addTarget },
+  } = useRecipeBuilder();
   return (
     <Empty className="min-h-64 items-stretch gap-5 p-5 md:p-6">
       <EmptyHeader className="mx-0 max-w-xl items-start text-left">

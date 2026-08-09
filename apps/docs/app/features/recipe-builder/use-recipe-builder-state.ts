@@ -1,53 +1,30 @@
 "use client";
 
+import { useStore } from "@tanstack/react-form";
+import { batch } from "@tanstack/store";
 import { useEffect, useRef, useState } from "react";
 import { RecipePreviewClient } from "../../worker/recipe-preview-client";
 import type {
   BuilderCatalogOutputWire,
-  RecipePreviewInputWire,
   RecipePreviewOutputWire,
 } from "../../worker/recipe-preview-protocol";
 import {
   dependencySourceNames,
   errorMessage,
-  mergeTargetInstances,
   ownerKey,
-  removeModuleImplications,
+  removeTargetAndDependencies,
   targetKey,
   targetNameError,
   toggleSupportSelection,
   toggleTargetModule,
   uniqueOwners,
 } from "./builder-state";
-
-export type TargetModuleRequirement = {
-  readonly sourceTargetId: string;
-  readonly sourceModuleId: string;
-  readonly moduleId: string;
-  readonly addedModule: boolean;
-};
-
-export type TargetInstance = {
-  readonly id: string;
-  readonly kind: string;
-  readonly name: string;
-  readonly modules: ReadonlyArray<string>;
-  readonly requirements?: ReadonlyArray<TargetModuleRequirement>;
-  readonly addedByDependency?: boolean;
-};
-
-export type CatalogModule =
-  BuilderCatalogOutputWire["targetModules"][number]["modules"][number];
-
-export type SupportConfiguration = {
-  readonly owner: { readonly kind: string; readonly name: string };
-  readonly parent: CatalogModule;
-  readonly modules: ReadonlyArray<CatalogModule>;
-};
-
-export type SupportSelection = SupportConfiguration & {
-  readonly selected: ReadonlyArray<string>;
-};
+import {
+  type CatalogModule,
+  type SupportConfiguration,
+  toRecipePreviewInput,
+  useRecipeBuilderForm,
+} from "./recipe-builder-form";
 
 export type PreviewState =
   | "starting"
@@ -60,25 +37,17 @@ export type CatalogState = "loading" | "ready" | "error";
 
 export const newTargetTabId = "new-target";
 
-export type StackConfiguration = RecipePreviewInputWire["config"];
-
-const initialConfig: StackConfiguration = {
-  name: "my-effect-app",
-  runtime: { _tag: "bun" as const },
-  typescript: "6" as const,
-  monorepo: "turbo",
-  lint: "biome",
-  format: "biome",
-  test: "vitest",
-};
-
 export function useRecipeBuilderState() {
-  const [config, setConfig] = useState<StackConfiguration>(initialConfig);
-  const [gitEnabled, setGitEnabled] = useState(true);
-  const [developerExperienceModules, setDeveloperExperienceModules] = useState<
-    ReadonlyArray<string>
-  >([]);
-  const [targets, setTargets] = useState<ReadonlyArray<TargetInstance>>([]);
+  const form = useRecipeBuilderForm();
+  const values = useStore(form.store, (state) => state.values);
+  const formValid = useStore(form.store, (state) => state.isValid);
+  const {
+    config,
+    developerExperienceModules,
+    gitEnabled,
+    supportSelections,
+    targets,
+  } = values;
   const [activeId, setActiveId] = useState(newTargetTabId);
   const [catalog, setCatalog] = useState<BuilderCatalogOutputWire>();
   const [catalogState, setCatalogState] = useState<CatalogState>("loading");
@@ -87,10 +56,6 @@ export function useRecipeBuilderState() {
   const [previewState, setPreviewState] = useState<PreviewState>("starting");
   const [previewError, setPreviewError] = useState<string>();
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const [supportSelections, setSupportSelections] = useState<
-    ReadonlyArray<SupportSelection>
-  >([]);
-  const [activeFile, setActiveFile] = useState("");
   const [client, setClient] = useState<RecipePreviewClient>();
   const catalogGenerationRef = useRef(0);
   const previewGenerationRef = useRef(0);
@@ -109,27 +74,13 @@ export function useRecipeBuilderState() {
         ),
     );
   const canPreview =
-    config.name.trim().length > 0 &&
+    formValid &&
     configurationValid &&
     targets.every(
       (target) =>
         targetNameError(target, targets) === undefined &&
         target.modules.length > 0,
     );
-  const previewTargets = mergeTargetInstances([
-    ...targets,
-    ...supportSelections.flatMap((selection) =>
-      selection.selected.length > 0
-        ? [
-            {
-              id: `support-${ownerKey(selection.owner)}`,
-              ...selection.owner,
-              modules: [selection.parent.id, ...selection.selected],
-            },
-          ]
-        : [],
-    ),
-  ]);
   const targetIdentityKey = targets.map(targetKey).join("\u0000");
   const activeModules =
     catalog?.targetModules.find(
@@ -171,7 +122,7 @@ export function useRecipeBuilderState() {
             `Removed modules that do not support the renamed target: ${removedModules.join(", ")}.`,
           );
         }
-        setTargets((current) => {
+        form.setFieldValue("targets", (current) => {
           const next = current.map((target) => {
             const modules = nextCatalog.targetModules.find(
               (entry) => ownerKey(entry.owner) === targetKey(target),
@@ -221,28 +172,7 @@ export function useRecipeBuilderState() {
     setPreviewState("loading");
     const timeout = window.setTimeout(() => {
       void client
-        .preview({
-          config,
-          recipe: {
-            targets: [
-              ...(gitEnabled || developerExperienceModules.length > 0
-                ? [
-                    {
-                      target: { kind: "workspace", name: config.name },
-                      modules: [
-                        ...(gitEnabled ? ["workspace-devenv-git"] : []),
-                        ...developerExperienceModules,
-                      ],
-                    },
-                  ]
-                : []),
-              ...previewTargets.map((target) => ({
-                target: { kind: target.kind, name: target.name },
-                modules: target.modules,
-              })),
-            ],
-          },
-        })
+        .preview(toRecipePreviewInput(values))
         .then((nextPreview) => {
           if (!active || generation !== previewGenerationRef.current) return;
           setPreview(nextPreview);
@@ -277,51 +207,33 @@ export function useRecipeBuilderState() {
       active = false;
       window.clearTimeout(timeout);
     };
-  }, [
-    canPreview,
-    client,
-    config,
-    developerExperienceModules,
-    gitEnabled,
-    supportSelections,
-    targets,
-  ]);
-
-  useEffect(() => {
-    const paths = preview?.files.map((file) => file.path) ?? [];
-    if (!paths.includes(activeFile)) setActiveFile(paths[0] ?? "");
-  }, [activeFile, preview]);
-
-  const renameActiveTarget = (name: string) => {
-    if (activeTarget === undefined) return;
-    setTargets((current) =>
-      current.map((target) =>
-        target.id === activeTarget.id ? { ...target, name } : target,
-      ),
-    );
-  };
+  }, [canPreview, client, targets, values]);
 
   const toggleModule = (module: CatalogModule) => {
     if (activeTarget === undefined || catalog === undefined) return;
     const selected = activeTarget.modules.includes(module.id);
-    if (selected) setSupportSelections([]);
-    setTargets((current) =>
-      toggleTargetModule(
-        current,
-        activeTarget,
-        module,
-        activeModules,
-        catalog,
-        () => ++nextTargetRef.current,
-      ),
-    );
+    batch(() => {
+      form.setFieldValue("supportSelections", (current) =>
+        selected ? [] : current,
+      );
+      form.setFieldValue("targets", (current) =>
+        toggleTargetModule(
+          current,
+          activeTarget,
+          module,
+          activeModules,
+          catalog,
+          () => ++nextTargetRef.current,
+        ),
+      );
+    });
   };
 
   const toggleSupportModule = (
     configuration: SupportConfiguration,
     module: CatalogModule,
   ) =>
-    setSupportSelections((current) =>
+    form.setFieldValue("supportSelections", (current) =>
       toggleSupportSelection(current, configuration, module),
     );
 
@@ -335,35 +247,21 @@ export function useRecipeBuilderState() {
     const name =
       sameKindCount === 0 ? baseName : `${baseName}-${sameKindCount + 1}`;
     const id = `${kind}-${++nextTargetRef.current}`;
-    setTargets((current) => [...current, { id, kind, name, modules: [] }]);
+    form.setFieldValue("targets", (current) => [
+      ...current,
+      { id, kind, name, modules: [] },
+    ]);
     setActiveId(id);
   };
 
   const removeTarget = (id: string) => {
     const index = targets.findIndex((target) => target.id === id);
-    const removed = targets.find((target) => target.id === id);
-    const withoutSources = (removed?.requirements ?? []).reduce(
-      (current, requirement) =>
-        removeModuleImplications(
-          current.map((target) =>
-            target.id === requirement.sourceTargetId
-              ? {
-                  ...target,
-                  modules: target.modules.filter(
-                    (moduleId) => moduleId !== requirement.sourceModuleId,
-                  ),
-                }
-              : target,
-          ),
-          requirement.sourceTargetId,
-          requirement.sourceModuleId,
-        ),
-      targets,
-    );
-    const remaining = withoutSources.filter((target) => target.id !== id);
+    const remaining = removeTargetAndDependencies(targets, id);
     const focusId = remaining[Math.min(index, remaining.length - 1)]?.id;
-    setTargets(remaining);
-    setSupportSelections([]);
+    batch(() => {
+      form.setFieldValue("targets", remaining);
+      form.setFieldValue("supportSelections", []);
+    });
     if (id === activeId) setActiveId(focusId ?? "");
     if (remaining.length === 0) {
       setActiveId(newTargetTabId);
@@ -375,7 +273,6 @@ export function useRecipeBuilderState() {
 
   return {
     state: {
-      activeFile,
       activeId,
       activeModules,
       activeTarget,
@@ -402,28 +299,18 @@ export function useRecipeBuilderState() {
       ),
       supportSelections,
       targets,
+      form,
     },
     actions: {
       addTarget,
-      configure: (updates: Partial<StackConfiguration>) =>
-        setConfig((current) => ({ ...current, ...updates })),
       openTargetSelector: () => setActiveId(newTargetTabId),
       registerTargetTab: (id: string, element: HTMLButtonElement | null) => {
         if (element) tabRefs.current.set(id, element);
         else tabRefs.current.delete(id);
       },
       removeTarget,
-      renameActiveTarget,
       retryCatalog: () => setCatalogRevision((revision) => revision + 1),
-      selectFile: setActiveFile,
       selectTarget: setActiveId,
-      setGitEnabled,
-      toggleDeveloperExperienceModule: (moduleId: string) =>
-        setDeveloperExperienceModules((current) =>
-          current.includes(moduleId)
-            ? current.filter((id) => id !== moduleId)
-            : [...current, moduleId],
-        ),
       toggleModule,
       toggleSupportModule,
     },
