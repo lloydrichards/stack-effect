@@ -1,7 +1,7 @@
 "use client";
 
 import { FileCode2 } from "lucide-react";
-import { useEffect, useId, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import {
   FileTree,
@@ -16,9 +16,9 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Spinner } from "~/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { cn } from "~/lib/utils";
 import type { RecipePreviewOutputWire } from "../../worker/recipe-preview-protocol";
 import { useRecipeBuilder } from "./recipe-builder-context";
+import type { HighlightedSource, SyntaxToken } from "./syntax-highlighter";
 import type { PreviewState } from "./use-recipe-builder-state";
 
 export function RepositoryExplorer() {
@@ -33,7 +33,7 @@ export function RepositoryExplorer() {
   const source =
     files.find((file) => file.path === activeFile)?.contents ??
     "// Select a file to inspect its generated contents";
-  const highlightedSource = useMemo(() => highlight(source), [source]);
+  const highlightedSource = useHighlightedSource(activeFile, source);
 
   useEffect(() => {
     const paths = files.map((file) => file.path);
@@ -57,7 +57,7 @@ export function RepositoryExplorer() {
         aria-labelledby={`${selectedFileLabelId}-${viewport}`}
         tabIndex={0}
       >
-        <code>{highlightedSource}</code>
+        <code>{renderHighlightedSource(highlightedSource)}</code>
       </pre>
     </div>
   );
@@ -180,25 +180,68 @@ function previewStatusMessage(state: PreviewState) {
   return "Complete the Selection to generate the repository preview.";
 }
 
-function highlight(source: string) {
-  return source
-    .split(
-      /(\b(?:export|const|function|return|import|from|class|new)\b|"[^"\n]*"|\/\/[^\n]*)/g,
-    )
-    .map((token, index) => (
-      <span
-        key={`${index}-${token.slice(0, 4)}`}
-        className={cn(
-          /^(export|const|function|return|import|from|class|new)$/.test(
-            token,
-          ) && "text-info",
-          token.startsWith('"') && "text-success",
-          token.startsWith("//") && "text-muted-foreground",
-        )}
-      >
-        {token}
-      </span>
-    ));
+function useHighlightedSource(path: string, source: string) {
+  const [highlighted, setHighlighted] = useState<HighlightedSource>(() =>
+    plainSource(source),
+  );
+
+  useEffect(() => {
+    let current = true;
+    setHighlighted(plainSource(source));
+    void import("./syntax-highlighter")
+      .then(({ highlightSource }) => highlightSource(path, source))
+      .then((next) => {
+        if (current) setHighlighted(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [path, source]);
+
+  return highlighted;
+}
+
+const plainSource = (source: string): HighlightedSource =>
+  source.split("\n").map((line) => [
+    {
+      content: line,
+      light: undefined,
+      dark: undefined,
+      fontStyle: undefined,
+    },
+  ]);
+
+function renderHighlightedSource(source: HighlightedSource) {
+  return source.map((line, lineIndex) => (
+    <span key={lineIndex} className="block min-h-6">
+      {line.map((token, tokenIndex) => (
+        <span
+          key={`${tokenIndex}-${token.content.slice(0, 8)}`}
+          className="text-(--shiki-light) dark:text-(--shiki-dark)"
+          style={tokenStyle(token)}
+        >
+          {token.content}
+        </span>
+      ))}
+    </span>
+  ));
+}
+
+type ShikiTokenStyle = CSSProperties & {
+  "--shiki-light"?: string;
+  "--shiki-dark"?: string;
+};
+
+function tokenStyle(token: SyntaxToken): ShikiTokenStyle {
+  const fontStyle = token.fontStyle ?? 0;
+  return {
+    ...(token.light === undefined ? {} : { "--shiki-light": token.light }),
+    ...(token.dark === undefined ? {} : { "--shiki-dark": token.dark }),
+    ...(fontStyle & 1 ? { fontStyle: "italic" } : {}),
+    ...(fontStyle & 2 ? { fontWeight: "bold" } : {}),
+    ...(fontStyle & 4 ? { textDecoration: "underline" } : {}),
+  };
 }
 
 function fileTree(
