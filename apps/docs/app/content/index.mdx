@@ -1,4 +1,6 @@
 import { BlueprintWorkbench } from "../components/blueprint-workbench";
+import { buttonVariants } from "../components/ui/button";
+import { Link } from "react-router";
 
 <div className="mx-auto max-w-4xl">
 
@@ -8,13 +10,15 @@ Stack Effect is a CLI for creating and extending TypeScript repositories built
 with Effect. Choose the targets and capabilities you need; Stack Effect resolves
 their dependencies and shows the repository changes before writing them.
 
-Copy and run:
+<Link className={buttonVariants({ size: "lg", className: "mt-6" })} to="/builder">
+  Build your Stack Effect recipe
+</Link>
+
+Prefer the terminal? Copy and run:
 
 ```bash
 bunx stack-effect@latest init my-app --yes
 ```
-
-[Choose your first project step by step →](/getting-started)
 
 </div>
 
