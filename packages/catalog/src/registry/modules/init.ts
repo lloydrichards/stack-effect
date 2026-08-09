@@ -263,9 +263,8 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("workspace-quality-biome"),
     title: "Biome",
-    description: "Fast linter and formatter",
+    description: "Shared Biome dependency and configuration",
     visibility: "internal",
-    categories: [ModuleCategory.make("lint"), ModuleCategory.make("format")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -294,6 +293,26 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         name: "@biomejs/biome",
         value: "2.5.2",
       },
+    ],
+  },
+  {
+    id: ModuleId.make("workspace-quality-biome-lint"),
+    title: "Biome",
+    description: "Fast linter with recommended defaults",
+    visibility: "internal",
+    categories: [ModuleCategory.make("lint")],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+        moduleId: ModuleId.make("workspace-quality-biome"),
+      },
+    ],
+    contributions: [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -301,6 +320,26 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         name: "lint",
         value: "biome lint .",
       },
+    ],
+  },
+  {
+    id: ModuleId.make("workspace-quality-biome-format"),
+    title: "Biome",
+    description: "Fast formatter with recommended defaults",
+    visibility: "internal",
+    categories: [ModuleCategory.make("format")],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+        moduleId: ModuleId.make("workspace-quality-biome"),
+      },
+    ],
+    contributions: [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",

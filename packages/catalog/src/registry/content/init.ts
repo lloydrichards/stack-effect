@@ -203,27 +203,27 @@ export const biomeJsoncContents = `{
 
 export const biomeVscodeSettingsContents = `{
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "biomejs.biome",
+  "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}",
   "editor.codeActionsOnSave": {
     "source.organizeImports.biome": "explicit"
   },
   "[javascript]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   },
   "[javascriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   },
   "[typescript]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   },
   "[json]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "biomejs.biome"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
   }
 }
 `;
