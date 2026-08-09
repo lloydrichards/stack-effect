@@ -125,15 +125,23 @@ export function addModuleImplications(
       (candidate) => candidate.kind === implication.targetKind,
     );
     if (definition === undefined) return current;
-    const name = definition.defaultName ?? definition.kind;
-    const existing = current.find(
-      (target) => target.kind === definition.kind && target.name === name,
+    const candidates = current.filter(
+      (target) => target.kind === definition.kind,
     );
+    if (candidates.length > 1) return current;
+    const existing = candidates[0];
+    const name = existing?.name ?? definition.defaultName ?? definition.kind;
+    const dependencyOwned =
+      existing?.requirements?.some(
+        (candidate) =>
+          candidate.moduleId === implication.moduleId && candidate.addedModule,
+      ) ?? false;
     const requirement: TargetModuleRequirement = {
       sourceTargetId,
       sourceModuleId: sourceModule.id,
       moduleId: implication.moduleId,
-      addedModule: !existing?.modules.includes(implication.moduleId),
+      addedModule:
+        dependencyOwned || !existing?.modules.includes(implication.moduleId),
     };
     if (existing) {
       return current.map((target) =>
@@ -191,8 +199,9 @@ export function removeModuleImplications(
     const modules = target.modules.filter(
       (moduleId) => !removableModules.has(moduleId),
     );
-    return target.addedByDependency && modules.length === 0
-      ? []
+    if (target.addedByDependency && modules.length === 0) return [];
+    return requirements.length === 0
+      ? [{ ...target, modules, requirements, addedByDependency: undefined }]
       : [{ ...target, modules, requirements }];
   });
 }
@@ -202,6 +211,10 @@ export function removeTargetAndDependencies(
   id: string,
 ): ReadonlyArray<TargetInstance> {
   const removed = targets.find((target) => target.id === id);
+  const withoutImplications = (removed?.modules ?? []).reduce(
+    (current, moduleId) => removeModuleImplications(current, id, moduleId),
+    targets,
+  );
   const withoutSources = (removed?.requirements ?? []).reduce(
     (current, requirement) =>
       removeModuleImplications(
@@ -218,9 +231,69 @@ export function removeTargetAndDependencies(
         requirement.sourceTargetId,
         requirement.sourceModuleId,
       ),
-    targets,
+    withoutImplications,
   );
   return withoutSources.filter((target) => target.id !== id);
+}
+
+export function removeModuleSupportSelections(
+  selections: ReadonlyArray<SupportSelection>,
+  target: Pick<TargetInstance, "kind" | "name">,
+  module: CatalogModule,
+  modules: ReadonlyArray<CatalogModule>,
+): ReadonlyArray<SupportSelection> {
+  const removedParentIds = new Set([
+    module.id,
+    ...descendantIds(module, modules),
+  ]);
+  return selections.filter(
+    (selection) =>
+      ownerKey(selection.owner) !== ownerKey(target) ||
+      !removedParentIds.has(selection.parent.id),
+  );
+}
+
+export function removeTargetSupportSelections(
+  selections: ReadonlyArray<SupportSelection>,
+  removedTargets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
+): ReadonlyArray<SupportSelection> {
+  const removedOwners = new Set(removedTargets.map(ownerKey));
+  return selections.filter(
+    (selection) => !removedOwners.has(ownerKey(selection.owner)),
+  );
+}
+
+export function nextTargetName(
+  baseName: string,
+  targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
+  kind: string,
+): string {
+  const usedNames = new Set(
+    targets
+      .filter((target) => target.kind === kind)
+      .map((target) => target.name),
+  );
+  if (!usedNames.has(baseName)) return baseName;
+  return (
+    Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
+      .map((suffix) => `${baseName}-${suffix}`)
+      .find((candidate) => !usedNames.has(candidate)) ??
+    `${baseName}-${usedNames.size + 2}`
+  );
+}
+
+export function makeTargetInstance(
+  id: string,
+  definition: BuilderCatalogOutputWire["targets"][number],
+  targets: ReadonlyArray<TargetInstance>,
+): TargetInstance {
+  const baseName = definition.defaultName ?? definition.kind;
+  return {
+    id,
+    kind: definition.kind,
+    name: nextTargetName(baseName, targets, definition.kind),
+    modules: definition.requiredModules,
+  };
 }
 
 export function toggleTargetModule(

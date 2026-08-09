@@ -8,8 +8,8 @@ import { Effect, Layer, Schema } from "effect";
 import { RpcServer } from "effect/unstable/rpc";
 import {
   BuilderCatalogRequestSchema,
+  makeRecipeBuilderRpcFailure,
   RecipeBuilderRpc,
-  RecipeBuilderRpcFailure,
 } from "./recipe-preview-protocol";
 
 type FlatModule = {
@@ -50,19 +50,10 @@ const flattenModules = (
     ).values(),
   );
 
-const failure = (operation: "preview" | "catalog") =>
-  new RecipeBuilderRpcFailure({
-    operation,
-    message:
-      operation === "preview"
-        ? "The recipe preview could not be generated."
-        : "The recipe catalog could not be loaded.",
-  });
-
 const preview = ({ input }: { readonly input: unknown }) =>
   Effect.tryPromise({
     try: () => import("@repo/scaffold/browser"),
-    catch: () => failure("preview"),
+    catch: (error) => makeRecipeBuilderRpcFailure("preview", error),
   }).pipe(
     Effect.flatMap(
       ({
@@ -79,7 +70,7 @@ const preview = ({ input }: { readonly input: unknown }) =>
           return yield* Schema.encodeUnknownEffect(RecipePreviewSchema)(output);
         }).pipe(Effect.provide(RecipePreviewService.layer)),
     ),
-    Effect.mapError(() => failure("preview")),
+    Effect.mapError((error) => makeRecipeBuilderRpcFailure("preview", error)),
   );
 
 const catalog = ({ input }: { readonly input: unknown }) =>
@@ -120,7 +111,7 @@ const catalog = ({ input }: { readonly input: unknown }) =>
     };
   }).pipe(
     Effect.provide(CatalogService.layer),
-    Effect.mapError(() => failure("catalog")),
+    Effect.mapError((error) => makeRecipeBuilderRpcFailure("catalog", error)),
   );
 
 const WorkerLive = RpcServer.layer(RecipeBuilderRpc, {

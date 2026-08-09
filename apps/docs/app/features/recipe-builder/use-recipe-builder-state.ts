@@ -19,8 +19,11 @@ import type {
 } from "../../worker/recipe-preview-protocol";
 import {
   dependencySourceNames,
+  makeTargetInstance,
   ownerKey,
+  removeModuleSupportSelections,
   removeTargetAndDependencies,
+  removeTargetSupportSelections,
   targetKey,
   targetNameError,
   toggleSupportSelection,
@@ -263,7 +266,14 @@ export function useRecipeBuilderState() {
     const selected = activeTarget.modules.includes(module.id);
     batch(() => {
       form.setFieldValue("supportSelections", (current) =>
-        selected ? [] : current,
+        selected
+          ? removeModuleSupportSelections(
+              current,
+              activeTarget,
+              module,
+              activeModules,
+            )
+          : current,
       );
       form.setFieldValue("targets", (current) =>
         toggleTargetModule(
@@ -289,16 +299,10 @@ export function useRecipeBuilderState() {
   const addTarget = (kind: string) => {
     const definition = catalog?.targets.find((target) => target.kind === kind);
     if (definition === undefined) return;
-    const sameKindCount = targets.filter(
-      (target) => target.kind === kind,
-    ).length;
-    const baseName = definition.defaultName ?? kind;
-    const name =
-      sameKindCount === 0 ? baseName : `${baseName}-${sameKindCount + 1}`;
     const id = `${kind}-${++nextTargetRef.current}`;
     form.setFieldValue("targets", (current) => [
       ...current,
-      { id, kind, name, modules: [] },
+      makeTargetInstance(id, definition, current),
     ]);
     setActiveId(id);
   };
@@ -306,10 +310,15 @@ export function useRecipeBuilderState() {
   const removeTarget = (id: string) => {
     const index = targets.findIndex((target) => target.id === id);
     const remaining = removeTargetAndDependencies(targets, id);
+    const removed = targets.filter(
+      (target) => !remaining.some((candidate) => candidate.id === target.id),
+    );
     const focusId = remaining[Math.min(index, remaining.length - 1)]?.id;
     batch(() => {
       form.setFieldValue("targets", remaining);
-      form.setFieldValue("supportSelections", []);
+      form.setFieldValue("supportSelections", (current) =>
+        removeTargetSupportSelections(current, removed),
+      );
     });
     if (id === activeId) setActiveId(focusId ?? "");
     if (remaining.length === 0) {
@@ -341,11 +350,14 @@ export function useRecipeBuilderState() {
       preview,
       previewError,
       previewState,
-      requiredModuleIds: new Set(
-        activeTarget?.requirements?.map(
+      requiredModuleIds: new Set([
+        ...(activeTarget?.requirements?.map(
           (requirement) => requirement.moduleId,
-        ) ?? [],
-      ),
+        ) ?? []),
+        ...(catalog?.targets.find(
+          (target) => target.kind === activeTarget?.kind,
+        )?.requiredModules ?? []),
+      ]),
       supportSelections,
       targets,
       form,
