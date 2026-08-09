@@ -1,31 +1,22 @@
 import { Checkbox } from "~/components/ui/checkbox";
-import { Field, FieldLabel } from "~/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import {
   type ModuleRelationshipNode,
   ownerKey,
   supportConfigurationKey,
 } from "../builder-state";
-import type {
-  CatalogModule,
-  SupportConfiguration,
-  SupportSelection,
-} from "../use-recipe-builder-state";
+import { useRecipeBuilder } from "../recipe-builder-context";
 
 type RelationshipBranchProps = {
   readonly node: ModuleRelationshipNode;
-  readonly supportSelections: ReadonlyArray<SupportSelection>;
-  readonly toggleSupportModule?: (
-    configuration: SupportConfiguration,
-    module: CatalogModule,
-  ) => void;
 };
 
-export function RelationshipBranch({
-  node,
-  supportSelections,
-  toggleSupportModule,
-}: RelationshipBranchProps) {
+export function RelationshipBranch({ node }: RelationshipBranchProps) {
+  const {
+    state: { supportSelections },
+    actions: { toggleSupportModule },
+  } = useRecipeBuilder();
   const required = node.requirement === "required";
   const configuration = node.configuration;
   const selected = configuration
@@ -38,19 +29,21 @@ export function RelationshipBranch({
         ?.selected.includes(node.module.id) ?? false)
     : false;
   const checked = required || selected;
+  const disabled = required || configuration === undefined;
   const id = `relationship-${ownerKey(node.owner)}-${node.module.id}`;
   return (
     <div className="relative">
       <Field
         orientation="horizontal"
+        data-disabled={disabled}
         className="min-h-11 items-center gap-3 py-1.5"
       >
         <Checkbox
           id={id}
           checked={checked}
-          disabled={required || configuration === undefined}
+          disabled={disabled}
           onCheckedChange={() =>
-            configuration && toggleSupportModule?.(configuration, node.module)
+            configuration && toggleSupportModule(configuration, node.module)
           }
         />
         <FieldLabel
@@ -67,16 +60,17 @@ export function RelationshipBranch({
         </FieldLabel>
       </Field>
       {checked && node.children.length > 0 ? (
-        <div className="ml-2 border-l pl-3">
+        <FieldGroup
+          data-slot="checkbox-group"
+          className="ml-2 gap-0 border-l pl-3"
+        >
           {node.children.map((child) => (
             <RelationshipBranch
               key={`${ownerKey(child.owner)}#${child.module.id}`}
               node={child}
-              supportSelections={supportSelections}
-              {...(toggleSupportModule ? { toggleSupportModule } : {})}
             />
           ))}
-        </div>
+        </FieldGroup>
       ) : null}
     </div>
   );

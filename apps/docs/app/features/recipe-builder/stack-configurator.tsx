@@ -5,7 +5,6 @@ import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Button } from "~/components/ui/button";
 import {
   Field,
-  FieldContent,
   FieldError,
   FieldGroup,
   FieldLabel,
@@ -24,43 +23,29 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { Toggle } from "~/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import type { BuilderCatalogOutputWire } from "../../worker/recipe-preview-protocol";
-import type {
-  CatalogState,
-  StackConfiguration,
-} from "./use-recipe-builder-state";
-
-type StackConfiguratorProps = {
-  readonly config: StackConfiguration;
-  readonly choices: BuilderCatalogOutputWire["configuration"] | undefined;
-  readonly choicesState: CatalogState;
-  readonly gitEnabled: boolean;
-  readonly developerExperienceModules: ReadonlyArray<string>;
-  readonly configure: (updates: Partial<StackConfiguration>) => void;
-  readonly retryChoices: () => void;
-  readonly setGitEnabled: (enabled: boolean) => void;
-  readonly toggleDeveloperExperienceModule: (moduleId: string) => void;
-};
+import { useRecipeBuilder } from "./recipe-builder-context";
 
 type ToolField = "monorepo" | "lint" | "format" | "test";
 
-export function StackConfigurator({
-  config,
-  choices,
-  choicesState,
-  gitEnabled,
-  developerExperienceModules,
-  configure,
-  retryChoices,
-  setGitEnabled,
-  toggleDeveloperExperienceModule,
-}: StackConfiguratorProps) {
+export function StackConfigurator() {
+  const {
+    state: {
+      catalogState: choicesState,
+      config,
+      configurationChoices: choices,
+      developerExperienceModules,
+      form,
+      gitEnabled,
+    },
+    actions: { retryCatalog: retryChoices },
+  } = useRecipeBuilder();
   const runtime = config.runtime._tag;
   const packageManager =
     config.runtime._tag === "node" ? config.runtime.packageManager : "bun";
-  const nameInvalid = config.name.trim().length === 0;
+  const configure = (updates: Partial<typeof config>) =>
+    form.setFieldValue("config", (current) => ({ ...current, ...updates }));
   const updateTool = (field: ToolField, value: string) =>
-    configure({ [field]: value.length > 0 ? value : undefined });
+    form.setFieldValue(`config.${field}`, value || undefined);
 
   return (
     <DisclosurePanel
@@ -88,27 +73,36 @@ export function StackConfigurator({
         ) : null
       }
     >
-      <div className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:p-5">
-        <FieldGroup className="sm:col-span-2">
-          <Field data-invalid={nameInvalid || undefined}>
-            <FieldLabel htmlFor="stack-project-name">Project name</FieldLabel>
-            <FieldContent>
-              <Input
-                id="stack-project-name"
-                value={config.name}
-                required
-                spellCheck={false}
-                className="h-11 lg:h-8"
-                aria-invalid={nameInvalid}
-                onChange={(event) => configure({ name: event.target.value })}
-                onBlur={() => configure({ name: config.name.trim() })}
-              />
-              {nameInvalid ? (
-                <FieldError>Enter a project name.</FieldError>
-              ) : null}
-            </FieldContent>
-          </Field>
-        </FieldGroup>
+      <FieldGroup className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:p-5">
+        <form.Field
+          name="config.name"
+          children={(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid;
+            return (
+              <Field className="sm:col-span-2" data-invalid={isInvalid}>
+                <FieldLabel htmlFor="stack-project-name">
+                  Project name
+                </FieldLabel>
+                <Input
+                  id="stack-project-name"
+                  name={field.name}
+                  value={field.state.value}
+                  required
+                  spellCheck={false}
+                  className="h-11 lg:h-8"
+                  aria-invalid={isInvalid}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={() => {
+                    field.handleChange(field.state.value.trim());
+                    field.handleBlur();
+                  }}
+                />
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            );
+          }}
+        />
 
         <Field className="sm:col-span-2">
           <FieldLabel id="stack-runtime-label">Runtime</FieldLabel>
@@ -196,13 +190,15 @@ export function StackConfigurator({
 
         <FieldSet className="gap-2 sm:col-span-2">
           <FieldLegend variant="label">Repository and DX</FieldLegend>
-          <div className="grid grid-cols-1 overflow-hidden rounded-md border sm:grid-cols-3">
+          <FieldGroup className="grid grid-cols-1 gap-0 overflow-hidden rounded-md border sm:grid-cols-3">
             <ConfigurationToggle
               id="stack-git"
               title="Git"
               description="Initialize a Git repository with an initial commit."
               checked={gitEnabled}
-              onCheckedChange={setGitEnabled}
+              onCheckedChange={(enabled) =>
+                form.setFieldValue("gitEnabled", enabled)
+              }
             />
             {choices?.developerExperience.map((choice) => (
               <ConfigurationToggle
@@ -212,13 +208,17 @@ export function StackConfigurator({
                 description={choice.description}
                 checked={developerExperienceModules.includes(choice.id)}
                 onCheckedChange={() =>
-                  toggleDeveloperExperienceModule(choice.id)
+                  form.setFieldValue("developerExperienceModules", (current) =>
+                    current.includes(choice.id)
+                      ? current.filter((id) => id !== choice.id)
+                      : [...current, choice.id],
+                  )
                 }
               />
             ))}
-          </div>
+          </FieldGroup>
         </FieldSet>
-      </div>
+      </FieldGroup>
     </DisclosurePanel>
   );
 }
@@ -250,10 +250,7 @@ function ConfigurationSelect({
     value.length > 0 &&
     !options.some((option) => option.value === value);
   return (
-    <Field
-      data-disabled={disabled || undefined}
-      data-invalid={unavailable || undefined}
-    >
+    <Field data-disabled={disabled} data-invalid={unavailable}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select
         value={value || "__none__"}
@@ -285,11 +282,11 @@ function ConfigurationSelect({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {unavailable ? (
+      {unavailable && (
         <FieldError>
           {value} is unavailable. Choose another option or None.
         </FieldError>
-      ) : null}
+      )}
     </Field>
   );
 }
@@ -317,13 +314,7 @@ function ConfigurationToggle({
       onPressedChange={onCheckedChange}
       className="h-auto min-h-11 min-w-0 justify-center rounded-none border-0 border-b px-2 py-2 text-center whitespace-normal last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
     >
-      {checked ? (
-        <Check
-          data-icon="inline-start"
-          className="size-3.5 text-primary"
-          aria-hidden="true"
-        />
-      ) : null}
+      {checked ? <Check data-icon="inline-start" aria-hidden="true" /> : null}
       <span className="text-sm font-medium text-foreground">{title}</span>
       <span className="sr-only">{description}</span>
     </Toggle>

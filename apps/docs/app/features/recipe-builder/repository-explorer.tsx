@@ -1,7 +1,7 @@
 "use client";
 
 import { FileCode2 } from "lucide-react";
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import {
   FileTree,
@@ -18,29 +18,27 @@ import { Spinner } from "~/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import type { RecipePreviewOutputWire } from "../../worker/recipe-preview-protocol";
+import { useRecipeBuilder } from "./recipe-builder-context";
 import type { PreviewState } from "./use-recipe-builder-state";
 
-type RepositoryExplorerProps = {
-  readonly preview: RecipePreviewOutputWire | undefined;
-  readonly state: PreviewState;
-  readonly activeFile: string;
-  readonly setActiveFile: (path: string) => void;
-};
-
-export function RepositoryExplorer({
-  preview,
-  state,
-  activeFile,
-  setActiveFile,
-}: RepositoryExplorerProps) {
+export function RepositoryExplorer() {
+  const {
+    state: { preview, previewState: state },
+  } = useRecipeBuilder();
   const selectedFileLabelId = useId();
   const [mobilePane, setMobilePane] = useState("files");
+  const [activeFile, setActiveFile] = useState("");
   const files = preview?.files ?? emptyFiles;
   const tree = useMemo(() => fileTree(files.map((file) => file.path)), [files]);
   const source =
     files.find((file) => file.path === activeFile)?.contents ??
     "// Select a file to inspect its generated contents";
   const highlightedSource = useMemo(() => highlight(source), [source]);
+
+  useEffect(() => {
+    const paths = files.map((file) => file.path);
+    if (!paths.includes(activeFile)) setActiveFile(paths[0] ?? "");
+  }, [activeFile, files]);
 
   const renderEditor = (viewport: "desktop" | "mobile") => (
     <div className="flex h-full min-w-0 flex-col bg-code-block">
