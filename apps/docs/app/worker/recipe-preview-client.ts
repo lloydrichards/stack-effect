@@ -1,114 +1,90 @@
-import { Exit, Schema } from "effect";
+import * as BrowserWorker from "@effect/platform-browser/BrowserWorker";
+import { Context, Effect, Layer } from "effect";
+import { RpcClient, RpcGroup } from "effect/unstable/rpc";
+import type { RpcClientError } from "effect/unstable/rpc/RpcClientError";
+import * as EffectWorker from "effect/unstable/workers/Worker";
+import type { WorkerError } from "effect/unstable/workers/WorkerError";
 import {
-  type BuilderCatalogOutputWire as BuilderCatalogOutput,
-  BuilderCatalogOutputWire,
-  type BuilderCatalogRequestWire,
-  type RecipePreviewInputWire,
-  type RecipePreviewOutputWire as RecipePreviewOutput,
-  RecipePreviewOutputWire,
+  RecipeBuilderRpc,
+  type RecipeBuilderRpcFailure,
 } from "./recipe-preview-protocol";
 
-type PreviewInput = RecipePreviewInputWire;
-type PreviewOutput = RecipePreviewOutput;
+type RecipeBuilderRpcClient = RpcClient.RpcClient<
+  RpcGroup.Rpcs<typeof RecipeBuilderRpc>,
+  RpcClientError
+>;
 
-type PreviewResponse =
-  | {
-      readonly _tag: "success";
-      readonly id: string;
-      readonly output: unknown;
-    }
-  | {
-      readonly _tag: "failure";
-      readonly id: string;
-      readonly message: string;
-    };
+export class RecipePreviewClient extends Context.Service<
+  RecipePreviewClient,
+  RecipeBuilderRpcClient
+>()("RecipePreviewClient") {
+  static readonly layer = Layer.effect(this, RpcClient.make(RecipeBuilderRpc));
+}
 
-type PendingPreview = {
-  readonly resolve: (output: unknown) => void;
-  readonly reject: (error: Error) => void;
+type BrowserWorkerSpawner = (id: number) => globalThis.Worker;
+type OwnedWorker = {
+  readonly worker: globalThis.Worker;
+  readonly onMessageError: (event: MessageEvent) => void;
 };
 
-export class RecipePreviewClient {
-  #worker: Worker;
-  readonly #pending = new Map<string, PendingPreview>();
-  #nextId = 0;
-
-  constructor() {
-    this.#worker = this.#createWorker();
-  }
-
-  #createWorker(): Worker {
-    const worker = new Worker(
-      new URL("./recipe-preview.worker.ts", import.meta.url),
-      { type: "module" },
-    );
-    worker.addEventListener(
-      "message",
-      (event: MessageEvent<PreviewResponse>) => {
-        const response = event.data;
-        const pending = this.#pending.get(response.id);
-        if (pending === undefined) return;
-        this.#pending.delete(response.id);
-
-        if (response._tag === "failure") {
-          pending.reject(new Error(response.message));
-          return;
-        }
-
-        pending.resolve(response.output);
-      },
-    );
-    worker.addEventListener("error", () => this.#recoverWorker());
-    worker.addEventListener("messageerror", () => this.#recoverWorker());
-    return worker;
-  }
-
-  #recoverWorker(): void {
-    this.#worker.terminate();
-    for (const pending of this.#pending.values()) {
-      pending.reject(new Error("The preview worker stopped unexpectedly."));
-    }
-    this.#pending.clear();
-    this.#worker = this.#createWorker();
-  }
-
-  preview(input: PreviewInput): Promise<PreviewOutput> {
-    return this.#request("preview", input).then(
-      (output): PreviewOutput =>
-        Exit.match(Schema.decodeUnknownExit(RecipePreviewOutputWire)(output), {
-          onFailure: (cause) => {
-            throw new Error(String(cause));
-          },
-          onSuccess: (value) => value,
+export const layerOwnedWorkerSpawner = (
+  spawn: BrowserWorkerSpawner,
+): Layer.Layer<EffectWorker.Spawner> =>
+  Layer.effect(
+    EffectWorker.Spawner,
+    Effect.gen(function* () {
+      const workers = new Map<number, OwnedWorker>();
+      const terminate = ({ worker, onMessageError }: OwnedWorker) => {
+        worker.removeEventListener("messageerror", onMessageError);
+        worker.terminate();
+      };
+      yield* Effect.addFinalizer(() =>
+        Effect.sync(() => {
+          for (const entry of workers.values()) terminate(entry);
+          workers.clear();
         }),
-    );
-  }
+      );
+      return (id: number) => {
+        const previous = workers.get(id);
+        if (previous !== undefined) terminate(previous);
+        const worker = spawn(id);
+        const onMessageError = (event: MessageEvent) => {
+          worker.dispatchEvent(
+            Object.assign(new Event("error"), {
+              error: event.data,
+              message: "The worker could not deserialize a message.",
+            }),
+          );
+        };
+        worker.addEventListener("messageerror", onMessageError);
+        workers.set(id, { worker, onMessageError });
+        return worker;
+      };
+    }),
+  );
 
-  catalog(input: BuilderCatalogRequestWire): Promise<BuilderCatalogOutput> {
-    return this.#request("catalog", input).then(
-      (output): BuilderCatalogOutput =>
-        Exit.match(Schema.decodeUnknownExit(BuilderCatalogOutputWire)(output), {
-          onFailure: (cause) => {
-            throw new Error(String(cause));
-          },
-          onSuccess: (value) => value,
-        }),
-    );
-  }
+const makeWorker = () =>
+  new Worker(new URL("./recipe-preview.worker.ts", import.meta.url), {
+    type: "module",
+  });
 
-  #request(_tag: "preview" | "catalog", input: unknown): Promise<unknown> {
-    const id = String(++this.#nextId);
-    return new Promise((resolve, reject) => {
-      this.#pending.set(id, { resolve, reject });
-      this.#worker.postMessage({ _tag, id, input });
-    });
-  }
+export type RecipePreviewClientError = RecipeBuilderRpcFailure | RpcClientError;
 
-  dispose(): void {
-    this.#worker.terminate();
-    for (const pending of this.#pending.values()) {
-      pending.reject(new Error("The preview worker was disposed."));
-    }
-    this.#pending.clear();
-  }
-}
+export const recipePreviewClientErrorMessage = (
+  error: RecipePreviewClientError | WorkerError,
+): string =>
+  error._tag === "RecipeBuilderRpcFailure"
+    ? error.message
+    : "The preview worker stopped unexpectedly.";
+
+export const makeRecipePreviewClientLayer = (
+  spawn: BrowserWorkerSpawner = makeWorker,
+): Layer.Layer<RecipePreviewClient, WorkerError> =>
+  RecipePreviewClient.layer.pipe(
+    Layer.provide(RpcClient.layerProtocolWorker({ size: 1, concurrency: 2 })),
+    Layer.provide(
+      Layer.merge(BrowserWorker.layerPlatform, layerOwnedWorkerSpawner(spawn)),
+    ),
+  );
+
+export const RecipePreviewClientLive = makeRecipePreviewClientLayer();

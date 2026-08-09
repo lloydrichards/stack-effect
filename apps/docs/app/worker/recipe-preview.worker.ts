@@ -1,30 +1,16 @@
 /// <reference lib="webworker" />
 
+import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
 import { type BuilderCatalogModule, CatalogService } from "@repo/catalog";
 import { ModuleCategory } from "@repo/domain/Catalog";
 import { toWorkspaceToolValue } from "@repo/scaffold/browser";
-import { Effect, Exit, Schema } from "effect";
-import { BuilderCatalogRequestSchema } from "./recipe-preview-protocol";
-
-const WorkerRequest = Schema.Struct({
-  _tag: Schema.Literals(["preview", "catalog"]),
-  id: Schema.String,
-  input: Schema.Unknown,
-});
-
-type WorkerRequest = typeof WorkerRequest.Type;
-
-type WorkerResponse =
-  | {
-      readonly _tag: "success";
-      readonly id: string;
-      readonly output: unknown;
-    }
-  | {
-      readonly _tag: "failure";
-      readonly id: string;
-      readonly message: string;
-    };
+import { Effect, Layer, Schema } from "effect";
+import { RpcServer } from "effect/unstable/rpc";
+import {
+  BuilderCatalogRequestSchema,
+  RecipeBuilderRpc,
+  RecipeBuilderRpcFailure,
+} from "./recipe-preview-protocol";
 
 type FlatModule = {
   readonly id: string;
@@ -64,8 +50,20 @@ const flattenModules = (
     ).values(),
   );
 
-const preview = (request: WorkerRequest) =>
-  Effect.promise(() => import("@repo/scaffold/browser")).pipe(
+const failure = (operation: "preview" | "catalog") =>
+  new RecipeBuilderRpcFailure({
+    operation,
+    message:
+      operation === "preview"
+        ? "The recipe preview could not be generated."
+        : "The recipe catalog could not be loaded.",
+  });
+
+const preview = ({ input }: { readonly input: unknown }) =>
+  Effect.tryPromise({
+    try: () => import("@repo/scaffold/browser"),
+    catch: () => failure("preview"),
+  }).pipe(
     Effect.flatMap(
       ({
         RecipePreviewInputSchema,
@@ -73,23 +71,24 @@ const preview = (request: WorkerRequest) =>
         RecipePreviewService,
       }) =>
         Effect.gen(function* () {
-          const input = yield* Schema.decodeUnknownEffect(
+          const decoded = yield* Schema.decodeUnknownEffect(
             RecipePreviewInputSchema,
-          )(request.input);
+          )(input);
           const previews = yield* RecipePreviewService;
-          const output = yield* previews.preview(input);
+          const output = yield* previews.preview(decoded);
           return yield* Schema.encodeUnknownEffect(RecipePreviewSchema)(output);
         }).pipe(Effect.provide(RecipePreviewService.layer)),
     ),
+    Effect.mapError(() => failure("preview")),
   );
 
-const catalog = (request: WorkerRequest) =>
+const catalog = ({ input }: { readonly input: unknown }) =>
   Effect.gen(function* () {
-    const input = yield* Schema.decodeUnknownEffect(
+    const decoded = yield* Schema.decodeUnknownEffect(
       BuilderCatalogRequestSchema,
-    )(request.input);
+    )(input);
     const catalogs = yield* CatalogService;
-    const projection = yield* catalogs.toBuilderCatalog(input.owners);
+    const projection = yield* catalogs.toBuilderCatalog(decoded.owners);
     const configurationChoices = (category: string) =>
       catalogs
         .getModules({ category: ModuleCategory.make(category) })
@@ -119,50 +118,26 @@ const catalog = (request: WorkerRequest) =>
           })),
       },
     };
-  }).pipe(Effect.provide(CatalogService.layer));
+  }).pipe(
+    Effect.provide(CatalogService.layer),
+    Effect.mapError(() => failure("catalog")),
+  );
 
-const worker = self as DedicatedWorkerGlobalScope;
-
-const respond = <A, E, R>(
-  request: WorkerRequest,
-  effect: Effect.Effect<A, E, R>,
-) =>
-  effect.pipe(
-    Effect.map(
-      (output): WorkerResponse => ({
-        _tag: "success",
-        id: request.id,
-        output,
+const WorkerLive = RpcServer.layer(RecipeBuilderRpc, {
+  concurrency: 2,
+}).pipe(
+  Layer.provide(
+    RecipeBuilderRpc.toLayer(
+      RecipeBuilderRpc.of({
+        preview,
+        catalog,
       }),
     ),
-  );
+  ),
+  Layer.provide(RpcServer.layerProtocolWorkerRunner),
+  Layer.provide(BrowserWorkerRunner.layer),
+);
 
-worker.addEventListener("message", (event: MessageEvent<WorkerRequest>) => {
-  const request = Exit.match(
-    Schema.decodeUnknownExit(WorkerRequest)(event.data),
-    {
-      onFailure: () => undefined,
-      onSuccess: (value) => value,
-    },
-  );
-  if (request === undefined) return;
-  const response = (
-    request._tag === "preview"
-      ? respond(request, preview(request))
-      : respond(request, catalog(request))
-  ).pipe(
-    Effect.matchCauseEffect({
-      onFailure: () =>
-        Effect.succeed<WorkerResponse>({
-          _tag: "failure",
-          id: request.id,
-          message: "The recipe preview could not be generated.",
-        }),
-      onSuccess: Effect.succeed,
-    }),
-  );
-
-  Effect.runPromise(response).then((result) => worker.postMessage(result));
-});
+Effect.runFork(Layer.launch(WorkerLive));
 
 export {};

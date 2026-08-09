@@ -1,16 +1,24 @@
 "use client";
 
+import { useAtom } from "@effect/atom-react";
 import { useStore } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
+import { Cause, Result } from "effect";
+import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { useEffect, useRef, useState } from "react";
-import { RecipePreviewClient } from "../../worker/recipe-preview-client";
+import {
+  type CatalogRequestSource,
+  catalogAtom,
+  previewAtom,
+} from "../../atom/worker-atom";
+import { recipePreviewClientErrorMessage } from "../../worker/recipe-preview-client";
 import type {
   BuilderCatalogOutputWire,
+  BuilderCatalogRequestWire,
   RecipePreviewOutputWire,
 } from "../../worker/recipe-preview-protocol";
 import {
   dependencySourceNames,
-  errorMessage,
   ownerKey,
   removeTargetAndDependencies,
   targetKey,
@@ -41,6 +49,8 @@ export function useRecipeBuilderState() {
   const form = useRecipeBuilderForm();
   const values = useStore(form.store, (state) => state.values);
   const formValid = useStore(form.store, (state) => state.isValid);
+  const [catalogResult, requestCatalog] = useAtom(catalogAtom);
+  const [previewResult, requestPreview] = useAtom(previewAtom);
   const {
     config,
     developerExperienceModules,
@@ -56,10 +66,19 @@ export function useRecipeBuilderState() {
   const [previewState, setPreviewState] = useState<PreviewState>("starting");
   const [previewError, setPreviewError] = useState<string>();
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const [client, setClient] = useState<RecipePreviewClient>();
   const catalogGenerationRef = useRef(0);
+  const handledCatalogGenerationRef = useRef(0);
   const previewGenerationRef = useRef(0);
+  const handledPreviewGenerationRef = useRef(0);
   const resolvedCatalogOwnersRef = useRef("");
+  const retryCatalogOwnersRef = useRef<
+    | {
+        readonly targetIdentityKey: string;
+        readonly owners: BuilderCatalogRequestWire["owners"];
+        readonly source: CatalogRequestSource;
+      }
+    | undefined
+  >(undefined);
   const nextTargetRef = useRef(0);
   const tabRefs = useRef(new Map<string, HTMLButtonElement>());
 
@@ -89,26 +108,64 @@ export function useRecipeBuilderState() {
     )?.modules ?? [];
 
   useEffect(() => {
-    const nextClient = new RecipePreviewClient();
-    setClient(nextClient);
-    setPreviewState("loading");
-    return () => nextClient.dispose();
-  }, []);
-
-  useEffect(() => {
-    if (client === undefined) return;
     setCatalogState((state) => (state === "ready" ? state : "loading"));
     const generation = ++catalogGenerationRef.current;
-    let active = true;
-    const owners = targets.map(({ kind, name }) => ({ kind, name }));
-    resolvedCatalogOwnersRef.current = owners.map(ownerKey).join("\u0000");
+    const identityOwners = targets.map(({ kind, name }) => ({ kind, name }));
+    const retry = retryCatalogOwnersRef.current;
+    const matchingRetry =
+      retry?.targetIdentityKey === targetIdentityKey ? retry : undefined;
+    const owners = matchingRetry?.owners ?? identityOwners;
+    if (retry !== undefined && retry.targetIdentityKey !== targetIdentityKey) {
+      retryCatalogOwnersRef.current = undefined;
+    }
+    requestCatalog({
+      generation,
+      targetIdentityKey,
+      owners,
+      source: matchingRetry?.source ?? "identity",
+    });
+    // Module selection deliberately does not invalidate catalog metadata.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
+  }, [catalogRevision, requestCatalog, targetIdentityKey]);
 
-    void client
-      .catalog({ owners })
-      .then((nextCatalog) => {
-        if (!active || generation !== catalogGenerationRef.current) return;
+  useEffect(() => {
+    if (AsyncResult.isFailure(catalogResult)) {
+      if (Cause.hasInterrupts(catalogResult.cause)) return;
+      setCatalogState("error");
+      setPreviewState("error");
+      setPreviewError("The preview worker stopped unexpectedly.");
+      return;
+    }
+    if (!AsyncResult.isSuccess(catalogResult)) return;
+
+    const { request, result } = catalogResult.value;
+    if (
+      request.generation !== catalogGenerationRef.current ||
+      request.generation === handledCatalogGenerationRef.current
+    )
+      return;
+    handledCatalogGenerationRef.current = request.generation;
+
+    Result.match(result, {
+      onFailure: (error) => {
+        retryCatalogOwnersRef.current = {
+          targetIdentityKey: request.targetIdentityKey,
+          owners: request.owners,
+          source: request.source,
+        };
+        setCatalogState("error");
+        if (request.source === "identity") setPreviewState("error");
+        setPreviewError(recipePreviewClientErrorMessage(error));
+      },
+      onSuccess: (nextCatalog) => {
+        resolvedCatalogOwnersRef.current = request.owners
+          .map(ownerKey)
+          .join("\u0000");
+        retryCatalogOwnersRef.current = undefined;
         setCatalog(nextCatalog);
         setCatalogState("ready");
+        if (request.source !== "identity") return;
+
         const removedModules = targets.flatMap((target) => {
           const supported = new Set(
             nextCatalog.targetModules
@@ -143,71 +200,63 @@ export function useRecipeBuilderState() {
             ? current
             : next;
         });
-      })
-      .catch((error: unknown) => {
-        if (!active || generation !== catalogGenerationRef.current) return;
-        setCatalogState("error");
-        setPreviewState("error");
-        setPreviewError(errorMessage(error));
-      });
-
-    return () => {
-      active = false;
-    };
-    // Module selection deliberately does not invalidate catalog metadata.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
-  }, [catalogRevision, client, targetIdentityKey]);
+      },
+    });
+  }, [catalogResult, form, targets]);
 
   useEffect(() => {
-    if (client === undefined) return;
-    const generation = ++previewGenerationRef.current;
-    let active = true;
     if (!canPreview) {
+      requestPreview(Atom.Interrupt);
       setPreviewState("invalid");
-      return () => {
-        active = false;
-      };
+      return;
     }
 
+    const generation = ++previewGenerationRef.current;
     setPreviewState("loading");
-    const timeout = window.setTimeout(() => {
-      void client
-        .preview(toRecipePreviewInput(values))
-        .then((nextPreview) => {
-          if (!active || generation !== previewGenerationRef.current) return;
-          setPreview(nextPreview);
-          setPreviewState("ready");
-          setPreviewError(undefined);
-          const resolvedOwners = nextPreview.blueprint.nodes.flatMap((node) =>
-            node._tag === "target" ? [node.identity] : [],
-          );
-          const owners = uniqueOwners([...targets, ...resolvedOwners]);
-          const ownersKey = owners.map(ownerKey).join("\u0000");
-          if (ownersKey === resolvedCatalogOwnersRef.current) return;
-          resolvedCatalogOwnersRef.current = ownersKey;
-          const catalogGeneration = ++catalogGenerationRef.current;
-          void client.catalog({ owners }).then((resolvedCatalog) => {
-            if (
-              !active ||
-              generation !== previewGenerationRef.current ||
-              catalogGeneration !== catalogGenerationRef.current
-            )
-              return;
-            setCatalog(resolvedCatalog);
-          });
-        })
-        .catch((error: unknown) => {
-          if (!active || generation !== previewGenerationRef.current) return;
-          setPreviewState("error");
-          setPreviewError(errorMessage(error));
-        });
-    }, 200);
+    requestPreview({ generation, input: toRecipePreviewInput(values) });
+  }, [canPreview, requestPreview, values]);
 
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-    };
-  }, [canPreview, client, targets, values]);
+  useEffect(() => {
+    if (AsyncResult.isFailure(previewResult)) {
+      if (Cause.hasInterrupts(previewResult.cause)) return;
+      setPreviewState("error");
+      setPreviewError("The preview worker stopped unexpectedly.");
+      return;
+    }
+    if (!AsyncResult.isSuccess(previewResult)) return;
+
+    const { request, result } = previewResult.value;
+    if (
+      request.generation !== previewGenerationRef.current ||
+      request.generation === handledPreviewGenerationRef.current
+    )
+      return;
+    handledPreviewGenerationRef.current = request.generation;
+
+    Result.match(result, {
+      onFailure: (error) => {
+        setPreviewState("error");
+        setPreviewError(recipePreviewClientErrorMessage(error));
+      },
+      onSuccess: (nextPreview) => {
+        setPreview(nextPreview);
+        setPreviewState("ready");
+        setPreviewError(undefined);
+        const resolvedOwners = nextPreview.blueprint.nodes.flatMap((node) =>
+          node._tag === "target" ? [node.identity] : [],
+        );
+        const owners = uniqueOwners([...targets, ...resolvedOwners]);
+        const ownersKey = owners.map(ownerKey).join("\u0000");
+        if (ownersKey === resolvedCatalogOwnersRef.current) return;
+        requestCatalog({
+          generation: ++catalogGenerationRef.current,
+          targetIdentityKey,
+          owners,
+          source: "preview",
+        });
+      },
+    });
+  }, [previewResult, requestCatalog, targetIdentityKey, targets]);
 
   const toggleModule = (module: CatalogModule) => {
     if (activeTarget === undefined || catalog === undefined) return;

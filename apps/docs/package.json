@@ -10,10 +10,13 @@
     "lint": "biome lint .",
     "prebuild": "bun run --cwd ../cli docs:generate",
     "start": "react-router-serve ./build/server/index.js",
+    "test": "vitest run",
     "type-check": "react-router typegen && tsc"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
+    "@effect/atom-react": "4.0.0-beta.104",
+    "@effect/platform-browser": "4.0.0-beta.104",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
     "@mdx-js/react": "^3.1.1",
     "@react-router/node": "8.3.0",
@@ -45,9 +48,10 @@
     "unist-util-visit": "^5.1.0"
   },
   "devDependencies": {
-    "@repo/config-typescript": "workspace:*",
+    "@effect/vitest": "4.0.0-beta.104",
     "@mdx-js/rollup": "^3.1.1",
     "@react-router/dev": "8.3.0",
+    "@repo/config-typescript": "workspace:*",
     "@tailwindcss/vite": "^4.3.1",
     "@types/mdx": "^2.0.14",
     "@types/node": "^26.2.0",
