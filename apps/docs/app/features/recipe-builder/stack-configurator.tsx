@@ -176,7 +176,6 @@ export function StackConfigurator() {
                 label: choice.title,
               })) ?? []
             }
-            optional
             disabled={choices === undefined}
             onChange={(value) => updateTool(field, value)}
           />

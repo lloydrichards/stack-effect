@@ -45,7 +45,9 @@ export function TargetConfiguration({
   if (!target) return null;
 
   const targetNameDescriptionId = `target-name-description-${target.id}`;
-  const targetNameDescription = target.addedByDependency
+  const nameLocked =
+    target.addedByDependency || (target.requirements?.length ?? 0) > 0;
+  const targetNameDescription = nameLocked
     ? `Set by ${dependencySourceNames.join(", ")}.`
     : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
   const childIds = new Set(
@@ -66,7 +68,7 @@ export function TargetConfiguration({
               return (
                 <Field
                   data-invalid={isInvalid}
-                  data-disabled={target.addedByDependency || undefined}
+                  data-disabled={nameLocked || undefined}
                 >
                   <FieldLabel htmlFor={`target-name-${target.id}`}>
                     Target name
@@ -75,7 +77,7 @@ export function TargetConfiguration({
                     id={`target-name-${target.id}`}
                     name={field.name}
                     value={field.state.value}
-                    disabled={target.addedByDependency}
+                    disabled={nameLocked}
                     required
                     spellCheck={false}
                     onBlur={field.handleBlur}

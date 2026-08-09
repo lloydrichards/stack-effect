@@ -109,6 +109,30 @@ export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpc
   },
 ) {}
 
+const errorMessage = (error: unknown): string | undefined =>
+  error instanceof Error && error.message.trim().length > 0
+    ? error.message
+    : typeof error === "object" &&
+        error !== null &&
+        "message" in error &&
+        typeof error.message === "string" &&
+        error.message.trim().length > 0
+      ? error.message
+      : undefined;
+
+export const makeRecipeBuilderRpcFailure = (
+  operation: "preview" | "catalog",
+  error?: unknown,
+) =>
+  new RecipeBuilderRpcFailure({
+    operation,
+    message:
+      errorMessage(error) ??
+      (operation === "preview"
+        ? "The recipe preview could not be generated."
+        : "The recipe catalog could not be loaded."),
+  });
+
 export class RecipeBuilderRpc extends RpcGroup.make(
   Rpc.make("preview", {
     payload: { input: RecipePreviewInputWire },
