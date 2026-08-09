@@ -308,7 +308,7 @@ bunx stack-effect@latest add --dry-run`;
             <Button
               size="sm"
               variant="outline"
-              className="h-11 px-3 sm:h-7"
+              className="px-3"
               onClick={() => setStepIndex((index) => Math.max(0, index - 1))}
               disabled={stepIndex === 0}
             >
@@ -317,7 +317,7 @@ bunx stack-effect@latest add --dry-run`;
             <Button
               size="sm"
               variant="ghost"
-              className="h-11 px-3 sm:h-7"
+              className="px-3"
               onClick={() => setStepIndex(0)}
               disabled={stepIndex === 0}
             >
@@ -325,7 +325,7 @@ bunx stack-effect@latest add --dry-run`;
             </Button>
             <Button
               size="sm"
-              className="h-11 px-3 sm:h-7"
+              className="px-3"
               onClick={() =>
                 setStepIndex((index) => Math.min(steps.length - 1, index + 1))
               }
@@ -526,7 +526,7 @@ function CopyCommandButton({
       size="icon-sm"
       variant="ghost"
       onClick={onClick}
-      className="absolute top-0 right-0 size-11 sm:top-0.5 sm:right-2 sm:size-7"
+      className="absolute top-0 right-0 sm:top-0.5 sm:right-2"
       aria-label={status === "copied" ? copiedLabel : idleLabel}
     >
       {status === "copied" ? (

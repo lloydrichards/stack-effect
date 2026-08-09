@@ -11,13 +11,11 @@ import { toggleVariants } from "./toggle";
 const ToggleGroupContext = React.createContext<
   VariantProps<typeof toggleVariants> & {
     spacing?: number;
-    orientation?: "horizontal" | "vertical";
   }
 >({
   size: "default",
   variant: "default",
   spacing: 0,
-  orientation: "horizontal",
 });
 
 function ToggleGroup({
@@ -40,16 +38,15 @@ function ToggleGroup({
       data-size={size}
       data-spacing={spacing}
       data-orientation={orientation}
+      orientation={orientation}
       style={{ "--gap": spacing } as React.CSSProperties}
       className={cn(
-        "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-none data-[size=sm]:rounded-none data-vertical:flex-col data-vertical:items-stretch",
+        "group/toggle-group flex w-fit flex-row items-center gap-[--spacing(var(--gap))] rounded-none data-vertical:flex-col data-vertical:items-stretch",
         className,
       )}
       {...props}
     >
-      <ToggleGroupContext.Provider
-        value={{ variant, size, spacing, orientation }}
-      >
+      <ToggleGroupContext.Provider value={{ variant, size, spacing }}>
         {children}
       </ToggleGroupContext.Provider>
     </ToggleGroupPrimitive>

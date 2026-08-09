@@ -66,7 +66,7 @@ export function CommandDock({
         <div className="min-w-0">
           <code
             className={cn(
-              "block min-w-0 overscroll-x-contain overflow-x-auto whitespace-nowrap rounded-sm border border-code-border px-3 py-2.5 font-terminal text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:py-3",
+              "flex h-11 min-w-0 items-center overscroll-x-contain overflow-x-auto whitespace-nowrap rounded-sm border border-code-border px-3 font-terminal text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
               disabled
                 ? "bg-muted text-muted-foreground"
                 : "bg-code text-code-foreground",
@@ -93,7 +93,7 @@ export function CommandDock({
           </p>
         </div>
         <Button
-          className="size-11 p-0 text-center sm:w-auto sm:px-4"
+          className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
           type="button"
           onClick={() => copy(command)}
           disabled={disabled}

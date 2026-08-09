@@ -75,7 +75,6 @@ export function TargetConfiguration({
                     id={`target-name-${target.id}`}
                     name={field.name}
                     value={field.state.value}
-                    className="h-11 lg:h-8"
                     disabled={target.addedByDependency}
                     required
                     spellCheck={false}
@@ -105,13 +104,8 @@ export function TargetConfiguration({
         </Empty>
       ) : (
         <FieldSet className="mt-5 max-w-5xl gap-4">
-          <FieldLegend variant="label" className="mb-3">
-            Modules
-          </FieldLegend>
-          <FieldGroup
-            data-slot="checkbox-group"
-            className="gap-0 overflow-hidden rounded-md border bg-background"
-          >
+          <FieldLegend variant="label">Modules</FieldLegend>
+          <FieldGroup data-slot="checkbox-group" variant="outlined">
             {roots.map((module, index) => (
               <ModuleBranch
                 key={module.id}
@@ -141,7 +135,6 @@ export function TargetConfiguration({
         <Separator />
         <Button
           variant="destructive"
-          className="h-11 lg:h-8"
           aria-label={
             target.requirements?.length
               ? `Remove ${target.name} and dependent selections`

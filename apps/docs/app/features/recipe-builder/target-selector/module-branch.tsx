@@ -33,11 +33,10 @@ export function ModuleBranch({
     <div className={cn(divided && "border-t")}>
       <Field
         orientation="horizontal"
+        variant="selection"
+        density="comfortable"
         data-disabled={required}
-        className={cn(
-          "min-h-16 items-center px-4 py-2.5 transition-colors hover:bg-muted/40",
-          checked && "bg-muted/25",
-        )}
+        data-selected={checked}
       >
         <Checkbox
           id={`module-${module.id}`}
@@ -47,10 +46,7 @@ export function ModuleBranch({
         />
         <FieldLabel
           htmlFor={`module-${module.id}`}
-          className={cn(
-            "min-w-0 flex-1 flex-col items-start gap-1",
-            !required && "cursor-pointer",
-          )}
+          className={cn(!required && "cursor-pointer")}
         >
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm/5 font-medium text-foreground">
@@ -74,7 +70,8 @@ export function ModuleBranch({
           </p>
           <FieldGroup
             data-slot="checkbox-group"
-            className="mt-2 gap-0 border-l pl-3"
+            variant="branch"
+            className="mt-2"
           >
             {module.children.map((child) => {
               const childModule = modules.find(
@@ -100,7 +97,8 @@ export function ModuleBranch({
           </p>
           <FieldGroup
             data-slot="checkbox-group"
-            className="mt-2 gap-0 border-l pl-3"
+            variant="branch"
+            className="mt-2"
           >
             {relationships.map((relationship) => (
               <RelationshipBranch

@@ -71,7 +71,7 @@ export function RepositoryExplorer() {
           Files
         </div>
       ) : null}
-      <ScrollArea className="min-h-0 flex-1 p-2">
+      <ScrollArea className="min-h-0 flex-1" viewportClassName="p-2">
         <FileTree nodes={tree} selectedPath={activeFile} onSelect={onSelect} />
       </ScrollArea>
     </div>
@@ -97,7 +97,7 @@ export function RepositoryExplorer() {
     >
       {preview === undefined ? (
         <Empty
-          className="min-h-80 border-0"
+          className="min-h-80"
           role="status"
           aria-live="polite"
           aria-busy={state === "starting" || state === "loading"}
@@ -112,7 +112,7 @@ export function RepositoryExplorer() {
           <EmptyDescription>{previewStatusMessage(state)}</EmptyDescription>
         </Empty>
       ) : files.length === 0 ? (
-        <Empty className="min-h-80 border-0">
+        <Empty className="min-h-80">
           <EmptyMedia variant="icon">
             <FileCode2 />
           </EmptyMedia>
@@ -136,7 +136,7 @@ export function RepositoryExplorer() {
           <Tabs
             value={mobilePane}
             onValueChange={setMobilePane}
-            className="gap-0 lg:hidden"
+            className="lg:hidden"
           >
             <TabsList className="w-full" aria-label="Repository view">
               <TabsTrigger value="files">Files</TabsTrigger>

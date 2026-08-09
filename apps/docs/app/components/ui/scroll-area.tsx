@@ -5,8 +5,13 @@ import { cn } from "~/lib/utils";
 function ScrollArea({
   className,
   children,
+  viewportClassName,
+  scrollbars = "vertical",
   ...props
-}: ScrollAreaPrimitive.Root.Props) {
+}: ScrollAreaPrimitive.Root.Props & {
+  viewportClassName?: string;
+  scrollbars?: "vertical" | "horizontal" | "both";
+}) {
   return (
     <ScrollAreaPrimitive.Root
       data-slot="scroll-area"
@@ -15,11 +20,17 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1"
+        className={cn(
+          "size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1",
+          viewportClassName,
+        )}
       >
         {children}
       </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
+      {(scrollbars === "vertical" || scrollbars === "both") && <ScrollBar />}
+      {(scrollbars === "horizontal" || scrollbars === "both") && (
+        <ScrollBar orientation="horizontal" />
+      )}
       <ScrollAreaPrimitive.Corner />
     </ScrollAreaPrimitive.Root>
   );

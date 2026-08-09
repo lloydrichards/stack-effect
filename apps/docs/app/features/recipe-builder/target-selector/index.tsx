@@ -30,7 +30,7 @@ export function TargetSelector() {
         </span>
       }
     >
-      <Tabs value={activeId} onValueChange={selectTarget} className="gap-0">
+      <Tabs value={activeId} onValueChange={selectTarget}>
         <div className="flex min-w-0 items-center gap-2 border-b p-2">
           <div className="min-w-0 flex-1 overflow-x-auto">
             <TabsList aria-label="Recipe targets">
@@ -50,7 +50,7 @@ export function TargetSelector() {
           <Button
             variant="ghost"
             size="lg"
-            className="size-11 shrink-0 p-0 sm:w-auto sm:px-4 lg:h-9"
+            className="w-11 shrink-0 p-0 sm:w-auto sm:px-4"
             aria-label="Add target"
             disabled={newTargetOpen}
             onClick={openTargetSelector}
