@@ -4,6 +4,7 @@ import {
   RecipePreviewSchema,
 } from "@repo/scaffold/recipe-preview";
 import { Schema } from "effect";
+import { Rpc, RpcGroup } from "effect/unstable/rpc";
 
 export const RecipePreviewInputWire = Schema.toEncoded(
   RecipePreviewInputSchema,
@@ -99,3 +100,24 @@ export const BuilderCatalogOutputWire = Schema.Struct({
 
 export type BuilderCatalogRequestWire = typeof BuilderCatalogRequestWire.Type;
 export type BuilderCatalogOutputWire = typeof BuilderCatalogOutputWire.Type;
+
+export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpcFailure>()(
+  "RecipeBuilderRpcFailure",
+  {
+    operation: Schema.Literals(["preview", "catalog"]),
+    message: Schema.String,
+  },
+) {}
+
+export class RecipeBuilderRpc extends RpcGroup.make(
+  Rpc.make("preview", {
+    payload: { input: RecipePreviewInputWire },
+    success: RecipePreviewOutputWire,
+    error: RecipeBuilderRpcFailure,
+  }),
+  Rpc.make("catalog", {
+    payload: { input: BuilderCatalogRequestWire },
+    success: BuilderCatalogOutputWire,
+    error: RecipeBuilderRpcFailure,
+  }),
+) {}
