@@ -1,5 +1,11 @@
 # stack-effect
 
+## 0.11.1
+
+### Patch Changes
+
+- 8c9ba96: seperate biome into lint and format so it can be mixed
+
 ## 0.11.0
 
 ### Minor Changes
