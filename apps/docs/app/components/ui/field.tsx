@@ -27,7 +27,7 @@ function FieldLegend({
       data-slot="field-legend"
       data-variant={variant}
       className={cn(
-        "mb-2.5 font-medium data-[variant=label]:text-xs data-[variant=legend]:text-sm",
+        "font-medium data-[variant=label]:text-xs data-[variant=legend]:text-sm",
         className,
       )}
       {...props}
@@ -35,14 +35,32 @@ function FieldLegend({
   );
 }
 
-function FieldGroup({ className, ...props }: React.ComponentProps<"div">) {
+const fieldGroupVariants = cva(
+  "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 *:data-[slot=field-group]:gap-4",
+  {
+    variants: {
+      variant: {
+        default: "",
+        branch: "gap-0 border-l pl-3",
+        outlined: "gap-0 overflow-hidden rounded-md border bg-background",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
+    },
+  },
+);
+
+function FieldGroup({
+  className,
+  variant = "default",
+  ...props
+}: React.ComponentProps<"div"> & VariantProps<typeof fieldGroupVariants>) {
   return (
     <div
       data-slot="field-group"
-      className={cn(
-        "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 *:data-[slot=field-group]:gap-4",
-        className,
-      )}
+      data-variant={variant}
+      className={cn(fieldGroupVariants({ variant }), className)}
       {...props}
     />
   );
@@ -59,24 +77,69 @@ const fieldVariants = cva(
         responsive:
           "flex-col *:w-full @md/field-group:flex-row @md/field-group:items-center @md/field-group:*:w-auto @md/field-group:has-[>[data-slot=field-content]]:items-start @md/field-group:*:data-[slot=field-label]:flex-auto [&>.sr-only]:w-auto @md/field-group:has-[>[data-slot=field-content]]:[&>[role=checkbox],[role=radio]]:mt-px",
       },
+      variant: {
+        default: "",
+        selection:
+          "items-center transition-colors not-data-[disabled=true]:hover:bg-muted/40 data-[selected=true]:bg-muted/25",
+      },
+      density: {
+        default: "",
+        comfortable: "",
+        compact: "",
+      },
     },
+    compoundVariants: [
+      {
+        variant: "selection",
+        density: "comfortable",
+        className: "min-h-16 px-4 py-2.5",
+      },
+      {
+        variant: "selection",
+        density: "compact",
+        className: "min-h-11 gap-3 py-1.5",
+      },
+    ],
     defaultVariants: {
       orientation: "vertical",
+      variant: "default",
+      density: "default",
     },
   },
 );
 
+type FieldProps = React.ComponentProps<"div"> &
+  Pick<VariantProps<typeof fieldVariants>, "orientation"> &
+  (
+    | {
+        variant?: "default";
+        density?: never;
+      }
+    | {
+        variant: "selection";
+        density?: "comfortable" | "compact";
+      }
+  );
+
 function Field({
   className,
   orientation = "vertical",
+  variant = "default",
+  density,
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof fieldVariants>) {
+}: FieldProps) {
+  const resolvedDensity = density ?? "default";
   return (
     <div
       role="group"
       data-slot="field"
       data-orientation={orientation}
-      className={cn(fieldVariants({ orientation }), className)}
+      data-variant={variant}
+      data-density={resolvedDensity}
+      className={cn(
+        fieldVariants({ orientation, variant, density: resolvedDensity }),
+        className,
+      )}
       {...props}
     />
   );
@@ -103,8 +166,7 @@ function FieldLabel({
     <Label
       data-slot="field-label"
       className={cn(
-        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border *:data-[slot=field]:p-2 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10",
-        "has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
+        "group/field-label peer/field-label flex w-fit gap-2 leading-snug group-data-[disabled=true]/field:opacity-50 group-data-[variant=selection]/field:min-w-0 group-data-[variant=selection]/field:flex-1 group-data-[variant=selection]/field:flex-col group-data-[variant=selection]/field:items-start group-data-[density=comfortable]/field:gap-1 group-data-[density=compact]/field:gap-0.5 has-data-checked:border-primary/30 has-data-checked:bg-primary/5 has-[>[data-slot=field]]:rounded-none has-[>[data-slot=field]]:border *:data-[slot=field]:p-2 dark:has-data-checked:border-primary/20 dark:has-data-checked:bg-primary/10 has-[>[data-slot=field]]:w-full has-[>[data-slot=field]]:flex-col",
         className,
       )}
       {...props}

@@ -250,6 +250,7 @@ function PrimaryNavigation({ className }: { className?: string }) {
           <NavigationMenuItem key={item.href}>
             <NavigationMenuLink
               render={<Link to={item.href} />}
+              size="header"
               data-active={
                 isPrimaryNavigationActive(pathname, item.href) || undefined
               }
@@ -258,7 +259,6 @@ function PrimaryNavigation({ className }: { className?: string }) {
                   ? "page"
                   : undefined
               }
-              className="h-11 px-2 text-xs sm:px-2.5 lg:h-9"
             >
               {item.label}
             </NavigationMenuLink>

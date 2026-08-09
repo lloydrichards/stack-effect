@@ -43,7 +43,7 @@ export function FileTreeNode({
       aria-selected={selected}
       aria-current={selected ? "true" : undefined}
       className={cn(
-        "min-h-11 w-full justify-start px-1 aria-expanded:bg-transparent lg:min-h-8",
+        "w-full justify-start px-1 aria-expanded:bg-transparent",
         selected && "bg-accent",
       )}
       style={{ paddingLeft: `${item.depth * 12 + (folder ? 4 : 20)}px` }}

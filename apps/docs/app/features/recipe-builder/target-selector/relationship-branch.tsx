@@ -35,8 +35,10 @@ export function RelationshipBranch({ node }: RelationshipBranchProps) {
     <div className="relative">
       <Field
         orientation="horizontal"
+        variant="selection"
+        density="compact"
         data-disabled={disabled}
-        className="min-h-11 items-center gap-3 py-1.5"
+        data-selected={checked}
       >
         <Checkbox
           id={id}
@@ -49,7 +51,6 @@ export function RelationshipBranch({ node }: RelationshipBranchProps) {
         <FieldLabel
           htmlFor={id}
           className={cn(
-            "min-w-0 flex-1 flex-col items-start gap-0.5",
             !required && configuration !== undefined && "cursor-pointer",
           )}
         >
@@ -62,7 +63,8 @@ export function RelationshipBranch({ node }: RelationshipBranchProps) {
       {checked && node.children.length > 0 ? (
         <FieldGroup
           data-slot="checkbox-group"
-          className="ml-2 gap-0 border-l pl-3"
+          variant="branch"
+          className="ml-2"
         >
           {node.children.map((child) => (
             <RelationshipBranch

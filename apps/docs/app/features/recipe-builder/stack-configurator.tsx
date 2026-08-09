@@ -59,15 +59,10 @@ export function StackConfigurator() {
             role="status"
           >
             <Spinner />
-            <span className="hidden sm:inline">Loading options…</span>
+            <span className="sr-only sm:not-sr-only">Loading options…</span>
           </span>
         ) : choicesState === "error" ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-11 lg:h-7"
-            onClick={retryChoices}
-          >
+          <Button variant="ghost" size="sm" onClick={retryChoices}>
             Retry options
           </Button>
         ) : null
@@ -90,7 +85,6 @@ export function StackConfigurator() {
                   value={field.state.value}
                   required
                   spellCheck={false}
-                  className="h-11 lg:h-8"
                   aria-invalid={isInvalid}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={() => {
@@ -110,7 +104,7 @@ export function StackConfigurator() {
             aria-labelledby="stack-runtime-label"
             value={[runtime]}
             variant="outline"
-            className="grid h-11 w-full grid-cols-2 lg:h-8"
+            className="grid w-full grid-cols-2"
             onValueChange={(values) => {
               const value = values[0] ?? runtime;
               configure({
@@ -125,10 +119,10 @@ export function StackConfigurator() {
               });
             }}
           >
-            <ToggleGroupItem value="bun" className="h-full w-full">
+            <ToggleGroupItem value="bun" className="w-full">
               Bun
             </ToggleGroupItem>
-            <ToggleGroupItem value="node" className="h-full w-full">
+            <ToggleGroupItem value="node" className="w-full">
               Node
             </ToggleGroupItem>
           </ToggleGroup>
@@ -190,7 +184,10 @@ export function StackConfigurator() {
 
         <FieldSet className="gap-2 sm:col-span-2">
           <FieldLegend variant="label">Repository and DX</FieldLegend>
-          <FieldGroup className="grid grid-cols-1 gap-0 overflow-hidden rounded-md border sm:grid-cols-3">
+          <FieldGroup
+            variant="outlined"
+            className="grid grid-cols-1 sm:grid-cols-3"
+          >
             <ConfigurationToggle
               id="stack-git"
               title="Git"
@@ -259,11 +256,7 @@ function ConfigurationSelect({
           onChange(nextValue === "__none__" ? "" : (nextValue ?? ""))
         }
       >
-        <SelectTrigger
-          id={id}
-          className="w-full text-sm data-[size=default]:h-11 lg:text-xs lg:data-[size=default]:h-8"
-          aria-invalid={unavailable}
-        >
+        <SelectTrigger id={id} className="w-full" aria-invalid={unavailable}>
           <SelectValue>
             {value.length === 0
               ? "None"
