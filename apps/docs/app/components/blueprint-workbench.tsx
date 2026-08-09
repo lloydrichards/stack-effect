@@ -5,7 +5,7 @@ import {
   ArrowRight,
   Check,
   Clipboard,
-  Layers3,
+  LayersArrowUp,
   RotateCcw,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -220,7 +220,7 @@ bunx stack-effect@latest add --dry-run`;
       <div className="grid border-b xl:grid-cols-[minmax(22rem,1fr)_minmax(34rem,40rem)] xl:items-stretch">
         <div className="min-w-0 p-5 md:p-7">
           <p className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-[0.08em] text-primary">
-            <Layers3 aria-hidden="true" /> Interactive dry run
+            <LayersArrowUp aria-hidden="true" /> Interactive dry run
           </p>
           <h2
             id="workbench-title"
