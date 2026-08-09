@@ -11,6 +11,7 @@ type CommandDockProps = {
   readonly summary: ReactNode;
   readonly disabled?: boolean;
   readonly sticky?: boolean;
+  readonly onCopySuccess?: () => void;
 };
 
 export function CommandDock({
@@ -18,6 +19,7 @@ export function CommandDock({
   summary,
   disabled = false,
   sticky = true,
+  onCopySuccess,
 }: CommandDockProps) {
   const { status, copy, reset } = useCopyToClipboard();
   const titleId = useId();
@@ -38,6 +40,9 @@ export function CommandDock({
       : status === "error"
         ? "Could not access the clipboard. Select the command and copy it manually."
         : "";
+  const copyCommand = async () => {
+    if (await copy(command)) onCopySuccess?.();
+  };
 
   return (
     <aside
@@ -95,7 +100,7 @@ export function CommandDock({
         <Button
           className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
           type="button"
-          onClick={() => copy(command)}
+          onClick={copyCommand}
           disabled={disabled}
         >
           {status === "copied" ? (

@@ -4,6 +4,7 @@ import { AlertCircle } from "lucide-react";
 import { CommandDock } from "~/components/molecules/command-dock";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
+import { trackEvent } from "~/lib/analytics";
 import { PreviewStatus } from "./preview-status";
 import { RecipeBuilderProvider } from "./recipe-builder-context";
 import { RepositoryExplorer } from "./repository-explorer";
@@ -16,6 +17,7 @@ export function RecipeBuilder() {
   const {
     state: { compatibilityNotice, preview, previewError, previewState },
   } = builder;
+  const { config, targets } = builder.state;
 
   const commandReady = preview !== undefined && previewState === "ready";
   const resolvedTargetCount = preview?.blueprint.nodes.filter(
@@ -99,6 +101,22 @@ export function RecipeBuilder() {
           }
           command={command}
           disabled={!commandReady}
+          onCopySuccess={() =>
+            trackEvent("recipe-command-copied", {
+              selected_target_count: targets.length,
+              resolved_target_count: resolvedTargetCount ?? 0,
+              selected_module_count: targets.reduce(
+                (count, target) => count + target.modules.length,
+                0,
+              ),
+              runtime: config.runtime._tag,
+              package_manager:
+                config.runtime._tag === "node"
+                  ? config.runtime.packageManager
+                  : "bun",
+              file_count: preview?.files.length ?? 0,
+            })
+          }
         />
       </article>
     </RecipeBuilderProvider>
