@@ -202,7 +202,8 @@ describe("RecipeService", () => {
           assertTargetModules(selection, ".", [
             ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome"),
+            ModuleId.make("workspace-quality-biome-lint"),
+            ModuleId.make("workspace-quality-biome-format"),
             ModuleId.make("workspace-test-vitest"),
           ]);
         }).pipe(Effect.provide(TestLayer)),
@@ -226,10 +227,38 @@ describe("RecipeService", () => {
         assertTargetModules(selection, ".", [
           ModuleId.make("workspace-typescript-7"),
           ModuleId.make("workspace-monorepo-turbo"),
-          ModuleId.make("workspace-quality-biome"),
+          ModuleId.make("workspace-quality-biome-lint"),
+          ModuleId.make("workspace-quality-biome-format"),
           ModuleId.make("workspace-test-vitest"),
         ]);
       }).pipe(Effect.provide(TestLayer)),
+    );
+
+    it.effect(
+      "should select independent Biome lint and dprint format modules",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const config = new StackConfig({
+            ...testConfig,
+            format: "dprint",
+          });
+          const selection = yield* service.resolve(
+            { targets: [] },
+            {
+              config,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
+            ModuleId.make("workspace-monorepo-turbo"),
+            ModuleId.make("workspace-quality-biome-lint"),
+            ModuleId.make("workspace-quality-dprint"),
+            ModuleId.make("workspace-test-vitest"),
+          ]);
+        }).pipe(Effect.provide(TestLayer)),
     );
 
     it.effect(
@@ -258,7 +287,8 @@ describe("RecipeService", () => {
           assertTargetModules(selection, ".", [
             ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome"),
+            ModuleId.make("workspace-quality-biome-lint"),
+            ModuleId.make("workspace-quality-biome-format"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -299,7 +329,8 @@ describe("RecipeService", () => {
           assertTargetModules(selection, ".", [
             ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome"),
+            ModuleId.make("workspace-quality-biome-lint"),
+            ModuleId.make("workspace-quality-biome-format"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -320,7 +351,8 @@ describe("RecipeService", () => {
                     name: "recipe-app",
                   }),
                   modules: [
-                    ModuleId.make("workspace-quality-biome"),
+                    ModuleId.make("workspace-quality-biome-lint"),
+                    ModuleId.make("workspace-quality-biome-format"),
                     ModuleId.make("workspace-devenv-git"),
                     ModuleId.make("workspace-devenv-git"),
                   ],
@@ -336,7 +368,8 @@ describe("RecipeService", () => {
           assertTargetModules(selection, ".", [
             ModuleId.make("workspace-typescript-6"),
             ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome"),
+            ModuleId.make("workspace-quality-biome-lint"),
+            ModuleId.make("workspace-quality-biome-format"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -396,7 +429,8 @@ describe("RecipeService", () => {
         assertTargetModules(selection, ".", [
           ModuleId.make("workspace-typescript-6"),
           ModuleId.make("workspace-monorepo-turbo"),
-          ModuleId.make("workspace-quality-biome"),
+          ModuleId.make("workspace-quality-biome-lint"),
+          ModuleId.make("workspace-quality-biome-format"),
           ModuleId.make("workspace-test-vitest"),
         ]);
       }).pipe(Effect.provide(TestLayer)),

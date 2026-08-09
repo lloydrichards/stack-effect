@@ -63,15 +63,24 @@ const configWorkspaceModules = (
 ): ReadonlyArray<typeof ModuleId.Type> =>
   Arr.dedupe(
     [
-      toTypeScriptModuleId(config.typescriptVersion),
-      config.monorepo,
-      config.lint,
-      config.format,
-      config.test,
+      toWorkspaceModuleId(
+        "tool",
+        toTypeScriptModuleId(config.typescriptVersion),
+      ),
+      config.monorepo === undefined
+        ? undefined
+        : toWorkspaceModuleId("tool", config.monorepo),
+      config.lint === undefined
+        ? undefined
+        : toWorkspaceModuleId("lint", config.lint),
+      config.format === undefined
+        ? undefined
+        : toWorkspaceModuleId("format", config.format),
+      config.test === undefined
+        ? undefined
+        : toWorkspaceModuleId("tool", config.test),
     ].flatMap((moduleId) =>
-      moduleId === undefined
-        ? []
-        : [ModuleId.make(toWorkspaceModuleId(moduleId))],
+      moduleId === undefined ? [] : [ModuleId.make(moduleId)],
     ),
   );
 
