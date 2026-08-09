@@ -6,6 +6,7 @@ import { batch } from "@tanstack/store";
 import { Cause, Result } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { useEffect, useRef, useState } from "react";
+import { trackEvent } from "~/lib/analytics";
 import {
   type CatalogRequestSource,
   catalogAtom,
@@ -305,6 +306,11 @@ export function useRecipeBuilderState() {
       makeTargetInstance(id, definition, current),
     ]);
     setActiveId(id);
+    trackEvent("recipe-target-added", {
+      target_kind: kind,
+      target_count: targets.length + 1,
+      first_target: targets.length === 0,
+    });
   };
 
   const removeTarget = (id: string) => {

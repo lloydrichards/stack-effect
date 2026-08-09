@@ -10,14 +10,18 @@ export function useCopyToClipboard(resetAfter = 2400) {
     async (value: string) => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
-      try {
-        await navigator.clipboard.writeText(value);
+      const copied = await navigator.clipboard.writeText(value).then(
+        () => true,
+        () => false,
+      );
+      if (copied) {
         setStatus("copied");
-      } catch {
+      } else {
         setStatus("error");
       }
 
       timeoutRef.current = setTimeout(() => setStatus("idle"), resetAfter);
+      return copied;
     },
     [resetAfter],
   );
