@@ -69,10 +69,21 @@ describe("RecipeTargetString", () => {
     assert.strictEqual(encoded, "server/:server-chat-rpc");
   });
 
+  it("round trips targets without modules", () => {
+    const decoded = Schema.decodeUnknownSync(RecipeTargetString)("server-mcp/");
+    const encoded = Schema.encodeUnknownSync(RecipeTargetString)(decoded);
+
+    assert.deepStrictEqual(decoded, {
+      target: new TargetIdentity({
+        kind: TargetKind.make("server-mcp"),
+        name: "",
+      }),
+      modules: [],
+    });
+    assert.strictEqual(encoded, "server-mcp/");
+  });
+
   it("rejects malformed target specs", () => {
-    assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)("server/api"),
-    );
     assert.throws(() =>
       Schema.decodeUnknownSync(RecipeTargetString)(":server-http-api"),
     );

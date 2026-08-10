@@ -49,7 +49,9 @@ export function TargetConfiguration({
     target.addedByDependency || (target.requirements?.length ?? 0) > 0;
   const targetNameDescription = nameLocked
     ? `Set by ${dependencySourceNames.join(", ")}.`
-    : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
+    : target.name.length === 0
+      ? "Optional; leave blank to use the target kind for its path and package name."
+      : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
   const childIds = new Set(
     modules.flatMap((module) => module.children.map((child) => child.moduleId)),
   );
@@ -78,7 +80,6 @@ export function TargetConfiguration({
                     name={field.name}
                     value={field.state.value}
                     disabled={nameLocked}
-                    required
                     spellCheck={false}
                     onBlur={field.handleBlur}
                     onChange={(event) => field.handleChange(event.target.value)}

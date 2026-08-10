@@ -279,7 +279,7 @@ export function nextTargetName(
   if (!usedNames.has(baseName)) return baseName;
   return (
     Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
-      .map((suffix) => `${baseName}-${suffix}`)
+      .map((suffix) => (baseName ? `${baseName}-${suffix}` : `${suffix}`))
       .find((candidate) => !usedNames.has(candidate)) ??
     `${baseName}-${usedNames.size + 2}`
   );
@@ -407,7 +407,7 @@ export function targetNameError(
   target: TargetInstance,
   targets: ReadonlyArray<TargetInstance>,
 ): string | undefined {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(target.name))
+  if (!/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(target.name))
     return "Use lowercase letters, numbers, and single hyphens.";
   if (
     targets.some(
