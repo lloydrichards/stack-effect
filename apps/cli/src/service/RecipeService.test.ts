@@ -260,29 +260,56 @@ describe("RecipeService", () => {
     );
 
     it.effect(
-      "should select independent Biome lint and dprint format modules",
+      "should select independent lint and format modules when quality tools are configured",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeService;
-          const config = new StackConfig({
-            ...testConfig,
-            format: "dprint",
-          });
-          const selection = yield* service.resolve(
-            { targets: [] },
+          const cases = [
             {
-              config,
-              providerStrategy: { _tag: "fail-on-ambiguous" },
+              lint: "biome",
+              format: "dprint",
+              modules: [
+                "workspace-quality-biome-lint",
+                "workspace-quality-dprint",
+              ],
             },
-          );
+            {
+              lint: "biome",
+              format: "oxfmt",
+              modules: [
+                "workspace-quality-biome-lint",
+                "workspace-quality-oxfmt",
+              ],
+            },
+            {
+              lint: "oxlint",
+              format: "oxfmt",
+              modules: ["workspace-quality-oxlint", "workspace-quality-oxfmt"],
+            },
+          ] as const;
 
-          assertTargetModules(selection, ".", [
-            ModuleId.make("workspace-typescript-6"),
-            ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome-lint"),
-            ModuleId.make("workspace-quality-dprint"),
-            ModuleId.make("workspace-test-vitest"),
-          ]);
+          yield* Effect.forEach(cases, ({ lint, format, modules }) =>
+            service
+              .resolve(
+                { targets: [] },
+                {
+                  config: new StackConfig({ ...testConfig, lint, format }),
+                  providerStrategy: { _tag: "fail-on-ambiguous" },
+                },
+              )
+              .pipe(
+                Effect.tap((selection) =>
+                  Effect.sync(() =>
+                    assertTargetModules(selection, ".", [
+                      ModuleId.make("workspace-typescript-6"),
+                      ModuleId.make("workspace-monorepo-turbo"),
+                      ...modules.map(ModuleId.make),
+                      ModuleId.make("workspace-test-vitest"),
+                    ]),
+                  ),
+                ),
+              ),
+          );
         }).pipe(Effect.provide(TestLayer)),
     );
 

@@ -12,6 +12,7 @@ const workspaceLintModules = {
 
 const workspaceFormatModules = {
   biome: "workspace-quality-biome-format",
+  oxfmt: "workspace-quality-oxfmt",
 } as const;
 
 const moduleToolValues = Object.fromEntries(

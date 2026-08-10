@@ -38,7 +38,7 @@ Use contribution tokens for dynamic values:
 | `{{workspaceDependency}}` | Compatible local workspace dependency range |
 | `{{projectName}}`        | Project name from config       |
 | `{{lint}}`               | Lint tool ("biome", "oxlint", or "") |
-| `{{format}}`             | Format tool ("biome", "dprint", or "") |
+| `{{format}}`             | Format tool ("biome", "dprint", "oxfmt", or "") |
 | `{{test}}`               | Test framework ("vitest" or "") |
 | `{{monorepo}}`           | Monorepo tool ("turbo" or "") |
 

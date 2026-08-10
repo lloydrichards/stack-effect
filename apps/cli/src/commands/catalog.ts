@@ -40,6 +40,7 @@ import { Command } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import {
+  formatFlag,
   monorepoFlag,
   recipeTargetFlag,
   rootFlag,
@@ -174,20 +175,15 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       ...(config.monorepo === undefined
         ? []
         : [ModuleId.make(toWorkspaceModuleId("tool", config.monorepo))]),
-      ...[
-        ModuleCategory.make("lint"),
-        ModuleCategory.make("format"),
-        ModuleCategory.make("test"),
-      ].flatMap((category) =>
-        pipe(
-          catalog.getModules({ category }),
-          Arr.head,
-          Option.match({
-            onNone: () => [],
-            onSome: (moduleDefinition) => [moduleDefinition.id],
-          }),
-        ),
-      ),
+      ...(config.lint === undefined
+        ? []
+        : [ModuleId.make(toWorkspaceModuleId("lint", config.lint))]),
+      ...(config.format === undefined
+        ? []
+        : [ModuleId.make(toWorkspaceModuleId("format", config.format))]),
+      ...(config.test === undefined
+        ? []
+        : [ModuleId.make(toWorkspaceModuleId("tool", config.test))]),
     ];
 
     const initTarget = ensureTarget(
@@ -566,6 +562,7 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
 const reset = Command.make(
   "reset",
   {
+    format: formatFlag,
     root: rootFlag,
     target: recipeTargetFlag,
     typescript: typescriptFlag,
@@ -593,7 +590,7 @@ const reset = Command.make(
         runtime: { _tag: "bun" },
         typescript: Option.getOrElse(flags.typescript, () => "6" as const),
         lint: "biome",
-        format: "biome",
+        format: Option.getOrElse(flags.format, () => "biome"),
         test: "vitest",
         monorepo: Option.getOrElse(flags.monorepo, () => "turbo"),
       });
@@ -616,12 +613,12 @@ const reset = Command.make(
         `${JSON.stringify(manifest, null, 2)}\n`,
       );
 
+      yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
       yield* runFinalizeScripts({ blueprint, config, repoRoot });
       yield* Console.log(
         "Finalize complete; run catalog workspace validate for post-format format/lint/type-check results.",
       );
 
-      yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
       yield* runGit(repoRoot, ["add", "."]);
       yield* runGit(repoRoot, [
         "-c",

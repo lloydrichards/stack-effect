@@ -101,6 +101,7 @@ class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
 interface ProjectContext {
   readonly dir: string;
   readonly install: () => Effect.Effect<CommandResult>;
+  readonly expectInstallSucceeds: () => Effect.Effect<void>;
   readonly exec: (
     ...args: ReadonlyArray<string>
   ) => Effect.Effect<CommandResult>;
@@ -113,6 +114,14 @@ interface ProjectContext {
     packageManager?: "bun" | "pnpm",
   ) => Effect.Effect<void>;
   readonly expectTestsPasses: () => Effect.Effect<void>;
+  readonly expectCommandSucceeds: (
+    label: string,
+    ...args: ReadonlyArray<string>
+  ) => Effect.Effect<void>;
+  readonly writeFile: (
+    relativePath: string,
+    contents: string,
+  ) => Effect.Effect<void>;
   readonly expectFileExists: (relativePath: string) => Effect.Effect<void>;
   readonly expectFileNotExists: (relativePath: string) => Effect.Effect<void>;
   readonly expectFileContaining: (
@@ -154,6 +163,7 @@ const makeProjectContext = (
   return {
     dir: projectDir,
     install: () => run(["bun", "install"]),
+    expectInstallSucceeds: () => assertCommand("Install", "bun", "install"),
     exec: (...args) => run(args),
     expectBuildSucceeds: (packageManager = "bun") =>
       assertCommand("Build", packageManager, "run", "build"),
@@ -162,6 +172,13 @@ const makeProjectContext = (
     expectTypeCheckPasses: (packageManager = "bun") =>
       assertCommand("TypeCheck", packageManager, "run", "type-check"),
     expectTestsPasses: () => assertCommand("Tests", "bun", "run", "test"),
+    expectCommandSucceeds: assertCommand,
+    writeFile: (relativePath, contents) =>
+      Effect.gen(function* () {
+        const filePath = path.join(projectDir, relativePath);
+        yield* fs.makeDirectory(path.dirname(filePath), { recursive: true });
+        yield* fs.writeFileString(filePath, contents);
+      }).pipe(Effect.orDie),
 
     expectFileExists: (relativePath) =>
       fs.exists(path.join(projectDir, relativePath)).pipe(

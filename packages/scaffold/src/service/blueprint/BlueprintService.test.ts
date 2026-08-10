@@ -166,8 +166,8 @@ describe("BlueprintService", () => {
                       name: "root",
                     }),
                     modules: [
-                      { id: ModuleId.make("workspace-monorepo-turbo") },
-                      { id: ModuleId.make("workspace-monorepo-vite-plus") },
+                      { id: ModuleId.make("workspace-quality-biome-format") },
+                      { id: ModuleId.make("workspace-quality-oxfmt") },
                     ],
                   },
                 ],
@@ -178,7 +178,7 @@ describe("BlueprintService", () => {
             expect(error).toBeInstanceOf(BlueprintFailure);
             expect(error).toMatchObject({
               message:
-                "Incompatible modules on .: workspace-monorepo-turbo conflicts with workspace-monorepo-vite-plus",
+                "Incompatible modules on .: workspace-quality-biome-format conflicts with workspace-quality-oxfmt",
             });
           }),
       );
@@ -196,8 +196,8 @@ describe("BlueprintService", () => {
                     name: "root",
                   }),
                   modules: [
-                    { id: ModuleId.make("workspace-quality-biome-format") },
-                    { id: ModuleId.make("workspace-quality-dprint") },
+                    { id: ModuleId.make("workspace-devenv-nix-flake") },
+                    { id: ModuleId.make("workspace-devenv-devcontainer") },
                   ],
                 },
               ],
@@ -211,10 +211,10 @@ describe("BlueprintService", () => {
             ).toEqual(
               expect.arrayContaining([
                 expect.objectContaining({
-                  moduleId: "workspace-quality-biome-format",
+                  moduleId: "workspace-devenv-nix-flake",
                 }),
                 expect.objectContaining({
-                  moduleId: "workspace-quality-dprint",
+                  moduleId: "workspace-devenv-devcontainer",
                 }),
               ]),
             );

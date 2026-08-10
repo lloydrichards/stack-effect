@@ -162,6 +162,120 @@ describe("init", () => {
     );
 
     it.effect(
+      "should remain valid and idempotent when an Oxfmt workspace is generated",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "oxfmt-app",
+            "--target",
+            "package/domain:domain-api-contracts",
+            "--yes",
+            "--format",
+            "oxfmt",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileExists("oxfmt-app/.oxfmtrc.jsonc");
+          yield* cli.expectFileExists("oxfmt-app/.vscode/settings.json");
+          yield* cli.expectFileExists("oxfmt-app/.vscode/extensions.json");
+          yield* cli.expectFileNotExists("oxfmt-app/dprint.json");
+          yield* cli.expectFileContaining(
+            "oxfmt-app/biome.jsonc",
+            /^(?![\s\S]*"formatter"\s*:)[\s\S]*$/,
+          );
+
+          yield* cli.withinProject("oxfmt-app", function* (project) {
+            yield* project.expectInstallSucceeds();
+            yield* project.expectFormatPasses();
+            yield* project.expectLintPasses();
+            yield* project.expectTypeCheckPasses();
+            yield* project.expectCommandSucceeds(
+              "Tests",
+              "bun",
+              "run",
+              "test",
+              "--",
+              "--",
+              "--passWithNoTests",
+            );
+            yield* project.expectBuildSucceeds();
+
+            yield* project.writeFile("generated/invalid.ts", "const =\n");
+            yield* project.expectCommandSucceeds(
+              "First format",
+              "bun",
+              "run",
+              "format",
+            );
+            yield* project.expectCommandSucceeds(
+              "Stage first format",
+              "git",
+              "add",
+              "-A",
+            );
+            yield* project.expectCommandSucceeds(
+              "Second format",
+              "bun",
+              "run",
+              "format",
+            );
+            yield* project.expectCommandSucceeds(
+              "Idempotency diff",
+              "git",
+              "diff",
+              "--exit-code",
+            );
+            yield* project.expectFormatPasses();
+            yield* project.expectFileContaining(
+              "generated/invalid.ts",
+              "const =\n",
+            );
+          });
+        }),
+      { timeout: 120_000 },
+    );
+
+    it.effect(
+      "should select Oxfmt when the catalog workspace is reset",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "catalog",
+            "workspace",
+            "reset",
+            "--format",
+            "oxfmt",
+            "--root",
+            `${cli.workdir}/catalog-oxfmt`,
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileExists("catalog-oxfmt/.oxfmtrc.jsonc");
+          yield* cli.expectFileNotExists("catalog-oxfmt/dprint.json");
+          yield* cli.expectJsonFile(
+            "catalog-oxfmt/package.json",
+            "scripts.format",
+            "oxfmt",
+          );
+          yield* cli.expectJsonFile(
+            "catalog-oxfmt/package.json",
+            "devDependencies.oxfmt",
+            "^0.62.0",
+          );
+          yield* cli.expectFileContaining(
+            "catalog-oxfmt/.catalog-build-manifest.json",
+            '"moduleId": "workspace-quality-oxfmt"',
+          );
+        }),
+      { timeout: 120_000 },
+    );
+
+    it.effect(
       "should generate only Vite+ orchestration when Vite+ is selected",
       () =>
         Effect.gen(function* () {

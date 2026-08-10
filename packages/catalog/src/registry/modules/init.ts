@@ -7,14 +7,16 @@ import {
 } from "@repo/domain/Catalog";
 import {
   biomeJsoncContents,
-  biomeVscodeSettingsContents,
   devcontainerJsonContents,
   dprintJsonContents,
   envrcContents,
   flakeNixContents,
+  oxfmtJsoncContents,
+  oxfmtVscodeExtensionsContents,
   turboJsonContents,
   vitePlusConfigContents,
   vitestConfigContents,
+  workspaceVscodeSettingsContents,
 } from "../content/init";
 
 const gitInitModule: typeof ModuleDefinition.Type = {
@@ -350,7 +352,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "file",
         path: "{{targetPath}}/.vscode/settings.json",
-        contents: biomeVscodeSettingsContents,
+        contents: workspaceVscodeSettingsContents,
       },
       {
         _tag: "pkg-json-entry",
@@ -394,6 +396,10 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     description: "Fast formatter with recommended defaults",
     visibility: "internal",
     categories: [ModuleCategory.make("format")],
+    conflictsWith: [
+      ModuleId.make("workspace-quality-dprint"),
+      ModuleId.make("workspace-quality-oxfmt"),
+    ],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -423,11 +429,74 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
+    id: ModuleId.make("workspace-quality-oxfmt"),
+    title: "Oxfmt",
+    description: "High-performance formatter for the JavaScript ecosystem",
+    visibility: "internal",
+    categories: [ModuleCategory.make("format")],
+    conflictsWith: [
+      ModuleId.make("workspace-quality-biome-format"),
+      ModuleId.make("workspace-quality-dprint"),
+    ],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/.oxfmtrc.jsonc",
+        contents: oxfmtJsoncContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/.vscode/settings.json",
+        contents: workspaceVscodeSettingsContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/.vscode/extensions.json",
+        contents: oxfmtVscodeExtensionsContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "oxfmt",
+        value: "^0.62.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "format",
+        value: "oxfmt",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "format:check",
+        value: "oxfmt --check",
+      },
+    ],
+  },
+  {
     id: ModuleId.make("workspace-quality-dprint"),
     title: "dprint",
     description: "Fast pluggable formatter used by the Effect team",
     visibility: "internal",
     categories: [ModuleCategory.make("format")],
+    conflictsWith: [
+      ModuleId.make("workspace-quality-biome-format"),
+      ModuleId.make("workspace-quality-oxfmt"),
+    ],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {

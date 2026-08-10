@@ -84,7 +84,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{typescript}}` - TypeScript major version ("6" or "7"; defaults to "6")
    * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
-   * - `{{format}}` - Format tool ("biome", "dprint", or "")
+   * - `{{format}}` - Format tool ("biome", "dprint", "oxfmt", or "")
    * - `{{test}}` - Test framework ("vitest" or "")
    * - `{{monorepo}}` - Monorepo tool (for example, "turbo" or "vite-plus")
    * - `{{targetKind}}`, `{{targetName}}`, `{{targetPath}}`, `{{targetDir}}`, `{{packageName}}`
