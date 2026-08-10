@@ -49,6 +49,7 @@ export function buildModuleRelationshipNodes(
   const childrenFor = (
     module: CatalogModule,
     owner: { readonly kind: string; readonly name: string },
+    includeModuleChildren = true,
   ): ReadonlyArray<ModuleRelationshipNode> => {
     const configuration = module.children.length
       ? { owner, parent: module, modules: modulesFor(owner) }
@@ -82,14 +83,16 @@ export function buildModuleRelationshipNodes(
             ]
           : [];
       }),
-      ...module.children.map((child) => ({
-        owner,
-        moduleId: child.moduleId,
-        requirement: child.requirement,
-        ...(child.requirement === "optional" && configuration
-          ? { configuration }
-          : {}),
-      })),
+      ...(includeModuleChildren
+        ? module.children.map((child) => ({
+            owner,
+            moduleId: child.moduleId,
+            requirement: child.requirement,
+            ...(child.requirement === "optional" && configuration
+              ? { configuration }
+              : {}),
+          }))
+        : []),
     ];
     return candidates.flatMap((candidate) => {
       const key = `${ownerKey(candidate.owner)}#${candidate.moduleId}`;
@@ -110,7 +113,7 @@ export function buildModuleRelationshipNodes(
       ];
     });
   };
-  return childrenFor(root, rootOwner);
+  return childrenFor(root, rootOwner, false);
 }
 
 export function addModuleImplications(
