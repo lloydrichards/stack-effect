@@ -29,13 +29,13 @@ describe("RecipeTargetString", () => {
       }),
       modules: [
         ModuleId.make("package-ai-chat-service"),
-        ModuleId.make("package-ai-toolkit-math"),
+        ModuleId.make("package-ai-chat-toolkit-math"),
       ],
     });
 
     assert.strictEqual(
       encoded,
-      "package/ai:package-ai-chat-service,package-ai-toolkit-math",
+      "package/ai:package-ai-chat-service,package-ai-chat-toolkit-math",
     );
   });
 
