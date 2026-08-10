@@ -1,5 +1,6 @@
 import { assert, describe, expect, it } from "vitest";
 import {
+  buildModuleRelationshipNodes,
   removeModuleSupportSelections,
   toggleTargetModule,
 } from "./builder-state";
@@ -51,6 +52,70 @@ const unrelatedModuleFixture: CatalogModule = {
 };
 
 describe("recipe builder state", () => {
+  it("should keep root configuration children out of dependency relationships", () => {
+    expect(
+      buildModuleRelationshipNodes(
+        parentModuleFixture,
+        { kind: "client-react", name: "web" },
+        {
+          ...recipeCatalogFixture,
+          targetModules: [
+            ...recipeCatalogFixture.targetModules,
+            {
+              owner: { kind: "client-react", name: "web" },
+              modules: [
+                parentModuleFixture,
+                childModuleFixture,
+                leafModuleFixture,
+              ],
+            },
+          ],
+        },
+      ),
+    ).toEqual([]);
+  });
+
+  it("should retain nested configuration beneath a required dependency", () => {
+    const rootWithDependency: CatalogModule = {
+      ...unrelatedModuleFixture,
+      dependencies: [
+        {
+          _tag: "required-module",
+          target: { kind: "client-react", name: "nested-web" },
+          moduleId: childModuleFixture.id,
+        },
+      ],
+    };
+
+    expect(
+      buildModuleRelationshipNodes(
+        rootWithDependency,
+        { kind: "server", name: "api" },
+        {
+          ...recipeCatalogFixture,
+          targetModules: [
+            ...recipeCatalogFixture.targetModules,
+            {
+              owner: { kind: "client-react", name: "nested-web" },
+              modules: [childModuleFixture, leafModuleFixture],
+            },
+          ],
+        },
+      ),
+    ).toMatchObject([
+      {
+        module: { id: "client-child" },
+        requirement: "required",
+        children: [
+          {
+            module: { id: "client-leaf" },
+            requirement: "optional",
+          },
+        ],
+      },
+    ]);
+  });
+
   it("should add an implied target when a module with a cross-target implication is selected", () => {
     const result = toggleTargetModule(
       [clientTargetFixture],

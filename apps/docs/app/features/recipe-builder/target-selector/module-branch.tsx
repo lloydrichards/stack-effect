@@ -93,7 +93,7 @@ export function ModuleBranch({
       {checked && relationships.length > 0 ? (
         <div className="border-t bg-muted/15 px-4 py-3">
           <p className="text-xs font-medium text-muted-foreground">
-            Added to the Blueprint
+            Required dependencies
           </p>
           <FieldGroup
             data-slot="checkbox-group"
