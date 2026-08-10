@@ -181,8 +181,10 @@ export function StackConfigurator() {
           />
         ))}
 
-        <FieldSet className="gap-2 sm:col-span-2">
-          <FieldLegend variant="label">Repository and DX</FieldLegend>
+        <FieldSet className="sm:col-span-2">
+          <FieldLegend variant="label" className="mb-2">
+            Repository and DX
+          </FieldLegend>
           <FieldGroup
             variant="outlined"
             className="grid grid-cols-1 sm:grid-cols-3"
