@@ -43,6 +43,10 @@ const yellow = "\u001b[33m";
 const workspaceBlueprint = `${bold}- . (workspace)${reset}
   ├╌> .#workspace-monorepo-turbo
   ├╌> .#workspace-quality-biome
+  ├╌> .#workspace-quality-biome-format
+  │   ╰─> .#workspace-quality-biome ${dim}[required-module]${reset}
+  ├╌> .#workspace-quality-biome-lint
+  │   ╰─> .#workspace-quality-biome ${dim}[required-module]${reset}
   ├╌> .#workspace-test-vitest
   ╰╌> .#workspace-typescript-6`;
 
@@ -58,13 +62,14 @@ const finishSection = (command: string, commands: string) =>
 const recipes = [
   {
     id: "chat",
-    label: "AI chat",
-    summary: "React chat with shared Effect RPC contracts.",
+    label: "AI Chat",
+    summary: "React chat backed by an Effect RPC and AI server.",
     project: "demo-chat",
-    target: "client-react/web:client-react-chat",
+    target:
+      "client-react/web:client-react-chat --target server/api:server-chat-rpc",
     createCommand:
-      "stack-effect create demo-chat --target client-react/web:client-react-chat --no-git",
-    totals: "22 create · 2 modify · 7 skip",
+      "bunx stack-effect@latest create demo-chat --target client-react/web:client-react-chat --target server/api:server-chat-rpc --no-git",
+    totals: "48 create · 0 modify · 0 skip",
     blueprint:
       blueprintSection(`${workspaceBlueprint}\n\n${bold}- apps/client-react-web (client-react)${reset}
   ├╌> apps/client-react-web#client-react-chat
@@ -72,7 +77,25 @@ const recipes = [
   │   ╰─> packages/domain ${dim}[required-target]${reset}
   ╰╌> apps/client-react-web#config-typescript-vite
 
+${bold}- apps/server-api (server)${reset}
+  ├╌> apps/server-api#server-chat-rpc
+  │   ├─> packages/ai#package-ai-chat-service ${dim}[required-module]${reset}
+  │   ├─> packages/domain#domain-chat-contracts ${dim}[required-module]${reset}
+  │   ├─> packages/ai ${dim}[required-target]${reset}
+  │   ╰─> packages/domain ${dim}[required-target]${reset}
+  ╰╌> apps/server-api#server-http-api
+      ├─> packages/domain#domain-api-contracts ${dim}[required-module]${reset}
+      ╰─> packages/domain ${dim}[required-target]${reset}
+
+${bold}- packages/ai (package)${reset}
+  ├╌> packages/ai#package-ai-chat-service
+  │   ├─> packages/ai#package-ai-core ${dim}[required-module]${reset}
+  │   ╰─> packages/ai#package-ai-toolkit-think ${dim}[required-module]${reset}
+  ├╌> packages/ai#package-ai-core
+  ╰╌> packages/ai#package-ai-toolkit-think
+
 ${bold}- packages/domain (package)${reset}
+  ├╌> packages/domain#domain-api-contracts
   ╰╌> packages/domain#domain-chat-contracts`),
     apply: applySection(
       `${bold}.${reset}
@@ -80,67 +103,41 @@ ${bold}- packages/domain (package)${reset}
 │   ├── ${green}[+]${reset} src/components/chat-box.tsx
 │   ├── ${green}[+]${reset} src/lib/atoms/chat-atom.ts
 │   ╰── ${green}[+]${reset} src/lib/chat-rpc-client.ts
+├── ${bold}apps/server-api${reset}
+│   ├── ${green}[+]${reset} src/Api/Health.ts
+│   ├── ${green}[+]${reset} src/Rpc/Chat.ts
+│   ├── ${green}[+]${reset} src/runtime/ChatRuntime.ts
+│   ╰── ${green}[+]${reset} src/runtime/ChatSessions.ts
+├── ${bold}packages/ai${reset}
+│   ├── ${green}[+]${reset} src/services/AiChatService.ts
+│   ├── ${green}[+]${reset} src/toolkits/ThinkToolkit.ts
+│   ╰── ${green}[+]${reset} src/workflow/AgenticLoop.ts
 ├── ${bold}packages/domain${reset}
+│   ├── ${green}[+]${reset} src/Api.ts
 │   ├── ${green}[+]${reset} src/Chat.ts
 │   ╰── ${green}[+]${reset} src/ChatRpc.ts
-├── ${yellow}[~]${reset} package.json
-╰── ${dim}[=]${reset} turbo.json`,
-      `${green}22 create${reset}  ${yellow}2 modify${reset}  ${dim}7 skip${reset}`,
+├── ${green}[+]${reset} package.json
+╰── ${green}[+]${reset} turbo.json`,
+      `${green}48 create${reset}  ${yellow}0 modify${reset}  ${dim}0 skip${reset}`,
     ),
     finalize: finishSection(
-      "stack-effect create demo-chat --target client-react/web:client-react-chat --no-git",
-      `  > bunx shadcn@latest add button card input
+      "bunx stack-effect@latest create demo-chat --target client-react/web:client-react-chat --target server/api:server-chat-rpc --no-git",
+      `  > bunx shadcn@latest add button card input switch --yes --overwrite
+  > bunx shadcn@latest add message-scroller message bubble attachment marker
   > bun install
   > bun run lint
   > bun run format`,
     ),
   },
   {
-    id: "api",
-    label: "HTTP API",
-    summary: "Typed HTTP API client with a shared Effect contract.",
-    project: "demo-http",
-    target: "client-react/web:client-react-http-api",
+    id: "ask",
+    label: "CLI Ask",
+    summary: "One-shot AI prompts from an Effect CLI command.",
+    project: "demo-ask",
+    target: "cli/app:cli-command-chat-ask",
     createCommand:
-      "stack-effect create demo-http --target client-react/web:client-react-http-api --no-git",
-    totals: "20 create · 2 modify · 7 skip",
-    blueprint:
-      blueprintSection(`${workspaceBlueprint}\n\n${bold}- apps/client-react-web (client-react)${reset}
-  ├╌> apps/client-react-web#client-react-http-api
-  │   ├─> packages/domain#domain-api-contracts ${dim}[required-module]${reset}
-  │   ╰─> packages/domain ${dim}[required-target]${reset}
-  ╰╌> apps/client-react-web#config-typescript-vite
-
-${bold}- packages/domain (package)${reset}
-  ╰╌> packages/domain#domain-api-contracts`),
-    apply: applySection(
-      `${bold}.${reset}
-├── ${bold}apps/client-react-web${reset}
-│   ├── ${green}[+]${reset} src/components/rest-card.tsx
-│   ╰── ${green}[+]${reset} src/lib/atoms/hello-atom.ts
-├── ${bold}packages/domain${reset}
-│   ╰── ${green}[+]${reset} src/Api.ts
-├── ${yellow}[~]${reset} package.json
-╰── ${dim}[=]${reset} turbo.json`,
-      `${green}20 create${reset}  ${yellow}2 modify${reset}  ${dim}7 skip${reset}`,
-    ),
-    finalize: finishSection(
-      "stack-effect create demo-http --target client-react/web:client-react-http-api --no-git",
-      `  > bunx shadcn@latest add button card
-  > bun install
-  > bun run lint
-  > bun run format`,
-    ),
-  },
-  {
-    id: "cli",
-    label: "CLI chat",
-    summary: "Terminal chat composed from Effect AI services.",
-    project: "smoke-app",
-    target: "cli/app:cli-command-chat-terminal",
-    createCommand:
-      "stack-effect create smoke-app --target cli/app:cli-command-chat-terminal --no-git",
-    totals: "20 create · 1 modify · 8 skip",
+      "bunx stack-effect@latest create demo-ask --target cli/app:cli-command-chat-ask --no-git",
+    totals: "28 create · 0 modify · 0 skip",
     blueprint:
       blueprintSection(`${workspaceBlueprint}\n\n${bold}- apps/cli-app (cli)${reset}
   ├╌> apps/cli-app#cli-chat-driver
@@ -148,7 +145,7 @@ ${bold}- packages/domain (package)${reset}
   │   ├─> packages/domain#domain-chat-contracts ${dim}[required-module]${reset}
   │   ├─> packages/ai ${dim}[required-target]${reset}
   │   ╰─> packages/domain ${dim}[required-target]${reset}
-  ├╌> apps/cli-app#cli-command-chat-terminal
+  ├╌> apps/cli-app#cli-command-chat-ask
   │   ╰─> apps/cli-app#cli-chat-driver ${dim}[required-module]${reset}
   ╰╌> apps/cli-app#cli-command-hello
 
@@ -163,20 +160,54 @@ ${bold}- packages/domain (package)${reset}
       `${bold}.${reset}
 ├── ${bold}apps/cli-app${reset}
 │   ├── ${green}[+]${reset} src/chat/ChatDriver.ts
-│   ├── ${green}[+]${reset} src/chat/TerminalChat.ts
-│   ╰── ${green}[+]${reset} src/commands/chat.ts
+│   ├── ${green}[+]${reset} src/commands/ask.ts
+│   ├── ${green}[+]${reset} src/commands/hello.ts
+│   ╰── ${green}[+]${reset} src/index.ts
 ├── ${bold}packages/ai${reset}
 │   ├── ${green}[+]${reset} src/services/AiChatService.ts
-│   ╰── ${green}[+]${reset} src/toolkits/ThinkToolkit.ts
+│   ├── ${green}[+]${reset} src/toolkits/ThinkToolkit.ts
+│   ╰── ${green}[+]${reset} src/workflow/AgenticLoop.ts
 ├── ${bold}packages/domain${reset}
 │   ├── ${green}[+]${reset} src/Chat.ts
 │   ╰── ${green}[+]${reset} src/ChatRpc.ts
-├── ${yellow}[~]${reset} package.json
-╰── ${dim}[=]${reset} turbo.json`,
-      `${green}20 create${reset}  ${yellow}1 modify${reset}  ${dim}8 skip${reset}`,
+├── ${green}[+]${reset} package.json
+╰── ${green}[+]${reset} turbo.json`,
+      `${green}28 create${reset}  ${yellow}0 modify${reset}  ${dim}0 skip${reset}`,
     ),
     finalize: finishSection(
-      "stack-effect create smoke-app --target cli/app:cli-command-chat-terminal --no-git",
+      "bunx stack-effect@latest create demo-ask --target cli/app:cli-command-chat-ask --no-git",
+      `  > bun install
+  > bun run lint
+  > bun run format`,
+    ),
+  },
+  {
+    id: "mcp",
+    label: "MCP Server",
+    summary: "A base MCP server ready for optional capabilities.",
+    project: "demo-mcp",
+    target: "server-mcp/",
+    createCommand:
+      "bunx stack-effect@latest create demo-mcp --target server-mcp/ --no-git",
+    totals: "12 create · 0 modify · 0 skip",
+    blueprint: blueprintSection(
+      `${workspaceBlueprint}\n\n${bold}- apps/server-mcp (server-mcp)${reset}`,
+    ),
+    apply: applySection(
+      `${bold}.${reset}
+├── ${bold}apps/server-mcp${reset}
+│   ├── ${green}[+]${reset} src/index.ts
+│   ├── ${green}[+]${reset} package.json
+│   ╰── ${green}[+]${reset} tsconfig.json
+├── ${bold}packages/config-typescript${reset}
+│   ├── ${green}[+]${reset} base.json
+│   ╰── ${green}[+]${reset} package.json
+├── ${green}[+]${reset} package.json
+╰── ${green}[+]${reset} turbo.json`,
+      `${green}12 create${reset}  ${yellow}0 modify${reset}  ${dim}0 skip${reset}`,
+    ),
+    finalize: finishSection(
+      "bunx stack-effect@latest create demo-mcp --target server-mcp/ --no-git",
       `  > bun install
   > bun run lint
   > bun run format`,
@@ -199,9 +230,7 @@ export function BlueprintWorkbench() {
     [recipeId],
   );
   const step = steps[stepIndex] ?? steps[0];
-  const command = `bunx stack-effect@latest init ${recipe.project} --yes
-cd ${recipe.project}
-bunx stack-effect@latest add --dry-run`;
+  const command = `${recipe.createCommand} --dry-run`;
 
   const selectRecipe = useCallback(
     (id: string) => {
@@ -443,17 +472,15 @@ function SelectionStep({
       <StepHeading
         eyebrow="User intent"
         title="Select one capability."
-        detail={`Run add --dry-run to choose through the interactive TUI. This walkthrough represents that choice with --target ${recipe.target} --yes so each recipe stays reproducible.`}
+        detail={`Run create --dry-run to resolve this recipe without writing files. The explicit --target selection keeps the result reproducible.`}
       />
       <div className="relative">
         <AnsiTerminal
           title="stack-effect · dry run"
           className="mt-5 mb-0"
-          input={`${green}$${reset} bunx stack-effect@latest init ${recipe.project} --yes
-${green}$${reset} cd ${recipe.project}
-${green}$${reset} bunx stack-effect@latest add --dry-run
+          input={`${green}$${reset} ${recipe.createCommand} --dry-run
 
-${dim}# Demo selection: --target ${bold}${recipe.target}${reset}${dim} --yes${reset}`}
+${dim}# Selection: --target ${bold}${recipe.target}${reset}`}
         />
         <CopyCommandButton
           copiedLabel="Command copied"
