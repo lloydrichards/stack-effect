@@ -151,6 +151,75 @@ describe("BlueprintService", () => {
           });
         }),
       );
+
+      it.effect(
+        "should fail when incompatible modules resolve on one target",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const exit = yield* Effect.exit(
+              blueprintService.resolve({
+                targets: [
+                  {
+                    identity: new TargetIdentity({
+                      kind: TargetKind.make("workspace"),
+                      name: "root",
+                    }),
+                    modules: [
+                      { id: ModuleId.make("workspace-monorepo-turbo") },
+                      { id: ModuleId.make("workspace-monorepo-vite-plus") },
+                    ],
+                  },
+                ],
+              }),
+            );
+            const error = squashFailure(exit);
+
+            expect(error).toBeInstanceOf(BlueprintFailure);
+            expect(error).toMatchObject({
+              message:
+                "Incompatible modules on .: workspace-monorepo-turbo conflicts with workspace-monorepo-vite-plus",
+            });
+          }),
+      );
+
+      it.effect(
+        "should allow compatible modules when they share a presentation category",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const blueprint = yield* blueprintService.resolve({
+              targets: [
+                {
+                  identity: new TargetIdentity({
+                    kind: TargetKind.make("workspace"),
+                    name: "root",
+                  }),
+                  modules: [
+                    { id: ModuleId.make("workspace-quality-biome-format") },
+                    { id: ModuleId.make("workspace-quality-dprint") },
+                  ],
+                },
+              ],
+            });
+
+            expect(
+              blueprint.nodes.filter(
+                (node) =>
+                  node._tag === "attached-module" && node.targetId === ".",
+              ),
+            ).toEqual(
+              expect.arrayContaining([
+                expect.objectContaining({
+                  moduleId: "workspace-quality-biome-format",
+                }),
+                expect.objectContaining({
+                  moduleId: "workspace-quality-dprint",
+                }),
+              ]),
+            );
+          }),
+      );
     });
 
     describe("when resolving dependencies", () => {

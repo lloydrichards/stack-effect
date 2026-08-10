@@ -1,7 +1,8 @@
 // -- bootstrap ---------------------------------------------------------
 
 export const gitignoreContents = `# dependencies
-node_modules
+node_modules{{#if monorepo=vite-plus}}
+node_modules/.vite/task-cache{{/if}}
 
 # build
 dist
@@ -155,6 +156,20 @@ export const turboJsonContents = `{
     }
   }
 }
+`;
+
+// -- vite+ ------------------------------------------------------------------
+
+export const vitePlusConfigContents = `import { defineConfig } from "vite-plus";
+
+export default defineConfig({
+  run: {
+    cache: {
+      scripts: true,
+      tasks: true,
+    },
+  },
+});
 `;
 
 // -- biome ------------------------------------------------------------------

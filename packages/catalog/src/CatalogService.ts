@@ -426,6 +426,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
                   targetKind: imp.targetKind,
                   moduleId: imp.moduleId,
                 })),
+                conflictsWith: mod.conflictsWith ?? [],
               });
             },
           ),

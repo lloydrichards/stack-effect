@@ -86,7 +86,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
    * - `{{format}}` - Format tool ("biome", "dprint", or "")
    * - `{{test}}` - Test framework ("vitest" or "")
-   * - `{{monorepo}}` - Monorepo tool ("turbo" or "")
+   * - `{{monorepo}}` - Monorepo tool (for example, "turbo" or "vite-plus")
    * - `{{targetKind}}`, `{{targetName}}`, `{{targetPath}}`, `{{targetDir}}`, `{{packageName}}`
    *
    * ## Conditionals
@@ -132,7 +132,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 
     const resolveConditionals = (t: string): string => {
       const conditionalRegex =
-        /\{\{#if\s+(\w+)(?:=(\w+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
+        /\{\{#if\s+(\w+)(?:=([\w-]+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
       return t.replace(conditionalRegex, (_, field, value, content) => {
         const configValue = getConfigValue(field);
         if (value !== undefined) {

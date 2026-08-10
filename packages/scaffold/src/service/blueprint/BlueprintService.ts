@@ -209,6 +209,29 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         return current.value;
       }
 
+      const definition = yield* catalog.getModule(moduleId);
+      const attachedOnTarget = yield* Ref.get(stateRef).pipe(
+        Effect.map((state) =>
+          Arr.filter(
+            HashMap.values(state.attachedModules),
+            (attached) => attached.targetId === targetState.id,
+          ),
+        ),
+      );
+
+      for (const attached of attachedOnTarget) {
+        const attachedDefinition = yield* catalog.getModule(attached.moduleId);
+        const isIncompatible =
+          (definition.conflictsWith ?? []).includes(attached.moduleId) ||
+          (attachedDefinition.conflictsWith ?? []).includes(moduleId);
+
+        if (isIncompatible) {
+          throw new BlueprintFailure({
+            message: `Incompatible modules on ${targetState.id}: ${attached.moduleId} conflicts with ${moduleId}`,
+          });
+        }
+      }
+
       const next: typeof BlueprintAttachedModuleNode.Type = {
         _tag: "attached-module",
         id: attachedModuleNodeId,
@@ -231,8 +254,6 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         to: attachedModuleNodeId,
         reason: "owns-module",
       });
-
-      const definition = yield* catalog.getModule(moduleId);
 
       for (const dependency of definition.dependencies) {
         yield* ModuleDependency.match(dependency, {

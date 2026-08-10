@@ -310,6 +310,10 @@ export const ModuleDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
+  conflictsWith: Schema.Array(ModuleId).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
   /**
    * Same-target child modules shown in nested selection UI.
    * Children must share at least one `supportedOn` rule with the parent.
@@ -407,6 +411,7 @@ export const CatalogTreeModule = Schema.Struct({
   ),
   provides: Schema.Array(ModuleCapability),
   implies: Schema.Array(ModuleImplication),
+  conflictsWith: Schema.Array(ModuleId),
 });
 
 /**

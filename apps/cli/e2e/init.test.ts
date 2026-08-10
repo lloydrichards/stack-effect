@@ -108,7 +108,7 @@ describe("init", () => {
     );
 
     it.effect(
-      "scaffolds expected monorepo structure",
+      "should generate only Turbo orchestration when using the default monorepo",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -119,6 +119,112 @@ describe("init", () => {
           yield* cli.expectFileExists("mono-app/turbo.json");
           yield* cli.expectFileExists("mono-app/biome.jsonc");
           yield* cli.expectFileExists("mono-app/package.json");
+          yield* cli.expectFileNotExists("mono-app/vite.config.ts");
+          yield* cli.expectJsonFile(
+            "mono-app/package.json",
+            "scripts.build",
+            "turbo run build",
+          );
+          yield* cli.expectJsonFile(
+            "mono-app/package.json",
+            "scripts.dev",
+            "turbo run dev",
+          );
+          yield* cli.expectJsonFile(
+            "mono-app/package.json",
+            "scripts.type-check",
+            "turbo run type-check",
+          );
+          yield* cli.expectJsonFile(
+            "mono-app/package.json",
+            "scripts.test",
+            "turbo run test",
+          );
+          yield* cli.expectJsonFile(
+            "mono-app/package.json",
+            "scripts.clean",
+            "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo",
+          );
+          yield* cli.expectFileContaining(
+            "mono-app/package.json",
+            /^(?![\s\S]*"vite-plus"\s*:)[\s\S]*$/,
+          );
+          yield* cli.expectFileContaining(
+            "mono-app/.gitignore",
+            /^(?![\s\S]*node_modules\/\.vite\/task-cache)[\s\S]*$/,
+          );
+          yield* cli.expectFileContaining(
+            "mono-app/package.json",
+            /"build": "turbo run build"[\s\S]*"dev": "turbo run dev"[\s\S]*"type-check": "turbo run type-check"[\s\S]*"clean": "turbo run clean[^\n]+"[\s\S]*"format":[\s\S]*"lint":[\s\S]*"test": "turbo run test"/,
+          );
+        }),
+      { timeout: 30_000 },
+    );
+
+    it.effect(
+      "should generate only Vite+ orchestration when Vite+ is selected",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "vite-plus-app",
+            "--target",
+            "package/domain:domain-api-contracts",
+            "--yes",
+            "--no-git",
+            "--monorepo",
+            "vite-plus",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.expectFileExists("vite-plus-app/vite.config.ts");
+          yield* cli.expectFileContaining(
+            "vite-plus-app/vite.config.ts",
+            /cache:\s*\{\s*scripts: true,\s*tasks: true,/,
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "devDependencies.vite-plus",
+            "^0.2.8",
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "scripts.build",
+            "vp run -r build",
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "scripts.dev",
+            "vp run -r --parallel --no-cache dev",
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "scripts.type-check",
+            "vp run -r type-check",
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "scripts.test",
+            "vp run -r test",
+          );
+          yield* cli.expectJsonFile(
+            "vite-plus-app/package.json",
+            "scripts.clean",
+            'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+          );
+          yield* cli.expectFileContaining(
+            "vite-plus-app/.gitignore",
+            "node_modules/.vite/task-cache",
+          );
+          yield* cli.expectFileNotExists("vite-plus-app/turbo.json");
+          yield* cli.expectFileContaining(
+            "vite-plus-app/package.json",
+            /^(?![\s\S]*"turbo"\s*:)[\s\S]*$/,
+          );
         }),
       { timeout: 30_000 },
     );

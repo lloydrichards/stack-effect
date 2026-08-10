@@ -130,6 +130,31 @@ describe("RecipeService", () => {
   });
 
   describe("resolve", () => {
+    it.effect("should select the Vite+ workspace module when configured", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          ...testConfig,
+          monorepo: "vite-plus",
+        });
+        const selection = yield* service.resolve(
+          { targets: [] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assertTargetModules(selection, ".", [
+          ModuleId.make("workspace-typescript-6"),
+          ModuleId.make("workspace-monorepo-vite-plus"),
+          ModuleId.make("workspace-quality-biome-lint"),
+          ModuleId.make("workspace-quality-biome-format"),
+          ModuleId.make("workspace-test-vitest"),
+        ]);
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect(
       "should return a Selection when recipe targets are requested",
       () =>
@@ -756,6 +781,30 @@ describe("RecipeService", () => {
   });
 
   describe("renderCreateCommand", () => {
+    it.effect(
+      "should render an explicit monorepo flag when Vite+ is configured",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const config = new StackConfig({
+            ...testConfig,
+            monorepo: "vite-plus",
+          });
+          const selection = yield* service.resolve(
+            { targets: [] },
+            {
+              config,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          assert.strictEqual(
+            service.renderCreateCommand({ config, selection }),
+            "bunx stack-effect@latest create recipe-app --monorepo vite-plus --no-git",
+          );
+        }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect("should render selected targets as create target flags", () =>
       Effect.gen(function* () {
         const service = yield* RecipeService;
