@@ -20,6 +20,7 @@ import {
   parseRecipeTargetSpecs,
   RecipeService,
   toTypeScriptModuleId,
+  toWorkspaceModuleId,
 } from "@repo/scaffold";
 import {
   Array as Arr,
@@ -38,7 +39,12 @@ import {
 import { Command } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { recipeTargetFlag, rootFlag, typescriptFlag } from "../flags";
+import {
+  monorepoFlag,
+  recipeTargetFlag,
+  rootFlag,
+  typescriptFlag,
+} from "../flags";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
 
@@ -166,8 +172,10 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
 
     const initDefaultModules = [
       ModuleId.make(toTypeScriptModuleId(config.typescriptVersion)),
+      ...(config.monorepo === undefined
+        ? []
+        : [ModuleId.make(toWorkspaceModuleId("tool", config.monorepo))]),
       ...[
-        ModuleCategory.make("monorepo"),
         ModuleCategory.make("lint"),
         ModuleCategory.make("format"),
         ModuleCategory.make("test"),
@@ -558,7 +566,12 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
 
 const reset = Command.make(
   "reset",
-  { root: rootFlag, target: recipeTargetFlag, typescript: typescriptFlag },
+  {
+    root: rootFlag,
+    target: recipeTargetFlag,
+    typescript: typescriptFlag,
+    monorepo: monorepoFlag,
+  },
   (flags) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -583,7 +596,7 @@ const reset = Command.make(
         lint: "biome",
         format: "biome",
         test: "vitest",
-        monorepo: "turbo",
+        monorepo: Option.getOrElse(flags.monorepo, () => "turbo"),
       });
 
       const selection = yield* buildWorkspaceSelection(config, flags.target);

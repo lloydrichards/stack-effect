@@ -13,6 +13,7 @@ import {
   envrcContents,
   flakeNixContents,
   turboJsonContents,
+  vitePlusConfigContents,
   vitestConfigContents,
 } from "../content/init";
 
@@ -206,6 +207,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
     categories: [ModuleCategory.make("monorepo")],
+    conflictsWith: [ModuleId.make("workspace-monorepo-vite-plus")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -258,6 +260,70 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         value:
           "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo",
       },
+    ],
+  },
+  {
+    id: ModuleId.make("workspace-monorepo-vite-plus"),
+    title: "Vite+",
+    description: "Monorepo task orchestration and caching with Vite+",
+    visibility: "internal",
+    categories: [ModuleCategory.make("monorepo")],
+    conflictsWith: [ModuleId.make("workspace-monorepo-turbo")],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/vite.config.ts",
+        contents: vitePlusConfigContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "vite-plus",
+        value: "^0.2.8",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "vp run -r build",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "vp run -r --parallel --no-cache dev",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "vp run -r type-check",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value:
+          'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+      },
+    ],
+    nextSteps: [
+      "Vite+: Install the separate global `vp` executable (https://viteplus.dev/guide/)",
     ],
   },
   {
@@ -475,7 +541,8 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "turbo run test",
+        value:
+          "{{#if monorepo=turbo}}turbo run test{{/if}}{{#if monorepo=vite-plus}}vp run -r test{{/if}}",
       },
     ],
   },

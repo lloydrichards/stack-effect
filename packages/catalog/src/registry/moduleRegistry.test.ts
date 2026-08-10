@@ -75,4 +75,41 @@ describe("moduleRegistry", () => {
 
     expect(missing).toEqual([]);
   });
+
+  it("should require symmetric references when modules declare conflicts", () => {
+    const invalid = moduleRegistry.flatMap((mod) =>
+      (mod.conflictsWith ?? []).flatMap((conflict) => {
+        const conflictingModule = moduleRegistry.find(
+          (candidate) => candidate.id === conflict,
+        );
+
+        return conflictingModule === undefined ||
+          !conflictingModule.conflictsWith?.includes(mod.id)
+          ? [{ module: mod.id, conflictsWith: conflict }]
+          : [];
+      }),
+    );
+
+    expect(invalid).toEqual([]);
+  });
+
+  it("should register Vite+ as a Turbo alternative when listing monorepo modules", () => {
+    const vitePlus = moduleRegistry.find(
+      (mod) => mod.id === "workspace-monorepo-vite-plus",
+    );
+
+    expect(vitePlus).toBeDefined();
+    expect(vitePlus?.categories).toContain("monorepo");
+    expect(vitePlus?.conflictsWith).toEqual(["workspace-monorepo-turbo"]);
+  });
+
+  it("should explain the global executable requirement when Vite+ is selected", () => {
+    const vitePlus = moduleRegistry.find(
+      (mod) => mod.id === "workspace-monorepo-vite-plus",
+    );
+
+    expect(vitePlus?.nextSteps).toEqual([
+      expect.stringContaining("https://viteplus.dev/guide/"),
+    ]);
+  });
 });

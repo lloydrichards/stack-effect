@@ -292,6 +292,15 @@ describe("ContributionTokenContext.resolve", () => {
   });
 
   describe("equality conditionals", () => {
+    it("should resolve an equality conditional when its value contains a hyphen", () => {
+      const ctx = makeContext({ monorepo: "vite-plus" });
+      expect(
+        ctx.resolve(
+          "{{#if monorepo=vite-plus}}node_modules/.vite/task-cache{{/if}}",
+        ),
+      ).toBe("node_modules/.vite/task-cache");
+    });
+
     it("includes content when field equals value", () => {
       const ctx = makeContext({ lint: "biome" });
       expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("is biome");
