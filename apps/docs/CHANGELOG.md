@@ -1,5 +1,11 @@
 # @stack-effect/docs
 
+## 0.1.1
+
+### Patch Changes
+
+- 0111a72: align child modules with correct nesting in target config
+
 ## 0.1.0
 
 ### Minor Changes

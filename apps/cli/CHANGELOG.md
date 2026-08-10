@@ -1,5 +1,24 @@
 # stack-effect
 
+## 0.12.0
+
+### Minor Changes
+
+- c4edf27: add oxfm module for formatting
+- fda6228: add mcp server as a target with modules for tools, prompt and resources.
+
+  example:
+
+  ```bash
+  bunx stack-effect@latest create my-mcp --target server-mcp/:mcp-tools
+  ```
+
+- c282695: add vite-plus module for managing monorepo using vite+
+
+### Patch Changes
+
+- 7da3e4b: allow targets to be added without module to recipe
+
 ## 0.11.1
 
 ### Patch Changes
