@@ -143,6 +143,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "DateTime Toolkit",
     description:
       "Timezone-aware date and time tool for time-sensitive agent behavior",
+    visibility: "internal",
     supportedOn: [
       {
         _tag: "identity",
@@ -164,6 +165,82 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./toolkits/DateTimeToolkit",
       },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: ".",
+        value: "./src/index.ts",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("package-ai-toolkit-math"),
+    title: "Math Toolkit",
+    description: "Deterministic arithmetic evaluator for safe math computation",
+    visibility: "internal",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/toolkits/MathToolkit.ts",
+        contents: aiMathToolkitContents,
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./toolkits/MathToolkit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: ".",
+        value: "./src/index.ts",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("package-ai-chat-toolkit-datetime"),
+    title: "DateTime Toolkit",
+    description: "Attach the shared date and time toolkit to the chat service",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+      },
+    ],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("package-ai-chat-service"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("package-ai-toolkit-datetime"),
+      },
+    ],
+    contributions: [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
@@ -189,9 +266,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-math"),
+    id: ModuleId.make("package-ai-chat-toolkit-math"),
     title: "Math Toolkit",
-    description: "Deterministic arithmetic evaluator for safe math computation",
+    description:
+      "Attach the shared deterministic math toolkit to the chat service",
     supportedOn: [
       {
         _tag: "identity",
@@ -201,18 +279,25 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         }),
       },
     ],
-    dependencies: [],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("package-ai-chat-service"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "ai",
+        }),
+        moduleId: ModuleId.make("package-ai-toolkit-math"),
+      },
+    ],
     contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/toolkits/MathToolkit.ts",
-        contents: aiMathToolkitContents,
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./toolkits/MathToolkit",
-      },
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
@@ -429,11 +514,11 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     children: [
       {
-        moduleId: ModuleId.make("package-ai-toolkit-datetime"),
+        moduleId: ModuleId.make("package-ai-chat-toolkit-datetime"),
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("package-ai-toolkit-math"),
+        moduleId: ModuleId.make("package-ai-chat-toolkit-math"),
         requirement: "optional",
       },
       {

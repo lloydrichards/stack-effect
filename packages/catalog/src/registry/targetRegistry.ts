@@ -45,6 +45,11 @@ import {
   rootTsconfigContents,
 } from "./content/init";
 import {
+  mcpServerIndexContents,
+  mcpServerPackageJsonContents,
+  mcpServerTsconfigContents,
+} from "./content/mcp";
+import {
   serverIndexContents,
   serverPackageJsonContents,
   serverTsconfigContents,
@@ -418,6 +423,109 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         name: "clean",
         value: "git clean -xdf .cache .turbo dist node_modules",
       },
+    ],
+  },
+
+  {
+    kind: TargetKind.make("server-mcp"),
+    title: "MCP Server Application",
+    description:
+      "A Model Context Protocol server with composable tools, prompts, and resources",
+    defaultName: "",
+    requiredModules: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: mcpServerPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: mcpServerIndexContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: mcpServerTsconfigContents,
+        conflictOnModify: true,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}esbuild{{/if}}",
+        value: "^0.27.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}tsx{{/if}}",
+        value: "^4.20.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value:
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build:types",
+        value: "tsc --emitDeclarationOnly",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value:
+          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev:watch",
+        value:
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "tsc --noEmit",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value: "git clean -xdf .cache .turbo dist node_modules",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "inspector",
+        value: "bun run dev & sleep 2 && npx @mcpjam/inspector@latest; kill %1",
+      },
+    ],
+    nextSteps: [
+      "MCP Server: run `bun dev --filter={{packageName}}` and connect an MCP client to http://localhost:9009/mcp, or run `bun --filter={{packageName}} run inspector` to open MCPJam Inspector.",
     ],
   },
 
