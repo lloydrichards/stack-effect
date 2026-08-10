@@ -103,6 +103,19 @@ describe("moduleRegistry", () => {
     expect(vitePlus?.conflictsWith).toEqual(["workspace-monorepo-turbo"]);
   });
 
+  it("should register Oxfmt as a formatter alternative when catalog modules are listed", () => {
+    const oxfmt = moduleRegistry.find(
+      (mod) => mod.id === "workspace-quality-oxfmt",
+    );
+
+    expect(oxfmt).toBeDefined();
+    expect(oxfmt?.categories).toContain("format");
+    expect(oxfmt?.conflictsWith).toEqual([
+      "workspace-quality-biome-format",
+      "workspace-quality-dprint",
+    ]);
+  });
+
   it("should explain the global executable requirement when Vite+ is selected", () => {
     const vitePlus = moduleRegistry.find(
       (mod) => mod.id === "workspace-monorepo-vite-plus",

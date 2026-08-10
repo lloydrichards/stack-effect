@@ -185,11 +185,11 @@ export const biomeJsoncContents = `{
     "parser": {
       "tailwindDirectives": true
     }
-  },
+  }{{#if format=biome}},
   "formatter": {
     "enabled": true,
     "indentStyle": "space"
-  },
+  }{{/if}},
   "linter": {
     "enabled": true,
     "rules": {
@@ -199,12 +199,12 @@ export const biomeJsoncContents = `{
         "noUnknownAtRules": "off"
       }
     }
-  },
+  }{{#if format=biome}},
   "javascript": {
     "formatter": {
       "quoteStyle": "double"
     }
-  },
+  }{{/if}},
   "assist": {
     "enabled": true,
     "actions": {
@@ -216,30 +216,60 @@ export const biomeJsoncContents = `{
 }
 `;
 
-export const biomeVscodeSettingsContents = `{
+export const workspaceVscodeSettingsContents = `{
   "editor.formatOnSave": true,
-  "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}",
+  "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"{{#if lint=biome}},
   "editor.codeActionsOnSave": {
     "source.organizeImports.biome": "explicit"
-  },
+  }{{/if}},
   "[javascript]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   },
   "[javascriptreact]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   },
   "[typescript]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   },
   "[typescriptreact]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   },
   "[json]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}"
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
   }
+}
+`;
+
+// -- oxfmt ------------------------------------------------------------------
+
+export const oxfmtJsoncContents = `{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 80,
+  "tabWidth": 2,
+  "useTabs": false,
+  "semi": true,
+  "singleQuote": false,
+  "trailingComma": "all",
+  "sortImports": false,
+  "sortTailwindcss": false,
+  "sortPackageJson": false,
+  "ignorePatterns": [
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/build/**",
+    "**/coverage/**",
+    "**/generated/**",
+    "**/.cache/**",
+    "**/.turbo/**"
+  ]
+}
+`;
+
+export const oxfmtVscodeExtensionsContents = `{
+  "recommendations": ["oxc.oxc-vscode"]
 }
 `;
 
@@ -357,13 +387,15 @@ export const devcontainerJsonContents = `{
       "settings": {
         "editor.formatOnSave": true{{#if format=biome}},
         "editor.defaultFormatter": "biomejs.biome"{{/if}}{{#if format=dprint}},
-        "editor.defaultFormatter": "dprint.dprint"{{/if}}
+        "editor.defaultFormatter": "dprint.dprint"{{/if}}{{#if format=oxfmt}},
+        "editor.defaultFormatter": "oxc.oxc-vscode"{{/if}}
       },
       "extensions": [
         {{#if lint=biome}}"biomejs.biome",
         {{/if}}{{#if format=biome}}"biomejs.biome",
         {{/if}}{{#if lint=oxlint}}"oxlint.oxlint-vscode",
         {{/if}}{{#if format=dprint}}"dprint.dprint",
+        {{/if}}{{#if format=oxfmt}}"oxc.oxc-vscode",
         {{/if}}{{#if runtime=bun}}"oven.bun-vscode",
         {{/if}}"effectful-tech.effect-vscode",
         "YoavBls.pretty-ts-errors"
