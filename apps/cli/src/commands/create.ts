@@ -245,7 +245,7 @@ export const create = Command.make(
     },
     {
       command:
-        "stack-effect create chat-app --target client-react/web:client-react-chat --target package/ai:package-ai-chat-service,package-ai-toolkit-math --dry-run",
+        "stack-effect create chat-app --target client-react/web:client-react-chat --target package/ai:package-ai-chat-service,package-ai-chat-toolkit-math --dry-run",
       description: "Preview a create command without writing files",
     },
   ]),

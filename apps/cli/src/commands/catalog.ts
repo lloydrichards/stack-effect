@@ -46,6 +46,7 @@ const defaultTargetNames = new Map<string, string>([
   ["server", "api"],
   ["client-react", "web"],
   ["client-foldkit", "app"],
+  ["server-mcp", ""],
   ["cli", "app"],
   ["package", "domain"],
 ]);
