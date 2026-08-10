@@ -80,6 +80,22 @@ test("should generate a preview when the user completes a valid Selection", asyn
     .toBeEnabled();
 });
 
+test("should generate a preview for a target without modules", async () => {
+  await render(<RecipeBuilder />);
+
+  await page.getByRole("button", { name: "MCP Server Application" }).click();
+
+  await expect
+    .element(page.getByRole("tab", { name: "server-mcp" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+  await expect
+    .element(page.getByLabelText("Command to run locally"))
+    .toHaveTextContent("bunx stack-effect create my-effect-app");
+});
+
 test("should retain the last valid preview when the current Selection becomes invalid", async () => {
   await render(<RecipeBuilder />);
 

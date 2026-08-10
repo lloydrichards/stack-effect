@@ -20,7 +20,7 @@ const ProjectNameSchema = Schema.String.check(
 );
 
 const TargetNameSchema = Schema.String.check(
-  Schema.isPattern(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
+  Schema.isPattern(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/, {
     message: "Use lowercase letters, numbers, and single hyphens.",
   }),
 );
@@ -52,9 +52,7 @@ export const TargetInstanceSchema = Schema.Struct({
   id: Schema.String,
   kind: Schema.String,
   name: TargetNameSchema,
-  modules: Schema.Array(Schema.String).check(
-    Schema.isNonEmpty({ message: "Select at least one module." }),
-  ),
+  modules: Schema.Array(Schema.String),
   requirements: Schema.optional(Schema.Array(TargetModuleRequirementSchema)),
   addedByDependency: Schema.optional(Schema.Boolean),
 });

@@ -87,6 +87,13 @@ export const recipeCatalogFixture: BuilderCatalogOutputWire = {
       defaultName: "api",
       requiredModules: ["server-http-api"],
     },
+    {
+      kind: "server-mcp",
+      title: "MCP Server Application",
+      description: "A Model Context Protocol server",
+      defaultName: "",
+      requiredModules: [],
+    },
   ],
   targetModules: [
     {
@@ -100,6 +107,10 @@ export const recipeCatalogFixture: BuilderCatalogOutputWire = {
     {
       owner: { kind: "package", name: "domain" },
       modules: [domainApiModuleFixture],
+    },
+    {
+      owner: { kind: "server-mcp", name: "" },
+      modules: [],
     },
   ],
   configuration: {

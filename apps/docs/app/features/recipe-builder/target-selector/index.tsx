@@ -42,7 +42,9 @@ export function TargetSelector() {
                   }}
                   value={target.id}
                 >
-                  {target.name} · {target.kind}
+                  {target.name
+                    ? `${target.name} · ${target.kind}`
+                    : target.kind}
                 </TabsTrigger>
               ))}
             </TabsList>

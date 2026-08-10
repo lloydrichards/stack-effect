@@ -99,11 +99,7 @@ export function useRecipeBuilderState() {
   const canPreview =
     formValid &&
     configurationValid &&
-    targets.every(
-      (target) =>
-        targetNameError(target, targets) === undefined &&
-        target.modules.length > 0,
-    );
+    targets.every((target) => targetNameError(target, targets) === undefined);
   const targetIdentityKey = targets.map(targetKey).join("\u0000");
   const activeModules =
     catalog?.targetModules.find(

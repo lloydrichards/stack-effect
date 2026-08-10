@@ -23,11 +23,16 @@ const duplicatedValues = (values: ReadonlyArray<string>): Array<string> =>
   );
 
 const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
+const TrimTargetName = Schema.Trim.check(
+  Schema.isPattern(/^[^:]*$/, {
+    message: "Target names cannot contain a colon.",
+  }),
+);
 
-const RecipeTargetStringParts = Schema.TemplateLiteralParser([
+const RecipeTargetStringPartsWithModules = Schema.TemplateLiteralParser([
   TrimNonEmptyString,
   "/",
-  Schema.Trim,
+  TrimTargetName,
   ":",
   TrimNonEmptyString.check(
     Schema.makeFilter((value) =>
@@ -38,23 +43,41 @@ const RecipeTargetStringParts = Schema.TemplateLiteralParser([
   ),
 ]);
 
+const RecipeTargetStringPartsWithoutModules = Schema.TemplateLiteralParser([
+  TrimNonEmptyString,
+  "/",
+  TrimTargetName,
+]);
+
+const RecipeTargetStringParts = Schema.Union([
+  RecipeTargetStringPartsWithModules,
+  RecipeTargetStringPartsWithoutModules,
+]);
+
 const RecipeTargetPartsFromString = Schema.String.pipe(
   Schema.decodeTo(RecipeTargetStringParts),
 );
 
 export const RecipeTargetString = RecipeTargetPartsFromString.pipe(
   Schema.decodeTo(RecipeTargetSpec, {
-    decode: SchemaGetter.transform(([kind, , name, , moduleText]) => ({
-      target: new TargetIdentity({ kind: TargetKind.make(kind), name }),
-      modules: splitCommaSeparated([moduleText]),
+    decode: SchemaGetter.transform((parts) => ({
+      target: new TargetIdentity({
+        kind: TargetKind.make(parts[0]),
+        name: parts[2],
+      }),
+      modules: parts.length === 5 ? splitCommaSeparated([parts[4]]) : [],
     })),
-    encode: SchemaGetter.transform((spec) => [
-      spec.target.kind,
-      "/",
-      spec.target.name,
-      ":",
-      pipe(spec.modules, Arr.map(String), Arr.join(",")),
-    ]),
+    encode: SchemaGetter.transform((spec) =>
+      spec.modules.length > 0
+        ? [
+            spec.target.kind,
+            "/" as const,
+            spec.target.name,
+            ":" as const,
+            pipe(spec.modules, Arr.map(String), Arr.join(",")),
+          ]
+        : [spec.target.kind, "/" as const, spec.target.name],
+    ),
   }),
 );
 
