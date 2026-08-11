@@ -1,10 +1,8 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
-import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Schema } from "effect";
-import { CatalogModule } from "./worker/domain";
 
 const RuntimeSchema = Schema.TaggedUnion({
   bun: {},
@@ -25,7 +23,7 @@ const TargetNameSchema = Schema.String.check(
   }),
 );
 
-export const StackConfigurationSchema = Schema.Struct({
+const StackConfigurationSchema = Schema.Struct({
   name: ProjectNameSchema,
   runtime: RuntimeSchema,
   typescript: Schema.optional(Schema.Literals(["6", "7"])),
@@ -35,10 +33,7 @@ export const StackConfigurationSchema = Schema.Struct({
   monorepo: Schema.optional(Schema.String),
 });
 
-export interface StackConfiguration
-  extends Schema.Schema.Type<typeof StackConfigurationSchema> {}
-
-export const TargetModuleRequirementSchema = Schema.Struct({
+const TargetModuleRequirementSchema = Schema.Struct({
   sourceTargetId: Schema.String,
   sourceModuleId: Schema.String,
   moduleId: Schema.String,
@@ -48,7 +43,7 @@ export const TargetModuleRequirementSchema = Schema.Struct({
 export interface TargetModuleRequirement
   extends Schema.Schema.Type<typeof TargetModuleRequirementSchema> {}
 
-export const TargetInstanceSchema = Schema.Struct({
+const TargetInstanceSchema = Schema.Struct({
   id: Schema.String,
   kind: Schema.String,
   name: TargetNameSchema,
@@ -60,16 +55,19 @@ export const TargetInstanceSchema = Schema.Struct({
 export interface TargetInstance
   extends Schema.Schema.Type<typeof TargetInstanceSchema> {}
 
+export const ownerKey = (owner: {
+  readonly kind: string;
+  readonly name: string;
+}): string => `${owner.kind}/${owner.name}`;
+
 export type SupportConfiguration = {
   readonly owner: { readonly kind: string; readonly name: string };
-  readonly parent: typeof CatalogModule.Type;
-  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
+  readonly parentId: string;
 };
 
-export const SupportSelectionSchema = Schema.Struct({
+const SupportSelectionSchema = Schema.Struct({
   owner: Schema.Struct({ kind: Schema.String, name: Schema.String }),
-  parent: CatalogModule,
-  modules: Schema.Array(CatalogModule),
+  parentId: Schema.String,
   selected: Schema.Array(Schema.String),
 });
 
@@ -107,10 +105,9 @@ export const RecipeBuilderFormSchema = RecipeBuilderFormFields.check(
 export interface RecipeBuilderFormValues
   extends Schema.Schema.Type<typeof RecipeBuilderFormSchema> {}
 
-export const recipeBuilderFormValidator: StandardSchemaV1<
-  RecipeBuilderFormValues,
-  RecipeBuilderFormValues
-> = Schema.toStandardSchemaV1(Schema.toType(RecipeBuilderFormSchema));
+const recipeBuilderFormValidator = Schema.toStandardSchemaV1(
+  Schema.toType(RecipeBuilderFormSchema),
+);
 
 export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
   config: {
@@ -137,9 +134,6 @@ export function useRecipeBuilderForm() {
 
 export type RecipeBuilderFormApi = ReturnType<typeof useRecipeBuilderForm>;
 
-const targetKey = (target: { readonly kind: string; readonly name: string }) =>
-  `${target.kind}/${target.name}`;
-
 export function toRecipePreviewInput(
   values: RecipeBuilderFormValues,
 ): RecipePreviewInput {
@@ -148,9 +142,9 @@ export function toRecipePreviewInput(
       selection.selected.length > 0
         ? [
             {
-              id: `support-${targetKey(selection.owner)}`,
+              id: `support-${ownerKey(selection.owner)}`,
               ...selection.owner,
-              modules: [selection.parent.id, ...selection.selected],
+              modules: [selection.parentId, ...selection.selected],
             },
           ]
         : [],
@@ -158,7 +152,7 @@ export function toRecipePreviewInput(
   const targets = Arr.fromIterable(
     [...values.targets, ...supportTargets]
       .reduce((merged, target) => {
-        const key = targetKey(target);
+        const key = ownerKey(target);
         const existing = merged.get(key);
         merged.set(key, {
           ...target,

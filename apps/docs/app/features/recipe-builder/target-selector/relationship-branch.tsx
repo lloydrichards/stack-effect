@@ -2,21 +2,17 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import {
-  type ModuleRelationshipNode,
   ownerKey,
-  supportConfigurationKey,
-} from "../builder-state";
-import type {
-  SupportConfiguration,
-  SupportSelection,
-} from "../recipe-builder-form";
-import { CatalogModule } from "../worker/domain";
+  type SupportConfiguration,
+  type SupportSelection,
+} from "../form";
+import { type ModuleRelationshipNode, supportConfigurationKey } from "./state";
 
 type RelationshipBranchProps = {
   readonly node: ModuleRelationshipNode;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
-    module: typeof CatalogModule.Type,
+    moduleId: string,
   ) => void;
   readonly supportSelections: ReadonlyArray<SupportSelection>;
 };
@@ -54,7 +50,8 @@ export function RelationshipBranch({
           checked={checked}
           disabled={disabled}
           onCheckedChange={() =>
-            configuration && onToggleSupportModule(configuration, node.module)
+            configuration &&
+            onToggleSupportModule(configuration, node.module.id)
           }
         />
         <FieldLabel

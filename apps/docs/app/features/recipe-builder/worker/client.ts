@@ -27,12 +27,9 @@ class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
   },
 ) {}
 
-export type CatalogRequestSource = "identity" | "preview";
-
 export type CatalogAtomRequest = {
   readonly targetIdentityKey: string;
   readonly owners: ReadonlyArray<TargetIdentity>;
-  readonly source: CatalogRequestSource;
 };
 
 export type PreviewAtomRequest = {

@@ -9,10 +9,8 @@ import type {
 
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
-  failPreviewCatalogOnce: false,
-  addPreviewCatalogOwner: false,
+  failCatalogOnce: false,
   deferIdentityCatalog: false,
-  catalogSources: [] as Array<"identity" | "preview">,
   pendingIdentityCatalogs: [] as Array<{
     interrupted: boolean;
     complete: () => void;
@@ -24,15 +22,9 @@ const workerCalls = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
-  const [
-    { Effect },
-    { Atom },
-    { TargetIdentity, TargetKind },
-    { recipeCatalogFixture },
-  ] = await Promise.all([
+  const [{ Effect }, { Atom }, { recipeCatalogFixture }] = await Promise.all([
     import("effect"),
     import("effect/unstable/reactivity"),
-    import("@repo/domain/Catalog"),
     import("./recipe-fixtures"),
   ]);
   const previewFor = ({ input }: PreviewAtomRequest) => {
@@ -50,18 +42,6 @@ vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
             : `apps/${identity.kind}-${identity.name}`,
       identity,
     }));
-    if (workerCalls.addPreviewCatalogOwner) {
-      const identity = new TargetIdentity({
-        kind: TargetKind.make("package"),
-        name: "preview-only",
-      });
-      blueprintTargets.push({
-        _tag: "target",
-        id: "packages/preview-only",
-        identity,
-      });
-    }
-
     return {
       command: `bunx stack-effect create ${input.config.name}`,
       selection: { targets },
@@ -80,12 +60,8 @@ vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
       "The preview worker stopped unexpectedly.",
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
-        workerCalls.catalogSources.push(request.source);
-        if (
-          request.source === "preview" &&
-          workerCalls.failPreviewCatalogOnce
-        ) {
-          workerCalls.failPreviewCatalogOnce = false;
+        if (workerCalls.failCatalogOnce) {
+          workerCalls.failCatalogOnce = false;
           return Effect.fail(new Error("Catalog enrichment failed."));
         }
         const catalog = workerCalls.reconcileModules
@@ -104,7 +80,7 @@ vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
               })),
             }
           : recipeCatalogFixture;
-        if (request.source !== "identity" || !workerCalls.deferIdentityCatalog)
+        if (!workerCalls.deferIdentityCatalog)
           return Effect.succeed({ request, catalog });
         return Effect.callback((resume) => {
           const pending = {
@@ -138,10 +114,8 @@ vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
 
 beforeEach(() => {
   workerCalls.reconcileModules = false;
-  workerCalls.failPreviewCatalogOnce = false;
-  workerCalls.addPreviewCatalogOwner = false;
+  workerCalls.failCatalogOnce = false;
   workerCalls.deferIdentityCatalog = false;
-  workerCalls.catalogSources = [];
   workerCalls.pendingIdentityCatalogs = [];
   workerCalls.deferPreviews = false;
   workerCalls.pendingPreviews = [];
@@ -186,7 +160,7 @@ test("should remove unsupported modules when a renamed target resolves a differe
     .not.toBeInTheDocument();
 });
 
-test("should preserve rename reconciliation when preview enrichment adds catalog owners", async () => {
+test("should reconcile a rename after its delayed catalog request completes", async () => {
   await render(<RecipeBuilder />);
 
   await page.getByRole("button", { name: "Client React Application" }).click();
@@ -196,14 +170,12 @@ test("should preserve rename reconciliation when preview enrichment adds catalog
     .toBeVisible();
 
   workerCalls.reconcileModules = true;
-  workerCalls.addPreviewCatalogOwner = true;
   workerCalls.deferIdentityCatalog = true;
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
 
   const pendingIdentity = workerCalls.pendingIdentityCatalogs[0];
   expect(pendingIdentity?.interrupted).toBe(false);
-  expect(workerCalls.catalogSources.at(-1)).toBe("identity");
 
   workerCalls.deferIdentityCatalog = false;
   pendingIdentity?.complete();
@@ -211,7 +183,6 @@ test("should preserve rename reconciliation when preview enrichment adds catalog
   await expect
     .element(page.getByText(/Removed modules that do not support/u))
     .toBeVisible();
-  await expect.poll(() => workerCalls.catalogSources.at(-1)).toBe("preview");
   expect(pendingIdentity?.interrupted).toBe(false);
 });
 
@@ -231,15 +202,13 @@ test("should generate a usable preview when the selected target has no modules",
     .toHaveTextContent("bunx stack-effect create my-effect-app");
 });
 
-test("should preserve a valid preview when catalog enrichment is retried", async () => {
+test("should preserve a valid preview when catalog loading is retried", async () => {
+  workerCalls.failCatalogOnce = true;
   await render(<RecipeBuilder />);
 
   await expect
     .element(page.getByText(/Live in-memory pipeline/u))
     .toBeVisible();
-  workerCalls.failPreviewCatalogOnce = true;
-  workerCalls.addPreviewCatalogOwner = true;
-  await page.getByLabelText("Project name").fill("catalog-retry");
 
   await expect
     .element(page.getByRole("button", { name: "Retry options" }))

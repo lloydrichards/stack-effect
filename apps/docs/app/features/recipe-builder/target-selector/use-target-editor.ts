@@ -2,22 +2,20 @@ import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
 import { useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
-import {
-  makeTargetInstance,
-  ownerKey,
-  removeModuleSupportSelections,
-  removeTargetAndDependencies,
-  removeTargetSupportSelections,
-  targetKey,
-  toggleSupportSelection,
-  toggleTargetModule,
-} from "../builder-state";
+import { ownerKey, type SupportConfiguration } from "../form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
 } from "../recipe-builder-context";
-import type { SupportConfiguration } from "../recipe-builder-form";
 import { CatalogModule } from "../worker/domain";
+import {
+  makeTargetInstance,
+  removeModuleSupportSelections,
+  removeTargetAndDependencies,
+  removeTargetSupportSelections,
+  toggleSupportSelection,
+  toggleTargetModule,
+} from "./state";
 
 export const newTargetTabId = "new-target";
 
@@ -38,7 +36,7 @@ export function useTargetEditor() {
     if (activeTarget === undefined || catalog === undefined) return;
     const activeModules =
       catalog.targetModules.find(
-        (entry) => ownerKey(entry.owner) === targetKey(activeTarget),
+        (entry) => ownerKey(entry.owner) === ownerKey(activeTarget),
       )?.modules ?? [];
     const selected = activeTarget.modules.includes(module.id);
     batch(() => {
@@ -67,10 +65,10 @@ export function useTargetEditor() {
 
   const toggleSupportModule = (
     configuration: SupportConfiguration,
-    module: typeof CatalogModule.Type,
+    moduleId: string,
   ) =>
     form.setFieldValue("supportSelections", (current) =>
-      toggleSupportSelection(current, configuration, module),
+      toggleSupportSelection(current, configuration, moduleId),
     );
 
   const addTarget = (kind: string) => {

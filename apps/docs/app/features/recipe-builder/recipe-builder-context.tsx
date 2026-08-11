@@ -1,6 +1,5 @@
-import { useSelector } from "@tanstack/react-form";
 import { createContext, type ReactNode, use, useMemo } from "react";
-import type { RecipeBuilderFormApi } from "./recipe-builder-form";
+import { type RecipeBuilderFormApi, useRecipeBuilderForm } from "./form";
 import {
   type RecipeBuilderWorkerModel,
   useRecipeBuilderWorker,
@@ -30,14 +29,11 @@ const RecipeBuilderPreviewContext = createContext<
 
 export function RecipeBuilderProvider({
   children,
-  form,
 }: {
   readonly children: ReactNode;
-  readonly form: RecipeBuilderFormApi;
 }) {
-  const values = useSelector(form.store, (state) => state.values);
-  const formValid = useSelector(form.store, (state) => state.isValid);
-  const worker = useRecipeBuilderWorker(form, values, formValid);
+  const form = useRecipeBuilderForm();
+  const worker = useRecipeBuilderWorker(form);
   const catalog = useMemo<RecipeBuilderCatalogModel>(
     () => ({
       catalog: worker.catalog,

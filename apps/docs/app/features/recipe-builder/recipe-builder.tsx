@@ -14,17 +14,14 @@ import {
   useRecipeBuilderFormContext,
   useRecipeBuilderPreview,
 } from "./recipe-builder-context";
-import { useRecipeBuilderForm } from "./recipe-builder-form";
 import { RepositoryExplorer } from "./repository-explorer";
 import { StackConfigurator } from "./stack-configurator";
 import { TargetSelector } from "./target-selector";
 import { recipeBuilderRpcErrorMessage } from "./worker/client";
 
 export function RecipeBuilder() {
-  const form = useRecipeBuilderForm();
-
   return (
-    <RecipeBuilderProvider form={form}>
+    <RecipeBuilderProvider>
       <RecipeBuilderContent />
     </RecipeBuilderProvider>
   );

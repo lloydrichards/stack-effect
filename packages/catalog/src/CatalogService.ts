@@ -3,16 +3,14 @@ import type {
   CatalogTree,
   ModuleCapability,
   ModuleCategory,
-  ModuleDefinition,
+  ModuleChild,
   ModuleDependency,
   ModuleId,
   ModuleImplication,
-  SupportedOn,
-  TargetIdentity,
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
-import { CatalogNotFound } from "@repo/domain/Catalog";
+import { CatalogNotFound, TargetIdentity } from "@repo/domain/Catalog";
 import {
   Array as Arr,
   Context,
@@ -38,16 +36,9 @@ export type BuilderCatalogModule = {
   readonly title: string;
   readonly description: string;
   readonly visibility: typeof Visibility.Type;
-  readonly owner: TargetIdentity;
-  readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
   readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
   readonly implies: ReadonlyArray<typeof ModuleImplication.Type>;
-  readonly children: ReadonlyArray<BuilderCatalogModuleChild>;
-};
-
-export type BuilderCatalogModuleChild = {
-  readonly requirement: "required" | "optional";
-  readonly module: BuilderCatalogModule;
+  readonly children: ReadonlyArray<typeof ModuleChild.Type>;
 };
 
 export type BuilderCatalogTargetModules = {
@@ -243,66 +234,84 @@ export class CatalogService extends Context.Service<CatalogService>()(
 
       const toBuilderCatalog = Effect.fn("CatalogService.toBuilderCatalog")(
         function* (owners: ReadonlyArray<TargetIdentity>) {
-          const projectModules = (owner: TargetIdentity) => {
-            const supportedModules = Arr.filter(
-              Arr.fromIterable(moduleIndex.values()),
-              (module) =>
-                Arr.some(module.supportedOn, (supportedOn) =>
-                  owner.matches(supportedOn),
-                ),
-            );
-            const supportedIds = new Set(
-              Arr.map(supportedModules, (module) => module.id),
-            );
-            const childIds = new Set(
-              Arr.flatMap(supportedModules, (module) =>
-                Arr.map(module.children ?? [], (child) => child.moduleId),
+          const supportedModules = (owner: TargetIdentity) =>
+            Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
+              Arr.some(module.supportedOn, (supportedOn) =>
+                owner.matches(supportedOn),
               ),
             );
+          const ownerKey = (owner: TargetIdentity) =>
+            `${owner.kind}/${owner.name}`;
+          const expandOwners = (
+            pending: ReadonlyArray<TargetIdentity>,
+            expanded = new Map<string, TargetIdentity>(),
+          ): ReadonlyArray<TargetIdentity> => {
+            const [owner, ...remaining] = pending;
+            if (owner === undefined) return Arr.fromIterable(expanded.values());
+            if (expanded.has(ownerKey(owner)))
+              return expandOwners(remaining, expanded);
 
-            const projectModule = (
-              module: typeof ModuleDefinition.Type,
-              ancestors: ReadonlySet<string>,
-            ): BuilderCatalogModule => {
-              const nextAncestors = new Set([...ancestors, module.id]);
-              return {
+            expanded.set(ownerKey(owner), owner);
+            const modules = supportedModules(owner);
+            const dependencyOwners = Arr.flatMap(modules, (module) =>
+              Arr.map(module.dependencies, (dependency) =>
+                dependency._tag === "required-target"
+                  ? dependency.identity
+                  : dependency.target,
+              ),
+            );
+            const implicationOwners = Arr.filterMap(
+              Arr.flatMap(modules, (module) => module.implies ?? []),
+              (implication) => {
+                const existing = [...owners, ...expanded.values()].find(
+                  (candidate) => candidate.kind === implication.targetKind,
+                );
+                if (existing !== undefined) return Result.succeed(existing);
+                const definition = targetIndex.get(implication.targetKind);
+                return definition === undefined
+                  ? Result.fail("skip" as const)
+                  : Result.succeed(
+                      new TargetIdentity({
+                        kind: definition.kind,
+                        name: definition.defaultName ?? definition.kind,
+                      }),
+                    );
+              },
+            );
+            return expandOwners(
+              [...remaining, ...dependencyOwners, ...implicationOwners],
+              expanded,
+            );
+          };
+          const expandedOwners = expandOwners(owners);
+          const projectModules = (owner: TargetIdentity) => {
+            const modules = supportedModules(owner);
+            const supportedIds = new Set(
+              Arr.map(modules, (module) => module.id),
+            );
+            return Arr.map(
+              modules,
+              (module): BuilderCatalogModule => ({
                 id: module.id,
                 title: module.title,
                 description: module.description,
                 visibility: module.visibility ?? "public",
-                owner,
-                supportedOn: module.supportedOn,
                 dependencies: module.dependencies,
                 implies: module.implies ?? [],
-                children: Arr.filterMap(module.children ?? [], (child) => {
-                  const childModule = moduleIndex.get(child.moduleId);
-                  if (
-                    childModule === undefined ||
-                    !supportedIds.has(child.moduleId) ||
-                    nextAncestors.has(child.moduleId)
-                  ) {
-                    return Result.fail("skip" as const);
-                  }
-                  return Result.succeed({
-                    requirement: child.requirement,
-                    module: projectModule(childModule, nextAncestors),
-                  });
-                }),
-              };
-            };
-
-            return Arr.map(
-              Arr.filter(
-                supportedModules,
-                (module) => !childIds.has(module.id),
-              ),
-              (module) => projectModule(module, new Set()),
+                children: Arr.filter(module.children ?? [], (child) =>
+                  supportedIds.has(child.moduleId),
+                ),
+              }),
             );
           };
 
-          yield* Effect.forEach(owners, (owner) => getTarget(owner.kind), {
-            discard: true,
-          });
+          yield* Effect.forEach(
+            expandedOwners,
+            (owner) => getTarget(owner.kind),
+            {
+              discard: true,
+            },
+          );
 
           return {
             targets: Arr.map(
@@ -319,7 +328,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
                 requiredModules: target.requiredModules ?? [],
               }),
             ),
-            targetModules: Arr.map(owners, (owner) => ({
+            targetModules: Arr.map(expandedOwners, (owner) => ({
               owner,
               modules: projectModules(owner),
             })),

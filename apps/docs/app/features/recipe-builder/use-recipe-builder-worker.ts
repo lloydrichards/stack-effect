@@ -2,6 +2,7 @@
 
 import { useAtom } from "@effect/atom-react";
 import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { useSelector } from "@tanstack/react-form";
 import { Option } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import {
@@ -14,26 +15,56 @@ import {
 } from "react";
 import {
   ownerKey,
-  reconcileTargetsWithCatalog,
-  targetKey,
-  uniqueOwners,
-} from "./builder-state";
-import {
   type RecipeBuilderFormApi,
-  type RecipeBuilderFormValues,
+  TargetInstance,
   toRecipePreviewInput,
-} from "./recipe-builder-form";
+} from "./form";
 import {
   type CatalogAtomRequest,
   catalogAtom,
   previewAtom,
 } from "./worker/client";
+import { RecipeBuilderCatalog } from "./worker/domain";
 
-export function useRecipeBuilderWorker(
-  form: RecipeBuilderFormApi,
-  values: RecipeBuilderFormValues,
-  formValid: boolean,
-) {
+const reconcileTargetsWithCatalog = (
+  targets: ReadonlyArray<TargetInstance>,
+  catalog: typeof RecipeBuilderCatalog.Type,
+) => {
+  const supportedModulesByOwner = new Map(
+    catalog.targetModules.map(({ owner, modules }) => [
+      ownerKey(owner),
+      new Set<string>(modules.map((module) => module.id)),
+    ]),
+  );
+  const reconciliation = targets.map((target) => {
+    const supported = supportedModulesByOwner.get(ownerKey(target));
+    if (supported === undefined) return { target, removedModules: [] };
+    const filteredModules = target.modules.filter((module) =>
+      supported.has(module),
+    );
+    return {
+      target:
+        filteredModules.length === target.modules.length
+          ? target
+          : { ...target, modules: filteredModules },
+      removedModules: target.modules.filter((module) => !supported.has(module)),
+    };
+  });
+  const reconciled = reconciliation.map(({ target }) => target);
+
+  return {
+    targets: reconciled.every((target, index) => target === targets[index])
+      ? targets
+      : reconciled,
+    removedModules: reconciliation.flatMap(
+      ({ removedModules }) => removedModules,
+    ),
+  };
+};
+
+export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
+  const values = useSelector(form.store, (state) => state.values);
+  const formValid = useSelector(form.store, (state) => state.isValid);
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
   const [previewRequestResult, requestPreview] = useAtom(previewAtom);
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
@@ -41,7 +72,7 @@ export function useRecipeBuilderWorker(
     undefined,
   );
   const { targets } = values;
-  const targetIdentityKey = targets.map(targetKey).join("\u0000");
+  const targetIdentityKey = targets.map(ownerKey).join("\u0000");
   const catalogResult = useMemo(
     () => AsyncResult.map(catalogRequestResult, ({ catalog }) => catalog),
     [catalogRequestResult],
@@ -64,7 +95,6 @@ export function useRecipeBuilderWorker(
         ({ kind, name }) =>
           new TargetIdentity({ kind: TargetKind.make(kind), name }),
       ),
-      source: "identity",
     } as const;
     lastCatalogRequestRef.current = request;
     requestCatalog(request);
@@ -76,11 +106,7 @@ export function useRecipeBuilderWorker(
     (result: typeof catalogRequestResult) => {
       if (result.waiting || !AsyncResult.isSuccess(result)) return;
       const { request, catalog: nextCatalog } = result.value;
-      if (
-        request.source !== "identity" ||
-        request.targetIdentityKey !== targetIdentityKey
-      )
-        return;
+      if (request.targetIdentityKey !== targetIdentityKey) return;
 
       const reconciliation = reconcileTargetsWithCatalog(targets, nextCatalog);
       setCompatibilityNotice(
@@ -109,47 +135,6 @@ export function useRecipeBuilderWorker(
       input: toRecipePreviewInput(values),
     });
   }, [formValid, requestPreview, targetIdentityKey, values]);
-
-  useEffect(() => {
-    if (
-      previewRequestResult.waiting ||
-      !AsyncResult.isSuccess(previewRequestResult) ||
-      previewRequestResult.value.request.targetIdentityKey !==
-        targetIdentityKey ||
-      catalogRequestResult.waiting ||
-      !AsyncResult.isSuccess(catalogRequestResult) ||
-      catalogRequestResult.value.request.targetIdentityKey !== targetIdentityKey
-    )
-      return;
-
-    const owners = uniqueOwners([
-      ...targets.map(
-        ({ kind, name }) =>
-          new TargetIdentity({ kind: TargetKind.make(kind), name }),
-      ),
-      ...previewRequestResult.value.preview.blueprint.nodes.flatMap((node) =>
-        node._tag === "target" ? [node.identity] : [],
-      ),
-    ]);
-    const ownersKey = owners.map(ownerKey).join("\u0000");
-    const resolvedOwnersKey = catalogRequestResult.value.request.owners
-      .map(ownerKey)
-      .join("\u0000");
-    const requestedOwnersKey = lastCatalogRequestRef.current?.owners
-      .map(ownerKey)
-      .join("\u0000");
-    if (ownersKey === resolvedOwnersKey || ownersKey === requestedOwnersKey)
-      return;
-    const request = { targetIdentityKey, owners, source: "preview" } as const;
-    lastCatalogRequestRef.current = request;
-    requestCatalog(request);
-  }, [
-    catalogRequestResult,
-    previewRequestResult,
-    requestCatalog,
-    targetIdentityKey,
-    targets,
-  ]);
 
   return {
     canPreview: formValid,
