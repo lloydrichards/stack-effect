@@ -1,16 +1,8 @@
-import { createHighlighterCore } from "shiki/core";
+import {
+  createBundledHighlighter,
+  createSingletonShorthands,
+} from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
-import css from "shiki/langs/css.mjs";
-import html from "shiki/langs/html.mjs";
-import json from "shiki/langs/json.mjs";
-import jsonc from "shiki/langs/jsonc.mjs";
-import nix from "shiki/langs/nix.mjs";
-import shellscript from "shiki/langs/shellscript.mjs";
-import tsx from "shiki/langs/tsx.mjs";
-import typescript from "shiki/langs/typescript.mjs";
-import yaml from "shiki/langs/yaml.mjs";
-import githubDark from "shiki/themes/github-dark.mjs";
-import githubLight from "shiki/themes/github-light.mjs";
 
 export type SyntaxToken = {
   readonly content: string;
@@ -58,11 +50,26 @@ export const languageForPath = (path: string): Language | "text" => {
   );
 };
 
-const highlighter = createHighlighterCore({
-  engine: createJavaScriptRegexEngine(),
-  themes: [githubLight, githubDark],
-  langs: [css, html, json, jsonc, nix, shellscript, tsx, typescript, yaml],
+const createHighlighter = createBundledHighlighter({
+  engine: () => createJavaScriptRegexEngine(),
+  langs: {
+    css: () => import("shiki/langs/css.mjs"),
+    html: () => import("shiki/langs/html.mjs"),
+    json: () => import("shiki/langs/json.mjs"),
+    jsonc: () => import("shiki/langs/jsonc.mjs"),
+    nix: () => import("shiki/langs/nix.mjs"),
+    shellscript: () => import("shiki/langs/shellscript.mjs"),
+    tsx: () => import("shiki/langs/tsx.mjs"),
+    typescript: () => import("shiki/langs/typescript.mjs"),
+    yaml: () => import("shiki/langs/yaml.mjs"),
+  },
+  themes: {
+    "github-dark": () => import("shiki/themes/github-dark.mjs"),
+    "github-light": () => import("shiki/themes/github-light.mjs"),
+  },
 });
+
+const { codeToTokensWithThemes } = createSingletonShorthands(createHighlighter);
 
 export const highlightSource = async (
   path: string,
@@ -71,12 +78,11 @@ export const highlightSource = async (
   const language = languageForPath(path);
   if (language === "text") return plainSource(source);
 
-  return (await highlighter)
-    .codeToTokensWithThemes(source, {
-      lang: language,
-      themes: { light: "github-light", dark: "github-dark" },
-    })
-    .map((line) =>
+  return codeToTokensWithThemes(source, {
+    lang: language,
+    themes: { light: "github-light", dark: "github-dark" },
+  }).then((lines) =>
+    lines.map((line) =>
       line.map(({ content, variants }) => ({
         content,
         light: variants["light"]?.color,
@@ -86,7 +92,8 @@ export const highlightSource = async (
           variants["dark"]?.fontStyle ??
           undefined,
       })),
-    );
+    ),
+  );
 };
 
 const plainSource = (source: string): HighlightedSource =>
