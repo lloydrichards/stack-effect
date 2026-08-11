@@ -4,7 +4,7 @@ import type { RecipePreview } from "@repo/scaffold/recipe-preview";
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { FileCode2 } from "lucide-react";
-import { type CSSProperties, useEffect, useId, useMemo, useState } from "react";
+import { type CSSProperties, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import {
   FileTree,
@@ -19,8 +19,12 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Spinner } from "~/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
+import type {
+  HighlightedSource,
+  SyntaxToken,
+} from "../../lib/syntax-highlighter";
 import { useRecipeBuilderPreview } from "./recipe-builder-context";
-import type { HighlightedSource, SyntaxToken } from "./syntax-highlighter";
+import { useHighlightedSource } from "./use-highlighted-source";
 import type { RecipeBuilderWorkerModel } from "./use-recipe-builder-worker";
 
 export function RepositoryExplorer() {
@@ -184,38 +188,6 @@ function previewStatusMessage(
     )
     .exhaustive();
 }
-
-function useHighlightedSource(path: string, source: string) {
-  const [highlighted, setHighlighted] = useState<HighlightedSource>(() =>
-    plainSource(source),
-  );
-
-  useEffect(() => {
-    let current = true;
-    setHighlighted(plainSource(source));
-    void import("./syntax-highlighter")
-      .then(({ highlightSource }) => highlightSource(path, source))
-      .then((next) => {
-        if (current) setHighlighted(next);
-      })
-      .catch(() => undefined);
-    return () => {
-      current = false;
-    };
-  }, [path, source]);
-
-  return highlighted;
-}
-
-const plainSource = (source: string): HighlightedSource =>
-  source.split("\n").map((line) => [
-    {
-      content: line,
-      light: undefined,
-      dark: undefined,
-      fontStyle: undefined,
-    },
-  ]);
 
 function renderHighlightedSource(source: HighlightedSource) {
   return source.map((line, lineIndex) => (
