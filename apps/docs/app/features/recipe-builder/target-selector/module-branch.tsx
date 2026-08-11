@@ -2,7 +2,10 @@ import { Checkbox } from "~/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import { type ModuleRelationshipNode, ownerKey } from "../builder-state";
-import { useRecipeBuilder } from "../recipe-builder-context";
+import type {
+  SupportConfiguration,
+  SupportSelection,
+} from "../recipe-builder-form";
 import { CatalogModule } from "../worker/domain";
 import { RelationshipBranch } from "./relationship-branch";
 
@@ -12,7 +15,13 @@ type ModuleBranchProps = {
   readonly selected: ReadonlyArray<string>;
   readonly relationships?: ReadonlyArray<ModuleRelationshipNode>;
   readonly divided?: boolean;
+  readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
+  readonly onToggleSupportModule: (
+    configuration: SupportConfiguration,
+    module: typeof CatalogModule.Type,
+  ) => void;
   readonly requirement?: "required" | "optional";
+  readonly supportSelections: ReadonlyArray<SupportSelection>;
 };
 
 export function ModuleBranch({
@@ -21,11 +30,11 @@ export function ModuleBranch({
   selected,
   relationships = [],
   divided = false,
+  onToggleModule,
+  onToggleSupportModule,
   requirement,
+  supportSelections,
 }: ModuleBranchProps) {
-  const {
-    actions: { toggleModule },
-  } = useRecipeBuilder();
   const parentSelected = selected.includes(module.id);
   const required = requirement === "required";
   const checked = required || parentSelected;
@@ -42,7 +51,7 @@ export function ModuleBranch({
           id={`module-${module.id}`}
           checked={checked}
           disabled={required}
-          onCheckedChange={() => toggleModule(module)}
+          onCheckedChange={() => onToggleModule(module)}
         />
         <FieldLabel
           htmlFor={`module-${module.id}`}
@@ -82,8 +91,11 @@ export function ModuleBranch({
                   key={child.moduleId}
                   module={childModule}
                   modules={modules}
+                  onToggleModule={onToggleModule}
+                  onToggleSupportModule={onToggleSupportModule}
                   selected={selected}
                   requirement={child.requirement}
+                  supportSelections={supportSelections}
                 />
               ) : null;
             })}
@@ -104,6 +116,8 @@ export function ModuleBranch({
               <RelationshipBranch
                 key={`${ownerKey(relationship.owner)}#${relationship.module.id}`}
                 node={relationship}
+                onToggleSupportModule={onToggleSupportModule}
+                supportSelections={supportSelections}
               />
             ))}
           </FieldGroup>

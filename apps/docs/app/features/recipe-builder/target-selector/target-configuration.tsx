@@ -17,38 +17,51 @@ import {
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
-import { buildModuleRelationshipNodes } from "../builder-state";
-import { useRecipeBuilder } from "../recipe-builder-context";
+import {
+  buildModuleRelationshipNodes,
+  dependencySourceNames,
+} from "../builder-state";
+import { useRecipeBuilderFormContext } from "../recipe-builder-context";
+import type {
+  SupportConfiguration,
+  SupportSelection,
+  TargetInstance,
+} from "../recipe-builder-form";
+import { CatalogModule, RecipeBuilderCatalog } from "../worker/domain";
 import { ModuleBranch } from "./module-branch";
 
 type TargetConfigurationProps = {
+  readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
+  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
+  readonly onRemoveTarget: (id: string) => void;
+  readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
+  readonly onToggleSupportModule: (
+    configuration: SupportConfiguration,
+    module: typeof CatalogModule.Type,
+  ) => void;
+  readonly supportSelections: ReadonlyArray<SupportSelection>;
+  readonly target: TargetInstance;
   readonly targetIndex: number;
-  readonly targetId: string;
+  readonly targets: ReadonlyArray<TargetInstance>;
 };
 
 export function TargetConfiguration({
+  catalog,
+  modules,
+  onRemoveTarget,
+  onToggleModule,
+  onToggleSupportModule,
+  supportSelections,
+  target,
   targetIndex,
-  targetId,
+  targets,
 }: TargetConfigurationProps) {
-  const {
-    state: {
-      activeModules: modules,
-      catalog,
-      dependencySourceNames,
-      form,
-      requiredModuleIds,
-      targets,
-    },
-    actions: { removeTarget },
-  } = useRecipeBuilder();
-  const target = targets.find((candidate) => candidate.id === targetId);
-  if (!target) return null;
-
+  const form = useRecipeBuilderFormContext();
   const targetNameDescriptionId = `target-name-description-${target.id}`;
   const nameLocked =
     target.addedByDependency || (target.requirements?.length ?? 0) > 0;
   const targetNameDescription = nameLocked
-    ? `Set by ${dependencySourceNames.join(", ")}.`
+    ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
     : target.name.length === 0
       ? "Optional; leave blank to use the target kind for its path and package name."
       : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
@@ -58,6 +71,11 @@ export function TargetConfiguration({
   const roots = modules.filter(
     (module) => module.visibility === "public" && !childIds.has(module.id),
   );
+  const requiredModuleIds = new Set([
+    ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
+    ...(catalog?.targets.find((definition) => definition.kind === target.kind)
+      ?.requiredModules ?? []),
+  ]);
   return (
     <section className="p-5 md:p-7">
       <div className="border-b pb-5">
@@ -116,6 +134,8 @@ export function TargetConfiguration({
                 modules={modules}
                 selected={target.modules}
                 divided={index > 0}
+                onToggleModule={onToggleModule}
+                onToggleSupportModule={onToggleSupportModule}
                 relationships={
                   target.modules.includes(module.id) ||
                   requiredModuleIds.has(module.id)
@@ -126,6 +146,7 @@ export function TargetConfiguration({
                       )
                     : []
                 }
+                supportSelections={supportSelections}
                 {...(requiredModuleIds.has(module.id)
                   ? { requirement: "required" as const }
                   : {})}
@@ -143,7 +164,7 @@ export function TargetConfiguration({
               ? `Remove ${target.name} and dependent selections`
               : `Remove ${target.name}`
           }
-          onClick={() => removeTarget(target.id)}
+          onClick={() => onRemoveTarget(target.id)}
         >
           <Trash2 data-icon="inline-start" />
           Remove target

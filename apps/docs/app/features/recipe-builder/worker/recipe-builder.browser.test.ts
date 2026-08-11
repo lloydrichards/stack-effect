@@ -30,12 +30,13 @@ const runAtom = <Arg, A, E>(
 it.live("decodes recipe previews across the browser Worker boundary", () =>
   Effect.gen(function* () {
     const preview = yield* runAtom(previewAtom, {
+      targetIdentityKey: "full-stack",
       input: toRecipePreviewInput(fullStackRecipeFixture),
     });
-    const targetKeys = preview.blueprint.nodes.flatMap((node) =>
+    const targetKeys = preview.preview.blueprint.nodes.flatMap((node) =>
       node._tag === "target" ? [node.id] : [],
     );
-    const paths = preview.files.map((file) => file.path);
+    const paths = preview.preview.files.map((file) => file.path);
 
     assert.include(targetKeys, TargetKey.make("apps/client-react-web"));
     assert.include(targetKeys, TargetKey.make("apps/server-api"));
@@ -44,7 +45,7 @@ it.live("decodes recipe previews across the browser Worker boundary", () =>
     assert.include(paths, "apps/client-react-web/package.json");
     assert.include(paths, "apps/server-api/package.json");
     assert.include(paths, "packages/domain/package.json");
-    assert.include(preview.command, "full-stack-app");
+    assert.include(preview.preview.command, "full-stack-app");
   }),
 );
 

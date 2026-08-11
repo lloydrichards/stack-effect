@@ -1,5 +1,7 @@
 "use client";
 
+import { useSelector } from "@tanstack/react-form";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { Check } from "lucide-react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Button } from "~/components/ui/button";
@@ -23,22 +25,30 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { Toggle } from "~/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import { useRecipeBuilder } from "./recipe-builder-context";
+import {
+  useRecipeBuilderCatalog,
+  useRecipeBuilderFormContext,
+} from "./recipe-builder-context";
 
 type ToolField = "monorepo" | "lint" | "format" | "test";
 
 export function StackConfigurator() {
+  const form = useRecipeBuilderFormContext();
   const {
-    state: {
-      catalogState: choicesState,
-      config,
-      configurationChoices: choices,
-      developerExperienceModules,
-      form,
-      gitEnabled,
-    },
-    actions: { retryCatalog: retryChoices },
-  } = useRecipeBuilder();
+    catalog,
+    catalogResult,
+    retryCatalog: retryChoices,
+  } = useRecipeBuilderCatalog();
+  const config = useSelector(form.store, (state) => state.values.config);
+  const developerExperienceModules = useSelector(
+    form.store,
+    (state) => state.values.developerExperienceModules,
+  );
+  const gitEnabled = useSelector(
+    form.store,
+    (state) => state.values.gitEnabled,
+  );
+  const choices = catalog?.configuration;
   const runtime = config.runtime._tag;
   const packageManager =
     config.runtime._tag === "node" ? config.runtime.packageManager : "bun";
@@ -52,8 +62,9 @@ export function StackConfigurator() {
       title="Project setup"
       description="Configure the project foundation and repository tooling."
       defaultOpen
-      actions={
-        choicesState === "loading" ? (
+      actions={AsyncResult.builder(catalogResult)
+        .onSuccess(() => null)
+        .onInitialOrWaiting(() => (
           <span
             className="flex items-center gap-2 px-2 text-xs text-muted-foreground"
             role="status"
@@ -61,12 +72,13 @@ export function StackConfigurator() {
             <Spinner />
             <span className="sr-only sm:not-sr-only">Loading options…</span>
           </span>
-        ) : choicesState === "error" ? (
+        ))
+        .onFailure(() => (
           <Button variant="ghost" size="sm" onClick={retryChoices}>
             Retry options
           </Button>
-        ) : null
-      }
+        ))
+        .orNull()}
     >
       <FieldGroup className="grid grid-cols-1 gap-4 p-4 sm:grid-cols-2 md:p-5">
         <form.Field

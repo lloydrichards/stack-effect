@@ -1,6 +1,8 @@
 "use client";
 
 import type { RecipePreview } from "@repo/scaffold/recipe-preview";
+import { Option } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
 import { FileCode2 } from "lucide-react";
 import { type CSSProperties, useEffect, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
@@ -17,28 +19,25 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Spinner } from "~/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import { useRecipeBuilder } from "./recipe-builder-context";
+import { useRecipeBuilderPreview } from "./recipe-builder-context";
 import type { HighlightedSource, SyntaxToken } from "./syntax-highlighter";
-import type { PreviewState } from "./use-recipe-builder-state";
+import type { RecipeBuilderWorkerModel } from "./use-recipe-builder-worker";
 
 export function RepositoryExplorer() {
-  const {
-    state: { preview, previewState: state },
-  } = useRecipeBuilder();
+  const { canPreview, previewResult } = useRecipeBuilderPreview();
+  const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
   const selectedFileLabelId = useId();
   const [mobilePane, setMobilePane] = useState("files");
-  const [activeFile, setActiveFile] = useState("");
+  const [selectedFile, setSelectedFile] = useState("");
   const files = preview?.files ?? emptyFiles;
+  const activeFile = files.some((file) => file.path === selectedFile)
+    ? selectedFile
+    : (files[0]?.path ?? "");
   const tree = useMemo(() => fileTree(files.map((file) => file.path)), [files]);
   const source =
     files.find((file) => file.path === activeFile)?.contents ??
     "// Select a file to inspect its generated contents";
   const highlightedSource = useHighlightedSource(activeFile, source);
-
-  useEffect(() => {
-    const paths = files.map((file) => file.path);
-    if (!paths.includes(activeFile)) setActiveFile(paths[0] ?? "");
-  }, [activeFile, files]);
 
   const renderEditor = (viewport: "desktop" | "mobile") => (
     <div className="flex h-full min-w-0 flex-col bg-code-block">
@@ -100,16 +99,14 @@ export function RepositoryExplorer() {
           className="min-h-80"
           role="status"
           aria-live="polite"
-          aria-busy={state === "starting" || state === "loading"}
+          aria-busy={canPreview && previewResult.waiting}
         >
           <EmptyMedia variant="icon">
-            {state === "starting" || state === "loading" ? (
-              <Spinner />
-            ) : (
-              <FileCode2 />
-            )}
+            {canPreview && previewResult.waiting ? <Spinner /> : <FileCode2 />}
           </EmptyMedia>
-          <EmptyDescription>{previewStatusMessage(state)}</EmptyDescription>
+          <EmptyDescription>
+            {previewStatusMessage(previewResult, canPreview)}
+          </EmptyDescription>
         </Empty>
       ) : files.length === 0 ? (
         <Empty className="min-h-80">
@@ -125,7 +122,7 @@ export function RepositoryExplorer() {
           <div className="hidden h-[max(10rem,calc(100dvh-18rem))] lg:block">
             <ResizablePanelGroup orientation="horizontal">
               <ResizablePanel defaultSize={25} minSize={18}>
-                {renderExplorer(setActiveFile, true)}
+                {renderExplorer(setSelectedFile, true)}
               </ResizablePanel>
               <ResizableHandle withHandle />
               <ResizablePanel defaultSize={75} minSize={35}>
@@ -145,18 +142,18 @@ export function RepositoryExplorer() {
             <TabsContent
               value="files"
               keepMounted
-              className="flex min-h-80 max-h-[30rem] flex-col overflow-hidden"
+              className="flex min-h-80 max-h-120 flex-col overflow-hidden"
               style={{ height: "60vh" }}
             >
               {renderExplorer((path) => {
-                setActiveFile(path);
+                setSelectedFile(path);
                 setMobilePane("preview");
               }, false)}
             </TabsContent>
             <TabsContent
               value="preview"
               keepMounted
-              className="flex min-h-80 max-h-[30rem] flex-col overflow-hidden"
+              className="flex min-h-80 max-h-120 flex-col overflow-hidden"
               style={{ height: "60vh" }}
             >
               {renderEditor("mobile")}
@@ -170,14 +167,22 @@ export function RepositoryExplorer() {
 
 const emptyFiles: NonNullable<RecipePreview["files"]> = [];
 
-function previewStatusMessage(state: PreviewState) {
-  if (state === "starting" || state === "loading") {
-    return "Generating the repository preview…";
-  }
-  if (state === "error") {
-    return "The repository preview is unavailable. Review the error above and try again.";
-  }
-  return "Complete the Selection to generate the repository preview.";
+function previewStatusMessage(
+  result: RecipeBuilderWorkerModel["previewResult"],
+  canPreview: boolean,
+) {
+  if (!canPreview)
+    return "Complete the Selection to generate the repository preview.";
+
+  return AsyncResult.builder(result)
+    .onInitialOrWaiting(() => "Generating the repository preview…")
+    .onSuccess(() => "The repository preview contains no files.")
+    .onInterrupt(() => "Generating the repository preview…")
+    .onFailure(
+      () =>
+        "The repository preview is unavailable. Review the error above and try again.",
+    )
+    .exhaustive();
 }
 
 function useHighlightedSource(path: string, source: string) {

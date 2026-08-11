@@ -150,7 +150,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         value: "vitest",
       },
     ],
-    developerExperience: [],
+    devenv: [],
   },
 });
 
