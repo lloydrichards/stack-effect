@@ -36,6 +36,7 @@ export type CatalogAtomRequest = {
 };
 
 export type PreviewAtomRequest = {
+  readonly targetIdentityKey: string;
   readonly input: RecipePreviewInput;
 };
 
@@ -51,7 +52,8 @@ export const previewAtom = RecipeBuilderClient.runtime.fn(
   Effect.fnUntraced(function* (request: PreviewAtomRequest) {
     yield* Effect.sleep("200 millis");
     const client = yield* RecipeBuilderClient;
-    return yield* client("preview", request.input);
+    const preview = yield* client("preview", request.input);
+    return { request, preview } as const;
   }),
 );
 

@@ -10,15 +10,27 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import { useRecipeBuilder } from "../recipe-builder-context";
+import { ownerKey, targetKey } from "../builder-state";
 import { RecipeBuilderCatalog } from "../worker/domain";
 import { TargetConfiguration } from "./target-configuration";
+import { newTargetTabId, useTargetEditor } from "./use-target-editor";
 
 export function TargetSelector() {
   const {
-    state: { activeId, activeTarget, availableTargets, newTargetOpen, targets },
-    actions: { openTargetSelector, registerTargetTab, selectTarget },
-  } = useRecipeBuilder();
+    activeId,
+    activeTarget,
+    addTarget,
+    catalog,
+    registerTargetTab,
+    removeTarget,
+    selectTarget,
+    supportSelections,
+    targets,
+    toggleModule,
+    toggleSupportModule,
+  } = useTargetEditor();
+  const availableTargets =
+    catalog?.targets.filter((target) => target.kind !== "workspace") ?? [];
   return (
     <DisclosurePanel
       title="Targets"
@@ -54,8 +66,8 @@ export function TargetSelector() {
             size="lg"
             className="w-11 shrink-0 p-0 sm:w-auto sm:px-4"
             aria-label="Add target"
-            disabled={newTargetOpen}
-            onClick={openTargetSelector}
+            disabled={activeId === newTargetTabId}
+            onClick={() => selectTarget(newTargetTabId)}
           >
             <Plus data-icon="inline-start" />
             <span className="hidden sm:inline">Add target</span>
@@ -65,14 +77,26 @@ export function TargetSelector() {
           <TabsContent key={target.id} value={target.id}>
             {activeTarget?.id === target.id ? (
               <TargetConfiguration
+                catalog={catalog}
+                modules={
+                  catalog?.targetModules.find(
+                    (entry) => ownerKey(entry.owner) === targetKey(target),
+                  )?.modules ?? []
+                }
+                onRemoveTarget={removeTarget}
+                onToggleModule={toggleModule}
+                onToggleSupportModule={toggleSupportModule}
+                supportSelections={supportSelections}
+                target={target}
                 targetIndex={targetIndex}
-                targetId={activeTarget.id}
+                targets={targets}
               />
             ) : null}
           </TabsContent>
         ))}
         {activeTarget ? null : (
           <TargetOptions
+            onAddTarget={addTarget}
             firstTarget={targets.length === 0}
             targets={availableTargets}
           />
@@ -84,13 +108,15 @@ export function TargetSelector() {
 
 type TargetOptionsProps = {
   readonly firstTarget: boolean;
+  readonly onAddTarget: (kind: string) => void;
   readonly targets: (typeof RecipeBuilderCatalog.Type)["targets"];
 };
 
-function TargetOptions({ firstTarget, targets }: TargetOptionsProps) {
-  const {
-    actions: { addTarget },
-  } = useRecipeBuilder();
+function TargetOptions({
+  firstTarget,
+  onAddTarget,
+  targets,
+}: TargetOptionsProps) {
   return (
     <Empty className="min-h-64 items-stretch gap-5 p-5 md:p-6">
       <EmptyHeader className="mx-0 max-w-xl items-start text-left">
@@ -117,7 +143,7 @@ function TargetOptions({ firstTarget, targets }: TargetOptionsProps) {
                 index > 0 && "border-t",
                 "sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:border-l",
               )}
-              onClick={() => addTarget(target.kind)}
+              onClick={() => onAddTarget(target.kind)}
             >
               <span className="min-w-0 flex-1">
                 <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">

@@ -402,22 +402,40 @@ export function uniqueOwners<
   );
 }
 
-export function targetNameError(
-  target: TargetInstance,
+export function reconcileTargetsWithCatalog(
   targets: ReadonlyArray<TargetInstance>,
-): string | undefined {
-  if (!/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/.test(target.name))
-    return "Use lowercase letters, numbers, and single hyphens.";
-  if (
-    targets.some(
-      (candidate) =>
-        candidate.id !== target.id &&
-        candidate.kind === target.kind &&
-        candidate.name === target.name,
-    )
-  )
-    return "Target names must be unique within a target kind.";
-  return undefined;
+  catalog: typeof RecipeBuilderCatalog.Type,
+): {
+  readonly targets: ReadonlyArray<TargetInstance>;
+  readonly removedModules: ReadonlyArray<string>;
+} {
+  const reconciliation = targets.map((target) => {
+    const modules = catalog.targetModules.find(
+      (entry) => ownerKey(entry.owner) === targetKey(target),
+    )?.modules;
+    if (modules === undefined) return { target, removedModules: [] };
+    const supported = new Set<string>(modules.map((module) => module.id));
+    const filteredModules = target.modules.filter((module) =>
+      supported.has(module),
+    );
+    return {
+      target:
+        filteredModules.length === target.modules.length
+          ? target
+          : { ...target, modules: filteredModules },
+      removedModules: target.modules.filter((module) => !supported.has(module)),
+    };
+  });
+  const reconciled = reconciliation.map(({ target }) => target);
+
+  return {
+    targets: reconciled.every((target, index) => target === targets[index])
+      ? targets
+      : reconciled,
+    removedModules: reconciliation.flatMap(
+      ({ removedModules }) => removedModules,
+    ),
+  };
 }
 
 export function ownerKey(owner: {

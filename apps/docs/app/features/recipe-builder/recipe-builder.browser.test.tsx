@@ -11,6 +11,12 @@ const workerCalls = vi.hoisted(() => ({
   failPreviewCatalogOnce: false,
   previewCatalogFailures: 0,
   addPreviewCatalogOwner: false,
+  deferIdentityCatalog: false,
+  catalogSources: [] as Array<"identity" | "preview">,
+  pendingIdentityCatalogs: [] as Array<{
+    interrupted: boolean;
+    complete: () => void;
+  }>,
   deferPreviews: false,
   pendingPreviews: [] as Array<{
     interrupted: boolean;
@@ -70,13 +76,13 @@ vi.mock("./worker/client", async () => {
       ],
     };
   };
-
   return {
     recipeBuilderRpcErrorMessage: () =>
       "The preview worker stopped unexpectedly.",
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
         workerCalls.catalog += 1;
+        workerCalls.catalogSources.push(request.source);
         if (
           request.source === "preview" &&
           workerCalls.failPreviewCatalogOnce
@@ -101,19 +107,31 @@ vi.mock("./worker/client", async () => {
               })),
             }
           : recipeCatalogFixture;
-        return Effect.succeed({ request, catalog });
+        if (request.source !== "identity" || !workerCalls.deferIdentityCatalog)
+          return Effect.succeed({ request, catalog });
+        return Effect.callback((resume) => {
+          const pending = {
+            interrupted: false,
+            complete: () => resume(Effect.succeed({ request, catalog })),
+          };
+          workerCalls.pendingIdentityCatalogs.push(pending);
+          return Effect.sync(() => {
+            pending.interrupted = true;
+          });
+        });
       }),
     ),
     previewAtom: Atom.fn((request: PreviewAtomRequest) =>
       Effect.suspend(() => {
         workerCalls.preview += 1;
         if (!workerCalls.deferPreviews) {
-          return Effect.succeed(previewFor(request));
+          return Effect.succeed({ request, preview: previewFor(request) });
         }
         return Effect.callback((resume) => {
           const pending = {
             interrupted: false,
-            complete: () => resume(Effect.succeed(previewFor(request))),
+            complete: () =>
+              resume(Effect.succeed({ request, preview: previewFor(request) })),
           };
           workerCalls.pendingPreviews.push(pending);
           return Effect.sync(() => {
@@ -132,6 +150,9 @@ beforeEach(() => {
   workerCalls.failPreviewCatalogOnce = false;
   workerCalls.previewCatalogFailures = 0;
   workerCalls.addPreviewCatalogOwner = false;
+  workerCalls.deferIdentityCatalog = false;
+  workerCalls.catalogSources = [];
+  workerCalls.pendingIdentityCatalogs = [];
   workerCalls.deferPreviews = false;
   workerCalls.pendingPreviews = [];
 });
@@ -182,6 +203,35 @@ test("should handle reconciled catalog and preview results once", async () => {
     .poll(() => workerCalls.preview)
     .toBeGreaterThan(previewCallsAfterReconciliation);
   expect(workerCalls.catalog).toBe(catalogCallsAfterReconciliation);
+});
+
+test("should finish identity reconciliation before catalog enrichment", async () => {
+  await render(<RecipeBuilder />);
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByText("HTTP API Client", { exact: true }).click();
+  await expect
+    .element(page.getByRole("tab", { name: /api · server/u }))
+    .toBeVisible();
+
+  workerCalls.reconcileModules = true;
+  workerCalls.addPreviewCatalogOwner = true;
+  workerCalls.deferIdentityCatalog = true;
+  await page.getByLabelText("Target name").fill("renamed-web");
+  await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
+
+  const pendingIdentity = workerCalls.pendingIdentityCatalogs[0];
+  expect(pendingIdentity?.interrupted).toBe(false);
+  expect(workerCalls.catalogSources.at(-1)).toBe("identity");
+
+  workerCalls.deferIdentityCatalog = false;
+  pendingIdentity?.complete();
+
+  await expect
+    .element(page.getByText(/Removed modules that do not support/u))
+    .toBeVisible();
+  await expect.poll(() => workerCalls.catalogSources.at(-1)).toBe("preview");
+  expect(pendingIdentity?.interrupted).toBe(false);
 });
 
 test("should generate a preview for a target without modules", async () => {

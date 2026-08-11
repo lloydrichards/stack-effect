@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 import {
   buildModuleRelationshipNodes,
+  reconcileTargetsWithCatalog,
   removeModuleSupportSelections,
   toggleTargetModule,
 } from "./builder-state";
@@ -281,5 +282,25 @@ describe("recipe builder state", () => {
         selected: [],
       },
     ]);
+  });
+
+  it("should remove modules that are absent from the resolved catalog", () => {
+    const target = {
+      ...clientTargetFixture,
+      modules: ["config-typescript-vite", "client-react-http-api"],
+    };
+    const catalog = makeBuilderCatalog({
+      ...recipeCatalogFixture,
+      targetModules: recipeCatalogFixture.targetModules.map((entry) =>
+        entry.owner.kind === "client-react"
+          ? { ...entry, modules: [entry.modules[0]] }
+          : entry,
+      ),
+    });
+
+    expect(reconcileTargetsWithCatalog([target], catalog)).toEqual({
+      targets: [{ ...target, modules: ["config-typescript-vite"] }],
+      removedModules: ["client-react-http-api"],
+    });
   });
 });

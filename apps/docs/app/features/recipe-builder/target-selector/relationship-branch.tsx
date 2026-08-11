@@ -6,17 +6,26 @@ import {
   ownerKey,
   supportConfigurationKey,
 } from "../builder-state";
-import { useRecipeBuilder } from "../recipe-builder-context";
+import type {
+  SupportConfiguration,
+  SupportSelection,
+} from "../recipe-builder-form";
+import { CatalogModule } from "../worker/domain";
 
 type RelationshipBranchProps = {
   readonly node: ModuleRelationshipNode;
+  readonly onToggleSupportModule: (
+    configuration: SupportConfiguration,
+    module: typeof CatalogModule.Type,
+  ) => void;
+  readonly supportSelections: ReadonlyArray<SupportSelection>;
 };
 
-export function RelationshipBranch({ node }: RelationshipBranchProps) {
-  const {
-    state: { supportSelections },
-    actions: { toggleSupportModule },
-  } = useRecipeBuilder();
+export function RelationshipBranch({
+  node,
+  onToggleSupportModule,
+  supportSelections,
+}: RelationshipBranchProps) {
   const required = node.requirement === "required";
   const configuration = node.configuration;
   const selected = configuration
@@ -45,7 +54,7 @@ export function RelationshipBranch({ node }: RelationshipBranchProps) {
           checked={checked}
           disabled={disabled}
           onCheckedChange={() =>
-            configuration && toggleSupportModule(configuration, node.module)
+            configuration && onToggleSupportModule(configuration, node.module)
           }
         />
         <FieldLabel
@@ -70,6 +79,8 @@ export function RelationshipBranch({ node }: RelationshipBranchProps) {
             <RelationshipBranch
               key={`${ownerKey(child.owner)}#${child.module.id}`}
               node={child}
+              onToggleSupportModule={onToggleSupportModule}
+              supportSelections={supportSelections}
             />
           ))}
         </FieldGroup>
