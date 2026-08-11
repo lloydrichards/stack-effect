@@ -1,10 +1,10 @@
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { StackConfig } from "@repo/domain/Scaffold";
+import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Schema } from "effect";
-import {
-  CatalogModuleWire,
-  type RecipePreviewInputWire,
-} from "../../worker/recipe-preview-protocol";
+import { CatalogModule } from "./worker/domain";
 
 const RuntimeSchema = Schema.TaggedUnion({
   bun: {},
@@ -60,18 +60,16 @@ export const TargetInstanceSchema = Schema.Struct({
 export interface TargetInstance
   extends Schema.Schema.Type<typeof TargetInstanceSchema> {}
 
-export type CatalogModule = typeof CatalogModuleWire.Type;
-
 export type SupportConfiguration = {
   readonly owner: { readonly kind: string; readonly name: string };
-  readonly parent: CatalogModule;
-  readonly modules: ReadonlyArray<CatalogModule>;
+  readonly parent: typeof CatalogModule.Type;
+  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
 };
 
 export const SupportSelectionSchema = Schema.Struct({
   owner: Schema.Struct({ kind: Schema.String, name: Schema.String }),
-  parent: CatalogModuleWire,
-  modules: Schema.Array(CatalogModuleWire),
+  parent: CatalogModule,
+  modules: Schema.Array(CatalogModule),
   selected: Schema.Array(Schema.String),
 });
 
@@ -112,7 +110,7 @@ export interface RecipeBuilderFormValues
 export const recipeBuilderFormValidator: StandardSchemaV1<
   RecipeBuilderFormValues,
   RecipeBuilderFormValues
-> = Schema.toStandardSchemaV1(RecipeBuilderFormSchema);
+> = Schema.toStandardSchemaV1(Schema.toType(RecipeBuilderFormSchema));
 
 export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
   config: {
@@ -144,7 +142,7 @@ const targetKey = (target: { readonly kind: string; readonly name: string }) =>
 
 export function toRecipePreviewInput(
   values: RecipeBuilderFormValues,
-): RecipePreviewInputWire {
+): RecipePreviewInput {
   const supportTargets: ReadonlyArray<TargetInstance> =
     values.supportSelections.flatMap((selection) =>
       selection.selected.length > 0
@@ -174,23 +172,33 @@ export function toRecipePreviewInput(
   );
 
   return {
-    config: values.config,
+    config: new StackConfig(values.config),
     recipe: {
       targets: [
         ...(values.gitEnabled || values.developerExperienceModules.length > 0
           ? [
               {
-                target: { kind: "workspace", name: values.config.name },
+                target: new TargetIdentity({
+                  kind: TargetKind.make("workspace"),
+                  name: values.config.name,
+                }),
                 modules: [
-                  ...(values.gitEnabled ? ["workspace-devenv-git"] : []),
-                  ...values.developerExperienceModules,
+                  ...(values.gitEnabled
+                    ? [ModuleId.make("workspace-devenv-git")]
+                    : []),
+                  ...values.developerExperienceModules.map((id) =>
+                    ModuleId.make(id),
+                  ),
                 ],
               },
             ]
           : []),
         ...targets.map((target) => ({
-          target: { kind: target.kind, name: target.name },
-          modules: target.modules,
+          target: new TargetIdentity({
+            kind: TargetKind.make(target.kind),
+            name: target.name,
+          }),
+          modules: target.modules.map((id) => ModuleId.make(id)),
         })),
       ],
     },

@@ -1,23 +1,14 @@
 "use client";
 
 import { useAtom } from "@effect/atom-react";
+import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import type { RecipePreview } from "@repo/scaffold/recipe-preview";
 import { useStore } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
-import { Cause, Result } from "effect";
+import { Cause } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import { useEffect, useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
-import {
-  type CatalogRequestSource,
-  catalogAtom,
-  previewAtom,
-} from "../../atom/worker-atom";
-import { recipePreviewClientErrorMessage } from "../../worker/recipe-preview-client";
-import type {
-  BuilderCatalogOutputWire,
-  BuilderCatalogRequestWire,
-  RecipePreviewOutputWire,
-} from "../../worker/recipe-preview-protocol";
 import {
   dependencySourceNames,
   makeTargetInstance,
@@ -32,11 +23,18 @@ import {
   uniqueOwners,
 } from "./builder-state";
 import {
-  type CatalogModule,
   type SupportConfiguration,
   toRecipePreviewInput,
   useRecipeBuilderForm,
 } from "./recipe-builder-form";
+import {
+  type CatalogAtomRequest,
+  type CatalogRequestSource,
+  catalogAtom,
+  previewAtom,
+  recipeBuilderRpcErrorMessage,
+} from "./worker/client";
+import { CatalogModule, RecipeBuilderCatalog } from "./worker/domain";
 
 export type PreviewState =
   | "starting"
@@ -63,22 +61,23 @@ export function useRecipeBuilderState() {
     targets,
   } = values;
   const [activeId, setActiveId] = useState(newTargetTabId);
-  const [catalog, setCatalog] = useState<BuilderCatalogOutputWire>();
+  const [catalog, setCatalog] = useState<typeof RecipeBuilderCatalog.Type>();
   const [catalogState, setCatalogState] = useState<CatalogState>("loading");
   const [catalogRevision, setCatalogRevision] = useState(0);
-  const [preview, setPreview] = useState<RecipePreviewOutputWire>();
+  const [preview, setPreview] = useState<RecipePreview>();
   const [previewState, setPreviewState] = useState<PreviewState>("starting");
   const [previewError, setPreviewError] = useState<string>();
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const catalogGenerationRef = useRef(0);
-  const handledCatalogGenerationRef = useRef(0);
-  const previewGenerationRef = useRef(0);
-  const handledPreviewGenerationRef = useRef(0);
+  const handledCatalogResultRef = useRef<unknown>(undefined);
+  const handledPreviewResultRef = useRef<unknown>(undefined);
+  const pendingCatalogRequestRef = useRef<CatalogAtomRequest | undefined>(
+    undefined,
+  );
   const resolvedCatalogOwnersRef = useRef("");
   const retryCatalogOwnersRef = useRef<
     | {
         readonly targetIdentityKey: string;
-        readonly owners: BuilderCatalogRequestWire["owners"];
+        readonly owners: ReadonlyArray<TargetIdentity>;
         readonly source: CatalogRequestSource;
       }
     | undefined
@@ -109,8 +108,10 @@ export function useRecipeBuilderState() {
 
   useEffect(() => {
     setCatalogState((state) => (state === "ready" ? state : "loading"));
-    const generation = ++catalogGenerationRef.current;
-    const identityOwners = targets.map(({ kind, name }) => ({ kind, name }));
+    const identityOwners = targets.map(
+      ({ kind, name }) =>
+        new TargetIdentity({ kind: TargetKind.make(kind), name }),
+    );
     const retry = retryCatalogOwnersRef.current;
     const matchingRetry =
       retry?.targetIdentityKey === targetIdentityKey ? retry : undefined;
@@ -118,89 +119,80 @@ export function useRecipeBuilderState() {
     if (retry !== undefined && retry.targetIdentityKey !== targetIdentityKey) {
       retryCatalogOwnersRef.current = undefined;
     }
-    requestCatalog({
-      generation,
+    const request = {
       targetIdentityKey,
       owners,
       source: matchingRetry?.source ?? "identity",
-    });
+    } as const;
+    pendingCatalogRequestRef.current = request;
+    requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
     // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
   }, [catalogRevision, requestCatalog, targetIdentityKey]);
 
   useEffect(() => {
+    if (
+      catalogResult.waiting ||
+      handledCatalogResultRef.current === catalogResult
+    )
+      return;
+    handledCatalogResultRef.current = catalogResult;
+
     if (AsyncResult.isFailure(catalogResult)) {
       if (Cause.hasInterrupts(catalogResult.cause)) return;
+      const request = pendingCatalogRequestRef.current;
+      if (request !== undefined) retryCatalogOwnersRef.current = request;
       setCatalogState("error");
-      setPreviewState("error");
-      setPreviewError("The preview worker stopped unexpectedly.");
+      if (request?.source !== "preview") {
+        setPreviewState("error");
+        setPreviewError(recipeBuilderRpcErrorMessage(catalogResult.cause));
+      }
       return;
     }
     if (!AsyncResult.isSuccess(catalogResult)) return;
 
-    const { request, result } = catalogResult.value;
-    if (
-      request.generation !== catalogGenerationRef.current ||
-      request.generation === handledCatalogGenerationRef.current
-    )
-      return;
-    handledCatalogGenerationRef.current = request.generation;
+    const { request, catalog: nextCatalog } = catalogResult.value;
+    resolvedCatalogOwnersRef.current = request.owners
+      .map(ownerKey)
+      .join("\u0000");
+    retryCatalogOwnersRef.current = undefined;
+    setCatalog(nextCatalog);
+    setCatalogState("ready");
+    if (request.source !== "identity") return;
 
-    Result.match(result, {
-      onFailure: (error) => {
-        retryCatalogOwnersRef.current = {
-          targetIdentityKey: request.targetIdentityKey,
-          owners: request.owners,
-          source: request.source,
-        };
-        setCatalogState("error");
-        if (request.source === "identity") setPreviewState("error");
-        setPreviewError(recipePreviewClientErrorMessage(error));
-      },
-      onSuccess: (nextCatalog) => {
-        resolvedCatalogOwnersRef.current = request.owners
-          .map(ownerKey)
-          .join("\u0000");
-        retryCatalogOwnersRef.current = undefined;
-        setCatalog(nextCatalog);
-        setCatalogState("ready");
-        if (request.source !== "identity") return;
-
-        const removedModules = targets.flatMap((target) => {
-          const supported = new Set(
-            nextCatalog.targetModules
-              .find((entry) => ownerKey(entry.owner) === targetKey(target))
-              ?.modules.map((module) => module.id) ?? [],
-          );
-          return target.modules.filter((module) => !supported.has(module));
-        });
-        if (removedModules.length > 0) {
-          setCompatibilityNotice(
-            `Removed modules that do not support the renamed target: ${removedModules.join(", ")}.`,
-          );
-        }
-        form.setFieldValue("targets", (current) => {
-          const next = current.map((target) => {
-            const modules = nextCatalog.targetModules.find(
-              (entry) => ownerKey(entry.owner) === targetKey(target),
-            )?.modules;
-            if (modules === undefined) return target;
-            const supported = new Set(modules.map((module) => module.id));
-            const filteredModules = target.modules.filter((module) =>
-              supported.has(module),
-            );
-            return filteredModules.length === target.modules.length &&
-              filteredModules.every(
-                (module, index) => module === target.modules[index],
-              )
-              ? target
-              : { ...target, modules: filteredModules };
-          });
-          return next.every((target, index) => target === current[index])
-            ? current
-            : next;
-        });
-      },
+    const removedModules = targets.flatMap((target) => {
+      const supported = new Set<string>(
+        nextCatalog.targetModules
+          .find((entry) => ownerKey(entry.owner) === targetKey(target))
+          ?.modules.map((module) => module.id) ?? [],
+      );
+      return target.modules.filter((module) => !supported.has(module));
+    });
+    if (removedModules.length > 0) {
+      setCompatibilityNotice(
+        `Removed modules that do not support the renamed target: ${removedModules.join(", ")}.`,
+      );
+    }
+    form.setFieldValue("targets", (current) => {
+      const next = current.map((target) => {
+        const modules = nextCatalog.targetModules.find(
+          (entry) => ownerKey(entry.owner) === targetKey(target),
+        )?.modules;
+        if (modules === undefined) return target;
+        const supported = new Set<string>(modules.map((module) => module.id));
+        const filteredModules = target.modules.filter((module) =>
+          supported.has(module),
+        );
+        return filteredModules.length === target.modules.length &&
+          filteredModules.every(
+            (module, index) => module === target.modules[index],
+          )
+          ? target
+          : { ...target, modules: filteredModules };
+      });
+      return next.every((target, index) => target === current[index])
+        ? current
+        : next;
     });
   }, [catalogResult, form, targets]);
 
@@ -211,54 +203,52 @@ export function useRecipeBuilderState() {
       return;
     }
 
-    const generation = ++previewGenerationRef.current;
     setPreviewState("loading");
-    requestPreview({ generation, input: toRecipePreviewInput(values) });
+    requestPreview({ input: toRecipePreviewInput(values) });
   }, [canPreview, requestPreview, values]);
 
   useEffect(() => {
+    if (
+      previewResult.waiting ||
+      handledPreviewResultRef.current === previewResult
+    )
+      return;
+    handledPreviewResultRef.current = previewResult;
+
     if (AsyncResult.isFailure(previewResult)) {
       if (Cause.hasInterrupts(previewResult.cause)) return;
       setPreviewState("error");
-      setPreviewError("The preview worker stopped unexpectedly.");
+      setPreviewError(recipeBuilderRpcErrorMessage(previewResult.cause));
       return;
     }
     if (!AsyncResult.isSuccess(previewResult)) return;
 
-    const { request, result } = previewResult.value;
-    if (
-      request.generation !== previewGenerationRef.current ||
-      request.generation === handledPreviewGenerationRef.current
-    )
-      return;
-    handledPreviewGenerationRef.current = request.generation;
-
-    Result.match(result, {
-      onFailure: (error) => {
-        setPreviewState("error");
-        setPreviewError(recipePreviewClientErrorMessage(error));
-      },
-      onSuccess: (nextPreview) => {
-        setPreview(nextPreview);
-        setPreviewState("ready");
-        setPreviewError(undefined);
-        const resolvedOwners = nextPreview.blueprint.nodes.flatMap((node) =>
-          node._tag === "target" ? [node.identity] : [],
-        );
-        const owners = uniqueOwners([...targets, ...resolvedOwners]);
-        const ownersKey = owners.map(ownerKey).join("\u0000");
-        if (ownersKey === resolvedCatalogOwnersRef.current) return;
-        requestCatalog({
-          generation: ++catalogGenerationRef.current,
-          targetIdentityKey,
-          owners,
-          source: "preview",
-        });
-      },
-    });
+    const nextPreview = previewResult.value;
+    setPreview(nextPreview);
+    setPreviewState("ready");
+    setPreviewError(undefined);
+    const resolvedOwners = nextPreview.blueprint.nodes.flatMap((node) =>
+      node._tag === "target" ? [node.identity] : [],
+    );
+    const owners = uniqueOwners([
+      ...targets.map(
+        ({ kind, name }) =>
+          new TargetIdentity({ kind: TargetKind.make(kind), name }),
+      ),
+      ...resolvedOwners,
+    ]);
+    const ownersKey = owners.map(ownerKey).join("\u0000");
+    if (ownersKey === resolvedCatalogOwnersRef.current) return;
+    const request = {
+      targetIdentityKey,
+      owners,
+      source: "preview",
+    } as const;
+    pendingCatalogRequestRef.current = request;
+    requestCatalog(request);
   }, [previewResult, requestCatalog, targetIdentityKey, targets]);
 
-  const toggleModule = (module: CatalogModule) => {
+  const toggleModule = (module: typeof CatalogModule.Type) => {
     if (activeTarget === undefined || catalog === undefined) return;
     const selected = activeTarget.modules.includes(module.id);
     batch(() => {
@@ -287,7 +277,7 @@ export function useRecipeBuilderState() {
 
   const toggleSupportModule = (
     configuration: SupportConfiguration,
-    module: CatalogModule,
+    module: typeof CatalogModule.Type,
   ) =>
     form.setFieldValue("supportSelections", (current) =>
       toggleSupportSelection(current, configuration, module),

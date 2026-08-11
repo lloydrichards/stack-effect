@@ -198,18 +198,18 @@ export function StackConfigurator() {
                 form.setFieldValue("gitEnabled", enabled)
               }
             />
-            {choices?.developerExperience.map((choice) => (
+            {choices?.devenv.map((choice) => (
               <ConfigurationToggle
-                key={choice.id}
-                id={`stack-${choice.id}`}
+                key={choice.value}
+                id={`stack-${choice.value}`}
                 title={choice.title}
                 description={choice.description}
-                checked={developerExperienceModules.includes(choice.id)}
+                checked={developerExperienceModules.includes(choice.value)}
                 onCheckedChange={() =>
                   form.setFieldValue("developerExperienceModules", (current) =>
-                    current.includes(choice.id)
-                      ? current.filter((id) => id !== choice.id)
-                      : [...current, choice.id],
+                    current.includes(choice.value)
+                      ? current.filter((id) => id !== choice.value)
+                      : [...current, choice.value],
                   )
                 }
               />

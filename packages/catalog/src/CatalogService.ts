@@ -41,7 +41,7 @@ export type BuilderCatalogModule = {
   readonly owner: TargetIdentity;
   readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
   readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
-  readonly implications: ReadonlyArray<typeof ModuleImplication.Type>;
+  readonly implies: ReadonlyArray<typeof ModuleImplication.Type>;
   readonly children: ReadonlyArray<BuilderCatalogModuleChild>;
 };
 
@@ -273,7 +273,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
                 owner,
                 supportedOn: module.supportedOn,
                 dependencies: module.dependencies,
-                implications: module.implies ?? [],
+                implies: module.implies ?? [],
                 children: Arr.filterMap(module.children ?? [], (child) => {
                   const childModule = moduleIndex.get(child.moduleId);
                   if (

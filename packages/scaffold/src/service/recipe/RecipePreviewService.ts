@@ -6,12 +6,7 @@ import type { PlanFailure } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import * as MemoryFileSystem from "../../MemoryFileSystem";
-import {
-  type RecipePreview,
-  type RecipePreviewInput,
-  RecipePreviewInputSchema,
-  RecipePreviewSchema,
-} from "../../RecipePreviewSchema";
+import { RecipePreview, RecipePreviewInput } from "../../RecipePreviewSchema";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { BlueprintService } from "../blueprint/BlueprintService";
 import { PlanService } from "../plan/PlanService";
@@ -19,7 +14,10 @@ import type { RecipeError } from "./RecipeErrors";
 import { RecipeService } from "./RecipeService";
 
 export type { RecipePreview, RecipePreviewInput };
-export { RecipePreviewInputSchema, RecipePreviewSchema };
+export {
+  RecipePreview as RecipePreviewSchema,
+  RecipePreviewInput as RecipePreviewInputSchema,
+};
 
 export type RecipePreviewError =
   | RecipeError
