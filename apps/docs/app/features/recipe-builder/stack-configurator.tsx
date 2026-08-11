@@ -1,6 +1,7 @@
 "use client";
 
 import { useSelector } from "@tanstack/react-form";
+import { String as Str } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { Check } from "lucide-react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
@@ -180,7 +181,7 @@ export function StackConfigurator() {
           <ConfigurationSelect
             key={field}
             id={`stack-${field}`}
-            label={field === "monorepo" ? "Monorepo" : capitalize(field)}
+            label={field === "monorepo" ? "Monorepo" : Str.capitalize(field)}
             value={config[field] ?? ""}
             options={
               choices?.[field].map((choice) => ({
@@ -241,7 +242,6 @@ type ConfigurationSelectProps = {
     readonly value: string;
     readonly label: string;
   }>;
-  readonly optional?: boolean;
   readonly disabled?: boolean;
   readonly onChange: (value: string) => void;
 };
@@ -251,7 +251,6 @@ function ConfigurationSelect({
   label,
   value,
   options,
-  optional = false,
   disabled = false,
   onChange,
 }: ConfigurationSelectProps) {
@@ -279,7 +278,6 @@ function ConfigurationSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {optional ? <SelectItem value="__none__">None</SelectItem> : null}
             {options.map((option) => (
               <SelectItem key={option.value} value={option.value}>
                 {option.label}
@@ -289,9 +287,7 @@ function ConfigurationSelect({
         </SelectContent>
       </Select>
       {unavailable && (
-        <FieldError>
-          {value} is unavailable. Choose another option or None.
-        </FieldError>
+        <FieldError>{value} is unavailable. Choose another option.</FieldError>
       )}
     </Field>
   );
@@ -325,8 +321,4 @@ function ConfigurationToggle({
       <span className="sr-only">{description}</span>
     </Toggle>
   );
-}
-
-function capitalize(value: string) {
-  return `${value.slice(0, 1).toUpperCase()}${value.slice(1)}`;
 }

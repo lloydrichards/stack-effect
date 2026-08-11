@@ -1,21 +1,23 @@
 import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
+import type { SupportSelection } from "../../../../app/features/recipe-builder/form";
 import {
   buildModuleRelationshipNodes,
-  reconcileTargetsWithCatalog,
+  makeTargetInstance,
   removeModuleSupportSelections,
+  removeTargetAndDependencies,
   toggleTargetModule,
-} from "../../../app/features/recipe-builder/builder-state";
-import type { SupportSelection } from "../../../app/features/recipe-builder/recipe-builder-form";
+} from "../../../../app/features/recipe-builder/target-selector/state";
 import {
   CatalogModule,
   RecipeBuilderCatalog,
-} from "../../../app/features/recipe-builder/worker/domain";
+} from "../../../../app/features/recipe-builder/worker/domain";
 import {
   clientModuleFixture,
   clientTargetFixture,
   recipeCatalogFixture,
-} from "./recipe-fixtures";
+  serverTargetFixture,
+} from "../recipe-fixtures";
 
 const makeCatalogModule = Schema.decodeUnknownSync(CatalogModule);
 const makeBuilderCatalog = Schema.decodeUnknownSync(RecipeBuilderCatalog);
@@ -242,6 +244,64 @@ describe("recipe builder state", () => {
     ).toEqual([clientTargetFixture]);
   });
 
+  it("should preserve a manually selected module when its implication is removed", () => {
+    const selected = toggleTargetModule(
+      [clientTargetFixture, serverTargetFixture],
+      clientTargetFixture,
+      clientModuleFixture,
+      [clientModuleFixture],
+      recipeCatalogFixture,
+      () => 1,
+    );
+    const selectedClient = selected.find(
+      (target) => target.id === clientTargetFixture.id,
+    );
+    assert.isDefined(selectedClient);
+
+    const result = toggleTargetModule(
+      selected,
+      selectedClient,
+      clientModuleFixture,
+      [clientModuleFixture],
+      recipeCatalogFixture,
+      () => 2,
+    );
+
+    expect(
+      result.find((target) => target.id === serverTargetFixture.id)?.modules,
+    ).toEqual(["server-http-api"]);
+  });
+
+  it("should remove downstream implied targets when their source target is removed", () => {
+    const selected = toggleTargetModule(
+      [clientTargetFixture],
+      clientTargetFixture,
+      clientModuleFixture,
+      [clientModuleFixture],
+      recipeCatalogFixture,
+      () => 1,
+    );
+
+    expect(
+      removeTargetAndDependencies(selected, clientTargetFixture.id),
+    ).toEqual([]);
+  });
+
+  it("should remove the upstream source module when its implied target is removed", () => {
+    const selected = toggleTargetModule(
+      [clientTargetFixture],
+      clientTargetFixture,
+      clientModuleFixture,
+      [clientModuleFixture],
+      recipeCatalogFixture,
+      () => 1,
+    );
+
+    expect(removeTargetAndDependencies(selected, "implied-server-1")).toEqual([
+      clientTargetFixture,
+    ]);
+  });
+
   it("should remove nested support selections when their parent module is deselected", () => {
     const modules = [
       parentModuleFixture,
@@ -252,20 +312,17 @@ describe("recipe builder state", () => {
     const selections: ReadonlyArray<SupportSelection> = [
       {
         owner: { kind: "client-react", name: "web" },
-        parent: parentModuleFixture,
-        modules,
+        parentId: parentModuleFixture.id,
         selected: ["client-child"],
       },
       {
         owner: { kind: "client-react", name: "web" },
-        parent: childModuleFixture,
-        modules,
+        parentId: childModuleFixture.id,
         selected: ["client-leaf"],
       },
       {
         owner: { kind: "client-react", name: "web" },
-        parent: unrelatedModuleFixture,
-        modules,
+        parentId: unrelatedModuleFixture.id,
         selected: [],
       },
     ];
@@ -280,30 +337,52 @@ describe("recipe builder state", () => {
     ).toEqual([
       {
         owner: { kind: "client-react", name: "web" },
-        parent: unrelatedModuleFixture,
-        modules,
+        parentId: unrelatedModuleFixture.id,
         selected: [],
       },
     ]);
   });
 
-  it("should remove selected modules when the resolved catalog no longer supports them", () => {
-    const target = {
-      ...clientTargetFixture,
-      modules: ["config-typescript-vite", "client-react-http-api"],
-    };
-    const catalog = makeBuilderCatalog({
-      ...recipeCatalogFixture,
-      targetModules: recipeCatalogFixture.targetModules.map((entry) =>
-        entry.owner.kind === "client-react"
-          ? { ...entry, modules: [entry.modules[0]] }
-          : entry,
-      ),
+  it("should remove cyclic descendant selections when malformed catalog children form a cycle", () => {
+    const cyclicParent = makeCatalogModule({
+      ...parentModuleFixture,
+      children: [{ requirement: "required", moduleId: "client-child" }],
     });
+    const cyclicChild = makeCatalogModule({
+      ...childModuleFixture,
+      children: [{ requirement: "required", moduleId: "client-parent" }],
+    });
+    const modules = [cyclicParent, cyclicChild];
+    const selections: ReadonlyArray<SupportSelection> = modules.map(
+      (parent) => ({
+        owner: { kind: "client-react", name: "web" },
+        parentId: parent.id,
+        selected: [],
+      }),
+    );
 
-    expect(reconcileTargetsWithCatalog([target], catalog)).toEqual({
-      targets: [{ ...target, modules: ["config-typescript-vite"] }],
-      removedModules: ["client-react-http-api"],
-    });
+    expect(
+      removeModuleSupportSelections(
+        selections,
+        clientTargetFixture,
+        cyclicParent,
+        modules,
+      ),
+    ).toEqual([]);
+  });
+
+  it("should fill the first available suffix when default target names have a gap", () => {
+    const definition = recipeCatalogFixture.targets.find(
+      (target) => target.kind === "client-react",
+    );
+    assert.isDefined(definition);
+
+    expect(
+      makeTargetInstance("client-new", definition, [
+        clientTargetFixture,
+        { ...clientTargetFixture, id: "client-2", name: "web-2" },
+        { ...clientTargetFixture, id: "client-4", name: "web-4" },
+      ]).name,
+    ).toBe("web-3");
   });
 });

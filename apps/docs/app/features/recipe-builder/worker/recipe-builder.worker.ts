@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
-import { type BuilderCatalogModule, CatalogService } from "@repo/catalog";
+import { CatalogService } from "@repo/catalog";
 import { ModuleCategory } from "@repo/domain/Catalog";
 import {
   RecipePreviewService,
@@ -9,31 +9,7 @@ import {
 } from "@repo/scaffold/browser";
 import { Effect, Layer } from "effect";
 import { RpcServer } from "effect/unstable/rpc";
-import {
-  CatalogModule,
-  makeRecipeBuilderRpcFailure,
-  RecipeBuilderRpc,
-} from "./domain";
-
-const flattenModuleWalker = (
-  modules: ReadonlyArray<BuilderCatalogModule>,
-): ReadonlyArray<typeof CatalogModule.Type> =>
-  Array.from(
-    new Map(
-      modules
-        .flatMap((module) => [
-          {
-            ...module,
-            children: module.children.map((child) => ({
-              requirement: child.requirement,
-              moduleId: child.module.id,
-            })),
-          },
-          ...flattenModuleWalker(module.children.map((child) => child.module)),
-        ])
-        .map((module) => [module.id, module] as const),
-    ).values(),
-  );
+import { makeRecipeBuilderRpcFailure, RecipeBuilderRpc } from "./domain";
 
 const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
   Effect.gen(function* () {
@@ -68,10 +44,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
           );
         return {
           targets: projection.targets,
-          targetModules: projection.targetModules.map((target) => ({
-            owner: target.owner,
-            modules: flattenModuleWalker(target.modules),
-          })),
+          targetModules: projection.targetModules,
           configuration: {
             monorepo: configurationChoices("monorepo"),
             lint: configurationChoices("lint"),
@@ -97,5 +70,3 @@ const WorkerLive = RpcServer.layer(RecipeBuilderRpc, {
 );
 
 Effect.runFork(Layer.launch(WorkerLive));
-
-export {};

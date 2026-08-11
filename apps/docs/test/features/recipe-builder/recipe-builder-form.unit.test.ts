@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   initialRecipeBuilderValues,
   RecipeBuilderFormSchema,
-} from "../../../app/features/recipe-builder/recipe-builder-form";
+} from "../../../app/features/recipe-builder/form";
 
 const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormSchema);
 

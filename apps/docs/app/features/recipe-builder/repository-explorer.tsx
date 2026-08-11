@@ -30,55 +30,7 @@ import type { RecipeBuilderWorkerModel } from "./use-recipe-builder-worker";
 export function RepositoryExplorer() {
   const { canPreview, previewResult } = useRecipeBuilderPreview();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
-  const selectedFileLabelId = useId();
-  const [mobilePane, setMobilePane] = useState("files");
-  const [selectedFile, setSelectedFile] = useState("");
-  const files = preview?.files ?? emptyFiles;
-  const activeFile = files.some((file) => file.path === selectedFile)
-    ? selectedFile
-    : (files[0]?.path ?? "");
-  const tree = useMemo(() => fileTree(files.map((file) => file.path)), [files]);
-  const source =
-    files.find((file) => file.path === activeFile)?.contents ??
-    "// Select a file to inspect its generated contents";
-  const highlightedSource = useHighlightedSource(activeFile, source);
-
-  const renderEditor = (viewport: "desktop" | "mobile") => (
-    <div className="flex h-full min-w-0 flex-col bg-code-block">
-      <div
-        id={`${selectedFileLabelId}-${viewport}`}
-        className="flex min-w-0 items-center border-b bg-background px-3 py-2 font-mono text-xs"
-      >
-        <FileCode2 className="mr-2 shrink-0 text-primary" />
-        <span className="truncate" title={activeFile}>
-          {activeFile || "No file selected"}
-        </span>
-      </div>
-      <pre
-        className="min-h-0 flex-1 overflow-auto p-4 font-terminal text-xs leading-6"
-        role="region"
-        aria-labelledby={`${selectedFileLabelId}-${viewport}`}
-        tabIndex={0}
-      >
-        <code>{renderHighlightedSource(highlightedSource)}</code>
-      </pre>
-    </div>
-  );
-  const renderExplorer = (
-    onSelect: (path: string) => void,
-    showHeading: boolean,
-  ) => (
-    <div className="flex h-full min-h-0 flex-col">
-      {showHeading ? (
-        <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
-          Files
-        </div>
-      ) : null}
-      <ScrollArea className="min-h-0 flex-1" viewportClassName="p-2">
-        <FileTree nodes={tree} selectedPath={activeFile} onSelect={onSelect} />
-      </ScrollArea>
-    </div>
-  );
+  const files = preview?.files ?? [];
   return (
     <DisclosurePanel
       title="Generated repository"
@@ -122,54 +74,147 @@ export function RepositoryExplorer() {
           </EmptyDescription>
         </Empty>
       ) : (
-        <>
-          <div className="hidden h-[max(10rem,calc(100dvh-18rem))] lg:block">
-            <ResizablePanelGroup orientation="horizontal">
-              <ResizablePanel defaultSize={25} minSize={18}>
-                {renderExplorer(setSelectedFile, true)}
-              </ResizablePanel>
-              <ResizableHandle withHandle />
-              <ResizablePanel defaultSize={75} minSize={35}>
-                {renderEditor("desktop")}
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </div>
-          <Tabs
-            value={mobilePane}
-            onValueChange={setMobilePane}
-            className="lg:hidden"
-          >
-            <TabsList className="w-full" aria-label="Repository view">
-              <TabsTrigger value="files">Files</TabsTrigger>
-              <TabsTrigger value="preview">Preview</TabsTrigger>
-            </TabsList>
-            <TabsContent
-              value="files"
-              keepMounted
-              className="flex min-h-80 max-h-120 flex-col overflow-hidden"
-              style={{ height: "60vh" }}
-            >
-              {renderExplorer((path) => {
-                setSelectedFile(path);
-                setMobilePane("preview");
-              }, false)}
-            </TabsContent>
-            <TabsContent
-              value="preview"
-              keepMounted
-              className="flex min-h-80 max-h-120 flex-col overflow-hidden"
-              style={{ height: "60vh" }}
-            >
-              {renderEditor("mobile")}
-            </TabsContent>
-          </Tabs>
-        </>
+        <RepositoryWorkspace files={files} />
       )}
     </DisclosurePanel>
   );
 }
 
-const emptyFiles: NonNullable<RecipePreview["files"]> = [];
+function RepositoryWorkspace({
+  files,
+}: {
+  readonly files: NonNullable<RecipePreview["files"]>;
+}) {
+  const [mobilePane, setMobilePane] = useState("files");
+  const [selectedFile, setSelectedFile] = useState("");
+  const activeFile = files.some((file) => file.path === selectedFile)
+    ? selectedFile
+    : (files[0]?.path ?? "");
+  const tree = useMemo(() => fileTree(files.map((file) => file.path)), [files]);
+  const source =
+    files.find((file) => file.path === activeFile)?.contents ??
+    "// Select a file to inspect its generated contents";
+  const highlightedSource = useHighlightedSource(activeFile, source);
+
+  return (
+    <>
+      <div className="hidden h-[max(10rem,calc(100dvh-18rem))] lg:block">
+        <ResizablePanelGroup orientation="horizontal">
+          <ResizablePanel defaultSize={25} minSize={18}>
+            <RepositoryFileTree
+              activeFile={activeFile}
+              nodes={tree}
+              onSelect={setSelectedFile}
+              showHeading
+            />
+          </ResizablePanel>
+          <ResizableHandle withHandle />
+          <ResizablePanel defaultSize={75} minSize={35}>
+            <SourceEditor
+              activeFile={activeFile}
+              highlightedSource={highlightedSource}
+            />
+          </ResizablePanel>
+        </ResizablePanelGroup>
+      </div>
+      <Tabs
+        value={mobilePane}
+        onValueChange={setMobilePane}
+        className="lg:hidden"
+      >
+        <TabsList className="w-full" aria-label="Repository view">
+          <TabsTrigger value="files">Files</TabsTrigger>
+          <TabsTrigger value="preview">Preview</TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="files"
+          keepMounted
+          className="flex min-h-80 max-h-120 flex-col overflow-hidden"
+          style={{ height: "60vh" }}
+        >
+          <RepositoryFileTree
+            activeFile={activeFile}
+            nodes={tree}
+            onSelect={(path) => {
+              setSelectedFile(path);
+              setMobilePane("preview");
+            }}
+          />
+        </TabsContent>
+        <TabsContent
+          value="preview"
+          keepMounted
+          className="flex min-h-80 max-h-120 flex-col overflow-hidden"
+          style={{ height: "60vh" }}
+        >
+          <SourceEditor
+            activeFile={activeFile}
+            highlightedSource={highlightedSource}
+          />
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}
+
+type SourceEditorProps = {
+  readonly activeFile: string;
+  readonly highlightedSource: HighlightedSource;
+};
+
+function SourceEditor({ activeFile, highlightedSource }: SourceEditorProps) {
+  const editorLabelId = useId();
+  return (
+    <div className="flex h-full min-w-0 flex-col bg-code-block">
+      <div
+        id={editorLabelId}
+        className="flex min-w-0 items-center border-b bg-background px-3 py-2 font-mono text-xs"
+      >
+        <FileCode2 className="mr-2 shrink-0 text-primary" />
+        <span className="truncate" title={activeFile}>
+          {activeFile || "No file selected"}
+        </span>
+      </div>
+      <pre
+        className="min-h-0 flex-1 overflow-auto p-4 font-terminal text-xs leading-6"
+        role="region"
+        aria-labelledby={editorLabelId}
+        tabIndex={0}
+      >
+        <code>
+          <HighlightedSourceCode source={highlightedSource} />
+        </code>
+      </pre>
+    </div>
+  );
+}
+
+type RepositoryFileTreeProps = {
+  readonly activeFile: string;
+  readonly nodes: ReadonlyArray<FileTreeNodeData>;
+  readonly onSelect: (path: string) => void;
+  readonly showHeading?: boolean;
+};
+
+function RepositoryFileTree({
+  activeFile,
+  nodes,
+  onSelect,
+  showHeading = false,
+}: RepositoryFileTreeProps) {
+  return (
+    <div className="flex h-full min-h-0 flex-col">
+      {showHeading ? (
+        <div className="border-b px-3 py-2 text-xs font-medium text-muted-foreground">
+          Files
+        </div>
+      ) : null}
+      <ScrollArea className="min-h-0 flex-1" viewportClassName="p-2">
+        <FileTree nodes={nodes} selectedPath={activeFile} onSelect={onSelect} />
+      </ScrollArea>
+    </div>
+  );
+}
 
 function previewStatusMessage(
   result: RecipeBuilderWorkerModel["previewResult"],
@@ -179,17 +224,19 @@ function previewStatusMessage(
     return "Complete the Selection to generate the repository preview.";
 
   return AsyncResult.builder(result)
-    .onInitialOrWaiting(() => "Generating the repository preview…")
-    .onSuccess(() => "The repository preview contains no files.")
     .onInterrupt(() => "Generating the repository preview…")
     .onFailure(
       () =>
         "The repository preview is unavailable. Review the error above and try again.",
     )
-    .exhaustive();
+    .orElse(() => "Generating the repository preview…");
 }
 
-function renderHighlightedSource(source: HighlightedSource) {
+function HighlightedSourceCode({
+  source,
+}: {
+  readonly source: HighlightedSource;
+}) {
   return source.map((line, lineIndex) => (
     <span key={lineIndex} className="block min-h-6">
       {line.map((token, tokenIndex) => (

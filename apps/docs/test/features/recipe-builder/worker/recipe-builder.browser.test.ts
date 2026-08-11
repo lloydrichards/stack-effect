@@ -2,7 +2,7 @@ import { assert, it } from "@effect/vitest";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
-import { toRecipePreviewInput } from "../../../../app/features/recipe-builder/recipe-builder-form";
+import { toRecipePreviewInput } from "../../../../app/features/recipe-builder/form";
 import {
   catalogAtom,
   previewAtom,

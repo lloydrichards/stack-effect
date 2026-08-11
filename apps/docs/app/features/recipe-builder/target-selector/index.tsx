@@ -10,7 +10,6 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import { ownerKey, targetKey } from "../builder-state";
 import { RecipeBuilderCatalog } from "../worker/domain";
 import { TargetConfiguration } from "./target-configuration";
 import { newTargetTabId, useTargetEditor } from "./use-target-editor";
@@ -78,11 +77,6 @@ export function TargetSelector() {
             {activeTarget?.id === target.id ? (
               <TargetConfiguration
                 catalog={catalog}
-                modules={
-                  catalog?.targetModules.find(
-                    (entry) => ownerKey(entry.owner) === targetKey(target),
-                  )?.modules ?? []
-                }
                 onRemoveTarget={removeTarget}
                 onToggleModule={toggleModule}
                 onToggleSupportModule={toggleSupportModule}

@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import type {
   RecipeBuilderFormValues,
   TargetInstance,
-} from "../../../app/features/recipe-builder/recipe-builder-form";
+} from "../../../app/features/recipe-builder/form";
 import {
   CatalogModule,
   RecipeBuilderCatalog,

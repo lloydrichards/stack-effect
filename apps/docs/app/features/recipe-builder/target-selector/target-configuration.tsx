@@ -17,27 +17,24 @@ import {
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
-import {
-  buildModuleRelationshipNodes,
-  dependencySourceNames,
-} from "../builder-state";
-import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import type {
   SupportConfiguration,
   SupportSelection,
   TargetInstance,
-} from "../recipe-builder-form";
+} from "../form";
+import { ownerKey } from "../form";
+import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import { CatalogModule, RecipeBuilderCatalog } from "../worker/domain";
 import { ModuleBranch } from "./module-branch";
+import { buildModuleRelationshipNodes, dependencySourceNames } from "./state";
 
 type TargetConfigurationProps = {
   readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
-  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
   readonly onRemoveTarget: (id: string) => void;
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
-    module: typeof CatalogModule.Type,
+    moduleId: string,
   ) => void;
   readonly supportSelections: ReadonlyArray<SupportSelection>;
   readonly target: TargetInstance;
@@ -47,7 +44,6 @@ type TargetConfigurationProps = {
 
 export function TargetConfiguration({
   catalog,
-  modules,
   onRemoveTarget,
   onToggleModule,
   onToggleSupportModule,
@@ -57,9 +53,12 @@ export function TargetConfiguration({
   targets,
 }: TargetConfigurationProps) {
   const form = useRecipeBuilderFormContext();
+  const modules =
+    catalog?.targetModules.find(
+      (entry) => ownerKey(entry.owner) === ownerKey(target),
+    )?.modules ?? [];
   const targetNameDescriptionId = `target-name-description-${target.id}`;
-  const nameLocked =
-    target.addedByDependency || (target.requirements?.length ?? 0) > 0;
+  const nameLocked = (target.requirements?.length ?? 0) > 0;
   const targetNameDescription = nameLocked
     ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
     : target.name.length === 0

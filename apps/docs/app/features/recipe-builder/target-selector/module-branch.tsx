@@ -1,13 +1,14 @@
 import { Checkbox } from "~/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
-import { type ModuleRelationshipNode, ownerKey } from "../builder-state";
-import type {
-  SupportConfiguration,
-  SupportSelection,
-} from "../recipe-builder-form";
+import {
+  ownerKey,
+  type SupportConfiguration,
+  type SupportSelection,
+} from "../form";
 import { CatalogModule } from "../worker/domain";
 import { RelationshipBranch } from "./relationship-branch";
+import type { ModuleRelationshipNode } from "./state";
 
 type ModuleBranchProps = {
   readonly module: typeof CatalogModule.Type;
@@ -18,7 +19,7 @@ type ModuleBranchProps = {
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
-    module: typeof CatalogModule.Type,
+    moduleId: string,
   ) => void;
   readonly requirement?: "required" | "optional";
   readonly supportSelections: ReadonlyArray<SupportSelection>;

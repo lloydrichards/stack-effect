@@ -1,57 +1,68 @@
-import type {
-  SupportConfiguration,
-  SupportSelection,
-  TargetInstance,
-  TargetModuleRequirement,
-} from "./recipe-builder-form";
-import { CatalogModule, RecipeBuilderCatalog } from "./worker/domain";
+import {
+  ownerKey,
+  type SupportConfiguration,
+  type SupportSelection,
+  type TargetInstance,
+  type TargetModuleRequirement,
+} from "../form";
+import { CatalogModule, RecipeBuilderCatalog } from "../worker/domain";
+
+type Owner = SupportConfiguration["owner"];
 
 export type ModuleRelationshipNode = {
-  readonly owner: { readonly kind: string; readonly name: string };
+  readonly owner: Owner;
   readonly module: typeof CatalogModule.Type;
   readonly requirement: "required" | "optional";
   readonly children: ReadonlyArray<ModuleRelationshipNode>;
   readonly configuration?: SupportConfiguration;
 };
 
-export function descendantIds(
+function descendantIds(
   module: typeof CatalogModule.Type,
   modules: ReadonlyArray<typeof CatalogModule.Type>,
 ): ReadonlySet<string> {
-  const direct = module.children.map((child) => child.moduleId);
-  return new Set(
-    direct.flatMap((id) => {
-      const child = modules.find((candidate) => candidate.id === id);
-      return [id, ...(child ? descendantIds(child, modules) : [])];
-    }),
+  const modulesById = new Map<string, typeof CatalogModule.Type>(
+    modules.map((candidate) => [candidate.id, candidate]),
   );
+  const descendants = new Set<string>();
+  const visit = (moduleId: string) => {
+    if (descendants.has(moduleId)) return;
+    descendants.add(moduleId);
+    modulesById
+      .get(moduleId)
+      ?.children.forEach((child) => visit(child.moduleId));
+  };
+  module.children.forEach((child) => visit(child.moduleId));
+  return descendants;
 }
 
 export function buildModuleRelationshipNodes(
   root: typeof CatalogModule.Type,
-  rootOwner: { readonly kind: string; readonly name: string },
+  rootOwner: Owner,
   catalog: typeof RecipeBuilderCatalog.Type | undefined,
 ): ReadonlyArray<ModuleRelationshipNode> {
   if (catalog === undefined) return [];
   const visited = new Set([`${ownerKey(rootOwner)}#${root.id}`]);
-  const modulesFor = (owner: {
-    readonly kind: string;
-    readonly name: string;
-  }) =>
-    catalog.targetModules.find(
-      (entry) => ownerKey(entry.owner) === ownerKey(owner),
-    )?.modules ?? [];
-  const resolve = (
-    owner: { readonly kind: string; readonly name: string },
-    moduleId: string,
-  ) => modulesFor(owner).find((module) => module.id === moduleId);
+  const modulesByOwner = new Map(
+    catalog.targetModules.map(({ owner, modules }) => [
+      ownerKey(owner),
+      {
+        modules,
+        modulesById: new Map<string, typeof CatalogModule.Type>(
+          modules.map((module) => [module.id, module]),
+        ),
+      },
+    ]),
+  );
+  const resolve = (owner: Owner, moduleId: string) =>
+    modulesByOwner.get(ownerKey(owner))?.modulesById.get(moduleId);
   const childrenFor = (
     module: typeof CatalogModule.Type,
-    owner: { readonly kind: string; readonly name: string },
+    owner: Owner,
     includeModuleChildren = true,
   ): ReadonlyArray<ModuleRelationshipNode> => {
     const configuration = module.children.length
-      ? { owner, parent: module, modules: modulesFor(owner) }
+      ? { owner, parentId: module.id }
       : undefined;
     const candidates = [
       ...module.dependencies.flatMap((dependency) =>
@@ -115,7 +126,7 @@ export function buildModuleRelationshipNodes(
   return childrenFor(root, rootOwner, false);
 }
 
-export function addModuleImplications(
+function addModuleImplications(
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
   sourceModule: typeof CatalogModule.Type,
@@ -127,14 +138,17 @@ export function addModuleImplications(
       (candidate) => candidate.kind === implication.targetKind,
     );
     if (definition === undefined) return current;
-    const candidates = current.filter(
+    const matchingTargets = current.filter(
       (target) => target.kind === definition.kind,
     );
-    if (candidates.length > 1) return current;
-    const existing = candidates[0];
-    const name = existing?.name ?? definition.defaultName ?? definition.kind;
-    const dependencyOwned =
-      existing?.requirements?.some(
+    if (matchingTargets.length > 1) return current;
+    const existingTarget = matchingTargets[0];
+    const name =
+      existingTarget?.name ?? definition.defaultName ?? definition.kind;
+    const moduleAlreadySelected =
+      existingTarget?.modules.includes(implication.moduleId) ?? false;
+    const moduleWasDependencyAdded =
+      existingTarget?.requirements?.some(
         (candidate) =>
           candidate.moduleId === implication.moduleId && candidate.addedModule,
       ) ?? false;
@@ -142,12 +156,11 @@ export function addModuleImplications(
       sourceTargetId,
       sourceModuleId: sourceModule.id,
       moduleId: implication.moduleId,
-      addedModule:
-        dependencyOwned || !existing?.modules.includes(implication.moduleId),
+      addedModule: moduleWasDependencyAdded || !moduleAlreadySelected,
     };
-    if (existing) {
+    if (existingTarget) {
       return current.map((target) =>
-        target.id === existing.id
+        target.id === existingTarget.id
           ? {
               ...target,
               modules: Array.from(
@@ -172,20 +185,19 @@ export function addModuleImplications(
   }, targets);
 }
 
-export function removeModuleImplications(
+function removeModuleImplications(
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
   sourceModuleId: string,
 ): ReadonlyArray<TargetInstance> {
   return targets.flatMap((target) => {
-    const removed = (target.requirements ?? []).filter(
-      (requirement) =>
-        requirement.sourceTargetId === sourceTargetId &&
-        requirement.sourceModuleId === sourceModuleId,
-    );
+    const comesFromSource = (requirement: TargetModuleRequirement) =>
+      requirement.sourceTargetId === sourceTargetId &&
+      requirement.sourceModuleId === sourceModuleId;
+    const removed = (target.requirements ?? []).filter(comesFromSource);
     if (removed.length === 0) return [target];
     const requirements = (target.requirements ?? []).filter(
-      (requirement) => !removed.includes(requirement),
+      (requirement) => !comesFromSource(requirement),
     );
     const removableModules = new Set(
       removed
@@ -213,11 +225,11 @@ export function removeTargetAndDependencies(
   id: string,
 ): ReadonlyArray<TargetInstance> {
   const removed = targets.find((target) => target.id === id);
-  const withoutImplications = (removed?.modules ?? []).reduce(
+  const afterDownstreamCleanup = (removed?.modules ?? []).reduce(
     (current, moduleId) => removeModuleImplications(current, id, moduleId),
     targets,
   );
-  const withoutSources = (removed?.requirements ?? []).reduce(
+  const afterUpstreamCleanup = (removed?.requirements ?? []).reduce(
     (current, requirement) =>
       removeModuleImplications(
         current.map((target) =>
@@ -233,9 +245,9 @@ export function removeTargetAndDependencies(
         requirement.sourceTargetId,
         requirement.sourceModuleId,
       ),
-    withoutImplications,
+    afterDownstreamCleanup,
   );
-  return withoutSources.filter((target) => target.id !== id);
+  return afterUpstreamCleanup.filter((target) => target.id !== id);
 }
 
 export function removeModuleSupportSelections(
@@ -244,14 +256,15 @@ export function removeModuleSupportSelections(
   module: typeof CatalogModule.Type,
   modules: ReadonlyArray<typeof CatalogModule.Type>,
 ): ReadonlyArray<SupportSelection> {
+  const targetOwnerKey = ownerKey(target);
   const removedParentIds = new Set([
     module.id,
     ...descendantIds(module, modules),
   ]);
   return selections.filter(
     (selection) =>
-      ownerKey(selection.owner) !== ownerKey(target) ||
-      !removedParentIds.has(selection.parent.id),
+      ownerKey(selection.owner) !== targetOwnerKey ||
+      !removedParentIds.has(selection.parentId),
   );
 }
 
@@ -265,7 +278,7 @@ export function removeTargetSupportSelections(
   );
 }
 
-export function nextTargetName(
+function nextTargetName(
   baseName: string,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
   kind: string,
@@ -307,38 +320,42 @@ export function toggleTargetModule(
   nextId: () => number,
 ): ReadonlyArray<TargetInstance> {
   const selected = target.modules.includes(module.id);
+  if (!selected) {
+    const updated = targets.map((candidate) =>
+      candidate.id === target.id
+        ? { ...candidate, modules: [...candidate.modules, module.id] }
+        : candidate,
+    );
+    return addModuleImplications(updated, target.id, module, catalog, nextId);
+  }
+
   const descendants = descendantIds(module, modules);
   const updated = targets.map((candidate) =>
     candidate.id === target.id
       ? {
           ...candidate,
-          modules: selected
-            ? candidate.modules.filter(
-                (moduleId) =>
-                  moduleId !== module.id && !descendants.has(moduleId),
-              )
-            : [...candidate.modules, module.id],
+          modules: candidate.modules.filter(
+            (moduleId) => moduleId !== module.id && !descendants.has(moduleId),
+          ),
         }
       : candidate,
   );
-  return selected
-    ? removeModuleImplications(updated, target.id, module.id)
-    : addModuleImplications(updated, target.id, module, catalog, nextId);
+  return removeModuleImplications(updated, target.id, module.id);
 }
 
 export function toggleSupportSelection(
   selections: ReadonlyArray<SupportSelection>,
   configuration: SupportConfiguration,
-  module: typeof CatalogModule.Type,
+  moduleId: string,
 ): ReadonlyArray<SupportSelection> {
   const key = supportConfigurationKey(configuration);
   const existing = selections.find(
     (selection) => supportConfigurationKey(selection) === key,
   );
   const selected = existing?.selected ?? [];
-  const nextSelected = selected.includes(module.id)
-    ? selected.filter((moduleId) => moduleId !== module.id)
-    : [...selected, module.id];
+  const nextSelected = selected.includes(moduleId)
+    ? selected.filter((selectedId) => selectedId !== moduleId)
+    : [...selected, moduleId];
   return [
     ...selections.filter(
       (selection) => supportConfigurationKey(selection) !== key,
@@ -363,94 +380,8 @@ export function dependencySourceNames(
   );
 }
 
-export function mergeTargetInstances(
-  targets: ReadonlyArray<TargetInstance>,
-): ReadonlyArray<TargetInstance> {
-  return Array.from(
-    targets
-      .reduce((merged, target) => {
-        const key = targetKey(target);
-        const existing = merged.get(key);
-        merged.set(
-          key,
-          existing
-            ? {
-                ...existing,
-                modules: Array.from(
-                  new Set([...existing.modules, ...target.modules]),
-                ),
-              }
-            : target,
-        );
-        return merged;
-      }, new Map<string, TargetInstance>())
-      .values(),
-  );
-}
-
 export function supportConfigurationKey(
-  configuration: Pick<SupportConfiguration, "owner" | "parent">,
+  configuration: SupportConfiguration,
 ): string {
-  return `${ownerKey(configuration.owner)}#${configuration.parent.id}`;
-}
-
-export function uniqueOwners<
-  Owner extends { readonly kind: string; readonly name: string },
->(owners: ReadonlyArray<Owner>): ReadonlyArray<Owner> {
-  return Array.from(
-    new Map(owners.map((owner) => [ownerKey(owner), owner])).values(),
-  );
-}
-
-export function reconcileTargetsWithCatalog(
-  targets: ReadonlyArray<TargetInstance>,
-  catalog: typeof RecipeBuilderCatalog.Type,
-): {
-  readonly targets: ReadonlyArray<TargetInstance>;
-  readonly removedModules: ReadonlyArray<string>;
-} {
-  const reconciliation = targets.map((target) => {
-    const modules = catalog.targetModules.find(
-      (entry) => ownerKey(entry.owner) === targetKey(target),
-    )?.modules;
-    if (modules === undefined) return { target, removedModules: [] };
-    const supported = new Set<string>(modules.map((module) => module.id));
-    const filteredModules = target.modules.filter((module) =>
-      supported.has(module),
-    );
-    return {
-      target:
-        filteredModules.length === target.modules.length
-          ? target
-          : { ...target, modules: filteredModules },
-      removedModules: target.modules.filter((module) => !supported.has(module)),
-    };
-  });
-  const reconciled = reconciliation.map(({ target }) => target);
-
-  return {
-    targets: reconciled.every((target, index) => target === targets[index])
-      ? targets
-      : reconciled,
-    removedModules: reconciliation.flatMap(
-      ({ removedModules }) => removedModules,
-    ),
-  };
-}
-
-export function ownerKey(owner: {
-  readonly kind: string;
-  readonly name: string;
-}): string {
-  return `${owner.kind}/${owner.name}`;
-}
-
-export function targetKey(target: TargetInstance): string {
-  return ownerKey(target);
-}
-
-export function errorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "An unknown preview error occurred.";
+  return `${ownerKey(configuration.owner)}#${configuration.parentId}`;
 }
