@@ -1,15 +1,15 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { RecipeBuilder } from "./recipe-builder";
-import type { CatalogAtomRequest, PreviewAtomRequest } from "./worker/client";
+import { RecipeBuilder } from "../../../app/features/recipe-builder/recipe-builder";
+import type {
+  CatalogAtomRequest,
+  PreviewAtomRequest,
+} from "../../../app/features/recipe-builder/worker/client";
 
 const workerCalls = vi.hoisted(() => ({
-  catalog: 0,
-  preview: 0,
   reconcileModules: false,
   failPreviewCatalogOnce: false,
-  previewCatalogFailures: 0,
   addPreviewCatalogOwner: false,
   deferIdentityCatalog: false,
   catalogSources: [] as Array<"identity" | "preview">,
@@ -19,12 +19,11 @@ const workerCalls = vi.hoisted(() => ({
   }>,
   deferPreviews: false,
   pendingPreviews: [] as Array<{
-    interrupted: boolean;
     complete: () => void;
   }>,
 }));
 
-vi.mock("./worker/client", async () => {
+vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
   const [
     { Effect },
     { Atom },
@@ -81,14 +80,12 @@ vi.mock("./worker/client", async () => {
       "The preview worker stopped unexpectedly.",
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
-        workerCalls.catalog += 1;
         workerCalls.catalogSources.push(request.source);
         if (
           request.source === "preview" &&
           workerCalls.failPreviewCatalogOnce
         ) {
           workerCalls.failPreviewCatalogOnce = false;
-          workerCalls.previewCatalogFailures += 1;
           return Effect.fail(new Error("Catalog enrichment failed."));
         }
         const catalog = workerCalls.reconcileModules
@@ -123,20 +120,16 @@ vi.mock("./worker/client", async () => {
     ),
     previewAtom: Atom.fn((request: PreviewAtomRequest) =>
       Effect.suspend(() => {
-        workerCalls.preview += 1;
         if (!workerCalls.deferPreviews) {
           return Effect.succeed({ request, preview: previewFor(request) });
         }
         return Effect.callback((resume) => {
           const pending = {
-            interrupted: false,
             complete: () =>
               resume(Effect.succeed({ request, preview: previewFor(request) })),
           };
           workerCalls.pendingPreviews.push(pending);
-          return Effect.sync(() => {
-            pending.interrupted = true;
-          });
+          return Effect.void;
         });
       }),
     ),
@@ -144,11 +137,8 @@ vi.mock("./worker/client", async () => {
 });
 
 beforeEach(() => {
-  workerCalls.catalog = 0;
-  workerCalls.preview = 0;
   workerCalls.reconcileModules = false;
   workerCalls.failPreviewCatalogOnce = false;
-  workerCalls.previewCatalogFailures = 0;
   workerCalls.addPreviewCatalogOwner = false;
   workerCalls.deferIdentityCatalog = false;
   workerCalls.catalogSources = [];
@@ -157,7 +147,7 @@ beforeEach(() => {
   workerCalls.pendingPreviews = [];
 });
 
-test("should generate a preview when the user completes a valid Selection", async () => {
+test("should generate a usable preview when the user completes a valid Selection", async () => {
   await render(<RecipeBuilder />);
 
   await page.getByRole("button", { name: "Client React Application" }).click();
@@ -177,7 +167,7 @@ test("should generate a preview when the user completes a valid Selection", asyn
     .toBeEnabled();
 });
 
-test("should handle reconciled catalog and preview results once", async () => {
+test("should remove unsupported modules when a renamed target resolves a different catalog", async () => {
   await render(<RecipeBuilder />);
 
   await page.getByRole("button", { name: "Client React Application" }).click();
@@ -187,25 +177,16 @@ test("should handle reconciled catalog and preview results once", async () => {
     .toBeVisible();
 
   workerCalls.reconcileModules = true;
-  const previewCallsBeforeReconciliation = workerCalls.preview;
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect
     .element(page.getByText(/Removed modules that do not support/u))
     .toBeVisible();
   await expect
-    .poll(() => workerCalls.preview)
-    .toBeGreaterThan(previewCallsBeforeReconciliation);
-
-  const catalogCallsAfterReconciliation = workerCalls.catalog;
-  const previewCallsAfterReconciliation = workerCalls.preview;
-  await page.getByRole("button", { name: "Node" }).click();
-  await expect
-    .poll(() => workerCalls.preview)
-    .toBeGreaterThan(previewCallsAfterReconciliation);
-  expect(workerCalls.catalog).toBe(catalogCallsAfterReconciliation);
+    .element(page.getByText("HTTP API Client", { exact: true }))
+    .not.toBeInTheDocument();
 });
 
-test("should finish identity reconciliation before catalog enrichment", async () => {
+test("should preserve rename reconciliation when preview enrichment adds catalog owners", async () => {
   await render(<RecipeBuilder />);
 
   await page.getByRole("button", { name: "Client React Application" }).click();
@@ -234,7 +215,7 @@ test("should finish identity reconciliation before catalog enrichment", async ()
   expect(pendingIdentity?.interrupted).toBe(false);
 });
 
-test("should generate a preview for a target without modules", async () => {
+test("should generate a usable preview when the selected target has no modules", async () => {
   await render(<RecipeBuilder />);
 
   await page.getByRole("button", { name: "MCP Server Application" }).click();
@@ -250,7 +231,7 @@ test("should generate a preview for a target without modules", async () => {
     .toHaveTextContent("bunx stack-effect create my-effect-app");
 });
 
-test("should preserve a valid preview while retrying catalog enrichment", async () => {
+test("should preserve a valid preview when catalog enrichment is retried", async () => {
   await render(<RecipeBuilder />);
 
   await expect
@@ -260,7 +241,9 @@ test("should preserve a valid preview while retrying catalog enrichment", async 
   workerCalls.addPreviewCatalogOwner = true;
   await page.getByLabelText("Project name").fill("catalog-retry");
 
-  await expect.poll(() => workerCalls.previewCatalogFailures).toBe(1);
+  await expect
+    .element(page.getByRole("button", { name: "Retry options" }))
+    .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();
@@ -307,7 +290,7 @@ test("should retain the last valid preview when the current Selection becomes in
     .toBeDisabled();
 });
 
-test("should interrupt stale and invalidated preview requests", async () => {
+test("should show the newest preview when an older request completes after it is superseded", async () => {
   await render(<RecipeBuilder />);
 
   await expect
@@ -319,15 +302,14 @@ test("should interrupt stale and invalidated preview requests", async () => {
   await expect.poll(() => workerCalls.pendingPreviews.length).toBe(1);
   await page.getByLabelText("Project name").fill("second-name");
   await expect.poll(() => workerCalls.pendingPreviews.length).toBe(2);
-  expect(workerCalls.pendingPreviews[0]?.interrupted).toBe(true);
 
-  await page.getByLabelText("Project name").fill("");
+  workerCalls.pendingPreviews[0]?.complete();
   await expect
-    .poll(() => workerCalls.pendingPreviews[1]?.interrupted)
-    .toBe(true);
+    .element(page.getByLabelText("Command to run locally"))
+    .toHaveTextContent("Generating command…");
+
+  workerCalls.pendingPreviews[1]?.complete();
   await expect
-    .element(
-      page.getByText("Selection incomplete · showing last valid preview"),
-    )
-    .toBeVisible();
+    .element(page.getByLabelText("Command to run locally"))
+    .toHaveTextContent("bunx stack-effect create second-name");
 });

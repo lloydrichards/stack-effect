@@ -1,6 +1,14 @@
 {
   "extends": "@repo/config-typescript/vite.json",
-  "include": ["app/**/*", "app/**/.server/**/*", "app/**/.client/**/*"],
+  "include": [
+    "app/**/*",
+    "app/**/.server/**/*",
+    "app/**/.client/**/*",
+    "test/features/recipe-builder/recipe-fixtures.ts",
+    "test/features/recipe-builder/recipe-builder.browser.test.tsx",
+    "test/features/recipe-builder/recipe-builder-form.unit.test.ts",
+    "test/features/recipe-builder/worker/recipe-builder.browser.test.ts"
+  ],
   "compilerOptions": {
     "rootDirs": [".", "./.react-router/types"],
     "paths": {

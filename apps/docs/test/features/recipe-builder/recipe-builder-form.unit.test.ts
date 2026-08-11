@@ -3,12 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   initialRecipeBuilderValues,
   RecipeBuilderFormSchema,
-} from "./recipe-builder-form";
+} from "../../../app/features/recipe-builder/recipe-builder-form";
 
 const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormSchema);
 
 describe("recipe builder form", () => {
-  it("should reject a target name outside the canonical path format", () => {
+  it("should reject a target name when it is outside the canonical path format", () => {
     const result = decodeForm({
       ...initialRecipeBuilderValues,
       targets: [
@@ -24,7 +24,7 @@ describe("recipe builder form", () => {
     expect(Option.isNone(result)).toBe(true);
   });
 
-  it("should reject duplicate target identities", () => {
+  it("should reject target identities when their kind and name are duplicated", () => {
     const target = {
       id: "client-1",
       kind: "client-react",

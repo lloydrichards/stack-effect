@@ -5,14 +5,17 @@ import {
   reconcileTargetsWithCatalog,
   removeModuleSupportSelections,
   toggleTargetModule,
-} from "./builder-state";
-import type { SupportSelection } from "./recipe-builder-form";
+} from "../../../app/features/recipe-builder/builder-state";
+import type { SupportSelection } from "../../../app/features/recipe-builder/recipe-builder-form";
+import {
+  CatalogModule,
+  RecipeBuilderCatalog,
+} from "../../../app/features/recipe-builder/worker/domain";
 import {
   clientModuleFixture,
   clientTargetFixture,
   recipeCatalogFixture,
 } from "./recipe-fixtures";
-import { CatalogModule, RecipeBuilderCatalog } from "./worker/domain";
 
 const makeCatalogModule = Schema.decodeUnknownSync(CatalogModule);
 const makeBuilderCatalog = Schema.decodeUnknownSync(RecipeBuilderCatalog);
@@ -58,7 +61,7 @@ const unrelatedModuleFixture = makeCatalogModule({
 });
 
 describe("recipe builder state", () => {
-  it("should keep root configuration children out of dependency relationships", () => {
+  it("should omit configuration children when building root dependency relationships", () => {
     expect(
       buildModuleRelationshipNodes(
         parentModuleFixture,
@@ -81,7 +84,7 @@ describe("recipe builder state", () => {
     ).toEqual([]);
   });
 
-  it("should retain nested configuration beneath a required dependency", () => {
+  it("should retain nested configuration when it belongs to a required dependency", () => {
     const rootWithDependency = makeCatalogModule({
       ...unrelatedModuleFixture,
       dependencies: [
@@ -122,7 +125,7 @@ describe("recipe builder state", () => {
     ]);
   });
 
-  it("should add an implied target when a module with a cross-target implication is selected", () => {
+  it("should add the implied target when selecting a cross-target module", () => {
     const result = toggleTargetModule(
       [clientTargetFixture],
       clientTargetFixture,
@@ -155,7 +158,7 @@ describe("recipe builder state", () => {
     ]);
   });
 
-  it("should preserve a shared implied module when one source module is removed", () => {
+  it("should preserve an implied module when another source still requires it", () => {
     const secondClient = {
       ...clientTargetFixture,
       id: "client-2",
@@ -213,7 +216,7 @@ describe("recipe builder state", () => {
     ]);
   });
 
-  it("should remove a dependency-created target when its originating module is removed", () => {
+  it("should remove a dependency-created target when its source module is deselected", () => {
     const selected = toggleTargetModule(
       [clientTargetFixture],
       clientTargetFixture,
@@ -239,7 +242,7 @@ describe("recipe builder state", () => {
     ).toEqual([clientTargetFixture]);
   });
 
-  it("should remove nested support selections when their parent module is removed", () => {
+  it("should remove nested support selections when their parent module is deselected", () => {
     const modules = [
       parentModuleFixture,
       childModuleFixture,
@@ -284,7 +287,7 @@ describe("recipe builder state", () => {
     ]);
   });
 
-  it("should remove modules that are absent from the resolved catalog", () => {
+  it("should remove selected modules when the resolved catalog no longer supports them", () => {
     const target = {
       ...clientTargetFixture,
       modules: ["config-typescript-vite", "client-react-http-api"],
