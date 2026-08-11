@@ -1,13 +1,7 @@
 import { CatalogService } from "@repo/catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
-import { Selection } from "@repo/domain/Selection";
+import { PlanRequest } from "@repo/domain/Plan";
 import { Console, Effect, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
-
-const PlanInput = Schema.Struct({
-  selection: Selection,
-  config: Schema.optional(StackConfig),
-});
 
 /**
  * Serializes the catalog for external consumption (LLMs, CI, tooling).
@@ -20,7 +14,7 @@ export const schema = Command.make("schema", {}, () =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
 
-    const planInput = Schema.toStandardJSONSchemaV1(PlanInput)[
+    const planInput = Schema.toStandardJSONSchemaV1(PlanRequest)[
       "~standard"
     ].jsonSchema.input({ target: "draft-2020-12" });
 

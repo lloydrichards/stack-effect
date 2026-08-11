@@ -1,5 +1,20 @@
 import { Array as Arr, Order, Schema } from "effect";
 import { pathOrd } from "./Order";
+import { StackConfig } from "./Scaffold";
+import { Selection } from "./Selection";
+
+/**
+ * The portable request accepted by planning entry points.
+ *
+ * A persisted project configuration may supply `config`, so callers can omit
+ * it when their entry point has a configuration lookup step.
+ */
+export const PlanRequest = Schema.Struct({
+  selection: Selection,
+  config: Schema.optional(StackConfig),
+});
+
+export type PlanRequest = typeof PlanRequest.Type;
 
 export const RepoSnapshotPath = Schema.TaggedUnion({
   missing: {

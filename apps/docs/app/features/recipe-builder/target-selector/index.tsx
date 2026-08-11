@@ -10,8 +10,8 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import type { BuilderCatalogOutputWire } from "../../../worker/recipe-preview-protocol";
 import { useRecipeBuilder } from "../recipe-builder-context";
+import { RecipeBuilderCatalog } from "../worker/domain";
 import { TargetConfiguration } from "./target-configuration";
 
 export function TargetSelector() {
@@ -84,7 +84,7 @@ export function TargetSelector() {
 
 type TargetOptionsProps = {
   readonly firstTarget: boolean;
-  readonly targets: BuilderCatalogOutputWire["targets"];
+  readonly targets: (typeof RecipeBuilderCatalog.Type)["targets"];
 };
 
 function TargetOptions({ firstTarget, targets }: TargetOptionsProps) {

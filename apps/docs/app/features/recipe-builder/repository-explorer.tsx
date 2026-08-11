@@ -1,5 +1,6 @@
 "use client";
 
+import type { RecipePreview } from "@repo/scaffold/recipe-preview";
 import { FileCode2 } from "lucide-react";
 import { type CSSProperties, useEffect, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
@@ -16,7 +17,6 @@ import {
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Spinner } from "~/components/ui/spinner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
-import type { RecipePreviewOutputWire } from "../../worker/recipe-preview-protocol";
 import { useRecipeBuilder } from "./recipe-builder-context";
 import type { HighlightedSource, SyntaxToken } from "./syntax-highlighter";
 import type { PreviewState } from "./use-recipe-builder-state";
@@ -168,7 +168,7 @@ export function RepositoryExplorer() {
   );
 }
 
-const emptyFiles: NonNullable<RecipePreviewOutputWire["files"]> = [];
+const emptyFiles: NonNullable<RecipePreview["files"]> = [];
 
 function previewStatusMessage(state: PreviewState) {
   if (state === "starting" || state === "loading") {

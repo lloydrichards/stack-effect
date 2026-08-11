@@ -3,12 +3,12 @@ import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import { type ModuleRelationshipNode, ownerKey } from "../builder-state";
 import { useRecipeBuilder } from "../recipe-builder-context";
-import type { CatalogModule } from "../recipe-builder-form";
+import { CatalogModule } from "../worker/domain";
 import { RelationshipBranch } from "./relationship-branch";
 
 type ModuleBranchProps = {
-  readonly module: CatalogModule;
-  readonly modules: ReadonlyArray<CatalogModule>;
+  readonly module: typeof CatalogModule.Type;
+  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
   readonly selected: ReadonlyArray<string>;
   readonly relationships?: ReadonlyArray<ModuleRelationshipNode>;
   readonly divided?: boolean;

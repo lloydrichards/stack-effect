@@ -12,18 +12,18 @@ export const ApplyPreviewFileSchema = Schema.Struct({
 
 export type ApplyPreviewFile = typeof ApplyPreviewFileSchema.Type;
 
-export const RecipePreviewInputSchema = Schema.Struct({
+export const RecipePreviewInput = Schema.Struct({
   recipe: RecipeSpec,
   config: StackConfig,
 });
 
-export type RecipePreviewInput = typeof RecipePreviewInputSchema.Type;
+export type RecipePreviewInput = typeof RecipePreviewInput.Type;
 
-export const RecipePreviewSchema = Schema.Struct({
+export const RecipePreview = Schema.Struct({
   command: Schema.String,
   selection: Selection,
   blueprint: Blueprint,
   files: Schema.Array(ApplyPreviewFileSchema),
 });
 
-export type RecipePreview = typeof RecipePreviewSchema.Type;
+export type RecipePreview = typeof RecipePreview.Type;

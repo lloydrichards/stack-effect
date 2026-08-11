@@ -1,31 +1,33 @@
-import type { BuilderCatalogOutputWire } from "../../worker/recipe-preview-protocol";
+import { Schema } from "effect";
 import type {
-  CatalogModule,
   RecipeBuilderFormValues,
   TargetInstance,
 } from "./recipe-builder-form";
+import { CatalogModule, RecipeBuilderCatalog } from "./worker/domain";
 
-const configTypescriptViteModuleFixture: CatalogModule = {
+const makeCatalogModule = Schema.decodeUnknownSync(CatalogModule);
+
+const configTypescriptViteModuleFixture = makeCatalogModule({
   id: "config-typescript-vite",
   title: "Config TypeScript Vite",
   description: "Vite TypeScript preset for client applications",
   visibility: "internal",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [],
-};
+});
 
-const domainApiModuleFixture: CatalogModule = {
+const domainApiModuleFixture = makeCatalogModule({
   id: "domain-api-contracts",
   title: "Domain API",
   description: "Shared domain schemas and HTTP API definitions",
   visibility: "internal",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [],
-};
+});
 
-const serverHttpModuleFixture: CatalogModule = {
+const serverHttpModuleFixture = makeCatalogModule({
   id: "server-http-api",
   title: "HTTP API Server",
   description: "REST API endpoints with Effect HTTP",
@@ -37,11 +39,11 @@ const serverHttpModuleFixture: CatalogModule = {
       moduleId: "domain-api-contracts",
     },
   ],
-  implications: [],
+  implies: [],
   children: [],
-};
+});
 
-export const clientModuleFixture: CatalogModule = {
+export const clientModuleFixture = makeCatalogModule({
   id: "client-react-http-api",
   title: "HTTP API Client",
   description: "REST API client with Effect Atom and typed HttpApiClient",
@@ -53,9 +55,9 @@ export const clientModuleFixture: CatalogModule = {
       moduleId: "domain-api-contracts",
     },
   ],
-  implications: [{ targetKind: "server", moduleId: "server-http-api" }],
+  implies: [{ targetKind: "server", moduleId: "server-http-api" }],
   children: [],
-};
+});
 
 export const clientTargetFixture: TargetInstance = {
   id: "client-1",
@@ -71,7 +73,9 @@ export const serverTargetFixture: TargetInstance = {
   modules: ["server-http-api"],
 };
 
-export const recipeCatalogFixture: BuilderCatalogOutputWire = {
+export const recipeCatalogFixture = Schema.decodeUnknownSync(
+  RecipeBuilderCatalog,
+)({
   targets: [
     {
       kind: "client-react",
@@ -148,7 +152,7 @@ export const recipeCatalogFixture: BuilderCatalogOutputWire = {
     ],
     developerExperience: [],
   },
-};
+});
 
 export const fullStackRecipeFixture: RecipeBuilderFormValues = {
   config: {

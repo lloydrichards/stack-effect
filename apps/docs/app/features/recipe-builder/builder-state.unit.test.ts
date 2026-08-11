@@ -1,55 +1,60 @@
+import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 import {
   buildModuleRelationshipNodes,
   removeModuleSupportSelections,
   toggleTargetModule,
 } from "./builder-state";
-import type { CatalogModule, SupportSelection } from "./recipe-builder-form";
+import type { SupportSelection } from "./recipe-builder-form";
 import {
   clientModuleFixture,
   clientTargetFixture,
   recipeCatalogFixture,
 } from "./recipe-fixtures";
+import { CatalogModule, RecipeBuilderCatalog } from "./worker/domain";
 
-const childModuleFixture: CatalogModule = {
+const makeCatalogModule = Schema.decodeUnknownSync(CatalogModule);
+const makeBuilderCatalog = Schema.decodeUnknownSync(RecipeBuilderCatalog);
+
+const childModuleFixture = makeCatalogModule({
   id: "client-child",
   title: "Client child",
   description: "Required child module",
   visibility: "internal",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [{ requirement: "optional", moduleId: "client-leaf" }],
-};
+});
 
-const leafModuleFixture: CatalogModule = {
+const leafModuleFixture = makeCatalogModule({
   id: "client-leaf",
   title: "Client leaf",
   description: "Nested optional module",
   visibility: "public",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [],
-};
+});
 
-const parentModuleFixture: CatalogModule = {
+const parentModuleFixture = makeCatalogModule({
   id: "client-parent",
   title: "Client parent",
   description: "Parent module with nested support",
   visibility: "public",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [{ requirement: "required", moduleId: "client-child" }],
-};
+});
 
-const unrelatedModuleFixture: CatalogModule = {
+const unrelatedModuleFixture = makeCatalogModule({
   id: "client-unrelated",
   title: "Unrelated client module",
   description: "A separate support selection",
   visibility: "public",
   dependencies: [],
-  implications: [],
+  implies: [],
   children: [],
-};
+});
 
 describe("recipe builder state", () => {
   it("should keep root configuration children out of dependency relationships", () => {
@@ -57,7 +62,7 @@ describe("recipe builder state", () => {
       buildModuleRelationshipNodes(
         parentModuleFixture,
         { kind: "client-react", name: "web" },
-        {
+        makeBuilderCatalog({
           ...recipeCatalogFixture,
           targetModules: [
             ...recipeCatalogFixture.targetModules,
@@ -70,13 +75,13 @@ describe("recipe builder state", () => {
               ],
             },
           ],
-        },
+        }),
       ),
     ).toEqual([]);
   });
 
   it("should retain nested configuration beneath a required dependency", () => {
-    const rootWithDependency: CatalogModule = {
+    const rootWithDependency = makeCatalogModule({
       ...unrelatedModuleFixture,
       dependencies: [
         {
@@ -85,13 +90,13 @@ describe("recipe builder state", () => {
           moduleId: childModuleFixture.id,
         },
       ],
-    };
+    });
 
     expect(
       buildModuleRelationshipNodes(
         rootWithDependency,
         { kind: "server", name: "api" },
-        {
+        makeBuilderCatalog({
           ...recipeCatalogFixture,
           targetModules: [
             ...recipeCatalogFixture.targetModules,
@@ -100,7 +105,7 @@ describe("recipe builder state", () => {
               modules: [childModuleFixture, leafModuleFixture],
             },
           ],
-        },
+        }),
       ),
     ).toMatchObject([
       {

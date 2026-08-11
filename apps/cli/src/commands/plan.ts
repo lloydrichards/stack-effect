@@ -1,5 +1,4 @@
-import { StackConfig } from "@repo/domain/Scaffold";
-import { Selection } from "@repo/domain/Selection";
+import { PlanRequest } from "@repo/domain/Plan";
 import {
   BlueprintService,
   FinalizeService,
@@ -45,11 +44,6 @@ import { ConfigureService } from "../service/ConfigureService";
  * - `tree`: visual tree summary for human review
  */
 
-const PlanInput = Schema.Struct({
-  selection: Selection,
-  config: Schema.optional(StackConfig),
-});
-
 const formatFlag = Flag.choice("format", ["llm", "raw", "tree"]).pipe(
   Flag.optional,
   Flag.withAlias("f"),
@@ -78,7 +72,7 @@ export const plan = Command.make(
       );
 
       const input = yield* Schema.decodeUnknownEffect(
-        Schema.fromJsonString(PlanInput),
+        Schema.fromJsonString(PlanRequest),
       )(stdin);
 
       const configureService = yield* ConfigureService;
