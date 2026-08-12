@@ -14,17 +14,17 @@ import {
   useState,
 } from "react";
 import {
+  type CatalogAtomRequest,
+  catalogAtom,
+  previewAtom,
+} from "../../atom/recipe-builder-atom";
+import { RecipeBuilderCatalog } from "../../workers/recipe-builder/domain";
+import {
   ownerKey,
   type RecipeBuilderFormApi,
   TargetInstance,
   toRecipePreviewInput,
 } from "./form";
-import {
-  type CatalogAtomRequest,
-  catalogAtom,
-  previewAtom,
-} from "./worker/client";
-import { RecipeBuilderCatalog } from "./worker/domain";
 
 const reconcileTargetsWithCatalog = (
   targets: ReadonlyArray<TargetInstance>,

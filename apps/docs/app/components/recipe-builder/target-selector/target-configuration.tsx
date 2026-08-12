@@ -17,6 +17,10 @@ import {
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
 import { Separator } from "~/components/ui/separator";
+import {
+  CatalogModule,
+  RecipeBuilderCatalog,
+} from "../../../workers/recipe-builder/domain";
 import type {
   SupportConfiguration,
   SupportSelection,
@@ -24,7 +28,6 @@ import type {
 } from "../form";
 import { ownerKey } from "../form";
 import { useRecipeBuilderFormContext } from "../recipe-builder-context";
-import { CatalogModule, RecipeBuilderCatalog } from "../worker/domain";
 import { ModuleBranch } from "./module-branch";
 import { buildModuleRelationshipNodes, dependencySourceNames } from "./state";
 

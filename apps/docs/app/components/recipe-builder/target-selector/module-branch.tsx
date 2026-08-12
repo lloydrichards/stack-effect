@@ -1,12 +1,12 @@
 import { Checkbox } from "~/components/ui/checkbox";
 import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
+import { CatalogModule } from "../../../workers/recipe-builder/domain";
 import {
   ownerKey,
   type SupportConfiguration,
   type SupportSelection,
 } from "../form";
-import { CatalogModule } from "../worker/domain";
 import { RelationshipBranch } from "./relationship-branch";
 import type { ModuleRelationshipNode } from "./state";
 

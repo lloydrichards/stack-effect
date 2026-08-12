@@ -1,11 +1,14 @@
 import {
+  CatalogModule,
+  RecipeBuilderCatalog,
+} from "../../../workers/recipe-builder/domain";
+import {
   ownerKey,
   type SupportConfiguration,
   type SupportSelection,
   type TargetInstance,
   type TargetModuleRequirement,
 } from "../form";
-import { CatalogModule, RecipeBuilderCatalog } from "../worker/domain";
 
 type Owner = SupportConfiguration["owner"];
 

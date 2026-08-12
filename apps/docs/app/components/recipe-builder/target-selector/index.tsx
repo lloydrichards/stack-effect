@@ -10,7 +10,7 @@ import {
 import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
-import { RecipeBuilderCatalog } from "../worker/domain";
+import { RecipeBuilderCatalog } from "../../../workers/recipe-builder/domain";
 import { TargetConfiguration } from "./target-configuration";
 import { newTargetTabId, useTargetEditor } from "./use-target-editor";
 

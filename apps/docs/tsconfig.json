@@ -4,10 +4,7 @@
     "app/**/*",
     "app/**/.server/**/*",
     "app/**/.client/**/*",
-    "test/features/recipe-builder/recipe-fixtures.ts",
-    "test/features/recipe-builder/recipe-builder.browser.test.tsx",
-    "test/features/recipe-builder/recipe-builder-form.unit.test.ts",
-    "test/features/recipe-builder/worker/recipe-builder.browser.test.ts"
+    "test/**/*"
   ],
   "compilerOptions": {
     "rootDirs": [".", "./.react-router/types"],

@@ -1,11 +1,11 @@
 import { beforeEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { RecipeBuilder } from "../../../app/features/recipe-builder/recipe-builder";
 import type {
   CatalogAtomRequest,
   PreviewAtomRequest,
-} from "../../../app/features/recipe-builder/worker/client";
+} from "../../../app/atom/recipe-builder-atom";
+import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
 
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
@@ -21,7 +21,7 @@ const workerCalls = vi.hoisted(() => ({
   }>,
 }));
 
-vi.mock("../../../app/features/recipe-builder/worker/client", async () => {
+vi.mock("../../../app/atom/recipe-builder-atom", async () => {
   const [{ Effect }, { Atom }, { recipeCatalogFixture }] = await Promise.all([
     import("effect"),
     import("effect/unstable/reactivity"),

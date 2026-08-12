@@ -5,7 +5,10 @@ import { Cause, Effect, Layer, Option } from "effect";
 import { AtomRpc } from "effect/unstable/reactivity";
 import { RpcClient } from "effect/unstable/rpc";
 import type { RpcClientError } from "effect/unstable/rpc/RpcClientError";
-import { RecipeBuilderRpc, type RecipeBuilderRpcFailure } from "./domain";
+import {
+  RecipeBuilderRpc,
+  type RecipeBuilderRpcFailure,
+} from "../workers/recipe-builder/domain";
 
 class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
   "docs/RecipeBuilderClient",
@@ -18,9 +21,15 @@ class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
       Layer.provide(
         BrowserWorker.layer(
           () =>
-            new Worker(new URL("./recipe-builder.worker.ts", import.meta.url), {
-              type: "module",
-            }),
+            new Worker(
+              new URL(
+                "../workers/recipe-builder/recipe-builder.worker.ts",
+                import.meta.url,
+              ),
+              {
+                type: "module",
+              },
+            ),
         ),
       ),
     ),

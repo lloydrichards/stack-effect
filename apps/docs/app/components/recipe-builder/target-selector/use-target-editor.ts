@@ -2,12 +2,12 @@ import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
 import { useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
+import { CatalogModule } from "../../../workers/recipe-builder/domain";
 import { ownerKey, type SupportConfiguration } from "../form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
 } from "../recipe-builder-context";
-import { CatalogModule } from "../worker/domain";
 import {
   makeTargetInstance,
   removeModuleSupportSelections,

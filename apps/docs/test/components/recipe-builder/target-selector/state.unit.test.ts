@@ -1,17 +1,17 @@
 import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
-import type { SupportSelection } from "../../../../app/features/recipe-builder/form";
+import type { SupportSelection } from "../../../../app/components/recipe-builder/form";
 import {
   buildModuleRelationshipNodes,
   makeTargetInstance,
   removeModuleSupportSelections,
   removeTargetAndDependencies,
   toggleTargetModule,
-} from "../../../../app/features/recipe-builder/target-selector/state";
+} from "../../../../app/components/recipe-builder/target-selector/state";
 import {
   CatalogModule,
   RecipeBuilderCatalog,
-} from "../../../../app/features/recipe-builder/worker/domain";
+} from "../../../../app/workers/recipe-builder/domain";
 import {
   clientModuleFixture,
   clientTargetFixture,

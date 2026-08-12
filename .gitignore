@@ -15,6 +15,7 @@ node_modules
 # Testing
 coverage
 .vitest-attachments/
+**/__screenshots__/
 
 # Playwright
 /test-results/

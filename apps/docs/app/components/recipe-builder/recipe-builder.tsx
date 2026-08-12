@@ -7,6 +7,7 @@ import { CommandDock } from "~/components/molecules/command-dock";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { trackEvent } from "~/lib/analytics";
+import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
 import { PreviewStatus } from "./preview-status";
 import {
   RecipeBuilderProvider,
@@ -17,7 +18,6 @@ import {
 import { RepositoryExplorer } from "./repository-explorer";
 import { StackConfigurator } from "./stack-configurator";
 import { TargetSelector } from "./target-selector";
-import { recipeBuilderRpcErrorMessage } from "./worker/client";
 
 export function RecipeBuilder() {
   return (

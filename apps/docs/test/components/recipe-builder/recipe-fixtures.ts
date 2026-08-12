@@ -2,11 +2,11 @@ import { Schema } from "effect";
 import type {
   RecipeBuilderFormValues,
   TargetInstance,
-} from "../../../app/features/recipe-builder/form";
+} from "../../../app/components/recipe-builder/form";
 import {
   CatalogModule,
   RecipeBuilderCatalog,
-} from "../../../app/features/recipe-builder/worker/domain";
+} from "../../../app/workers/recipe-builder/domain";
 
 const makeCatalogModule = Schema.decodeUnknownSync(CatalogModule);
 

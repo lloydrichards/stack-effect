@@ -2,12 +2,9 @@ import { assert, it } from "@effect/vitest";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
-import { toRecipePreviewInput } from "../../../../app/features/recipe-builder/form";
-import {
-  catalogAtom,
-  previewAtom,
-} from "../../../../app/features/recipe-builder/worker/client";
-import { fullStackRecipeFixture } from "../recipe-fixtures";
+import { catalogAtom, previewAtom } from "../../app/atom/recipe-builder-atom";
+import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
+import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
 
 const runAtom = <Arg, A, E>(
   atom: import("effect/unstable/reactivity").Atom.AtomResultFn<Arg, A, E>,
@@ -58,7 +55,6 @@ it.live(
       const result = yield* runAtom(catalogAtom, {
         targetIdentityKey: owner.toKey(),
         owners: [owner],
-        source: "identity",
       });
       const targetModules = result.catalog.targetModules.find(
         (entry) => entry.owner.toKey() === owner.toKey(),
