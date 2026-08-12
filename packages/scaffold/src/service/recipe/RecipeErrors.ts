@@ -35,7 +35,7 @@ export class InvalidRecipeSpec extends Schema.TaggedError<InvalidRecipeSpec>()(
   {
     issues: Schema.Array(
       Schema.Struct({
-        path: Schema.Array(Schema.Union([Schema.String, Schema.Number])),
+        path: Schema.Array(Schema.Union([Schema.String, Schema.Finite])),
         message: Schema.String,
       }),
     ),

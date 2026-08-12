@@ -62,7 +62,10 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
       Effect.suspend(() => {
         if (workerCalls.failCatalogOnce) {
           workerCalls.failCatalogOnce = false;
-          return Effect.fail(new Error("Catalog enrichment failed."));
+          return Effect.fail({
+            _tag: "CatalogEnrichmentFailure",
+            message: "Catalog enrichment failed.",
+          });
         }
         const catalog = workerCalls.reconcileModules
           ? {

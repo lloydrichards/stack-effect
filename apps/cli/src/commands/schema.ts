@@ -18,12 +18,13 @@ export const schema = Command.make("schema", {}, () =>
       "~standard"
     ].jsonSchema.input({ target: "draft-2020-12" });
 
-    yield* Console.log(
-      Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))({
-        catalog: catalog.toCatalogTree,
-        planInput,
-      }),
-    );
+    const serialized = yield* Schema.encodeEffect(
+      Schema.fromJsonString(Schema.Unknown),
+    )({
+      catalog: catalog.toCatalogTree,
+      planInput,
+    });
+    yield* Console.log(serialized);
   }),
 ).pipe(
   Command.withDescription(

@@ -1,4 +1,3 @@
-/** @effect-diagnostics globalErrorInEffectFailure:skip-file */
 import { describe, expect, it } from "@effect/vitest";
 import type { TypeScriptCompositionOperation } from "@repo/domain/Plan";
 import { Effect } from "effect";

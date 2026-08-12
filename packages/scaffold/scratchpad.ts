@@ -4,7 +4,7 @@ import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, FileSystem, Random } from "effect";
+import { Console, Effect, FileSystem, Layer, Random } from "effect";
 import { Box } from "effect-boxes";
 import {
   ApplyService,
@@ -140,12 +140,15 @@ const main = Effect.gen(function* () {
 
 void Effect.runPromise(
   main.pipe(
-    Effect.provide(ApplyService.layer),
-    Effect.provide(BlueprintService.layer),
-    Effect.provide(PlanService.layer),
-    Effect.provide(ScaffoldFormatter.layer),
-    Effect.provide(BunServices.layer),
-    Effect.provide(CatalogService.layer),
+    Effect.provide(
+      Layer.mergeAll(
+        ApplyService.layer,
+        BlueprintService.layer,
+        PlanService.layer,
+        ScaffoldFormatter.layer,
+        CatalogService.layer,
+      ).pipe(Layer.provideMerge(BunServices.layer)),
+    ),
   ),
 ).catch((error) => {
   console.error("Error in Scaffold Scratchpad:", error);

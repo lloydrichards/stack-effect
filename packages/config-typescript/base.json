@@ -1,5 +1,5 @@
 {
-  "$schema": "../../node_modules/@effect/language-service/schema.json",
+  "$schema": "../../node_modules/@effect/tsgo/schema.json",
   "display": "Default",
   "compilerOptions": {
     "moduleResolution": "bundler",
@@ -34,14 +34,29 @@
       {
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
+        "effectFn": ["span"],
         "includeSuggestionsInTsc": true,
+        "layerGraphFollowDepth": 1,
+        "noExternal": true,
         "quickinfoMaximumLength": 1200,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",
           "layerMergeAllWithDependencies": "warning",
-          "missingEffectServiceDependency": "warning"
-        }
+          "missingEffectServiceDependency": "warning",
+          "schemaNumber": "warning",
+          "schemaSyncInEffect": "warning"
+        },
+        "overrides": [
+          {
+            "include": ["**/*.test.ts", "**/*.test.tsx"],
+            "options": {
+              "diagnosticSeverity": {
+                "globalErrorInEffectFailure": "off"
+              }
+            }
+          }
+        ]
       }
     ]
   },
