@@ -1,4 +1,3 @@
-/** @effect-diagnostics globalErrorInEffectFailure:skip-file */
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import {

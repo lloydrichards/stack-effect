@@ -86,7 +86,17 @@ export class RecipePreviewService extends Context.Service<
           ApplyPreviewService.layer.pipe(Layer.provide(fileSystemLayer)),
         ),
       );
-      const encodedConfig = Schema.encodeSync(StackConfig)(config);
+      const encodedConfig = yield* Schema.encodeEffect(StackConfig)(
+        config,
+      ).pipe(
+        Effect.mapError(
+          (error) =>
+            new ApplyFailure({
+              reason: "executionFailure",
+              message: `Could not serialize the preview configuration: ${error.message}`,
+            }),
+        ),
+      );
       const configContents = `${JSON.stringify(encodedConfig, null, 2)}\n`;
 
       return {
