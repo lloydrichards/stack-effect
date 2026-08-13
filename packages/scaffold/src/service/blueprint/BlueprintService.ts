@@ -21,7 +21,10 @@ import {
   Layer,
   Option,
   Ref,
+  SchemaIssue,
 } from "effect";
+
+const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
 type ResolutionState = {
   readonly targets: HashMap.HashMap<string, typeof BlueprintTargetNode.Type>;
@@ -59,7 +62,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           Effect.mapError(
             (cause) =>
               new BlueprintFailure({
-                message: `Invalid resolved Blueprint: ${cause.message}`,
+                message: `Invalid resolved Blueprint: ${formatSchemaIssue(cause)}`,
                 cause,
               }),
           ),

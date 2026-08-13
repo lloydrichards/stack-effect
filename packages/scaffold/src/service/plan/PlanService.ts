@@ -3,7 +3,15 @@ import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, Option, pipe } from "effect";
+import {
+  Array as Arr,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  pipe,
+  SchemaIssue,
+} from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import {
   collectAncestorPaths,
@@ -12,6 +20,8 @@ import {
 } from "./PlanAssessor";
 import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
 import { RepoSnapshotService } from "./RepoSnapshotService";
+
+const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
 export type PlanServiceBuildInput = {
   readonly blueprint: typeof Blueprint.Type;
@@ -127,7 +137,7 @@ export class PlanService extends Context.Service<
             (cause) =>
               new PlanFailure({
                 reason: "invalidPlanIntent",
-                message: `Invalid projected Plan: ${cause.message}`,
+                message: `Invalid projected Plan: ${formatSchemaIssue(cause)}`,
               }),
           ),
         );
