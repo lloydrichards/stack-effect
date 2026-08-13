@@ -1,5 +1,11 @@
 # stack-effect
 
+## 0.12.1
+
+### Patch Changes
+
+- bfc168b: upgrade to effect v4-rc
+
 ## 0.12.0
 
 ### Minor Changes
