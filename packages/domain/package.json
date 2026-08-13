@@ -27,7 +27,7 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "effect": "4.0.0-beta.104"
+    "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*"

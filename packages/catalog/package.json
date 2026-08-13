@@ -16,10 +16,10 @@
   },
   "dependencies": {
     "@repo/domain": "workspace:*",
-    "effect": "4.0.0-beta.104"
+    "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-beta.104",
+    "@effect/vitest": "4.0.0-rc.108",
     "@types/node": "^26.2.0",
     "@repo/config-typescript": "workspace:*",
     "vitest": "^4.1.10"

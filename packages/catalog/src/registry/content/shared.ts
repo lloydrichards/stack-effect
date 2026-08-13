@@ -5,7 +5,7 @@ export const packagePackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "effect": "4.0.0-beta.104"
+    "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",

@@ -8,10 +8,10 @@
         "@biomejs/biome": "2.5.7",
         "@changesets/cli": "^2.31.1",
         "@effect/language-service": "^0.87.2",
-        "@effect/platform-bun": "4.0.0-beta.104",
+        "@effect/platform-bun": "4.0.0-rc.108",
         "@effect/tsgo": "0.36.4",
         "@types/bun": "^1.3.14",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
         "turbo": "^2.10.9",
         "typescript": "7.0.2",
         "vitest": "^4.1.10",
@@ -24,16 +24,16 @@
         "stack-effect": "dist/index.js",
       },
       "devDependencies": {
-        "@effect/platform-bun": "4.0.0-beta.104",
-        "@effect/platform-node": "4.0.0-beta.104",
-        "@effect/vitest": "4.0.0-beta.104",
+        "@effect/platform-bun": "4.0.0-rc.108",
+        "@effect/platform-node": "4.0.0-rc.108",
+        "@effect/vitest": "4.0.0-rc.108",
         "@repo/catalog": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@repo/domain": "workspace:*",
         "@repo/scaffold": "workspace:*",
         "@repo/tui": "workspace:*",
         "@types/bun": "1.3.14",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
         "effect-boxes": "^0.17.0",
         "vitest": "^4.1.10",
       },
@@ -43,8 +43,8 @@
       "version": "0.1.1",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
-        "@effect/atom-react": "4.0.0-beta.104",
-        "@effect/platform-browser": "4.0.0-beta.104",
+        "@effect/atom-react": "4.0.0-rc.108",
+        "@effect/platform-browser": "4.0.0-rc.108",
         "@fontsource-variable/jetbrains-mono": "^5.2.8",
         "@mdx-js/react": "^3.1.1",
         "@react-router/node": "8.3.0",
@@ -58,7 +58,7 @@
         "@tanstack/store": "^0.11.1",
         "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
         "fancy-ansi": "^0.1.3",
         "isbot": "^5.1.43",
         "lucide-react": "^1.20.0",
@@ -77,7 +77,7 @@
         "unist-util-visit": "^5.1.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.104",
+        "@effect/vitest": "4.0.0-rc.108",
         "@mdx-js/rollup": "^3.1.1",
         "@react-router/dev": "8.3.0",
         "@repo/config-typescript": "workspace:*",
@@ -102,10 +102,10 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.104",
+        "@effect/vitest": "4.0.0-rc.108",
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^26.2.0",
         "vitest": "^4.1.10",
@@ -119,7 +119,7 @@
       "name": "@repo/domain",
       "version": "0.0.0",
       "dependencies": {
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
       },
       "devDependencies": {
         "@repo/config-typescript": "workspace:*",
@@ -131,12 +131,12 @@
       "dependencies": {
         "@repo/catalog": "workspace:*",
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
         "effect-boxes": "^0.17.0",
         "ts-morph": "^28.0.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.104",
+        "@effect/vitest": "4.0.0-rc.108",
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^26.2.0",
         "vitest": "^4.1.10",
@@ -147,11 +147,11 @@
       "version": "0.0.0",
       "dependencies": {
         "@repo/domain": "workspace:*",
-        "effect": "4.0.0-beta.104",
+        "effect": "4.0.0-rc.108",
         "effect-boxes": "^0.17.0",
       },
       "devDependencies": {
-        "@effect/vitest": "4.0.0-beta.104",
+        "@effect/vitest": "4.0.0-rc.108",
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^26.2.0",
         "vitest": "^4.1.10",
@@ -297,17 +297,17 @@
 
     "@dotenvx/primitives": ["@dotenvx/primitives@0.8.0", "", {}, "sha512-VYJy0uhFm9zTJ1TxBaW/pA8bjbOM/OttaNMwZ1RHG4JKyRG7DhSdiqD1ipQoAyoD22olUtxbP78W9xY3Wd11bg=="],
 
-    "@effect/atom-react": ["@effect/atom-react@4.0.0-beta.104", "", { "peerDependencies": { "effect": "^4.0.0-beta.104", "react": "^19.2.4", "scheduler": "*" } }, "sha512-AIVKxrvYHR/PhVa7ypVqHQj3mfj4Od4EUnOC4g7QxQS4PzNvckfzG/OomuvlDV5xn7GR/lF0MCSfNTNogNviqg=="],
+    "@effect/atom-react": ["@effect/atom-react@4.0.0-rc.108", "", { "peerDependencies": { "effect": "^4.0.0-rc.108", "react": ">=19.2.7 <20.0.0", "scheduler": ">=0.27.0 <0.28.0" } }, "sha512-GNHQ4ildpnI00AdyL3cKRBo387aEpoY6tIIfwPrrZoNbMGCVNupiAIReoD6dBwWIgOEIASd/YLwx1DR42Jqx7g=="],
 
     "@effect/language-service": ["@effect/language-service@0.87.2", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-CfiSoaVQO8pZgaMZGw5VvMvRGybsJ2LaSDoLYaqiVGvo/YYPYVR2GzUKY0h1NtIweq/+SQ5XLrvtzPIttWQ0GQ=="],
 
-    "@effect/platform-browser": ["@effect/platform-browser@4.0.0-beta.104", "", { "peerDependencies": { "effect": "^4.0.0-beta.104" } }, "sha512-wFw0STDOrZxBWYNYQVu3TBPeD+FrzO6nuNcav19n+R9PJPwYHpUhwV5j/q4CaE/UJ53JiDIan8D1Yz13EazQ6Q=="],
+    "@effect/platform-browser": ["@effect/platform-browser@4.0.0-rc.108", "", { "peerDependencies": { "effect": "^4.0.0-rc.108" } }, "sha512-u/q7G0e+KHvhvgf0leDTa2GGZ+NlUtghX1FwAtHQ8vfdyCB+ln61O7meNQBASDSsMLTfQ79qoTtSics6Ccj1zA=="],
 
-    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-beta.104", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.104" }, "peerDependencies": { "effect": "^4.0.0-beta.104" } }, "sha512-ECjT3zatrIAXVHVA8oc62e/kQ/zu98PfXfEVLlrQ0JeTLb0cDax9kcjUa8g3z0IbOuKpMlf87bCR6g6UDiJT7A=="],
+    "@effect/platform-bun": ["@effect/platform-bun@4.0.0-rc.108", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.108" }, "peerDependencies": { "effect": "^4.0.0-rc.108" } }, "sha512-27RoALzmzx6Qp4LrPIE8bYJfHe+8ZaAO3xLhJMEE6mVA8fxcPh4HAGwBv09Nk2qTFVh578SlSCY5ojUlqeSJ4A=="],
 
-    "@effect/platform-node": ["@effect/platform-node@4.0.0-beta.104", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-beta.104", "mime": "^4.1.0", "undici": "^8.7.0" }, "peerDependencies": { "effect": "^4.0.0-beta.104", "ioredis": "^5.7.0" } }, "sha512-edqD0sRzL3Qow26TnD+RuHNVolFB7c1M/xWGzW0TRc7PzXpRWQawM1haMXOrB8W1UXpg8T8jF5MU56vFhPGJyw=="],
+    "@effect/platform-node": ["@effect/platform-node@4.0.0-rc.108", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.0-rc.108", "mime": "^4.1.0", "undici": "^8.7.0" }, "peerDependencies": { "effect": "^4.0.0-rc.108", "ioredis": ">=5.7.0 <6.0.0" } }, "sha512-Nof78154BaHGdSYr4TPQFZ5+Dg+HkpmbI3SQUdwsby5QNs6yahGJPu2AgdIVqdx7pKZ2w7j/bvdnqoMmkG0PbA=="],
 
-    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-beta.104", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-beta.104" } }, "sha512-wZQWlreuCfR+Ip6E93h2Wo56lFdBTflzSErFKxvrAW06/ORa7yZMD4oq4Ow5aU5+AlQgomQSEeBKM7uao4ZewQ=="],
+    "@effect/platform-node-shared": ["@effect/platform-node-shared@4.0.0-rc.108", "", { "dependencies": { "@types/ws": "^8.18.1", "ws": "^8.21.0" }, "peerDependencies": { "effect": "^4.0.0-rc.108" } }, "sha512-g5dSRR+tHzFcWav5A6zbug78oV8WPJL5BJqgKlKtow0cQ2IpULcLZaP2xCYR3RJDvz5SETREmPCJ+BNONIsalw=="],
 
     "@effect/tsgo": ["@effect/tsgo@0.36.4", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.36.4", "@effect/tsgo-darwin-x64": "0.36.4", "@effect/tsgo-linux-arm": "0.36.4", "@effect/tsgo-linux-arm64": "0.36.4", "@effect/tsgo-linux-x64": "0.36.4", "@effect/tsgo-win32-arm64": "0.36.4", "@effect/tsgo-win32-x64": "0.36.4" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-fNmdUV6FgXnvIcG18AVS1SRXt7z9jsyBh5CKuJYmTsE+DgbLaWF0CevKHx7hQPcidDWRVmdJYfU66Jvc/ZEt6w=="],
 
@@ -325,7 +325,7 @@
 
     "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.36.4", "", { "os": "win32", "cpu": "x64" }, "sha512-q4j1q0ESYxxookjA0ECz/84DEH2MsP51K0aZb3uXKfxagHDASPoWDcVu4BJTcwrK5kdZzvw9QrCPjAXe9WZqng=="],
 
-    "@effect/vitest": ["@effect/vitest@4.0.0-beta.104", "", { "peerDependencies": { "effect": "^4.0.0-beta.104", "vitest": "^4.1.0" } }, "sha512-09AvNl3tJNR7hOEnxE8TqSlBTeqfrWu/s4mIjlv1q6c/r6izkH/qhUrByP87ebbEtCMPJDHHXNcKFs3kEbugbQ=="],
+    "@effect/vitest": ["@effect/vitest@4.0.0-rc.108", "", { "peerDependencies": { "effect": "^4.0.0-rc.108", "vitest": ">=4.1.0 <5.0.0" } }, "sha512-XD2GP1JATN28wnIeFGsBqYMuQDCHIodKKgFulGyG91GvuHqgf2gz+WxR2LPdyNoKMtr7lsbRzVj07niSYtIKzA=="],
 
     "@emnapi/core": ["@emnapi/core@1.10.0", "", { "dependencies": { "@emnapi/wasi-threads": "1.2.1", "tslib": "^2.4.0" } }, "sha512-yq6OkJ4p82CAfPl0u9mQebQHKPJkY7WrIuk205cTYnYe+k2Z8YBh11FrbRG/H6ihirqcacOgl2BIO8oyMQLeXw=="],
 
@@ -909,7 +909,7 @@
 
     "ee-first": ["ee-first@1.1.1", "", {}, "sha512-WMwm9LhRUo+WUaRN+vRuETqG89IgZphVSNkdFgeb6sS/E4OrDIN7t48CAewSHXc6C8lefD8KKfr5vY61brQlow=="],
 
-    "effect": ["effect@4.0.0-beta.104", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-YSSaaMc8gBoHnabYXlgHpKVctsj4ezTSoojdd8SA3NWHoZ7LMPiUDhCnP1ZSOfQ7ly6P6XLhAw216NfLEHfg2A=="],
+    "effect": ["effect@4.0.0-rc.108", "", { "dependencies": { "@standard-schema/spec": "^1.1.0", "fast-check": "^4.9.0", "kubernetes-types": "^1.30.0", "msgpackr": "^2.0.4", "uuid": "^14.0.1" } }, "sha512-KmI3DlKZWPvCL4QQ2FMaPOuxMt/7DrKMENCY/gQ+MkDR5QYw25wgU5Zmh/wVLboNjIci1gNOgNCFe4xqgxli3A=="],
 
     "effect-boxes": ["effect-boxes@0.17.0", "", { "peerDependencies": { "effect": ">=4.0.0-beta.59" } }, "sha512-F5nv7BESA3fkTjN1jkvl2j/XfrhS3q8j0WI7iuvHGtxYwdy8WCkYDrbrjakml4/r/vqmVdhKBOe4k9GztSHHVw=="],
 
@@ -1805,7 +1805,7 @@
 
     "@dotenvx/dotenvx/picomatch": ["picomatch@4.0.5", "", {}, "sha512-RvwwcruNjI1ncT5xRakeyS9Lf8lcItv34KD+aif+VH9kduAyfYBipGh12274xtenIPZ119/R9BdTBa8gAwSh0A=="],
 
-    "@effect/platform-node/undici": ["undici@8.7.0", "", {}, "sha512-N7iQtfyLhIMOFgQubvmLV26svHpO0bqKnAiWotTQCVKCmWrcGbBotPuW1x+xwYZ2VHdSTVUfPQQnlEt1/LouTQ=="],
+    "@effect/platform-node/undici": ["undici@8.10.0", "", {}, "sha512-HvltHd7avK13QIw/oLe4qoOLyoVSoafqJ2jYOrtMRBkbYT31eiBQ8O0ehRKZiEZCMEyLFQNIADpgCWC5fALvYQ=="],
 
     "@manypkg/find-root/@types/node": ["@types/node@12.20.55", "", {}, "sha512-J8xLz7q2OFulZ2cyGTLE1TbbZcjpno7FaN6zdJNrgAdrJ+DZzh/uFR6YrTb4C+nXakvud8Q4+rbhoIWlYQbUFQ=="],
 

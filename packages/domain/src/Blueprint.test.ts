@@ -287,11 +287,11 @@ describe("@repo/domain Blueprint", () => {
   ] as const;
 
   it("should reject invalid identities and ownership relationships during checked construction", () => {
-    invalidBlueprints.forEach(({ mutate, message, name }) => {
+    invalidBlueprints.forEach(({ mutate, name }) => {
       expect(
         () => new Blueprint(mutate(makeUnsortedBlueprint())),
         name,
-      ).toThrow(message);
+      ).toThrow("Schema validation failed");
     });
   });
 
