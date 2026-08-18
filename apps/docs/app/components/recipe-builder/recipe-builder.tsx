@@ -14,6 +14,7 @@ import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
   useRecipeBuilderPreview,
+  useRecipeBuilderUrl,
 } from "./recipe-builder-context";
 import { RepositoryExplorer } from "./repository-explorer";
 import { StackConfigurator } from "./stack-configurator";
@@ -31,6 +32,7 @@ function RecipeBuilderContent() {
   const form = useRecipeBuilderFormContext();
   const { compatibilityNotice } = useRecipeBuilderCatalog();
   const { canPreview, previewResult } = useRecipeBuilderPreview();
+  const { urlIssue } = useRecipeBuilderUrl();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
 
   const commandReady =
@@ -98,6 +100,14 @@ function RecipeBuilderContent() {
           <AlertCircle />
           <AlertTitle>Selection adjusted</AlertTitle>
           <AlertDescription>{compatibilityNotice}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {urlIssue ? (
+        <Alert variant="destructive">
+          <AlertCircle />
+          <AlertTitle>Shared recipe could not be restored</AlertTitle>
+          <AlertDescription>{urlIssue}</AlertDescription>
         </Alert>
       ) : null}
 

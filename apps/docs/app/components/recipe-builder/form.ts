@@ -125,9 +125,11 @@ export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
   supportSelections: [],
 };
 
-export function useRecipeBuilderForm() {
+export function useRecipeBuilderForm(
+  initialValues: RecipeBuilderFormValues = initialRecipeBuilderValues,
+) {
   return useForm({
-    defaultValues: initialRecipeBuilderValues,
+    defaultValues: initialValues,
     validators: { onChange: recipeBuilderFormValidator },
   });
 }
