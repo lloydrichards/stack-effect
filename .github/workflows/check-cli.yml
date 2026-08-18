@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Verify Types
-        run: bun type-check --filter=stack-effect
+        run: bun run type-check --filter=stack-effect
 
   formatting:
     name: "Formatting"
@@ -71,3 +71,6 @@ jobs:
 
       - name: Run Tests
         run: bun run test --filter=stack-effect
+
+      - name: Build
+        run: bun run build --filter=stack-effect
