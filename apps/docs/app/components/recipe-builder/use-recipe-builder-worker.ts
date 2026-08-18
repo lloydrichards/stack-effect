@@ -62,7 +62,10 @@ const reconcileTargetsWithCatalog = (
   };
 };
 
-export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
+export function useRecipeBuilderWorker(
+  form: RecipeBuilderFormApi,
+  enabled = true,
+) {
   const values = useSelector(form.store, (state) => state.values);
   const formValid = useSelector(form.store, (state) => state.isValid);
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
@@ -83,12 +86,13 @@ export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
     [previewRequestResult],
   );
   const retryCatalog = useCallback(() => {
-    if (lastCatalogRequestRef.current !== undefined) {
+    if (enabled && lastCatalogRequestRef.current !== undefined) {
       requestCatalog(lastCatalogRequestRef.current);
     }
-  }, [requestCatalog]);
+  }, [enabled, requestCatalog]);
 
   useEffect(() => {
+    if (!enabled) return;
     const request = {
       targetIdentityKey,
       owners: targets.map(
@@ -100,7 +104,7 @@ export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
     // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
-  }, [requestCatalog, targetIdentityKey]);
+  }, [enabled, requestCatalog, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(
     (result: typeof catalogRequestResult) => {
@@ -120,12 +124,15 @@ export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
     },
   );
 
-  useEffect(
-    () => reconcileCatalog(catalogRequestResult),
-    [catalogRequestResult],
-  );
+  useEffect(() => {
+    if (enabled) reconcileCatalog(catalogRequestResult);
+  }, [catalogRequestResult, enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      requestPreview(Atom.Interrupt);
+      return;
+    }
     if (!formValid) {
       requestPreview(Atom.Interrupt);
       return;
@@ -134,10 +141,10 @@ export function useRecipeBuilderWorker(form: RecipeBuilderFormApi) {
       targetIdentityKey,
       input: toRecipePreviewInput(values),
     });
-  }, [formValid, requestPreview, targetIdentityKey, values]);
+  }, [enabled, formValid, requestPreview, targetIdentityKey, values]);
 
   return {
-    canPreview: formValid,
+    canPreview: enabled && formValid,
     catalog,
     catalogResult,
     compatibilityNotice,

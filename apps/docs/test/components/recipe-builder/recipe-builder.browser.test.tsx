@@ -1,3 +1,4 @@
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
@@ -124,8 +125,72 @@ beforeEach(() => {
   workerCalls.pendingPreviews = [];
 });
 
+const renderRecipeBuilder = (initialEntry = "/builder") =>
+  render(
+    <MemoryRouter initialEntries={[initialEntry]}>
+      <RecipeBuilder />
+      <RecipeBuilderLocationProbe />
+    </MemoryRouter>,
+  );
+
+function RecipeBuilderLocationProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => navigate("/builder?name=shared-recipe")}
+      >
+        Load shared recipe
+      </button>
+      <button type="button" onClick={() => navigate("/builder")}>
+        Clear shared recipe
+      </button>
+      <output aria-label="Recipe URL search">{location.search}</output>
+    </>
+  );
+}
+
+test("should leave an invalid shared recipe URL visible without previewing a fallback", async () => {
+  await renderRecipeBuilder("/builder?target=server/api:");
+
+  await expect
+    .element(page.getByText("Shared recipe could not be restored"))
+    .toBeVisible();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent("?target=server/api:");
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeDisabled();
+});
+
+test("should replace valid URL edits and reset the existing form for external navigation", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByLabelText("Project name").fill("local-recipe");
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent("?name=local-recipe");
+  await expect
+    .element(page.getByLabelText("Project name"))
+    .toHaveValue("local-recipe");
+
+  await page.getByRole("button", { name: "Load shared recipe" }).click();
+  await expect
+    .element(page.getByLabelText("Project name"))
+    .toHaveValue("shared-recipe");
+
+  await page.getByRole("button", { name: "Clear shared recipe" }).click();
+  await expect
+    .element(page.getByLabelText("Project name"))
+    .toHaveValue("my-effect-app");
+});
+
 test("should generate a usable preview when the user completes a valid Selection", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await page.getByRole("button", { name: "Client React Application" }).click();
   await page.getByText("HTTP API Client", { exact: true }).click();
@@ -145,7 +210,7 @@ test("should generate a usable preview when the user completes a valid Selection
 });
 
 test("should remove unsupported modules when a renamed target resolves a different catalog", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await page.getByRole("button", { name: "Client React Application" }).click();
   await page.getByText("HTTP API Client", { exact: true }).click();
@@ -161,10 +226,13 @@ test("should remove unsupported modules when a renamed target resolves a differe
   await expect
     .element(page.getByText("HTTP API Client", { exact: true }))
     .not.toBeInTheDocument();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .not.toHaveTextContent("client-react-http-api");
 });
 
 test("should reconcile a rename after its delayed catalog request completes", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await page.getByRole("button", { name: "Client React Application" }).click();
   await page.getByText("HTTP API Client", { exact: true }).click();
@@ -190,7 +258,7 @@ test("should reconcile a rename after its delayed catalog request completes", as
 });
 
 test("should generate a usable preview when the selected target has no modules", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await page.getByRole("button", { name: "MCP Server Application" }).click();
 
@@ -207,7 +275,7 @@ test("should generate a usable preview when the selected target has no modules",
 
 test("should preserve a valid preview when catalog loading is retried", async () => {
   workerCalls.failCatalogOnce = true;
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await expect
     .element(page.getByText(/Live in-memory pipeline/u))
@@ -234,7 +302,7 @@ test("should preserve a valid preview when catalog loading is retried", async ()
 });
 
 test("should retain the last valid preview when the current Selection becomes invalid", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await expect
     .element(page.getByText(/Live in-memory pipeline/u))
@@ -263,7 +331,7 @@ test("should retain the last valid preview when the current Selection becomes in
 });
 
 test("should show the newest preview when an older request completes after it is superseded", async () => {
-  await render(<RecipeBuilder />);
+  await renderRecipeBuilder();
 
   await expect
     .element(page.getByText(/Live in-memory pipeline/u))

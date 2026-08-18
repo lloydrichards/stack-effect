@@ -1,5 +1,6 @@
 import { createContext, type ReactNode, use, useMemo } from "react";
-import { type RecipeBuilderFormApi, useRecipeBuilderForm } from "./form";
+import { type RecipeBuilderFormApi } from "./form";
+import { useRecipeBuilderUrlState } from "./use-recipe-builder-url-state";
 import {
   type RecipeBuilderWorkerModel,
   useRecipeBuilderWorker,
@@ -19,6 +20,10 @@ type RecipeBuilderPreviewModel = Pick<
   "canPreview" | "previewResult"
 >;
 
+type RecipeBuilderUrlModel = {
+  readonly urlIssue: string | undefined;
+};
+
 const RecipeBuilderCatalogContext = createContext<
   RecipeBuilderCatalogModel | undefined
 >(undefined);
@@ -27,13 +32,17 @@ const RecipeBuilderPreviewContext = createContext<
   RecipeBuilderPreviewModel | undefined
 >(undefined);
 
+const RecipeBuilderUrlContext = createContext<
+  RecipeBuilderUrlModel | undefined
+>(undefined);
+
 export function RecipeBuilderProvider({
   children,
 }: {
   readonly children: ReactNode;
 }) {
-  const form = useRecipeBuilderForm();
-  const worker = useRecipeBuilderWorker(form);
+  const urlState = useRecipeBuilderUrlState();
+  const worker = useRecipeBuilderWorker(urlState.form, urlState.workerEnabled);
   const catalog = useMemo<RecipeBuilderCatalogModel>(
     () => ({
       catalog: worker.catalog,
@@ -55,12 +64,18 @@ export function RecipeBuilderProvider({
     }),
     [worker.canPreview, worker.previewResult],
   );
+  const url = useMemo<RecipeBuilderUrlModel>(
+    () => ({ urlIssue: urlState.urlIssue }),
+    [urlState.urlIssue],
+  );
 
   return (
-    <RecipeBuilderFormContext value={form}>
+    <RecipeBuilderFormContext value={urlState.form}>
       <RecipeBuilderCatalogContext value={catalog}>
         <RecipeBuilderPreviewContext value={preview}>
-          {children}
+          <RecipeBuilderUrlContext value={url}>
+            {children}
+          </RecipeBuilderUrlContext>
         </RecipeBuilderPreviewContext>
       </RecipeBuilderCatalogContext>
     </RecipeBuilderFormContext>
@@ -95,4 +110,14 @@ export function useRecipeBuilderPreview() {
     );
   }
   return preview;
+}
+
+export function useRecipeBuilderUrl() {
+  const url = use(RecipeBuilderUrlContext);
+  if (url === undefined) {
+    throw new Error(
+      "useRecipeBuilderUrl must be used inside RecipeBuilderProvider",
+    );
+  }
+  return url;
 }
