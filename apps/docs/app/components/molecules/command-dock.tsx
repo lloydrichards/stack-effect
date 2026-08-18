@@ -13,6 +13,7 @@ type CommandDockProps = {
   readonly shareUrl?: string;
   readonly sticky?: boolean;
   readonly onCopySuccess?: () => void;
+  readonly onShareSuccess?: () => void;
 };
 
 export function CommandDock({
@@ -22,6 +23,7 @@ export function CommandDock({
   shareUrl,
   sticky = true,
   onCopySuccess,
+  onShareSuccess,
 }: CommandDockProps) {
   const { status, copy, reset } = useCopyToClipboard();
   const {
@@ -52,8 +54,12 @@ export function CommandDock({
     if (await copy(command)) onCopySuccess?.();
   };
   const shareRecipe = async () => {
-    if (shareUrl)
-      await copyShareUrl(new URL(shareUrl, window.location.origin).toString());
+    if (
+      shareUrl &&
+      (await copyShareUrl(new URL(shareUrl, window.location.origin).toString()))
+    ) {
+      onShareSuccess?.();
+    }
   };
   const activeStatus = shareStatus === "idle" ? status : shareStatus;
   const activeStatusMessage =
