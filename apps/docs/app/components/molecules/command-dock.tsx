@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Clipboard } from "lucide-react";
+import { Check, Clipboard, Share2 } from "lucide-react";
 import { type ReactNode, useEffect, useId } from "react";
 import { Button } from "~/components/ui/button";
 import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
@@ -10,6 +10,7 @@ type CommandDockProps = {
   readonly command: string;
   readonly summary: ReactNode;
   readonly disabled?: boolean;
+  readonly shareUrl?: string;
   readonly sticky?: boolean;
   readonly onCopySuccess?: () => void;
 };
@@ -18,15 +19,22 @@ export function CommandDock({
   command,
   summary,
   disabled = false,
+  shareUrl,
   sticky = true,
   onCopySuccess,
 }: CommandDockProps) {
   const { status, copy, reset } = useCopyToClipboard();
+  const {
+    status: shareStatus,
+    copy: copyShareUrl,
+    reset: resetShareStatus,
+  } = useCopyToClipboard();
   const titleId = useId();
 
   useEffect(() => {
     reset();
-  }, [command, reset]);
+    resetShareStatus();
+  }, [command, reset, resetShareStatus, shareUrl]);
 
   const copyLabel =
     status === "copied"
@@ -43,6 +51,17 @@ export function CommandDock({
   const copyCommand = async () => {
     if (await copy(command)) onCopySuccess?.();
   };
+  const shareRecipe = async () => {
+    if (shareUrl)
+      await copyShareUrl(new URL(shareUrl, window.location.origin).toString());
+  };
+  const activeStatus = shareStatus === "idle" ? status : shareStatus;
+  const activeStatusMessage =
+    shareStatus === "copied"
+      ? "Recipe link copied — share it with your team."
+      : shareStatus === "error"
+        ? "Could not access the clipboard. Copy the URL from your browser instead."
+        : statusMessage;
 
   return (
     <aside
@@ -85,32 +104,53 @@ export function CommandDock({
           <p
             className={cn(
               "mt-1.5 hidden min-h-4 text-xs sm:block",
-              status === "copied" && "text-muted-foreground",
-              status === "error" && "text-destructive",
-              status === "idle" && "invisible",
+              activeStatus === "copied" && "text-muted-foreground",
+              activeStatus === "error" && "text-destructive",
+              activeStatus === "idle" && "invisible",
             )}
             aria-hidden="true"
           >
-            {statusMessage}
+            {activeStatusMessage}
           </p>
           <p className="sr-only" aria-live="polite" aria-atomic="true">
-            {statusMessage}
+            {activeStatusMessage}
           </p>
         </div>
-        <Button
-          className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
-          type="button"
-          onClick={copyCommand}
-          disabled={disabled}
-        >
-          {status === "copied" ? (
-            <Check data-icon="inline-start" />
-          ) : (
-            <Clipboard data-icon="inline-start" />
-          )}
-          <span className="hidden sm:inline">{copyLabel}</span>
-          <span className="sr-only sm:hidden">{copyLabel}</span>
-        </Button>
+        <div className="flex gap-2">
+          {shareUrl ? (
+            <Button
+              variant="outline"
+              className="h-11 w-11 p-0 text-center sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
+              type="button"
+              onClick={shareRecipe}
+              disabled={disabled}
+            >
+              {shareStatus === "copied" ? (
+                <Check data-icon="inline-start" />
+              ) : (
+                <Share2 data-icon="inline-start" />
+              )}
+              <span className="hidden sm:inline">
+                {shareStatus === "copied" ? "Copied" : "Share"}
+              </span>
+              <span className="sr-only sm:hidden">Share recipe</span>
+            </Button>
+          ) : null}
+          <Button
+            className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
+            type="button"
+            onClick={copyCommand}
+            disabled={disabled}
+          >
+            {status === "copied" ? (
+              <Check data-icon="inline-start" />
+            ) : (
+              <Clipboard data-icon="inline-start" />
+            )}
+            <span className="hidden sm:inline">{copyLabel}</span>
+            <span className="sr-only sm:hidden">{copyLabel}</span>
+          </Button>
+        </div>
       </div>
     </aside>
   );

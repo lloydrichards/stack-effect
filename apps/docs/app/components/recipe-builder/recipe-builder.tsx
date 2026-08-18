@@ -3,6 +3,7 @@
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { AlertCircle } from "lucide-react";
+import { useLocation } from "react-router";
 import { CommandDock } from "~/components/molecules/command-dock";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
@@ -33,6 +34,7 @@ function RecipeBuilderContent() {
   const { compatibilityNotice } = useRecipeBuilderCatalog();
   const { canPreview, previewResult } = useRecipeBuilderPreview();
   const { urlIssue } = useRecipeBuilderUrl();
+  const location = useLocation();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
 
   const commandReady =
@@ -144,6 +146,7 @@ function RecipeBuilderContent() {
         }
         command={command}
         disabled={!commandReady}
+        shareUrl={`${location.pathname}${location.search}`}
         onCopySuccess={trackCommandCopy}
       />
     </article>

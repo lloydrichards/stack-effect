@@ -165,6 +165,9 @@ test("should leave an invalid shared recipe URL visible without previewing a fal
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeDisabled();
+  await expect
+    .element(page.getByRole("button", { name: "Share recipe" }))
+    .toBeDisabled();
 });
 
 test("should replace valid URL edits and reset the existing form for external navigation", async () => {
