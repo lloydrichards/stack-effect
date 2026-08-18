@@ -3,7 +3,7 @@ import {
   type PlanConflict,
   type PlanOutcome,
 } from "@repo/domain/Plan";
-import { Array, Effect, Match, pipe } from "effect";
+import { Array, Match, pipe } from "effect";
 
 /**
  * A file outcome fully resolved for LLM consumption.
