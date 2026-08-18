@@ -52,9 +52,9 @@ function RecipeBuilderContent() {
         .onInterrupt(() => "Generating command…")
         .onFailure(() => "Command unavailable until the preview recovers")
         .exhaustive();
-  const trackCommandCopy = () => {
+  const recipeEventData = () => {
     const { config, targets } = form.store.state.values;
-    trackEvent("recipe-command-copied", {
+    return {
       selected_target_count: targets.length,
       resolved_target_count: resolvedTargetCount ?? 0,
       selected_module_count: targets.reduce(
@@ -65,8 +65,11 @@ function RecipeBuilderContent() {
       package_manager:
         config.runtime._tag === "node" ? config.runtime.packageManager : "bun",
       file_count: preview?.files.length ?? 0,
-    });
+    };
   };
+  const trackCommandCopy = () =>
+    trackEvent("recipe-command-copied", recipeEventData());
+  const trackRecipeShare = () => trackEvent("recipe-shared", recipeEventData());
 
   return (
     <article className="mx-auto flex w-full max-w-384 flex-col gap-6 pb-52 md:pb-32">
@@ -148,6 +151,7 @@ function RecipeBuilderContent() {
         disabled={!commandReady}
         shareUrl={`${location.pathname}${location.search}`}
         onCopySuccess={trackCommandCopy}
+        onShareSuccess={trackRecipeShare}
       />
     </article>
   );

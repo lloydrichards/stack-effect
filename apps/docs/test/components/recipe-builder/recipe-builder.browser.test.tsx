@@ -22,6 +22,18 @@ const workerCalls = vi.hoisted(() => ({
   }>,
 }));
 
+const analytics = vi.hoisted(() => ({ trackEvent: vi.fn() }));
+
+vi.mock("~/lib/analytics", () => analytics);
+
+vi.mock("~/hooks/use-copy-to-clipboard", () => ({
+  useCopyToClipboard: () => ({
+    status: "idle" as const,
+    copy: () => Promise.resolve(true),
+    reset: vi.fn(),
+  }),
+}));
+
 vi.mock("../../../app/atom/recipe-builder-atom", async () => {
   const [{ Effect }, { Atom }, { recipeCatalogFixture }] = await Promise.all([
     import("effect"),
@@ -123,6 +135,7 @@ beforeEach(() => {
   workerCalls.pendingIdentityCatalogs = [];
   workerCalls.deferPreviews = false;
   workerCalls.pendingPreviews = [];
+  analytics.trackEvent.mockClear();
 });
 
 const renderRecipeBuilder = (initialEntry = "/builder") =>
@@ -210,6 +223,26 @@ test("should generate a usable preview when the user completes a valid Selection
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();
+});
+
+test("should log a share after copying a valid recipe link", async () => {
+  await renderRecipeBuilder();
+
+  await expect
+    .element(page.getByRole("button", { name: "Share recipe" }))
+    .toBeEnabled();
+  await page.getByRole("button", { name: "Share recipe" }).click();
+
+  await vi.waitFor(() => {
+    expect(analytics.trackEvent).toHaveBeenCalledWith("recipe-shared", {
+      selected_target_count: 0,
+      resolved_target_count: 1,
+      selected_module_count: 0,
+      runtime: "bun",
+      package_manager: "bun",
+      file_count: 1,
+    });
+  });
 });
 
 test("should remove unsupported modules when a renamed target resolves a different catalog", async () => {
