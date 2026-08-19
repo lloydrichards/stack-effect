@@ -54,7 +54,7 @@ it.live(
       });
       const result = yield* runAtom(catalogAtom, {
         targetIdentityKey: owner.toKey(),
-        owners: [owner],
+        targets: [{ id: "mcp", owner }],
       });
       const targetModules = result.catalog.targetModules.find(
         (entry) => entry.owner.toKey() === owner.toKey(),

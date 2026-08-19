@@ -65,15 +65,17 @@ export function StackConfigurator() {
       defaultOpen
       actions={AsyncResult.builder(catalogResult)
         .onSuccess(() => null)
-        .onInitialOrWaiting(() => (
-          <span
-            className="flex items-center gap-2 px-2 text-xs text-muted-foreground"
-            role="status"
-          >
-            <Spinner />
-            <span className="sr-only sm:not-sr-only">Loading options…</span>
-          </span>
-        ))
+        .onInitialOrWaiting(() =>
+          catalog === undefined ? (
+            <span
+              className="flex items-center gap-2 px-2 text-xs text-muted-foreground"
+              role="status"
+            >
+              <Spinner />
+              <span className="sr-only sm:not-sr-only">Loading options…</span>
+            </span>
+          ) : null,
+        )
         .onFailure(() => (
           <Button variant="ghost" size="sm" onClick={retryChoices}>
             Retry options

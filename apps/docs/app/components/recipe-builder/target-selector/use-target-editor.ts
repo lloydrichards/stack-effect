@@ -21,7 +21,8 @@ export const newTargetTabId = "new-target";
 
 export function useTargetEditor() {
   const form = useRecipeBuilderFormContext();
-  const { catalog } = useRecipeBuilderCatalog();
+  const { catalog, catalogFailed, catalogOwnersByTargetId } =
+    useRecipeBuilderCatalog();
   const targets = useSelector(form.store, (state) => state.values.targets);
   const supportSelections = useSelector(
     form.store,
@@ -36,7 +37,11 @@ export function useTargetEditor() {
     if (activeTarget === undefined || catalog === undefined) return;
     const activeModules =
       catalog.targetModules.find(
-        (entry) => ownerKey(entry.owner) === ownerKey(activeTarget),
+        (entry) =>
+          ownerKey(entry.owner) ===
+          ownerKey(
+            catalogOwnersByTargetId.get(activeTarget.id) ?? activeTarget,
+          ),
       )?.modules ?? [];
     const selected = activeTarget.modules.includes(module.id);
     batch(() => {
@@ -111,6 +116,8 @@ export function useTargetEditor() {
     activeTarget,
     addTarget,
     catalog,
+    catalogFailed,
+    catalogOwnersByTargetId,
     registerTargetTab: (id: string, element: HTMLButtonElement | null) => {
       if (element) tabRefs.current.set(id, element);
       else tabRefs.current.delete(id);

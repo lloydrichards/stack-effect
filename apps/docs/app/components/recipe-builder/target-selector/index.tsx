@@ -20,6 +20,8 @@ export function TargetSelector() {
     activeTarget,
     addTarget,
     catalog,
+    catalogFailed,
+    catalogOwnersByTargetId,
     registerTargetTab,
     removeTarget,
     selectTarget,
@@ -77,6 +79,8 @@ export function TargetSelector() {
             {activeTarget?.id === target.id ? (
               <TargetConfiguration
                 catalog={catalog}
+                catalogFailed={catalogFailed}
+                catalogOwner={catalogOwnersByTargetId.get(target.id)}
                 onRemoveTarget={removeTarget}
                 onToggleModule={toggleModule}
                 onToggleSupportModule={toggleSupportModule}

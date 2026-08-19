@@ -1,3 +1,4 @@
+import type { TargetIdentity } from "@repo/domain/Catalog";
 import { Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
@@ -33,6 +34,8 @@ import { buildModuleRelationshipNodes, dependencySourceNames } from "./state";
 
 type TargetConfigurationProps = {
   readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
+  readonly catalogFailed: boolean;
+  readonly catalogOwner: TargetIdentity | undefined;
   readonly onRemoveTarget: (id: string) => void;
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
   readonly onToggleSupportModule: (
@@ -47,6 +50,8 @@ type TargetConfigurationProps = {
 
 export function TargetConfiguration({
   catalog,
+  catalogFailed,
+  catalogOwner,
   onRemoveTarget,
   onToggleModule,
   onToggleSupportModule,
@@ -58,7 +63,7 @@ export function TargetConfiguration({
   const form = useRecipeBuilderFormContext();
   const modules =
     catalog?.targetModules.find(
-      (entry) => ownerKey(entry.owner) === ownerKey(target),
+      (entry) => ownerKey(entry.owner) === ownerKey(catalogOwner ?? target),
     )?.modules ?? [];
   const targetNameDescriptionId = `target-name-description-${target.id}`;
   const nameLocked = (target.requirements?.length ?? 0) > 0;
@@ -126,7 +131,7 @@ export function TargetConfiguration({
           </EmptyHeader>
         </Empty>
       ) : (
-        <FieldSet className="mt-5 max-w-5xl gap-4">
+        <FieldSet className="mt-5 max-w-5xl gap-4" disabled={catalogFailed}>
           <FieldLegend variant="label">Modules</FieldLegend>
           <FieldGroup data-slot="checkbox-group" variant="outlined">
             {roots.map((module, index) => (
@@ -134,6 +139,7 @@ export function TargetConfiguration({
                 key={module.id}
                 module={module}
                 modules={modules}
+                disabled={catalogFailed}
                 selected={target.modules}
                 divided={index > 0}
                 onToggleModule={onToggleModule}
@@ -143,7 +149,10 @@ export function TargetConfiguration({
                   requiredModuleIds.has(module.id)
                     ? buildModuleRelationshipNodes(
                         module,
-                        { kind: target.kind, name: target.name },
+                        catalogOwner ?? {
+                          kind: target.kind,
+                          name: target.name,
+                        },
                         catalog,
                       )
                     : []

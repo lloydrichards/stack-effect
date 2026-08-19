@@ -16,6 +16,7 @@ type ModuleBranchProps = {
   readonly selected: ReadonlyArray<string>;
   readonly relationships?: ReadonlyArray<ModuleRelationshipNode>;
   readonly divided?: boolean;
+  readonly disabled?: boolean;
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
@@ -31,6 +32,7 @@ export function ModuleBranch({
   selected,
   relationships = [],
   divided = false,
+  disabled = false,
   onToggleModule,
   onToggleSupportModule,
   requirement,
@@ -45,18 +47,18 @@ export function ModuleBranch({
         orientation="horizontal"
         variant="selection"
         density="comfortable"
-        data-disabled={required}
+        data-disabled={required || disabled}
         data-selected={checked}
       >
         <Checkbox
           id={`module-${module.id}`}
           checked={checked}
-          disabled={required}
+          disabled={required || disabled}
           onCheckedChange={() => onToggleModule(module)}
         />
         <FieldLabel
           htmlFor={`module-${module.id}`}
-          className={cn(!required && "cursor-pointer")}
+          className={cn(!required && !disabled && "cursor-pointer")}
         >
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm/5 font-medium text-foreground">
@@ -92,6 +94,7 @@ export function ModuleBranch({
                   key={child.moduleId}
                   module={childModule}
                   modules={modules}
+                  disabled={disabled}
                   onToggleModule={onToggleModule}
                   onToggleSupportModule={onToggleSupportModule}
                   selected={selected}
@@ -117,6 +120,7 @@ export function ModuleBranch({
               <RelationshipBranch
                 key={`${ownerKey(relationship.owner)}#${relationship.module.id}`}
                 node={relationship}
+                disabled={disabled}
                 onToggleSupportModule={onToggleSupportModule}
                 supportSelections={supportSelections}
               />
