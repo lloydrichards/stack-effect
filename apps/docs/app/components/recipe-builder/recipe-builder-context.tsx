@@ -12,7 +12,12 @@ const RecipeBuilderFormContext = createContext<
 
 type RecipeBuilderCatalogModel = Pick<
   RecipeBuilderWorkerModel,
-  "catalog" | "catalogResult" | "compatibilityNotice" | "retryCatalog"
+  | "catalog"
+  | "catalogFailed"
+  | "catalogOwnersByTargetId"
+  | "catalogResult"
+  | "compatibilityNotice"
+  | "retryCatalog"
 >;
 
 type RecipeBuilderPreviewModel = Pick<
@@ -46,12 +51,16 @@ export function RecipeBuilderProvider({
   const catalog = useMemo<RecipeBuilderCatalogModel>(
     () => ({
       catalog: worker.catalog,
+      catalogFailed: worker.catalogFailed,
+      catalogOwnersByTargetId: worker.catalogOwnersByTargetId,
       catalogResult: worker.catalogResult,
       compatibilityNotice: worker.compatibilityNotice,
       retryCatalog: worker.retryCatalog,
     }),
     [
       worker.catalog,
+      worker.catalogFailed,
+      worker.catalogOwnersByTargetId,
       worker.catalogResult,
       worker.compatibilityNotice,
       worker.retryCatalog,

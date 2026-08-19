@@ -3,7 +3,6 @@
 import { useAtom } from "@effect/atom-react";
 import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
-import { Option } from "effect";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import {
   useCallback,
@@ -74,13 +73,31 @@ export function useRecipeBuilderWorker(
   const lastCatalogRequestRef = useRef<CatalogAtomRequest | undefined>(
     undefined,
   );
+  const [catalogSnapshot, setCatalogSnapshot] = useState<
+    | {
+        readonly request: CatalogAtomRequest;
+        readonly catalog: typeof RecipeBuilderCatalog.Type;
+      }
+    | undefined
+  >(undefined);
   const { targets } = values;
   const targetIdentityKey = targets.map(ownerKey).join("\u0000");
   const catalogResult = useMemo(
     () => AsyncResult.map(catalogRequestResult, ({ catalog }) => catalog),
     [catalogRequestResult],
   );
-  const catalog = Option.getOrUndefined(AsyncResult.value(catalogResult));
+  const catalog = catalogSnapshot?.catalog;
+  const catalogOwnersByTargetId = useMemo(
+    () =>
+      new Map(
+        catalogSnapshot?.request.targets.map(({ id, owner }) => [id, owner]) ??
+          [],
+      ),
+    [catalogSnapshot],
+  );
+  const catalogFailed =
+    !catalogRequestResult.waiting &&
+    AsyncResult.isFailure(catalogRequestResult);
   const previewResult = useMemo(
     () => AsyncResult.map(previewRequestResult, ({ preview }) => preview),
     [previewRequestResult],
@@ -95,10 +112,10 @@ export function useRecipeBuilderWorker(
     if (!enabled) return;
     const request = {
       targetIdentityKey,
-      owners: targets.map(
-        ({ kind, name }) =>
-          new TargetIdentity({ kind: TargetKind.make(kind), name }),
-      ),
+      targets: targets.map(({ id, kind, name }) => ({
+        id,
+        owner: new TargetIdentity({ kind: TargetKind.make(kind), name }),
+      })),
     } as const;
     lastCatalogRequestRef.current = request;
     requestCatalog(request);
@@ -125,8 +142,16 @@ export function useRecipeBuilderWorker(
   );
 
   useEffect(() => {
-    if (enabled) reconcileCatalog(catalogRequestResult);
-  }, [catalogRequestResult, enabled]);
+    if (!enabled) return;
+    reconcileCatalog(catalogRequestResult);
+    if (
+      !catalogRequestResult.waiting &&
+      AsyncResult.isSuccess(catalogRequestResult) &&
+      catalogRequestResult.value.request.targetIdentityKey === targetIdentityKey
+    ) {
+      setCatalogSnapshot(catalogRequestResult.value);
+    }
+  }, [catalogRequestResult, enabled, targetIdentityKey]);
 
   useEffect(() => {
     if (!enabled) {
@@ -146,6 +171,8 @@ export function useRecipeBuilderWorker(
   return {
     canPreview: enabled && formValid,
     catalog,
+    catalogFailed,
+    catalogOwnersByTargetId,
     catalogResult,
     compatibilityNotice,
     previewResult,

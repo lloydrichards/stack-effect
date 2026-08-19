@@ -9,6 +9,7 @@ import {
 import { type ModuleRelationshipNode, supportConfigurationKey } from "./state";
 
 type RelationshipBranchProps = {
+  readonly disabled?: boolean;
   readonly node: ModuleRelationshipNode;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
@@ -18,6 +19,7 @@ type RelationshipBranchProps = {
 };
 
 export function RelationshipBranch({
+  disabled: parentDisabled = false,
   node,
   onToggleSupportModule,
   supportSelections,
@@ -34,7 +36,7 @@ export function RelationshipBranch({
         ?.selected.includes(node.module.id) ?? false)
     : false;
   const checked = required || selected;
-  const disabled = required || configuration === undefined;
+  const disabled = parentDisabled || required || configuration === undefined;
   const id = `relationship-${ownerKey(node.owner)}-${node.module.id}`;
   return (
     <div className="relative">
@@ -76,6 +78,7 @@ export function RelationshipBranch({
             <RelationshipBranch
               key={`${ownerKey(child.owner)}#${child.module.id}`}
               node={child}
+              disabled={parentDisabled}
               onToggleSupportModule={onToggleSupportModule}
               supportSelections={supportSelections}
             />

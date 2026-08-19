@@ -12,6 +12,7 @@ const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
   failCatalogOnce: false,
   deferIdentityCatalog: false,
+  catalogRequests: [] as Array<CatalogAtomRequest>,
   pendingIdentityCatalogs: [] as Array<{
     interrupted: boolean;
     complete: () => void;
@@ -73,6 +74,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
       "The preview worker stopped unexpectedly.",
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
+        workerCalls.catalogRequests.push(request);
         if (workerCalls.failCatalogOnce) {
           workerCalls.failCatalogOnce = false;
           return Effect.fail({
@@ -80,10 +82,20 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             message: "Catalog enrichment failed.",
           });
         }
-        const catalog = workerCalls.reconcileModules
-          ? {
-              ...recipeCatalogFixture,
-              targetModules: request.owners.map((owner) => ({
+        const requestedKinds = new Set(
+          request.targets.map(({ owner }) => owner.kind),
+        );
+        const requestedTargetModules = request.targets.map(({ owner }) => ({
+          owner,
+          modules:
+            recipeCatalogFixture.targetModules.find(
+              (entry) => entry.owner.kind === owner.kind,
+            )?.modules ?? [],
+        }));
+        const catalog = {
+          ...recipeCatalogFixture,
+          targetModules: workerCalls.reconcileModules
+            ? request.targets.map(({ owner }) => ({
                 owner,
                 modules:
                   owner.kind === "client-react"
@@ -93,9 +105,14 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
                     : (recipeCatalogFixture.targetModules.find(
                         (entry) => entry.owner.kind === owner.kind,
                       )?.modules ?? []),
-              })),
-            }
-          : recipeCatalogFixture;
+              }))
+            : [
+                ...requestedTargetModules,
+                ...recipeCatalogFixture.targetModules.filter(
+                  (entry) => !requestedKinds.has(entry.owner.kind),
+                ),
+              ],
+        };
         if (!workerCalls.deferIdentityCatalog)
           return Effect.succeed({ request, catalog });
         return Effect.callback((resume) => {
@@ -132,6 +149,7 @@ beforeEach(() => {
   workerCalls.reconcileModules = false;
   workerCalls.failCatalogOnce = false;
   workerCalls.deferIdentityCatalog = false;
+  workerCalls.catalogRequests = [];
   workerCalls.pendingIdentityCatalogs = [];
   workerCalls.deferPreviews = false;
   workerCalls.pendingPreviews = [];
@@ -280,6 +298,18 @@ test("should reconcile a rename after its delayed catalog request completes", as
   workerCalls.deferIdentityCatalog = true;
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
+  await expect
+    .element(page.getByText("HTTP API Client", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByText("Domain API", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByText("Loading options…"))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByText("No modules support this target identity"))
+    .not.toBeInTheDocument();
 
   const pendingIdentity = workerCalls.pendingIdentityCatalogs[0];
   expect(pendingIdentity?.interrupted).toBe(false);
@@ -291,6 +321,57 @@ test("should reconcile a rename after its delayed catalog request completes", as
     .element(page.getByText(/Removed modules that do not support/u))
     .toBeVisible();
   expect(pendingIdentity?.interrupted).toBe(false);
+});
+
+test("should retain modules when a duplicate target name becomes unique", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await expect
+    .element(page.getByText("HTTP API Client", { exact: true }))
+    .toBeVisible();
+  await page.getByRole("button", { name: "Add target" }).click();
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByRole("tab", { name: "web · client-react" }).click();
+
+  const requestCount = workerCalls.catalogRequests.length;
+  await page.getByLabelText("Target name").fill("web-2");
+  await expect
+    .poll(() => workerCalls.catalogRequests.length)
+    .toBeGreaterThan(requestCount);
+  await expect
+    .element(
+      page.getByText("Target names must be unique within a target kind."),
+    )
+    .toBeVisible();
+
+  workerCalls.deferIdentityCatalog = true;
+  await page.getByLabelText("Target name").fill("renamed-web");
+  await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
+  await expect
+    .element(page.getByText("HTTP API Client", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByText("No modules support this target identity"))
+    .not.toBeInTheDocument();
+});
+
+test("should disable stale modules when renamed catalog resolution fails", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  workerCalls.failCatalogOnce = true;
+  await page.getByLabelText("Target name").fill("renamed-web");
+
+  await expect
+    .element(page.getByRole("button", { name: "Retry options" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("checkbox", { name: /HTTP API Client/u }))
+    .toBeDisabled();
+  await expect
+    .element(page.getByText("HTTP API Client", { exact: true }))
+    .toBeVisible();
 });
 
 test("should generate a usable preview when the selected target has no modules", async () => {
