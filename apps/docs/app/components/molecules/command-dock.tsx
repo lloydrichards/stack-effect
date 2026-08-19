@@ -72,9 +72,9 @@ export function CommandDock({
   return (
     <aside
       className={cn(
-        "grid gap-0 rounded-md border bg-background/95 p-2 shadow-sm backdrop-blur-sm sm:gap-3 sm:p-4 dark:shadow-none",
+        "grid gap-0 rounded-md border bg-background/95 p-2 shadow-2xl backdrop-blur-sm sm:gap-3 sm:p-4 dark:shadow-none",
         sticky &&
-          "fixed right-5 bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-5 z-20 mx-auto max-w-[96rem] sm:right-8 sm:bottom-4 sm:left-8 lg:right-12 lg:left-12",
+          "fixed right-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-2 z-20 mx-auto max-w-384 sm:right-4 sm:bottom-4 sm:left-4",
       )}
       aria-labelledby={titleId}
     >

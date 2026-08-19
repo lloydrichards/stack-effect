@@ -9,7 +9,6 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { trackEvent } from "~/lib/analytics";
 import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
-import { PreviewStatus } from "./preview-status";
 import {
   RecipeBuilderProvider,
   useRecipeBuilderCatalog,
@@ -79,11 +78,10 @@ function RecipeBuilderContent() {
             Build your Stack Effect recipe
           </h1>
           <p className="mt-2 text-sm leading-6 text-muted-foreground md:text-base">
-            Choose targets, attach their modules, and inspect the authoritative
-            Blueprint and generated repository before running the command.
+            Choose targets, attach their modules, and inspect the generated
+            repository before running the command.
           </p>
         </div>
-        <PreviewStatus result={previewResult} canPreview={canPreview} />
       </header>
 
       {AsyncResult.builder(previewResult)
