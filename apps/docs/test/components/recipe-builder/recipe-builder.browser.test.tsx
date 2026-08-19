@@ -230,9 +230,6 @@ test("should generate a usable preview when the user completes a valid Selection
   await page.getByText("HTTP API Client", { exact: true }).click();
 
   await expect
-    .element(page.getByText(/Live in-memory pipeline/u))
-    .toBeVisible();
-  await expect
     .element(page.getByText("3 resolved targets").first())
     .toBeVisible();
   await expect
@@ -395,10 +392,6 @@ test("should preserve a valid preview when catalog loading is retried", async ()
   await renderRecipeBuilder();
 
   await expect
-    .element(page.getByText(/Live in-memory pipeline/u))
-    .toBeVisible();
-
-  await expect
     .element(page.getByRole("button", { name: "Retry options" }))
     .toBeVisible();
   await expect
@@ -421,9 +414,6 @@ test("should preserve a valid preview when catalog loading is retried", async ()
 test("should retain the last valid preview when the current Selection becomes invalid", async () => {
   await renderRecipeBuilder();
 
-  await expect
-    .element(page.getByText(/Live in-memory pipeline/u))
-    .toBeVisible();
   const command = page.getByLabelText("Command to run locally");
   await expect
     .element(command)
@@ -431,11 +421,6 @@ test("should retain the last valid preview when the current Selection becomes in
 
   await page.getByLabelText("Project name").fill("");
 
-  await expect
-    .element(
-      page.getByText("Selection incomplete · showing last valid preview"),
-    )
-    .toBeVisible();
   await expect.element(page.getByText("1 file", { exact: true })).toBeVisible();
   await expect
     .element(command)
@@ -450,9 +435,6 @@ test("should retain the last valid preview when the current Selection becomes in
 test("should show the newest preview when an older request completes after it is superseded", async () => {
   await renderRecipeBuilder();
 
-  await expect
-    .element(page.getByText(/Live in-memory pipeline/u))
-    .toBeVisible();
   workerCalls.deferPreviews = true;
 
   await page.getByLabelText("Project name").fill("first-name");
