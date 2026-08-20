@@ -1,5 +1,22 @@
 # @stack-effect/docs
 
+## 0.2.0
+
+### Minor Changes
+
+- 935f120: New projects now default to Bun, TypeScript 7, Vite+, Oxlint, Oxfmt, and Vitest.
+
+  Generated commands omit these choices when they match the defaults. To keep the previous TypeScript 6, Turbo, and Biome stack, pass the corresponding `create` or `init` options explicitly.
+
+  The Recipe Builder uses the same defaults and keeps existing Nx shared links compatible by selecting TypeScript 6, which Nx currently requires.
+
+- 10eec6c: The Recipe Builder can now keep valid selections in the URL and copy a shareable recipe link.
+
+### Patch Changes
+
+- 04e55bb: The Recipe Builder now requires a database provider before enabling SQL-backed modules and identifies which selected modules prevent removing it.
+- 898cc16: remove flash when changing the target name through optimistic loading web worker
+
 ## 0.1.1
 
 ### Patch Changes

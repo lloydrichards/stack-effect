@@ -1,5 +1,40 @@
 # stack-effect
 
+## 0.13.0
+
+### Minor Changes
+
+- 32d0e36: React projects can now scaffold a streaming browser Worker with Effect RPC, Atom RPC, schema validation, and scheduled progress updates.
+- 4802960: Persistent Todo applications can now be scaffolded with typed HTTP and RPC CRUD APIs, a React client, and either SQLite or PostgreSQL storage.
+
+  For example, create a full-stack SQLite Todo application with:
+
+  ```bash
+  bunx stack-effect@latest create todo-app --yes \
+    --target package/db:package-db-sqlite,package-db-todo-repository \
+    --target server/api:server-http-api-todos,server-http-rpc-todos \
+    --target client-react/web:client-react-http-api-todos
+  ```
+
+- 935f120: New projects now default to Bun, TypeScript 7, Vite+, Oxlint, Oxfmt, and Vitest.
+
+  Generated commands omit these choices when they match the defaults. To keep the previous TypeScript 6, Turbo, and Biome stack, pass the corresponding `create` or `init` options explicitly.
+
+  The Recipe Builder uses the same defaults and keeps existing Nx shared links compatible by selecting TypeScript 6, which Nx currently requires.
+
+- 6a9a5a8: Generated workspaces can now use Nx for package-based task orchestration and caching with Bun, npm, or pnpm.
+
+  For example:
+
+  ```bash
+  bunx stack-effect@latest create my-app --monorepo nx
+  ```
+
+### Patch Changes
+
+- e97badd: `stack-effect add` now prompts for a compatible database provider when an interactive module selection requires one.
+- 42b6e1c: Generated workspaces now allow empty Vitest suites and avoid stale Biome and Vite configuration warnings.
+
 ## 0.12.1
 
 ### Patch Changes
