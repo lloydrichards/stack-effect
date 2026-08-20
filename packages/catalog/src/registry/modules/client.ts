@@ -20,6 +20,10 @@ import {
   clientTickAtomContents,
 } from "../content/client-rpc";
 import {
+  clientTodoAtomContents,
+  clientTodoCardContents,
+} from "../content/client-todo";
+import {
   clientPresencePanelContents,
   clientWebSocketClientContents,
 } from "../content/client-websocket";
@@ -132,15 +136,56 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         },
       },
     ],
-    scripts: [
+  },
+  {
+    id: ModuleId.make("client-react-http-api-todos"),
+    title: "Todo HTTP Client",
+    description: "Persistent Todo CRUD card backed by the typed HTTP API",
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
+    dependencies: [
       {
-        label: "Install shadcn button component",
-        command: "bunx shadcn@latest add button --yes --overwrite",
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-todo-http-contracts"),
+      },
+    ],
+    implies: [
+      {
+        targetKind: serverKind,
+        moduleId: ModuleId.make("server-http-api-todos"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/lib/atoms/todo-atom.ts",
+        contents: clientTodoAtomContents,
       },
       {
-        label: "Install shadcn card component",
-        command: "bunx shadcn@latest add card --yes --overwrite",
+        _tag: "file",
+        path: "{{targetPath}}/src/components/todo-card.tsx",
+        contents: clientTodoCardContents,
       },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: "<TodoCard />",
+        import: {
+          moduleSpecifier: "./components/todo-card",
+          namedImports: ["TodoCard"],
+        },
+      },
+    ],
+    nextSteps: [
+      "Todo app commands: see the Persistent Todo app example in the stack-effect README.",
     ],
   },
   {
@@ -193,16 +238,6 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           moduleSpecifier: "./components/rpc-card",
           namedImports: ["RpcCard"],
         },
-      },
-    ],
-    scripts: [
-      {
-        label: "Install shadcn button component",
-        command: "bunx shadcn@latest add button --yes --overwrite",
-      },
-      {
-        label: "Install shadcn card component",
-        command: "bunx shadcn@latest add card --yes --overwrite",
       },
     ],
   },
@@ -332,16 +367,6 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
           moduleSpecifier: "./components/presence-panel",
           namedImports: ["PresencePanel"],
         },
-      },
-    ],
-    scripts: [
-      {
-        label: "Install shadcn button component",
-        command: "bunx shadcn@latest add button --yes --overwrite",
-      },
-      {
-        label: "Install shadcn card component",
-        command: "bunx shadcn@latest add card --yes --overwrite",
       },
     ],
   },

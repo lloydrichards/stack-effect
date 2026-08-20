@@ -37,6 +37,12 @@ import {
   presenceIndexContents,
   presenceServiceContents,
 } from "../content/presence";
+import {
+  todoMigrationContents,
+  todoRepositoryContents,
+  todoRepositoryPostgresTestContents,
+  todoRepositoryTestContents,
+} from "../content/todo";
 
 export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
@@ -772,6 +778,94 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     nextSteps: [
       "Postgres Database: Copy `{{targetPath}}/.env.example` to `{{targetPath}}/.env`, update the connection settings if needed, then start Postgres with `docker compose -f {{targetPath}}/docker-compose.yml up -d` before running database scripts.",
+    ],
+  },
+  {
+    id: ModuleId.make("package-db-todo-repository"),
+    title: "Todo Repository",
+    description:
+      "Persistent Todo CRUD repository over the selected SQL database",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "db",
+        }),
+      },
+    ],
+    dependencies: [
+      {
+        _tag: "required-capability",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "db",
+        }),
+        capability: ModuleCapability.make("db-sql"),
+      },
+      {
+        _tag: "required-module",
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "domain",
+        }),
+        moduleId: ModuleId.make("domain-todo-contracts"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoRepository.ts",
+        contents: todoRepositoryContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/migrations/0002_create_todos.ts",
+        contents: todoMigrationContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoRepository.test.ts",
+        contents: todoRepositoryTestContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoRepository.postgres.test.ts",
+        contents: todoRepositoryPostgresTestContents,
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./TodoRepository",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "@effect/sql-sqlite-node",
+        value: "4.0.0-rc.108",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "@effect/sql-pg",
+        value: "4.0.0-rc.108",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run --passWithNoTests",
+      },
     ],
   },
   {

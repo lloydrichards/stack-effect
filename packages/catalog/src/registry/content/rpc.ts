@@ -16,9 +16,11 @@ export class EventRpc extends RpcGroup.make(
     stream: true,
   }),
 ) {}
+
+export const RpcApi = EventRpc.merge();
 `;
 
-export const serverTickContents = `import { EventRpc, type TickEvent } from "@repo/domain/Rpc";
+export const serverTickContents = `import { EventRpc, RpcApi, type TickEvent } from "@repo/domain/Rpc";
 import { Effect, Layer, Queue } from "effect";
 import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
@@ -47,12 +49,14 @@ const EventRpcHandlers = EventRpc.toLayer(
   }),
 );
 
+const RpcHandlers = Layer.mergeAll(EventRpcHandlers);
+
 export const EventRpcLive = RpcServer.layerHttp({
-  group: EventRpc,
+  group: RpcApi,
   path: "/rpc",
   protocol: "http",
 }).pipe(
-  Layer.provide(EventRpcHandlers),
+  Layer.provide(RpcHandlers),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 `;

@@ -14,6 +14,12 @@ import {
 } from "../content/chat";
 import { serverTickContents } from "../content/rpc";
 import { serverDevToolsContents } from "../content/server";
+import {
+  serverTodoApiContents,
+  serverTodoRpcContents,
+  todoHttpTransportTestContents,
+  todoRpcTransportTestContents,
+} from "../content/todo";
 import { serverPresenceContents } from "../content/websocket";
 
 const serverKind = TargetKind.make("server");
@@ -29,6 +35,14 @@ const aiTarget = new TargetIdentity({
 const presenceTarget = new TargetIdentity({
   kind: packageKind,
   name: "presence",
+});
+const dbTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "db",
+});
+const serverApiTarget = new TargetIdentity({
+  kind: serverKind,
+  name: "api",
 });
 
 export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
@@ -98,6 +112,136 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         import: {
           moduleSpecifier: "./Rpc/Event",
           namedImports: ["EventRpcLive"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("server-http-api-todos"),
+    title: "Todo HTTP API",
+    description: "Persistent Todo CRUD endpoints over Effect HTTP API",
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: serverApiTarget,
+        moduleId: ModuleId.make("server-http-api"),
+      },
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-todo-http-contracts"),
+      },
+      {
+        _tag: "required-module",
+        target: dbTarget,
+        moduleId: ModuleId.make("package-db-todo-repository"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Api/Todo.ts",
+        contents: serverTodoApiContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoHttp.test.ts",
+        contents: todoHttpTransportTestContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/db",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "AllRouters",
+        functionName: "Layer.mergeAll",
+        argument: "TodoApiLive",
+        import: {
+          moduleSpecifier: "./Api/Todo",
+          namedImports: ["TodoApiLive"],
+        },
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "RouterDependencies",
+        functionName: "Layer.mergeAll",
+        argument:
+          "TodoRepositoryLive.pipe(Layer.provide(DatabaseLive), Layer.satisfiesServicesType<never>())",
+        import: {
+          moduleSpecifier: "@repo/db",
+          namedImports: ["DatabaseLive", "TodoRepositoryLive"],
+        },
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("server-http-rpc-todos"),
+    title: "Todo HTTP RPC",
+    description: "Persistent Todo CRUD operations on the shared HTTP RPC route",
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: serverApiTarget,
+        moduleId: ModuleId.make("server-http-rpc"),
+      },
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-todo-rpc-contracts"),
+      },
+      {
+        _tag: "required-module",
+        target: dbTarget,
+        moduleId: ModuleId.make("package-db-todo-repository"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Rpc/Todo.ts",
+        contents: serverTodoRpcContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoRpc.test.ts",
+        contents: todoRpcTransportTestContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/db",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/Rpc/Event.ts",
+        targetVariable: "RpcHandlers",
+        functionName: "Layer.mergeAll",
+        argument: "TodoRpcHandlers",
+        import: {
+          moduleSpecifier: "./Todo",
+          namedImports: ["TodoRpcHandlers"],
+        },
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "RouterDependencies",
+        functionName: "Layer.mergeAll",
+        argument:
+          "TodoRepositoryLive.pipe(Layer.provide(DatabaseLive), Layer.satisfiesServicesType<never>())",
+        import: {
+          moduleSpecifier: "@repo/db",
+          namedImports: ["DatabaseLive", "TodoRepositoryLive"],
         },
       },
     ],
