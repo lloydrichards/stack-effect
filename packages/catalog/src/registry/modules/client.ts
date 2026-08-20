@@ -44,7 +44,7 @@ const domainTarget = new TargetIdentity({
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("client-react-web-worker"),
-    title: "Streaming Import Worker",
+    title: "Browser Web Worker",
     description:
       "Browser Worker RPC with Effect Schema, Stream, Schedule, and Atom RPC",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
