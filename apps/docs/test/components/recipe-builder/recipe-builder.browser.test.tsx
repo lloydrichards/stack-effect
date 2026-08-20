@@ -252,11 +252,7 @@ test("should require a database before selecting a database-backed module", asyn
 
   await expect.element(todoModule).toBeDisabled();
   await expect
-    .element(
-      page.getByText(
-        "Select SQLite or Postgres under Database to enable this module.",
-      ),
-    )
+    .element(page.getByText("Select a database to enable this module."))
     .toBeVisible();
 
   await page.getByRole("button", { name: "SQLite" }).click();
@@ -266,6 +262,9 @@ test("should require a database before selecting a database-backed module", asyn
   await expect
     .element(page.getByRole("button", { name: "None" }))
     .toBeDisabled();
+  await expect
+    .element(page.getByText("Remove Todo HTTP Client to choose None."))
+    .toBeVisible();
   await expect
     .element(page.getByLabelText("Recipe URL search"))
     .toHaveTextContent("package%2Fdb%3Apackage-db-sqlite");
@@ -277,6 +276,19 @@ test("should require a database before selecting a database-backed module", asyn
   await expect
     .element(page.getByLabelText("Recipe URL search"))
     .not.toHaveTextContent("package-db-sqlite");
+});
+
+test("should name only the source module after restoring an implied database recipe", async () => {
+  await renderRecipeBuilder(
+    "/builder?name=shared&target=client-react%2Fweb%3Aconfig-typescript-vite%2Cclient-react-http-api-todos&target=package%2Fdb%3Apackage-db-sqlite&target=server%2Fapi%3Aserver-http-api-todos",
+  );
+
+  await expect
+    .element(page.getByText("Remove Todo HTTP Client to choose None."))
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/Todo HTTP Client and Todo HTTP API/u))
+    .not.toBeInTheDocument();
 });
 
 test("should log a share after copying a valid recipe link", async () => {

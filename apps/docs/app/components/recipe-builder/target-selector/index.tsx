@@ -44,9 +44,9 @@ export function TargetSelector() {
       }
     >
       <Tabs value={activeId} onValueChange={selectTarget}>
-        <div className="flex min-w-0 items-center gap-2 border-b p-2">
-          <div className="min-w-0 flex-1 overflow-x-auto">
-            <TabsList aria-label="Recipe targets">
+        <div className="flex min-w-0 items-center gap-2 border-b px-4 py-2 md:px-5">
+          <div className="min-h-14 min-w-0 flex-1 overflow-x-auto overflow-y-hidden pb-1.5 lg:min-h-12">
+            <TabsList variant="line" aria-label="Recipe targets">
               {targets.map((target) => (
                 <TabsTrigger
                   key={target.id}
@@ -116,7 +116,7 @@ function TargetOptions({
   targets,
 }: TargetOptionsProps) {
   return (
-    <Empty className="min-h-64 items-stretch gap-5 p-5 md:p-6">
+    <Empty className="min-h-64 items-stretch gap-5 p-4 md:p-5">
       <EmptyHeader className="mx-0 max-w-xl items-start text-left">
         <EmptyTitle
           className={firstTarget ? "font-semibold text-primary" : undefined}

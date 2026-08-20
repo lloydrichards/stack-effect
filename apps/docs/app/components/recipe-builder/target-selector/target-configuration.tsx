@@ -96,10 +96,10 @@ export function TargetConfiguration({
   const getDisabledReason = (module: typeof CatalogModule.Type) =>
     database === "none" &&
     moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
-      ? "Select SQLite or Postgres under Database to enable this module."
+      ? "Select a database to enable this module."
       : undefined;
   return (
-    <section className="p-5 md:p-7">
+    <section className="p-4 md:p-5">
       <div className="border-b pb-5">
         <FieldGroup>
           <form.Field
