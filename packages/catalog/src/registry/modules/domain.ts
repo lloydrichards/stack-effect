@@ -11,6 +11,11 @@ import {
   domainChatRpcContents,
 } from "../content/chat";
 import { domainRpcContents } from "../content/rpc";
+import {
+  domainTodoApiContents,
+  domainTodoContents,
+  domainTodoRpcContents,
+} from "../content/todo";
 import { domainWebSocketContents } from "../content/websocket";
 
 const packageKind = TargetKind.make("package");
@@ -82,6 +87,129 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./Rpc",
       },
+    ],
+  },
+  {
+    id: ModuleId.make("domain-todo-contracts"),
+    title: "Domain Todo",
+    description: "Shared Todo schemas and errors",
+    visibility: "internal",
+    supportedOn: [
+      {
+        _tag: "identity",
+        identity: domainTarget,
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Todo.ts",
+        contents: domainTodoContents,
+      },
+      ...["Todo"].flatMap((name) => [
+        {
+          _tag: "pkg-json-entry" as const,
+          path: "{{targetPath}}/package.json",
+          field: "exports" as const,
+          name: `./${name}`,
+          value: `./src/${name}.ts`,
+        },
+        {
+          _tag: "barrel-export" as const,
+          barrelPath: "{{targetPath}}/src/index.ts",
+          exportPath: `./${name}`,
+        },
+      ]),
+    ],
+  },
+  {
+    id: ModuleId.make("domain-todo-http-contracts"),
+    title: "Domain Todo HTTP",
+    description: "Todo HTTP API contract",
+    visibility: "internal",
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-todo-contracts"),
+      },
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-api-contracts"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoApi.ts",
+        contents: domainTodoApiContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./TodoApi",
+        value: "./src/TodoApi.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./TodoApi",
+      },
+    ],
+  },
+  {
+    id: ModuleId.make("domain-todo-rpc-contracts"),
+    title: "Domain Todo RPC",
+    description: "Todo RPC contract merged into the server RPC group",
+    visibility: "internal",
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-todo-contracts"),
+      },
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: ModuleId.make("domain-rpc-contracts"),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/TodoRpc.ts",
+        contents: domainTodoRpcContents,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/Rpc.ts",
+        targetVariable: "RpcApi",
+        functionName: "EventRpc.merge",
+        argument: "TodoRpc",
+        import: {
+          moduleSpecifier: "./TodoRpc",
+          namedImports: ["TodoRpc"],
+        },
+      },
+      ...["TodoRpc"].flatMap((name) => [
+        {
+          _tag: "pkg-json-entry" as const,
+          path: "{{targetPath}}/package.json",
+          field: "exports" as const,
+          name: `./${name}`,
+          value: `./src/${name}.ts`,
+        },
+        {
+          _tag: "barrel-export" as const,
+          barrelPath: "{{targetPath}}/src/index.ts",
+          exportPath: `./${name}`,
+        },
+      ]),
     ],
   },
   {

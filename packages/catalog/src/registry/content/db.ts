@@ -39,8 +39,9 @@ export const SqliteLive = Layer.unwrap(
 ).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
 `;
 
-export const dbPostgresDatabaseContents = `import { PgClient } from "@effect/sql-pg";
-import { Config, Redacted, String } from "effect";
+export const dbPostgresDatabaseContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}
+import { PgClient } from "@effect/sql-pg";
+import { Config, Layer, Redacted, String } from "effect";
 
 export const DatabaseConfig = Config.all({
   url: Config.redacted("DATABASE_URL").pipe(
@@ -62,7 +63,10 @@ export const PostgresLive = PgClient.layerConfig({
   ),
   transformQueryNames: Config.succeed(String.camelToSnake),
   transformResultNames: Config.succeed(String.snakeToCamel),
-});
+}).pipe(
+  Layer.provide(PlatformServices.layer),
+  Layer.satisfiesServicesType<never>(),
+);
 `;
 
 export const dbMigrationsContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
@@ -95,7 +99,7 @@ export const MigratedLive = MigrationsLive.pipe(
 export const DatabaseLive = Layer.mergeAll(SqliteLive, MigratedLive);
 `;
 
-export const dbPostgresMigrationsContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";{{/if}}
+export const dbPostgresMigrationsContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}
 import { PgMigrator } from "@effect/sql-pg";
 import { Effect, Layer, Path } from "effect";
 import { PostgresLive } from "./Database";
@@ -114,14 +118,16 @@ export const MigrationsLive = Layer.unwrap(
       loader: PgMigrator.fromFileSystem(directory),
     }),
   ),
-).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
+).pipe(Layer.provide(PlatformServices.layer));
 
 export const MigratedLive = MigrationsLive.pipe(
   Layer.provide(PostgresLive),
   Layer.orDie,
 );
 
-export const DatabaseLive = Layer.mergeAll(PostgresLive, MigratedLive);
+export const DatabaseLive = Layer.mergeAll(PostgresLive, MigratedLive).pipe(
+  Layer.satisfiesServicesType<never>(),
+);
 `;
 
 export const dbHealthCheckContents = `import { Effect } from "effect";

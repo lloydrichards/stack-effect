@@ -18,6 +18,10 @@ const serverApiIdentity = new TargetIdentity({
   kind: TargetKind.make("server"),
   name: "api",
 });
+const dbIdentity = new TargetIdentity({
+  kind: TargetKind.make("package"),
+  name: "db",
+});
 
 const getNode = (blueprint: typeof Blueprint.Type, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
@@ -223,6 +227,147 @@ describe("BlueprintService", () => {
     });
 
     describe("when resolving dependencies", () => {
+      it.effect(
+        "should resolve a required capability through one explicitly selected provider",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const blueprint = yield* blueprintService.resolve({
+              targets: [
+                {
+                  identity: dbIdentity,
+                  modules: [
+                    { id: ModuleId.make("package-db-todo-repository") },
+                    { id: ModuleId.make("package-db-sqlite") },
+                  ],
+                },
+              ],
+            });
+
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  dbIdentity.toKey(),
+                  ModuleId.make("package-db-sqlite"),
+                ),
+              ),
+            ).toMatchObject({ moduleId: "package-db-sqlite" });
+          }),
+      );
+
+      it.effect(
+        "should not add Todo RPC contracts for an HTTP-only Todo selection",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const blueprint = yield* blueprintService.resolve({
+              targets: [
+                {
+                  identity: serverApiIdentity,
+                  modules: [
+                    { id: ModuleId.make("server-http-rpc") },
+                    { id: ModuleId.make("server-http-api-todos") },
+                  ],
+                },
+                {
+                  identity: dbIdentity,
+                  modules: [{ id: ModuleId.make("package-db-sqlite") }],
+                },
+              ],
+            });
+
+            expect(
+              blueprint.nodes.some(
+                (node) =>
+                  node._tag === "attached-module" &&
+                  node.moduleId === "domain-todo-rpc-contracts",
+              ),
+            ).toBe(false);
+          }),
+      );
+
+      it.effect(
+        "should reject a required capability without exactly one selected provider",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const exit = yield* Effect.exit(
+              blueprintService.resolve({
+                targets: [
+                  {
+                    identity: dbIdentity,
+                    modules: [
+                      { id: ModuleId.make("package-db-todo-repository") },
+                    ],
+                  },
+                ],
+              }),
+            );
+
+            expect(squashFailure(exit)).toMatchObject({
+              message: expect.stringContaining(
+                "Select exactly one provider module explicitly",
+              ),
+            });
+          }),
+      );
+
+      it.effect(
+        "should reject a required capability with multiple selected providers",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const exit = yield* Effect.exit(
+              blueprintService.resolve({
+                targets: [
+                  {
+                    identity: dbIdentity,
+                    modules: [
+                      { id: ModuleId.make("package-db-todo-repository") },
+                      { id: ModuleId.make("package-db-sqlite") },
+                      { id: ModuleId.make("package-db-postgres") },
+                    ],
+                  },
+                ],
+              }),
+            );
+
+            expect(squashFailure(exit)).toMatchObject({
+              message: expect.stringContaining(
+                "Select exactly one provider module explicitly",
+              ),
+            });
+          }),
+      );
+
+      it.effect(
+        "should reject multiple providers even without a capability consumer",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const exit = yield* Effect.exit(
+              blueprintService.resolve({
+                targets: [
+                  {
+                    identity: dbIdentity,
+                    modules: [
+                      { id: ModuleId.make("package-db-sqlite") },
+                      { id: ModuleId.make("package-db-postgres") },
+                    ],
+                  },
+                ],
+              }),
+            );
+
+            expect(squashFailure(exit)).toMatchObject({
+              message: expect.stringContaining(
+                "Multiple providers selected for capability db-sql",
+              ),
+            });
+          }),
+      );
+
       it.effect(
         "should imply required targets and modules when server-http-api is selected",
         () =>

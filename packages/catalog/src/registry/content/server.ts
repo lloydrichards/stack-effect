@@ -63,9 +63,7 @@ const ApiRouter = HttpApiBuilder.layer(Api).pipe(
 
 // NOTE: Modules append additional routers through Layer.mergeAll.
 const RouterDependencies = Layer.mergeAll(Layer.empty);
-const AllRouters = Layer.mergeAll(ApiRouter).pipe(
-  Layer.provide(RouterDependencies),
-);
+const AllRouters = Layer.mergeAll(ApiRouter);
 
 // NOTE: Modules append additional server layers through Layer.mergeAll.
 const ServerLayers = Layer.mergeAll({{#if runtime=bun}}BunHttpServer.layerConfig(ServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, ServerConfig){{/if}});
@@ -91,6 +89,7 @@ const HttpLive = Effect.gen(function* () {
 
   return HttpRouter.serve(CorsRouters).pipe(
     HttpServer.withLogAddress,
+    Layer.provide(RouterDependencies),
     Layer.provideMerge(ServerLayers),
   );
 }).pipe(Layer.unwrap, Layer.launch);

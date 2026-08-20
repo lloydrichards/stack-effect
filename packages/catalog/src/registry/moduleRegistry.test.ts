@@ -1,3 +1,4 @@
+import { ModuleCapability } from "@repo/domain/Catalog";
 import { describe, expect, it } from "vitest";
 import { moduleRegistry } from "./moduleRegistry";
 
@@ -141,5 +142,41 @@ describe("moduleRegistry", () => {
     expect(vitePlus?.nextSteps).toEqual([
       expect.stringContaining("https://viteplus.dev/guide/"),
     ]);
+  });
+
+  it("should register the Todo vertical slice with provider-neutral SQL dependencies", () => {
+    const todoModuleIds = [
+      "domain-todo-contracts",
+      "domain-todo-http-contracts",
+      "domain-todo-rpc-contracts",
+      "package-db-todo-repository",
+      "server-http-api-todos",
+      "server-http-rpc-todos",
+      "client-react-http-api-todos",
+    ];
+    const todoModules = moduleRegistry.filter((module) =>
+      todoModuleIds.includes(module.id),
+    );
+    const repository = todoModules.find(
+      (module) => module.id === "package-db-todo-repository",
+    );
+
+    expect(todoModules).toHaveLength(todoModuleIds.length);
+    expect(todoModules.map((module) => module.id)).toEqual(
+      expect.arrayContaining(todoModuleIds),
+    );
+    expect(repository?.dependencies).toContainEqual(
+      expect.objectContaining({
+        _tag: "required-capability",
+        capability: "db-sql",
+      }),
+    );
+    expect(
+      moduleRegistry
+        .filter((module) =>
+          module.provides?.includes(ModuleCapability.make("db-sql")),
+        )
+        .map((module) => module.id),
+    ).toEqual(["package-db-sqlite", "package-db-postgres"]);
   });
 });

@@ -224,6 +224,17 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
 
       for (const attached of attachedOnTarget) {
         const attachedDefinition = yield* catalog.getModule(attached.moduleId);
+        const sharedProvider = Arr.findFirst(
+          definition.provides ?? [],
+          (provided) => (attachedDefinition.provides ?? []).includes(provided),
+        );
+
+        if (Option.isSome(sharedProvider)) {
+          throw new BlueprintFailure({
+            message: `Multiple providers selected for capability ${sharedProvider.value} on ${targetState.id}: ${attached.moduleId}, ${moduleId}. Select exactly one provider module.`,
+          });
+        }
+
         const isIncompatible =
           (definition.conflictsWith ?? []).includes(attached.moduleId) ||
           (attachedDefinition.conflictsWith ?? []).includes(moduleId);
@@ -302,11 +313,58 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
               });
             }),
           "required-capability": (dep) =>
-            Effect.fail(
-              new BlueprintFailure({
-                message: `Unresolved capability dependency: ${target.toKey()} requires module ${moduleId}, which needs ${dep.capability} on ${dep.target.toKey()}. Select a provider module explicitly.`,
-              }),
-            ),
+            Effect.gen(function* () {
+              const dependencyTarget =
+                dep.target.kind !== "package" && dep.target.kind === target.kind
+                  ? target
+                  : dep.target;
+              const selectedTarget = Arr.findFirst(
+                selection.targets,
+                (selected) =>
+                  selected.identity.toKey() === dependencyTarget.toKey(),
+              );
+              const providers = Option.isSome(selectedTarget)
+                ? yield* Effect.filter(
+                    selectedTarget.value.modules,
+                    (selectedModule) =>
+                      catalog
+                        .getModule(selectedModule.id)
+                        .pipe(
+                          Effect.map((definition) =>
+                            (definition.provides ?? []).includes(
+                              dep.capability,
+                            ),
+                          ),
+                        ),
+                  )
+                : [];
+
+              const providerDefinition = providers[0];
+              if (providers.length !== 1 || providerDefinition === undefined) {
+                return yield* new BlueprintFailure({
+                  message: `Unresolved capability dependency: ${target.toKey()} requires module ${moduleId}, which needs ${dep.capability} on ${dependencyTarget.toKey()}. Select exactly one provider module explicitly.`,
+                });
+              }
+
+              const requiredTarget = yield* ensureTarget(dependencyTarget);
+              yield* appendEdge(stateRef, {
+                id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
+                from: attachedModuleNodeId,
+                to: requiredTarget.id,
+                reason: "required-target",
+              });
+
+              const provider = yield* ensureAttachedModule(
+                dependencyTarget,
+                providerDefinition.id,
+              );
+              yield* appendEdge(stateRef, {
+                id: `required-module=>${attachedModuleNodeId}=>${provider.id}`,
+                from: attachedModuleNodeId,
+                to: provider.id,
+                reason: "required-module",
+              });
+            }),
         });
       }
 
