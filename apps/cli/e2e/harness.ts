@@ -106,12 +106,12 @@ interface ProjectContext {
     ...args: ReadonlyArray<string>
   ) => Effect.Effect<CommandResult>;
   readonly expectBuildSucceeds: (
-    packageManager?: "bun" | "pnpm",
+    packageManager?: "bun" | "npm" | "pnpm",
   ) => Effect.Effect<void>;
   readonly expectLintPasses: () => Effect.Effect<void>;
   readonly expectFormatPasses: () => Effect.Effect<void>;
   readonly expectTypeCheckPasses: (
-    packageManager?: "bun" | "pnpm",
+    packageManager?: "bun" | "npm" | "pnpm",
   ) => Effect.Effect<void>;
   readonly expectTestsPasses: () => Effect.Effect<void>;
   readonly expectCommandSucceeds: (

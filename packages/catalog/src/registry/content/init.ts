@@ -8,8 +8,11 @@ node_modules/.vite/task-cache{{/if}}
 dist
 build
 .cache
-.turbo
-tsconfig.tsbuildinfo
+{{#if monorepo=turbo}}.turbo
+{{/if}}{{#if monorepo=vite-plus}}.turbo
+{{/if}}{{#if monorepo=nx}}.nx/cache
+.nx/workspace-data
+{{/if}}tsconfig.tsbuildinfo
 
 # env
 .env
@@ -65,7 +68,8 @@ export const pnpmWorkspaceContents = `packages:
 
 allowBuilds:
   esbuild: true
-  msgpackr-extract: true
+  msgpackr-extract: true{{#if monorepo=nx}}
+  nx: true{{/if}}
 `;
 
 export const configTypescriptBaseContents = `{
@@ -156,6 +160,124 @@ export const turboJsonContents = `{
     }
   }
 }
+`;
+
+// -- nx ---------------------------------------------------------------------
+
+// HACK: Nx 23.1.1 cannot parse Bun 1.4's lockfile version 2. Bun recipes hash
+// the lockfile through sharedGlobals instead; remove when Nx accepts version 2.
+export const nxJsonContents = `{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",{{#if runtime=bun}}
+  "pluginsConfig": {
+    "@nx/js": {
+      "analyzeLockfile": false
+    }
+  },{{/if}}
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [
+      "{workspaceRoot}/package.json",
+      "{workspaceRoot}/bun.lock",
+      "{workspaceRoot}/bun.lockb",
+      "{workspaceRoot}/package-lock.json",
+      "{workspaceRoot}/npm-shrinkwrap.json",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/pnpm-lock.yml",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/scripts/hash-env.mjs",
+      { "runtime": "node ./scripts/hash-env.mjs" }
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^default"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "dev": {
+      "cache": false,
+      "continuous": true
+    },
+    "type-check": {
+      "cache": true,
+      "dependsOn": ["^type-check"],
+      "inputs": ["default", "^default"]
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^test"],
+      "inputs": ["default", "^default"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}
+`;
+
+export const nxHashEnvContents = `import { createHash } from "node:crypto";
+import { readdir, readFile } from "node:fs/promises";
+import { join, relative } from "node:path";
+
+const workspaceRoot = process.cwd();
+const workspaceDirectories = ["apps", "packages"];
+
+const isEnvironmentFile = (name) =>
+  name === ".env" || name.startsWith(".env.") || name.endsWith(".env");
+
+const readDirectoryIfPresent = (path) =>
+  readdir(path, { withFileTypes: true }).catch((error) => {
+    if (
+      error !== null &&
+      typeof error === "object" &&
+      "code" in error &&
+      error.code === "ENOENT"
+    ) {
+      return [];
+    }
+    throw error;
+  });
+
+const childDirectories = async (path) =>
+  (await readDirectoryIfPresent(path))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name);
+
+const projectRoots = (
+  await Promise.all(
+    workspaceDirectories.map(async (directory) =>
+      (await childDirectories(join(workspaceRoot, directory))).map((name) =>
+        join(workspaceRoot, directory, name),
+      ),
+    ),
+  )
+).flat();
+
+const environmentFiles = (
+  await Promise.all(
+    [workspaceRoot, ...projectRoots].map(async (projectRoot) =>
+      (await readDirectoryIfPresent(projectRoot))
+        .filter((entry) => entry.isFile() && isEnvironmentFile(entry.name))
+        .map((entry) => join(projectRoot, entry.name)),
+    ),
+  )
+).flat();
+
+const hash = createHash("sha256");
+
+const environmentFileContents = await Promise.all(
+  environmentFiles.sort().map(async (path) => [path, await readFile(path)]),
+);
+
+environmentFileContents.forEach(([path, contents]) => {
+  hash.update(relative(workspaceRoot, path));
+  hash.update("\\0");
+  hash.update(contents);
+  hash.update("\\0");
+});
+
+process.stdout.write(hash.digest("hex"));
 `;
 
 // -- vite+ ------------------------------------------------------------------

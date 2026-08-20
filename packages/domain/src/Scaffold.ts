@@ -86,7 +86,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
    * - `{{format}}` - Format tool ("biome", "dprint", "oxfmt", or "")
    * - `{{test}}` - Test framework ("vitest" or "")
-   * - `{{monorepo}}` - Monorepo tool (for example, "turbo" or "vite-plus")
+   * - `{{monorepo}}` - Monorepo tool (for example, "turbo", "vite-plus", or "nx")
    * - `{{targetKind}}`, `{{targetName}}`, `{{targetPath}}`, `{{targetDir}}`, `{{packageName}}`
    *
    * ## Conditionals

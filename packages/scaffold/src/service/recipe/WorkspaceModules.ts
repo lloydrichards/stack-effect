@@ -1,4 +1,5 @@
 const workspaceToolModules = {
+  nx: "workspace-monorepo-nx",
   turbo: "workspace-monorepo-turbo",
   "vite-plus": "workspace-monorepo-vite-plus",
   dprint: "workspace-quality-dprint",

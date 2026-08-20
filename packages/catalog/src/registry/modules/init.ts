@@ -11,6 +11,8 @@ import {
   dprintJsonContents,
   envrcContents,
   flakeNixContents,
+  nxHashEnvContents,
+  nxJsonContents,
   oxfmtJsoncContents,
   oxfmtVscodeExtensionsContents,
   turboJsonContents,
@@ -209,7 +211,10 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
     categories: [ModuleCategory.make("monorepo")],
-    conflictsWith: [ModuleId.make("workspace-monorepo-vite-plus")],
+    conflictsWith: [
+      ModuleId.make("workspace-monorepo-vite-plus"),
+      ModuleId.make("workspace-monorepo-nx"),
+    ],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -265,12 +270,85 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
+    id: ModuleId.make("workspace-monorepo-nx"),
+    title: "Nx",
+    description:
+      "Package-based monorepo task orchestration and caching with Nx",
+    visibility: "internal",
+    categories: [ModuleCategory.make("monorepo")],
+    conflictsWith: [
+      ModuleId.make("workspace-monorepo-turbo"),
+      ModuleId.make("workspace-monorepo-vite-plus"),
+    ],
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    dependencies: [
+      {
+        _tag: "required-target",
+        identity: new TargetIdentity({
+          kind: TargetKind.make("workspace"),
+          name: "root",
+        }),
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/nx.json",
+        contents: nxJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scripts/hash-env.mjs",
+        contents: nxHashEnvContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "nx",
+        value: "^23.1.1",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "nx run-many -t build",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "nx run-many -t dev",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "nx run-many -t type-check",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "clean",
+        value:
+          "nx reset && nx run-many -t clean && git clean -xdf node_modules .cache .nx/cache .nx/workspace-data dist tsconfig.tsbuildinfo",
+      },
+    ],
+  },
+  {
     id: ModuleId.make("workspace-monorepo-vite-plus"),
     title: "Vite+",
     description: "Monorepo task orchestration and caching with Vite+",
     visibility: "internal",
     categories: [ModuleCategory.make("monorepo")],
-    conflictsWith: [ModuleId.make("workspace-monorepo-turbo")],
+    conflictsWith: [
+      ModuleId.make("workspace-monorepo-turbo"),
+      ModuleId.make("workspace-monorepo-nx"),
+    ],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -611,7 +689,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "test",
         value:
-          "{{#if monorepo=turbo}}turbo run test{{/if}}{{#if monorepo=vite-plus}}vp run -r test{{/if}}",
+          "{{#if monorepo=turbo}}turbo run test{{/if}}{{#if monorepo=vite-plus}}vp run -r test{{/if}}{{#if monorepo=nx}}nx run-many -t test{{/if}}",
       },
     ],
   },

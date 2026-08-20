@@ -15,9 +15,17 @@ layer(CatalogService.layer)("CatalogService", (it) => {
         const vitePlus = workspace?.modules.find(
           (module) => module.id === "workspace-monorepo-vite-plus",
         );
+        const nx = workspace?.modules.find(
+          (module) => module.id === "workspace-monorepo-nx",
+        );
 
         assert.deepStrictEqual(vitePlus?.conflictsWith, [
           ModuleId.make("workspace-monorepo-turbo"),
+          ModuleId.make("workspace-monorepo-nx"),
+        ]);
+        assert.deepStrictEqual(nx?.conflictsWith, [
+          ModuleId.make("workspace-monorepo-turbo"),
+          ModuleId.make("workspace-monorepo-vite-plus"),
         ]);
       }),
   );

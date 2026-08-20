@@ -1,4 +1,4 @@
-import { describe, layer } from "@effect/vitest";
+import { assert, describe, layer } from "@effect/vitest";
 import { Effect } from "effect";
 import { CLI } from "./harness";
 
@@ -273,6 +273,239 @@ describe("init", () => {
           );
         }),
       { timeout: 120_000 },
+    );
+
+    it.effect(
+      "should run a generated Bun workspace through Nx without caching ignored environment changes",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "nx-bun-app",
+            "--target",
+            "client-react/web:client-react-http-api",
+            "--target",
+            "server/api:server-http-api",
+            "--yes",
+            "--no-git",
+            "--monorepo",
+            "nx",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.expectFileExists("nx-bun-app/nx.json");
+          yield* cli.expectFileExists("nx-bun-app/scripts/hash-env.mjs");
+          yield* cli.expectFileNotExists("nx-bun-app/turbo.json");
+          yield* cli.expectFileNotExists("nx-bun-app/vite.config.ts");
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "devDependencies.nx",
+            "^23.1.1",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.build",
+            "nx run-many -t build",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.dev",
+            "nx run-many -t dev",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.type-check",
+            "nx run-many -t type-check",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.test",
+            "nx run-many -t test",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.clean",
+            "nx reset && nx run-many -t clean && git clean -xdf node_modules .cache .nx/cache .nx/workspace-data dist tsconfig.tsbuildinfo",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/nx.json",
+            "pluginsConfig.@nx/js.analyzeLockfile",
+            false,
+          );
+          yield* cli.expectFileContaining(
+            "nx-bun-app/.gitignore",
+            ".nx/workspace-data",
+          );
+          yield* cli.expectFileContaining(
+            "nx-bun-app/package.json",
+            /^(?![\s\S]*"turbo"\s*:)(?![\s\S]*"nx"\s*:\s*\{)[\s\S]*$/,
+          );
+          yield* cli.expectFileContaining(
+            "nx-bun-app/nx.json",
+            '"{workspaceRoot}/bun.lock"',
+          );
+
+          yield* cli.withinProject("nx-bun-app", function* (project) {
+            const discovered = yield* project.exec(
+              "bunx",
+              "nx",
+              "show",
+              "projects",
+            );
+            assert.strictEqual(discovered.exitCode, 0);
+            assert.match(discovered.stdout, /client-react-web/);
+            assert.match(discovered.stdout, /server-api/);
+            assert.isFalse(/nx-bun-app/.test(discovered.stdout));
+
+            yield* project.expectTypeCheckPasses();
+            yield* project.expectBuildSucceeds();
+            yield* project.expectTestsPasses();
+
+            const cached = yield* project.exec("bun", "run", "build");
+            assert.strictEqual(cached.exitCode, 0);
+            assert.match(cached.stdout, /read the output from the cache/i);
+
+            yield* project.writeFile(
+              "apps/client-react-web/.env.local",
+              "NX_GAUNTLET_SECRET=must-not-appear-in-nx-output\n",
+            );
+            const digest = yield* project.exec("node", "scripts/hash-env.mjs");
+            assert.strictEqual(digest.exitCode, 0);
+            assert.match(digest.stdout, /^[a-f0-9]{64}$/);
+            assert.strictEqual(digest.stderr, "");
+
+            const invalidated = yield* project.exec("bun", "run", "build");
+            const invalidatedOutput = `${invalidated.stdout}\n${invalidated.stderr}`;
+            assert.strictEqual(invalidated.exitCode, 0);
+            assert.isFalse(
+              /read the output from the cache/i.test(invalidatedOutput),
+            );
+            assert.isFalse(
+              /must-not-appear-in-nx-output/.test(invalidatedOutput),
+            );
+
+            const projectEnvCached = yield* project.exec("bun", "run", "build");
+            assert.match(
+              projectEnvCached.stdout,
+              /read the output from the cache/i,
+            );
+            yield* project.writeFile(
+              ".env",
+              "NX_ROOT_GAUNTLET_SECRET=also-must-not-appear\n",
+            );
+            const rootEnvInvalidated = yield* project.exec(
+              "bun",
+              "run",
+              "build",
+            );
+            const rootEnvOutput = `${rootEnvInvalidated.stdout}\n${rootEnvInvalidated.stderr}`;
+            assert.strictEqual(rootEnvInvalidated.exitCode, 0);
+            assert.isFalse(
+              /read the output from the cache/i.test(rootEnvOutput),
+            );
+            assert.isFalse(/also-must-not-appear/.test(rootEnvOutput));
+          });
+        }),
+      { timeout: 180_000 },
+    );
+
+    it.effect(
+      "should install, discover, type-check, and build with Nx in a Node and npm workspace",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "nx-npm-app",
+            "--target",
+            "client-react/web:client-react-web-worker",
+            "--yes",
+            "--no-git",
+            "--runtime",
+            "node",
+            "--package-manager",
+            "npm",
+            "--monorepo",
+            "nx",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileContaining(
+            "nx-npm-app/nx.json",
+            /^(?![\s\S]*analyzeLockfile)[\s\S]*$/,
+          );
+
+          yield* cli.withinProject("nx-npm-app", function* (project) {
+            const discovered = yield* project.exec(
+              "npm",
+              "exec",
+              "nx",
+              "show",
+              "projects",
+            );
+            assert.strictEqual(discovered.exitCode, 0);
+            assert.match(discovered.stdout, /client-react-web/);
+            assert.isFalse(/nx-npm-app/.test(discovered.stdout));
+            yield* project.expectTypeCheckPasses("npm");
+            yield* project.expectBuildSucceeds("npm");
+          });
+        }),
+      { timeout: 180_000 },
+    );
+
+    it.effect(
+      "should install and discover projects with Nx in a Node and pnpm workspace",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "nx-pnpm-app",
+            "--target",
+            "package/domain:domain-api-contracts",
+            "--yes",
+            "--no-git",
+            "--runtime",
+            "node",
+            "--package-manager",
+            "pnpm",
+            "--monorepo",
+            "nx",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileContaining(
+            "nx-pnpm-app/pnpm-workspace.yaml",
+            /allowBuilds:[\s\S]*nx: true/,
+          );
+          yield* cli.expectFileContaining(
+            "nx-pnpm-app/nx.json",
+            /^(?![\s\S]*analyzeLockfile)[\s\S]*$/,
+          );
+
+          yield* cli.withinProject("nx-pnpm-app", function* (project) {
+            const discovered = yield* project.exec(
+              "pnpm",
+              "exec",
+              "nx",
+              "show",
+              "projects",
+            );
+            assert.strictEqual(discovered.exitCode, 0);
+            assert.match(discovered.stdout, /@repo\/domain/);
+            assert.isFalse(/nx-pnpm-app/.test(discovered.stdout));
+            yield* project.expectTypeCheckPasses("pnpm");
+          });
+        }),
+      { timeout: 180_000 },
     );
 
     it.effect(
