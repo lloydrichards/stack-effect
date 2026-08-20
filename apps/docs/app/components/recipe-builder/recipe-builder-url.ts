@@ -110,19 +110,53 @@ const toInitialValues = (
   const workspaceModules = Arr.dedupe(
     workspaceTargets.flatMap((target) => target.modules.map(String)),
   );
+  const databaseModules = Arr.dedupe(
+    targets
+      .filter(
+        (target) =>
+          target.target.kind === "package" && target.target.name === "db",
+      )
+      .flatMap((target) => target.modules.map(String))
+      .filter(
+        (module) =>
+          module === "package-db-sqlite" || module === "package-db-postgres",
+      ),
+  );
+  if (databaseModules.length > 1) return undefined;
+  const database =
+    databaseModules[0] === "package-db-sqlite"
+      ? ("sqlite" as const)
+      : databaseModules[0] === "package-db-postgres"
+        ? ("postgres" as const)
+        : ("none" as const);
   if (recipe.noGit && workspaceModules.includes("workspace-devenv-git")) {
     return undefined;
   }
   const formTargets: ReadonlyArray<TargetInstance> = targets
     .filter((target) => target.target.kind !== "workspace")
-    .map((target, index) => ({
-      id: `url-${target.target.kind}-${target.target.name || "default"}-${index + 1}`,
-      kind: target.target.kind,
-      name: target.target.name,
-      modules: target.modules.map(String),
-    }));
+    .flatMap((target, index) => {
+      const modules = target.modules
+        .map(String)
+        .filter(
+          (module) =>
+            module !== "package-db-sqlite" && module !== "package-db-postgres",
+        );
+      return modules.length === 0 &&
+        target.target.kind === "package" &&
+        target.target.name === "db"
+        ? []
+        : [
+            {
+              id: `url-${target.target.kind}-${target.target.name || "default"}-${index + 1}`,
+              kind: target.target.kind,
+              name: target.target.name,
+              modules,
+            },
+          ];
+    });
   const decoded = Schema.decodeOption(RecipeBuilderFormSchema)({
     config,
+    database,
     gitEnabled: !recipe.noGit,
     developerExperienceModules: workspaceModules.filter(
       (module) => module !== "workspace-devenv-git",

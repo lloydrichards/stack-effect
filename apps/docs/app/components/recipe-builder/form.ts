@@ -76,6 +76,7 @@ export interface SupportSelection
 
 const RecipeBuilderFormFields = Schema.Struct({
   config: StackConfigurationSchema,
+  database: Schema.Literals(["none", "sqlite", "postgres"]),
   gitEnabled: Schema.Boolean,
   developerExperienceModules: Schema.Array(Schema.String),
   targets: Schema.Array(TargetInstanceSchema),
@@ -119,6 +120,7 @@ export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
     format: "dprint",
     test: "vitest",
   },
+  database: "none",
   gitEnabled: true,
   developerExperienceModules: [],
   targets: [],
@@ -151,8 +153,19 @@ export function toRecipePreviewInput(
           ]
         : [],
     );
+  const databaseTargets: ReadonlyArray<TargetInstance> =
+    values.database === "none"
+      ? []
+      : [
+          {
+            id: "database",
+            kind: "package",
+            name: "db",
+            modules: [`package-db-${values.database}`],
+          },
+        ];
   const targets = Arr.fromIterable(
-    [...values.targets, ...supportTargets]
+    [...values.targets, ...supportTargets, ...databaseTargets]
       .reduce((merged, target) => {
         const key = ownerKey(target);
         const existing = merged.get(key);

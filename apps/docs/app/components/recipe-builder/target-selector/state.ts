@@ -12,6 +12,84 @@ import {
 
 type Owner = SupportConfiguration["owner"];
 
+const moduleKey = (owner: Owner, moduleId: string) =>
+  `${ownerKey(owner)}#${moduleId}`;
+
+export function moduleRequiresCapability(
+  root: typeof CatalogModule.Type,
+  rootOwner: Owner,
+  capability: string,
+  catalog: typeof RecipeBuilderCatalog.Type | undefined,
+): boolean {
+  if (catalog === undefined) return false;
+  const modulesByOwner = new Map(
+    catalog.targetModules.map(({ owner, modules }) => [
+      ownerKey(owner),
+      new Map(modules.map((module) => [module.id, module])),
+    ]),
+  );
+  const visited = new Set<string>();
+  const visit = (module: typeof CatalogModule.Type, owner: Owner): boolean => {
+    const key = moduleKey(owner, module.id);
+    if (visited.has(key)) return false;
+    visited.add(key);
+    if (
+      module.dependencies.some(
+        (dependency) =>
+          dependency._tag === "required-capability" &&
+          dependency.capability === capability,
+      )
+    ) {
+      return true;
+    }
+    const requiredModules = module.dependencies.flatMap((dependency) =>
+      dependency._tag === "required-module"
+        ? [
+            {
+              owner: dependency.target,
+              module: modulesByOwner
+                .get(ownerKey(dependency.target))
+                ?.get(dependency.moduleId),
+            },
+          ]
+        : [],
+    );
+    const impliedModules = module.implies.flatMap((implication) => {
+      const entry = catalog.targetModules.find(
+        ({ owner: candidate, modules }) =>
+          candidate.kind === implication.targetKind &&
+          modules.some(({ id }) => id === implication.moduleId),
+      );
+      return entry
+        ? [
+            {
+              owner: entry.owner,
+              module: entry.modules.find(
+                ({ id }) => id === implication.moduleId,
+              ),
+            },
+          ]
+        : [];
+    });
+    const requiredChildren = module.children.flatMap((child) =>
+      child.requirement === "required"
+        ? [
+            {
+              owner,
+              module: modulesByOwner.get(ownerKey(owner))?.get(child.moduleId),
+            },
+          ]
+        : [],
+    );
+    return [...requiredModules, ...impliedModules, ...requiredChildren].some(
+      (candidate) =>
+        candidate.module !== undefined &&
+        visit(candidate.module, candidate.owner),
+    );
+  };
+  return visit(root, rootOwner);
+}
+
 export type ModuleRelationshipNode = {
   readonly owner: Owner;
   readonly module: typeof CatalogModule.Type;
@@ -45,7 +123,7 @@ export function buildModuleRelationshipNodes(
   catalog: typeof RecipeBuilderCatalog.Type | undefined,
 ): ReadonlyArray<ModuleRelationshipNode> {
   if (catalog === undefined) return [];
-  const visited = new Set([`${ownerKey(rootOwner)}#${root.id}`]);
+  const visited = new Set([moduleKey(rootOwner, root.id)]);
   const modulesByOwner = new Map(
     catalog.targetModules.map(({ owner, modules }) => [
       ownerKey(owner),
@@ -108,7 +186,7 @@ export function buildModuleRelationshipNodes(
         : []),
     ];
     return candidates.flatMap((candidate) => {
-      const key = `${ownerKey(candidate.owner)}#${candidate.moduleId}`;
+      const key = moduleKey(candidate.owner, candidate.moduleId);
       if (visited.has(key)) return [];
       const child = resolve(candidate.owner, candidate.moduleId);
       if (child === undefined) return [];

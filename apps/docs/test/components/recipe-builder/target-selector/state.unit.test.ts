@@ -4,6 +4,7 @@ import type { SupportSelection } from "../../../../app/components/recipe-builder
 import {
   buildModuleRelationshipNodes,
   makeTargetInstance,
+  moduleRequiresCapability,
   removeModuleSupportSelections,
   removeTargetAndDependencies,
   toggleTargetModule,
@@ -63,6 +64,74 @@ const unrelatedModuleFixture = makeCatalogModule({
 });
 
 describe("recipe builder state", () => {
+  it("should find a required capability through module dependencies", () => {
+    const repository = makeCatalogModule({
+      id: "package-db-todo-repository",
+      title: "Todo repository",
+      description: "Persistent todos",
+      visibility: "internal",
+      dependencies: [
+        {
+          _tag: "required-capability",
+          target: { kind: "package", name: "db" },
+          capability: "db-sql",
+        },
+      ],
+      implies: [],
+      children: [],
+    });
+    const serverTodo = makeCatalogModule({
+      id: "server-http-api-todos",
+      title: "Todo HTTP API",
+      description: "Todo endpoints",
+      visibility: "public",
+      dependencies: [
+        {
+          _tag: "required-module",
+          target: { kind: "package", name: "db" },
+          moduleId: repository.id,
+        },
+      ],
+      implies: [],
+      children: [],
+    });
+    const clientTodo = makeCatalogModule({
+      id: "client-react-http-api-todos",
+      title: "Todo HTTP Client",
+      description: "Todo UI",
+      visibility: "public",
+      dependencies: [],
+      implies: [{ targetKind: "server", moduleId: serverTodo.id }],
+      children: [],
+    });
+    const catalog = makeBuilderCatalog({
+      ...recipeCatalogFixture,
+      targetModules: [
+        {
+          owner: { kind: "client-react", name: "web" },
+          modules: [clientTodo],
+        },
+        {
+          owner: { kind: "server", name: "api" },
+          modules: [serverTodo],
+        },
+        {
+          owner: { kind: "package", name: "db" },
+          modules: [repository],
+        },
+      ],
+    });
+
+    expect(
+      moduleRequiresCapability(
+        clientTodo,
+        { kind: "client-react", name: "web" },
+        "db-sql",
+        catalog,
+      ),
+    ).toBe(true);
+  });
+
   it("should omit configuration children when building root dependency relationships", () => {
     expect(
       buildModuleRelationshipNodes(

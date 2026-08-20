@@ -1,4 +1,5 @@
 import type { TargetIdentity } from "@repo/domain/Catalog";
+import { useSelector } from "@tanstack/react-form";
 import { Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
@@ -30,7 +31,11 @@ import type {
 import { ownerKey } from "../form";
 import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import { ModuleBranch } from "./module-branch";
-import { buildModuleRelationshipNodes, dependencySourceNames } from "./state";
+import {
+  buildModuleRelationshipNodes,
+  dependencySourceNames,
+  moduleRequiresCapability,
+} from "./state";
 
 type TargetConfigurationProps = {
   readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
@@ -61,6 +66,7 @@ export function TargetConfiguration({
   targets,
 }: TargetConfigurationProps) {
   const form = useRecipeBuilderFormContext();
+  const database = useSelector(form.store, (state) => state.values.database);
   const modules =
     catalog?.targetModules.find(
       (entry) => ownerKey(entry.owner) === ownerKey(catalogOwner ?? target),
@@ -83,6 +89,15 @@ export function TargetConfiguration({
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
       ?.requiredModules ?? []),
   ]);
+  const moduleOwner = catalogOwner ?? {
+    kind: target.kind,
+    name: target.name,
+  };
+  const getDisabledReason = (module: typeof CatalogModule.Type) =>
+    database === "none" &&
+    moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
+      ? "Select SQLite or Postgres under Database to enable this module."
+      : undefined;
   return (
     <section className="p-5 md:p-7">
       <div className="border-b pb-5">
@@ -140,6 +155,10 @@ export function TargetConfiguration({
                 module={module}
                 modules={modules}
                 disabled={catalogFailed}
+                getDisabledReason={getDisabledReason}
+                {...(getDisabledReason(module) === undefined
+                  ? {}
+                  : { disabledReason: getDisabledReason(module) })}
                 selected={target.modules}
                 divided={index > 0}
                 onToggleModule={onToggleModule}
@@ -147,14 +166,7 @@ export function TargetConfiguration({
                 relationships={
                   target.modules.includes(module.id) ||
                   requiredModuleIds.has(module.id)
-                    ? buildModuleRelationshipNodes(
-                        module,
-                        catalogOwner ?? {
-                          kind: target.kind,
-                          name: target.name,
-                        },
-                        catalog,
-                      )
+                    ? buildModuleRelationshipNodes(module, moduleOwner, catalog)
                     : []
                 }
                 supportSelections={supportSelections}

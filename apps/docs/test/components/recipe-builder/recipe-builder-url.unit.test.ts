@@ -66,4 +66,21 @@ describe("recipe builder URL", () => {
     expect(decoded.issue).toBeUndefined();
     expect(decoded.initialValues.config.name).toBe("shared-recipe");
   });
+
+  it("round trips the database provider outside editable targets", () => {
+    const encoded = encodeRecipeBuilderUrl({
+      ...fullStackRecipeFixture,
+      database: "sqlite",
+    });
+    const decoded = decodeRecipeBuilderUrl(encoded);
+
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.database).toBe("sqlite");
+    expect(
+      decoded.initialValues.targets.some(
+        (target) => target.kind === "package" && target.name === "db",
+      ),
+    ).toBe(false);
+    expect(encoded.getAll("target")).toContain("package/db:package-db-sqlite");
+  });
 });
