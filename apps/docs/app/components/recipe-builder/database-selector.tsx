@@ -1,7 +1,6 @@
 "use client";
 
 import { useSelector } from "@tanstack/react-form";
-import { Database } from "lucide-react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
@@ -17,25 +16,60 @@ const choices = [
   { value: "postgres", label: "Postgres" },
 ] as const;
 
+const moduleTitleList = new Intl.ListFormat("en", {
+  style: "long",
+  type: "conjunction",
+});
+
 export function DatabaseSelector() {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogOwnersByTargetId } = useRecipeBuilderCatalog();
   const database = useSelector(form.store, (state) => state.values.database);
   const targets = useSelector(form.store, (state) => state.values.targets);
-  const databaseRequired = targets.some((target) => {
+  const selectedModules = targets.flatMap((target) => {
     const owner = catalogOwnersByTargetId.get(target.id) ?? target;
     const modules = catalog?.targetModules.find(
       (entry) =>
         entry.owner.kind === owner.kind && entry.owner.name === owner.name,
     )?.modules;
-    return target.modules.some((moduleId) => {
+
+    return target.modules.flatMap((moduleId) => {
       const module = modules?.find(({ id }) => id === moduleId);
-      return (
-        module !== undefined &&
-        moduleRequiresCapability(module, owner, "db-sql", catalog)
-      );
+      return module === undefined ? [] : [{ target, owner, module }];
     });
   });
+  const impliedModuleKeys = new Set(
+    selectedModules.flatMap(({ module }) =>
+      module.implies.flatMap(({ targetKind, moduleId }) => {
+        const matchingTargets = targets.filter(
+          ({ kind }) => kind === targetKind,
+        );
+        return matchingTargets.length === 1
+          ? [`${matchingTargets[0]?.id}#${moduleId}`]
+          : [];
+      }),
+    ),
+  );
+  const databaseRequirementTitles = Array.from(
+    new Set(
+      selectedModules.flatMap(({ target, owner, module }) => {
+        const dependencyAddedModuleIds = new Set(
+          target.requirements
+            ?.filter(({ addedModule }) => addedModule)
+            .map(({ moduleId }) => moduleId),
+        );
+        return !dependencyAddedModuleIds.has(module.id) &&
+          !impliedModuleKeys.has(`${target.id}#${module.id}`) &&
+          moduleRequiresCapability(module, owner, "db-sql", catalog)
+          ? [module.title]
+          : [];
+      }),
+    ),
+  );
+  const databaseRequired = databaseRequirementTitles.length > 0;
+  const databaseRequirementMessage = databaseRequired
+    ? `Remove ${moduleTitleList.format(databaseRequirementTitles)} to choose None.`
+    : "Database-backed modules become available after you select a database.";
   const selectedLabel = choices.find(({ value }) => value === database)?.label;
 
   return (
@@ -49,7 +83,7 @@ export function DatabaseSelector() {
         </span>
       }
     >
-      <div className="p-5 md:p-7">
+      <div className="p-4 md:p-5">
         <Field>
           <FieldLabel id="database-provider-label">SQL provider</FieldLabel>
           <ToggleGroup
@@ -79,14 +113,7 @@ export function DatabaseSelector() {
               </ToggleGroupItem>
             ))}
           </ToggleGroup>
-          <FieldDescription className="flex items-start gap-2">
-            <Database className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            <span>
-              {databaseRequired
-                ? "A selected feature requires a database. Remove that feature before choosing None."
-                : "Database-backed modules become available after you select SQLite or Postgres."}
-            </span>
-          </FieldDescription>
+          <FieldDescription>{databaseRequirementMessage}</FieldDescription>
         </Field>
       </div>
     </DisclosurePanel>

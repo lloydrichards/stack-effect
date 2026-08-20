@@ -1,5 +1,5 @@
 ---
-"@stack-effect/docs": minor
+"@stack-effect/docs": patch
 ---
 
-The Recipe Builder now asks users to select a database provider when a chosen module requires SQL persistence.
+The Recipe Builder now requires a database provider before enabling SQL-backed modules and identifies which selected modules prevent removing it.

@@ -1,5 +1,10 @@
 import { Checkbox } from "~/components/ui/checkbox";
-import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
+import {
+  Field,
+  FieldContent,
+  FieldGroup,
+  FieldLabel,
+} from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import { CatalogModule } from "../../../workers/recipe-builder/domain";
 import {
@@ -48,6 +53,7 @@ export function ModuleBranch({
   const required = requirement === "required";
   const checked = required || parentSelected;
   const unavailable = disabled || (!checked && disabledReason !== undefined);
+  const disabledReasonId = `module-${module.id}-disabled-reason`;
   return (
     <div className={cn(divided && "border-t")}>
       <Field
@@ -61,31 +67,40 @@ export function ModuleBranch({
           id={`module-${module.id}`}
           checked={checked}
           disabled={required || unavailable}
+          aria-describedby={disabledReason ? disabledReasonId : undefined}
           onCheckedChange={() => onToggleModule(module)}
         />
-        <FieldLabel
-          htmlFor={`module-${module.id}`}
-          className={cn(!required && !unavailable && "cursor-pointer")}
-        >
-          <span className="flex flex-wrap items-center gap-2">
-            <span className="text-sm/5 font-medium text-foreground">
-              {module.title}
-            </span>
-            {requirement ? (
-              <span className="text-xs font-normal text-muted-foreground">
-                {requirement}
+        <FieldContent>
+          <FieldLabel
+            htmlFor={`module-${module.id}`}
+            className={cn(
+              "w-full",
+              !required && !unavailable && "cursor-pointer",
+            )}
+          >
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="text-sm/5 font-medium text-foreground">
+                {module.title}
               </span>
-            ) : null}
-          </span>
-          <span className="max-w-3xl text-sm/5 font-normal text-muted-foreground">
-            {module.description}
-          </span>
-          {disabledReason ? (
-            <span className="max-w-3xl text-xs/5 font-medium text-foreground/70">
-              {disabledReason}
+              {requirement ? (
+                <span className="text-xs font-normal text-muted-foreground">
+                  {requirement}
+                </span>
+              ) : null}
             </span>
+            <span className="max-w-3xl text-sm/5 font-normal text-muted-foreground">
+              {module.description}
+            </span>
+          </FieldLabel>
+          {disabledReason ? (
+            <p
+              id={disabledReasonId}
+              className="mt-1 max-w-3xl text-xs/5 font-medium text-foreground/80"
+            >
+              {disabledReason}
+            </p>
           ) : null}
-        </FieldLabel>
+        </FieldContent>
       </Field>
       {checked && module.children.length > 0 ? (
         <div className="border-t bg-muted/15 px-4 py-3">
