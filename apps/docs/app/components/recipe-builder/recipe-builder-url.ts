@@ -94,7 +94,11 @@ const toInitialValues = (
             _tag: "node" as const,
             packageManager: packageManager === "npm" ? "npm" : "pnpm",
           } as const),
-    typescript: recipe.typescript ?? defaults.typescript,
+    // Nx does not yet support TypeScript 7. Preserve older shared links that
+    // selected Nx before TypeScript became an explicit URL parameter.
+    typescript:
+      recipe.typescript ??
+      (recipe.monorepo === "nx" ? "6" : defaults.typescript),
     monorepo: recipe.monorepo ?? defaults.monorepo,
     lint: recipe.lint ?? defaults.lint,
     format: recipe.format ?? defaults.format,

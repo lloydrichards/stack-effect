@@ -1,7 +1,7 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { RecipeService } from "@repo/scaffold";
+import { RecipeService, StackConfigDefaults } from "@repo/scaffold";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
@@ -25,16 +25,6 @@ import {
 import { resolveNameAndRoot } from "../lib/project";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
-
-const DEFAULTS = {
-  runtime: "bun",
-  packageManager: "bun",
-  typescript: "6",
-  monorepo: "turbo",
-  lint: "biome",
-  format: "biome",
-  test: "vitest",
-} as const;
 
 const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
   function* ({
@@ -77,6 +67,7 @@ const buildConfig = ({
   lint,
   format,
   test,
+  defaults,
 }: {
   readonly projectName: string;
   readonly runtime: Option.Option<"bun" | "node">;
@@ -86,10 +77,11 @@ const buildConfig = ({
   readonly lint: Option.Option<string>;
   readonly format: Option.Option<string>;
   readonly test: Option.Option<string>;
+  readonly defaults: StackConfig;
 }): typeof StackConfig.Type => {
   const packageManagerName = Option.getOrElse(
     packageManager,
-    () => DEFAULTS.packageManager,
+    () => defaults.packageManagerName,
   );
   const runtimeName = Option.getOrElse(
     runtime,
@@ -107,11 +99,11 @@ const buildConfig = ({
   return new StackConfig({
     name: projectName as typeof Schema.NonEmptyString.Type,
     runtime: runtimeConfig,
-    typescript: Option.getOrElse(typescript, () => DEFAULTS.typescript),
-    monorepo: Option.getOrElse(monorepo, () => DEFAULTS.monorepo),
-    lint: Option.getOrElse(lint, () => DEFAULTS.lint),
-    format: Option.getOrElse(format, () => DEFAULTS.format),
-    test: Option.getOrElse(test, () => DEFAULTS.test),
+    typescript: Option.getOrElse(typescript, () => defaults.typescriptVersion),
+    monorepo: Option.getOrElse(monorepo, () => defaults.monorepo),
+    lint: Option.getOrElse(lint, () => defaults.lint),
+    format: Option.getOrElse(format, () => defaults.format),
+    test: Option.getOrElse(test, () => defaults.test),
   });
 };
 
@@ -160,6 +152,7 @@ export const create = Command.make(
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeService;
+      const defaults = yield* StackConfigDefaults;
 
       if (Option.isNone(flags.name)) {
         return yield* Effect.fail(
@@ -191,6 +184,7 @@ export const create = Command.make(
         lint: flags.lint,
         format: flags.format,
         test: flags.test,
+        defaults,
       });
       const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);
       const selection = yield* recipes.resolve(recipeSpec, {

@@ -67,6 +67,16 @@ describe("recipe builder URL", () => {
     expect(decoded.initialValues.config.name).toBe("shared-recipe");
   });
 
+  it("keeps Nx shared links compatible when TypeScript is omitted", () => {
+    const decoded = decodeRecipeBuilderUrl(
+      new URLSearchParams("?name=shared-recipe&monorepo=nx"),
+    );
+
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config.monorepo).toBe("nx");
+    expect(decoded.initialValues.config.typescript).toBe("6");
+  });
+
   it("round trips the database provider outside editable targets", () => {
     const encoded = encodeRecipeBuilderUrl({
       ...fullStackRecipeFixture,

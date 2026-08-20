@@ -5,7 +5,11 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { RecipeService, toWorkspaceToolValue } from "@repo/scaffold";
+import {
+  RecipeService,
+  StackConfigDefaults,
+  toWorkspaceToolValue,
+} from "@repo/scaffold";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
@@ -65,11 +69,6 @@ const moduleChoices = (
     value: m.id,
   }));
 
-const defaultChoice = <A extends string>(
-  choices: ReadonlyArray<{ value: A }>,
-  fallback: A,
-) => choices[0]?.value ?? fallback;
-
 const chooseOptionalTool = <A extends string>(
   yes: boolean,
   message: string,
@@ -77,7 +76,7 @@ const chooseOptionalTool = <A extends string>(
   fallback: A,
 ) =>
   yes
-    ? Effect.succeed(Option.some(defaultChoice(choices, fallback)))
+    ? Effect.succeed(Option.some(fallback))
     : optionalSelect(message, choices);
 
 export const init = Command.make(
@@ -98,6 +97,7 @@ export const init = Command.make(
       yield* validateShowFiles(flags);
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogService;
+      const defaults = yield* StackConfigDefaults;
 
       const monorepoChoices = workspaceChoices(
         catalog,
@@ -180,7 +180,7 @@ export const init = Command.make(
       const typescript = Option.isSome(flags.typescript)
         ? flags.typescript.value
         : flags.yes
-          ? ("6" as const)
+          ? defaults.typescriptVersion
           : yield* Select({
               message: "What TypeScript version will you use?",
               choices: [
@@ -209,25 +209,25 @@ export const init = Command.make(
         flags.yes,
         "What monorepo tool will you use?",
         monorepoChoices,
-        "turbo",
+        defaults.monorepo ?? "",
       );
       const lint = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for linting?",
         lintChoices,
-        "biome",
+        defaults.lint ?? "",
       );
       const format_ = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for formatting?",
         formatChoices,
-        "biome",
+        defaults.format ?? "",
       );
       const test = yield* chooseOptionalTool(
         flags.yes,
         "What test framework will you use?",
         testChoices,
-        "vitest",
+        defaults.test ?? "",
       );
 
       const git = flags.noGit

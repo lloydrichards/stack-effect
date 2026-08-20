@@ -56,7 +56,12 @@ export function StackConfigurator() {
   const configure = (updates: Partial<typeof config>) =>
     form.setFieldValue("config", (current) => ({ ...current, ...updates }));
   const updateTool = (field: ToolField, value: string) =>
-    form.setFieldValue(`config.${field}`, value || undefined);
+    configure({
+      [field]: value || undefined,
+      ...(field === "monorepo" && value === "nx"
+        ? { typescript: "6" as const }
+        : {}),
+    });
 
   return (
     <DisclosurePanel
@@ -175,7 +180,12 @@ export function StackConfigurator() {
             { value: "7", label: "TypeScript 7" },
           ]}
           onChange={(value) =>
-            configure({ typescript: value === "7" ? "7" : "6" })
+            configure({
+              typescript: value === "7" ? "7" : "6",
+              ...(value === "7" && config.monorepo === "nx"
+                ? { monorepo: "vite-plus" }
+                : {}),
+            })
           }
         />
 

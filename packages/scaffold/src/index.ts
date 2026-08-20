@@ -46,6 +46,7 @@ export {
   RecipeTargetString,
   renderRecipeTargetSpec,
 } from "./service/recipe/RecipeTargets";
+export { StackConfigDefaults } from "./service/recipe/StackConfigDefaults";
 export {
   toTypeScriptModuleId,
   toWorkspaceModuleId,
