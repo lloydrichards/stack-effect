@@ -118,7 +118,9 @@ function TargetOptions({
   return (
     <Empty className="min-h-64 items-stretch gap-5 p-5 md:p-6">
       <EmptyHeader className="mx-0 max-w-xl items-start text-left">
-        <EmptyTitle>
+        <EmptyTitle
+          className={firstTarget ? "font-semibold text-primary" : undefined}
+        >
           {firstTarget ? "Add your first target" : "Choose another target"}
         </EmptyTitle>
         <EmptyDescription>
@@ -129,7 +131,10 @@ function TargetOptions({
       </EmptyHeader>
       {targets.length > 0 ? (
         <div
-          className="grid w-full overflow-hidden rounded-md border sm:grid-cols-2"
+          className={cn(
+            "grid w-full auto-rows-fr overflow-hidden rounded-md border sm:grid-cols-2",
+            firstTarget && "border-primary/50",
+          )}
           aria-label="Available target types"
         >
           {targets.map((target, index) => (
@@ -137,14 +142,15 @@ function TargetOptions({
               key={target.kind}
               type="button"
               className={cn(
-                "group flex min-h-24 w-full items-start gap-3 bg-background p-3.5 text-left transition-colors hover:bg-muted/35 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
+                "@container group flex h-full w-full items-start gap-3 bg-background p-3.5 text-left transition-colors hover:bg-muted/35 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
+                firstTarget && "bg-primary/3 hover:bg-primary/7",
                 index > 0 && "border-t",
-                "sm:[&:nth-child(2)]:border-t-0 sm:[&:nth-child(even)]:border-l",
+                "sm:nth-2:border-t-0 sm:even:border-l",
               )}
               onClick={() => onAddTarget(target.kind)}
             >
               <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                <span className="flex flex-wrap @2xs:flex-row flex-col items-baseline gap-x-2 gap-y-1">
                   <span className="font-heading text-sm font-semibold text-foreground">
                     {target.title}
                   </span>
@@ -152,12 +158,15 @@ function TargetOptions({
                     {target.kind}
                   </span>
                 </span>
-                <span className="mt-1.5 block text-sm leading-5 text-muted-foreground">
+                <span className="@2xs:block mt-1.5 hidden text-sm leading-5 text-muted-foreground">
                   {target.description}
                 </span>
               </span>
               <Plus
-                className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary"
+                className={cn(
+                  "mt-0.5 size-4 shrink-0 transition-colors group-hover:text-primary",
+                  firstTarget ? "text-primary" : "text-muted-foreground",
+                )}
                 aria-hidden="true"
               />
             </button>
@@ -165,14 +174,14 @@ function TargetOptions({
         </div>
       ) : (
         <div
-          className="grid w-full overflow-hidden rounded-md border sm:grid-cols-2"
+          className="grid w-full auto-rows-fr overflow-hidden rounded-md border sm:grid-cols-2"
           aria-label="Loading target types"
           aria-busy="true"
         >
           {[0, 1, 2].map((index) => (
             <div
               key={index}
-              className="min-h-24 border-b p-3.5 last:border-b-0 sm:border-r sm:last:border-r-0"
+              className="h-full border-b p-3.5 last:border-b-0 sm:border-r sm:last:border-r-0"
             >
               <Skeleton className="h-4 w-2/3" />
               <Skeleton className="mt-4 h-3 w-full" />
