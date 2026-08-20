@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { trackEvent } from "~/lib/analytics";
 import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
+import { DatabaseSelector } from "./database-selector";
 import {
   RecipeBuilderProvider,
   useRecipeBuilderCatalog,
@@ -118,6 +119,10 @@ function RecipeBuilderContent() {
         <div className="contents xl:col-start-1 xl:row-start-1 xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
           <div className="min-w-0">
             <StackConfigurator />
+          </div>
+
+          <div className="min-w-0">
+            <DatabaseSelector />
           </div>
 
           <div className="min-w-0">

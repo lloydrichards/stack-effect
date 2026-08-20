@@ -17,6 +17,10 @@ type ModuleBranchProps = {
   readonly relationships?: ReadonlyArray<ModuleRelationshipNode>;
   readonly divided?: boolean;
   readonly disabled?: boolean;
+  readonly disabledReason?: string | undefined;
+  readonly getDisabledReason?:
+    | ((module: typeof CatalogModule.Type) => string | undefined)
+    | undefined;
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
@@ -33,6 +37,8 @@ export function ModuleBranch({
   relationships = [],
   divided = false,
   disabled = false,
+  disabledReason,
+  getDisabledReason,
   onToggleModule,
   onToggleSupportModule,
   requirement,
@@ -41,24 +47,25 @@ export function ModuleBranch({
   const parentSelected = selected.includes(module.id);
   const required = requirement === "required";
   const checked = required || parentSelected;
+  const unavailable = disabled || (!checked && disabledReason !== undefined);
   return (
     <div className={cn(divided && "border-t")}>
       <Field
         orientation="horizontal"
         variant="selection"
         density="comfortable"
-        data-disabled={required || disabled}
+        data-disabled={required || unavailable}
         data-selected={checked}
       >
         <Checkbox
           id={`module-${module.id}`}
           checked={checked}
-          disabled={required || disabled}
+          disabled={required || unavailable}
           onCheckedChange={() => onToggleModule(module)}
         />
         <FieldLabel
           htmlFor={`module-${module.id}`}
-          className={cn(!required && !disabled && "cursor-pointer")}
+          className={cn(!required && !unavailable && "cursor-pointer")}
         >
           <span className="flex flex-wrap items-center gap-2">
             <span className="text-sm/5 font-medium text-foreground">
@@ -73,6 +80,11 @@ export function ModuleBranch({
           <span className="max-w-3xl text-sm/5 font-normal text-muted-foreground">
             {module.description}
           </span>
+          {disabledReason ? (
+            <span className="max-w-3xl text-xs/5 font-medium text-foreground/70">
+              {disabledReason}
+            </span>
+          ) : null}
         </FieldLabel>
       </Field>
       {checked && module.children.length > 0 ? (
@@ -95,6 +107,10 @@ export function ModuleBranch({
                   module={childModule}
                   modules={modules}
                   disabled={disabled}
+                  getDisabledReason={getDisabledReason}
+                  {...(getDisabledReason?.(childModule) === undefined
+                    ? {}
+                    : { disabledReason: getDisabledReason(childModule) })}
                   onToggleModule={onToggleModule}
                   onToggleSupportModule={onToggleSupportModule}
                   selected={selected}

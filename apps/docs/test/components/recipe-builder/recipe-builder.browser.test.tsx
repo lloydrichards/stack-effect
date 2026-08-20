@@ -82,15 +82,19 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             message: "Catalog enrichment failed.",
           });
         }
-        const requestedKinds = new Set(
-          request.targets.map(({ owner }) => owner.kind),
+        const requestedOwners = new Set(
+          request.targets.map(({ owner }) => owner.toKey()),
         );
         const requestedTargetModules = request.targets.map(({ owner }) => ({
           owner,
           modules:
             recipeCatalogFixture.targetModules.find(
+              (entry) => entry.owner.toKey() === owner.toKey(),
+            )?.modules ??
+            recipeCatalogFixture.targetModules.find(
               (entry) => entry.owner.kind === owner.kind,
-            )?.modules ?? [],
+            )?.modules ??
+            [],
         }));
         const catalog = {
           ...recipeCatalogFixture,
@@ -109,7 +113,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             : [
                 ...requestedTargetModules,
                 ...recipeCatalogFixture.targetModules.filter(
-                  (entry) => !requestedKinds.has(entry.owner.kind),
+                  (entry) => !requestedOwners.has(entry.owner.toKey()),
                 ),
               ],
         };
@@ -238,6 +242,41 @@ test("should generate a usable preview when the user completes a valid Selection
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();
+});
+
+test("should require a database before selecting a database-backed module", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  const todoModule = page.getByRole("checkbox", { name: /Todo HTTP Client/u });
+
+  await expect.element(todoModule).toBeDisabled();
+  await expect
+    .element(
+      page.getByText(
+        "Select SQLite or Postgres under Database to enable this module.",
+      ),
+    )
+    .toBeVisible();
+
+  await page.getByRole("button", { name: "SQLite" }).click();
+  await expect.element(todoModule).toBeEnabled();
+  await page.getByText("Todo HTTP Client", { exact: true }).click();
+
+  await expect
+    .element(page.getByRole("button", { name: "None" }))
+    .toBeDisabled();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent("package%2Fdb%3Apackage-db-sqlite");
+
+  await page.getByRole("button", { name: "Postgres" }).click();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent("package%2Fdb%3Apackage-db-postgres");
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .not.toHaveTextContent("package-db-sqlite");
 });
 
 test("should log a share after copying a valid recipe link", async () => {

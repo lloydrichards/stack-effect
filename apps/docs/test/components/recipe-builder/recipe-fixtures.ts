@@ -62,6 +62,68 @@ export const clientModuleFixture = makeCatalogModule({
   children: [],
 });
 
+const todoRepositoryModuleFixture = makeCatalogModule({
+  id: "package-db-todo-repository",
+  title: "Todo Repository",
+  description: "Persistent Todo CRUD repository over the selected SQL database",
+  visibility: "internal",
+  dependencies: [
+    {
+      _tag: "required-capability",
+      target: { kind: "package", name: "db" },
+      capability: "db-sql",
+    },
+  ],
+  implies: [],
+  children: [],
+});
+
+const sqliteModuleFixture = makeCatalogModule({
+  id: "package-db-sqlite",
+  title: "SQLite Database",
+  description: "Reusable Effect SQL SQLite package with migrations",
+  visibility: "public",
+  dependencies: [],
+  implies: [],
+  children: [],
+});
+
+const postgresModuleFixture = makeCatalogModule({
+  id: "package-db-postgres",
+  title: "Postgres Database",
+  description: "Reusable Effect SQL Postgres package with migrations",
+  visibility: "public",
+  dependencies: [],
+  implies: [],
+  children: [],
+});
+
+const serverTodoModuleFixture = makeCatalogModule({
+  id: "server-http-api-todos",
+  title: "Todo HTTP API",
+  description: "Persistent Todo CRUD endpoints over Effect HTTP API",
+  visibility: "internal",
+  dependencies: [
+    {
+      _tag: "required-module",
+      target: { kind: "package", name: "db" },
+      moduleId: todoRepositoryModuleFixture.id,
+    },
+  ],
+  implies: [],
+  children: [],
+});
+
+const clientTodoModuleFixture = makeCatalogModule({
+  id: "client-react-http-api-todos",
+  title: "Todo HTTP Client",
+  description: "Persistent Todo CRUD card backed by the typed HTTP API",
+  visibility: "public",
+  dependencies: [],
+  implies: [{ targetKind: "server", moduleId: serverTodoModuleFixture.id }],
+  children: [],
+});
+
 export const clientTargetFixture: TargetInstance = {
   id: "client-1",
   kind: "client-react",
@@ -105,15 +167,27 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   targetModules: [
     {
       owner: { kind: "client-react", name: "web" },
-      modules: [configTypescriptViteModuleFixture, clientModuleFixture],
+      modules: [
+        configTypescriptViteModuleFixture,
+        clientModuleFixture,
+        clientTodoModuleFixture,
+      ],
     },
     {
       owner: { kind: "server", name: "api" },
-      modules: [serverHttpModuleFixture],
+      modules: [serverHttpModuleFixture, serverTodoModuleFixture],
     },
     {
       owner: { kind: "package", name: "domain" },
       modules: [domainApiModuleFixture],
+    },
+    {
+      owner: { kind: "package", name: "db" },
+      modules: [
+        sqliteModuleFixture,
+        postgresModuleFixture,
+        todoRepositoryModuleFixture,
+      ],
     },
     {
       owner: { kind: "server-mcp", name: "" },
@@ -168,6 +242,7 @@ export const fullStackRecipeFixture: RecipeBuilderFormValues = {
     test: "vitest",
   },
   gitEnabled: true,
+  database: "none",
   developerExperienceModules: [],
   targets: [
     {

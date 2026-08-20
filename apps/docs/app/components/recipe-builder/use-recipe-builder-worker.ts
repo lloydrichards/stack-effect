@@ -112,10 +112,19 @@ export function useRecipeBuilderWorker(
     if (!enabled) return;
     const request = {
       targetIdentityKey,
-      targets: targets.map(({ id, kind, name }) => ({
-        id,
-        owner: new TargetIdentity({ kind: TargetKind.make(kind), name }),
-      })),
+      targets: [
+        ...targets.map(({ id, kind, name }) => ({
+          id,
+          owner: new TargetIdentity({ kind: TargetKind.make(kind), name }),
+        })),
+        {
+          id: "database",
+          owner: new TargetIdentity({
+            kind: TargetKind.make("package"),
+            name: "db",
+          }),
+        },
+      ],
     } as const;
     lastCatalogRequestRef.current = request;
     requestCatalog(request);
