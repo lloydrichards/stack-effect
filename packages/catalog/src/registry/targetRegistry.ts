@@ -193,7 +193,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
       {
         _tag: "pkg-json-entry",
@@ -308,7 +308,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
       {
         _tag: "pkg-json-entry",
@@ -407,7 +407,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
       {
         _tag: "pkg-json-entry",
@@ -500,7 +500,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
       {
         _tag: "pkg-json-entry",
@@ -594,7 +594,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
       {
         _tag: "pkg-json-entry",

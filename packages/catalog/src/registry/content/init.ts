@@ -39,6 +39,7 @@ result-*
 export const rootPackageJsonContents = `{
   "name": "{{targetName}}",
   "private": true,
+  "type": "module",
   "packageManager": "{{packageManagerSpec}}",
   "scripts": {},
   "devDependencies": {},
@@ -175,7 +176,7 @@ export default defineConfig({
 // -- biome ------------------------------------------------------------------
 
 export const biomeJsoncContents = `{
-  "$schema": "https://biomejs.dev/schemas/2.5.7/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
