@@ -1,5 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import {
+  CatalogNotFound,
   ModuleDefinition,
   type ModuleDependency,
   ModuleId,
@@ -45,7 +46,7 @@ import {
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-type CollectedTarget = {
+export type CollectedTarget = {
   kind: typeof TargetKind.Type;
   name: string;
   modules: Array<typeof ModuleId.Type>;
@@ -465,7 +466,75 @@ const supportedModulesForTarget = (
     );
   });
 
-const resolveCapabilities = <E, R>(
+type ReachableModule = {
+  readonly target: TargetIdentity;
+  readonly moduleId: typeof ModuleId.Type;
+};
+
+/**
+ * Follow required-module dependencies without adding them to Selection.
+ * Blueprint remains responsible for materializing the dependency closure; the
+ * interactive command only needs this view to discover provider choices.
+ */
+const collectRequiredModuleClosure = (
+  targets: ReadonlyArray<CollectedTarget>,
+) =>
+  Effect.gen(function* () {
+    const catalog = yield* CatalogService;
+    const visitedRef = yield* Ref.make(new Set<string>());
+    const reachableRef = yield* Ref.make<Array<ReachableModule>>([]);
+
+    const visit = (
+      target: TargetIdentity,
+      moduleId: typeof ModuleId.Type,
+    ): Effect.Effect<void, CatalogNotFound> =>
+      Effect.gen(function* () {
+        const key = `${target.toKey()}:${moduleId}`;
+        const visited = yield* Ref.get(visitedRef);
+        if (visited.has(key)) return;
+
+        yield* Ref.update(visitedRef, (current) => new Set([...current, key]));
+        yield* Ref.update(reachableRef, (current) => [
+          ...current,
+          { target, moduleId },
+        ]);
+
+        const definition = yield* catalog.getModule(moduleId);
+        yield* pipe(
+          definition.dependencies,
+          Arr.filter(
+            (
+              dependency,
+            ): dependency is Extract<
+              typeof ModuleDependency.Type,
+              { _tag: "required-module" }
+            > => dependency._tag === "required-module",
+          ),
+          Effect.forEach((dependency) => {
+            const dependencyTarget =
+              dependency.target.kind !== "package" &&
+              dependency.target.kind === target.kind
+                ? target
+                : dependency.target;
+            return visit(dependencyTarget, dependency.moduleId);
+          }),
+        );
+      });
+
+    yield* Effect.forEach(targets, (target) => {
+      const identity = new TargetIdentity({
+        kind: target.kind,
+        name: target.name,
+      });
+      return Effect.forEach(target.modules, (moduleId) =>
+        visit(identity, moduleId),
+      );
+    });
+
+    return yield* Ref.get(reachableRef);
+  });
+
+export const resolveCapabilities = <E, R>(
   targets: Array<CollectedTarget>,
   confirmed: boolean,
   selectProvider: (options: {
@@ -480,79 +549,82 @@ const resolveCapabilities = <E, R>(
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
+    const reachableModules = yield* collectRequiredModuleClosure(targets);
     let changed = false;
 
-    yield* Effect.forEach([...targets], (target) =>
-      Effect.forEach([...target.modules], (moduleId) =>
-        Effect.gen(function* () {
-          const definition = yield* catalog.getModule(moduleId);
+    yield* Effect.forEach(reachableModules, ({ target, moduleId }) =>
+      Effect.gen(function* () {
+        const definition = yield* catalog.getModule(moduleId);
 
-          yield* Effect.forEach(definition.dependencies, (dependency) =>
-            Effect.gen(function* () {
-              if (dependency._tag !== "required-capability") return;
+        yield* Effect.forEach(definition.dependencies, (dependency) =>
+          Effect.gen(function* () {
+            if (dependency._tag !== "required-capability") return;
 
-              const requiredTarget = dependency.target;
-              const currentTarget = findTarget(targets, requiredTarget);
-              const providedByCurrentSelection = yield* Option.match(
-                currentTarget,
-                {
-                  onNone: () => Effect.succeed(false),
-                  onSome: (selectedTarget) =>
-                    Effect.gen(function* () {
-                      const providedBy = yield* Effect.filter(
-                        selectedTarget.modules,
-                        (selectedModuleId) =>
-                          Effect.gen(function* () {
-                            const selectedModule =
-                              yield* catalog.getModule(selectedModuleId);
-                            return Arr.contains(
-                              selectedModule.provides ?? [],
-                              dependency.capability,
-                            );
-                          }),
-                      );
+            const requiredTarget =
+              dependency.target.kind !== "package" &&
+              dependency.target.kind === target.kind
+                ? target
+                : dependency.target;
+            const currentTarget = findTarget(targets, requiredTarget);
+            const providedByCurrentSelection = yield* Option.match(
+              currentTarget,
+              {
+                onNone: () => Effect.succeed(false),
+                onSome: (selectedTarget) =>
+                  Effect.gen(function* () {
+                    const providedBy = yield* Effect.filter(
+                      selectedTarget.modules,
+                      (selectedModuleId) =>
+                        Effect.gen(function* () {
+                          const selectedModule =
+                            yield* catalog.getModule(selectedModuleId);
+                          return Arr.contains(
+                            selectedModule.provides ?? [],
+                            dependency.capability,
+                          );
+                        }),
+                    );
 
-                      return Arr.isArrayNonEmpty(providedBy);
-                    }),
-                },
+                    return Arr.isArrayNonEmpty(providedBy);
+                  }),
+              },
+            );
+
+            if (providedByCurrentSelection) return;
+
+            const providers = catalog.getCapabilityProviders({
+              capability: dependency.capability,
+              target: requiredTarget,
+            });
+
+            if (providers.length === 0) {
+              return yield* Effect.fail(
+                `Module "${definition.id}" requires capability "${dependency.capability}" on ${requiredTarget.toKey()}, but no compatible provider module exists.`,
               );
+            }
 
-              if (providedByCurrentSelection) return;
+            const provider =
+              providers.length === 1
+                ? providers[0]
+                : yield* selectProvider({
+                    definition,
+                    dependency,
+                    requiredTarget,
+                    providers,
+                  });
 
-              const providers = catalog.getCapabilityProviders({
-                capability: dependency.capability,
-                target: requiredTarget,
-              });
+            if (!provider) return;
 
-              if (providers.length === 0) {
-                return yield* Effect.fail(
-                  `Module "${definition.id}" requires capability "${dependency.capability}" on ${requiredTarget.toKey()}, but no compatible provider module exists.`,
-                );
-              }
-
-              const provider =
-                providers.length === 1
-                  ? providers[0]
-                  : yield* selectProvider({
-                      definition,
-                      dependency,
-                      requiredTarget,
-                      providers,
-                    });
-
-              if (!provider) return;
-
-              changed =
-                ensureTargetModule(
-                  targets,
-                  requiredTarget,
-                  provider.id,
-                  confirmed,
-                ) || changed;
-            }),
-          );
-        }),
-      ),
+            changed =
+              ensureTargetModule(
+                targets,
+                requiredTarget,
+                provider.id,
+                confirmed,
+              ) || changed;
+          }),
+        );
+      }),
     );
 
     return changed;
@@ -575,14 +647,11 @@ const resolveCapabilitiesInteractive = (targets: Array<CollectedTarget>) =>
       }),
   );
 
-const resolveDependenciesInteractive = (targets: Array<CollectedTarget>) =>
+const resolveImplicationsInteractive = (targets: Array<CollectedTarget>) =>
   Effect.gen(function* () {
     let changed = true;
     while (changed) {
-      const implicationsChanged = yield* resolveImplications(targets);
-      const capabilitiesChanged =
-        yield* resolveCapabilitiesInteractive(targets);
-      changed = implicationsChanged || capabilitiesChanged;
+      changed = yield* resolveImplications(targets);
     }
   });
 
@@ -665,7 +734,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
     }),
   );
 
-  yield* resolveDependenciesInteractive(targets);
+  yield* resolveImplicationsInteractive(targets);
 
   let allConfirmed = false;
   while (!allConfirmed) {
@@ -703,11 +772,18 @@ const collectTargetsInteractive = Effect.gen(function* () {
     yield* pipe(
       Match.value(action),
       Match.when("confirm-all", () =>
-        Effect.sync(() => {
-          Arr.forEach(targets, (t) => {
-            t.confirmed = true;
-          });
-          allConfirmed = true;
+        Effect.gen(function* () {
+          const capabilitiesChanged =
+            yield* resolveCapabilitiesInteractive(targets);
+
+          if (!capabilitiesChanged) {
+            yield* Effect.sync(() => {
+              Arr.forEach(targets, (t) => {
+                t.confirmed = true;
+              });
+              allConfirmed = true;
+            });
+          }
         }),
       ),
       Match.when("edit", () =>
@@ -751,7 +827,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
                       Arr.map(supportedModules, (m) => `${t.kind}:${m}`),
                     );
                     yield* removeOrphanedImplications(targets, pinned);
-                    yield* resolveDependenciesInteractive(targets);
+                    yield* resolveImplicationsInteractive(targets);
                   } else {
                     t.confirmed = true;
                   }
@@ -764,7 +840,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
         Effect.gen(function* () {
           yield* addTarget;
 
-          yield* resolveDependenciesInteractive(targets);
+          yield* resolveImplicationsInteractive(targets);
         }),
       ),
       Match.exhaustive,
