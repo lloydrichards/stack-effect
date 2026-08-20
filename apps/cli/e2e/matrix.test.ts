@@ -15,6 +15,11 @@ interface MatrixEntry {
   readonly label: string;
 }
 
+interface ProviderSelection {
+  readonly target: string;
+  readonly moduleId: string;
+}
+
 interface GeneratedModuleExpectation {
   readonly files: ReadonlyArray<string>;
   readonly standaloneMissingFiles?: ReadonlyArray<string>;
@@ -47,7 +52,6 @@ interface CapabilityMatrixEntry {
   readonly requiringModule: string;
   readonly providerTarget: string;
   readonly providerModule: string;
-  readonly providerCount: number;
   readonly capability: string;
   readonly label: string;
 }
@@ -64,6 +68,68 @@ const defaultTargetNames = new Map([
   ["cli", "app"],
   ["package", "domain"],
 ]);
+
+const catalogModules = Effect.runSync(
+  Effect.map(CatalogService, (catalog) => catalog.getModules()).pipe(
+    Effect.provide(CatalogService.layer),
+  ),
+);
+const getCapabilityProviders = Effect.runSync(
+  Effect.map(CatalogService, (catalog) =>
+    catalog.getCapabilityProviders.bind(catalog),
+  ).pipe(Effect.provide(CatalogService.layer)),
+);
+const catalogModulesById = new Map(
+  catalogModules.map((module) => [module.id, module]),
+);
+
+const requiredProviderSelections = (
+  moduleIds: ReadonlyArray<string>,
+): ReadonlyArray<ProviderSelection> => {
+  const visited = new Set<string>();
+  const selections = new Map<string, ProviderSelection>();
+
+  const visit = (moduleId: string) => {
+    if (visited.has(moduleId)) return;
+    visited.add(moduleId);
+
+    const module = catalogModulesById.get(ModuleId.make(moduleId));
+    if (!module) return;
+
+    for (const implication of module.implies ?? []) {
+      visit(implication.moduleId);
+    }
+
+    for (const dependency of module.dependencies) {
+      if (dependency._tag === "required-module") {
+        visit(dependency.moduleId);
+        continue;
+      }
+      if (dependency._tag !== "required-capability") continue;
+
+      const provider = getCapabilityProviders({
+        capability: dependency.capability,
+        target: dependency.target,
+      })[0];
+      if (!provider) continue;
+
+      const target = identityToTarget(dependency.target);
+      selections.set(`${target}:${dependency.capability}`, {
+        target,
+        moduleId: provider.id,
+      });
+    }
+  };
+
+  for (const moduleId of moduleIds) visit(moduleId);
+  return Array.from(selections.values());
+};
+
+const requiredProviderArgs = (moduleIds: ReadonlyArray<string>) =>
+  requiredProviderSelections(moduleIds).flatMap((provider) => [
+    "--target",
+    `${provider.target}:${provider.moduleId}`,
+  ]);
 
 /**
  * Groups modules by their actual target identity (kind/name).
@@ -262,7 +328,6 @@ const buildCapabilityMatrix = Effect.gen(function* () {
           requiringModule: mod.id,
           providerTarget: identityToTarget(dependency.target),
           providerModule: provider.id,
-          providerCount: providers.length,
           capability: dependency.capability,
           label: `${getModuleTarget(mod)} + ${mod.id} with ${dependency.capability} provider ${provider.id}`,
         });
@@ -439,6 +504,7 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
+              ...requiredProviderArgs(entry.modules),
             );
             yield* cli.expectExitCode(0);
 
@@ -477,6 +543,7 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
+              ...requiredProviderArgs(entry.modules),
             );
             yield* cli.expectExitCode(0);
 
@@ -517,17 +584,11 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              `${entry.serverTarget}:${entry.serverModules.join(",")}`,
-            );
-            yield* cli.expectExitCode(0);
-
-            yield* cli.run(
-              "add",
-              "--yes",
-              "--root",
-              root,
-              "--target",
               `${entry.clientTarget}:${entry.clientModules.join(",")}`,
+              ...requiredProviderArgs([
+                ...entry.clientModules,
+                ...entry.serverModules,
+              ]),
             );
             yield* cli.expectExitCode(0);
 
@@ -556,18 +617,6 @@ describe("matrix", () => {
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            if (serverModules.length > 0) {
-              yield* cli.run(
-                "add",
-                "--yes",
-                "--root",
-                root,
-                "--target",
-                `server/${defaultTargetNames.get("server")}:${serverModules.join(",")}`,
-              );
-              yield* cli.expectExitCode(0);
-            }
-
             yield* cli.run(
               "add",
               "--yes",
@@ -575,6 +624,7 @@ describe("matrix", () => {
               root,
               "--target",
               `${clientTarget}:${clientModules.join(",")}`,
+              ...requiredProviderArgs([...clientModules, ...serverModules]),
             );
             yield* cli.expectExitCode(0);
 
@@ -620,6 +670,7 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.parentModule}`,
+              ...requiredProviderArgs([entry.parentModule]),
             );
             yield* cli.expectExitCode(0);
 
@@ -631,6 +682,7 @@ describe("matrix", () => {
                 root,
                 "--target",
                 `${child.childTarget}:${child.moduleId}`,
+                ...requiredProviderArgs([child.moduleId]),
               );
               yield* cli.expectExitCode(0);
             }
@@ -665,19 +717,16 @@ describe("matrix", () => {
                 "--root",
                 root,
                 "--target",
+                `${entry.providerTarget}:${entry.providerModule}`,
+                "--target",
                 `${entry.requiringTarget}:${entry.requiringModule}`,
               );
+              yield* cli.expectExitCode(0);
 
-              if (entry.providerCount === 1) {
-                yield* cli.expectExitCode(0);
-
-                yield* cli.withinProject(name, function* (project) {
-                  yield* expectInstallPasses(project);
-                  yield* project.expectTypeCheckPasses();
-                });
-              } else {
-                yield* cli.expectExitCode(1);
-              }
+              yield* cli.withinProject(name, function* (project) {
+                yield* expectInstallPasses(project);
+                yield* project.expectTypeCheckPasses();
+              });
             }).pipe(Effect.provide(CLI.layer)),
           { timeout: 180_000 },
         );
