@@ -130,6 +130,31 @@ describe("RecipeService", () => {
   });
 
   describe("resolve", () => {
+    it.effect("should select the Nx workspace module when configured", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          ...testConfig,
+          monorepo: "nx",
+        });
+        const selection = yield* service.resolve(
+          { targets: [] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assertTargetModules(selection, ".", [
+          ModuleId.make("workspace-typescript-6"),
+          ModuleId.make("workspace-monorepo-nx"),
+          ModuleId.make("workspace-quality-biome-lint"),
+          ModuleId.make("workspace-quality-biome-format"),
+          ModuleId.make("workspace-test-vitest"),
+        ]);
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect("should select the Vite+ workspace module when configured", () =>
       Effect.gen(function* () {
         const service = yield* RecipeService;
@@ -808,6 +833,30 @@ describe("RecipeService", () => {
   });
 
   describe("renderCreateCommand", () => {
+    it.effect(
+      "should render an explicit monorepo flag when Nx is configured",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const config = new StackConfig({
+            ...testConfig,
+            monorepo: "nx",
+          });
+          const selection = yield* service.resolve(
+            { targets: [] },
+            {
+              config,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          assert.strictEqual(
+            service.renderCreateCommand({ config, selection }),
+            "bunx stack-effect@latest create recipe-app --monorepo nx --no-git",
+          );
+        }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect(
       "should render an explicit monorepo flag when Vite+ is configured",
       () =>

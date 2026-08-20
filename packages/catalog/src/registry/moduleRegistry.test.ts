@@ -93,14 +93,31 @@ describe("moduleRegistry", () => {
     expect(invalid).toEqual([]);
   });
 
-  it("should register Vite+ as a Turbo alternative when listing monorepo modules", () => {
+  it("should register Nx and Vite+ as mutually exclusive Turbo alternatives", () => {
+    const turbo = moduleRegistry.find(
+      (mod) => mod.id === "workspace-monorepo-turbo",
+    );
+    const nx = moduleRegistry.find((mod) => mod.id === "workspace-monorepo-nx");
     const vitePlus = moduleRegistry.find(
       (mod) => mod.id === "workspace-monorepo-vite-plus",
     );
 
+    expect(nx).toBeDefined();
     expect(vitePlus).toBeDefined();
+    expect(nx?.categories).toContain("monorepo");
     expect(vitePlus?.categories).toContain("monorepo");
-    expect(vitePlus?.conflictsWith).toEqual(["workspace-monorepo-turbo"]);
+    expect(turbo?.conflictsWith).toEqual([
+      "workspace-monorepo-vite-plus",
+      "workspace-monorepo-nx",
+    ]);
+    expect(nx?.conflictsWith).toEqual([
+      "workspace-monorepo-turbo",
+      "workspace-monorepo-vite-plus",
+    ]);
+    expect(vitePlus?.conflictsWith).toEqual([
+      "workspace-monorepo-turbo",
+      "workspace-monorepo-nx",
+    ]);
   });
 
   it("should register Oxfmt as a formatter alternative when catalog modules are listed", () => {
