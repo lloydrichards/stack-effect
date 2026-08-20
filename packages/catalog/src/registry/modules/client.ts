@@ -23,6 +23,12 @@ import {
   clientPresencePanelContents,
   clientWebSocketClientContents,
 } from "../content/client-websocket";
+import {
+  clientImportValidationAtomContents,
+  clientImportValidationCardContents,
+  clientImportValidationDomainContents,
+  clientImportValidationWorkerContents,
+} from "../content/client-worker";
 
 const clientReactKind = TargetKind.make("client-react");
 const serverKind = TargetKind.make("server");
@@ -32,6 +38,53 @@ const domainTarget = new TargetIdentity({
 });
 
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+  {
+    id: ModuleId.make("client-react-web-worker"),
+    title: "Streaming Import Worker",
+    description:
+      "Browser Worker RPC with Effect Schema, Stream, Schedule, and Atom RPC",
+    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/workers/import-validation/domain.ts",
+        contents: clientImportValidationDomainContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/workers/import-validation/import-validation.worker.ts",
+        contents: clientImportValidationWorkerContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/lib/import-validation-worker.ts",
+        contents: clientImportValidationAtomContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/components/import-validation-card.tsx",
+        contents: clientImportValidationCardContents,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@effect/platform-browser",
+        value: "4.0.0-rc.108",
+      },
+      {
+        _tag: "jsx-slot",
+        path: "{{targetPath}}/src/app.tsx",
+        slotId: "components",
+        content: "<ImportValidationCard />",
+        import: {
+          moduleSpecifier: "./components/import-validation-card",
+          namedImports: ["ImportValidationCard"],
+        },
+      },
+    ],
+  },
   {
     id: ModuleId.make("client-react-http-api"),
     title: "HTTP API Client",
