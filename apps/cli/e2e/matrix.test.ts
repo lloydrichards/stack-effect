@@ -15,6 +15,15 @@ interface MatrixEntry {
   readonly label: string;
 }
 
+interface GeneratedModuleExpectation {
+  readonly files: ReadonlyArray<string>;
+  readonly standaloneMissingFiles?: ReadonlyArray<string>;
+  readonly contents?: ReadonlyArray<{
+    readonly path: string;
+    readonly pattern: string | RegExp;
+  }>;
+}
+
 /**
  * Entry for testing modules with their optional children.
  * Tracks parent module and all optional children to add separately.
@@ -122,11 +131,54 @@ const matrix = Effect.runSync(
   buildMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
-const singleTargetEntries = matrix.filter(
-  (e) =>
-    !e.target.startsWith("client-react") &&
-    !e.target.startsWith("client-foldkit"),
+const individualModuleEntries = matrix.filter(
+  (entry) => entry.modules.length === 1,
 );
+const maximalTargetEntries = matrix.filter((entry) => entry.modules.length > 1);
+
+const generatedModuleExpectations: Readonly<
+  Record<string, GeneratedModuleExpectation>
+> = {
+  "client-react-web-worker": {
+    files: [
+      "apps/client-react-web/src/workers/import-validation/domain.ts",
+      "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
+      "apps/client-react-web/src/lib/import-validation-worker.ts",
+      "apps/client-react-web/src/components/import-validation-card.tsx",
+    ],
+    standaloneMissingFiles: [
+      "apps/server-api/package.json",
+      "packages/domain/package.json",
+    ],
+    contents: [
+      {
+        path: "apps/client-react-web/src/workers/import-validation/domain.ts",
+        pattern: 'Rpc.make("validate"',
+      },
+      {
+        path: "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
+        pattern: 'Schedule.spaced("250 millis")',
+      },
+      {
+        path: "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
+        pattern:
+          /const records = content[\s\S]*lineNumber: index \+ 1[\s\S]*\.filter\(/,
+      },
+      {
+        path: "apps/client-react-web/src/lib/import-validation-worker.ts",
+        pattern: "RpcClient.layerProtocolWorker",
+      },
+      {
+        path: "apps/client-react-web/src/app.tsx",
+        pattern: "<ImportValidationCard />",
+      },
+      {
+        path: "apps/client-react-web/package.json",
+        pattern: '"@effect/platform-browser": "4.0.0-rc.108"',
+      },
+    ],
+  },
+};
 
 function getModuleTarget(mod: {
   supportedOn: ReadonlyArray<
@@ -271,6 +323,33 @@ const fullStackMatrix = Effect.runSync(
   buildFullStackMatrix.pipe(Effect.provide(CatalogService.layer)),
 );
 
+const buildMaximalClientMatrix = Effect.gen(function* () {
+  const catalog = yield* CatalogService;
+
+  return yield* Effect.forEach(
+    [TargetKind.make("client-react"), TargetKind.make("client-foldkit")],
+    (kind) =>
+      Effect.gen(function* () {
+        const modules = yield* catalog.getSupportedModules(kind);
+        const serverModules = modules.flatMap((module) =>
+          (module.implies ?? [])
+            .filter((implication) => implication.targetKind === "server")
+            .map((implication) => implication.moduleId),
+        );
+
+        return {
+          clientTarget: `${kind}/${defaultTargetNames.get(kind)}`,
+          clientModules: modules.map((module) => module.id),
+          serverModules: [...new Set(serverModules)],
+        };
+      }),
+  );
+});
+
+const maximalClientMatrix = Effect.runSync(
+  buildMaximalClientMatrix.pipe(Effect.provide(CatalogService.layer)),
+);
+
 const expectInstallPasses = (project: {
   install: () => Effect.Effect<{
     readonly exitCode: number;
@@ -292,17 +371,56 @@ const expectInstallPasses = (project: {
       ),
     );
 
+const assertGeneratedModuleExpectations = (
+  project: {
+    expectFileExists: (path: string) => Effect.Effect<void>;
+    expectFileNotExists: (path: string) => Effect.Effect<void>;
+    expectFileContaining: (
+      path: string,
+      pattern: string | RegExp,
+    ) => Effect.Effect<void>;
+  },
+  modules: ReadonlyArray<string>,
+  standalone: boolean,
+) =>
+  Effect.forEach(
+    modules,
+    (moduleId) => {
+      const expectation = generatedModuleExpectations[moduleId];
+      if (!expectation) return Effect.void;
+
+      return Effect.all([
+        Effect.forEach(
+          expectation.files,
+          (path) => project.expectFileExists(path),
+          {
+            discard: true,
+          },
+        ),
+        Effect.forEach(
+          standalone ? (expectation.standaloneMissingFiles ?? []) : [],
+          (path) => project.expectFileNotExists(path),
+          { discard: true },
+        ),
+        Effect.forEach(
+          expectation.contents ?? [],
+          ({ path, pattern }) => project.expectFileContaining(path, pattern),
+          { discard: true },
+        ),
+      ]).pipe(Effect.asVoid);
+    },
+    { discard: true },
+  );
+
 /**
  * Acceptance tests for various module combinations in the matrix.
  *
- * The matrix is generated dynamically from the CatalogService, ensuring that
- * all supported module combinations are tested. Each test scaffolds a project,
- * adds the specified modules, and verifies that the resulting project is valid
- * (e.g., type checks successfully).
+ * The matrix is generated dynamically from the CatalogService. It proves each
+ * module alone, each target's maximal bundle, and each declared relationship.
  */
 describe("matrix", () => {
-  layer(CLI.layer)("single-target modules", (it) => {
-    for (const entry of singleTargetEntries) {
+  layer(CLI.layer)("every public module", (it) => {
+    for (const entry of individualModuleEntries) {
       it.effect(
         entry.label,
         () =>
@@ -325,11 +443,57 @@ describe("matrix", () => {
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
+              yield* assertGeneratedModuleExpectations(
+                project,
+                entry.modules,
+                true,
+              );
               yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
           }).pipe(Effect.provide(CLI.layer)),
         { timeout: 120_000 },
+      );
+    }
+  });
+
+  layer(CLI.layer)("maximal target bundles", (it) => {
+    for (const entry of maximalTargetEntries) {
+      it.effect(
+        entry.label,
+        () =>
+          Effect.gen(function* () {
+            const cli = yield* CLI;
+            const name = `matrix-maximal-${entry.target.replace("/", "-")}`;
+            const root = `${cli.workdir}/${name}`;
+
+            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
+            yield* cli.expectExitCode(0);
+
+            yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              `${entry.target}:${entry.modules.join(",")}`,
+            );
+            yield* cli.expectExitCode(0);
+
+            yield* cli.withinProject(name, function* (project) {
+              yield* assertGeneratedModuleExpectations(
+                project,
+                entry.modules,
+                false,
+              );
+              yield* expectInstallPasses(project);
+              yield* project.expectFormatPasses();
+              yield* project.expectLintPasses();
+              yield* project.expectTypeCheckPasses();
+              yield* project.expectBuildSucceeds();
+            });
+          }).pipe(Effect.provide(CLI.layer)),
+        { timeout: 180_000 },
       );
     }
   });
@@ -377,28 +541,12 @@ describe("matrix", () => {
     }
   });
 
-  layer(CLI.layer)("full-stack all client modules together", (it) => {
-    const byClientKind = new Map<
-      string,
-      { serverModules: Set<string>; clientModules: Set<string> }
-    >();
-    for (const entry of fullStackMatrix) {
-      const kind = entry.clientTarget;
-      if (!byClientKind.has(kind)) {
-        byClientKind.set(kind, {
-          serverModules: new Set(),
-          clientModules: new Set(),
-        });
-      }
-      const group = byClientKind.get(kind)!;
-      for (const m of entry.serverModules) group.serverModules.add(m);
-      for (const m of entry.clientModules) group.clientModules.add(m);
-    }
-
-    for (const [clientTarget, group] of byClientKind) {
+  layer(CLI.layer)("maximal client bundles", (it) => {
+    for (const entry of maximalClientMatrix) {
+      const { clientTarget, clientModules, serverModules } = entry;
       const kindSlug = clientTarget.replace("/", "-");
       it.effect(
-        `all ${clientTarget} modules with server dependencies`,
+        `all ${clientTarget} modules with required server dependencies`,
         () =>
           Effect.gen(function* () {
             const cli = yield* CLI;
@@ -408,15 +556,17 @@ describe("matrix", () => {
             yield* cli.run("init", name, "--yes", "--root", cli.workdir);
             yield* cli.expectExitCode(0);
 
-            yield* cli.run(
-              "add",
-              "--yes",
-              "--root",
-              root,
-              "--target",
-              `server/${defaultTargetNames.get("server")}:${[...group.serverModules].join(",")}`,
-            );
-            yield* cli.expectExitCode(0);
+            if (serverModules.length > 0) {
+              yield* cli.run(
+                "add",
+                "--yes",
+                "--root",
+                root,
+                "--target",
+                `server/${defaultTargetNames.get("server")}:${serverModules.join(",")}`,
+              );
+              yield* cli.expectExitCode(0);
+            }
 
             yield* cli.run(
               "add",
@@ -424,13 +574,21 @@ describe("matrix", () => {
               "--root",
               root,
               "--target",
-              `${clientTarget}:${[...group.clientModules].join(",")}`,
+              `${clientTarget}:${clientModules.join(",")}`,
             );
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
+              yield* assertGeneratedModuleExpectations(
+                project,
+                clientModules,
+                false,
+              );
               yield* expectInstallPasses(project);
+              yield* project.expectFormatPasses();
+              yield* project.expectLintPasses();
               yield* project.expectTypeCheckPasses();
+              yield* project.expectBuildSucceeds();
             });
           }).pipe(Effect.provide(CLI.layer)),
         { timeout: 180_000 },
