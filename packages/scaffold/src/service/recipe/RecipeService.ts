@@ -10,6 +10,7 @@ import {
   type RecipeResolveOptions,
 } from "./RecipeErrors";
 import { encodeRecipeTargetSpecs } from "./RecipeTargets";
+import { StackConfigDefaults } from "./StackConfigDefaults";
 import { toTypeScriptModuleId, toWorkspaceModuleId } from "./WorkspaceModules";
 
 export {
@@ -37,16 +38,6 @@ type CollectedRecipeTarget = {
   readonly identity: TargetIdentity;
   readonly modules: ReadonlyArray<typeof ModuleId.Type>;
 };
-
-const DEFAULTS = {
-  runtime: "bun",
-  packageManager: "bun",
-  typescript: "6",
-  monorepo: "turbo",
-  lint: "biome",
-  format: "biome",
-  test: "vitest",
-} as const;
 
 const quoteShellArg = (value: string) =>
   /^[A-Za-z0-9_./:,@+-]+$/.test(value)
@@ -205,6 +196,7 @@ export class RecipeService extends Context.Service<
 >()("RecipeService") {
   static readonly make = Effect.gen(function* () {
     const catalog = yield* CatalogService;
+    const defaults = yield* StackConfigDefaults;
 
     const resolve: RecipeServiceShape["resolve"] = Effect.fn(
       "RecipeService.resolve",
@@ -272,21 +264,25 @@ export class RecipeService extends Context.Service<
         "create",
         quoteShellArg(config.name),
         ...targetFlags,
-        ...(config.runtime._tag === DEFAULTS.runtime
+        ...(config.runtime._tag === defaults.runtime._tag
           ? []
           : ["--runtime", "node"]),
-        ...(packageManager === DEFAULTS.packageManager
+        ...(packageManager === defaults.packageManagerName
           ? []
           : ["--package-manager", packageManager]),
         ...renderChangedFlag(
           "--typescript",
           config.typescriptVersion,
-          DEFAULTS.typescript,
+          defaults.typescriptVersion,
         ),
-        ...renderChangedFlag("--monorepo", config.monorepo, DEFAULTS.monorepo),
-        ...renderChangedFlag("--lint", config.lint, DEFAULTS.lint),
-        ...renderChangedFlag("--format", config.format, DEFAULTS.format),
-        ...renderChangedFlag("--test", config.test, DEFAULTS.test),
+        ...renderChangedFlag(
+          "--monorepo",
+          config.monorepo,
+          defaults.monorepo ?? "",
+        ),
+        ...renderChangedFlag("--lint", config.lint, defaults.lint ?? ""),
+        ...renderChangedFlag("--format", config.format, defaults.format ?? ""),
+        ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
         ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []
           : ["--no-git"]),

@@ -25,90 +25,90 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "my-app/stack.effect.json",
             "typescript",
-            "6",
+            "7",
           );
           yield* cli.expectJsonFile(
             "my-app/package.json",
             "scripts.prepare",
-            "effect-language-service patch",
+            "effect-tsgo patch",
           );
           yield* cli.expectJsonFile(
             "my-app/package.json",
             "devDependencies.typescript",
-            "6.0.3",
+            "7.0.2",
           );
           yield* cli.expectJsonFile(
             "my-app/package.json",
-            "devDependencies.@effect/language-service",
-            "^0.87.0",
+            "devDependencies.@effect/tsgo",
+            "^0.22.0",
           );
           yield* cli.expectJsonFile(
             "my-app/tsconfig.json",
             "$schema",
-            "./node_modules/@effect/language-service/schema.json",
+            "./node_modules/@effect/tsgo/schema.json",
           );
           yield* cli.expectJsonFile(
             "my-app/packages/config-typescript/base.json",
             "$schema",
-            "../../node_modules/@effect/language-service/schema.json",
+            "../../node_modules/@effect/tsgo/schema.json",
           );
         }),
       { timeout: 30_000 },
     );
 
     it.effect(
-      "records an explicit TypeScript version",
+      "records an explicit TypeScript 6 override",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
 
           yield* cli.run(
             "init",
-            "typescript-7-app",
+            "typescript-6-app",
             "--yes",
             "--typescript",
-            "7",
+            "6",
             "--root",
             cli.workdir,
           );
 
           yield* cli.expectExitCode(0);
           yield* cli.expectJsonFile(
-            "typescript-7-app/stack.effect.json",
+            "typescript-6-app/stack.effect.json",
             "typescript",
-            "7",
+            "6",
           );
           yield* cli.expectJsonFile(
-            "typescript-7-app/package.json",
+            "typescript-6-app/package.json",
             "scripts.prepare",
-            "effect-tsgo patch",
+            "effect-language-service patch",
           );
           yield* cli.expectJsonFile(
-            "typescript-7-app/package.json",
+            "typescript-6-app/package.json",
             "devDependencies.typescript",
-            "7.0.2",
+            "6.0.3",
           );
           yield* cli.expectJsonFile(
-            "typescript-7-app/package.json",
-            "devDependencies.@effect/tsgo",
-            "^0.22.0",
+            "typescript-6-app/package.json",
+            "devDependencies.@effect/language-service",
+            "^0.87.0",
           );
           yield* cli.expectJsonFile(
-            "typescript-7-app/tsconfig.json",
+            "typescript-6-app/tsconfig.json",
             "$schema",
-            "./node_modules/@effect/tsgo/schema.json",
+            "./node_modules/@effect/language-service/schema.json",
           );
           yield* cli.expectJsonFile(
-            "typescript-7-app/packages/config-typescript/base.json",
+            "typescript-6-app/packages/config-typescript/base.json",
             "$schema",
-            "../../node_modules/@effect/tsgo/schema.json",
+            "../../node_modules/@effect/language-service/schema.json",
           );
         }),
       { timeout: 60_000 },
     );
 
     it.effect(
-      "should generate only Turbo orchestration when using the default monorepo",
+      "should generate the Vite+ toolchain when using the defaults",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -116,46 +116,47 @@ describe("init", () => {
           yield* cli.run("init", "mono-app", "--yes", "--root", cli.workdir);
           yield* cli.expectExitCode(0);
 
-          yield* cli.expectFileExists("mono-app/turbo.json");
-          yield* cli.expectFileExists("mono-app/biome.jsonc");
+          yield* cli.expectFileNotExists("mono-app/turbo.json");
+          yield* cli.expectFileNotExists("mono-app/biome.jsonc");
+          yield* cli.expectFileExists("mono-app/vite.config.ts");
+          yield* cli.expectFileExists("mono-app/.oxfmtrc.jsonc");
           yield* cli.expectFileExists("mono-app/package.json");
-          yield* cli.expectFileNotExists("mono-app/vite.config.ts");
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.build",
-            "turbo run build",
+            "vp run -r build",
           );
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.dev",
-            "turbo run dev",
+            "vp run -r --parallel --no-cache dev",
           );
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.type-check",
-            "turbo run type-check",
+            "vp run -r type-check",
           );
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.test",
-            "turbo run test",
+            "vp run -r test",
           );
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.clean",
-            "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo",
+            'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
           );
           yield* cli.expectFileContaining(
             "mono-app/package.json",
-            /^(?![\s\S]*"vite-plus"\s*:)[\s\S]*$/,
+            /"vite-plus"\s*:/,
           );
           yield* cli.expectFileContaining(
             "mono-app/.gitignore",
-            /^(?![\s\S]*node_modules\/\.vite\/task-cache)[\s\S]*$/,
+            /node_modules\/\.vite\/task-cache/,
           );
           yield* cli.expectFileContaining(
             "mono-app/package.json",
-            /"build": "turbo run build"[\s\S]*"dev": "turbo run dev"[\s\S]*"type-check": "turbo run type-check"[\s\S]*"clean": "turbo run clean[^\n]+"[\s\S]*"format":[\s\S]*"lint":[\s\S]*"test": "turbo run test"/,
+            /"build": "vp run -r build"[\s\S]*"dev": "vp run -r --parallel --no-cache dev"[\s\S]*"type-check": "vp run -r type-check"[\s\S]*"clean": "vp cache clean[^\n]+"[\s\S]*"format":[\s\S]*"lint":[\s\S]*"test": "vp run -r test"/,
           );
         }),
       { timeout: 30_000 },
@@ -183,10 +184,7 @@ describe("init", () => {
           yield* cli.expectFileExists("oxfmt-app/.vscode/settings.json");
           yield* cli.expectFileExists("oxfmt-app/.vscode/extensions.json");
           yield* cli.expectFileNotExists("oxfmt-app/dprint.json");
-          yield* cli.expectFileContaining(
-            "oxfmt-app/biome.jsonc",
-            /^(?![\s\S]*"formatter"\s*:)[\s\S]*$/,
-          );
+          yield* cli.expectFileNotExists("oxfmt-app/biome.jsonc");
 
           yield* cli.withinProject("oxfmt-app", function* (project) {
             yield* project.expectInstallSucceeds();
@@ -292,6 +290,8 @@ describe("init", () => {
             "--no-git",
             "--monorepo",
             "nx",
+            "--typescript",
+            "6",
             "--root",
             cli.workdir,
           );
@@ -356,7 +356,11 @@ describe("init", () => {
               "show",
               "projects",
             );
-            assert.strictEqual(discovered.exitCode, 0);
+            assert.strictEqual(
+              discovered.exitCode,
+              0,
+              `${discovered.stdout}\n${discovered.stderr}`,
+            );
             assert.match(discovered.stdout, /client-react-web/);
             assert.match(discovered.stdout, /server-api/);
             assert.isFalse(/nx-bun-app/.test(discovered.stdout));
@@ -432,6 +436,8 @@ describe("init", () => {
             "npm",
             "--monorepo",
             "nx",
+            "--typescript",
+            "6",
             "--root",
             cli.workdir,
           );
@@ -478,6 +484,8 @@ describe("init", () => {
             "pnpm",
             "--monorepo",
             "nx",
+            "--typescript",
+            "6",
             "--root",
             cli.workdir,
           );

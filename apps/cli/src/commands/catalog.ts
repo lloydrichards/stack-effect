@@ -19,6 +19,7 @@ import {
   PlanService,
   parseRecipeTargetSpecs,
   RecipeService,
+  StackConfigDefaults,
   toTypeScriptModuleId,
   toWorkspaceModuleId,
 } from "@repo/scaffold";
@@ -573,6 +574,7 @@ const reset = Command.make(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
+      const defaults = yield* StackConfigDefaults;
       const repoRoot = path.resolve(
         Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
@@ -588,12 +590,15 @@ const reset = Command.make(
 
       const config = new StackConfig({
         name: "catalog-built" as typeof Schema.NonEmptyString.Type,
-        runtime: { _tag: "bun" },
-        typescript: Option.getOrElse(flags.typescript, () => "6" as const),
-        lint: "biome",
-        format: Option.getOrElse(flags.format, () => "biome"),
-        test: "vitest",
-        monorepo: Option.getOrElse(flags.monorepo, () => "turbo"),
+        runtime: defaults.runtime,
+        typescript: Option.getOrElse(
+          flags.typescript,
+          () => defaults.typescriptVersion,
+        ),
+        lint: defaults.lint,
+        format: Option.getOrElse(flags.format, () => defaults.format),
+        test: defaults.test,
+        monorepo: Option.getOrElse(flags.monorepo, () => defaults.monorepo),
       });
 
       const selection = yield* buildWorkspaceSelection(config, flags.target);

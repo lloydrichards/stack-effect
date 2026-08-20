@@ -15,11 +15,10 @@ import {
   RecipeProviderStrategy,
   RecipeResolveOptions,
   RecipeService,
+  StackConfigDefaults,
   UnresolvedRecipeTarget,
 } from "@repo/scaffold";
 import { Effect, Layer, Schema } from "effect";
-
-const TestLayer = RecipeService.layer.pipe(Layer.provide(CatalogService.layer));
 
 const packageDbTarget = new TargetIdentity({
   kind: TargetKind.make("package"),
@@ -29,11 +28,20 @@ const packageDbTarget = new TargetIdentity({
 const testConfig = new StackConfig({
   name: "recipe-app" as typeof Schema.NonEmptyString.Type,
   runtime: { _tag: "bun" },
-  monorepo: "turbo",
-  lint: "biome",
-  format: "biome",
+  typescript: "7",
+  monorepo: "vite-plus",
+  lint: "oxlint",
+  format: "oxfmt",
   test: "vitest",
 });
+
+const makeTestLayer = (defaults: StackConfig) =>
+  RecipeService.layer.pipe(
+    Layer.provide(CatalogService.layer),
+    Layer.provide(Layer.succeed(StackConfigDefaults, defaults)),
+  );
+
+const TestLayer = makeTestLayer(testConfig);
 
 const modulesForTarget = (
   targets: typeof import("@repo/domain/Selection").Selection.Type["targets"],
@@ -146,10 +154,10 @@ describe("RecipeService", () => {
         );
 
         assertTargetModules(selection, ".", [
-          ModuleId.make("workspace-typescript-6"),
+          ModuleId.make("workspace-typescript-7"),
           ModuleId.make("workspace-monorepo-nx"),
-          ModuleId.make("workspace-quality-biome-lint"),
-          ModuleId.make("workspace-quality-biome-format"),
+          ModuleId.make("workspace-quality-oxlint"),
+          ModuleId.make("workspace-quality-oxfmt"),
           ModuleId.make("workspace-test-vitest"),
         ]);
       }).pipe(Effect.provide(TestLayer)),
@@ -171,10 +179,10 @@ describe("RecipeService", () => {
         );
 
         assertTargetModules(selection, ".", [
-          ModuleId.make("workspace-typescript-6"),
+          ModuleId.make("workspace-typescript-7"),
           ModuleId.make("workspace-monorepo-vite-plus"),
-          ModuleId.make("workspace-quality-biome-lint"),
-          ModuleId.make("workspace-quality-biome-format"),
+          ModuleId.make("workspace-quality-oxlint"),
+          ModuleId.make("workspace-quality-oxfmt"),
           ModuleId.make("workspace-test-vitest"),
         ]);
       }).pipe(Effect.provide(TestLayer)),
@@ -250,38 +258,40 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
-            ModuleId.make("workspace-typescript-6"),
-            ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome-lint"),
-            ModuleId.make("workspace-quality-biome-format"),
+            ModuleId.make("workspace-typescript-7"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
             ModuleId.make("workspace-test-vitest"),
           ]);
         }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should select the TypeScript 7 workspace module", () =>
-      Effect.gen(function* () {
-        const service = yield* RecipeService;
-        const config = new StackConfig({
-          ...testConfig,
-          typescript: "7",
-        });
-        const selection = yield* service.resolve(
-          { targets: [] },
-          {
-            config,
-            providerStrategy: { _tag: "fail-on-ambiguous" },
-          },
-        );
+    it.effect(
+      "should select the TypeScript 6 workspace module when overridden",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const config = new StackConfig({
+            ...testConfig,
+            typescript: "6",
+          });
+          const selection = yield* service.resolve(
+            { targets: [] },
+            {
+              config,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
 
-        assertTargetModules(selection, ".", [
-          ModuleId.make("workspace-typescript-7"),
-          ModuleId.make("workspace-monorepo-turbo"),
-          ModuleId.make("workspace-quality-biome-lint"),
-          ModuleId.make("workspace-quality-biome-format"),
-          ModuleId.make("workspace-test-vitest"),
-        ]);
-      }).pipe(Effect.provide(TestLayer)),
+          assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-6"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
+            ModuleId.make("workspace-test-vitest"),
+          ]);
+        }).pipe(Effect.provide(TestLayer)),
     );
 
     it.effect(
@@ -326,8 +336,8 @@ describe("RecipeService", () => {
                 Effect.tap((selection) =>
                   Effect.sync(() =>
                     assertTargetModules(selection, ".", [
-                      ModuleId.make("workspace-typescript-6"),
-                      ModuleId.make("workspace-monorepo-turbo"),
+                      ModuleId.make("workspace-typescript-7"),
+                      ModuleId.make("workspace-monorepo-vite-plus"),
                       ...modules.map(ModuleId.make),
                       ModuleId.make("workspace-test-vitest"),
                     ]),
@@ -362,10 +372,10 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
-            ModuleId.make("workspace-typescript-6"),
-            ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome-lint"),
-            ModuleId.make("workspace-quality-biome-format"),
+            ModuleId.make("workspace-typescript-7"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -404,10 +414,10 @@ describe("RecipeService", () => {
             testConfig.name,
           );
           assertTargetModules(selection, ".", [
-            ModuleId.make("workspace-typescript-6"),
-            ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome-lint"),
-            ModuleId.make("workspace-quality-biome-format"),
+            ModuleId.make("workspace-typescript-7"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -428,8 +438,8 @@ describe("RecipeService", () => {
                     name: "recipe-app",
                   }),
                   modules: [
-                    ModuleId.make("workspace-quality-biome-lint"),
-                    ModuleId.make("workspace-quality-biome-format"),
+                    ModuleId.make("workspace-quality-oxlint"),
+                    ModuleId.make("workspace-quality-oxfmt"),
                     ModuleId.make("workspace-devenv-git"),
                     ModuleId.make("workspace-devenv-git"),
                   ],
@@ -443,10 +453,10 @@ describe("RecipeService", () => {
           );
 
           assertTargetModules(selection, ".", [
-            ModuleId.make("workspace-typescript-6"),
-            ModuleId.make("workspace-monorepo-turbo"),
-            ModuleId.make("workspace-quality-biome-lint"),
-            ModuleId.make("workspace-quality-biome-format"),
+            ModuleId.make("workspace-typescript-7"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
             ModuleId.make("workspace-test-vitest"),
             ModuleId.make("workspace-devenv-git"),
           ]);
@@ -504,10 +514,10 @@ describe("RecipeService", () => {
         );
 
         assertTargetModules(selection, ".", [
-          ModuleId.make("workspace-typescript-6"),
-          ModuleId.make("workspace-monorepo-turbo"),
-          ModuleId.make("workspace-quality-biome-lint"),
-          ModuleId.make("workspace-quality-biome-format"),
+          ModuleId.make("workspace-typescript-7"),
+          ModuleId.make("workspace-monorepo-vite-plus"),
+          ModuleId.make("workspace-quality-oxlint"),
+          ModuleId.make("workspace-quality-oxfmt"),
           ModuleId.make("workspace-test-vitest"),
         ]);
       }).pipe(Effect.provide(TestLayer)),
@@ -834,6 +844,40 @@ describe("RecipeService", () => {
 
   describe("renderCreateCommand", () => {
     it.effect(
+      "should omit values supplied by an injected default StackConfig",
+      () => {
+        const injectedDefaults = new StackConfig({
+          name: "injected-defaults" as typeof Schema.NonEmptyString.Type,
+          runtime: { _tag: "bun" },
+          typescript: "6",
+          monorepo: "turbo",
+          lint: "biome",
+          format: "biome",
+          test: "vitest",
+        });
+
+        return Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const selection = yield* service.resolve(
+            { targets: [] },
+            {
+              config: injectedDefaults,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          assert.strictEqual(
+            service.renderCreateCommand({
+              config: injectedDefaults,
+              selection,
+            }),
+            "bunx stack-effect@latest create injected-defaults --no-git",
+          );
+        }).pipe(Effect.provide(makeTestLayer(injectedDefaults)));
+      },
+    );
+
+    it.effect(
       "should render an explicit monorepo flag when Nx is configured",
       () =>
         Effect.gen(function* () {
@@ -858,7 +902,7 @@ describe("RecipeService", () => {
     );
 
     it.effect(
-      "should render an explicit monorepo flag when Vite+ is configured",
+      "should omit the monorepo flag when Vite+ is configured by default",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeService;
@@ -876,7 +920,7 @@ describe("RecipeService", () => {
 
           assert.strictEqual(
             service.renderCreateCommand({ config, selection }),
-            "bunx stack-effect@latest create recipe-app --monorepo vite-plus --no-git",
+            "bunx stack-effect@latest create recipe-app --no-git",
           );
         }).pipe(Effect.provide(TestLayer)),
     );
@@ -951,7 +995,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config, selection }),
-          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --typescript 7 --lint eslint --format prettier --no-git",
+          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --no-git",
         );
       }).pipe(Effect.provide(TestLayer)),
     );

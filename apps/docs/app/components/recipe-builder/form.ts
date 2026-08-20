@@ -1,8 +1,9 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { useForm } from "@tanstack/react-form";
-import { Array as Arr, Schema } from "effect";
+import { Array as Arr, Context, Schema } from "effect";
 
 const RuntimeSchema = Schema.TaggedUnion({
   bun: {},
@@ -110,15 +111,17 @@ const recipeBuilderFormValidator = Schema.toStandardSchemaV1(
   Schema.toType(RecipeBuilderFormSchema),
 );
 
+const stackConfigDefaults = Context.get(Context.empty(), StackConfigDefaults);
+
 export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
   config: {
     name: "my-effect-app",
-    runtime: { _tag: "bun" },
-    typescript: "7",
-    monorepo: "vite-plus",
-    lint: "oxlint",
-    format: "dprint",
-    test: "vitest",
+    runtime: stackConfigDefaults.runtime,
+    typescript: stackConfigDefaults.typescript,
+    monorepo: stackConfigDefaults.monorepo,
+    lint: stackConfigDefaults.lint,
+    format: stackConfigDefaults.format,
+    test: stackConfigDefaults.test,
   },
   database: "none",
   gitEnabled: true,

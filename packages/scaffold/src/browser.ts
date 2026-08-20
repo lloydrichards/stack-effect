@@ -15,4 +15,5 @@ export {
   RecipePreviewService,
 } from "./service/recipe/RecipePreviewService";
 export { RecipeService } from "./service/recipe/RecipeService";
+export { StackConfigDefaults } from "./service/recipe/StackConfigDefaults";
 export { toWorkspaceToolValue } from "./service/recipe/WorkspaceModules";
