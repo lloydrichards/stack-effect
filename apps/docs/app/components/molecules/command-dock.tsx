@@ -126,7 +126,7 @@ export function CommandDock({
           {shareUrl ? (
             <Button
               variant="outline"
-              className="h-11 w-11 p-0 text-center sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
+              className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
               type="button"
               onClick={shareRecipe}
               disabled={disabled}
