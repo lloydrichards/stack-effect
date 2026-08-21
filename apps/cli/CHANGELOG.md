@@ -1,5 +1,11 @@
 # stack-effect
 
+## 0.13.1
+
+### Patch Changes
+
+- c18bb82: Nx workspaces now support TypeScript 7 without failing during project discovery.
+
 ## 0.13.0
 
 ### Minor Changes
