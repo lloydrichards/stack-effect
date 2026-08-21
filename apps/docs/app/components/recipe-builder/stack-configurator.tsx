@@ -58,9 +58,6 @@ export function StackConfigurator() {
   const updateTool = (field: ToolField, value: string) =>
     configure({
       [field]: value || undefined,
-      ...(field === "monorepo" && value === "nx"
-        ? { typescript: "6" as const }
-        : {}),
     });
 
   return (
@@ -182,9 +179,6 @@ export function StackConfigurator() {
           onChange={(value) =>
             configure({
               typescript: value === "7" ? "7" : "6",
-              ...(value === "7" && config.monorepo === "nx"
-                ? { monorepo: "vite-plus" }
-                : {}),
             })
           }
         />

@@ -274,7 +274,7 @@ describe("init", () => {
     );
 
     it.effect(
-      "should run a generated Bun workspace through Nx without caching ignored environment changes",
+      "should create, type-check, test, and build a TypeScript 7 Bun workspace with Nx",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -291,7 +291,7 @@ describe("init", () => {
             "--monorepo",
             "nx",
             "--typescript",
-            "6",
+            "7",
             "--root",
             cli.workdir,
           );
@@ -305,6 +305,21 @@ describe("init", () => {
             "nx-bun-app/package.json",
             "devDependencies.nx",
             "^23.1.1",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "devDependencies.typescript",
+            "7.0.2",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "devDependencies.@effect/tsgo",
+            "^0.22.0",
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/package.json",
+            "scripts.prepare",
+            "effect-tsgo patch",
           );
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
@@ -334,6 +349,11 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "nx-bun-app/nx.json",
             "pluginsConfig.@nx/js.analyzeLockfile",
+            false,
+          );
+          yield* cli.expectJsonFile(
+            "nx-bun-app/nx.json",
+            "pluginsConfig.@nx/js.analyzeSourceFiles",
             false,
           );
           yield* cli.expectFileContaining(
@@ -418,7 +438,7 @@ describe("init", () => {
     );
 
     it.effect(
-      "should install, discover, type-check, and build with Nx in a Node and npm workspace",
+      "should create, discover, type-check, and build a TypeScript 7 Node and npm workspace with Nx",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -437,7 +457,7 @@ describe("init", () => {
             "--monorepo",
             "nx",
             "--typescript",
-            "6",
+            "7",
             "--root",
             cli.workdir,
           );
@@ -445,6 +465,11 @@ describe("init", () => {
           yield* cli.expectFileContaining(
             "nx-npm-app/nx.json",
             /^(?![\s\S]*analyzeLockfile)[\s\S]*$/,
+          );
+          yield* cli.expectJsonFile(
+            "nx-npm-app/nx.json",
+            "pluginsConfig.@nx/js.analyzeSourceFiles",
+            false,
           );
 
           yield* cli.withinProject("nx-npm-app", function* (project) {

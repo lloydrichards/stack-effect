@@ -102,10 +102,6 @@ describe("moduleRegistry", () => {
     const vitePlus = moduleRegistry.find(
       (mod) => mod.id === "workspace-monorepo-vite-plus",
     );
-    const typescript7 = moduleRegistry.find(
-      (mod) => mod.id === "workspace-typescript-7",
-    );
-
     expect(nx).toBeDefined();
     expect(vitePlus).toBeDefined();
     expect(nx?.categories).toContain("monorepo");
@@ -117,13 +113,11 @@ describe("moduleRegistry", () => {
     expect(nx?.conflictsWith).toEqual([
       "workspace-monorepo-turbo",
       "workspace-monorepo-vite-plus",
-      "workspace-typescript-7",
     ]);
     expect(vitePlus?.conflictsWith).toEqual([
       "workspace-monorepo-turbo",
       "workspace-monorepo-nx",
     ]);
-    expect(typescript7?.conflictsWith).toEqual(["workspace-monorepo-nx"]);
   });
 
   it("should register Oxfmt as a formatter alternative when catalog modules are listed", () => {
