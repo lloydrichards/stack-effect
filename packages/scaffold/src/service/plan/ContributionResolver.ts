@@ -77,8 +77,47 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
             }),
         );
 
+        const domainContributions = yield* Effect.forEach(
+          blueprint.domainBindings ?? [],
+          (binding) =>
+            Effect.gen(function* () {
+              const target = blueprint.getTarget(binding.targetId);
+              if (target === undefined) {
+                return yield* Effect.die(
+                  new Error(
+                    `Validated Blueprint is missing bound target ${binding.targetId}`,
+                  ),
+                );
+              }
+              const option = yield* catalog.getGenerationDomainOption(
+                binding.domainId,
+                binding.optionId,
+              );
+              const adapter = yield* catalog.getGenerationDomainTargetAdapter(
+                binding.domainId,
+                binding.optionId,
+                target.identity.kind,
+              );
+              const context = new ContributionTokenContext({
+                targetKey: target.id,
+                identity: target.identity,
+                config,
+              });
+              return TargetContribution.make({
+                targetKey: target.id,
+                contributions: resolveContributionTokens(
+                  [...option.rootContributions, ...adapter.contributions],
+                  context,
+                ),
+              });
+            }),
+        );
+
         return {
-          targets: Arr.map(targetResults, (r) => r.contribution),
+          targets: [
+            ...Arr.map(targetResults, (r) => r.contribution),
+            ...domainContributions,
+          ],
           modules: moduleContributions,
         } satisfies typeof NormalizedContributions.Type;
       });
@@ -87,9 +126,13 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(ContributionResolver)(
+  static readonly baseLayer = Layer.effect(ContributionResolver)(
     ContributionResolver.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  );
+
+  static readonly layer = ContributionResolver.baseLayer.pipe(
+    Layer.provide(CatalogService.layer),
+  );
 }
 
 const resolveContributionTokens = (

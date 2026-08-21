@@ -1,5 +1,11 @@
 import { CatalogService } from "@repo/catalog";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  GenerationDomainId,
+  GenerationDomainOptionId,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
@@ -212,7 +218,7 @@ export class RecipeService extends Context.Service<
         }),
       );
 
-      return toSelection(
+      const selection = toSelection(
         mergeTargets([
           {
             identity: new TargetIdentity({
@@ -224,6 +230,17 @@ export class RecipeService extends Context.Service<
           ...recipeTargets,
         ]),
       );
+      return options.config.effectiveInfrastructure === "cloudflare"
+        ? {
+            ...selection,
+            domains: [
+              {
+                id: GenerationDomainId.make("infrastructure"),
+                option: GenerationDomainOptionId.make("cloudflare"),
+              },
+            ],
+          }
+        : selection;
     });
 
     const renderCreateCommand: RecipeServiceShape["renderCreateCommand"] = ({

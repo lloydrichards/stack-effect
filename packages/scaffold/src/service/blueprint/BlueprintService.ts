@@ -3,11 +3,13 @@ import {
   Blueprint,
   type BlueprintAttachedModuleNode,
   BlueprintFailure,
+  BlueprintNode,
   type BlueprintTargetNode,
   type CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import {
+  GenerationDomainBinding,
   ModuleDependency,
   type ModuleId,
   type TargetIdentity,
@@ -48,6 +50,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         selection: typeof Selection.Type,
       ) {
         yield* validateSelection(selection, catalog);
+        const domainBindings = yield* resolveDomainBindings(selection, catalog);
 
         const state = yield* resolveSelection(selection, catalog);
         const finalState = yield* Ref.get(state);
@@ -58,6 +61,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
             ...HashMap.values(finalState.attachedModules),
           ],
           edges: Arr.fromIterable(HashMap.values(finalState.edges)),
+          ...(domainBindings.length === 0 ? {} : { domainBindings }),
         }).pipe(
           Effect.mapError(
             (cause) =>
@@ -68,6 +72,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
           ),
         );
 
+        yield* validateResolvedDomainModules(blueprint, selection, catalog);
         return blueprint.toSorted();
       });
 
@@ -75,10 +80,144 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(BlueprintService)(
+  static readonly baseLayer = Layer.effect(BlueprintService)(
     BlueprintService.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  );
+
+  static readonly layer = BlueprintService.baseLayer.pipe(
+    Layer.provide(CatalogService.layer),
+  );
 }
+
+const resolveDomainBindings = Effect.fn(
+  "BlueprintService.resolveDomainBindings",
+)(function* (
+  selection: typeof Selection.Type,
+  catalog: typeof CatalogService.Service,
+) {
+  return yield* Effect.forEach(selection.domains ?? [], (domain) =>
+    Effect.gen(function* () {
+      const option = yield* catalog.getGenerationDomainOption(
+        domain.id,
+        domain.option,
+      );
+      const candidates = Arr.filter(
+        selection.targets,
+        (target) => target.identity.kind !== "workspace",
+      );
+      if (
+        candidates.length < option.minimumBindings ||
+        candidates.length > option.maximumBindings
+      ) {
+        const targetIds = Arr.map(candidates, (candidate) =>
+          candidate.identity.toKey(),
+        );
+        return yield* new BlueprintFailure({
+          message: `Generation domain ${domain.id}/${domain.option} requires ${option.minimumBindings}-${option.maximumBindings} explicit deployable targets; received ${candidates.length}: ${Arr.join(targetIds, ", ")}`,
+          reason: "binding-cardinality",
+          domainId: domain.id,
+          optionId: domain.option,
+          targetIds,
+        });
+      }
+      return yield* Effect.forEach(candidates, (candidate) =>
+        catalog
+          .getGenerationDomainTargetAdapter(
+            domain.id,
+            domain.option,
+            candidate.identity.kind,
+          )
+          .pipe(
+            Effect.mapError(
+              () =>
+                new BlueprintFailure({
+                  message: `Unsupported target ${candidate.identity.toKey()} for generation domain ${domain.id}/${domain.option}`,
+                  reason: "unsupported-target",
+                  domainId: domain.id,
+                  optionId: domain.option,
+                  targetId: candidate.identity.toKey(),
+                }),
+            ),
+            Effect.flatMap((adapter) => {
+              const unsupported = Arr.filter(
+                candidate.modules,
+                (module) =>
+                  !adapter.supportedSelectedModules.includes(module.id),
+              );
+              return unsupported.length === 0
+                ? Effect.succeed(
+                    new GenerationDomainBinding({
+                      domainId: domain.id,
+                      optionId: domain.option,
+                      targetId: candidate.identity.toKey(),
+                      adapterId: adapter.adapterId,
+                    }),
+                  )
+                : Effect.fail(
+                    new BlueprintFailure({
+                      message: `Unsupported selected module ${unsupported[0]?.id} on ${candidate.identity.toKey()} for generation domain ${domain.id}/${domain.option}`,
+                      reason: "unsupported-module",
+                      domainId: domain.id,
+                      optionId: domain.option,
+                      targetId: candidate.identity.toKey(),
+                      moduleId: unsupported[0]!.id,
+                      moduleSource: "selected",
+                    }),
+                  );
+            }),
+          ),
+      );
+    }),
+  ).pipe(Effect.map(Arr.flatten));
+});
+
+const validateResolvedDomainModules = Effect.fn(
+  "BlueprintService.validateResolvedDomainModules",
+)(function* (
+  blueprint: typeof Blueprint.Type,
+  selection: typeof Selection.Type,
+  catalog: typeof CatalogService.Service,
+) {
+  yield* Effect.forEach(blueprint.domainBindings ?? [], (binding) =>
+    Effect.gen(function* () {
+      const target = blueprint.getTarget(binding.targetId);
+      if (target === undefined) {
+        return yield* new BlueprintFailure({
+          message: `Generation domain binding target missing: ${binding.targetId}`,
+          reason: "binding-target-missing",
+          domainId: binding.domainId,
+          optionId: binding.optionId,
+          targetId: binding.targetId,
+        });
+      }
+      const adapter = yield* catalog.getGenerationDomainTargetAdapter(
+        binding.domainId,
+        binding.optionId,
+        target.identity.kind,
+      );
+      const resolvedModules = Arr.filter(
+        Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
+        (node) => node.targetId === binding.targetId,
+      );
+      const unsupported = Arr.filter(
+        resolvedModules,
+        (node) => !adapter.supportedResolvedModules.includes(node.moduleId),
+      );
+      if (unsupported.length > 0) {
+        return yield* new BlueprintFailure({
+          message: `Unsupported resolved module ${unsupported[0]?.moduleId} on ${binding.targetId} for generation domain ${binding.domainId}/${binding.optionId}`,
+          reason: "unsupported-module",
+          domainId: binding.domainId,
+          optionId: binding.optionId,
+          targetId: binding.targetId,
+          moduleId: unsupported[0]!.moduleId,
+          moduleSource: "resolved",
+        });
+      }
+    }),
+  );
+  return selection;
+});
 
 const validateSelection = Effect.fn("BlueprintService.validateSelection")(
   function* (

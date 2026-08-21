@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Schema, SchemaGetter } from "effect";
 import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 
 export const TargetContribution = Schema.Struct({
@@ -26,6 +26,17 @@ const Runtime = Schema.TaggedUnion({
 
 export const TypeScriptVersion = Schema.Literals(["6", "7"]);
 
+const Infrastructure = Schema.optional(
+  Schema.Literals(["none", "cloudflare"]),
+).pipe(
+  Schema.decodeTo(Schema.optional(Schema.Literal("cloudflare")), {
+    decode: SchemaGetter.transform((value) =>
+      value === "none" ? undefined : value,
+    ),
+    encode: SchemaGetter.transform((value) => value),
+  }),
+);
+
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   name: Schema.NonEmptyString,
   runtime: Runtime,
@@ -34,7 +45,12 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
+  infrastructure: Infrastructure,
 }) {
+  get effectiveInfrastructure(): "none" | "cloudflare" {
+    return this.infrastructure ?? "none";
+  }
+
   get typescriptVersion(): typeof TypeScriptVersion.Type {
     return this.typescript ?? "6";
   }

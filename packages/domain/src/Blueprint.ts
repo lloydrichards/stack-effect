@@ -1,6 +1,7 @@
 import { Array as Arr, Data, Order, Schema } from "effect";
 import {
   CatalogNotFound,
+  GenerationDomainBinding,
   ModuleId,
   TargetIdentity,
   TargetKey,
@@ -12,6 +13,17 @@ export { CatalogNotFound };
 export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
   message: string;
   cause?: unknown;
+  reason?:
+    | "binding-cardinality"
+    | "unsupported-target"
+    | "unsupported-module"
+    | "binding-target-missing";
+  domainId?: string;
+  optionId?: string;
+  targetId?: string;
+  targetIds?: ReadonlyArray<string>;
+  moduleId?: string;
+  moduleSource?: "selected" | "resolved";
 }> {}
 
 /**
@@ -65,6 +77,7 @@ const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
 
 const BlueprintFields = Schema.Struct({
   nodes: Schema.Array(BlueprintNode),
+  domainBindings: Schema.optional(Schema.Array(GenerationDomainBinding)),
   edges: Schema.Array(
     Schema.Struct({
       id: Schema.NonEmptyString,
@@ -172,6 +185,9 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
     return new Blueprint({
       nodes: [...this.nodes].sort(blueprintNodeOrd),
       edges: [...this.edges].sort(idOrd),
+      ...(this.domainBindings === undefined
+        ? {}
+        : { domainBindings: this.domainBindings }),
     });
   }
 
