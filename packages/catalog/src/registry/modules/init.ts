@@ -168,7 +168,6 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     description: "TypeScript 7 with the native Effect TypeScript-Go server",
     visibility: "internal",
     categories: [ModuleCategory.make("typescript")],
-    conflictsWith: [ModuleId.make("workspace-monorepo-nx")],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [
       {
@@ -280,7 +279,6 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     conflictsWith: [
       ModuleId.make("workspace-monorepo-turbo"),
       ModuleId.make("workspace-monorepo-vite-plus"),
-      ModuleId.make("workspace-typescript-7"),
     ],
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
     dependencies: [

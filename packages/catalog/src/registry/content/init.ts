@@ -167,13 +167,17 @@ export const turboJsonContents = `{
 
 // HACK: Nx 23.1.1 cannot parse Bun 1.4's lockfile version 2. Bun recipes hash
 // the lockfile through sharedGlobals instead; remove when Nx accepts version 2.
+// Nx source analysis imports TypeScript's JavaScript API, which native TS7 does
+// not expose. Generated projects declare cross-project dependencies in package
+// manifests, so Nx can build the project graph without source analysis.
 export const nxJsonContents = `{
-  "$schema": "./node_modules/nx/schemas/nx-schema.json",{{#if runtime=bun}}
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
   "pluginsConfig": {
     "@nx/js": {
-      "analyzeLockfile": false
+      "analyzeSourceFiles": false{{#if runtime=bun}},
+      "analyzeLockfile": false{{/if}}
     }
-  },{{/if}}
+  },
   "namedInputs": {
     "default": ["{projectRoot}/**/*", "sharedGlobals"],
     "sharedGlobals": [
