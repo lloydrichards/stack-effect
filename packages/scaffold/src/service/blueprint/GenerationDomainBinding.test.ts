@@ -230,19 +230,37 @@ describe("generic generation-domain binding", () => {
               runtime: { _tag: "bun" },
             }),
           );
-          const domainContribution = contributions.targets.at(-1);
-          expect(domainContribution?.targetKey).toBe(
-            "apps/client-react-preview",
+          const domainContributions = contributions.targets.filter(
+            (contribution) => contribution.generationDomain !== undefined,
           );
-          expect(domainContribution?.contributions).toEqual([
-            expect.objectContaining({
-              path: "fixture-root.txt",
-              contents: "apps/client-react-preview",
-            }),
-            expect.objectContaining({
-              path: "apps/client-react-preview/fixture-adapter.txt",
-              contents: "apps/client-react-preview",
-            }),
+          expect(domainContributions).toEqual([
+            {
+              targetKey: "apps/client-react-preview",
+              generationDomain: {
+                domainId: "delivery",
+                optionId: "edge-preview",
+              },
+              contributions: [
+                expect.objectContaining({
+                  path: "fixture-root.txt",
+                  contents: "apps/client-react-preview",
+                }),
+              ],
+            },
+            {
+              targetKey: "apps/client-react-preview",
+              generationDomain: {
+                domainId: "delivery",
+                optionId: "edge-preview",
+                adapterId: "static-preview",
+              },
+              contributions: [
+                expect.objectContaining({
+                  path: "apps/client-react-preview/fixture-adapter.txt",
+                  contents: "apps/client-react-preview",
+                }),
+              ],
+            },
           ]);
         });
       },

@@ -102,21 +102,40 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetKey: target.id,
                 identity: target.identity,
                 config,
+                generationDomainAdapterId: binding.adapterId,
               });
-              return TargetContribution.make({
-                targetKey: target.id,
-                contributions: resolveContributionTokens(
-                  [...option.rootContributions, ...adapter.contributions],
-                  context,
-                ),
-              });
+              return [
+                TargetContribution.make({
+                  targetKey: target.id,
+                  generationDomain: {
+                    domainId: binding.domainId,
+                    optionId: binding.optionId,
+                  },
+                  contributions: resolveContributionTokens(
+                    option.rootContributions,
+                    context,
+                  ),
+                }),
+                TargetContribution.make({
+                  targetKey: target.id,
+                  generationDomain: {
+                    domainId: binding.domainId,
+                    optionId: binding.optionId,
+                    adapterId: adapter.adapterId,
+                  },
+                  contributions: resolveContributionTokens(
+                    adapter.contributions,
+                    context,
+                  ),
+                }),
+              ];
             }),
         );
 
         return {
           targets: [
             ...Arr.map(targetResults, (r) => r.contribution),
-            ...domainContributions,
+            ...Arr.flatten(domainContributions),
           ],
           modules: moduleContributions,
         } satisfies typeof NormalizedContributions.Type;

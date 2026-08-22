@@ -4,7 +4,10 @@ export const gitignoreContents = `# dependencies
 node_modules{{#if monorepo=vite-plus}}
 node_modules/.vite/task-cache{{/if}}
 
-# build
+{{#if infrastructure=cloudflare}}# infrastructure
+.alchemy/
+
+{{/if}}# build
 dist
 build
 .cache

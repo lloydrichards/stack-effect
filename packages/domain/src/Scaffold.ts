@@ -1,9 +1,24 @@
-import { Schema, SchemaGetter } from "effect";
-import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
+import { Hash, Schema, SchemaGetter, String as Str } from "effect";
+import {
+  Contribution,
+  GenerationDomainAdapterId,
+  GenerationDomainId,
+  GenerationDomainOptionId,
+  ModuleId,
+  TargetIdentity,
+  TargetKey,
+} from "./Catalog";
+
+export const GenerationDomainContributionProvenance = Schema.Struct({
+  domainId: GenerationDomainId,
+  optionId: GenerationDomainOptionId,
+  adapterId: Schema.optional(GenerationDomainAdapterId),
+});
 
 export const TargetContribution = Schema.Struct({
   targetKey: TargetKey,
   contributions: Schema.Array(Contribution),
+  generationDomain: Schema.optional(GenerationDomainContributionProvenance),
 });
 
 export const ModuleContribution = Schema.Struct({
@@ -82,12 +97,71 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   }
 }
 
+const toHexByte = (byte: number): string => byte.toString(16).padStart(2, "0");
+
+const encodeUtf8CodePoint = (codePoint: number): string => {
+  if (codePoint <= 0x7f) return toHexByte(codePoint);
+  if (codePoint <= 0x7ff) {
+    return [0xc0 | (codePoint >> 6), 0x80 | (codePoint & 0x3f)]
+      .map(toHexByte)
+      .join("");
+  }
+  if (codePoint <= 0xffff) {
+    return [
+      0xe0 | (codePoint >> 12),
+      0x80 | ((codePoint >> 6) & 0x3f),
+      0x80 | (codePoint & 0x3f),
+    ]
+      .map(toHexByte)
+      .join("");
+  }
+  return [
+    0xf0 | (codePoint >> 18),
+    0x80 | ((codePoint >> 12) & 0x3f),
+    0x80 | ((codePoint >> 6) & 0x3f),
+    0x80 | (codePoint & 0x3f),
+  ]
+    .map(toHexByte)
+    .join("");
+};
+
+const encodeUtf8Hex = (value: string): string =>
+  Array.from(value, (character) => {
+    const codePoint = character.codePointAt(0);
+    return codePoint === undefined ? "" : encodeUtf8CodePoint(codePoint);
+  }).join("");
+
+const ProviderSafeEncodedPrefix = "se-encoded-";
+const ProviderSafeIdentityPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+const toProviderSafeSlug = (value: string): string =>
+  Str.kebabCase(value.trim())
+    .replaceAll(/[^a-z0-9]+/g, "-")
+    .replaceAll(/^-|-$/g, "");
+
+const providerSafeIdentityComponent = (
+  rawName: string,
+  fallback: string,
+): string => {
+  if (
+    ProviderSafeIdentityPattern.test(rawName) &&
+    !rawName.startsWith(ProviderSafeEncodedPrefix)
+  ) {
+    return rawName;
+  }
+
+  const fallbackSlug = toProviderSafeSlug(fallback) || "identity";
+  const readableSlug = toProviderSafeSlug(rawName) || fallbackSlug;
+  return `${ProviderSafeEncodedPrefix}${readableSlug}-x${encodeUtf8Hex(rawName)}`;
+};
+
 export class ContributionTokenContext extends Schema.Class<ContributionTokenContext>(
   "ContributionTokenContext",
 )({
   targetKey: TargetKey,
   identity: TargetIdentity,
   config: StackConfig,
+  generationDomainAdapterId: Schema.optional(GenerationDomainAdapterId),
 }) {
   /**
    * Resolve template tokens and conditionals in a string.
@@ -118,12 +192,33 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         : this.identity.kind;
 
     const targetPath = this.identity.toPath();
+    const providerSafeProjectName = providerSafeIdentityComponent(
+      this.config.name,
+      "project",
+    );
+    const providerSafeTargetName = providerSafeIdentityComponent(
+      this.identity.name,
+      this.identity.kind,
+    );
 
     // NOTE: Workspace targets omit "./" so token output matches contribution paths.
     const resolveTargetToken = (t: string, token: string) =>
       targetPath === "."
         ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
         : t.replaceAll(token, targetPath);
+
+    const stableIdentityHash = (
+      Hash.string(
+        [
+          this.config.name,
+          this.generationDomainAdapterId ?? "",
+          this.targetKey,
+          targetPath,
+        ].join("\0"),
+      ) >>> 0
+    )
+      .toString(16)
+      .padStart(8, "0");
 
     const getConfigValue = (field: string): string => {
       switch (field) {
@@ -141,6 +236,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           return this.config.test ?? "";
         case "monorepo":
           return this.config.monorepo ?? "";
+        case "infrastructure":
+          return this.config.effectiveInfrastructure;
         default:
           return "";
       }
@@ -175,6 +272,14 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
             this.config.workspaceDependency,
           )
           .replaceAll("{{projectName}}", this.config.name)
+          .replaceAll("{{providerSafeProjectName}}", providerSafeProjectName)
+          .replaceAll("{{providerSafeTargetName}}", providerSafeTargetName)
+          .replaceAll("{{targetKey}}", this.targetKey)
+          .replaceAll(
+            "{{generationDomainAdapterId}}",
+            this.generationDomainAdapterId ?? "",
+          )
+          .replaceAll("{{stableIdentityHash}}", stableIdentityHash)
           .replaceAll("{{lint}}", this.config.lint ?? "")
           .replaceAll("{{format}}", this.config.format ?? "")
           .replaceAll("{{test}}", this.config.test ?? "")
