@@ -26,6 +26,8 @@ stack-effect init [flags] [<project-name>]
 | `--show-files` | Include generated file contents in a dry-run preview |
 | `--runtime choice` | Runtime to use (choices: bun, node) |
 | `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
+| `--infrastructure <none\|cloudflare>` | Infrastructure as Effects (None or Cloudflare via Alchemy) (choices: none, cloudflare) |
+| `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
 | `--no-git` | Skip git repository initialization |
 | `--trust` | Skip finalize script approval prompt and run all scripts |
 

@@ -843,6 +843,55 @@ describe("RecipeService", () => {
   });
 
   describe("renderCreateCommand", () => {
+    it.effect("should omit none and render explicit Cloudflare intent", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const noneSelection = yield* service.resolve(
+          { targets: [] },
+          {
+            config: testConfig,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+        const cloudflareConfig = new StackConfig({
+          ...testConfig,
+          infrastructure: "cloudflare",
+        });
+        const cloudflareSelection = yield* service.resolve(
+          {
+            targets: [
+              {
+                target: new TargetIdentity({
+                  kind: TargetKind.make("client-react"),
+                  name: "web",
+                }),
+                modules: [ModuleId.make("client-react-web-worker")],
+              },
+            ],
+          },
+          {
+            config: cloudflareConfig,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assert.notInclude(
+          service.renderCreateCommand({
+            config: testConfig,
+            selection: noneSelection,
+          }),
+          "--infrastructure",
+        );
+        assert.include(
+          service.renderCreateCommand({
+            config: cloudflareConfig,
+            selection: cloudflareSelection,
+          }),
+          "--infrastructure cloudflare",
+        );
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect(
       "should omit values supplied by an injected default StackConfig",
       () => {

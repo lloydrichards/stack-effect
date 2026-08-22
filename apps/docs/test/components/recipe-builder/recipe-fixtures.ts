@@ -240,6 +240,7 @@ export const fullStackRecipeFixture: RecipeBuilderFormValues = {
     lint: "biome",
     format: "biome",
     test: "vitest",
+    infrastructure: "none",
   },
   gitEnabled: true,
   database: "none",

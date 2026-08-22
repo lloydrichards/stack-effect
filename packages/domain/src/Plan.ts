@@ -1,4 +1,5 @@
 import { Array as Arr, Order, Schema } from "effect";
+import { GenerationDomainBinding, GenerationDomainSelection } from "./Catalog";
 import { pathOrd } from "./Order";
 import { StackConfig } from "./Scaffold";
 import { Selection } from "./Selection";
@@ -220,6 +221,14 @@ const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
 const PlanFields = Schema.Struct({
   outcomes: Schema.Array(PlanOutcome),
   conflicts: Schema.Array(PlanConflict),
+  generationDomains: Schema.optional(
+    Schema.Array(
+      Schema.Struct({
+        selection: GenerationDomainSelection,
+        bindings: Schema.Array(GenerationDomainBinding),
+      }),
+    ),
+  ),
 }).check(
   Schema.makeFilter(({ conflicts, outcomes }) => {
     const outcomePaths = outcomes.map((outcome) => outcome.path);
@@ -276,6 +285,9 @@ export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
       conflicts: [...this.conflicts].sort(
         Order.mapInput(Order.String, planConflictKey),
       ),
+      ...(this.generationDomains === undefined
+        ? {}
+        : { generationDomains: this.generationDomains }),
     });
   }
 }

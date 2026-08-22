@@ -1,5 +1,12 @@
 import { CatalogService } from "@repo/catalog";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  GenerationDomainId,
+  GenerationDomainOptionId,
+  GenerationDomainSelection,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
@@ -212,7 +219,7 @@ export class RecipeService extends Context.Service<
         }),
       );
 
-      return toSelection(
+      const selection = toSelection(
         mergeTargets([
           {
             identity: new TargetIdentity({
@@ -224,6 +231,17 @@ export class RecipeService extends Context.Service<
           ...recipeTargets,
         ]),
       );
+      return options.config.effectiveInfrastructure === "cloudflare"
+        ? {
+            ...selection,
+            domains: [
+              new GenerationDomainSelection({
+                id: GenerationDomainId.make("infrastructure"),
+                option: GenerationDomainOptionId.make("cloudflare"),
+              }),
+            ],
+          }
+        : selection;
     });
 
     const renderCreateCommand: RecipeServiceShape["renderCreateCommand"] = ({
@@ -283,6 +301,9 @@ export class RecipeService extends Context.Service<
         ...renderChangedFlag("--lint", config.lint, defaults.lint ?? ""),
         ...renderChangedFlag("--format", config.format, defaults.format ?? ""),
         ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
+        ...(config.effectiveInfrastructure === "cloudflare"
+          ? ["--infrastructure", "cloudflare"]
+          : []),
         ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []
           : ["--no-git"]),

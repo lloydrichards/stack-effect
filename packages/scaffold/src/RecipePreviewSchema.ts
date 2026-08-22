@@ -21,8 +21,8 @@ export type RecipePreviewInput = typeof RecipePreviewInput.Type;
 
 export const RecipePreview = Schema.Struct({
   command: Schema.String,
-  selection: Selection,
-  blueprint: Blueprint,
+  selection: Schema.toEncoded(Selection),
+  blueprint: Schema.toEncoded(Blueprint),
   files: Schema.Array(ApplyPreviewFileSchema),
 });
 

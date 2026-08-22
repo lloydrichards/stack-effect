@@ -77,8 +77,66 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
             }),
         );
 
+        const domainContributions = yield* Effect.forEach(
+          blueprint.domainBindings ?? [],
+          (binding) =>
+            Effect.gen(function* () {
+              const target = blueprint.getTarget(binding.targetId);
+              if (target === undefined) {
+                return yield* Effect.die(
+                  new Error(
+                    `Validated Blueprint is missing bound target ${binding.targetId}`,
+                  ),
+                );
+              }
+              const option = yield* catalog.getGenerationDomainOption(
+                binding.domainId,
+                binding.optionId,
+              );
+              const adapter = yield* catalog.getGenerationDomainTargetAdapter(
+                binding.domainId,
+                binding.optionId,
+                target.identity.kind,
+              );
+              const context = new ContributionTokenContext({
+                targetKey: target.id,
+                identity: target.identity,
+                config,
+                generationDomainAdapterId: binding.adapterId,
+              });
+              return [
+                TargetContribution.make({
+                  targetKey: target.id,
+                  generationDomain: {
+                    domainId: binding.domainId,
+                    optionId: binding.optionId,
+                  },
+                  contributions: resolveContributionTokens(
+                    option.rootContributions,
+                    context,
+                  ),
+                }),
+                TargetContribution.make({
+                  targetKey: target.id,
+                  generationDomain: {
+                    domainId: binding.domainId,
+                    optionId: binding.optionId,
+                    adapterId: adapter.adapterId,
+                  },
+                  contributions: resolveContributionTokens(
+                    adapter.contributions,
+                    context,
+                  ),
+                }),
+              ];
+            }),
+        );
+
         return {
-          targets: Arr.map(targetResults, (r) => r.contribution),
+          targets: [
+            ...Arr.map(targetResults, (r) => r.contribution),
+            ...Arr.flatten(domainContributions),
+          ],
           modules: moduleContributions,
         } satisfies typeof NormalizedContributions.Type;
       });
@@ -87,9 +145,13 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(ContributionResolver)(
+  static readonly baseLayer = Layer.effect(ContributionResolver)(
     ContributionResolver.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  );
+
+  static readonly layer = ContributionResolver.baseLayer.pipe(
+    Layer.provide(CatalogService.layer),
+  );
 }
 
 const resolveContributionTokens = (

@@ -20,6 +20,7 @@ const RecipeUrlSchema = Schema.Struct({
   lint: Schema.optional(Schema.String),
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
+  infrastructure: Schema.optional(Schema.Literals(["none", "cloudflare"])),
   noGit: Schema.Boolean,
 }).check(
   Schema.makeFilter(({ runtime, packageManager }) =>
@@ -41,6 +42,7 @@ const scalarRecipeParameters = [
   "lint",
   "format",
   "test",
+  "infrastructure",
   "no-git",
 ] as const;
 
@@ -99,6 +101,7 @@ const toInitialValues = (
     lint: recipe.lint ?? defaults.lint,
     format: recipe.format ?? defaults.format,
     test: recipe.test ?? defaults.test,
+    infrastructure: recipe.infrastructure ?? defaults.infrastructure,
   };
   const targets = mergeTargets(recipe.target);
   const workspaceTargets = targets.filter(
@@ -197,6 +200,7 @@ export const decodeRecipeBuilderUrl = (
     lint: searchParams.get("lint") ?? undefined,
     format: searchParams.get("format") ?? undefined,
     test: searchParams.get("test") ?? undefined,
+    infrastructure: searchParams.get("infrastructure") ?? undefined,
     noGit: searchParams.has("no-git"),
   });
   if (Option.isNone(decoded)) {
@@ -245,6 +249,9 @@ export const encodeRecipeBuilderUrl = (
     if (value !== undefined && value !== defaults[field])
       params.set(field, value);
   });
+  if (values.config.infrastructure === "cloudflare") {
+    params.set("infrastructure", "cloudflare");
+  }
   if (!values.gitEnabled) params.set("no-git", "");
   return params;
 };

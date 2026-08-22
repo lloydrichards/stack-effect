@@ -1,3 +1,4 @@
+import { useSelector } from "@tanstack/react-form";
 import { Plus } from "lucide-react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Button } from "~/components/ui/button";
@@ -11,10 +12,17 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import { RecipeBuilderCatalog } from "../../../workers/recipe-builder/domain";
+import { useRecipeBuilderFormContext } from "../recipe-builder-context";
+import { infrastructureTargetDisabledReason } from "./state";
 import { TargetConfiguration } from "./target-configuration";
 import { newTargetTabId, useTargetEditor } from "./use-target-editor";
 
 export function TargetSelector() {
+  const form = useRecipeBuilderFormContext();
+  const infrastructure = useSelector(
+    form.store,
+    (state) => state.values.config.infrastructure,
+  );
   const {
     activeId,
     activeTarget,
@@ -96,6 +104,8 @@ export function TargetSelector() {
           <TargetOptions
             onAddTarget={addTarget}
             firstTarget={targets.length === 0}
+            infrastructure={infrastructure}
+            selectedTargets={targets}
             targets={availableTargets}
           />
         )}
@@ -107,12 +117,16 @@ export function TargetSelector() {
 type TargetOptionsProps = {
   readonly firstTarget: boolean;
   readonly onAddTarget: (kind: string) => void;
+  readonly infrastructure: "none" | "cloudflare";
+  readonly selectedTargets: ReadonlyArray<{ readonly kind: string }>;
   readonly targets: (typeof RecipeBuilderCatalog.Type)["targets"];
 };
 
 function TargetOptions({
   firstTarget,
   onAddTarget,
+  infrastructure,
+  selectedTargets,
   targets,
 }: TargetOptionsProps) {
   return (
@@ -137,40 +151,62 @@ function TargetOptions({
           )}
           aria-label="Available target types"
         >
-          {targets.map((target, index) => (
-            <button
-              key={target.kind}
-              type="button"
-              className={cn(
-                "@container group flex h-full w-full items-start gap-3 bg-background p-3.5 text-left transition-colors hover:bg-muted/35 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
-                firstTarget && "bg-primary/3 hover:bg-primary/7",
-                index > 0 && "border-t",
-                "sm:nth-2:border-t-0 sm:even:border-l",
-              )}
-              onClick={() => onAddTarget(target.kind)}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="flex flex-wrap @2xs:flex-row flex-col items-baseline gap-x-2 gap-y-1">
-                  <span className="font-heading text-sm font-semibold text-foreground">
-                    {target.title}
+          {targets.map((target, index) => {
+            const disabledReason = infrastructureTargetDisabledReason(
+              infrastructure,
+              target.kind,
+              selectedTargets,
+            );
+            return (
+              <div key={target.kind} className="contents">
+                <button
+                  type="button"
+                  className={cn(
+                    "@container group flex h-full w-full items-start gap-3 bg-background p-3.5 text-left transition-colors hover:bg-muted/35 focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none",
+                    firstTarget && "bg-primary/3 hover:bg-primary/7",
+                    index > 0 && "border-t",
+                    "sm:nth-2:border-t-0 sm:even:border-l",
+                  )}
+                  disabled={disabledReason !== undefined}
+                  aria-describedby={
+                    disabledReason
+                      ? `target-${target.kind}-disabled-reason`
+                      : undefined
+                  }
+                  onClick={() => onAddTarget(target.kind)}
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap @2xs:flex-row flex-col items-baseline gap-x-2 gap-y-1">
+                      <span className="font-heading text-sm font-semibold text-foreground">
+                        {target.title}
+                      </span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {target.kind}
+                      </span>
+                    </span>
+                    <span className="@2xs:block mt-1.5 hidden text-sm leading-5 text-muted-foreground">
+                      {target.description}
+                    </span>
                   </span>
-                  <span className="font-mono text-xs text-muted-foreground">
-                    {target.kind}
-                  </span>
-                </span>
-                <span className="@2xs:block mt-1.5 hidden text-sm leading-5 text-muted-foreground">
-                  {target.description}
-                </span>
-              </span>
-              <Plus
-                className={cn(
-                  "mt-0.5 size-4 shrink-0 transition-colors group-hover:text-primary",
-                  firstTarget ? "text-primary" : "text-muted-foreground",
-                )}
-                aria-hidden="true"
-              />
-            </button>
-          ))}
+                  <Plus
+                    className={cn(
+                      "mt-0.5 size-4 shrink-0 transition-colors group-hover:text-primary",
+                      firstTarget ? "text-primary" : "text-muted-foreground",
+                    )}
+                    aria-hidden="true"
+                  />
+                </button>
+                {disabledReason ? (
+                  <p
+                    id={`target-${target.kind}-disabled-reason`}
+                    className="px-3.5 py-2 text-sm text-muted-foreground sm:col-span-2"
+                  >
+                    {disabledReason}
+                  </p>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div

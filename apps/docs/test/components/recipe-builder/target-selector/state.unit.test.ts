@@ -3,6 +3,8 @@ import { assert, describe, expect, it } from "vitest";
 import type { SupportSelection } from "../../../../app/components/recipe-builder/form";
 import {
   buildModuleRelationshipNodes,
+  infrastructureModuleDisabledReason,
+  infrastructureTargetDisabledReason,
   makeTargetInstance,
   moduleRequiresCapability,
   removeModuleSupportSelections,
@@ -64,6 +66,37 @@ const unrelatedModuleFixture = makeCatalogModule({
 });
 
 describe("recipe builder state", () => {
+  it("projects the Cloudflare first-slice target and module policy without changing selections", () => {
+    expect(
+      infrastructureTargetDisabledReason("cloudflare", "client-react"),
+    ).toBeUndefined();
+    expect(infrastructureTargetDisabledReason("cloudflare", "server")).toBe(
+      "This first Alchemy/Cloudflare slice supports only Client React and requires exactly one target.",
+    );
+    expect(
+      infrastructureTargetDisabledReason("cloudflare", "client-react", [
+        { kind: "client-react" },
+      ]),
+    ).toBe(
+      "This first Alchemy/Cloudflare slice supports exactly one Client React target; remove the selected React target before adding another.",
+    );
+    expect(
+      infrastructureModuleDisabledReason(
+        "cloudflare",
+        "client-react-web-worker",
+      ),
+    ).toBeUndefined();
+    expect(
+      infrastructureModuleDisabledReason("cloudflare", "client-react-devtools"),
+    ).toBeUndefined();
+    expect(
+      infrastructureModuleDisabledReason("cloudflare", "client-react-http-api"),
+    ).toMatch(/backend/i);
+    expect(
+      infrastructureTargetDisabledReason("none", "server"),
+    ).toBeUndefined();
+  });
+
   it("should find a required capability through module dependencies", () => {
     const repository = makeCatalogModule({
       id: "package-db-todo-repository",

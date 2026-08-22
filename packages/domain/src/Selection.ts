@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { ModuleId, TargetIdentity } from "./Catalog";
+import { GenerationDomainSelection, ModuleId, TargetIdentity } from "./Catalog";
 
 /**
  * Captures the user's explicit intent: which targets to scaffold and which
@@ -22,4 +22,12 @@ export const Selection = Schema.Struct({
       ),
     }),
   ),
-});
+  domains: Schema.optional(Schema.Array(GenerationDomainSelection)),
+}).check(
+  Schema.makeFilter((selection) => {
+    const ids = (selection.domains ?? []).map((domain) => domain.id);
+    return new Set(ids).size === ids.length
+      ? []
+      : ["Generation domain selections must be unique by id"];
+  }),
+);

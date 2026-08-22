@@ -1,6 +1,8 @@
 import type {
   CatalogGraph,
   CatalogTree,
+  GenerationDomainId,
+  GenerationDomainOptionId,
   ModuleCapability,
   ModuleCategory,
   ModuleChild,
@@ -20,6 +22,10 @@ import {
   Match,
   Result,
 } from "effect";
+import {
+  generationDomainRegistry,
+  generationDomainTargetAdapterRegistry,
+} from "./registry/generationDomainRegistry";
 import { moduleRegistry } from "./registry/moduleRegistry";
 import { targetRegistry } from "./registry/targetRegistry";
 
@@ -107,6 +113,30 @@ export class CatalogService extends Context.Service<CatalogService>()(
     make: Effect.gen(function* () {
       const targetIndex = new Map(targetRegistry.map((t) => [t.kind, t]));
       const moduleIndex = new Map(moduleRegistry.map((m) => [m.id, m]));
+      const generationDomainOptionIndex = new Map<
+        string,
+        (typeof generationDomainRegistry)[number]["options"][number]
+      >(
+        Arr.flatMap(generationDomainRegistry, (domain) =>
+          Arr.map(
+            domain.options,
+            (option) => [`${domain.id}/${option.id}`, option] as const,
+          ),
+        ),
+      );
+      const generationDomainAdapterIndex = new Map<
+        string,
+        (typeof generationDomainTargetAdapterRegistry)[number]
+      >(
+        Arr.map(
+          generationDomainTargetAdapterRegistry,
+          (adapter) =>
+            [
+              `${adapter.domainId}/${adapter.optionId}/${adapter.targetKind}`,
+              adapter,
+            ] as const,
+        ),
+      );
 
       const capabilityProviderIndex = Arr.reduce(
         moduleRegistry,
@@ -442,7 +472,52 @@ export class CatalogService extends Context.Service<CatalogService>()(
         })),
       };
 
+      const getGenerationDomainOption = Effect.fn(
+        "CatalogService.getGenerationDomainOption",
+      )(function* (
+        domainId: typeof GenerationDomainId.Type,
+        optionId: typeof GenerationDomainOptionId.Type,
+      ) {
+        const key = `${domainId}/${optionId}`;
+        return yield* Effect.fromNullishOr(
+          generationDomainOptionIndex.get(key),
+        ).pipe(
+          Effect.mapError(
+            () =>
+              new CatalogNotFound({
+                catalog: "generation-domain",
+                entity: "generation-domain-option",
+                id: key,
+              }),
+          ),
+        );
+      });
+
+      const getGenerationDomainTargetAdapter = Effect.fn(
+        "CatalogService.getGenerationDomainTargetAdapter",
+      )(function* (
+        domainId: typeof GenerationDomainId.Type,
+        optionId: typeof GenerationDomainOptionId.Type,
+        targetKind: typeof TargetKind.Type,
+      ) {
+        const key = `${domainId}/${optionId}/${targetKind}`;
+        return yield* Effect.fromNullishOr(
+          generationDomainAdapterIndex.get(key),
+        ).pipe(
+          Effect.mapError(
+            () =>
+              new CatalogNotFound({
+                catalog: "generation-domain",
+                entity: "generation-domain-adapter",
+                id: key,
+              }),
+          ),
+        );
+      });
+
       return {
+        getGenerationDomainOption,
+        getGenerationDomainTargetAdapter,
         getImplications,
         getCapabilityProviders,
         getModules,

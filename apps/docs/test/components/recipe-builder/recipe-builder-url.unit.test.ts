@@ -6,6 +6,37 @@ import {
 import { fullStackRecipeFixture } from "./recipe-fixtures";
 
 describe("recipe builder URL", () => {
+  it("omits default infrastructure and round trips Cloudflare canonically", () => {
+    expect(
+      encodeRecipeBuilderUrl(fullStackRecipeFixture).has("infrastructure"),
+    ).toBe(false);
+    const encoded = encodeRecipeBuilderUrl({
+      ...fullStackRecipeFixture,
+      config: {
+        ...fullStackRecipeFixture.config,
+        infrastructure: "cloudflare",
+      },
+    });
+    expect(encoded.get("infrastructure")).toBe("cloudflare");
+    const decoded = decodeRecipeBuilderUrl(encoded);
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config.infrastructure).toBe("cloudflare");
+    expect(encodeRecipeBuilderUrl(decoded.initialValues).toString()).toBe(
+      encoded.toString(),
+    );
+  });
+
+  it("rejects unknown and duplicate infrastructure parameters", () => {
+    [
+      "?infrastructure=aws",
+      "?infrastructure=none&infrastructure=cloudflare",
+    ].forEach((search) =>
+      expect(
+        decodeRecipeBuilderUrl(new URLSearchParams(search)).issue,
+      ).toBeDefined(),
+    );
+  });
+
   it("round trips a create-compatible recipe without form bookkeeping", () => {
     const encoded = encodeRecipeBuilderUrl(fullStackRecipeFixture);
     const decoded = decodeRecipeBuilderUrl(encoded);

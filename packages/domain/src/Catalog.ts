@@ -1,8 +1,12 @@
 import { Data, Effect, type Graph, Schema, String as Str } from "effect";
 
 export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
-  catalog: "target" | "module";
-  entity: "target-kind" | "module";
+  catalog: "target" | "module" | "generation-domain";
+  entity:
+    | "target-kind"
+    | "module"
+    | "generation-domain-option"
+    | "generation-domain-adapter";
   id: string;
 }> {
   override get message(): string {
@@ -11,6 +15,57 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
 }
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
+
+export const GenerationDomainId = Schema.String.pipe(
+  Schema.brand("GenerationDomainId"),
+);
+export const GenerationDomainOptionId = Schema.String.pipe(
+  Schema.brand("GenerationDomainOptionId"),
+);
+export const GenerationDomainAdapterId = Schema.String.pipe(
+  Schema.brand("GenerationDomainAdapterId"),
+);
+
+export class GenerationDomainSelection extends Schema.Class<GenerationDomainSelection>(
+  "GenerationDomainSelection",
+)({
+  id: GenerationDomainId,
+  option: GenerationDomainOptionId,
+}) {}
+
+export class GenerationDomainBinding extends Schema.Class<GenerationDomainBinding>(
+  "GenerationDomainBinding",
+)({
+  domainId: GenerationDomainId,
+  optionId: GenerationDomainOptionId,
+  targetId: Schema.String.pipe(Schema.brand("TargetKey")),
+  adapterId: GenerationDomainAdapterId,
+}) {}
+
+export const GenerationDomainDefinition = Schema.Struct({
+  id: GenerationDomainId,
+  title: Schema.String,
+  options: Schema.Array(
+    Schema.Struct({
+      id: GenerationDomainOptionId,
+      title: Schema.String,
+      minimumBindings: Schema.Finite,
+      maximumBindings: Schema.Finite,
+      rootContributions: Schema.Array(Schema.suspend(() => Contribution)),
+      nextSteps: Schema.Array(Schema.String),
+    }),
+  ),
+});
+
+export const GenerationDomainTargetAdapter = Schema.Struct({
+  domainId: GenerationDomainId,
+  optionId: GenerationDomainOptionId,
+  adapterId: GenerationDomainAdapterId,
+  targetKind: Schema.suspend(() => TargetKind),
+  supportedSelectedModules: Schema.Array(ModuleId),
+  supportedResolvedModules: Schema.Array(ModuleId),
+  contributions: Schema.Array(Schema.suspend(() => Contribution)),
+});
 
 export const ModuleCapability = Schema.String.pipe(
   Schema.brand("ModuleCapability"),

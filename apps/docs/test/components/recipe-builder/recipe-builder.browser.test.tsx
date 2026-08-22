@@ -57,7 +57,11 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
       identity,
     }));
     return {
-      command: `bunx stack-effect create ${input.config.name}`,
+      command: `bunx stack-effect create ${input.config.name}${
+        input.config.infrastructure === "cloudflare"
+          ? " --infrastructure cloudflare"
+          : ""
+      }`,
       selection: { targets },
       blueprint: { nodes: blueprintTargets, edges: [] },
       files: [
@@ -225,6 +229,120 @@ test("should replace valid URL edits and reset the existing form for external na
   await expect
     .element(page.getByLabelText("Project name"))
     .toHaveValue("my-effect-app");
+});
+
+test("should preserve selections while Cloudflare advisory policy is toggled", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByText("HTTP API Client", { exact: true }).click();
+  await page.getByLabelText("Infrastructure as Effects").click();
+  await page.getByRole("option", { name: "Cloudflare" }).click();
+
+  await expect
+    .element(page.getByRole("checkbox", { name: /HTTP API Client/u }))
+    .toBeChecked();
+  await expect
+    .element(
+      page.getByText(/backend-dependent module is not supported/i).first(),
+    )
+    .toBeVisible();
+  await page.getByRole("button", { name: "Add target" }).click();
+  await expect
+    .element(page.getByRole("button", { name: "Server Application" }).first())
+    .toBeDisabled();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent("infrastructure=cloudflare");
+
+  await page.getByLabelText("Infrastructure as Effects").click();
+  await page.getByRole("option", { name: "None" }).click();
+  await page.getByRole("tab", { name: /web · client-react/u }).click();
+  await expect
+    .element(page.getByRole("checkbox", { name: /HTTP API Client/u }))
+    .toBeChecked();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .not.toHaveTextContent("infrastructure");
+
+  await page.getByLabelText("Infrastructure as Effects").click();
+  await page.getByRole("option", { name: "Cloudflare" }).click();
+  await expect
+    .element(page.getByRole("tab", { name: /web · client-react/u }))
+    .toBeVisible();
+  await expect.element(page.getByLabelText("Target name")).toHaveValue("web");
+  await expect
+    .element(page.getByRole("checkbox", { name: /HTTP API Client/u }))
+    .toBeChecked();
+});
+
+test("should allow the first React target but disable a second under Cloudflare", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByLabelText("Infrastructure as Effects").click();
+  await page.getByRole("option", { name: "Cloudflare" }).click();
+
+  await expect
+    .element(page.getByRole("button", { name: "Client React Application" }))
+    .toBeEnabled();
+  const server = page
+    .getByRole("button", { name: "Server Application" })
+    .first();
+  await expect.element(server).toBeDisabled();
+  await expect
+    .element(
+      page
+        .getByText(
+          "This first Alchemy/Cloudflare slice supports only Client React and requires exactly one target.",
+        )
+        .first(),
+    )
+    .toBeVisible();
+
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await expect
+    .element(page.getByRole("tab", { name: /web · client-react/u }))
+    .toBeVisible();
+  await page.getByRole("button", { name: "Add target" }).click();
+
+  await expect
+    .element(page.getByRole("button", { name: "Client React Application" }))
+    .toBeDisabled();
+  await expect
+    .element(
+      page.getByText(
+        "This first Alchemy/Cloudflare slice supports exactly one Client React target; remove the selected React target before adding another.",
+      ),
+    )
+    .toBeVisible();
+});
+
+test("should render a visible reason referenced by every disabled Cloudflare target", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByLabelText("Infrastructure as Effects").click();
+  await page.getByRole("option", { name: "Cloudflare" }).click();
+
+  const targetButtons = await page
+    .getByLabelText("Available target types")
+    .getByRole("button")
+    .all();
+  const disabledButtons = [];
+  for (const button of targetButtons) {
+    const element = button.element();
+    if (element instanceof HTMLButtonElement && element.disabled) {
+      disabledButtons.push(button);
+    }
+  }
+  expect(disabledButtons.length).toBeGreaterThan(0);
+  for (const button of disabledButtons) {
+    const reasonId = button.element().getAttribute("aria-describedby");
+    expect(reasonId).toBeTruthy();
+    const reason = document.getElementById(reasonId ?? "");
+    expect(reason).not.toBeNull();
+    expect(reason?.hidden).toBe(false);
+    expect(reason?.textContent?.trim().length).toBeGreaterThan(0);
+  }
 });
 
 test("should generate a usable preview when the user completes a valid Selection", async () => {

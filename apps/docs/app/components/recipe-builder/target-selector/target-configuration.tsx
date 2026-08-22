@@ -34,6 +34,7 @@ import { ModuleBranch } from "./module-branch";
 import {
   buildModuleRelationshipNodes,
   dependencySourceNames,
+  infrastructureModuleDisabledReason,
   moduleRequiresCapability,
 } from "./state";
 
@@ -67,6 +68,10 @@ export function TargetConfiguration({
 }: TargetConfigurationProps) {
   const form = useRecipeBuilderFormContext();
   const database = useSelector(form.store, (state) => state.values.database);
+  const infrastructure = useSelector(
+    form.store,
+    (state) => state.values.config.infrastructure,
+  );
   const modules =
     catalog?.targetModules.find(
       (entry) => ownerKey(entry.owner) === ownerKey(catalogOwner ?? target),
@@ -94,10 +99,11 @@ export function TargetConfiguration({
     name: target.name,
   };
   const getDisabledReason = (module: typeof CatalogModule.Type) =>
-    database === "none" &&
+    infrastructureModuleDisabledReason(infrastructure, module.id) ??
+    (database === "none" &&
     moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
       ? "Select a database to enable this module."
-      : undefined;
+      : undefined);
   return (
     <section className="p-4 md:p-5">
       <div className="border-b pb-5">

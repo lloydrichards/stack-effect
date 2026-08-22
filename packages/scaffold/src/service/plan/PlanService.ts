@@ -35,6 +35,25 @@ export interface PlanServiceShape {
   ) => Effect.Effect<typeof Plan.Type, PlanFailure | CatalogNotFound, never>;
 }
 
+export const generationDomainMetadata = (blueprint: typeof Blueprint.Type) =>
+  blueprint.domainBindings?.length
+    ? Arr.map(
+        Object.entries(
+          Arr.groupBy(
+            blueprint.domainBindings,
+            (binding) => `${binding.domainId}/${binding.optionId}`,
+          ),
+        ),
+        ([, bindings]) => ({
+          selection: {
+            id: bindings[0]!.domainId,
+            option: bindings[0]!.optionId,
+          },
+          bindings,
+        }),
+      )
+    : undefined;
+
 export class PlanService extends Context.Service<
   PlanService,
   PlanServiceShape
@@ -68,15 +87,22 @@ export class PlanService extends Context.Service<
         repoRoot,
       });
 
-      return yield* projectPlan({ planningPaths, repoSnapshot });
+      const generationDomains = generationDomainMetadata(blueprint);
+      return yield* projectPlan({
+        planningPaths,
+        repoSnapshot,
+        generationDomains,
+      });
     });
 
     const projectPlan = ({
       planningPaths,
       repoSnapshot,
+      generationDomains,
     }: {
       planningPaths: ReadonlyArray<PlanningIntentPath>;
       repoSnapshot: typeof RepoSnapshot.Type;
+      generationDomains?: (typeof Plan.Type)["generationDomains"];
     }) =>
       Effect.gen(function* () {
         const snapshotPaths = new Map(
@@ -132,6 +158,7 @@ export class PlanService extends Context.Service<
             assessedPaths,
             ({ assessment }) => assessment.conflicts,
           ),
+          ...(generationDomains === undefined ? {} : { generationDomains }),
         }).pipe(
           Effect.mapError(
             (cause) =>

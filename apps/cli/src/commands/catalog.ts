@@ -10,7 +10,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { RecipeTargetSpec } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { NormalizedContributions, StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyService,
   BlueprintService,
@@ -37,11 +37,12 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import {
   formatFlag,
+  infrastructureFlag,
   monorepoFlag,
   recipeTargetFlag,
   rootFlag,
@@ -60,9 +61,12 @@ const defaultTargetNames = new Map<string, string>([
 ]);
 
 const ManifestContribution = Schema.Struct({
-  origin: Schema.Literals(["target", "module"]),
+  origin: Schema.Literals(["target", "module", "generation-domain"]),
   targetKey: Schema.String,
   moduleId: Schema.optional(Schema.String),
+  domainId: Schema.optional(Schema.String),
+  optionId: Schema.optional(Schema.String),
+  adapterId: Schema.optional(Schema.String),
   contributionTag: Schema.String,
 });
 
@@ -242,15 +246,9 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
   },
 );
 
-const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
-  blueprint,
-  config,
-}: {
-  blueprint: typeof import("@repo/domain/Blueprint").Blueprint.Type;
-  config: typeof StackConfig.Type;
-}) {
-  const resolver = yield* ContributionResolver;
-  const normalized = yield* resolver.resolve(blueprint, config);
+export const buildManifestFiles = (
+  normalized: typeof NormalizedContributions.Type,
+): Array<typeof ManifestFile.Type> => {
   const contributorsByPath = new Map<string, Array<ManifestContributor>>();
 
   const appendContributor = (
@@ -265,11 +263,26 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
 
   for (const target of normalized.targets) {
     for (const contribution of target.contributions) {
-      appendContributor(contributionPath(contribution), {
-        origin: "target",
-        targetKey: target.targetKey,
-        contributionTag: contribution._tag,
-      });
+      const generationDomain = target.generationDomain;
+      appendContributor(
+        contributionPath(contribution),
+        generationDomain === undefined
+          ? {
+              origin: "target",
+              targetKey: target.targetKey,
+              contributionTag: contribution._tag,
+            }
+          : {
+              origin: "generation-domain",
+              targetKey: target.targetKey,
+              domainId: generationDomain.domainId,
+              optionId: generationDomain.optionId,
+              ...(generationDomain.adapterId === undefined
+                ? {}
+                : { adapterId: generationDomain.adapterId }),
+              contributionTag: contribution._tag,
+            },
+      );
     }
   }
 
@@ -284,9 +297,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
     }
   }
 
-  const manifestFiles: Array<typeof ManifestFile.Type> = Array.from(
-    contributorsByPath.entries(),
-  )
+  return Array.from(contributorsByPath.entries())
     .map(([path, contributors]) =>
       ManifestFile.make({
         path,
@@ -294,6 +305,18 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
       }),
     )
     .sort((a, b) => a.path.localeCompare(b.path));
+};
+
+const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
+  blueprint,
+  config,
+}: {
+  blueprint: typeof import("@repo/domain/Blueprint").Blueprint.Type;
+  config: typeof StackConfig.Type;
+}) {
+  const resolver = yield* ContributionResolver;
+  const normalized = yield* resolver.resolve(blueprint, config);
+  const manifestFiles = buildManifestFiles(normalized);
 
   const now = yield* DateTime.now;
 
@@ -488,6 +511,31 @@ const runValidationCommand = Effect.fn(
   }
 });
 
+export const ensureWorkspaceLink = (
+  source: string,
+  target: string,
+  packageName: string,
+) =>
+  Effect.tryPromise({
+    try: async () => {
+      try {
+        await nodeFs.symlink(source, target, "dir");
+      } catch (error) {
+        if (
+          (error as NodeJS.ErrnoException).code !== "EEXIST" ||
+          (await nodeFs.realpath(target)) !== (await nodeFs.realpath(source))
+        ) {
+          throw error;
+        }
+      }
+    },
+    catch: (error) =>
+      new WorkspaceCommandFailed({
+        command: `link @repo/${packageName}`,
+        cause: error,
+      }),
+  });
+
 const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
   function* (repoRoot: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -502,19 +550,11 @@ const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
     yield* Effect.forEach(
       packageNames,
       (packageName) =>
-        Effect.tryPromise({
-          try: () =>
-            nodeFs.symlink(
-              path.join(packagesRoot, packageName),
-              path.join(scopeRoot, packageName),
-              "dir",
-            ),
-          catch: (error) =>
-            new WorkspaceCommandFailed({
-              command: `link @repo/${packageName}`,
-              cause: error,
-            }),
-        }),
+        ensureWorkspaceLink(
+          path.join(packagesRoot, packageName),
+          path.join(scopeRoot, packageName),
+          packageName,
+        ),
       { concurrency: 1 },
     );
   },
@@ -569,6 +609,7 @@ const reset = Command.make(
     target: recipeTargetFlag,
     typescript: typescriptFlag,
     monorepo: monorepoFlag,
+    infrastructure: infrastructureFlag,
   },
   (flags) =>
     Effect.gen(function* () {
@@ -599,6 +640,12 @@ const reset = Command.make(
         format: Option.getOrElse(flags.format, () => defaults.format),
         test: defaults.test,
         monorepo: Option.getOrElse(flags.monorepo, () => defaults.monorepo),
+        infrastructure: Option.getOrUndefined(
+          Option.filter(
+            flags.infrastructure,
+            (value) => value === "cloudflare",
+          ),
+        ),
       });
 
       const selection = yield* buildWorkspaceSelection(config, flags.target);

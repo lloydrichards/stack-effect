@@ -1,6 +1,11 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import {
+  GenerationDomainAdapterId,
+  TargetIdentity,
+  TargetKey,
+  TargetKind,
+} from "./Catalog";
 import { ContributionTokenContext, StackConfig } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
@@ -374,5 +379,187 @@ line3{{/if}}`;
 line2
 line3`);
     });
+  });
+  it("resolves canonical deployment paths and deterministic distinct identity hashes", () => {
+    const makeContext = (projectName: string, targetName: string) => {
+      const identity = new TargetIdentity({
+        kind: TargetKind.make("client-react"),
+        name: targetName,
+      });
+      return new ContributionTokenContext({
+        targetKey: identity.toKey(),
+        identity,
+        config: new StackConfig({
+          name: projectName,
+          runtime: { _tag: "bun" },
+          infrastructure: "cloudflare",
+        }),
+        generationDomainAdapterId: GenerationDomainAdapterId.make(
+          "cloudflare-website-vite",
+        ),
+      });
+    };
+    const first = makeContext("acme", "web");
+    const repeated = makeContext("acme", "web");
+    const second = makeContext("acme", "admin");
+
+    expect(first.resolve("{{targetPath}}:{{stableIdentityHash}}")).toBe(
+      repeated.resolve("{{targetPath}}:{{stableIdentityHash}}"),
+    );
+    expect(first.resolve("{{targetPath}}")).toBe("apps/client-react-web");
+    expect(second.resolve("{{targetPath}}")).toBe("apps/client-react-admin");
+    expect(first.resolve("{{stableIdentityHash}}")).not.toBe(
+      second.resolve("{{stableIdentityHash}}"),
+    );
+  });
+
+  it("resolves provider-safe names without changing canonical identity tokens", () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("client-react"),
+      name: 'Admin "UI"',
+    });
+    const context = new ContributionTokenContext({
+      targetKey: identity.toKey(),
+      identity,
+      config: new StackConfig({
+        name: 'Acme "Cloud"',
+        runtime: { _tag: "bun" },
+        infrastructure: "cloudflare",
+      }),
+      generationDomainAdapterId: GenerationDomainAdapterId.make(
+        "cloudflare-website-vite",
+      ),
+    });
+
+    expect(
+      context.resolve("{{providerSafeProjectName}}:{{providerSafeTargetName}}"),
+    ).toBe(
+      "se-encoded-acme-cloud-x41636d652022436c6f756422:se-encoded-admin-ui-x41646d696e2022554922",
+    );
+    expect(context.resolve("{{targetKey}}:{{targetPath}}")).toBe(
+      "apps/client-react-admin-ui:apps/client-react-admin-ui",
+    );
+  });
+
+  it("encodes UTF-8 exactly while keeping Unicode names provider safe", () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("client-react"),
+      name: "管理 UI",
+    });
+    const context = new ContributionTokenContext({
+      targetKey: identity.toKey(),
+      identity,
+      config: new StackConfig({
+        name: "Café ☁",
+        runtime: { _tag: "bun" },
+        infrastructure: "cloudflare",
+      }),
+      generationDomainAdapterId: GenerationDomainAdapterId.make(
+        "cloudflare-website-vite",
+      ),
+    });
+    const resolved = context.resolve(
+      "{{providerSafeProjectName}}:{{providerSafeTargetName}}",
+    );
+
+    expect(resolved).toMatch(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/,
+    );
+    expect(resolved).toContain("se-encoded-caf-x436166c3a920e29881");
+    expect(resolved).toContain("se-encoded-ui-xe7aea1e79086205549");
+  });
+
+  it("reserves an encoded namespace for exact project and target names", () => {
+    const resolveNames = (projectName: string, targetName: string) => {
+      const identity = new TargetIdentity({
+        kind: TargetKind.make("client-react"),
+        name: targetName,
+      });
+      const context = new ContributionTokenContext({
+        targetKey: identity.toKey(),
+        identity,
+        config: new StackConfig({
+          name: projectName,
+          runtime: { _tag: "bun" },
+          infrastructure: "cloudflare",
+        }),
+        generationDomainAdapterId: GenerationDomainAdapterId.make(
+          "cloudflare-website-vite",
+        ),
+      });
+
+      return context
+        .resolve(
+          "{{providerSafeProjectName}}:{{providerSafeTargetName}}:{{targetPath}}:{{stableIdentityHash}}",
+        )
+        .split(":");
+    };
+
+    expect(resolveNames("!", "!").slice(0, 2)).toEqual([
+      "se-encoded-project-x21",
+      "se-encoded-client-react-x21",
+    ]);
+    expect(resolveNames("project-x-21", "project-x-21").slice(0, 2)).toEqual([
+      "project-x-21",
+      "project-x-21",
+    ]);
+    expect(resolveNames("A", "A").slice(0, 2)).toEqual([
+      "se-encoded-a-x41",
+      "se-encoded-a-x41",
+    ]);
+    expect(resolveNames("a-x-41", "a-x-41").slice(0, 2)).toEqual([
+      "a-x-41",
+      "a-x-41",
+    ]);
+
+    const reserved = resolveNames(
+      "se-encoded-project-x21",
+      "se-encoded-client-react-x21",
+    );
+    expect(reserved.slice(0, 2)).toEqual([
+      "se-encoded-se-encoded-project-x-21-x73652d656e636f6465642d70726f6a6563742d783231",
+      "se-encoded-se-encoded-client-react-x-21-x73652d656e636f6465642d636c69656e742d72656163742d783231",
+    ]);
+  });
+
+  it("encodes accepted whitespace target names without collapsing raw bytes", () => {
+    const resolveTarget = (targetName: string) => {
+      const identity = new TargetIdentity({
+        kind: TargetKind.make("client-react"),
+        name: targetName,
+      });
+      const context = new ContributionTokenContext({
+        targetKey: identity.toKey(),
+        identity,
+        config: new StackConfig({
+          name: "stack-effect",
+          runtime: { _tag: "bun" },
+          infrastructure: "cloudflare",
+        }),
+        generationDomainAdapterId: GenerationDomainAdapterId.make(
+          "cloudflare-website-vite",
+        ),
+      });
+
+      const [providerName, targetPath, hash] = context
+        .resolve(
+          "{{providerSafeTargetName}}:{{targetPath}}:{{stableIdentityHash}}",
+        )
+        .split(":");
+      return { providerName, targetPath, hash };
+    };
+
+    const variants = ["", " ", "\t"].map(resolveTarget);
+    expect(variants.map(({ providerName }) => providerName)).toEqual([
+      "se-encoded-client-react-x",
+      "se-encoded-client-react-x20",
+      "se-encoded-client-react-x09",
+    ]);
+    expect(variants.map(({ targetPath }) => targetPath)).toEqual([
+      "apps/client-react",
+      "apps/client-react",
+      "apps/client-react",
+    ]);
+    expect(new Set(variants.map(({ hash }) => hash))).toHaveLength(1);
   });
 });

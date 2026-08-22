@@ -83,6 +83,26 @@ describe("RecipeTargetString", () => {
     assert.strictEqual(encoded, "server-mcp/");
   });
 
+  it("uses the canonical target-without-modules syntax for base React", () => {
+    const decoded =
+      Schema.decodeUnknownSync(RecipeTargetString)("client-react/web");
+
+    assert.deepStrictEqual(decoded, {
+      target: new TargetIdentity({
+        kind: TargetKind.make("client-react"),
+        name: "web",
+      }),
+      modules: [],
+    });
+    assert.strictEqual(
+      Schema.encodeUnknownSync(RecipeTargetString)(decoded),
+      "client-react/web",
+    );
+    assert.throws(() =>
+      Schema.decodeUnknownSync(RecipeTargetString)("client-react/web:"),
+    );
+  });
+
   it("rejects malformed target specs", () => {
     assert.throws(() =>
       Schema.decodeUnknownSync(RecipeTargetString)(":server-http-api"),

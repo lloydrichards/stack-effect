@@ -45,6 +45,44 @@ it.live(
 );
 
 it.live(
+  "should preserve Cloudflare intent across the browser Worker preview boundary",
+  () =>
+    Effect.gen(function* () {
+      const input = toRecipePreviewInput({
+        ...fullStackRecipeFixture,
+        config: {
+          ...fullStackRecipeFixture.config,
+          infrastructure: "cloudflare",
+        },
+        targets: [
+          {
+            id: "client-1",
+            kind: "client-react",
+            name: "web",
+            modules: ["config-typescript-vite", "client-react-web-worker"],
+          },
+        ],
+        database: "none",
+      });
+      const preview = yield* runAtom(previewAtom, {
+        targetIdentityKey: "cloudflare-react",
+        input,
+      });
+
+      assert.strictEqual(input.config.infrastructure, "cloudflare");
+      assert.include(preview.preview.command, "--infrastructure cloudflare");
+      assert.strictEqual(
+        preview.preview.selection.domains?.[0]?.option,
+        "cloudflare",
+      );
+      assert.strictEqual(
+        preview.preview.blueprint.domainBindings?.[0]?.targetId,
+        "apps/client-react-web",
+      );
+    }),
+);
+
+it.live(
   "should return flattened catalog relationships when catalog data crosses the browser Worker boundary",
   () =>
     Effect.gen(function* () {
