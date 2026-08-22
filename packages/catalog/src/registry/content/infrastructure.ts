@@ -9,7 +9,7 @@ export default Alchemy.Stack(
   "{{providerSafeProjectName}}",
   {
     providers: Cloudflare.providers(),
-    state: Cloudflare.state(),
+    state: Alchemy.localState(),
   },
   Effect.gen(function* () {
     const stage = yield* Alchemy.Stage;

@@ -3,13 +3,30 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { TestConsole } from "effect/testing";
 import { CliOutput, Command } from "effect/unstable/cli";
-import { showFilesFlag, validateShowFiles } from "./flags";
+import { infrastructureFlag, showFilesFlag, validateShowFiles } from "./flags";
 
 const helpLayer = Layer.mergeAll(
   NodeServices.layer,
   TestConsole.layer,
   CliOutput.layer(CliOutput.defaultFormatter({ colors: false })),
 );
+
+describe("infrastructure flag", () => {
+  it.effect("documents the canonical choices without aliases", () =>
+    Effect.gen(function* () {
+      const command = Command.make("scaffold", {
+        infrastructure: infrastructureFlag,
+      });
+      yield* Command.runWith(command, { version: "test" })(["--help"]);
+      const output = (yield* TestConsole.logLines).join("\n");
+
+      expect(output).toContain("--infrastructure <none|cloudflare>");
+      expect(output).toContain("Infrastructure as Effects");
+      expect(output).not.toContain("--IaC");
+      expect(output).not.toContain("--IaE");
+    }).pipe(Effect.provide(helpLayer)),
+  );
+});
 
 describe("show-files flag", () => {
   it.effect("documents the shared dry-run companion", () =>

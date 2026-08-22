@@ -32,6 +32,7 @@ const StackConfigurationSchema = Schema.Struct({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
+  infrastructure: Schema.Literals(["none", "cloudflare"]),
 });
 
 const TargetModuleRequirementSchema = Schema.Struct({
@@ -122,6 +123,7 @@ export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
     lint: stackConfigDefaults.lint,
     format: stackConfigDefaults.format,
     test: stackConfigDefaults.test,
+    infrastructure: "none",
   },
   database: "none",
   gitEnabled: true,
@@ -184,7 +186,13 @@ export function toRecipePreviewInput(
   );
 
   return {
-    config: new StackConfig(values.config),
+    config: new StackConfig({
+      ...values.config,
+      infrastructure:
+        values.config.infrastructure === "cloudflare"
+          ? "cloudflare"
+          : undefined,
+    }),
     recipe: {
       targets: [
         ...(values.gitEnabled || values.developerExperienceModules.length > 0
@@ -210,7 +218,13 @@ export function toRecipePreviewInput(
             kind: TargetKind.make(target.kind),
             name: target.name,
           }),
-          modules: target.modules.map((id) => ModuleId.make(id)),
+          modules: target.modules
+            .filter(
+              (id) =>
+                values.config.infrastructure !== "cloudflare" ||
+                id !== "config-typescript-vite",
+            )
+            .map((id) => ModuleId.make(id)),
         })),
       ],
     },

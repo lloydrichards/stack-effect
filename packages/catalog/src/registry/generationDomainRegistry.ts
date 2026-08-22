@@ -26,6 +26,7 @@ export const generationDomainRegistry: ReadonlyArray<
             ["alchemy", "2.0.0-beta.73"],
             ["effect", "4.0.0-rc.111"],
             ["@effect/platform-node", "4.0.0-rc.111"],
+            ["@effect/platform-bun", "4.0.0-rc.111"],
           ].map(([name, value]) => ({
             _tag: "pkg-json-entry" as const,
             path: "package.json",
@@ -47,9 +48,11 @@ export const generationDomainRegistry: ReadonlyArray<
           })),
         ],
         nextSteps: [
-          "Configure Cloudflare credentials through Alchemy's documented environment conventions before running infrastructure commands.",
-          "Infrastructure commands may authenticate with Cloudflare and mutate real provider state; use infra:destroy for the same stage when finished.",
-          "The website URL is public. Never place secrets in generated source or public Vite configuration.",
+          "Run infra:dev for credential-free local Alchemy startup; it must not contact Cloudflare.",
+          "Before infra:plan, infra:deploy, or infra:destroy, supply credentials through Alchemy and Cloudflare's documented external configuration.",
+          "Those remote commands may inspect, create, mutate, or delete real provider state and are not covered by local acceptance.",
+          "Local acceptance does not prove workers.dev, edge upload, TLS, global routing, provider authentication, or remote destroy.",
+          "Never place secrets in generated source or public Vite configuration.",
         ],
       },
     ],

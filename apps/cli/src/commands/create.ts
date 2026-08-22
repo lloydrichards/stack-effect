@@ -7,6 +7,7 @@ import { Command } from "effect/unstable/cli";
 import {
   dryRunFlag,
   formatFlag,
+  infrastructureFlag,
   lintFlag,
   monorepoFlag,
   noGitFlag,
@@ -67,6 +68,7 @@ const buildConfig = ({
   lint,
   format,
   test,
+  infrastructure,
   defaults,
 }: {
   readonly projectName: string;
@@ -77,6 +79,7 @@ const buildConfig = ({
   readonly lint: Option.Option<string>;
   readonly format: Option.Option<string>;
   readonly test: Option.Option<string>;
+  readonly infrastructure: Option.Option<"none" | "cloudflare">;
   readonly defaults: StackConfig;
 }): typeof StackConfig.Type => {
   const packageManagerName = Option.getOrElse(
@@ -104,6 +107,9 @@ const buildConfig = ({
     lint: Option.getOrElse(lint, () => defaults.lint),
     format: Option.getOrElse(format, () => defaults.format),
     test: Option.getOrElse(test, () => defaults.test),
+    infrastructure: Option.getOrUndefined(
+      Option.filter(infrastructure, (value) => value === "cloudflare"),
+    ),
   });
 };
 
@@ -140,6 +146,7 @@ export const create = Command.make(
     lint: lintFlag,
     format: formatFlag,
     test: testFlag,
+    infrastructure: infrastructureFlag,
     noGit: noGitFlag,
     yes: yesFlag,
     trust: trustFlag,
@@ -184,6 +191,7 @@ export const create = Command.make(
         lint: flags.lint,
         format: flags.format,
         test: flags.test,
+        infrastructure: flags.infrastructure,
         defaults,
       });
       const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);

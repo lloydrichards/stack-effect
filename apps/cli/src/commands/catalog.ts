@@ -42,6 +42,7 @@ import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import {
   formatFlag,
+  infrastructureFlag,
   monorepoFlag,
   recipeTargetFlag,
   rootFlag,
@@ -49,16 +50,6 @@ import {
 } from "../flags";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
-
-const infrastructureFlag = Flag.choice("infrastructure", [
-  "none",
-  "cloudflare",
-]).pipe(
-  Flag.optional,
-  Flag.withDescription(
-    "Catalog maintenance intent used to materialize provider-specific output",
-  ),
-);
 
 const defaultTargetNames = new Map<string, string>([
   ["server", "api"],
@@ -520,6 +511,31 @@ const runValidationCommand = Effect.fn(
   }
 });
 
+export const ensureWorkspaceLink = (
+  source: string,
+  target: string,
+  packageName: string,
+) =>
+  Effect.tryPromise({
+    try: async () => {
+      try {
+        await nodeFs.symlink(source, target, "dir");
+      } catch (error) {
+        if (
+          (error as NodeJS.ErrnoException).code !== "EEXIST" ||
+          (await nodeFs.realpath(target)) !== (await nodeFs.realpath(source))
+        ) {
+          throw error;
+        }
+      }
+    },
+    catch: (error) =>
+      new WorkspaceCommandFailed({
+        command: `link @repo/${packageName}`,
+        cause: error,
+      }),
+  });
+
 const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
   function* (repoRoot: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -534,19 +550,11 @@ const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
     yield* Effect.forEach(
       packageNames,
       (packageName) =>
-        Effect.tryPromise({
-          try: () =>
-            nodeFs.symlink(
-              path.join(packagesRoot, packageName),
-              path.join(scopeRoot, packageName),
-              "dir",
-            ),
-          catch: (error) =>
-            new WorkspaceCommandFailed({
-              command: `link @repo/${packageName}`,
-              cause: error,
-            }),
-        }),
+        ensureWorkspaceLink(
+          path.join(packagesRoot, packageName),
+          path.join(scopeRoot, packageName),
+          packageName,
+        ),
       { concurrency: 1 },
     );
   },

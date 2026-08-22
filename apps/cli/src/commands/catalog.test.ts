@@ -1,4 +1,14 @@
 import {
+  mkdir,
+  mkdtemp,
+  readlink,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import {
   Contribution,
   GenerationDomainAdapterId,
   GenerationDomainId,
@@ -9,13 +19,40 @@ import {
   NormalizedContributions,
   TargetContribution,
 } from "@repo/domain/Scaffold";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { buildManifestFiles } from "./catalog";
+import { buildManifestFiles, ensureWorkspaceLink } from "./catalog";
 
 const targetKey = TargetKey.make("apps/client-react-web");
 const domainId = GenerationDomainId.make("infrastructure");
 const optionId = GenerationDomainOptionId.make("cloudflare");
 const adapterId = GenerationDomainAdapterId.make("cloudflare-website-vite");
+
+describe("catalog workspace links", () => {
+  it("is idempotent for correct links and rejects conflicts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "catalog-links-"));
+    const source = join(root, "source");
+    const target = join(root, "target");
+    try {
+      await mkdir(source);
+      await symlink(source, target, "dir");
+      await Effect.runPromise(ensureWorkspaceLink(source, target, "ai"));
+      expect(resolve(root, await readlink(target))).toBe(source);
+
+      const missing = join(root, "missing");
+      await Effect.runPromise(ensureWorkspaceLink(source, missing, "domain"));
+      expect(resolve(root, await readlink(missing))).toBe(source);
+
+      const conflict = join(root, "conflict");
+      await writeFile(conflict, "not a link");
+      await expect(
+        Effect.runPromise(ensureWorkspaceLink(source, conflict, "bad")),
+      ).rejects.toThrow("link @repo/bad");
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
+});
 
 describe("catalog workspace manifest", () => {
   it("preserves generation-domain option and adapter provenance", () => {

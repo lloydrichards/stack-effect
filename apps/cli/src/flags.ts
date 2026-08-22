@@ -62,6 +62,17 @@ export const trustFlag = Flag.boolean("trust").pipe(
   ),
 );
 
+export const infrastructureFlag = Flag.choice("infrastructure", [
+  "none",
+  "cloudflare",
+]).pipe(
+  Flag.optional,
+  Flag.withMetavar("<none|cloudflare>"),
+  Flag.withDescription(
+    "Infrastructure as Effects (None or Cloudflare via Alchemy)",
+  ),
+);
+
 export const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
   Flag.optional,
   Flag.withDescription("Runtime to use"),

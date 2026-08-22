@@ -7,6 +7,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   RecipeService,
+  RecipeTargetString,
   StackConfigDefaults,
   toWorkspaceToolValue,
 } from "@repo/scaffold";
@@ -16,8 +17,10 @@ import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import {
   dryRunFlag,
+  infrastructureFlag,
   noGitFlag,
   projectNameArg,
+  recipeTargetFlag,
   rootFlag,
   runtimeFlag,
   showFilesFlag,
@@ -79,6 +82,30 @@ const chooseOptionalTool = <A extends string>(
     ? Effect.succeed(Option.some(fallback))
     : optionalSelect(message, choices);
 
+export const resolveInfrastructureTargets = Effect.fn(
+  "resolveInfrastructureTargets",
+)(function* <A, E, R>({
+  infrastructure,
+  yes,
+  targets,
+  promptTarget,
+}: {
+  readonly infrastructure: "none" | "cloudflare";
+  readonly yes: boolean;
+  readonly targets: Option.Option<ReadonlyArray<A>>;
+  readonly promptTarget: Effect.Effect<A, E, R>;
+}) {
+  if (infrastructure !== "cloudflare" || Option.isSome(targets)) {
+    return targets;
+  }
+  if (yes) {
+    return yield* Effect.fail(
+      "Cloudflare infrastructure requires an explicit React target, for example --target client-react/web.",
+    );
+  }
+  return Option.some([yield* promptTarget]);
+});
+
 export const init = Command.make(
   "init",
   {
@@ -89,6 +116,8 @@ export const init = Command.make(
     showFiles: showFilesFlag,
     runtime: runtimeFlag,
     typescript: typescriptFlag,
+    infrastructure: infrastructureFlag,
+    target: recipeTargetFlag,
     noGit: noGitFlag,
     trust: trustFlag,
   },
@@ -230,6 +259,39 @@ export const init = Command.make(
         defaults.test ?? "",
       );
 
+      const infrastructure = Option.isSome(flags.infrastructure)
+        ? flags.infrastructure.value
+        : flags.yes
+          ? ("none" as const)
+          : yield* Select({
+              message: "Infrastructure as Effects",
+              choices: [
+                { title: "None", value: "none" as const },
+                {
+                  title: "Cloudflare",
+                  description: "Deploy an explicit React target with Alchemy",
+                  value: "cloudflare" as const,
+                },
+              ],
+            });
+
+      const targets = yield* resolveInfrastructureTargets({
+        infrastructure,
+        yes: flags.yes,
+        targets: flags.target,
+        promptTarget: TextInput({
+          message: "Which React target should Cloudflare deploy?",
+          validate: (value) =>
+            Schema.decodeEffect(RecipeTargetString)(value).pipe(
+              Effect.as(value),
+              Effect.mapError(
+                () =>
+                  "Enter exactly one React target, for example client-react/web.",
+              ),
+            ),
+        }).pipe(Effect.flatMap(Schema.decodeEffect(RecipeTargetString))),
+      });
+
       const git = flags.noGit
         ? false
         : flags.yes
@@ -272,6 +334,7 @@ export const init = Command.make(
           onNone: () => ({}),
           onSome: (v) => ({ monorepo: v }),
         }),
+        ...(infrastructure === "cloudflare" ? { infrastructure } : {}),
       });
 
       const dxExtrasDisplay =
@@ -351,8 +414,8 @@ export const init = Command.make(
       ];
       const selection = yield* recipe.resolve(
         {
-          targets:
-            explicitWorkspaceModules.length === 0
+          targets: [
+            ...(explicitWorkspaceModules.length === 0
               ? []
               : [
                   {
@@ -362,7 +425,9 @@ export const init = Command.make(
                     }),
                     modules: explicitWorkspaceModules,
                   },
-                ],
+                ]),
+            ...Option.getOrElse(targets, () => []),
+          ],
         },
         {
           config,

@@ -169,6 +169,21 @@ export function StackConfigurator() {
         />
 
         <ConfigurationSelect
+          id="stack-infrastructure"
+          label="Infrastructure as Effects"
+          value={config.infrastructure}
+          options={[
+            { value: "none", label: "None" },
+            { value: "cloudflare", label: "Cloudflare" },
+          ]}
+          onChange={(value) =>
+            configure({
+              infrastructure: value === "cloudflare" ? "cloudflare" : "none",
+            })
+          }
+        />
+
+        <ConfigurationSelect
           id="stack-typescript"
           label="TypeScript"
           value={config.typescript ?? "6"}

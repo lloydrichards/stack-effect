@@ -12,6 +12,39 @@ import {
 
 type Owner = SupportConfiguration["owner"];
 
+export type InfrastructureSelection = "none" | "cloudflare";
+
+const cloudflareTargetReason =
+  "This first Alchemy/Cloudflare slice supports only Client React and requires exactly one target.";
+const cloudflareAdditionalReactTargetReason =
+  "This first Alchemy/Cloudflare slice supports exactly one Client React target; remove the selected React target before adding another.";
+const cloudflareModuleReason =
+  "This backend-dependent module is not supported by the first Alchemy/Cloudflare static React slice.";
+
+export function infrastructureTargetDisabledReason(
+  infrastructure: InfrastructureSelection,
+  targetKind: string,
+  selectedTargets: ReadonlyArray<Pick<TargetInstance, "kind">> = [],
+): string | undefined {
+  if (infrastructure !== "cloudflare") return undefined;
+  if (targetKind !== "client-react") return cloudflareTargetReason;
+  return selectedTargets.some((target) => target.kind === "client-react")
+    ? cloudflareAdditionalReactTargetReason
+    : undefined;
+}
+
+export function infrastructureModuleDisabledReason(
+  infrastructure: InfrastructureSelection,
+  moduleId: string,
+): string | undefined {
+  if (infrastructure !== "cloudflare") return undefined;
+  return moduleId === "config-typescript-vite" ||
+    moduleId === "client-react-web-worker" ||
+    moduleId === "client-react-devtools"
+    ? undefined
+    : cloudflareModuleReason;
+}
+
 const moduleKey = (owner: Owner, moduleId: string) =>
   `${ownerKey(owner)}#${moduleId}`;
 

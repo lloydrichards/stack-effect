@@ -259,6 +259,27 @@ describe("generation domain registry", () => {
               }),
               expect.objectContaining({
                 _tag: "pkg-json-entry",
+                path: "package.json",
+                field: "dependencies",
+                name: "effect",
+                value: "4.0.0-rc.111",
+              }),
+              expect.objectContaining({
+                _tag: "pkg-json-entry",
+                path: "package.json",
+                field: "dependencies",
+                name: "@effect/platform-node",
+                value: "4.0.0-rc.111",
+              }),
+              expect.objectContaining({
+                _tag: "pkg-json-entry",
+                path: "package.json",
+                field: "dependencies",
+                name: "@effect/platform-bun",
+                value: "4.0.0-rc.111",
+              }),
+              expect.objectContaining({
+                _tag: "pkg-json-entry",
                 field: "scripts",
                 name: "infra:deploy",
                 value: "alchemy deploy",
@@ -279,6 +300,13 @@ describe("generation domain registry", () => {
             ["infra:destroy", "alchemy destroy"],
           ]);
           expect(entries.some((entry) => entry.name === "dev")).toBe(false);
+          expect(option.nextSteps).toEqual([
+            "Run infra:dev for credential-free local Alchemy startup; it must not contact Cloudflare.",
+            "Before infra:plan, infra:deploy, or infra:destroy, supply credentials through Alchemy and Cloudflare's documented external configuration.",
+            "Those remote commands may inspect, create, mutate, or delete real provider state and are not covered by local acceptance.",
+            "Local acceptance does not prove workers.dev, edge upload, TLS, global routing, provider authentication, or remote destroy.",
+            "Never place secrets in generated source or public Vite configuration.",
+          ]);
           expect(adapter.contributions).toHaveLength(1);
           const stackContribution = adapter.contributions[0];
           expect(stackContribution).toMatchObject({
@@ -292,6 +320,12 @@ describe("generation domain registry", () => {
           );
           expect(stackContribution.contents).toContain(
             'notFoundHandling: "single-page-application"',
+          );
+          expect(stackContribution.contents).toContain(
+            "state: Alchemy.localState()",
+          );
+          expect(stackContribution.contents).not.toContain(
+            "Cloudflare.state()",
           );
           expect(stackContribution.contents).toContain("yield* Alchemy.Stage");
           expect(stackContribution.contents).toContain("url: website.url");
