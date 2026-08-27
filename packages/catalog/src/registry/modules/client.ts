@@ -1,4 +1,6 @@
 import {
+  ClassicArchitecture,
+  DddArchitecture,
   type ModuleDefinition,
   ModuleId,
   TargetIdentity,
@@ -22,6 +24,9 @@ import {
 import {
   clientTodoAtomContents,
   clientTodoCardContents,
+  dddClientTodoAtomContents,
+  dddClientTodoCardContents,
+  dddClientTodoClientContents,
 } from "../content/client-todo";
 import {
   clientPresencePanelContents,
@@ -39,6 +44,10 @@ const serverKind = TargetKind.make("server");
 const domainTarget = new TargetIdentity({
   kind: TargetKind.make("package"),
   name: "domain",
+});
+const serverApiTarget = new TargetIdentity({
+  kind: serverKind,
+  name: "api",
 });
 
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
@@ -155,6 +164,75 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         moduleId: ModuleId.make("server-http-api-todos"),
       },
     ],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [
+            {
+              _tag: "identity",
+              identity: new TargetIdentity({
+                kind: clientReactKind,
+                name: "web",
+              }),
+            },
+          ],
+          dependencies: [
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: TargetKind.make("package"),
+                name: "todo-domain",
+              }),
+              moduleId: ModuleId.make("domain-todo-http-contracts"),
+            },
+          ],
+          implies: [
+            {
+              targetKind: serverKind,
+              target: serverApiTarget,
+              moduleId: ModuleId.make("server-http-api-todos"),
+              reason: "The DDD Todo client requires the Todo HTTP API.",
+            },
+          ],
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{targetPath}}/src/lib/http/todo-client.ts",
+              contents: dddClientTodoClientContents,
+            },
+            {
+              _tag: "file",
+              path: "{{targetPath}}/src/lib/atoms/todo-atom.ts",
+              contents: dddClientTodoAtomContents,
+            },
+            {
+              _tag: "file",
+              path: "{{targetPath}}/src/components/todo-card.tsx",
+              contents: dddClientTodoCardContents,
+            },
+            {
+              _tag: "pkg-json-entry",
+              path: "{{targetPath}}/package.json",
+              field: "dependencies",
+              name: "@repo/todo-domain",
+              value: "{{workspaceDependency}}",
+            },
+            {
+              _tag: "jsx-slot",
+              path: "{{targetPath}}/src/app.tsx",
+              slotId: "components",
+              content: "<TodoCard />",
+              import: {
+                moduleSpecifier: "./components/todo-card",
+                namedImports: ["TodoCard"],
+              },
+            },
+          ],
+        },
+      ],
+    },
     contributions: [
       {
         _tag: "file",

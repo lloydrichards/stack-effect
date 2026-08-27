@@ -8,12 +8,14 @@ import { initModules } from "./modules/init";
 import { mcpModules } from "./modules/mcp";
 import { packageModules } from "./modules/packages";
 import { serverModules } from "./modules/server";
+import { todoArchitectureModules } from "./modules/todo";
 
 export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   ...initModules,
   ...configModules,
   ...domainModules,
   ...serverModules,
+  ...todoArchitectureModules,
   ...mcpModules,
   ...clientModules,
   ...clientFoldkitModules,

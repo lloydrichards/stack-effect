@@ -1,16 +1,23 @@
 import type {
+  ArchitectureId,
   CatalogGraph,
   CatalogTree,
+  Contribution,
   ModuleCapability,
   ModuleCategory,
   ModuleChild,
   ModuleDependency,
   ModuleId,
   ModuleImplication,
+  SupportedOn,
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
-import { CatalogNotFound, TargetIdentity } from "@repo/domain/Catalog";
+import {
+  CatalogNotFound,
+  ClassicArchitecture,
+  TargetIdentity,
+} from "@repo/domain/Catalog";
 import {
   Array as Arr,
   Context,
@@ -29,6 +36,22 @@ export type BuilderCatalogTarget = {
   readonly description: string;
   readonly defaultName?: string;
   readonly requiredModules: ReadonlyArray<typeof ModuleId.Type>;
+  readonly supportedArchitectures: ReadonlyArray<typeof ArchitectureId.Type>;
+};
+
+export type BuilderCatalogAvailability =
+  | { readonly enabled: true }
+  | {
+      readonly enabled: false;
+      readonly code: "unsupported-architecture" | "unsupported-owner";
+      readonly reason: string;
+      readonly action: string;
+    };
+
+export type BuilderContributionDescriptor = {
+  readonly _tag: (typeof Contribution.Type)["_tag"];
+  readonly path: string;
+  readonly field?: string;
 };
 
 export type BuilderCatalogModule = {
@@ -36,9 +59,14 @@ export type BuilderCatalogModule = {
   readonly title: string;
   readonly description: string;
   readonly visibility: typeof Visibility.Type;
+  readonly architecture: typeof ArchitectureId.Type;
+  readonly supportedOn: ReadonlyArray<typeof SupportedOn.Type>;
   readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
   readonly implies: ReadonlyArray<typeof ModuleImplication.Type>;
+  readonly contributions: ReadonlyArray<BuilderContributionDescriptor>;
   readonly children: ReadonlyArray<typeof ModuleChild.Type>;
+  readonly supportedArchitectures: ReadonlyArray<typeof ArchitectureId.Type>;
+  readonly availability: BuilderCatalogAvailability;
 };
 
 export type BuilderCatalogTargetModules = {
@@ -156,11 +184,71 @@ export class CatalogService extends Context.Service<CatalogService>()(
         );
       });
 
-      const isSupportedOn = Effect.fn("CatalogService.isSupportedOn")(
-        function* (moduleId: typeof ModuleId.Type, target: TargetIdentity) {
+      const resolveTarget = Effect.fn("CatalogService.resolveTarget")(
+        function* (
+          kind: typeof TargetKind.Type,
+          architecture: typeof ArchitectureId.Type = ClassicArchitecture,
+        ) {
+          const definition = yield* getTarget(kind);
+          const configuredDefault =
+            definition.architecture?.default ?? ClassicArchitecture;
+          if (architecture === configuredDefault) return definition;
+          const variant = definition.architecture?.variants.find(
+            (candidate) => candidate.id === architecture,
+          );
+          return variant === undefined
+            ? undefined
+            : {
+                ...definition,
+                requiredModules: variant.requiredModules,
+                contributions: variant.contributions,
+                layout: variant.layout,
+                scripts: variant.scripts ?? definition.scripts,
+                nextSteps: variant.nextSteps ?? definition.nextSteps,
+              };
+        },
+      );
+
+      const resolveModule = Effect.fn("CatalogService.resolveModule")(
+        function* (
+          moduleId: typeof ModuleId.Type,
+          architecture: typeof ArchitectureId.Type = ClassicArchitecture,
+        ) {
           const definition = yield* getModule(moduleId);
-          return Arr.some(definition.supportedOn, (supportedOn) =>
-            target.matches(supportedOn),
+          const configuredDefault =
+            definition.architecture?.default ?? ClassicArchitecture;
+          if (architecture === configuredDefault)
+            return { ...definition, context: definition.architecture?.context };
+          const variant = definition.architecture?.variants.find(
+            (candidate) => candidate.id === architecture,
+          );
+          return variant === undefined
+            ? undefined
+            : {
+                ...definition,
+                supportedOn: variant.supportedOn ?? definition.supportedOn,
+                dependencies: variant.dependencies,
+                implies: variant.implies ?? definition.implies,
+                contributions: variant.contributions,
+                context: variant.context ?? definition.architecture?.context,
+                scripts: variant.scripts ?? definition.scripts,
+                nextSteps: variant.nextSteps ?? definition.nextSteps,
+              };
+        },
+      );
+
+      const isSupportedOn = Effect.fn("CatalogService.isSupportedOn")(
+        function* (
+          moduleId: typeof ModuleId.Type,
+          target: TargetIdentity,
+          architecture: typeof ArchitectureId.Type = ClassicArchitecture,
+        ) {
+          const definition = yield* resolveModule(moduleId, architecture);
+          return (
+            definition !== undefined &&
+            Arr.some(definition.supportedOn, (supportedOn) =>
+              target.matches(supportedOn),
+            )
           );
         },
       );
@@ -232,78 +320,126 @@ export class CatalogService extends Context.Service<CatalogService>()(
             ),
         );
 
+      const contributionDescriptor = (
+        contribution: typeof Contribution.Type,
+      ): BuilderContributionDescriptor => {
+        switch (contribution._tag) {
+          case "barrel-export":
+            return { _tag: contribution._tag, path: contribution.barrelPath };
+          case "ts-call-arg":
+          case "ts-object-field":
+          case "jsx-slot":
+          case "file":
+            return { _tag: contribution._tag, path: contribution.path };
+          case "pkg-json-entry":
+          case "json-array-entry":
+            return {
+              _tag: contribution._tag,
+              path: contribution.path,
+              field: contribution.field,
+            };
+          case "yaml-sequence-entry":
+            return {
+              _tag: contribution._tag,
+              path: contribution.path,
+              field: contribution.key,
+            };
+        }
+      };
+
       const toBuilderCatalog = Effect.fn("CatalogService.toBuilderCatalog")(
-        function* (owners: ReadonlyArray<TargetIdentity>) {
-          const supportedModules = (owner: TargetIdentity) =>
+        function* ({
+          owners,
+          architecture = ClassicArchitecture,
+        }: {
+          readonly owners: ReadonlyArray<TargetIdentity>;
+          readonly architecture?: typeof ArchitectureId.Type;
+        }) {
+          const ownerKey = (owner: TargetIdentity) => owner.toKey();
+          const supportedArchitectures = (definition: {
+            readonly architecture?:
+              | {
+                  readonly default: typeof ArchitectureId.Type;
+                  readonly variants: ReadonlyArray<{
+                    readonly id: typeof ArchitectureId.Type;
+                  }>;
+                }
+              | undefined;
+          }) =>
+            Arr.dedupe([
+              definition.architecture?.default ?? ClassicArchitecture,
+              ...(definition.architecture?.variants.map(({ id }) => id) ?? []),
+            ]);
+          const candidateModules = (owner: TargetIdentity) =>
             Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
-              Arr.some(module.supportedOn, (supportedOn) =>
-                owner.matches(supportedOn),
+              Arr.some(
+                module.supportedOn,
+                (supportedOn) =>
+                  supportedOnTargetKind(supportedOn) === owner.kind,
               ),
             );
-          const ownerKey = (owner: TargetIdentity) =>
-            `${owner.kind}/${owner.name}`;
+          const resolveOwnerModules = Effect.fn(function* (
+            owner: TargetIdentity,
+          ) {
+            return yield* Effect.forEach(candidateModules(owner), (module) =>
+              Effect.gen(function* () {
+                const resolved = yield* resolveModule(module.id, architecture);
+                const supported =
+                  resolved !== undefined &&
+                  Arr.some(resolved.supportedOn, (supportedOn) =>
+                    owner.matches(supportedOn),
+                  );
+                return { module, resolved, supported } as const;
+              }),
+            );
+          });
           const expandOwners = (
             pending: ReadonlyArray<TargetIdentity>,
             expanded = new Map<string, TargetIdentity>(),
-          ): ReadonlyArray<TargetIdentity> => {
-            const [owner, ...remaining] = pending;
-            if (owner === undefined) return Arr.fromIterable(expanded.values());
-            if (expanded.has(ownerKey(owner)))
-              return expandOwners(remaining, expanded);
-
-            expanded.set(ownerKey(owner), owner);
-            const modules = supportedModules(owner);
-            const dependencyOwners = Arr.flatMap(modules, (module) =>
-              Arr.map(module.dependencies, (dependency) =>
-                dependency._tag === "required-target"
-                  ? dependency.identity
-                  : dependency.target,
-              ),
-            );
-            const implicationOwners = Arr.filterMap(
-              Arr.flatMap(modules, (module) => module.implies ?? []),
-              (implication) => {
-                const existing = [...owners, ...expanded.values()].find(
-                  (candidate) => candidate.kind === implication.targetKind,
+          ): Effect.Effect<ReadonlyArray<TargetIdentity>, CatalogNotFound> =>
+            Effect.gen(function* () {
+              const [owner, ...remaining] = pending;
+              if (owner === undefined)
+                return Arr.fromIterable(expanded.values()).sort((left, right) =>
+                  ownerKey(left).localeCompare(ownerKey(right)),
                 );
-                if (existing !== undefined) return Result.succeed(existing);
-                const definition = targetIndex.get(implication.targetKind);
-                return definition === undefined
-                  ? Result.fail("skip" as const)
-                  : Result.succeed(
-                      new TargetIdentity({
-                        kind: definition.kind,
-                        name: definition.defaultName ?? definition.kind,
-                      }),
-                    );
-              },
-            );
-            return expandOwners(
-              [...remaining, ...dependencyOwners, ...implicationOwners],
-              expanded,
-            );
-          };
-          const expandedOwners = expandOwners(owners);
-          const projectModules = (owner: TargetIdentity) => {
-            const modules = supportedModules(owner);
-            const supportedIds = new Set(
-              Arr.map(modules, (module) => module.id),
-            );
-            return Arr.map(
-              modules,
-              (module): BuilderCatalogModule => ({
-                id: module.id,
-                title: module.title,
-                description: module.description,
-                visibility: module.visibility ?? "public",
-                dependencies: module.dependencies,
-                implies: module.implies ?? [],
-                children: Arr.filter(module.children ?? [], (child) =>
-                  supportedIds.has(child.moduleId),
+              if (expanded.has(ownerKey(owner)))
+                return yield* expandOwners(remaining, expanded);
+
+              expanded.set(ownerKey(owner), owner);
+              const modules = yield* resolveOwnerModules(owner);
+              const enabled = Arr.filter(modules, ({ supported }) => supported);
+              const dependencyOwners = Arr.flatMap(enabled, ({ resolved }) =>
+                Arr.map(resolved?.dependencies ?? [], (dependency) =>
+                  dependency._tag === "required-target"
+                    ? dependency.identity
+                    : dependency.target,
                 ),
-              }),
-            );
-          };
+              );
+              const implicationOwners = Arr.map(
+                Arr.flatMap(enabled, ({ resolved }) => resolved?.implies ?? []),
+                (implication) => {
+                  if (implication.target !== undefined)
+                    return implication.target;
+                  const existing = [...owners, ...expanded.values()].find(
+                    (candidate) => candidate.kind === implication.targetKind,
+                  );
+                  const definition = targetIndex.get(implication.targetKind);
+                  return (
+                    existing ??
+                    new TargetIdentity({
+                      kind: implication.targetKind,
+                      name: definition?.defaultName ?? implication.targetKind,
+                    })
+                  );
+                },
+              );
+              return yield* expandOwners(
+                [...remaining, ...dependencyOwners, ...implicationOwners],
+                expanded,
+              );
+            });
+          const expandedOwners = yield* expandOwners(owners);
 
           yield* Effect.forEach(
             expandedOwners,
@@ -311,6 +447,64 @@ export class CatalogService extends Context.Service<CatalogService>()(
             {
               discard: true,
             },
+          );
+
+          const targetModules = yield* Effect.forEach(expandedOwners, (owner) =>
+            Effect.gen(function* () {
+              const projected = yield* resolveOwnerModules(owner);
+              const visible = Arr.filter(
+                projected,
+                ({ module, supported }) =>
+                  (module.visibility ?? "public") === "public" || supported,
+              );
+              const supportedIds = new Set(
+                Arr.map(
+                  Arr.filter(visible, ({ supported }) => supported),
+                  ({ module }) => module.id,
+                ),
+              );
+              return {
+                owner,
+                modules: Arr.map(
+                  visible,
+                  ({ module, resolved, supported }) => ({
+                    id: module.id,
+                    title: module.title,
+                    description: module.description,
+                    visibility: module.visibility ?? "public",
+                    architecture,
+                    supportedOn: resolved?.supportedOn ?? module.supportedOn,
+                    dependencies: resolved?.dependencies ?? [],
+                    implies: resolved?.implies ?? [],
+                    contributions: Arr.map(
+                      resolved?.contributions ?? [],
+                      contributionDescriptor,
+                    ),
+                    children: Arr.filter(module.children ?? [], (child) =>
+                      supportedIds.has(child.moduleId),
+                    ),
+                    supportedArchitectures: supportedArchitectures(module),
+                    availability: supported
+                      ? ({ enabled: true } as const)
+                      : ({
+                          enabled: false,
+                          code:
+                            resolved === undefined
+                              ? ("unsupported-architecture" as const)
+                              : ("unsupported-owner" as const),
+                          reason:
+                            resolved === undefined
+                              ? "Classic only. DDD currently supports the Todo HTTP client and Todo HTTP API."
+                              : `This module is not supported on ${owner.toKey()} for ${architecture}.`,
+                          action:
+                            resolved === undefined
+                              ? "Select a supported Todo HTTP module or use Classic architecture."
+                              : "Choose a compatible target identity.",
+                        } as const),
+                  }),
+                ),
+              };
+            }),
           );
 
           return {
@@ -325,13 +519,18 @@ export class CatalogService extends Context.Service<CatalogService>()(
                 ...(target.defaultName === undefined
                   ? {}
                   : { defaultName: target.defaultName }),
-                requiredModules: target.requiredModules ?? [],
+                requiredModules:
+                  target.architecture?.default === architecture
+                    ? (target.requiredModules ?? [])
+                    : (target.architecture?.variants.find(
+                        (variant) => variant.id === architecture,
+                      )?.requiredModules ??
+                      target.requiredModules ??
+                      []),
+                supportedArchitectures: supportedArchitectures(target),
               }),
             ),
-            targetModules: Arr.map(expandedOwners, (owner) => ({
-              owner,
-              modules: projectModules(owner),
-            })),
+            targetModules,
           } satisfies BuilderCatalog;
         },
       );
@@ -447,6 +646,8 @@ export class CatalogService extends Context.Service<CatalogService>()(
         getCapabilityProviders,
         getModules,
         getModule,
+        resolveModule,
+        resolveTarget,
         getSupportedModules,
         getTarget,
         getTargetKinds,

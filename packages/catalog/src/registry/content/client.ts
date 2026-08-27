@@ -18,6 +18,12 @@ export const configTypescriptViteContents = `{
 }
 `;
 
+export const dddConfigTypescriptViteContents =
+  configTypescriptViteContents.replace(
+    '    "allowJs": false,',
+    '    "allowJs": false,\n    "allowImportingTsExtensions": true,',
+  );
+
 export const clientPackageJsonContents = `{
   "name": "{{packageName}}",
   "private": true,
@@ -85,6 +91,21 @@ export const clientIndexHtmlContents = `<!doctype html>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>{{targetName}}</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+`;
+
+export const dddClientIndexHtmlContents = `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{targetName}}</title>
+    <link rel="icon" href="data:," />
   </head>
   <body>
     <div id="root"></div>

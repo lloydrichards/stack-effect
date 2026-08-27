@@ -1,6 +1,9 @@
 import {
+  ClassicArchitecture,
+  DddArchitecture,
   ModuleId,
   type TargetDefinition,
+  TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
@@ -22,6 +25,7 @@ import {
   clientUtilsContents,
   clientViteConfigContents,
   clientViteEnvContents,
+  dddClientIndexHtmlContents,
 } from "./content/client";
 import {
   foldkitComposeContents,
@@ -36,6 +40,12 @@ import {
   foldkitTsconfigContents,
   foldkitViteConfigContents,
 } from "./content/client-foldkit";
+import {
+  clientButtonContents,
+  clientCardContents,
+  clientInputContents,
+  clientSwitchContents,
+} from "./content/client-ui";
 import {
   configTypescriptBaseContents,
   configTypescriptPackageJsonContents,
@@ -58,6 +68,146 @@ import {
   packageDomainTsconfigContents,
   packagePackageJsonContents,
 } from "./content/shared";
+import {
+  dddTodoHostPackageJsonContents,
+  dddTodoHostTsconfigContents,
+} from "./content/todo";
+
+const clientReactBaseContributions = (
+  indexHtmlContents = clientIndexHtmlContents,
+) => [
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/package.json",
+    contents: clientPackageJsonContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/index.html",
+    contents: indexHtmlContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/components.json",
+    contents: clientShadcnComponentJson,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/main.tsx",
+    contents: clientMainTsxContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/app.tsx",
+    contents: clientAppTsxContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/index.css",
+    contents: clientIndexCssContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/vite.config.ts",
+    contents: clientViteConfigContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/tsconfig.config.json",
+    contents: clientTsconfigConfigContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/lib/utils.ts",
+    contents: clientUtilsContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/lib/atom.ts",
+    contents: clientAtomContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/components/theme-toggle.tsx",
+    contents: clientThemeToggleContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/vite-env.d.ts",
+    contents: clientViteEnvContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/tsconfig.json",
+    contents: clientTsconfigContents,
+    conflictOnModify: true,
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "build",
+    value: "vite build",
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "dev",
+    value: "vite --host --clearScreen false",
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "test",
+    value: "vitest run --passWithNoTests",
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "type-check",
+    value: "tsc --noEmit",
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "preview",
+    value: "vite preview",
+  },
+  {
+    _tag: "pkg-json-entry" as const,
+    path: "{{targetPath}}/package.json",
+    field: "scripts" as const,
+    name: "clean",
+    value: "git clean -xdf .cache .turbo dist node_modules",
+  },
+];
+
+const clientReactDddUiContributions = [
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/components/ui/button.tsx",
+    contents: clientButtonContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/components/ui/card.tsx",
+    contents: clientCardContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/components/ui/input.tsx",
+    contents: clientInputContents,
+  },
+  {
+    _tag: "file" as const,
+    path: "{{targetPath}}/src/components/ui/switch.tsx",
+    contents: clientSwitchContents,
+  },
+];
 
 export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
@@ -107,116 +257,36 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A frontend application built with React",
     defaultName: "web",
     requiredModules: [ModuleId.make("config-typescript-vite")],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/package.json",
-        contents: clientPackageJsonContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/index.html",
-        contents: clientIndexHtmlContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/components.json",
-        contents: clientShadcnComponentJson,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/main.tsx",
-        contents: clientMainTsxContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/app.tsx",
-        contents: clientAppTsxContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/index.css",
-        contents: clientIndexCssContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/vite.config.ts",
-        contents: clientViteConfigContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/tsconfig.config.json",
-        contents: clientTsconfigConfigContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/lib/utils.ts",
-        contents: clientUtilsContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/lib/atom.ts",
-        contents: clientAtomContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/components/theme-toggle.tsx",
-        contents: clientThemeToggleContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/vite-env.d.ts",
-        contents: clientViteEnvContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/tsconfig.json",
-        contents: clientTsconfigContents,
-        conflictOnModify: true,
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "build",
-        value: "vite build",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "dev",
-        value: "vite --host --clearScreen false",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "test",
-        value: "vitest run --passWithNoTests",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "type-check",
-        value: "tsc --noEmit",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "preview",
-        value: "vite preview",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "clean",
-        value: "git clean -xdf .cache .turbo dist node_modules",
-      },
-    ],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [
+            {
+              _tag: "identity",
+              identity: new TargetIdentity({
+                kind: TargetKind.make("client-react"),
+                name: "web",
+              }),
+            },
+          ],
+          requiredModules: [ModuleId.make("config-typescript-vite")],
+          contributions: [
+            ...clientReactBaseContributions(dddClientIndexHtmlContents),
+            ...clientReactDddUiContributions,
+          ],
+          layout: {
+            _tag: "template",
+            path: "apps/client-react-web",
+            packageName: "@repo/client-react-web",
+            requiresContext: false,
+          },
+          scripts: [],
+        },
+      ],
+    },
+    contributions: clientReactBaseContributions(),
     scripts: [
       {
         label: "Install shadcn client components",
@@ -340,6 +410,29 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     description: "A backend application, such as an API server",
     defaultName: "api",
     requiredModules: [ModuleId.make("server-http-api")],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+          requiredModules: [ModuleId.make("server-http-api")],
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{targetPath}}/package.json",
+              contents: dddTodoHostPackageJsonContents,
+            },
+            {
+              _tag: "file",
+              path: "{{targetPath}}/tsconfig.json",
+              contents: dddTodoHostTsconfigContents,
+            },
+          ],
+          layout: { _tag: "identity" },
+        },
+      ],
+    },
     contributions: [
       {
         _tag: "file",
@@ -615,6 +708,23 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
 
   {
     kind: TargetKind.make("package"),
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [{ _tag: "kind", kind: TargetKind.make("package") }],
+          requiredModules: [],
+          contributions: [],
+          layout: {
+            _tag: "template",
+            path: "packages/{{contextId}}/{{contextRole}}",
+            packageName: "@repo/{{contextId}}-{{contextRole}}",
+            requiresContext: true,
+          },
+        },
+      ],
+    },
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
     visibility: "internal",

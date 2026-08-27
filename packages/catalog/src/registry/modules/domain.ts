@@ -1,4 +1,7 @@
 import {
+  ClassicArchitecture,
+  ContextId,
+  DddArchitecture,
   type ModuleDefinition,
   ModuleId,
   TargetIdentity,
@@ -12,6 +15,9 @@ import {
 } from "../content/chat";
 import { domainRpcContents } from "../content/rpc";
 import {
+  dddSharedDomainIndexContents,
+  dddSharedDomainPackageJsonContents,
+  dddSharedDomainTsconfigContents,
   domainTodoApiContents,
   domainTodoContents,
   domainTodoRpcContents,
@@ -23,8 +29,42 @@ const domainTarget = new TargetIdentity({
   kind: packageKind,
   name: "domain",
 });
+const sharedDomainTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "shared-domain",
+});
 
 export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+  {
+    id: ModuleId.make("package-shared-domain"),
+    title: "Shared Domain",
+    description: "Internal shared domain package for DDD targets",
+    visibility: "internal",
+    supportedOn: [{ _tag: "identity", identity: sharedDomainTarget }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: dddSharedDomainPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: dddSharedDomainTsconfigContents,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: dddSharedDomainIndexContents,
+      },
+    ],
+    architecture: {
+      default: DddArchitecture,
+      context: { id: ContextId.make("shared"), role: "domain" },
+      variants: [],
+    },
+  },
   {
     id: ModuleId.make("domain-api-contracts"),
     title: "Domain API",
@@ -101,6 +141,26 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
     dependencies: [],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [
+            {
+              _tag: "identity",
+              identity: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-domain",
+              }),
+            },
+          ],
+          dependencies: [],
+          contributions: [],
+          context: { id: ContextId.make("todo"), role: "domain" },
+        },
+      ],
+    },
     contributions: [
       {
         _tag: "file",
@@ -141,6 +201,35 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [
+            {
+              _tag: "identity",
+              identity: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-domain",
+              }),
+            },
+          ],
+          dependencies: [
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-domain",
+              }),
+              moduleId: ModuleId.make("domain-todo-contracts"),
+            },
+          ],
+          contributions: [],
+          context: { id: ContextId.make("todo"), role: "domain" },
+        },
+      ],
+    },
     contributions: [
       {
         _tag: "file",

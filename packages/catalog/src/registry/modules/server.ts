@@ -1,4 +1,7 @@
 import {
+  ClassicArchitecture,
+  ContextId,
+  DddArchitecture,
   type ModuleDefinition,
   ModuleId,
   TargetIdentity,
@@ -15,6 +18,7 @@ import {
 import { serverTickContents } from "../content/rpc";
 import { serverDevToolsContents } from "../content/server";
 import {
+  dddTodoHostContents,
   serverTodoApiContents,
   serverTodoRpcContents,
   todoHttpTransportTestContents,
@@ -27,6 +31,10 @@ const packageKind = TargetKind.make("package");
 const domainTarget = new TargetIdentity({
   kind: packageKind,
   name: "domain",
+});
+const sharedDomainTarget = new TargetIdentity({
+  kind: packageKind,
+  name: "shared-domain",
 });
 const aiTarget = new TargetIdentity({
   kind: packageKind,
@@ -58,6 +66,23 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         moduleId: ModuleId.make("domain-api-contracts"),
       },
     ],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          dependencies: [
+            {
+              _tag: "required-module",
+              target: sharedDomainTarget,
+              moduleId: ModuleId.make("package-shared-domain"),
+              architecture: DddArchitecture,
+            },
+          ],
+          contributions: [],
+        },
+      ],
+    },
     contributions: [
       {
         _tag: "file",
@@ -121,6 +146,71 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     title: "Todo HTTP API",
     description: "Persistent Todo CRUD endpoints over Effect HTTP API",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
+    architecture: {
+      default: ClassicArchitecture,
+      variants: [
+        {
+          id: DddArchitecture,
+          supportedOn: [{ _tag: "identity", identity: serverApiTarget }],
+          context: { id: ContextId.make("todo"), role: "host" },
+          dependencies: [
+            {
+              _tag: "required-module",
+              target: serverApiTarget,
+              moduleId: ModuleId.make("server-http-api"),
+            },
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-domain",
+              }),
+              moduleId: ModuleId.make("domain-todo-http-contracts"),
+            },
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-application",
+              }),
+              moduleId: ModuleId.make("package-todo-application"),
+            },
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: TargetKind.make("workspace"),
+                name: "root",
+              }),
+              moduleId: ModuleId.make("workspace-context-packages"),
+              architecture: ClassicArchitecture,
+            },
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-infrastructure",
+              }),
+              moduleId: ModuleId.make("package-todo-infrastructure"),
+            },
+            {
+              _tag: "required-module",
+              target: new TargetIdentity({
+                kind: packageKind,
+                name: "todo-presentation",
+              }),
+              moduleId: ModuleId.make("package-todo-presentation-http"),
+            },
+          ],
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{targetPath}}/src/index.ts",
+              contents: dddTodoHostContents,
+            },
+          ],
+        },
+      ],
+    },
     dependencies: [
       {
         _tag: "required-module",
