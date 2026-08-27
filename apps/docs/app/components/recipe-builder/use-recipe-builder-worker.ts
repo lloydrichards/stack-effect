@@ -28,6 +28,7 @@ import {
   TargetInstance,
   toRecipePreviewInput,
 } from "./form";
+import { moduleRequiresCapability as hasDb } from "./target-selector/state";
 
 const reconcileTargetsWithCatalog = (
   targets: ReadonlyArray<TargetInstance>,
@@ -36,7 +37,11 @@ const reconcileTargetsWithCatalog = (
   const supportedModulesByOwner = new Map(
     catalog.targetModules.map(({ owner, modules }) => [
       ownerKey(owner),
-      new Set<string>(modules.map((module) => module.id)),
+      new Set<string>(
+        modules.flatMap((m) =>
+          m.availability?.enabled === false ? [] : [m.id],
+        ),
+      ),
     ]),
   );
   const reconciliation = targets.map((target) => {
@@ -53,10 +58,12 @@ const reconcileTargetsWithCatalog = (
       removedModules: target.modules.filter((module) => !supported.has(module)),
     };
   });
-  const reconciled = reconciliation.map(({ target }) => target);
+  const reconciled = reconciliation
+    .map(({ target }) => target)
+    .filter((target) => target.modules.length > 0 || !target.addedByDependency);
 
   return {
-    targets: reconciled.every((target, index) => target === targets[index])
+    targets: targets.every((target, index) => target === reconciled[index])
       ? targets
       : reconciled,
     removedModules: reconciliation.flatMap(
@@ -108,6 +115,19 @@ export function useRecipeBuilderWorker(
     () => AsyncResult.map(previewRequestResult, ({ preview }) => preview),
     [previewRequestResult],
   );
+  const requestKey = catalogSnapshot?.request.targetIdentityKey;
+  const catalogReady = targets.length === 0 || requestKey === targetIdentityKey;
+  const requiresDatabase =
+    architecture === "classic" &&
+    values.database === "none" &&
+    targets.some((t) =>
+      catalog?.targetModules
+        .find(({ owner }) => ownerKey(owner) === ownerKey(t))
+        ?.modules.some(
+          (m) => t.modules.includes(m.id) && hasDb(m, t, "db-sql", catalog),
+        ),
+    );
+  const canPreview = enabled && formValid && catalogReady && !requiresDatabase;
   const retryCatalog = useCallback(() => {
     if (enabled && lastCatalogRequestRef.current !== undefined) {
       requestCatalog(lastCatalogRequestRef.current);
@@ -148,7 +168,7 @@ export function useRecipeBuilderWorker(
       const reconciliation = reconcileTargetsWithCatalog(targets, nextCatalog);
       setCompatibilityNotice(
         reconciliation.removedModules.length === 0
-          ? undefined
+          ? compatibilityNotice
           : `Removed modules that do not support the renamed target: ${reconciliation.removedModules.join(", ")}.`,
       );
       if (reconciliation.targets !== targets) {
@@ -174,7 +194,7 @@ export function useRecipeBuilderWorker(
       requestPreview(Atom.Interrupt);
       return;
     }
-    if (!formValid) {
+    if (!canPreview) {
       requestPreview(Atom.Interrupt);
       return;
     }
@@ -182,10 +202,10 @@ export function useRecipeBuilderWorker(
       targetIdentityKey,
       input: toRecipePreviewInput(values),
     });
-  }, [enabled, formValid, requestPreview, targetIdentityKey, values]);
+  }, [canPreview, enabled, requestPreview, targetIdentityKey, values]);
 
   return {
-    canPreview: enabled && formValid,
+    canPreview,
     catalog,
     catalogFailed,
     catalogOwnersByTargetId,

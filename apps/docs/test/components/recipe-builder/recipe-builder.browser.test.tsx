@@ -130,14 +130,20 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
           targetModules: workerCalls.reconcileModules
             ? request.targets.map(({ owner }) => ({
                 owner,
-                modules:
-                  owner.kind === "client-react"
-                    ? [fixture.targetModules[0]?.modules[0]].filter(
-                        (module) => module !== undefined,
-                      )
-                    : (fixture.targetModules.find(
-                        (entry) => entry.owner.kind === owner.kind,
-                      )?.modules ?? []),
+                modules: (
+                  fixture.targetModules.find(
+                    (entry) => entry.owner.kind === owner.kind,
+                  )?.modules ?? []
+                ).map((module) =>
+                  module.id === "config-typescript-vite"
+                    ? module
+                    : {
+                        ...module,
+                        availability:
+                          dddRecipeCatalogFixture.targetModules[0]!.modules[1]!
+                            .availability,
+                      },
+                ),
               }))
             : [
                 ...requestedTargetModules,
@@ -431,6 +437,20 @@ test("should render shared DDD availability, implication provenance, and live pr
   ]);
   await page.getByRole("button", { name: "PostgreSQL" }).click();
   await expectProviderRequest(["server-http-api-todos"]);
+  const previewRequestCount = workerCalls.previewRequests.length;
+  await page.getByRole("radio", { name: "Classic" }).click();
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent(/client-react-http-api-todos.*server-http-api-todos/u);
+  await expect.element(page.getByText(/Remove Todo/u)).toBeVisible();
+  const copy = page.getByRole("button", { name: "Copy command" });
+  await expect.element(copy).toBeDisabled();
+  expect(workerCalls.previewRequests).toHaveLength(previewRequestCount);
+  await page.getByRole("button", { name: "SQLite" }).click();
+  await expect
+    .poll(() => workerCalls.previewRequests.at(-1)?.targetIdentityKey)
+    .toContain("classic");
+  await expect.element(copy).toBeEnabled();
 });
 
 test("should bind DDD database providers to the canonical server/api target", async () => {
@@ -524,14 +544,17 @@ test("should remove unsupported modules when a renamed target resolves a differe
   workerCalls.reconcileModules = true;
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect
-    .element(page.getByText(/Removed modules that do not support/u))
+    .element(page.getByLabelText("Recipe URL search"))
+    .toHaveTextContent(/config-typescript-vite(?!.*client-react-http-api)/u);
+  await expect
+    .element(page.getByRole("tab", { name: /renamed-web · client-react/u }))
     .toBeVisible();
   await expect
-    .element(page.getByText("HTTP API Client", { exact: true }))
+    .element(page.getByRole("tab", { name: /api · server/u }))
     .not.toBeInTheDocument();
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .not.toHaveTextContent("client-react-http-api");
+    .poll(() => JSON.stringify(workerCalls.previewRequests.at(-1)))
+    .not.toContain("client-react-http-api");
 });
 
 test("should reconcile a rename after its delayed catalog request completes", async () => {
