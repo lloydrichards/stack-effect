@@ -1,10 +1,15 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { RecipeService, StackConfigDefaults } from "@repo/scaffold";
+import {
+  BlueprintService,
+  RecipeService,
+  StackConfigDefaults,
+} from "@repo/scaffold";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
+  architectureFlag,
   dryRunFlag,
   formatFlag,
   lintFlag,
@@ -23,8 +28,15 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
+import {
+  applyArchitecture,
+  prospectiveConfig,
+  requestedArchitecture,
+  validateArchitectureRequest,
+} from "../lib/targetArchitecture";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
+import { WorkspaceTransaction } from "../service/WorkspaceTransaction";
 
 const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
   function* ({
@@ -131,6 +143,7 @@ export const create = Command.make(
   "create",
   {
     name: projectNameArg,
+    architecture: architectureFlag,
     target: recipeTargetFlag,
     root: rootFlag,
     runtime: runtimeFlag,
@@ -152,6 +165,8 @@ export const create = Command.make(
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeService;
+      const blueprints = yield* BlueprintService;
+      const transaction = yield* WorkspaceTransaction;
       const defaults = yield* StackConfigDefaults;
 
       if (Option.isNone(flags.name)) {
@@ -186,44 +201,53 @@ export const create = Command.make(
         test: flags.test,
         defaults,
       });
-      const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);
+      const architecture = requestedArchitecture(flags.architecture);
+      const requestedTargets = applyArchitecture(
+        flags.target.value,
+        architecture,
+      );
+      yield* validateArchitectureRequest(requestedTargets, architecture);
+
+      const existing = yield* configure
+        .readConfig(repoRoot)
+        .pipe(Effect.option);
+      if (Option.isSome(existing)) {
+        return yield* Effect.fail(
+          `${CONFIG_FILENAME} already exists at ${configure.configPath(repoRoot)}. Create requires a new workspace; use stack-effect add for an existing project.`,
+        );
+      }
+
+      const recipeSpec = buildRecipeSpec(requestedTargets, !flags.noGit);
       const selection = yield* recipes.resolve(recipeSpec, {
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },
       });
       const createCommand = recipes.renderCreateCommand({ config, selection });
+      const blueprint = yield* blueprints.resolve(selection);
+      const nextConfig = prospectiveConfig(config, blueprint);
+      const runPipeline = (root: string, dryRun: boolean) =>
+        pipeline.run({
+          selection,
+          repoRoot: root,
+          yes: flags.yes,
+          dryRun,
+          showFiles: flags.showFiles,
+          trust: flags.trust || flags.yes,
+          config: nextConfig,
+          createCommand,
+        });
 
-      const existing = yield* configure
-        .readConfig(repoRoot)
-        .pipe(Effect.option);
-
-      if (Option.isSome(existing)) {
-        return yield* Effect.fail(
-          `${CONFIG_FILENAME} already exists at ${configure.configPath(
-            repoRoot,
-          )}. This looks like an existing stack-effect project; use 'stack-effect init' and 'stack-effect add' for existing or incremental workflows.`,
-        );
-      }
-
-      if (!flags.dryRun) {
+      if (flags.dryRun) yield* runPipeline(repoRoot, true);
+      else {
         yield* Console.log(`Create command: ${createCommand}`);
-      }
-
-      if (!flags.dryRun) {
-        yield* configure.writeConfig(repoRoot, config);
+        yield* transaction.run({
+          root: repoRoot,
+          config: nextConfig,
+          execute: (stageRoot) => runPipeline(stageRoot, false),
+          validate: () => Effect.void,
+        });
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
-
-      yield* pipeline.run({
-        selection,
-        repoRoot,
-        yes: flags.yes,
-        dryRun: flags.dryRun,
-        showFiles: flags.showFiles,
-        trust: flags.trust || flags.yes,
-        config,
-        createCommand,
-      });
     }),
 ).pipe(
   Command.withDescription(

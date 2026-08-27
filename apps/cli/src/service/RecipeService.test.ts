@@ -769,7 +769,7 @@ describe("RecipeService", () => {
     );
 
     it.effect(
-      "should leave implied modules and capability providers for Blueprint/catalog resolution",
+      "should expand old unnamed Classic implications while leaving capability providers for Blueprint resolution",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeService;
@@ -798,9 +798,9 @@ describe("RecipeService", () => {
             ModuleId.make("client-react-http-api"),
             ModuleId.make("server-needs-db"),
           ]);
-          assert.strictEqual(
+          assert.deepStrictEqual(
             modulesForTarget(selection.targets, "apps/server-api"),
-            undefined,
+            [ModuleId.make("server-http-api")],
           );
           assert.strictEqual(
             modulesForTarget(selection.targets, "packages/db"),
@@ -995,7 +995,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config, selection }),
-          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --no-git",
+          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --target server/api:server-chat-rpc --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --no-git",
         );
       }).pipe(Effect.provide(TestLayer)),
     );

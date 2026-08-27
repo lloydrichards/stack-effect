@@ -17,6 +17,7 @@ import type { ConfirmOptions } from "@repo/tui";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
 import { Box } from "effect-boxes";
 import {
+  ApplyResultFailure,
   FinalizeScriptFailure,
   resolveConflictDecisions,
   ScaffoldPipeline,
@@ -83,12 +84,14 @@ const executable = {
 
 const layerWithServices = ({
   plan: planned = plan,
+  applied = applyResult,
   preview = () => Effect.succeed(applyResult),
   previewFiles = () =>
     Effect.die(new Error("memory preview should not be requested")),
   run,
 }: {
   plan?: Plan;
+  applied?: ApplyResult;
   preview?: (input: {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
@@ -116,7 +119,7 @@ const layerWithServices = ({
       build: () => Effect.succeed(planned),
     }),
     Layer.succeed(ApplyService, {
-      apply: () => Effect.succeed(applyResult),
+      apply: () => Effect.succeed(applied),
       preview,
     }),
     Layer.succeed(ApplyPreviewService, {
@@ -190,6 +193,26 @@ describe("ScaffoldPipeline", () => {
     }).pipe(
       Effect.provide(
         layerWithServices({ run: () => Effect.succeed([executable]) }),
+      ),
+    ),
+  );
+
+  it.effect("should stop before finalization when Apply reports failures", () =>
+    Effect.gen(function* () {
+      const pipeline = yield* ScaffoldPipeline;
+      const error = squashFailure(yield* Effect.exit(pipeline.run(runInput)));
+      expect(error).toBeInstanceOf(ApplyResultFailure);
+    }).pipe(
+      Effect.provide(
+        layerWithServices({
+          applied: new ApplyResult({
+            created: [],
+            modified: [],
+            skipped: [],
+            failed: [{ path: "broken.ts", reason: "write failed" }],
+          }),
+          run: () => Effect.die("finalization must not run"),
+        }),
       ),
     ),
   );

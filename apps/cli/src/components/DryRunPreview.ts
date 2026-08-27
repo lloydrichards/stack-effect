@@ -23,6 +23,7 @@ export const DryRunPreview = ({
   scripts,
   createCommand,
   generatedFiles,
+  prospectiveConfig,
 }: {
   blueprint: Box.Box<Ansi.AnsiStyle>;
   plan: {
@@ -39,6 +40,7 @@ export const DryRunPreview = ({
   }>;
   createCommand?: string | undefined;
   generatedFiles?: ReadonlyArray<ApplyPreviewFile> | undefined;
+  prospectiveConfig?: string | undefined;
 }) => {
   const terminalWidth = process.stdout.columns ?? 80;
   const commandWidth = Math.max(32, terminalWidth - 8);
@@ -283,7 +285,35 @@ export const DryRunPreview = ({
           ),
         ];
 
-  return Box.vsep([panels, ...generatedFilesContent, footer], 1, Box.left).pipe(
-    Box.moveDown(1),
-  );
+  const prospectiveConfigContent =
+    prospectiveConfig === undefined
+      ? []
+      : [
+          Box.vsep(
+            [
+              sectionTitle("Prospective stack config"),
+              Box.vcat(
+                Arr.map(
+                  wrapFileContents(prospectiveConfig, fileContentWidth),
+                  Box.text,
+                ),
+                Box.left,
+              ).pipe(Box.moveRight(2)),
+            ],
+            1,
+            Box.left,
+          ).pipe(
+            Box.minWidth(Math.max(1, terminalWidth - 6)),
+            Panel.make({
+              padding: Box.pad(0, 2),
+              border: Box.border("rounded", { annotation: Ansi.dim }),
+            }),
+          ),
+        ];
+
+  return Box.vsep(
+    [panels, ...generatedFilesContent, ...prospectiveConfigContent, footer],
+    1,
+    Box.left,
+  ).pipe(Box.moveDown(1));
 };

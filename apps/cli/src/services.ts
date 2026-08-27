@@ -12,6 +12,15 @@ import {
 import { Layer } from "effect";
 import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
+import {
+  WorkspaceFileOperations,
+  WorkspaceTransaction,
+} from "./service/WorkspaceTransaction";
+
+const WorkspaceTransactionLayer = WorkspaceTransaction.layer.pipe(
+  Layer.provide(ConfigureService.layer),
+  Layer.provide(WorkspaceFileOperations.layer),
+);
 
 export const StackEffectServicesLayer = Layer.mergeAll(
   ApplyPreviewService.layer,
@@ -24,4 +33,5 @@ export const StackEffectServicesLayer = Layer.mergeAll(
   ConfigureService.layer,
   RecipeService.layer,
   ScaffoldPipeline.layer,
+  WorkspaceTransactionLayer,
 ).pipe(Layer.provideMerge(CatalogService.layer));

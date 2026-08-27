@@ -5,6 +5,30 @@ export { StackConfig };
 
 export const CONFIG_FILENAME = "stack.effect.json" as const;
 
+const formatCanonicalJson = (value: unknown, depth = 0): string => {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+
+  const indent = "  ".repeat(depth);
+  const childIndent = "  ".repeat(depth + 1);
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) return "[]";
+    return `[\n${value.map((entry) => `${childIndent}${formatCanonicalJson(entry, depth + 1)}`).join(",\n")}\n${indent}]`;
+  }
+
+  const entries = Object.entries(value);
+  if (entries.length === 0) return "{}";
+  if (entries.every(([, entry]) => entry === null || typeof entry !== "object"))
+    return `{ ${entries.map(([key, entry]) => `${JSON.stringify(key)}: ${formatCanonicalJson(entry, depth + 1)}`).join(", ")} }`;
+
+  return `{\n${entries
+    .map(
+      ([key, entry]) =>
+        `${childIndent}${JSON.stringify(key)}: ${formatCanonicalJson(entry, depth + 1)}`,
+    )
+    .join(",\n")}\n${indent}}`;
+};
+
 export class ConfigureService extends Context.Service<ConfigureService>()(
   "ConfigureService",
   {
@@ -21,14 +45,41 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
           )(raw);
         });
 
+      const serializeConfig = (config: typeof StackConfig.Type) =>
+        Schema.encodeEffect(Schema.fromJsonString(StackConfig))(config).pipe(
+          Effect.map(
+            (encoded) => `${formatCanonicalJson(JSON.parse(encoded))}\n`,
+          ),
+        );
+
       const writeConfig = (repoRoot: string, config: typeof StackConfig.Type) =>
         Effect.gen(function* () {
-          const json = yield* Schema.encodeEffect(
-            Schema.fromJsonString(StackConfig),
-          )(config);
+          const json = yield* serializeConfig(config);
           yield* fs.makeDirectory(repoRoot, { recursive: true });
           yield* fs.writeFileString(configPath(repoRoot), json);
         });
+
+      const writeConfigAtomic = (
+        repoRoot: string,
+        config: typeof StackConfig.Type,
+      ) =>
+        Effect.gen(function* () {
+          const json = yield* serializeConfig(config);
+          const destination = configPath(repoRoot);
+          const temporary = `${destination}.transaction-temp`;
+          yield* fs.makeDirectory(repoRoot, { recursive: true });
+          yield* fs.writeFileString(temporary, json);
+          yield* fs.rename(temporary, destination);
+          return yield* readConfig(repoRoot);
+        }).pipe(
+          Effect.onError(() =>
+            fs
+              .remove(`${configPath(repoRoot)}.transaction-temp`, {
+                force: true,
+              })
+              .pipe(Effect.orElseSucceed(() => undefined)),
+          ),
+        );
 
       const requireConfig = (repoRoot: string) =>
         readConfig(repoRoot).pipe(
@@ -42,7 +93,14 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
           ),
         );
 
-      return { configPath, readConfig, writeConfig, requireConfig } as const;
+      return {
+        configPath,
+        readConfig,
+        serializeConfig,
+        writeConfig,
+        writeConfigAtomic,
+        requireConfig,
+      } as const;
     }),
   },
 ) {

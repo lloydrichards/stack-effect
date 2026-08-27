@@ -1,7 +1,7 @@
 import { Apply } from "@repo/domain/Apply";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
-import type { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
   ApplyPreviewService,
@@ -21,6 +21,7 @@ import {
   Effect,
   Layer,
   Result,
+  Schema,
   Stream,
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
@@ -37,6 +38,17 @@ export class FinalizeScriptFailure extends Data.TaggedError(
 )<{
   message: string;
   failed: number;
+}> {}
+
+export class ApplyResultFailure extends Data.TaggedError("ApplyResultFailure")<{
+  message: string;
+  failed: number;
+}> {}
+
+export class StackConfigPreviewFailure extends Data.TaggedError(
+  "StackConfigPreviewFailure",
+)<{
+  message: string;
 }> {}
 
 const selectedCommandSet = (
@@ -204,6 +216,17 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               blueprint,
               finalizeConfig,
             );
+            const encodedConfig = yield* Schema.encodeEffect(StackConfig)(
+              config,
+            ).pipe(
+              Effect.mapError(
+                (error) =>
+                  new StackConfigPreviewFailure({
+                    message: `Could not serialize the prospective stack config: ${error.message}`,
+                  }),
+              ),
+            );
+            const prospectiveConfig = `${JSON.stringify(encodedConfig, null, 2)}\n`;
 
             yield* Console.log(
               Box.renderPrettySync(
@@ -214,6 +237,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                   scripts: previewScripts,
                   createCommand,
                   generatedFiles: applyPreview?.files,
+                  prospectiveConfig,
                 }),
               ),
             );
@@ -251,6 +275,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           yield* Console.log(`Skipped: ${result.skipped.length} files`);
           if (result.failed.length > 0) {
             yield* Console.log(`Failed: ${result.failed.length} files`);
+            return yield* new ApplyResultFailure({
+              message: `${result.failed.length} file operation(s) failed.`,
+              failed: result.failed.length,
+            });
           }
 
           const finalizeConfig: FinalizeConfig = {

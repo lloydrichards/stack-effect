@@ -1,5 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import {
+  ArchitectureId,
   CatalogNotFound,
   ModuleDefinition,
   type ModuleDependency,
@@ -8,7 +9,11 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { RecipeTargetSpec } from "@repo/domain/Recipe";
-import { parseRecipeTargetSpecs, RecipeService } from "@repo/scaffold";
+import {
+  BlueprintService,
+  parseRecipeTargetSpecs,
+  RecipeService,
+} from "@repo/scaffold";
 import {
   HorizontalSelect,
   MultiSelect,
@@ -22,6 +27,7 @@ import {
   Array as Arr,
   Console,
   Effect,
+  FileSystem,
   Match,
   Option,
   Predicate,
@@ -35,6 +41,7 @@ import {
 import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import {
+  architectureFlag,
   dryRunFlag,
   recipeTargetFlag,
   rootFlag,
@@ -43,8 +50,16 @@ import {
   validateShowFiles,
   yesFlag,
 } from "../flags";
+import {
+  applyArchitecture,
+  prospectiveConfig,
+  requestedArchitecture,
+  validateArchitectureRequest,
+  validateImmutableArchitecture,
+} from "../lib/targetArchitecture";
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
+import { WorkspaceTransaction } from "../service/WorkspaceTransaction";
 
 export type CollectedTarget = {
   kind: typeof TargetKind.Type;
@@ -672,6 +687,40 @@ const isScaffoldAborted = (
 ): err is { _tag: "ScaffoldAborted"; retry?: boolean } =>
   Predicate.isTagged("ScaffoldAborted")(err);
 
+const collectDddTargetInteractive = Effect.gen(function* () {
+  yield* Console.log(
+    [
+      "DDD architecture (Todo HTTP only)",
+      "Logical target: server/api",
+      "Standalone host: apps/server-api (server-api)",
+      "Shared Domain: packages/shared/domain (@repo/shared-domain)",
+      "Todo context packages:",
+      "  packages/todo/domain (@repo/todo-domain)",
+      "  packages/todo/application (@repo/todo-application)",
+      "  packages/todo/infrastructure (@repo/todo-infrastructure)",
+      "  packages/todo/presentation (@repo/todo-presentation)",
+      "Todo HTTP is locked for this first slice.",
+    ].join("\n"),
+  );
+  const confirmed = yield* HorizontalSelect<"confirm" | "cancel">({
+    message: "Create this DDD Todo HTTP architecture?",
+    choices: [
+      { title: "Confirm", value: "confirm" },
+      { title: "Cancel", value: "cancel" },
+    ],
+  });
+  if (confirmed === "cancel")
+    return yield* Effect.fail("DDD Todo creation cancelled.");
+  return [
+    {
+      kind: TargetKind.make("server"),
+      name: "api",
+      modules: [ModuleId.make("server-http-api-todos")],
+      confirmed: true,
+    },
+  ] satisfies Array<CollectedTarget>;
+});
+
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const terminal = yield* Terminal.Terminal;
@@ -855,6 +904,7 @@ export const add = Command.make(
   {
     root: rootFlag,
     target: recipeTargetFlag,
+    architecture: architectureFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
     showFiles: showFilesFlag,
@@ -874,45 +924,98 @@ export const add = Command.make(
       }
 
       const configure = yield* ConfigureService;
+      const fs = yield* FileSystem.FileSystem;
       const pipeline = yield* ScaffoldPipeline;
       const catalog = yield* CatalogService;
       const recipes = yield* RecipeService;
+      const blueprints = yield* BlueprintService;
+      const transaction = yield* WorkspaceTransaction;
 
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
 
       const config = yield* configure.requireConfig(repoRoot);
 
+      const interactiveArchitecture =
+        Option.isNone(flags.target) && Option.isNone(flags.architecture)
+          ? yield* HorizontalSelect({
+              message: "Which architecture should new targets use?",
+              choices: [
+                {
+                  title: "Classic (default)",
+                  value: ArchitectureId.make("classic"),
+                },
+                {
+                  title: "DDD — standalone Todo HTTP",
+                  value: ArchitectureId.make("ddd"),
+                },
+              ],
+            })
+          : undefined;
+      const architecture =
+        interactiveArchitecture ?? requestedArchitecture(flags.architecture);
       const collected = Option.isSome(flags.target)
         ? yield* collectTargetsFromSpecs(flags.target.value)
-        : yield* collectTargetsInteractive;
+        : architecture === "ddd"
+          ? yield* collectDddTargetInteractive
+          : yield* collectTargetsInteractive;
+
+      const requestedTargets = applyArchitecture(
+        Arr.map(collected, (target) => ({
+          target: new TargetIdentity({ kind: target.kind, name: target.name }),
+          modules: target.modules,
+        })),
+        architecture,
+      );
+      yield* validateArchitectureRequest(requestedTargets, architecture);
+      const existingTargetKeys = new Set(
+        yield* Effect.filter(requestedTargets, (target) =>
+          fs.stat(`${repoRoot}/${target.target.toPath()}`).pipe(
+            Effect.as(true),
+            Effect.catch(() => Effect.succeed(false)),
+          ),
+        ).pipe(
+          Effect.map((existing) =>
+            Arr.map(existing, ({ target }) => target.toKey()),
+          ),
+        ),
+      );
+      yield* validateImmutableArchitecture(
+        config,
+        requestedTargets,
+        architecture,
+        existingTargetKeys,
+      );
 
       const selection = yield* recipes.resolve(
-        {
-          targets: Arr.map(collected, (target) => ({
-            target: new TargetIdentity({
-              kind: target.kind,
-              name: target.name,
-            }),
-            modules: target.modules,
-          })),
-        },
+        { targets: requestedTargets },
         {
           config,
           providerStrategy: { _tag: "fail-on-ambiguous" },
         },
       );
       const createCommand = recipes.renderCreateCommand({ config, selection });
+      const blueprint = yield* blueprints.resolve(selection);
+      const nextConfig = prospectiveConfig(config, blueprint);
+      const runPipeline = (root: string, dryRun: boolean) =>
+        pipeline.run({
+          selection,
+          repoRoot: root,
+          yes: flags.yes,
+          dryRun,
+          showFiles: flags.showFiles,
+          trust: flags.trust || flags.yes,
+          config: nextConfig,
+          createCommand,
+        });
 
-      yield* pipeline.run({
-        selection,
-        repoRoot,
-        yes: flags.yes,
-        dryRun: flags.dryRun,
-        showFiles: flags.showFiles,
-        trust: flags.trust || flags.yes,
-        config,
-        createCommand,
-      });
+      if (flags.dryRun) yield* runPipeline(repoRoot, true);
+      else
+        yield* transaction.run({
+          root: repoRoot,
+          config: nextConfig,
+          execute: (stageRoot) => runPipeline(stageRoot, false),
+          validate: () => Effect.void,
+        });
     }).pipe(
       Effect.retry({
         while: (err) => isScaffoldAborted(err) && err.retry === true,

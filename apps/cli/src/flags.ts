@@ -26,6 +26,16 @@ export const rootFlag = Flag.directory("root").pipe(
   Flag.withAlias("r"),
 );
 
+export const architectureFlag = Flag.choice("architecture", [
+  "classic",
+  "ddd",
+]).pipe(
+  Flag.optional,
+  Flag.withDescription(
+    "Target architecture (classic or the default-off architecture-scoped DDD catalog)",
+  ),
+);
+
 export const dryRunFlag = Flag.boolean("dry-run").pipe(
   Flag.withDescription("Preview changes without writing to disk"),
 );

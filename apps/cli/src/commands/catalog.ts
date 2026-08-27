@@ -2,7 +2,10 @@ import * as nodeFs from "node:fs/promises";
 import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
+  type ArchitectureId,
+  ClassicArchitecture,
   Contribution,
+  DddArchitecture,
   ModuleCategory,
   ModuleId,
   SupportedOn,
@@ -37,7 +40,7 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import {
@@ -49,6 +52,12 @@ import {
 } from "../flags";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
+const architectureFlag = Flag.choice("architecture", ["ddd"]).pipe(
+  Flag.optional,
+  Flag.withDescription(
+    "Catalog-authoring architecture (DDD requires --target).",
+  ),
+);
 
 const defaultTargetNames = new Map<string, string>([
   ["server", "api"],
@@ -114,133 +123,162 @@ const contributionPath = (contribution: typeof Contribution.Type) =>
     ? contribution.barrelPath
     : contribution.path;
 
-const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
-  function* (
-    config: typeof StackConfig.Type,
-    targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
-  ) {
-    const catalog = yield* CatalogService;
-    const recipes = yield* RecipeService;
+const initDefaultModules = (config: typeof StackConfig.Type) => [
+  ModuleId.make(toTypeScriptModuleId(config.typescriptVersion)),
+  ...(config.monorepo === undefined
+    ? []
+    : [ModuleId.make(toWorkspaceModuleId("tool", config.monorepo))]),
+  ...(config.lint === undefined
+    ? []
+    : [ModuleId.make(toWorkspaceModuleId("lint", config.lint))]),
+  ...(config.format === undefined
+    ? []
+    : [ModuleId.make(toWorkspaceModuleId("format", config.format))]),
+  ...(config.test === undefined
+    ? []
+    : [ModuleId.make(toWorkspaceModuleId("tool", config.test))]),
+];
 
-    if (Option.isSome(targetSpecs)) {
-      const targets = yield* parseRecipeTargetSpecs(targetSpecs.value);
-      return yield* recipes.resolve(
-        {
-          targets: Arr.map(targets, (target) => ({
+const catalogWorkspaceIdentity = () =>
+  new TargetIdentity({
+    kind: TargetKind.make("workspace"),
+    name: "catalog-built",
+  });
+
+export const buildWorkspaceSelection = Effect.fn(
+  "catalog.workspace.buildSelection",
+)(function* (
+  config: typeof StackConfig.Type,
+  targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
+  architecture: Option.Option<typeof ArchitectureId.Type> = Option.none(),
+) {
+  const catalog = yield* CatalogService;
+  const recipes = yield* RecipeService;
+
+  if (Option.isSome(targetSpecs)) {
+    const targets = yield* parseRecipeTargetSpecs(targetSpecs.value);
+    const selection = yield* recipes.resolve(
+      {
+        targets: [
+          {
+            target: catalogWorkspaceIdentity(),
+            modules: initDefaultModules(config),
+          },
+          ...Arr.map(targets, (target) => ({
             target: target.target,
             modules: target.modules,
           })),
-        },
-        {
-          config,
-          providerStrategy: { _tag: "fail-on-ambiguous" },
-        },
-      );
-    }
-
-    const targets = new Map<
-      string,
-      {
-        identity: TargetIdentity;
-        modules: Set<typeof ModuleId.Type>;
-        capabilities: Set<string>;
-      }
-    >();
-
-    const ensureTarget = (identity: TargetIdentity) => {
-      const key = identity.toKey();
-      const current = targets.get(key);
-      if (current) return current;
-      const next = {
-        identity,
-        modules: new Set<typeof ModuleId.Type>(),
-        capabilities: new Set<string>(),
-      };
-      targets.set(key, next);
-      return next;
-    };
-
-    for (const targetKind of catalog.getTargetKinds()) {
-      ensureTarget(
-        new TargetIdentity({
-          kind: targetKind,
-          name:
-            targetKind === "workspace"
-              ? "catalog-built"
-              : (defaultTargetNames.get(targetKind) ?? targetKind),
-        }),
-      );
-    }
-
-    const initDefaultModules = [
-      ModuleId.make(toTypeScriptModuleId(config.typescriptVersion)),
-      ...(config.monorepo === undefined
-        ? []
-        : [ModuleId.make(toWorkspaceModuleId("tool", config.monorepo))]),
-      ...(config.lint === undefined
-        ? []
-        : [ModuleId.make(toWorkspaceModuleId("lint", config.lint))]),
-      ...(config.format === undefined
-        ? []
-        : [ModuleId.make(toWorkspaceModuleId("format", config.format))]),
-      ...(config.test === undefined
-        ? []
-        : [ModuleId.make(toWorkspaceModuleId("tool", config.test))]),
-    ];
-
-    const initTarget = ensureTarget(
-      new TargetIdentity({
-        kind: TargetKind.make("workspace"),
-        name: "catalog-built",
-      }),
-    );
-    for (const moduleId of initDefaultModules) {
-      initTarget.modules.add(moduleId);
-    }
-
-    for (const moduleDefinition of catalog.getModules()) {
-      for (const supportedOn of moduleDefinition.supportedOn) {
-        if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
-          continue;
-        }
-        const target = ensureTarget(targetIdentityFrom(supportedOn));
-        const provides = moduleDefinition.provides ?? [];
-        const hasExistingProvider = provides.some((capability) =>
-          target.capabilities.has(capability),
-        );
-
-        if (!hasExistingProvider) {
-          target.modules.add(moduleDefinition.id);
-          for (const capability of provides) {
-            target.capabilities.add(capability);
-          }
-        }
-      }
-    }
-
-    const selectedTargets = Array.from(targets.values())
-      .map((target) => ({
-        identity: target.identity,
-        modules: Array.from(target.modules)
-          .sort((a, b) => a.localeCompare(b))
-          .map((id) => ({ id })),
-      }))
-      .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
-
-    return yield* recipes.resolve(
-      {
-        targets: Arr.map(selectedTargets, (target) => ({
-          target: target.identity,
-          modules: Arr.map(target.modules, (module) => module.id),
-        })),
+        ],
       },
       {
         config,
-        providerStrategy: { _tag: "first-provider" },
+        providerStrategy: { _tag: "fail-on-ambiguous" },
       },
     );
-  },
-);
+    return Option.isNone(architecture)
+      ? selection
+      : {
+          targets: Arr.map(selection.targets, (target) =>
+            target.identity.kind === "workspace"
+              ? target
+              : { ...target, architecture: architecture.value },
+          ),
+        };
+  }
+
+  if (Option.isSome(architecture)) {
+    return yield* Effect.fail(
+      "--architecture ddd requires an explicit --target; catalog-all remains Classic.",
+    );
+  }
+
+  const targets = new Map<
+    string,
+    {
+      identity: TargetIdentity;
+      modules: Set<typeof ModuleId.Type>;
+      capabilities: Set<string>;
+    }
+  >();
+
+  const ensureTarget = (identity: TargetIdentity) => {
+    const key = identity.toKey();
+    const current = targets.get(key);
+    if (current) return current;
+    const next = {
+      identity,
+      modules: new Set<typeof ModuleId.Type>(),
+      capabilities: new Set<string>(),
+    };
+    targets.set(key, next);
+    return next;
+  };
+
+  for (const targetKind of catalog.getTargetKinds()) {
+    ensureTarget(
+      new TargetIdentity({
+        kind: targetKind,
+        name:
+          targetKind === "workspace"
+            ? "catalog-built"
+            : (defaultTargetNames.get(targetKind) ?? targetKind),
+      }),
+    );
+  }
+
+  const initTarget = ensureTarget(catalogWorkspaceIdentity());
+  for (const moduleId of initDefaultModules(config)) {
+    initTarget.modules.add(moduleId);
+  }
+
+  for (const moduleDefinition of catalog.getModules()) {
+    const classicDefinition = yield* catalog.resolveModule(
+      moduleDefinition.id,
+      ClassicArchitecture,
+    );
+    if (classicDefinition === undefined) continue;
+
+    for (const supportedOn of classicDefinition.supportedOn) {
+      if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
+        continue;
+      }
+      const target = ensureTarget(targetIdentityFrom(supportedOn));
+      const provides = classicDefinition.provides ?? [];
+      const hasExistingProvider = provides.some((capability) =>
+        target.capabilities.has(capability),
+      );
+
+      if (!hasExistingProvider) {
+        target.modules.add(classicDefinition.id);
+        for (const capability of provides) {
+          target.capabilities.add(capability);
+        }
+      }
+    }
+  }
+
+  const selectedTargets = Array.from(targets.values())
+    .map((target) => ({
+      identity: target.identity,
+      modules: Array.from(target.modules)
+        .sort((a, b) => a.localeCompare(b))
+        .map((id) => ({ id })),
+    }))
+    .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
+
+  return yield* recipes.resolve(
+    {
+      targets: Arr.map(selectedTargets, (target) => ({
+        target: target.identity,
+        modules: Arr.map(target.modules, (module) => module.id),
+      })),
+    },
+    {
+      config,
+      providerStrategy: { _tag: "first-provider" },
+    },
+  );
+});
 
 const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
   blueprint,
@@ -564,6 +602,7 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
 const reset = Command.make(
   "reset",
   {
+    architecture: architectureFlag,
     format: formatFlag,
     root: rootFlag,
     target: recipeTargetFlag,
@@ -590,7 +629,9 @@ const reset = Command.make(
 
       const config = new StackConfig({
         name: "catalog-built" as typeof Schema.NonEmptyString.Type,
-        runtime: defaults.runtime,
+        runtime: Option.isSome(flags.architecture)
+          ? { _tag: "node", packageManager: "pnpm" }
+          : defaults.runtime,
         typescript: Option.getOrElse(
           flags.typescript,
           () => defaults.typescriptVersion,
@@ -601,16 +642,64 @@ const reset = Command.make(
         monorepo: Option.getOrElse(flags.monorepo, () => defaults.monorepo),
       });
 
-      const selection = yield* buildWorkspaceSelection(config, flags.target);
+      const selection = yield* buildWorkspaceSelection(
+        config,
+        flags.target,
+        Option.map(flags.architecture, () => DddArchitecture),
+      );
       const blueprintService = yield* BlueprintService;
-      const blueprint = yield* blueprintService.resolve(selection);
       const planService = yield* PlanService;
-      const plan = yield* planService.build({ blueprint, repoRoot, config });
       const applyService = yield* ApplyService;
+
+      let pnpmWorkspaceSuffix = Option.none<string>();
+      if (Option.isSome(flags.architecture)) {
+        const baseSelection = {
+          targets: selection.targets.filter(
+            (target) => target.identity.kind === "workspace",
+          ),
+        };
+        const baseBlueprint = yield* blueprintService.resolve(baseSelection);
+        const basePlan = yield* planService.build({
+          blueprint: baseBlueprint,
+          repoRoot,
+          config,
+        });
+        yield* applyService.apply({
+          apply: new Apply({ plan: basePlan, decisions: [] }),
+          repoRoot,
+        });
+
+        const pnpmWorkspacePath = path.join(repoRoot, "pnpm-workspace.yaml");
+        const pnpmWorkspace = yield* fs
+          .readFileString(pnpmWorkspacePath)
+          .pipe(Effect.option);
+        if (Option.isSome(pnpmWorkspace)) {
+          const [packagesSection, ...siblingSections] =
+            pnpmWorkspace.value.split("\n\n");
+          if (siblingSections.length > 0) {
+            pnpmWorkspaceSuffix = Option.some(siblingSections.join("\n\n"));
+            yield* fs.writeFileString(
+              pnpmWorkspacePath,
+              `${packagesSection?.trimEnd()}\n`,
+            );
+          }
+        }
+      }
+
+      const blueprint = yield* blueprintService.resolve(selection);
+      const plan = yield* planService.build({ blueprint, repoRoot, config });
       const result = yield* applyService.apply({
         apply: new Apply({ plan, decisions: [] }),
         repoRoot,
       });
+      if (Option.isSome(pnpmWorkspaceSuffix)) {
+        const pnpmWorkspacePath = path.join(repoRoot, "pnpm-workspace.yaml");
+        const pnpmWorkspace = yield* fs.readFileString(pnpmWorkspacePath);
+        yield* fs.writeFileString(
+          pnpmWorkspacePath,
+          `${pnpmWorkspace.trimEnd()}\n\n${pnpmWorkspaceSuffix.value.trimStart()}`,
+        );
+      }
 
       const manifest = yield* buildManifest({ blueprint, config });
       yield* annotateWorkspace({ repoRoot, manifest });

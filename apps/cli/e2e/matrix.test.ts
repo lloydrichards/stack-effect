@@ -168,7 +168,10 @@ const buildMatrix = Effect.gen(function* () {
   const entries: Array<MatrixEntry> = [];
 
   for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
-    const modules = yield* catalog.getSupportedModules(kind);
+    const candidateModules = yield* catalog.getSupportedModules(kind);
+    const modules = yield* Effect.filter(candidateModules, ({ id }) =>
+      Effect.map(catalog.resolveModule(id), (module) => module !== undefined),
+    );
     const grouped = groupModulesByTarget(modules);
 
     for (const [target, moduleIds] of grouped) {
