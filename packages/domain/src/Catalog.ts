@@ -25,6 +25,36 @@ export const TargetKind = Schema.Union([
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
 export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
 
+export const ArchitectureId = Schema.String.pipe(
+  Schema.brand("ArchitectureId"),
+);
+export const ClassicArchitecture = ArchitectureId.make("classic");
+export const DddArchitecture = ArchitectureId.make("ddd");
+export const ContextId = Schema.String.pipe(Schema.brand("ContextId"));
+export const ContextRole = Schema.Literals([
+  "domain",
+  "application",
+  "infrastructure",
+  "presentation",
+  "host",
+]);
+export const ContextMetadata = Schema.Struct({
+  id: ContextId,
+  role: ContextRole,
+});
+export const TargetLayoutDefinition = Schema.TaggedUnion({
+  identity: {},
+  template: {
+    path: Schema.String,
+    packageName: Schema.String,
+    requiresContext: Schema.Boolean,
+  },
+});
+export const ResolvedTargetLayout = Schema.Struct({
+  path: TargetPath,
+  packageName: Schema.NonEmptyString,
+});
+
 export class TargetIdentity extends Schema.Class<TargetIdentity>(
   "TargetIdentity",
 )({
@@ -111,7 +141,9 @@ export const ScriptDefinition = Schema.Struct({
 
 export const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
+  target: Schema.optional(TargetIdentity),
   moduleId: ModuleId,
+  reason: Schema.optional(Schema.String),
 });
 
 /**
@@ -154,6 +186,18 @@ export const Contribution = Schema.TaggedUnion({
   /**
    * Barrel file re-export - adds `export * from "..."` to a barrel file.
    */
+  "json-array-entry": {
+    path: Schema.String,
+    field: Schema.Literal("workspaces"),
+    value: Schema.String,
+  },
+
+  "yaml-sequence-entry": {
+    path: Schema.String,
+    key: Schema.Literal("packages"),
+    value: Schema.String,
+  },
+
   "barrel-export": {
     barrelPath: Schema.String,
     exportPath: Schema.String,
@@ -241,6 +285,7 @@ export const ModuleDependency = Schema.TaggedUnion({
    */
   "required-target": {
     identity: TargetIdentity,
+    architecture: Schema.optional(ArchitectureId),
   },
 
   /**
@@ -251,6 +296,7 @@ export const ModuleDependency = Schema.TaggedUnion({
   "required-module": {
     target: TargetIdentity,
     moduleId: ModuleId,
+    architecture: Schema.optional(ArchitectureId),
   },
 
   /**
@@ -261,6 +307,7 @@ export const ModuleDependency = Schema.TaggedUnion({
   "required-capability": {
     target: TargetIdentity,
     capability: ModuleCapability,
+    architecture: Schema.optional(ArchitectureId),
   },
 });
 
@@ -287,6 +334,57 @@ export const ModuleChild = Schema.Struct({
   moduleId: ModuleId,
   requirement: Schema.Literals(["required", "optional"]),
 });
+
+const architectureIssues = <A extends { readonly id: string }>({
+  default: defaultId,
+  variants,
+}: {
+  readonly default: string;
+  readonly variants: ReadonlyArray<A>;
+}): ReadonlyArray<string> => {
+  const ids = variants.map(({ id }) => id);
+  return [
+    ...(new Set(ids).size === ids.length
+      ? []
+      : ["Architecture variant ids must be unique"]),
+    ...(ids.includes(defaultId)
+      ? ["Architecture variant must differ from its definition default"]
+      : []),
+  ];
+};
+
+const ModuleArchitecture = Schema.Struct({
+  default: ArchitectureId,
+  context: Schema.optional(ContextMetadata),
+  variants: Schema.Array(
+    Schema.Struct({
+      id: ArchitectureId,
+      supportedOn: Schema.optional(Schema.Array(SupportedOn)),
+      dependencies: Schema.Array(ModuleDependency),
+      implies: Schema.optional(Schema.Array(ModuleImplication)),
+      contributions: Schema.Array(Contribution),
+      context: Schema.optional(ContextMetadata),
+      scripts: Schema.optional(Schema.Array(ScriptDefinition)),
+      nextSteps: Schema.optional(Schema.Array(Schema.String)),
+    }),
+  ),
+}).check(Schema.makeFilter(architectureIssues));
+
+const TargetArchitecture = Schema.Struct({
+  default: ArchitectureId,
+  layout: Schema.optional(TargetLayoutDefinition),
+  variants: Schema.Array(
+    Schema.Struct({
+      id: ArchitectureId,
+      supportedOn: Schema.Array(SupportedOn),
+      requiredModules: Schema.Array(ModuleId),
+      contributions: Schema.Array(Contribution),
+      layout: TargetLayoutDefinition,
+      scripts: Schema.optional(Schema.Array(ScriptDefinition)),
+      nextSteps: Schema.optional(Schema.Array(Schema.String)),
+    }),
+  ),
+}).check(Schema.makeFilter(architectureIssues));
 
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
@@ -331,6 +429,7 @@ export const ModuleDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
+  architecture: Schema.optional(ModuleArchitecture),
 });
 
 export const TargetDefinition = Schema.Struct({
@@ -363,7 +462,22 @@ export const TargetDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
-});
+  architecture: Schema.optional(TargetArchitecture),
+}).check(
+  Schema.makeFilter(
+    (definition) =>
+      definition.architecture?.variants.flatMap((variant) =>
+        variant.supportedOn.every(
+          (supportedOn) =>
+            supportedOn._tag === "kind" && supportedOn.kind === definition.kind,
+        )
+          ? []
+          : [
+              `Target architecture variant ${variant.id} must support owning target kind ${definition.kind}`,
+            ],
+      ) ?? [],
+  ),
+);
 
 export const CatalogNode = Schema.TaggedUnion({
   target: {

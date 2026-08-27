@@ -1,7 +1,15 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import {
+  ClassicArchitecture,
+  DddArchitecture,
+  ModuleId,
+  TargetIdentity,
+  TargetKey,
+  TargetKind,
+  TargetPath,
+} from "./Catalog";
 
 const domainIdentity = new TargetIdentity({
   kind: TargetKind.make("package"),
@@ -28,6 +36,11 @@ const makeUnsortedBlueprint = () =>
         _tag: "target",
         id: domainIdentity.toKey(),
         identity: domainIdentity,
+        architecture: ClassicArchitecture,
+        layout: {
+          path: domainIdentity.toPath(),
+          packageName: domainIdentity.toPackageName(),
+        },
       },
       {
         _tag: "attached-module",
@@ -42,6 +55,11 @@ const makeUnsortedBlueprint = () =>
         _tag: "target",
         id: serverApiIdentity.toKey(),
         identity: serverApiIdentity,
+        architecture: ClassicArchitecture,
+        layout: {
+          path: serverApiIdentity.toPath(),
+          packageName: serverApiIdentity.toPackageName(),
+        },
       },
     ],
     edges: [
@@ -166,9 +184,77 @@ describe("@repo/domain Blueprint", () => {
         kind: "package",
         name: "domain",
       },
+      architecture: "classic",
+      layout: {
+        path: "packages/domain",
+        packageName: "@repo/domain",
+      },
     });
     expect(emptyBlueprint.hasTarget("apps/server-api")).toBe(false);
     expect(emptyBlueprint.getTarget("apps/server-api")).toBeUndefined();
+  });
+
+  it("resolves legacy target nodes to Classic identity layout", () => {
+    const blueprint = Schema.decodeUnknownSync(Blueprint)({
+      nodes: [
+        {
+          _tag: "target",
+          id: "apps/server-todo",
+          identity: { kind: "server", name: "todo" },
+        },
+      ],
+      edges: [],
+    });
+    const target = blueprint.getTarget("apps/server-todo");
+    expect(target?.architecture).toBe(ClassicArchitecture);
+    expect(target?.layout).toEqual({
+      path: "apps/server-todo",
+      packageName: "server-todo",
+    });
+  });
+
+  it("retains a resolved DDD architecture and physical layout", () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("server"),
+      name: "todo",
+    });
+    const blueprint = new Blueprint({
+      nodes: [
+        {
+          _tag: "target",
+          id: identity.toKey(),
+          identity,
+          architecture: DddArchitecture,
+          layout: {
+            path: TargetPath.make("apps/todo"),
+            packageName: "@repo/todo-app",
+          },
+        },
+      ],
+      edges: [],
+    });
+    expect(blueprint.getTarget(identity.toKey())?.layout.path).toBe(
+      "apps/todo",
+    );
+  });
+
+  it("rejects duplicate resolved physical layouts", () => {
+    expect(
+      () =>
+        new Blueprint({
+          nodes: [domainIdentity, serverApiIdentity].map((identity) => ({
+            _tag: "target" as const,
+            id: identity.toKey(),
+            identity,
+            architecture: ClassicArchitecture,
+            layout: {
+              path: TargetPath.make("same/path"),
+              packageName: identity.toPackageName(),
+            },
+          })),
+          edges: [],
+        }),
+    ).toThrow();
   });
 
   const invalidBlueprints = [

@@ -1,5 +1,14 @@
-import { Schema } from "effect";
-import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
+import { Schema, SchemaGetter } from "effect";
+import {
+  ArchitectureId,
+  ClassicArchitecture,
+  ContextMetadata,
+  Contribution,
+  ModuleId,
+  ResolvedTargetLayout,
+  TargetIdentity,
+  TargetKey,
+} from "./Catalog";
 
 export const TargetContribution = Schema.Struct({
   targetKey: TargetKey,
@@ -26,6 +35,44 @@ const Runtime = Schema.TaggedUnion({
 
 export const TypeScriptVersion = Schema.Literals(["6", "7"]);
 
+export const StackTargetRecord = Schema.Struct({
+  identity: TargetIdentity,
+  architecture: ArchitectureId,
+});
+
+const StackTargetRecords = Schema.Array(StackTargetRecord)
+  .check(
+    Schema.makeFilter((records) => {
+      const keys = records.map(({ identity }) => identity.toKey());
+      return [
+        ...(new Set(keys).size === keys.length
+          ? []
+          : ["Stack target architecture logical keys must be unique"]),
+        ...records.flatMap(({ architecture, identity }) =>
+          architecture === ClassicArchitecture
+            ? [
+                `Classic target ${identity.toKey()} must not have a durable architecture record`,
+              ]
+            : [],
+        ),
+      ];
+    }),
+  )
+  .pipe(
+    Schema.decodeTo(Schema.toType(Schema.Array(StackTargetRecord)), {
+      decode: SchemaGetter.transform((records) =>
+        [...records].sort((a, b) =>
+          a.identity.toKey().localeCompare(b.identity.toKey()),
+        ),
+      ),
+      encode: SchemaGetter.transform((records) =>
+        [...records].sort((a, b) =>
+          a.identity.toKey().localeCompare(b.identity.toKey()),
+        ),
+      ),
+    }),
+  );
+
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   name: Schema.NonEmptyString,
   runtime: Runtime,
@@ -34,6 +81,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
+  targets: Schema.optional(StackTargetRecords),
 }) {
   get typescriptVersion(): typeof TypeScriptVersion.Type {
     return this.typescript ?? "6";
@@ -71,6 +119,9 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 )({
   targetKey: TargetKey,
   identity: TargetIdentity,
+  architecture: ArchitectureId,
+  layout: ResolvedTargetLayout,
+  context: Schema.optional(ContextMetadata),
   config: StackConfig,
 }) {
   /**
@@ -101,7 +152,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         ? this.identity.name
         : this.identity.kind;
 
-    const targetPath = this.identity.toPath();
+    const targetPath = this.layout.path;
 
     // NOTE: Workspace targets omit "./" so token output matches contribution paths.
     const resolveTargetToken = (t: string, token: string) =>
@@ -149,7 +200,10 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         withConditionals
           .replaceAll("{{targetKind}}", this.identity.kind)
           .replaceAll("{{targetName}}", resolvedTargetName)
-          .replaceAll("{{packageName}}", this.identity.toPackageName())
+          .replaceAll("{{packageName}}", this.layout.packageName)
+          .replaceAll("{{architecture}}", this.architecture)
+          .replaceAll("{{contextId}}", this.context?.id ?? "")
+          .replaceAll("{{contextRole}}", this.context?.role ?? "")
           .replaceAll("{{runtime}}", this.config.runtimeName)
           .replaceAll("{{packageManager}}", this.config.packageManagerName)
           .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)

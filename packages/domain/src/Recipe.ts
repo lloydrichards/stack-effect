@@ -1,22 +1,41 @@
-import { Schema } from "effect";
-import { ModuleId, TargetIdentity } from "./Catalog";
+import { Schema, SchemaGetter } from "effect";
+import {
+  ArchitectureId,
+  ClassicArchitecture,
+  ModuleId,
+  TargetIdentity,
+} from "./Catalog";
 
-/**
- * A portable recipe target describes a desired target and the modules the user
- * selected for that target. Resolution, validation, defaults, and provider
- * choices are owned by the CLI/catalog layer.
- */
-export const RecipeTargetSpec = Schema.Struct({
+const RecipeTargetFields = Schema.Struct({
   target: TargetIdentity,
   modules: Schema.Array(ModuleId),
+  architecture: Schema.optional(ArchitectureId),
 });
+
+/** A target-level architecture intent; omission and explicit Classic normalize identically. */
+export const RecipeTargetSpec = RecipeTargetFields.pipe(
+  Schema.decodeTo(Schema.toType(RecipeTargetFields), {
+    decode: SchemaGetter.transform((spec) => ({
+      target: spec.target,
+      modules: spec.modules,
+      ...(spec.architecture === undefined ||
+      spec.architecture === ClassicArchitecture
+        ? {}
+        : { architecture: spec.architecture }),
+    })),
+    encode: SchemaGetter.transform((spec) => ({
+      target: spec.target,
+      modules: spec.modules,
+      ...(spec.architecture === undefined ||
+      spec.architecture === ClassicArchitecture
+        ? {}
+        : { architecture: spec.architecture }),
+    })),
+  }),
+);
 
 export type RecipeTargetSpec = typeof RecipeTargetSpec.Type;
 
-/**
- * A Recipe is dashboard/CLI intent: selected workspace, app, and package
- * targets with their requested modules.
- */
 export const RecipeSpec = Schema.Struct({
   targets: Schema.Array(RecipeTargetSpec),
 });

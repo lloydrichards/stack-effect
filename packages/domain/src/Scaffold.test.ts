@@ -1,6 +1,13 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import {
+  ClassicArchitecture,
+  DddArchitecture,
+  TargetIdentity,
+  TargetKey,
+  TargetKind,
+  TargetPath,
+} from "./Catalog";
 import { ContributionTokenContext, StackConfig } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
@@ -201,6 +208,51 @@ describe("StackConfig TypeScript version", () => {
   });
 });
 
+describe("StackConfig target architecture records", () => {
+  const base = { name: "project", runtime: { _tag: "bun" as const } };
+
+  it("decodes and encodes old configs without target noise", () => {
+    const config = Schema.decodeUnknownSync(StackConfig)(base);
+    expect(config.targets).toBeUndefined();
+    expect(Schema.encodeSync(StackConfig)(config)).toEqual(base);
+  });
+
+  it("sorts durable non-Classic target records deterministically", () => {
+    const config = Schema.decodeUnknownSync(StackConfig)({
+      ...base,
+      targets: [
+        { identity: { kind: "server", name: "z" }, architecture: "ddd" },
+        { identity: { kind: "server", name: "a" }, architecture: "ddd" },
+      ],
+    });
+    expect(config.targets?.map((record) => record.identity.toKey())).toEqual([
+      "apps/server-a",
+      "apps/server-z",
+    ]);
+    expect(config.targets?.[0]?.architecture).toBe(DddArchitecture);
+  });
+
+  it.each([
+    {
+      name: "duplicate logical records",
+      targets: [
+        { identity: { kind: "server", name: "todo" }, architecture: "ddd" },
+        { identity: { kind: "server", name: "Todo" }, architecture: "ddd" },
+      ],
+    },
+    {
+      name: "explicit Classic durable records",
+      targets: [
+        { identity: { kind: "server", name: "todo" }, architecture: "classic" },
+      ],
+    },
+  ])("rejects $name", ({ targets }) => {
+    expect(() =>
+      Schema.decodeUnknownSync(StackConfig)({ ...base, targets }),
+    ).toThrow();
+  });
+});
+
 describe("ContributionTokenContext.resolve", () => {
   const makeContext = (
     configOverrides: Partial<typeof StackConfig.Type> = {},
@@ -211,6 +263,11 @@ describe("ContributionTokenContext.resolve", () => {
         kind: TargetKind.make("server"),
         name: "api",
       }),
+      architecture: ClassicArchitecture,
+      layout: {
+        path: TargetPath.make("apps/server-api"),
+        packageName: "server-api",
+      },
       config: new StackConfig({
         name: "my-project" as typeof Schema.NonEmptyString.Type,
         runtime: { _tag: "bun" },
@@ -326,6 +383,11 @@ describe("ContributionTokenContext.resolve", () => {
           kind: TargetKind.make("server"),
           name: "api",
         }),
+        architecture: ClassicArchitecture,
+        layout: {
+          path: TargetPath.make("apps/server-api"),
+          packageName: "server-api",
+        },
         config: new StackConfig({
           name: "my-project" as typeof Schema.NonEmptyString.Type,
           runtime: { _tag: "node", packageManager: "pnpm" },

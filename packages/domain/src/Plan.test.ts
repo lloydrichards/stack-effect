@@ -1,8 +1,69 @@
-import { Plan, PlanEntryClassification } from "@repo/domain/Plan";
+import { Apply } from "@repo/domain/Apply";
+import {
+  CompositionOperation,
+  Plan,
+  PlanEntryClassification,
+} from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
+  it.each([
+    [
+      "json-array-entry",
+      { fileType: "json", field: "workspaces", value: "packages/*/*" },
+    ],
+    [
+      "yaml-sequence-entry",
+      { fileType: "yaml", key: "packages", value: "packages/*/*" },
+    ],
+  ] as const)("decodes valid %s planning operations", (_tag, fields) => {
+    expect(
+      Schema.decodeUnknownSync(CompositionOperation)({ _tag, ...fields }),
+    ).toMatchObject({
+      _tag,
+      ...fields,
+    });
+  });
+
+  it.each([
+    { _tag: "json-array-entry", fileType: "json", field: "workspaces" },
+    {
+      _tag: "json-array-entry",
+      fileType: "yaml",
+      field: "workspaces",
+      value: "packages/*/*",
+    },
+    {
+      _tag: "json-array-entry",
+      fileType: "json",
+      field: "dependencies",
+      value: "packages/*/*",
+    },
+    { _tag: "yaml-sequence-entry", fileType: "yaml", key: "packages" },
+    {
+      _tag: "yaml-sequence-entry",
+      fileType: "json",
+      key: "packages",
+      value: "packages/*/*",
+    },
+    {
+      _tag: "yaml-sequence-entry",
+      fileType: "yaml",
+      key: "workspaces",
+      value: "packages/*/*",
+    },
+  ])("rejects malformed workspace planning operation %#", (input) => {
+    expect(() =>
+      Schema.decodeUnknownSync(CompositionOperation)(input),
+    ).toThrow();
+  });
+
+  it("keeps Plan and Apply architecture-policy-free", () => {
+    expect("architecture" in Plan.fields).toBe(false);
+    expect("architecture" in Apply.fields).toBe(false);
+  });
+
   it("should accept supported classifications and reject unsupported values", () => {
     expect(Schema.decodeUnknownSync(PlanEntryClassification)("create")).toBe(
       "create",

@@ -72,6 +72,18 @@ export const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
   ),
 });
 
+export const JsonArrayEntryOp = Schema.TaggedStruct("json-array-entry", {
+  fileType: Schema.tag("json"),
+  field: Schema.Literal("workspaces"),
+  value: Schema.String,
+});
+
+export const YamlSequenceEntryOp = Schema.TaggedStruct("yaml-sequence-entry", {
+  fileType: Schema.tag("yaml"),
+  key: Schema.Literal("packages"),
+  value: Schema.String,
+});
+
 /**
  * TypeScript Operations - for AST manipulation via ts-morph
  */
@@ -116,6 +128,7 @@ const JsonCompositionOperationSchema = Schema.Union([
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
+  JsonArrayEntryOp,
 ]);
 
 const TypeScriptCompositionOperationSchema = Schema.Union([
@@ -137,6 +150,7 @@ export type TypeScriptCompositionOperation = Schema.Schema.Type<
 export const CompositionOperation = Schema.Union([
   JsonCompositionOperationSchema,
   TypeScriptCompositionOperationSchema,
+  YamlSequenceEntryOp,
 ]);
 
 export const PlanEntryClassification = Schema.Literals([

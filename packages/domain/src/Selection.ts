@@ -1,25 +1,37 @@
-import { Schema } from "effect";
-import { ModuleId, TargetIdentity } from "./Catalog";
+import { Schema, SchemaGetter } from "effect";
+import {
+  ArchitectureId,
+  ClassicArchitecture,
+  ModuleId,
+  TargetIdentity,
+} from "./Catalog";
 
-/**
- * Captures the user's explicit intent: which targets to scaffold and which
- * modules to attach to each target.
- *
- * A Selection is the entry point of the scaffold pipeline. It contains no
- * dependency resolution — that is the responsibility of the Blueprint stage.
- *
- * @category Selection
- * @since 1.0.0
- */
+const SelectionTarget = Schema.Struct({
+  identity: TargetIdentity,
+  modules: Schema.Array(Schema.Struct({ id: ModuleId })),
+  architecture: Schema.optional(ArchitectureId),
+});
+
+const NormalizedSelectionTarget = SelectionTarget.pipe(
+  Schema.decodeTo(Schema.toType(SelectionTarget), {
+    decode: SchemaGetter.transform((target) => ({
+      ...target,
+      architecture:
+        target.architecture === ClassicArchitecture
+          ? undefined
+          : target.architecture,
+    })),
+    encode: SchemaGetter.transform((target) => ({
+      ...target,
+      architecture:
+        target.architecture === ClassicArchitecture
+          ? undefined
+          : target.architecture,
+    })),
+  }),
+);
+
+/** User intent only; dependency and physical layout resolution belong to Blueprint. */
 export const Selection = Schema.Struct({
-  targets: Schema.Array(
-    Schema.Struct({
-      identity: TargetIdentity,
-      modules: Schema.Array(
-        Schema.Struct({
-          id: ModuleId,
-        }),
-      ),
-    }),
-  ),
+  targets: Schema.Array(NormalizedSelectionTarget),
 });

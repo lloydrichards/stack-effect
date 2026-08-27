@@ -1,7 +1,11 @@
-import { Array as Arr, Data, Order, Schema } from "effect";
+import { Array as Arr, Data, Order, Schema, SchemaGetter } from "effect";
 import {
+  ArchitectureId,
   CatalogNotFound,
+  ClassicArchitecture,
+  ContextMetadata,
   ModuleId,
+  ResolvedTargetLayout,
   TargetIdentity,
   TargetKey,
 } from "./Catalog";
@@ -20,10 +24,35 @@ export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
  * @category Blueprint
  * @since 1.0.0
  */
-export const BlueprintTargetNode = Schema.TaggedStruct("target", {
+const EncodedBlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
+  architecture: Schema.optional(ArchitectureId),
+  layout: Schema.optional(ResolvedTargetLayout),
+  context: Schema.optional(ContextMetadata),
 });
+
+const ResolvedBlueprintTargetNode = Schema.TaggedStruct("target", {
+  id: TargetKey,
+  identity: TargetIdentity,
+  architecture: ArchitectureId,
+  layout: ResolvedTargetLayout,
+  context: Schema.optional(ContextMetadata),
+});
+
+export const BlueprintTargetNode = EncodedBlueprintTargetNode.pipe(
+  Schema.decodeTo(Schema.toType(ResolvedBlueprintTargetNode), {
+    decode: SchemaGetter.transform((node) => ({
+      ...node,
+      architecture: node.architecture ?? ClassicArchitecture,
+      layout: node.layout ?? {
+        path: node.identity.toPath(),
+        packageName: node.identity.toPackageName(),
+      },
+    })),
+    encode: SchemaGetter.transform((node) => node),
+  }),
+);
 
 /**
  * Represents a module attached to a specific target in the blueprint graph.
@@ -87,6 +116,11 @@ const BlueprintFields = Schema.Struct({
       duplicates(Arr.map(blueprint.edges, (edge) => edge.id)),
       (id) => `Blueprint edge id must be unique: ${id}`,
     );
+    const targetNodes = blueprint.nodes.filter(BlueprintNode.guards.target);
+    const duplicateLayoutPaths = Arr.map(
+      duplicates(Arr.map(targetNodes, (node) => node.layout.path)),
+      (path) => `Blueprint resolved target layout path must be unique: ${path}`,
+    );
     const targetIdentityIssues = blueprint.nodes.flatMap((node) =>
       node._tag === "target" && node.id !== node.identity.toKey()
         ? [
@@ -144,6 +178,7 @@ const BlueprintFields = Schema.Struct({
     return [
       ...duplicateNodeIds,
       ...duplicateEdgeIds,
+      ...duplicateLayoutPaths,
       ...targetIdentityIssues,
       ...attachedModuleIssues,
       ...contradictoryOwnershipIssues,
