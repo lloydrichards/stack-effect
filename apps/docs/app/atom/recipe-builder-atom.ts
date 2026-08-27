@@ -37,6 +37,7 @@ class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
 ) {}
 
 export type CatalogAtomRequest = {
+  readonly architecture?: typeof import("@repo/domain/Catalog").ArchitectureId.Type;
   readonly targetIdentityKey: string;
   readonly targets: ReadonlyArray<{
     readonly id: string;
@@ -54,6 +55,9 @@ export const catalogAtom = RecipeBuilderClient.runtime.fn(
     const client = yield* RecipeBuilderClient;
     const catalog = yield* client("catalog", {
       owners: request.targets.map(({ owner }) => owner),
+      ...(request.architecture === undefined
+        ? {}
+        : { architecture: request.architecture }),
     });
     return { request, catalog } as const;
   }),

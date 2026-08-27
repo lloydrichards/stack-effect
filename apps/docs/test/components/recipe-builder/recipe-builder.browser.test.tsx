@@ -7,6 +7,10 @@ import type {
   PreviewAtomRequest,
 } from "../../../app/atom/recipe-builder-atom";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
+import {
+  dddRecipeCatalogFixture,
+  recipeCatalogFixture,
+} from "./recipe-fixtures";
 
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
@@ -18,6 +22,12 @@ const workerCalls = vi.hoisted(() => ({
     complete: () => void;
   }>,
   deferPreviews: false,
+  previewRequests: [] as Array<PreviewAtomRequest>,
+  previewTargets: [] as Array<{
+    readonly kind: string;
+    readonly name: string;
+    readonly architecture?: string;
+  }>,
   pendingPreviews: [] as Array<{
     complete: () => void;
   }>,
@@ -36,17 +46,24 @@ vi.mock("~/hooks/use-copy-to-clipboard", () => ({
 }));
 
 vi.mock("../../../app/atom/recipe-builder-atom", async () => {
-  const [{ Effect }, { Atom }, { recipeCatalogFixture }] = await Promise.all([
+  const [
+    { Effect },
+    { Atom },
+    { dddRecipeCatalogFixture, recipeCatalogFixture },
+  ] = await Promise.all([
     import("effect"),
     import("effect/unstable/reactivity"),
     import("./recipe-fixtures"),
   ]);
   const previewFor = ({ input }: PreviewAtomRequest) => {
-    const targets = input.recipe.targets.map(({ target, modules }) => ({
-      identity: target,
-      modules: modules.map((id) => ({ id })),
-    }));
-    const blueprintTargets = targets.map(({ identity }) => ({
+    const targets = input.recipe.targets.map(
+      ({ target, modules, architecture }) => ({
+        identity: target,
+        modules: modules.map((id) => ({ id })),
+        ...(architecture === undefined ? {} : { architecture }),
+      }),
+    );
+    const blueprintTargets = targets.map(({ identity, architecture }) => ({
       _tag: "target" as const,
       id:
         identity.kind === "workspace"
@@ -55,7 +72,15 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             ? `packages/${identity.name}`
             : `apps/${identity.kind}-${identity.name}`,
       identity,
+      ...(architecture === undefined ? {} : { architecture }),
     }));
+    workerCalls.previewTargets.push(
+      ...targets.map(({ identity, architecture }) => ({
+        kind: identity.kind,
+        name: identity.name,
+        ...(architecture === undefined ? {} : { architecture }),
+      })),
+    );
     return {
       command: `bunx stack-effect create ${input.config.name}`,
       selection: { targets },
@@ -82,37 +107,41 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             message: "Catalog enrichment failed.",
           });
         }
+        const fixture =
+          request.architecture === "ddd"
+            ? dddRecipeCatalogFixture
+            : recipeCatalogFixture;
         const requestedOwners = new Set(
           request.targets.map(({ owner }) => owner.toKey()),
         );
         const requestedTargetModules = request.targets.map(({ owner }) => ({
           owner,
           modules:
-            recipeCatalogFixture.targetModules.find(
+            fixture.targetModules.find(
               (entry) => entry.owner.toKey() === owner.toKey(),
             )?.modules ??
-            recipeCatalogFixture.targetModules.find(
+            fixture.targetModules.find(
               (entry) => entry.owner.kind === owner.kind,
             )?.modules ??
             [],
         }));
         const catalog = {
-          ...recipeCatalogFixture,
+          ...fixture,
           targetModules: workerCalls.reconcileModules
             ? request.targets.map(({ owner }) => ({
                 owner,
                 modules:
                   owner.kind === "client-react"
-                    ? [
-                        recipeCatalogFixture.targetModules[0]?.modules[0],
-                      ].filter((module) => module !== undefined)
-                    : (recipeCatalogFixture.targetModules.find(
+                    ? [fixture.targetModules[0]?.modules[0]].filter(
+                        (module) => module !== undefined,
+                      )
+                    : (fixture.targetModules.find(
                         (entry) => entry.owner.kind === owner.kind,
                       )?.modules ?? []),
               }))
             : [
                 ...requestedTargetModules,
-                ...recipeCatalogFixture.targetModules.filter(
+                ...fixture.targetModules.filter(
                   (entry) => !requestedOwners.has(entry.owner.toKey()),
                 ),
               ],
@@ -133,6 +162,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
     ),
     previewAtom: Atom.fn((request: PreviewAtomRequest) =>
       Effect.suspend(() => {
+        workerCalls.previewRequests.push(request);
         if (!workerCalls.deferPreviews) {
           return Effect.succeed({ request, preview: previewFor(request) });
         }
@@ -156,6 +186,8 @@ beforeEach(() => {
   workerCalls.catalogRequests = [];
   workerCalls.pendingIdentityCatalogs = [];
   workerCalls.deferPreviews = false;
+  workerCalls.previewRequests = [];
+  workerCalls.previewTargets = [];
   workerCalls.pendingPreviews = [];
   analytics.trackEvent.mockClear();
 });
@@ -187,6 +219,20 @@ function RecipeBuilderLocationProbe() {
     </>
   );
 }
+
+test("keeps the DDD fixture projection separate from Classic database modules", () => {
+  expect(
+    recipeCatalogFixture.targetModules.some(
+      ({ owner }) => owner.kind === "package" && owner.name === "db",
+    ),
+  ).toBe(true);
+  expect(
+    dddRecipeCatalogFixture.targetModules.some(
+      ({ owner }) => owner.kind === "package" && owner.name === "db",
+    ),
+  ).toBe(false);
+  expect(JSON.stringify(dddRecipeCatalogFixture)).not.toContain("db-sql");
+});
 
 test("should leave an invalid shared recipe URL visible without previewing a fallback", async () => {
   await renderRecipeBuilder("/builder?target=server/api:");
@@ -241,6 +287,161 @@ test("should generate a usable preview when the user completes a valid Selection
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+});
+
+test("should render shared DDD availability, implication provenance, and live preview facets", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("radio", { name: /Domain-Driven Design/u }).click();
+  await expect.element(page.getByText("Todo HTTP · server/api")).toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        /apps\/server-api · packages\/shared\/domain · packages\/todo\/domain · packages\/todo\/application · packages\/todo\/infrastructure · packages\/todo\/presentation/u,
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "Memory is always included and is the default. SQLite and PostgreSQL are optional additive selections.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/runnable PostgreSQL support is included/u))
+    .not.toBeInTheDocument();
+  await page.getByRole("button", { name: "Client React Application" }).click();
+
+  await expect
+    .element(
+      page.getByText(
+        "Classic only. DDD currently supports the Todo HTTP client and Todo HTTP API.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "Select a supported Todo HTTP module or use Classic architecture.",
+      ),
+    )
+    .toBeVisible();
+
+  await page.getByText("Todo HTTP Client", { exact: true }).click();
+  await expect
+    .element(page.getByRole("heading", { name: "Resolution preview" }))
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(/selected client-react\/web:client-react-http-api-todos/u),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(/implied server\/api:server-http-api-todos/u).first(),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/source client-react\/web/u).first())
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(/The DDD Todo client requires the Todo HTTP API/u).first(),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", { name: "Normalized Recipe and Selection" }),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/"recipe": \{\s*"targets":/u))
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/"database": "none"/u))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("heading", { name: "Blueprint" }))
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("heading", { name: "Dependency and implication graph" }),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Package graph" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Prospective files" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Command" }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("heading", { name: "Prospective stack config" }))
+    .toBeVisible();
+  expect(workerCalls.catalogRequests.at(-1)).toMatchObject({
+    architecture: "ddd",
+    targets: expect.arrayContaining([
+      expect.objectContaining({
+        owner: expect.objectContaining({ kind: "server", name: "api" }),
+      }),
+    ]),
+  });
+
+  const expectProviderRequest = async (modules: ReadonlyArray<string>) => {
+    await expect
+      .poll(() => workerCalls.previewRequests.at(-1))
+      .toMatchObject({
+        input: {
+          recipe: {
+            targets: expect.arrayContaining([
+              {
+                target: { kind: "server", name: "api" },
+                architecture: "ddd",
+                modules,
+              },
+            ]),
+          },
+        },
+      });
+  };
+  await page.getByRole("button", { name: "SQLite" }).click();
+  await expectProviderRequest([
+    "server-http-api-todos",
+    "server-http-api-todos-provider-sqlite",
+  ]);
+  await page.getByRole("button", { name: "PostgreSQL" }).click();
+  await expectProviderRequest([
+    "server-http-api-todos",
+    "server-http-api-todos-provider-sqlite",
+    "server-http-api-todos-provider-postgres",
+  ]);
+  expect(workerCalls.previewTargets).toContainEqual({
+    kind: "server",
+    name: "api",
+    architecture: "ddd",
+  });
+  await page.getByRole("button", { name: "SQLite" }).click();
+  await expectProviderRequest([
+    "server-http-api-todos",
+    "server-http-api-todos-provider-postgres",
+  ]);
+  await page.getByRole("button", { name: "PostgreSQL" }).click();
+  await expectProviderRequest(["server-http-api-todos"]);
+});
+
+test("should bind DDD database providers to the canonical server/api target", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("radio", { name: /Domain-Driven Design/u }).click();
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByText("Todo HTTP Client", { exact: true }).click();
+
+  await expect
+    .element(page.getByRole("button", { name: "SQLite" }))
     .toBeEnabled();
 });
 

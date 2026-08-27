@@ -1,7 +1,11 @@
 "use client";
 
 import { useAtom } from "@effect/atom-react";
-import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  ArchitectureId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import {
@@ -80,8 +84,10 @@ export function useRecipeBuilderWorker(
       }
     | undefined
   >(undefined);
-  const { targets } = values;
-  const targetIdentityKey = targets.map(ownerKey).join("\u0000");
+  const { architecture, targets } = values;
+  const targetIdentityKey = [architecture, ...targets.map(ownerKey)].join(
+    "\u0000",
+  );
   const catalogResult = useMemo(
     () => AsyncResult.map(catalogRequestResult, ({ catalog }) => catalog),
     [catalogRequestResult],
@@ -111,6 +117,7 @@ export function useRecipeBuilderWorker(
   useEffect(() => {
     if (!enabled) return;
     const request = {
+      architecture: ArchitectureId.make(architecture),
       targetIdentityKey,
       targets: [
         ...targets.map(({ id, kind, name }) => ({
@@ -130,7 +137,7 @@ export function useRecipeBuilderWorker(
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
     // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
-  }, [enabled, requestCatalog, targetIdentityKey]);
+  }, [architecture, enabled, requestCatalog, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(
     (result: typeof catalogRequestResult) => {

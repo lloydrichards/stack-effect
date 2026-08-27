@@ -1,4 +1,9 @@
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  DddArchitecture,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
@@ -61,6 +66,21 @@ export const ownerKey = (owner: {
   readonly name: string;
 }): string => `${owner.kind}/${owner.name}`;
 
+export const dddProviderModules = [
+  "server-http-api-todos-provider-sqlite",
+  "server-http-api-todos-provider-postgres",
+] as const;
+
+export const canonicalizeDddModules = (modules: ReadonlyArray<string>) => {
+  const selected = new Set(modules);
+  return [
+    ...modules.filter(
+      (module) => !dddProviderModules.includes(module as never),
+    ),
+    ...dddProviderModules.filter((module) => selected.has(module)),
+  ].filter((module, index, all) => all.indexOf(module) === index);
+};
+
 export type SupportConfiguration = {
   readonly owner: { readonly kind: string; readonly name: string };
   readonly parentId: string;
@@ -77,6 +97,7 @@ export interface SupportSelection
 
 const RecipeBuilderFormFields = Schema.Struct({
   config: StackConfigurationSchema,
+  architecture: Schema.Literals(["classic", "ddd"]),
   database: Schema.Literals(["none", "sqlite", "postgres"]),
   gitEnabled: Schema.Boolean,
   developerExperienceModules: Schema.Array(Schema.String),
@@ -123,6 +144,7 @@ export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
     format: stackConfigDefaults.format,
     test: stackConfigDefaults.test,
   },
+  architecture: "classic",
   database: "none",
   gitEnabled: true,
   developerExperienceModules: [],
@@ -210,7 +232,13 @@ export function toRecipePreviewInput(
             kind: TargetKind.make(target.kind),
             name: target.name,
           }),
-          modules: target.modules.map((id) => ModuleId.make(id)),
+          modules: (values.architecture === "ddd"
+            ? canonicalizeDddModules(target.modules)
+            : target.modules
+          ).map((id) => ModuleId.make(id)),
+          ...(values.architecture === "ddd"
+            ? { architecture: DddArchitecture }
+            : {}),
         })),
       ],
     },

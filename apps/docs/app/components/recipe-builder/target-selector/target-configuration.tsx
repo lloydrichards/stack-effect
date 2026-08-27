@@ -66,6 +66,10 @@ export function TargetConfiguration({
   targets,
 }: TargetConfigurationProps) {
   const form = useRecipeBuilderFormContext();
+  const architecture = useSelector(
+    form.store,
+    (state) => state.values.architecture,
+  );
   const database = useSelector(form.store, (state) => state.values.database);
   const modules =
     catalog?.targetModules.find(
@@ -93,11 +97,15 @@ export function TargetConfiguration({
     kind: target.kind,
     name: target.name,
   };
-  const getDisabledReason = (module: typeof CatalogModule.Type) =>
-    database === "none" &&
-    moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
+  const getDisabledReason = (module: typeof CatalogModule.Type) => {
+    if (module.availability?.enabled === false)
+      return `${module.availability.reason} ${module.availability.action}`;
+    return architecture === "classic" &&
+      database === "none" &&
+      moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
       ? "Select a database to enable this module."
       : undefined;
+  };
   return (
     <section className="p-4 md:p-5">
       <div className="border-b pb-5">

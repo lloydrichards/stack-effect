@@ -34,9 +34,12 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
             ),
           );
       }),
-      catalog: Effect.fnUntraced(function* ({ owners }) {
+      catalog: Effect.fnUntraced(function* ({ owners, architecture }) {
         const projection = yield* catalogs
-          .toBuilderCatalog(owners)
+          .toBuilderCatalog({
+            owners,
+            ...(architecture === undefined ? {} : { architecture }),
+          })
           .pipe(
             Effect.mapError((error) =>
               makeRecipeBuilderRpcFailure("catalog", error),

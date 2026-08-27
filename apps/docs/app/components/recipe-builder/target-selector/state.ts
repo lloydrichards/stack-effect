@@ -219,13 +219,19 @@ function addModuleImplications(
       (candidate) => candidate.kind === implication.targetKind,
     );
     if (definition === undefined) return current;
-    const matchingTargets = current.filter(
-      (target) => target.kind === definition.kind,
+    const matchingTargets = current.filter((target) =>
+      implication.target
+        ? target.kind === implication.target.kind &&
+          target.name === implication.target.name
+        : target.kind === definition.kind,
     );
     if (matchingTargets.length > 1) return current;
     const existingTarget = matchingTargets[0];
     const name =
-      existingTarget?.name ?? definition.defaultName ?? definition.kind;
+      implication.target?.name ??
+      existingTarget?.name ??
+      definition.defaultName ??
+      definition.kind;
     const moduleAlreadySelected =
       existingTarget?.modules.includes(implication.moduleId) ?? false;
     const moduleWasDependencyAdded =

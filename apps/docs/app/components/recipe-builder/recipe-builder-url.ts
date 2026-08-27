@@ -1,6 +1,7 @@
 import { encodeRecipeTargetSpecs, RecipeTargetString } from "@repo/scaffold";
 import { Array as Arr, Option, Schema } from "effect";
 import {
+  canonicalizeDddModules,
   initialRecipeBuilderValues,
   RecipeBuilderFormSchema,
   type RecipeBuilderFormValues,
@@ -12,6 +13,7 @@ const defaults = initialRecipeBuilderValues.config;
 
 const RecipeUrlSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
+  architecture: Schema.optional(Schema.Literal("ddd")),
   target: Schema.Array(RecipeTargetString),
   runtime: Schema.optional(Schema.Literals(["bun", "node"])),
   packageManager: Schema.optional(Schema.Literals(["bun", "pnpm", "npm"])),
@@ -34,6 +36,7 @@ const RecipeUrlSchema = Schema.Struct({
 
 const scalarRecipeParameters = [
   "name",
+  "architecture",
   "runtime",
   "package-manager",
   "typescript",
@@ -135,12 +138,16 @@ const toInitialValues = (
   const formTargets: ReadonlyArray<TargetInstance> = targets
     .filter((target) => target.target.kind !== "workspace")
     .flatMap((target, index) => {
-      const modules = target.modules
+      const decodedModules = target.modules
         .map(String)
         .filter(
           (module) =>
             module !== "package-db-sqlite" && module !== "package-db-postgres",
         );
+      const modules =
+        recipe.architecture === "ddd"
+          ? canonicalizeDddModules(decodedModules)
+          : decodedModules;
       return modules.length === 0 &&
         target.target.kind === "package" &&
         target.target.name === "db"
@@ -154,8 +161,10 @@ const toInitialValues = (
             },
           ];
     });
+  if (recipe.architecture === "ddd" && database !== "none") return undefined;
   const decoded = Schema.decodeOption(RecipeBuilderFormSchema)({
     config,
+    architecture: recipe.architecture ?? "classic",
     database,
     gitEnabled: !recipe.noGit,
     developerExperienceModules: workspaceModules.filter(
@@ -189,6 +198,7 @@ export const decodeRecipeBuilderUrl = (
   }
   const decoded = decodeUrl({
     name: searchParams.get("name") ?? undefined,
+    architecture: searchParams.get("architecture") ?? undefined,
     target: searchParams.getAll("target"),
     runtime: searchParams.get("runtime") ?? undefined,
     packageManager: searchParams.get("package-manager") ?? undefined,
@@ -202,7 +212,10 @@ export const decodeRecipeBuilderUrl = (
   if (Option.isNone(decoded)) {
     return { ...invalidRecipeUrl, initialValues: initialRecipeBuilderValues };
   }
-  if (hasDuplicateModules(decoded.value.target)) {
+  if (
+    decoded.value.architecture !== "ddd" &&
+    hasDuplicateModules(decoded.value.target)
+  ) {
     return { ...invalidRecipeUrl, initialValues: initialRecipeBuilderValues };
   }
   const initialValues = toInitialValues(decoded.value);
@@ -230,6 +243,7 @@ export const encodeRecipeBuilderUrl = (
   );
 
   params.set("name", values.config.name);
+  if (values.architecture === "ddd") params.set("architecture", "ddd");
   encodeRecipeTargetSpecs(targets)
     .sort()
     .forEach((target) => params.append("target", target));

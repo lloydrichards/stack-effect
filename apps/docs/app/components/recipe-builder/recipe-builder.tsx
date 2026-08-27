@@ -9,6 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { trackEvent } from "~/lib/analytics";
 import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
+import { ArchitectureSelector } from "./architecture-selector";
 import { DatabaseSelector } from "./database-selector";
 import {
   RecipeBuilderProvider,
@@ -18,6 +19,7 @@ import {
   useRecipeBuilderUrl,
 } from "./recipe-builder-context";
 import { RepositoryExplorer } from "./repository-explorer";
+import { ResolutionPreview } from "./resolution-preview";
 import { StackConfigurator } from "./stack-configurator";
 import { TargetSelector } from "./target-selector";
 
@@ -122,6 +124,10 @@ function RecipeBuilderContent() {
           </div>
 
           <div className="min-w-0">
+            <ArchitectureSelector />
+          </div>
+
+          <div className="min-w-0">
             <DatabaseSelector />
           </div>
 
@@ -136,6 +142,8 @@ function RecipeBuilderContent() {
           </div>
         </div>
       </div>
+
+      {import.meta.env.DEV ? <ResolutionPreview /> : null}
 
       <CommandDock
         summary={

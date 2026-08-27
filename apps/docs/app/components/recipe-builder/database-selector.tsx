@@ -4,6 +4,7 @@ import { useSelector } from "@tanstack/react-form";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
+import { dddProviderModules } from "./form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -24,6 +25,10 @@ const moduleTitleList = new Intl.ListFormat("en", {
 export function DatabaseSelector() {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogOwnersByTargetId } = useRecipeBuilderCatalog();
+  const architecture = useSelector(
+    form.store,
+    (state) => state.values.architecture,
+  );
   const database = useSelector(form.store, (state) => state.values.database);
   const targets = useSelector(form.store, (state) => state.values.targets);
   const selectedModules = targets.flatMap((target) => {
@@ -71,6 +76,12 @@ export function DatabaseSelector() {
     ? `Remove ${moduleTitleList.format(databaseRequirementTitles)} to choose None.`
     : "Database-backed modules become available after you select a database.";
   const selectedLabel = choices.find(({ value }) => value === database)?.label;
+  const todoApi = targets.find(
+    ({ kind, name }) => kind === "server" && name === "api",
+  );
+  const selectedProviders = dddProviderModules.filter((module) =>
+    todoApi?.modules.includes(module),
+  );
 
   return (
     <DisclosurePanel
@@ -86,34 +97,83 @@ export function DatabaseSelector() {
       <div className="p-4 md:p-5">
         <Field>
           <FieldLabel id="database-provider-label">SQL provider</FieldLabel>
-          <ToggleGroup
-            aria-labelledby="database-provider-label"
-            value={[database]}
-            variant="outline"
-            className="grid w-full grid-cols-3"
-            onValueChange={(values) => {
-              const value = values[0] ?? database;
-              if (
-                value === "none" ||
-                value === "sqlite" ||
-                value === "postgres"
-              ) {
-                form.setFieldValue("database", value);
-              }
-            }}
-          >
-            {choices.map((choice) => (
+          {architecture === "ddd" ? (
+            <ToggleGroup
+              aria-labelledby="database-provider-label"
+              multiple
+              value={[...selectedProviders]}
+              variant="outline"
+              className="grid w-full grid-cols-2"
+              onValueChange={(values) => {
+                if (!todoApi) return;
+                form.setFieldValue(
+                  "targets",
+                  targets.map((target) =>
+                    target.id === todoApi.id
+                      ? {
+                          ...target,
+                          modules: [
+                            ...target.modules.filter(
+                              (module) =>
+                                !dddProviderModules.includes(module as never),
+                            ),
+                            ...dddProviderModules.filter((module) =>
+                              values.includes(module),
+                            ),
+                          ],
+                        }
+                      : target,
+                  ),
+                );
+              }}
+            >
               <ToggleGroupItem
-                key={choice.value}
-                value={choice.value}
-                className="w-full"
-                disabled={choice.value === "none" && databaseRequired}
+                value={dddProviderModules[0]}
+                disabled={!todoApi}
               >
-                {choice.label}
+                SQLite
               </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <FieldDescription>{databaseRequirementMessage}</FieldDescription>
+              <ToggleGroupItem
+                value={dddProviderModules[1]}
+                disabled={!todoApi}
+              >
+                PostgreSQL
+              </ToggleGroupItem>
+            </ToggleGroup>
+          ) : (
+            <ToggleGroup
+              aria-labelledby="database-provider-label"
+              value={[database]}
+              variant="outline"
+              className="grid w-full grid-cols-3"
+              onValueChange={(values) => {
+                const value = values[0] ?? database;
+                if (
+                  value === "none" ||
+                  value === "sqlite" ||
+                  value === "postgres"
+                )
+                  form.setFieldValue("database", value);
+              }}
+            >
+              {choices.map((choice) => (
+                <ToggleGroupItem
+                  key={choice.value}
+                  value={choice.value}
+                  disabled={choice.value === "none" && databaseRequired}
+                >
+                  {choice.label}
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          )}
+          <FieldDescription>
+            {architecture === "ddd"
+              ? todoApi
+                ? "Memory is always included and is the default. Durable providers are additive."
+                : "Memory is always included. Add server/api to select durable providers."
+              : databaseRequirementMessage}
+          </FieldDescription>
         </Field>
       </div>
     </DisclosurePanel>

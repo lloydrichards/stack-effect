@@ -124,6 +124,62 @@ const clientTodoModuleFixture = makeCatalogModule({
   children: [],
 });
 
+const dddServerHttpModuleFixture = makeCatalogModule({
+  id: "server-http-api",
+  title: "HTTP API Server",
+  description: "REST API server with DDD shared-domain composition",
+  visibility: "public",
+  architecture: "ddd",
+  supportedArchitectures: ["ddd"],
+  dependencies: [
+    {
+      _tag: "required-module",
+      target: { kind: "package", name: "shared-domain" },
+      moduleId: "package-shared-domain",
+      architecture: "ddd",
+    },
+  ],
+  implies: [],
+  children: [],
+});
+
+const dddServerTodoModuleFixture = makeCatalogModule({
+  id: "server-http-api-todos",
+  title: "Todo HTTP API",
+  description: "DDD Todo HTTP API with an in-memory baseline",
+  visibility: "public",
+  architecture: "ddd",
+  supportedArchitectures: ["ddd"],
+  dependencies: [
+    {
+      _tag: "required-module",
+      target: { kind: "server", name: "api" },
+      moduleId: "server-http-api",
+    },
+  ],
+  implies: [],
+  children: [],
+});
+
+const dddClientTodoModuleFixture = makeCatalogModule({
+  id: "client-react-http-api-todos",
+  title: "Todo HTTP Client",
+  description: "DDD Todo HTTP client backed by the canonical HTTP API",
+  visibility: "public",
+  architecture: "ddd",
+  supportedArchitectures: ["ddd"],
+  dependencies: [],
+  implies: [
+    {
+      targetKind: "server",
+      target: { kind: "server", name: "api" },
+      moduleId: dddServerTodoModuleFixture.id,
+      reason: "The DDD Todo client requires the Todo HTTP API.",
+    },
+  ],
+  children: [],
+});
+
 export const clientTargetFixture: TargetInstance = {
   id: "client-1",
   kind: "client-react",
@@ -231,6 +287,54 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   },
 });
 
+export const dddRecipeCatalogFixture = Schema.decodeUnknownSync(
+  RecipeBuilderCatalog,
+)({
+  targets: [
+    {
+      kind: "client-react",
+      title: "Client React Application",
+      description: "A frontend application built with React",
+      defaultName: "web",
+      requiredModules: ["config-typescript-vite"],
+      supportedArchitectures: ["ddd"],
+    },
+    {
+      kind: "server",
+      title: "Server Application",
+      description: "A backend application, such as an API server",
+      defaultName: "api",
+      requiredModules: ["server-http-api"],
+      supportedArchitectures: ["ddd"],
+    },
+  ],
+  targetModules: [
+    {
+      owner: { kind: "client-react", name: "web" },
+      modules: [
+        configTypescriptViteModuleFixture,
+        makeCatalogModule({
+          ...clientModuleFixture,
+          availability: {
+            enabled: false,
+            code: "unsupported-architecture",
+            reason:
+              "Classic only. DDD currently supports the Todo HTTP client and Todo HTTP API.",
+            action:
+              "Select a supported Todo HTTP module or use Classic architecture.",
+          },
+        }),
+        dddClientTodoModuleFixture,
+      ],
+    },
+    {
+      owner: { kind: "server", name: "api" },
+      modules: [dddServerHttpModuleFixture, dddServerTodoModuleFixture],
+    },
+  ],
+  configuration: recipeCatalogFixture.configuration,
+});
+
 export const fullStackRecipeFixture: RecipeBuilderFormValues = {
   config: {
     name: "full-stack-app",
@@ -242,6 +346,7 @@ export const fullStackRecipeFixture: RecipeBuilderFormValues = {
     test: "vitest",
   },
   gitEnabled: true,
+  architecture: "classic",
   database: "none",
   developerExperienceModules: [],
   targets: [

@@ -1,4 +1,6 @@
 import {
+  ArchitectureId,
+  ClassicArchitecture,
   ModuleDefinition,
   TargetDefinition,
   TargetIdentity,
@@ -7,8 +9,23 @@ import {
   RecipePreview,
   RecipePreviewInput,
 } from "@repo/scaffold/recipe-preview";
-import { Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/unstable/rpc";
+
+const ContributionDescriptor = Schema.Struct({
+  _tag: Schema.Literals([
+    "file",
+    "pkg-json-entry",
+    "json-array-entry",
+    "yaml-sequence-entry",
+    "barrel-export",
+    "ts-call-arg",
+    "ts-object-field",
+    "jsx-slot",
+  ]),
+  path: Schema.String,
+  field: Schema.optional(Schema.String),
+});
 
 const CatalogChoice = Schema.Struct({
   title: ModuleDefinition.fields.title,
@@ -21,9 +38,37 @@ export const CatalogModule = Schema.Struct({
   title: ModuleDefinition.fields.title,
   description: ModuleDefinition.fields.description,
   visibility: Schema.requiredKey(ModuleDefinition.fields.visibility.schema),
+  architecture: ArchitectureId.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed(ClassicArchitecture)),
+  ),
+  supportedOn: ModuleDefinition.fields.supportedOn.pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
   dependencies: ModuleDefinition.fields.dependencies,
   implies: Schema.requiredKey(ModuleDefinition.fields.implies.schema),
+  contributions: Schema.Array(ContributionDescriptor).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([])),
+  ),
   children: Schema.requiredKey(ModuleDefinition.fields.children.schema),
+  supportedArchitectures: Schema.Array(ArchitectureId).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed([ClassicArchitecture])),
+  ),
+  availability: Schema.Union([
+    Schema.Struct({ enabled: Schema.Literal(true) }),
+    Schema.Struct({
+      enabled: Schema.Literal(false),
+      code: Schema.Literals(["unsupported-architecture", "unsupported-owner"]),
+      reason: Schema.String,
+      action: Schema.String,
+    }),
+  ]).pipe(
+    Schema.optionalKey,
+    Schema.withConstructorDefault(Effect.succeed({ enabled: true as const })),
+  ),
 });
 
 export const RecipeBuilderCatalog = Schema.Struct({
@@ -35,6 +80,10 @@ export const RecipeBuilderCatalog = Schema.Struct({
       defaultName: TargetDefinition.fields.defaultName,
       requiredModules: Schema.requiredKey(
         TargetDefinition.fields.requiredModules.schema,
+      ),
+      supportedArchitectures: Schema.Array(ArchitectureId).pipe(
+        Schema.optionalKey,
+        Schema.withConstructorDefault(Effect.succeed([ClassicArchitecture])),
       ),
     }),
   ),
@@ -85,7 +134,10 @@ export class RecipeBuilderRpc extends RpcGroup.make(
     error: RecipeBuilderRpcFailure,
   }),
   Rpc.make("catalog", {
-    payload: { owners: Schema.Array(TargetIdentity) },
+    payload: {
+      owners: Schema.Array(TargetIdentity),
+      architecture: Schema.optional(ArchitectureId),
+    },
     success: RecipeBuilderCatalog,
     error: RecipeBuilderRpcFailure,
   }),
