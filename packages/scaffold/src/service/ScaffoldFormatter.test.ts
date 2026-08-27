@@ -1,6 +1,11 @@
 import { describe, expect, layer } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  ClassicArchitecture,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { Effect, String } from "effect";
 import { Box } from "effect-boxes";
@@ -15,6 +20,17 @@ const serverApiIdentity = new TargetIdentity({
   name: "api",
 });
 
+const classicTarget = (identity: TargetIdentity) => ({
+  _tag: "target" as const,
+  id: identity.toKey(),
+  identity,
+  architecture: ClassicArchitecture,
+  layout: {
+    path: identity.toPath(),
+    packageName: identity.toPackageName(),
+  },
+});
+
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
@@ -27,11 +43,7 @@ const makeUnsortedBlueprint = () =>
         targetId: domainIdentity.toKey(),
         moduleId: ModuleId.make("domain-api-contracts"),
       },
-      {
-        _tag: "target",
-        id: domainIdentity.toKey(),
-        identity: domainIdentity,
-      },
+      classicTarget(domainIdentity),
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
@@ -41,11 +53,7 @@ const makeUnsortedBlueprint = () =>
         targetId: serverApiIdentity.toKey(),
         moduleId: ModuleId.make("server-http-api"),
       },
-      {
-        _tag: "target",
-        id: serverApiIdentity.toKey(),
-        identity: serverApiIdentity,
-      },
+      classicTarget(serverApiIdentity),
     ],
     edges: [
       {

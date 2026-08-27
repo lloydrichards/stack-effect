@@ -2,6 +2,7 @@ import { CatalogService } from "@repo/catalog";
 import { Apply, ApplyFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
+import { DddArchitecture } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
@@ -77,6 +78,25 @@ export class RecipePreviewService extends Context.Service<
       }).pipe(
         Effect.provide(PlanService.layer.pipe(Layer.provide(fileSystemLayer))),
       );
+      const dddPreview = selection.targets.some(
+        (target) => target.architecture === "ddd",
+      );
+      if (dddPreview) {
+        yield* fileSystem
+          .writeFileString(
+            path.join(workspaceRoot, "pnpm-workspace.yaml"),
+            "packages:\n  - apps/*\n  - packages/*\n",
+          )
+          .pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyFailure({
+                  reason: "executionFailure",
+                  message: `Could not initialize DDD workspace preview: ${error.message}`,
+                }),
+            ),
+          );
+      }
       const apply = new Apply({ plan, decisions: [] });
       const applied = yield* Effect.gen(function* () {
         const previews = yield* ApplyPreviewService;
@@ -86,8 +106,18 @@ export class RecipePreviewService extends Context.Service<
           ApplyPreviewService.layer.pipe(Layer.provide(fileSystemLayer)),
         ),
       );
+      const previewConfig = dddPreview
+        ? new StackConfig({
+            ...config,
+            targets: blueprint.nodes.flatMap((node) =>
+              node._tag === "target" && node.architecture === "ddd"
+                ? [{ identity: node.identity, architecture: DddArchitecture }]
+                : [],
+            ),
+          })
+        : config;
       const encodedConfig = yield* Schema.encodeEffect(StackConfig)(
-        config,
+        previewConfig,
       ).pipe(
         Effect.mapError(
           (error) =>

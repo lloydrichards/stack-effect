@@ -73,6 +73,7 @@ const applyJsonOperation = (
     "json-pkg-deps": (o) => assignPackageJsonEntries(pkg, o.section, o.entries),
     "json-pkg-scripts": (o) =>
       assignPackageJsonEntries(pkg, "scripts", o.entries),
+    "json-array-entry": (o) => assignArrayEntry(pkg, o.field, o.value),
   })(op);
 
 const assignPackageJsonEntries = (
@@ -101,3 +102,24 @@ const assignPackageJsonEntries = (
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
+
+const assignArrayEntry = (
+  pkg: Record<string, unknown>,
+  field: string,
+  value: string,
+): Effect.Effect<void, ApplyFailure> =>
+  Effect.gen(function* () {
+    const existing = pkg[field];
+    if (
+      existing !== undefined &&
+      (!Array.isArray(existing) ||
+        !existing.every((entry) => typeof entry === "string"))
+    )
+      return yield* new ApplyFailure({
+        reason: "repoRootInvalid",
+        message: `Expected package.json field "${field}" to be a string array during apply.`,
+      });
+    pkg[field] = Arr.contains((existing ?? []) as ReadonlyArray<string>, value)
+      ? existing
+      : [...((existing ?? []) as ReadonlyArray<string>), value];
+  });

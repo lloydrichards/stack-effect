@@ -37,6 +37,7 @@ interface RecipeServiceShape {
 type CollectedRecipeTarget = {
   readonly identity: TargetIdentity;
   readonly modules: ReadonlyArray<typeof ModuleId.Type>;
+  readonly architecture?: RecipeTargetSpec["architecture"];
 };
 
 const quoteShellArg = (value: string) =>
@@ -137,6 +138,7 @@ const mergeTargets = (
         {
           identity: target.identity,
           modules: Arr.dedupe(target.modules),
+          architecture: target.architecture,
         },
       ];
     }
@@ -146,6 +148,7 @@ const mergeTargets = (
         ? {
             identity: candidate.identity,
             modules: Arr.dedupe([...candidate.modules, ...target.modules]),
+            architecture: candidate.architecture ?? target.architecture,
           }
         : candidate,
     );
@@ -157,6 +160,7 @@ const toSelection = (
   targets: Arr.map(targets, (target) => ({
     identity: target.identity,
     modules: Arr.map(target.modules, (id) => ({ id })),
+    architecture: target.architecture,
   })),
 });
 
@@ -165,6 +169,7 @@ const selectionTargetToRecipeTargetSpec = (
 ): RecipeTargetSpec => ({
   target: target.identity,
   modules: Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
+  architecture: target.architecture,
 });
 
 const selectionIncludesWorkspaceModule = (
@@ -208,10 +213,78 @@ export class RecipeService extends Context.Service<
             options.config,
             target.target,
           );
-          return { identity, modules: target.modules };
+          return {
+            identity,
+            modules: target.modules,
+            architecture: target.architecture,
+          };
         }),
       );
+      const expandImplications = (
+        targets: ReadonlyArray<CollectedRecipeTarget>,
+      ): Effect.Effect<ReadonlyArray<CollectedRecipeTarget>, RecipeError> =>
+        Effect.gen(function* () {
+          const merged = mergeTargets(targets);
+          const implications = yield* Effect.forEach(
+            merged,
+            (source) =>
+              Effect.gen(function* () {
+                const modules = yield* Effect.forEach(
+                  source.modules,
+                  (moduleId) =>
+                    catalog
+                      .resolveModule(moduleId, source.architecture)
+                      .pipe(
+                        Effect.catchTag("CatalogNotFound", () =>
+                          Effect.succeed(undefined),
+                        ),
+                      ),
+                );
+                return Arr.flatMap(modules, (module) =>
+                  Arr.map(module?.implies ?? [], (implication) => ({
+                    source,
+                    implication,
+                  })),
+                );
+              }),
+            { concurrency: 1 },
+          );
+          const additions = yield* Effect.forEach(
+            Arr.flatten(implications),
+            ({ source, implication }) =>
+              Effect.gen(function* () {
+                const identity =
+                  implication.target ??
+                  merged.find(
+                    (candidate) =>
+                      candidate.identity.kind === implication.targetKind,
+                  )?.identity ??
+                  (yield* resolveTargetIdentity(
+                    catalog,
+                    options.config,
+                    new TargetIdentity({
+                      kind: implication.targetKind,
+                      name: "",
+                    }),
+                  ));
+                return {
+                  identity,
+                  modules: [implication.moduleId],
+                  architecture: source.architecture,
+                };
+              }),
+          );
+          const expanded = mergeTargets([...merged, ...additions]);
+          return expanded.length === merged.length &&
+            expanded.every(
+              (target, index) =>
+                target.modules.length === merged[index]?.modules.length,
+            )
+            ? expanded
+            : yield* expandImplications(expanded);
+        });
 
+      const expandedTargets = yield* expandImplications(recipeTargets);
       return toSelection(
         mergeTargets([
           {
@@ -221,7 +294,7 @@ export class RecipeService extends Context.Service<
             }),
             modules: configWorkspaceModules(options.config),
           },
-          ...recipeTargets,
+          ...expandedTargets,
         ]),
       );
     });
@@ -264,6 +337,12 @@ export class RecipeService extends Context.Service<
         "create",
         quoteShellArg(config.name),
         ...targetFlags,
+        ...(Arr.some(
+          selection.targets,
+          (target) => target.architecture === "ddd",
+        )
+          ? ["--architecture", "ddd"]
+          : []),
         ...(config.runtime._tag === defaults.runtime._tag
           ? []
           : ["--runtime", "node"]),

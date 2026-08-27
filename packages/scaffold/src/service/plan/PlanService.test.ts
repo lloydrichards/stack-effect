@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  ClassicArchitecture,
+  DddArchitecture,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import {
   type Plan,
   PlanFailure,
@@ -10,6 +16,7 @@ import {
 } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
+import { BlueprintService } from "../blueprint/BlueprintService";
 import { ContributionResolver } from "./ContributionResolver";
 import { PlanAssessor } from "./PlanAssessor";
 import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
@@ -26,6 +33,17 @@ const serverApiIdentity = new TargetIdentity({
   name: "api",
 });
 
+const classicTarget = (identity: TargetIdentity) => ({
+  _tag: "target" as const,
+  id: identity.toKey(),
+  identity,
+  architecture: ClassicArchitecture,
+  layout: {
+    path: identity.toPath(),
+    packageName: identity.toPackageName(),
+  },
+});
+
 const makeRepoSnapshotServiceLayer = (
   load: (args: {
     readonly paths: ReadonlyArray<string>;
@@ -39,14 +57,7 @@ const makeRepoSnapshotServiceLayer = (
 const makeDomainBlueprint = () =>
   new Blueprint({
     nodes: [
-      {
-        _tag: "target",
-        id: domainIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
-      },
+      classicTarget(domainIdentity),
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
@@ -73,14 +84,7 @@ const makeDomainBlueprint = () =>
 const makeServerApiBlueprint = () =>
   new Blueprint({
     nodes: [
-      {
-        _tag: "target",
-        id: serverApiIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("server"),
-          name: "api",
-        }),
-      },
+      classicTarget(serverApiIdentity),
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
@@ -90,14 +94,7 @@ const makeServerApiBlueprint = () =>
         targetId: serverApiIdentity.toKey(),
         moduleId: ModuleId.make("server-http-api"),
       },
-      {
-        _tag: "target",
-        id: domainIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
-      },
+      classicTarget(domainIdentity),
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(
@@ -243,6 +240,228 @@ describe("PlanService", () => {
       }),
   );
 
+  describe("real catalog architecture integration", () => {
+    it.effect(
+      "keeps DDD workspace composition and nested modules on their owning targets while Classic stays flat",
+      () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const planService = yield* PlanService;
+          const selection = (architecture?: typeof DddArchitecture) => ({
+            targets: [
+              {
+                identity: new TargetIdentity({
+                  kind: TargetKind.make("server"),
+                  name: architecture === DddArchitecture ? "api" : "todo",
+                }),
+                ...(architecture === undefined ? {} : { architecture }),
+                modules: [
+                  { id: ModuleId.make("server-http-api-todos") },
+                  ...(architecture === DddArchitecture
+                    ? [
+                        {
+                          id: ModuleId.make(
+                            "server-http-api-todos-provider-sqlite",
+                          ),
+                        },
+                        {
+                          id: ModuleId.make(
+                            "server-http-api-todos-provider-postgres",
+                          ),
+                        },
+                      ]
+                    : []),
+                ],
+              },
+              ...(architecture === undefined
+                ? [
+                    {
+                      identity: new TargetIdentity({
+                        kind: TargetKind.make("package"),
+                        name: "db",
+                      }),
+                      modules: [{ id: ModuleId.make("package-db-sqlite") }],
+                    },
+                  ]
+                : []),
+            ],
+          });
+          const build = (blueprint: typeof Blueprint.Type) =>
+            planService.build({
+              blueprint,
+              repoRoot: testRepoRoot,
+              config: new StackConfig({
+                name: "test-project",
+                runtime: { _tag: "bun" },
+              }),
+            });
+
+          const dddBlueprint = yield* blueprintService.resolve(
+            selection(DddArchitecture),
+          );
+          const dddPlan = yield* build(dddBlueprint);
+          expect(getOutcome(dddPlan, "package.json")).toMatchObject({
+            _tag: "composed",
+            operations: expect.arrayContaining([
+              {
+                _tag: "json-array-entry",
+                fileType: "json",
+                field: "workspaces",
+                value: "packages/*/*",
+              },
+            ]),
+          });
+          expect(getOutcome(dddPlan, "pnpm-workspace.yaml")).toMatchObject({
+            _tag: "composed",
+            operations: [
+              {
+                _tag: "yaml-sequence-entry",
+                fileType: "yaml",
+                key: "packages",
+                value: "packages/*/*",
+              },
+            ],
+          });
+          const attached = dddBlueprint.nodes.filter(
+            (node) => node._tag === "attached-module",
+          );
+          expect(
+            attached.filter(
+              (node) => node.moduleId === "workspace-context-packages",
+            ),
+          ).toEqual([expect.objectContaining({ targetId: "." })]);
+          for (const [moduleId, targetId] of [
+            ["package-todo-domain", "packages/todo-domain"],
+            ["package-todo-application", "packages/todo-application"],
+            ["package-todo-infrastructure", "packages/todo-infrastructure"],
+            ["package-todo-presentation-http", "packages/todo-presentation"],
+          ] as const) {
+            expect(
+              attached.filter((node) => node.moduleId === moduleId),
+            ).toEqual([expect.objectContaining({ targetId })]);
+          }
+          const dddTargets = dddBlueprint.nodes
+            .filter((node) => node._tag === "target")
+            .filter((node) => node.identity.kind !== "workspace")
+            .map((node) => ({
+              id: node.id,
+              architecture: node.architecture,
+              path: node.layout.path,
+              packageName: node.layout.packageName,
+            }));
+          expect(dddTargets).toHaveLength(6);
+          expect(dddTargets).toEqual(
+            expect.arrayContaining([
+              {
+                id: "apps/server-api",
+                architecture: "ddd",
+                path: "apps/server-api",
+                packageName: "server-api",
+              },
+              {
+                id: "packages/shared-domain",
+                architecture: "ddd",
+                path: "packages/shared/domain",
+                packageName: "@repo/shared-domain",
+              },
+              {
+                id: "packages/todo-domain",
+                architecture: "ddd",
+                path: "packages/todo/domain",
+                packageName: "@repo/todo-domain",
+              },
+              {
+                id: "packages/todo-application",
+                architecture: "ddd",
+                path: "packages/todo/application",
+                packageName: "@repo/todo-application",
+              },
+              {
+                id: "packages/todo-infrastructure",
+                architecture: "ddd",
+                path: "packages/todo/infrastructure",
+                packageName: "@repo/todo-infrastructure",
+              },
+              {
+                id: "packages/todo-presentation",
+                architecture: "ddd",
+                path: "packages/todo/presentation",
+                packageName: "@repo/todo-presentation",
+              },
+            ]),
+          );
+          expect(
+            dddBlueprint.nodes.some(
+              (node) =>
+                node._tag === "attached-module" &&
+                [
+                  "domain-todo-rpc-contracts",
+                  "package-db-todo-repository",
+                ].includes(node.moduleId),
+            ),
+          ).toBe(false);
+          [
+            "packages/todo/domain/test/http.test.ts",
+            "packages/todo/domain/test/todo.test.ts",
+            "packages/todo/application/test/use-cases.test.ts",
+            "packages/todo/infrastructure/test/memory.test.ts",
+            "packages/todo/infrastructure/test/sqlite.test.ts",
+            "packages/todo/presentation/test/http.test.ts",
+          ].forEach((path) => expect(getOutcome(dddPlan, path)).toBeDefined());
+          expect(
+            dddPlan.outcomes.some(
+              (outcome) =>
+                outcome.path.includes("/src/") &&
+                outcome.path.endsWith(".test.ts"),
+            ),
+          ).toBe(false);
+          expect(
+            dddBlueprint.nodes.some(
+              (node) =>
+                node._tag === "target" &&
+                ["packages/domain", "packages/db"].includes(node.id),
+            ),
+          ).toBe(false);
+
+          const classicBlueprint = yield* blueprintService.resolve(selection());
+          const classicPlan = yield* build(classicBlueprint);
+          expect(
+            classicPlan.outcomes.some(
+              (outcome) =>
+                outcome._tag === "composed" &&
+                outcome.operations.some(
+                  (op) =>
+                    op._tag === "json-array-entry" ||
+                    op._tag === "yaml-sequence-entry",
+                ),
+            ),
+          ).toBe(false);
+          expect(
+            classicBlueprint.nodes.some(
+              (node) =>
+                node._tag === "target" &&
+                node.id === "apps/server-todo" &&
+                node.layout.path === "apps/server-todo",
+            ),
+          ).toBe(true);
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              BlueprintService.layer,
+              makePlanServiceLayer(({ paths }) =>
+                Effect.succeed({
+                  paths: paths.map((path) => ({
+                    _tag: "missing" as const,
+                    path,
+                  })),
+                }),
+              ),
+            ),
+          ),
+        ),
+    );
+  });
+
   describe("when building target plans", () => {
     it.effect(
       "should classify projected target and module files as create when they are missing",
@@ -300,11 +519,7 @@ describe("PlanService", () => {
     const makeChatServerOnlyBlueprint = () =>
       new Blueprint({
         nodes: [
-          {
-            _tag: "target",
-            id: serverApiIdentity.toKey(),
-            identity: serverApiIdentity,
-          },
+          classicTarget(serverApiIdentity),
           {
             _tag: "attached-module",
             id: toAttachedModuleNodeId(
@@ -398,11 +613,7 @@ const HttpRpcRouter = Layer.empty;
           });
           const blueprint = new Blueprint({
             nodes: [
-              {
-                _tag: "target",
-                id: serverApiIdentity.toKey(),
-                identity: serverApiIdentity,
-              },
+              classicTarget(serverApiIdentity),
               {
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
@@ -412,11 +623,7 @@ const HttpRpcRouter = Layer.empty;
                 targetId: serverApiIdentity.toKey(),
                 moduleId: ModuleId.make("server-ws-presence"),
               },
-              {
-                _tag: "target",
-                id: domainIdentity.toKey(),
-                identity: domainIdentity,
-              },
+              classicTarget(domainIdentity),
               {
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
@@ -426,11 +633,7 @@ const HttpRpcRouter = Layer.empty;
                 targetId: domainIdentity.toKey(),
                 moduleId: ModuleId.make("domain-ws-contracts"),
               },
-              {
-                _tag: "target",
-                id: presenceIdentity.toKey(),
-                identity: presenceIdentity,
-              },
+              classicTarget(presenceIdentity),
               {
                 _tag: "attached-module",
                 id: toAttachedModuleNodeId(
@@ -624,11 +827,7 @@ const HttpRpcRouter = Layer.empty;
     const makeAiBlueprint = () =>
       new Blueprint({
         nodes: [
-          {
-            _tag: "target",
-            id: aiIdentity.toKey(),
-            identity: aiIdentity,
-          },
+          classicTarget(aiIdentity),
           {
             _tag: "attached-module",
             id: toAttachedModuleNodeId(

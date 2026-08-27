@@ -3,10 +3,12 @@ import {
   CompositionOperation,
   type JsonCompositionOperation,
   type TypeScriptCompositionOperation,
+  YamlSequenceEntryOp,
 } from "@repo/domain/Plan";
 import { Array, Context, Effect, Layer } from "effect";
 import { JsonComposer } from "./JsonComposer";
 import { TypeScriptComposer } from "./TypeScriptComposer";
+import { YamlComposer } from "./YamlComposer";
 
 const isJsonOp = (
   op: typeof CompositionOperation.Type,
@@ -31,6 +33,7 @@ export class CompositionEngine extends Context.Service<
   make: Effect.gen(function* () {
     const jsonComposer = yield* JsonComposer;
     const typeScriptComposer = yield* TypeScriptComposer;
+    const yamlComposer = yield* YamlComposer;
 
     return {
       compose: Effect.fn(function* (
@@ -48,10 +51,19 @@ export class CompositionEngine extends Context.Service<
             ? yield* jsonComposer.compose(contents, jsonOps)
             : contents;
 
+        const yamlOps = Array.filter(
+          operations,
+          (op): op is typeof YamlSequenceEntryOp.Type => op.fileType === "yaml",
+        );
+        const yamlComposed =
+          path.endsWith(".yaml") && yamlOps.length > 0
+            ? yield* yamlComposer.compose(jsonComposed, yamlOps)
+            : jsonComposed;
+
         const tsOps = Array.filter(operations, isTypeScriptOp);
         return isTypeScriptFile(path) && tsOps.length > 0
-          ? yield* typeScriptComposer.compose(jsonComposed, tsOps)
-          : jsonComposed;
+          ? yield* typeScriptComposer.compose(yamlComposed, tsOps)
+          : yamlComposed;
       }),
     } satisfies CompositionEngineShape;
   }),
@@ -61,6 +73,7 @@ export class CompositionEngine extends Context.Service<
   ).pipe(
     Layer.provide(JsonComposer.layer),
     Layer.provide(TypeScriptComposer.layer),
+    Layer.provide(YamlComposer.layer),
     Layer.satisfiesServicesType<never>(),
   );
 }

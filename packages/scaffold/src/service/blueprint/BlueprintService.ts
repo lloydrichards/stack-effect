@@ -8,9 +8,13 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import {
+  type ArchitectureId,
+  ClassicArchitecture,
+  type ContextMetadata,
   ModuleDependency,
   type ModuleId,
   type TargetIdentity,
+  TargetPath,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import {
@@ -50,7 +54,17 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         yield* validateSelection(selection, catalog);
 
         const state = yield* resolveSelection(selection, catalog);
-        const finalState = yield* Ref.get(state);
+        const closedState = yield* Ref.get(state);
+        const resolvedTargets = yield* Effect.forEach(
+          Arr.fromIterable(HashMap.values(closedState.targets)),
+          (target) => resolveTargetLayout(target, closedState, catalog),
+        );
+        const finalState = {
+          ...closedState,
+          targets: HashMap.fromIterable(
+            resolvedTargets.map((target) => [target.id, target]),
+          ),
+        };
 
         const blueprint = yield* Blueprint.makeEffect({
           nodes: [
@@ -97,7 +111,16 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       }
 
       selectedTargetKeys.add(targetKey);
-      const targetDefinition = yield* catalog.getTarget(target.identity.kind);
+      const architecture = target.architecture ?? ClassicArchitecture;
+      const targetDefinition = yield* catalog.resolveTarget(
+        target.identity.kind,
+        architecture,
+      );
+      if (targetDefinition === undefined) {
+        throw new BlueprintFailure({
+          message: `Unsupported architecture ${architecture} for ${targetKey}`,
+        });
+      }
 
       const selectedModuleIds = new Set<typeof ModuleId.Type>();
 
@@ -122,11 +145,18 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         const isSupported = yield* catalog.isSupportedOn(
           moduleId,
           target.identity,
+          architecture,
         );
+        const resolvedModule = isSupported
+          ? yield* catalog.resolveModule(moduleId, architecture)
+          : undefined;
 
-        if (!isSupported) {
+        if (!isSupported || resolvedModule === undefined) {
           throw new BlueprintFailure({
-            message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
+            message:
+              architecture === "ddd"
+                ? `DDD currently supports only server/api with Todo HTTP (server-http-api-todos); ${moduleId} is Classic-only.`
+                : `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
           });
         }
       }
@@ -147,21 +177,45 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       edges: HashMap.empty(),
     });
 
-    const ensureTarget = Effect.fn(function* (identity: TargetIdentity) {
+    const ensureTarget = Effect.fn(function* (
+      identity: TargetIdentity,
+      architecture: typeof ArchitectureId.Type = ClassicArchitecture,
+    ) {
       const current = yield* Ref.get(stateRef).pipe(
         Effect.map((s) => HashMap.get(s.targets, identity.toKey())),
       );
 
       if (Option.isSome(current)) {
+        if (current.value.architecture !== architecture) {
+          throw new BlueprintFailure({
+            message: `Conflicting architecture for ${identity.toKey()}: ${current.value.architecture} and ${architecture}`,
+          });
+        }
         return current.value;
       }
 
-      yield* catalog.getTarget(identity.kind);
+      const definition = yield* catalog.resolveTarget(
+        identity.kind,
+        architecture,
+      );
+      if (definition === undefined) {
+        throw new BlueprintFailure({
+          message:
+            architecture === "ddd"
+              ? `DDD currently supports only server/api with Todo HTTP; target ${identity.toKey()} is Classic-only.`
+              : `Unsupported architecture ${architecture} for ${identity.toKey()}`,
+        });
+      }
 
       const next: typeof BlueprintTargetNode.Type = {
         _tag: "target",
         id: identity.toKey(),
         identity,
+        architecture,
+        layout: {
+          path: identity.toPath(),
+          packageName: identity.toPackageName(),
+        },
       };
 
       yield* Ref.update(stateRef, (s) => ({
@@ -175,8 +229,13 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     const ensureModuleSupportedOn = Effect.fn(function* (
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
+      architecture: typeof ArchitectureId.Type,
     ) {
-      const isSupported = yield* catalog.isSupportedOn(moduleId, target);
+      const isSupported = yield* catalog.isSupportedOn(
+        moduleId,
+        target,
+        architecture,
+      );
 
       if (!isSupported) {
         throw new BlueprintFailure({
@@ -188,6 +247,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     const ensureAttachedModule: (
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
+      architecture?: typeof ArchitectureId.Type,
     ) => Effect.Effect<
       typeof BlueprintAttachedModuleNode.Type,
       BlueprintFailure | CatalogNotFound,
@@ -195,10 +255,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     > = Effect.fn(function* (
       target: TargetIdentity,
       moduleId: typeof ModuleId.Type,
+      architecture = ClassicArchitecture,
     ) {
-      yield* ensureModuleSupportedOn(target, moduleId);
+      yield* ensureModuleSupportedOn(target, moduleId, architecture);
 
-      const targetState = yield* ensureTarget(target);
+      const targetState = yield* ensureTarget(target, architecture);
       const attachedModuleNodeId = toAttachedModuleNodeId(
         targetState.id,
         moduleId,
@@ -212,7 +273,15 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         return current.value;
       }
 
-      const definition = yield* catalog.getModule(moduleId);
+      const definition = yield* catalog.resolveModule(moduleId, architecture);
+      if (definition === undefined) {
+        throw new BlueprintFailure({
+          message:
+            architecture === "ddd"
+              ? `DDD currently supports only server/api with Todo HTTP (server-http-api-todos); ${moduleId} is Classic-only.`
+              : `Unsupported architecture ${architecture} for module ${moduleId}`,
+        });
+      }
       const attachedOnTarget = yield* Ref.get(stateRef).pipe(
         Effect.map((state) =>
           Arr.filter(
@@ -273,7 +342,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         yield* ModuleDependency.match(dependency, {
           "required-target": (dep) =>
             Effect.gen(function* () {
-              const requiredTarget = yield* ensureTarget(dep.identity);
+              const dependencyArchitecture = dep.architecture ?? architecture;
+              const requiredTarget = yield* ensureTarget(
+                dep.identity,
+                dependencyArchitecture,
+              );
 
               yield* appendEdge(stateRef, {
                 id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
@@ -291,7 +364,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
                   : dep.target;
 
               // NOTE: Required modules emit both target and module edges so graph consumers can see the full closure.
-              const requiredTarget = yield* ensureTarget(dependencyTarget);
+              const dependencyArchitecture = dep.architecture ?? architecture;
+              const requiredTarget = yield* ensureTarget(
+                dependencyTarget,
+                dependencyArchitecture,
+              );
 
               yield* appendEdge(stateRef, {
                 id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
@@ -303,6 +380,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
               const requiredModule = yield* ensureAttachedModule(
                 dependencyTarget,
                 dep.moduleId,
+                dependencyArchitecture,
               );
 
               yield* appendEdge(stateRef, {
@@ -346,7 +424,11 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
                 });
               }
 
-              const requiredTarget = yield* ensureTarget(dependencyTarget);
+              const dependencyArchitecture = dep.architecture ?? architecture;
+              const requiredTarget = yield* ensureTarget(
+                dependencyTarget,
+                dependencyArchitecture,
+              );
               yield* appendEdge(stateRef, {
                 id: `required-target=>${attachedModuleNodeId}=>${requiredTarget.id}`,
                 from: attachedModuleNodeId,
@@ -357,6 +439,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
               const provider = yield* ensureAttachedModule(
                 dependencyTarget,
                 providerDefinition.id,
+                dependencyArchitecture,
               );
               yield* appendEdge(stateRef, {
                 id: `required-module=>${attachedModuleNodeId}=>${provider.id}`,
@@ -372,9 +455,17 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
     });
 
     for (const target of selection.targets) {
-      yield* ensureTarget(target.identity);
+      const architecture = target.architecture ?? ClassicArchitecture;
+      yield* ensureTarget(target.identity, architecture);
 
-      const targetDefinition = yield* catalog.getTarget(target.identity.kind);
+      const targetDefinition = yield* catalog.resolveTarget(
+        target.identity.kind,
+        architecture,
+      );
+      if (targetDefinition === undefined)
+        throw new BlueprintFailure({
+          message: `Unsupported architecture ${architecture} for ${target.identity.toKey()}`,
+        });
       const moduleIds = Arr.fromIterable(
         new Set([
           ...Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
@@ -383,11 +474,75 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       );
 
       for (const moduleId of moduleIds) {
-        yield* ensureAttachedModule(target.identity, moduleId);
+        yield* ensureAttachedModule(target.identity, moduleId, architecture);
       }
     }
 
     return stateRef;
+  },
+);
+
+const resolveTargetLayout = Effect.fn("BlueprintService.resolveTargetLayout")(
+  function* (
+    target: typeof BlueprintTargetNode.Type,
+    state: ResolutionState,
+    catalog: typeof CatalogService.Service,
+  ) {
+    const definition = yield* catalog.resolveTarget(
+      target.identity.kind,
+      target.architecture,
+    );
+    if (definition === undefined)
+      throw new BlueprintFailure({
+        message: `Unsupported architecture ${target.architecture} for ${target.id}`,
+      });
+    const attached = Arr.filter(
+      HashMap.values(state.attachedModules),
+      (node) => node.targetId === target.id,
+    );
+    const contexts: ReadonlyArray<typeof ContextMetadata.Type | undefined> =
+      yield* Effect.forEach(attached, (node) =>
+        catalog
+          .resolveModule(node.moduleId, target.architecture)
+          .pipe(Effect.map((module) => module?.context)),
+      );
+    const owners = Arr.dedupeWith(
+      Arr.filter(
+        contexts,
+        (context): context is typeof ContextMetadata.Type =>
+          context !== undefined,
+      ),
+      (left: typeof ContextMetadata.Type, right: typeof ContextMetadata.Type) =>
+        left.id === right.id && left.role === right.role,
+    );
+    if (owners.length > 1)
+      throw new BlueprintFailure({
+        message: `Conflicting context ownership for ${target.id}`,
+      });
+    const context = owners[0];
+    const layoutDefinition =
+      "layout" in definition
+        ? definition.layout
+        : definition.architecture?.layout;
+    if (layoutDefinition?._tag !== "template")
+      return { ...target, ...(context === undefined ? {} : { context }) };
+    if (layoutDefinition.requiresContext && context === undefined)
+      throw new BlueprintFailure({
+        message: `Missing context ownership for ${target.id}`,
+      });
+    const replace = (value: string) =>
+      value
+        .replaceAll("{{targetName}}", target.identity.name)
+        .replaceAll("{{contextId}}", context?.id ?? "")
+        .replaceAll("{{contextRole}}", context?.role ?? "");
+    return {
+      ...target,
+      ...(context === undefined ? {} : { context }),
+      layout: {
+        path: TargetPath.make(replace(layoutDefinition.path)),
+        packageName: replace(layoutDefinition.packageName),
+      },
+    };
   },
 );
 

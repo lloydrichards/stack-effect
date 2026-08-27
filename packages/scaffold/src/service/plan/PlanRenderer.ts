@@ -67,6 +67,14 @@ const renderOperation = (
         .join("\n");
       return `In \`${path}\`, add these scripts:\n${entries}`;
     }),
+    Match.tag(
+      "json-array-entry",
+      (o) => `In \`${path}\`, append \`${o.value}\` to "${o.field}"`,
+    ),
+    Match.tag(
+      "yaml-sequence-entry",
+      (o) => `In \`${path}\`, append \`${o.value}\` to "${o.key}"`,
+    ),
     Match.tag("ts-add-import", (o) => {
       const specifiers = o.namedImports
         ? `{ ${o.namedImports.join(", ")} }`

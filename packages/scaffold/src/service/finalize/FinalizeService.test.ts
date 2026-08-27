@@ -2,11 +2,15 @@ import { describe, expect, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import {
+  ClassicArchitecture,
+  ContextId,
+  DddArchitecture,
   type ModuleDefinition,
   ModuleId,
   type TargetDefinition,
   TargetIdentity,
   TargetKind,
+  TargetPath,
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
@@ -41,9 +45,20 @@ const makeConfig = (config: typeof StackConfig.Type = bunConfig) => ({
 
 const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
 
+const classicTarget = (identity: TargetIdentity) => ({
+  _tag: "target" as const,
+  id: identity.toKey(),
+  identity,
+  architecture: ClassicArchitecture,
+  layout: {
+    path: identity.toPath(),
+    packageName: identity.toPackageName(),
+  },
+});
+
 const singleTargetBlueprint = (identity: TargetIdentity) =>
   new Blueprint({
-    nodes: [{ _tag: "target", id: identity.toKey(), identity }],
+    nodes: [classicTarget(identity)],
     edges: [],
   });
 
@@ -53,7 +68,7 @@ const targetWithModule = (
 ) =>
   new Blueprint({
     nodes: [
-      { _tag: "target", id: identity.toKey(), identity },
+      classicTarget(identity),
       {
         _tag: "attached-module",
         id: toAttachedModuleNodeId(identity.toKey(), moduleId),
@@ -316,6 +331,133 @@ describe("FinalizeService", () => {
                     command:
                       "{{packageManager}} run build --cwd {{targetPath}}",
                   },
+                ],
+              },
+            },
+          }),
+        ),
+      ),
+    );
+
+    it.effect(
+      "resolves every target and module script field with its owning resolved node and preserves order",
+      () =>
+        Effect.gen(function* () {
+          const moduleId = ModuleId.make("todo-module");
+          const target = {
+            _tag: "target" as const,
+            id: serverIdentity.toKey(),
+            identity: serverIdentity,
+            architecture: DddArchitecture,
+            layout: {
+              path: TargetPath.make("apps/todo"),
+              packageName: "@repo/todo-app",
+            },
+            context: { id: ContextId.make("todo"), role: "host" as const },
+          };
+          const blueprint = new Blueprint({
+            nodes: [
+              target,
+              {
+                _tag: "attached-module" as const,
+                id: toAttachedModuleNodeId(target.id, moduleId),
+                targetId: target.id,
+                moduleId,
+              },
+            ],
+            edges: [
+              {
+                id: `owns-module=>${target.id}=>${toAttachedModuleNodeId(target.id, moduleId)}`,
+                from: target.id,
+                to: toAttachedModuleNodeId(target.id, moduleId),
+                reason: "owns-module",
+              },
+            ],
+          });
+          const svc = yield* FinalizeService;
+
+          const scripts = yield* svc.preview(blueprint, makeConfig());
+          const executables = yield* svc.run(blueprint, makeConfig());
+
+          expect(scripts.slice(0, 2)).toEqual([
+            {
+              label: "target todo ddd host @repo/todo-app",
+              command: "echo apps/todo todo",
+              phase: "finalize",
+              origin: "target: server",
+            },
+            {
+              label: "module todo ddd host",
+              command: "echo @repo/todo-app apps/todo",
+              phase: "finalize",
+              origin: "module: todo-module",
+            },
+          ]);
+          expect(
+            executables.slice(0, 2).map(({ script }) => script.workdir),
+          ).toEqual(["apps/todo/host", "apps/todo"]);
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              targets: {
+                server: {
+                  scripts: [
+                    {
+                      label:
+                        "target {{contextId}} {{architecture}} {{contextRole}} {{packageName}}",
+                      command: "echo {{targetPath}} {{contextId}}",
+                      workdir: "{{targetPath}}/{{contextRole}}",
+                    },
+                  ],
+                },
+              },
+              modules: {
+                "todo-module": {
+                  scripts: [
+                    {
+                      label:
+                        "module {{contextId}} {{architecture}} {{contextRole}}",
+                      command: "echo {{packageName}} {{targetPath}}",
+                      workdir: "{{targetPath}}",
+                    },
+                  ],
+                },
+              },
+            }),
+          ),
+        ),
+    );
+
+    it.effect("preserves omitted scripts and resolves ordered next steps", () =>
+      Effect.gen(function* () {
+        const moduleId = ModuleId.make("next-steps");
+        const blueprint = targetWithModule(serverIdentity, moduleId);
+        const svc = yield* FinalizeService;
+
+        const scripts = yield* svc.preview(blueprint, makeConfig());
+        const nextSteps = yield* svc.collectNextSteps(blueprint, makeConfig());
+
+        expect(scripts.map(({ label }) => label)).toEqual([
+          "Install dependencies",
+        ]);
+        expect(nextSteps).toEqual([
+          "target apps/server-api server-api classic",
+          "module apps/server-api server-api classic",
+        ]);
+      }).pipe(
+        Effect.provide(
+          makeFinalizeLayer([], {
+            targets: {
+              server: {
+                nextSteps: [
+                  "target {{targetPath}} {{packageName}} {{architecture}}",
+                ],
+              },
+            },
+            modules: {
+              "next-steps": {
+                nextSteps: [
+                  "module {{targetPath}} {{packageName}} {{architecture}}",
                 ],
               },
             },

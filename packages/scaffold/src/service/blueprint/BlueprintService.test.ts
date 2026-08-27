@@ -6,7 +6,12 @@ import {
   CatalogNotFound,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  DddArchitecture,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { Cause, Effect, Exit } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
@@ -222,6 +227,145 @@ describe("BlueprintService", () => {
                 }),
               ]),
             );
+          }),
+      );
+    });
+
+    describe("when resolving architecture variants", () => {
+      it.effect("resolves the complete DDD Todo physical layout", () =>
+        Effect.gen(function* () {
+          const service = yield* BlueprintService;
+          const blueprint = yield* service.resolve({
+            targets: [
+              {
+                identity: new TargetIdentity({
+                  kind: TargetKind.make("server"),
+                  name: "api",
+                }),
+                architecture: DddArchitecture,
+                modules: [
+                  { id: ModuleId.make("server-http-api-todos") },
+                  {
+                    id: ModuleId.make("server-http-api-todos-provider-sqlite"),
+                  },
+                  {
+                    id: ModuleId.make(
+                      "server-http-api-todos-provider-postgres",
+                    ),
+                  },
+                ],
+              },
+            ],
+          });
+
+          const dddTargets = blueprint.nodes
+            .filter((node) => node._tag === "target")
+            .filter((node) => node.identity.kind !== "workspace")
+            .map((node) => ({
+              id: node.id,
+              architecture: node.architecture,
+              path: node.layout.path,
+              packageName: node.layout.packageName,
+            }));
+          expect(dddTargets).toHaveLength(6);
+          expect(dddTargets).toEqual(
+            expect.arrayContaining([
+              {
+                id: "apps/server-api",
+                architecture: "ddd",
+                path: "apps/server-api",
+                packageName: "server-api",
+              },
+              {
+                id: "packages/shared-domain",
+                architecture: "ddd",
+                path: "packages/shared/domain",
+                packageName: "@repo/shared-domain",
+              },
+              {
+                id: "packages/todo-domain",
+                architecture: "ddd",
+                path: "packages/todo/domain",
+                packageName: "@repo/todo-domain",
+              },
+              {
+                id: "packages/todo-application",
+                architecture: "ddd",
+                path: "packages/todo/application",
+                packageName: "@repo/todo-application",
+              },
+              {
+                id: "packages/todo-infrastructure",
+                architecture: "ddd",
+                path: "packages/todo/infrastructure",
+                packageName: "@repo/todo-infrastructure",
+              },
+              {
+                id: "packages/todo-presentation",
+                architecture: "ddd",
+                path: "packages/todo/presentation",
+                packageName: "@repo/todo-presentation",
+              },
+            ]),
+          );
+
+          const closure = blueprint.nodes.map((node) =>
+            node._tag === "target"
+              ? node.identity.toKey()
+              : `${node.targetId}:${node.moduleId}`,
+          );
+          expect(closure).not.toContain("apps/server-todo-api");
+          expect(closure).not.toContain("package/db");
+          expect(closure.some((key) => key.includes("db-sql"))).toBe(false);
+          expect(closure.some((key) => key.includes("package-db"))).toBe(false);
+          expect(
+            closure.filter((key) => key.endsWith(":domain-todo-contracts")),
+          ).toHaveLength(1);
+          expect(
+            getNode(
+              blueprint,
+              toAttachedModuleNodeId(
+                serverApiIdentity.toKey(),
+                ModuleId.make("server-http-api-todos-provider-sqlite"),
+              ),
+            ),
+          ).toMatchObject({ targetId: "apps/server-api" });
+          expect(
+            getNode(
+              blueprint,
+              toAttachedModuleNodeId(
+                serverApiIdentity.toKey(),
+                ModuleId.make("server-http-api-todos-provider-postgres"),
+              ),
+            ),
+          ).toMatchObject({ targetId: "apps/server-api" });
+        }),
+      );
+
+      it.effect(
+        "rejects Classic-only server modules with actionable DDD guidance",
+        () =>
+          Effect.gen(function* () {
+            const service = yield* BlueprintService;
+            const exit = yield* Effect.exit(
+              service.resolve({
+                targets: [
+                  {
+                    identity: new TargetIdentity({
+                      kind: TargetKind.make("server"),
+                      name: "todo-api",
+                    }),
+                    architecture: DddArchitecture,
+                    modules: [{ id: ModuleId.make("server-http-rpc") }],
+                  },
+                ],
+              }),
+            );
+            expect(squashFailure(exit)).toMatchObject({
+              message: expect.stringContaining(
+                "DDD currently supports only server/api with Todo HTTP",
+              ),
+            });
           }),
       );
     });

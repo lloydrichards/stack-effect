@@ -78,6 +78,11 @@ export type PlanningIntentPath = {
   readonly compositions: ReadonlyArray<PlanningIntentComposition>;
   readonly objectFields: ReadonlyArray<PlanningIntentObjectField>;
   readonly jsxSlots: ReadonlyArray<PlanningIntentJsxSlot>;
+  readonly workspaceEntries: ReadonlyArray<{
+    fileType: "json" | "yaml";
+    key: string;
+    value: string;
+  }>;
   readonly tsconfig:
     | {
         path: string;
@@ -257,6 +262,24 @@ function toCompositionOperations(
     });
   }
 
+  for (const entry of planningPath.workspaceEntries) {
+    operations.push(
+      entry.fileType === "json"
+        ? {
+            _tag: "json-array-entry",
+            fileType: "json",
+            field: "workspaces",
+            value: entry.value,
+          }
+        : {
+            _tag: "yaml-sequence-entry",
+            fileType: "yaml",
+            key: "packages",
+            value: entry.value,
+          },
+    );
+  }
+
   return operations;
 }
 
@@ -278,6 +301,7 @@ function assessPlanningPath({
     planningPath.compositions.length > 0 ||
     planningPath.objectFields.length > 0 ||
     planningPath.jsxSlots.length > 0;
+  const hasWorkspaceEntries = planningPath.workspaceEntries.length > 0;
 
   return Match.value({
     hasContents,
@@ -285,7 +309,19 @@ function assessPlanningPath({
     hasBarrelExports,
     hasTsconfig,
     hasCompositions,
+    hasWorkspaceEntries,
   }).pipe(
+    Match.when(
+      {
+        hasContents: true,
+        hasPackageJsonFields: true,
+        hasWorkspaceEntries: true,
+      },
+      () => assessCombinedRootJson(planningPath, snapshotPath),
+    ),
+    Match.when({ hasWorkspaceEntries: true }, () =>
+      assessWorkspaceEntries(planningPath, snapshotPath),
+    ),
     // NOTE: Authoritative content paired with merge operations is planned before pure merge families.
     Match.when({ hasContents: true, hasBarrelExports: true }, () =>
       assessBarrelMerge(planningPath, snapshotPath),
@@ -359,6 +395,80 @@ const assessAuthoritativeContents = (
   }
 
   return createPathAssessment({ classification: "modify" });
+};
+
+const assessWorkspaceEntries = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const contents = getExistingFileContents(planningPath.path, snapshotPath);
+  if (contents === undefined)
+    return createPathAssessment({ classification: "create" });
+
+  const validValues = (
+    entry: PlanningIntentPath["workspaceEntries"][number],
+  ) => {
+    if (entry.fileType === "json") {
+      const document = parseJsonRecord(contents);
+      const value = document?.[entry.key];
+      return Array.isArray(value) &&
+        value.every((item) => typeof item === "string")
+        ? value
+        : undefined;
+    }
+    const lines = contents.replace(/\n$/, "").split("\n");
+    if (
+      lines[0]?.trim() !== `${entry.key}:` ||
+      lines.slice(1).some((line) => !/^\s+-\s+.+$/.test(line))
+    )
+      return undefined;
+    return Arr.map(lines.slice(1), (line) =>
+      line.replace(/^\s+-\s+/, "").replace(/^['\"]|['\"]$/g, ""),
+    );
+  };
+  const values = Arr.map(planningPath.workspaceEntries, validValues);
+  if (Arr.some(values, (value) => value === undefined))
+    return createPathAssessment({
+      classification: "conflict",
+      conflicts: [{ _tag: "completeFile", path: planningPath.path }],
+    });
+  return createPathAssessment({
+    classification: Arr.every(values, (value, index) =>
+      Arr.contains(value!, planningPath.workspaceEntries[index]!.value),
+    )
+      ? "unchanged"
+      : "modify",
+  });
+};
+
+const assessCombinedRootJson = (
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PathAssessment => {
+  const contents = getExistingFileContents(planningPath.path, snapshotPath);
+  if (contents === undefined)
+    return createPathAssessment({ classification: "create" });
+
+  const packageAssessment = planPackageJsonMerge(planningPath, snapshotPath);
+  const workspaceAssessment = assessWorkspaceEntries(
+    planningPath,
+    snapshotPath,
+  );
+  const conflicts = [
+    ...packageAssessment.conflicts,
+    ...workspaceAssessment.conflicts,
+  ];
+
+  return createPathAssessment({
+    classification:
+      conflicts.length > 0
+        ? "conflict"
+        : packageAssessment.classification === "modify" ||
+            workspaceAssessment.classification === "modify"
+          ? "modify"
+          : "unchanged",
+    conflicts,
+  });
 };
 
 const planTsconfigMerge = (

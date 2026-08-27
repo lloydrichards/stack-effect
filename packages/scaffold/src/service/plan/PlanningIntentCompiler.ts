@@ -76,6 +76,12 @@ const PlanningIntentEntry = Schema.TaggedUnion({
     name: Schema.String,
     value: Schema.String,
   },
+  workspaceEntry: {
+    path: Schema.String,
+    fileType: Schema.Literals(["json", "yaml"]),
+    key: Schema.String,
+    value: Schema.String,
+  },
   barrelExport: {
     path: Schema.String,
     exportPath: Schema.String,
@@ -154,6 +160,26 @@ const toPlanningIntentEntries = (
           value: c.value,
         }),
       ],
+      "json-array-entry": (
+        c,
+      ): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.workspaceEntry.make({
+          path: c.path,
+          fileType: "json",
+          key: c.field,
+          value: c.value,
+        }),
+      ],
+      "yaml-sequence-entry": (
+        c,
+      ): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.workspaceEntry.make({
+          path: c.path,
+          fileType: "yaml",
+          key: c.key,
+          value: c.value,
+        }),
+      ],
       "barrel-export": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
         PlanningIntentEntry.cases.barrelExport.make({
           path: c.barrelPath,
@@ -218,6 +244,9 @@ type PlanningIntentEntryGroups = {
   readonly packageJson: ReadonlyArray<
     typeof PlanningIntentEntry.cases.packageJsonEntry.Type
   >;
+  readonly workspace: ReadonlyArray<
+    typeof PlanningIntentEntry.cases.workspaceEntry.Type
+  >;
   readonly barrel: ReadonlyArray<
     typeof PlanningIntentEntry.cases.barrelExport.Type
   >;
@@ -237,6 +266,7 @@ const groupPlanningIntentEntries = (
 ): PlanningIntentEntryGroups => ({
   authoritative: entries.filter(PlanningIntentEntry.guards.authoritative),
   packageJson: entries.filter(PlanningIntentEntry.guards.packageJsonEntry),
+  workspace: entries.filter(PlanningIntentEntry.guards.workspaceEntry),
   barrel: entries.filter(PlanningIntentEntry.guards.barrelExport),
   tsCallArg: entries.filter(PlanningIntentEntry.guards.tsCallArg),
   tsObjectField: entries.filter(PlanningIntentEntry.guards.tsObjectField),
@@ -254,6 +284,7 @@ const emptyCompositionFields = {
   compositions: [],
   objectFields: [],
   jsxSlots: [],
+  workspaceEntries: [],
 };
 
 const makePlanningIntentPath = ({
@@ -264,6 +295,7 @@ const makePlanningIntentPath = ({
   compositions = [],
   objectFields = [],
   jsxSlots = [],
+  workspaceEntries = [],
   tsconfig,
 }: {
   readonly path: string;
@@ -276,6 +308,7 @@ const makePlanningIntentPath = ({
   readonly compositions?: PlanningIntentPath["compositions"];
   readonly objectFields?: PlanningIntentPath["objectFields"];
   readonly jsxSlots?: PlanningIntentPath["jsxSlots"];
+  readonly workspaceEntries?: PlanningIntentPath["workspaceEntries"];
   readonly tsconfig: PlanningIntentPath["tsconfig"];
 }): PlanningIntentPath => ({
   path,
@@ -285,6 +318,7 @@ const makePlanningIntentPath = ({
   compositions,
   objectFields,
   jsxSlots,
+  workspaceEntries,
   tsconfig,
 });
 
@@ -298,6 +332,16 @@ const derivePlanningIntentPath = ({
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ entries, path });
     const groups = groupPlanningIntentEntries(entries);
+
+    yield* groups.workspace.length > 0
+      ? requireSingleValue({
+          values: Arr.map(
+            groups.workspace,
+            (entry) => `${entry.fileType}:${entry.key}`,
+          ),
+          errorMessage: `Conflicting workspace entry outcomes for ${path}.`,
+        })
+      : Effect.void;
 
     const resolveContents = () =>
       requireSingleValue({
@@ -416,6 +460,16 @@ const derivePlanningIntentPath = ({
           });
         }),
       ),
+      Match.when("workspace", () =>
+        Effect.succeed(
+          makePlanningIntentPath({
+            path,
+            contents: undefined,
+            workspaceEntries: groups.workspace,
+            tsconfig: undefined,
+          }),
+        ),
+      ),
       Match.when("barrel", () =>
         Effect.gen(function* () {
           return makePlanningIntentPath({
@@ -447,6 +501,16 @@ const derivePlanningIntentPath = ({
           }),
         ),
       ),
+      Match.when("authoritativeWorkspace", () =>
+        Effect.gen(function* () {
+          return makePlanningIntentPath({
+            path,
+            contents: yield* resolveContents(),
+            workspaceEntries: groups.workspace,
+            tsconfig: undefined,
+          });
+        }),
+      ),
       Match.when("authoritativePackageJson", () =>
         Effect.gen(function* () {
           return makePlanningIntentPath({
@@ -454,6 +518,17 @@ const derivePlanningIntentPath = ({
             contents: yield* resolveContents(),
             packageJsonFields: yield* resolvePackageJsonFields(),
             ...emptyCompositionFields,
+            tsconfig: undefined,
+          });
+        }),
+      ),
+      Match.when("authoritativePackageJsonWorkspace", () =>
+        Effect.gen(function* () {
+          return makePlanningIntentPath({
+            path,
+            contents: yield* resolveContents(),
+            packageJsonFields: yield* resolvePackageJsonFields(),
+            workspaceEntries: groups.workspace,
             tsconfig: undefined,
           });
         }),
@@ -494,7 +569,9 @@ const derivePlanningIntentPath = ({
   });
 
 type CompositePlanningIntentFamily =
+  | "authoritativeWorkspace"
   | "authoritativePackageJson"
+  | "authoritativePackageJsonWorkspace"
   | "authoritativeTsCallArg"
   | "authoritativeBarrel"
   | "authoritativeJsxSlot";
@@ -503,6 +580,7 @@ const COMPOSITE_FAMILIES: ReadonlyArray<{
   pair: [PlanningIntentFamily, PlanningIntentFamily];
   result: CompositePlanningIntentFamily;
 }> = [
+  { pair: ["authoritative", "workspace"], result: "authoritativeWorkspace" },
   {
     pair: ["authoritative", "packageJson"],
     result: "authoritativePackageJson",
@@ -546,6 +624,15 @@ const derivePlanningIntentFamily = ({
     }
   }
 
+  if (
+    families.size === 3 &&
+    families.has("authoritative") &&
+    families.has("packageJson") &&
+    families.has("workspace")
+  ) {
+    return Effect.succeed("authoritativePackageJsonWorkspace" as const);
+  }
+
   return Effect.fail(
     new PlanFailure({
       reason: "invalidPlanIntent",
@@ -557,6 +644,7 @@ const derivePlanningIntentFamily = ({
 type PlanningIntentFamily =
   | "authoritative"
   | "packageJson"
+  | "workspace"
   | "barrel"
   | "tsCallArg"
   | "jsxSlot";
@@ -564,6 +652,7 @@ type PlanningIntentFamily =
 const toPlanningIntentFamily = PlanningIntentEntry.match({
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
+  workspaceEntry: () => "workspace" as const,
   barrelExport: () => "barrel" as const,
   tsCallArg: () => "tsCallArg" as const,
   tsObjectField: () => "tsCallArg" as const,

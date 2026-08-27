@@ -35,6 +35,10 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
   {
     make: Effect.gen(function* () {
       const catalog = yield* CatalogService;
+      const resolveTarget =
+        catalog.resolveTarget ?? ((kind) => catalog.getTarget(kind));
+      const resolveModule =
+        catalog.resolveModule ?? ((id) => catalog.getModule(id));
       const spawner = yield* ChildProcessSpawner;
 
       const collectResolvedScripts = Effect.fn(
@@ -50,16 +54,21 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         );
 
         const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
-          Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
-            const context = createTokenContext(config, node);
-            return Arr.map(scripts ?? [], (s) => ({
-              label: s.label,
-              command: context.resolve(s.command),
-              workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-              phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
-              origin: `target: ${node.identity.kind}`,
-            }));
-          }),
+          Effect.map(
+            resolveTarget(node.identity.kind, node.architecture),
+            (definition) => {
+              if (definition === undefined) return [];
+              const { scripts } = definition;
+              const context = createTokenContext(config, node);
+              return Arr.map(scripts ?? [], (s) => ({
+                label: context.resolve(s.label),
+                command: context.resolve(s.command),
+                workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+                phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+                origin: `target: ${node.identity.kind}`,
+              }));
+            },
+          ),
         ).pipe(Effect.map(Arr.flatten));
 
         const moduleScripts = yield* Effect.forEach(moduleNodes, (moduleNode) =>
@@ -77,10 +86,14 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
               },
             );
 
-            const definition = yield* catalog.getModule(moduleNode.moduleId);
+            const definition = yield* resolveModule(
+              moduleNode.moduleId,
+              targetNode.architecture,
+            );
+            if (definition === undefined) return [];
             const context = createTokenContext(config, targetNode);
             return Arr.map(definition.scripts ?? [], (s) => ({
-              label: s.label,
+              label: context.resolve(s.label),
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
               phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
@@ -149,11 +162,13 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
           );
 
           const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
-            Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
-              resolveNextSteps(
-                definition.nextSteps,
-                createTokenContext(config, node),
-              ),
+            Effect.map(
+              resolveTarget(node.identity.kind, node.architecture),
+              (definition) =>
+                resolveNextSteps(
+                  definition?.nextSteps,
+                  createTokenContext(config, node),
+                ),
             ),
           ).pipe(Effect.map(Arr.flatten));
 
@@ -172,7 +187,11 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
                 },
               );
 
-              const definition = yield* catalog.getModule(moduleNode.moduleId);
+              const definition = yield* resolveModule(
+                moduleNode.moduleId,
+                targetNode.architecture,
+              );
+              if (definition === undefined) return [];
               return resolveNextSteps(
                 definition.nextSteps,
                 createTokenContext(config, targetNode),
@@ -201,6 +220,9 @@ const createTokenContext = (
   new ContributionTokenContext({
     targetKey: target.id,
     identity: target.identity,
+    architecture: target.architecture,
+    layout: target.layout,
+    context: target.context,
     config: config.config,
   });
 
