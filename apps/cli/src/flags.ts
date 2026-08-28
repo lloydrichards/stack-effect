@@ -1,4 +1,4 @@
-import { RecipeTargetString } from "@repo/scaffold";
+import { GIT_HOOK_PROVIDER_VALUES, RecipeTargetString } from "@repo/scaffold";
 import { Effect, Schema } from "effect";
 import { Argument, Flag } from "effect/unstable/cli";
 
@@ -50,6 +50,14 @@ export const yesFlag = Flag.boolean("yes").pipe(
   Flag.withDescription(
     "Skip confirmation prompts (uses defaults where available)",
   ),
+);
+
+export const gitHooksFlag = Flag.choice(
+  "git-hooks",
+  GIT_HOOK_PROVIDER_VALUES,
+).pipe(
+  Flag.optional,
+  Flag.withDescription("Git-hook provider (defaults to none)"),
 );
 
 export const noGitFlag = Flag.boolean("no-git").pipe(

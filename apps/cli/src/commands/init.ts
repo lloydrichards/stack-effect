@@ -6,6 +6,9 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  GIT_HOOK_PROVIDERS,
+  getGitHookProvider,
+  isGitHookProviderEligible,
   RecipeService,
   StackConfigDefaults,
   toWorkspaceToolValue,
@@ -16,6 +19,7 @@ import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import {
   dryRunFlag,
+  gitHooksFlag,
   noGitFlag,
   projectNameArg,
   rootFlag,
@@ -89,6 +93,7 @@ export const init = Command.make(
     showFiles: showFilesFlag,
     runtime: runtimeFlag,
     typescript: typescriptFlag,
+    gitHooks: gitHooksFlag,
     noGit: noGitFlag,
     trust: trustFlag,
   },
@@ -239,6 +244,27 @@ export const init = Command.make(
               initial: true,
             });
 
+      const gitHooks = Option.isSome(flags.gitHooks)
+        ? flags.gitHooks.value
+        : flags.yes || !git
+          ? ("none" as const)
+          : yield* Select({
+              message: "What Git-hook provider will you use?",
+              choices: GIT_HOOK_PROVIDERS.filter((provider) =>
+                isGitHookProviderEligible(provider.value, {
+                  runtime: runtime._tag,
+                  packageManager:
+                    runtime._tag === "bun" ? "bun" : runtime.packageManager,
+                  git,
+                  ...(Option.isSome(format_) ? { format: format_.value } : {}),
+                  ...(Option.isSome(lint) ? { lint: lint.value } : {}),
+                }),
+              ).map((provider) => ({
+                title: provider.label,
+                value: provider.value,
+              })),
+            });
+
       const dxExtras =
         devenvChoices.length === 0
           ? []
@@ -274,6 +300,37 @@ export const init = Command.make(
         }),
       });
 
+      const pipeline = yield* ScaffoldPipeline;
+      const recipe = yield* RecipeService;
+      const providerModule = getGitHookProvider(gitHooks).moduleId;
+      const explicitWorkspaceModules = [
+        ...(git ? [ModuleId.make("workspace-devenv-git")] : []),
+        ...(providerModule === undefined
+          ? []
+          : [ModuleId.make(providerModule)]),
+        ...dxExtras.map((moduleId) => ModuleId.make(moduleId)),
+      ];
+      const selection = yield* recipe.resolve(
+        {
+          targets:
+            explicitWorkspaceModules.length === 0
+              ? []
+              : [
+                  {
+                    target: new TargetIdentity({
+                      kind: TargetKind.make("workspace"),
+                      name: config.name,
+                    }),
+                    modules: explicitWorkspaceModules,
+                  },
+                ],
+        },
+        {
+          config,
+          providerStrategy: { _tag: "fail-on-ambiguous" },
+        },
+      );
+
       const dxExtrasDisplay =
         dxExtras.length === 0 ? "none" : dxExtras.join(", ");
       const configBox = Box.vsep(
@@ -295,6 +352,7 @@ export const init = Command.make(
                   Box.text("Format:"),
                   Box.text("Test:"),
                   Box.text("Git:"),
+                  Box.text("Git hooks:"),
                   Box.text("DX Extras:"),
                   Box.text("Config:"),
                 ],
@@ -312,6 +370,7 @@ export const init = Command.make(
                   Box.text(config.format ?? "none"),
                   Box.text(config.test ?? "none"),
                   Box.text(git === false ? "no" : "yes"),
+                  Box.text(gitHooks),
                   Box.text(dxExtrasDisplay),
                   Box.text(configure.configPath(repoRoot)),
                 ],
@@ -342,33 +401,6 @@ export const init = Command.make(
         yield* configure.writeConfig(repoRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
-
-      const pipeline = yield* ScaffoldPipeline;
-      const recipe = yield* RecipeService;
-      const explicitWorkspaceModules = [
-        ...(git ? [ModuleId.make("workspace-devenv-git")] : []),
-        ...dxExtras.map((moduleId) => ModuleId.make(moduleId)),
-      ];
-      const selection = yield* recipe.resolve(
-        {
-          targets:
-            explicitWorkspaceModules.length === 0
-              ? []
-              : [
-                  {
-                    target: new TargetIdentity({
-                      kind: TargetKind.make("workspace"),
-                      name: config.name,
-                    }),
-                    modules: explicitWorkspaceModules,
-                  },
-                ],
-        },
-        {
-          config,
-          providerStrategy: { _tag: "fail-on-ambiguous" },
-        },
-      );
 
       yield* pipeline.run({
         selection,

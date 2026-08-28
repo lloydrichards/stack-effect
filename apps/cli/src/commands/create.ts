@@ -1,12 +1,17 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { RecipeService, StackConfigDefaults } from "@repo/scaffold";
+import {
+  getGitHookProvider,
+  RecipeService,
+  StackConfigDefaults,
+} from "@repo/scaffold";
 import { Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
   dryRunFlag,
   formatFlag,
+  gitHooksFlag,
   lintFlag,
   monorepoFlag,
   noGitFlag,
@@ -110,22 +115,33 @@ const buildConfig = ({
 const buildRecipeSpec = (
   targets: ReadonlyArray<RecipeTargetSpec>,
   includeGit: boolean,
-): RecipeSpec => ({
-  targets: [
-    ...(includeGit
-      ? [
-          {
-            target: new TargetIdentity({
-              kind: TargetKind.make("workspace"),
-              name: "",
-            }),
-            modules: [ModuleId.make("workspace-devenv-git")],
-          },
-        ]
-      : []),
-    ...targets,
-  ],
-});
+  gitHooks: "none" | "lefthook" | "husky",
+): RecipeSpec => {
+  const workspaceModules = [
+    ...(includeGit ? [ModuleId.make("workspace-devenv-git")] : []),
+    ...Option.fromNullishOr(getGitHookProvider(gitHooks).moduleId).pipe(
+      Option.map(ModuleId.make),
+      Option.toArray,
+    ),
+  ];
+
+  return {
+    targets: [
+      ...(workspaceModules.length === 0
+        ? []
+        : [
+            {
+              target: new TargetIdentity({
+                kind: TargetKind.make("workspace"),
+                name: "",
+              }),
+              modules: workspaceModules,
+            },
+          ]),
+      ...targets,
+    ],
+  };
+};
 
 export const create = Command.make(
   "create",
@@ -140,6 +156,7 @@ export const create = Command.make(
     lint: lintFlag,
     format: formatFlag,
     test: testFlag,
+    gitHooks: gitHooksFlag,
     noGit: noGitFlag,
     yes: yesFlag,
     trust: trustFlag,
@@ -186,7 +203,11 @@ export const create = Command.make(
         test: flags.test,
         defaults,
       });
-      const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);
+      const recipeSpec = buildRecipeSpec(
+        flags.target.value,
+        !flags.noGit,
+        Option.getOrElse(flags.gitHooks, () => "none" as const),
+      );
       const selection = yield* recipes.resolve(recipeSpec, {
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },

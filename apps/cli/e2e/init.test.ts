@@ -725,6 +725,112 @@ describe("init", () => {
     );
 
     it.effect(
+      "rejects unknown git-hook values before init writes",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          yield* cli.run(
+            "init",
+            "unknown-hooks",
+            "--yes",
+            "--git-hooks",
+            "unknown",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(1);
+          yield* cli.expectFileNotExists("unknown-hooks/stack.effect.json");
+          yield* cli.expectFileNotExists("unknown-hooks/.git");
+        }),
+      { timeout: 15_000 },
+    );
+
+    it.effect(
+      "rejects contradictory init provider intent before writes",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const cases = [
+            {
+              name: "hooks-without-git",
+              args: ["--git-hooks", "lefthook", "--no-git"],
+              error: "requires Git",
+            },
+            {
+              name: "husky-with-bun",
+              args: ["--git-hooks", "husky", "--runtime", "bun"],
+              error: "Node >=24",
+            },
+          ] as const;
+
+          yield* Effect.forEach(cases, ({ name, args, error }) =>
+            Effect.gen(function* () {
+              yield* cli.run(
+                "init",
+                name,
+                "--yes",
+                ...args,
+                "--root",
+                cli.workdir,
+              );
+              yield* cli.expectExitCode(1);
+              yield* cli.expectErrorContaining(error);
+              yield* cli.expectFileNotExists(`${name}/stack.effect.json`);
+              yield* cli.expectFileNotExists(`${name}/.git`);
+            }),
+          );
+        }),
+      { timeout: 15_000 },
+    );
+
+    it.effect(
+      "rejects contradictory create provider intent before writes",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const cases = [
+            {
+              name: "invalid-create-hooks",
+              args: ["--git-hooks", "lefthook", "--no-git"],
+              error: "requires Git",
+            },
+            {
+              name: "create-hooks-without-task",
+              args: [
+                "--git-hooks",
+                "lefthook",
+                "--format",
+                "dprint",
+                "--lint",
+                "eslint",
+              ],
+              error: "Biome or Oxc",
+            },
+          ] as const;
+
+          yield* Effect.forEach(cases, ({ name, args, error }) =>
+            Effect.gen(function* () {
+              yield* cli.run(
+                "create",
+                name,
+                "--target",
+                "package/domain:domain-api-contracts",
+                "--yes",
+                ...args,
+                "--root",
+                cli.workdir,
+              );
+              yield* cli.expectExitCode(1);
+              yield* cli.expectErrorContaining(error);
+              yield* cli.expectFileNotExists(`${name}/stack.effect.json`);
+              yield* cli.expectFileNotExists(`${name}/.git`);
+            }),
+          );
+        }),
+      { timeout: 15_000 },
+    );
+
+    it.effect(
       "init --yes --no-git skips git initialization",
       () =>
         Effect.gen(function* () {

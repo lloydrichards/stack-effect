@@ -842,6 +842,125 @@ describe("RecipeService", () => {
     );
   });
 
+  describe("git-hook provider validation", () => {
+    const workspaceTarget = (...modules: ReadonlyArray<string>) => ({
+      target: new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "recipe-app",
+      }),
+      modules: modules.map((moduleId) => ModuleId.make(moduleId)),
+    });
+
+    const resolveProvider = (
+      modules: ReadonlyArray<string>,
+      config: typeof StackConfig.Type = testConfig,
+    ) =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        return yield* service.resolve(
+          { targets: [workspaceTarget(...modules)] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+      }).pipe(Effect.provide(TestLayer));
+
+    it.effect("accepts no provider and each valid canonical provider", () =>
+      Effect.gen(function* () {
+        const cases = [
+          { modules: ["workspace-devenv-git"], expected: undefined },
+          {
+            modules: ["workspace-devenv-git", "workspace-git-hooks-lefthook"],
+            expected: "workspace-git-hooks-lefthook",
+          },
+          {
+            modules: ["workspace-devenv-git", "workspace-git-hooks-husky"],
+            config: new StackConfig({
+              ...testConfig,
+              runtime: { _tag: "node", packageManager: "npm" },
+            }),
+            expected: "workspace-git-hooks-husky",
+          },
+        ] as const;
+
+        yield* Effect.forEach(cases, (entry) =>
+          resolveProvider(
+            entry.modules,
+            "config" in entry ? entry.config : testConfig,
+          ).pipe(
+            Effect.tap((selection) =>
+              Effect.sync(() => {
+                const ids = modulesForTarget(selection.targets, ".") ?? [];
+                if (entry.expected === undefined) {
+                  assert.isFalse(ids.some((id) => id.includes("git-hooks")));
+                } else {
+                  assert.include(ids, ModuleId.make(entry.expected));
+                }
+              }),
+            ),
+          ),
+        );
+      }),
+    );
+
+    it.effect(
+      "rejects invalid provider combinations with actionable issues",
+      () =>
+        Effect.gen(function* () {
+          const cases = [
+            {
+              label: "without Git",
+              modules: ["workspace-git-hooks-lefthook"],
+              config: testConfig,
+              message: "requires Git",
+            },
+            {
+              label: "Husky with Bun",
+              modules: ["workspace-devenv-git", "workspace-git-hooks-husky"],
+              config: testConfig,
+              message: "Node",
+            },
+            {
+              label: "without a supported task",
+              modules: ["workspace-devenv-git", "workspace-git-hooks-lefthook"],
+              config: new StackConfig({
+                ...testConfig,
+                format: "dprint",
+                lint: "eslint",
+              }),
+              message: "Biome or Oxc",
+            },
+            {
+              label: "with multiple providers",
+              modules: [
+                "workspace-devenv-git",
+                "workspace-git-hooks-lefthook",
+                "workspace-git-hooks-husky",
+              ],
+              config: new StackConfig({
+                ...testConfig,
+                runtime: { _tag: "node", packageManager: "pnpm" },
+              }),
+              message: "at most one",
+            },
+          ] as const;
+
+          yield* Effect.forEach(cases, ({ modules, config, message }) =>
+            Effect.flip(resolveProvider(modules, config)).pipe(
+              Effect.tap((error) =>
+                Effect.sync(() => {
+                  assert.strictEqual(error._tag, "InvalidRecipeSpec");
+                  if (error._tag !== "InvalidRecipeSpec") return;
+                  assert.include(error.issues[0]?.message, message);
+                }),
+              ),
+            ),
+          );
+        }),
+    );
+  });
+
   describe("renderCreateCommand", () => {
     it.effect(
       "should omit values supplied by an injected default StackConfig",
@@ -871,7 +990,7 @@ describe("RecipeService", () => {
               config: injectedDefaults,
               selection,
             }),
-            "bunx stack-effect@latest create injected-defaults --no-git",
+            "bunx stack-effect@latest create injected-defaults --git-hooks none --no-git",
           );
         }).pipe(Effect.provide(makeTestLayer(injectedDefaults)));
       },
@@ -896,7 +1015,7 @@ describe("RecipeService", () => {
 
           assert.strictEqual(
             service.renderCreateCommand({ config, selection }),
-            "bunx stack-effect@latest create recipe-app --monorepo nx --no-git",
+            "bunx stack-effect@latest create recipe-app --monorepo nx --git-hooks none --no-git",
           );
         }).pipe(Effect.provide(TestLayer)),
     );
@@ -920,7 +1039,7 @@ describe("RecipeService", () => {
 
           assert.strictEqual(
             service.renderCreateCommand({ config, selection }),
-            "bunx stack-effect@latest create recipe-app --no-git",
+            "bunx stack-effect@latest create recipe-app --git-hooks none --no-git",
           );
         }).pipe(Effect.provide(TestLayer)),
     );
@@ -955,7 +1074,7 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config: testConfig, selection }),
-          "bunx stack-effect@latest create recipe-app --target server/api:server-http-api",
+          "bunx stack-effect@latest create recipe-app --target server/api:server-http-api --git-hooks none",
         );
       }).pipe(Effect.provide(TestLayer)),
     );
@@ -995,9 +1114,73 @@ describe("RecipeService", () => {
 
         assert.strictEqual(
           service.renderCreateCommand({ config, selection }),
-          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --no-git",
+          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --git-hooks none --no-git",
         );
       }).pipe(Effect.provide(TestLayer)),
+    );
+    it.effect(
+      "renders canonical providers and filters provider modules from targets",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const cases = [
+            {
+              provider: "lefthook",
+              moduleId: "workspace-git-hooks-lefthook",
+              config: testConfig,
+              runner: "bunx",
+            },
+            {
+              provider: "husky",
+              moduleId: "workspace-git-hooks-husky",
+              config: new StackConfig({
+                ...testConfig,
+                runtime: { _tag: "node", packageManager: "npm" },
+              }),
+              runner: "npx",
+            },
+          ] as const;
+
+          yield* Effect.forEach(
+            cases,
+            ({ provider, moduleId, config, runner }) =>
+              service
+                .resolve(
+                  {
+                    targets: [
+                      {
+                        target: new TargetIdentity({
+                          kind: TargetKind.make("workspace"),
+                          name: config.name,
+                        }),
+                        modules: [
+                          ModuleId.make("workspace-devenv-git"),
+                          ModuleId.make(moduleId),
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    config,
+                    providerStrategy: { _tag: "fail-on-ambiguous" },
+                  },
+                )
+                .pipe(
+                  Effect.tap((selection) =>
+                    Effect.sync(() => {
+                      const command = service.renderCreateCommand({
+                        config,
+                        selection,
+                      });
+                      assert.include(command, `${runner} stack-effect@latest`);
+                      assert.include(command, `--git-hooks ${provider}`);
+                      assert.notInclude(command, `--target workspace/`);
+                      assert.notInclude(command, moduleId);
+                    }),
+                  ),
+                ),
+          );
+        }).pipe(Effect.provide(TestLayer)),
     );
   });
 

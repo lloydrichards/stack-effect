@@ -5,6 +5,10 @@ import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { Array as Arr, Context, Effect, Layer, Option, pipe } from "effect";
 import {
+  GIT_HOOK_PROVIDERS,
+  hasSupportedGitHookTask,
+} from "./GitHookProviders";
+import {
   InvalidRecipeSpec,
   type RecipeError,
   type RecipeResolveOptions,
@@ -167,6 +171,60 @@ const selectionTargetToRecipeTargetSpec = (
   modules: Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
 });
 
+const gitHookProviderModuleIds: ReadonlySet<string> = new Set(
+  GIT_HOOK_PROVIDERS.flatMap((provider) =>
+    provider.moduleId === undefined ? [] : [provider.moduleId],
+  ),
+);
+
+const validateGitHookProvider = (
+  targets: ReadonlyArray<CollectedRecipeTarget>,
+  config: typeof StackConfig.Type,
+) => {
+  const workspaceModules = targets
+    .filter((target) => target.identity.kind === "workspace")
+    .flatMap((target) => target.modules);
+  const providers = workspaceModules.filter((moduleId) =>
+    gitHookProviderModuleIds.has(moduleId),
+  );
+  const hasGit = workspaceModules.includes(
+    ModuleId.make("workspace-devenv-git"),
+  );
+  const provider = providers[0];
+  const message =
+    providers.length > 1
+      ? "Git hooks accept at most one provider. Choose none, lefthook, or husky."
+      : provider !== undefined && !hasGit
+        ? `Git-hook provider "${provider}" requires Git. Remove --no-git or choose --git-hooks none.`
+        : provider === "workspace-git-hooks-husky" &&
+            config.runtime._tag !== "node"
+          ? "Git-hook provider husky requires the Node >=24 runtime with npm or pnpm."
+          : provider !== undefined &&
+              !hasSupportedGitHookTask({
+                ...(config.format === undefined
+                  ? {}
+                  : { format: config.format }),
+                ...(config.lint === undefined ? {} : { lint: config.lint }),
+              })
+            ? `Git-hook provider "${provider}" requires at least one supported Biome or Oxc format or lint task.`
+            : undefined;
+
+  return message === undefined
+    ? Effect.void
+    : Effect.fail(
+        new InvalidRecipeSpec({
+          issues: [{ path: ["targets", "modules"], message }],
+        }),
+      );
+};
+
+const selectedGitHookProvider = (selection: typeof Selection.Type) =>
+  GIT_HOOK_PROVIDERS.find(
+    (provider) =>
+      provider.moduleId !== undefined &&
+      selectionIncludesWorkspaceModule(selection, provider.moduleId),
+  )?.value ?? "none";
+
 const selectionIncludesWorkspaceModule = (
   selection: typeof Selection.Type,
   moduleId: string,
@@ -212,18 +270,18 @@ export class RecipeService extends Context.Service<
         }),
       );
 
-      return toSelection(
-        mergeTargets([
-          {
-            identity: new TargetIdentity({
-              kind: TargetKind.make("workspace"),
-              name: options.config.name,
-            }),
-            modules: configWorkspaceModules(options.config),
-          },
-          ...recipeTargets,
-        ]),
-      );
+      const targets = mergeTargets([
+        {
+          identity: new TargetIdentity({
+            kind: TargetKind.make("workspace"),
+            name: options.config.name,
+          }),
+          modules: configWorkspaceModules(options.config),
+        },
+        ...recipeTargets,
+      ]);
+      yield* validateGitHookProvider(targets, options.config);
+      return toSelection(targets);
     });
 
     const renderCreateCommand: RecipeServiceShape["renderCreateCommand"] = ({
@@ -243,7 +301,8 @@ export class RecipeService extends Context.Service<
             target.modules,
             (module) =>
               !configModuleIds.has(module.id) &&
-              module.id !== "workspace-devenv-git",
+              module.id !== "workspace-devenv-git" &&
+              !gitHookProviderModuleIds.has(module.id),
           );
           return modules.length === 0
             ? []
@@ -283,6 +342,8 @@ export class RecipeService extends Context.Service<
         ...renderChangedFlag("--lint", config.lint, defaults.lint ?? ""),
         ...renderChangedFlag("--format", config.format, defaults.format ?? ""),
         ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
+        "--git-hooks",
+        selectedGitHookProvider(selection),
         ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []
           : ["--no-git"]),
