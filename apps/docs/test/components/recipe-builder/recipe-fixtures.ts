@@ -231,6 +231,37 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   },
 });
 
+export const makeGitHookRecipeFixture = ({
+  provider = "none",
+  gitEnabled = true,
+  runtime = "bun",
+  packageManager = "pnpm",
+}: {
+  readonly provider?: "none" | "lefthook" | "husky";
+  readonly gitEnabled?: boolean;
+  readonly runtime?: "bun" | "node";
+  readonly packageManager?: "npm" | "pnpm";
+} = {}): RecipeBuilderFormValues => ({
+  config: {
+    name: "git-hook-preview",
+    runtime:
+      runtime === "bun" ? { _tag: "bun" } : { _tag: "node", packageManager },
+    typescript: "6",
+    monorepo: "turbo",
+    lint: "biome",
+    format: "biome",
+    test: "vitest",
+  },
+  gitEnabled,
+  database: "none",
+  developerExperienceModules: [
+    "workspace-devenv-nix-flake",
+    ...(provider === "none" ? [] : [`workspace-git-hooks-${provider}`]),
+  ],
+  targets: [],
+  supportSelections: [],
+});
+
 export const fullStackRecipeFixture: RecipeBuilderFormValues = {
   config: {
     name: "full-stack-app",
