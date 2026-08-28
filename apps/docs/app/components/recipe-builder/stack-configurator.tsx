@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  GIT_HOOK_PROVIDERS,
+  type GitHookProviderValue,
+  isGitHookProviderEligible,
+} from "@repo/scaffold/browser";
 import { useSelector } from "@tanstack/react-form";
 import { String as Str } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -26,6 +31,11 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { Toggle } from "~/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
+import {
+  getGitHookProviderValue,
+  normalizeGitHookModules,
+  replaceGitHookProvider,
+} from "./git-hook-options";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -124,16 +134,21 @@ export function StackConfigurator() {
             className="grid w-full grid-cols-2"
             onValueChange={(values) => {
               const value = values[0] ?? runtime;
-              configure({
-                runtime:
-                  value === "bun"
-                    ? { _tag: "bun" }
-                    : {
-                        _tag: "node",
-                        packageManager:
-                          packageManager === "bun" ? "pnpm" : packageManager,
-                      },
-              });
+              const nextRuntime =
+                value === "bun"
+                  ? ({ _tag: "bun" } as const)
+                  : ({
+                      _tag: "node" as const,
+                      packageManager:
+                        packageManager === "bun" ? "pnpm" : packageManager,
+                    } as const);
+              configure({ runtime: nextRuntime });
+              form.setFieldValue("developerExperienceModules", (current) =>
+                normalizeGitHookModules(current, {
+                  gitEnabled,
+                  runtime: nextRuntime._tag,
+                }),
+              );
             }}
           >
             <ToggleGroupItem value="bun" className="w-full">
@@ -213,9 +228,15 @@ export function StackConfigurator() {
               title="Git"
               description="Initialize a Git repository with an initial commit."
               checked={gitEnabled}
-              onCheckedChange={(enabled) =>
-                form.setFieldValue("gitEnabled", enabled)
-              }
+              onCheckedChange={(enabled) => {
+                form.setFieldValue("gitEnabled", enabled);
+                form.setFieldValue("developerExperienceModules", (current) =>
+                  normalizeGitHookModules(current, {
+                    gitEnabled: enabled,
+                    runtime,
+                  }),
+                );
+              }}
             />
             {choices?.devenv.map((choice) => (
               <ConfigurationToggle
@@ -235,6 +256,35 @@ export function StackConfigurator() {
             ))}
           </FieldGroup>
         </FieldSet>
+
+        {gitEnabled ? (
+          <ConfigurationSelect
+            id="stack-git-hooks"
+            label="Git hooks"
+            value={getGitHookProviderValue(developerExperienceModules)}
+            options={GIT_HOOK_PROVIDERS.map((provider) => ({
+              value: provider.value,
+              label: provider.label,
+              disabled: !isGitHookProviderEligible(provider.value, {
+                runtime,
+                packageManager,
+                git: gitEnabled,
+                ...(config.format === undefined
+                  ? {}
+                  : { format: config.format }),
+                ...(config.lint === undefined ? {} : { lint: config.lint }),
+              }),
+            }))}
+            onChange={(value) =>
+              form.setFieldValue("developerExperienceModules", (current) =>
+                replaceGitHookProvider(
+                  current,
+                  (value || "none") as GitHookProviderValue,
+                ),
+              )
+            }
+          />
+        ) : null}
       </FieldGroup>
     </DisclosurePanel>
   );
@@ -247,6 +297,7 @@ type ConfigurationSelectProps = {
   readonly options: ReadonlyArray<{
     readonly value: string;
     readonly label: string;
+    readonly disabled?: boolean;
   }>;
   readonly disabled?: boolean;
   readonly onChange: (value: string) => void;
@@ -285,7 +336,11 @@ function ConfigurationSelect({
         <SelectContent>
           <SelectGroup>
             {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
                 {option.label}
               </SelectItem>
             ))}

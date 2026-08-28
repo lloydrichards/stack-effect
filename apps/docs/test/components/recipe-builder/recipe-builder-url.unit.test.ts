@@ -93,4 +93,50 @@ describe("recipe builder URL", () => {
     ).toBe(false);
     expect(encoded.getAll("target")).toContain("package/db:package-db-sqlite");
   });
+
+  it("round trips a provider only through the workspace target parameter", () => {
+    const encoded = encodeRecipeBuilderUrl({
+      ...fullStackRecipeFixture,
+      config: {
+        ...fullStackRecipeFixture.config,
+        runtime: { _tag: "node", packageManager: "pnpm" },
+      },
+      developerExperienceModules: [
+        "dx-first",
+        "workspace-git-hooks-husky",
+        "dx-second",
+      ],
+    });
+    const decoded = decodeRecipeBuilderUrl(encoded);
+
+    expect(encoded.getAll("target").join("&")).toContain(
+      "workspace-git-hooks-husky",
+    );
+    expect([...encoded.keys()]).not.toContain("git-hooks");
+    expect([...encoded.keys()]).not.toContain("gitHooks");
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.developerExperienceModules).toEqual([
+      "dx-first",
+      "workspace-git-hooks-husky",
+      "dx-second",
+    ]);
+  });
+
+  it("clears invalid provider state while decoding without clearing unrelated DX", () => {
+    const cases = [
+      "?name=shared&target=workspace%2Fshared%3Adx-first%2Cworkspace-git-hooks-lefthook%2Cworkspace-git-hooks-husky%2Cdx-second",
+      "?name=shared&runtime=bun&target=workspace%2Fshared%3Adx-first%2Cworkspace-git-hooks-husky%2Cdx-second",
+      "?name=shared&no-git&target=workspace%2Fshared%3Adx-first%2Cworkspace-git-hooks-lefthook%2Cdx-second",
+    ];
+
+    cases.forEach((search) => {
+      const decoded = decodeRecipeBuilderUrl(new URLSearchParams(search));
+
+      expect(decoded.issue).toBeUndefined();
+      expect(decoded.initialValues.developerExperienceModules).toEqual([
+        "dx-first",
+        "dx-second",
+      ]);
+    });
+  });
 });

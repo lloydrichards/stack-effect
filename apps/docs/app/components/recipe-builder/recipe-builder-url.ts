@@ -7,6 +7,7 @@ import {
   type TargetInstance,
   toRecipePreviewInput,
 } from "./form";
+import { normalizeGitHookModules } from "./git-hook-options";
 
 const defaults = initialRecipeBuilderValues.config;
 
@@ -158,8 +159,9 @@ const toInitialValues = (
     config,
     database,
     gitEnabled: !recipe.noGit,
-    developerExperienceModules: workspaceModules.filter(
-      (module) => module !== "workspace-devenv-git",
+    developerExperienceModules: normalizeGitHookModules(
+      workspaceModules.filter((module) => module !== "workspace-devenv-git"),
+      { gitEnabled: !recipe.noGit, runtime },
     ),
     targets: formTargets,
     supportSelections: [],

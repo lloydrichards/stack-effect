@@ -4,6 +4,7 @@ import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
+import { normalizeGitHookModules } from "./git-hook-options";
 
 const RuntimeSchema = Schema.TaggedUnion({
   bun: {},
@@ -144,6 +145,13 @@ export type RecipeBuilderFormApi = ReturnType<typeof useRecipeBuilderForm>;
 export function toRecipePreviewInput(
   values: RecipeBuilderFormValues,
 ): RecipePreviewInput {
+  const developerExperienceModules = normalizeGitHookModules(
+    values.developerExperienceModules,
+    {
+      gitEnabled: values.gitEnabled,
+      runtime: values.config.runtime._tag,
+    },
+  );
   const supportTargets: ReadonlyArray<TargetInstance> =
     values.supportSelections.flatMap((selection) =>
       selection.selected.length > 0
@@ -187,7 +195,7 @@ export function toRecipePreviewInput(
     config: new StackConfig(values.config),
     recipe: {
       targets: [
-        ...(values.gitEnabled || values.developerExperienceModules.length > 0
+        ...(values.gitEnabled || developerExperienceModules.length > 0
           ? [
               {
                 target: new TargetIdentity({
@@ -198,9 +206,7 @@ export function toRecipePreviewInput(
                   ...(values.gitEnabled
                     ? [ModuleId.make("workspace-devenv-git")]
                     : []),
-                  ...values.developerExperienceModules.map((id) =>
-                    ModuleId.make(id),
-                  ),
+                  ...developerExperienceModules.map((id) => ModuleId.make(id)),
                 ],
               },
             ]

@@ -227,6 +227,53 @@ test("should replace valid URL edits and reset the existing form for external na
     .toHaveValue("my-effect-app");
 });
 
+test("should clear only ineligible Git-hook state across repeated transitions", async () => {
+  await renderRecipeBuilder();
+
+  const gitHooks = page.getByLabelText("Git hooks");
+  await expect.element(gitHooks).toHaveTextContent("None");
+  await gitHooks.click();
+  await expect
+    .element(page.getByRole("option", { name: "Lefthook" }))
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Husky + lint-staged (Node >=24 only)",
+      }),
+    )
+    .toBeDisabled();
+  await page.getByRole("option", { name: "Lefthook" }).click();
+  await expect.element(gitHooks).toHaveTextContent("Lefthook");
+
+  await page.getByRole("button", { name: /Git/u }).click();
+  await expect
+    .element(page.getByLabelText("Git hooks"))
+    .not.toBeInTheDocument();
+  await page.getByRole("button", { name: /Git/u }).click();
+  await expect
+    .element(page.getByLabelText("Git hooks"))
+    .toHaveTextContent("None");
+
+  await page.getByRole("button", { name: "Node" }).click();
+  await page.getByLabelText("Git hooks").click();
+  await page
+    .getByRole("option", { name: "Husky + lint-staged (Node >=24 only)" })
+    .click();
+  await expect
+    .element(page.getByLabelText("Git hooks"))
+    .toHaveTextContent("Husky + lint-staged (Node >=24 only)");
+
+  await page.getByRole("button", { name: "Bun" }).click();
+  await expect
+    .element(page.getByLabelText("Git hooks"))
+    .toHaveTextContent("None");
+  await page.getByRole("button", { name: "Node" }).click();
+  await expect
+    .element(page.getByLabelText("Git hooks"))
+    .toHaveTextContent("None");
+});
+
 test("should generate a usable preview when the user completes a valid Selection", async () => {
   await renderRecipeBuilder();
 
