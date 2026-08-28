@@ -98,12 +98,14 @@ export const monorepoFlag = Flag.string("monorepo").pipe(
 
 export const lintFlag = Flag.string("lint").pipe(
   Flag.optional,
-  Flag.withDescription("Override the default lint tool"),
+  Flag.withDescription("Override the default lint tool (use none to opt out)"),
 );
 
 export const formatFlag = Flag.string("format").pipe(
   Flag.optional,
-  Flag.withDescription("Override the default format tool"),
+  Flag.withDescription(
+    "Override the default format tool (use none to opt out)",
+  ),
 );
 
 export const testFlag = Flag.string("test").pipe(

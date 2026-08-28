@@ -106,8 +106,12 @@ const buildConfig = ({
     runtime: runtimeConfig,
     typescript: Option.getOrElse(typescript, () => defaults.typescriptVersion),
     monorepo: Option.getOrElse(monorepo, () => defaults.monorepo),
-    lint: Option.getOrElse(lint, () => defaults.lint),
-    format: Option.getOrElse(format, () => defaults.format),
+    ...(Option.isSome(lint) && lint.value === "none"
+      ? {}
+      : { lint: Option.getOrElse(lint, () => defaults.lint) }),
+    ...(Option.isSome(format) && format.value === "none"
+      ? {}
+      : { format: Option.getOrElse(format, () => defaults.format) }),
     test: Option.getOrElse(test, () => defaults.test),
   });
 };

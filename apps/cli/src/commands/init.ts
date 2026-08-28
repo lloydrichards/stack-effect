@@ -19,7 +19,9 @@ import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 import {
   dryRunFlag,
+  formatFlag,
   gitHooksFlag,
+  lintFlag,
   noGitFlag,
   projectNameArg,
   rootFlag,
@@ -93,6 +95,8 @@ export const init = Command.make(
     showFiles: showFilesFlag,
     runtime: runtimeFlag,
     typescript: typescriptFlag,
+    lint: lintFlag,
+    format: formatFlag,
     gitHooks: gitHooksFlag,
     noGit: noGitFlag,
     trust: trustFlag,
@@ -216,18 +220,26 @@ export const init = Command.make(
         monorepoChoices,
         defaults.monorepo ?? "",
       );
-      const lint = yield* chooseOptionalTool(
-        flags.yes,
-        "What will you use for linting?",
-        lintChoices,
-        defaults.lint ?? "",
-      );
-      const format_ = yield* chooseOptionalTool(
-        flags.yes,
-        "What will you use for formatting?",
-        formatChoices,
-        defaults.format ?? "",
-      );
+      const lint = Option.isSome(flags.lint)
+        ? flags.lint.value === "none"
+          ? Option.none<string>()
+          : flags.lint
+        : yield* chooseOptionalTool(
+            flags.yes,
+            "What will you use for linting?",
+            lintChoices,
+            defaults.lint ?? "",
+          );
+      const format_ = Option.isSome(flags.format)
+        ? flags.format.value === "none"
+          ? Option.none<string>()
+          : flags.format
+        : yield* chooseOptionalTool(
+            flags.yes,
+            "What will you use for formatting?",
+            formatChoices,
+            defaults.format ?? "",
+          );
       const test = yield* chooseOptionalTool(
         flags.yes,
         "What test framework will you use?",

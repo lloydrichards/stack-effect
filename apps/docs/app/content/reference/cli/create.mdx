@@ -26,8 +26,8 @@ stack-effect create [flags] [<project-name>]
 | `--package-manager choice` | Override the default package manager. bun implies --runtime bun; pnpm/npm imply --runtime node. (choices: bun, pnpm, npm) |
 | `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
 | `--monorepo string` | Override the default monorepo tool |
-| `--lint string` | Override the default lint tool |
-| `--format string` | Override the default format tool |
+| `--lint string` | Override the default lint tool (use none to opt out) |
+| `--format string` | Override the default format tool (use none to opt out) |
 | `--test string` | Override the default test framework |
 | `--git-hooks choice` | Git-hook provider (defaults to none) (choices: none, lefthook, husky) |
 | `--no-git` | Skip git repository initialization |

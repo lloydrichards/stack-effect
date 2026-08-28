@@ -248,6 +248,17 @@ const renderChangedFlag = (
     ? []
     : [flag, quoteShellArg(value)];
 
+const renderQualityFlag = (
+  flag: string,
+  value: string | undefined,
+  defaultValue: string,
+) =>
+  value === undefined
+    ? [flag, "none"]
+    : value === defaultValue
+      ? []
+      : [flag, quoteShellArg(value)];
+
 export class RecipeService extends Context.Service<
   RecipeService,
   RecipeServiceShape
@@ -339,8 +350,8 @@ export class RecipeService extends Context.Service<
           config.monorepo,
           defaults.monorepo ?? "",
         ),
-        ...renderChangedFlag("--lint", config.lint, defaults.lint ?? ""),
-        ...renderChangedFlag("--format", config.format, defaults.format ?? ""),
+        ...renderQualityFlag("--lint", config.lint, defaults.lint ?? ""),
+        ...renderQualityFlag("--format", config.format, defaults.format ?? ""),
         ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
         "--git-hooks",
         selectedGitHookProvider(selection),

@@ -996,6 +996,29 @@ describe("RecipeService", () => {
       },
     );
 
+    it.effect("renders explicit none sentinels for absent quality tools", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          ...testConfig,
+          lint: undefined,
+          format: undefined,
+        });
+        const selection = yield* service.resolve(
+          { targets: [] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        const command = service.renderCreateCommand({ config, selection });
+        assert.include(command, "--lint none");
+        assert.include(command, "--format none");
+        assert.notInclude(command, "workspace-quality-none");
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect(
       "should render an explicit monorepo flag when Nx is configured",
       () =>
