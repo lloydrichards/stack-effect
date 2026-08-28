@@ -65,10 +65,10 @@ const configWorkspaceModules = (
       config.monorepo === undefined
         ? undefined
         : toWorkspaceModuleId("tool", config.monorepo),
-      config.lint === undefined
+      config.lint === undefined || config.lint === "none"
         ? undefined
         : toWorkspaceModuleId("lint", config.lint),
-      config.format === undefined
+      config.format === undefined || config.format === "none"
         ? undefined
         : toWorkspaceModuleId("format", config.format),
       config.test === undefined

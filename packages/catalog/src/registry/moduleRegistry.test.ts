@@ -142,9 +142,9 @@ describe("moduleRegistry", () => {
       dependencies: { lefthook: "2.1.10" },
       scripts: {
         "lefthook:install": "lefthook install",
-        "git-hooks:format":
+        "{{#if format=biome}}git-hooks:format{{/if}}{{#if format=oxfmt}}git-hooks:format{{/if}}":
           "{{#if format=biome}}biome format --write{{/if}}{{#if format=oxfmt}}oxfmt{{/if}}",
-        "git-hooks:lint":
+        "{{#if lint=biome}}git-hooks:lint{{/if}}{{#if lint=oxlint}}git-hooks:lint{{/if}}":
           "{{#if lint=biome}}biome lint --write{{/if}}{{#if lint=oxlint}}oxlint --fix{{/if}}",
       },
       installer: "{{packageManager}} run lefthook:install",
@@ -160,9 +160,9 @@ describe("moduleRegistry", () => {
       scripts: {
         "husky:install": "husky",
         "lint-staged": "lint-staged",
-        "git-hooks:format":
+        "{{#if format=biome}}git-hooks:format{{/if}}{{#if format=oxfmt}}git-hooks:format{{/if}}":
           "{{#if format=biome}}biome format --write{{/if}}{{#if format=oxfmt}}oxfmt{{/if}}",
-        "git-hooks:lint":
+        "{{#if lint=biome}}git-hooks:lint{{/if}}{{#if lint=oxlint}}git-hooks:lint{{/if}}":
           "{{#if lint=biome}}biome lint --write{{/if}}{{#if lint=oxlint}}oxlint --fix{{/if}}",
       },
       installer: "{{packageManager}} run husky:install",

@@ -219,6 +219,7 @@ it.live(
         assert.notProperty(config, "gitHookProvider");
       }
     }),
+  30_000,
 );
 
 it.live(

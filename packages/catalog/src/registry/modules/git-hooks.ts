@@ -27,7 +27,7 @@ const taskScripts = [
     _tag: "pkg-json-entry" as const,
     path: "{{targetPath}}/package.json",
     field: "scripts" as const,
-    name: "git-hooks:format",
+    name: "{{#if format=biome}}git-hooks:format{{/if}}{{#if format=oxfmt}}git-hooks:format{{/if}}",
     value:
       "{{#if format=biome}}biome format --write{{/if}}{{#if format=oxfmt}}oxfmt{{/if}}",
   },
@@ -35,7 +35,7 @@ const taskScripts = [
     _tag: "pkg-json-entry" as const,
     path: "{{targetPath}}/package.json",
     field: "scripts" as const,
-    name: "git-hooks:lint",
+    name: "{{#if lint=biome}}git-hooks:lint{{/if}}{{#if lint=oxlint}}git-hooks:lint{{/if}}",
     value:
       "{{#if lint=biome}}biome lint --write{{/if}}{{#if lint=oxlint}}oxlint --fix{{/if}}",
   },

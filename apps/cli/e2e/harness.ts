@@ -286,6 +286,8 @@ export class CLI extends Context.Service<CLI>()("e2e/CLI", {
           ),
         ),
 
+      lastResult: () => lastResult,
+
       expectExitCode: (code: number) =>
         Effect.suspend(() =>
           lastResult.exitCode === code
