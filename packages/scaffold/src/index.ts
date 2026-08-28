@@ -21,6 +21,15 @@ export {
 } from "./service/plan/PlanRenderer";
 export { PlanService } from "./service/plan/PlanService";
 export {
+  GIT_HOOK_PROVIDER_VALUES,
+  GIT_HOOK_PROVIDERS,
+  type GitHookProviderModuleId,
+  type GitHookProviderValue,
+  getGitHookProvider,
+  hasSupportedGitHookTask,
+  isGitHookProviderEligible,
+} from "./service/recipe/GitHookProviders";
+export {
   type RecipePreview,
   type RecipePreviewError,
   type RecipePreviewInput,

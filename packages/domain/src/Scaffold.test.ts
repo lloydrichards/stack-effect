@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 import { ContributionTokenContext, StackConfig } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
@@ -336,6 +336,46 @@ describe("ContributionTokenContext.resolve", () => {
         "is node",
       );
     });
+  });
+
+  describe("module-presence conditionals", () => {
+    it.each([
+      [undefined, "workspace-git-hooks-lefthook", ""],
+      [[], "workspace-git-hooks-lefthook", ""],
+      [["workspace-quality-biome-format"], "workspace-git-hooks-lefthook", ""],
+      [
+        ["workspace-git-hooks-lefthook"],
+        "workspace-git-hooks-lefthook",
+        "enabled",
+      ],
+      [
+        ["unknown", "workspace-git-hooks-husky", "another"],
+        "workspace-git-hooks-husky",
+        "enabled",
+      ],
+    ] as const)(
+      "resolves target-local attached module IDs with a default-false result",
+      (attachedModuleIds, moduleId, expected) => {
+        const context = new ContributionTokenContext({
+          targetKey: TargetKey.make("apps/server-api"),
+          identity: new TargetIdentity({
+            kind: TargetKind.make("server"),
+            name: "api",
+          }),
+          config: new StackConfig({
+            name: "my-project" as typeof Schema.NonEmptyString.Type,
+            runtime: { _tag: "bun" },
+          }),
+          ...(attachedModuleIds === undefined
+            ? {}
+            : { attachedModuleIds: attachedModuleIds.map(ModuleId.make) }),
+        });
+
+        expect(
+          context.resolve(`{{#if module=${moduleId}}}enabled{{/if}}`),
+        ).toBe(expected);
+      },
+    );
   });
 
   describe("unknown fields", () => {

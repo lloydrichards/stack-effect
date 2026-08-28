@@ -72,6 +72,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
   targetKey: TargetKey,
   identity: TargetIdentity,
   config: StackConfig,
+  attachedModuleIds: Schema.optional(Schema.Array(ModuleId)),
 }) {
   /**
    * Resolve template tokens and conditionals in a string.
@@ -92,6 +93,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * ## Conditionals
    * - `{{#if field}}...{{/if}}` - Include content if field is truthy (non-empty)
    * - `{{#if field=value}}...{{/if}}` - Include content if field equals value
+   * - `{{#if module=<id>}}...{{/if}}` - Include content if the module is attached to this target
    *
    * Unknown fields in conditionals silently evaluate as falsy.
    */
@@ -134,6 +136,13 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
       const conditionalRegex =
         /\{\{#if\s+(\w+)(?:=([\w-]+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
       return t.replace(conditionalRegex, (_, field, value, content) => {
+        if (field === "module") {
+          return value !== undefined &&
+            (this.attachedModuleIds ?? []).includes(ModuleId.make(value))
+            ? content
+            : "";
+        }
+
         const configValue = getConfigValue(field);
         if (value !== undefined) {
           return configValue === value ? content : "";

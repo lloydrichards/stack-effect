@@ -1,6 +1,10 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import { Contribution } from "@repo/domain/Catalog";
+import {
+  Contribution,
+  type ModuleId,
+  type TargetKey,
+} from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   ModuleContribution,
@@ -20,6 +24,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         blueprint: typeof Blueprint.Type,
         config: typeof StackConfig.Type,
       ) {
+        const attachedModuleIds = attachedModuleIdsByTarget(blueprint);
         const targetResults = yield* Effect.forEach(
           Arr.filter(blueprint.nodes, BlueprintNode.guards.target),
           (node) =>
@@ -29,6 +34,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetKey: node.id,
                 identity: node.identity,
                 config,
+                attachedModuleIds: attachedModuleIds.get(node.id) ?? [],
               });
 
               return {
@@ -91,6 +97,19 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
     ContributionResolver.make,
   ).pipe(Layer.provide(CatalogService.layer));
 }
+
+export const attachedModuleIdsByTarget = (
+  blueprint: typeof Blueprint.Type,
+): ReadonlyMap<typeof TargetKey.Type, ReadonlyArray<typeof ModuleId.Type>> =>
+  Arr.reduce(
+    Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
+    new Map<typeof TargetKey.Type, ReadonlyArray<typeof ModuleId.Type>>(),
+    (grouped, node) =>
+      grouped.set(node.targetId, [
+        ...(grouped.get(node.targetId) ?? []),
+        node.moduleId,
+      ]),
+  );
 
 const resolveContributionTokens = (
   contributions: ReadonlyArray<typeof Contribution.Type>,
