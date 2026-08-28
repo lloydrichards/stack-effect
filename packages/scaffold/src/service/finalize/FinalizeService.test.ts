@@ -71,6 +71,28 @@ const targetWithModule = (
     ],
   });
 
+const targetWithModules = (
+  identity: TargetIdentity,
+  moduleIds: ReadonlyArray<typeof ModuleId.Type>,
+) =>
+  new Blueprint({
+    nodes: [
+      { _tag: "target", id: identity.toKey(), identity },
+      ...moduleIds.map((moduleId) => ({
+        _tag: "attached-module" as const,
+        id: toAttachedModuleNodeId(identity.toKey(), moduleId),
+        targetId: identity.toKey(),
+        moduleId,
+      })),
+    ],
+    edges: moduleIds.map((moduleId) => ({
+      id: `owns-module=>${identity.toPath()}=>${toAttachedModuleNodeId(identity.toKey(), moduleId)}`,
+      from: identity.toKey(),
+      to: toAttachedModuleNodeId(identity.toKey(), moduleId),
+      reason: "owns-module" as const,
+    })),
+  });
+
 const makeCatalogLayer = (
   targets: Record<string, Partial<typeof TargetDefinition.Type>> = {},
   modules: Record<string, Partial<typeof ModuleDefinition.Type>> = {},
@@ -447,6 +469,76 @@ describe("FinalizeService", () => {
                 },
               },
             }),
+          ),
+        ),
+    );
+
+    it.each([
+      ["workspace-git-hooks-lefthook", "pnpm run lefthook:install"],
+      ["workspace-git-hooks-husky", "pnpm run husky:install"],
+    ])(
+      "orders install, quality, complete Git initialization, then %s",
+      (providerId, installer) =>
+        Effect.runPromise(
+          Effect.gen(function* () {
+            const svc = yield* FinalizeService;
+            const blueprint = targetWithModules(serverIdentity, [
+              ModuleId.make("workspace-devenv-git"),
+              ModuleId.make(providerId),
+            ]);
+            const config = new StackConfig({
+              name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
+              runtime: { _tag: "node", packageManager: "pnpm" },
+              lint: "biome",
+              format: "biome",
+            });
+
+            const scripts = yield* svc.preview(blueprint, makeConfig(config));
+
+            expect(scripts.map((script) => script.command)).toEqual([
+              "pnpm install",
+              "pnpm run lint",
+              "pnpm run format",
+              "git init --initial-branch=main",
+              "git add -A",
+              'git commit -m "initial commit"',
+              installer,
+            ]);
+          }).pipe(
+            Effect.provide(
+              makeFinalizeLayer([], {
+                modules: {
+                  "workspace-devenv-git": {
+                    scripts: [
+                      {
+                        label: "Initialize git repository",
+                        command: "git init --initial-branch=main",
+                        phase: "post-finalize",
+                      },
+                      {
+                        label: "Stage all files",
+                        command: "git add -A",
+                        phase: "post-finalize",
+                      },
+                      {
+                        label: "Create initial commit",
+                        command: 'git commit -m "initial commit"',
+                        phase: "post-finalize",
+                      },
+                    ],
+                  },
+                  [providerId]: {
+                    scripts: [
+                      {
+                        label: "Install Git hooks",
+                        command: installer,
+                        phase: "post-finalize",
+                      },
+                    ],
+                  },
+                },
+              }),
+            ),
           ),
         ),
     );

@@ -1,5 +1,6 @@
 import { ModuleCapability } from "@repo/domain/Catalog";
 import { describe, expect, it } from "vitest";
+import { pnpmWorkspaceContents } from "./content/init";
 import { moduleRegistry } from "./moduleRegistry";
 
 describe("moduleRegistry", () => {
@@ -131,6 +132,129 @@ describe("moduleRegistry", () => {
       "workspace-quality-biome-format",
       "workspace-quality-dprint",
     ]);
+  });
+
+  it.each([
+    {
+      id: "workspace-git-hooks-lefthook",
+      conflict: "workspace-git-hooks-husky",
+      files: ["{{targetPath}}/lefthook.yml"],
+      dependencies: { lefthook: "2.1.10" },
+      scripts: {
+        "lefthook:install": "lefthook install",
+        "git-hooks:format":
+          "{{#if format=biome}}biome format --write{{/if}}{{#if format=oxfmt}}oxfmt{{/if}}",
+        "git-hooks:lint":
+          "{{#if lint=biome}}biome lint --write{{/if}}{{#if lint=oxlint}}oxlint --fix{{/if}}",
+      },
+      installer: "{{packageManager}} run lefthook:install",
+    },
+    {
+      id: "workspace-git-hooks-husky",
+      conflict: "workspace-git-hooks-lefthook",
+      files: [
+        "{{targetPath}}/.husky/pre-commit",
+        "{{targetPath}}/lint-staged.config.mjs",
+      ],
+      dependencies: { husky: "9.1.7", "lint-staged": "17.4.1" },
+      scripts: {
+        "husky:install": "husky",
+        "lint-staged": "lint-staged",
+        "git-hooks:format":
+          "{{#if format=biome}}biome format --write{{/if}}{{#if format=oxfmt}}oxfmt{{/if}}",
+        "git-hooks:lint":
+          "{{#if lint=biome}}biome lint --write{{/if}}{{#if lint=oxlint}}oxlint --fix{{/if}}",
+      },
+      installer: "{{packageManager}} run husky:install",
+    },
+  ])("registers exact native $id contributions", (contract) => {
+    const provider = moduleRegistry.find((mod) => mod.id === contract.id);
+
+    expect(provider).toBeDefined();
+    expect(provider?.categories).toEqual(["git-hooks"]);
+    expect(provider?.conflictsWith).toEqual([contract.conflict]);
+    expect(provider?.dependencies).toContainEqual({
+      _tag: "required-module",
+      target: expect.objectContaining({ kind: "workspace", name: "root" }),
+      moduleId: "workspace-devenv-git",
+    });
+
+    const files = provider?.contributions.filter(
+      (item) => item._tag === "file",
+    );
+    expect(files?.map((item) => item.path)).toEqual(contract.files);
+
+    const entries = Object.fromEntries(
+      (provider?.contributions ?? [])
+        .filter((item) => item._tag === "pkg-json-entry")
+        .map((item) => [`${item.field}.${item.name}`, item.value]),
+    );
+    expect(entries).toMatchObject(
+      Object.fromEntries(
+        Object.entries(contract.dependencies).map(([name, value]) => [
+          `devDependencies.${name}`,
+          value,
+        ]),
+      ),
+    );
+    expect(entries).toMatchObject(
+      Object.fromEntries(
+        Object.entries(contract.scripts).map(([name, value]) => [
+          `scripts.${name}`,
+          value,
+        ]),
+      ),
+    );
+    expect(entries["scripts.prepare"]).toBeUndefined();
+    expect(provider?.scripts).toEqual([
+      expect.objectContaining({
+        command: contract.installer,
+        phase: "post-finalize",
+      }),
+    ]);
+    expect(provider?.nextSteps).toEqual([
+      expect.stringContaining("initial commit"),
+      expect.stringContaining("staged"),
+      expect.stringContaining("non-fixable"),
+    ]);
+  });
+
+  it("defines filename-aware serial provider configurations without prohibited setup", () => {
+    const providers = moduleRegistry.filter((mod) =>
+      mod.id.startsWith("workspace-git-hooks-"),
+    );
+    const contents = providers
+      .flatMap((provider) =>
+        provider.contributions.flatMap((item) =>
+          item._tag === "file" ? [item.contents] : [],
+        ),
+      )
+      .join("\n");
+    const commands = providers
+      .flatMap((provider) => [
+        ...(provider.scripts ?? []).map((script) => script.command),
+        ...provider.contributions.flatMap((item) =>
+          item._tag === "pkg-json-entry" ? [item.value] : [],
+        ),
+      ])
+      .join("\n");
+
+    expect(providers.map((provider) => provider.id)).toEqual([
+      "workspace-git-hooks-lefthook",
+      "workspace-git-hooks-husky",
+    ]);
+    expect(contents).toContain("*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}");
+    expect(contents).toContain("parallel: false");
+    expect(contents).toContain("stage_fixed: true");
+    expect(contents).toContain('"{{packageManager}} run git-hooks:format --"');
+    expect(contents).toContain('"{{packageManager}} run git-hooks:lint --"');
+    expect(commands).not.toMatch(/husky init|git add|chmod|postinstall/);
+  });
+
+  it("adds the Lefthook pnpm allow-build entry only through module presence", () => {
+    expect(pnpmWorkspaceContents).toContain(
+      "{{#if module=workspace-git-hooks-lefthook}}\n  lefthook: true{{/if}}",
+    );
   });
 
   it("should explain the global executable requirement when Vite+ is selected", () => {

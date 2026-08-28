@@ -4,6 +4,7 @@ import { clientModules } from "./modules/client";
 import { clientFoldkitModules } from "./modules/client-foldkit";
 import { configModules } from "./modules/config";
 import { domainModules } from "./modules/domain";
+import { gitHookModules } from "./modules/git-hooks";
 import { initModules } from "./modules/init";
 import { mcpModules } from "./modules/mcp";
 import { packageModules } from "./modules/packages";
@@ -11,6 +12,7 @@ import { serverModules } from "./modules/server";
 
 export const moduleRegistry: ReadonlyArray<typeof ModuleDefinition.Type> = [
   ...initModules,
+  ...gitHookModules,
   ...configModules,
   ...domainModules,
   ...serverModules,

@@ -1,4 +1,5 @@
 import * as nodeFs from "node:fs/promises";
+import * as nodePath from "node:path";
 import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
@@ -488,37 +489,62 @@ const runValidationCommand = Effect.fn(
   }
 });
 
-const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
-  function* (repoRoot: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const packagesRoot = path.join(repoRoot, "packages");
-    const packageNames = yield* fs
-      .readDirectory(packagesRoot)
-      .pipe(Effect.catch(() => Effect.succeed([] as Array<string>)));
-    const scopeRoot = path.join(repoRoot, "node_modules", "@repo");
+export const linkWorkspacePackages = Effect.fn(
+  "catalog.workspace.linkPackages",
+)(function* (repoRoot: string) {
+  const packagesRoot = nodePath.join(repoRoot, "packages");
+  const packageNames = yield* Effect.promise(() =>
+    nodeFs.readdir(packagesRoot).catch(() => [] as Array<string>),
+  );
+  const scopeRoot = nodePath.join(repoRoot, "node_modules", "@repo");
 
-    yield* fs.makeDirectory(scopeRoot, { recursive: true });
-    yield* Effect.forEach(
-      packageNames,
-      (packageName) =>
-        Effect.tryPromise({
-          try: () =>
-            nodeFs.symlink(
-              path.join(packagesRoot, packageName),
-              path.join(scopeRoot, packageName),
-              "dir",
-            ),
-          catch: (error) =>
-            new WorkspaceCommandFailed({
-              command: `link @repo/${packageName}`,
-              cause: error,
-            }),
-        }),
-      { concurrency: 1 },
-    );
-  },
-);
+  yield* Effect.promise(() => nodeFs.mkdir(scopeRoot, { recursive: true }));
+  yield* Effect.forEach(
+    packageNames,
+    (packageName) => {
+      const target = nodePath.join(packagesRoot, packageName);
+      const link = nodePath.join(scopeRoot, packageName);
+
+      return Effect.tryPromise({
+        try: async () => {
+          try {
+            const existing = await nodeFs.lstat(link);
+            if (!existing.isSymbolicLink()) {
+              throw new Error(`${link} exists and is not a symbolic link`);
+            }
+            const [actualTarget, expectedTarget] = await Promise.all([
+              nodeFs.realpath(link),
+              nodeFs.realpath(target),
+            ]);
+            if (actualTarget !== expectedTarget) {
+              throw new Error(
+                `${link} points to ${actualTarget}, not ${expectedTarget}`,
+              );
+            }
+            return;
+          } catch (error) {
+            if (
+              error !== null &&
+              typeof error === "object" &&
+              "code" in error &&
+              error.code === "ENOENT"
+            ) {
+              await nodeFs.symlink(target, link, "dir");
+              return;
+            }
+            throw error;
+          }
+        },
+        catch: (error) =>
+          new WorkspaceCommandFailed({
+            command: `link @repo/${packageName}`,
+            cause: error,
+          }),
+      });
+    },
+    { concurrency: 1 },
+  );
+});
 
 const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
   function* ({

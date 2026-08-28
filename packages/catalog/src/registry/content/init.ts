@@ -70,7 +70,8 @@ export const pnpmWorkspaceContents = `packages:
 allowBuilds:
   esbuild: true
   msgpackr-extract: true{{#if monorepo=nx}}
-  nx: true{{/if}}
+  nx: true{{/if}}{{#if module=workspace-git-hooks-lefthook}}
+  lefthook: true{{/if}}
 `;
 
 export const configTypescriptBaseContents = `{
