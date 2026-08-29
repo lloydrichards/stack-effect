@@ -159,12 +159,18 @@ export function StackConfigurator() {
           }
           disabled={runtime === "bun"}
           onChange={(value) =>
-            configure({
-              runtime: {
-                _tag: "node",
-                packageManager: value === "npm" ? "npm" : "pnpm",
-              },
-            })
+            form.setFieldValue("config", (current) =>
+              current.runtime._tag === "node" &&
+              (value === "pnpm" || value === "npm")
+                ? {
+                    ...current,
+                    runtime: {
+                      ...current.runtime,
+                      packageManager: value,
+                    },
+                  }
+                : current,
+            )
           }
         />
 

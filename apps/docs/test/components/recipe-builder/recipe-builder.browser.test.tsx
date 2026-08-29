@@ -227,6 +227,29 @@ test("should replace valid URL edits and reset the existing form for external na
     .toHaveValue("my-effect-app");
 });
 
+test("should keep Bun selected after rapidly changing the Node package manager", async () => {
+  await renderRecipeBuilder();
+
+  const bunRuntime = page.getByRole("button", { name: "Bun" });
+  const packageManager = page.getByLabelText("Package manager");
+  await expect.element(bunRuntime).toHaveAttribute("aria-pressed", "true");
+
+  await page.getByRole("button", { name: "Node" }).click();
+  await packageManager.click();
+  await page.getByRole("option", { name: "npm", exact: true }).click();
+  await bunRuntime.click();
+
+  await expect.element(bunRuntime).toHaveAttribute("aria-pressed", "true");
+  await expect.element(packageManager).toBeDisabled();
+  await expect.element(packageManager).toHaveTextContent("Bun");
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .not.toHaveTextContent("runtime=node");
+  await expect
+    .element(page.getByLabelText("Recipe URL search"))
+    .not.toHaveTextContent("package-manager=");
+});
+
 test("should generate a usable preview when the user completes a valid Selection", async () => {
   await renderRecipeBuilder();
 
