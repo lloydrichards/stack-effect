@@ -40,7 +40,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "my-app/package.json",
             "devDependencies.@effect/tsgo",
-            "^0.22.0",
+            "0.38.0",
           );
           yield* cli.expectJsonFile(
             "my-app/tsconfig.json",
@@ -290,7 +290,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "catalog-oxfmt/package.json",
             "devDependencies.oxfmt",
-            "^0.62.0",
+            "^0.65.0",
           );
           yield* cli.expectFileContaining(
             "catalog-oxfmt/.catalog-build-manifest.json",
@@ -341,7 +341,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
             "devDependencies.@effect/tsgo",
-            "^0.22.0",
+            "0.38.0",
           );
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
@@ -596,7 +596,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",
             "devDependencies.vite-plus",
-            "^0.2.8",
+            "^0.3.0",
           );
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",
