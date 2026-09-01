@@ -128,6 +128,10 @@ interface ProjectContext {
     relativePath: string,
     pattern: string | RegExp,
   ) => Effect.Effect<void>;
+  readonly expectFileNotContaining: (
+    relativePath: string,
+    pattern: string | RegExp,
+  ) => Effect.Effect<void>;
   readonly expectDirectoryContains: (
     relativePath: string,
     entries: ReadonlyArray<string>,
@@ -216,6 +220,24 @@ const makeProjectContext = (
                   `File ${relativePath} does not match pattern: ${pattern}`,
                 ),
               );
+        }),
+        Effect.orDie,
+      ),
+
+    expectFileNotContaining: (relativePath, pattern) =>
+      fs.readFileString(path.join(projectDir, relativePath)).pipe(
+        Effect.flatMap((content) => {
+          const matches =
+            typeof pattern === "string"
+              ? content.includes(pattern)
+              : pattern.test(content);
+          return matches
+            ? Effect.die(
+                new Error(
+                  `File ${relativePath} unexpectedly matches pattern: ${pattern}`,
+                ),
+              )
+            : Effect.void;
         }),
         Effect.orDie,
       ),
