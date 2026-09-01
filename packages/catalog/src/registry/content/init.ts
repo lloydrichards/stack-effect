@@ -59,7 +59,14 @@ export const rootPackageJsonContents = `{
 export const rootTsconfigContents = `{
   "$schema": "{{#if typescript=6}}./node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}./node_modules/@effect/tsgo/schema.json{{/if}}",
   "extends": "./packages/config-typescript/base.json",
-  "files": []
+  "files": []{{#if typescript=7}},
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }{{/if}}
 }
 `;
 

@@ -112,6 +112,29 @@ describe("init", () => {
     );
 
     it.effect(
+      "should activate the Effect language-service plugin in the TypeScript 7 root config",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "typescript-7-root-plugin-app",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileContaining(
+            "typescript-7-root-plugin-app/tsconfig.json",
+            '"name": "@effect/language-service"',
+          );
+        }),
+      { timeout: 30_000 },
+    );
+
+    it.effect(
       "should generate the Vite+ toolchain when using the defaults",
       () =>
         Effect.gen(function* () {
