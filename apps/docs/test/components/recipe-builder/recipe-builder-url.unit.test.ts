@@ -36,6 +36,17 @@ describe("recipe builder URL", () => {
     });
   });
 
+  it("rejects no-git URLs that select Husky", () => {
+    const decoded = decodeRecipeBuilderUrl(
+      new URLSearchParams(
+        "?name=shared-recipe&target=workspace/shared-recipe:workspace-devenv-husky&no-git",
+      ),
+    );
+
+    expect(decoded.issue).toBeDefined();
+    expect(decoded.initialValues.targets).toEqual([]);
+  });
+
   it("uses create flag names and omits default configuration flags", () => {
     const params = encodeRecipeBuilderUrl({
       ...fullStackRecipeFixture,

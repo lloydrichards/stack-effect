@@ -33,6 +33,8 @@ import {
 
 type ToolField = "monorepo" | "lint" | "format" | "test";
 
+const huskyModuleId = "workspace-devenv-husky";
+
 export function StackConfigurator() {
   const form = useRecipeBuilderFormContext();
   const {
@@ -212,16 +214,21 @@ export function StackConfigurator() {
           </FieldLegend>
           <FieldGroup
             variant="outlined"
-            className="grid grid-cols-1 sm:grid-cols-3"
+            className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2"
           >
             <ConfigurationToggle
               id="stack-git"
               title="Git"
               description="Initialize a Git repository with an initial commit."
               checked={gitEnabled}
-              onCheckedChange={(enabled) =>
-                form.setFieldValue("gitEnabled", enabled)
-              }
+              onCheckedChange={(enabled) => {
+                form.setFieldValue("gitEnabled", enabled);
+                if (!enabled) {
+                  form.setFieldValue("developerExperienceModules", (current) =>
+                    current.filter((id) => id !== huskyModuleId),
+                  );
+                }
+              }}
             />
             {choices?.devenv.map((choice) => (
               <ConfigurationToggle
@@ -230,6 +237,7 @@ export function StackConfigurator() {
                 title={choice.title}
                 description={choice.description}
                 checked={developerExperienceModules.includes(choice.value)}
+                disabled={!gitEnabled && choice.value === huskyModuleId}
                 onCheckedChange={() =>
                   form.setFieldValue("developerExperienceModules", (current) =>
                     current.includes(choice.value)
@@ -310,6 +318,7 @@ type ConfigurationToggleProps = {
   readonly title: string;
   readonly description: string;
   readonly checked: boolean;
+  readonly disabled?: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
 };
 
@@ -318,6 +327,7 @@ function ConfigurationToggle({
   title,
   description,
   checked,
+  disabled = false,
   onCheckedChange,
 }: ConfigurationToggleProps) {
   return (
@@ -325,8 +335,9 @@ function ConfigurationToggle({
       id={id}
       variant="outline"
       pressed={checked}
+      disabled={disabled}
       onPressedChange={onCheckedChange}
-      className="h-auto min-h-11 min-w-0 justify-center rounded-none border-0 border-b px-2 py-2 text-center whitespace-normal last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
+      className="h-auto min-h-11 min-w-0 justify-center rounded-none border-0 bg-background px-2 py-2 text-center whitespace-normal"
     >
       {checked ? <Check data-icon="inline-start" aria-hidden="true" /> : null}
       <span className="text-sm font-medium text-foreground">{title}</span>

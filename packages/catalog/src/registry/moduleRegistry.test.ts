@@ -11,6 +11,103 @@ describe("moduleRegistry", () => {
     expect(duplicates).toEqual([]);
   });
 
+  it("registers Husky as an optional developer-experience module", () => {
+    const husky = moduleRegistry.find(
+      (module) => module.id === "workspace-devenv-husky",
+    );
+    if (!husky) throw new Error("Husky module must be registered");
+
+    expect(husky).toMatchObject({
+      id: "workspace-devenv-husky",
+      title: "Husky + lint-staged",
+      categories: ["devenv"],
+      dependencies: [
+        { _tag: "required-module", moduleId: "workspace-devenv-git" },
+      ],
+      scripts: [
+        {
+          label: "Install Husky",
+          command: "{{packageManager}} run husky:install",
+          phase: "post-finalize",
+        },
+      ],
+    });
+    expect(husky.contributions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _tag: "file",
+          path: "{{targetPath}}/.husky/pre-commit",
+          contents: "{{packageManager}} run lint-staged\n",
+        }),
+        expect.objectContaining({
+          _tag: "pkg-json-entry",
+          field: "devDependencies",
+          name: "husky",
+          value: "9.1.7",
+        }),
+        expect.objectContaining({
+          _tag: "pkg-json-entry",
+          field: "devDependencies",
+          name: "lint-staged",
+          value: "17.4.1",
+        }),
+      ]),
+    );
+
+    const lintStagedConfig = husky.contributions.find(
+      (contribution) =>
+        contribution._tag === "file" &&
+        contribution.path === "{{targetPath}}/.lintstagedrc.json",
+    );
+    if (lintStagedConfig?._tag !== "file") {
+      throw new Error("Husky must contribute .lintstagedrc.json");
+    }
+    expect(lintStagedConfig.contents).toBe(`{
+  "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}": [
+    "{{packageManager}} run --if-present format --"{{#if lint=biome}},
+    "{{packageManager}} run lint --"{{/if}}{{#if lint=oxlint}},
+    "{{packageManager}} run lint:fix --"{{/if}}
+  ]
+}
+`);
+
+    for (const [lint, commands] of [
+      [undefined, []],
+      ["biome", ["bun run lint --"]],
+      ["oxlint", ["bun run lint:fix --"]],
+    ] as const) {
+      const config = JSON.parse(
+        lintStagedConfig.contents
+          .replaceAll("{{packageManager}}", "bun")
+          .replace(/{{#if lint=biome}}([\s\S]*?){{\/if}}/g, (_, contents) =>
+            lint === "biome" ? contents : "",
+          )
+          .replace(/{{#if lint=oxlint}}([\s\S]*?){{\/if}}/g, (_, contents) =>
+            lint === "oxlint" ? contents : "",
+          ),
+      );
+      expect(config).toEqual({
+        "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}": [
+          "bun run --if-present format --",
+          ...commands,
+        ],
+      });
+    }
+
+    expect(lintStagedConfig.contents).not.toContain("git add");
+    expect(
+      husky.contributions.flatMap((contribution) =>
+        contribution._tag === "pkg-json-entry" &&
+        contribution.field === "scripts"
+          ? [[contribution.name, contribution.value]]
+          : [],
+      ),
+    ).toEqual([
+      ["husky:install", "husky"],
+      ["lint-staged", "lint-staged"],
+    ]);
+  });
+
   it("should only reference existing modules in dependencies", () => {
     const missing: Array<{ module: string; references: string }> = [];
 

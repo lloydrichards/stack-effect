@@ -250,6 +250,39 @@ test("should keep Bun selected after rapidly changing the Node package manager",
     .not.toHaveTextContent("package-manager=");
 });
 
+test("should disable and clear Husky when Git is turned off", async () => {
+  await renderRecipeBuilder();
+
+  const git = page.getByRole("button", { name: /^Git/u });
+  const husky = page.getByRole("button", {
+    name: /^Husky \+ lint-stagedRun staged-file format and lint tasks before each commit$/u,
+  });
+  const nix = page.getByRole("button", { name: /Nix Flake/u });
+  const devContainer = page.getByRole("button", { name: /Dev Container/u });
+
+  await expect.element(husky).toBeEnabled();
+  await expect.element(nix).toBeEnabled();
+  await expect.element(devContainer).toBeEnabled();
+  await husky.click();
+  await nix.click();
+  await expect.element(husky).toHaveAttribute("aria-pressed", "true");
+  await expect.element(nix).toHaveAttribute("aria-pressed", "true");
+
+  await git.click();
+
+  await expect.element(husky).toBeDisabled();
+  await expect.element(husky).toHaveAttribute("aria-pressed", "false");
+  await expect.element(nix).toBeEnabled();
+  await expect.element(nix).toHaveAttribute("aria-pressed", "true");
+  await expect.element(devContainer).toBeEnabled();
+  await expect.element(devContainer).toHaveAttribute("aria-pressed", "false");
+
+  await git.click();
+
+  await expect.element(husky).toBeEnabled();
+  await expect.element(husky).toHaveAttribute("aria-pressed", "false");
+});
+
 test("should generate a usable preview when the user completes a valid Selection", async () => {
   await renderRecipeBuilder();
 

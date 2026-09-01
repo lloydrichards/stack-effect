@@ -129,7 +129,11 @@ const toInitialValues = (
       : databaseModules[0] === "package-db-postgres"
         ? ("postgres" as const)
         : ("none" as const);
-  if (recipe.noGit && workspaceModules.includes("workspace-devenv-git")) {
+  if (
+    recipe.noGit &&
+    (workspaceModules.includes("workspace-devenv-git") ||
+      workspaceModules.includes("workspace-devenv-husky"))
+  ) {
     return undefined;
   }
   const formTargets: ReadonlyArray<TargetInstance> = targets

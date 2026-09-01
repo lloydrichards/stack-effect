@@ -52,8 +52,71 @@ describe("init", () => {
             "$schema",
             "../../node_modules/@effect/tsgo/schema.json",
           );
+          yield* cli.expectFileNotExists("my-app/.husky");
+          yield* cli.expectFileNotExists("my-app/.lintstagedrc.json");
         }),
       { timeout: 30_000 },
+    );
+
+    it.effect(
+      "adds Husky with a static lint-staged JSON config",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run("init", "husky-app", "--yes", "--root", cli.workdir);
+          yield* cli.expectExitCode(0);
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--target",
+            "workspace/root:workspace-devenv-husky",
+            "--root",
+            `${cli.workdir}/husky-app`,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileExists("husky-app/.husky/pre-commit");
+          yield* cli.expectFileExists("husky-app/.lintstagedrc.json");
+          yield* cli.expectFileNotExists("husky-app/lint-staged.config.mjs");
+          yield* cli.expectFileContaining(
+            "husky-app/.lintstagedrc.json",
+            '"bun run --if-present format --"',
+          );
+          yield* cli.expectFileContaining(
+            "husky-app/.lintstagedrc.json",
+            '"bun run lint:fix --"',
+          );
+          yield* cli.expectFileContaining(
+            "husky-app/.lintstagedrc.json",
+            /^(?![\s\S]*\b(?:oxfmt|oxlint|biome|dprint)\b)[\s\S]*$/,
+          );
+          yield* cli.expectJsonFile(
+            "husky-app/package.json",
+            "scripts.format",
+            "oxfmt",
+          );
+          yield* cli.expectJsonFile(
+            "husky-app/package.json",
+            "scripts.lint:fix",
+            "oxlint --fix",
+          );
+          yield* cli.expectJsonFile(
+            "husky-app/package.json",
+            "scripts.husky:install",
+            "husky",
+          );
+          yield* cli.expectJsonFile(
+            "husky-app/package.json",
+            "scripts.lint-staged",
+            "lint-staged",
+          );
+          yield* cli.expectFileContaining(
+            "husky-app/package.json",
+            /^(?![\s\S]*"husky:(?:format|lint)"\s*:)[\s\S]*$/,
+          );
+        }),
+      { timeout: 120_000 },
     );
 
     it.effect(
@@ -742,6 +805,8 @@ describe("init", () => {
           yield* cli.expectExitCode(0);
           yield* cli.expectFileExists("nogit-app/package.json");
           yield* cli.expectFileNotExists("nogit-app/.git");
+          yield* cli.expectFileNotExists("nogit-app/.husky");
+          yield* cli.expectFileNotExists("nogit-app/.lintstagedrc.json");
         }),
       { timeout: 30_000 },
     );

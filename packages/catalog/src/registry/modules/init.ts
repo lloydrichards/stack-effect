@@ -11,6 +11,8 @@ import {
   dprintJsonContents,
   envrcContents,
   flakeNixContents,
+  huskyPreCommitContents,
+  lintStagedConfigContents,
   nxHashEnvContents,
   nxJsonContents,
   oxfmtJsoncContents,
@@ -118,6 +120,75 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
   nextSteps: [
     "Dev Container: Open in VS Code and run 'Dev Containers: Reopen in Container'",
     "Dev Container: Or create a GitHub Codespace from the repository",
+  ],
+};
+
+const huskyModule: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("workspace-devenv-husky"),
+  title: "Husky + lint-staged",
+  description: "Run staged-file format and lint tasks before each commit",
+  visibility: "internal",
+  categories: [ModuleCategory.make("devenv")],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  dependencies: [
+    {
+      _tag: "required-module",
+      target: new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "root",
+      }),
+      moduleId: ModuleId.make("workspace-devenv-git"),
+    },
+  ],
+  contributions: [
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.husky/pre-commit",
+      contents: huskyPreCommitContents,
+    },
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.lintstagedrc.json",
+      contents: lintStagedConfigContents,
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "devDependencies",
+      name: "husky",
+      value: "9.1.7",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "devDependencies",
+      name: "lint-staged",
+      value: "17.4.1",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "scripts",
+      name: "husky:install",
+      value: "husky",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "scripts",
+      name: "lint-staged",
+      value: "lint-staged",
+    },
+  ],
+  scripts: [
+    {
+      label: "Install Husky",
+      command: "{{packageManager}} run husky:install",
+      phase: "post-finalize",
+    },
+  ],
+  nextSteps: [
+    "Husky: After a fresh clone, rerun `husky:install` to enable hooks.",
   ],
 };
 
@@ -696,4 +767,5 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   gitInitModule,
   nixFlakeModule,
   devcontainerModule,
+  huskyModule,
 ];
