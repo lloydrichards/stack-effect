@@ -42,18 +42,9 @@ const gitInitModule: typeof ModuleDefinition.Type = {
   contributions: [],
   scripts: [
     {
-      label: "Initialize git repository",
-      command: "git init --initial-branch=main",
-      phase: "post-finalize",
-    },
-    {
-      label: "Stage all files",
-      command: "git add -A",
-      phase: "post-finalize",
-    },
-    {
-      label: "Create initial commit",
-      command: 'git commit -m "initial commit"',
+      label: "Initialize git repository and create initial commit",
+      command:
+        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit")',
       phase: "post-finalize",
     },
   ],
@@ -188,7 +179,7 @@ const huskyModule: typeof ModuleDefinition.Type = {
     },
   ],
   nextSteps: [
-    "Husky: After a fresh clone, rerun `husky:install` to enable hooks.",
+    "Husky: After a fresh clone, rerun `{{packageManager}} run husky:install` to enable hooks.",
   ],
 };
 
@@ -535,7 +526,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "lint",
-        value: "biome lint .",
+        value: "biome lint",
       },
     ],
   },
@@ -566,14 +557,14 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "format",
-        value: "biome check --write .",
+        value: "biome check --write",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "format:check",
-        value: "biome check .",
+        value: "biome check",
       },
     ],
   },

@@ -31,7 +31,22 @@ describe("moduleRegistry", () => {
           phase: "post-finalize",
         },
       ],
+      nextSteps: [
+        "Husky: After a fresh clone, rerun `{{packageManager}} run husky:install` to enable hooks.",
+      ],
     });
+
+    const git = moduleRegistry.find(
+      (module) => module.id === "workspace-devenv-git",
+    );
+    expect(git?.scripts).toEqual([
+      {
+        label: "Initialize git repository and create initial commit",
+        command:
+          'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit")',
+        phase: "post-finalize",
+      },
+    ]);
     expect(husky.contributions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({

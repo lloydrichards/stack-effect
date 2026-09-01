@@ -5,7 +5,7 @@ import { RecipePreviewService } from "./RecipePreviewService";
 
 const previewQualityConfig = (
   lint: "biome" | "oxlint",
-  format: "dprint" | "oxfmt",
+  format: "biome" | "dprint" | "oxfmt",
 ) =>
   Effect.gen(function* () {
     const previews = yield* RecipePreviewService;
@@ -42,7 +42,7 @@ it.effect(
         preview.files.find((file) => file.path === path)?.contents;
       const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint .");
+      assert.strictEqual(packageJson.scripts.lint, "biome lint");
       assert.strictEqual(packageJson.scripts.format, "dprint fmt");
       assert.strictEqual(packageJson.scripts["format:check"], "dprint check");
       assert.strictEqual(
@@ -60,6 +60,21 @@ it.effect(
         fileContents(".vscode/settings.json"),
         "source.organizeImports.biome",
       );
+    }).pipe(Effect.provide(RecipePreviewService.layer)),
+);
+
+it.effect(
+  "should generate argument-safe Biome commands when Biome is selected",
+  () =>
+    Effect.gen(function* () {
+      const preview = yield* previewQualityConfig("biome", "biome");
+      const fileContents = (path: string) =>
+        preview.files.find((file) => file.path === path)?.contents;
+      const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
+
+      assert.strictEqual(packageJson.scripts.lint, "biome lint");
+      assert.strictEqual(packageJson.scripts.format, "biome check --write");
+      assert.strictEqual(packageJson.scripts["format:check"], "biome check");
     }).pipe(Effect.provide(RecipePreviewService.layer)),
 );
 
@@ -142,7 +157,7 @@ it.effect(
         preview.files.find((file) => file.path === path)?.contents;
       const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint .");
+      assert.strictEqual(packageJson.scripts.lint, "biome lint");
       assert.isDefined(fileContents("biome.jsonc"));
       assert.notInclude(fileContents("biome.jsonc"), '"formatter"');
       assert.include(

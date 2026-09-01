@@ -1,5 +1,5 @@
 import { assert, describe, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Ref } from "effect";
 import { CLI } from "./harness";
 
 /**
@@ -121,6 +121,129 @@ describe("init", () => {
           );
         }),
       { timeout: 120_000 },
+    );
+
+    it.effect(
+      "adds Husky without replaying Git bootstrap and commits only formatted staged content",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const initialHead = yield* Ref.make("");
+
+          yield* cli.run(
+            "init",
+            "husky-git-app",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("husky-git-app", function* (project) {
+            const head = yield* project.exec("git", "rev-parse", "HEAD");
+            assert.strictEqual(
+              head.exitCode,
+              0,
+              `${head.stdout}\n${head.stderr}`,
+            );
+            yield* Ref.set(initialHead, head.stdout.trim());
+            yield* project.writeFile("unrelated.txt", "leave this unstaged\n");
+          });
+
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--target",
+            "workspace/root:workspace-devenv-husky",
+            "--root",
+            `${cli.workdir}/husky-git-app`,
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileContaining(
+            "husky-git-app/.lintstagedrc.json",
+            /run --if-present format --"[\s\S]*run lint:fix --"/,
+          );
+
+          yield* cli.withinProject("husky-git-app", function* (project) {
+            const head = yield* project.exec("git", "rev-parse", "HEAD");
+            assert.strictEqual(
+              head.stdout.trim(),
+              yield* Ref.get(initialHead),
+              "Incremental add must not advance HEAD",
+            );
+            const staged = yield* project.exec(
+              "git",
+              "diff",
+              "--cached",
+              "--quiet",
+            );
+            assert.strictEqual(
+              staged.exitCode,
+              0,
+              "Incremental add must not stage unrelated work",
+            );
+            const status = yield* project.exec("git", "status", "--short");
+            assert.match(status.stdout, /\?\? unrelated\.txt/);
+            yield* project.expectFileContaining(
+              "package.json",
+              '"prepare": "effect-tsgo patch"',
+            );
+            yield* project.expectCommandSucceeds(
+              "Effect TypeScript setup",
+              "bun",
+              "run",
+              "prepare",
+            );
+
+            const stagedContents = "export const formatMe={value:'staged'}\n";
+            yield* project.writeFile("staged.ts", stagedContents);
+            yield* project.expectCommandSucceeds(
+              "Stage source",
+              "git",
+              "add",
+              "staged.ts",
+            );
+            yield* project.writeFile(
+              "staged.ts",
+              `${stagedContents}// local suffix\n`,
+            );
+
+            const commit = yield* project.exec(
+              "git",
+              "commit",
+              "-m",
+              "hook-test",
+            );
+            assert.strictEqual(
+              commit.exitCode,
+              0,
+              `${commit.stdout}\n${commit.stderr}`,
+            );
+            const committedFile = yield* project.exec(
+              "git",
+              "show",
+              "HEAD:staged.ts",
+            );
+            assert.strictEqual(
+              committedFile.stdout,
+              'export const formatMe = { value: "staged" };\n',
+            );
+            yield* project.expectFileContaining("staged.ts", "// local suffix");
+            yield* project.expectFileContaining(
+              "unrelated.txt",
+              "leave this unstaged",
+            );
+            const unrelatedInCommit = yield* project.exec(
+              "git",
+              "cat-file",
+              "-e",
+              "HEAD:unrelated.txt",
+            );
+            assert.notStrictEqual(unrelatedInCommit.exitCode, 0);
+            assert.notInclude(committedFile.stdout, "// local suffix");
+          });
+        }),
+      { timeout: 180_000 },
     );
 
     it.effect(
@@ -836,6 +959,78 @@ describe("init", () => {
           yield* cli.expectFileNotExists("nogit-app/.lintstagedrc.json");
         }),
       { timeout: 30_000 },
+    );
+
+    it.effect(
+      "adding Husky does not bootstrap an existing unborn repository",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "husky-unborn-git-app",
+            "--yes",
+            "--no-git",
+            "--root",
+            cli.workdir,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("husky-unborn-git-app", function* (project) {
+            yield* project.expectCommandSucceeds(
+              "Initialize an unborn Git repository",
+              "git",
+              "init",
+              "--initial-branch=main",
+            );
+            yield* project.writeFile("unrelated.txt", "leave this untracked\n");
+          });
+
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--target",
+            "workspace/root:workspace-devenv-husky",
+            "--root",
+            `${cli.workdir}/husky-unborn-git-app`,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("husky-unborn-git-app", function* (project) {
+            const head = yield* project.exec(
+              "git",
+              "rev-parse",
+              "--verify",
+              "HEAD",
+            );
+            assert.notStrictEqual(
+              head.exitCode,
+              0,
+              "Incremental add must not create an initial commit",
+            );
+            const staged = yield* project.exec(
+              "git",
+              "diff",
+              "--cached",
+              "--quiet",
+            );
+            assert.strictEqual(
+              staged.exitCode,
+              0,
+              "Incremental add must leave the index empty",
+            );
+            const index = yield* project.exec("git", "ls-files");
+            assert.strictEqual(
+              index.stdout,
+              "",
+              "Incremental add must not stage generated or unrelated files",
+            );
+            const status = yield* project.exec("git", "status", "--short");
+            assert.match(status.stdout, /\?\? unrelated\.txt/);
+          });
+        }),
+      { timeout: 120_000 },
     );
   });
 });
