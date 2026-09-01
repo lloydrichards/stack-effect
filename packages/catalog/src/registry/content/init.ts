@@ -59,7 +59,14 @@ export const rootPackageJsonContents = `{
 export const rootTsconfigContents = `{
   "$schema": "{{#if typescript=6}}./node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}./node_modules/@effect/tsgo/schema.json{{/if}}",
   "extends": "./packages/config-typescript/base.json",
-  "files": []
+  "files": []{{#if typescript=7}},
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }{{/if}}
 }
 `;
 
@@ -110,7 +117,6 @@ export const configTypescriptBaseContents = `{
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
         "includeSuggestionsInTsc": true,
-        "quickinfoMaximumLength": 1200,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",
@@ -366,7 +372,11 @@ export const workspaceVscodeSettingsContents = `{
   },
   "[jsonc]": {
     "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
-  }
+  }{{#if typescript=7}},
+  "js/ts.tsdk.additionalLocations": ["./node_modules/typescript/bin"],
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsdk.path": "./node_modules/typescript/bin",
+  "js/ts.experimental.useTsgo": true{{/if}}
 }
 `;
 

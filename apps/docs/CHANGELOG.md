@@ -1,5 +1,11 @@
 # @stack-effect/docs
 
+## 0.2.1
+
+### Patch Changes
+
+- 437ed2b: Preserve the selected Bun runtime when restoring Recipe Builder state.
+
 ## 0.2.0
 
 ### Minor Changes

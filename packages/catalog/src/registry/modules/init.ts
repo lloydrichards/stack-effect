@@ -255,7 +255,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@effect/tsgo",
-        value: "^0.22.0",
+        value: "0.38.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -441,7 +441,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "vite-plus",
-        value: "^0.2.8",
+        value: "^0.3.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -618,7 +618,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "oxfmt",
-        value: "^0.62.0",
+        value: "^0.65.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -707,7 +707,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "oxlint",
-        value: "^1.42.0",
+        value: "^1.80.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -752,7 +752,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "vitest",
-        value: "^4.1.4",
+        value: "^4.1.11",
       },
       {
         _tag: "pkg-json-entry",

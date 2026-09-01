@@ -74,7 +74,7 @@ it.effect(
 
       assert.strictEqual(packageJson.scripts.format, "oxfmt");
       assert.strictEqual(packageJson.scripts["format:check"], "oxfmt --check");
-      assert.strictEqual(packageJson.devDependencies.oxfmt, "^0.62.0");
+      assert.strictEqual(packageJson.devDependencies.oxfmt, "^0.65.0");
       assert.isUndefined(fileContents("dprint.json"));
     }).pipe(Effect.provide(RecipePreviewService.layer)),
 );

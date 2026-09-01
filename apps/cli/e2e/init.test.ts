@@ -40,7 +40,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "my-app/package.json",
             "devDependencies.@effect/tsgo",
-            "^0.22.0",
+            "0.38.0",
           );
           yield* cli.expectJsonFile(
             "my-app/tsconfig.json",
@@ -54,6 +54,10 @@ describe("init", () => {
           );
           yield* cli.expectFileNotExists("my-app/.husky");
           yield* cli.expectFileNotExists("my-app/.lintstagedrc.json");
+          yield* cli.expectFileContaining(
+            "my-app/.vscode/settings.json",
+            '"js/ts.experimental.useTsgo": true',
+          );
         }),
       { timeout: 30_000 },
     );
@@ -168,6 +172,29 @@ describe("init", () => {
           );
         }),
       { timeout: 60_000 },
+    );
+
+    it.effect(
+      "should activate the Effect language-service plugin in the TypeScript 7 root config",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "init",
+            "typescript-7-root-plugin-app",
+            "--yes",
+            "--root",
+            cli.workdir,
+          );
+
+          yield* cli.expectExitCode(0);
+          yield* cli.expectFileContaining(
+            "typescript-7-root-plugin-app/tsconfig.json",
+            '"name": "@effect/language-service"',
+          );
+        }),
+      { timeout: 30_000 },
     );
 
     it.effect(
@@ -326,7 +353,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "catalog-oxfmt/package.json",
             "devDependencies.oxfmt",
-            "^0.62.0",
+            "^0.65.0",
           );
           yield* cli.expectFileContaining(
             "catalog-oxfmt/.catalog-build-manifest.json",
@@ -377,7 +404,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
             "devDependencies.@effect/tsgo",
-            "^0.22.0",
+            "0.38.0",
           );
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
@@ -632,7 +659,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",
             "devDependencies.vite-plus",
-            "^0.2.8",
+            "^0.3.0",
           );
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",

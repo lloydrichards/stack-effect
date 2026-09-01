@@ -1,5 +1,13 @@
 # stack-effect
 
+## 0.13.2
+
+### Patch Changes
+
+- c3a3545: Generated TypeScript 7 workspaces now use the tested TSGo, Vite+, Oxfmt, Oxlint, and Vitest toolchain versions.
+- ff696ff: TypeScript 7 workspaces now activate the Effect language-service plugin from the root tsconfig.
+- 8b26ecf: TypeScript 7 projects now configure VS Code to use the patched workspace TSGo server.
+
 ## 0.13.1
 
 ### Patch Changes
