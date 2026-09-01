@@ -366,7 +366,11 @@ export const workspaceVscodeSettingsContents = `{
   },
   "[jsonc]": {
     "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
-  }
+  }{{#if typescript=7}},
+  "js/ts.tsdk.additionalLocations": ["./node_modules/typescript/bin"],
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsdk.path": "./node_modules/typescript/bin",
+  "js/ts.experimental.useTsgo": true{{/if}}
 }
 `;
 

@@ -52,6 +52,10 @@ describe("init", () => {
             "$schema",
             "../../node_modules/@effect/tsgo/schema.json",
           );
+          yield* cli.expectFileContaining(
+            "my-app/.vscode/settings.json",
+            '"js/ts.experimental.useTsgo": true',
+          );
         }),
       { timeout: 30_000 },
     );
