@@ -117,7 +117,6 @@ export const configTypescriptBaseContents = `{
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
         "includeSuggestionsInTsc": true,
-        "quickinfoMaximumLength": 1200,
         "diagnosticSeverity": {
           "cryptoRandomUUIDInEffect": "suggestion",
           "globalDateInEffect": "suggestion",
