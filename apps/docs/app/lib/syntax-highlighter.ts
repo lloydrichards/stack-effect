@@ -15,7 +15,10 @@ export type HighlightedSource = ReadonlyArray<ReadonlyArray<SyntaxToken>>;
 
 type Language =
   | "css"
+  | "dockerfile"
+  | "dotenv"
   | "html"
+  | "javascript"
   | "json"
   | "jsonc"
   | "nix"
@@ -27,8 +30,10 @@ type Language =
 const languageByExtension: Readonly<Record<string, Language>> = {
   css: "css",
   html: "html",
+  js: "javascript",
   json: "json",
   jsonc: "jsonc",
+  mjs: "javascript",
   nix: "nix",
   sh: "shellscript",
   ts: "typescript",
@@ -38,8 +43,10 @@ const languageByExtension: Readonly<Record<string, Language>> = {
 };
 
 const languageByFilename: Readonly<Record<string, Language>> = {
+  ".env": "dotenv",
+  ".env.example": "dotenv",
   ".envrc": "shellscript",
-  Dockerfile: "shellscript",
+  Dockerfile: "dockerfile",
 };
 
 export const languageForPath = (path: string): Language | "text" => {
@@ -54,7 +61,10 @@ const createHighlighter = createBundledHighlighter({
   engine: () => createJavaScriptRegexEngine(),
   langs: {
     css: () => import("shiki/langs/css.mjs"),
+    dockerfile: () => import("shiki/langs/dockerfile.mjs"),
+    dotenv: () => import("shiki/langs/dotenv.mjs"),
     html: () => import("shiki/langs/html.mjs"),
+    javascript: () => import("shiki/langs/javascript.mjs"),
     json: () => import("shiki/langs/json.mjs"),
     jsonc: () => import("shiki/langs/jsonc.mjs"),
     nix: () => import("shiki/langs/nix.mjs"),
