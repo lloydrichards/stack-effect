@@ -146,7 +146,6 @@ export const accumulateChatResponse = (
     },
 
     error: (part) => {
-      console.error("[chatAtom] Chat stream error received:", part);
       const segments = state._tag === "streaming" ? state.segments : [];
       return {
         _tag: "error",
@@ -211,7 +210,6 @@ export const chatAtom: AtomType.AtomResultFn<
     ),
     Stream.drop(1),
     Stream.catch((error: unknown) => {
-      console.error("[chatAtom] Caught unhandled stream error:", error);
       const errorMessage =
         error instanceof Error
           ? \`Stream failed: \${error.message}\`
@@ -294,6 +292,11 @@ export function ChatBox() {
   );
   const readinessAttemptRef = useRef(0);
   const lastCompletionKeyRef = useRef<string | null>(null);
+  const entryIdRef = useRef(0);
+  const nextEntryId = () => {
+    entryIdRef.current += 1;
+    return \`chat-entry-\${entryIdRef.current}\`;
+  };
 
   const currentResult: ChatResponse = AsyncResult.getOrElse(
     result,
@@ -308,11 +311,6 @@ export function ChatBox() {
   const isFailure = AsyncResult.isFailure(result);
   const isStreaming = currentResult._tag === "streaming";
   const asyncFailureMessage = isFailure ? Cause.pretty(result.cause) : null;
-
-  useEffect(() => {
-    if (!asyncFailureMessage) return;
-    console.error("[ChatBox] chat atom failed", asyncFailureMessage);
-  }, [asyncFailureMessage]);
 
   useEffect(() => {
     const started = AsyncResult.getOrElse(startResult, () => null);
@@ -364,7 +362,7 @@ export function ChatBox() {
   const handleSend = () => {
     if (!input.trim()) return;
     const userMsg: ChatEntry = {
-      id: crypto.randomUUID(),
+      id: nextEntryId(),
       role: "user",
       message: input,
     };
@@ -406,7 +404,7 @@ export function ChatBox() {
     setHistory((prev) => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: nextEntryId(),
         role: "assistant",
         message: "",
         segments: completionSnapshot.segments,

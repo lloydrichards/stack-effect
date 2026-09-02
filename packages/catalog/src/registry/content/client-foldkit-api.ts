@@ -84,8 +84,8 @@ export const FetchHello = Command.define(
     return SucceededFetchHello({ data });
   }).pipe(
     Effect.catchTag("FailedFetchHello", (error) => Effect.succeed(error)),
-    Effect.catch(() =>
-      Effect.succeed(FailedFetchHello({ error: "Failed to fetch API" })),
+    Effect.orElseSucceed(() =>
+      FailedFetchHello({ error: "Failed to fetch API" }),
     ),
     Effect.provideService(HttpClient.TracerPropagationEnabled, false),
     Effect.provide(FetchHttpClient.layer),

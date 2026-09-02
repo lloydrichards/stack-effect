@@ -76,7 +76,7 @@ export class AiChatService extends Context.Service<AiChatService>()("AiChatServi
     const loop = yield* AgenticLoopService;
 
     const chat = Effect.fn("chat")(function* (history: Array<Prompt.Message>) {
-      const queue = yield* Queue.make<typeof ChatStreamPart.Type, Cause.Done>();
+      const queue = yield* Queue.make<ChatStreamPart, Cause.Done>();
       const currentSpan = yield* Effect.currentSpan.pipe(Effect.option);
       const currentParentSpan = yield* Effect.currentParentSpan.pipe(
         Effect.option,
@@ -119,7 +119,7 @@ export class AiChatService extends Context.Service<AiChatService>()("AiChatServi
         tracedGeneration.pipe(
           Effect.catchCause((cause) =>
             Effect.gen(function* () {
-              yield* Effect.logError(\`Chat error: \${cause}\`);
+              yield* Effect.logError("Chat generation failed", cause);
               yield* Queue.offer(queue, {
                 _tag: "error",
                 message: \`System error: \${Cause.pretty(cause)}\`,
@@ -160,7 +160,7 @@ const getCurrentDatetimeTool = Tool.make("get_current_datetime", {
     iso: Schema.DateTimeUtc,
     formatted: Schema.String,
     timezone: Schema.String,
-    unix: Schema.Number,
+    unix: Schema.Int,
   }),
   failure: Schema.String,
   failureMode: "return",
@@ -244,10 +244,87 @@ const calculateTool = Tool.make("calculate", {
 
 const normalize = String.replaceAll("^", "**");
 
+class ArithmeticParser {
+  private position = 0;
+
+  constructor(private readonly input: string) {}
+
+  parse() {
+    const value = this.parseExpression();
+    this.skipWhitespace();
+    if (this.position !== this.input.length) {
+      throw new Error("Unexpected token at position " + (this.position + 1));
+    }
+    return value;
+  }
+
+  private parseExpression(): number {
+    let value = this.parseTerm();
+    while (true) {
+      if (this.consume("+")) value += this.parseTerm();
+      else if (this.consume("-")) value -= this.parseTerm();
+      else return value;
+    }
+  }
+
+  private parseTerm(): number {
+    let value = this.parseUnary();
+    while (true) {
+      if (this.consume("*", "**")) value *= this.parseUnary();
+      else if (this.consume("/")) value /= this.parseUnary();
+      else if (this.consume("%")) value %= this.parseUnary();
+      else return value;
+    }
+  }
+
+  private parsePower(): number {
+    const base = this.parsePrimary();
+    return this.consume("**") ? base ** this.parseUnary() : base;
+  }
+
+  private parseUnary(): number {
+    if (this.consume("+")) return this.parseUnary();
+    if (this.consume("-")) return -this.parseUnary();
+    return this.parsePower();
+  }
+
+  private parsePrimary(): number {
+    if (this.consume("(")) {
+      const value = this.parseExpression();
+      if (!this.consume(")")) throw new Error("Missing closing parenthesis");
+      return value;
+    }
+
+    this.skipWhitespace();
+    const match = /^(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:e[+-]?\\d+)?/i.exec(
+      this.input.slice(this.position),
+    );
+    if (match === null) {
+      throw new Error("Expected a number at position " + (this.position + 1));
+    }
+    this.position += match[0].length;
+    return Number(match[0]);
+  }
+
+  private consume(token: string, excludedPrefix?: string) {
+    this.skipWhitespace();
+    if (excludedPrefix && this.input.startsWith(excludedPrefix, this.position)) {
+      return false;
+    }
+    if (!this.input.startsWith(token, this.position)) return false;
+    this.position += token.length;
+    return true;
+  }
+
+  private skipWhitespace() {
+    while (/\\s/.test(this.input[this.position] ?? "")) this.position += 1;
+  }
+}
+
 const evaluate = (expr: string, original: string) =>
   pipe(
     Effect.try({
-      try: () => new Function(\`return (\${expr})\`)() as unknown,
+      try: () => new ArithmeticParser(expr).parse(),
       catch: (cause) =>
         \`Failed to evaluate expression '\${original}': \${cause instanceof Error ? cause.message : globalThis.String(cause)}\`,
     }),
@@ -720,7 +797,7 @@ import { createMailboxEvents } from "./MailboxEvents";
 
 export const AgenticLoopState = Schema.Struct({
   finishReason: Schema.String,
-  iteration: Schema.Number,
+  iteration: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
 type LoopState = typeof AgenticLoopState.Type;
@@ -765,7 +842,7 @@ const upsertToolParams = (
 
 export type AgenticLoopRunOptions<Tools extends Record<string, Tool.Any>> = {
   chat: Chat.Service;
-  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
+  queue: Queue.Queue<ChatStreamPart, Cause.Done>;
   toolkit: Toolkit.WithHandler<Tools>;
   maxIterations?: number;
 };
@@ -776,7 +853,7 @@ const runTurn = <Tools extends Record<string, Tool.Any>>({
   toolkit,
 }: {
   chat: Chat.Service;
-  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>;
+  queue: Queue.Queue<ChatStreamPart, Cause.Done>;
   toolkit: Toolkit.WithHandler<Tools>;
 }) =>
   Effect.gen(function* () {
@@ -995,7 +1072,7 @@ const stringifyJson = (value: unknown) =>
 const stringifyValue = (value: unknown) =>
   typeof value === "string" ? Effect.succeed(value) : stringifyJson(value);
 
-const optionalNonEmpty = (value: string | undefined) => {
+const optionalNonEmpty = (value: string | void) => {
   if (value === undefined) {
     return {};
   }
@@ -1024,7 +1101,7 @@ const toolStartInput = (part: ToolStart) => {
   }
 
   if (part.params === undefined) {
-    return Effect.succeed(undefined);
+    return Effect.void;
   }
 
   return stringifyValue(part.params);
@@ -1035,7 +1112,7 @@ const toolStartInput = (part: ToolStart) => {
  * Provides high-level methods for common event patterns to eliminate boilerplate
  */
 export const createMailboxEvents = (
-  queue: Queue.Queue<typeof ChatStreamPart.Type, Cause.Done>,
+  queue: Queue.Queue<ChatStreamPart, Cause.Done>,
 ) =>
   ({
     text: (delta: string) =>

@@ -211,9 +211,9 @@ export const dbMigrateScriptContents = `{{#if runtime=bun}}import { BunRuntime }
 import { Console, Effect } from "effect";
 import { MigratedLive } from "../src";
 
-const program = Effect.gen(function* () {
-  yield* Console.log("Database migrations completed");
-}).pipe(Effect.provide(MigratedLive));
+const program = Console.log("Database migrations completed").pipe(
+  Effect.provide(MigratedLive),
+);
 
 {{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(program);
 `;

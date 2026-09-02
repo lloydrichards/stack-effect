@@ -31,7 +31,7 @@ export const presenceServiceContents = `import type {
 } from "@repo/domain/WebSocket";
 import { Context, DateTime, Effect, Layer, PubSub, Stream } from "effect";
 
-export type PresenceEventType = typeof WebSocketEvent.Type;
+export type PresenceEventType = WebSocketEvent;
 
 export class PresenceService extends Context.Service<PresenceService>()(
   "PresenceService",

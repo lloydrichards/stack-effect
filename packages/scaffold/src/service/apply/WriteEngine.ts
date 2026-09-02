@@ -1,5 +1,14 @@
 import { ApplyFailure } from "@repo/domain/Apply";
-import { Context, Effect, FileSystem, Layer, Match, Path } from "effect";
+import {
+  Clock,
+  Context,
+  Effect,
+  FileSystem,
+  Layer,
+  Match,
+  Path,
+  Random,
+} from "effect";
 
 export type ApplyWriteRequest = {
   readonly path: string;
@@ -32,18 +41,20 @@ export class WriteEngine extends Context.Service<
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const atomicWrite = ({
+    const atomicWrite = Effect.fn("WriteEngine.atomicWrite")(function* ({
       path,
       contents,
     }: {
       path: string;
       contents: string;
-    }) => {
-      const tempPath = `${path}.apply-temp-${Date.now()}-${Math.random()
+    }) {
+      const currentTime = yield* Clock.currentTimeMillis;
+      const random = yield* Random.next;
+      const tempPath = `${path}.apply-temp-${currentTime}-${random
         .toString(16)
         .slice(2)}`;
 
-      return Effect.gen(function* () {
+      return yield* Effect.gen(function* () {
         yield* fileSystem
           .writeFileString(tempPath, contents, { flag: "wx" })
           .pipe(
@@ -70,7 +81,7 @@ export class WriteEngine extends Context.Service<
           fileSystem.remove(tempPath, { force: true }).pipe(Effect.ignore),
         ),
       );
-    };
+    });
 
     const inspect = Effect.fn("WriteEngine.inspect")(function* (path: string) {
       const pathStat = yield* fileSystem.stat(path).pipe(

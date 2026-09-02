@@ -20,6 +20,7 @@ import {
   Option,
   Path,
   PlatformError,
+  Schema,
 } from "effect";
 import { ApplyService } from "./ApplyService";
 import {
@@ -34,6 +35,7 @@ import {
 } from "./WriteEngine";
 
 const testRepoRoot = "/repo";
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
 
 type MockPathEntry =
   | { readonly _tag: "missing" }
@@ -868,7 +870,7 @@ describe("ApplyService", () => {
                 makeFileSystemLayer({
                   "/repo/package.json": {
                     _tag: "file",
-                    contents: JSON.stringify({
+                    contents: encodeJson({
                       scripts: "vite dev",
                     }),
                   },

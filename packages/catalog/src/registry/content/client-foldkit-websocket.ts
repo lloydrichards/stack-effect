@@ -51,7 +51,7 @@ import { WsClient, WsClientLive } from "../services/ws-client";
 const PresenceClient = Schema.Struct({
   clientId: Schema.String,
   status: Schema.String,
-  connectedAt: Schema.Number,
+  connectedAt: Schema.Int,
 });
 
 export const Model = Schema.Struct({
@@ -104,7 +104,7 @@ export const init = (): readonly [
 
 const applyPresenceEvent = (
   model: Model,
-  event: typeof WebSocketEvent.Type,
+  event: WebSocketEvent,
 ): Model =>
   Match.valueTags(event, {
     connected: ({ clientId, connectedAt }) =>
@@ -197,8 +197,8 @@ export const SetStatus = Command.define(
     yield* client.setStatus({ clientId, status });
     return SucceededSetStatus();
   }).pipe(
-    Effect.catch(() =>
-      Effect.succeed(FailedSetStatus({ error: "Failed to set status" })),
+    Effect.orElseSucceed(() =>
+      FailedSetStatus({ error: "Failed to set status" }),
     ),
     Effect.provide(WsClientLive),
   ),
@@ -304,7 +304,7 @@ const statusButton = <ParentMessage>(
   h: ReturnType<typeof html<ParentMessage>>,
   toParentMessage: (message: Message) => ParentMessage,
   label: string,
-  status: typeof ClientStatus.Type,
+  status: ClientStatus,
   enabled: boolean,
 ): Html =>
   h.button(

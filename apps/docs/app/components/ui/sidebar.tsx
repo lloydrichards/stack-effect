@@ -24,8 +24,7 @@ import {
 import { useIsMobile } from "~/hooks/use-mobile";
 import { cn } from "~/lib/utils";
 
-const SIDEBAR_COOKIE_NAME = "sidebar_state";
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+const SIDEBAR_STORAGE_KEY = "sidebar_state";
 const SIDEBAR_WIDTH = "16rem";
 const SIDEBAR_WIDTH_MOBILE = "18rem";
 const SIDEBAR_WIDTH_ICON = "3rem";
@@ -72,6 +71,16 @@ function SidebarProvider({
   // We use openProp and setOpenProp for control from outside the component.
   const [_open, _setOpen] = React.useState(defaultOpen);
   const open = openProp ?? _open;
+
+  React.useEffect(() => {
+    if (openProp !== undefined) return;
+
+    const storedOpen = localStorage.getItem(SIDEBAR_STORAGE_KEY);
+    if (storedOpen === "true" || storedOpen === "false") {
+      _setOpen(storedOpen === "true");
+    }
+  }, [openProp]);
+
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
       const openState = typeof value === "function" ? value(open) : value;
@@ -81,9 +90,7 @@ function SidebarProvider({
         _setOpen(openState);
       }
 
-      // This sets the cookie to keep the sidebar state.
-      // biome-ignore lint/suspicious/noDocumentCookie: shadcn sidebar pattern
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`;
+      localStorage.setItem(SIDEBAR_STORAGE_KEY, String(openState));
     },
     [setOpenProp, open],
   );
@@ -605,11 +612,6 @@ function SidebarMenuSkeleton({
 }: React.ComponentProps<"div"> & {
   showIcon?: boolean;
 }) {
-  // Random width between 50 to 90%.
-  const [width] = React.useState(() => {
-    return `${Math.floor(Math.random() * 40) + 50}%`;
-  });
-
   return (
     <div
       data-slot="sidebar-menu-skeleton"
@@ -621,13 +623,8 @@ function SidebarMenuSkeleton({
         <Skeleton className="size-4" data-sidebar="menu-skeleton-icon" />
       )}
       <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
+        className="h-4 max-w-[70%] flex-1"
         data-sidebar="menu-skeleton-text"
-        style={
-          {
-            "--skeleton-width": width,
-          } as React.CSSProperties
-        }
       />
     </div>
   );

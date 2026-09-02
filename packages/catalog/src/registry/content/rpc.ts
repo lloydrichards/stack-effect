@@ -10,7 +10,7 @@ export const TickEvent = Schema.Union([
 export class EventRpc extends RpcGroup.make(
   Rpc.make("tick", {
     payload: {
-      ticks: Schema.Number,
+      ticks: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
     },
     success: TickEvent,
     stream: true,

@@ -1,3 +1,5 @@
+// This test intentionally constructs a Windows Path service from Node's win32 implementation.
+// @effect-diagnostics nodeBuiltinImport:off
 import nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
@@ -6,12 +8,15 @@ import {
   Plan,
   type PlanOutcome,
 } from "@repo/domain/Plan";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import * as MemoryFileSystem from "../../MemoryFileSystem";
 import { ApplyPreviewService } from "./ApplyPreviewService";
 import { ApplyService } from "./ApplyService";
 
 const repoRoot = "/repo";
+const JsonFromJsonString = Schema.fromJsonString(Schema.Json);
+const decodeJson = Schema.decodeUnknownSync(JsonFromJsonString);
+const encodeJson = Schema.encodeSync(JsonFromJsonString);
 
 const complete = (
   path: string,
@@ -129,7 +134,7 @@ describe("ApplyPreviewService", () => {
       Effect.gen(function* () {
         const hostFileSystem = yield* FileSystem.FileSystem;
         const service = yield* ApplyPreviewService;
-        const original = JSON.stringify({ name: "app", private: true });
+        const original = encodeJson({ name: "app", private: true });
         yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
         yield* hostFileSystem.writeFileString(
           `${repoRoot}/package.json`,
@@ -196,7 +201,7 @@ describe("ApplyPreviewService", () => {
         windowsRepoRoot,
         "package.json",
       );
-      const original = JSON.stringify({ name: "windows-app" });
+      const original = encodeJson({ name: "windows-app" });
       yield* hostFileSystem.writeFileString(packageJsonPath, original);
 
       const result = yield* Effect.gen(function* () {
@@ -216,7 +221,7 @@ describe("ApplyPreviewService", () => {
       }).pipe(Effect.provide(previewLayer));
 
       expect(result.apply.modified).toEqual(["package.json"]);
-      expect(JSON.parse(result.files[0]?.contents ?? "")).toEqual({
+      expect(decodeJson(result.files[0]?.contents ?? "")).toEqual({
         name: "windows-app",
         scripts: { dev: "vite" },
       });

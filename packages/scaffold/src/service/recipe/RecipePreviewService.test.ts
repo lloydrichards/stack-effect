@@ -3,6 +3,17 @@ import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Schema } from "effect";
 import { RecipePreviewService } from "./RecipePreviewService";
 
+const PackageJsonFromJsonString = Schema.fromJsonString(
+  Schema.Struct({
+    scripts: Schema.Record(Schema.String, Schema.String),
+    devDependencies: Schema.Record(Schema.String, Schema.String),
+  }),
+);
+const UnknownFromJsonString = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Json),
+);
+const decodePackageJson = Schema.decodeUnknownSync(PackageJsonFromJsonString);
+
 const previewQualityConfig = (
   lint: "biome" | "oxlint",
   format: "dprint" | "oxfmt",
@@ -40,16 +51,18 @@ it.effect(
       });
       const fileContents = (path: string) =>
         preview.files.find((file) => file.path === path)?.contents;
-      const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
+      const packageJson = decodePackageJson(
+        fileContents("package.json") ?? "{}",
+      );
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint");
-      assert.strictEqual(packageJson.scripts.format, "dprint fmt");
+      assert.strictEqual(packageJson.scripts["lint"], "biome lint");
+      assert.strictEqual(packageJson.scripts["format"], "dprint fmt");
       assert.strictEqual(packageJson.scripts["format:check"], "dprint check");
       assert.strictEqual(
         packageJson.devDependencies["@biomejs/biome"],
         "2.5.2",
       );
-      assert.strictEqual(packageJson.devDependencies.dprint, "^0.54.0");
+      assert.strictEqual(packageJson.devDependencies["dprint"], "^0.54.0");
       assert.isDefined(fileContents("biome.jsonc"));
       assert.isDefined(fileContents("dprint.json"));
       assert.include(
@@ -70,11 +83,13 @@ it.effect(
       const preview = yield* previewQualityConfig("biome", "oxfmt");
       const fileContents = (path: string) =>
         preview.files.find((file) => file.path === path)?.contents;
-      const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
+      const packageJson = decodePackageJson(
+        fileContents("package.json") ?? "{}",
+      );
 
-      assert.strictEqual(packageJson.scripts.format, "oxfmt");
+      assert.strictEqual(packageJson.scripts["format"], "oxfmt");
       assert.strictEqual(packageJson.scripts["format:check"], "oxfmt --check");
-      assert.strictEqual(packageJson.devDependencies.oxfmt, "^0.65.0");
+      assert.strictEqual(packageJson.devDependencies["oxfmt"], "^0.65.0");
       assert.isUndefined(fileContents("dprint.json"));
     }).pipe(Effect.provide(RecipePreviewService.layer)),
 );
@@ -88,7 +103,7 @@ it.effect(
         preview.files.find((file) => file.path === path)?.contents;
 
       assert.deepStrictEqual(
-        JSON.parse(fileContents(".oxfmtrc.jsonc") ?? "{}"),
+        UnknownFromJsonString(fileContents(".oxfmtrc.jsonc") ?? "{}"),
         {
           $schema: "./node_modules/oxfmt/configuration_schema.json",
           printWidth: 80,
@@ -140,9 +155,11 @@ it.effect(
       const preview = yield* previewQualityConfig("biome", "oxfmt");
       const fileContents = (path: string) =>
         preview.files.find((file) => file.path === path)?.contents;
-      const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
+      const packageJson = decodePackageJson(
+        fileContents("package.json") ?? "{}",
+      );
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint");
+      assert.strictEqual(packageJson.scripts["lint"], "biome lint");
       assert.isDefined(fileContents("biome.jsonc"));
       assert.notInclude(fileContents("biome.jsonc"), '"formatter"');
       assert.include(

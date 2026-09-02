@@ -2,8 +2,8 @@ import { ApplyFailure } from "@repo/domain/Apply";
 import type { JsonCompositionOperation } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, Layer, Match, Schema } from "effect";
 
-const PackageJson = Schema.Record(Schema.String, Schema.Unknown);
-const PackageJsonFromString = Schema.fromJsonString(PackageJson);
+const PackageJson = Schema.Record(Schema.String, Schema.Json);
+const PackageJsonFromString = Schema.fromJsonString(PackageJson, { space: 2 });
 
 export interface JsonComposerShape {
   readonly compose: (
@@ -22,7 +22,7 @@ export class JsonComposer extends Context.Service<
       operations: ReadonlyArray<JsonCompositionOperation>,
     ) =>
       Effect.gen(function* () {
-        const pkg = yield* Schema.decodeUnknownEffect(PackageJsonFromString)(
+        const pkg = yield* Schema.decodeEffect(PackageJsonFromString)(
           contents,
         ).pipe(
           Effect.mapError(
@@ -42,9 +42,9 @@ export class JsonComposer extends Context.Service<
           { discard: true },
         );
 
-        const encoded = yield* Schema.encodeUnknownEffect(PackageJson)(
-          mutablePkg,
-        ).pipe(
+        const encoded = yield* Schema.encodeUnknownEffect(
+          PackageJsonFromString,
+        )(mutablePkg).pipe(
           Effect.mapError(
             (error) =>
               new ApplyFailure({
@@ -54,7 +54,7 @@ export class JsonComposer extends Context.Service<
           ),
         );
 
-        return `${JSON.stringify(encoded, null, 2)}\n`;
+        return `${encoded}\n`;
       }),
   } satisfies JsonComposerShape),
 }) {
