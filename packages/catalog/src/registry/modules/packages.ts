@@ -37,12 +37,7 @@ import {
   presenceIndexContents,
   presenceServiceContents,
 } from "../content/presence";
-import {
-  todoMigrationContents,
-  todoRepositoryContents,
-  todoRepositoryPostgresTestContents,
-  todoRepositoryTestContents,
-} from "../content/todo";
+import { todoMigrationContents, todoRepositoryContents } from "../content/todo";
 
 export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
@@ -822,16 +817,6 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/src/migrations/0002_create_todos.ts",
         contents: todoMigrationContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/TodoRepository.test.ts",
-        contents: todoRepositoryTestContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/TodoRepository.postgres.test.ts",
-        contents: todoRepositoryPostgresTestContents,
       },
       {
         _tag: "barrel-export",
