@@ -73,6 +73,7 @@ describe("add", () => {
             [
               "package/domain:domain-api-contracts",
               "server/api:server-http-api",
+              "server/api:server-chat-rpc",
               "cli/app:cli-command-hello",
             ],
             (target) =>
@@ -110,6 +111,14 @@ describe("add", () => {
               'from "@effect/platform-node"',
             );
             yield* project.expectFileContaining(
+              "apps/server-api/src/runtime/ChatSessions.ts",
+              'from "@effect/platform-node/NodeCrypto"',
+            );
+            yield* project.expectFileContaining(
+              "apps/server-api/src/runtime/ChatSessions.ts",
+              /^(?![\s\S]*@effect\/platform-bun)[\s\S]*$/,
+            );
+            yield* project.expectFileContaining(
               "apps/cli-app/src/index.ts",
               'from "@effect/platform-node"',
             );
@@ -139,6 +148,17 @@ describe("add", () => {
             "client-react/web:client-react-http-api",
           );
           yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("impl-test", function* (project) {
+            yield* project.expectFileContaining(
+              "apps/client-react-web/vite.config.ts",
+              'fileURLToPath(new URL("./src", import.meta.url))',
+            );
+            yield* project.expectFileContaining(
+              "apps/client-react-web/vite.config.ts",
+              "@effect-diagnostics nodeBuiltinImport:off",
+            );
+          });
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 90_000 },
     );
@@ -267,6 +287,66 @@ describe("add", () => {
             yield* project.expectFileExists("packages/ai/package.json");
             yield* project.expectFileExists("packages/domain/package.json");
             yield* project.expectTypeCheckPasses();
+          });
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 90_000 },
+    );
+
+    it.effect(
+      "math toolkit preserves conventional exponent precedence",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const root = `${cli.workdir}/math-test`;
+
+          yield* cli.run("init", "math-test", "--yes", "--root", cli.workdir);
+          yield* cli.expectExitCode(0);
+
+          yield* cli.run(
+            "add",
+            "--yes",
+            "--root",
+            root,
+            "--target",
+            "package/ai:package-ai-toolkit-math",
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.withinProject("math-test", function* (project) {
+            yield* project.writeFile(
+              "packages/ai/math-smoke.ts",
+              `import { Effect, Stream } from "effect";
+import { MathToolkit, MathToolkitLive } from "./src/toolkits/MathToolkit";
+
+const cases = [
+  ["-2 ^ 2", "-4"],
+  ["(-2) ^ 2", "4"],
+  ["2 ^ -2", "0.25"],
+  ["2 ^ 3 ^ 2", "512"],
+] as const;
+
+await Effect.runPromise(
+  Effect.forEach(cases, ([expression, expected]) =>
+    Effect.gen(function* () {
+      const toolkit = yield* MathToolkit;
+      const stream = yield* toolkit.handle("calculate", { expression });
+      const results = yield* Stream.runCollect(stream);
+      const actual = results[0]?.result;
+      if (actual !== expected) {
+        return yield* Effect.dieMessage(
+          expression + ": expected " + expected + ", got " + actual,
+        );
+      }
+    }),
+  ).pipe(Effect.provide(MathToolkitLive)),
+);
+`,
+            );
+            yield* project.expectCommandSucceeds(
+              "Math toolkit smoke test",
+              "bun",
+              "packages/ai/math-smoke.ts",
+            );
           });
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 90_000 },
@@ -438,6 +518,10 @@ describe("add", () => {
             );
             yield* project.expectFileExists(
               "apps/client-foldkit-app/src/features/rest.ts",
+            );
+            yield* project.expectFileContaining(
+              "apps/client-foldkit-app/vite.config.ts",
+              'fileURLToPath(new URL("./src", import.meta.url))',
             );
             yield* project.expectTypeCheckPasses();
           });

@@ -14,12 +14,7 @@ import {
 } from "../content/chat";
 import { serverTickContents } from "../content/rpc";
 import { serverDevToolsContents } from "../content/server";
-import {
-  serverTodoApiContents,
-  serverTodoRpcContents,
-  todoHttpTransportTestContents,
-  todoRpcTransportTestContents,
-} from "../content/todo";
+import { serverTodoApiContents, serverTodoRpcContents } from "../content/todo";
 import { serverPresenceContents } from "../content/websocket";
 
 const serverKind = TargetKind.make("server");
@@ -145,11 +140,6 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         contents: serverTodoApiContents,
       },
       {
-        _tag: "file",
-        path: "{{targetPath}}/src/TodoHttp.test.ts",
-        contents: todoHttpTransportTestContents,
-      },
-      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
@@ -208,11 +198,6 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Todo.ts",
         contents: serverTodoRpcContents,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/TodoRpc.test.ts",
-        contents: todoRpcTransportTestContents,
       },
       {
         _tag: "pkg-json-entry",
