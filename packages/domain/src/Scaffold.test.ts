@@ -291,6 +291,43 @@ describe("ContributionTokenContext.resolve", () => {
     });
   });
 
+  describe("computed Effect Oxlint conditionals", () => {
+    const template =
+      "{{#if effectOxlint}}effect{{/if}}/{{#if standaloneEffectOxlint}}standalone{{/if}}/{{#if typescript7Diagnostics}}typescript{{/if}}";
+
+    it("enables Effect Oxlint and its standalone variant for TS7 outside Vite+", () => {
+      const ctx = makeContext({
+        typescript: "7",
+        lint: "oxlint",
+        monorepo: "turbo",
+      });
+
+      expect(ctx.resolve(template)).toBe("effect/standalone/");
+    });
+
+    it("enables Effect Oxlint but not its standalone variant for TS7 Vite+", () => {
+      const ctx = makeContext({
+        typescript: "7",
+        lint: "oxlint",
+        monorepo: "vite-plus",
+      });
+
+      expect(ctx.resolve(template)).toBe("effect//");
+    });
+
+    it("disables Effect Oxlint for TS6 with Oxlint", () => {
+      const ctx = makeContext({ typescript: "6", lint: "oxlint" });
+
+      expect(ctx.resolve(template)).toBe("//");
+    });
+
+    it("disables Effect Oxlint for TS7 with a different linter", () => {
+      const ctx = makeContext({ typescript: "7", lint: "biome" });
+
+      expect(ctx.resolve(template)).toBe("//typescript");
+    });
+  });
+
   describe("equality conditionals", () => {
     it("should resolve an equality conditional when its value contains a hyphen", () => {
       const ctx = makeContext({ monorepo: "vite-plus" });

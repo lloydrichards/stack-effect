@@ -17,6 +17,7 @@ import {
   nxJsonContents,
   oxfmtJsoncContents,
   oxfmtVscodeExtensionsContents,
+  oxlintJsonContents,
   turboJsonContents,
   vitePlusConfigContents,
   vitestConfigContents,
@@ -250,7 +251,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "prepare",
-        value: "effect-tsgo patch",
+        value: "effect-tsgo patch{{#if effectOxlint}} --oxlint{{/if}}",
       },
     ],
     nextSteps: [
@@ -684,25 +685,39 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
     contributions: [
       {
+        _tag: "file",
+        path: "{{#if monorepo=turbo}}{{targetPath}}/.oxlintrc.json{{/if}}{{#if monorepo=nx}}{{targetPath}}/.oxlintrc.json{{/if}}",
+        contents: oxlintJsonContents,
+      },
+      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
-        name: "oxlint",
-        value: "^1.80.0",
+        name: "{{#if monorepo=turbo}}oxlint{{/if}}{{#if monorepo=nx}}oxlint{{/if}}",
+        value: "1.80.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if standaloneEffectOxlint}}oxlint-tsgolint{{/if}}",
+        value: "7.0.2001",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "lint",
-        value: "oxlint",
+        value:
+          "{{#if monorepo=vite-plus}}vp lint{{/if}}{{#if monorepo=turbo}}oxlint{{/if}}{{#if monorepo=nx}}oxlint{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "lint:fix",
-        value: "oxlint --fix",
+        value:
+          "{{#if monorepo=vite-plus}}vp lint --fix{{/if}}{{#if monorepo=turbo}}oxlint --fix{{/if}}{{#if monorepo=nx}}oxlint --fix{{/if}}",
       },
     ],
   },

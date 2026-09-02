@@ -92,6 +92,9 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * ## Conditionals
    * - `{{#if field}}...{{/if}}` - Include content if field is truthy (non-empty)
    * - `{{#if field=value}}...{{/if}}` - Include content if field equals value
+   * - `effectOxlint` - Truthy for TypeScript 7 with Oxlint
+   * - `standaloneEffectOxlint` - Truthy for Effect Oxlint outside Vite+
+   * - `typescript7Diagnostics` - Truthy for TypeScript 7 without Effect Oxlint
    *
    * Unknown fields in conditionals silently evaluate as falsy.
    */
@@ -125,6 +128,22 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           return this.config.test ?? "";
         case "monorepo":
           return this.config.monorepo ?? "";
+        case "effectOxlint":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint === "oxlint"
+            ? "true"
+            : "";
+        case "standaloneEffectOxlint":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint === "oxlint" &&
+            this.config.monorepo !== "vite-plus"
+            ? "true"
+            : "";
+        case "typescript7Diagnostics":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint !== "oxlint"
+            ? "true"
+            : "";
         default:
           return "";
       }
