@@ -293,7 +293,7 @@ describe("ContributionTokenContext.resolve", () => {
 
   describe("computed Effect Oxlint conditionals", () => {
     const template =
-      "{{#if effectOxlint}}effect{{/if}}/{{#if standaloneEffectOxlint}}standalone{{/if}}/{{#if typescript7Diagnostics}}typescript{{/if}}";
+      "{{#if effectOxlint}}effect{{/if}}/{{#if standaloneOxlint}}standalone{{/if}}/{{#if standaloneEffectOxlint}}standalone-effect{{/if}}/{{#if typescript7Diagnostics}}typescript{{/if}}";
 
     it("enables Effect Oxlint and its standalone variant for TS7 outside Vite+", () => {
       const ctx = makeContext({
@@ -302,7 +302,9 @@ describe("ContributionTokenContext.resolve", () => {
         monorepo: "turbo",
       });
 
-      expect(ctx.resolve(template)).toBe("effect/standalone/");
+      expect(ctx.resolve(template)).toBe(
+        "effect/standalone/standalone-effect/",
+      );
     });
 
     it("enables Effect Oxlint but not its standalone variant for TS7 Vite+", () => {
@@ -312,19 +314,27 @@ describe("ContributionTokenContext.resolve", () => {
         monorepo: "vite-plus",
       });
 
-      expect(ctx.resolve(template)).toBe("effect//");
+      expect(ctx.resolve(template)).toBe("effect///");
     });
 
     it("disables Effect Oxlint for TS6 with Oxlint", () => {
       const ctx = makeContext({ typescript: "6", lint: "oxlint" });
 
-      expect(ctx.resolve(template)).toBe("//");
+      expect(ctx.resolve(template)).toBe("/standalone//");
     });
 
     it("disables Effect Oxlint for TS7 with a different linter", () => {
       const ctx = makeContext({ typescript: "7", lint: "biome" });
 
-      expect(ctx.resolve(template)).toBe("//typescript");
+      expect(ctx.resolve(template)).toBe("///typescript");
+    });
+
+    it("enables standalone Oxlint when monorepo is omitted", () => {
+      const ctx = makeContext({ typescript: "7", lint: "oxlint" });
+
+      expect(ctx.resolve(template)).toBe(
+        "effect/standalone/standalone-effect/",
+      );
     });
   });
 

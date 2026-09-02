@@ -184,3 +184,33 @@ it.effect(
       );
     }).pipe(Effect.provide(RecipePreviewService.layer)),
 );
+
+it.effect("should generate standalone Oxlint when monorepo is omitted", () =>
+  Effect.gen(function* () {
+    const previews = yield* RecipePreviewService;
+    const preview = yield* previews.preview({
+      config: new StackConfig({
+        name: "quality-app" as typeof Schema.NonEmptyString.Type,
+        runtime: { _tag: "bun" },
+        typescript: "7",
+        lint: "oxlint",
+      }),
+      recipe: { targets: [] },
+    });
+    const fileContents = (path: string) =>
+      preview.files.find((file) => file.path === path)?.contents;
+    const packageJson = decodePackageJson(fileContents("package.json") ?? "{}");
+
+    assert.strictEqual(packageJson.scripts["lint"], "oxlint");
+    assert.strictEqual(packageJson.scripts["lint:fix"], "oxlint --fix");
+    assert.strictEqual(packageJson.devDependencies["oxlint"], "1.80.0");
+    assert.strictEqual(
+      packageJson.devDependencies["oxlint-tsgolint"],
+      "7.0.2001",
+    );
+    assert.include(
+      fileContents(".oxlintrc.json"),
+      "oxlint-presets/effect-native.json",
+    );
+  }).pipe(Effect.provide(RecipePreviewService.layer)),
+);

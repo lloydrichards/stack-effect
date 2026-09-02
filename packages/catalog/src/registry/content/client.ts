@@ -72,7 +72,7 @@ export const clientTsconfigConfigContents = `{
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
     "composite": true,
-    "types": ["bun", "vite/client"],
+    "types": ["vite/client"],
     "outDir": "dist-node"
   },
   "include": ["vite.config.ts", "vitest.config.ts"]

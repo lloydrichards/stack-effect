@@ -274,7 +274,8 @@ export const nxJsonContents = `{
 }
 `;
 
-export const nxHashEnvContents = `import { createHash } from "node:crypto";
+export const nxHashEnvContents = `/* oxlint-disable effecttsgo/async-function, effecttsgo/node-builtin-import -- This Nx build helper runs directly in Node and is intentionally outside the Effect runtime. */
+import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
