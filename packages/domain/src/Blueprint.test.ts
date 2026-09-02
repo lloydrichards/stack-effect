@@ -295,14 +295,14 @@ describe("@repo/domain Blueprint", () => {
     });
   });
 
-  it("should reject invalid ownership relationships when decoding", async () => {
+  it("should reject invalid ownership relationships when decoding", () => {
     const blueprint = makeUnsortedBlueprint();
     const invalid = {
       nodes: blueprint.nodes,
       edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
     };
 
-    await expect(
+    return expect(
       Schema.decodeUnknownPromise(Blueprint)(invalid),
     ).rejects.toThrow("must have exactly one owns-module edge");
   });

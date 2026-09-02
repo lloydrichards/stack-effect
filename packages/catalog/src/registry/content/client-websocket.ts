@@ -132,7 +132,6 @@ export function PresencePanel({ className }: { className?: string }) {
 
   const handleSetStatus = (status: ClientStatus) => {
     if (!myClientId) {
-      console.error("Cannot set status: not connected yet");
       return;
     }
     setStatus({

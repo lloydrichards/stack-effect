@@ -9,19 +9,19 @@ export const ImportRecord = Schema.Struct({
 });
 
 export const ImportIssue = Schema.Struct({
-  line: Schema.Number,
+  line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
   message: Schema.String,
 });
 
 export const ImportValidationEvent = Schema.TaggedUnion({
-  started: { total: Schema.Number },
+  started: { total: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)) },
   row: {
     accepted: Schema.Boolean,
-    line: Schema.Number,
+    line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
     issue: Schema.optional(ImportIssue),
   },
   completed: {
-    total: Schema.Number,
+    total: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   },
 });
 
@@ -40,11 +40,10 @@ export class ImportValidationRpc extends RpcGroup.make(
 ) {}
 
 export const parseImportRecord = (line: string, lineNumber: number) =>
-  Effect.gen(function* () {
-    const parsed = yield* Effect.try({
-      try: () => JSON.parse(line),
-      catch: () => undefined,
-    }).pipe(Effect.option);
+  Effect.sync(() => {
+    const parsed = Schema.decodeOption(Schema.fromJsonString(Schema.Unknown))(
+      line,
+    );
     return Option.match(parsed, {
       onNone: () => ({
         accepted: false,
@@ -81,8 +80,8 @@ import { RpcServer } from "effect/unstable/rpc";
 import { ImportValidationRpc, parseImportRecord } from "./domain";
 
 const ImportValidationHandlersLive = ImportValidationRpc.toLayer(
-  Effect.gen(function* () {
-    return ImportValidationRpc.of({
+  Effect.succeed(
+    ImportValidationRpc.of({
       validate: ({ content }) => {
         const records = content
           .split("\\n")
@@ -108,8 +107,8 @@ const ImportValidationHandlersLive = ImportValidationRpc.toLayer(
           ),
         );
       },
-    });
-  }),
+    }),
+  ),
 );
 
 const WorkerLive = RpcServer.layer(ImportValidationRpc).pipe(

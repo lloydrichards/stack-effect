@@ -1,4 +1,4 @@
-import { BunServices } from "@effect/platform-bun";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { CatalogService } from "@repo/catalog";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
@@ -138,7 +138,7 @@ const main = Effect.gen(function* () {
   }
 });
 
-void Effect.runPromise(
+BunRuntime.runMain(
   main.pipe(
     Effect.provide(
       Layer.mergeAll(
@@ -150,6 +150,4 @@ void Effect.runPromise(
       ).pipe(Layer.provideMerge(BunServices.layer)),
     ),
   ),
-).catch((error) => {
-  console.error("Error in Scaffold Scratchpad:", error);
-});
+);

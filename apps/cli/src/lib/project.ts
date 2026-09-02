@@ -1,19 +1,19 @@
-import * as nodePath from "node:path";
-import { Effect, Option } from "effect";
+import { Effect, Option, Path } from "effect";
 
 export const resolveNameAndRoot = Effect.fn("resolveNameAndRoot")(function* (
   nameInput: string,
   rootFlag: Option.Option<string>,
 ) {
+  const path = yield* Path.Path;
   const base = Option.getOrElse(rootFlag, () => process.cwd());
 
   if (nameInput === ".") {
-    const resolved = nodePath.resolve(base);
-    return { projectName: nodePath.basename(resolved), repoRoot: resolved };
+    const resolved = path.resolve(base);
+    return { projectName: path.basename(resolved), repoRoot: resolved };
   }
 
   return {
     projectName: nameInput,
-    repoRoot: nodePath.resolve(base, nameInput),
+    repoRoot: path.resolve(base, nameInput),
   };
 });

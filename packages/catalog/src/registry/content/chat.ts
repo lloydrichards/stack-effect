@@ -29,9 +29,9 @@ export const ChatStreamPart = Schema.TaggedUnion({
     reason: Schema.String,
     usage: Schema.optional(
       Schema.Struct({
-        promptTokens: Schema.Number,
-        completionTokens: Schema.Number,
-        totalTokens: Schema.Number,
+        promptTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        completionTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+        totalTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
       }),
     ),
   },
@@ -74,9 +74,9 @@ export const MessageSegment = Schema.TaggedUnion({
 export type MessageSegment = Schema.Schema.Type<typeof MessageSegment>;
 
 export const UsageMetadata = Schema.Struct({
-  promptTokens: Schema.Number,
-  completionTokens: Schema.Number,
-  totalTokens: Schema.Number,
+  promptTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  completionTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+  totalTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
 export type UsageMetadata = Schema.Schema.Type<typeof UsageMetadata>;
@@ -190,7 +190,8 @@ import {
   ChatNotFoundError,
   GenerationInProgressError,
 } from "@repo/domain/ChatRpc";
-import { Context, Effect, HashMap, Layer, Option, Ref } from "effect";
+{{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}
+import { Context, Crypto, Effect, HashMap, Layer, Option, Ref } from "effect";
 
 type ChatSession = {
   readonly active: boolean;
@@ -203,10 +204,13 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
         HashMap.empty(),
       );
+      const crypto = yield* Crypto.Crypto;
 
       return {
         start: Effect.gen(function* () {
-          const chatId = ChatId.make(crypto.randomUUID());
+          const chatId = ChatId.make(
+            yield* crypto.randomUUIDv4.pipe(Effect.orDie),
+          );
           const session: ChatSession = { active: false };
           yield* Ref.update(sessions, HashMap.set(chatId, session));
           return { chatId };
@@ -216,7 +220,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
             Effect.flatMap((current) =>
               Option.match(HashMap.get(current, chatId), {
                 onNone: () => Effect.fail(new ChatNotFoundError({ chatId })),
-                onSome: () => Effect.succeed(void 0),
+                onSome: () => Effect.void,
               }),
             ),
           ),
@@ -245,7 +249,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
                         current,
                       ] as const)
                     : ([
-                        Effect.succeed(void 0),
+                        Effect.void,
                         HashMap.set(current, chatId, {
                           ...session,
                           active: true,
@@ -266,7 +270,9 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
   },
 ) {}
 
-export const ChatSessionsLive = Layer.effect(ChatSessions)(ChatSessions.make);
+export const ChatSessionsLive = Layer.effect(ChatSessions)(ChatSessions.make).pipe(
+  Layer.provide(PlatformCryptoLayer),
+);
 `;
 
 export const serverChatRuntimeContents = `import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
@@ -469,7 +475,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
               Effect.map(HashMap.get(chatId)),
             );
             yield* Option.match(fiber, {
-              onNone: () => Effect.succeed(void 0),
+              onNone: () => Effect.void,
               onSome: Fiber.interrupt,
             });
           }),

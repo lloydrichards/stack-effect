@@ -43,7 +43,7 @@ import { RpcClient, RpcClientLive } from "../services/rpc-client";
 export const Model = Schema.Struct({
   ticksEnabled: Schema.Boolean,
   tickProgress: Schema.String,
-  tickCount: Schema.Number,
+  tickCount: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 export type Model = typeof Model.Type;
 

@@ -112,7 +112,7 @@ type MutableSegment =
 
 const applyChatPart = (
   model: Model,
-  part: typeof ChatStreamPart.Type,
+  part: ChatStreamPart,
 ): Model => {
   const segments: Array<MutableSegment> = [...model.chatSegments];
 
@@ -205,11 +205,11 @@ const applyChatPart = (
 };
 
 const extractTextFromSegments = (
-  segments: ReadonlyArray<typeof MessageSegment.Type>,
+  segments: ReadonlyArray<MessageSegment>,
 ): string =>
   segments
     .filter(
-      (seg): seg is typeof MessageSegment.Type & { _tag: "text" } =>
+      (seg): seg is MessageSegment & { _tag: "text" } =>
         seg._tag === "text",
     )
     .map((seg) => seg.content)
@@ -315,8 +315,8 @@ export const StartChat = Command.define(
     const { chatId } = yield* client.chat_start();
     return StartedChat({ chatId, messagesJson });
   }).pipe(
-    Effect.catch(() =>
-      Effect.succeed(FailedStartChat({ error: "Failed to start chat" })),
+    Effect.orElseSucceed(() =>
+      FailedStartChat({ error: "Failed to start chat" }),
     ),
     Effect.provide(ChatClientLive),
   ),
@@ -347,7 +347,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
           ? Effect.gen(function* () {
               const client = yield* ChatClient;
               const messages =
-                yield* Schema.decodeUnknownEffect(ChatMessagesJson)(
+                yield* Schema.decodeEffect(ChatMessagesJson)(
                   messagesJson,
                 );
               return Option.match(chatId, {
@@ -581,7 +581,7 @@ const streamingSegmentsView = <ParentMessage>(
 
 const segmentsView = <ParentMessage>(
   h: ReturnType<typeof html<ParentMessage>>,
-  segments: ReadonlyArray<typeof MessageSegment.Type>,
+  segments: ReadonlyArray<MessageSegment>,
 ): Array<Html> =>
   segments.map((segment) =>
     segment._tag === "text"

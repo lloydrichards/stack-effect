@@ -164,7 +164,7 @@ const logPersistenceCause = (cause: unknown) =>
 const decodeTodo = (row: unknown) =>
   Schema.decodeUnknownEffect(TodoRow)(row).pipe(
     Effect.flatMap((decoded) =>
-      Schema.decodeUnknownEffect(Todo)({
+      Schema.decodeEffect(Todo)({
         ...decoded,
         completed: decoded.completed === 1,
       }),
@@ -184,7 +184,7 @@ export class TodoRepository extends Context.Service<TodoRepository>()(
       const crypto = yield* Crypto.Crypto;
 
       const generateId = crypto.randomUUIDv4.pipe(
-        Effect.map(TodoId.make),
+        Effect.map((id) => TodoId.make(id)),
         Effect.mapError(persistenceError),
       );
 
@@ -390,52 +390,54 @@ describe("Todo RPC transport", () => {
 });
 `;
 
-export const todoRepositoryTestContents = `import { SqliteClient } from "@effect/sql-sqlite-node";
+export const todoRepositoryTestContents = `import { layer as BunFileSystemLayer } from "@effect/platform-bun/BunFileSystem";
+import { SqliteClient } from "@effect/sql-sqlite-node";
 import { CreateTodoInput, TodoId, UpdateTodoInput } from "@repo/domain/Todo";
-import { Effect, Layer } from "effect";
-import { unlink } from "node:fs/promises";
+import { Effect, FileSystem, Layer } from "effect";
 import { afterAll, describe, expect, it } from "vitest";
 import { TodoRepository, TodoRepositoryLive } from "./TodoRepository";
 import todoMigration from "./migrations/0002_create_todos";
 
-const filename = \`/tmp/stack-effect-todos-\${crypto.randomUUID()}.sqlite\`;
+const filename = \`/tmp/stack-effect-todos-\${process.pid}.sqlite\`;
 const SqliteLive = SqliteClient.layer({ filename });
 const MigratedLive = Layer.effectDiscard(todoMigration).pipe(
   Layer.provide(SqliteLive),
 );
 const TestDatabaseLive = Layer.mergeAll(SqliteLive, MigratedLive);
 
-const runRepository = <A, E>(
+const useRepository = <A, E>(
   use: (repository: TodoRepository["Service"]) => Effect.Effect<A, E>,
 ) =>
-  Effect.runPromise(
-    Effect.gen(function* () {
-      return yield* use(yield* TodoRepository);
-    }).pipe(
-      Effect.provide(TodoRepositoryLive.pipe(Layer.provide(TestDatabaseLive))),
-    ),
+  TodoRepository.use(use).pipe(
+    Effect.provide(TodoRepositoryLive.pipe(Layer.provide(TestDatabaseLive))),
   );
 
 describe.sequential("TodoRepository with SQLite", () => {
-  afterAll(async () => {
-    await unlink(filename);
-  });
+  afterAll(() =>
+    Effect.runPromise(
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        yield* fileSystem.remove(filename);
+      }).pipe(Effect.provide(BunFileSystemLayer)),
+    ),
+  );
 
-  it("supports the full CRUD lifecycle with typed missing-item failures", async () => {
-    const created = await runRepository((repository) =>
+  it("supports the full CRUD lifecycle with typed missing-item failures", () =>
+    Effect.runPromise(Effect.gen(function* () {
+    const created = yield* useRepository((repository) =>
       repository.create(CreateTodoInput.make({ title: "Write tests" })),
     );
 
     expect(TodoId.make(created.id)).toBe(created.id);
     expect(created).toMatchObject({ title: "Write tests", completed: false });
-    expect(await runRepository((repository) => repository.list())).toEqual([
+    expect(yield* useRepository((repository) => repository.list())).toEqual([
       created,
     ]);
     expect(
-      await runRepository((repository) => repository.get(created.id)),
+      yield* useRepository((repository) => repository.get(created.id)),
     ).toEqual(created);
 
-    const updated = await runRepository((repository) =>
+    const updated = yield* useRepository((repository) =>
       repository.update(
         created.id,
         UpdateTodoInput.make({ title: "Tests written", completed: true }),
@@ -448,13 +450,13 @@ describe.sequential("TodoRepository with SQLite", () => {
     });
 
     expect(
-      await runRepository((repository) => repository.delete(created.id)),
+      yield* useRepository((repository) => repository.delete(created.id)),
     ).toEqual(updated);
-    await expect(
-      runRepository((repository) => Effect.flip(repository.get(created.id))),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-    await expect(
-      runRepository((repository) =>
+    expect(
+      yield* useRepository((repository) => Effect.flip(repository.get(created.id))),
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+    expect(
+      yield* useRepository((repository) =>
         Effect.flip(
           repository.update(
             created.id,
@@ -462,21 +464,22 @@ describe.sequential("TodoRepository with SQLite", () => {
           ),
         ),
       ),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-    await expect(
-      runRepository((repository) => Effect.flip(repository.delete(created.id))),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-  });
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+    expect(
+      yield* useRepository((repository) => Effect.flip(repository.delete(created.id))),
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+  })));
 
-  it("persists data when database and repository layers are reconstructed", async () => {
-    const created = await runRepository((repository) =>
+  it("persists data when database and repository layers are reconstructed", () =>
+    Effect.runPromise(Effect.gen(function* () {
+    const created = yield* useRepository((repository) =>
       repository.create(CreateTodoInput.make({ title: "Persistent todo" })),
     );
 
     expect(
-      await runRepository((repository) => repository.get(created.id)),
+      yield* useRepository((repository) => repository.get(created.id)),
     ).toEqual(created);
-  });
+  })));
 });
 `;
 
@@ -500,13 +503,11 @@ const MigratedLive = Layer.effectDiscard(todoMigration).pipe(
 );
 const TestDatabaseLive = Layer.mergeAll(PostgresLive, MigratedLive);
 
-const runRepository = <A, E>(
+const useRepository = <A, E>(
   use: (repository: TodoRepository["Service"]) => Effect.Effect<A, E>,
 ) =>
-  Effect.runPromise(
-    TodoRepository.use(use).pipe(
-      Effect.provide(TodoRepositoryLive.pipe(Layer.provide(TestDatabaseLive))),
-    ),
+  TodoRepository.use(use).pipe(
+    Effect.provide(TodoRepositoryLive.pipe(Layer.provide(TestDatabaseLive))),
   );
 
 describe.runIf(databaseUrl.length > 0)("TodoRepository with PostgreSQL", () => {
@@ -526,32 +527,33 @@ describe.runIf(databaseUrl.length > 0)("TodoRepository with PostgreSQL", () => {
     ),
   );
 
-  it("supports the same CRUD and reconstruction behavior", async () => {
-    const created = await runRepository((repository) =>
+  it("supports the same CRUD and reconstruction behavior", () =>
+    Effect.runPromise(Effect.gen(function* () {
+    const created = yield* useRepository((repository) =>
       repository.create(CreateTodoInput.make({ title: "Postgres todo" })),
     );
     expect(created).toMatchObject({ title: "Postgres todo", completed: false });
-    expect(await runRepository((repository) => repository.list())).toEqual([
+    expect(yield* useRepository((repository) => repository.list())).toEqual([
       created,
     ]);
 
-    const updated = await runRepository((repository) =>
+    const updated = yield* useRepository((repository) =>
       repository.update(
         created.id,
         UpdateTodoInput.make({ title: "Postgres updated", completed: true }),
       ),
     );
-    expect(await runRepository((repository) => repository.get(created.id))).toEqual(
+    expect(yield* useRepository((repository) => repository.get(created.id))).toEqual(
       updated,
     );
-    expect(await runRepository((repository) => repository.delete(created.id))).toEqual(
+    expect(yield* useRepository((repository) => repository.delete(created.id))).toEqual(
       updated,
     );
-    await expect(
-      runRepository((repository) => Effect.flip(repository.get(created.id))),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-    await expect(
-      runRepository((repository) =>
+    expect(
+      yield* useRepository((repository) => Effect.flip(repository.get(created.id))),
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+    expect(
+      yield* useRepository((repository) =>
         Effect.flip(
           repository.update(
             created.id,
@@ -559,10 +561,10 @@ describe.runIf(databaseUrl.length > 0)("TodoRepository with PostgreSQL", () => {
           ),
         ),
       ),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-    await expect(
-      runRepository((repository) => Effect.flip(repository.delete(created.id))),
-    ).resolves.toMatchObject({ _tag: "TodoNotFound", id: created.id });
-  });
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+    expect(
+      yield* useRepository((repository) => Effect.flip(repository.delete(created.id))),
+    ).toMatchObject({ _tag: "TodoNotFound", id: created.id });
+  })));
 });
 `;

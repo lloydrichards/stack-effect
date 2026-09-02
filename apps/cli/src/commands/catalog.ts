@@ -1,4 +1,3 @@
-import * as nodeFs from "node:fs/promises";
 import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
@@ -76,6 +75,11 @@ const CatalogWorkspaceManifest = Schema.Struct({
   command: Schema.String,
   files: Schema.Array(ManifestFile),
 });
+
+const CatalogWorkspaceManifestFromJsonString = Schema.fromJsonString(
+  CatalogWorkspaceManifest,
+  { space: 2 },
+);
 
 type ManifestContributor = typeof ManifestContribution.Type;
 
@@ -502,19 +506,20 @@ const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
     yield* Effect.forEach(
       packageNames,
       (packageName) =>
-        Effect.tryPromise({
-          try: () =>
-            nodeFs.symlink(
-              path.join(packagesRoot, packageName),
-              path.join(scopeRoot, packageName),
-              "dir",
+        fs
+          .symlink(
+            path.join(packagesRoot, packageName),
+            path.join(scopeRoot, packageName),
+          )
+          .pipe(
+            Effect.mapError(
+              (error) =>
+                new WorkspaceCommandFailed({
+                  command: `link @repo/${packageName}`,
+                  cause: error,
+                }),
             ),
-          catch: (error) =>
-            new WorkspaceCommandFailed({
-              command: `link @repo/${packageName}`,
-              cause: error,
-            }),
-        }),
+          ),
       { concurrency: 1 },
     );
   },
@@ -614,9 +619,12 @@ const reset = Command.make(
 
       const manifest = yield* buildManifest({ blueprint, config });
       yield* annotateWorkspace({ repoRoot, manifest });
+      const encodedManifest = yield* Schema.encodeEffect(
+        CatalogWorkspaceManifestFromJsonString,
+      )(manifest);
       yield* fs.writeFileString(
         path.join(repoRoot, ".catalog-build-manifest.json"),
-        `${JSON.stringify(manifest, null, 2)}\n`,
+        `${encodedManifest}\n`,
       );
 
       yield* runGit(repoRoot, ["init", "--initial-branch=main"]);

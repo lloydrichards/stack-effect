@@ -13,6 +13,10 @@ import { PlanService } from "../plan/PlanService";
 import type { RecipeError } from "./RecipeErrors";
 import { RecipeService } from "./RecipeService";
 
+const StackConfigFromJsonString = Schema.fromJsonString(StackConfig, {
+  space: 2,
+});
+
 export type { RecipePreview, RecipePreviewInput };
 export {
   RecipePreview as RecipePreviewSchema,
@@ -86,9 +90,9 @@ export class RecipePreviewService extends Context.Service<
           ApplyPreviewService.layer.pipe(Layer.provide(fileSystemLayer)),
         ),
       );
-      const encodedConfig = yield* Schema.encodeEffect(StackConfig)(
-        config,
-      ).pipe(
+      const encodedConfig = yield* Schema.encodeEffect(
+        StackConfigFromJsonString,
+      )(config).pipe(
         Effect.mapError(
           (error) =>
             new ApplyFailure({
@@ -97,7 +101,7 @@ export class RecipePreviewService extends Context.Service<
             }),
         ),
       );
-      const configContents = `${JSON.stringify(encodedConfig, null, 2)}\n`;
+      const configContents = `${encodedConfig}\n`;
 
       return {
         command: recipes.renderCreateCommand({ config, selection }),

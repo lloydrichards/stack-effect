@@ -288,7 +288,7 @@ type TerminalChatEvent = Schema.Schema.Type<typeof TerminalChatEvent>;
 
 const InputAction = Schema.TaggedUnion({
   Submit: {},
-  MoveCursor: { cursor: Schema.Number },
+  MoveCursor: { cursor: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)) },
   DeleteBackward: {},
   DeleteForward: {},
   InsertText: { text: Schema.String },
@@ -625,7 +625,10 @@ const toInputAction = (
     Match.when(isEnterKey, () => InputAction.cases.Submit.make({})),
     Match.when(
       (input) => isKey(input, "left"),
-      () => InputAction.cases.MoveCursor.make({ cursor: state.cursor - 1 }),
+      () =>
+        InputAction.cases.MoveCursor.make({
+          cursor: clampCursor(state.cursor - 1, state.input),
+        }),
     ),
     Match.when(
       (input) => isKey(input, "right"),
