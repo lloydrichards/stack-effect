@@ -146,6 +146,15 @@ const renderCommandSections = (
     renderExamples(command.examples, headingLevel + 1),
   );
 
+const renderCodingAgentGuide = (command: CliReferenceCommand): string =>
+  command.path.length === 2 &&
+  (command.path[1] === "plan" || command.path[1] === "schema")
+    ? section(
+        "## Guide",
+        "[Use Stack Effect with coding agents](/use-with-coding-agents) for the complete non-interactive discovery, planning, approval, and verification workflow.",
+      )
+    : "";
+
 const renderCommandPage = (
   reference: CliReference,
   command: CliReferenceCommand,
@@ -161,6 +170,7 @@ const renderCommandPage = (
     content: `${section(
       generatedNotice,
       renderCommandSections(command, 1),
+      renderCodingAgentGuide(command),
       ...descendants.map((descendant) => renderCommandSections(descendant, 2)),
     )}\n`,
   };

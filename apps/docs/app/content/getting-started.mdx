@@ -1,60 +1,214 @@
-# Getting started
+import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 
-Create a new Effect-powered TypeScript project with Stack Effect, then add the
-targets and modules it needs.
+# Build your first Stack Effect project
 
-## Create a project
+Let us build your first Stack Effect app. We will start with an empty directory and finish with a React client calling an Effect HTTP API. Along the way, you will run the server, preview a second scaffold change, and review every change before Stack Effect writes it.
 
-Run the initializer with a project name:
+<div className="mt-8">
+  <DisclosurePanel
+    title="Before you begin"
+    description="Check the tools and local ports used in this tutorial."
+  >
+<div className="px-4 py-4 md:px-5">
+
+You will need:
+
+- Bun installed;
+- Git installed, with a user name and email configured;
+- ports 9000 and 3000 available.
+
+Check the tools and Git identity before continuing:
 
 ```bash
-bunx stack-effect@latest init my-app
+bun --version
+git --version
+git config --get user.name
+git config --get user.email
 ```
 
-The interactive prompts choose the initial project shape. To accept defaults
-without prompts, pass `--yes`:
+Both Git configuration commands should print a value. The initializer creates an initial commit, so it needs a usable author identity.
+
+Run this tutorial from a clean parent directory, not from inside an existing project.
+
+</div>
+  </DisclosurePanel>
+</div>
+
+## 1. Create the workspace
+
+Create a project named `my-app` with Stack Effect's defaults:
 
 ```bash
 bunx stack-effect@latest init my-app --yes
 ```
 
-You can also initialize the current directory:
+`--yes` accepts the default project choices and runs the default finalize scripts without prompting. It also initializes a Git repository, stages the generated files, and creates an initial commit. Run `init my-app` without `--yes` when you want to choose the project configuration and review the finalize scripts interactively.
 
-```bash
-stack-effect init . --yes
-```
-
-## Add capabilities
-
-Move into the generated project and run the interactive add flow:
+Enter the generated workspace:
 
 ```bash
 cd my-app
-stack-effect add
 ```
 
-Or add a known module directly. The target is written as
-`<kind>/<name>:<module>`:
+Confirm that initialization left a clean repository with its first commit:
 
 ```bash
-stack-effect add --target server/api:server-http-api --yes
+git status --short
+git log -1 --format=%s
 ```
 
-Stack Effect resolves required targets and modules automatically. For example,
-adding a React client with its HTTP API connection also introduces the server
-API it needs:
+The first command should print nothing. The second should print:
+
+```text
+initial commit
+```
+
+Take a quick look around. `stack.effect.json` records the workspace choices, `package.json` contains the repository tasks, and `packages/config-typescript/` contains shared TypeScript configuration. There is no application yet, so let us add one.
+
+## 2. Add an HTTP API
+
+Start the interactive add flow from the workspace root:
 
 ```bash
-stack-effect add --target client-react/web:client-react-http-api --yes
+bunx stack-effect@latest add
 ```
 
-## Preview before writing
+Follow this path through the prompts:
 
-Add `--dry-run` to inspect a command's plan without changing the filesystem:
+1. Choose **Server Application** as the target kind.
+2. Enter `api` as the target name.
+3. Select **HTTP API Server**.
+4. Choose **Confirm all**.
+
+At **Continue with these changes?**, review the resolved shape. It should contain the server and the domain API contracts that the server requires. This is the first checkpoint: Stack Effect has resolved the request, but has not planned repository writes yet.
+
+Once you approve that shape, Stack Effect compares it with the repository. The Plan should look something like this:
+
+<AnsiTerminal
+  title="stack-effect · plan"
+  input={`\u001b[1;36mPlan\u001b[0m
+
+\u001b[32m[+]\u001b[0m create  \u001b[33m[~]\u001b[0m modify  \u001b[2m[=]\u001b[0m unchanged  \u001b[31m[!]\u001b[0m needs merge
+
+.
+├── apps/server-api
+│   ├── \u001b[32m[+]\u001b[0m package.json
+│   ├── \u001b[32m[+]\u001b[0m src/index.ts
+│   ╰── \u001b[32m[+]\u001b[0m src/Api/Hello.ts
+├── packages/domain
+│   ├── \u001b[33m[~]\u001b[0m package.json
+│   ╰── \u001b[32m[+]\u001b[0m src/Api.ts
+╰── \u001b[33m[~]\u001b[0m package.json
+
+\u001b[32m9 create\u001b[0m  \u001b[33m2 modify\u001b[0m  \u001b[2m8 unchanged\u001b[0m  0 merge`}
+/>
+
+This example is abridged, and its paths and totals may change as the Catalog evolves. What matters is that every path has a classification and none of them needs a merge.
+
+At **Apply changes?**, confirm that the proposed paths contain no **needs merge** entries, then approve the change. After Apply finishes, the CLI reports what actually happened:
+
+<AnsiTerminal
+  title="stack-effect · apply result"
+  input={`\u001b[32mCreated: 9 files\u001b[0m
+\u001b[33mModified: 1 files\u001b[0m
+\u001b[2mSkipped: 9 files\u001b[0m`}
+/>
+
+These groups describe the execution result, so they do not always match the Plan totals line for line. For example, an unchanged path requires no write and is reported as skipped.
+
+Keep the default finalize scripts selected when Stack Effect asks which commands to run.
+
+You approve twice because the two prompts answer different questions: what should the project contain, and what will change on disk? [How Stack Effect changes your repository](/how-it-works) explains both checkpoints.
+
+Once you approve those checkpoints and the setup commands finish, your first runnable application is ready.
+
+## 3. Run the API
+
+Start the generated workspace from its root:
 
 ```bash
-stack-effect add --target server/api:server-http-api --yes --dry-run
+bun dev
 ```
 
-Use `stack-effect graph` whenever you want to see the available catalog entries
-and their dependency relationships.
+Wait for the server to report that it is listening on port 9000. Leave it running, open a second terminal in `my-app`, and request the root endpoint:
+
+<AnsiTerminal
+  title="my-app · API response"
+  input={`\u001b[32m$\u001b[0m curl http://localhost:9000/
+"Hello Effect!"`}
+/>
+
+Nice—you now have an Effect HTTP server responding locally.
+
+Return to the first terminal and press Control-C to stop the development process before changing the scaffold again.
+
+## 4. Preview a React client
+
+The API works. Now preview a React client that calls it:
+
+```bash
+bunx stack-effect@latest add \
+  --target client-react/web:client-react-http-api \
+  --yes \
+  --dry-run
+```
+
+The dry run shows the resolved client and its planned repository outcomes without writing files or running setup commands. You saw this Plan format when adding the server. This time, inspect it before anything is written and look for unexpected dependencies or **needs merge** entries.
+
+Apply the same target without `--yes`, `--trust`, or `--dry-run`:
+
+```bash
+bunx stack-effect@latest add \
+  --target client-react/web:client-react-http-api
+```
+
+This is the same target you just previewed, but now the command stops for approval. Review the Blueprint, review the Plan, and keep the default setup commands selected.
+
+## 5. Verify the client and server together
+
+Start the workspace again:
+
+```bash
+bun dev
+```
+
+Keep that terminal running and open [http://localhost:3000](http://localhost:3000) in a browser. Select **Call REST API**. The result should show:
+
+```text
+Message: Hello Effect!
+Success: true
+```
+
+The button used the generated React client, shared API contract, and running server. Press Control-C in the terminal when you are finished.
+
+## 6. Follow the generated request path
+
+Before wrapping up, open these files to see how that request is assembled:
+
+- `packages/domain/src/Api.ts` defines the API contract shared by client and server.
+- `apps/server-api/src/index.ts` composes and starts the HTTP server.
+- `apps/server-api/src/Api/Hello.ts` implements the response you observed.
+- `apps/client-react-web/src/lib/atoms/hello-atom.ts` creates the typed client call.
+- `apps/client-react-web/src/app.tsx` is the client composition root that brings the generated UI together.
+
+The domain package owns the contract. The client uses it and the server implements it. You do not need to understand every Effect API here before you start changing the example.
+
+## 7. Verify the repository
+
+From the `my-app` root, run the generated checks:
+
+```bash
+bun run type-check
+bun run lint
+bun run build
+```
+
+Each command should exit successfully. The default workspace has no tests yet; these commands check its types, lint rules, and production build. You already checked the running application in the browser.
+
+You now have the full first pass: scaffold a project, inspect the proposed changes, run the application, and check the result.
+
+## Where to go next
+
+- Use the [Builder](/builder) to explore other project shapes.
+- Read [How Stack Effect changes your repository](/how-it-works) for the safety model behind the previews and approvals.
+- Use the [CLI reference](/reference/cli) for exact command syntax and flags.
