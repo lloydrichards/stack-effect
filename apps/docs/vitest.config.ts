@@ -11,6 +11,9 @@ export default defineConfig({
     include: [
       "@effect/platform-browser/BrowserWorkerRunner",
       "@repo/scaffold/browser",
+      "shiki/langs/dockerfile.mjs",
+      "shiki/langs/dotenv.mjs",
+      "shiki/langs/javascript.mjs",
     ],
   },
   test: {
