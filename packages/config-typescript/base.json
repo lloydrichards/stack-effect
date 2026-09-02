@@ -40,18 +40,54 @@
         "noExternal": true,
         "quickinfoMaximumLength": 1200,
         "diagnosticSeverity": {
-          "cryptoRandomUUIDInEffect": "suggestion",
-          "globalDateInEffect": "suggestion",
+          "abortControllerInEffect": "warning",
+          "asyncFunction": "warning",
+          "cryptoRandomUUID": "warning",
+          "cryptoRandomUUIDInEffect": "warning",
+          "extendsNativeError": "warning",
+          "globalConsole": "warning",
+          "globalConsoleInEffect": "warning",
+          "globalDate": "warning",
+          "globalDateInEffect": "warning",
+          "globalFetch": "warning",
+          "globalFetchInEffect": "warning",
+          "globalRandom": "warning",
+          "globalRandomInEffect": "warning",
+          "globalTimers": "warning",
+          "globalTimersInEffect": "warning",
+          "instanceOfSchema": "warning",
           "layerMergeAllWithDependencies": "warning",
           "missingEffectServiceDependency": "warning",
+          "newPromise": "warning",
+          "nodeBuiltinImport": "warning",
+          "preferSchemaOverJson": "warning",
+          "processEnv": "warning",
+          "processEnvInEffect": "warning",
           "schemaNumber": "warning",
-          "schemaSyncInEffect": "warning"
+          "schemaSyncInEffect": "warning",
+          "unsafeEffectTypeAssertion": "warning"
         },
         "overrides": [
+          {
+            "include": [
+              "../../apps/docs/app/**/*.ts",
+              "../../apps/docs/app/**/*.tsx"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "off",
+                "globalTimers": "off",
+                "globalConsole": "off"
+              }
+            }
+          },
           {
             "include": ["**/*.test.ts", "**/*.test.tsx"],
             "options": {
               "diagnosticSeverity": {
+                "asyncFunction": "off",
+                "nodeBuiltinImport": "off",
+                "preferSchemaOverJson": "off",
                 "globalErrorInEffectFailure": "off"
               }
             }

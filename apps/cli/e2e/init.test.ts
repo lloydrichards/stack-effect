@@ -30,7 +30,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "my-app/package.json",
             "scripts.prepare",
-            "effect-tsgo patch",
+            "effect-tsgo patch --oxlint",
           );
           yield* cli.expectJsonFile(
             "my-app/package.json",
@@ -346,7 +346,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
             "scripts.prepare",
-            "effect-tsgo patch",
+            "effect-tsgo patch --oxlint",
           );
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",

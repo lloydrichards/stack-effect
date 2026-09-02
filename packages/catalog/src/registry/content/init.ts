@@ -59,11 +59,19 @@ export const rootPackageJsonContents = `{
 export const rootTsconfigContents = `{
   "$schema": "{{#if typescript=6}}./node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}./node_modules/@effect/tsgo/schema.json{{/if}}",
   "extends": "./packages/config-typescript/base.json",
-  "files": []{{#if typescript=7}},
+  "files": []{{#if typescript7Diagnostics}},
   "compilerOptions": {
     "plugins": [
       {
         "name": "@effect/language-service"
+      }
+    ]
+  }{{/if}}{{#if effectOxlint}},
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": false
       }
     ]
   }{{/if}}
@@ -116,13 +124,52 @@ export const configTypescriptBaseContents = `{
       {
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
-        "includeSuggestionsInTsc": true,
+        "includeSuggestionsInTsc": true{{#if typescript=6}},
+        "quickinfoMaximumLength": 1200{{/if}}{{#if effectOxlint}},
+        "diagnostics": false{{/if}},
         "diagnosticSeverity": {
-          "cryptoRandomUUIDInEffect": "suggestion",
-          "globalDateInEffect": "suggestion",
+          "abortControllerInEffect": "warning",
+          "asyncFunction": "warning",
+          "cryptoRandomUUID": "warning",
+          "cryptoRandomUUIDInEffect": "warning",
+          "extendsNativeError": "warning",
+          "globalConsole": "warning",
+          "globalConsoleInEffect": "warning",
+          "globalDate": "warning",
+          "globalDateInEffect": "warning",
+          "globalFetch": "warning",
+          "globalFetchInEffect": "warning",
+          "globalRandom": "warning",
+          "globalRandomInEffect": "warning",
+          "globalTimers": "warning",
+          "globalTimersInEffect": "warning",
+          "instanceOfSchema": "warning",
           "layerMergeAllWithDependencies": "warning",
-          "missingEffectServiceDependency": "warning"
-        }
+          "missingEffectServiceDependency": "warning",
+          "newPromise": "warning",
+          "nodeBuiltinImport": "warning",
+          "preferSchemaOverJson": "warning",
+          "processEnv": "warning",
+          "processEnvInEffect": "warning",
+          {{#if typescript=7}}"schemaNumber": "warning",
+          "schemaSyncInEffect": "warning",
+          {{/if}}"unsafeEffectTypeAssertion": "warning"
+        },
+        "overrides": [
+          {
+            "include": [
+              "**/*.test.ts",
+              "**/*.test.tsx"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "off",
+                "nodeBuiltinImport": "off",
+                "preferSchemaOverJson": "off"
+              }
+            }
+          }
+        ]
       }
     ]
   },
@@ -293,16 +340,60 @@ process.stdout.write(hash.digest("hex"));
 
 // -- vite+ ------------------------------------------------------------------
 
-export const vitePlusConfigContents = `import { defineConfig } from "vite-plus";
+export const vitePlusConfigContents = `{{#if effectOxlint}}import { effectNative, recommended } from "@effect/tsgo/oxlint-presets";
+{{/if}}import { defineConfig } from "vite-plus";
 
 export default defineConfig({
-  run: {
+  {{#if effectOxlint}}lint: {
+    extends: [recommended, effectNative],
+    options: {
+      denyWarnings: true,
+    },
+    overrides: [
+      {
+        files: ["**/*.test.ts", "**/*.test.tsx"],
+        rules: {
+          "effecttsgo/async-function": "off",
+          "effecttsgo/node-builtin-import": "off",
+          "effecttsgo/prefer-schema-over-json": "off",
+        },
+      },
+    ],
+  },
+  {{/if}}run: {
     cache: {
       scripts: true,
       tasks: true,
     },
   },
 });
+`;
+
+export const oxlintJsonContents = `{{#if typescript=6}}{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "denyWarnings": true
+  }
+}{{/if}}{{#if effectOxlint}}{
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "extends": [
+    "./node_modules/@effect/tsgo/oxlint-presets/recommended.json",
+    "./node_modules/@effect/tsgo/oxlint-presets/effect-native.json"
+  ],
+  "options": {
+    "denyWarnings": true
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "effecttsgo/async-function": "off",
+        "effecttsgo/node-builtin-import": "off",
+        "effecttsgo/prefer-schema-over-json": "off"
+      }
+    }
+  ]
+}{{/if}}
 `;
 
 // -- biome ------------------------------------------------------------------
