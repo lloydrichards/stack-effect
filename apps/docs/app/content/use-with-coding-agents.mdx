@@ -1,0 +1,268 @@
+# Use Stack Effect with coding agents
+
+A coding agent can use Stack Effect to discover available capabilities and preview repository changes as structured data. The agent stays out of the interactive CLI and brings the proposed edits and commands back to a person for approval.
+
+> **Agent contract:** Do not use Stack Effect's interactive prompts. Use `schema` and `plan` for discovery and planning. Do not edit files or run Finalize commands until a human explicitly approves them.
+
+The example adds an Effect HTTP API to an initialized Stack Effect repository. It is the agent-safe version of the [Getting started](/getting-started) walkthrough: commands are non-interactive, and approval happens outside the CLI.
+
+## Establish the planning session
+
+Begin by fixing the repository, CLI version, and starting state for the whole planning session. Confirm that the project has a Stack Effect configuration and record the current repository state:
+
+```bash
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+test -f "$REPO_ROOT/stack.effect.json"
+git -C "$REPO_ROOT" status --short
+```
+
+Resolve Stack Effect once, then pin that exact version for the rest of the session:
+
+```bash
+STACK_EFFECT_VERSION="$(bunx stack-effect@latest --version | sed 's/^stack-effect v//')"
+bunx "stack-effect@${STACK_EFFECT_VERSION}" --version
+```
+
+Record `REPO_ROOT`, `STACK_EFFECT_VERSION`, and the status output in the approval report. Do not switch back to `@latest` midway through the session. The Catalog and input schema can change between releases.
+
+Keep the planning artifacts outside the repository:
+
+```bash
+AGENT_WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "$AGENT_WORK_DIR"' EXIT
+```
+
+## Discover the current catalog and input schema
+
+Ask the pinned CLI for its machine-readable discovery document:
+
+```bash
+bunx "stack-effect@${STACK_EFFECT_VERSION}" schema \
+  > "$AGENT_WORK_DIR/schema.json"
+```
+
+The document contains two authoritative sources:
+
+- `catalog` describes the targets and modules available in this version.
+- `planInput` is the JSON Schema accepted by `plan`.
+
+Inspect the input contract and locate the target and module in the live catalog:
+
+```bash
+jq '.planInput' "$AGENT_WORK_DIR/schema.json"
+jq '
+  .catalog.targets[]
+  | select(.kind == "server")
+  | {
+      kind,
+      modules: [.modules[] | select(.id == "server-http-api")]
+    }
+' "$AGENT_WORK_DIR/schema.json"
+```
+
+Inspect those values directly. Do not scrape human-formatted tables or copy target and module IDs from an old prompt, article, or cached Catalog. For this walkthrough, live discovery should find the `server` target and its `server-http-api` module.
+
+## Construct a Selection
+
+A [Selection](/how-it-works#first-stack-effect-resolves-the-project-shape) records what was requested before Stack Effect resolves dependencies. Save this request in the temporary working directory:
+
+```bash
+printf '%s\n' \
+  '{"selection":{"targets":[{"identity":{"kind":"server","name":"api"},"modules":[{"id":"server-http-api"}]}]}}' \
+  > "$AGENT_WORK_DIR/plan-input.json"
+```
+
+This requests `server/api:server-http-api`. Derive those IDs from the current `schema` output instead of assuming they exist. The `plan` command also decodes this JSON against the current input contract, so an invalid request fails before a Plan is produced.
+
+Because this repository already has `stack.effect.json`, the input only needs `selection`. [Greenfield planning](#plan-for-a-greenfield-directory) requires configuration in the same JSON document.
+
+## Produce read-only Plans
+
+Generate the agent-oriented and exact structured views against the same
+unchanged repository:
+
+```bash
+bunx "stack-effect@${STACK_EFFECT_VERSION}" plan \
+  --root "$REPO_ROOT" \
+  --format llm \
+  < "$AGENT_WORK_DIR/plan-input.json" \
+  > "$AGENT_WORK_DIR/plan.llm.json"
+
+bunx "stack-effect@${STACK_EFFECT_VERSION}" plan \
+  --root "$REPO_ROOT" \
+  --format raw \
+  < "$AGENT_WORK_DIR/plan-input.json" \
+  > "$AGENT_WORK_DIR/plan.raw.json"
+```
+
+Optionally render a tree for human review:
+
+```bash
+bunx "stack-effect@${STACK_EFFECT_VERSION}" plan \
+  --root "$REPO_ROOT" \
+  --format tree \
+  < "$AGENT_WORK_DIR/plan-input.json"
+```
+
+Use each format for a specific job:
+
+- `llm` contains resolved file contents and atomic editing instructions, plus conflicts, a summary, a tree, and follow-up commands.
+- `raw` contains exact outcomes and composed operations, conflicts, a summary, `createCommand`, Finalize commands, and a tree.
+- `tree` is an optional visual summary for a person. Do not parse it as an automation input.
+
+In the `llm` output, **Create equivalent project** is reference information for creating the same project shape elsewhere. In `raw`, it appears separately as `createCommand`. Do not run that command inside the existing repository.
+
+All three planning commands are read-only. They resolve a [Blueprint](/how-it-works#first-stack-effect-resolves-the-project-shape) and compare it with the repository to produce a [Plan](/how-it-works#then-it-compares-that-shape-with-your-repository). They do not apply the result or run Finalize commands.
+
+## Stop for human approval
+
+Before changing the repository, present a compact report:
+
+```text
+Stack Effect version:
+Repository root:
+Repository status:
+
+Requested Selection:
+Resolved dependencies:
+
+Paths to create:
+Paths to modify:
+Paths unchanged:
+Conflicted paths:
+
+Proposed resolution for each conflict:
+Finalize commands proposed:
+Verification proposed:
+```
+
+Name the paths and commands, not only their counts. A request such as “add an API” authorizes discovery and planning; it does not authorize edits or commands. Wait for an explicit instruction to apply the reported change. Silence is not approval.
+
+### Handle conflicts explicitly
+
+Keep the normal path conflict-free. If the Plan reports a conflict, identify
+the exact path, explain why Stack Effect could not compose it, propose the
+smallest resolution, and request approval for that path.
+
+There is currently no public machine-readable command that accepts a generated
+Plan with agent-selected `ApplyDecision` values. Do not invent such a command
+or imply that Plan output can be piped back into `add`. `--yes` is not
+agent-controlled conflict resolution: in the scaffold pipeline it skips
+conflicted paths rather than transmitting the agent's decisions.
+
+## Apply only the approved edits
+
+After approval, use `plan.llm.json` as editing guidance:
+
+1. Reread each existing path immediately before editing it.
+2. For a `create` outcome, write the supplied contents and follow any editing
+   instructions.
+3. For a `modify` outcome, apply its instructions to the current contents.
+4. Leave `unchanged` paths untouched.
+5. Apply only conflict resolutions that received path-specific approval.
+
+The Plan describes one repository snapshot; it is not a durable patch. If a
+person, editor, agent, or tool changes the repository after planning, discard
+the stale Plan and plan again. Stop if the current contents no longer support
+an approved edit.
+
+## Re-plan before running commands
+
+Run the same `llm` and `raw` commands again after the filesystem edits. Compare
+the new result with the approved intent and current diff.
+
+The second Plan should not reveal missing files, unresolved instructions,
+unexpected conflicts, or unexplained outcomes. Some composed files can still
+be classified as `modify`, so do not require every path to become `unchanged`.
+Investigate differences instead of forcing the repository to match stale
+output.
+
+Finalize is a separate trust boundary. Extract the actual finalize commands
+from the fresh Plan, omit **Create equivalent project**, and present them for a
+second approval. Run only the commands the human approves, in their reported
+order, and record each result. Approval to edit files is not approval to run
+commands.
+
+## Verify the repository and behavior
+
+First confirm that the repository contains only the approved change:
+
+```bash
+git -C "$REPO_ROOT" status --short
+git -C "$REPO_ROOT" diff
+```
+
+Then run the repository checks from its root:
+
+```bash
+cd "$REPO_ROOT"
+bun run type-check
+bun run test
+bun run build
+```
+
+Finally, start the generated workspace:
+
+```bash
+bun dev
+```
+
+Leave it running and request the API from another terminal:
+
+```bash
+curl http://localhost:9000/
+```
+
+The response should be:
+
+```text
+"Hello Effect!"
+```
+
+Press Control-C to stop the development process. A zero exit code from an edit or finalize command only proves that the command finished. Check the diff, run the repository checks, and call the HTTP endpoint.
+
+## Report what actually happened
+
+End with a fixed result report:
+
+```text
+Files created:
+Files modified:
+Conflicts resolved:
+
+Finalize commands run:
+- command — result
+
+Verification:
+- repository diff — result
+- bun run type-check — result
+- bun run test — result
+- bun run build — result
+- HTTP request — observed response
+
+Skipped checks:
+Failures or deviations:
+```
+
+Say the task is complete only when every approved edit, approved finalize
+command, and promised verification step succeeded. Report skipped checks,
+failures, and deviations directly.
+
+## Plan for a greenfield directory
+
+In an initialized project, `plan` reads configuration from
+`stack.effect.json` at `--root`. In a directory without that file, the stdin
+document must contain both `selection` and `config`. An input `config` takes
+precedence over `stack.effect.json` when both are present. Use the pinned CLI's
+emitted `planInput` schema to discover every required configuration field and
+validate the complete input. Do not copy an old configuration object into a new
+planning session.
+
+## Command reference
+
+- [`stack-effect schema`](/reference/cli/schema) documents capability and input
+  discovery.
+- [`stack-effect plan`](/reference/cli/plan) documents the planning formats and
+  flags.
+- [How Stack Effect changes your repository](/how-it-works) explains Selection,
+  Blueprint, Plan, Apply, and Finalize as separate boundaries.

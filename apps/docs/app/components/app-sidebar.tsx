@@ -13,11 +13,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "~/components/ui/sidebar";
-import {
-  isPrimaryNavigationActive,
-  navigation,
-  primaryNavigation,
-} from "~/nav.config";
+import { navigation } from "~/nav.config";
 
 export function AppSidebar() {
   const location = useLocation();
@@ -37,29 +33,13 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigate</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {primaryNavigation.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    render={<Link to={item.href} />}
-                    isActive={isPrimaryNavigationActive(
-                      location.pathname,
-                      item.href,
-                    )}
-                  >
-                    {item.label}
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
         {navigation.map((section) => (
-          <SidebarGroup key={section.title}>
+          <SidebarGroup
+            key={section.title}
+            className={
+              section.title === "CLI Reference" ? "mt-auto" : undefined
+            }
+          >
             <SidebarGroupLabel>{section.title}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
