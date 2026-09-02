@@ -24,7 +24,7 @@ export const mcpServerTsconfigContents = `{
     "noEmit": true,
     "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
   },
-  "include": ["src/**/*", "../../packages/ai/src/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 `;
