@@ -39,6 +39,7 @@ export const serverTsconfigContents = `{
  * Additional capabilities (RPC, WebSocket) are added by modules.
  */
 export const serverIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- NodeHttpServer.layerConfig requires the Node server factory.
 import { createServer } from "node:http";{{/if}}
 import { Api } from "@repo/domain/Api";
 import { Config, Effect, Layer } from "effect";

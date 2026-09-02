@@ -49,6 +49,36 @@ const createCommand = (
   ] as const;
 
 describe("generated language services", () => {
+  layer(CLI.layer)("full catalog", (it) => {
+    it.effect(
+      "should generate the full catalog without Effect lint warnings",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const catalogRoot = `${cli.workdir}/catalog-built`;
+
+          yield* cli.run(
+            "catalog",
+            "workspace",
+            "reset",
+            "--root",
+            catalogRoot,
+          );
+          yield* cli.expectExitCode(0);
+
+          yield* cli.run(
+            "catalog",
+            "workspace",
+            "validate",
+            "--root",
+            catalogRoot,
+          );
+          yield* cli.expectExitCode(0);
+        }),
+      { timeout: 120_000 },
+    );
+  });
+
   layer(CLI.layer)("layer", (it) => {
     it.effect(
       "should report Effect diagnostics through patched tsc when TypeScript 6 is selected",
@@ -88,6 +118,14 @@ describe("generated language services", () => {
             yield* project.expectFileNotContaining(
               ".vscode/settings.json",
               "js/ts.experimental.useTsgo",
+            );
+            yield* project.expectFileNotContaining(
+              "packages/config-typescript/base.json",
+              '"schemaNumber"',
+            );
+            yield* project.expectFileNotContaining(
+              "packages/config-typescript/base.json",
+              '"schemaSyncInEffect"',
             );
 
             const diagnostics = yield* project.exec(
@@ -257,7 +295,7 @@ describe("generated language services", () => {
             const output = `${lint.stdout}\n${lint.stderr}`;
             assert.notStrictEqual(lint.exitCode, 0, output);
             assert.strictEqual(
-              output.match(/effecttsgo\/global-date-in-effect/g)?.length,
+              output.match(/effecttsgo\(global-date-in-effect\)/g)?.length,
               1,
               output,
             );
@@ -325,7 +363,7 @@ describe("generated language services", () => {
             const output = `${lint.stdout}\n${lint.stderr}`;
             assert.notStrictEqual(lint.exitCode, 0, output);
             assert.strictEqual(
-              output.match(/effecttsgo\/global-date-in-effect/g)?.length,
+              output.match(/effecttsgo\(global-date-in-effect\)/g)?.length,
               1,
               output,
             );

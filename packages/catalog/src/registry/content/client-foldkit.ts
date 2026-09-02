@@ -48,6 +48,9 @@ export const foldkitThemeInitContents = `(function () {
 `;
 
 export const foldkitViteConfigContents = `import { foldkit } from "@foldkit/vite-plugin";
+// @effect-diagnostics nodeBuiltinImport:off
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- Vite configuration runs in Node and requires a native filesystem path.
+import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
@@ -55,7 +58,7 @@ export default defineConfig({
   plugins: [foldkit(), tailwindcss()],
   resolve: {
     alias: {
-      "@": new URL("./src", import.meta.url).pathname,
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   server: {
@@ -86,7 +89,7 @@ export const foldkitTsconfigConfigContents = `{
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
     "composite": true,
-    "types": ["bun", "vite/client"],
+    "types": ["vite/client"],
     "outDir": "dist-node"
   },
   "include": ["vite.config.ts", "vitest.config.ts"]

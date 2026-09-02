@@ -645,6 +645,11 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         contents: dprintJsonContents,
       },
       {
+        _tag: "file",
+        path: "{{targetPath}}/.vscode/settings.json",
+        contents: workspaceVscodeSettingsContents,
+      },
+      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
@@ -686,14 +691,14 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     contributions: [
       {
         _tag: "file",
-        path: "{{#if monorepo=turbo}}{{targetPath}}/.oxlintrc.json{{/if}}{{#if monorepo=nx}}{{targetPath}}/.oxlintrc.json{{/if}}",
+        path: "{{#if standaloneOxlint}}{{targetPath}}/.oxlintrc.json{{/if}}",
         contents: oxlintJsonContents,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
-        name: "{{#if monorepo=turbo}}oxlint{{/if}}{{#if monorepo=nx}}oxlint{{/if}}",
+        name: "{{#if standaloneOxlint}}oxlint{{/if}}",
         value: "1.80.0",
       },
       {
@@ -709,7 +714,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "lint",
         value:
-          "{{#if monorepo=vite-plus}}vp lint{{/if}}{{#if monorepo=turbo}}oxlint{{/if}}{{#if monorepo=nx}}oxlint{{/if}}",
+          "{{#if monorepo=vite-plus}}vp lint{{/if}}{{#if standaloneOxlint}}oxlint{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -717,7 +722,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "lint:fix",
         value:
-          "{{#if monorepo=vite-plus}}vp lint --fix{{/if}}{{#if monorepo=turbo}}oxlint --fix{{/if}}{{#if monorepo=nx}}oxlint --fix{{/if}}",
+          "{{#if monorepo=vite-plus}}vp lint --fix{{/if}}{{#if standaloneOxlint}}oxlint --fix{{/if}}",
       },
     ],
   },
