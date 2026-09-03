@@ -6,6 +6,7 @@ import {
   transformerNotationHighlight,
 } from "@shikijs/transformers";
 import tailwindcss from "@tailwindcss/vite";
+import mdxMermaid from "mdx-mermaid";
 import rehypeAutolinkHeadings from "rehype-autolink-headings";
 import rehypePrettyCode from "rehype-pretty-code";
 import rehypeSlug from "rehype-slug";
@@ -17,7 +18,7 @@ export default defineConfig({
   plugins: [
     mdx({
       providerImportSource: "@mdx-js/react",
-      remarkPlugins: [remarkGfm, remarkTocExport],
+      remarkPlugins: [remarkGfm, mdxMermaid, remarkTocExport],
       rehypePlugins: [
         rehypeSlug,
         [
