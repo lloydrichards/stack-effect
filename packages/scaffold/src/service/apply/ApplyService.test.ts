@@ -889,12 +889,7 @@ describe("ApplyService", () => {
                       {
                         _tag: "json-pkg-scripts",
                         fileType: "json",
-                        entries: [
-                          {
-                            name: "dev",
-                            value: "vite dev",
-                          },
-                        ],
+                        entries: [{ name: "dev", value: "vite dev" }],
                       },
                     ],
                   }),

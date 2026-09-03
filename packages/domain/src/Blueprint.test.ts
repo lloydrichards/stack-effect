@@ -1,5 +1,5 @@
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { Effect, Schema } from "effect";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 
@@ -169,48 +169,6 @@ describe("@repo/domain Blueprint", () => {
     });
     expect(emptyBlueprint.hasTarget("apps/server-api")).toBe(false);
     expect(emptyBlueprint.getTarget("apps/server-api")).toBeUndefined();
-  });
-
-  it("orders attached modules with dependencies before their dependents", async () => {
-    const ordered = await Effect.runPromise(
-      makeUnsortedBlueprint().getAttachedModulesInDependencyOrder(),
-    );
-
-    expect(ordered.map((node) => node.moduleId)).toEqual([
-      ModuleId.make("domain-api-contracts"),
-      ModuleId.make("server-http-api"),
-    ]);
-  });
-
-  it("fails through the Blueprint error channel for cyclic module dependencies", async () => {
-    const blueprint = makeUnsortedBlueprint();
-    const domainModule = toAttachedModuleNodeId(
-      domainIdentity.toKey(),
-      ModuleId.make("domain-api-contracts"),
-    );
-    const serverModule = toAttachedModuleNodeId(
-      serverApiIdentity.toKey(),
-      ModuleId.make("server-http-api"),
-    );
-    const cyclic = new Blueprint({
-      nodes: blueprint.nodes,
-      edges: [
-        ...blueprint.edges,
-        {
-          id: "cycle-edge",
-          from: domainModule,
-          to: serverModule,
-          reason: "required-module",
-        },
-      ],
-    });
-
-    await expect(
-      Effect.runPromise(cyclic.getAttachedModulesInDependencyOrder()),
-    ).rejects.toMatchObject({
-      _tag: "BlueprintFailure",
-      message: expect.stringContaining("cyclic"),
-    });
   });
 
   const invalidBlueprints = [

@@ -52,8 +52,6 @@ describe("init", () => {
             "$schema",
             "../../node_modules/@effect/tsgo/schema.json",
           );
-          yield* cli.expectFileNotExists("my-app/.husky");
-          yield* cli.expectFileNotExists("my-app/.lintstagedrc.json");
           yield* cli.expectFileContaining(
             "my-app/.vscode/settings.json",
             '"js/ts.experimental.useTsgo": true',
@@ -771,8 +769,6 @@ describe("init", () => {
           yield* cli.expectExitCode(0);
           yield* cli.expectFileExists("nogit-app/package.json");
           yield* cli.expectFileNotExists("nogit-app/.git");
-          yield* cli.expectFileNotExists("nogit-app/.husky");
-          yield* cli.expectFileNotExists("nogit-app/.lintstagedrc.json");
         }),
       { timeout: 30_000 },
     );

@@ -1,5 +1,5 @@
 import { CatalogService } from "@repo/catalog";
-import { type Blueprint, type BlueprintFailure } from "@repo/domain/Blueprint";
+import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
@@ -32,11 +32,7 @@ export type PlanServiceBuildInput = {
 export interface PlanServiceShape {
   readonly build: (
     input: PlanServiceBuildInput,
-  ) => Effect.Effect<
-    typeof Plan.Type,
-    PlanFailure | CatalogNotFound | BlueprintFailure,
-    never
-  >;
+  ) => Effect.Effect<typeof Plan.Type, PlanFailure | CatalogNotFound, never>;
 }
 
 export class PlanService extends Context.Service<

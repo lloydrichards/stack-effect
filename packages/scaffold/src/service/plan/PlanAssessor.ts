@@ -74,7 +74,6 @@ export type PlanningIntentPath = {
   readonly exports: ReadonlyArray<{ name: string; value: string }>;
   readonly dependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
   readonly scripts: ReadonlyArray<{ name: string; value: string }>;
-  readonly scriptAppends: ReadonlyArray<{ name: string; fragment: string }>;
   readonly barrelExports: ReadonlyArray<{ exportPath: string }>;
   readonly compositions: ReadonlyArray<PlanningIntentComposition>;
   readonly objectFields: ReadonlyArray<PlanningIntentObjectField>;
@@ -185,18 +184,7 @@ function toCompositionOperations(
     operations.push({
       _tag: "json-pkg-scripts",
       fileType: "json",
-      entries: planningPath.scripts.map(({ name, value }) => ({ name, value })),
-    });
-  }
-
-  if (planningPath.scriptAppends.length > 0) {
-    operations.push({
-      _tag: "json-pkg-scripts-append",
-      fileType: "json",
-      entries: planningPath.scriptAppends.map(({ name, fragment }) => ({
-        name,
-        fragment,
-      })),
+      entries: planningPath.scripts,
     });
   }
 
@@ -283,8 +271,7 @@ function assessPlanningPath({
   const hasPackageJsonFields =
     planningPath.exports.length > 0 ||
     planningPath.dependencies.length > 0 ||
-    planningPath.scripts.length > 0 ||
-    planningPath.scriptAppends.length > 0;
+    planningPath.scripts.length > 0;
   const hasBarrelExports = planningPath.barrelExports.length > 0;
   const hasTsconfig = planningPath.tsconfig !== undefined;
   const hasCompositions =
@@ -757,11 +744,6 @@ const assessPackageJsonEntries = ({
     valueOf: (script) => script.value,
     toConflict: (script) => planConflict.scripts(path, script.name),
   });
-  const scriptAppendAssessment = assessScriptAppends({
-    existingValue: packageJson["scripts"],
-    requiredEntries: planningPath.scriptAppends,
-    toConflict: (script) => planConflict.scripts(path, script.name),
-  });
 
   return {
     conflicts: [
@@ -771,7 +753,6 @@ const assessPackageJsonEntries = ({
         (assessment) => assessment.conflicts,
       ),
       ...scriptAssessment.conflicts,
-      ...scriptAppendAssessment.conflicts,
     ],
     hasAdditions:
       exportAssessment.hasAdditions ||
@@ -779,48 +760,7 @@ const assessPackageJsonEntries = ({
         dependencyAssessments,
         (assessment) => assessment.hasAdditions,
       ) ||
-      scriptAssessment.hasAdditions ||
-      scriptAppendAssessment.hasAdditions,
-  };
-};
-
-const assessScriptAppends = <Conflict>({
-  existingValue,
-  requiredEntries,
-  toConflict,
-}: {
-  existingValue: unknown;
-  requiredEntries: ReadonlyArray<{
-    readonly name: string;
-    readonly fragment: string;
-  }>;
-  toConflict: (entry: {
-    readonly name: string;
-    readonly fragment: string;
-  }) => Conflict;
-}): FlatStringRecordAssessment<Conflict> => {
-  if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
-    return {
-      conflicts: Arr.map(requiredEntries, toConflict),
-      hasAdditions: false,
-    };
-  }
-
-  const existingEntries = existingValue ?? {};
-  return {
-    conflicts: Arr.flatMap(requiredEntries, (entry) =>
-      existingEntries[entry.name] !== undefined &&
-      typeof existingEntries[entry.name] !== "string"
-        ? [toConflict(entry)]
-        : [],
-    ),
-    hasAdditions: Arr.some(requiredEntries, (entry) => {
-      const existing = existingEntries[entry.name];
-      return (
-        typeof existing !== "string" ||
-        !existing.split(" && ").includes(entry.fragment)
-      );
-    }),
+      scriptAssessment.hasAdditions,
   };
 };
 

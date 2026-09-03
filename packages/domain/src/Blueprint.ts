@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Effect, Graph, Order, Schema } from "effect";
+import { Array as Arr, Data, Order, Schema } from "effect";
 import {
   CatalogNotFound,
   ModuleId,
@@ -187,55 +187,6 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
       (node): node is typeof BlueprintTargetNode.Type =>
         BlueprintNode.guards.target(node) && node.id === targetId,
     );
-  }
-
-  getAttachedModulesInDependencyOrder(): Effect.Effect<
-    ReadonlyArray<typeof BlueprintAttachedModuleNode.Type>,
-    BlueprintFailure
-  > {
-    const modules = Arr.sortWith(
-      this.nodes.filter(
-        (node): node is typeof BlueprintAttachedModuleNode.Type =>
-          BlueprintNode.guards["attached-module"](node),
-      ),
-      (node) => node.id,
-      Order.String,
-    );
-    const moduleIds = new Set<string>(modules.map((node) => node.id));
-    const dependencies = Arr.sortWith(
-      this.edges.filter(
-        (edge) =>
-          edge.reason === "required-module" &&
-          moduleIds.has(edge.from) &&
-          moduleIds.has(edge.to),
-      ),
-      (edge) => edge.id,
-      Order.String,
-    );
-    const nodeIndices = new Map<string, Graph.NodeIndex>();
-    const graph = Graph.directed<
-      typeof BlueprintAttachedModuleNode.Type,
-      string
-    >((mutable) => {
-      Arr.forEach(modules, (node) => {
-        nodeIndices.set(node.id, Graph.addNode(mutable, node));
-      });
-      Arr.forEach(dependencies, (edge) => {
-        const dependent = nodeIndices.get(edge.from);
-        const dependency = nodeIndices.get(edge.to);
-        if (dependent !== undefined && dependency !== undefined) {
-          Graph.addEdge(mutable, dependency, dependent, edge.id);
-        }
-      });
-    });
-
-    return Graph.isAcyclic(graph)
-      ? Effect.succeed(Arr.fromIterable(Graph.values(Graph.topo(graph))))
-      : Effect.fail(
-          new BlueprintFailure({
-            message: "Cannot order attached modules with cyclic dependencies.",
-          }),
-        );
   }
 }
 

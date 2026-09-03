@@ -58,28 +58,6 @@ const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
   },
 );
 
-const validateGitOptions = Effect.fn("create.validateGitOptions")(function* ({
-  noGit,
-  targets,
-}: {
-  readonly noGit: boolean;
-  readonly targets: ReadonlyArray<RecipeTargetSpec>;
-}) {
-  if (
-    noGit &&
-    Arr.some(targets, (target) =>
-      Arr.some(
-        target.modules,
-        (moduleId) => moduleId === "workspace-devenv-husky",
-      ),
-    )
-  ) {
-    return yield* Effect.fail(
-      "Invalid create options: Husky requires Git; --no-git cannot be used when selecting workspace-devenv-husky.",
-    );
-  }
-});
-
 const buildConfig = ({
   projectName,
   runtime,
@@ -192,10 +170,19 @@ export const create = Command.make(
         runtime: flags.runtime,
         packageManager: flags.packageManager,
       });
-      yield* validateGitOptions({
-        noGit: flags.noGit,
-        targets: flags.target.value,
-      });
+      if (
+        flags.noGit &&
+        Arr.some(flags.target.value, (target) =>
+          Arr.some(
+            target.modules,
+            (moduleId) => moduleId === "workspace-devenv-husky",
+          ),
+        )
+      ) {
+        return yield* Effect.fail(
+          "Invalid create options: Husky requires Git; --no-git cannot be used when selecting workspace-devenv-husky.",
+        );
+      }
 
       const { projectName, repoRoot } = yield* resolveNameAndRoot(
         flags.name.value,

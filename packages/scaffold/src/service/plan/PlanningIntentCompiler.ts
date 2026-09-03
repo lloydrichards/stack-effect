@@ -76,11 +76,6 @@ const PlanningIntentEntry = Schema.TaggedUnion({
     name: Schema.String,
     value: Schema.String,
   },
-  packageJsonScriptAppend: {
-    path: Schema.String,
-    name: Schema.String,
-    fragment: Schema.String,
-  },
   barrelExport: {
     path: Schema.String,
     exportPath: Schema.String,
@@ -159,15 +154,6 @@ const toPlanningIntentEntries = (
           value: c.value,
         }),
       ],
-      "pkg-json-script-append": (
-        c,
-      ): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
-        PlanningIntentEntry.cases.packageJsonScriptAppend.make({
-          path: c.path,
-          name: c.name,
-          fragment: c.fragment,
-        }),
-      ],
       "barrel-export": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
         PlanningIntentEntry.cases.barrelExport.make({
           path: c.barrelPath,
@@ -232,9 +218,6 @@ type PlanningIntentEntryGroups = {
   readonly packageJson: ReadonlyArray<
     typeof PlanningIntentEntry.cases.packageJsonEntry.Type
   >;
-  readonly scriptAppends: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.packageJsonScriptAppend.Type
-  >;
   readonly barrel: ReadonlyArray<
     typeof PlanningIntentEntry.cases.barrelExport.Type
   >;
@@ -254,9 +237,6 @@ const groupPlanningIntentEntries = (
 ): PlanningIntentEntryGroups => ({
   authoritative: entries.filter(PlanningIntentEntry.guards.authoritative),
   packageJson: entries.filter(PlanningIntentEntry.guards.packageJsonEntry),
-  scriptAppends: entries.filter(
-    PlanningIntentEntry.guards.packageJsonScriptAppend,
-  ),
   barrel: entries.filter(PlanningIntentEntry.guards.barrelExport),
   tsCallArg: entries.filter(PlanningIntentEntry.guards.tsCallArg),
   tsObjectField: entries.filter(PlanningIntentEntry.guards.tsObjectField),
@@ -267,7 +247,6 @@ const emptyPackageJsonFields = {
   exports: [],
   dependencies: [],
   scripts: [],
-  scriptAppends: [],
 };
 
 const emptyCompositionFields = {
@@ -291,7 +270,7 @@ const makePlanningIntentPath = ({
   readonly contents: string | undefined;
   readonly packageJsonFields?: Pick<
     PlanningIntentPath,
-    "exports" | "dependencies" | "scripts" | "scriptAppends"
+    "exports" | "dependencies" | "scripts"
   >;
   readonly barrelExports?: PlanningIntentPath["barrelExports"];
   readonly compositions?: PlanningIntentPath["compositions"];
@@ -375,16 +354,6 @@ const derivePlanningIntentPath = ({
           valueOf: (entry) => entry.value,
           toResult: (entry) => ({ name: entry.name, value: entry.value }),
           errorMessage: `Conflicting package.json script outcomes for ${path}.`,
-        }),
-        scriptAppends: collectUniqueEntries({
-          entries: groups.scriptAppends,
-          keyOf: (entry) => `${entry.name}:${entry.fragment}`,
-          valueOf: (entry) => entry.fragment,
-          toResult: (entry) => ({
-            name: entry.name,
-            fragment: entry.fragment,
-          }),
-          errorMessage: `Conflicting package.json script append outcomes for ${path}.`,
         }),
       });
     };
@@ -595,7 +564,6 @@ type PlanningIntentFamily =
 const toPlanningIntentFamily = PlanningIntentEntry.match({
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
-  packageJsonScriptAppend: () => "packageJson" as const,
   barrelExport: () => "barrel" as const,
   tsCallArg: () => "tsCallArg" as const,
   tsObjectField: () => "tsCallArg" as const,

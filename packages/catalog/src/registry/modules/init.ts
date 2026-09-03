@@ -44,7 +44,7 @@ const gitInitModule: typeof ModuleDefinition.Type = {
     {
       label: "Initialize git repository and create initial commit",
       command:
-        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit")',
+        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit" && {{packageManager}} run --if-present postprepare)',
       phase: "post-finalize",
     },
   ],
@@ -157,10 +157,11 @@ const huskyModule: typeof ModuleDefinition.Type = {
       value: "17.4.1",
     },
     {
-      _tag: "pkg-json-script-append",
+      _tag: "pkg-json-entry",
       path: "{{targetPath}}/package.json",
-      name: "prepare",
-      fragment: "husky",
+      field: "scripts",
+      name: "postprepare",
+      value: "husky",
     },
     {
       _tag: "pkg-json-entry",
@@ -168,14 +169,6 @@ const huskyModule: typeof ModuleDefinition.Type = {
       field: "scripts",
       name: "lint-staged",
       value: "lint-staged",
-    },
-  ],
-  // Dependency installation runs before Git initialization during create.
-  scripts: [
-    {
-      label: "Activate Husky hooks after Git initialization",
-      command: "./node_modules/.bin/husky",
-      phase: "post-finalize",
     },
   ],
 };

@@ -229,18 +229,6 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
     ],
     devenv: [
       {
-        id: "workspace-devenv-nix-flake",
-        title: "Nix Flake",
-        description: "Declarative development environment with Nix",
-        value: "workspace-devenv-nix-flake",
-      },
-      {
-        id: "workspace-devenv-devcontainer",
-        title: "Dev Container",
-        description: "VS Code/GitHub Codespaces development container",
-        value: "workspace-devenv-devcontainer",
-      },
-      {
         id: "workspace-devenv-husky",
         title: "Husky + lint-staged",
         description: "Run staged-file format and lint tasks before each commit",

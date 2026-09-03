@@ -214,7 +214,7 @@ export function StackConfigurator() {
           </FieldLegend>
           <FieldGroup
             variant="outlined"
-            className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2"
+            className="grid grid-cols-1 sm:grid-cols-3"
           >
             <ConfigurationToggle
               id="stack-git"
@@ -337,7 +337,7 @@ function ConfigurationToggle({
       pressed={checked}
       disabled={disabled}
       onPressedChange={onCheckedChange}
-      className="h-auto min-h-11 min-w-0 justify-center rounded-none border-0 bg-background px-2 py-2 text-center whitespace-normal"
+      className="h-auto min-h-11 min-w-0 justify-center rounded-none border-0 border-b px-2 py-2 text-center whitespace-normal last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
     >
       {checked ? <Check data-icon="inline-start" aria-hidden="true" /> : null}
       <span className="text-sm font-medium text-foreground">{title}</span>

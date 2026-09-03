@@ -188,12 +188,7 @@ describe("ScaffoldFormatter", () => {
                   {
                     _tag: "json-pkg-scripts",
                     fileType: "json",
-                    entries: [
-                      {
-                        name: "build",
-                        value: "tsc -p tsconfig.json",
-                      },
-                    ],
+                    entries: [{ name: "build", value: "tsc -p tsconfig.json" }],
                   },
                 ],
               },

@@ -72,19 +72,6 @@ export const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
   ),
 });
 
-export const JsonPkgScriptsAppendOp = Schema.TaggedStruct(
-  "json-pkg-scripts-append",
-  {
-    fileType: Schema.tag("json"),
-    entries: Schema.Array(
-      Schema.Struct({
-        name: Schema.String,
-        fragment: Schema.String,
-      }),
-    ),
-  },
-);
-
 /**
  * TypeScript Operations - for AST manipulation via ts-morph
  */
@@ -129,7 +116,6 @@ const JsonCompositionOperationSchema = Schema.Union([
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
-  JsonPkgScriptsAppendOp,
 ]);
 
 const TypeScriptCompositionOperationSchema = Schema.Union([

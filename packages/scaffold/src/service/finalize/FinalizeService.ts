@@ -40,8 +40,10 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       const collectResolvedScripts = Effect.fn(
         "FinalizeService.collectScripts",
       )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-        const moduleNodes =
-          yield* blueprint.getAttachedModulesInDependencyOrder();
+        const moduleNodes = Arr.filter(
+          blueprint.nodes,
+          BlueprintNode.guards["attached-module"],
+        );
         const targetNodes = Arr.filter(
           blueprint.nodes,
           BlueprintNode.guards.target,
@@ -137,8 +139,10 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
       const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
         function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-          const moduleNodes =
-            yield* blueprint.getAttachedModulesInDependencyOrder();
+          const moduleNodes = Arr.filter(
+            blueprint.nodes,
+            BlueprintNode.guards["attached-module"],
+          );
           const targetNodes = Arr.filter(
             blueprint.nodes,
             BlueprintNode.guards.target,

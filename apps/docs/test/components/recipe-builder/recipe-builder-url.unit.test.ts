@@ -28,23 +28,13 @@ describe("recipe builder URL", () => {
       "?runtime=node&runtime=bun&package-manager=pnpm",
       "?target=server/api:server-http-api,server-http-api",
       "?name=demo&utm_source=newsletter",
+      "?name=shared-recipe&target=workspace/shared-recipe:workspace-devenv-husky&no-git",
     ].forEach((search) => {
       const decoded = decodeRecipeBuilderUrl(new URLSearchParams(search));
 
       expect(decoded.issue).toBeDefined();
       expect(decoded.initialValues.targets).toEqual([]);
     });
-  });
-
-  it("rejects no-git URLs that select Husky", () => {
-    const decoded = decodeRecipeBuilderUrl(
-      new URLSearchParams(
-        "?name=shared-recipe&target=workspace/shared-recipe:workspace-devenv-husky&no-git",
-      ),
-    );
-
-    expect(decoded.issue).toBeDefined();
-    expect(decoded.initialValues.targets).toEqual([]);
   });
 
   it("uses create flag names and omits default configuration flags", () => {
