@@ -146,9 +146,10 @@ const renderConflict = (
  * For `complete` outcomes: pass through contents directly.
  * For `composed` outcomes: render operations as edit instructions.
  *
- * When classification is "create", the LLM should write the seed + apply
- * instructions. When "modify" or "conflict", the LLM should read the
- * existing file and apply instructions to it.
+ * When classification is "create", the LLM should write the seed and apply
+ * instructions. For "modify", complete outcomes replace the current file with
+ * `contents`, while composed outcomes apply their instructions to the current
+ * file. Conflicts always require an explicit resolution.
  */
 export const renderPlanForLlm = (plan: {
   outcomes: ReadonlyArray<typeof PlanOutcome.Type>;

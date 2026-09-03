@@ -146,14 +146,27 @@ const renderCommandSections = (
     renderExamples(command.examples, headingLevel + 1),
   );
 
-const renderCodingAgentGuide = (command: CliReferenceCommand): string =>
-  command.path.length === 2 &&
-  (command.path[1] === "plan" || command.path[1] === "schema")
-    ? section(
+const renderGuides = (command: CliReferenceCommand): string => {
+  if (command.path.length !== 2) return "";
+
+  switch (command.path[1]) {
+    case "init":
+    case "create":
+    case "add":
+      return section(
+        "## Guides",
+        "Follow [Getting started](/getting-started) to scaffold your first project, or read [How Stack Effect changes your repository](/how-it-works) to understand previews, conflicts, approvals, and writes.",
+      );
+    case "plan":
+    case "schema":
+      return section(
         "## Guide",
         "[Use Stack Effect with coding agents](/use-with-coding-agents) for the complete non-interactive discovery, planning, approval, and verification workflow.",
-      )
-    : "";
+      );
+    default:
+      return "";
+  }
+};
 
 const renderCommandPage = (
   reference: CliReference,
@@ -170,7 +183,7 @@ const renderCommandPage = (
     content: `${section(
       generatedNotice,
       renderCommandSections(command, 1),
-      renderCodingAgentGuide(command),
+      renderGuides(command),
       ...descendants.map((descendant) => renderCommandSections(descendant, 2)),
     )}\n`,
   };

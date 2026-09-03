@@ -157,7 +157,7 @@ After approval, use `plan.llm.json` as editing guidance:
 1. Reread each existing path immediately before editing it.
 2. For a `create` outcome, write the supplied contents and follow any editing
    instructions.
-3. For a `modify` outcome, apply its instructions to the current contents.
+3. For a `modify` outcome with instructions, apply them to the current contents. When the instructions are empty, replace the file with the supplied contents.
 4. Leave `unchanged` paths untouched.
 5. Apply only conflict resolutions that received path-specific approval.
 

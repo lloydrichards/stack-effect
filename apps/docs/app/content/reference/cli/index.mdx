@@ -12,7 +12,7 @@ Commands, arguments, options, and examples for `stack-effect v0.13.2`. These pag
 | [`stack-effect create`](/reference/cli/create) | Create a greenfield stack-effect project from compact target specs. |
 | [`stack-effect add`](/reference/cli/add) | Incrementally add targets and modules to a scaffolded project. Resolves dependencies and implications automatically. |
 | [`stack-effect graph`](/reference/cli/graph) | Output the catalog dependency graph in table, Mermaid, or DOT format for visualization or tooling. |
-| [`stack-effect plan`](/reference/cli/plan) | Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption. |
+| [`stack-effect plan`](/reference/cli/plan) | Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. When stdin omits config, --root must contain stack.effect.json. Designed for LLM and CI consumption. |
 | [`stack-effect schema`](/reference/cli/schema) | Serialize the full catalog (targets with nested modules) and the JSON Schema for plan input. Useful for LLMs, CI, and external tooling. |
 | [`stack-effect catalog`](/reference/cli/catalog) | Catalog maintenance helper commands. |
 

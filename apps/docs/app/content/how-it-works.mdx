@@ -24,7 +24,7 @@ The read-only **Catalog** lists the available targets and modules, where each mo
 
 Your choices become a **Selection**. In this example, that means the `api` server target and its HTTP API module. The `add` command also includes workspace choices already recorded in `stack.effect.json`. Required dependencies are not part of the Selection yet.
 
-Stack Effect resolves those dependencies into a **Blueprint**. Because the HTTP API needs `domain-api-contracts`, the Blueprint adds the domain target and that module. This happens in memory: no repository files have been read or written.
+Stack Effect resolves those dependencies into a **Blueprint**. Because the HTTP API needs `domain-api-contracts`, the Blueprint adds the domain target and that module. Dependency resolution happens in memory. Apart from loading the workspace configuration, Stack Effect has not inspected the planned scaffold paths or written any files yet.
 
 The CLI shows the Blueprint at **Continue with these changes?**. This is your first checkpoint:
 
