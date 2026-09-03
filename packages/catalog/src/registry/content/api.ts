@@ -34,7 +34,7 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 export const HelloGroupLive = HttpApiBuilder.group(Api, "hello", (handlers) =>
   handlers.handle("get", () => {
     const data: typeof ApiResponse.Type = {
-      message: "Hello bEvr!",
+      message: "Hello Effect!",
       success: true,
     };
     return Effect.succeed(data);
