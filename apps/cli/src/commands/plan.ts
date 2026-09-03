@@ -185,7 +185,7 @@ export const plan = Command.make(
     }),
 ).pipe(
   Command.withDescription(
-    "Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. Designed for LLM and CI consumption.",
+    "Read a Selection (and optional config) from stdin, resolve dependencies, and output a structured plan. When stdin omits config, --root must contain stack.effect.json. Designed for LLM and CI consumption.",
   ),
   Command.withShortDescription(
     "(for LLMs) Generate a scaffold plan from stdin",
