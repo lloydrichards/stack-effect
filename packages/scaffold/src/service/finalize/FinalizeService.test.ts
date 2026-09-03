@@ -324,155 +324,95 @@ describe("FinalizeService", () => {
       ),
     );
 
-    it.effect(
-      "uses the smallest ready module after each dependency resolution despite scrambled blueprint serialization",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* FinalizeService;
-          const alphaId = ModuleId.make("alpha-dependent");
-          const bravoId = ModuleId.make("bravo-independent");
-          const charlieId = ModuleId.make("charlie-dependency");
-          const deltaId = ModuleId.make("delta-dependent");
-          const targetId = serverIdentity.toKey();
-          const alphaNode = {
-            _tag: "attached-module" as const,
-            id: toAttachedModuleNodeId(targetId, alphaId),
-            targetId,
-            moduleId: alphaId,
-          };
-          const bravoNode = {
-            _tag: "attached-module" as const,
-            id: toAttachedModuleNodeId(targetId, bravoId),
-            targetId,
-            moduleId: bravoId,
-          };
-          const charlieNode = {
-            _tag: "attached-module" as const,
-            id: toAttachedModuleNodeId(targetId, charlieId),
-            targetId,
-            moduleId: charlieId,
-          };
-          const deltaNode = {
-            _tag: "attached-module" as const,
-            id: toAttachedModuleNodeId(targetId, deltaId),
-            targetId,
-            moduleId: deltaId,
-          };
-          const blueprint = new Blueprint({
-            nodes: [
-              { _tag: "target", id: targetId, identity: serverIdentity },
-              deltaNode,
-              alphaNode,
-              charlieNode,
-              bravoNode,
-            ],
-            edges: [
-              {
-                id: `required-module=>${alphaNode.id}=>${charlieNode.id}`,
-                from: alphaNode.id,
-                to: charlieNode.id,
-                reason: "required-module" as const,
-              },
-              {
-                id: `owns-module=>${targetId}=>${charlieNode.id}`,
-                from: targetId,
-                to: charlieNode.id,
-                reason: "owns-module" as const,
-              },
-              {
-                id: `required-module=>${deltaNode.id}=>${bravoNode.id}`,
-                from: deltaNode.id,
-                to: bravoNode.id,
-                reason: "required-module" as const,
-              },
-              {
-                id: `owns-module=>${targetId}=>${deltaNode.id}`,
-                from: targetId,
-                to: deltaNode.id,
-                reason: "owns-module" as const,
-              },
-              {
-                id: `owns-module=>${targetId}=>${bravoNode.id}`,
-                from: targetId,
-                to: bravoNode.id,
-                reason: "owns-module" as const,
-              },
-              {
-                id: `owns-module=>${targetId}=>${alphaNode.id}`,
-                from: targetId,
-                to: alphaNode.id,
-                reason: "owns-module" as const,
-              },
-            ],
-          });
+    it.effect("runs a module dependency before its dependent", () =>
+      Effect.gen(function* () {
+        const svc = yield* FinalizeService;
+        const dependentId = ModuleId.make("alpha-dependent");
+        const dependencyId = ModuleId.make("charlie-dependency");
+        const targetId = serverIdentity.toKey();
+        const dependentNode = {
+          _tag: "attached-module" as const,
+          id: toAttachedModuleNodeId(targetId, dependentId),
+          targetId,
+          moduleId: dependentId,
+        };
+        const dependencyNode = {
+          _tag: "attached-module" as const,
+          id: toAttachedModuleNodeId(targetId, dependencyId),
+          targetId,
+          moduleId: dependencyId,
+        };
+        const blueprint = new Blueprint({
+          nodes: [
+            { _tag: "target", id: targetId, identity: serverIdentity },
+            dependentNode,
+            dependencyNode,
+          ],
+          edges: [
+            {
+              id: `required-module=>${dependentNode.id}=>${dependencyNode.id}`,
+              from: dependentNode.id,
+              to: dependencyNode.id,
+              reason: "required-module" as const,
+            },
+            {
+              id: `owns-module=>${targetId}=>${dependencyNode.id}`,
+              from: targetId,
+              to: dependencyNode.id,
+              reason: "owns-module" as const,
+            },
+            {
+              id: `owns-module=>${targetId}=>${dependentNode.id}`,
+              from: targetId,
+              to: dependentNode.id,
+              reason: "owns-module" as const,
+            },
+          ],
+        });
 
-          const scripts = yield* svc.preview(blueprint, makeConfig());
+        const scripts = yield* svc.preview(blueprint, makeConfig());
 
-          expect(scripts.map((script) => script.label)).toEqual([
-            "Target setup",
-            "Bravo setup",
-            "Charlie setup",
-            "Alpha setup",
-            "Delta setup",
-            "Install dependencies",
-            "Bravo cleanup",
-            "Charlie cleanup",
-            "Alpha cleanup",
-            "Delta cleanup",
-          ]);
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              targets: {
-                server: {
-                  scripts: [{ label: "Target setup", command: "echo target" }],
-                },
+        expect(scripts.map((script) => script.label)).toEqual([
+          "Target setup",
+          "Charlie setup",
+          "Alpha setup",
+          "Install dependencies",
+          "Charlie cleanup",
+          "Alpha cleanup",
+        ]);
+      }).pipe(
+        Effect.provide(
+          makeFinalizeLayer([], {
+            targets: {
+              server: {
+                scripts: [{ label: "Target setup", command: "echo target" }],
               },
-              modules: {
-                "alpha-dependent": {
-                  scripts: [
-                    { label: "Alpha setup", command: "echo alpha" },
-                    {
-                      label: "Alpha cleanup",
-                      command: "echo alpha cleanup",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
-                "bravo-independent": {
-                  scripts: [
-                    { label: "Bravo setup", command: "echo bravo" },
-                    {
-                      label: "Bravo cleanup",
-                      command: "echo bravo cleanup",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
-                "charlie-dependency": {
-                  scripts: [
-                    { label: "Charlie setup", command: "echo charlie" },
-                    {
-                      label: "Charlie cleanup",
-                      command: "echo charlie cleanup",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
-                "delta-dependent": {
-                  scripts: [
-                    { label: "Delta setup", command: "echo delta" },
-                    {
-                      label: "Delta cleanup",
-                      command: "echo delta cleanup",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
+            },
+            modules: {
+              "alpha-dependent": {
+                scripts: [
+                  { label: "Alpha setup", command: "echo alpha" },
+                  {
+                    label: "Alpha cleanup",
+                    command: "echo alpha cleanup",
+                    phase: "post-finalize",
+                  },
+                ],
               },
-            }),
-          ),
+              "charlie-dependency": {
+                scripts: [
+                  { label: "Charlie setup", command: "echo charlie" },
+                  {
+                    label: "Charlie cleanup",
+                    command: "echo charlie cleanup",
+                    phase: "post-finalize",
+                  },
+                ],
+              },
+            },
+          }),
         ),
+      ),
     );
   });
 

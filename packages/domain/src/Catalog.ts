@@ -120,6 +120,7 @@ export const ModuleImplication = Schema.Struct({
  * Tagged union of contribution types:
  * - `file`: Authoritative file content (replaces entire file)
  * - `pkg-json-entry`: Entry in package.json (exports, dependencies, scripts)
+ * - `pkg-json-script-append`: Fragment appended to a package.json script
  * - `barrel-export`: Re-export statement in a TypeScript barrel file
  * - `ts-call-arg`: Argument appended to a TypeScript function call
  */
@@ -149,6 +150,15 @@ export const Contribution = Schema.TaggedUnion({
     ]),
     name: Schema.String,
     value: Schema.String,
+  },
+
+  /**
+   * Package.json script fragment appended with ` && ` when a base script exists.
+   */
+  "pkg-json-script-append": {
+    path: Schema.String,
+    name: Schema.String,
+    fragment: Schema.String,
   },
 
   /**

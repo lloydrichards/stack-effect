@@ -2,6 +2,20 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { PlanAssessor, type PlanningIntentPath } from "./PlanAssessor";
 
+const makeScriptAppendPath = (): PlanningIntentPath => ({
+  path: "package.json",
+  contents: undefined,
+  exports: [],
+  dependencies: [],
+  scripts: [],
+  scriptAppends: [{ name: "prepare", fragment: "husky" }],
+  barrelExports: [],
+  compositions: [],
+  objectFields: [],
+  jsxSlots: [],
+  tsconfig: undefined,
+});
+
 const makeJsxSlotPath = (
   contents: string | undefined = undefined,
 ): PlanningIntentPath => ({
@@ -10,6 +24,7 @@ const makeJsxSlotPath = (
   exports: [],
   dependencies: [],
   scripts: [],
+  scriptAppends: [],
   barrelExports: [],
   compositions: [],
   objectFields: [],
@@ -21,6 +36,27 @@ const makeJsxSlotPath = (
     },
   ],
   tsconfig: undefined,
+});
+
+describe("PlanAssessor package script appends", () => {
+  it.effect("conflicts when an existing script is not a string", () =>
+    Effect.gen(function* () {
+      const assessor = yield* PlanAssessor;
+      const assessment = assessor.assessPlanningPath({
+        planningPath: makeScriptAppendPath(),
+        snapshotPath: {
+          _tag: "file",
+          path: "package.json",
+          contents: JSON.stringify({ scripts: { prepare: ["custom setup"] } }),
+        },
+      });
+
+      expect(assessment).toEqual({
+        classification: "conflict",
+        conflicts: [{ _tag: "scripts", path: "package.json", name: "prepare" }],
+      });
+    }).pipe(Effect.provide(PlanAssessor.layer)),
+  );
 });
 
 describe("PlanAssessor JSX slots", () => {

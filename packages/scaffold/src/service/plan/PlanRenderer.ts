@@ -67,6 +67,12 @@ const renderOperation = (
         .join("\n");
       return `In \`${path}\`, add these scripts:\n${entries}`;
     }),
+    Match.tag("json-pkg-scripts-append", (o) => {
+      const entries = o.entries
+        .map((e) => `  "${e.name}": append "${e.fragment}"`)
+        .join("\n");
+      return `In \`${path}\`, append these script fragments:\n${entries}`;
+    }),
     Match.tag("ts-add-import", (o) => {
       const specifiers = o.namedImports
         ? `{ ${o.namedImports.join(", ")} }`

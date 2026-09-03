@@ -157,11 +157,10 @@ const huskyModule: typeof ModuleDefinition.Type = {
       value: "17.4.1",
     },
     {
-      _tag: "pkg-json-entry",
+      _tag: "pkg-json-script-append",
       path: "{{targetPath}}/package.json",
-      field: "scripts",
-      name: "husky:install",
-      value: "husky",
+      name: "prepare",
+      fragment: "husky",
     },
     {
       _tag: "pkg-json-entry",
@@ -171,15 +170,13 @@ const huskyModule: typeof ModuleDefinition.Type = {
       value: "lint-staged",
     },
   ],
+  // Dependency installation runs before Git initialization during create.
   scripts: [
     {
-      label: "Install Husky",
-      command: "{{packageManager}} run husky:install",
+      label: "Activate Husky hooks after Git initialization",
+      command: "./node_modules/.bin/husky",
       phase: "post-finalize",
     },
-  ],
-  nextSteps: [
-    "Husky: After a fresh clone, rerun `{{packageManager}} run husky:install` to enable hooks.",
   ],
 };
 

@@ -11,7 +11,7 @@ describe("moduleRegistry", () => {
     expect(duplicates).toEqual([]);
   });
 
-  it("registers Husky as an optional developer-experience module", () => {
+  it("activates Husky after Git because dependency installation runs first", () => {
     const husky = moduleRegistry.find(
       (module) => module.id === "workspace-devenv-husky",
     );
@@ -26,13 +26,10 @@ describe("moduleRegistry", () => {
       ],
       scripts: [
         {
-          label: "Install Husky",
-          command: "{{packageManager}} run husky:install",
+          label: "Activate Husky hooks after Git initialization",
+          command: "./node_modules/.bin/husky",
           phase: "post-finalize",
         },
-      ],
-      nextSteps: [
-        "Husky: After a fresh clone, rerun `{{packageManager}} run husky:install` to enable hooks.",
       ],
     });
 
@@ -117,10 +114,13 @@ describe("moduleRegistry", () => {
           ? [[contribution.name, contribution.value]]
           : [],
       ),
-    ).toEqual([
-      ["husky:install", "husky"],
-      ["lint-staged", "lint-staged"],
-    ]);
+    ).toEqual([["lint-staged", "lint-staged"]]);
+    expect(husky.contributions).toContainEqual({
+      _tag: "pkg-json-script-append",
+      path: "{{targetPath}}/package.json",
+      name: "prepare",
+      fragment: "husky",
+    });
   });
 
   it("should only reference existing modules in dependencies", () => {

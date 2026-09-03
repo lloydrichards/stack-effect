@@ -73,6 +73,8 @@ const applyJsonOperation = (
     "json-pkg-deps": (o) => assignPackageJsonEntries(pkg, o.section, o.entries),
     "json-pkg-scripts": (o) =>
       assignPackageJsonEntries(pkg, "scripts", o.entries),
+    "json-pkg-scripts-append": (o) =>
+      appendPackageJsonScriptEntries(pkg, o.entries),
   })(op);
 
 const assignPackageJsonEntries = (
@@ -97,6 +99,48 @@ const assignPackageJsonEntries = (
         [entry.name]: entry.value,
       }),
     );
+  });
+
+const appendPackageJsonScriptEntries = (
+  pkg: Record<string, unknown>,
+  entries: ReadonlyArray<{ readonly name: string; readonly fragment: string }>,
+): Effect.Effect<void, ApplyFailure, never> =>
+  Effect.gen(function* () {
+    const existingScripts = pkg["scripts"];
+    if (existingScripts !== undefined && !isPlainObject(existingScripts)) {
+      return yield* new ApplyFailure({
+        reason: "repoRootInvalid",
+        message:
+          'Expected package.json field "scripts" to be an object during apply.',
+      });
+    }
+
+    const scripts = { ...(existingScripts ?? {}) };
+    yield* Effect.forEach(
+      entries,
+      ({ name, fragment }) => {
+        const existing = scripts[name];
+        if (existing !== undefined && typeof existing !== "string") {
+          return Effect.fail(
+            new ApplyFailure({
+              reason: "repoRootInvalid",
+              message: `Expected package.json script "${name}" to be a string during apply.`,
+            }),
+          );
+        }
+
+        scripts[name] =
+          typeof existing === "string" &&
+          existing.split(" && ").includes(fragment)
+            ? existing
+            : existing === undefined
+              ? fragment
+              : `${existing} && ${fragment}`;
+        return Effect.void;
+      },
+      { discard: true },
+    );
+    pkg["scripts"] = scripts;
   });
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>

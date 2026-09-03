@@ -49,7 +49,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         );
 
         const moduleContributions = yield* Effect.forEach(
-          Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
+          yield* blueprint.getAttachedModulesInDependencyOrder(),
           (node) =>
             Effect.gen(function* () {
               const context = yield* Option.match(
@@ -123,6 +123,21 @@ const resolveContributionTokens = (
             field: c.field,
             name,
             value: resolveString(c.value),
+          }),
+        ];
+      },
+      "pkg-json-script-append": (
+        c,
+      ): ReadonlyArray<typeof Contribution.Type> => {
+        const name = resolveString(c.name).trim();
+        const fragment = resolveString(c.fragment).trim();
+        if (name.length === 0 || fragment.length === 0) return [];
+
+        return [
+          Contribution.cases["pkg-json-script-append"].make({
+            path: resolveString(c.path),
+            name,
+            fragment,
           }),
         ];
       },

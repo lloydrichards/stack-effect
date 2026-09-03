@@ -1,9 +1,5 @@
 import { CatalogService } from "@repo/catalog";
-import {
-  type Blueprint,
-  BlueprintAttachedModuleNode,
-  BlueprintNode,
-} from "@repo/domain/Blueprint";
+import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { type ScriptResult } from "@repo/domain/Finalize";
 import {
   ContributionTokenContext,
@@ -15,7 +11,6 @@ import {
   Effect,
   Layer,
   Option,
-  Order,
   Result,
   Stream,
 } from "effect";
@@ -45,7 +40,8 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       const collectResolvedScripts = Effect.fn(
         "FinalizeService.collectScripts",
       )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-        const moduleNodes = orderModuleNodes(blueprint);
+        const moduleNodes =
+          yield* blueprint.getAttachedModulesInDependencyOrder();
         const targetNodes = Arr.filter(
           blueprint.nodes,
           BlueprintNode.guards.target,
@@ -141,10 +137,8 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
       const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
         function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-          const moduleNodes = Arr.filter(
-            blueprint.nodes,
-            BlueprintNode.guards["attached-module"],
-          );
+          const moduleNodes =
+            yield* blueprint.getAttachedModulesInDependencyOrder();
           const targetNodes = Arr.filter(
             blueprint.nodes,
             BlueprintNode.guards.target,
@@ -195,47 +189,6 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
     FinalizeService.make,
   ).pipe(Layer.provide(CatalogService.layer));
 }
-
-const orderModuleNodes = (blueprint: typeof Blueprint.Type) => {
-  const moduleNodes = Arr.sortWith(
-    Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
-    (node: typeof BlueprintAttachedModuleNode.Type) => node.id,
-    Order.String,
-  );
-  const dependencyEdges = Arr.filter(
-    blueprint.edges,
-    (edge) =>
-      edge.reason === "required-module" &&
-      Arr.some(moduleNodes, (node) => node.id === edge.from) &&
-      Arr.some(moduleNodes, (node) => node.id === edge.to),
-  );
-  const takeNextReadyNode = (
-    remaining: typeof moduleNodes,
-    ordered: typeof moduleNodes = [],
-  ): typeof moduleNodes =>
-    Option.match(
-      Arr.findFirst(
-        remaining,
-        (node) =>
-          !Arr.some(
-            dependencyEdges,
-            (edge) =>
-              edge.from === node.id &&
-              Arr.some(remaining, (candidate) => candidate.id === edge.to),
-          ),
-      ),
-      {
-        onNone: () => [...ordered, ...remaining],
-        onSome: (readyNode) =>
-          takeNextReadyNode(
-            Arr.filter(remaining, (node) => node.id !== readyNode.id),
-            [...ordered, readyNode],
-          ),
-      },
-    );
-
-  return takeNextReadyNode(moduleNodes);
-};
 
 const createTokenContext = (
   config: FinalizeConfig,
