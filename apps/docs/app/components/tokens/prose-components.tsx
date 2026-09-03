@@ -5,6 +5,7 @@ import { Link } from "react-router";
 import { AnsiTerminal } from "~/components/ansi-terminal";
 import { CodeBlock } from "~/components/code-block";
 import { CodeExample } from "~/components/code-example";
+import { Mermaid } from "~/components/mermaid";
 import {
   typefaceAnchor,
   typefaceBody,
@@ -197,4 +198,6 @@ export const proseComponents = {
   ),
   AnsiTerminal,
   CodeExample,
+  Mermaid,
+  mermaid: Mermaid,
 };

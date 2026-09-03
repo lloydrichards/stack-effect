@@ -69,6 +69,9 @@ const themeScript = `
   var theme = localStorage.getItem('theme');
   if (theme === 'dark' || (!theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
     document.documentElement.classList.add('dark');
+    document.documentElement.dataset.theme = 'dark';
+  } else {
+    document.documentElement.dataset.theme = 'light';
   }
 })();
 `;
