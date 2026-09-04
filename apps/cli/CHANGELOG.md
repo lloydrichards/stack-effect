@@ -1,5 +1,20 @@
 # stack-effect
 
+## 0.14.0
+
+### Minor Changes
+
+- 1cb5192: Add an optional Husky and lint-staged developer-experience module.
+
+### Patch Changes
+
+- d3529bd: Generated Todo recipes no longer include test files.
+- 247daba: Generated server TypeScript configurations no longer compile source files directly from the optional AI package.
+- 889802b: Add guides for building a first project, understanding repository changes, and using Stack Effect safely with coding agents ([#241](https://github.com/lloydrichards/stack-effect/issues/241), [#242](https://github.com/lloydrichards/stack-effect/issues/242), [#243](https://github.com/lloydrichards/stack-effect/issues/243)).
+- c78ab14: The Builder preview now highlights JavaScript, dotenv, and Dockerfile contents correctly.
+- b0f0c7f: Generated TypeScript projects now enable Effect's recommended and Effect-native diagnostics in language-service and Oxlint setups.
+- d49dd22: Generated modules now use Effect-native platform, concurrency, schema, and runtime APIs without strict diagnostic warnings.
+
 ## 0.13.2
 
 ### Patch Changes
