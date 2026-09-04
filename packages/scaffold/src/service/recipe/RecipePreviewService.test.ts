@@ -42,7 +42,7 @@ it.effect(
         preview.files.find((file) => file.path === path)?.contents;
       const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint .");
+      assert.strictEqual(packageJson.scripts.lint, "biome lint");
       assert.strictEqual(packageJson.scripts.format, "dprint fmt");
       assert.strictEqual(packageJson.scripts["format:check"], "dprint check");
       assert.strictEqual(
@@ -142,7 +142,7 @@ it.effect(
         preview.files.find((file) => file.path === path)?.contents;
       const packageJson = JSON.parse(fileContents("package.json") ?? "{}");
 
-      assert.strictEqual(packageJson.scripts.lint, "biome lint .");
+      assert.strictEqual(packageJson.scripts.lint, "biome lint");
       assert.isDefined(fileContents("biome.jsonc"));
       assert.notInclude(fileContents("biome.jsonc"), '"formatter"');
       assert.include(

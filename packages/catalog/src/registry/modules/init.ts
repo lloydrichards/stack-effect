@@ -11,6 +11,8 @@ import {
   dprintJsonContents,
   envrcContents,
   flakeNixContents,
+  huskyPreCommitContents,
+  lintStagedConfigContents,
   nxHashEnvContents,
   nxJsonContents,
   oxfmtJsoncContents,
@@ -40,18 +42,9 @@ const gitInitModule: typeof ModuleDefinition.Type = {
   contributions: [],
   scripts: [
     {
-      label: "Initialize git repository",
-      command: "git init --initial-branch=main",
-      phase: "post-finalize",
-    },
-    {
-      label: "Stage all files",
-      command: "git add -A",
-      phase: "post-finalize",
-    },
-    {
-      label: "Create initial commit",
-      command: 'git commit -m "initial commit"',
+      label: "Initialize git repository and create initial commit",
+      command:
+        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit" && {{packageManager}} run --if-present postprepare)',
       phase: "post-finalize",
     },
   ],
@@ -118,6 +111,65 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
   nextSteps: [
     "Dev Container: Open in VS Code and run 'Dev Containers: Reopen in Container'",
     "Dev Container: Or create a GitHub Codespace from the repository",
+  ],
+};
+
+const huskyModule: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("workspace-devenv-husky"),
+  title: "Husky + lint-staged",
+  description: "Run staged-file format and lint tasks before each commit",
+  visibility: "internal",
+  categories: [ModuleCategory.make("devenv")],
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  dependencies: [
+    {
+      _tag: "required-module",
+      target: new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "root",
+      }),
+      moduleId: ModuleId.make("workspace-devenv-git"),
+    },
+  ],
+  contributions: [
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.husky/pre-commit",
+      contents: huskyPreCommitContents,
+    },
+    {
+      _tag: "file",
+      path: "{{targetPath}}/.lintstagedrc.json",
+      contents: lintStagedConfigContents,
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "devDependencies",
+      name: "husky",
+      value: "9.1.7",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "devDependencies",
+      name: "lint-staged",
+      value: "17.4.1",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "scripts",
+      name: "postprepare",
+      value: "husky",
+    },
+    {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "scripts",
+      name: "lint-staged",
+      value: "lint-staged",
+    },
   ],
 };
 
@@ -464,7 +516,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "lint",
-        value: "biome lint .",
+        value: "biome lint",
       },
     ],
   },
@@ -495,14 +547,14 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "format",
-        value: "biome check --write .",
+        value: "biome check --write",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "format:check",
-        value: "biome check .",
+        value: "biome check",
       },
     ],
   },
@@ -696,4 +748,5 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   gitInitModule,
   nixFlakeModule,
   devcontainerModule,
+  huskyModule,
 ];

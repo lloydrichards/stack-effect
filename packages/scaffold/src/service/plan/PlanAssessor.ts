@@ -184,7 +184,7 @@ function toCompositionOperations(
     operations.push({
       _tag: "json-pkg-scripts",
       fileType: "json",
-      entries: planningPath.scripts.map(({ name, value }) => ({ name, value })),
+      entries: planningPath.scripts,
     });
   }
 

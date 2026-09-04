@@ -227,7 +227,14 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         value: "vitest",
       },
     ],
-    devenv: [],
+    devenv: [
+      {
+        id: "workspace-devenv-husky",
+        title: "Husky + lint-staged",
+        description: "Run staged-file format and lint tasks before each commit",
+        value: "workspace-devenv-husky",
+      },
+    ],
   },
 });
 

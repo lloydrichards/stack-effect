@@ -250,6 +250,24 @@ test("should keep Bun selected after rapidly changing the Node package manager",
     .not.toHaveTextContent("package-manager=");
 });
 
+test("should disable and clear Husky when Git is turned off", async () => {
+  await renderRecipeBuilder();
+
+  const git = page.getByRole("button", { name: /^Git/u });
+  const husky = page.getByRole("button", {
+    name: /^Husky \+ lint-stagedRun staged-file format and lint tasks before each commit$/u,
+  });
+
+  await expect.element(husky).toBeEnabled();
+  await husky.click();
+  await expect.element(husky).toHaveAttribute("aria-pressed", "true");
+
+  await git.click();
+
+  await expect.element(husky).toBeDisabled();
+  await expect.element(husky).toHaveAttribute("aria-pressed", "false");
+});
+
 test("should generate a usable preview when the user completes a valid Selection", async () => {
   await renderRecipeBuilder();
 

@@ -240,17 +240,16 @@ export const init = Command.make(
             });
 
       const dxExtras =
-        devenvChoices.length === 0
+        devenvChoices.length === 0 || flags.yes
           ? []
-          : flags.yes
-            ? devenvChoices.map((c) => c.value)
-            : yield* MultiSelect({
-                message: "Developer experience extras (optional)",
-                choices: devenvChoices.map((c) => ({
-                  ...c,
-                  selected: false,
-                })),
-              });
+          : yield* MultiSelect({
+              message: "Developer experience extras (optional)",
+              choices: devenvChoices
+                .filter(
+                  (choice) => git || choice.value !== "workspace-devenv-husky",
+                )
+                .map((choice) => ({ ...choice, selected: false })),
+            });
 
       const config = new StackConfig({
         name: projectName as typeof Schema.NonEmptyString.Type,

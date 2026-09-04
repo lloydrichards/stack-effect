@@ -541,3 +541,17 @@ export const devcontainerJsonContents = `{
   }
 }
 `;
+
+// -- husky -----------------------------------------------------------------
+
+export const huskyPreCommitContents = `{{packageManager}} run lint-staged
+`;
+
+export const lintStagedConfigContents = `{
+  "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}": [
+    "{{packageManager}} run --if-present format --"{{#if lint=biome}},
+    "{{packageManager}} run lint --"{{/if}}{{#if lint=oxlint}},
+    "{{packageManager}} run lint:fix --"{{/if}}
+  ]
+}
+`;

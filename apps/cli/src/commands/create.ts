@@ -2,7 +2,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { RecipeService, StackConfigDefaults } from "@repo/scaffold";
-import { Console, Effect, Option, Schema } from "effect";
+import { Array as Arr, Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
   dryRunFlag,
@@ -170,6 +170,19 @@ export const create = Command.make(
         runtime: flags.runtime,
         packageManager: flags.packageManager,
       });
+      if (
+        flags.noGit &&
+        Arr.some(flags.target.value, (target) =>
+          Arr.some(
+            target.modules,
+            (moduleId) => moduleId === "workspace-devenv-husky",
+          ),
+        )
+      ) {
+        return yield* Effect.fail(
+          "Invalid create options: Husky requires Git; --no-git cannot be used when selecting workspace-devenv-husky.",
+        );
+      }
 
       const { projectName, repoRoot } = yield* resolveNameAndRoot(
         flags.name.value,

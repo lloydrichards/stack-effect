@@ -28,6 +28,7 @@ describe("recipe builder URL", () => {
       "?runtime=node&runtime=bun&package-manager=pnpm",
       "?target=server/api:server-http-api,server-http-api",
       "?name=demo&utm_source=newsletter",
+      "?name=shared-recipe&target=workspace/shared-recipe:workspace-devenv-husky&no-git",
     ].forEach((search) => {
       const decoded = decodeRecipeBuilderUrl(new URLSearchParams(search));
 
