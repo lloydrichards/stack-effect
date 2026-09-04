@@ -1,5 +1,11 @@
 # @stack-effect/docs
 
+## 0.2.2
+
+### Patch Changes
+
+- 1cb5192: Add an optional Husky and lint-staged developer-experience module.
+
 ## 0.2.1
 
 ### Patch Changes
