@@ -1,3 +1,4 @@
+import { MemoryFileSystem } from "@effect-vfs/memory";
 import { CatalogService } from "@repo/catalog";
 import { Apply, ApplyFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
@@ -5,7 +6,6 @@ import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
-import * as MemoryFileSystem from "../../MemoryFileSystem";
 import { RecipePreview, RecipePreviewInput } from "../../RecipePreviewSchema";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { BlueprintService } from "../blueprint/BlueprintService";

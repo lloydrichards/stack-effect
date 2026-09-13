@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
+import { MemoryFileSystem } from "@effect-vfs/memory";
 import { Effect, FileSystem, Layer } from "effect";
-import * as MemoryFileSystem from "../MemoryFileSystem";
 
 it.effect("provides an in-memory FileSystem service", () =>
   Effect.gen(function* () {

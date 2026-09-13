@@ -1,7 +1,7 @@
+import { MemoryFileSystem } from "@effect-vfs/memory";
 import { type Apply, ApplyFailure, type ApplyResult } from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
-import * as MemoryFileSystem from "../../MemoryFileSystem";
 import {
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,

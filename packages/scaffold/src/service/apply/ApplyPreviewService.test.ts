@@ -2,6 +2,7 @@
 // @effect-diagnostics nodeBuiltinImport:off
 import nodePath from "node:path";
 import { describe, expect, it } from "@effect/vitest";
+import { MemoryFileSystem } from "@effect-vfs/memory";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
 import {
   type CompositionOperation,
@@ -9,7 +10,6 @@ import {
   type PlanOutcome,
 } from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-import * as MemoryFileSystem from "../../MemoryFileSystem";
 import { ApplyPreviewService } from "./ApplyPreviewService";
 import { ApplyService } from "./ApplyService";
 

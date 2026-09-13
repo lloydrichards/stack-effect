@@ -1,4 +1,4 @@
-export * as MemoryFileSystem from "./MemoryFileSystem";
+export { MemoryFileSystem } from "@effect-vfs/memory";
 export {
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,

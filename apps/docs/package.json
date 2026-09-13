@@ -17,7 +17,6 @@
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
-    "@effect-vfs/memory": "^0.1.0",
     "@effect/atom-react": "4.0.0-rc.114",
     "@effect/platform-browser": "4.0.0-rc.114",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
