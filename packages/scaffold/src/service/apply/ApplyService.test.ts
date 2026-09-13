@@ -12,6 +12,7 @@ import {
   type PlanOutcome,
 } from "@repo/domain/Plan";
 import {
+  ByteSize,
   Cause,
   Effect,
   Exit,
@@ -71,7 +72,7 @@ const makeFileInfo = (type: FileSystem.File.Type): FileSystem.File.Info => ({
   uid: Option.none(),
   gid: Option.none(),
   rdev: Option.none(),
-  size: FileSystem.Size(0),
+  size: ByteSize.zero,
   blksize: Option.none(),
   blocks: Option.none(),
 });

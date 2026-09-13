@@ -146,7 +146,7 @@ export const Confirm = (options: ConfirmOptions): Prompt.Prompt<boolean> => {
 
   let hasRendered = false;
 
-  return Prompt.custom<ConfirmState, boolean>(initialState, {
+  return Prompt.Custom<ConfirmState, boolean>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
       const layout = yield* Action.$match(action, {
         Beep: () => renderLayout(state, false),

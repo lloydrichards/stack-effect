@@ -56,4 +56,11 @@ export type KeyMap = Record<string, KeyBinding>;
 export const whenBinding = <Ret>(
   binding: KeyBinding,
   f: (input: Terminal.UserInput) => Ret,
-) => Match.when((input: Terminal.UserInput) => binding.matches(input), f);
+) =>
+  Match.when<
+    Terminal.UserInput,
+    (input: Terminal.UserInput) => boolean,
+    unknown,
+    [],
+    (input: Terminal.UserInput) => Ret
+  >((input) => binding.matches(input), f);

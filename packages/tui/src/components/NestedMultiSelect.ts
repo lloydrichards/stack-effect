@@ -407,7 +407,7 @@ export const NestedMultiSelect = <A>(
   let hasRendered = false;
   let lastRowCount = 0;
 
-  return Prompt.custom<NestedMultiSelectState, Array<A>>(initialState, {
+  return Prompt.Custom<NestedMultiSelectState, Array<A>>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),

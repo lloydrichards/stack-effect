@@ -172,7 +172,7 @@ export const MultiSelect = <A>(
 
   let hasRendered = false;
 
-  return Prompt.custom<MultiSelectState, Array<A>>(initialState, {
+  return Prompt.Custom<MultiSelectState, Array<A>>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),

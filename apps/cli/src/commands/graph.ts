@@ -18,7 +18,7 @@ import {
 import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
 
-const formatFlag = Flag.choice("format", ["table", "mermaid", "dot"]).pipe(
+const formatFlag = Flag.Literals("format", ["table", "mermaid", "dot"]).pipe(
   Flag.optional,
   Flag.withDescription("Output format: table (default), mermaid, or dot"),
 );
@@ -69,7 +69,7 @@ const collectRowData = (g: CatalogGraph): Array<RowData> => {
 
     const buckets = Arr.groupBy(outgoing, ([, e]) => classifyEdge(e.data));
 
-    const resolve = (key: string) =>
+    const resolve = (key: ReturnType<typeof classifyEdge>) =>
       Arr.map(buckets[key] ?? [], ([, e]) =>
         Graph.getNode(g, e.target).pipe(
           Option.map(nodeLabel),
