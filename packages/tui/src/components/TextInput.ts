@@ -125,7 +125,7 @@ export const TextInput = (
 
   let hasRendered = false;
 
-  return Prompt.custom<TextState, string>(initialState, {
+  return Prompt.Custom<TextState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),

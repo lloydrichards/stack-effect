@@ -4,12 +4,12 @@ import { Argument, Flag } from "effect/unstable/cli";
 
 const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
 
-export const projectNameArg = Argument.string("project-name").pipe(
+export const projectNameArg = Argument.String("project-name").pipe(
   Argument.withSchema(TrimNonEmptyString),
   Argument.optional,
 );
 
-export const recipeTargetFlag = Flag.string("target").pipe(
+export const recipeTargetFlag = Flag.String("target").pipe(
   Flag.withSchema(RecipeTargetString),
   Flag.atLeast(1),
   Flag.optional,
@@ -19,18 +19,18 @@ export const recipeTargetFlag = Flag.string("target").pipe(
   ),
 );
 
-export const rootFlag = Flag.directory("root").pipe(
+export const rootFlag = Flag.Directory("root").pipe(
   Flag.optional,
   Flag.withMetavar("<dir>"),
   Flag.withDescription("Root directory of the repository (defaults to cwd)"),
   Flag.withAlias("r"),
 );
 
-export const dryRunFlag = Flag.boolean("dry-run").pipe(
+export const dryRunFlag = Flag.Boolean("dry-run").pipe(
   Flag.withDescription("Preview changes without writing to disk"),
 );
 
-export const showFilesFlag = Flag.boolean("show-files").pipe(
+export const showFilesFlag = Flag.Boolean("show-files").pipe(
   Flag.withDescription("Include generated file contents in a dry-run preview"),
 );
 
@@ -45,34 +45,34 @@ export const validateShowFiles = ({
     ? Effect.fail("--show-files requires --dry-run.")
     : Effect.void;
 
-export const yesFlag = Flag.boolean("yes").pipe(
+export const yesFlag = Flag.Boolean("yes").pipe(
   Flag.withAlias("y"),
   Flag.withDescription(
     "Skip confirmation prompts (uses defaults where available)",
   ),
 );
 
-export const noGitFlag = Flag.boolean("no-git").pipe(
+export const noGitFlag = Flag.Boolean("no-git").pipe(
   Flag.withDescription("Skip git repository initialization"),
 );
 
-export const trustFlag = Flag.boolean("trust").pipe(
+export const trustFlag = Flag.Boolean("trust").pipe(
   Flag.withDescription(
     "Skip finalize script approval prompt and run all scripts",
   ),
 );
 
-export const runtimeFlag = Flag.choice("runtime", ["bun", "node"]).pipe(
+export const runtimeFlag = Flag.Literals("runtime", ["bun", "node"]).pipe(
   Flag.optional,
   Flag.withDescription("Runtime to use"),
 );
 
-export const typescriptFlag = Flag.choice("typescript", ["6", "7"]).pipe(
+export const typescriptFlag = Flag.Literals("typescript", ["6", "7"]).pipe(
   Flag.optional,
   Flag.withDescription("TypeScript major version to configure"),
 );
 
-export const packageManagerFlag = Flag.choice("package-manager", [
+export const packageManagerFlag = Flag.Literals("package-manager", [
   "bun",
   "pnpm",
   "npm",
@@ -83,22 +83,22 @@ export const packageManagerFlag = Flag.choice("package-manager", [
   ),
 );
 
-export const monorepoFlag = Flag.string("monorepo").pipe(
+export const monorepoFlag = Flag.String("monorepo").pipe(
   Flag.optional,
   Flag.withDescription("Override the default monorepo tool"),
 );
 
-export const lintFlag = Flag.string("lint").pipe(
+export const lintFlag = Flag.String("lint").pipe(
   Flag.optional,
   Flag.withDescription("Override the default lint tool"),
 );
 
-export const formatFlag = Flag.string("format").pipe(
+export const formatFlag = Flag.String("format").pipe(
   Flag.optional,
   Flag.withDescription("Override the default format tool"),
 );
 
-export const testFlag = Flag.string("test").pipe(
+export const testFlag = Flag.String("test").pipe(
   Flag.optional,
   Flag.withDescription("Override the default test framework"),
 );

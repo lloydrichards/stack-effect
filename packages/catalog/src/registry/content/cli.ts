@@ -739,7 +739,7 @@ export const TerminalChat = (
     const events = yield* Queue.make<TerminalChatEvent>();
     let hasRendered = false;
 
-    return yield* Prompt.custom<TerminalChatState, void, TerminalChatEvent>(
+    return yield* Prompt.Custom<TerminalChatState, void, TerminalChatEvent>(
       {
         input: "",
         cursor: 0,

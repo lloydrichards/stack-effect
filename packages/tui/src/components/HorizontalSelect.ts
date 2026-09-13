@@ -85,7 +85,7 @@ export const HorizontalSelect = <A extends string>(
       ? Box.text("✔").pipe(Box.annotate(Ansi.green))
       : Box.text("?").pipe(Box.annotate(Ansi.cyan));
 
-    const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
+    const label = Box.text(message ?? "").pipe(Box.annotate(Ansi.bold));
 
     const items = choices.map((c, i) => {
       const isSelected = i === cursor;
@@ -133,7 +133,7 @@ export const HorizontalSelect = <A extends string>(
 
   let hasRendered = false;
 
-  return Prompt.custom<number, A>(0, {
+  return Prompt.Custom<number, A>(0, {
     render: Effect.fnUntraced(function* (cursor, action) {
       const layout = yield* Action.$match(action, {
         Beep: () => renderLayout(cursor, false),

@@ -16,7 +16,6 @@ import {
   Option,
   Predicate,
   pipe,
-  Record,
   Schema,
   String as Str,
 } from "effect";
@@ -725,17 +724,23 @@ const assessPackageJsonEntries = ({
     toConflict: (plannedExport) =>
       planConflict.exports(path, plannedExport.name),
   });
-  const dependencyAssessments = Record.collect(
-    dependenciesBySection,
-    (section, sectionDependencies) =>
-      assessFlatStringRecordEntries({
-        existingValue: packageJson[section],
-        requiredEntries: sectionDependencies,
-        keyOf: (plannedDependency) => plannedDependency.name,
-        valueOf: (plannedDependency) => plannedDependency.value,
-        toConflict: (plannedDependency) =>
-          planConflict.dependencies(path, plannedDependency),
-      }),
+  const dependencyAssessments = pipe(
+    ["dependencies", "devDependencies"] as const,
+    Arr.flatMap((section) => {
+      const sectionDependencies = dependenciesBySection[section];
+      return sectionDependencies === undefined
+        ? []
+        : [
+            assessFlatStringRecordEntries({
+              existingValue: packageJson[section],
+              requiredEntries: sectionDependencies,
+              keyOf: (plannedDependency) => plannedDependency.name,
+              valueOf: (plannedDependency) => plannedDependency.value,
+              toConflict: (plannedDependency) =>
+                planConflict.dependencies(path, plannedDependency),
+            }),
+          ];
+    }),
   );
   const scriptAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["scripts"],

@@ -44,13 +44,13 @@ import { ConfigureService } from "../service/ConfigureService";
  * - `tree`: visual tree summary for human review
  */
 
-const formatFlag = Flag.choice("format", ["llm", "raw", "tree"]).pipe(
+const formatFlag = Flag.Literals("format", ["llm", "raw", "tree"]).pipe(
   Flag.optional,
   Flag.withAlias("f"),
   Flag.withDescription("Output format: llm (default), raw, or tree"),
 );
 
-const outputFlag = Flag.string("output").pipe(
+const outputFlag = Flag.String("output").pipe(
   Flag.optional,
   Flag.withAlias("o"),
   Flag.withDescription("Write output to a file instead of stdout"),

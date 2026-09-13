@@ -4,7 +4,7 @@ import { Config, Effect, Layer } from "effect";
 import { StackEffectServicesLayer } from "./services";
 
 const CliConfig = Config.all({
-  TARGET: Config.literal("bun", "node").pipe(Config.withDefault("node")),
+  TARGET: Config.Literals(["bun", "node"]).pipe(Config.withDefault("node")),
 });
 
 const PlatformLayer = Layer.unwrap(

@@ -185,7 +185,7 @@ export const TextArea = (options: TextAreaOptions): Prompt.Prompt<string> => {
 
   let hasRendered = false;
 
-  return Prompt.custom<TextAreaState, string>(initialState, {
+  return Prompt.Custom<TextAreaState, string>(initialState, {
     render: Effect.fnUntraced(function* (state, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(state, false),

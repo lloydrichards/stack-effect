@@ -27,7 +27,7 @@ export const Select = <A>(
   const { message, choices } = options;
 
   const renderLayout = (cursor: number, submitted: boolean) => {
-    const label = Box.text(message).pipe(Box.annotate(Ansi.bold));
+    const label = Box.text(message ?? "").pipe(Box.annotate(Ansi.bold));
 
     const items = choices.map((c, i) => {
       const isSelected = i === cursor;
@@ -74,7 +74,7 @@ export const Select = <A>(
 
   let hasRendered = false;
 
-  return Prompt.custom<number, A>(0, {
+  return Prompt.Custom<number, A>(0, {
     render: Effect.fnUntraced(function* (cursor, action) {
       const layout = Action.$match(action, {
         Beep: () => renderLayout(cursor, false),
