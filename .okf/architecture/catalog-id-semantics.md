@@ -1,3 +1,16 @@
+---
+type: Convention
+title: Catalog ID naming
+description: Human-facing naming conventions for targets and modules.
+status: stable
+sources:
+  - id: source-1
+    resource: ../../packages/catalog/src/registry/moduleRegistry.ts
+  - id: source-2
+    resource: ../../packages/domain/src/Catalog.ts
+generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+---
+
 # Catalog ID Naming Guidelines
 
 > Human-facing guidelines for naming catalog target and module IDs. These rules
@@ -206,3 +219,5 @@ When adding or renaming an ID, ask:
 4. **Family**: Does it align with related modules across target families?
 5. **Boundary**: Is policy or generated output leaking into the name?
 6. **Vocabulary**: Does it reuse existing role/context words before inventing new ones?
+
+See [catalog architecture](catalog.md "uses these identifiers") and [identity](../domain/identity.md "defines identity semantics").

@@ -1,15 +1,19 @@
-# Ubiquitous Language
+---
+type: Reference
+title: Ubiquitous language
+description: Canonical wording for scaffold conversations and reviews.
+status: stable
+sources:
+  - id: source-1
+    resource: ../../packages/domain/src/Blueprint.ts
+  - id: source-2
+    resource: ../../packages/domain/src/Apply.ts
+generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+---
 
-This document is the speaking guide for domain conversations.
-For full definitions and invariants, see `docs/DOMAIN_LEXICON.md`.
+# Ubiquitous language
 
-## When to Use This Document
-
-| Need | Use |
-|------|-----|
-| Quick phrasing for discussions, PRs, commits | This document |
-| Precise definitions, invariants, code identifiers | `DOMAIN_LEXICON.md` |
-| Current domain decisions and constraints | `CONTEXT.md` |
+Use the [lifecycle contracts](lifecycle.md "defines precise terms") for definitions and invariants. Use the [scaffold lifecycle](../architecture/scaffold-lifecycle.md "describes implementation") for current behavior.
 
 ## Purpose
 

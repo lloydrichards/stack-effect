@@ -19,7 +19,7 @@
     },
     "apps/cli": {
       "name": "stack-effect",
-      "version": "0.13.2",
+      "version": "0.14.0",
       "bin": {
         "stack-effect": "dist/index.js",
       },
@@ -40,7 +40,7 @@
     },
     "apps/docs": {
       "name": "@stack-effect/docs",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "dependencies": {
         "@base-ui/react": "^1.5.0",
         "@effect/atom-react": "4.0.0-rc.108",

@@ -1,3 +1,16 @@
+---
+type: Research Report
+title: Effect VFS design review
+description: Dated source evidence and experiments supporting the VFS research directions.
+status: draft
+sources:
+  - id: presentation
+    resource: ../assets/effect-vfs-design-research.html
+  - id: source-1
+    resource: https://github.com/lloydrichards/effect-virtual-fs/tree/e9df27fcb565d189bbc501500cc3267561b23533
+generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+---
+
 # Effect VFS in Stack Effect: design directions
 
 Research review · 22 September 2026 · Discussion input, not an accepted design
@@ -8,7 +21,7 @@ Effect VFS fits Stack Effect best as a shared place to prepare, inspect, and rep
 
 For the catalog, prefer immutable snapshots of selected generated recipes, with declarative modules remaining authoritative. An overlay is a private branch of one filesystem snapshot. It does not merge independently generated modules or resolve JSON and TypeScript conflicts. [preview: ApplyPreviewService.ts L31–175](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyPreviewService.ts#L31-L175) [overlay: VirtualFileSystem.ts L1973–2035](https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035) [domain: Catalog.ts L126–223](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/domain/src/Catalog.ts#L126-L223)
 
-This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. No issues or OKF records have been created. The final sections identify questions and evidence that can support that later work.
+This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. The report records the initial review. Follow the [staged workspace research](staged-workspace.md "tracks the next design") for the concepts and issue links created afterward.
 
 ## What exists today
 
@@ -230,12 +243,6 @@ Observed output:
 {"base":"base","left":"left","right":"base","deltaOnSibling":"BaseMismatch"}
 ```
 
-This verifies sibling isolation and rejects the right sibling's delta against the left sibling, even though the two changed different file paths. It establishes the behavior on local VFS 0.5.0/Effect rc.115, not Stack Effect's installed VFS 0.2.0/Effect rc.114 (the latter versions are being verified by the main researcher).
+This verifies sibling isolation and rejects the right sibling's delta against the left sibling, even though the two changed different file paths. It establishes the behavior on local VFS 0.5.0/Effect rc.115, not the VFS 0.2.0/Effect rc.114 baseline inspected for the original report.
 
-An earlier focused Vitest attempt did not start because Vite tried to write its bundled config into the read-only VFS checkout (`EPERM ... node_modules/.vite-temp/...`). The direct Bun program avoided that write boundary. No library source was changed.
-
-## Repository and report validation
-
-`bun format`, `bun lint`, and `bun run type-check` passed. All six type-check tasks were Turbo cache hits, not fresh compiler executions. Formatting reported no fixes. Only the research Markdown and HTML artifacts were added. The scaffold test run passed 93 tests; the focused VFS Bun example exited successfully. The VFS Vitest suite was not run successfully because of the read-only checkout boundary described in the example.
-
-The HTML report was inspected at 1280px and 320px widths with no document overflow. Mermaid rendered, the theme control switched to dark, and print used a white background. Chromium required an approved sandbox escalation to start.
+The original HTML report is preserved at `.okf/assets/effect-vfs-design-research.html`. It is a dated rendition; the linked research concepts track subsequent decisions.

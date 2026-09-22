@@ -11,7 +11,7 @@ sources:
     resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
     title: Current changed-file result
   - id: report
-    resource: ../../.docs/reports/2026-09-22-effect-vfs-design-research.md
+    resource: effect-vfs-review.md
     title: Snapshot and delta evidence
 generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
 ---

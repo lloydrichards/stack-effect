@@ -5,7 +5,7 @@ description: Proposed ownership for repeatable previews and explicit host public
 status: draft
 sources:
   - id: report
-    resource: ../../.docs/reports/2026-09-22-effect-vfs-design-research.md
+    resource: effect-vfs-review.md
     title: VFS design research
   - id: drift
     resource: https://github.com/lloydrichards/stack-effect/issues/175

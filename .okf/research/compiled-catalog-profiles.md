@@ -20,7 +20,7 @@ sources:
     resource: https://github.com/lloydrichards/stack-effect/issues/249
     title: Community Catalog foundation
   - id: report
-    resource: ../../.docs/reports/2026-09-22-effect-vfs-design-research.md
+    resource: effect-vfs-review.md
     title: Catalog alternatives and evidence
 generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
 ---
