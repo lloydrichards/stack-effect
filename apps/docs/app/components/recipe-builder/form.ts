@@ -7,6 +7,7 @@ import { Array as Arr, Context, Schema } from "effect";
 
 const RuntimeSchema = Schema.TaggedUnion({
   bun: {},
+  deno: {},
   node: {
     packageManager: Schema.Literals(["pnpm", "npm"]),
   },

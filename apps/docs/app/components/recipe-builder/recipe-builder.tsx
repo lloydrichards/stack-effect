@@ -63,7 +63,9 @@ function RecipeBuilderContent() {
       ),
       runtime: config.runtime._tag,
       package_manager:
-        config.runtime._tag === "node" ? config.runtime.packageManager : "bun",
+        config.runtime._tag === "node"
+          ? config.runtime.packageManager
+          : config.runtime._tag,
       file_count: preview?.files.length ?? 0,
     };
   };

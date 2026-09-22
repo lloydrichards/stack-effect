@@ -21,10 +21,88 @@ describe("recipe builder URL", () => {
     expect(decoded.initialValues.supportSelections).toEqual([]);
   });
 
+  it("round trips Deno with its own package manager", () => {
+    const values = {
+      ...fullStackRecipeFixture,
+      config: {
+        ...fullStackRecipeFixture.config,
+        runtime: { _tag: "deno" as const },
+        monorepo: undefined,
+        lint: undefined,
+        format: undefined,
+      },
+    };
+    const encoded = encodeRecipeBuilderUrl(values);
+    const decoded = decodeRecipeBuilderUrl(encoded);
+
+    expect(encoded.get("runtime")).toBe("deno");
+    expect(encoded.get("package-manager")).toBe("deno");
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config.runtime).toEqual({ _tag: "deno" });
+    expect(decoded.initialValues.config.typescript).toBe("6");
+    expect(decoded.initialValues.config.monorepo).toBeUndefined();
+    expect(decoded.initialValues.config.lint).toBeUndefined();
+    expect(decoded.initialValues.config.format).toBeUndefined();
+  });
+
+  it("keeps explicit Deno tooling choices in a share URL", () => {
+    const values = {
+      ...fullStackRecipeFixture,
+      config: {
+        ...fullStackRecipeFixture.config,
+        runtime: { _tag: "deno" as const },
+        typescript: "7" as const,
+        monorepo: "vite-plus" as const,
+        lint: "oxlint" as const,
+        format: "oxfmt" as const,
+      },
+    };
+    const encoded = encodeRecipeBuilderUrl(values);
+    const decoded = decodeRecipeBuilderUrl(encoded);
+
+    expect(encoded.get("typescript")).toBe("7");
+    expect(encoded.get("monorepo")).toBe("vite-plus");
+    expect(encoded.get("lint")).toBe("oxlint");
+    expect(encoded.get("format")).toBe("oxfmt");
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config.typescript).toBe("7");
+    expect(decoded.initialValues.config.monorepo).toBe("vite-plus");
+    expect(decoded.initialValues.config.lint).toBe("oxlint");
+    expect(decoded.initialValues.config.format).toBe("oxfmt");
+  });
+
+  it("infers Deno from a shared URL with only its package manager", () => {
+    const decoded = decodeRecipeBuilderUrl(
+      new URLSearchParams("package-manager=deno"),
+    );
+
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config.runtime).toEqual({ _tag: "deno" });
+  });
+
+  it("restores explicit Deno tooling choices", () => {
+    const decoded = decodeRecipeBuilderUrl(
+      new URLSearchParams(
+        "runtime=deno&package-manager=deno&typescript=7&monorepo=turbo&lint=oxlint&format=oxfmt",
+      ),
+    );
+
+    expect(decoded.issue).toBeUndefined();
+    expect(decoded.initialValues.config).toMatchObject({
+      runtime: { _tag: "deno" },
+      typescript: "7",
+      monorepo: "turbo",
+      lint: "oxlint",
+      format: "oxfmt",
+    });
+  });
+
   it("rejects malformed, unknown, and conflicting shared links without a partial restore", () => {
     [
       "?target=server/api:",
       "?runtime=bun&package-manager=pnpm",
+      "?runtime=deno&package-manager=npm",
+      "?runtime=node&package-manager=deno",
       "?runtime=node&runtime=bun&package-manager=pnpm",
       "?target=server/api:server-http-api,server-http-api",
       "?name=demo&utm_source=newsletter",

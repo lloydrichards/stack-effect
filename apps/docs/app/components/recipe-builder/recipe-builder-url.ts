@@ -13,8 +13,10 @@ const defaults = initialRecipeBuilderValues.config;
 const RecipeUrlSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
   target: Schema.Array(RecipeTargetString),
-  runtime: Schema.optional(Schema.Literals(["bun", "node"])),
-  packageManager: Schema.optional(Schema.Literals(["bun", "pnpm", "npm"])),
+  runtime: Schema.optional(Schema.Literals(["bun", "deno", "node"])),
+  packageManager: Schema.optional(
+    Schema.Literals(["bun", "deno", "pnpm", "npm"]),
+  ),
   typescript: Schema.optional(Schema.Literals(["6", "7"])),
   monorepo: Schema.optional(Schema.String),
   lint: Schema.optional(Schema.String),
@@ -26,7 +28,11 @@ const RecipeUrlSchema = Schema.Struct({
     (runtime === "bun" &&
       packageManager !== undefined &&
       packageManager !== "bun") ||
-    (runtime === "node" && packageManager === "bun")
+    (runtime === "deno" &&
+      packageManager !== undefined &&
+      packageManager !== "deno") ||
+    (runtime === "node" &&
+      (packageManager === "bun" || packageManager === "deno"))
       ? "Runtime and package manager conflict."
       : undefined,
   ),
@@ -84,20 +90,30 @@ const toInitialValues = (
   recipe: typeof RecipeUrlSchema.Type,
 ): RecipeBuilderFormValues | undefined => {
   const packageManager = recipe.packageManager ?? "bun";
-  const runtime = recipe.runtime ?? (packageManager === "bun" ? "bun" : "node");
+  const runtime =
+    recipe.runtime ??
+    (packageManager === "bun"
+      ? "bun"
+      : packageManager === "deno"
+        ? "deno"
+        : "node");
   const config = {
     name: recipe.name ?? defaults.name,
     runtime:
       runtime === "bun"
         ? ({ _tag: "bun" } as const)
-        : ({
-            _tag: "node" as const,
-            packageManager: packageManager === "npm" ? "npm" : "pnpm",
-          } as const),
-    typescript: recipe.typescript ?? defaults.typescript,
-    monorepo: recipe.monorepo ?? defaults.monorepo,
-    lint: recipe.lint ?? defaults.lint,
-    format: recipe.format ?? defaults.format,
+        : runtime === "deno"
+          ? ({ _tag: "deno" } as const)
+          : ({
+              _tag: "node" as const,
+              packageManager: packageManager === "npm" ? "npm" : "pnpm",
+            } as const),
+    typescript:
+      recipe.typescript ?? (runtime === "deno" ? "6" : defaults.typescript),
+    monorepo:
+      recipe.monorepo ?? (runtime === "deno" ? undefined : defaults.monorepo),
+    lint: recipe.lint ?? (runtime === "deno" ? undefined : defaults.lint),
+    format: recipe.format ?? (runtime === "deno" ? undefined : defaults.format),
     test: recipe.test ?? defaults.test,
   };
   const targets = mergeTargets(recipe.target);
@@ -237,17 +253,27 @@ export const encodeRecipeBuilderUrl = (
   encodeRecipeTargetSpecs(targets)
     .sort()
     .forEach((target) => params.append("target", target));
-  if (values.config.runtime._tag === "node") {
-    params.set("runtime", "node");
-    params.set("package-manager", values.config.runtime.packageManager);
+  if (values.config.runtime._tag !== "bun") {
+    params.set("runtime", values.config.runtime._tag);
+    params.set(
+      "package-manager",
+      values.config.runtime._tag === "deno"
+        ? "deno"
+        : values.config.runtime.packageManager,
+    );
   }
-  if (values.config.typescript !== defaults.typescript) {
+  const defaultTypescript =
+    values.config.runtime._tag === "deno" ? "6" : defaults.typescript;
+  if (values.config.typescript !== defaultTypescript) {
     params.set("typescript", values.config.typescript ?? "6");
   }
   (["monorepo", "lint", "format", "test"] as const).forEach((field) => {
     const value = values.config[field];
-    if (value !== undefined && value !== defaults[field])
-      params.set(field, value);
+    const defaultValue =
+      values.config.runtime._tag === "deno" && field !== "test"
+        ? undefined
+        : defaults[field];
+    if (value !== undefined && value !== defaultValue) params.set(field, value);
   });
   if (!values.gitEnabled) params.set("no-git", "");
   return params;
