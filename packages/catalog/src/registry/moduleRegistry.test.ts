@@ -1,9 +1,23 @@
 import { ModuleCapability } from "@repo/domain/Catalog";
 import { describe, expect, it } from "vitest";
 import { moduleRegistry } from "./moduleRegistry";
+import { targetRegistry } from "./targetRegistry";
 
 describe("moduleRegistry", () => {
   const knownIds = new Set(moduleRegistry.map((m) => m.id));
+
+  it("should expose every compatible catalog target and module for Deno", () => {
+    expect(
+      targetRegistry
+        .filter((target) => !target.supportedRuntimes?.includes("deno"))
+        .map((target) => target.kind),
+    ).toEqual([]);
+    expect(
+      moduleRegistry
+        .filter((module) => !module.supportedRuntimes?.includes("deno"))
+        .map((module) => module.id),
+    ).toEqual(["workspace-monorepo-turbo"]);
+  });
 
   it("should have unique module ids", () => {
     const ids = moduleRegistry.map((m) => m.id);

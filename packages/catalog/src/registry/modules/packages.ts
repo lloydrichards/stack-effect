@@ -20,6 +20,7 @@ import {
 } from "../content/ai";
 import {
   dbDatabaseContents,
+  dbDenoSqliteCompatContents,
   dbHealthCheckContents,
   dbHealthScriptContents,
   dbIndexContents,
@@ -42,6 +43,7 @@ import { todoMigrationContents, todoRepositoryContents } from "../content/todo";
 export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("package-ai-core"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "AI Package",
     description:
       "Anthropic language model configuration and workflow utilities",
@@ -112,6 +114,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-think"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Think Toolkit",
     description:
       "Minimal AI toolkit with a think tool for step-by-step reasoning",
@@ -141,6 +144,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-datetime"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "DateTime Toolkit",
     description:
       "Timezone-aware date and time tool for time-sensitive agent behavior",
@@ -177,6 +181,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-math"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description: "Deterministic arithmetic evaluator for safe math computation",
     visibility: "internal",
@@ -212,6 +217,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-chat-toolkit-datetime"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "DateTime Toolkit",
     description: "Attach the shared date and time toolkit to the chat service",
     supportedOn: [
@@ -268,6 +274,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-chat-toolkit-math"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description:
       "Attach the shared deterministic math toolkit to the chat service",
@@ -325,6 +332,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-memory"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Memory Toolkit",
     description:
       "Key-value scratchpad for persisting facts across tool invocations",
@@ -375,6 +383,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-plan"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Plan Toolkit",
     description:
       "Structured task tracking that forces plan-before-act discipline",
@@ -425,6 +434,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-toolkit-webfetch"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "WebFetch Toolkit",
     description:
       "URL content retrieval with HTML stripping for retrieval-augmented workflows",
@@ -475,6 +485,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-ai-chat-service"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Service",
     description:
       "AI chat service with agentic loop for streaming tool-augmented conversations",
@@ -567,6 +578,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-db-sqlite"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "SQLite Database",
     description: "Reusable Effect SQL SQLite package with migrations",
     provides: [ModuleCapability.make("db-sql")],
@@ -585,6 +597,11 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
         contents: dbIndexContents,
+      },
+      {
+        _tag: "file",
+        path: "{{#if runtime=deno}}{{targetPath}}/src/DenoSqliteCompat.ts{{/if}}",
+        contents: dbDenoSqliteCompatContents,
       },
       {
         _tag: "file",
@@ -620,14 +637,14 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
-        name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}",
+        name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}",
         value: "4.0.0-rc.108",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
-        name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}",
+        name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
         value: "4.0.0-rc.108",
       },
       {
@@ -636,6 +653,13 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "devDependencies",
         name: "{{#if runtime=node}}tsx{{/if}}",
         value: "^4.21.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=deno}}@types/node{{/if}}",
+        value: "^26.1.2",
       },
       {
         _tag: "pkg-json-entry",
@@ -650,7 +674,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "db:migrate",
         value:
-          "{{#if runtime=bun}}bun run scripts/migrate.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/migrate.ts{{/if}}",
+          "{{#if runtime=bun}}bun run scripts/migrate.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/migrate.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-read --allow-write --allow-ffi scripts/migrate.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -658,15 +682,16 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "db:health",
         value:
-          "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}",
+          "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-read --allow-write --allow-ffi scripts/health.ts{{/if}}",
       },
     ],
     nextSteps: [
-      "SQLite Database: Set `DATABASE_FILE` for `{{targetPath}}` if you want a database path other than the default `../../data/app.sqlite`.",
+      "SQLite Database: Set `DATABASE_FILE` for `{{targetPath}}` if you want a database path other than the default `../../data/app.sqlite`.{{#if runtime=deno}} Set `DATABASE_FILE=./data/app.sqlite` when launching a compiled executable from the project root.{{/if}}",
     ],
   },
   {
     id: ModuleId.make("package-db-postgres"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Postgres Database",
     description: "Reusable Effect SQL Postgres package with migrations",
     provides: [ModuleCapability.make("db-sql")],
@@ -730,7 +755,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
-        name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}",
+        name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}",
         value: "4.0.0-rc.108",
       },
       {
@@ -760,7 +785,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "db:migrate",
         value:
-          "{{#if runtime=bun}}bun run scripts/migrate.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/migrate.ts{{/if}}",
+          "{{#if runtime=bun}}bun run scripts/migrate.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/migrate.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-read --allow-write --allow-net scripts/migrate.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -768,7 +793,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         field: "scripts",
         name: "db:health",
         value:
-          "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}",
+          "{{#if runtime=bun}}bun run scripts/health.ts{{/if}}{{#if runtime=node}}node --import tsx scripts/health.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-read --allow-write --allow-net scripts/health.ts{{/if}}",
       },
     ],
     nextSteps: [
@@ -777,6 +802,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-db-todo-repository"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo Repository",
     description:
       "Persistent Todo CRUD repository over the selected SQL database",
@@ -855,6 +881,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("package-presence-service"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Presence Package",
     description:
       "Real-time presence tracking service with PubSub and client generation",

@@ -44,6 +44,7 @@ const domainTarget = new TargetIdentity({
 export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("client-react-web-worker"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Browser Web Worker",
     description:
       "Browser Worker RPC with Effect Schema, Stream, Schedule, and Atom RPC",
@@ -91,6 +92,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("client-react-http-api"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
@@ -139,6 +141,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("client-react-http-api-todos"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP Client",
     description: "Persistent Todo CRUD card backed by the typed HTTP API",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
@@ -190,6 +193,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("client-react-http-rpc"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
@@ -243,6 +247,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("client-react-chat"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
@@ -311,12 +316,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         label: "Install shadcn chat UI components",
         command:
-          "bunx shadcn@latest add message-scroller message bubble attachment marker --yes --overwrite",
+          "{{#if runtime=deno}}deno run -A npm:shadcn@latest add message-scroller message bubble attachment marker --yes --overwrite{{/if}}{{#if runtime=bun}}bunx shadcn@latest add message-scroller message bubble attachment marker --yes --overwrite{{/if}}{{#if runtime=node}}bunx shadcn@latest add message-scroller message bubble attachment marker --yes --overwrite{{/if}}",
       },
     ],
   },
   {
     id: ModuleId.make("client-react-ws-presence"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
@@ -372,6 +378,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("client-react-devtools"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools React Client",
     description: "Optional Effect DevTools tracer layer for React atom runtime",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],

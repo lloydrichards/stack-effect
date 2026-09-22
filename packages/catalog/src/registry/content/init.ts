@@ -46,16 +46,31 @@ export const rootPackageJsonContents = `{
   "overrides": {
     "@effect/platform-node-shared": "4.0.0-rc.108"
   },
-  "packageManager": "{{packageManagerSpec}}",
+  {{#if runtime=bun}}"packageManager": "{{packageManagerSpec}}",{{/if}}{{#if runtime=node}}"packageManager": "{{packageManagerSpec}}",{{/if}}
   "scripts": {},
-  "devDependencies": {},
-  "engines": {
+  "devDependencies": { {{#if runtime=deno}}"@types/deno": "^2.7.0", "@types/node": "^26.0.0"{{/if}} },
+  {{#if runtime=bun}}"engines": {
     "node": ">=24"
-  },
+  },{{/if}}{{#if runtime=node}}"engines": {
+    "node": ">=24"
+  },{{/if}}
   "workspaces": [
     "apps/*",
     "packages/*"
   ]
+}
+`;
+
+export const denoJsonContents = `{
+  "nodeModulesDir": "auto",
+  "unstable": ["sloppy-imports"],
+  "workspace": ["apps/*", "packages/*"],
+  "tasks": {
+    "dev:all": "{{#if monorepo}}deno task dev{{/if}}{{#if noMonorepo}}deno task --recursive --if-present dev{{/if}}",
+    "build:all": "{{#if monorepo}}deno task build{{/if}}{{#if noMonorepo}}deno task --recursive --if-present build{{/if}}",
+    "test:all": "deno task --recursive --if-present test",
+    "type-check:all": "{{#if monorepo}}deno task type-check{{/if}}{{#if noMonorepo}}deno task --recursive --if-present type-check{{/if}}"
+  }
 }
 `;
 
@@ -101,7 +116,9 @@ export const configTypescriptBaseContents = `{
     "moduleResolution": "bundler",
     "module": "ESNext",
     "target": "ES2022",
-    "lib": ["ES2023"],
+    "lib": ["ES2023"{{#if runtime=deno}}, "DOM"{{/if}}],
+    {{#if runtime=deno}}"types": ["deno", "node"],
+    {{/if}}
     "strict": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
@@ -249,7 +266,7 @@ export const nxJsonContents = `{
       "{workspaceRoot}/pnpm-lock.yml",
       "{workspaceRoot}/pnpm-workspace.yaml",
       "{workspaceRoot}/scripts/hash-env.mjs",
-      { "runtime": "node ./scripts/hash-env.mjs" }
+      { "runtime": "{{#if runtime=deno}}deno run --allow-read ./scripts/hash-env.mjs{{/if}}{{#if runtime=bun}}node ./scripts/hash-env.mjs{{/if}}{{#if runtime=node}}node ./scripts/hash-env.mjs{{/if}}" }
     ]
   },
   "targetDefaults": {
@@ -280,7 +297,7 @@ export const nxJsonContents = `{
 }
 `;
 
-export const nxHashEnvContents = `/* oxlint-disable effecttsgo/async-function, effecttsgo/node-builtin-import -- This Nx build helper runs directly in Node and is intentionally outside the Effect runtime. */
+export const nxHashEnvContents = `/* oxlint-disable effecttsgo/async-function, effecttsgo/node-builtin-import -- This Nx build helper uses runtime file APIs and is intentionally outside the Effect runtime. */
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
@@ -578,6 +595,7 @@ export const flakeNixContents = `{
         "x86_64-linux"
         "aarch64-linux"
         {{#if runtime=node}}"x86_64-darwin"
+        {{/if}}{{#if runtime=deno}}"x86_64-darwin"
         {{/if}}"aarch64-darwin"
       ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
@@ -592,13 +610,16 @@ export const flakeNixContents = `{
           default = pkgs.mkShell {
             packages = with pkgs; [
               {{#if runtime=bun}}bun
-              {{/if}}nodejs_24
+              {{/if}}{{#if runtime=deno}}deno
+              {{/if}}{{#if runtime=bun}}nodejs_24
+              {{/if}}{{#if runtime=node}}nodejs_24
+              {{/if}}
               git
             ];
 
             shellHook = ''
               {{#if runtime=bun}}echo "Bun $(bun --version)"
-              {{/if}}echo "Node $(node --version)"
+              echo "Node $(node --version)"{{/if}}{{#if runtime=node}}echo "Node $(node --version)"{{/if}}{{#if runtime=deno}}echo "Deno $(deno --version | head -n 1)"{{/if}}
             '';
           };
         }
@@ -617,7 +638,7 @@ export const devcontainerJsonContents = `{
   "image": "mcr.microsoft.com/devcontainers/typescript-node",
 
   "features": {
-    "ghcr.io/shyim/devcontainers-features/bun:0": {}
+    {{#if runtime=bun}}"ghcr.io/shyim/devcontainers-features/bun:0": {}{{/if}}{{#if runtime=deno}}"ghcr.io/devcontainers-community/features/deno": {"version": "2.9.4"}{{/if}}
   },
 
   "postCreateCommand": "{{packageManager}} install",
@@ -637,6 +658,7 @@ export const devcontainerJsonContents = `{
         {{/if}}{{#if format=dprint}}"dprint.dprint",
         {{/if}}{{#if format=oxfmt}}"oxc.oxc-vscode",
         {{/if}}{{#if runtime=bun}}"oven.bun-vscode",
+        {{/if}}{{#if runtime=deno}}"denoland.vscode-deno",
         {{/if}}"effectful-tech.effect-vscode",
         "YoavBls.pretty-ts-errors"
       ]
@@ -647,7 +669,7 @@ export const devcontainerJsonContents = `{
 
 // -- husky -----------------------------------------------------------------
 
-export const huskyPreCommitContents = `{{packageManager}} run lint-staged
+export const huskyPreCommitContents = `{{#if runtime=deno}}deno task lint-staged{{/if}}{{#if runtime=bun}}bun run lint-staged{{/if}}{{#if runtime=node}}{{packageManager}} run lint-staged{{/if}}
 `;
 
 export const lintStagedConfigContents = `{
@@ -655,6 +677,15 @@ export const lintStagedConfigContents = `{
     "{{packageManager}} run --if-present format --"{{#if lint=biome}},
     "{{packageManager}} run lint --"{{/if}}{{#if lint=oxlint}},
     "{{packageManager}} run lint:fix --"{{/if}}
+  ]
+}
+`;
+
+export const denoLintStagedConfigContents = `{
+  "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}": [
+    "deno task --if-present format --"{{#if lint=biome}},
+    "deno task lint --"{{/if}}{{#if lint=oxlint}},
+    "deno task lint:fix --"{{/if}}
   ]
 }
 `;

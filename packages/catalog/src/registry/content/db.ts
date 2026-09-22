@@ -3,8 +3,33 @@ export * from "./HealthCheck";
 export * from "./Migrations";
 `;
 
-export const dbDatabaseContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
+export const dbDenoSqliteCompatContents = `import { DatabaseSync } from "node:sqlite";
+
+// Deno exposes loadExtension but not Node's enableLoadExtension toggle.
+// Keep extensions disabled except while Effect SQL explicitly requests one.
+if (!Object.getOwnPropertyDescriptor(DatabaseSync.prototype, "enableLoadExtension")) {
+  const enabled = new WeakSet<DatabaseSync>();
+  const loadExtension = DatabaseSync.prototype.loadExtension;
+  Object.defineProperty(DatabaseSync.prototype, "enableLoadExtension", {
+    configurable: true,
+    value(this: DatabaseSync, allow: boolean) {
+      if (allow) enabled.add(this);
+      else enabled.delete(this);
+    },
+  });
+  Object.defineProperty(DatabaseSync.prototype, "loadExtension", {
+    configurable: true,
+    value(this: DatabaseSync, path: string) {
+      if (!enabled.has(this)) throw new Error("SQLite extension loading is disabled");
+      return loadExtension.call(this, path);
+    },
+  });
+}
+`;
+
+export const dbDatabaseContents = `{{#if runtime=deno}}import "./DenoSqliteCompat";{{/if}}{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { SqliteClient } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}{{#if runtime=deno}}import { DenoFileSystem, DenoPath } from "@effect/platform-deno";
 import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}
 import { Config, Effect, FileSystem, Layer, Path, String } from "effect";
 
@@ -36,10 +61,10 @@ export const SqliteLive = Layer.unwrap(
       transformResultNames: String.snakeToCamel,
     });
   }),
-).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
+).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}{{#if runtime=deno}}[DenoFileSystem.layer, DenoPath.layer]{{/if}}));
 `;
 
-export const dbPostgresDatabaseContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}
+export const dbPostgresDatabaseContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoServices as PlatformServices } from "@effect/platform-deno";{{/if}}
 import { PgClient } from "@effect/sql-pg";
 import { Config, Layer, Redacted, String } from "effect";
 
@@ -71,6 +96,7 @@ export const PostgresLive = PgClient.layerConfig({
 
 export const dbMigrationsContents = `{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { SqliteMigrator } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";
+import { SqliteMigrator } from "@effect/sql-sqlite-node";{{/if}}{{#if runtime=deno}}import { DenoFileSystem, DenoPath } from "@effect/platform-deno";
 import { SqliteMigrator } from "@effect/sql-sqlite-node";{{/if}}
 import { Effect, Layer, Path } from "effect";
 import { SqliteLive } from "./Database";
@@ -89,7 +115,7 @@ export const MigrationsLive = Layer.unwrap(
       loader: SqliteMigrator.fromFileSystem(directory),
     }),
   ),
-).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}));
+).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}{{#if runtime=deno}}[DenoFileSystem.layer, DenoPath.layer]{{/if}}));
 
 export const MigratedLive = MigrationsLive.pipe(
   Layer.provide(SqliteLive),
@@ -99,7 +125,7 @@ export const MigratedLive = MigrationsLive.pipe(
 export const DatabaseLive = Layer.mergeAll(SqliteLive, MigratedLive);
 `;
 
-export const dbPostgresMigrationsContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}
+export const dbPostgresMigrationsContents = `{{#if runtime=bun}}import { BunServices as PlatformServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeServices as PlatformServices } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoServices as PlatformServices } from "@effect/platform-deno";{{/if}}
 import { PgMigrator } from "@effect/sql-pg";
 import { Effect, Layer, Path } from "effect";
 import { PostgresLive } from "./Database";
@@ -207,7 +233,7 @@ volumes:
   postgres-data:
 `;
 
-export const dbMigrateScriptContents = `{{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}
+export const dbMigrateScriptContents = `{{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoRuntime } from "@effect/platform-deno";{{/if}}
 import { Console, Effect } from "effect";
 import { MigratedLive } from "../src";
 
@@ -215,10 +241,10 @@ const program = Console.log("Database migrations completed").pipe(
   Effect.provide(MigratedLive),
 );
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(program);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(program);
 `;
 
-export const dbHealthScriptContents = `{{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}
+export const dbHealthScriptContents = `{{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoRuntime } from "@effect/platform-deno";{{/if}}
 import { Console, Effect } from "effect";
 import { checkDatabaseHealth, DatabaseLive } from "../src";
 
@@ -227,5 +253,5 @@ const program = Effect.gen(function* () {
   yield* Console.log(healthy ? "Database is healthy" : "Database is unhealthy");
 }).pipe(Effect.provide(DatabaseLive));
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(program);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(program);
 `;

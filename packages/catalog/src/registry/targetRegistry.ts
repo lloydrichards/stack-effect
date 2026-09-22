@@ -39,6 +39,7 @@ import {
 import {
   configTypescriptBaseContents,
   configTypescriptPackageJsonContents,
+  denoJsonContents,
   gitignoreContents,
   pnpmWorkspaceContents,
   rootPackageJsonContents,
@@ -62,6 +63,7 @@ import {
 export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   {
     kind: TargetKind.make("workspace"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Project Initialization",
     description:
       "Set up a new project with recommended structure and configuration",
@@ -77,6 +79,11 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: rootPackageJsonContents,
+      },
+      {
+        _tag: "file",
+        path: "{{#if runtime=deno}}{{targetPath}}/deno.json{{/if}}",
+        contents: denoJsonContents,
       },
       {
         _tag: "file",
@@ -103,6 +110,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
 
   {
     kind: TargetKind.make("client-react"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Client React Application",
     description: "A frontend application built with React",
     defaultName: "web",
@@ -221,13 +229,14 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       {
         label: "Install shadcn client components",
         command:
-          "bunx shadcn@latest add button card input switch --yes --overwrite",
+          "{{#if runtime=deno}}deno run -A npm:shadcn@latest add button card input switch --yes --overwrite{{/if}}{{#if runtime=bun}}bunx shadcn@latest add button card input switch --yes --overwrite{{/if}}{{#if runtime=node}}bunx shadcn@latest add button card input switch --yes --overwrite{{/if}}",
       },
     ],
   },
 
   {
     kind: TargetKind.make("client-foldkit"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Client Foldkit Application",
     description: "A frontend application built with Foldkit (Elm Architecture)",
     defaultName: "web",
@@ -336,6 +345,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
 
   {
     kind: TargetKind.make("server"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Server Application",
     description: "A backend application, such as an API server",
     defaultName: "api",
@@ -377,7 +387,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "build",
         value:
-          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --allow-ffi --output dist/{{packageName}} src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -392,7 +402,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "dev",
         value:
-          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}",
+          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -400,7 +410,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "dev:watch",
         value:
-          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}{{#if runtime=deno}}deno run --watch --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -428,6 +438,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
 
   {
     kind: TargetKind.make("server-mcp"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Server Application",
     description:
       "A Model Context Protocol server with composable tools, prompts, and resources",
@@ -470,7 +481,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "build",
         value:
-          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --output dist/{{packageName}} src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -485,7 +496,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "dev",
         value:
-          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}",
+          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -493,7 +504,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "dev:watch",
         value:
-          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}{{#if runtime=deno}}deno run --watch --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -520,17 +531,18 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
-        name: "inspector",
+        name: "{{#if runtime=bun}}inspector{{/if}}{{#if runtime=node}}inspector{{/if}}",
         value: "bun run dev & sleep 2 && npx @mcpjam/inspector@latest; kill %1",
       },
     ],
     nextSteps: [
-      "MCP Server: run `bun dev --filter={{packageName}}` and connect an MCP client to http://localhost:9009/mcp, or run `bun --filter={{packageName}} run inspector` to open MCPJam Inspector.",
+      "MCP Server: run `{{#if runtime=deno}}deno task --filter {{packageName}} dev{{/if}}{{#if runtime=bun}}bun dev --filter={{packageName}}{{/if}}{{#if runtime=node}}bun dev --filter={{packageName}}{{/if}}` and connect an MCP client to http://localhost:9009/mcp{{#if runtime=bun}}, or run `bun --filter={{packageName}} run inspector` to open MCPJam Inspector{{/if}}{{#if runtime=node}}, or run `bun --filter={{packageName}} run inspector` to open MCPJam Inspector{{/if}}.",
     ],
   },
 
   {
     kind: TargetKind.make("cli"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "CLI Application",
     description: "A command-line interface application",
     defaultName: "app",
@@ -572,7 +584,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "build",
         value:
-          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}",
+          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --output dist/{{packageName}} src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -587,7 +599,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
         field: "scripts",
         name: "dev",
         value:
-          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}{{#if runtime=deno}}deno run --watch --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
@@ -615,6 +627,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
 
   {
     kind: TargetKind.make("package"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
     visibility: "internal",

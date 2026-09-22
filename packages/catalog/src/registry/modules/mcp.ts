@@ -18,6 +18,7 @@ const aiTarget = new TargetIdentity({
 export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("mcp-tools"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Tools",
     description: "Expose Effect AI toolkits through the MCP server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -36,6 +37,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-toolkit-datetime"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Date and Time Toolkit",
     description: "Expose the shared date and time toolkit through MCP",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -70,6 +72,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-toolkit-math"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description: "Expose the shared deterministic math toolkit through MCP",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -104,6 +107,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-prompts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Prompts",
     description: "Add reusable prompt templates to the MCP server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -118,6 +122,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-prompt-hello"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Hello Prompt",
     description: "Example parameterized MCP greeting prompt",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -143,6 +148,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-resources"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Resources",
     description: "Publish static and templated content through MCP",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
@@ -157,6 +163,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("mcp-resource-primer"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Primer Resource",
     description: "Example static text resource describing the generated server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],

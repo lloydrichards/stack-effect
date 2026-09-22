@@ -66,7 +66,7 @@ export class WebSocketRpc extends RpcGroup.make(
 `;
 
 // Server Presence RPC handler
-export const serverPresenceContents = `import { BunCrypto } from "@effect/platform-bun";
+export const serverPresenceContents = `{{#if runtime=bun}}import { BunCrypto as PlatformCrypto } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeCrypto as PlatformCrypto } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoCrypto as PlatformCrypto } from "@effect/platform-deno";{{/if}}
 import {
   type ClientInfo,
   type WebSocketEvent,
@@ -166,7 +166,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
 ).pipe(
   Layer.provide(PresenceService.layer),
   Layer.provide(ClientGenerator.layer),
-  Layer.provide(BunCrypto.layer),
+  Layer.provide(PlatformCrypto.layer),
 );
 
 export const PresenceRpcLive = RpcServer.layerHttp({
