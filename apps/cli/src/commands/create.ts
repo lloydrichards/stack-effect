@@ -1,7 +1,11 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { RecipeService, StackConfigDefaults } from "@repo/scaffold";
+import {
+  BlueprintService,
+  RecipeService,
+  StackConfigDefaults,
+} from "@repo/scaffold";
 import { Array as Arr, Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
@@ -31,8 +35,8 @@ const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
     runtime,
     packageManager,
   }: {
-    readonly runtime: Option.Option<"bun" | "node">;
-    readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+    readonly runtime: Option.Option<"bun" | "deno" | "node">;
+    readonly packageManager: Option.Option<"bun" | "deno" | "pnpm" | "npm">;
   }) {
     if (
       Option.isSome(runtime) &&
@@ -47,12 +51,23 @@ const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
 
     if (
       Option.isSome(runtime) &&
-      runtime.value === "node" &&
+      runtime.value === "deno" &&
       Option.isSome(packageManager) &&
-      packageManager.value === "bun"
+      packageManager.value !== "deno"
     ) {
       return yield* Effect.fail(
-        "Invalid create options: --runtime node conflicts with --package-manager bun.",
+        `Invalid create options: --runtime deno conflicts with --package-manager ${packageManager.value}.`,
+      );
+    }
+
+    if (
+      Option.isSome(runtime) &&
+      runtime.value === "node" &&
+      Option.isSome(packageManager) &&
+      (packageManager.value === "bun" || packageManager.value === "deno")
+    ) {
+      return yield* Effect.fail(
+        `Invalid create options: --runtime node conflicts with --package-manager ${packageManager.value}.`,
       );
     }
   },
@@ -70,8 +85,8 @@ const buildConfig = ({
   defaults,
 }: {
   readonly projectName: string;
-  readonly runtime: Option.Option<"bun" | "node">;
-  readonly packageManager: Option.Option<"bun" | "pnpm" | "npm">;
+  readonly runtime: Option.Option<"bun" | "deno" | "node">;
+  readonly packageManager: Option.Option<"bun" | "deno" | "pnpm" | "npm">;
   readonly typescript: Option.Option<"6" | "7">;
   readonly monorepo: Option.Option<string>;
   readonly lint: Option.Option<string>;
@@ -83,26 +98,41 @@ const buildConfig = ({
     packageManager,
     () => defaults.packageManagerName,
   );
-  const runtimeName = Option.getOrElse(
-    runtime,
-    () => (packageManagerName === "bun" ? "bun" : "node") as "bun" | "node",
+  const runtimeName = Option.getOrElse(runtime, () =>
+    packageManagerName === "bun"
+      ? "bun"
+      : packageManagerName === "deno"
+        ? "deno"
+        : "node",
   );
   const runtimeConfig =
     runtimeName === "bun"
       ? ({ _tag: "bun" } as const)
-      : ({
-          _tag: "node",
-          packageManager:
-            packageManagerName === "bun" ? "pnpm" : packageManagerName,
-        } as const);
+      : runtimeName === "deno"
+        ? ({ _tag: "deno" } as const)
+        : ({
+            _tag: "node",
+            packageManager:
+              packageManagerName === "bun" || packageManagerName === "deno"
+                ? "pnpm"
+                : packageManagerName,
+          } as const);
 
   return new StackConfig({
     name: projectName as typeof Schema.NonEmptyString.Type,
     runtime: runtimeConfig,
-    typescript: Option.getOrElse(typescript, () => defaults.typescriptVersion),
-    monorepo: Option.getOrElse(monorepo, () => defaults.monorepo),
-    lint: Option.getOrElse(lint, () => defaults.lint),
-    format: Option.getOrElse(format, () => defaults.format),
+    typescript: Option.getOrElse(typescript, () =>
+      runtimeName === "deno" ? "6" : defaults.typescriptVersion,
+    ),
+    monorepo: Option.getOrElse(monorepo, () =>
+      runtimeName === "deno" ? undefined : defaults.monorepo,
+    ),
+    lint: Option.getOrElse(lint, () =>
+      runtimeName === "deno" ? undefined : defaults.lint,
+    ),
+    format: Option.getOrElse(format, () =>
+      runtimeName === "deno" ? undefined : defaults.format,
+    ),
     test: Option.getOrElse(test, () => defaults.test),
   });
 };
@@ -204,6 +234,8 @@ export const create = Command.make(
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },
       });
+      const blueprints = yield* BlueprintService;
+      yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
       const existing = yield* configure

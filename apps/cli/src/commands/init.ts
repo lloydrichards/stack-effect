@@ -6,6 +6,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  BlueprintService,
   RecipeService,
   StackConfigDefaults,
   toWorkspaceToolValue,
@@ -173,6 +174,7 @@ export const init = Command.make(
               message: "What runtime will you use?",
               choices: [
                 { title: "bun", value: "bun" as const },
+                { title: "deno", value: "deno" as const },
                 { title: "node", value: "node" as const },
               ],
             });
@@ -180,7 +182,9 @@ export const init = Command.make(
       const typescript = Option.isSome(flags.typescript)
         ? flags.typescript.value
         : flags.yes
-          ? defaults.typescriptVersion
+          ? runtimeChoice === "deno"
+            ? "6"
+            : defaults.typescriptVersion
           : yield* Select({
               message: "What TypeScript version will you use?",
               choices: [
@@ -192,6 +196,8 @@ export const init = Command.make(
       let runtime: typeof StackConfig.fields.runtime.Type;
       if (runtimeChoice === "bun") {
         runtime = { _tag: "bun" };
+      } else if (runtimeChoice === "deno") {
+        runtime = { _tag: "deno" };
       } else {
         const pm = flags.yes
           ? ("pnpm" as const)
@@ -209,19 +215,19 @@ export const init = Command.make(
         flags.yes,
         "What monorepo tool will you use?",
         monorepoChoices,
-        defaults.monorepo ?? "",
+        runtimeChoice === "deno" ? "" : (defaults.monorepo ?? ""),
       );
       const lint = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for linting?",
         lintChoices,
-        defaults.lint ?? "",
+        runtimeChoice === "deno" ? "" : (defaults.lint ?? ""),
       );
       const format_ = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for formatting?",
         formatChoices,
-        defaults.format ?? "",
+        runtimeChoice === "deno" ? "" : (defaults.format ?? ""),
       );
       const test = yield* chooseOptionalTool(
         flags.yes,
@@ -337,11 +343,6 @@ export const init = Command.make(
         }
       }
 
-      if (!flags.dryRun) {
-        yield* configure.writeConfig(repoRoot, config);
-        yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
-      }
-
       const pipeline = yield* ScaffoldPipeline;
       const recipe = yield* RecipeService;
       const explicitWorkspaceModules = [
@@ -368,6 +369,14 @@ export const init = Command.make(
           providerStrategy: { _tag: "fail-on-ambiguous" },
         },
       );
+
+      const blueprints = yield* BlueprintService;
+      yield* blueprints.resolve(selection, config);
+
+      if (!flags.dryRun) {
+        yield* configure.writeConfig(repoRoot, config);
+        yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
+      }
 
       yield* pipeline.run({
         selection,
