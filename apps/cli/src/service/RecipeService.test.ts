@@ -999,6 +999,32 @@ describe("RecipeService", () => {
         );
       }).pipe(Effect.provide(TestLayer)),
     );
+
+    it.effect("should keep explicit Deno tooling in a copied command", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeService;
+        const config = new StackConfig({
+          ...testConfig,
+          runtime: { _tag: "deno" },
+          typescript: "7",
+          monorepo: "vite-plus",
+          lint: "oxlint",
+          format: "oxfmt",
+        });
+        const selection = yield* service.resolve(
+          { targets: [] },
+          {
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          },
+        );
+
+        assert.strictEqual(
+          service.renderCreateCommand({ config, selection }),
+          "deno run -A npm:stack-effect@latest create recipe-app --runtime deno --package-manager deno --typescript 7 --monorepo vite-plus --lint oxlint --format oxfmt --no-git",
+        );
+      }).pipe(Effect.provide(TestLayer)),
+    );
   });
 
   describe("errors", () => {

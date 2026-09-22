@@ -44,6 +44,7 @@ import {
   monorepoFlag,
   recipeTargetFlag,
   rootFlag,
+  runtimeFlag,
   typescriptFlag,
 } from "../flags";
 
@@ -506,20 +507,21 @@ const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
     yield* Effect.forEach(
       packageNames,
       (packageName) =>
-        fs
-          .symlink(
-            path.join(packagesRoot, packageName),
-            path.join(scopeRoot, packageName),
-          )
-          .pipe(
-            Effect.mapError(
-              (error) =>
-                new WorkspaceCommandFailed({
-                  command: `link @repo/${packageName}`,
-                  cause: error,
-                }),
-            ),
-          ),
+        Effect.gen(function* () {
+          const linkPath = path.join(scopeRoot, packageName);
+          if (yield* fs.exists(linkPath)) return;
+          yield* fs
+            .symlink(path.join(packagesRoot, packageName), linkPath)
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new WorkspaceCommandFailed({
+                    command: `link @repo/${packageName}`,
+                    cause: error,
+                  }),
+              ),
+            );
+        }),
       { concurrency: 1 },
     );
   },
@@ -572,6 +574,7 @@ const reset = Command.make(
     format: formatFlag,
     root: rootFlag,
     target: recipeTargetFlag,
+    runtime: runtimeFlag,
     typescript: typescriptFlag,
     monorepo: monorepoFlag,
   },
@@ -580,6 +583,10 @@ const reset = Command.make(
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const defaults = yield* StackConfigDefaults;
+      const runtime = Option.getOrElse(
+        flags.runtime,
+        () => defaults.runtimeName,
+      );
       const repoRoot = path.resolve(
         Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
@@ -595,20 +602,26 @@ const reset = Command.make(
 
       const config = new StackConfig({
         name: "catalog-built" as typeof Schema.NonEmptyString.Type,
-        runtime: defaults.runtime,
-        typescript: Option.getOrElse(
-          flags.typescript,
-          () => defaults.typescriptVersion,
+        runtime:
+          runtime === "node"
+            ? { _tag: "node", packageManager: "pnpm" }
+            : { _tag: runtime },
+        typescript: Option.getOrElse(flags.typescript, () =>
+          runtime === "deno" ? "6" : defaults.typescriptVersion,
         ),
-        lint: defaults.lint,
-        format: Option.getOrElse(flags.format, () => defaults.format),
+        lint: runtime === "deno" ? undefined : defaults.lint,
+        format: Option.getOrElse(flags.format, () =>
+          runtime === "deno" ? undefined : defaults.format,
+        ),
         test: defaults.test,
-        monorepo: Option.getOrElse(flags.monorepo, () => defaults.monorepo),
+        monorepo: Option.getOrElse(flags.monorepo, () =>
+          runtime === "deno" ? undefined : defaults.monorepo,
+        ),
       });
 
       const selection = yield* buildWorkspaceSelection(config, flags.target);
       const blueprintService = yield* BlueprintService;
-      const blueprint = yield* blueprintService.resolve(selection);
+      const blueprint = yield* blueprintService.resolve(selection, config);
       const planService = yield* PlanService;
       const plan = yield* planService.build({ blueprint, repoRoot, config });
       const applyService = yield* ApplyService;
@@ -681,6 +694,18 @@ const validate = Command.make("validate", { root: rootFlag }, (flags) =>
     const repoRoot = path.resolve(
       Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
     );
+    const fs = yield* FileSystem.FileSystem;
+    const denoWorkspace = yield* fs
+      .exists(path.join(repoRoot, "deno.json"))
+      .pipe(Effect.orElseSucceed(() => false));
+    if (denoWorkspace) {
+      yield* Effect.forEach(
+        ["type-check:all", "test:all", "build:all"],
+        (task) => runValidationCommand(repoRoot, "deno", ["task", task]),
+        { concurrency: 1 },
+      );
+      return;
+    }
     yield* Effect.forEach(
       [
         ["run", "format:check"],

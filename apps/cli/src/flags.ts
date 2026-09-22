@@ -67,10 +67,11 @@ export const trustFlag = Flag.Boolean("trust").pipe(
   ),
 );
 
-export const runtimeFlag = Flag.Literals("runtime", ["bun", "node"]).pipe(
-  Flag.optional,
-  Flag.withDescription("Runtime to use"),
-);
+export const runtimeFlag = Flag.Literals("runtime", [
+  "bun",
+  "deno",
+  "node",
+]).pipe(Flag.optional, Flag.withDescription("Runtime to use"));
 
 export const typescriptFlag = Flag.Literals("typescript", ["6", "7"]).pipe(
   Flag.optional,
@@ -79,12 +80,13 @@ export const typescriptFlag = Flag.Literals("typescript", ["6", "7"]).pipe(
 
 export const packageManagerFlag = Flag.Literals("package-manager", [
   "bun",
+  "deno",
   "pnpm",
   "npm",
 ]).pipe(
   Flag.optional,
   Flag.withDescription(
-    "Override the default package manager. bun implies --runtime bun; pnpm/npm imply --runtime node.",
+    "Override the default package manager. bun and deno use their own package managers; pnpm/npm imply --runtime node.",
   ),
 );
 

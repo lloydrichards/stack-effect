@@ -88,7 +88,10 @@ export const plan = Command.make(
       }
 
       const blueprintService = yield* BlueprintService;
-      const blueprint = yield* blueprintService.resolve(input.selection);
+      const blueprint = yield* blueprintService.resolve(
+        input.selection,
+        config,
+      );
       const recipes = yield* RecipeService;
       const createCommand = recipes.renderCreateCommand({
         config,

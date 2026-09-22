@@ -130,7 +130,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const applyService = yield* ApplyService;
           const applyPreviewService = yield* ApplyPreviewService;
 
-          const blueprint = yield* blueprintService.resolve(selection);
+          const blueprint = yield* blueprintService.resolve(selection, config);
 
           const formattedBlueprint =
             yield* formatter.formatBlueprint(blueprint);
@@ -373,7 +373,11 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             }
             allSteps.push(...nextSteps);
             if (!isWorkspaceInit) {
-              allSteps.push(`${config.packageManagerName} run dev`);
+              allSteps.push(
+                config.runtimeName === "deno"
+                  ? "deno task dev:all"
+                  : `${config.packageManagerName} run dev`,
+              );
             }
 
             const preview = NextStepsPreview({
