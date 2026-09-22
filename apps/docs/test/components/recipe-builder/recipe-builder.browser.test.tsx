@@ -252,6 +252,27 @@ test("should keep Bun selected after rapidly changing the Node package manager",
     .not.toContain("package-manager=");
 });
 
+test("should expose Deno configuration choices", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByRole("button", { name: "Deno" }).click();
+
+  await expect.element(page.getByLabelText("Package manager")).toBeDisabled();
+  await expect
+    .element(page.getByLabelText("Package manager"))
+    .toHaveTextContent("Deno");
+  await expect.element(page.getByLabelText("TypeScript")).toBeEnabled();
+  await expect
+    .element(page.getByLabelText("TypeScript"))
+    .toHaveTextContent("TypeScript 6");
+  await expect.element(page.getByLabelText("Monorepo")).toBeEnabled();
+  await expect.element(page.getByLabelText("Lint")).toBeEnabled();
+  await expect.element(page.getByLabelText("Format")).toBeEnabled();
+  await expect
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .toContain("runtime=deno");
+});
+
 test("should disable and clear Husky when Git is turned off", async () => {
   await renderRecipeBuilder();
 

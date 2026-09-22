@@ -54,7 +54,9 @@ export function StackConfigurator() {
   const choices = catalog?.configuration;
   const runtime = config.runtime._tag;
   const packageManager =
-    config.runtime._tag === "node" ? config.runtime.packageManager : "bun";
+    config.runtime._tag === "node"
+      ? config.runtime.packageManager
+      : config.runtime._tag;
   const configure = (updates: Partial<typeof config>) =>
     form.setFieldValue("config", (current) => ({ ...current, ...updates }));
   const updateTool = (field: ToolField, value: string) =>
@@ -123,18 +125,28 @@ export function StackConfigurator() {
             aria-labelledby="stack-runtime-label"
             value={[runtime]}
             variant="outline"
-            className="grid w-full grid-cols-2"
+            className="grid w-full grid-cols-3"
             onValueChange={(values) => {
               const value = values[0] ?? runtime;
               configure({
                 runtime:
                   value === "bun"
                     ? { _tag: "bun" }
-                    : {
-                        _tag: "node",
-                        packageManager:
-                          packageManager === "bun" ? "pnpm" : packageManager,
-                      },
+                    : value === "deno"
+                      ? { _tag: "deno" }
+                      : {
+                          _tag: "node",
+                          packageManager:
+                            packageManager === "npm" ? "npm" : "pnpm",
+                        },
+                ...(value === "deno"
+                  ? {
+                      typescript: "6" as const,
+                      monorepo: undefined,
+                      lint: undefined,
+                      format: undefined,
+                    }
+                  : {}),
               });
             }}
           >
@@ -144,6 +156,9 @@ export function StackConfigurator() {
             <ToggleGroupItem value="node" className="w-full">
               Node
             </ToggleGroupItem>
+            <ToggleGroupItem value="deno" className="w-full">
+              Deno
+            </ToggleGroupItem>
           </ToggleGroup>
         </Field>
 
@@ -152,14 +167,14 @@ export function StackConfigurator() {
           label="Package manager"
           value={packageManager}
           options={
-            runtime === "bun"
-              ? [{ value: "bun", label: "Bun" }]
+            runtime !== "node"
+              ? [{ value: runtime, label: runtime === "deno" ? "Deno" : "Bun" }]
               : [
                   { value: "pnpm", label: "pnpm" },
                   { value: "npm", label: "npm" },
                 ]
           }
-          disabled={runtime === "bun"}
+          disabled={runtime !== "node"}
           onChange={(value) =>
             form.setFieldValue("config", (current) =>
               current.runtime._tag === "node" &&
