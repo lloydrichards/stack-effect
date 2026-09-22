@@ -1,0 +1,601 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Effect VFS in Stack Effect</title>
+  <script>
+    try {
+      const savedTheme = localStorage.getItem('report-theme');
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        document.documentElement.dataset.theme = savedTheme;
+      }
+    } catch {}
+  </script>
+  <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (globalThis.hljs) globalThis.hljs.highlightAll();
+    });
+  </script>
+  <script type="module">
+    import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+
+    mermaid.initialize({
+      startOnLoad: true,
+      securityLevel: 'strict'
+    });
+  </script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --color-paper: light-dark(oklch(0.985 0.002 255), oklch(0.19 0.006 255));
+      --color-surface: light-dark(oklch(0.998 0.001 255), oklch(0.235 0.006 255));
+      --color-note: light-dark(oklch(0.955 0.006 255), oklch(0.285 0.008 255));
+      --color-ink: light-dark(oklch(0.25 0.008 255), oklch(0.93 0.005 255));
+      --color-muted: light-dark(oklch(0.48 0.012 255), oklch(0.70 0.010 255));
+      --color-rule: light-dark(oklch(0.86 0.007 255), oklch(0.37 0.009 255));
+      --color-rule-strong: light-dark(oklch(0.68 0.011 255), oklch(0.55 0.010 255));
+      --color-link: light-dark(oklch(0.43 0.100 250), oklch(0.75 0.085 250));
+      --color-info: light-dark(oklch(0.43 0.145 250), oklch(0.79 0.115 250));
+      --color-info-surface: light-dark(oklch(0.95 0.030 250), oklch(0.27 0.035 250));
+      --color-success: light-dark(oklch(0.40 0.135 151), oklch(0.80 0.125 151));
+      --color-success-surface: light-dark(oklch(0.95 0.035 151), oklch(0.27 0.035 151));
+      --color-warning: light-dark(oklch(0.43 0.130 65), oklch(0.84 0.125 75));
+      --color-warning-surface: light-dark(oklch(0.96 0.045 80), oklch(0.29 0.040 70));
+      --color-danger: light-dark(oklch(0.43 0.165 28), oklch(0.80 0.145 28));
+      --color-danger-surface: light-dark(oklch(0.95 0.035 28), oklch(0.28 0.045 28));
+      --color-data-1: light-dark(oklch(0.50 0.185 300), oklch(0.76 0.155 300));
+      --color-data-2: light-dark(oklch(0.48 0.150 230), oklch(0.78 0.130 230));
+      --color-data-3: light-dark(oklch(0.45 0.125 175), oklch(0.77 0.125 175));
+      --color-data-4: light-dark(oklch(0.48 0.175 345), oklch(0.78 0.145 345));
+      --color-data-5: light-dark(oklch(0.50 0.160 45), oklch(0.81 0.145 55));
+      --color-data-6: light-dark(oklch(0.45 0.155 265), oklch(0.76 0.135 265));
+      --color-code: light-dark(oklch(0.22 0.009 255), oklch(0.14 0.006 255));
+      --color-code-ink: oklch(0.94 0.004 255);
+      --color-syntax-comment: oklch(0.72 0.018 255);
+      --color-syntax-keyword: oklch(0.78 0.145 300);
+      --color-syntax-string: oklch(0.80 0.125 151);
+      --color-syntax-number: oklch(0.84 0.125 75);
+      --color-syntax-type: oklch(0.80 0.105 220);
+      --color-syntax-function: oklch(0.79 0.115 250);
+      --color-print-paper: #fff;
+      --color-print-ink: #111;
+      --color-print-muted: #333;
+
+      --surface-page: var(--color-paper);
+      --surface-raised: var(--color-surface);
+      --surface-note: var(--color-note);
+      --surface-code: var(--color-code);
+      --text-primary: var(--color-ink);
+      --text-secondary: var(--color-muted);
+      --text-link: var(--color-link);
+      --text-code: var(--color-code-ink);
+      --border-subtle: var(--color-rule);
+      --border-strong: var(--color-rule-strong);
+      --surface-info: var(--color-info-surface);
+      --surface-success: var(--color-success-surface);
+      --surface-warning: var(--color-warning-surface);
+      --surface-danger: var(--color-danger-surface);
+      --state-info: var(--color-info);
+      --state-success: var(--color-success);
+      --state-warning: var(--color-warning);
+      --state-danger: var(--color-danger);
+      --state-inferred: var(--state-info);
+      --state-verified: var(--state-success);
+      --state-open: var(--state-warning);
+      --state-risk: var(--state-danger);
+
+      --font-reading: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --font-technical: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      --text-display-1: clamp(2.25rem, 5vw, 3rem);
+      --text-display-2: clamp(1.8rem, 4vw, 2.25rem);
+      --text-heading-1: clamp(1.4rem, 3vw, 1.65rem);
+      --text-heading-2: 1.2rem;
+      --text-heading-3: 1rem;
+      --text-body-1: 1rem;
+      --text-body-2: 0.875rem;
+      --text-label-1: 0.75rem;
+      --leading-tight: 1.25;
+      --leading-body: 1.65;
+      --measure: 50rem;
+      --measure-wide: 72rem;
+      --radius-sm: 0.375rem;
+      --radius-md: 0.625rem;
+      --space-1: 0.375rem;
+      --space-2: 0.75rem;
+      --space-3: 1.25rem;
+      --space-4: 2rem;
+      --space-5: 3rem;
+      --space-6: 4.5rem;
+
+      /* Component roles. Extend these before adding component CSS. */
+      --panel-surface: var(--surface-raised);
+      --panel-border: var(--border-subtle);
+      --panel-radius: var(--radius-md);
+      --control-surface: var(--surface-raised);
+      --control-surface-hover: var(--surface-note);
+      --control-border: var(--border-strong);
+      --control-accent: var(--text-link);
+      --control-invalid: var(--state-danger);
+      --inline-code-surface: var(--surface-note);
+      --inline-code-border: var(--border-subtle);
+      --inline-code-text: var(--text-primary);
+      --syntax-comment: var(--color-syntax-comment);
+      --syntax-keyword: var(--color-syntax-keyword);
+      --syntax-string: var(--color-syntax-string);
+      --syntax-number: var(--color-syntax-number);
+      --syntax-type: var(--color-syntax-type);
+      --syntax-function: var(--color-syntax-function);
+      --focus-ring: var(--text-link);
+      --focus-ring-width: 0.1875rem;
+      --focus-ring-offset: 0.1875rem;
+    }
+
+    html[data-theme="light"] { color-scheme: light; }
+    html[data-theme="dark"] { color-scheme: dark; }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scrollbar-gutter: stable; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+    body { margin: 0; background: var(--surface-page); color: var(--text-primary); font: var(--text-body-1)/var(--leading-body) var(--font-reading); overflow-wrap: break-word; }
+    main { inline-size: min(calc(100% - 2rem), var(--measure)); margin-inline: auto; padding-block: var(--space-5) var(--space-6); }
+    main.wide { inline-size: min(calc(100% - 2rem), var(--measure-wide)); }
+    :is(header, section, nav, footer, figure, details, article, aside) { min-inline-size: 0; }
+    main > section { margin-block-start: var(--space-6); }
+    :is(h1, h2, h3, h4, h5, h6) { margin: 0; font: inherit; text-wrap: balance; }
+    .display-1, .display-2, .heading-1, .heading-2, .heading-3 { font-weight: 700; line-height: var(--leading-tight); text-wrap: balance; }
+    .display-1 { font-size: var(--text-display-1); letter-spacing: -0.04em; }
+    .display-2 { font-size: var(--text-display-2); letter-spacing: -0.035em; }
+    .heading-1 { font-size: var(--text-heading-1); letter-spacing: -0.025em; }
+    .heading-2 { font-size: var(--text-heading-2); letter-spacing: -0.012em; }
+    .heading-3 { font-size: var(--text-heading-3); }
+    .body-1 { font-size: var(--text-body-1); line-height: var(--leading-body); }
+    .body-2 { font-size: var(--text-body-2); line-height: 1.55; }
+    .label-1 { font: 700 var(--text-label-1)/1.4 var(--font-technical); letter-spacing: 0.045em; text-transform: uppercase; }
+    .code-1 { font: var(--text-body-2)/1.55 var(--font-technical); }
+    section > :is(h3, h4, h5, h6):not(:first-child) { margin-block-start: var(--space-4); }
+    :is(h2, h3, h4, h5, h6) + * { margin-top: var(--space-2); }
+    :is(p, ul, ol, dl, table, blockquote, pre) { margin-block: var(--space-3) 0; }
+    :is(ul, ol) { padding-inline-start: 1.35rem; }
+    li + li { margin-top: var(--space-1); }
+    li > :is(ul, ol) { margin-block: var(--space-1) 0; }
+    dt { margin-top: var(--space-3); font-weight: 700; }
+    dd { margin: var(--space-1) 0 0; }
+    a { color: var(--text-link); text-decoration-thickness: from-font; text-underline-offset: 0.2em; }
+    a:hover { text-decoration-thickness: 0.13em; }
+    hr { margin-block: var(--space-5); border: 0; border-block-start: 1px solid var(--border-subtle); }
+    code, kbd, samp, .mono { font-family: var(--font-technical); }
+    :not(pre) > code { padding: 0.12em 0.35em; border: 1px solid var(--inline-code-border); border-radius: var(--radius-sm); background: var(--inline-code-surface); color: var(--inline-code-text); font-size: 0.92em; overflow-wrap: anywhere; -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+    pre { overflow: auto; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-code); color: var(--text-code); white-space: pre; tab-size: 2; }
+    pre code { font-size: var(--text-body-2); }
+    pre.mermaid { display: flex; justify-content: center; background: var(--surface-raised); color: var(--text-primary); white-space: normal; }
+    pre.mermaid svg { max-inline-size: 100%; block-size: auto; }
+    .hljs-comment, .hljs-quote { color: var(--syntax-comment); font-style: italic; }
+    .hljs-keyword, .hljs-selector-tag, .hljs-literal { color: var(--syntax-keyword); }
+    .hljs-string, .hljs-regexp, .hljs-template-tag, .hljs-template-variable { color: var(--syntax-string); }
+    .hljs-number, .hljs-symbol, .hljs-bullet { color: var(--syntax-number); }
+    .hljs-type, .hljs-built_in, .hljs-title.class_, .hljs-variable.language_ { color: var(--syntax-type); }
+    .hljs-title.function_, .hljs-property, .hljs-attr { color: var(--syntax-function); }
+    .hljs-meta, .hljs-params { color: var(--text-code); }
+    blockquote { margin-inline: 0; padding-inline-start: var(--space-3); border-inline-start: 3px solid var(--border-strong); color: var(--text-secondary); }
+    table { inline-size: 100%; border-collapse: collapse; font-size: var(--text-body-2); font-variant-numeric: tabular-nums; }
+    caption, figcaption { color: var(--text-secondary); font-size: var(--text-body-2); text-align: left; }
+    caption { margin-bottom: var(--space-2); }
+    th, td { padding: var(--space-2); border-bottom: 1px solid var(--border-subtle); text-align: left; vertical-align: top; }
+    th { font-weight: 700; }
+    figure { margin: var(--space-4) 0 0; }
+    figure > img, figure > svg { display: block; max-inline-size: 100%; block-size: auto; margin-inline: auto; }
+    figure > figcaption { margin-top: var(--space-2); }
+    img { display: block; max-inline-size: 100%; block-size: auto; }
+    :root { accent-color: var(--control-accent); caret-color: var(--control-accent); }
+    :where(button, input, select, textarea) { font: inherit; }
+    :where(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="color"]), select, textarea) { inline-size: min(100%, 32rem); min-block-size: 2.75rem; padding: 0.55rem 0.7rem; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control-surface); color: var(--text-primary); }
+    textarea { min-block-size: 7rem; resize: vertical; }
+    ::placeholder { color: var(--text-secondary); opacity: 1; }
+    fieldset { margin: var(--space-3) 0 0; padding: var(--space-3); border: 1px solid var(--panel-border); border-radius: var(--panel-radius); }
+    legend, label { font-weight: 650; }
+    :where(input, select, textarea)[aria-invalid="true"] { border-color: var(--control-invalid); }
+    :where(button, input, select, textarea):disabled { cursor: not-allowed; opacity: 0.58; }
+    :where(input[type="checkbox"], input[type="radio"]) { inline-size: 1.125rem; block-size: 1.125rem; vertical-align: -0.15em; }
+    :where(input[type="range"], progress, meter) { inline-size: min(100%, 22rem); accent-color: var(--control-accent); }
+    button { min-block-size: 2.75rem; padding: 0.45rem 0.75rem; border: 1px solid var(--control-border); border-radius: var(--radius-sm); background: var(--control-surface); color: var(--text-primary); font: inherit; cursor: pointer; touch-action: manipulation; }
+    button:not(:disabled):hover { background: var(--control-surface-hover); }
+    :is(button, input, select, textarea, a, summary, [tabindex]):focus-visible { outline: var(--focus-ring-width) solid var(--focus-ring); outline-offset: var(--focus-ring-offset); }
+    :target { scroll-margin-block-start: var(--space-4); }
+    .skip-link { position: fixed; z-index: 10; inset-block-start: var(--space-2); inset-inline-start: var(--space-2); transform: translateY(-200%); padding: var(--space-2); border-radius: var(--radius-sm); background: var(--panel-surface); }
+    .skip-link:focus { transform: none; }
+    .report-header { padding-bottom: var(--space-4); border-bottom: 1px solid var(--border-subtle); }
+    .eyebrow, .meta, .state { font: 700 var(--text-label-1)/1.4 var(--font-technical); letter-spacing: 0.045em; text-transform: uppercase; }
+    .eyebrow, .meta { color: var(--text-secondary); }
+    .lede { max-inline-size: 46rem; margin-top: var(--space-3); color: var(--text-secondary); font-size: 1.08rem; }
+    .report-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-3); }
+    .orientation { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
+    section > .orientation { margin-top: var(--space-3); }
+    .summary-card { padding: var(--space-3); border: 1px solid var(--panel-border); border-radius: var(--panel-radius); background: var(--panel-surface); }
+    .summary-card.info { border-color: var(--state-info); background: var(--surface-info); }
+    .summary-card.success { border-color: var(--state-success); background: var(--surface-success); }
+    .summary-card.warning { border-color: var(--state-warning); background: var(--surface-warning); }
+    .summary-card.error { border-color: var(--state-danger); background: var(--surface-danger); }
+    .summary-card > b { display: block; margin-bottom: var(--space-1); font: 700 var(--text-label-1)/1.4 var(--font-technical); letter-spacing: 0.045em; text-transform: uppercase; }
+    .toc { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); margin-top: var(--space-3); padding-block: var(--space-2); border-bottom: 1px solid var(--border-subtle); font: var(--text-label-1)/1.5 var(--font-technical); }
+    .toc strong { color: var(--text-primary); }
+    .toc a { display: inline-flex; align-items: center; min-block-size: 2rem; color: var(--text-secondary); text-decoration: none; }
+    .toc a:hover { color: var(--text-link); text-decoration: underline; }
+    :is(.callout, .figure, details) { border: 1px solid var(--panel-border); border-radius: var(--panel-radius); background: var(--panel-surface); }
+    .callout { margin-top: var(--space-3); padding: var(--space-3); border-inline-start: 3px solid var(--border-strong); }
+    .callout.verified { border-inline-start-color: var(--state-verified); background: var(--surface-success); }
+    .callout.inferred { border-inline-start-color: var(--state-inferred); background: var(--surface-info); }
+    .callout.open { border-inline-start-color: var(--state-open); background: var(--surface-warning); }
+    .callout.risk { border-inline-start-color: var(--state-risk); background: var(--surface-danger); }
+    .callout > :last-child, details > :last-child { margin-bottom: 0; }
+    .state.verified { color: var(--state-verified); }
+    .state.inferred { color: var(--state-inferred); }
+    .state.open { color: var(--state-open); }
+    .state.risk { color: var(--state-risk); }
+    .figure { padding: var(--space-3); }
+    details { margin-top: var(--space-3); padding: var(--space-2) var(--space-3); }
+    summary { padding-block: var(--space-1); font-weight: 700; cursor: pointer; touch-action: manipulation; }
+    .source-ref { display: inline-block; margin-top: var(--space-2); padding: 0.18rem 0.35rem; border-radius: var(--radius-sm); background: var(--surface-note); font: var(--text-label-1)/1.45 var(--font-technical); }
+    .report-footer { inline-size: min(calc(100% - 2rem), var(--measure)); margin: 0 auto; padding-block: var(--space-3); border-block-start: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: var(--text-body-2); }
+    .theme-toggle { position: fixed; inset-block-start: var(--space-2); inset-inline-end: var(--space-2); font-size: var(--text-body-2); }
+    .table-scroll { max-inline-size: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+    .data-key { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); padding: 0; list-style: none; }
+    .data-key li { display: inline-flex; align-items: center; gap: var(--space-1); margin: 0; }
+    .data-swatch { inline-size: 1rem; block-size: 1rem; border: 1px solid var(--border-strong); border-radius: 0.2rem; background: var(--data-color); }
+    .data-swatch[data-color="1"] { --data-color: var(--color-data-1); }
+    .data-swatch[data-color="2"] { --data-color: var(--color-data-2); }
+    .data-swatch[data-color="3"] { --data-color: var(--color-data-3); }
+    .data-swatch[data-color="4"] { --data-color: var(--color-data-4); }
+    .data-swatch[data-color="5"] { --data-color: var(--color-data-5); }
+    .data-swatch[data-color="6"] { --data-color: var(--color-data-6); }
+
+    @media (max-width: 40rem) {
+      :root { --space-5: 2.25rem; --space-6: 3.25rem; }
+      main { inline-size: min(calc(100% - 1.25rem), var(--measure)); }
+      .theme-toggle { position: static; float: right; margin: var(--space-2); }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media (prefers-contrast: more) {
+      :root { --text-secondary: var(--text-primary); --border-subtle: var(--border-strong); }
+      a { text-decoration-thickness: 0.12em; }
+    }
+    @media (forced-colors: active) {
+      :root {
+        --focus-ring: Highlight;
+        --state-verified: CanvasText;
+        --state-inferred: CanvasText;
+        --state-open: CanvasText;
+        --state-risk: CanvasText;
+      }
+      :is(.callout, .summary-card, .figure, details) { border-color: CanvasText; }
+      :is(button, a, summary):focus-visible { outline-color: Highlight; }
+    }
+    @media print {
+      html, html[data-theme="dark"], html[data-theme="light"] { color-scheme: light; --surface-page: var(--color-print-paper); --surface-raised: var(--color-print-paper); --text-primary: var(--color-print-ink); --text-secondary: var(--color-print-muted); }
+      body { background: var(--surface-page); color: var(--text-primary); }
+      main, main.wide, .report-footer { inline-size: 100%; max-inline-size: none; padding: 0; }
+      .skip-link, .theme-toggle { display: none; }
+      a { color: inherit; }
+      pre, pre.mermaid { background: var(--color-print-paper); color: var(--color-print-ink); }
+      [class^="hljs-"], [class*=" hljs-"] { color: inherit; }
+      .figure, details, table, pre { break-inside: avoid; }
+      details:not([open]) > :not(summary) { display: block; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to report</a>
+  <button class="theme-toggle" type="button" aria-label="Change color theme">Theme: auto</button>
+
+  <main id="main-content" tabindex="-1">
+    <header class="report-header">
+      <p class="eyebrow">Design research</p>
+      <h1 class="display-1">Effect VFS in Stack Effect</h1>
+      <p class="lede">Extend the existing VFS preview into a shared workspace. Keep catalog declarations authoritative and explore snapshots as generated artifacts.</p>
+      <div class="report-meta" aria-label="Report metadata">
+        <span class="meta">22 September 2026</span>
+        <span class="meta">Source-backed options · No accepted design</span>
+      </div>
+    </header>
+
+<nav class="toc" aria-label="On this page"><strong>On this page</strong><a href="#start-with-a-shared-workspace-keep-catalog-intent-explicit">Start with a shared workspace, keep catalog intent explicit</a><a href="#what-exists-today">What exists today</a><a href="#what-vfs-contributes-and-where-it-stops">What VFS contributes, and where it stops</a><a href="#direction-1-make-preview-a-repeatable-staged-operation">Direction 1: make preview a repeatable staged operation</a><a href="#compare-the-options">Compare the options</a><a href="#existing-issues-already-cover-much-of-the-foundation">Existing issues already cover much of the foundation</a><a href="#experiments-that-would-settle-the-design">Experiments that would settle the design</a><a href="#evidence-and-compatibility">Evidence and compatibility</a></nav><section aria-label="Report context"><p>Research review · 22 September 2026 · Discussion input, not an accepted design</p>
+</section><section id="start-with-a-shared-workspace-keep-catalog-intent-explicit"><h2 class="heading-1">Start with a shared workspace, keep catalog intent explicit</h2>
+<p>Effect VFS fits Stack Effect best as a shared place to prepare, inspect, and repeat filesystem changes. Stack Effect already uses it for previews. The next useful step is to make the captured repository state and candidate result consistent across planning, decisions, and preview.</p>
+<p>For the catalog, prefer immutable snapshots of selected generated recipes, with declarative modules remaining authoritative. An overlay is a private branch of one filesystem snapshot. It does not merge independently generated modules or resolve JSON and TypeScript conflicts. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyPreviewService.ts#L31-L175">preview: ApplyPreviewService.ts L31–175</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035">overlay: VirtualFileSystem.ts L1973–2035</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/domain/src/Catalog.ts#L126-L223">domain: Catalog.ts L126–223</a></p>
+<p>This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. No issues or OKF records have been created. The final sections identify questions and evidence that can support that later work.</p>
+</section><section id="what-exists-today"><h2 class="heading-1">What exists today</h2>
+<p>Selection expresses user intent. Blueprint resolves dependencies. Plan assesses proposed changes against repository contents. Apply combines those outcomes with explicit conflict decisions and executes them. Finalize runs commands derived from the Blueprint and configuration. These boundaries remain useful with a virtual filesystem. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/plan/PlanService.ts#L44-L164">plan: PlanService.ts L44–164</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400">apply: ApplyService.ts L268–400</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/finalize/FinalizeService.ts#L107-L212">finalize: FinalizeService.ts L107–212</a></p>
+<p>The current filesystem integration has two layers:</p>
+<ul>
+<li><code>RecipePreviewService</code> resolves a recipe and builds its Plan in a fresh memory filesystem. It calls <code>ApplyPreviewService</code>, then separately appends <code>stack.effect.json</code> to the returned files.</li>
+<li><code>ApplyPreviewService</code> creates another memory filesystem, copies changed and non-skipped paths from the supplied filesystem, executes the real Apply service, and returns successful created or modified file contents.</li>
+</ul>
+<p>Those returned files are a changed-file view, not a complete repository snapshot. Unchanged files, skipped conflicts, and arbitrary existing files are absent. This distinction matters if the output becomes a downloadable project or registry artifact. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/recipe/RecipePreviewService.ts#L49-L117">recipe: RecipePreviewService.ts L49–117</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyPreviewService.ts#L31-L175">preview: ApplyPreviewService.ts L31–175</a></p>
+<p>Planning reads relevant paths and ancestors through independent stat/read calls. Its <code>RepoSnapshot</code> is a selective text view, not a VFS Snapshot or atomic host capture. Plan retains outcomes rather than the captured baseline. Apply re-reads modified composed files, allowing unrelated current fields to survive composition. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/plan/RepoSnapshotService.ts#L19-L88">reads: RepoSnapshotService.ts L19–88</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/plan/PlanService.ts#L44-L164">plan: PlanService.ts L44–164</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400">apply: ApplyService.ts L268–400</a></p>
+<p><code>WriteEngine</code> validates whether a path is missing or an existing file, then writes a temporary file and renames it. It does not compare current contents with a recorded planning baseline. Apply collects per-file write failures and continues. These are per-file publication semantics, not a transaction across the repository. Ordinary dry-run also differs from file preview: it prepares actions without exercising the same virtual writes. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201">write: WriteEngine.ts L44–201</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400">apply: ApplyService.ts L268–400</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/service/ScaffoldPipeline.ts#L184-L348">pipeline: ScaffoldPipeline.ts L184–348</a></p>
+<p><strong>Implication:</strong> swapping a filesystem layer cannot guarantee that the files ultimately written are the files the user reviewed. Stack Effect needs an explicit repository authority and drift contract.</p>
+</section><section id="what-vfs-contributes-and-where-it-stops"><h2 class="heading-1">What VFS contributes, and where it stops</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Comparison table"><table><caption>VFS capabilities and limits</caption>
+<thead>
+<tr>
+<th scope="col">Capability</th>
+<th scope="col">Useful application</th>
+<th scope="col">Boundary</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A volume bound to Effect <code>FileSystem</code></td>
+<td>Run the existing Plan and Apply implementations in an isolated workspace</td>
+<td>Native filesystem calls and child processes bypass the binding</td>
+</tr>
+<tr>
+<td>One-snapshot copy-on-write overlay</td>
+<td>Try skip and override decisions from the same baseline</td>
+<td>Whole-file copying on first mutation; no multi-snapshot union or semantic merge</td>
+</tr>
+<tr>
+<td>Overlay <code>capture()</code></td>
+<td>Obtain a snapshot and matching final-state change summary</td>
+<td>Reports resulting state, not operation history or a host transaction</td>
+</tr>
+<tr>
+<td>Portable snapshots</td>
+<td>Persist fixtures and concrete generated trees</td>
+<td>Excludes active callers, handles, watches, and unlinked-open contents</td>
+</tr>
+<tr>
+<td>Exact-base snapshot deltas</td>
+<td>Store or transport a known transition</td>
+<td>Rejects a different semantic base, even when visible changed paths do not overlap</td>
+</tr>
+<tr>
+<td>Named checkpoints</td>
+<td>Save and reload snapshots</td>
+<td>Registry discovery, versions, provenance, and garbage collection remain application work</td>
+</tr>
+</tbody></table></div>
+<p>These capabilities are supported by the inspected implementations and documentation. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/memory/src/MemoryFileSystem.ts#L228-L305">bind: MemoryFileSystem.ts L228–305</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035">overlay: VirtualFileSystem.ts L1973–2035</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1303-L1343">capture: VirtualFileSystem.ts L1303–1343</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1490-L1561">snapshot: VirtualFileSystem.ts L1490–1561</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1681-L1732">delta: VirtualFileSystem.ts L1681–1732</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/persistence/src/CheckpointStore.ts#L80-L180">store: CheckpointStore.ts L80–180</a></p>
+<p>An overlay shares unchanged file payloads but keeps its own mutable state. Its limits count the visible tree. Resetting a candidate means creating a replacement overlay; old callers remain bound to the old volume. A session owner must therefore manage volume and caller lifetime. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035">overlay: VirtualFileSystem.ts L1973–2035</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/apps/docs/app/content/guides/overlay-filesystems.mdx#L75-L136">guide: overlay-filesystems.mdx L75–136</a></p>
+<p>A snapshot&#39;s metadata matters. Delta base matching includes timestamps and link topology even though a normal change summary hides timestamps. Identical visible text does not automatically establish identical artifact bytes or a reusable delta base. Define deterministic build inputs and a Stack Effect content identity; do not normalize VFS&#39;s opaque encoding by editing its internals. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/test/SnapshotDelta.test.ts#L311-L395">delta-tests: SnapshotDelta.test.ts L311–395</a></p>
+<p>A saved snapshot also differs from live persistence. Live image storage controls mutation commits and ownership inside VFS. Neither mechanism commits changes atomically to the user&#39;s host repository. SQLite, R2, and NFS are unnecessary for an initial ephemeral preparation workspace. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/LiveVolume.ts#L38-L49">live: LiveVolume.ts L38–49</a></p>
+</section><section id="direction-1-make-preview-a-repeatable-staged-operation"><h2 class="heading-1">Direction 1: make preview a repeatable staged operation</h2>
+<p><strong>Recommended first direction.</strong> Introduce a scaffold-owned workspace facility for filesystem creation, seeding, binding, and result capture. Keep lifecycle orchestration and decision policy outside that facility. A later session coordinator can connect a captured baseline, Plan, decisions, and candidate result once their contracts are settled.</p>
+<p>A proposed flow is:</p>
+<figure class="figure"><pre class="mermaid">flowchart TD
+  S[Selection] --&gt; B[Blueprint]
+  H[Relevant host state] --&gt; C[Captured baseline]
+  B --&gt; P[Plan against baseline]
+  C --&gt; P
+  P --&gt; D[Explicit conflict decisions]
+  C --&gt; O[Private candidate overlay]
+  D --&gt; A[Apply with existing composers]
+  O --&gt; A
+  A --&gt; R[Review candidate files and results]
+  R --&gt; V[Check host preconditions]
+  V --&gt; W[Publish accepted files]
+  W --&gt; F[Finalize under explicit host policy]
+</pre><figcaption>Proposed flow: VFS owns candidate state; Stack Effect owns decisions and host publication.</figcaption></figure>
+<p>The diagram describes a proposal. VFS supplies the private candidate workspace. Stack Effect still owns the Plan, decisions, host checks, publication, and Finalize policy.</p>
+<p>A bounded first version can capture only planned paths and the ancestors needed to reproduce obstructions. Its result must state that scope. A consumer needing a complete tree must seed and capture a complete supported tree rather than treat a changed-file list as one. Decide how to represent bytes, symlinks, modes, directories, and exclusions before broadening beyond the current text-file workflow. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/plan/RepoSnapshotService.ts#L19-L88">reads: RepoSnapshotService.ts L19–88</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyPreviewService.ts#L31-L175">preview: ApplyPreviewService.ts L31–175</a></p>
+<p>Conflict experiments then become repeatable. Start two candidates from the same baseline, apply skip in one and override in the other, and compare their resulting files. Replacing either candidate leaves the baseline intact. The JSON and TypeScript composers still decide what each accepted action means. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035">overlay: VirtualFileSystem.ts L1973–2035</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400">apply: ApplyService.ts L268–400</a></p>
+<p>The public behavior decision is <strong>what to do when the host changes after review</strong>:</p>
+<ul>
+<li>Require a new Plan and review. This is the clearest initial contract.</li>
+<li>Recompose against the changed host and show a new preview. This can preserve unrelated edits, but the new bytes need another review.</li>
+</ul>
+<p>In either policy, publish previously reviewed bytes only when the relevant baseline preconditions still hold. There is still a check-to-write race unless the publication design addresses it. A content hash check alone does not create a host transaction. Wrong-repository detection, newly created paths, deleted files, ancestor changes, and partial publication all need stated outcomes. Existing write behavior should change only through a deliberate contract decision. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201">write: WriteEngine.ts L44–201</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400">apply: ApplyService.ts L268–400</a></p>
+</section><section id="direction-2-use-snapshots-for-generated-artifacts"><h2 class="heading-1">Direction 2: use snapshots for generated artifacts</h2>
+<p><strong>Recommended independent discovery track.</strong> Store snapshots of concrete recipes or validated reference projects. Create live volumes only when opening or modifying those artifacts. This avoids keeping a live volume for every catalog variation.</p>
+<p>A generated artifact can support browser previews, reproductions, example downloads, or a cache. The first consumer should decide the format&#39;s completeness and lifecycle stage. A pre-Finalize source tree has a much smaller scope than a project with installed dependencies, generated lockfiles, and formatter output. Current previews synthesize configuration separately; current catalog workspace generation also runs host Finalize commands after applying files. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/recipe/RecipePreviewService.ts#L49-L117">recipe: RecipePreviewService.ts L49–117</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/catalog.ts#L609-L645">authoring: catalog.ts L609–645</a></p>
+<p>Keep a Stack Effect-owned manifest around the payload. Proposed fields include:</p>
+<ul>
+<li>Artifact schema version and payload codec version.</li>
+<li>Catalog or fragment identity and generator/composer version.</li>
+<li>Normalized Selection, effective StackConfig, and resolved dependency closure.</li>
+<li>Generation stage, supported entry types, root mapping, and excluded paths.</li>
+<li>Content digest, payload integrity, and contributor provenance.</li>
+<li>Validation commands, tool versions, and results when the artifact claims validation.</li>
+</ul>
+<p>These are design candidates, not an existing schema. Existing catalog provenance records contributors and paths, but it is not a distribution identity. Its generation timestamp is time-dependent, and provenance is prepared before Finalize adds or changes files. A path can have several contributors. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/catalog.ts#L249-L308">provenance: catalog.ts L249–308</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/catalog.ts#L609-L645">authoring: catalog.ts L609–645</a></p>
+<p>Use a cache key that includes all output-affecting inputs. Measure source generation, snapshot decoding, payload size, and peak memory before assuming snapshots improve performance. Start with selected recipes and generate uncommon combinations on demand.</p>
+</section><section id="direction-3-combine-declarative-fragments-with-optional-file-payloads"><h2 class="heading-1">Direction 3: combine declarative fragments with optional file payloads</h2>
+<p>A community registry can package module declarations, dependency information, and literal assets. Snapshot payloads may help transport those assets or include validated example outputs. The declarations must retain semantic operations and ownership rules.</p>
+<p>There is a concrete reason. The import-validation module contributes <code>&lt;ImportValidationCard /&gt;</code> to the <code>components</code> slot in <code>app.tsx</code>; <code>client-react-http-api</code> contributes <code>&lt;RestCard /&gt;</code> to that same slot. Two independently generated full <code>app.tsx</code> files do not express how to retain both cards. Stack Effect&#39;s existing JSX operations do. Package JSON and shared TypeScript composition have the same issue. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/catalog/src/registry/modules/client.ts#L70-L137">cards: client.ts L70–137</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/domain/src/Catalog.ts#L126-L223">domain: Catalog.ts L126–223</a></p>
+<p>Likewise, sibling deltas do not solve the problem. Given base A, a delta A-to-B and a delta A-to-C each requires A. Applying the first produces B, so the second cannot simply be applied to B. A delta describes a known state transition, not an independently composable module. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1681-L1732">delta: VirtualFileSystem.ts L1681–1732</a></p>
+<p>Disjoint assets are a narrower fit for file-level composition if duplicate-path ownership is enforced. A general registry still needs fragment validation, duplicate rules, version compatibility, and provenance. Snapshot transport should not silently introduce executable hooks or replace existing conflict decisions.</p>
+</section><section id="compare-the-options"><h2 class="heading-1">Compare the options</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Comparison table"><table><caption>Design options and tradeoffs</caption>
+<thead>
+<tr>
+<th scope="col">Direction</th>
+<th scope="col">Expected benefit</th>
+<th scope="col">Main cost or risk</th>
+<th scope="col">Position</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Shared in-memory workspace</td>
+<td>Consistent preview execution and reusable tests</td>
+<td>Capture completeness and service lifetime</td>
+<td>Start here after resolving drift contract</td>
+</tr>
+<tr>
+<td>Session with baseline and candidates</td>
+<td>Repeatable decisions and review</td>
+<td>Host authority, publication and recovery policy</td>
+<td>Build on workspace foundation</td>
+</tr>
+<tr>
+<td>Selected generated recipe artifacts</td>
+<td>Reproduction, downloads, cache experiments</td>
+<td>Versioning, completeness, metadata and size</td>
+<td>Independent consumer-led spike</td>
+</tr>
+<tr>
+<td>Declarative registry with optional snapshots</td>
+<td>Distribution while preserving semantic composition</td>
+<td>Fragment identity, trust and compatibility</td>
+<td>Follow catalog foundation</td>
+</tr>
+<tr>
+<td>Independent module snapshots as replacements</td>
+<td>Convenient for strictly disjoint assets</td>
+<td>Loses shared-file intent; sibling deltas reject changed bases</td>
+<td>Reject as general catalog design</td>
+</tr>
+<tr>
+<td>Every possible generated variation</td>
+<td>Precomputed output lookup</td>
+<td>Open-ended names/configuration and combinatorial growth</td>
+<td>Avoid exhaustive materialization</td>
+</tr>
+</tbody></table></div>
+<p>Project and target names are arbitrary inputs, alongside runtime, package manager, TypeScript and tool settings. Even the existing broad catalog authoring workspace selects only the first provider for a capability. It is representative output, not all variations. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/domain/src/Scaffold.ts#L76-L100">inputs: Scaffold.ts L76–100</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/catalog.ts#L205-L221">variants: catalog.ts L205–221</a></p>
+</section><section id="finalize-and-host-publication-remain-separate-work"><h2 class="heading-1">Finalize and host publication remain separate work</h2>
+<p>Injected Effect <code>FileSystem</code> does not redirect <code>node:fs</code>, package managers, native extensions, or spawned commands. The VFS Vite demo uses an explicit plugin with a narrow supported profile. It does not demonstrate arbitrary builds, formatters, or type-checkers working in memory. <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/apps/docs/app/content/guides/overlay-filesystems.mdx#L75-L136">guide: overlay-filesystems.mdx L75–136</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/apps/virtual-build/src/VirtualBuild.ts#L13-L97">virtual-build: VirtualBuild.ts L13–97</a></p>
+<p>For generated-project validation, a practical first option is to export supported files to a temporary real directory, run declared commands, and clean it up. If command output becomes part of the artifact, import and capture it under a defined policy. Do not describe that as process isolation or rollback of external effects.</p>
+<p>The CLI currently continues into Finalize handling after reporting failed Apply paths. Configuration writing is also separate. The research exposes decisions about whether failures should stop Finalize and which generated configuration belongs in staged output. They are lifecycle questions, not responsibilities to add to the low-level workspace facility. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/service/ScaffoldPipeline.ts#L184-L348">pipeline: ScaffoldPipeline.ts L184–348</a> <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/init.ts#L330-L350">config: init.ts L330–350</a></p>
+</section><section id="existing-issues-already-cover-much-of-the-foundation"><h2 class="heading-1">Existing issues already cover much of the foundation</h2>
+<p>The following issues were checked live on 22 September 2026 and were all open. Their state may change after this report.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Comparison table"><table><caption>Existing roadmap issues</caption>
+<thead>
+<tr>
+<th scope="col">Existing issue</th>
+<th scope="col">Relationship to this research</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/175">#175: repository state represented by Plan</a></td>
+<td>Owns drift, repository authority, and preview consistency</td>
+</tr>
+<tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/250">#250: reusable in-memory workspace</a></td>
+<td>Owns setup, seeding, binding and capture; blocked by #175</td>
+</tr>
+<tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/253">#253: materialized catalog combination tests</a></td>
+<td>Exercises combinations and incremental add after #250</td>
+</tr>
+<tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/251">#251: in-memory Vite validation</a></td>
+<td>Narrow validation experiment after #250; keeps host validation</td>
+</tr>
+<tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/252">#252: portable generated-workspace artifact</a></td>
+<td>Independent discovery; needs a concrete consumer and owned versioned schema</td>
+</tr>
+<tr>
+<td><a href="https://github.com/lloydrichards/stack-effect/issues/249">#249: Community Catalog foundation</a></td>
+<td>Trusted additive declarative fragments; distribution and fragment Finalize excluded</td>
+</tr>
+</tbody></table></div>
+<p>The next issue-writing round should refine and connect these rather than duplicate them. The less-developed question is how compiled artifacts relate to declarative fragments, parametrization, provenance, and upgrade identity.</p>
+</section><section id="experiments-that-would-settle-the-design"><h2 class="heading-1">Experiments that would settle the design</h2>
+<ol>
+<li><strong>Workspace parity.</strong> Run one realistic incremental-add scenario against host and VFS. Include existing user fields, a skipped conflict, an ancestor obstruction, and two modules changing one shared file. Compare outcomes and bytes; prove preview leaves the host untouched.</li>
+<li><strong>Drift.</strong> Plan and preview, then modify, delete, or create a relevant host path. Require the selected stale-state behavior, including the wrong repository. Demonstrate publication failures explicitly.</li>
+<li><strong>Candidate isolation.</strong> Create siblings from one snapshot, mutate one, and capture both. Show the base and sibling unchanged, and reject applying a sibling delta to the changed base.</li>
+<li><strong>Artifact round trip.</strong> Generate one named recipe including configuration, encode/decode it, restore it, and compare the declared complete tree. Test binary data and link/mode policy if those are supported.</li>
+<li><strong>Determinism and cost.</strong> Generate twice with controlled inputs and clock policy; compare content identity. Measure generation versus decode and memory on small and representative larger fixtures.</li>
+<li><strong>Host validation.</strong> Materialize an artifact into a temporary repository and run its actual validation commands. Report pre-Finalize and post-Finalize state separately.</li>
+</ol>
+<p>Only existing scaffold tests and the focused VFS checks listed in the evidence appendix were executed during this research. These proposed integration experiments remain open.</p>
+</section><section id="questions-to-carry-into-an-okf"><h2 class="heading-1">Questions to carry into an OKF</h2>
+<p>Keep research observations, proposed contracts, and accepted decisions separate. Candidate topics are repository authority, captured workspace scope, staged Apply, host publication, generated artifact identity, catalog fragment composition, and Finalize execution boundaries.</p>
+<p>Before recording an accepted design, settle:</p>
+<ul>
+<li>Is the first artifact consumer a download, browser preview, test fixture, or cache?</li>
+<li>Does the artifact represent a complete source tree or only changes?</li>
+<li>Which host changes invalidate review, and who owns the baseline?</li>
+<li>Is publication best-effort per file, recoverable with a journal, or a stronger new contract?</li>
+<li>Are Finalize outputs included, and may Finalize run after partial Apply failure?</li>
+<li>Which metadata affects identity, and how do codec and catalog versions evolve?</li>
+<li>Which declarations remain parametrized when a registry also stores concrete snapshots?</li>
+</ul>
+<p>The evidence currently supports extending the existing workspace integration. It does not yet establish a performance case for a registry, arbitrary module overlay composition, or atomic host application.</p>
+</section><section id="evidence-and-compatibility"><h2 class="heading-1">Evidence and compatibility</h2>
+<p>Primary evidence is the local source, tests, and documentation in both maintained repositories, plus live read-only GitHub issue inspection. Historical memory was used to locate existing roadmap work, then issue state and relevant implementation were checked again.</p>
+<ul>
+<li>Stack Effect inspected at <code>820a670c80a857f46557875e6ee53c7742dad5cd</code>, initially clean.</li>
+<li>Effect VFS inspected at <code>e9df27fcb565d189bbc501500cc3267561b23533</code>, clean.</li>
+<li>Stack Effect resolves VFS core/memory 0.2.0 and Effect 4.0.0-rc.114. The local VFS source is 0.5.0 with Effect 4.0.0-rc.115. Local 0.5 APIs must not be assumed available or compatible with the installed Stack Effect dependency. No upgrade was performed. <a href="https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/package.json#L19-L25">stack-version: package.json L19–25</a> <a href="https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/package.json#L1-L40">vfs-version: package.json L1–40</a></li>
+<li>The public GitHub page was also consulted, but its rendered README showed older versions. Version and behavior conclusions use the pinned local source and lockfile.</li>
+<li><code>bun run test --filter=@repo/scaffold</code> passed 93 tests in 12 scaffold test files. Turbo also reported two cached dependency tasks. This confirms existing behavior, not the proposed integration.</li>
+</ul>
+<p>Validation results and the focused VFS evidence are recorded with the delivered report. No performance benchmark, dependency upgrade, host publication prototype, or full generated-project build was performed.</p>
+</section><section id="fresh-bounded-verification"><h2 class="heading-1">Fresh bounded verification</h2>
+<p>Executed a real Bun program at the reviewed VFS checkout on 2026-09-22, using <code>bun --eval</code> and source import <code>./packages/core/src/VirtualFileSystem.ts</code>, Effect and BunCrypto from that checkout. Exit 0. Exact scenario:</p>
+<pre><code class="language-ts">import * as Vfs from &quot;./packages/core/src/VirtualFileSystem.ts&quot;
+import { Effect } from &quot;effect&quot;
+import * as BunCrypto from &quot;@effect/platform-bun/BunCrypto&quot;
+
+const result = await Effect.runPromise(Effect.gen(function*() {
+  const baseVolume = yield* Vfs.fromFixture({ entries: [
+    { kind: &quot;file&quot;, path: &quot;/a&quot;, bytes: new TextEncoder().encode(&quot;base&quot;) }
+  ] })
+  const base = yield* baseVolume.snapshot
+  const left = yield* Vfs.makeOverlay(base)
+  const right = yield* Vfs.makeOverlay(base)
+  const a = yield* left.caller()
+  const b = yield* right.caller()
+  yield* a.writeFile(&quot;/a&quot;, new TextEncoder().encode(&quot;left&quot;), {
+    access: &quot;write&quot;, truncate: true
+  })
+  yield* b.writeFile(&quot;/b&quot;, new TextEncoder().encode(&quot;right&quot;), {
+    access: &quot;write&quot;, create: &quot;exclusive&quot;
+  })
+  const delta = yield* Vfs.diffSnapshots(base, yield* right.snapshot)
+  const mismatch = yield* Effect.flip(Vfs.applySnapshotDelta(yield* left.snapshot, delta))
+  const source = yield* baseVolume.caller()
+  return {
+    base: new TextDecoder().decode(yield* source.readFile(&quot;/a&quot;)),
+    left: new TextDecoder().decode(yield* a.readFile(&quot;/a&quot;)),
+    right: new TextDecoder().decode(yield* b.readFile(&quot;/a&quot;)),
+    deltaOnSibling: mismatch.code
+  }
+}).pipe(Effect.provide(BunCrypto.layer)))
+console.log(JSON.stringify(result))
+if (result.base !== &quot;base&quot; || result.left !== &quot;left&quot; || result.right !== &quot;base&quot; ||
+    result.deltaOnSibling !== &quot;BaseMismatch&quot;) throw new Error(&quot;Unexpected result&quot;)
+</code></pre>
+<p>Observed output:</p>
+<pre><code class="language-json">{&quot;base&quot;:&quot;base&quot;,&quot;left&quot;:&quot;left&quot;,&quot;right&quot;:&quot;base&quot;,&quot;deltaOnSibling&quot;:&quot;BaseMismatch&quot;}
+</code></pre>
+<p>This verifies sibling isolation and rejects the right sibling&#39;s delta against the left sibling, even though the two changed different file paths. It establishes the behavior on local VFS 0.5.0/Effect rc.115, not Stack Effect&#39;s installed VFS 0.2.0/Effect rc.114 (the latter versions are being verified by the main researcher).</p>
+<p>An earlier focused Vitest attempt did not start because Vite tried to write its bundled config into the read-only VFS checkout (<code>EPERM ... node_modules/.vite-temp/...</code>). The direct Bun program avoided that write boundary. No library source was changed.</p>
+</section><section id="repository-and-report-validation"><h2 class="heading-1">Repository and report validation</h2>
+<p><code>bun format</code>, <code>bun lint</code>, and <code>bun run type-check</code> passed. All six type-check tasks were Turbo cache hits, not fresh compiler executions. Formatting reported no fixes. Only the research Markdown and HTML artifacts were added. The scaffold test run passed 93 tests; the focused VFS Bun example exited successfully. The VFS Vitest suite was not run successfully because of the read-only checkout boundary described in the example.</p>
+<p>The HTML report was inspected at 1280px and 320px widths with no document overflow. Mermaid rendered, the theme control switched to dark, and print used a white background. Chromium required an approved sandbox escalation to start.</p>
+</section>  </main>
+
+  <footer class="report-footer">Effect VFS in Stack Effect · 22 September 2026<p>Diagram rendering uses Mermaid 11 and code highlighting uses Highlight.js 11.11.1 from public CDNs. Prose and source remain readable without them.</p></footer>
+  <script>
+    const root = document.documentElement;
+    const themeButton = document.querySelector('.theme-toggle');
+    const themes = ['auto', 'dark', 'light'];
+    const getSavedTheme = () => {
+      try {
+        const savedTheme = localStorage.getItem('report-theme');
+        return themes.includes(savedTheme) ? savedTheme : 'auto';
+      } catch {
+        return 'auto';
+      }
+    };
+    const saveTheme = (theme) => {
+      try { localStorage.setItem('report-theme', theme); } catch {}
+    };
+    const applyTheme = (theme, persist = true) => {
+      if (theme === 'auto') root.removeAttribute('data-theme');
+      else root.dataset.theme = theme;
+      themeButton.textContent = `Theme: ${theme}`;
+      themeButton.setAttribute('aria-label', `Color theme: ${theme}. Activate to change theme.`);
+      if (persist) saveTheme(theme);
+    };
+    applyTheme(getSavedTheme(), false);
+    themeButton.addEventListener('click', () => {
+      const current = root.dataset.theme || 'auto';
+      applyTheme(themes[(themes.indexOf(current) + 1) % themes.length]);
+    });
+  </script>
+</body>
+</html>
