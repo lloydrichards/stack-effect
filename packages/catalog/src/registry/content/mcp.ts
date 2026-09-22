@@ -5,12 +5,12 @@ export const mcpServerPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-rc.108",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0-rc.108",
     "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "{{#if runtime=bun}}@types/bun{{/if}}{{#if runtime=node}}@types/node{{/if}}": "{{#if runtime=bun}}^1.2.17{{/if}}{{#if runtime=node}}^24.0.0{{/if}}",
+    {{#if runtime=bun}}"@types/bun": "^1.2.17",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}
     "vitest": "^4.1.4"
   }
 }
@@ -22,14 +22,14 @@ export const mcpServerTsconfigContents = `{
     "rootDir": "../..",
     "outDir": "dist",
     "noEmit": true,
-    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}{{#if runtime=deno}}deno", "node{{/if}}"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }
 `;
 
-export const mcpServerIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+export const mcpServerIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=deno}}import { DenoHttpServer, DenoRuntime } from "@effect/platform-deno";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 import { createServer } from "node:http";{{/if}}
 import { Config, Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/unstable/ai";
@@ -66,7 +66,7 @@ const McpHttpLive = Effect.gen(function* () {
     Layer.provideMerge(McpCapabilities),
     HttpRouter.serve,
     HttpServer.withLogAddress,
-    Layer.provide({{#if runtime=bun}}BunHttpServer.layerConfig(McpServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, McpServerConfig){{/if}}),
+    Layer.provide({{#if runtime=bun}}BunHttpServer.layerConfig(McpServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, McpServerConfig){{/if}}{{#if runtime=deno}}DenoHttpServer.layerConfig(McpServerConfig){{/if}}),
   );
 }).pipe(
   Layer.unwrap,
@@ -74,7 +74,7 @@ const McpHttpLive = Effect.gen(function* () {
   Effect.satisfiesServicesType<never>(),
 );
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(McpHttpLive);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(McpHttpLive);
 `;
 
 export const mcpHelloPromptContents = `import { Effect, Layer, Schema } from "effect";

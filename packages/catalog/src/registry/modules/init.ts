@@ -7,6 +7,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   biomeJsoncContents,
+  denoLintStagedConfigContents,
   devcontainerJsonContents,
   dprintJsonContents,
   envrcContents,
@@ -26,6 +27,7 @@ import {
 
 const gitInitModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-devenv-git"),
+  supportedRuntimes: ["bun", "node", "deno"],
   title: "Git",
   description: "Initialize a git repository with an initial commit",
   visibility: "internal",
@@ -45,7 +47,7 @@ const gitInitModule: typeof ModuleDefinition.Type = {
     {
       label: "Initialize git repository and create initial commit",
       command:
-        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit" && {{packageManager}} run --if-present postprepare)',
+        'test "$(git rev-parse --show-toplevel 2>/dev/null)" = "$PWD" || (git init --initial-branch=main && git add -A && git commit -m "initial commit")',
       phase: "post-finalize",
     },
   ],
@@ -53,6 +55,7 @@ const gitInitModule: typeof ModuleDefinition.Type = {
 
 const nixFlakeModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-devenv-nix-flake"),
+  supportedRuntimes: ["bun", "node", "deno"],
   title: "Nix Flake",
   description: "Declarative development environment with Nix",
   visibility: "internal",
@@ -88,6 +91,7 @@ const nixFlakeModule: typeof ModuleDefinition.Type = {
 
 const devcontainerModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-devenv-devcontainer"),
+  supportedRuntimes: ["bun", "node", "deno"],
   title: "Dev Container",
   description: "VS Code/GitHub Codespaces development container",
   visibility: "internal",
@@ -117,6 +121,7 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
 
 const huskyModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-devenv-husky"),
+  supportedRuntimes: ["bun", "node", "deno"],
   title: "Husky + lint-staged",
   description: "Run staged-file format and lint tasks before each commit",
   visibility: "internal",
@@ -140,8 +145,13 @@ const huskyModule: typeof ModuleDefinition.Type = {
     },
     {
       _tag: "file",
-      path: "{{targetPath}}/.lintstagedrc.json",
+      path: "{{#if runtime=bun}}{{targetPath}}/.lintstagedrc.json{{/if}}{{#if runtime=node}}{{targetPath}}/.lintstagedrc.json{{/if}}",
       contents: lintStagedConfigContents,
+    },
+    {
+      _tag: "file",
+      path: "{{#if runtime=deno}}{{targetPath}}/.lintstagedrc.json{{/if}}",
+      contents: denoLintStagedConfigContents,
     },
     {
       _tag: "pkg-json-entry",
@@ -172,11 +182,20 @@ const huskyModule: typeof ModuleDefinition.Type = {
       value: "lint-staged",
     },
   ],
+  scripts: [
+    {
+      label: "Install Git hooks",
+      command:
+        "{{#if runtime=deno}}deno task postprepare{{/if}}{{#if runtime=bun}}bun run postprepare{{/if}}{{#if runtime=node}}{{packageManager}} run postprepare{{/if}}",
+      phase: "post-finalize",
+    },
+  ],
 };
 
 export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("workspace-typescript-6"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "TypeScript 6",
     description: "TypeScript 6 with the Effect language-service plugin",
     visibility: "internal",
@@ -217,6 +236,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-typescript-7"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "TypeScript 7",
     description: "TypeScript 7 with the native Effect TypeScript-Go server",
     visibility: "internal",
@@ -324,6 +344,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-monorepo-nx"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Nx",
     description:
       "Package-based monorepo task orchestration and caching with Nx",
@@ -394,6 +415,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-monorepo-vite-plus"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Vite+",
     description: "Monorepo task orchestration and caching with Vite+",
     visibility: "internal",
@@ -461,6 +483,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-biome"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Shared Biome dependency and configuration",
     visibility: "internal",
@@ -496,6 +519,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-biome-lint"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Fast linter with recommended defaults",
     visibility: "internal",
@@ -523,6 +547,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-biome-format"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Fast formatter with recommended defaults",
     visibility: "internal",
@@ -561,6 +586,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-oxfmt"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Oxfmt",
     description: "High-performance formatter for the JavaScript ecosystem",
     visibility: "internal",
@@ -620,6 +646,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-dprint"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "dprint",
     description: "Fast pluggable formatter used by the Effect team",
     visibility: "internal",
@@ -674,6 +701,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-quality-oxlint"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "oxlint",
     description: "Fast Rust-based linter used by the Effect team",
     visibility: "internal",
@@ -728,6 +756,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("workspace-test-vitest"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Vitest",
     description: "Unit and integration testing framework",
     visibility: "internal",
@@ -759,7 +788,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
-        name: "test",
+        name: "{{#if runtime=bun}}test{{/if}}{{#if runtime=node}}test{{/if}}",
         value:
           "{{#if monorepo=turbo}}turbo run test{{/if}}{{#if monorepo=vite-plus}}vp run -r test{{/if}}{{#if monorepo=nx}}nx run-many -t test{{/if}}",
       },

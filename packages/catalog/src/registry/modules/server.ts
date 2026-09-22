@@ -43,6 +43,7 @@ const serverApiTarget = new TargetIdentity({
 export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("server-http-api"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Server",
     description: "REST API endpoints with Effect HTTP",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -75,6 +76,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-http-rpc"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP RPC Server",
     description: "RPC streaming server with tick handler",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -113,6 +115,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-http-api-todos"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP API",
     description: "Persistent Todo CRUD endpoints over Effect HTTP API",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -173,6 +176,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-http-rpc-todos"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP RPC",
     description: "Persistent Todo CRUD operations on the shared HTTP RPC route",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -233,6 +237,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-chat-rpc"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Server",
     description: "AI chat RPC handler with tool support",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -307,6 +312,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-chat-runtime-managed"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Managed Chat Runtime",
     description: "In-memory managed chat send, watch, and interrupt runtime",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -351,6 +357,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-ws-presence"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Server",
     description: "Real-time presence tracking over WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
@@ -401,6 +408,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("server-devtools"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools Server",
     description: "Optional Effect DevTools tracer layer for server apps",
     supportedOn: [{ _tag: "kind", kind: serverKind }],

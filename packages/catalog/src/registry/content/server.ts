@@ -5,12 +5,12 @@ export const serverPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-rc.108",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0-rc.108",
     "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "{{#if runtime=bun}}@types/bun{{/if}}{{#if runtime=node}}@types/node{{/if}}": "{{#if runtime=bun}}^1.2.17{{/if}}{{#if runtime=node}}^24.0.0{{/if}}",
+    {{#if runtime=bun}}"@types/bun": "^1.2.17",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}
     "vitest": "^4.1.4"
   }
 }
@@ -22,7 +22,7 @@ export const serverTsconfigContents = `{
     "rootDir": "../..",
     "outDir": "dist",
     "noEmit": true,
-    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}{{#if runtime=deno}}deno", "node{{/if}}"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
@@ -38,7 +38,7 @@ export const serverTsconfigContents = `{
  *
  * Additional capabilities (RPC, WebSocket) are added by modules.
  */
-export const serverIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+export const serverIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=deno}}import { DenoHttpServer, DenoRuntime } from "@effect/platform-deno";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
 // oxlint-disable-next-line effecttsgo/node-builtin-import -- NodeHttpServer.layerConfig requires the Node server factory.
 import { createServer } from "node:http";{{/if}}
 import { Api } from "@repo/domain/Api";
@@ -67,7 +67,7 @@ const RouterDependencies = Layer.mergeAll(Layer.empty);
 const AllRouters = Layer.mergeAll(ApiRouter);
 
 // NOTE: Modules append additional server layers through Layer.mergeAll.
-const ServerLayers = Layer.mergeAll({{#if runtime=bun}}BunHttpServer.layerConfig(ServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, ServerConfig){{/if}});
+const ServerLayers = Layer.mergeAll({{#if runtime=bun}}BunHttpServer.layerConfig(ServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, ServerConfig){{/if}}{{#if runtime=deno}}DenoHttpServer.layerConfig(ServerConfig){{/if}});
 
 const HttpLive = Effect.gen(function* () {
   const config = yield* ServerConfig;
@@ -95,7 +95,7 @@ const HttpLive = Effect.gen(function* () {
   );
 }).pipe(Layer.unwrap, Layer.launch);
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain(HttpLive);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(HttpLive);
 `;
 
 export const serverDevToolsContents = `import { Config, Effect, Layer } from "effect";

@@ -27,6 +27,7 @@ const domainTarget = new TargetIdentity({
 export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("domain-api-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain API",
     description: "Shared domain schemas and RPC definitions",
     visibility: "internal",
@@ -59,6 +60,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-rpc-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain RPC",
     description: "Shared RPC definitions for streaming over HTTP",
     visibility: "internal",
@@ -91,6 +93,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-todo-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo",
     description: "Shared Todo schemas and errors",
     visibility: "internal",
@@ -125,6 +128,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-todo-http-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo HTTP",
     description: "Todo HTTP API contract",
     visibility: "internal",
@@ -163,6 +167,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-todo-rpc-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo RPC",
     description: "Todo RPC contract merged into the server RPC group",
     visibility: "internal",
@@ -214,6 +219,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-chat-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Chat",
     description:
       "Chat stream protocol, message schemas, and client state machine",
@@ -264,6 +270,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-chat-managed-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Managed Chat",
     description: "Managed chat send, watch, and interrupt RPC definitions",
     visibility: "internal",
@@ -302,6 +309,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("domain-ws-contracts"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain WebSocket",
     description: "WebSocket RPC definitions for real-time presence",
     visibility: "internal",

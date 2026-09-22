@@ -4,16 +4,16 @@ export const cliPackageJsonContents = `{
   "version": "0.0.0",
   "type": "module",
   "bin": {
-    "{{packageName}}": "dist/index.js"
+    "{{packageName}}": "{{#if runtime=deno}}dist/{{packageName}}{{/if}}{{#if runtime=bun}}dist/index.js{{/if}}{{#if runtime=node}}dist/index.js{{/if}}"
   },
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-rc.108",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0-rc.108",
     "effect": "4.0.0-rc.108"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "{{#if runtime=bun}}@types/bun{{/if}}{{#if runtime=node}}@types/node{{/if}}": "{{#if runtime=bun}}^1.2.17{{/if}}{{#if runtime=node}}^24.0.0{{/if}}",
+    {{#if runtime=bun}}"@types/bun": "^1.2.17",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}
     "vitest": "^4.1.4"
   }
 }
@@ -25,7 +25,7 @@ export const cliTsconfigContents = `{
     "rootDir": "../..",
     "outDir": "dist",
     "noEmit": true,
-    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}"]
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}{{#if runtime=deno}}deno", "node{{/if}}"]
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
@@ -41,7 +41,7 @@ export const cliTsconfigContents = `{
  *
  * Additional subcommands are added by modules.
  */
-export const cliIndexContents = `{{#if runtime=bun}}import { BunRuntime, BunServices } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime, NodeServices } from "@effect/platform-node";{{/if}}
+export const cliIndexContents = `{{#if runtime=bun}}import { BunRuntime, BunServices } from "@effect/platform-bun";{{/if}}{{#if runtime=deno}}import { DenoRuntime, DenoServices } from "@effect/platform-deno";{{/if}}{{#if runtime=node}}import { NodeRuntime, NodeServices } from "@effect/platform-node";{{/if}}
 import { Effect, Layer } from "effect";
 import { Command } from "effect/unstable/cli";
 
@@ -51,13 +51,13 @@ const root = Command.make("{{packageName}}");
 const AllCommands = Command.withSubcommands([]);
 
 // NOTE: Modules append additional runtime layers through Layer.mergeAll.
-const RuntimeLayers = Layer.mergeAll({{#if runtime=bun}}BunServices{{/if}}{{#if runtime=node}}NodeServices{{/if}}.layer);
+const RuntimeLayers = Layer.mergeAll({{#if runtime=bun}}BunServices{{/if}}{{#if runtime=node}}NodeServices{{/if}}{{#if runtime=deno}}DenoServices{{/if}}.layer);
 
 root.pipe(
   AllCommands,
   Command.run({ version: "0.0.0" }),
   Effect.provide(RuntimeLayers),
-  {{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}.runMain,
+  {{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain,
 );
 `;
 

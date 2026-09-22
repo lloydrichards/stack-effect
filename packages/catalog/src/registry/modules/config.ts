@@ -8,6 +8,7 @@ import { configTypescriptViteContents } from "../content/client";
 export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("config-typescript-vite"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Config TypeScript Vite",
     description: "Vite TypeScript preset for client applications",
     visibility: "internal",

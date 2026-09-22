@@ -16,6 +16,7 @@ import {
 export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   {
     id: ModuleId.make("cli-command-hello"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Hello Command",
     description: "A simple hello-world subcommand for the CLI",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -41,6 +42,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("cli-chat-driver"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat CLI Driver",
     description: "Shared direct-AI chat plumbing for CLI chat commands",
     visibility: "internal",
@@ -90,6 +92,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("cli-command-chat-ask"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Ask Command",
     description: "One-shot AI ask command for CLI applications",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -124,6 +127,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("cli-command-chat-terminal"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Terminal Chat Command",
     description: "Interactive terminal AI chat command for CLI applications",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
@@ -170,6 +174,7 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   },
   {
     id: ModuleId.make("cli-devtools"),
+    supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools CLI",
     description: "Optional Effect DevTools tracer layer for CLI apps",
     supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],

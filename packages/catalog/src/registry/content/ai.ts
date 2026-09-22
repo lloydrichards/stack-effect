@@ -1072,11 +1072,7 @@ const stringifyJson = (value: unknown) =>
 const stringifyValue = (value: unknown) =>
   typeof value === "string" ? Effect.succeed(value) : stringifyJson(value);
 
-const optionalNonEmpty = (value: string | void) => {
-  if (value === undefined) {
-    return {};
-  }
-
+const optionalNonEmpty = (value: string) => {
   const input = String.trim(value);
   return String.isEmpty(input) ? {} : { input };
 };
@@ -1101,7 +1097,7 @@ const toolStartInput = (part: ToolStart) => {
   }
 
   if (part.params === undefined) {
-    return Effect.void;
+    return Effect.succeed("");
   }
 
   return stringifyValue(part.params);

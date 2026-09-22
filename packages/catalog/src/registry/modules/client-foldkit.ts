@@ -40,6 +40,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
   [
     {
       id: ModuleId.make("client-foldkit-devtools"),
+      supportedRuntimes: ["bun", "node", "deno"],
       title: "Foldkit DevTools",
       description: "Optional Foldkit runtime devtools for message inspection",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -66,6 +67,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
     },
     {
       id: ModuleId.make("client-foldkit-http-api"),
+      supportedRuntimes: ["bun", "node", "deno"],
       title: "HTTP API Client (Foldkit)",
       description: "REST API client with Command pattern for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -156,6 +158,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
     },
     {
       id: ModuleId.make("client-foldkit-http-rpc"),
+      supportedRuntimes: ["bun", "node", "deno"],
       title: "HTTP RPC Client (Foldkit)",
       description: "RPC streaming client with Subscription pattern for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -265,6 +268,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
     },
     {
       id: ModuleId.make("client-foldkit-ws-presence"),
+      supportedRuntimes: ["bun", "node", "deno"],
       title: "WebSocket Presence (Foldkit)",
       description: "Real-time presence UI with WebSocket RPC for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
@@ -374,6 +378,7 @@ export const clientFoldkitModules: ReadonlyArray<typeof ModuleDefinition.Type> =
     },
     {
       id: ModuleId.make("client-foldkit-chat"),
+      supportedRuntimes: ["bun", "node", "deno"],
       title: "Chat Client (Foldkit)",
       description: "AI chat UI with streaming and tool calls for Foldkit",
       supportedOn: [{ _tag: "kind", kind: foldkitKind }],
