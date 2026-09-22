@@ -596,7 +596,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",
             "devDependencies.vite-plus",
-            "^0.3.0",
+            "0.3.0",
           );
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",

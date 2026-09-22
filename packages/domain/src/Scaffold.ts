@@ -53,7 +53,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   get packageManagerSpec(): string {
     switch (this.packageManagerName) {
       case "bun":
-        return "bun@1.2.21";
+        return "bun@1.4.2";
       case "npm":
         return "npm@10.9.0";
       case "pnpm":
@@ -80,7 +80,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{projectName}}` - Project name from config
    * - `{{runtime}}` - "bun" or "node"
    * - `{{packageManager}}` - "bun", "npm", or "pnpm"
-   * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.2.21")
+   * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.4.2")
    * - `{{typescript}}` - TypeScript major version ("6" or "7"; defaults to "6")
    * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
    * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")

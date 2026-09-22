@@ -423,7 +423,7 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "vite-plus",
-        value: "^0.3.0",
+        value: "0.3.0",
       },
       {
         _tag: "pkg-json-entry",
