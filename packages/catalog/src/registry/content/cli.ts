@@ -739,7 +739,7 @@ export const TerminalChat = (
     const events = yield* Queue.make<TerminalChatEvent>();
     let hasRendered = false;
 
-    return yield* Prompt.Custom<TerminalChatState, void, TerminalChatEvent>(
+    return yield* Prompt.custom<TerminalChatState, void, TerminalChatEvent>(
       {
         input: "",
         cursor: 0,
@@ -749,7 +749,10 @@ export const TerminalChat = (
       },
       Queue.asDequeue(events),
       {
-        render: Effect.fnUntraced(function* (state, action) {
+        render: Effect.fnUntraced(function* (
+          state: TerminalChatState,
+          action: Prompt.Action<TerminalChatState, void>,
+        ) {
           const terminal = yield* Terminal.Terminal;
           const columns = yield* terminal.columns;
           const innerWidth =
@@ -778,7 +781,10 @@ export const TerminalChat = (
             Box.combine(clear, layout.pipe(Box.combine(cursor))),
           );
         }),
-        process: Effect.fnUntraced(function* (input, state) {
+        process: Effect.fnUntraced(function* (
+          input: Prompt.ProcessInput<TerminalChatEvent>,
+          state: TerminalChatState,
+        ) {
           return yield* Match.value(input).pipe(
             Match.tag("Input", (input) =>
               Option.match(getTerminalInput(input), {
