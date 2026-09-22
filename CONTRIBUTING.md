@@ -143,5 +143,5 @@ bun run type-check
 ## References
 
 - [AGENTS.md](./AGENTS.md) — code style, domain rules, Effect patterns
-- [.docs/ubiquitous-language.md](./.docs/ubiquitous-language.md) — canonical domain terminology
-- [.docs/domain-lexicon.md](./.docs/domain-lexicon.md) — precise definitions and invariants
+- [.okf/domain/ubiquitous-language.md](./.okf/domain/ubiquitous-language.md) — canonical domain terminology
+- [.okf/domain/index.md](./.okf/domain/index.md) — precise definitions and invariants

@@ -10,8 +10,8 @@ Shared schemas, types, and RPC definitions used by both client and server.
 
 Use canonical domain language from:
 
-- `.docs/ubiquitous-language.md` for conversation-ready phrasing
-- `.docs/domain-lexicon.md` for precise definitions and invariants
+- `.okf/domain/ubiquitous-language.md` for conversation-ready phrasing
+- `.okf/domain/index.md` for precise definitions and invariants
 
 ## Import Pattern
 
