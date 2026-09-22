@@ -201,6 +201,20 @@ describe("StackConfig TypeScript version", () => {
   });
 });
 
+describe("StackConfig Deno runtime", () => {
+  it("decodes Deno with Deno-owned package and workspace commands", () => {
+    const config = Schema.decodeUnknownSync(StackConfig)({
+      name: "deno-project",
+      runtime: { _tag: "deno" },
+      typescript: "6",
+    });
+
+    expect(config.runtimeName).toBe("deno");
+    expect(config.packageManagerName).toBe("deno");
+    expect(config.workspaceDependency).toBe("workspace:*");
+  });
+});
+
 describe("ContributionTokenContext.resolve", () => {
   const makeContext = (
     configOverrides: Partial<typeof StackConfig.Type> = {},
@@ -339,6 +353,19 @@ describe("ContributionTokenContext.resolve", () => {
   });
 
   describe("equality conditionals", () => {
+    it("selects the native workspace task when no monorepo tool is configured", () => {
+      expect(
+        makeContext({}).resolve(
+          "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
+        ),
+      ).toBe("native");
+      expect(
+        makeContext({ monorepo: "nx" }).resolve(
+          "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
+        ),
+      ).toBe("external");
+    });
+
     it("should resolve an equality conditional when its value contains a hyphen", () => {
       const ctx = makeContext({ monorepo: "vite-plus" });
       expect(

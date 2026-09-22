@@ -7,7 +7,8 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { Cause, Effect, Exit } from "effect";
+import { StackConfig } from "@repo/domain/Scaffold";
+import { Cause, Effect, Exit, Schema } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
 const domainIdentity = new TargetIdentity({
@@ -34,6 +35,12 @@ const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
   assert(Exit.isFailure(exit), "Expected effect to fail");
   return Cause.squash(exit.cause);
 };
+
+const denoConfig = new StackConfig({
+  name: Schema.NonEmptyString.make("deno-project"),
+  runtime: { _tag: "deno" },
+  typescript: "6",
+});
 
 describe("BlueprintService", () => {
   layer(BlueprintService.layer)("resolve", (it) => {
@@ -583,6 +590,88 @@ describe("BlueprintService", () => {
               moduleId: "config-typescript-vite",
             });
           }),
+      );
+
+      it.effect(
+        "should resolve a supported Deno server and its dependencies",
+        () =>
+          Effect.gen(function* () {
+            const blueprintService = yield* BlueprintService;
+            const blueprint = yield* blueprintService.resolve(
+              {
+                targets: [
+                  {
+                    identity: serverApiIdentity,
+                    modules: [],
+                  },
+                ],
+              },
+              denoConfig,
+            );
+
+            expect(
+              getNode(
+                blueprint,
+                toAttachedModuleNodeId(
+                  domainIdentity.toKey(),
+                  ModuleId.make("domain-api-contracts"),
+                ),
+              ),
+            ).toMatchObject({ moduleId: "domain-api-contracts" });
+          }),
+      );
+
+      it.effect("should resolve a Deno client and its Vite dependency", () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const client = new TargetIdentity({
+            kind: TargetKind.make("client-react"),
+            name: "web",
+          });
+          const blueprint = yield* blueprintService.resolve(
+            { targets: [{ identity: client, modules: [] }] },
+            denoConfig,
+          );
+
+          expect(
+            getNode(
+              blueprint,
+              toAttachedModuleNodeId(
+                client.toKey(),
+                ModuleId.make("config-typescript-vite"),
+              ),
+            ),
+          ).toMatchObject({ moduleId: "config-typescript-vite" });
+        }),
+      );
+
+      it.effect("should reject Turbo for Deno before planning", () =>
+        Effect.gen(function* () {
+          const blueprintService = yield* BlueprintService;
+          const exit = yield* Effect.exit(
+            blueprintService.resolve(
+              {
+                targets: [
+                  {
+                    identity: new TargetIdentity({
+                      kind: TargetKind.make("workspace"),
+                      name: "deno-project",
+                    }),
+                    modules: [
+                      { id: ModuleId.make("workspace-monorepo-turbo") },
+                    ],
+                  },
+                ],
+              },
+              denoConfig,
+            ),
+          );
+
+          expect(squashFailure(exit)).toMatchObject({
+            message:
+              "Runtime deno does not support module workspace-monorepo-turbo.",
+          });
+        }),
       );
     });
   });
