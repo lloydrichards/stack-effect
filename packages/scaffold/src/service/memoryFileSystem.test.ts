@@ -13,13 +13,13 @@ it.effect("provides an in-memory FileSystem service", () =>
       "{}",
     );
     expect(yield* fileSystem.exists("/workspace/package.json")).toBe(true);
-  }).pipe(Effect.provide(MemoryFileSystem.layer)),
+  }).pipe(Effect.provide(MemoryFileSystem.layerCrypto)),
 );
 
 it.effect("creates a fresh volume for each make invocation", () =>
   Effect.gen(function* () {
-    const first = yield* MemoryFileSystem.make;
-    const second = yield* MemoryFileSystem.make;
+    const first = yield* MemoryFileSystem.makeCrypto;
+    const second = yield* MemoryFileSystem.makeCrypto;
 
     yield* first.writeFileString("/only-in-first", "contents");
 
@@ -41,10 +41,14 @@ it.effect("can provide isolated layer instances", () => {
 
   return Effect.gen(function* () {
     expect(
-      yield* write.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
+      yield* write.pipe(
+        Effect.provide(Layer.fresh(MemoryFileSystem.layerCrypto)),
+      ),
     ).toBe(true);
     expect(
-      yield* read.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
+      yield* read.pipe(
+        Effect.provide(Layer.fresh(MemoryFileSystem.layerCrypto)),
+      ),
     ).toBe(false);
   });
 });

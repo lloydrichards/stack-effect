@@ -61,7 +61,7 @@ const runWithHost = <A, E>(
   effect: Effect.Effect<A, E, ApplyPreviewService | FileSystem.FileSystem>,
 ) =>
   Effect.gen(function* () {
-    const hostFileSystem = yield* MemoryFileSystem.make;
+    const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
     const hostLayer = Layer.mergeAll(
       Layer.succeed(FileSystem.FileSystem, hostFileSystem),
       Path.layer,
@@ -101,7 +101,7 @@ describe("ApplyPreviewService", () => {
 
   it.effect("should isolate writes when host Apply is live", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* MemoryFileSystem.make;
+      const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
       const hostLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, hostFileSystem),
         Path.layer,
@@ -172,7 +172,7 @@ describe("ApplyPreviewService", () => {
 
   it.effect("should use POSIX paths when the host uses Windows", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* MemoryFileSystem.make;
+      const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
       const posixPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
       const windowsPath = Path.Path.of({
         ...posixPath,

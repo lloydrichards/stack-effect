@@ -39,7 +39,7 @@ export class ApplyPreviewService extends Context.Service<
       readonly apply: Apply;
       readonly repoRoot: string;
     }) {
-      const memoryFileSystem = yield* MemoryFileSystem.make;
+      const memoryFileSystem = yield* MemoryFileSystem.makeCrypto;
       const workspaceRoot = "/workspace";
       const decisions = new Map(
         Arr.map(apply.decisions, (decision) => [decision.path, decision.value]),

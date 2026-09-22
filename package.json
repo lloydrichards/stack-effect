@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.0-rc.114"
+    "@effect/platform-node-shared": "4.0.0-rc.115"
   },
   "scripts": {
     "build": "turbo run build",
@@ -22,19 +22,21 @@
     "test:e2e": "vitest run --config vitest.e2e.config.ts --root apps/cli",
     "start": "bun apps/cli/src/index.ts",
     "type-check": "turbo run type-check",
-    "complexity": "bun run scripts/complexity-report.ts"
+    "complexity": "bun run scripts/complexity-report.ts",
+    "okf:check": "okf-graph validate .OKF --json"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.7",
+    "@biomejs/biome": "2.5.14",
     "@changesets/cli": "^2.31.1",
     "@effect/language-service": "^0.87.2",
-    "@effect/platform-bun": "4.0.0-rc.114",
-    "@types/bun": "^1.3.14",
-    "effect": "4.0.0-rc.114",
-    "turbo": "^2.10.9",
+    "@effect/platform-bun": "4.0.0-rc.115",
+    "@types/bun": "^1.4.2",
+    "effect": "4.0.0-rc.115",
+    "turbo": "^2.11.2",
     "typescript": "7.0.2",
-    "vitest": "^5.0.0",
-    "@effect/tsgo": "0.36.4"
+    "vitest": "^5.0.1",
+    "@effect/tsgo": "0.45.0",
+    "okf-graph": "0.3.0"
   },
   "engines": {
     "node": ">=24"
