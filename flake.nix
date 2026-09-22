@@ -3,8 +3,13 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
   };
   outputs = {nixpkgs, ...}: let
+    supportedSystems = [
+      "x86_64-linux"
+      "aarch64-linux"
+      "aarch64-darwin"
+    ];
     forAllSystems = function:
-      nixpkgs.lib.genAttrs nixpkgs.lib.systems.flakeExposed (
+      nixpkgs.lib.genAttrs supportedSystems (
         system: function nixpkgs.legacyPackages.${system}
       );
   in {

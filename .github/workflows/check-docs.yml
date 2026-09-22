@@ -64,6 +64,6 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ./.github/actions/setup
-      - run: bunx playwright install --with-deps chromium
+      - run: bun run --cwd apps/docs playwright install --with-deps chromium
       - run: bun run --cwd apps/docs test
       - run: bun run --cwd apps/docs build

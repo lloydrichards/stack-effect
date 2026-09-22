@@ -43,6 +43,9 @@ export const rootPackageJsonContents = `{
   "name": "{{targetName}}",
   "private": true,
   "type": "module",
+  "overrides": {
+    "@effect/platform-node-shared": "4.0.0-rc.108"
+  },
   "packageManager": "{{packageManagerSpec}}",
   "scripts": {},
   "devDependencies": {},
@@ -86,6 +89,9 @@ allowBuilds:
   esbuild: true
   msgpackr-extract: true{{#if monorepo=nx}}
   nx: true{{/if}}
+
+overrides:
+  "@effect/platform-node-shared": "4.0.0-rc.108"
 `;
 
 export const configTypescriptBaseContents = `{
@@ -568,7 +574,12 @@ export const flakeNixContents = `{
 
   outputs = { self, nixpkgs }:
     let
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+      supportedSystems = [
+        "x86_64-linux"
+        "aarch64-linux"
+        {{#if runtime=node}}"x86_64-darwin"
+        {{/if}}"aarch64-darwin"
+      ];
       forAllSystems = nixpkgs.lib.genAttrs supportedSystems;
       pkgsFor = system: import nixpkgs { inherit system; };
     in
@@ -581,7 +592,7 @@ export const flakeNixContents = `{
           default = pkgs.mkShell {
             packages = with pkgs; [
               {{#if runtime=bun}}bun
-              {{/if}}nodejs_22
+              {{/if}}nodejs_24
               git
             ];
 
