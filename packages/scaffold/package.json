@@ -17,17 +17,17 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect-vfs/memory": "^0.2.0",
+    "@effect-vfs/memory": "^0.5.0",
     "@repo/domain": "workspace:*",
     "@repo/catalog": "workspace:*",
-    "effect": "4.0.0-rc.114",
-    "effect-boxes": "^0.17.0",
+    "effect": "4.0.0-rc.115",
+    "effect-boxes": "^0.17.2",
     "ts-morph": "^28.0.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.114",
-    "@types/node": "^26.2.0",
+    "@effect/vitest": "4.0.0-rc.115",
+    "@types/node": "^26.6.2",
     "@repo/config-typescript": "workspace:*",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.1"
   }
 }

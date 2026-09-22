@@ -2,6 +2,7 @@
   "extends": "@repo/config-typescript/vite.json",
   "include": [
     "app/**/*",
+    "app/**/*.mdx",
     "app/**/.server/**/*",
     "app/**/.client/**/*",
     "test/**/*"

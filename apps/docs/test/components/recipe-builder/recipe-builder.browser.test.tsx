@@ -245,11 +245,11 @@ test("should keep Bun selected after rapidly changing the Node package manager",
   await expect.element(packageManager).toBeDisabled();
   await expect.element(packageManager).toHaveTextContent("Bun");
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .not.toHaveTextContent("runtime=node");
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .not.toContain("runtime=node");
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .not.toHaveTextContent("package-manager=");
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .not.toContain("package-manager=");
 });
 
 test("should disable and clear Husky when Git is turned off", async () => {
@@ -308,17 +308,19 @@ test("should require a database before selecting a database-backed module", asyn
   await expect
     .element(page.getByText("Remove Todo HTTP Client to choose None."))
     .toBeVisible();
-  await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .toHaveTextContent("package%2Fdb%3Apackage-db-sqlite");
+  const selectedTargets = () =>
+    new URLSearchParams(
+      page.getByLabelText("Recipe URL search").element().textContent ?? "",
+    ).getAll("target");
+  await expect.poll(selectedTargets).toContain("package/db:package-db-sqlite");
 
   await page.getByRole("button", { name: "Postgres" }).click();
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .toHaveTextContent("package%2Fdb%3Apackage-db-postgres");
+    .poll(selectedTargets)
+    .toContain("package/db:package-db-postgres");
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .not.toHaveTextContent("package-db-sqlite");
+    .poll(selectedTargets)
+    .not.toContain("package/db:package-db-sqlite");
 });
 
 test("should name only the source module after restoring an implied database recipe", async () => {
@@ -372,8 +374,8 @@ test("should remove unsupported modules when a renamed target resolves a differe
     .element(page.getByText("HTTP API Client", { exact: true }))
     .not.toBeInTheDocument();
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .not.toHaveTextContent("client-react-http-api");
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .not.toContain("client-react-http-api");
 });
 
 test("should reconcile a rename after its delayed catalog request completes", async () => {

@@ -128,6 +128,7 @@ export function CommandDock({
               variant="outline"
               className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
               type="button"
+              aria-label={shareStatus === "copied" ? "Copied" : "Share recipe"}
               onClick={shareRecipe}
               disabled={disabled}
             >
@@ -145,6 +146,7 @@ export function CommandDock({
           <Button
             className="h-11 w-11 p-0 text-center has-data-[icon=inline-start]:pl-0 sm:w-auto sm:px-4 sm:has-data-[icon=inline-start]:pl-4 lg:h-11"
             type="button"
+            aria-label={copyLabel}
             onClick={copyCommand}
             disabled={disabled}
           >

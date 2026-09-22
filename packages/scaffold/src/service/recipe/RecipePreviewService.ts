@@ -55,7 +55,7 @@ export class RecipePreviewService extends Context.Service<
       });
       const blueprint = yield* blueprints.resolve(selection);
 
-      const fileSystem = yield* MemoryFileSystem.make;
+      const fileSystem = yield* MemoryFileSystem.makeCrypto;
       const path = yield* Path.Path.pipe(Effect.provide(Path.layer));
       yield* fileSystem.makeDirectory(workspaceRoot, { recursive: true }).pipe(
         Effect.mapError(

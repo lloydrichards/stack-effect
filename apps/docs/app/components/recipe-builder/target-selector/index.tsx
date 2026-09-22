@@ -147,6 +147,7 @@ function TargetOptions({
                 index > 0 && "border-t",
                 "sm:nth-2:border-t-0 sm:even:border-l",
               )}
+              aria-label={target.title}
               onClick={() => onAddTarget(target.kind)}
             >
               <span className="min-w-0 flex-1">

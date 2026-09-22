@@ -27,10 +27,12 @@ export const rootFlag = Flag.Directory("root").pipe(
 );
 
 export const dryRunFlag = Flag.Boolean("dry-run").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Preview changes without writing to disk"),
 );
 
 export const showFilesFlag = Flag.Boolean("show-files").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Include generated file contents in a dry-run preview"),
 );
 
@@ -46,6 +48,7 @@ export const validateShowFiles = ({
     : Effect.void;
 
 export const yesFlag = Flag.Boolean("yes").pipe(
+  Flag.withDefault(false),
   Flag.withAlias("y"),
   Flag.withDescription(
     "Skip confirmation prompts (uses defaults where available)",
@@ -53,10 +56,12 @@ export const yesFlag = Flag.Boolean("yes").pipe(
 );
 
 export const noGitFlag = Flag.Boolean("no-git").pipe(
+  Flag.withDefault(false),
   Flag.withDescription("Skip git repository initialization"),
 );
 
 export const trustFlag = Flag.Boolean("trust").pipe(
+  Flag.withDefault(false),
   Flag.withDescription(
     "Skip finalize script approval prompt and run all scripts",
   ),
