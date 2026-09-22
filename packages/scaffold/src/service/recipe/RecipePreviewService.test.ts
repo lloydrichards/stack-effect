@@ -1,4 +1,5 @@
 import { assert, it } from "@effect/vitest";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Schema } from "effect";
 import { RecipePreviewService } from "./RecipePreviewService";
@@ -32,6 +33,34 @@ const previewQualityConfig = (
       recipe: { targets: [] },
     });
   });
+
+it.effect("should preview Deno SQLite files", () =>
+  Effect.gen(function* () {
+    const previews = yield* RecipePreviewService;
+    const preview = yield* previews.preview({
+      config: new StackConfig({
+        name: Schema.NonEmptyString.make("deno-preview"),
+        runtime: { _tag: "deno" },
+        typescript: "6",
+      }),
+      recipe: {
+        targets: [
+          {
+            target: new TargetIdentity({
+              kind: TargetKind.make("package"),
+              name: "db",
+            }),
+            modules: [ModuleId.make("package-db-sqlite")],
+          },
+        ],
+      },
+    });
+
+    assert.isTrue(
+      preview.files.some((file) => file.path === "packages/db/src/Database.ts"),
+    );
+  }).pipe(Effect.provide(RecipePreviewService.layer)),
+);
 
 it.effect(
   "should preserve Biome import organization when dprint formatting is selected",

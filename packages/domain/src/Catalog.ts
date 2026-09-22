@@ -288,6 +288,8 @@ export const ModuleChild = Schema.Struct({
   requirement: Schema.Literals(["required", "optional"]),
 });
 
+export const SupportedRuntime = Schema.Literals(["bun", "node", "deno"]);
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
@@ -305,6 +307,7 @@ export const ModuleDefinition = Schema.Struct({
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
   supportedOn: Schema.Array(SupportedOn),
+  supportedRuntimes: Schema.optional(Schema.Array(SupportedRuntime)),
   dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(
     Schema.optionalKey,
@@ -354,6 +357,7 @@ export const TargetDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
+  supportedRuntimes: Schema.optional(Schema.Array(SupportedRuntime)),
   contributions: Schema.Array(Contribution),
   scripts: Schema.Array(ScriptDefinition).pipe(
     Schema.optionalKey,

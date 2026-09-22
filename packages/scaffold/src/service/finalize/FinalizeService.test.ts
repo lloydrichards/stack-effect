@@ -236,6 +236,22 @@ describe("FinalizeService", () => {
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
+    it.effect("runs Deno's prepare task after installing dependencies", () =>
+      Effect.gen(function* () {
+        const svc = yield* FinalizeService;
+        const config = new StackConfig({
+          name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
+          runtime: { _tag: "deno" },
+        });
+        const scripts = yield* svc.preview(emptyBlueprint, makeConfig(config));
+
+        expect(scripts.map((script) => script.command)).toEqual([
+          "deno install",
+          "deno task --if-present prepare",
+        ]);
+      }).pipe(Effect.provide(makeFinalizeLayer([]))),
+    );
+
     it.effect(
       "collects finalize scripts from target definitions before config-derived scripts",
       () =>

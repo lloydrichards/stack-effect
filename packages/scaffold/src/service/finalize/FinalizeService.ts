@@ -229,14 +229,21 @@ const buildConfigDerivedScripts = (
   config: FinalizeConfig,
 ): ResolvedScript[] => {
   const { packageManagerName: pm, lint, format } = config.config;
+  const runTask = (task: string) =>
+    pm === "deno" ? `deno task ${task}` : `${pm} run ${task}`;
   return Arr.filterMap(
     [
       { when: true, label: "Install dependencies", command: `${pm} install` },
-      { when: !!lint, label: `Run ${lint} lint`, command: `${pm} run lint` },
+      {
+        when: pm === "deno",
+        label: "Prepare dependencies",
+        command: "deno task --if-present prepare",
+      },
+      { when: !!lint, label: `Run ${lint} lint`, command: runTask("lint") },
       {
         when: !!format,
         label: `Run ${format} format`,
-        command: `${pm} run format`,
+        command: runTask("format"),
       },
     ],
     (entry): Result.Result<ResolvedScript, void> =>

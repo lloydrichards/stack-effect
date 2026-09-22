@@ -19,6 +19,7 @@ export const NormalizedContributions = Schema.Struct({
 
 const Runtime = Schema.TaggedUnion({
   bun: {},
+  deno: {},
   node: {
     packageManager: Schema.Literals(["pnpm", "npm"]),
   },
@@ -39,13 +40,14 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
     return this.typescript ?? "6";
   }
 
-  get runtimeName(): "bun" | "node" {
+  get runtimeName(): "bun" | "deno" | "node" {
     return this.runtime._tag;
   }
 
-  get packageManagerName(): "bun" | "npm" | "pnpm" {
+  get packageManagerName(): "bun" | "deno" | "npm" | "pnpm" {
     return Runtime.match(this.runtime, {
       bun: () => "bun" as const,
+      deno: () => "deno" as const,
       node: (r) => r.packageManager,
     });
   }
@@ -54,6 +56,8 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
     switch (this.packageManagerName) {
       case "bun":
         return "bun@1.4.2";
+      case "deno":
+        return "deno@2.9.4";
       case "npm":
         return "npm@10.9.0";
       case "pnpm":
@@ -78,8 +82,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    *
    * ## Simple Tokens
    * - `{{projectName}}` - Project name from config
-   * - `{{runtime}}` - "bun" or "node"
-   * - `{{packageManager}}` - "bun", "npm", or "pnpm"
+   * - `{{runtime}}` - "bun", "deno", or "node"
+   * - `{{packageManager}}` - "bun", "deno", "npm", or "pnpm"
    * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.4.2")
    * - `{{typescript}}` - TypeScript major version ("6" or "7"; defaults to "6")
    * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
@@ -95,6 +99,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `effectOxlint` - Truthy for TypeScript 7 with Oxlint
    * - `standaloneOxlint` - Truthy for Oxlint outside Vite+
    * - `standaloneEffectOxlint` - Truthy for Effect Oxlint outside Vite+
+   * - `noMonorepo` - Truthy when no monorepo tool is selected
    * - `typescript7Diagnostics` - Truthy for TypeScript 7 without Effect Oxlint
    *
    * Unknown fields in conditionals silently evaluate as falsy.
@@ -129,6 +134,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
           return this.config.test ?? "";
         case "monorepo":
           return this.config.monorepo ?? "";
+        case "noMonorepo":
+          return this.config.monorepo === undefined ? "true" : "";
         case "effectOxlint":
           return this.config.typescriptVersion === "7" &&
             this.config.lint === "oxlint"

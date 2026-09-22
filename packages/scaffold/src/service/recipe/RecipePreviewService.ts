@@ -53,7 +53,7 @@ export class RecipePreviewService extends Context.Service<
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },
       });
-      const blueprint = yield* blueprints.resolve(selection);
+      const blueprint = yield* blueprints.resolve(selection, config);
 
       const fileSystem = yield* MemoryFileSystem.makeCrypto;
       const path = yield* Path.Path.pipe(Effect.provide(Path.layer));

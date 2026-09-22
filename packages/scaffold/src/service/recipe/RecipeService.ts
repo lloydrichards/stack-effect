@@ -46,8 +46,8 @@ const quoteShellArg = (value: string) =>
 
 const configPackageManager = (
   runtime: (typeof StackConfig.Type)["runtime"],
-): "bun" | "pnpm" | "npm" =>
-  runtime._tag === "bun" ? "bun" : runtime.packageManager;
+): "bun" | "deno" | "pnpm" | "npm" =>
+  runtime._tag === "node" ? runtime.packageManager : runtime._tag;
 
 const configWorkspaceModules = (
   config: typeof StackConfig.Type,
@@ -230,7 +230,12 @@ export class RecipeService extends Context.Service<
       config,
       selection,
     }) => {
-      const commandRunner = config.runtime._tag === "bun" ? "bunx" : "npx";
+      const commandRunner =
+        config.runtime._tag === "bun"
+          ? "bunx"
+          : config.runtime._tag === "deno"
+            ? "deno run -A npm:"
+            : "npx";
       const packageManager = configPackageManager(config.runtime);
       const configModuleIds = new Set(configWorkspaceModules(config));
       const targetFlags = pipe(
@@ -259,29 +264,41 @@ export class RecipeService extends Context.Service<
       );
 
       return [
-        commandRunner,
-        "stack-effect@latest",
+        commandRunner === "deno run -A npm:"
+          ? "deno run -A npm:stack-effect@latest"
+          : commandRunner,
+        ...(commandRunner === "deno run -A npm:"
+          ? []
+          : ["stack-effect@latest"]),
         "create",
         quoteShellArg(config.name),
         ...targetFlags,
         ...(config.runtime._tag === defaults.runtime._tag
           ? []
-          : ["--runtime", "node"]),
+          : ["--runtime", config.runtime._tag]),
         ...(packageManager === defaults.packageManagerName
           ? []
           : ["--package-manager", packageManager]),
         ...renderChangedFlag(
           "--typescript",
           config.typescriptVersion,
-          defaults.typescriptVersion,
+          config.runtime._tag === "deno" ? "6" : defaults.typescriptVersion,
         ),
         ...renderChangedFlag(
           "--monorepo",
           config.monorepo,
-          defaults.monorepo ?? "",
+          config.runtime._tag === "deno" ? "" : (defaults.monorepo ?? ""),
         ),
-        ...renderChangedFlag("--lint", config.lint, defaults.lint ?? ""),
-        ...renderChangedFlag("--format", config.format, defaults.format ?? ""),
+        ...renderChangedFlag(
+          "--lint",
+          config.lint,
+          config.runtime._tag === "deno" ? "" : (defaults.lint ?? ""),
+        ),
+        ...renderChangedFlag(
+          "--format",
+          config.format,
+          config.runtime._tag === "deno" ? "" : (defaults.format ?? ""),
+        ),
         ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
         ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []

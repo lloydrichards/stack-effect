@@ -12,6 +12,7 @@ import {
   type ModuleId,
   type TargetIdentity,
 } from "@repo/domain/Catalog";
+import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
   Array as Arr,
@@ -46,6 +47,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
 
       const resolve = Effect.fn("BlueprintService.resolve")(function* (
         selection: typeof Selection.Type,
+        config?: typeof StackConfig.Type,
       ) {
         yield* validateSelection(selection, catalog);
 
@@ -67,6 +69,26 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
               }),
           ),
         );
+
+        if (config !== undefined) {
+          yield* Effect.forEach(blueprint.nodes, (node) =>
+            Effect.gen(function* () {
+              const definition =
+                node._tag === "target"
+                  ? yield* catalog.getTarget(node.identity.kind)
+                  : yield* catalog.getModule(node.moduleId);
+              const supportedRuntimes = definition.supportedRuntimes ?? [
+                "bun",
+                "node",
+              ];
+              if (!supportedRuntimes.includes(config.runtimeName)) {
+                throw new BlueprintFailure({
+                  message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
+                });
+              }
+            }),
+          );
+        }
 
         return blueprint.toSorted();
       });
