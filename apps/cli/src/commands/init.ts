@@ -5,8 +5,10 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { makeRuntime } from "@repo/domain/Scaffold";
 import {
   BlueprintService,
+  defaultsForRuntime,
   RecipeService,
   StackConfigDefaults,
   toWorkspaceToolValue,
@@ -178,13 +180,12 @@ export const init = Command.make(
                 { title: "node", value: "node" as const },
               ],
             });
+      const runtimeDefaults = defaultsForRuntime(defaults, runtimeChoice);
 
       const typescript = Option.isSome(flags.typescript)
         ? flags.typescript.value
         : flags.yes
-          ? runtimeChoice === "deno"
-            ? "6"
-            : defaults.typescriptVersion
+          ? runtimeDefaults.typescript
           : yield* Select({
               message: "What TypeScript version will you use?",
               choices: [
@@ -193,47 +194,41 @@ export const init = Command.make(
               ],
             });
 
-      let runtime: typeof StackConfig.fields.runtime.Type;
-      if (runtimeChoice === "bun") {
-        runtime = { _tag: "bun" };
-      } else if (runtimeChoice === "deno") {
-        runtime = { _tag: "deno" };
-      } else {
-        const pm = flags.yes
-          ? ("pnpm" as const)
-          : yield* Select({
+      const nodePackageManager =
+        runtimeChoice === "node" && !flags.yes
+          ? yield* Select({
               message: "What package manager will you use?",
               choices: [
                 { title: "pnpm", value: "pnpm" as const },
                 { title: "npm", value: "npm" as const },
               ],
-            });
-        runtime = { _tag: "node", packageManager: pm };
-      }
+            })
+          : ("pnpm" as const);
+      const runtime = makeRuntime(runtimeChoice, nodePackageManager);
 
       const monorepo = yield* chooseOptionalTool(
         flags.yes,
         "What monorepo tool will you use?",
         monorepoChoices,
-        runtimeChoice === "deno" ? "" : (defaults.monorepo ?? ""),
+        runtimeDefaults.monorepo ?? "",
       );
       const lint = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for linting?",
         lintChoices,
-        runtimeChoice === "deno" ? "" : (defaults.lint ?? ""),
+        runtimeDefaults.lint ?? "",
       );
       const format_ = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for formatting?",
         formatChoices,
-        runtimeChoice === "deno" ? "" : (defaults.format ?? ""),
+        runtimeDefaults.format ?? "",
       );
       const test = yield* chooseOptionalTool(
         flags.yes,
         "What test framework will you use?",
         testChoices,
-        defaults.test ?? "",
+        runtimeDefaults.test ?? "",
       );
 
       const git = flags.noGit

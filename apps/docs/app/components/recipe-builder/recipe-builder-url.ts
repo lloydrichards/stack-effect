@@ -1,4 +1,6 @@
+import { makeRuntime, runtimeForPackageManager } from "@repo/domain/Scaffold";
 import { encodeRecipeTargetSpecs, RecipeTargetString } from "@repo/scaffold";
+import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
@@ -90,31 +92,16 @@ const toInitialValues = (
   recipe: typeof RecipeUrlSchema.Type,
 ): RecipeBuilderFormValues | undefined => {
   const packageManager = recipe.packageManager ?? "bun";
-  const runtime =
-    recipe.runtime ??
-    (packageManager === "bun"
-      ? "bun"
-      : packageManager === "deno"
-        ? "deno"
-        : "node");
+  const runtime = recipe.runtime ?? runtimeForPackageManager(packageManager);
+  const runtimeDefaults = defaultsForRuntime(defaults, runtime);
   const config = {
     name: recipe.name ?? defaults.name,
-    runtime:
-      runtime === "bun"
-        ? ({ _tag: "bun" } as const)
-        : runtime === "deno"
-          ? ({ _tag: "deno" } as const)
-          : ({
-              _tag: "node" as const,
-              packageManager: packageManager === "npm" ? "npm" : "pnpm",
-            } as const),
-    typescript:
-      recipe.typescript ?? (runtime === "deno" ? "6" : defaults.typescript),
-    monorepo:
-      recipe.monorepo ?? (runtime === "deno" ? undefined : defaults.monorepo),
-    lint: recipe.lint ?? (runtime === "deno" ? undefined : defaults.lint),
-    format: recipe.format ?? (runtime === "deno" ? undefined : defaults.format),
-    test: recipe.test ?? defaults.test,
+    runtime: makeRuntime(runtime, packageManager),
+    typescript: recipe.typescript ?? runtimeDefaults.typescript,
+    monorepo: recipe.monorepo ?? runtimeDefaults.monorepo,
+    lint: recipe.lint ?? runtimeDefaults.lint,
+    format: recipe.format ?? runtimeDefaults.format,
+    test: recipe.test ?? runtimeDefaults.test,
   };
   const targets = mergeTargets(recipe.target);
   const workspaceTargets = targets.filter(
@@ -234,6 +221,10 @@ export const decodeRecipeBuilderUrl = (
 export const encodeRecipeBuilderUrl = (
   values: RecipeBuilderFormValues,
 ): URLSearchParams => {
+  const runtimeDefaults = defaultsForRuntime(
+    defaults,
+    values.config.runtime._tag,
+  );
   const params = new URLSearchParams();
   const previewInput = toRecipePreviewInput(values);
   const targets = previewInput.recipe.targets.flatMap((target) =>
@@ -262,17 +253,12 @@ export const encodeRecipeBuilderUrl = (
         : values.config.runtime.packageManager,
     );
   }
-  const defaultTypescript =
-    values.config.runtime._tag === "deno" ? "6" : defaults.typescript;
-  if (values.config.typescript !== defaultTypescript) {
+  if (values.config.typescript !== runtimeDefaults.typescript) {
     params.set("typescript", values.config.typescript ?? "6");
   }
   (["monorepo", "lint", "format", "test"] as const).forEach((field) => {
     const value = values.config[field];
-    const defaultValue =
-      values.config.runtime._tag === "deno" && field !== "test"
-        ? undefined
-        : defaults[field];
+    const defaultValue = runtimeDefaults[field];
     if (value !== undefined && value !== defaultValue) params.set(field, value);
   });
   if (!values.gitEnabled) params.set("no-git", "");

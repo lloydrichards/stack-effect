@@ -14,6 +14,7 @@ import {
   ApplyService,
   BlueprintService,
   ContributionResolver,
+  defaultsForRuntime,
   FinalizeService,
   PlanService,
   parseRecipeTargetSpecs,
@@ -587,6 +588,7 @@ const reset = Command.make(
         flags.runtime,
         () => defaults.runtimeName,
       );
+      const runtimeDefaults = defaultsForRuntime(defaults, runtime);
       const repoRoot = path.resolve(
         Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
@@ -606,16 +608,16 @@ const reset = Command.make(
           runtime === "node"
             ? { _tag: "node", packageManager: "pnpm" }
             : { _tag: runtime },
-        typescript: Option.getOrElse(flags.typescript, () =>
-          runtime === "deno" ? "6" : defaults.typescriptVersion,
+        typescript: Option.getOrElse(
+          flags.typescript,
+          () => runtimeDefaults.typescript,
         ),
-        lint: runtime === "deno" ? undefined : defaults.lint,
-        format: Option.getOrElse(flags.format, () =>
-          runtime === "deno" ? undefined : defaults.format,
-        ),
-        test: defaults.test,
-        monorepo: Option.getOrElse(flags.monorepo, () =>
-          runtime === "deno" ? undefined : defaults.monorepo,
+        lint: runtimeDefaults.lint,
+        format: Option.getOrElse(flags.format, () => runtimeDefaults.format),
+        test: runtimeDefaults.test,
+        monorepo: Option.getOrElse(
+          flags.monorepo,
+          () => runtimeDefaults.monorepo,
         ),
       });
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { makeRuntime } from "@repo/domain/Scaffold";
+import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { useSelector } from "@tanstack/react-form";
 import { String as Str } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -26,6 +28,7 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { Toggle } from "~/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
+import { initialRecipeBuilderValues } from "./form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -128,24 +131,15 @@ export function StackConfigurator() {
             className="grid w-full grid-cols-3"
             onValueChange={(values) => {
               const value = values[0] ?? runtime;
+              const nextRuntime =
+                value === "bun" || value === "deno" ? value : "node";
               configure({
-                runtime:
-                  value === "bun"
-                    ? { _tag: "bun" }
-                    : value === "deno"
-                      ? { _tag: "deno" }
-                      : {
-                          _tag: "node",
-                          packageManager:
-                            packageManager === "npm" ? "npm" : "pnpm",
-                        },
-                ...(value === "deno"
-                  ? {
-                      typescript: "6" as const,
-                      monorepo: undefined,
-                      lint: undefined,
-                      format: undefined,
-                    }
+                runtime: makeRuntime(nextRuntime, packageManager),
+                ...(nextRuntime === "deno"
+                  ? defaultsForRuntime(
+                      initialRecipeBuilderValues.config,
+                      "deno",
+                    )
                   : {}),
               });
             }}

@@ -1,8 +1,13 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
+import {
+  makeRuntime,
+  runtimeForPackageManager,
+  StackConfig,
+} from "@repo/domain/Scaffold";
 import {
   BlueprintService,
+  defaultsForRuntime,
   RecipeService,
   StackConfigDefaults,
 } from "@repo/scaffold";
@@ -99,41 +104,19 @@ const buildConfig = ({
     () => defaults.packageManagerName,
   );
   const runtimeName = Option.getOrElse(runtime, () =>
-    packageManagerName === "bun"
-      ? "bun"
-      : packageManagerName === "deno"
-        ? "deno"
-        : "node",
+    runtimeForPackageManager(packageManagerName),
   );
-  const runtimeConfig =
-    runtimeName === "bun"
-      ? ({ _tag: "bun" } as const)
-      : runtimeName === "deno"
-        ? ({ _tag: "deno" } as const)
-        : ({
-            _tag: "node",
-            packageManager:
-              packageManagerName === "bun" || packageManagerName === "deno"
-                ? "pnpm"
-                : packageManagerName,
-          } as const);
+  const runtimeConfig = makeRuntime(runtimeName, packageManagerName);
+  const runtimeDefaults = defaultsForRuntime(defaults, runtimeName);
 
   return new StackConfig({
     name: projectName as typeof Schema.NonEmptyString.Type,
     runtime: runtimeConfig,
-    typescript: Option.getOrElse(typescript, () =>
-      runtimeName === "deno" ? "6" : defaults.typescriptVersion,
-    ),
-    monorepo: Option.getOrElse(monorepo, () =>
-      runtimeName === "deno" ? undefined : defaults.monorepo,
-    ),
-    lint: Option.getOrElse(lint, () =>
-      runtimeName === "deno" ? undefined : defaults.lint,
-    ),
-    format: Option.getOrElse(format, () =>
-      runtimeName === "deno" ? undefined : defaults.format,
-    ),
-    test: Option.getOrElse(test, () => defaults.test),
+    typescript: Option.getOrElse(typescript, () => runtimeDefaults.typescript),
+    monorepo: Option.getOrElse(monorepo, () => runtimeDefaults.monorepo),
+    lint: Option.getOrElse(lint, () => runtimeDefaults.lint),
+    format: Option.getOrElse(format, () => runtimeDefaults.format),
+    test: Option.getOrElse(test, () => runtimeDefaults.test),
   });
 };
 
