@@ -10,7 +10,7 @@ import {
   type RecipeResolveOptions,
 } from "./RecipeErrors";
 import { encodeRecipeTargetSpecs } from "./RecipeTargets";
-import { StackConfigDefaults } from "./StackConfigDefaults";
+import { defaultsForRuntime, StackConfigDefaults } from "./StackConfigDefaults";
 import { toTypeScriptModuleId, toWorkspaceModuleId } from "./WorkspaceModules";
 
 export {
@@ -237,6 +237,7 @@ export class RecipeService extends Context.Service<
             ? "deno run -A npm:"
             : "npx";
       const packageManager = configPackageManager(config.runtime);
+      const runtimeDefaults = defaultsForRuntime(defaults, config.runtime._tag);
       const configModuleIds = new Set(configWorkspaceModules(config));
       const targetFlags = pipe(
         selection.targets,
@@ -282,24 +283,20 @@ export class RecipeService extends Context.Service<
         ...renderChangedFlag(
           "--typescript",
           config.typescriptVersion,
-          config.runtime._tag === "deno" ? "6" : defaults.typescriptVersion,
+          runtimeDefaults.typescript,
         ),
         ...renderChangedFlag(
           "--monorepo",
           config.monorepo,
-          config.runtime._tag === "deno" ? "" : (defaults.monorepo ?? ""),
+          runtimeDefaults.monorepo ?? "",
         ),
-        ...renderChangedFlag(
-          "--lint",
-          config.lint,
-          config.runtime._tag === "deno" ? "" : (defaults.lint ?? ""),
-        ),
+        ...renderChangedFlag("--lint", config.lint, runtimeDefaults.lint ?? ""),
         ...renderChangedFlag(
           "--format",
           config.format,
-          config.runtime._tag === "deno" ? "" : (defaults.format ?? ""),
+          runtimeDefaults.format ?? "",
         ),
-        ...renderChangedFlag("--test", config.test, defaults.test ?? ""),
+        ...renderChangedFlag("--test", config.test, runtimeDefaults.test ?? ""),
         ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []
           : ["--no-git"]),

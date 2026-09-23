@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Match, Schema } from "effect";
 import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 
 export const TargetContribution = Schema.Struct({
@@ -17,13 +17,42 @@ export const NormalizedContributions = Schema.Struct({
   modules: Schema.Array(ModuleContribution),
 });
 
-const Runtime = Schema.TaggedUnion({
+export const Runtime = Schema.TaggedUnion({
   bun: {},
   deno: {},
   node: {
     packageManager: Schema.Literals(["pnpm", "npm"]),
   },
 });
+
+export type RuntimeName = (typeof Runtime.Type)["_tag"];
+export type PackageManagerName = "bun" | "deno" | "pnpm" | "npm";
+
+const packageManagerRuntimes: Record<PackageManagerName, RuntimeName> = {
+  bun: "bun",
+  deno: "deno",
+  pnpm: "node",
+  npm: "node",
+};
+
+export const runtimeForPackageManager = (
+  packageManager: PackageManagerName,
+): RuntimeName => packageManagerRuntimes[packageManager];
+
+export const makeRuntime = (
+  runtime: RuntimeName,
+  packageManager: PackageManagerName,
+): typeof Runtime.Type =>
+  Match.value(runtime).pipe(
+    Match.when("bun", () => ({ _tag: "bun" as const })),
+    Match.when("deno", () => ({ _tag: "deno" as const })),
+    Match.when("node", () => ({
+      _tag: "node" as const,
+      packageManager:
+        packageManager === "npm" ? ("npm" as const) : ("pnpm" as const),
+    })),
+    Match.exhaustive,
+  );
 
 export const TypeScriptVersion = Schema.Literals(["6", "7"]);
 
