@@ -22,8 +22,8 @@ stack-effect create [flags] [<project-name>]
 | --- | --- |
 | `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
 | `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
-| `--runtime choice` | Runtime to use (choices: bun, node) |
-| `--package-manager choice` | Override the default package manager. bun implies --runtime bun; pnpm/npm imply --runtime node. (choices: bun, pnpm, npm) |
+| `--runtime choice` | Runtime to use (choices: bun, deno, node) |
+| `--package-manager choice` | Override the default package manager. bun and deno use their own package managers; pnpm/npm imply --runtime node. (choices: bun, deno, pnpm, npm) |
 | `--typescript choice` | TypeScript major version to configure (choices: 6, 7) |
 | `--monorepo string` | Override the default monorepo tool |
 | `--lint string` | Override the default lint tool |
