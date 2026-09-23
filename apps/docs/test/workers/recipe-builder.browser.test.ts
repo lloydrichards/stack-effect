@@ -1,6 +1,6 @@
 import { assert, it } from "@effect/vitest";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
-import { Effect } from "effect";
+import { Cause, Effect, Exit, Option } from "effect";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import { catalogAtom, previewAtom } from "../../app/atom/recipe-builder-atom";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
@@ -77,5 +77,50 @@ it.live(
         ),
       );
       assert.isNotEmpty(result.catalog.configuration.monorepo);
+      const turbo = result.catalog.configuration.monorepo.find(
+        (choice) => choice.value === "turbo",
+      );
+      assert.isDefined(turbo);
+      assert.deepEqual(turbo.supportedRuntimes, ["bun", "node"]);
+    }),
+);
+
+it.live(
+  "should report an unsupported Deno module without stopping the preview worker",
+  () =>
+    Effect.gen(function* () {
+      const invalid = yield* Effect.exit(
+        runAtom(previewAtom, {
+          targetIdentityKey: "deno-turbo",
+          input: toRecipePreviewInput({
+            ...fullStackRecipeFixture,
+            config: {
+              ...fullStackRecipeFixture.config,
+              runtime: { _tag: "deno" },
+              typescript: "6",
+              monorepo: "turbo",
+              lint: undefined,
+              format: undefined,
+            },
+          }),
+        }),
+      );
+
+      assert.isTrue(Exit.isFailure(invalid));
+      if (Exit.isFailure(invalid)) {
+        const failure = Cause.findErrorOption(invalid.cause).pipe(
+          Option.getOrUndefined,
+        );
+        assert.match(
+          failure?.message ?? "",
+          /does not support module workspace-monorepo-turbo/u,
+        );
+      }
+
+      const valid = yield* runAtom(previewAtom, {
+        targetIdentityKey: "valid-after-deno-turbo",
+        input: toRecipePreviewInput(fullStackRecipeFixture),
+      });
+      assert.include(valid.preview.command, "full-stack-app");
     }),
 );

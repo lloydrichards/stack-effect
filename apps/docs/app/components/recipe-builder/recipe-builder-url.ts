@@ -93,6 +93,7 @@ const toInitialValues = (
 ): RecipeBuilderFormValues | undefined => {
   const packageManager = recipe.packageManager ?? "bun";
   const runtime = recipe.runtime ?? runtimeForPackageManager(packageManager);
+  if (runtime === "deno" && recipe.monorepo === "turbo") return undefined;
   const runtimeDefaults = defaultsForRuntime(defaults, runtime);
   const config = {
     name: recipe.name ?? defaults.name,

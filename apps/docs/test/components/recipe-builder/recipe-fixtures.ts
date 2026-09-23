@@ -201,6 +201,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         title: "Turborepo",
         description: "Monorepo build orchestration with caching",
         value: "turbo",
+        supportedRuntimes: ["bun", "node"],
       },
     ],
     lint: [
@@ -209,6 +210,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         title: "Biome",
         description: "Fast linter with recommended defaults",
         value: "biome",
+        supportedRuntimes: ["bun", "node", "deno"],
       },
     ],
     format: [
@@ -217,6 +219,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         title: "Biome",
         description: "Fast formatter with recommended defaults",
         value: "biome",
+        supportedRuntimes: ["bun", "node", "deno"],
       },
     ],
     test: [
@@ -225,6 +228,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         title: "Vitest",
         description: "Unit and integration testing framework",
         value: "vitest",
+        supportedRuntimes: ["bun", "node", "deno"],
       },
     ],
     devenv: [
@@ -233,6 +237,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
         title: "Husky + lint-staged",
         description: "Run staged-file format and lint tasks before each commit",
         value: "workspace-devenv-husky",
+        supportedRuntimes: ["bun", "node", "deno"],
       },
     ],
   },

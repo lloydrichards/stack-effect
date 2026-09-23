@@ -648,7 +648,7 @@ describe("BlueprintService", () => {
       it.effect("should reject Turbo for Deno before planning", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const exit = yield* Effect.exit(
+          const failure = yield* Effect.flip(
             blueprintService.resolve(
               {
                 targets: [
@@ -667,7 +667,7 @@ describe("BlueprintService", () => {
             ),
           );
 
-          expect(squashFailure(exit)).toMatchObject({
+          expect(failure).toMatchObject({
             message:
               "Runtime deno does not support module workspace-monorepo-turbo.",
           });
