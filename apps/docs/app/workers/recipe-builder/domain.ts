@@ -1,5 +1,6 @@
 import {
   ModuleDefinition,
+  SupportedRuntime,
   TargetDefinition,
   TargetIdentity,
 } from "@repo/domain/Catalog";
@@ -14,6 +15,7 @@ const CatalogChoice = Schema.Struct({
   title: ModuleDefinition.fields.title,
   description: ModuleDefinition.fields.description,
   value: Schema.String,
+  supportedRuntimes: Schema.Array(SupportedRuntime),
 });
 
 export const CatalogModule = Schema.Struct({

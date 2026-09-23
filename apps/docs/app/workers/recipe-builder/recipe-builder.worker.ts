@@ -22,6 +22,8 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
         .map((module) => ({
           ...module,
           value: toWorkspaceToolValue(module.id),
+          supportedRuntimes:
+            module.supportedRuntimes ?? (["bun", "node"] as const),
         }));
 
     return RecipeBuilderRpc.of({

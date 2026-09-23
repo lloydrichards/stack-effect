@@ -266,11 +266,38 @@ test("should expose Deno configuration choices", async () => {
     .element(page.getByLabelText("TypeScript"))
     .toHaveTextContent("TypeScript 6");
   await expect.element(page.getByLabelText("Monorepo")).toBeEnabled();
+  await page.getByLabelText("Monorepo").click();
+  await expect
+    .element(
+      page.getByRole("option", {
+        name: "Turborepo (unavailable with deno)",
+      }),
+    )
+    .toBeDisabled();
   await expect.element(page.getByLabelText("Lint")).toBeEnabled();
   await expect.element(page.getByLabelText("Format")).toBeEnabled();
   await expect
     .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
     .toContain("runtime=deno");
+});
+
+test("should clear Turbo when switching a recipe to Deno", async () => {
+  await renderRecipeBuilder();
+
+  await page.getByLabelText("Monorepo").click();
+  await page.getByRole("option", { name: "Turborepo" }).click();
+  await expect
+    .element(page.getByLabelText("Monorepo"))
+    .toHaveTextContent("Turborepo");
+
+  await page.getByRole("button", { name: "Deno" }).click();
+
+  await expect
+    .element(page.getByLabelText("Monorepo"))
+    .toHaveTextContent("None");
+  await expect
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .not.toContain("monorepo=turbo");
 });
 
 test("should disable and clear Husky when Git is turned off", async () => {

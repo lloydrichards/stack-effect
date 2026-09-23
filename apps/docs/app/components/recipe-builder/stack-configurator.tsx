@@ -209,7 +209,10 @@ export function StackConfigurator() {
             options={
               choices?.[field].map((choice) => ({
                 value: choice.value,
-                label: choice.title,
+                label: choice.supportedRuntimes.includes(runtime)
+                  ? choice.title
+                  : `${choice.title} (unavailable with ${runtime})`,
+                disabled: !choice.supportedRuntimes.includes(runtime),
               })) ?? []
             }
             disabled={choices === undefined}
@@ -270,6 +273,7 @@ type ConfigurationSelectProps = {
   readonly options: ReadonlyArray<{
     readonly value: string;
     readonly label: string;
+    readonly disabled?: boolean;
   }>;
   readonly disabled?: boolean;
   readonly onChange: (value: string) => void;
@@ -283,10 +287,11 @@ function ConfigurationSelect({
   disabled = false,
   onChange,
 }: ConfigurationSelectProps) {
+  const selectedOption = options.find((option) => option.value === value);
   const unavailable =
     !disabled &&
     value.length > 0 &&
-    !options.some((option) => option.value === value);
+    (selectedOption === undefined || selectedOption.disabled === true);
   return (
     <Field data-disabled={disabled} data-invalid={unavailable}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
@@ -308,7 +313,11 @@ function ConfigurationSelect({
         <SelectContent>
           <SelectGroup>
             {options.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <SelectItem
+                key={option.value}
+                value={option.value}
+                disabled={option.disabled}
+              >
                 {option.label}
               </SelectItem>
             ))}

@@ -83,7 +83,7 @@ describe("recipe builder URL", () => {
   it("restores explicit Deno tooling choices", () => {
     const decoded = decodeRecipeBuilderUrl(
       new URLSearchParams(
-        "runtime=deno&package-manager=deno&typescript=7&monorepo=turbo&lint=oxlint&format=oxfmt",
+        "runtime=deno&package-manager=deno&typescript=7&monorepo=vite-plus&lint=oxlint&format=oxfmt",
       ),
     );
 
@@ -91,7 +91,7 @@ describe("recipe builder URL", () => {
     expect(decoded.initialValues.config).toMatchObject({
       runtime: { _tag: "deno" },
       typescript: "7",
-      monorepo: "turbo",
+      monorepo: "vite-plus",
       lint: "oxlint",
       format: "oxfmt",
     });
@@ -103,6 +103,7 @@ describe("recipe builder URL", () => {
       "?runtime=bun&package-manager=pnpm",
       "?runtime=deno&package-manager=npm",
       "?runtime=node&package-manager=deno",
+      "?runtime=deno&package-manager=deno&monorepo=turbo",
       "?runtime=node&runtime=bun&package-manager=pnpm",
       "?target=server/api:server-http-api,server-http-api",
       "?name=demo&utm_source=newsletter",
