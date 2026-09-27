@@ -4,9 +4,6 @@ title: Compiled catalog profiles
 description: Proposed relationship between declarative catalog fragments and generated snapshot artifacts.
 status: draft
 sources:
-  - id: exploration
-    resource: https://github.com/lloydrichards/stack-effect/issues/254
-    title: Compiled profile and cache identity exploration
   - id: catalog
     resource: ../../packages/domain/src/Catalog.ts
     title: Declarative contribution contracts
@@ -16,13 +13,13 @@ sources:
   - id: inputs
     resource: ../../packages/domain/src/Scaffold.ts
     title: Rendering input dimensions
-  - id: community
-    resource: https://github.com/lloydrichards/stack-effect/issues/249
-    title: Community Catalog foundation
+  - id: catalog-architecture
+    resource: ../architecture/catalog.md
+    title: Catalog composition boundary
   - id: report
     resource: effect-vfs-review.md
     title: Catalog alternatives and evidence
-generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
+generated: { by: codex, at: "2026-09-27T09:07:55+00:00" }
 ---
 
 # Compiled catalog profiles
@@ -35,7 +32,7 @@ Prefer named profiles and generation on demand over every possible variation. Pr
 
 Investigate whether one concrete consumer benefits from compiled profiles. Compare generation cost with snapshot decode cost, payload size, and memory. Include catalog identity, normalized inputs, composer version, and generation stage in the proposed cache identity. Preserve multiple contributors per path.
 
-This extends the [artifact discussion](generated-artifacts.md "depends on completeness") and #249 without adding remote discovery, executable fragment hooks, or a marketplace to the initial fragment contract.
+This extends the [artifact discussion](generated-artifacts.md "depends on completeness") and preserves the [declarative catalog boundary](../architecture/catalog.md "keeps definitions authoritative"). Remote discovery, executable fragment hooks, and a marketplace are outside the initial fragment contract.
 
 ## Open outcome
 

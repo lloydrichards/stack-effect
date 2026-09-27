@@ -1,6 +1,28 @@
+---
+type: Research Report
+title: Oxlint and Oxfmt with Effect tsgo
+description: Dated migration rationale and compatibility research for the repository tooling change.
+status: draft
+sources:
+  - id: root
+    resource: ../../package.json
+    title: Current root tooling scripts and dependencies
+  - id: docs
+    resource: ../../apps/docs/package.json
+    title: Docs tooling scripts
+  - id: catalog-modules
+    resource: ../../packages/catalog/src/registry/modules/init.ts
+    title: Generated lint and format module definitions
+  - id: catalog-content
+    resource: ../../packages/catalog/src/registry/content/init.ts
+    title: Generated lint and format content
+---
+
 # Oxlint and Oxfmt with Effect tsgo: migration research
 
 Status: implemented in the root repository, 2026-09-27. Generated project choices remain separate.
+
+This is the research captured before migration. Version ranges, commands, and the "Current repo facts" section describe that earlier checkout and need rechecking before reuse.
 
 ## Recommended shape
 
@@ -34,6 +56,6 @@ For VS Code, recommend `oxc.oxc-vscode` and make it the default formatter. The e
 
 Root `lint` is `biome lint .`; `format` and `format:check` use `biome check`; `apps/docs` also has `biome lint .`. Root prepare explicitly excludes Oxlint. The repo already uses TypeScript `7.0.2`, `@effect/tsgo@0.46.1`, and VS Code tsgo. These observations are from the current checkout's `package.json`, `apps/docs/package.json`, `biome.jsonc`, `.vscode/settings.json`, and installed `node_modules/@effect/tsgo/README.md`.
 
-The local CLI confirms the intended tool split. I ran `stack-effect create oxlint-research --target package/domain:domain-api-contracts --typescript 7 --monorepo turbo --lint oxlint --format oxfmt --yes --dry-run --show-files --no-git` against a temporary root, then removed that root. The preview emitted `.oxlintrc.json`, `.oxfmtrc.jsonc`, `lint: oxlint`, `format: oxfmt`, `format:check: oxfmt --check`, `prepare: effect-tsgo patch --oxlint`, and an Oxc editor extension recommendation. It selected `oxfmt@^0.65.0`, `oxlint@1.80.0`, `oxlint-tsgolint@7.0.2001`, and `@effect/tsgo@0.38.0`; these are the catalog's generated-project versions, not the versions already installed in this repository. The installed `@effect/tsgo@0.46.1` supports Oxlint `1.82.0`–`1.85.0`, so do not copy the CLI's Oxlint version into this root migration. [Local catalog definitions](../../packages/catalog/src/registry/modules/init.ts); [local generated content](../../packages/catalog/src/registry/content/init.ts); [package compatibility table](https://github.com/Effect-TS/tsgo/blob/main/_packages/tsgo/README.md).
+The local CLI confirms the intended tool split. I ran `stack-effect create oxlint-research --target package/domain:domain-api-contracts --typescript 7 --monorepo turbo --lint oxlint --format oxfmt --yes --dry-run --show-files --no-git` against a temporary root, then removed that root. The preview emitted `.oxlintrc.json`, `.oxfmtrc.jsonc`, `lint: oxlint`, `format: oxfmt`, `format:check: oxfmt --check`, `prepare: effect-tsgo patch --oxlint`, and an Oxc editor extension recommendation. It selected `oxfmt@^0.65.0`, `oxlint@1.80.0`, `oxlint-tsgolint@7.0.2001`, and `@effect/tsgo@0.38.0`; these are the catalog's generated-project versions, not the versions already installed in this repository. The installed `@effect/tsgo@0.46.1` supports Oxlint `1.82.0`–`1.85.0`, so do not copy the CLI's Oxlint version into this root migration. The local catalog definitions and generated content are listed in the sources above. [Package compatibility table](https://github.com/Effect-TS/tsgo/blob/main/_packages/tsgo/README.md).
 
 Oxlint's VS Code extension runs Oxlint's LSP. Effect tsgo remains the TypeScript language server; the Oxlint patch connects its type-aware lint engine to Effect tsgo. They are two editor integrations serving different diagnostics. To avoid duplicate Effect diagnostics, upstream recommends disabling `@effect/language-service` diagnostics in the tsgo plugin once Oxlint has become the authoritative Effect lint gate. Keep the current type-check gate until that change has been verified. [Effect Oxlint setup](https://github.com/Effect-TS/tsgo/blob/main/docs/README.md); [Effect tsgo README](https://github.com/Effect-TS/tsgo/blob/main/_packages/tsgo/README.md).

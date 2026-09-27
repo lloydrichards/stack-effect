@@ -7,16 +7,16 @@ sources:
   - id: report
     resource: effect-vfs-review.md
     title: VFS design research
-  - id: drift
-    resource: https://github.com/lloydrichards/stack-effect/issues/175
-    title: Repository state authority
-  - id: workspace
-    resource: https://github.com/lloydrichards/stack-effect/issues/250
-    title: Reusable in-memory workspace
+  - id: authority
+    resource: ../architecture/plan-apply-repository-state.md
+    title: Accepted repository state authority
+  - id: preview
+    resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
+    title: Current in-memory preview
   - id: vfs
     resource: https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts
     title: Inspected VFS overlay implementation
-generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
+generated: { by: codex, at: "2026-09-27T09:07:55+00:00" }
 ---
 
 # Staged workspace lifecycle
@@ -27,7 +27,7 @@ The proposed sequence is to capture supported repository state, build a Plan aga
 
 VFS overlays begin from one immutable snapshot. They allow repeatable decision experiments and cheap disposal of unpublished changes. Replacing an overlay does not redirect existing callers; the owner must replace bindings and release scopes deliberately.
 
-Issue #175 must settle repository authority and drift before #250 consumes that contract. Decide whether host changes require replanning or recomposition followed by another review. Checking baseline hashes alone does not eliminate the race between validation and writing, or provide atomic multi-file publication.
+The [repository state decision](../architecture/plan-apply-repository-state.md "sets the authority contract") requires rejecting stale Plans and replanning. The shared workspace should consume that contract while owning selective setup, seeding, filesystem binding, and result capture. Baseline fingerprints alone do not eliminate the race between validation and writing, or provide atomic multi-file publication.
 
 A bounded capture must reproduce relevant ancestor obstructions and declare what it omits. Keep conflict policy in Apply and host recovery outside VFS. Existing partial-write behavior should change only through an explicit contract decision.
 

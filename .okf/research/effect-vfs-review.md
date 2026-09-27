@@ -8,7 +8,7 @@ sources:
     resource: ../assets/effect-vfs-design-research.html
   - id: source-1
     resource: https://github.com/lloydrichards/effect-virtual-fs/tree/e9df27fcb565d189bbc501500cc3267561b23533
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: codex, at: "2026-09-27T09:07:55+00:00" }
 ---
 
 # Effect VFS in Stack Effect: design directions
@@ -21,7 +21,7 @@ Effect VFS fits Stack Effect best as a shared place to prepare, inspect, and rep
 
 For the catalog, prefer immutable snapshots of selected generated recipes, with declarative modules remaining authoritative. An overlay is a private branch of one filesystem snapshot. It does not merge independently generated modules or resolve JSON and TypeScript conflicts. [preview: ApplyPreviewService.ts L31–175](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyPreviewService.ts#L31-L175) [overlay: VirtualFileSystem.ts L1973–2035](https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035) [domain: Catalog.ts L126–223](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/domain/src/Catalog.ts#L126-L223)
 
-This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. The report records the initial review. Follow the [staged workspace research](staged-workspace.md "tracks the next design") for the concepts and issue links created afterward.
+This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. The report records the initial review. Follow the [repository state decision](../architecture/plan-apply-repository-state.md "records accepted behavior") and [staged workspace research](staged-workspace.md "tracks the next design") for current direction.
 
 ## What exists today
 
@@ -87,12 +87,7 @@ A bounded first version can capture only planned paths and the ancestors needed 
 
 Conflict experiments then become repeatable. Start two candidates from the same baseline, apply skip in one and override in the other, and compare their resulting files. Replacing either candidate leaves the baseline intact. The JSON and TypeScript composers still decide what each accepted action means. [overlay: VirtualFileSystem.ts L1973–2035](https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035) [apply: ApplyService.ts L268–400](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400)
 
-The public behavior decision is **what to do when the host changes after review**:
-
-- Require a new Plan and review. This is the clearest initial contract.
-- Recompose against the changed host and show a new preview. This can preserve unrelated edits, but the new bytes need another review.
-
-In either policy, publish previously reviewed bytes only when the relevant baseline preconditions still hold. There is still a check-to-write race unless the publication design addresses it. A content hash check alone does not create a host transaction. Wrong-repository detection, newly created paths, deleted files, ancestor changes, and partial publication all need stated outcomes. Existing write behavior should change only through a deliberate contract decision. [write: WriteEngine.ts L44–201](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201) [apply: ApplyService.ts L268–400](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400)
+The [repository state decision](../architecture/plan-apply-repository-state.md "sets the accepted drift rule") now requires a new Plan and review when relevant host state changes. It also defines wrong-root detection, newly created paths, deleted files, ancestor changes, and partial publication. A content fingerprint check alone does not create a host transaction. [write: WriteEngine.ts L44–201](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201)
 
 ## Direction 2: use snapshots for generated artifacts
 
@@ -144,20 +139,17 @@ For generated-project validation, a practical first option is to export supporte
 
 The CLI currently continues into Finalize handling after reporting failed Apply paths. Configuration writing is also separate. The research exposes decisions about whether failures should stop Finalize and which generated configuration belongs in staged output. They are lifecycle questions, not responsibilities to add to the low-level workspace facility. [pipeline: ScaffoldPipeline.ts L184–348](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/service/ScaffoldPipeline.ts#L184-L348) [config: init.ts L330–350](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/apps/cli/src/commands/init.ts#L330-L350)
 
-## Existing issues already cover much of the foundation
+## Related repository knowledge
 
-The following issues were checked live on 22 September 2026 and were all open. Their state may change after this report.
-
-| Existing issue | Relationship to this research |
+| Concept | Relationship to this research |
 | --- | --- |
-| [#175: repository state represented by Plan](https://github.com/lloydrichards/stack-effect/issues/175) | Owns drift, repository authority, and preview consistency |
-| [#250: reusable in-memory workspace](https://github.com/lloydrichards/stack-effect/issues/250) | Owns setup, seeding, binding and capture; blocked by #175 |
-| [#253: materialized catalog combination tests](https://github.com/lloydrichards/stack-effect/issues/253) | Exercises combinations and incremental add after #250 |
-| [#251: in-memory Vite validation](https://github.com/lloydrichards/stack-effect/issues/251) | Narrow validation experiment after #250; keeps host validation |
-| [#252: portable generated-workspace artifact](https://github.com/lloydrichards/stack-effect/issues/252) | Independent discovery; needs a concrete consumer and owned versioned schema |
-| [#249: Community Catalog foundation](https://github.com/lloydrichards/stack-effect/issues/249) | Trusted additive declarative fragments; distribution and fragment Finalize excluded |
+| [Repository state authority](../architecture/plan-apply-repository-state.md) | Accepted drift, repository identity, and preview contract |
+| [Staged workspace lifecycle](staged-workspace.md) | Proposed setup, seeding, binding, and capture after state authority |
+| [Virtual validation](virtual-validation.md) | Candidate structural tests and a bounded build experiment |
+| [Generated workspace artifacts](generated-artifacts.md) | Open completeness and compatibility requirements |
+| [Compiled catalog profiles](compiled-catalog-profiles.md) | Relationship between concrete snapshots and declarative fragments |
 
-The next issue-writing round should refine and connect these rather than duplicate them. The less-developed question is how compiled artifacts relate to declarative fragments, parametrization, provenance, and upgrade identity.
+The less-developed question is how compiled artifacts relate to declarative fragments, parametrization, provenance, and upgrade identity.
 
 ## Experiments that would settle the design
 
@@ -188,7 +180,7 @@ The evidence currently supports extending the existing workspace integration. It
 
 ## Evidence and compatibility
 
-Primary evidence is the local source, tests, and documentation in both maintained repositories, plus live read-only GitHub issue inspection. Historical memory was used to locate existing roadmap work, then issue state and relevant implementation were checked again.
+Primary evidence is the local source, tests, and documentation in both maintained repositories.
 
 - Stack Effect inspected at `820a670c80a857f46557875e6ee53c7742dad5cd`, initially clean.
 - Effect VFS inspected at `e9df27fcb565d189bbc501500cc3267561b23533`, clean.

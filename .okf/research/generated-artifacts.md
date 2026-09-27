@@ -4,9 +4,6 @@ title: Generated workspace artifacts
 description: Open completeness and compatibility requirements for portable generated files.
 status: draft
 sources:
-  - id: issue
-    resource: https://github.com/lloydrichards/stack-effect/issues/252
-    title: Portable artifact discussion
   - id: preview
     resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
     title: Current changed-file result

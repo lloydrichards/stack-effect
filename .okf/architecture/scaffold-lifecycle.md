@@ -43,7 +43,7 @@ Private previews use VFS `makeCrypto`, which provides reproducible identity gene
 
 Ordinary dry-run prepares actions without the same virtual write execution. Finalize commands use a process spawner, and the CLI can proceed into Finalize handling after reporting failed Apply paths.
 
-The [staged workspace research](../research/staged-workspace.md "addresses consistency gaps") proposes a shared foundation. The [validation research](../research/virtual-validation.md "examines host execution") retains the external-tool boundary.
+The [repository state decision](plan-apply-repository-state.md "defines the planned handoff") records accepted behavior that this code does not yet enforce. The [staged workspace research](../research/staged-workspace.md "addresses consistency gaps") proposes a shared foundation. The [validation research](../research/virtual-validation.md "examines host execution") retains the external-tool boundary.
 
 ## Service ownership
 
