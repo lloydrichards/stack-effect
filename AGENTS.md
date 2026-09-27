@@ -12,8 +12,8 @@
 | `bun dev`                         | Run workspace dev tasks via Turbo          |
 | `bun dev --filter=stack-effect`   | Start CLI app in watch mode                |
 | `bun run build`                   | Build all workspaces                       |
-| `bun lint`                        | Lint with Biome                            |
-| `bun format`                      | Format with Biome                          |
+| `bun lint`                        | Lint with Oxlint                           |
+| `bun format`                      | Format with Oxfmt                          |
 | `bun format:check`                | Validate formatting without writing        |
 | `bun run type-check`              | Run TypeScript checks across workspaces    |
 | `bun run test`                    | Run workspace tests through Turbo + Vitest |
@@ -21,7 +21,7 @@
 
 ## Tech Stack
 
-Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Biome 2.4
+Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Oxlint, Oxfmt
 
 ## Task Completion Requirements
 
@@ -97,7 +97,7 @@ The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*
 ## Code Style
 
 - **Formatting**: Spaces (not tabs), double quotes for strings
-- **Imports**: Use `@repo/domain` for shared types; Biome auto-organizes imports
+- **Imports**: Use `@repo/domain` for shared types; Oxfmt organizes imports
 - **Types**: Effect Schema for validation; `typeof Schema.Type` for inline
   types, `Schema.Schema.Type<typeof T>` for exports
 - **Naming**: camelCase variables/functions, PascalCase types/classes/React

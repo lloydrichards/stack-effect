@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.0-rc.115"
+    "@effect/platform-node-shared": "4.0.0-rc.117"
   },
   "scripts": {
     "build": "turbo run build",
@@ -14,10 +14,10 @@
     "dev": "turbo run dev",
     "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",
     "docs:generate": "bun run --cwd apps/cli docs:generate",
-    "lint": "biome lint .",
-    "format": "biome check --write .",
-    "format:check": "biome check .",
-    "prepare": "effect-tsgo patch --typescript --no-oxlint",
+    "lint": "oxlint .",
+    "format": "oxfmt .",
+    "format:check": "oxfmt --check .",
+    "prepare": "effect-tsgo patch --typescript --oxlint",
     "test": "turbo run test",
     "test:e2e": "vitest run --config vitest.e2e.config.ts --root apps/cli",
     "start": "bun apps/cli/src/index.ts",
@@ -26,17 +26,19 @@
     "okf:check": "okf-graph validate .okf --json"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.5.14",
-    "@changesets/cli": "^2.31.1",
+    "@changesets/cli": "^3.0.3",
     "@effect/language-service": "^0.87.2",
-    "@effect/platform-bun": "4.0.0-rc.115",
+    "@effect/platform-bun": "4.0.0-rc.117",
     "@types/bun": "^1.4.2",
-    "effect": "4.0.0-rc.115",
-    "turbo": "^2.11.2",
+    "effect": "4.0.0-rc.117",
+    "turbo": "^2.11.4",
     "typescript": "7.0.2",
-    "vitest": "^5.0.1",
-    "@effect/tsgo": "0.45.0",
-    "okf-graph": "0.3.0"
+    "vitest": "^5.0.2",
+    "@effect/tsgo": "0.46.1",
+    "okf-graph": "0.3.0",
+    "oxfmt": "0.65.0",
+    "oxlint": "1.85.0",
+    "oxlint-tsgolint": "7.0.2003"
   },
   "engines": {
     "node": ">=24"

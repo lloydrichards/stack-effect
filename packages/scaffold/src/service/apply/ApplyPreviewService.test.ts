@@ -1,8 +1,9 @@
 // This test intentionally constructs a Windows Path service from Node's win32 implementation.
 // @effect-diagnostics nodeBuiltinImport:off
+
 import nodePath from "node:path";
-import { describe, expect, it } from "@effect/vitest";
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import { describe, expect, it } from "@effect/vitest";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
 import {
   type CompositionOperation,
@@ -11,7 +12,6 @@ import {
 } from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { ApplyPreviewService } from "./ApplyPreviewService";
-import { ApplyService } from "./ApplyService";
 
 const repoRoot = "/repo";
 const JsonFromJsonString = Schema.fromJsonString(Schema.Json);
@@ -57,105 +57,79 @@ const makeApply = (
     decisions: [...decisions],
   });
 
-const runWithHost = <A, E>(
-  effect: Effect.Effect<A, E, ApplyPreviewService | FileSystem.FileSystem>,
-) =>
-  Effect.gen(function* () {
-    const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
-    const hostLayer = Layer.mergeAll(
-      Layer.succeed(FileSystem.FileSystem, hostFileSystem),
-      Path.layer,
-    );
-    const previewLayer = ApplyPreviewService.layer.pipe(
-      Layer.provide(hostLayer),
-    );
-
-    return yield* effect.pipe(
-      Effect.provide(Layer.mergeAll(hostLayer, previewLayer)),
-    );
-  });
-
+const TestLayer = Layer.provideMerge(
+  ApplyPreviewService.layer,
+  Layer.merge(MemoryFileSystem.layer, Path.layer),
+);
 describe("ApplyPreviewService", () => {
   it.effect("should return contents when creating a file", () =>
-    runWithHost(
-      Effect.gen(function* () {
-        const service = yield* ApplyPreviewService;
-        const result = yield* service.preview({
-          apply: makeApply([
-            complete("src/index.ts", "create", 'export const value = "ok";\n'),
-          ]),
-          repoRoot,
-        });
+    Effect.gen(function* () {
+      const service = yield* ApplyPreviewService;
+      const result = yield* service.preview({
+        apply: makeApply([
+          complete("src/index.ts", "create", 'export const value = "ok";\n'),
+        ]),
+        repoRoot,
+      });
 
-        expect(result.apply.created).toEqual(["src/index.ts"]);
-        expect(result.files).toEqual([
-          {
-            path: "src/index.ts",
-            status: "created",
-            contents: 'export const value = "ok";\n',
-          },
-        ]);
-      }),
-    ),
+      expect(result.apply.created).toEqual(["src/index.ts"]);
+      expect(result.files).toEqual([
+        {
+          path: "src/index.ts",
+          status: "created",
+          contents: 'export const value = "ok";\n',
+        },
+      ]);
+    }).pipe(Effect.provide(TestLayer)),
   );
 
   it.effect("should isolate writes when host Apply is live", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
-      const hostLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, hostFileSystem),
-        Path.layer,
-      );
-      const layer = Layer.mergeAll(
-        ApplyService.layer,
-        ApplyPreviewService.layer,
-      ).pipe(Layer.provide(hostLayer));
+      const hostFileSystem = yield* FileSystem.FileSystem;
 
-      const result = yield* Effect.gen(function* () {
-        const service = yield* ApplyPreviewService;
-        return yield* service.preview({
-          apply: makeApply([
-            complete("src/index.ts", "create", "export const ok = true;\n"),
-          ]),
-          repoRoot,
-        });
-      }).pipe(Effect.provide(layer));
+      const service = yield* ApplyPreviewService;
+      const result = yield* service.preview({
+        apply: makeApply([
+          complete("src/index.ts", "create", "export const ok = true;\n"),
+        ]),
+        repoRoot,
+      });
 
       expect(result.apply.failed).toEqual([]);
       expect(result.files.map((file) => file.path)).toEqual(["src/index.ts"]);
       expect(yield* hostFileSystem.exists("/workspace/src/index.ts")).toBe(
         false,
       );
-    }),
+    }).pipe(Effect.provide(TestLayer)),
   );
 
   it.effect("should preserve the host file when composing", () =>
-    runWithHost(
-      Effect.gen(function* () {
-        const hostFileSystem = yield* FileSystem.FileSystem;
-        const service = yield* ApplyPreviewService;
-        const original = encodeJson({ name: "app", private: true });
-        yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
-        yield* hostFileSystem.writeFileString(
-          `${repoRoot}/package.json`,
-          original,
-        );
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const service = yield* ApplyPreviewService;
+      const original = encodeJson({ name: "app", private: true });
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      yield* hostFileSystem.writeFileString(
+        `${repoRoot}/package.json`,
+        original,
+      );
 
-        const result = yield* service.preview({
-          apply: makeApply([
-            composed("package.json", "modify", [
-              {
-                _tag: "json-pkg-scripts",
-                fileType: "json",
-                entries: [{ name: "dev", value: "vite" }],
-              },
-            ]),
+      const result = yield* service.preview({
+        apply: makeApply([
+          composed("package.json", "modify", [
+            {
+              _tag: "json-pkg-scripts",
+              fileType: "json",
+              entries: [{ name: "dev", value: "vite" }],
+            },
           ]),
-          repoRoot,
-        });
+        ]),
+        repoRoot,
+      });
 
-        expect(result.apply.modified).toEqual(["package.json"]);
-        expect(result.files[0]?.contents).toBe(`{
+      expect(result.apply.failed).toEqual([]);
+      expect(result.apply.modified).toEqual(["package.json"]);
+      expect(result.files[0]?.contents).toBe(`{
   "name": "app",
   "private": true,
   "scripts": {
@@ -163,16 +137,15 @@ describe("ApplyPreviewService", () => {
   }
 }
 `);
-        expect(
-          yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
-        ).toBe(original);
-      }),
-    ),
+      expect(
+        yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
+      ).toBe(original);
+    }).pipe(Effect.provide(TestLayer)),
   );
 
   it.effect("should use POSIX paths when the host uses Windows", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* MemoryFileSystem.makeCrypto;
+      const hostFileSystem = yield* MemoryFileSystem.make;
       const posixPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
       const windowsPath = Path.Path.of({
         ...posixPath,
@@ -220,6 +193,7 @@ describe("ApplyPreviewService", () => {
         });
       }).pipe(Effect.provide(previewLayer));
 
+      expect(result.apply.failed).toEqual([]);
       expect(result.apply.modified).toEqual(["package.json"]);
       expect(decodeJson(result.files[0]?.contents ?? "")).toEqual({
         name: "windows-app",
@@ -232,37 +206,33 @@ describe("ApplyPreviewService", () => {
   );
 
   it.effect("should omit contents when a conflict is skipped", () =>
-    runWithHost(
-      Effect.gen(function* () {
-        const service = yield* ApplyPreviewService;
-        const result = yield* service.preview({
-          apply: makeApply(
-            [complete("existing.ts", "conflict", "replacement")],
-            [{ path: "existing.ts", value: "skip" }],
-          ),
-          repoRoot,
-        });
+    Effect.gen(function* () {
+      const service = yield* ApplyPreviewService;
+      const result = yield* service.preview({
+        apply: makeApply(
+          [complete("existing.ts", "conflict", "replacement")],
+          [{ path: "existing.ts", value: "skip" }],
+        ),
+        repoRoot,
+      });
 
-        expect(result.apply.skipped).toEqual(["existing.ts"]);
-        expect(result.files).toEqual([]);
-      }),
-    ),
+      expect(result.apply.skipped).toEqual(["existing.ts"]);
+      expect(result.files).toEqual([]);
+    }).pipe(Effect.provide(TestLayer)),
   );
 
   it.effect("should sort files when returning a preview", () =>
-    runWithHost(
-      Effect.gen(function* () {
-        const service = yield* ApplyPreviewService;
-        const result = yield* service.preview({
-          apply: makeApply([
-            complete("z.ts", "create", "z"),
-            complete("a.ts", "create", "a"),
-          ]),
-          repoRoot,
-        });
+    Effect.gen(function* () {
+      const service = yield* ApplyPreviewService;
+      const result = yield* service.preview({
+        apply: makeApply([
+          complete("z.ts", "create", "z"),
+          complete("a.ts", "create", "a"),
+        ]),
+        repoRoot,
+      });
 
-        expect(result.files.map((file) => file.path)).toEqual(["a.ts", "z.ts"]);
-      }),
-    ),
+      expect(result.files.map((file) => file.path)).toEqual(["a.ts", "z.ts"]);
+    }).pipe(Effect.provide(TestLayer)),
   );
 });

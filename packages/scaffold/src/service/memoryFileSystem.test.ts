@@ -1,5 +1,5 @@
-import { expect, it } from "@effect/vitest";
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer } from "effect";
 
 it.effect("provides an in-memory FileSystem service", () =>
@@ -13,13 +13,13 @@ it.effect("provides an in-memory FileSystem service", () =>
       "{}",
     );
     expect(yield* fileSystem.exists("/workspace/package.json")).toBe(true);
-  }).pipe(Effect.provide(MemoryFileSystem.layerCrypto)),
+  }).pipe(Effect.provide(MemoryFileSystem.layer)),
 );
 
 it.effect("creates a fresh volume for each make invocation", () =>
   Effect.gen(function* () {
-    const first = yield* MemoryFileSystem.makeCrypto;
-    const second = yield* MemoryFileSystem.makeCrypto;
+    const first = yield* MemoryFileSystem.make;
+    const second = yield* MemoryFileSystem.make;
 
     yield* first.writeFileString("/only-in-first", "contents");
 
@@ -41,14 +41,10 @@ it.effect("can provide isolated layer instances", () => {
 
   return Effect.gen(function* () {
     expect(
-      yield* write.pipe(
-        Effect.provide(Layer.fresh(MemoryFileSystem.layerCrypto)),
-      ),
+      yield* write.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
     ).toBe(true);
     expect(
-      yield* read.pipe(
-        Effect.provide(Layer.fresh(MemoryFileSystem.layerCrypto)),
-      ),
+      yield* read.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
     ).toBe(false);
   });
 });

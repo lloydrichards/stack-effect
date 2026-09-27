@@ -5,8 +5,8 @@ export const serverPackageJsonContents = `{
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0-rc.108",
-    "effect": "4.0.0-rc.108"
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0-rc.117",
+    "effect": "4.0.0-rc.117"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",

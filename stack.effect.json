@@ -1,8 +1,8 @@
 {
   "name": "proj_e_stack",
   "runtime": { "_tag": "bun" },
-  "lint": "biome",
-  "format": "biome",
+  "lint": "oxlint",
+  "format": "oxfmt",
   "test": "vitest",
   "monorepo": "turbo",
   "git": false

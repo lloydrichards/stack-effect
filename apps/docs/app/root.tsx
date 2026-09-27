@@ -129,7 +129,7 @@ export default function App() {
   const { pathname } = useLocation();
   const matches = useMatches();
   const lastMatch = matches[matches.length - 1];
-  // biome-ignore lint/suspicious/noExplicitAny: React Router's useMatches handle is untyped
+  // React Router's useMatches handle is untyped.
   const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
   const hasToc = toc.length > 0;
   const isLandingPage = pathname === "/";

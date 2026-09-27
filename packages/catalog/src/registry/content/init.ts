@@ -44,7 +44,7 @@ export const rootPackageJsonContents = `{
   "private": true,
   "type": "module",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.0-rc.108"
+    "@effect/platform-node-shared": "4.0.0-rc.117"
   },
   {{#if runtime=bun}}"packageManager": "{{packageManagerSpec}}",{{/if}}{{#if runtime=node}}"packageManager": "{{packageManagerSpec}}",{{/if}}
   "scripts": {},
@@ -106,7 +106,7 @@ allowBuilds:
   nx: true{{/if}}
 
 overrides:
-  "@effect/platform-node-shared": "4.0.0-rc.108"
+  "@effect/platform-node-shared": "4.0.0-rc.117"
 `;
 
 export const configTypescriptBaseContents = `{

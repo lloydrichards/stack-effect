@@ -129,7 +129,7 @@ export function useRecipeBuilderWorker(
     lastCatalogRequestRef.current = request;
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: targetIdentityKey captures the identity fields used by this effect.
+    // targetIdentityKey captures the identity fields used by this effect.
   }, [enabled, requestCatalog, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(

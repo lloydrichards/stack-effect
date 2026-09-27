@@ -19,7 +19,7 @@ The flake provides bun, node, and corepack.
 
 ### Devcontainer
 
-Open the repo in VS Code or any editor that supports [Dev Containers](https://containers.dev/). The container includes bun, node, biome, and playwright. Dependencies install automatically on creation.
+Open the repo in VS Code or any editor that supports [Dev Containers](https://containers.dev/). The container includes bun, node, Oxlint, Oxfmt, and Playwright. Dependencies install automatically on creation.
 
 ### Manual
 
@@ -38,8 +38,8 @@ bun install
 | `bun run build`                   | Build all workspaces                    |
 | `bun run test`                    | Run all tests (Turbo + Vitest)          |
 | `bun run test --filter=<package>` | Run tests for a specific workspace      |
-| `bun lint`                        | Lint with Biome                         |
-| `bun format`                      | Format with Biome                       |
+| `bun lint`                        | Lint with Oxlint                        |
+| `bun format`                      | Format with Oxfmt                       |
 | `bun run type-check`              | TypeScript checks across all workspaces |
 
 All of `bun format`, `bun lint`, and `bun run type-check` must pass before submitting a PR.

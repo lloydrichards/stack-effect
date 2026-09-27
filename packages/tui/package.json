@@ -16,13 +16,13 @@
   },
   "dependencies": {
     "@repo/domain": "workspace:*",
-    "effect": "4.0.0-rc.115",
+    "effect": "4.0.0-rc.117",
     "effect-boxes": "^0.17.2"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.115",
-    "@types/node": "^26.6.2",
+    "@effect/vitest": "4.0.0-rc.117",
+    "@types/node": "^26.6.3",
     "@repo/config-typescript": "workspace:*",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.2"
   }
 }

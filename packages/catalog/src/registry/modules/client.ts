@@ -76,7 +76,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0-rc.108",
+        value: "4.0.0-rc.117",
       },
       {
         _tag: "jsx-slot",
@@ -292,7 +292,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0-rc.108",
+        value: "4.0.0-rc.117",
       },
       {
         _tag: "pkg-json-entry",
@@ -362,7 +362,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0-rc.108",
+        value: "4.0.0-rc.117",
       },
       {
         _tag: "jsx-slot",
