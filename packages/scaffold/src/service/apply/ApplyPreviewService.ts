@@ -1,4 +1,5 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { type Apply, ApplyFailure, type ApplyResult } from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
@@ -39,7 +40,9 @@ export class ApplyPreviewService extends Context.Service<
       readonly apply: Apply;
       readonly repoRoot: string;
     }) {
-      const memoryFileSystem = yield* MemoryFileSystem.make;
+      const memoryFileSystem = yield* MemoryFileSystem.make.pipe(
+        Effect.provide(BrowserCrypto.layer),
+      );
       const workspaceRoot = "/workspace";
       const decisions = new Map(
         Arr.map(apply.decisions, (decision) => [decision.path, decision.value]),
