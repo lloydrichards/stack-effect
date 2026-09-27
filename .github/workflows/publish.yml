@@ -47,7 +47,7 @@ jobs:
       - run: bun run build
       - name: Create Release PR or Publish
         id: changesets
-        uses: changesets/action@v1
+        uses: changesets/action@v2.1.2
         with:
           publish: npx changeset publish
           title: "chore: version packages"
