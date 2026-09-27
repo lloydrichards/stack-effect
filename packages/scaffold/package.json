@@ -17,7 +17,8 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect-vfs/memory": "^0.6.0",
+    "@effect/platform-browser": "4.0.0-rc.117",
+    "@effect-vfs/memory": "^0.7.0",
     "@repo/domain": "workspace:*",
     "@repo/catalog": "workspace:*",
     "effect": "4.0.0-rc.117",
