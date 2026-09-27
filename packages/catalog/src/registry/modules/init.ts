@@ -726,14 +726,14 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
-        name: "{{#if standaloneOxlint}}oxlint{{/if}}",
+        name: "oxlint",
         value: "1.80.0",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
-        name: "{{#if standaloneEffectOxlint}}oxlint-tsgolint{{/if}}",
+        name: "{{#if effectOxlint}}oxlint-tsgolint{{/if}}",
         value: "7.0.2001",
       },
       {

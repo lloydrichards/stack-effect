@@ -34,7 +34,7 @@ import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}
 import { Config, Effect, FileSystem, Layer, Path, String } from "effect";
 
 export const DatabaseConfig = Config.all({
-  filename: Config.string("DATABASE_FILE").pipe(
+  filename: Config.String("DATABASE_FILE").pipe(
     Config.withDefault("../../data/app.sqlite"),
   ),
 });
@@ -69,14 +69,14 @@ import { PgClient } from "@effect/sql-pg";
 import { Config, Layer, Redacted, String } from "effect";
 
 export const DatabaseConfig = Config.all({
-  url: Config.redacted("DATABASE_URL").pipe(
+  url: Config.Redacted("DATABASE_URL").pipe(
     Config.withDefault(
       Redacted.make(
         "postgres://stack_effect:stack_effect@localhost:5432/stack_effect",
       ),
     ),
   ),
-  maxConnections: Config.int("DATABASE_MAX_CONNECTIONS").pipe(
+  maxConnections: Config.Int("DATABASE_MAX_CONNECTIONS").pipe(
     Config.withDefault(10),
   ),
 });

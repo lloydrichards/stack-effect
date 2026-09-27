@@ -8,7 +8,7 @@ import { Config, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 const AnthropicLive = AnthropicClient.layerConfig({
-  apiKey: Config.redacted("ANTHROPIC_API_KEY"),
+  apiKey: Config.Redacted("ANTHROPIC_API_KEY"),
 }).pipe(Layer.provide(FetchHttpClient.layer));
 
 export const SmartModelLive = AnthropicLanguageModel.model(
@@ -787,7 +787,6 @@ import {
   Stream,
 } from "effect";
 import type {
-  AiError,
   Chat,
   LanguageModel,
   Tool,
@@ -803,13 +802,11 @@ export const AgenticLoopState = Schema.Struct({
 type LoopState = typeof AgenticLoopState.Type;
 
 type LoopError<Tools extends Record<string, Tool.Any>> =
-  | AiError.AiError
-  | Tool.HandlerError<Tools[keyof Tools]>;
+  LanguageModel.ExtractError<{ toolkit: Toolkit.WithHandler<Tools> }>;
 
 type LoopRequirements<Tools extends Record<string, Tool.Any>> =
   | LanguageModel.LanguageModel
-  | Tool.HandlerServices<Tools[keyof Tools]>
-  | Tool.ResultDecodingServices<Tools[keyof Tools]>;
+  | LanguageModel.ExtractServices<{ toolkit: Toolkit.WithHandler<Tools> }>;
 
 type ToolParams = {
   id: string;
@@ -841,7 +838,7 @@ const upsertToolParams = (
 };
 
 export type AgenticLoopRunOptions<Tools extends Record<string, Tool.Any>> = {
-  chat: Chat.Service;
+  chat: Chat.Chat;
   queue: Queue.Queue<ChatStreamPart, Cause.Done>;
   toolkit: Toolkit.WithHandler<Tools>;
   maxIterations?: number;
@@ -852,7 +849,7 @@ const runTurn = <Tools extends Record<string, Tool.Any>>({
   queue,
   toolkit,
 }: {
-  chat: Chat.Service;
+  chat: Chat.Chat;
   queue: Queue.Queue<ChatStreamPart, Cause.Done>;
   toolkit: Toolkit.WithHandler<Tools>;
 }) =>

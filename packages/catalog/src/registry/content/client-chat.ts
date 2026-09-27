@@ -203,9 +203,7 @@ export const chatAtom: AtomType.AtomResultFn<
       Effect.logError("[chatAtom] Stream error occurred:", error),
     ),
     Stream.scan(
-      {
-        _tag: "initial",
-      },
+      () => ({ _tag: "initial" as const }),
       accumulateChatResponse,
     ),
     Stream.drop(1),

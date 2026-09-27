@@ -38,7 +38,7 @@ export const presenceSubscriptionAtom: Atom.AtomResultFn<
     Effect.map((stream) =>
       stream.pipe(
         // NOTE: Cap event accumulation at 100 to prevent memory growth in long sessions.
-        Stream.scan<WebSocketEvent[], WebSocketEvent>([], (acc, event) => {
+        Stream.scan<WebSocketEvent[], WebSocketEvent>(() => [], (acc, event) => {
           const updated = [...acc, event];
           return updated.length > 100 ? updated.slice(-100) : updated;
         }),

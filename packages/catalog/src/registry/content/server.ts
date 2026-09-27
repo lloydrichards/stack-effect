@@ -49,10 +49,10 @@ import { HealthGroupLive } from "./Api/Health";
 import { HelloGroupLive } from "./Api/Hello";
 
 export const ServerConfig = Config.all({
-  port: Config.number("PORT").pipe(Config.withDefault(9000)),
-  hostname: Config.string("HOST").pipe(Config.withDefault("0.0.0.0")),
-  idleTimeout: Config.number("IDLE_TIMEOUT").pipe(Config.withDefault(120)),
-  allowedOrigins: Config.string("ALLOWED_ORIGINS").pipe(
+  port: Config.Number("PORT").pipe(Config.withDefault(9000)),
+  hostname: Config.String("HOST").pipe(Config.withDefault("0.0.0.0")),
+  idleTimeout: Config.Number("IDLE_TIMEOUT").pipe(Config.withDefault(120)),
+  allowedOrigins: Config.String("ALLOWED_ORIGINS").pipe(
     Config.withDefault("http://localhost:3000"),
   ),
 });
@@ -102,8 +102,8 @@ export const serverDevToolsContents = `import { Config, Effect, Layer } from "ef
 import { DevTools } from "effect/unstable/devtools";
 
 const DevToolsConfig = Config.all({
-  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
-  devToolsUrl: Config.string("DEVTOOLS_URL").pipe(
+  enableDevTools: Config.Boolean("DEVTOOLS").pipe(Config.withDefault(false)),
+  devToolsUrl: Config.String("DEVTOOLS_URL").pipe(
     Config.withDefault("ws://localhost:34437"),
   ),
 });

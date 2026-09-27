@@ -65,8 +65,8 @@ export const cliDevToolsContents = `import { Config, Effect, Layer } from "effec
 import { DevTools } from "effect/unstable/devtools";
 
 const DevToolsConfig = Config.all({
-  enableDevTools: Config.boolean("DEVTOOLS").pipe(Config.withDefault(false)),
-  devToolsUrl: Config.string("DEVTOOLS_URL").pipe(
+  enableDevTools: Config.Boolean("DEVTOOLS").pipe(Config.withDefault(false)),
+  devToolsUrl: Config.String("DEVTOOLS_URL").pipe(
     Config.withDefault("ws://localhost:34437"),
   ),
 });
@@ -93,11 +93,11 @@ export const DevToolsLive = Layer.unwrap(
 export const cliHelloCommandContents = `import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/unstable/cli";
 
-const name = Argument.string("name").pipe(
+const name = Argument.String("name").pipe(
   Argument.optional,
 );
 
-const shout = Flag.boolean("shout").pipe(
+const shout = Flag.Boolean("shout").pipe(
   Flag.withDescription("Print the greeting in uppercase"),
   Flag.optional,
 );
@@ -185,7 +185,7 @@ import {
 import { Argument, Command } from "effect/unstable/cli";
 import { TerminalChatDriver, TerminalChatDriverLive } from "../chat/ChatDriver";
 
-const message = Argument.string("message").pipe(
+const message = Argument.String("message").pipe(
   Argument.withSchema(Schema.NonEmptyString),
   Argument.withDescription("Message to send to the assistant"),
 );
@@ -739,7 +739,7 @@ export const TerminalChat = (
     const events = yield* Queue.make<TerminalChatEvent>();
     let hasRendered = false;
 
-    return yield* Prompt.custom<TerminalChatState, void, TerminalChatEvent>(
+    return yield* Prompt.Custom<TerminalChatState, void, TerminalChatEvent>(
       {
         input: "",
         cursor: 0,

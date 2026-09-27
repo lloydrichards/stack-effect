@@ -30,15 +30,16 @@ export const mcpServerTsconfigContents = `{
 `;
 
 export const mcpServerIndexContents = `{{#if runtime=bun}}import { BunHttpServer, BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=deno}}import { DenoHttpServer, DenoRuntime } from "@effect/platform-deno";{{/if}}{{#if runtime=node}}import { NodeHttpServer, NodeRuntime } from "@effect/platform-node";
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- NodeHttpServer.layerConfig requires the Node server factory.
 import { createServer } from "node:http";{{/if}}
 import { Config, Effect, Layer } from "effect";
 import { McpProtocol, McpServer } from "effect/unstable/ai";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
 
 export const McpServerConfig = Config.all({
-  port: Config.number("MCP_PORT").pipe(Config.withDefault(9009)),
-  hostname: Config.string("MCP_HOST").pipe(Config.withDefault("0.0.0.0")),
-  allowedOrigins: Config.string("MCP_ALLOWED_ORIGINS").pipe(
+  port: Config.Number("MCP_PORT").pipe(Config.withDefault(9009)),
+  hostname: Config.String("MCP_HOST").pipe(Config.withDefault("0.0.0.0")),
+  allowedOrigins: Config.String("MCP_ALLOWED_ORIGINS").pipe(
     Config.withDefault("http://localhost:3000"),
   ),
 });
