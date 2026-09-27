@@ -3,7 +3,7 @@
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type {
   CatalogAtomRequest,
   PreviewAtomRequest,
@@ -13,6 +13,7 @@ import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-bui
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
   failCatalogOnce: false,
+  catalogWarning: undefined as "stale" | "persistence" | undefined,
   deferIdentityCatalog: false,
   catalogRequests: [] as Array<CatalogAtomRequest>,
   pendingIdentityCatalogs: [] as Array<{
@@ -100,6 +101,22 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
         }));
         const catalog = {
           ...recipeCatalogFixture,
+          sourceUrl: "https://docs.example.test/registry/v1/catalog.json",
+          freshness:
+            workerCalls.catalogWarning === "stale"
+              ? ("cached" as const)
+              : ("current" as const),
+          ...(workerCalls.catalogWarning === undefined
+            ? {}
+            : {
+                warning: {
+                  kind: workerCalls.catalogWarning,
+                  sourceUrl:
+                    "https://docs.example.test/registry/v1/catalog.json",
+                  lastValidatedAt: 1_700_000_000_000,
+                  message: "Catalog cache notice",
+                },
+              }),
           targetModules: workerCalls.reconcileModules
             ? request.targets.map(({ owner }) => ({
                 owner,
@@ -154,6 +171,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
 beforeEach(() => {
   workerCalls.reconcileModules = false;
   workerCalls.failCatalogOnce = false;
+  workerCalls.catalogWarning = undefined;
   workerCalls.deferIdentityCatalog = false;
   workerCalls.catalogRequests = [];
   workerCalls.pendingIdentityCatalogs = [];
@@ -196,6 +214,9 @@ test("should leave an invalid shared recipe URL visible without previewing a fal
   await expect
     .element(page.getByText("Shared recipe could not be restored"))
     .toBeVisible();
+  await expect
+    .element(page.getByText("Loading the recipe catalog"))
+    .not.toBeInTheDocument();
   await expect
     .element(page.getByLabelText("Recipe URL search"))
     .toHaveTextContent("?target=server/api:");
@@ -416,7 +437,7 @@ test("should remove unsupported modules when a renamed target resolves a differe
   workerCalls.reconcileModules = true;
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect
-    .element(page.getByText(/Removed modules that do not support/u))
+    .element(page.getByText(/could not be resolved in the current catalog/u))
     .toBeVisible();
   await expect
     .element(page.getByText("HTTP API Client", { exact: true }))
@@ -424,6 +445,17 @@ test("should remove unsupported modules when a renamed target resolves a differe
   await expect
     .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
     .not.toContain("client-react-http-api");
+});
+
+test("should disclose an unresolved module from a shared recipe", async () => {
+  await renderRecipeBuilder(
+    "/builder?target=client-react%2Fweb%3Amissing-module",
+  );
+
+  await expect.element(page.getByText(/missing-module/u)).toBeVisible();
+  await expect
+    .element(page.getByText(/could not be resolved in the current catalog/u))
+    .toBeVisible();
 });
 
 test("should reconcile a rename after its delayed catalog request completes", async () => {
@@ -459,7 +491,7 @@ test("should reconcile a rename after its delayed catalog request completes", as
   pendingIdentity?.complete();
 
   await expect
-    .element(page.getByText(/Removed modules that do not support/u))
+    .element(page.getByText(/could not be resolved in the current catalog/u))
     .toBeVisible();
   expect(pendingIdentity?.interrupted).toBe(false);
 });
@@ -531,7 +563,7 @@ test("should generate a usable preview when the selected target has no modules",
     .toHaveTextContent("bunx stack-effect create my-effect-app");
 });
 
-test("should preserve a valid preview when catalog loading is retried", async () => {
+test("should hold previews until a failed catalog load is retried", async () => {
   workerCalls.failCatalogOnce = true;
   await renderRecipeBuilder();
 
@@ -540,16 +572,75 @@ test("should preserve a valid preview when catalog loading is retried", async ()
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
-    .toBeEnabled();
+    .toBeDisabled();
+  await expect
+    .element(page.getByRole("button", { name: "Retry catalog" }))
+    .toBeVisible();
   await expect
     .element(page.getByText("Preview could not be generated"))
     .not.toBeInTheDocument();
 
-  await page.getByRole("button", { name: "Retry options" }).click();
+  page.getByRole("button", { name: "Retry catalog" }).element().focus();
+  await userEvent.keyboard("{Enter}");
 
   await expect
-    .element(page.getByRole("button", { name: "Retry options" }))
+    .element(page.getByRole("button", { name: "Retry catalog" }))
     .not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+});
+
+test("should wait for the catalog before enabling the preview", async () => {
+  workerCalls.deferIdentityCatalog = true;
+  await renderRecipeBuilder();
+
+  await expect
+    .element(page.getByText("Loading the recipe catalog"))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeDisabled();
+  await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
+  workerCalls.pendingIdentityCatalogs[0]?.complete();
+
+  await expect.element(page.getByText("Current catalog")).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+});
+
+test("should keep a cached-catalog notice visible while previews work", async () => {
+  workerCalls.catalogWarning = "stale";
+  await renderRecipeBuilder();
+
+  await expect.element(page.getByText("Using a cached catalog")).toBeVisible();
+  await expect
+    .element(page.getByText(/docs.example.test\/registry\/v1\/catalog.json/u))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+  const requestsBeforeRetry = workerCalls.catalogRequests.length;
+  workerCalls.catalogWarning = undefined;
+  page.getByRole("button", { name: "Retry catalog" }).element().focus();
+  await userEvent.keyboard("{Enter}");
+  await expect
+    .poll(() => workerCalls.catalogRequests.length)
+    .toBeGreaterThan(requestsBeforeRetry);
+  await expect.element(page.getByText("Current catalog")).toBeVisible();
+  await expect
+    .element(page.getByText("Using a cached catalog"))
+    .not.toBeInTheDocument();
+});
+
+test("should keep a current preview usable when browser storage fails", async () => {
+  workerCalls.catalogWarning = "persistence";
+  await renderRecipeBuilder();
+
+  await expect
+    .element(page.getByText("Catalog could not be saved"))
+    .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();

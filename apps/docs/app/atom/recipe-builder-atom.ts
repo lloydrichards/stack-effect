@@ -37,6 +37,8 @@ class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
 ) {}
 
 export type CatalogAtomRequest = {
+  readonly sessionId: number;
+  readonly sourceUrl: string;
   readonly targetIdentityKey: string;
   readonly targets: ReadonlyArray<{
     readonly id: string;
@@ -45,6 +47,7 @@ export type CatalogAtomRequest = {
 };
 
 export type PreviewAtomRequest = {
+  readonly sessionId: number;
   readonly targetIdentityKey: string;
   readonly input: RecipePreviewInput;
 };
@@ -54,6 +57,8 @@ export const catalogAtom = RecipeBuilderClient.runtime.fn(
     const client = yield* RecipeBuilderClient;
     const catalog = yield* client("catalog", {
       owners: request.targets.map(({ owner }) => owner),
+      sourceUrl: request.sourceUrl,
+      sessionId: request.sessionId,
     });
     return { request, catalog } as const;
   }),
@@ -63,7 +68,10 @@ export const previewAtom = RecipeBuilderClient.runtime.fn(
   Effect.fnUntraced(function* (request: PreviewAtomRequest) {
     yield* Effect.sleep("200 millis");
     const client = yield* RecipeBuilderClient;
-    const preview = yield* client("preview", request.input);
+    const preview = yield* client("preview", {
+      ...request.input,
+      sessionId: request.sessionId,
+    });
     return { request, preview } as const;
   }),
 );

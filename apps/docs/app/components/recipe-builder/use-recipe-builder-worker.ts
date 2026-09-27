@@ -9,7 +9,6 @@ import {
   useEffect,
   useEffectEvent,
   useMemo,
-  useRef,
   useState,
 } from "react";
 import {
@@ -18,6 +17,7 @@ import {
   previewAtom,
 } from "../../atom/recipe-builder-atom";
 import { RecipeBuilderCatalog } from "../../workers/recipe-builder/domain";
+import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import {
   ownerKey,
   type RecipeBuilderFormApi,
@@ -70,9 +70,7 @@ export function useRecipeBuilderWorker(
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
   const [previewRequestResult, requestPreview] = useAtom(previewAtom);
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const lastCatalogRequestRef = useRef<CatalogAtomRequest | undefined>(
-    undefined,
-  );
+  const [sessionId, setSessionId] = useState(1);
   const [catalogSnapshot, setCatalogSnapshot] = useState<
     | {
         readonly request: CatalogAtomRequest;
@@ -86,7 +84,10 @@ export function useRecipeBuilderWorker(
     () => AsyncResult.map(catalogRequestResult, ({ catalog }) => catalog),
     [catalogRequestResult],
   );
-  const catalog = catalogSnapshot?.catalog;
+  const catalog =
+    catalogSnapshot?.request.sessionId === sessionId
+      ? catalogSnapshot.catalog
+      : undefined;
   const catalogOwnersByTargetId = useMemo(
     () =>
       new Map(
@@ -103,14 +104,18 @@ export function useRecipeBuilderWorker(
     [previewRequestResult],
   );
   const retryCatalog = useCallback(() => {
-    if (enabled && lastCatalogRequestRef.current !== undefined) {
-      requestCatalog(lastCatalogRequestRef.current);
-    }
-  }, [enabled, requestCatalog]);
+    if (!enabled) return;
+    setCatalogSnapshot(undefined);
+    requestPreview(Atom.Interrupt);
+    requestCatalog(Atom.Interrupt);
+    setSessionId((current) => current + 1);
+  }, [enabled, requestCatalog, requestPreview]);
 
   useEffect(() => {
     if (!enabled) return;
     const request = {
+      sessionId,
+      sourceUrl: registryUrl(window.location.origin, import.meta.env.BASE_URL),
       targetIdentityKey,
       targets: [
         ...targets.map(({ id, kind, name }) => ({
@@ -126,23 +131,26 @@ export function useRecipeBuilderWorker(
         },
       ],
     } as const;
-    lastCatalogRequestRef.current = request;
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
     // targetIdentityKey captures the identity fields used by this effect.
-  }, [enabled, requestCatalog, targetIdentityKey]);
+  }, [enabled, requestCatalog, sessionId, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(
     (result: typeof catalogRequestResult) => {
       if (result.waiting || !AsyncResult.isSuccess(result)) return;
       const { request, catalog: nextCatalog } = result.value;
-      if (request.targetIdentityKey !== targetIdentityKey) return;
+      if (
+        request.targetIdentityKey !== targetIdentityKey ||
+        request.sessionId !== sessionId
+      )
+        return;
 
       const reconciliation = reconcileTargetsWithCatalog(targets, nextCatalog);
       setCompatibilityNotice(
         reconciliation.removedModules.length === 0
           ? undefined
-          : `Removed modules that do not support the renamed target: ${reconciliation.removedModules.join(", ")}.`,
+          : `These modules could not be resolved in the current catalog and were removed: ${reconciliation.removedModules.join(", ")}.`,
       );
       if (reconciliation.targets !== targets) {
         form.setFieldValue("targets", reconciliation.targets);
@@ -156,29 +164,40 @@ export function useRecipeBuilderWorker(
     if (
       !catalogRequestResult.waiting &&
       AsyncResult.isSuccess(catalogRequestResult) &&
-      catalogRequestResult.value.request.targetIdentityKey === targetIdentityKey
+      catalogRequestResult.value.request.targetIdentityKey ===
+        targetIdentityKey &&
+      catalogRequestResult.value.request.sessionId === sessionId
     ) {
       setCatalogSnapshot(catalogRequestResult.value);
     }
-  }, [catalogRequestResult, enabled, targetIdentityKey]);
+  }, [catalogRequestResult, enabled, sessionId, targetIdentityKey]);
 
   useEffect(() => {
     if (!enabled) {
       requestPreview(Atom.Interrupt);
       return;
     }
-    if (!formValid) {
+    if (!formValid || catalog === undefined) {
       requestPreview(Atom.Interrupt);
       return;
     }
     requestPreview({
+      sessionId,
       targetIdentityKey,
       input: toRecipePreviewInput(values),
     });
-  }, [enabled, formValid, requestPreview, targetIdentityKey, values]);
+  }, [
+    catalog,
+    enabled,
+    formValid,
+    requestPreview,
+    sessionId,
+    targetIdentityKey,
+    values,
+  ]);
 
   return {
-    canPreview: enabled && formValid,
+    canPreview: enabled && formValid && catalog !== undefined,
     catalog,
     catalogFailed,
     catalogOwnersByTargetId,

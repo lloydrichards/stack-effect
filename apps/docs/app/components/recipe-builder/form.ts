@@ -1,5 +1,5 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { useForm } from "@tanstack/react-form";
@@ -189,7 +189,10 @@ export function toRecipePreviewInput(
   );
 
   return {
-    config: new StackConfig(values.config),
+    config: new StackConfig({
+      ...values.config,
+      $schema: STACK_CONFIG_SCHEMA_URL,
+    }),
     recipe: {
       targets: [
         ...(values.gitEnabled || values.developerExperienceModules.length > 0

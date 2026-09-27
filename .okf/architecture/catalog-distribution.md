@@ -25,7 +25,7 @@ generated: { by: codex, at: "2026-09-27T21:00:00+02:00" }
 
 # Catalog distribution and freshness
 
-Status: Accepted direction. Local work for #249 composes and injects validated definitions. Local work for #271 defines the v1 JSON document and a shared HTTP loader with validated cache fallback. Local work for #272 generates the public assets and Vercel rules; deployed behavior remains unverified. The CLI and Recipe Builder still use a temporary bundled adapter. Persistent cache adapters and client wiring remain unimplemented. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
+Status: Accepted direction. Local work for #249 composes and injects validated definitions. Local work for #271 defines the v1 JSON document and a shared HTTP loader with validated cache fallback. Local work for #272 generates the public assets and Vercel rules. Local work for #273 and #274 connects the CLI and Recipe Builder to the loader with user and browser cache adapters. Deployed behavior and cross-client generation parity remain unverified. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
 
 ## Separate content delivery from engine releases
 

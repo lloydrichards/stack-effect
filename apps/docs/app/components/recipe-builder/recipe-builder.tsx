@@ -7,6 +7,7 @@ import { useLocation } from "react-router";
 import { CommandDock } from "~/components/molecules/command-dock";
 import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
+import { Button } from "~/components/ui/button";
 import { trackEvent } from "~/lib/analytics";
 import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
 import { DatabaseSelector } from "./database-selector";
@@ -31,7 +32,13 @@ export function RecipeBuilder() {
 
 function RecipeBuilderContent() {
   const form = useRecipeBuilderFormContext();
-  const { compatibilityNotice } = useRecipeBuilderCatalog();
+  const {
+    catalog,
+    catalogFailed,
+    catalogResult,
+    compatibilityNotice,
+    retryCatalog,
+  } = useRecipeBuilderCatalog();
   const { canPreview, previewResult } = useRecipeBuilderPreview();
   const { urlIssue } = useRecipeBuilderUrl();
   const location = useLocation();
@@ -84,8 +91,68 @@ function RecipeBuilderContent() {
             Choose targets, attach their modules, and inspect the generated
             repository before running the command.
           </p>
+          {catalog?.freshness === "current" ? (
+            <Badge variant="secondary" className="mt-3">
+              Current catalog
+            </Badge>
+          ) : null}
         </div>
       </header>
+
+      {urlIssue === undefined && catalog === undefined && !catalogFailed ? (
+        <Alert role="status">
+          <AlertTitle>Loading the recipe catalog</AlertTitle>
+          <AlertDescription>
+            Fetching current targets and modules before generating a preview.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {catalogFailed ? (
+        <Alert variant="destructive" role="alert">
+          <AlertCircle />
+          <AlertTitle>Recipe catalog unavailable</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>
+              {AsyncResult.isFailure(catalogResult)
+                ? recipeBuilderRpcErrorMessage(catalogResult.cause)
+                : "Could not load the recipe catalog."}
+            </span>
+            <Button type="button" variant="outline" onClick={retryCatalog}>
+              Retry catalog
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {catalog?.warning ? (
+        <Alert role="status">
+          <AlertCircle />
+          <AlertTitle>
+            {catalog.freshness === "cached"
+              ? "Using a cached catalog"
+              : "Catalog could not be saved"}
+          </AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>
+              {catalog.warning.sourceUrl} · Last validated{" "}
+              {new Intl.DateTimeFormat(undefined, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }).format(catalog.warning.lastValidatedAt)}
+              .
+              {catalog.freshness === "cached"
+                ? " The registry is unavailable."
+                : " This preview is current, but may not be available offline."}
+            </span>
+            {catalog.freshness === "cached" ? (
+              <Button type="button" variant="outline" onClick={retryCatalog}>
+                Retry catalog
+              </Button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       {AsyncResult.builder(previewResult)
         .onInitialOrWaiting(() => null)

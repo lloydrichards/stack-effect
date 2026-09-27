@@ -29,6 +29,16 @@ export const CatalogModule = Schema.Struct({
 });
 
 export const RecipeBuilderCatalog = Schema.Struct({
+  sourceUrl: Schema.optional(Schema.String),
+  freshness: Schema.optional(Schema.Literals(["current", "cached"])),
+  warning: Schema.optional(
+    Schema.Struct({
+      kind: Schema.Literals(["stale", "persistence"]),
+      sourceUrl: Schema.String,
+      lastValidatedAt: Schema.Finite,
+      message: Schema.String,
+    }),
+  ),
   targets: Schema.Array(
     Schema.Struct({
       kind: TargetDefinition.fields.kind,
@@ -82,12 +92,16 @@ export const makeRecipeBuilderRpcFailure = (
 
 export class RecipeBuilderRpc extends RpcGroup.make(
   Rpc.make("preview", {
-    payload: RecipePreviewInput.fields,
+    payload: { ...RecipePreviewInput.fields, sessionId: Schema.Finite },
     success: RecipePreview,
     error: RecipeBuilderRpcFailure,
   }),
   Rpc.make("catalog", {
-    payload: { owners: Schema.Array(TargetIdentity) },
+    payload: {
+      owners: Schema.Array(TargetIdentity),
+      sourceUrl: Schema.String,
+      sessionId: Schema.Finite,
+    },
     success: RecipeBuilderCatalog,
     error: RecipeBuilderRpcFailure,
   }),
