@@ -12,26 +12,31 @@ sources:
     title: Apply contract
   - id: capture
     resource: ../../packages/scaffold/src/service/plan/RepoSnapshotService.ts
-    title: Current repository capture
+    title: Repository text capture
+  - id: baseline
+    resource: ../../packages/scaffold/src/service/plan/RepositoryStateService.ts
+    title: Repository baseline and freshness checks
   - id: planning
     resource: ../../packages/scaffold/src/service/plan/PlanService.ts
-    title: Current Plan construction
+    title: Plan construction
   - id: execution
     resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
-    title: Current Apply behavior
+    title: Apply behavior
   - id: writing
     resource: ../../packages/scaffold/src/service/apply/WriteEngine.ts
-    title: Current host writes
-generated: { by: codex, at: "2026-09-27T09:07:55+00:00" }
+    title: Host writes
+generated: { by: codex, at: "2026-09-27T09:22:00+00:00" }
 ---
 
 # Repository state authority for Plan and Apply
 
-Status: The design is accepted. The current implementation does not yet enforce it.
+Status: Implemented for Plan, preview, and Apply.
 
 ## Problem
 
-Plan classifies proposed changes against selected repository paths and their ancestors, but retains only outcomes and conflicts. Apply can then read newer contents when composing a file, or write authoritative contents over a file that changed after planning. Preview also reads current host contents. The user can therefore review one state and act on another. See the [current scaffold lifecycle](scaffold-lifecycle.md "describes implemented behavior").
+Without a repository baseline, Apply could read newer contents when composing a file or overwrite a file that changed after planning. Preview could show a different host state from the one Plan classified. See the [scaffold lifecycle](scaffold-lifecycle.md "describes implemented behavior").
+
+`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryStateService` fingerprints existing text files and compares their current state with the baseline. `PlanService` checks the capture again before returning. Apply and both preview paths check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. File preview performs its publication step in a private memory filesystem after checking the source repository.
 
 ## Decision
 

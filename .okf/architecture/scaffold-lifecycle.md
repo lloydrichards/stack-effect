@@ -26,24 +26,24 @@ sources:
     resource: ../../packages/scaffold/src/index.ts
   - id: finalize
     resource: ../../packages/scaffold/src/service/finalize/FinalizeService.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: codex, at: "2026-09-27T09:22:00+00:00" }
 ---
 
 # Scaffold lifecycle
 
 Selection records user intent. Blueprint resolves dependencies. Plan describes repository-aware outcomes and conflicts. Apply adds explicit decisions only for conflicted paths. VFS state does not replace these domain values.
 
-Plan reads relevant paths and ancestors through `RepoSnapshotService`. This is a selective text view, not a complete VFS snapshot. Plan retains outcomes rather than the full captured baseline.
+Plan reads relevant paths, ancestors, and the root through `RepoSnapshotService`. This is a selective text view, not a complete VFS snapshot. Plan retains outcomes and a serializable baseline with the canonical root, path types, and SHA-256 fingerprints of existing text files. It does not retain existing file contents.
 
-Apply prepares composition before writing. For modified composed files, it re-reads current contents. Individual writes validate path state and use temporary-file rename; failures are collected while later writes continue. This does not provide a repository-wide transaction.
+Apply checks every baseline path before preparing composition or writing. For modified composed files, it re-reads contents after that check. Each write checks its target and ancestors again, then uses a temporary-file rename. A later stale check stops remaining writes and reports the partial result. Other execution failures are collected while later writes continue. This does not provide a repository-wide transaction.
 
-`ApplyPreviewService` copies changed, non-skipped paths into a fresh `MemoryFileSystem`, runs actual Apply, and returns successful changed files. `RecipePreviewService` plans in another memory filesystem and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
+`ApplyPreviewService` checks the host baseline, copies every baseline path into a fresh `MemoryFileSystem`, checks the host baseline again, and runs guarded Apply against that private filesystem. It returns successful changed files. `RecipePreviewService` plans in another memory filesystem and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
 
-Private previews use VFS `makeCrypto`, which provides reproducible identity generation without a platform Crypto dependency. These volume identities are not security credentials. The public VFS `make` and `layer` APIs require an explicitly supplied Crypto service.
+Private previews use VFS `make` with an explicitly supplied Crypto service. Volume identities are not security credentials.
 
-Ordinary dry-run prepares actions without the same virtual write execution. Finalize commands use a process spawner, and the CLI can proceed into Finalize handling after reporting failed Apply paths.
+Ordinary dry-run checks the baseline and prepares actions without the same virtual write execution. Finalize commands use a process spawner, and the CLI can proceed into Finalize handling after reporting failed Apply paths.
 
-The [repository state decision](plan-apply-repository-state.md "defines the planned handoff") records accepted behavior that this code does not yet enforce. The [staged workspace research](../research/staged-workspace.md "addresses consistency gaps") proposes a shared foundation. The [validation research](../research/virtual-validation.md "examines host execution") retains the external-tool boundary.
+The [repository state decision](plan-apply-repository-state.md "defines the implemented handoff") records the freshness rule. The [staged workspace research](../research/staged-workspace.md "addresses consistency gaps") proposes a shared foundation. The [validation research](../research/virtual-validation.md "examines host execution") retains the external-tool boundary.
 
 ## Service ownership
 
