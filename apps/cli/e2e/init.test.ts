@@ -563,6 +563,7 @@ describe("init", () => {
             assert.match(discovered.stdout, /@repo\/domain/);
             assert.isFalse(/nx-pnpm-app/.test(discovered.stdout));
             yield* project.expectTypeCheckPasses("pnpm");
+            yield* project.expectBuildSucceeds("pnpm");
           });
         }),
       { timeout: 180_000 },

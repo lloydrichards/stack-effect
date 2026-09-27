@@ -47,10 +47,13 @@ const spawnCommand = (
   spawner: ChildProcessSpawner["Service"],
   args: ReadonlyArray<string>,
   cwd: string,
+  tempDir: string,
 ) => {
   const command = ChildProcess.make(args.join(" "), [], {
     cwd,
     env: {
+      TMPDIR: tempDir,
+      NX_DAEMON: "false",
       pnpm_config_frozen_lockfile: "false",
       pnpm_config_minimum_release_age: "0",
     },
@@ -80,6 +83,10 @@ class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
       const dir = yield* fs.makeTempDirectory({
         prefix: "stack-effect-e2e-",
       });
+      const tempDir = yield* fs.makeTempDirectory({
+        directory: dir,
+        prefix: "process-",
+      });
       yield* Scope.addFinalizer(
         scope,
         fs.remove(dir, { recursive: true }).pipe(
@@ -88,7 +95,7 @@ class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
         ),
       );
       yield* Effect.log(`Created workspace: ${dir}`);
-      return { dir };
+      return { dir, tempDir };
     }).pipe(Effect.orDie),
   },
 ) {
@@ -147,9 +154,10 @@ const makeProjectContext = (
   fs: FileSystem.FileSystem,
   path: Path.Path,
   spawner: ChildProcessSpawner["Service"],
+  tempDir: string,
 ): ProjectContext => {
   const run = (args: ReadonlyArray<string>) =>
-    spawnCommand(spawner, args, projectDir);
+    spawnCommand(spawner, args, projectDir, tempDir);
 
   const assertCommand = (label: string, ...args: ReadonlyArray<string>) =>
     run(args).pipe(
@@ -292,7 +300,7 @@ export class CLI extends Context.Service<CLI>()("e2e/CLI", {
     const workdir = container.dir;
 
     const run = (args: ReadonlyArray<string>) =>
-      spawnCommand(spawner, args, workdir);
+      spawnCommand(spawner, args, workdir, container.tempDir);
 
     let lastResult: CommandResult = { exitCode: -1, stdout: "", stderr: "" };
 
@@ -425,7 +433,13 @@ export class CLI extends Context.Service<CLI>()("e2e/CLI", {
         ) => Generator<Effect.Effect<any>, void, any>,
       ) => {
         const projectDir = path.join(workdir, projectName);
-        const project = makeProjectContext(projectDir, fs, path, spawner);
+        const project = makeProjectContext(
+          projectDir,
+          fs,
+          path,
+          spawner,
+          container.tempDir,
+        );
         return Effect.gen(() => fn(project));
       },
     };

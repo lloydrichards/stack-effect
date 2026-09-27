@@ -338,9 +338,9 @@ describe("generated language services", () => {
               "package.json",
               '"prepare": "effect-tsgo patch --oxlint"',
             );
-            yield* project.expectFileNotContaining(
+            yield* project.expectFileContaining(
               "package.json",
-              '"oxlint-tsgolint"',
+              '"oxlint-tsgolint": "7.0.2001"',
             );
             yield* project.expectFileContaining(
               "vite.config.ts",
