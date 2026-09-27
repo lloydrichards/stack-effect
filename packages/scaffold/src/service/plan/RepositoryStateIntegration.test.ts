@@ -5,12 +5,14 @@ import { describe, expect, it } from "@effect/vitest";
 import { Apply, StalePlanFailure } from "@repo/domain/Apply";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type { Plan } from "@repo/domain/Plan";
+import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { ApplyService } from "../apply/ApplyService";
+import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
 import { PlanService } from "./PlanService";
+import { RepositoryStateService } from "./RepositoryStateService";
 
 const repoRoot = "/repo";
 const target = new TargetIdentity({
@@ -48,6 +50,8 @@ const TestLayer = Layer.provideMerge(
     PlanService.layer,
     ApplyService.layer,
     ApplyPreviewService.layer,
+    ApplyWorkspaceService.layer,
+    RepositoryStateService.layer,
   ),
   Layer.merge(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
@@ -65,6 +69,33 @@ const build = buildAt(repoRoot);
 const intent = (plan: Plan) => new Apply({ plan, decisions: [] });
 
 describe("Plan and Apply repository state", () => {
+  it.effect(
+    "plans and applies real catalog files in one seeded workspace",
+    () =>
+      Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* files.makeDirectory(repoRoot, { recursive: true });
+        const repositoryState = yield* RepositoryStateService;
+        const workspaces = yield* ApplyWorkspaceService;
+        const baseline = yield* repositoryState.capture({
+          repoRoot,
+          paths: ["."],
+        });
+        const workspace = yield* workspaces.create({ repoRoot, baseline });
+        const plan = yield* workspace.plan({ blueprint, config });
+        const result = yield* workspace.materialize(intent(plan));
+
+        expect(result.apply.created.length).toBeGreaterThan(0);
+        expect(result.apply.failed).toEqual([]);
+        expect(result.files.map((file) => file.path)).toEqual(
+          result.apply.created,
+        );
+        expect(
+          yield* files.exists(`${repoRoot}/${result.apply.created[0]}`),
+        ).toBe(false);
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
   it.effect("plans and applies beneath a missing repository root", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
@@ -488,6 +519,102 @@ describe("Plan and Apply repository state", () => {
         expect(yield* files.readFileString(trigger.later)).toBe(
           "external late drift",
         );
+      }),
+  );
+
+  it.effect(
+    "continues after a write fails below a newly created directory",
+    () =>
+      Effect.gen(function* () {
+        const rawFileSystem = yield* MemoryFileSystem.make.pipe(
+          Effect.provide(BrowserCrypto.layer),
+        );
+        yield* rawFileSystem.makeDirectory(repoRoot, { recursive: true });
+        const rawLayer = Layer.mergeAll(
+          Layer.succeed(FileSystem.FileSystem, rawFileSystem),
+          Path.layer,
+        );
+        const baseline = yield* Effect.gen(function* () {
+          const state = yield* RepositoryStateService;
+          return yield* state.capture({
+            repoRoot,
+            paths: [".", "src", "src/a.txt", "src/b.txt"],
+          });
+        }).pipe(
+          Effect.provide(
+            RepositoryStateService.layer.pipe(Layer.provide(rawLayer)),
+          ),
+        );
+        let failedFirstWrite = false;
+        const failingFileSystem = new Proxy(rawFileSystem, {
+          get(target, key) {
+            if (key === "writeFileString") {
+              return (
+                filePath: string,
+                contents: string,
+                options?: Parameters<typeof target.writeFileString>[2],
+              ) => {
+                if (!failedFirstWrite && filePath.includes(".apply-temp-")) {
+                  failedFirstWrite = true;
+                  return Effect.fail(
+                    PlatformError.systemError({
+                      _tag: "Unknown",
+                      module: "FileSystem",
+                      method: "writeFileString",
+                      description: "injected temp write failure",
+                      pathOrDescriptor: filePath,
+                    }),
+                  );
+                }
+                return target.writeFileString(filePath, contents, options);
+              };
+            }
+            return Reflect.get(target, key);
+          },
+        });
+        const apply = new Apply({
+          plan: new Plan({
+            baseline,
+            outcomes: [
+              {
+                _tag: "complete",
+                path: "src/a.txt",
+                classification: "create",
+                contents: "A",
+              },
+              {
+                _tag: "complete",
+                path: "src/b.txt",
+                classification: "create",
+                contents: "B",
+              },
+            ],
+            conflicts: [],
+          }),
+          decisions: [],
+        });
+        const result = yield* Effect.gen(function* () {
+          const service = yield* ApplyService;
+          return yield* service.apply({ apply, repoRoot });
+        }).pipe(
+          Effect.provide(
+            ApplyService.layer.pipe(
+              Layer.provide(
+                Layer.mergeAll(
+                  Layer.succeed(FileSystem.FileSystem, failingFileSystem),
+                  Path.layer,
+                ),
+              ),
+            ),
+          ),
+        );
+
+        expect(failedFirstWrite).toBe(true);
+        expect(result.created).toEqual(["src/b.txt"]);
+        expect(result.failed.map((entry) => entry.path)).toEqual(["src/a.txt"]);
+        expect(
+          yield* rawFileSystem.readFileString(`${repoRoot}/src/b.txt`),
+        ).toBe("B");
       }),
   );
 });

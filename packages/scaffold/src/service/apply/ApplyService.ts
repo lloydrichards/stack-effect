@@ -404,6 +404,14 @@ export class ApplyService extends Context.Service<
     }) {
       const attempts: Array<WriteAttempt> = [];
       const createdDirectories = new Set<string>();
+      const recordCreatedDirectories = (filePath: string) =>
+        applyIntent.plan.baseline.paths
+          .filter(
+            (entry) =>
+              entry._tag === "missing" &&
+              (entry.path === "." || filePath.startsWith(`${entry.path}/`)),
+          )
+          .forEach((entry) => createdDirectories.add(entry.path));
       yield* Effect.forEach(
         writeRequests,
         (writeRequest) =>
@@ -442,7 +450,13 @@ export class ApplyService extends Context.Service<
               });
             }
             const attempt = yield* writeEngine
-              .write({ repoRoot, write: writeRequest })
+              .write({
+                repoRoot,
+                write: writeRequest,
+                onParentDirectoryReady: Effect.sync(() =>
+                  recordCreatedDirectories(writeRequest.path),
+                ),
+              })
               .pipe(
                 Effect.catch((error) =>
                   Effect.succeed({
@@ -454,14 +468,7 @@ export class ApplyService extends Context.Service<
               );
             attempts.push(attempt);
             if (attempt.status === "created" || attempt.status === "modified") {
-              applyIntent.plan.baseline.paths
-                .filter(
-                  (entry) =>
-                    entry._tag === "missing" &&
-                    (entry.path === "." ||
-                      writeRequest.path.startsWith(`${entry.path}/`)),
-                )
-                .forEach((entry) => createdDirectories.add(entry.path));
+              recordCreatedDirectories(writeRequest.path);
             }
           }),
         { concurrency: 1, discard: true },

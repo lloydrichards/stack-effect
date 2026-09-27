@@ -7,11 +7,13 @@ import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
+import { Blueprint } from "@repo/domain/Blueprint";
 import {
   type CompositionOperation,
   Plan,
   type PlanOutcome,
 } from "@repo/domain/Plan";
+import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { ApplyPreviewService } from "./ApplyPreviewService";
@@ -78,6 +80,13 @@ const makeApply = (
 
 const TestLayer = Layer.provideMerge(
   ApplyPreviewService.layer,
+  Layer.merge(
+    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+    Path.layer,
+  ),
+);
+const WorkspaceTestLayer = Layer.provideMerge(
+  ApplyWorkspaceService.layer,
   Layer.merge(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
@@ -487,5 +496,111 @@ describe("ApplyWorkspaceService", () => {
         ),
       ),
     ),
+  );
+
+  it.effect("rejects a host Plan that changed after workspace creation", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const workspaces = yield* ApplyWorkspaceService;
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const first = makeApply([complete("bar.txt", "create", "A")]);
+      const second = makeApply([complete("foo.txt", "create", "B")]);
+      const workspace = yield* workspaces.create({
+        repoRoot,
+        baseline: first.plan.baseline,
+      });
+      yield* hostFileSystem.writeFileString(
+        `${repoRoot}/foo.txt`,
+        "user content",
+      );
+
+      const failure = yield* Effect.flip(workspace.materialize(second));
+      expect(failure._tag).toBe("StalePlanFailure");
+      if (failure._tag === "StalePlanFailure") {
+        expect(failure.changes).toContainEqual({
+          path: "foo.txt",
+          kind: "created",
+        });
+      }
+      expect(yield* hostFileSystem.readFileString(`${repoRoot}/foo.txt`)).toBe(
+        "user content",
+      );
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
+  );
+
+  it.effect("rejects a different host baseline even when it is current", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const workspaces = yield* ApplyWorkspaceService;
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const first = makeApply([complete("bar.txt", "create", "A")]);
+      const second = makeApply([complete("foo.txt", "create", "B")]);
+      const workspace = yield* workspaces.create({
+        repoRoot,
+        baseline: first.plan.baseline,
+      });
+
+      const failure = yield* Effect.flip(workspace.materialize(second));
+      expect(failure._tag).toBe("ApplyFailure");
+      if (failure._tag === "ApplyFailure") {
+        expect(failure.reason).toBe("invalidApplyIntent");
+      }
+      expect(yield* hostFileSystem.exists(`${repoRoot}/foo.txt`)).toBe(false);
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
+  );
+
+  it.effect("rechecks the seeded host Plan before materializing", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const workspaces = yield* ApplyWorkspaceService;
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const apply = makeApply([complete("foo.txt", "create", "generated")]);
+      const workspace = yield* workspaces.create({
+        repoRoot,
+        baseline: apply.plan.baseline,
+      });
+      yield* hostFileSystem.writeFileString(
+        `${repoRoot}/foo.txt`,
+        "user content",
+      );
+
+      const failure = yield* Effect.flip(workspace.materialize(apply));
+      expect(failure._tag).toBe("StalePlanFailure");
+      if (failure._tag === "StalePlanFailure") {
+        expect(failure.changes).toContainEqual({
+          path: "foo.txt",
+          kind: "created",
+        });
+      }
+      expect(yield* hostFileSystem.readFileString(`${repoRoot}/foo.txt`)).toBe(
+        "user content",
+      );
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
+  );
+
+  it.effect("materializes a Plan built in a seeded workspace", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const workspaces = yield* ApplyWorkspaceService;
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const workspace = yield* workspaces.create({
+        repoRoot,
+        baseline: { root: repoRoot, paths: [{ _tag: "directory", path: "." }] },
+      });
+      const plan = yield* workspace.plan({
+        blueprint: new Blueprint({ nodes: [], edges: [] }),
+        config: new StackConfig({
+          name: Schema.NonEmptyString.make("app"),
+          runtime: { _tag: "bun" },
+        }),
+      });
+      const result = yield* workspace.materialize(
+        new Apply({ plan, decisions: [] }),
+      );
+
+      expect(plan.baseline.root).toBe("/workspace");
+      expect(result.apply.failed).toEqual([]);
+      expect(result.files).toEqual([]);
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 });

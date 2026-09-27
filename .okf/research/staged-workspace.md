@@ -16,12 +16,12 @@ sources:
   - id: vfs
     resource: https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts
     title: Inspected VFS overlay implementation
-generated: { by: codex, at: "2026-09-27T10:25:59+00:00" }
+generated: { by: codex, at: "2026-09-27T10:47:32+00:00" }
 ---
 
 # Staged workspace lifecycle
 
-The bounded workspace facility is now implemented in `ApplyWorkspaceService`. It owns selective repository seeding, private Plan and Apply bindings, and capture of successful changed files. The session coordinator, decision experiments, host publication, and complete-tree artifact questions below remain proposals.
+The bounded workspace facility is now implemented in `ApplyWorkspaceService`. It owns selective repository seeding, private Plan and Apply bindings, and capture of successful changed files. A host-seeded workspace accepts its matching host Plan after a freshness check; Plans built within the workspace use its private state. The session coordinator, decision experiments, host publication, and complete-tree artifact questions below remain proposals.
 
 The scaffold-owned workspace centralizes creation, seeding, filesystem binding, and capture. A future workflow coordinator would own the baseline, Plan, conflict decisions, and candidate lifetime. Keep that facility narrower than end-to-end orchestration.
 

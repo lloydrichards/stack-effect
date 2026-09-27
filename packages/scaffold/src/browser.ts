@@ -8,6 +8,7 @@ export {
   type ApplyWorkspace,
   ApplyWorkspaceService,
   type MaterializedApply,
+  type MaterializedFile,
 } from "./service/apply/ApplyWorkspaceService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export { PlanService } from "./service/plan/PlanService";

@@ -30,6 +30,7 @@ export interface WriteEngineShape {
   readonly write: (input: {
     readonly repoRoot: string;
     readonly write: ApplyWriteRequest;
+    readonly onParentDirectoryReady?: Effect.Effect<void>;
   }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
 }
 
@@ -156,9 +157,11 @@ export class WriteEngine extends Context.Service<
     const write = Effect.fn("WriteEngine.write")(function* ({
       repoRoot,
       write,
+      onParentDirectoryReady,
     }: {
       repoRoot: string;
       write: ApplyWriteRequest;
+      onParentDirectoryReady?: Effect.Effect<void>;
     }) {
       const absolutePath = path.join(repoRoot, write.path);
 
@@ -189,6 +192,9 @@ export class WriteEngine extends Context.Service<
               }),
           ),
         );
+      if (onParentDirectoryReady !== undefined) {
+        yield* onParentDirectoryReady;
+      }
 
       yield* atomicWrite({
         path: absolutePath,

@@ -12,7 +12,6 @@ import { pathOrd } from "@repo/domain/Order";
 import { Plan, type PlanBaseline, type PlanFailure } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
-import type { ApplyPreviewFile } from "../../RecipePreviewSchema";
 import { PlanService } from "../plan/PlanService";
 import {
   RepositoryStateService,
@@ -22,9 +21,15 @@ import { ApplyService } from "./ApplyService";
 
 const workspaceRoot = "/workspace";
 
+export type MaterializedFile = {
+  readonly path: string;
+  readonly status: "created" | "modified";
+  readonly contents: string;
+};
+
 export type MaterializedApply = {
   readonly apply: ApplyResult;
-  readonly files: ReadonlyArray<ApplyPreviewFile>;
+  readonly files: ReadonlyArray<MaterializedFile>;
 };
 
 export interface ApplyWorkspace {
@@ -142,41 +147,69 @@ export class ApplyWorkspaceService extends Context.Service<
         Layer.succeed(FileSystem.FileSystem, fileSystem),
         Layer.succeed(Path.Path, virtualPath),
       );
+      // The host and private roots can have the same path; retain the origin of Plans built here.
+      const workspacePlans = new WeakSet<Plan>();
       const plan = Effect.fn("ApplyWorkspace.plan")(function* ({
         blueprint,
         config,
       }: Parameters<ApplyWorkspace["plan"]>[0]) {
         const service = yield* PlanService;
-        return yield* service.build({
+        const result = yield* service.build({
           blueprint,
           config,
           repoRoot: workspaceRoot,
         });
+        workspacePlans.add(result);
+        return result;
       });
 
       const materialize: ApplyWorkspace["materialize"] = Effect.fn(
         "ApplyWorkspace.materialize",
       )(function* (apply) {
-        if (
-          apply.plan.baseline.root !== (input?.baseline.root ?? workspaceRoot)
-        ) {
-          return yield* stale([{ path: ".", kind: "rootChanged" }]);
+        const workspacePlan =
+          apply.plan.baseline.root === workspaceRoot &&
+          (input === undefined || workspacePlans.has(apply.plan));
+        if (!workspacePlan) {
+          if (
+            input === undefined ||
+            apply.plan.baseline.root !== input.baseline.root
+          ) {
+            return yield* stale([{ path: ".", kind: "rootChanged" }]);
+          }
+          const changes = yield* repositoryState.verify({
+            baseline: apply.plan.baseline,
+            repoRoot: input.repoRoot,
+          });
+          if (changes.length > 0) return yield* stale(changes);
+          if (
+            input.baseline.paths.length !== apply.plan.baseline.paths.length ||
+            repositoryState.compare(input.baseline, apply.plan.baseline)
+              .length > 0
+          ) {
+            return yield* new ApplyFailure({
+              reason: "invalidApplyIntent",
+              message:
+                "Apply baseline differs from the seeded workspace. Create a new workspace for this Plan.",
+            });
+          }
         }
-        const workspaceApply = new Apply({
-          plan: new Plan({
-            baseline: {
-              root: workspaceRoot,
-              paths: Arr.map(apply.plan.baseline.paths, (entry) =>
-                entry.path === "." && entry._tag === "missing"
-                  ? { _tag: "directory" as const, path: entry.path }
-                  : entry,
-              ),
-            },
-            outcomes: [...apply.plan.outcomes],
-            conflicts: [...apply.plan.conflicts],
-          }),
-          decisions: [...apply.decisions],
-        });
+        const workspaceApply = workspacePlan
+          ? apply
+          : new Apply({
+              plan: new Plan({
+                baseline: {
+                  root: workspaceRoot,
+                  paths: Arr.map(apply.plan.baseline.paths, (entry) =>
+                    entry.path === "." && entry._tag === "missing"
+                      ? { _tag: "directory" as const, path: entry.path }
+                      : entry,
+                  ),
+                },
+                outcomes: [...apply.plan.outcomes],
+                conflicts: [...apply.plan.conflicts],
+              }),
+              decisions: [...apply.decisions],
+            });
         const result = yield* Effect.gen(function* () {
           const service = yield* ApplyService;
           return yield* service.apply({
