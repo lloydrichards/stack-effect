@@ -1,12 +1,19 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
-import { type Apply, ApplyFailure, type ApplyResult } from "@repo/domain/Apply";
+import {
+  Apply,
+  ApplyFailure,
+  ApplyResult,
+  StalePlanFailure,
+} from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
+import { Plan } from "@repo/domain/Plan";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
 import {
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,
 } from "../../RecipePreviewSchema";
+import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { ApplyService } from "./ApplyService";
 
 export type { ApplyPreviewFile };
@@ -21,7 +28,7 @@ export interface ApplyPreviewServiceShape {
   readonly preview: (input: {
     readonly apply: Apply;
     readonly repoRoot: string;
-  }) => Effect.Effect<ApplyPreview, ApplyFailure, never>;
+  }) => Effect.Effect<ApplyPreview, ApplyFailure | StalePlanFailure, never>;
 }
 
 export class ApplyPreviewService extends Context.Service<
@@ -32,6 +39,7 @@ export class ApplyPreviewService extends Context.Service<
     const hostFileSystem = yield* FileSystem.FileSystem;
     const hostPath = yield* Path.Path;
     const virtualPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
+    const repositoryState = yield* RepositoryStateService;
 
     const preview = Effect.fn("ApplyPreviewService.preview")(function* ({
       apply,
@@ -40,28 +48,44 @@ export class ApplyPreviewService extends Context.Service<
       readonly apply: Apply;
       readonly repoRoot: string;
     }) {
+      const initialChanges = yield* repositoryState.verify({
+        baseline: apply.plan.baseline,
+        repoRoot,
+      });
+      if (initialChanges.length > 0) {
+        return yield* new StalePlanFailure({
+          changes: initialChanges,
+          partialResult: new ApplyResult({
+            created: [],
+            modified: [],
+            skipped: [],
+            failed: [],
+          }),
+          message: `Repository changed since planning: ${initialChanges.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+        });
+      }
       const memoryFileSystem = yield* MemoryFileSystem.make.pipe(
         Effect.provide(BrowserCrypto.layer),
       );
       const workspaceRoot = "/workspace";
-      const decisions = new Map(
-        Arr.map(apply.decisions, (decision) => [decision.path, decision.value]),
-      );
-      const relevantPaths = Arr.map(
-        Arr.filter(
-          apply.plan.outcomes,
-          (outcome) =>
-            outcome.classification !== "unchanged" &&
-            !(
-              outcome.classification === "conflict" &&
-              decisions.get(outcome.path) === "skip"
-            ),
-        ),
-        (outcome) => outcome.path,
+      yield* memoryFileSystem
+        .makeDirectory(workspaceRoot, { recursive: true })
+        .pipe(
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                reason: "executionFailure",
+                message: `Could not initialize apply preview: ${error.message}`,
+              }),
+          ),
+        );
+      const baselinePaths = Arr.map(
+        apply.plan.baseline.paths,
+        (entry) => entry.path,
       );
 
       yield* Effect.forEach(
-        relevantPaths,
+        baselinePaths,
         (relativePath) =>
           Effect.gen(function* () {
             const sourcePath = hostPath.join(repoRoot, relativePath);
@@ -99,24 +123,22 @@ export class ApplyPreviewService extends Context.Service<
               return;
             }
 
-            const contents = yield* hostFileSystem
-              .readFileString(sourcePath)
-              .pipe(
-                Effect.mapError(
-                  (error) =>
-                    new ApplyFailure({
-                      reason: "repoRootInvalid",
-                      message: `Could not read ${sourcePath} during apply preview: ${error.message}`,
-                    }),
-                ),
-              );
+            const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
+              Effect.mapError(
+                (error) =>
+                  new ApplyFailure({
+                    reason: "repoRootInvalid",
+                    message: `Could not read ${sourcePath} during apply preview: ${error.message}`,
+                  }),
+              ),
+            );
             yield* memoryFileSystem
               .makeDirectory(virtualPath.dirname(memoryPath), {
                 recursive: true,
               })
               .pipe(
                 Effect.andThen(
-                  memoryFileSystem.writeFileString(memoryPath, contents),
+                  memoryFileSystem.writeFile(memoryPath, contents),
                 ),
                 Effect.mapError(
                   (error) =>
@@ -130,6 +152,23 @@ export class ApplyPreviewService extends Context.Service<
         { concurrency: 1, discard: true },
       );
 
+      const finalChanges = yield* repositoryState.verify({
+        baseline: apply.plan.baseline,
+        repoRoot,
+      });
+      if (finalChanges.length > 0) {
+        return yield* new StalePlanFailure({
+          changes: finalChanges,
+          partialResult: new ApplyResult({
+            created: [],
+            modified: [],
+            skipped: [],
+            failed: [],
+          }),
+          message: `Repository changed since planning: ${finalChanges.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+        });
+      }
+
       const memoryLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, memoryFileSystem),
         Layer.succeed(Path.Path, virtualPath),
@@ -137,9 +176,27 @@ export class ApplyPreviewService extends Context.Service<
       const applyLayer = Layer.fresh(ApplyService.layer).pipe(
         Layer.provide(memoryLayer),
       );
+      const previewApply = new Apply({
+        plan: new Plan({
+          baseline: {
+            root: workspaceRoot,
+            paths: Arr.map(apply.plan.baseline.paths, (entry) =>
+              entry.path === "." && entry._tag === "missing"
+                ? { _tag: "directory" as const, path: entry.path }
+                : entry,
+            ),
+          },
+          outcomes: [...apply.plan.outcomes],
+          conflicts: [...apply.plan.conflicts],
+        }),
+        decisions: [...apply.decisions],
+      });
       const result = yield* Effect.gen(function* () {
         const applyService = yield* ApplyService;
-        return yield* applyService.apply({ apply, repoRoot: workspaceRoot });
+        return yield* applyService.apply({
+          apply: previewApply,
+          repoRoot: workspaceRoot,
+        });
       }).pipe(Effect.provide(applyLayer));
 
       const successfulPaths = Arr.sort(
@@ -185,5 +242,5 @@ export class ApplyPreviewService extends Context.Service<
 }) {
   static readonly layer = Layer.effect(ApplyPreviewService)(
     ApplyPreviewService.make,
-  );
+  ).pipe(Layer.provide(RepositoryStateService.layer));
 }

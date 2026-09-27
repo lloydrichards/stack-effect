@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { Apply, StalePlanFailure } from "@repo/domain/Apply";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
@@ -48,7 +49,10 @@ const TestLayer = Layer.provideMerge(
     ApplyService.layer,
     ApplyPreviewService.layer,
   ),
-  Layer.merge(MemoryFileSystem.layer, Path.layer),
+  Layer.merge(
+    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+    Path.layer,
+  ),
 );
 
 const buildAt = (root: string) =>
@@ -413,7 +417,9 @@ describe("Plan and Apply repository state", () => {
     "stops with a partial result when a later path changes during Apply",
     () =>
       Effect.gen(function* () {
-        const files = yield* MemoryFileSystem.make;
+        const files = yield* MemoryFileSystem.make.pipe(
+          Effect.provide(BrowserCrypto.layer),
+        );
         yield* files.makeDirectory(repoRoot, { recursive: true });
         const trigger = { first: "", later: "" };
         const wrapped = {
