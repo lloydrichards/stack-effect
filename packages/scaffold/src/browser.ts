@@ -1,5 +1,18 @@
 export { MemoryFileSystem } from "@effect-vfs/memory";
 export {
+  CatalogCache,
+  CatalogCacheFailure,
+  type CatalogCacheEntry,
+  type CatalogCacheShape,
+} from "./service/catalog/CatalogCache";
+export {
+  CatalogLoader,
+  CatalogLoadFailure,
+  type CatalogLoadWarning,
+  type CatalogLoadReason,
+  type LoadedCatalog,
+} from "./service/catalog/CatalogLoader";
+export {
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,
   ApplyPreviewService,

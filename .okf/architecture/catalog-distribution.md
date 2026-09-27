@@ -25,7 +25,7 @@ generated: { by: codex, at: "2026-09-27T21:00:00+02:00" }
 
 # Catalog distribution and freshness
 
-Status: Accepted direction. Local work for #249 now composes and validates explicitly supplied definitions, then injects one catalog through scaffold services. The CLI and Recipe Builder still use a temporary bundled adapter. HTTP loading, caching, publication, and deployed behavior remain unimplemented. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
+Status: Accepted direction. Local work for #249 composes and injects validated definitions. Local work for #271 defines the v1 JSON document and a shared HTTP loader with validated cache fallback. The CLI and Recipe Builder still use a temporary bundled adapter. Persistent cache adapters, client wiring, publication, and deployed behavior remain unimplemented. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
 
 ## Separate content delivery from engine releases
 

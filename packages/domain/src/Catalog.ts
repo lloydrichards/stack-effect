@@ -376,11 +376,29 @@ export const CatalogFragment = Schema.Struct({
 
 export type CatalogFragment = typeof CatalogFragment.Type;
 
+export const CatalogDocument = Schema.Struct({
+  formatVersion: Schema.Literal(1),
+  catalogId: Schema.NonEmptyString,
+  requiredCapabilities: Schema.Array(Schema.String),
+  targets: Schema.Array(TargetDefinition),
+  modules: Schema.Array(ModuleDefinition),
+});
+
+export type CatalogDocument = typeof CatalogDocument.Type;
+
 export class CatalogValidationError extends Data.TaggedError(
   "CatalogValidationError",
 )<{ readonly issues: ReadonlyArray<string> }> {
   override get message(): string {
     return `Invalid catalog: ${this.issues.join("; ")}`;
+  }
+}
+
+export class CatalogCapabilityError extends Data.TaggedError(
+  "CatalogCapabilityError",
+)<{ readonly capabilities: ReadonlyArray<string> }> {
+  override get message(): string {
+    return `Catalog requires unsupported or undeclared interpreter capabilities: ${this.capabilities.join(", ")}`;
   }
 }
 
