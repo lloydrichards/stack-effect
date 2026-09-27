@@ -6,3 +6,5 @@
 - [Virtual validation and Finalize](virtual-validation.md) separates in-memory checks from external command execution.
 
 - [Effect VFS design review](effect-vfs-review.md) preserves the dated source review and bounded experiment behind these proposals.
+
+- [HTTP catalog registry](catalog-registry.md) compares independent catalog releases, community composition, and VFS compatibility.
