@@ -97,9 +97,7 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(BlueprintService)(
-    BlueprintService.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  static readonly layer = Layer.effect(BlueprintService)(BlueprintService.make);
 }
 
 const validateSelection = Effect.fn("BlueprintService.validateSelection")(

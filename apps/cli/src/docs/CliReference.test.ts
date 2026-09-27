@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { Effect, Layer } from "effect";
 import pkg from "../../package.json";
 import { stackEffectCommand } from "../command";
@@ -8,6 +9,7 @@ import { collectCliReference, validateCliReference } from "./CliReference";
 import { renderCliReferencePages } from "./CliReferenceMarkdown";
 
 const TestLayer = StackEffectServicesLayer.pipe(
+  Layer.provideMerge(BundledCatalogLayer),
   Layer.provideMerge(NodeServices.layer),
 );
 

@@ -1,5 +1,6 @@
 import type {
   CatalogGraph,
+  CatalogFragment,
   CatalogTree,
   ModuleCapability,
   ModuleCategory,
@@ -20,8 +21,7 @@ import {
   Match,
   Result,
 } from "effect";
-import { moduleRegistry } from "./registry/moduleRegistry";
-import { targetRegistry } from "./registry/targetRegistry";
+import { composeCatalog } from "./composeCatalog";
 
 export type BuilderCatalogTarget = {
   readonly kind: typeof TargetKind.Type;
@@ -101,10 +101,16 @@ const requiredCapabilityDependency = Match.type<
   Match.orElse(() => Result.fail("skip" as const)),
 );
 
+const CatalogDefinitions = Context.Service<CatalogFragment>(
+  "@repo/catalog/CatalogDefinitions",
+);
+
 export class CatalogService extends Context.Service<CatalogService>()(
   "CatalogService",
   {
     make: Effect.gen(function* () {
+      const { targets: targetRegistry, modules: moduleRegistry } =
+        yield* CatalogDefinitions;
       const targetIndex = new Map(targetRegistry.map((t) => [t.kind, t]));
       const moduleIndex = new Map(moduleRegistry.map((m) => [m.id, m]));
 
@@ -456,5 +462,13 @@ export class CatalogService extends Context.Service<CatalogService>()(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(CatalogService)(CatalogService.make);
+  static readonly fromFragments = (
+    fragments: ReadonlyArray<unknown>,
+    options?: { readonly trustedFragmentIndex?: number },
+  ) =>
+    Layer.effect(CatalogService)(CatalogService.make).pipe(
+      Layer.provide(
+        Layer.effect(CatalogDefinitions)(composeCatalog(fragments, options)),
+      ),
+    );
 }

@@ -189,9 +189,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
     }),
   },
 ) {
-  static readonly layer = Layer.effect(FinalizeService)(
-    FinalizeService.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  static readonly layer = Layer.effect(FinalizeService)(FinalizeService.make);
 }
 
 const createTokenContext = (

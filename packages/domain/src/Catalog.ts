@@ -369,6 +369,21 @@ export const TargetDefinition = Schema.Struct({
   ),
 });
 
+export const CatalogFragment = Schema.Struct({
+  targets: Schema.Array(TargetDefinition),
+  modules: Schema.Array(ModuleDefinition),
+});
+
+export type CatalogFragment = typeof CatalogFragment.Type;
+
+export class CatalogValidationError extends Data.TaggedError(
+  "CatalogValidationError",
+)<{ readonly issues: ReadonlyArray<string> }> {
+  override get message(): string {
+    return `Invalid catalog: ${this.issues.join("; ")}`;
+  }
+}
+
 export const CatalogNode = Schema.TaggedUnion({
   target: {
     definition: TargetDefinition,

@@ -18,6 +18,9 @@
 | `bun run type-check`              | Run TypeScript checks across workspaces    |
 | `bun run test`                    | Run workspace tests through Turbo + Vitest |
 | `bun run test --filter=<package>` | Run tests for a specific workspace         |
+| `bun run catalog:reset-workspace` | Build the local authoring catalog workspace |
+| `bun run catalog:diff-workspace` | Compare generated authoring files           |
+| `bun run catalog:validate-workspace` | Validate generated authoring files      |
 
 ## Tech Stack
 
@@ -64,6 +67,8 @@ Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
 ```
 
 The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*`. Users run `stack-effect init` to create a project and `stack-effect add` to incrementally add targets (client, server, cli, package) with modules (features).
+
+The root `catalog:*` scripts use `apps/cli/src/authoring.ts` and local definitions. Published `stack-effect catalog workspace` command names remain available through the CLI entrypoint.
 
 ## Core Priorities
 

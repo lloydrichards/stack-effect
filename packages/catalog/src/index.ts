@@ -5,3 +5,4 @@ export {
   type BuilderCatalogTargetModules,
   CatalogService,
 } from "./CatalogService";
+export { composeCatalog } from "./composeCatalog";

@@ -1,4 +1,3 @@
-import { CatalogService } from "@repo/catalog";
 import {
   ApplyPreviewService,
   ApplyService,
@@ -24,4 +23,4 @@ export const StackEffectServicesLayer = Layer.mergeAll(
   ConfigureService.layer,
   RecipeService.layer,
   ScaffoldPipeline.layer,
-).pipe(Layer.provideMerge(CatalogService.layer));
+);

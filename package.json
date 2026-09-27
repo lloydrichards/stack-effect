@@ -7,9 +7,9 @@
   },
   "scripts": {
     "build": "turbo run build",
-    "catalog:diff-workspace": "bun run start -- catalog workspace diff --root workspace/catalog-built",
-    "catalog:reset-workspace": "bun run start -- catalog workspace reset --root workspace/catalog-built",
-    "catalog:validate-workspace": "bun run start -- catalog workspace validate --root workspace/catalog-built",
+    "catalog:diff-workspace": "bun apps/cli/src/authoring.ts catalog workspace diff --root workspace/catalog-built",
+    "catalog:reset-workspace": "bun apps/cli/src/authoring.ts catalog workspace reset --root workspace/catalog-built",
+    "catalog:validate-workspace": "bun apps/cli/src/authoring.ts catalog workspace validate --root workspace/catalog-built",
     "clean": "turbo run clean && git clean -xdf node_modules .cache .turbo dist tsconfig.tsbuildinfo playwright-report test-results",
     "dev": "turbo run dev",
     "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",

@@ -1,7 +1,14 @@
 import { assert, it } from "@effect/vitest";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { CatalogService } from "@repo/catalog";
+import { BundledCatalogLayer, bundledCatalog } from "@repo/catalog/authoring";
+import {
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+  type ModuleDefinition,
+} from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Schema } from "effect";
+import { Effect, Graph, Layer, Schema } from "effect";
 import { RecipePreviewService } from "./RecipePreviewService";
 
 const PackageJsonFromJsonString = Schema.fromJsonString(
@@ -14,6 +21,85 @@ const UnknownFromJsonString = Schema.decodeUnknownSync(
   Schema.fromJsonString(Schema.Json),
 );
 const decodePackageJson = Schema.decodeUnknownSync(PackageJsonFromJsonString);
+
+it.effect(
+  "plans and previews a module supplied outside the built-in registry",
+  () => {
+    const extra: typeof ModuleDefinition.Type = {
+      id: ModuleId.make("package-extra-example"),
+      title: "Extra example",
+      description: "A contributed file",
+      supportedOn: [{ _tag: "kind", kind: TargetKind.make("package") }],
+      dependencies: [],
+      contributions: [
+        {
+          _tag: "file",
+          path: "{{targetPath}}/extra.txt",
+          contents: "from fragment\n",
+        },
+      ],
+    };
+    const catalogLayer = CatalogService.fromFragments(
+      [bundledCatalog, { targets: [], modules: [extra] }],
+      { trustedFragmentIndex: 0 },
+    );
+    return Effect.gen(function* () {
+      const catalog = yield* CatalogService;
+      const previews = yield* RecipePreviewService;
+      const projection = yield* catalog.toBuilderCatalog([
+        new TargetIdentity({ kind: TargetKind.make("package"), name: "extra" }),
+      ]);
+      assert.isTrue(
+        projection.targetModules[0]?.modules.some(
+          (module) => module.id === extra.id,
+        ),
+      );
+      assert.isTrue(
+        catalog.toCatalogTree.targets.some((target) =>
+          target.modules.some((module) => module.id === extra.id),
+        ),
+      );
+      assert.isTrue(
+        [...Graph.nodes(catalog.toGraph)].some(
+          ([, node]) =>
+            node._tag === "module" && node.definition.id === extra.id,
+        ),
+      );
+      const preview = yield* previews.preview({
+        config: new StackConfig({
+          name: Schema.NonEmptyString.make("extra-project"),
+          runtime: { _tag: "bun" },
+        }),
+        recipe: {
+          targets: [
+            {
+              target: new TargetIdentity({
+                kind: TargetKind.make("package"),
+                name: "extra",
+              }),
+              modules: [extra.id],
+            },
+          ],
+        },
+      });
+      assert.isTrue(
+        preview.blueprint.nodes.some(
+          (node) =>
+            node._tag === "attached-module" && node.moduleId === extra.id,
+        ),
+      );
+      assert.strictEqual(
+        preview.files.find((file) => file.path === "packages/extra/extra.txt")
+          ?.contents,
+        "from fragment\n",
+      );
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provideMerge(catalogLayer)),
+      ),
+    );
+  },
+);
 
 const previewQualityConfig = (
   lint: "biome" | "oxlint",
@@ -59,7 +145,11 @@ it.effect("should preview Deno SQLite files", () =>
     assert.isTrue(
       preview.files.some((file) => file.path === "packages/db/src/Database.ts"),
     );
-  }).pipe(Effect.provide(RecipePreviewService.layer)),
+  }).pipe(
+    Effect.provide(
+      RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+    ),
+  ),
 );
 
 it.effect(
@@ -102,7 +192,11 @@ it.effect(
         fileContents(".vscode/settings.json"),
         "source.organizeImports.biome",
       );
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect(
@@ -120,7 +214,11 @@ it.effect(
       assert.strictEqual(packageJson.scripts["format:check"], "oxfmt --check");
       assert.strictEqual(packageJson.devDependencies["oxfmt"], "^0.65.0");
       assert.isUndefined(fileContents("dprint.json"));
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect(
@@ -155,7 +253,11 @@ it.effect(
           ],
         },
       );
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect(
@@ -174,7 +276,11 @@ it.effect(
         fileContents(".vscode/extensions.json"),
         '"recommendations": ["oxc.oxc-vscode"]',
       );
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect(
@@ -195,7 +301,11 @@ it.effect(
         fileContents(".vscode/settings.json"),
         "source.organizeImports.biome",
       );
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect(
@@ -211,7 +321,11 @@ it.effect(
         fileContents(".vscode/settings.json"),
         "source.organizeImports.biome",
       );
-    }).pipe(Effect.provide(RecipePreviewService.layer)),
+    }).pipe(
+      Effect.provide(
+        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      ),
+    ),
 );
 
 it.effect("should generate standalone Oxlint when monorepo is omitted", () =>
@@ -241,5 +355,9 @@ it.effect("should generate standalone Oxlint when monorepo is omitted", () =>
       fileContents(".oxlintrc.json"),
       "oxlint-presets/effect-native.json",
     );
-  }).pipe(Effect.provide(RecipePreviewService.layer)),
+  }).pipe(
+    Effect.provide(
+      RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+    ),
+  ),
 );

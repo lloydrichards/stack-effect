@@ -2,6 +2,7 @@
 
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
 import { CatalogService } from "@repo/catalog";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { ModuleCategory } from "@repo/domain/Catalog";
 import {
   RecipePreviewService,
@@ -59,8 +60,8 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
     });
   }),
 ).pipe(
-  Layer.provide(CatalogService.layer),
   Layer.provide(RecipePreviewService.layer),
+  Layer.provide(BundledCatalogLayer),
 );
 
 const WorkerLive = RpcServer.layer(RecipeBuilderRpc, {

@@ -1,6 +1,5 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
-import { CatalogService } from "@repo/catalog";
 import { Apply, ApplyFailure, type StalePlanFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
@@ -93,7 +92,6 @@ export class RecipePreviewService extends Context.Service<
   static readonly layer = Layer.effect(this, this.make).pipe(
     Layer.provide(RecipeService.layer),
     Layer.provide(BlueprintService.layer),
-    Layer.provide(CatalogService.layer),
     Layer.provide(
       ApplyWorkspaceService.layer.pipe(
         Layer.provide(

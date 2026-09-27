@@ -25,7 +25,7 @@ generated: { by: codex, at: "2026-09-27T21:00:00+02:00" }
 
 # Catalog distribution and freshness
 
-Status: Accepted direction, not yet implemented. Current code still bundles catalog definitions. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
+Status: Accepted direction. Local work for #249 now composes and validates explicitly supplied definitions, then injects one catalog through scaffold services. The CLI and Recipe Builder still use a temporary bundled adapter. HTTP loading, caching, publication, and deployed behavior remain unimplemented. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
 
 ## Separate content delivery from engine releases
 

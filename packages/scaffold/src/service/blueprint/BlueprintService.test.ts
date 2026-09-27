@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, layer } from "@effect/vitest";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import {
   type Blueprint,
   BlueprintFailure,
@@ -8,7 +9,7 @@ import {
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Cause, Effect, Exit, Schema } from "effect";
+import { Cause, Effect, Exit, Layer, Schema } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
 const domainIdentity = new TargetIdentity({
@@ -42,8 +43,12 @@ const denoConfig = new StackConfig({
   typescript: "6",
 });
 
+const TestLayer = BlueprintService.layer.pipe(
+  Layer.provide(BundledCatalogLayer),
+);
+
 describe("BlueprintService", () => {
-  layer(BlueprintService.layer)("resolve", (it) => {
+  layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {

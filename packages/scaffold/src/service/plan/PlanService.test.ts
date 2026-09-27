@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, it } from "@effect/vitest";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
@@ -221,6 +222,7 @@ const makePlanServiceLayer = (
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
     Layer.provide(makeRepositoryStateServiceLayer(load)),
     Layer.provide(assessorLayer),
+    Layer.provide(BundledCatalogLayer),
   );
 
 const buildPlan = ({

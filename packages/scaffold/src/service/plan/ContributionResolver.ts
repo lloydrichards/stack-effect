@@ -89,7 +89,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 ) {
   static readonly layer = Layer.effect(ContributionResolver)(
     ContributionResolver.make,
-  ).pipe(Layer.provide(CatalogService.layer));
+  );
 }
 
 const resolveContributionTokens = (

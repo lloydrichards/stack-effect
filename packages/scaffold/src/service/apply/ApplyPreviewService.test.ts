@@ -6,6 +6,7 @@ import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import {
@@ -80,16 +81,18 @@ const makeApply = (
 
 const TestLayer = Layer.provideMerge(
   ApplyPreviewService.layer,
-  Layer.merge(
+  Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
+    BundledCatalogLayer,
   ),
 );
 const WorkspaceTestLayer = Layer.provideMerge(
   ApplyWorkspaceService.layer,
-  Layer.merge(
+  Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
+    BundledCatalogLayer,
   ),
 );
 describe("ApplyPreviewService", () => {
@@ -279,6 +282,7 @@ describe("ApplyPreviewService", () => {
       );
       const previewLayer = ApplyPreviewService.layer.pipe(
         Layer.provide(hostLayer),
+        Layer.provide(BundledCatalogLayer),
       );
       const windowsRepoRoot = "C:\\repo";
       const packageJsonPath = nodePath.win32.join(
@@ -437,7 +441,9 @@ describe("ApplyWorkspaceService", () => {
       }).pipe(
         Effect.provide(
           Layer.provideMerge(
-            ApplyWorkspaceService.layer,
+            ApplyWorkspaceService.layer.pipe(
+              Layer.provide(BundledCatalogLayer),
+            ),
             Layer.merge(
               Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
               Path.layer,
@@ -488,7 +494,7 @@ describe("ApplyWorkspaceService", () => {
     }).pipe(
       Effect.provide(
         Layer.provideMerge(
-          ApplyWorkspaceService.layer,
+          ApplyWorkspaceService.layer.pipe(Layer.provide(BundledCatalogLayer)),
           Layer.merge(
             Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
             Path.layer,

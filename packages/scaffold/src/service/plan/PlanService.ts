@@ -1,4 +1,3 @@
-import { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
@@ -179,6 +178,5 @@ export class PlanService extends Context.Service<
     Layer.provide(RepoSnapshotService.layer),
     Layer.provide(RepositoryStateService.layer),
     Layer.provide(PlanAssessor.layer),
-    Layer.provide(CatalogService.layer),
   );
 }

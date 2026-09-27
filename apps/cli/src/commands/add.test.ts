@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { type CollectedTarget, resolveCapabilities } from "./add";
@@ -44,6 +44,6 @@ describe("add capability resolution", () => {
         modules: ["package-db-sqlite"],
         confirmed: false,
       });
-    }).pipe(Effect.provide(CatalogService.layer)),
+    }).pipe(Effect.provide(BundledCatalogLayer)),
   );
 });

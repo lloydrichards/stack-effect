@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
+import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { Apply, StalePlanFailure } from "@repo/domain/Apply";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
@@ -53,9 +54,10 @@ const TestLayer = Layer.provideMerge(
     ApplyWorkspaceService.layer,
     RepositoryStateService.layer,
   ),
-  Layer.merge(
+  Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
+    BundledCatalogLayer,
   ),
 );
 
@@ -482,7 +484,9 @@ describe("Plan and Apply repository state", () => {
               ),
         };
         const layer = Layer.provideMerge(
-          Layer.merge(PlanService.layer, ApplyService.layer),
+          Layer.merge(PlanService.layer, ApplyService.layer).pipe(
+            Layer.provide(BundledCatalogLayer),
+          ),
           Layer.merge(
             Layer.succeed(FileSystem.FileSystem, wrapped),
             Path.layer,

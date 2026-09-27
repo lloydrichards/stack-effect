@@ -1,5 +1,6 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
+import { CatalogService } from "@repo/catalog";
 import {
   Apply,
   ApplyFailure,
@@ -58,6 +59,7 @@ export class ApplyWorkspaceService extends Context.Service<
     const hostPath = yield* Path.Path;
     const virtualPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
     const repositoryState = yield* RepositoryStateService;
+    const catalog = yield* CatalogService;
 
     const create: ApplyWorkspaceServiceShape["create"] = Effect.fn(
       "ApplyWorkspaceService.create",
@@ -260,6 +262,7 @@ export class ApplyWorkspaceService extends Context.Service<
           plan(input).pipe(
             Effect.provide(
               Layer.fresh(PlanService.layer).pipe(
+                Layer.provide(Layer.succeed(CatalogService, catalog)),
                 Layer.provide(fileSystemLayer),
               ),
             ),
