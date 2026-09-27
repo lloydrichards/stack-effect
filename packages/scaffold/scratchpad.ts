@@ -4,7 +4,7 @@ import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
-import { Console, Effect, FileSystem, Layer, Random } from "effect";
+import { Console, Effect, FileSystem, Layer } from "effect";
 import { Box } from "effect-boxes";
 import {
   ApplyService,
@@ -104,7 +104,20 @@ const main = Effect.gen(function* () {
       }),
     });
     const formattedPlan = yield* formatter.formatPlan(plan);
-    yield* Console.log(`\n${formattedPlan}`);
+    yield* Console.log(
+      Box.renderPrettySync(
+        Box.vsep(
+          [
+            Box.text(formattedPlan.title),
+            Box.text(formattedPlan.summary),
+            formattedPlan.tree,
+            formattedPlan.legend,
+          ],
+          1,
+          Box.left,
+        ),
+      ),
+    );
 
     // Step 3: Plan → Apply
     const applyIntent = new ApplyIntent({

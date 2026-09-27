@@ -5,7 +5,7 @@ import { Schema } from "effect";
 
 describe("RecipeTargetString", () => {
   it("decodes compact target specs", () => {
-    const decoded = Schema.decodeUnknownSync(RecipeTargetString)(
+    const decoded = Schema.decodeSync(RecipeTargetString)(
       "client-react/web:client-react-chat,client-react-http-api",
     );
 
@@ -40,7 +40,7 @@ describe("RecipeTargetString", () => {
   });
 
   it("normalizes whitespace while decoding", () => {
-    const decoded = Schema.decodeUnknownSync(RecipeTargetString)(
+    const decoded = Schema.decodeSync(RecipeTargetString)(
       " server / api : server-http-api , server-chat-rpc ",
     );
 
@@ -57,7 +57,7 @@ describe("RecipeTargetString", () => {
   });
 
   it("preserves empty target names for default-name resolution", () => {
-    const decoded = Schema.decodeUnknownSync(RecipeTargetString)(
+    const decoded = Schema.decodeSync(RecipeTargetString)(
       "server/:server-chat-rpc",
     );
     const encoded = Schema.encodeUnknownSync(RecipeTargetString)(decoded);
@@ -70,7 +70,7 @@ describe("RecipeTargetString", () => {
   });
 
   it("round trips targets without modules", () => {
-    const decoded = Schema.decodeUnknownSync(RecipeTargetString)("server-mcp/");
+    const decoded = Schema.decodeSync(RecipeTargetString)("server-mcp/");
     const encoded = Schema.encodeUnknownSync(RecipeTargetString)(decoded);
 
     assert.deepStrictEqual(decoded, {
@@ -85,19 +85,15 @@ describe("RecipeTargetString", () => {
 
   it("rejects malformed target specs", () => {
     assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)(":server-http-api"),
+      Schema.decodeSync(RecipeTargetString)(":server-http-api"),
     );
+    assert.throws(() => Schema.decodeSync(RecipeTargetString)("server/api:"));
     assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)("server/api:"),
+      Schema.decodeSync(RecipeTargetString)(" /api:server-http-api"),
     );
+    assert.throws(() => Schema.decodeSync(RecipeTargetString)("server/api:,"));
     assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)(" /api:server-http-api"),
-    );
-    assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)("server/api:,"),
-    );
-    assert.throws(() =>
-      Schema.decodeUnknownSync(RecipeTargetString)("server:server-http-api"),
+      Schema.decodeSync(RecipeTargetString)("server:server-http-api"),
     );
   });
 });

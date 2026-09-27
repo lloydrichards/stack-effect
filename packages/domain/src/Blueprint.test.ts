@@ -120,7 +120,7 @@ describe("@repo/domain Blueprint", () => {
   });
 
   it("should preserve target identity behavior when decoding", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "package",
       name: "domain",
     });
@@ -302,8 +302,8 @@ describe("@repo/domain Blueprint", () => {
       edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
     };
 
-    return expect(
-      Schema.decodeUnknownPromise(Blueprint)(invalid),
-    ).rejects.toThrow("must have exactly one owns-module edge");
+    return expect(Schema.decodePromise(Blueprint)(invalid)).rejects.toThrow(
+      "must have exactly one owns-module edge",
+    );
   });
 });

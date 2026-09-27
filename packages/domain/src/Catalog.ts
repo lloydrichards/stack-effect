@@ -203,7 +203,7 @@ export const Contribution = Schema.TaggedUnion({
   /**
    * JSX slot injection - inserts content at a named slot marker in a file.
    *
-   * Template files use `{/* @slot:<slotId> *​/}` comments as injection points.
+   * Template files use `@slot:<slotId>` block comments as injection points.
    * Multiple contributions targeting the same slot are concatenated in order.
    * Optionally adds import statements to the top of the file.
    */

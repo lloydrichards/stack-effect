@@ -2,7 +2,6 @@ import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
   Contribution,
-  ModuleCategory,
   ModuleId,
   SupportedOn,
   TargetIdentity,
@@ -501,7 +500,7 @@ const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
     const packagesRoot = path.join(repoRoot, "packages");
     const packageNames = yield* fs
       .readDirectory(packagesRoot)
-      .pipe(Effect.catch(() => Effect.succeed([] as Array<string>)));
+      .pipe(Effect.orElseSucceed(() => [] as Array<string>));
     const scopeRoot = path.join(repoRoot, "node_modules", "@repo");
 
     yield* fs.makeDirectory(scopeRoot, { recursive: true });
@@ -593,13 +592,12 @@ const reset = Command.make(
         Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
 
-      yield* fs
-        .remove(repoRoot, { recursive: true })
-        .pipe(
-          Effect.catch((error) =>
-            error.reason._tag === "NotFound" ? Effect.void : Effect.fail(error),
-          ),
-        );
+      yield* fs.remove(repoRoot, { recursive: true }).pipe(
+        Effect.catchIf(
+          (error) => error.reason._tag === "NotFound",
+          () => Effect.void,
+        ),
+      );
       yield* fs.makeDirectory(repoRoot, { recursive: true });
 
       const config = new StackConfig({

@@ -151,8 +151,12 @@ const collectCommandHelp = <Name extends string, Input, ContextInput, E, R>(
     // Effect CLI exposes structured help through its public formatter boundary.
     // Capture that synchronous callback while running the regular --help path.
     let captured: HelpDoc.HelpDoc | undefined;
+    const defaultFormatter = CliOutput.defaultFormatter({ colors: false });
     const formatter: CliOutput.Formatter = {
-      ...CliOutput.defaultFormatter({ colors: false }),
+      formatCliError: defaultFormatter.formatCliError,
+      formatError: defaultFormatter.formatError,
+      formatErrors: defaultFormatter.formatErrors,
+      formatVersion: defaultFormatter.formatVersion,
       formatHelpDoc: (help) => {
         captured = help;
         return "";

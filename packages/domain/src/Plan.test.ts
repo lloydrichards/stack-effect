@@ -4,16 +4,12 @@ import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
   it("should accept supported classifications and reject unsupported values", () => {
-    expect(Schema.decodeUnknownSync(PlanEntryClassification)("create")).toBe(
-      "create",
-    );
-    expect(Schema.decodeUnknownSync(PlanEntryClassification)("modify")).toBe(
-      "modify",
-    );
-    expect(Schema.decodeUnknownSync(PlanEntryClassification)("unchanged")).toBe(
+    expect(Schema.decodeSync(PlanEntryClassification)("create")).toBe("create");
+    expect(Schema.decodeSync(PlanEntryClassification)("modify")).toBe("modify");
+    expect(Schema.decodeSync(PlanEntryClassification)("unchanged")).toBe(
       "unchanged",
     );
-    expect(Schema.decodeUnknownSync(PlanEntryClassification)("conflict")).toBe(
+    expect(Schema.decodeSync(PlanEntryClassification)("conflict")).toBe(
       "conflict",
     );
     expect(() =>
@@ -22,7 +18,7 @@ describe("@repo/domain Plan", () => {
   });
 
   it("should decode outcome and conflict fields independently", () => {
-    const outcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value)({
+    const outcome = Schema.decodeSync(Plan.fields.outcomes.value)({
       _tag: "complete",
       path: "packages/domain/tsconfig.json",
       classification: "create",
@@ -30,7 +26,7 @@ describe("@repo/domain Plan", () => {
     });
 
     expect(outcome._tag).toBe("complete");
-    const conflict = Schema.decodeUnknownSync(Plan.fields.conflicts.value)({
+    const conflict = Schema.decodeSync(Plan.fields.conflicts.value)({
       _tag: "completeFile",
       path: "package.json",
     });
@@ -191,7 +187,7 @@ describe("@repo/domain Plan", () => {
 
   it("should reject invalid relationships when decoding", () => {
     expect(() =>
-      Schema.decodeUnknownSync(Plan)({
+      Schema.decodeSync(Plan)({
         outcomes: [],
         conflicts: [{ _tag: "completeFile", path: "README.md" }],
       }),

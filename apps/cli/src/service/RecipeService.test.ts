@@ -20,12 +20,7 @@ import {
 } from "@repo/scaffold";
 import { Effect, Layer, Schema } from "effect";
 
-const packageDbTarget = new TargetIdentity({
-  kind: TargetKind.make("package"),
-  name: "db",
-});
-
-const testConfig = new StackConfig({
+const testConfigFields = {
   name: "recipe-app" as typeof Schema.NonEmptyString.Type,
   runtime: { _tag: "bun" },
   typescript: "7",
@@ -33,7 +28,9 @@ const testConfig = new StackConfig({
   lint: "oxlint",
   format: "oxfmt",
   test: "vitest",
-});
+} as const;
+
+const testConfig = new StackConfig(testConfigFields);
 
 const makeTestLayer = (defaults: StackConfig) =>
   RecipeService.layer.pipe(
@@ -65,7 +62,7 @@ const assertTargetModules = (
 describe("RecipeService", () => {
   describe("schemas", () => {
     it("should decode target specs when the command provides plain recipe input", () => {
-      const spec = Schema.decodeUnknownSync(RecipeSpec)({
+      const spec = Schema.decodeSync(RecipeSpec)({
         targets: [
           {
             target: { kind: "server", name: "api" },
@@ -90,19 +87,19 @@ describe("RecipeService", () => {
 
     it("should decode provider strategy variants when recipe resolution options are parsed", () => {
       assert.deepStrictEqual(
-        Schema.decodeUnknownSync(RecipeProviderStrategy)({
+        Schema.decodeSync(RecipeProviderStrategy)({
           _tag: "fail-on-ambiguous",
         }),
         { _tag: "fail-on-ambiguous" },
       );
       assert.deepStrictEqual(
-        Schema.decodeUnknownSync(RecipeProviderStrategy)({
+        Schema.decodeSync(RecipeProviderStrategy)({
           _tag: "first-provider",
         }),
         { _tag: "first-provider" },
       );
 
-      const explicit = Schema.decodeUnknownSync(RecipeProviderStrategy)({
+      const explicit = Schema.decodeSync(RecipeProviderStrategy)({
         _tag: "explicit",
         providers: [
           {
@@ -125,7 +122,7 @@ describe("RecipeService", () => {
     });
 
     it("should decode resolve options when config and provider strategy are provided", () => {
-      const options = Schema.decodeUnknownSync(RecipeResolveOptions)({
+      const options = Schema.decodeSync(RecipeResolveOptions)({
         config: testConfig,
         providerStrategy: { _tag: "first-provider" },
       });
@@ -142,7 +139,7 @@ describe("RecipeService", () => {
       Effect.gen(function* () {
         const service = yield* RecipeService;
         const config = new StackConfig({
-          ...testConfig,
+          ...testConfigFields,
           monorepo: "nx",
         });
         const selection = yield* service.resolve(
@@ -167,7 +164,7 @@ describe("RecipeService", () => {
       Effect.gen(function* () {
         const service = yield* RecipeService;
         const config = new StackConfig({
-          ...testConfig,
+          ...testConfigFields,
           monorepo: "vite-plus",
         });
         const selection = yield* service.resolve(
@@ -273,7 +270,7 @@ describe("RecipeService", () => {
         Effect.gen(function* () {
           const service = yield* RecipeService;
           const config = new StackConfig({
-            ...testConfig,
+            ...testConfigFields,
             typescript: "6",
           });
           const selection = yield* service.resolve(
@@ -328,7 +325,11 @@ describe("RecipeService", () => {
               .resolve(
                 { targets: [] },
                 {
-                  config: new StackConfig({ ...testConfig, lint, format }),
+                  config: new StackConfig({
+                    ...testConfigFields,
+                    lint,
+                    format,
+                  }),
                   providerStrategy: { _tag: "fail-on-ambiguous" },
                 },
               )
@@ -338,7 +339,7 @@ describe("RecipeService", () => {
                     assertTargetModules(selection, ".", [
                       ModuleId.make("workspace-typescript-7"),
                       ModuleId.make("workspace-monorepo-vite-plus"),
-                      ...modules.map(ModuleId.make),
+                      ...modules.map((module) => ModuleId.make(module)),
                       ModuleId.make("workspace-test-vitest"),
                     ]),
                   ),
@@ -883,7 +884,7 @@ describe("RecipeService", () => {
         Effect.gen(function* () {
           const service = yield* RecipeService;
           const config = new StackConfig({
-            ...testConfig,
+            ...testConfigFields,
             monorepo: "nx",
           });
           const selection = yield* service.resolve(
@@ -907,7 +908,7 @@ describe("RecipeService", () => {
         Effect.gen(function* () {
           const service = yield* RecipeService;
           const config = new StackConfig({
-            ...testConfig,
+            ...testConfigFields,
             monorepo: "vite-plus",
           });
           const selection = yield* service.resolve(
@@ -1004,7 +1005,7 @@ describe("RecipeService", () => {
       Effect.gen(function* () {
         const service = yield* RecipeService;
         const config = new StackConfig({
-          ...testConfig,
+          ...testConfigFields,
           runtime: { _tag: "deno" },
           typescript: "7",
           monorepo: "vite-plus",

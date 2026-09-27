@@ -2,9 +2,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { PlanAssessor, type PlanningIntentPath } from "./PlanAssessor";
 
-const makeJsxSlotPath = (
-  contents: string | undefined = undefined,
-): PlanningIntentPath => ({
+const makeJsxSlotPath = (contents?: string): PlanningIntentPath => ({
   path: "apps/web/src/App.tsx",
   contents,
   exports: [],

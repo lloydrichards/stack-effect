@@ -87,7 +87,7 @@ export const decodeRecipeTargetSpecsEffect = (
   specs: ReadonlyArray<string>,
 ): Effect.Effect<Array<RecipeTargetSpecType>, Schema.SchemaError> =>
   Effect.forEach(specs, (spec) =>
-    Schema.decodeUnknownEffect(RecipeTargetString)(spec),
+    Schema.decodeEffect(RecipeTargetString)(spec),
   );
 
 export const encodeRecipeTargetSpecs = (

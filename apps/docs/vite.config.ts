@@ -40,7 +40,13 @@ const codingAgentGuideMarkdown = (): Plugin => ({
   configureServer(server) {
     server.middlewares.use(codingAgentGuideUrl, (_request, response) => {
       response.setHeader("Content-Type", "text/markdown; charset=utf-8");
-      loadCodingAgentGuide().then((guide) => response.end(guide));
+      void loadCodingAgentGuide().then(
+        (guide) => response.end(guide),
+        () => {
+          response.statusCode = 500;
+          response.end("Could not load the coding agent guide.");
+        },
+      );
     });
   },
   async generateBundle() {

@@ -77,10 +77,7 @@ const chooseOptionalTool = <A extends string>(
   message: string,
   choices: ReadonlyArray<{ title: string; value: A }>,
   fallback: A,
-) =>
-  yes
-    ? Effect.succeed(Option.some(fallback))
-    : optionalSelect(message, choices);
+) => (yes ? Effect.succeedSome(fallback) : optionalSelect(message, choices));
 
 export const init = Command.make(
   "init",

@@ -11,9 +11,7 @@ import type { RecipeTargetSpec } from "@repo/domain/Recipe";
 import { parseRecipeTargetSpecs, RecipeService } from "@repo/scaffold";
 import {
   HorizontalSelect,
-  MultiSelect,
   type NestedModuleChild,
-  type NestedModuleNode,
   NestedMultiSelect,
   Select,
   TextInput,
@@ -56,7 +54,7 @@ export type CollectedTarget = {
 const TargetNameInput = Schema.Trim;
 
 const validateTargetName = (value: string) =>
-  Schema.decodeUnknownEffect(TargetNameInput)(value).pipe(
+  Schema.decodeEffect(TargetNameInput)(value).pipe(
     Effect.mapError(() => "Target name cannot be empty"),
   );
 
@@ -875,7 +873,6 @@ export const add = Command.make(
 
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
-      const catalog = yield* CatalogService;
       const recipes = yield* RecipeService;
 
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());

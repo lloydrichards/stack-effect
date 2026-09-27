@@ -815,7 +815,7 @@ const parseJsonRecord = (
   contents: string,
 ): Record<string, unknown> | undefined =>
   pipe(
-    Schema.decodeUnknownOption(
+    Schema.decodeOption(
       Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
     )(contents),
     Option.getOrUndefined,

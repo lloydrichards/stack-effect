@@ -27,8 +27,9 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
           Order.String,
         );
 
-        const snapshotEntries = yield* Effect.all(
-          snapshotPaths.map((snapshotPath) =>
+        const snapshotEntries = yield* Effect.forEach(
+          snapshotPaths,
+          (snapshotPath) =>
             Effect.gen(function* () {
               const absolutePath = path.join(repoRoot, snapshotPath);
               const pathStat = yield* fileSystem.stat(absolutePath).pipe(
@@ -78,7 +79,6 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 contents,
               } satisfies typeof RepoSnapshot.fields.paths.value.Type;
             }),
-          ),
         );
 
         return {

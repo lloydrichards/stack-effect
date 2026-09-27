@@ -3,15 +3,20 @@ import { Effect, FileSystem, Layer, Match, Path } from "effect";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
 type MockPathEntry =
+  | {
+      readonly _tag: "PlatformError";
+      readonly message: string;
+      readonly reason: { readonly _tag: "NotFound" };
+    }
   | { readonly _tag: "directory" }
   | { readonly _tag: "file"; readonly contents: string }
-  | { readonly _tag: "readError"; readonly error: unknown }
-  | { readonly _tag: "statError"; readonly error: unknown };
+  | { readonly _tag: "readError"; readonly error: Error }
+  | { readonly _tag: "statError"; readonly error: Error };
 
 const testRepoRoot = "/repo";
 
 const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
-  const getEntry = (absolutePath: string) =>
+  const getEntry = (absolutePath: string): MockPathEntry =>
     entries[absolutePath] ?? {
       _tag: "PlatformError",
       message: `Missing path: ${absolutePath}`,
@@ -23,8 +28,8 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
   const fileSystem = {
     stat: (absolutePath: string) =>
       Match.value(getEntry(absolutePath)).pipe(
-        Match.when({ _tag: "PlatformError" }, Effect.fail),
-        Match.when({ _tag: "statError" }, ({ error }) => Effect.fail(error)),
+        Match.tag("PlatformError", (error) => Effect.fail(error)),
+        Match.tag("statError", ({ error }) => Effect.fail(error)),
         Match.when({ _tag: "directory" }, () =>
           Effect.succeed({ type: "Directory" as const }),
         ),
@@ -32,8 +37,8 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
       ),
     readFileString: (absolutePath: string) =>
       Match.value(getEntry(absolutePath)).pipe(
-        Match.when({ _tag: "PlatformError" }, Effect.fail),
-        Match.when({ _tag: "readError" }, ({ error }) => Effect.fail(error)),
+        Match.tag("PlatformError", (error) => Effect.fail(error)),
+        Match.tag("readError", ({ error }) => Effect.fail(error)),
         Match.when({ _tag: "file" }, ({ contents }) =>
           Effect.succeed(contents),
         ),

@@ -5,15 +5,15 @@ import { ContributionTokenContext, StackConfig } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
   it("accepts realistic target identities users are expected to provide", () => {
-    const packageIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+    const packageIdentity = Schema.decodeSync(TargetIdentity)({
       kind: "package",
       name: "domain",
     });
-    const serverIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+    const serverIdentity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
       name: "api",
     });
-    const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+    const clientIdentity = Schema.decodeSync(TargetIdentity)({
       kind: "client-react",
       name: "admin-ui",
     });
@@ -25,7 +25,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("accepts empty target names for apps (uses kind only)", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
       name: "",
     });
@@ -36,7 +36,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("treats punctuation-only app target names as unnamed", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "client-react",
       name: ".",
     });
@@ -48,7 +48,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("slugifies uppercase names into canonical keys and paths", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
       name: "API",
     });
@@ -58,7 +58,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("slugifies names with spaces into canonical keys and paths", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
       name: "my api",
     });
@@ -68,7 +68,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("slugifies names with slashes into canonical keys and paths", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "package",
       name: "domain/core",
     });
@@ -78,7 +78,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("slugifies names with underscores into canonical keys and paths", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "client-react",
       name: "admin_ui",
     });
@@ -88,7 +88,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("normalizes surrounding whitespace before deriving canonical keys and paths", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
       name: "  My Api  ",
     });
@@ -99,7 +99,7 @@ describe("@repo/domain Scaffold", () => {
 
   describe("toPackageName", () => {
     it("returns scoped name for packages", () => {
-      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      const identity = Schema.decodeSync(TargetIdentity)({
         kind: "package",
         name: "domain",
       });
@@ -107,11 +107,11 @@ describe("@repo/domain Scaffold", () => {
     });
 
     it("returns kind-name for apps with names", () => {
-      const serverIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+      const serverIdentity = Schema.decodeSync(TargetIdentity)({
         kind: "server",
         name: "api",
       });
-      const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+      const clientIdentity = Schema.decodeSync(TargetIdentity)({
         kind: "client-react",
         name: "web",
       });
@@ -121,11 +121,11 @@ describe("@repo/domain Scaffold", () => {
     });
 
     it("returns just kind for apps without names", () => {
-      const serverIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+      const serverIdentity = Schema.decodeSync(TargetIdentity)({
         kind: "server",
         name: "",
       });
-      const clientIdentity = Schema.decodeUnknownSync(TargetIdentity)({
+      const clientIdentity = Schema.decodeSync(TargetIdentity)({
         kind: "client-react",
         name: "",
       });
@@ -135,7 +135,7 @@ describe("@repo/domain Scaffold", () => {
     });
 
     it("slugifies package names", () => {
-      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      const identity = Schema.decodeSync(TargetIdentity)({
         kind: "package",
         name: "Domain Core",
       });
@@ -143,7 +143,7 @@ describe("@repo/domain Scaffold", () => {
     });
 
     it("slugifies app names", () => {
-      const identity = Schema.decodeUnknownSync(TargetIdentity)({
+      const identity = Schema.decodeSync(TargetIdentity)({
         kind: "server",
         name: "My API",
       });
@@ -152,7 +152,7 @@ describe("@repo/domain Scaffold", () => {
   });
 
   it("accepts arbitrary target kinds (extensible)", () => {
-    const identity = Schema.decodeUnknownSync(TargetIdentity)({
+    const identity = Schema.decodeSync(TargetIdentity)({
       kind: "worker",
       name: "jobs",
     });
@@ -165,12 +165,12 @@ describe("@repo/domain Scaffold", () => {
 
 describe("StackConfig TypeScript version", () => {
   it("accepts supported TypeScript major versions", () => {
-    const typescript6 = Schema.decodeUnknownSync(StackConfig)({
+    const typescript6 = Schema.decodeSync(StackConfig)({
       name: "typescript-6",
       runtime: { _tag: "bun" },
       typescript: "6",
     });
-    const typescript7 = Schema.decodeUnknownSync(StackConfig)({
+    const typescript7 = Schema.decodeSync(StackConfig)({
       name: "typescript-7",
       runtime: { _tag: "bun" },
       typescript: "7",
@@ -181,7 +181,7 @@ describe("StackConfig TypeScript version", () => {
   });
 
   it("keeps existing configs without a TypeScript version decodable", () => {
-    const config = Schema.decodeUnknownSync(StackConfig)({
+    const config = Schema.decodeSync(StackConfig)({
       name: "existing-project",
       runtime: { _tag: "bun" },
     });
@@ -203,7 +203,7 @@ describe("StackConfig TypeScript version", () => {
 
 describe("StackConfig Deno runtime", () => {
   it("decodes Deno with Deno-owned package and workspace commands", () => {
-    const config = Schema.decodeUnknownSync(StackConfig)({
+    const config = Schema.decodeSync(StackConfig)({
       name: "deno-project",
       runtime: { _tag: "deno" },
       typescript: "6",

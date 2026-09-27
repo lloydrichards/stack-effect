@@ -71,7 +71,7 @@ export const plan = Command.make(
         Stream.mkString,
       );
 
-      const input = yield* Schema.decodeUnknownEffect(
+      const input = yield* Schema.decodeEffect(
         Schema.fromJsonString(PlanRequest),
       )(stdin);
 
@@ -109,8 +109,8 @@ export const plan = Command.make(
       const scripts = yield* finalizeService
         .preview(blueprint, { repoRoot, config })
         .pipe(
-          Effect.catch(() =>
-            Effect.succeed([] as Array<{ label: string; command: string }>),
+          Effect.orElseSucceed(
+            () => [] as Array<{ label: string; command: string }>,
           ),
         );
 

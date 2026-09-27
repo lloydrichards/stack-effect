@@ -82,11 +82,9 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
                 "node",
               ];
               if (!supportedRuntimes.includes(config.runtimeName)) {
-                return yield* Effect.fail(
-                  new BlueprintFailure({
-                    message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
-                  }),
-                );
+                return yield* new BlueprintFailure({
+                  message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
+                });
               }
             }),
           );

@@ -361,7 +361,6 @@ describe("FinalizeService", () => {
 
     it.effect("continues executing after a script failure and reports it", () =>
       Effect.gen(function* () {
-        const executed: string[] = [];
         const svc = yield* FinalizeService;
         const config = new StackConfig({
           name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
@@ -392,7 +391,6 @@ describe("FinalizeService", () => {
       "runs module finalize scripts before config-derived scripts",
       () =>
         Effect.gen(function* () {
-          const executed: string[] = [];
           const svc = yield* FinalizeService;
           const moduleId = ModuleId.make("shadcn-init");
           const blueprint = targetWithModule(clientIdentity, moduleId);

@@ -27,10 +27,9 @@ describe("add capability resolution", () => {
             );
             return providers[0];
           }).pipe(
-            Effect.flatMap((provider) =>
-              provider === undefined
-                ? Effect.die("Expected at least one database provider")
-                : Effect.succeed(provider),
+            Effect.filterOrElse(
+              (provider) => provider !== undefined,
+              () => Effect.die("Expected at least one database provider"),
             ),
           ),
       );

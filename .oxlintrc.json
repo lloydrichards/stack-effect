@@ -2,7 +2,8 @@
   "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
   "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
   "rules": {
-    "eslint/require-yield": "off"
+    "eslint/require-yield": "off",
+    "effecttsgo/unnecessary-typeof-type": "off"
   },
   "overrides": [
     {

@@ -297,7 +297,7 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              compose: (input) => Effect.succeed("unused"),
+              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -347,7 +347,7 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              compose: (input) => Effect.succeed("unused"),
+              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -391,7 +391,7 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              compose: (input) => Effect.succeed("unused"),
+              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -710,7 +710,7 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                compose: (input) => Effect.succeed("unused"),
+                compose: () => Effect.succeed("unused"),
               }),
             }),
           );
@@ -770,7 +770,7 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                compose: (input) => Effect.succeed("unused"),
+                compose: () => Effect.succeed("unused"),
               }),
             }),
           );
@@ -932,7 +932,7 @@ describe("ApplyService", () => {
                 path: write.path,
                 status: "unchanged" as const,
               }),
-            compose: (input) => Effect.succeed("unused"),
+            compose: () => Effect.succeed("unused"),
           }),
         });
 
@@ -984,7 +984,7 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              compose: (input) => Effect.succeed("unused"),
+              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -1082,7 +1082,7 @@ describe("ApplyService", () => {
                     );
                 }
               },
-              compose: (input) => Effect.succeed("unused"),
+              compose: () => Effect.succeed("unused"),
             }),
           });
 

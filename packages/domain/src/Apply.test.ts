@@ -11,13 +11,13 @@ import { describe, expect, it } from "vitest";
 describe("@repo/domain Apply", () => {
   it("accepts supported apply decision values", () => {
     expect(
-      Schema.decodeUnknownSync(ApplyDecision)({
+      Schema.decodeSync(ApplyDecision)({
         path: "package.json",
         value: "override",
       }),
     ).toMatchObject({ value: "override" });
     expect(
-      Schema.decodeUnknownSync(ApplyDecision)({
+      Schema.decodeSync(ApplyDecision)({
         path: "package.json",
         value: "skip",
       }),
@@ -34,7 +34,7 @@ describe("@repo/domain Apply", () => {
   });
 
   it("decodes apply decisions independently", () => {
-    const decision = Schema.decodeUnknownSync(ApplyDecision)({
+    const decision = Schema.decodeSync(ApplyDecision)({
       path: "packages/domain/package.json",
       value: "override",
     });
@@ -105,7 +105,7 @@ describe("@repo/domain Apply", () => {
   });
 
   it("decodes apply failures", () => {
-    const error = Schema.decodeUnknownSync(ApplyFailure)({
+    const error = Schema.decodeSync(ApplyFailure)({
       _tag: "ApplyFailure",
       reason: "invalidApplyIntent",
       message: "Missing decision for packages/domain/package.json",

@@ -16,9 +16,9 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
       const readConfig = (repoRoot: string) =>
         Effect.gen(function* () {
           const raw = yield* fs.readFileString(configPath(repoRoot));
-          return yield* Schema.decodeUnknownEffect(
-            Schema.fromJsonString(StackConfig),
-          )(raw);
+          return yield* Schema.decodeEffect(Schema.fromJsonString(StackConfig))(
+            raw,
+          );
         });
 
       const writeConfig = (repoRoot: string, config: typeof StackConfig.Type) =>
