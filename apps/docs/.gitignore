@@ -5,3 +5,5 @@
 # React Router
 /.react-router/
 /build/
+/public/registry/
+/public/schemas/

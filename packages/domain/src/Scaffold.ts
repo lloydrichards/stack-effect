@@ -56,7 +56,11 @@ export const makeRuntime = (
 
 export const TypeScriptVersion = Schema.Literals(["6", "7"]);
 
+export const STACK_CONFIG_SCHEMA_URL =
+  "https://stack-effect.lloydrichards.dev/schemas/v1/stack.effect.schema.json";
+
 export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
+  $schema: Schema.optional(Schema.String),
   name: Schema.NonEmptyString,
   runtime: Runtime,
   typescript: Schema.optional(TypeScriptVersion),

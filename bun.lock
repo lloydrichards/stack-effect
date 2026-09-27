@@ -22,7 +22,7 @@
     },
     "apps/cli": {
       "name": "stack-effect",
-      "version": "0.14.0",
+      "version": "0.15.0",
       "bin": {
         "stack-effect": "dist/index.js",
       },
@@ -93,6 +93,7 @@
         "@types/react-dom": "^19.3.0",
         "@vitejs/plugin-react": "^6.1.1",
         "@vitest/browser-playwright": "^5.0.2",
+        "ajv": "^8.20.0",
         "playwright": "^1.63.0",
         "rehype-pretty-code": "^0.14.5",
         "tailwindcss": "^4.3.3",

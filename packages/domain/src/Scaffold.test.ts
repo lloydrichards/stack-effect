@@ -1,7 +1,11 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
-import { ContributionTokenContext, StackConfig } from "./Scaffold";
+import {
+  ContributionTokenContext,
+  STACK_CONFIG_SCHEMA_URL,
+  StackConfig,
+} from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
   it("accepts realistic target identities users are expected to provide", () => {
@@ -198,6 +202,23 @@ describe("StackConfig TypeScript version", () => {
         typescript: "8",
       }),
     ).toThrow();
+  });
+});
+
+describe("StackConfig editor schema metadata", () => {
+  it("decodes old configurations and the canonical editor URL", () => {
+    const old = Schema.decodeSync(StackConfig)({
+      name: "old-project",
+      runtime: { _tag: "bun" },
+    });
+    const annotated = Schema.decodeSync(StackConfig)({
+      $schema: STACK_CONFIG_SCHEMA_URL,
+      name: "annotated-project",
+      runtime: { _tag: "bun" },
+    });
+
+    expect(old.$schema).toBeUndefined();
+    expect(annotated.$schema).toBe(STACK_CONFIG_SCHEMA_URL);
   });
 });
 
