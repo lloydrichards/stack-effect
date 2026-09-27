@@ -124,6 +124,40 @@ describe("ApplyPreviewService", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
+  it.effect("should preserve BOM-prefixed baseline bytes in file preview", () =>
+    Effect.gen(function* () {
+      const hostFileSystem = yield* FileSystem.FileSystem;
+      const service = yield* ApplyPreviewService;
+      const original = "\uFEFFuser code";
+      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      yield* hostFileSystem.writeFileString(
+        `${repoRoot}/existing.ts`,
+        original,
+      );
+
+      const result = yield* service.preview({
+        apply: makeApply(
+          [
+            complete("existing.ts", "unchanged", "user code"),
+            complete("created.ts", "create", "generated code"),
+          ],
+          [],
+          repoRoot,
+          { "existing.ts": original },
+        ),
+        repoRoot,
+      });
+
+      expect(result.apply.created).toEqual(["created.ts"]);
+      expect(result.files).toEqual([
+        { path: "created.ts", status: "created", contents: "generated code" },
+      ]);
+      expect(yield* hostFileSystem.readFile(`${repoRoot}/existing.ts`)).toEqual(
+        new TextEncoder().encode(original),
+      );
+    }).pipe(Effect.provide(TestLayer)),
+  );
+
   it.effect(
     "should preserve unchanged baseline files while previewing writes",
     () =>

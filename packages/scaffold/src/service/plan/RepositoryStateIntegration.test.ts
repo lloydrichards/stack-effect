@@ -67,6 +67,13 @@ describe("Plan and Apply repository state", () => {
       const root = "/future/repo";
       const plan = yield* buildAt(root);
       expect(plan.baseline.root).toBe(root);
+      const previews = yield* ApplyPreviewService;
+      const preview = yield* previews.preview({
+        apply: intent(plan),
+        repoRoot: root,
+      });
+      expect(preview.files.length).toBeGreaterThan(0);
+      expect(yield* files.exists(root)).toBe(false);
       const service = yield* ApplyService;
       const result = yield* service.apply({
         apply: intent(plan),
