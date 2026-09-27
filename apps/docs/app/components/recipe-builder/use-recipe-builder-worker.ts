@@ -25,6 +25,10 @@ import {
   toRecipePreviewInput,
 } from "./form";
 
+let nextCatalogSessionId = 0;
+
+const newCatalogSessionId = () => ++nextCatalogSessionId;
+
 const reconcileTargetsWithCatalog = (
   targets: ReadonlyArray<TargetInstance>,
   catalog: typeof RecipeBuilderCatalog.Type,
@@ -70,7 +74,7 @@ export function useRecipeBuilderWorker(
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
   const [previewRequestResult, requestPreview] = useAtom(previewAtom);
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const [sessionId, setSessionId] = useState(1);
+  const [sessionId, setSessionId] = useState(newCatalogSessionId);
   const [catalogSnapshot, setCatalogSnapshot] = useState<
     | {
         readonly request: CatalogAtomRequest;
@@ -108,7 +112,7 @@ export function useRecipeBuilderWorker(
     setCatalogSnapshot(undefined);
     requestPreview(Atom.Interrupt);
     requestCatalog(Atom.Interrupt);
-    setSessionId((current) => current + 1);
+    setSessionId(newCatalogSessionId());
   }, [enabled, requestCatalog, requestPreview]);
 
   useEffect(() => {

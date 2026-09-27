@@ -146,6 +146,13 @@ When working with domain language for this application, use these sources first:
 
 Prefer these canonical terms in code reviews, issues, docs, commit messages, and implementation discussions.
 
+## Catalog registry work
+
+- Production CLI commands and Recipe Builder sessions load the official JSON catalog through `CatalogLoader`. Keep one loaded `CatalogService` through selection, Blueprint, Plan, Apply, and Finalize.
+- Repository authoring uses the local bundled definitions. Do not import that adapter into production CLI or worker entrypoints.
+- Use controlled HTTP fixtures for routine tests. Qualify deployed registry headers, validators, CORS, and genuine 404 responses separately before releasing dependent clients.
+- Keep community-source configuration in issue #276; the official source is an internal default, not a new project-file field.
+
 ## Complexity Analysis
 
 Use the complexity report to identify refactoring targets before making changes.

@@ -201,6 +201,7 @@ const renderIndexPage = (
       generatedNotice,
       "# CLI reference",
       `Commands, arguments, options, and examples for ${inlineCode(`${reference.name} v${reference.version}`)}. These pages are generated from the current Effect CLI command tree.`,
+      "Catalog-dependent commands load current definitions from the official registry. If the registry is temporarily unavailable, a validated user cache may be used with a warning on stderr. See [Catalog updates and offline use](/catalog-registry).",
       "## Commands",
       markdownTable(
         ["Command", "Description"],

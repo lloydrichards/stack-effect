@@ -1,8 +1,17 @@
 import { assert, it } from "@effect/vitest";
+import { Blueprint } from "@repo/domain/Blueprint";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
 import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
-import { Cause, Effect, Exit, Option } from "effect";
-import { FetchHttpClient, HttpClient } from "effect/unstable/http";
+import {
+  ApplyPreviewFileSchema,
+  RecipePreviewInput,
+} from "@repo/scaffold/recipe-preview";
+import { Cause, Effect, Exit, Option, Schema } from "effect";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientRequest,
+} from "effect/unstable/http";
 import { AtomRegistry } from "effect/unstable/reactivity";
 import {
   catalogAtom,
@@ -11,6 +20,12 @@ import {
 } from "../../app/atom/recipe-builder-atom";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
 import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
+import { registryParityCases } from "../fixtures/registry-parity";
+
+const CliParityResult = Schema.Struct({
+  blueprint: Blueprint,
+  files: Schema.Array(ApplyPreviewFileSchema),
+});
 
 const runAtom = <Arg, A, E>(
   atom: import("effect/unstable/reactivity").Atom.AtomResultFn<Arg, A, E>,
@@ -29,13 +44,40 @@ const runAtom = <Arg, A, E>(
 const catalogSource = () =>
   new URL("/registry/v1/catalog.json", window.location.origin).toString();
 
-const setRegistryMode = (mode: "current" | "outage" | "invalid") =>
+const setRegistryMode = (mode: "current" | "outage" | "invalid" | "revised") =>
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     yield* client.get(
       `${window.location.origin}/registry-test/mode?value=${mode}`,
     );
   }).pipe(Effect.provide(FetchHttpClient.layer), Effect.orDie);
+
+const cliParity = (
+  input: RecipePreviewInput,
+  command: string,
+  addTarget?: string,
+) =>
+  Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient;
+    const body = yield* Schema.encodeEffect(
+      Schema.fromJsonString(
+        Schema.Struct({
+          input: RecipePreviewInput,
+          command: Schema.String,
+          addTarget: Schema.optional(Schema.String),
+        }),
+      ),
+    )({ input, command, ...(addTarget === undefined ? {} : { addTarget }) });
+    const response = yield* client.execute(
+      HttpClientRequest.post(
+        `${window.location.origin}/registry-test/cli-parity`,
+      ).pipe(HttpClientRequest.bodyText(body, "application/json")),
+    );
+    assert.strictEqual(response.status, 200);
+    return yield* Schema.decodeEffect(Schema.fromJsonString(CliParityResult))(
+      yield* response.text,
+    );
+  }).pipe(Effect.provide(FetchHttpClient.layer));
 
 const makeSession = Effect.gen(function* () {
   const registry = AtomRegistry.make();
@@ -67,6 +109,56 @@ const makeSession = Effect.gen(function* () {
     },
   };
 });
+
+for (const [name, input] of Object.entries(registryParityCases)) {
+  it.live(`matches CLI Blueprint and files for ${name}`, () =>
+    Effect.gen(function* () {
+      yield* setRegistryMode("current");
+      const session = yield* makeSession;
+      yield* session.catalog();
+      const browser = yield* session.preview({
+        sessionId: 1,
+        targetIdentityKey: name,
+        input,
+      });
+      const cli = yield* cliParity(input, browser.preview.command);
+      assert.deepEqual(browser.preview.blueprint, cli.blueprint);
+      assert.deepEqual(browser.preview.files, cli.files);
+    }).pipe(Effect.scoped),
+  );
+}
+
+it.live("matches browser files after CLI create and incremental add", () =>
+  Effect.gen(function* () {
+    yield* setRegistryMode("current");
+    const session = yield* makeSession;
+    yield* session.catalog(10);
+    const base = yield* session.preview({
+      sessionId: 10,
+      targetIdentityKey: "base",
+      input: registryParityCases.bun,
+    });
+    const input = toRecipePreviewInput({
+      ...fullStackRecipeFixture,
+      gitEnabled: false,
+      targets: [
+        ...fullStackRecipeFixture.targets,
+        { id: "utility", kind: "package", name: "util", modules: [] },
+      ],
+    });
+    const browser = yield* session.preview({
+      sessionId: 10,
+      targetIdentityKey: "with-util",
+      input,
+    });
+    const cli = yield* cliParity(input, base.preview.command, "package/util");
+    assert.deepEqual(browser.preview.blueprint, cli.blueprint);
+    const addedFiles = (files: typeof cli.files) =>
+      files.filter((file) => file.path.startsWith("packages/util/"));
+    assert.isAbove(addedFiles(cli.files).length, 0);
+    assert.deepEqual(addedFiles(browser.preview.files), addedFiles(cli.files));
+  }).pipe(Effect.scoped),
+);
 
 it.live("uses a persisted catalog after reload during an outage", () =>
   Effect.gen(function* () {
@@ -128,6 +220,44 @@ it.live("rejects previews from a replaced catalog session", () =>
     });
     assert.include(current.preview.command, "full-stack-app");
   }).pipe(Effect.scoped),
+);
+
+it.live(
+  "keeps a session stable while a later session sees compatible changes",
+  () =>
+    Effect.gen(function* () {
+      yield* setRegistryMode("current");
+      yield* Effect.addFinalizer(() => setRegistryMode("current"));
+      const session = yield* makeSession;
+      const first = yield* session.catalog(50);
+      const input = registryParityCases.bun;
+      const previewFor = (sessionId: number) =>
+        session.preview({ sessionId, targetIdentityKey: "revision", input });
+      const firstPreview = yield* previewFor(50);
+      yield* setRegistryMode("revised");
+      const stillFirst = yield* session.catalog(50);
+      const stillFirstPreview = yield* previewFor(50);
+      const later = yield* session.catalog(51);
+      const laterPreview = yield* previewFor(51);
+      const mainFile = (files: typeof firstPreview.preview.files) =>
+        files.find((file) => file.path === "apps/client-react-web/src/main.tsx")
+          ?.contents ?? "";
+      assert.deepEqual(stillFirst.catalog.targets, first.catalog.targets);
+      assert.notDeepEqual(later.catalog.targets, first.catalog.targets);
+      assert.include(later.catalog.targets[0]?.title ?? "", "revised");
+      assert.strictEqual(
+        mainFile(stillFirstPreview.preview.files),
+        mainFile(firstPreview.preview.files),
+      );
+      assert.notInclude(
+        mainFile(firstPreview.preview.files),
+        "Registry revision marker",
+      );
+      assert.include(
+        mainFile(laterPreview.preview.files),
+        "Registry revision marker",
+      );
+    }).pipe(Effect.scoped),
 );
 
 it.live(

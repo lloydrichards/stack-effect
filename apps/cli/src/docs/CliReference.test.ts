@@ -80,6 +80,9 @@ describe("CLI reference", () => {
       expect(pages.find((page) => page.slug === "index")?.content).toContain(
         "## Global options",
       );
+      expect(pages.find((page) => page.slug === "index")?.content).toContain(
+        "/catalog-registry",
+      );
       expect(pages.find((page) => page.slug === "catalog")?.content).toContain(
         "## stack-effect catalog workspace validate",
       );

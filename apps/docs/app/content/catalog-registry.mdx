@@ -1,0 +1,21 @@
+# Catalog updates and offline use
+
+Stack Effect loads the current catalog before a command or Recipe Builder session generates a project. The catalog defines available targets, modules, dependencies, and file contributions. It is served as JSON from the [official registry](/registry/v1/catalog.json).
+
+## What changes between runs
+
+Each new catalog-dependent CLI command and each new Builder session checks for current definitions. A running command or session keeps the catalog it already loaded, so its choices, Blueprint, Plan, and generated files agree with each other. A later run can use an updated compatible catalog and produce different files from the same choices.
+
+`stack-effect --help` and `stack-effect --version` work without a registry request. Repository authoring commands use local catalog definitions.
+
+## When the registry is unavailable
+
+If a network failure or temporary server error prevents a current load, Stack Effect can use a previously validated, compatible catalog from the user cache. The CLI prints the source and last validation time to stderr. Recipe Builder keeps a visible cached-catalog notice. Machine-readable CLI stdout remains usable.
+
+With no usable cache, the operation stops before generating files. An invalid document, unsupported catalog capability, or permanent HTTP error also stops the operation, even if an older cache exists. Retry in Recipe Builder starts a new session and checks the registry again.
+
+## Project configuration
+
+New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stack.effect.schema.json). Existing files without it remain valid. The link helps editors describe the file; the installed CLI validates configuration with its own schema. Project files contain no downloaded catalog, catalog version pin, or lockfile.
+
+Shared Recipe Builder links contain choices rather than catalog data. Reopening a link checks current definitions, may use a disclosed cached catalog during an outage, and reports choices that can no longer be resolved.

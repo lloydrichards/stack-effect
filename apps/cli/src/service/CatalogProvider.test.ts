@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
+import { exportOfficialCatalog } from "@repo/catalog/authoring";
 import { CatalogDocument } from "@repo/domain/Catalog";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import {
@@ -78,6 +79,88 @@ it.effect("loads once for a graph command through controlled HTTP", () => {
     assert.strictEqual(requests, 1);
   }).pipe(Effect.provide(layerFor(client)));
 });
+
+it.effect("uses changed file content on the next generation command", () =>
+  Effect.gen(function* () {
+    const initial = yield* exportOfficialCatalog();
+    const decoded = yield* Schema.decodeEffect(
+      Schema.fromJsonString(CatalogDocument),
+    )(initial);
+    const revised = yield* Schema.encodeEffect(
+      Schema.fromJsonString(CatalogDocument),
+    )({
+      ...decoded,
+      targets: decoded.targets.map((target) => ({
+        ...target,
+        contributions:
+          target.kind === "client-react"
+            ? target.contributions.map((contribution) =>
+                contribution._tag === "file" &&
+                contribution.path === "{{targetPath}}/src/main.tsx"
+                  ? {
+                      ...contribution,
+                      contents: `${contribution.contents}\n// Registry revision marker.\n`,
+                    }
+                  : contribution,
+              )
+            : target.contributions,
+      })),
+    });
+    assert.notStrictEqual(revised, initial);
+    let requests = 0;
+    const stdout: Array<string> = [];
+    const fs = yield* FileSystem.FileSystem;
+    const directory = yield* fs.makeTempDirectoryScoped({
+      prefix: "stack-effect-content-update-",
+    });
+    const client = HttpClient.make((request) =>
+      Effect.sync(() => {
+        requests++;
+        return HttpClientResponse.fromWeb(
+          request,
+          new Response(requests === 1 ? initial : revised, {
+            headers: { "content-type": "application/json" },
+          }),
+        );
+      }),
+    );
+    const capturedConsole: Console.Console = Object.assign(
+      Object.create(globalThis.console),
+      {
+        log: (value: string) => {
+          stdout.push(value);
+        },
+      },
+    );
+    yield* Effect.gen(function* () {
+      const args = [
+        "create",
+        "demo",
+        "--target",
+        "client-react/web:client-react-http-api",
+        "--yes",
+        "--no-git",
+        "--dry-run",
+        "--show-files",
+        "--root",
+        directory,
+      ];
+      yield* runCommand(args);
+      yield* runCommand(args);
+    }).pipe(
+      Effect.provide(
+        Layer.merge(
+          layerFor(client),
+          Layer.succeed(Console.Console, capturedConsole),
+        ),
+      ),
+    );
+    assert.strictEqual(requests, 2);
+    assert.notDeepEqual(stdout[0], stdout[1]);
+    assert.notInclude(stdout[0] ?? "", "Registry revision marker");
+    assert.include(stdout[1] ?? "", "Registry revision marker");
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
 
 it.effect("stops init before writing when the registry is unavailable", () => {
   let requests = 0;

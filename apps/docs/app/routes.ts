@@ -10,6 +10,7 @@ export default [
   route("builder", "routes/builder.tsx"),
   route("getting-started", "content/getting-started.mdx"),
   route("how-it-works", "content/how-it-works.mdx"),
+  route("catalog-registry", "content/catalog-registry.mdx"),
   route("use-with-coding-agents", "routes/use-with-coding-agents.tsx"),
   ...prefix("reference/cli", [
     index("content/reference/cli/index.mdx"),

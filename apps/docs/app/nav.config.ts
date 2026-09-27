@@ -27,6 +27,7 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Getting Started", href: "/getting-started" },
       { label: "How it works", href: "/how-it-works" },
+      { label: "Catalog updates", href: "/catalog-registry" },
       {
         label: "Use with coding agents",
         href: "/use-with-coding-agents",

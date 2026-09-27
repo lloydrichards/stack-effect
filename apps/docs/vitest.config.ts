@@ -17,8 +17,62 @@ export default defineConfig({
           ],
           { cwd: process.cwd() },
         ).toString();
-        let mode: "current" | "outage" | "invalid" = "current";
+        const revisedCatalog = JSON.parse(document) as {
+          targets: Array<{
+            kind: string;
+            title: string;
+            contributions: Array<{
+              _tag: string;
+              path?: string;
+              contents?: string;
+            }>;
+          }>;
+        };
+        revisedCatalog.targets = revisedCatalog.targets.map((target) => ({
+          ...target,
+          title: `${target.title} revised`,
+          contributions:
+            target.kind === "client-react"
+              ? target.contributions.map((contribution) =>
+                  contribution._tag === "file" &&
+                  contribution.path === "{{targetPath}}/src/main.tsx"
+                    ? {
+                        ...contribution,
+                        contents: `${contribution.contents}\n// Registry revision marker.\n`,
+                      }
+                    : contribution,
+                )
+              : target.contributions,
+        }));
+        const revisedDocument = JSON.stringify(revisedCatalog);
+        let mode: "current" | "outage" | "invalid" | "revised" = "current";
         server.middlewares.use((request, response, next) => {
+          if (
+            request.url === "/registry-test/cli-parity" &&
+            request.method === "POST"
+          ) {
+            const chunks: Array<Buffer> = [];
+            request.on("data", (chunk: Buffer) => chunks.push(chunk));
+            request.on("end", () => {
+              try {
+                const result = execFileSync(
+                  "bun",
+                  ["run", "../cli/scripts/registry-parity.ts"],
+                  {
+                    cwd: process.cwd(),
+                    input: Buffer.concat(chunks),
+                    maxBuffer: 32 * 1024 * 1024,
+                  },
+                );
+                response.setHeader("content-type", "application/json");
+                response.end(result);
+              } catch {
+                response.statusCode = 500;
+                response.end("CLI parity fixture failed");
+              }
+            });
+            return;
+          }
           if (request.url?.startsWith("/registry-test/mode")) {
             const requested = new URL(
               request.url,
@@ -27,7 +81,8 @@ export default defineConfig({
             if (
               requested === "current" ||
               requested === "outage" ||
-              requested === "invalid"
+              requested === "invalid" ||
+              requested === "revised"
             )
               mode = requested;
             response.end(mode);
@@ -40,7 +95,13 @@ export default defineConfig({
               return;
             }
             response.setHeader("content-type", "application/json");
-            response.end(mode === "invalid" ? '{"formatVersion":2}' : document);
+            response.end(
+              mode === "invalid"
+                ? '{"formatVersion":2}'
+                : mode === "revised"
+                  ? revisedDocument
+                  : document,
+            );
             return;
           }
           next();
