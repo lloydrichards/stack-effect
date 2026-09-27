@@ -13,6 +13,9 @@ sources:
   - id: preview
     resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
     title: Isolated Apply preview
+  - id: workspace
+    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
+    title: In-memory workspace creation and materialization
   - id: recipe
     resource: ../../packages/scaffold/src/service/recipe/RecipePreviewService.ts
     title: Recipe preview
@@ -26,7 +29,7 @@ sources:
     resource: ../../packages/scaffold/src/index.ts
   - id: finalize
     resource: ../../packages/scaffold/src/service/finalize/FinalizeService.ts
-generated: { by: codex, at: "2026-09-27T09:22:00+00:00" }
+generated: { by: codex, at: "2026-09-27T10:25:59+00:00" }
 ---
 
 # Scaffold lifecycle
@@ -37,7 +40,7 @@ Plan reads relevant paths, ancestors, and the root through `RepoSnapshotService`
 
 Apply checks every baseline path before preparing composition or writing. For modified composed files, it re-reads contents after that check. Each write checks its target and ancestors again, then uses a temporary-file rename. A later stale check stops remaining writes and reports the partial result. Other execution failures are collected while later writes continue. This does not provide a repository-wide transaction.
 
-`ApplyPreviewService` checks the host baseline, copies every baseline path into a fresh `MemoryFileSystem`, checks the host baseline again, and runs guarded Apply against that private filesystem. It returns successful changed files. `RecipePreviewService` plans in another memory filesystem and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
+`ApplyWorkspaceService` creates a private `MemoryFileSystem`, optionally checks and seeds the paths recorded in a host Plan baseline, and checks that baseline again. It binds Plan and Apply to the same workspace when a caller needs both operations. Materialization returns the Apply result and successful changed files read from that workspace. `ApplyPreviewService` delegates to this service. `RecipePreviewService` plans and applies in one workspace and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
 
 Private previews use VFS `make` with an explicitly supplied Crypto service. Volume identities are not security credentials.
 

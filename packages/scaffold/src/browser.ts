@@ -4,6 +4,11 @@ export {
   ApplyPreviewFileSchema,
   ApplyPreviewService,
 } from "./service/apply/ApplyPreviewService";
+export {
+  type ApplyWorkspace,
+  ApplyWorkspaceService,
+  type MaterializedApply,
+} from "./service/apply/ApplyWorkspaceService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export { PlanService } from "./service/plan/PlanService";
 export {

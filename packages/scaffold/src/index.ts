@@ -6,6 +6,11 @@ export {
   ApplyPreviewService,
 } from "./service/apply/ApplyPreviewService";
 export { ApplyService } from "./service/apply/ApplyService";
+export {
+  type ApplyWorkspace,
+  ApplyWorkspaceService,
+  type MaterializedApply,
+} from "./service/apply/ApplyWorkspaceService";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export {
   type FinalizeConfig,

@@ -6,11 +6,10 @@ import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Context, Effect, Layer, Path, Schema } from "effect";
 import { RecipePreview, RecipePreviewInput } from "../../RecipePreviewSchema";
-import { ApplyPreviewService } from "../apply/ApplyPreviewService";
+import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
 import { BlueprintService } from "../blueprint/BlueprintService";
-import { PlanService } from "../plan/PlanService";
 import type { RecipeError } from "./RecipeErrors";
 import { RecipeService } from "./RecipeService";
 
@@ -38,8 +37,6 @@ export interface RecipePreviewServiceShape {
   ) => Effect.Effect<RecipePreview, RecipePreviewError, never>;
 }
 
-const workspaceRoot = "/workspace";
-
 export class RecipePreviewService extends Context.Service<
   RecipePreviewService,
   RecipePreviewServiceShape
@@ -47,6 +44,7 @@ export class RecipePreviewService extends Context.Service<
   static readonly make = Effect.gen(function* () {
     const recipes = yield* RecipeService;
     const blueprints = yield* BlueprintService;
+    const workspaces = yield* ApplyWorkspaceService;
 
     const preview: RecipePreviewServiceShape["preview"] = Effect.fn(
       "RecipePreviewService.preview",
@@ -57,43 +55,10 @@ export class RecipePreviewService extends Context.Service<
       });
       const blueprint = yield* blueprints.resolve(selection, config);
 
-      const fileSystem = yield* MemoryFileSystem.make.pipe(
-        Effect.provide(BrowserCrypto.layer),
-      );
-      const path = yield* Path.Path.pipe(Effect.provide(Path.layer));
-      yield* fileSystem.makeDirectory(workspaceRoot, { recursive: true }).pipe(
-        Effect.mapError(
-          (error) =>
-            new ApplyFailure({
-              reason: "executionFailure",
-              message: `Could not initialize the preview workspace: ${error.message}`,
-            }),
-        ),
-      );
-
-      const fileSystemLayer = Layer.mergeAll(
-        Layer.succeed(FileSystem.FileSystem, fileSystem),
-        Layer.succeed(Path.Path, path),
-      );
-      const plan = yield* Effect.gen(function* () {
-        const plans = yield* PlanService;
-        return yield* plans.build({
-          blueprint,
-          repoRoot: workspaceRoot,
-          config,
-        });
-      }).pipe(
-        Effect.provide(PlanService.layer.pipe(Layer.provide(fileSystemLayer))),
-      );
+      const workspace = yield* workspaces.create();
+      const plan = yield* workspace.plan({ blueprint, config });
       const apply = new Apply({ plan, decisions: [] });
-      const applied = yield* Effect.gen(function* () {
-        const previews = yield* ApplyPreviewService;
-        return yield* previews.preview({ apply, repoRoot: workspaceRoot });
-      }).pipe(
-        Effect.provide(
-          ApplyPreviewService.layer.pipe(Layer.provide(fileSystemLayer)),
-        ),
-      );
+      const applied = yield* workspace.materialize(apply);
       const encodedConfig = yield* Schema.encodeEffect(
         StackConfigFromJsonString,
       )(config).pipe(
@@ -129,5 +94,15 @@ export class RecipePreviewService extends Context.Service<
     Layer.provide(RecipeService.layer),
     Layer.provide(BlueprintService.layer),
     Layer.provide(CatalogService.layer),
+    Layer.provide(
+      ApplyWorkspaceService.layer.pipe(
+        Layer.provide(
+          Layer.merge(
+            Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+            Path.layer,
+          ),
+        ),
+      ),
+    ),
   );
 }
