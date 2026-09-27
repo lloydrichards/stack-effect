@@ -1,5 +1,18 @@
 # stack-effect
 
+## 0.15.0
+
+### Minor Changes
+
+- 36bbf30: Scaffold Deno projects with Deno-managed dependencies, tasks, and standalone executable builds across supported targets and modules. Turbo workspace generation remains unavailable with Deno.
+
+### Patch Changes
+
+- 506a591: Keep generated Effect packages and APIs compatible with fresh Bun and pnpm installs.
+- ef7f5dc: Generated Nix shells now provide Bun 1.4.2 and Node 24.
+- 8ca68c2: Reject stale scaffolding plans before previewing or applying repository changes.
+- 7ab827d: Keep optional CLI switches disabled when omitted, generate a Vite Plus toolchain compatible with the Effect compiler plugin, and keep terminal chat compatible with the generated Effect dependency baseline.
+
 ## 0.14.0
 
 ### Minor Changes
