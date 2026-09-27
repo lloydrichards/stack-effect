@@ -1,7 +1,7 @@
 import { Data, Effect, Match, Option } from "effect";
-import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
 import type { AnsiStyle } from "effect-boxes/Ansi";
+import { Prompt } from "effect/unstable/cli";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import * as Viewport from "../lib/Viewport.js";
 import { Hint } from "./atom/Hint.js";

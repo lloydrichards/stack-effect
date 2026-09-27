@@ -15,8 +15,8 @@ import {
 } from "@repo/scaffold";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option, Schema } from "effect";
-import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
+import { Command } from "effect/unstable/cli";
 import {
   dryRunFlag,
   noGitFlag,

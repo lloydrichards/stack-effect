@@ -1,6 +1,6 @@
-import guideMarkdown from "virtual:coding-agent-guide-markdown";
 import { Check, Copy } from "lucide-react";
 import type { LinksFunction } from "react-router";
+import guideMarkdown from "virtual:coding-agent-guide-markdown";
 import { typefaceHeading1 } from "~/components/tokens/typeface";
 import { Button } from "~/components/ui/button";
 import Guide, * as guideModule from "~/content/use-with-coding-agents.mdx";

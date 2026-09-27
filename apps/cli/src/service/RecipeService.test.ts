@@ -44,7 +44,7 @@ const makeTestLayer = (defaults: StackConfig) =>
 const TestLayer = makeTestLayer(testConfig);
 
 const modulesForTarget = (
-  targets: typeof import("@repo/domain/Selection").Selection.Type["targets"],
+  targets: (typeof import("@repo/domain/Selection").Selection.Type)["targets"],
   targetKey: string,
 ) =>
   targets

@@ -1,7 +1,6 @@
 import type React from "react";
 import type { ComponentPropsWithoutRef } from "react";
 import { Link } from "react-router";
-
 import { AnsiTerminal } from "~/components/ansi-terminal";
 import { CodeBlock } from "~/components/code-block";
 import { CodeExample } from "~/components/code-example";

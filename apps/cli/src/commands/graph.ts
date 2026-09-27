@@ -15,8 +15,8 @@ import {
   Order,
   Result,
 } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
+import { Command, Flag } from "effect/unstable/cli";
 
 const formatFlag = Flag.Literals("format", ["table", "mermaid", "dot"]).pipe(
   Flag.optional,

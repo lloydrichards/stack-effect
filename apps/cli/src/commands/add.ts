@@ -32,8 +32,8 @@ import {
   Schema,
   Terminal,
 } from "effect";
-import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
+import { Command } from "effect/unstable/cli";
 import {
   dryRunFlag,
   recipeTargetFlag,

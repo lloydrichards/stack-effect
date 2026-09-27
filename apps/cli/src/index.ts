@@ -1,7 +1,7 @@
 import { NodeRuntime } from "@effect/platform-node";
 import { Cause, Console, Effect } from "effect";
-import { Command } from "effect/unstable/cli";
 import { Ansi, Box } from "effect-boxes";
+import { Command } from "effect/unstable/cli";
 import pkg from "../package.json";
 import { stackEffectCommand } from "./command";
 import { StackEffectLayer } from "./runtime";

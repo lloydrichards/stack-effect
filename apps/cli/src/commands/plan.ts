@@ -17,9 +17,9 @@ import {
   Schema,
   Stream,
 } from "effect";
+import { Box } from "effect-boxes";
 import { Stdio } from "effect/Stdio";
 import { Command, Flag } from "effect/unstable/cli";
-import { Box } from "effect-boxes";
 import { rootFlag } from "../flags";
 import { ConfigureService } from "../service/ConfigureService";
 

@@ -289,20 +289,17 @@ export class CatalogService extends Context.Service<CatalogService>()(
             const supportedIds = new Set(
               Arr.map(modules, (module) => module.id),
             );
-            return Arr.map(
-              modules,
-              (module): BuilderCatalogModule => ({
-                id: module.id,
-                title: module.title,
-                description: module.description,
-                visibility: module.visibility ?? "public",
-                dependencies: module.dependencies,
-                implies: module.implies ?? [],
-                children: Arr.filter(module.children ?? [], (child) =>
-                  supportedIds.has(child.moduleId),
-                ),
-              }),
-            );
+            return Arr.map(modules, (module): BuilderCatalogModule => ({
+              id: module.id,
+              title: module.title,
+              description: module.description,
+              visibility: module.visibility ?? "public",
+              dependencies: module.dependencies,
+              implies: module.implies ?? [],
+              children: Arr.filter(module.children ?? [], (child) =>
+                supportedIds.has(child.moduleId),
+              ),
+            }));
           };
 
           yield* Effect.forEach(

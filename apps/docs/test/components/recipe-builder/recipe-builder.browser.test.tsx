@@ -2,8 +2,8 @@
 // @effect-diagnostics asyncFunction:off
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
-import { page } from "vitest/browser";
 import { render } from "vitest-browser-react";
+import { page } from "vitest/browser";
 import type {
   CatalogAtomRequest,
   PreviewAtomRequest,

@@ -1,5 +1,5 @@
-import { dual } from "effect/Function";
 import { Ansi, Box, type Box as BoxType } from "effect-boxes";
+import { dual } from "effect/Function";
 
 // ─── Panel ───────────────────────────────────────────────────────────────────
 

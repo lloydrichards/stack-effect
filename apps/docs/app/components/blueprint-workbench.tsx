@@ -9,7 +9,6 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
-
 import { AnsiTerminal } from "~/components/ansi-terminal";
 import { Button } from "~/components/ui/button";
 import {

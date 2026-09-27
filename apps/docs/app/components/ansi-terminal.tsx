@@ -1,7 +1,6 @@
 "use client";
 
 import { AnsiHtml } from "fancy-ansi/react";
-
 import { cn } from "~/lib/utils";
 
 const vscodePalette = {

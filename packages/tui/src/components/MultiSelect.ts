@@ -1,6 +1,6 @@
 import { Array as Arr, Data, Effect, Match, pipe } from "effect";
-import { Prompt } from "effect/unstable/cli";
 import { Ansi, Box, Cmd } from "effect-boxes";
+import { Prompt } from "effect/unstable/cli";
 import { KeyBinding, whenBinding } from "../lib/KeyBinding.js";
 import { Hint } from "./atom/Hint.js";
 import { PromptChrome } from "./atom/Panel.js";
