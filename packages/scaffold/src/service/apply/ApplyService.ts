@@ -3,6 +3,7 @@ import {
   type ApplyFailedPath,
   ApplyFailure,
   ApplyResult,
+  StalePlanFailure,
 } from "@repo/domain/Apply";
 import { CompositionOperation } from "@repo/domain/Plan";
 import {
@@ -16,6 +17,7 @@ import {
   Path,
   Schema,
 } from "effect";
+import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
@@ -75,11 +77,11 @@ export interface ApplyServiceShape {
   readonly apply: (input: {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
-  }) => Effect.Effect<ApplyResult, ApplyFailure, never>;
+  }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
   readonly preview: (input: {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
-  }) => Effect.Effect<ApplyResult, ApplyFailure, never>;
+  }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
 }
 
 export class ApplyService extends Context.Service<
@@ -91,9 +93,23 @@ export class ApplyService extends Context.Service<
     const compositionEngine = yield* CompositionEngine;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const repositoryState = yield* RepositoryStateService;
 
     const validateApplyIntent = Effect.fn("ApplyService.validateApplyIntent")(
       function* (apply: typeof Apply.Type) {
+        const baselinePaths = new Set(
+          apply.plan.baseline.paths.map((entry) => entry.path),
+        );
+        const uncoveredOutcome = Arr.findFirst(
+          apply.plan.outcomes,
+          (outcome) => !baselinePaths.has(outcome.path),
+        );
+        if (Option.isSome(uncoveredOutcome)) {
+          return yield* new ApplyFailure({
+            reason: "invalidApplyIntent",
+            message: `Plan baseline does not cover ${uncoveredOutcome.value.path}.`,
+          });
+        }
         const conflictPaths = new Set(
           Arr.map(
             Arr.filter(
@@ -378,27 +394,116 @@ export class ApplyService extends Context.Service<
     const executeWrites = Effect.fn("ApplyService.executeWrites")(function* ({
       repoRoot,
       writeRequests,
+      applyIntent,
+      skippedPaths,
     }: {
       repoRoot: string;
       writeRequests: ReadonlyArray<ApplyWriteRequest>;
+      applyIntent: typeof Apply.Type;
+      skippedPaths: ReadonlySet<string>;
     }) {
-      return yield* Effect.all(
-        Arr.map(writeRequests, (writeRequest) =>
-          writeEngine.write({ repoRoot, write: writeRequest }).pipe(
-            Effect.catch((error) =>
-              Effect.succeed({
-                path: writeRequest.path,
-                status: "failure" as const,
-                reason: error.message,
-              }),
-            ),
-          ),
-        ),
-        {
-          concurrency: 1,
-        },
+      const attempts: Array<WriteAttempt> = [];
+      const createdDirectories = new Set<string>();
+      yield* Effect.forEach(
+        writeRequests,
+        (writeRequest) =>
+          Effect.gen(function* () {
+            const relevantPaths = applyIntent.plan.baseline.paths
+              .filter(
+                (entry) =>
+                  entry.path === "." ||
+                  entry.path === writeRequest.path ||
+                  writeRequest.path.startsWith(`${entry.path}/`),
+              )
+              .map((entry) => entry.path);
+            const changes = yield* repositoryState.verify({
+              baseline: {
+                root: applyIntent.plan.baseline.root,
+                paths: applyIntent.plan.baseline.paths.map((entry) =>
+                  createdDirectories.has(entry.path)
+                    ? { _tag: "directory" as const, path: entry.path }
+                    : entry,
+                ),
+              },
+              repoRoot,
+              paths: relevantPaths,
+            });
+            if (changes.length > 0) {
+              return yield* new StalePlanFailure({
+                changes,
+                partialResult: toApplyResult({
+                  skippedPaths,
+                  writeAttempts: attempts,
+                }),
+                message: stalePlanMessage(
+                  changes,
+                  toApplyResult({ skippedPaths, writeAttempts: attempts }),
+                ),
+              });
+            }
+            const attempt = yield* writeEngine
+              .write({ repoRoot, write: writeRequest })
+              .pipe(
+                Effect.catch((error) =>
+                  Effect.succeed({
+                    path: writeRequest.path,
+                    status: "failure" as const,
+                    reason: error.message,
+                  }),
+                ),
+              );
+            attempts.push(attempt);
+            if (attempt.status === "created" || attempt.status === "modified") {
+              applyIntent.plan.baseline.paths
+                .filter(
+                  (entry) =>
+                    entry._tag === "missing" &&
+                    (entry.path === "." ||
+                      writeRequest.path.startsWith(`${entry.path}/`)),
+                )
+                .forEach((entry) => createdDirectories.add(entry.path));
+            }
+          }),
+        { concurrency: 1, discard: true },
       );
+      return attempts;
     });
+
+    const stalePlanMessage = (
+      changes: ReadonlyArray<{ readonly path: string; readonly kind: string }>,
+      partialResult: ApplyResult,
+    ) => {
+      const written = [...partialResult.created, ...partialResult.modified];
+      return `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. ${written.length > 0 ? `Already written: ${written.join(", ")}. ` : ""}Replan and try again.`;
+    };
+
+    const validateBaseline = Effect.fn("ApplyService.validateBaseline")(
+      function* ({
+        applyIntent,
+        repoRoot,
+      }: {
+        applyIntent: typeof Apply.Type;
+        repoRoot: string;
+      }) {
+        const changes = yield* repositoryState.verify({
+          baseline: applyIntent.plan.baseline,
+          repoRoot,
+        });
+        if (changes.length > 0) {
+          const partialResult = new ApplyResult({
+            created: [],
+            modified: [],
+            skipped: [],
+            failed: [],
+          });
+          return yield* new StalePlanFailure({
+            changes,
+            partialResult,
+            message: stalePlanMessage(changes, partialResult),
+          });
+        }
+      },
+    );
 
     const toApplyResult = ({
       skippedPaths,
@@ -460,12 +565,16 @@ export class ApplyService extends Context.Service<
       repoRoot: string;
     }) {
       const actions = yield* materializeFrom(applyIntent);
+      yield* validateBaseline({ applyIntent, repoRoot });
 
       const actionProjection = yield* prepareWrites({ actions, repoRoot });
+      yield* validateBaseline({ applyIntent, repoRoot });
 
       const writeAttempts = yield* executeWrites({
         repoRoot,
         writeRequests: actionProjection.writeRequests,
+        applyIntent,
+        skippedPaths: actionProjection.skippedPaths,
       });
 
       return toApplyResult({
@@ -482,7 +591,9 @@ export class ApplyService extends Context.Service<
       repoRoot: string;
     }) {
       const actions = yield* materializeFrom(applyIntent);
+      yield* validateBaseline({ applyIntent, repoRoot });
       const actionProjection = yield* prepareWrites({ actions, repoRoot });
+      yield* validateBaseline({ applyIntent, repoRoot });
 
       return toApplyResult({
         skippedPaths: actionProjection.skippedPaths,
@@ -493,11 +604,15 @@ export class ApplyService extends Context.Service<
       });
     });
 
-    return { apply, preview } satisfies ApplyServiceShape;
+    return {
+      apply,
+      preview,
+    } satisfies ApplyServiceShape;
   }),
 }) {
   static readonly layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
     Layer.provide(WriteEngine.layer),
     Layer.provide(CompositionEngine.layer),
+    Layer.provide(RepositoryStateService.layer),
   );
 }

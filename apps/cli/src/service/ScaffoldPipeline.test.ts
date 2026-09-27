@@ -23,8 +23,13 @@ import {
 } from "./ScaffoldPipeline";
 
 const blueprint = new Blueprint({ nodes: [], edges: [] });
-const plan = new Plan({ outcomes: [], conflicts: [] });
+const baseline = { root: "/tmp/pipeline-app", paths: [] };
+const plan = new Plan({ baseline, outcomes: [], conflicts: [] });
 const conflictPlan = new Plan({
+  baseline: {
+    root: "/tmp/pipeline-app",
+    paths: [{ _tag: "missing", path: "package.json" }],
+  },
   outcomes: [
     {
       _tag: "complete",

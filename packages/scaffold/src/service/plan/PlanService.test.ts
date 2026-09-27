@@ -14,6 +14,7 @@ import { ContributionResolver } from "./ContributionResolver";
 import { PlanAssessor } from "./PlanAssessor";
 import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
 import { PlanService } from "./PlanService";
+import { RepositoryStateService } from "./RepositoryStateService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
 const testRepoRoot = "/repo";
@@ -35,6 +36,43 @@ const makeRepoSnapshotServiceLayer = (
   Layer.succeed(RepoSnapshotService, {
     load: Effect.fn("MockRepoSnapshotService.load")(load),
   } as never);
+
+const makeRepositoryStateServiceLayer = (
+  load: (args: {
+    readonly paths: ReadonlyArray<string>;
+    readonly repoRoot: string;
+  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
+) => {
+  const fromSnapshot = ({
+    repoRoot,
+    repoSnapshot,
+  }: {
+    readonly repoRoot: string;
+    readonly repoSnapshot: typeof RepoSnapshot.Type;
+  }) =>
+    Effect.succeed({
+      root: repoRoot,
+      paths: repoSnapshot.paths.map((entry) =>
+        entry._tag === "file"
+          ? { _tag: "file" as const, path: entry.path, sha256: entry.contents }
+          : entry,
+      ),
+    });
+  return Layer.succeed(RepositoryStateService, {
+    fromSnapshot,
+    capture: ({
+      repoRoot,
+      paths,
+    }: {
+      readonly repoRoot: string;
+      readonly paths: ReadonlyArray<string>;
+    }) =>
+      Effect.flatMap(load({ repoRoot, paths }), (repoSnapshot) =>
+        fromSnapshot({ repoRoot, repoSnapshot }),
+      ),
+    compare: () => [],
+  } as never);
+};
 
 const makeDomainBlueprint = () =>
   new Blueprint({
@@ -181,6 +219,7 @@ const makePlanServiceLayer = (
     Layer.provide(ContributionResolver.layer),
     Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
+    Layer.provide(makeRepositoryStateServiceLayer(load)),
     Layer.provide(assessorLayer),
   );
 

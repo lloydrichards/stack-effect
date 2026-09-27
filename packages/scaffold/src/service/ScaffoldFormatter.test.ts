@@ -126,6 +126,7 @@ describe("ScaffoldFormatter", () => {
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const plan = new Plan({
+          baseline: { root: "/repo", paths: [] },
           outcomes: [],
           conflicts: [],
         });
@@ -146,6 +147,16 @@ describe("ScaffoldFormatter", () => {
         Effect.gen(function* () {
           const formatter = yield* ScaffoldFormatter;
           const plan = new Plan({
+            baseline: {
+              root: "/repo",
+              paths: [
+                "packages/domain/src/Api.ts",
+                "packages/domain/src/index.ts",
+                "packages/domain/tsconfig.json",
+                "README.md",
+                "package.json",
+              ].map((path) => ({ _tag: "missing" as const, path })),
+            },
             outcomes: [
               {
                 _tag: "complete",
@@ -246,6 +257,10 @@ describe("ScaffoldFormatter", () => {
       Effect.gen(function* () {
         const formatter = yield* ScaffoldFormatter;
         const plan = new Plan({
+          baseline: {
+            root: "/repo",
+            paths: [{ _tag: "missing", path: "apps/web/src/App.tsx" }],
+          },
           outcomes: [
             {
               _tag: "composed",

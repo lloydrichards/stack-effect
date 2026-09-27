@@ -48,10 +48,33 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
               );
 
               if (pathStat === null) {
+                const link = yield* fileSystem.readLink(absolutePath).pipe(
+                  Effect.map(() => true),
+                  Effect.orElseSucceed(() => false),
+                );
+                if (link) {
+                  return yield* new PlanFailure({
+                    reason: "repoStateUnsupported",
+                    message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
+                  });
+                }
                 return {
                   _tag: "missing",
                   path: snapshotPath,
                 } satisfies typeof RepoSnapshot.fields.paths.value.Type;
+              }
+
+              const isLink =
+                snapshotPath !== "." &&
+                (yield* fileSystem.readLink(absolutePath).pipe(
+                  Effect.map(() => true),
+                  Effect.orElseSucceed(() => false),
+                ));
+              if (isLink) {
+                return yield* new PlanFailure({
+                  reason: "repoStateUnsupported",
+                  message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
+                });
               }
 
               if (pathStat.type === "Directory") {
@@ -61,17 +84,37 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 } satisfies typeof RepoSnapshot.fields.paths.value.Type;
               }
 
-              const contents = yield* fileSystem
-                .readFileString(absolutePath)
-                .pipe(
-                  Effect.mapError(
-                    (err) =>
-                      new PlanFailure({
-                        reason: "repoRootNotEmpty",
-                        message: `Could not read ${snapshotPath} during planning: ${err.message}`,
-                      }),
-                  ),
-                );
+              if (pathStat.type !== "File") {
+                return yield* new PlanFailure({
+                  reason: "repoStateUnsupported",
+                  message: `Unsupported repository entry at ${snapshotPath}: ${pathStat.type}.`,
+                });
+              }
+
+              const bytes = yield* fileSystem.readFile(absolutePath).pipe(
+                Effect.mapError(
+                  (err) =>
+                    new PlanFailure({
+                      reason: "repoRootNotEmpty",
+                      message: `Could not read ${snapshotPath} during planning: ${err.message}`,
+                    }),
+                ),
+              );
+
+              const contents = yield* Effect.try({
+                try: () => {
+                  if (bytes.includes(0)) throw new Error("NUL byte");
+                  return new TextDecoder("utf-8", {
+                    fatal: true,
+                    ignoreBOM: true,
+                  }).decode(bytes);
+                },
+                catch: () =>
+                  new PlanFailure({
+                    reason: "repoStateUnsupported",
+                    message: `Non-text repository file at ${snapshotPath} is unsupported.`,
+                  }),
+              });
 
               return {
                 _tag: "file",

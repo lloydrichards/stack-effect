@@ -1,6 +1,7 @@
 // This test intentionally constructs a Windows Path service from Node's win32 implementation.
 // @effect-diagnostics nodeBuiltinImport:off
 
+import { createHash } from "node:crypto";
 import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
@@ -12,6 +13,7 @@ import {
   type PlanOutcome,
 } from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { ApplyPreviewService } from "./ApplyPreviewService";
 
 const repoRoot = "/repo";
@@ -44,9 +46,24 @@ const composed = (
 const makeApply = (
   outcomes: ReadonlyArray<typeof PlanOutcome.Type>,
   decisions: ReadonlyArray<typeof ApplyDecision.Type> = [],
+  root = repoRoot,
+  existingContents: Readonly<Record<string, string>> = {},
 ) =>
   new Apply({
     plan: new Plan({
+      baseline: {
+        root,
+        paths: outcomes.map((outcome) => {
+          const contents = existingContents[outcome.path];
+          return contents === undefined
+            ? { _tag: "missing" as const, path: outcome.path }
+            : {
+                _tag: "file" as const,
+                path: outcome.path,
+                sha256: createHash("sha256").update(contents).digest("hex"),
+              };
+        }),
+      },
       outcomes: [...outcomes],
       conflicts: outcomes
         .filter((outcome) => outcome.classification === "conflict")
@@ -107,6 +124,45 @@ describe("ApplyPreviewService", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
+  it.effect(
+    "should preserve unchanged baseline files while previewing writes",
+    () =>
+      Effect.gen(function* () {
+        const hostFileSystem = yield* FileSystem.FileSystem;
+        const service = yield* ApplyPreviewService;
+        yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+        yield* hostFileSystem.writeFileString(
+          `${repoRoot}/existing.ts`,
+          "user code",
+        );
+
+        const result = yield* service.preview({
+          apply: makeApply(
+            [
+              complete("existing.ts", "unchanged", "user code"),
+              complete("created.ts", "create", "generated code"),
+            ],
+            [],
+            repoRoot,
+            { "existing.ts": "user code" },
+          ),
+          repoRoot,
+        });
+
+        expect(result.apply.created).toEqual(["created.ts"]);
+        expect(result.apply.skipped).toEqual(["existing.ts"]);
+        expect(result.files).toEqual([
+          { path: "created.ts", status: "created", contents: "generated code" },
+        ]);
+        expect(
+          yield* hostFileSystem.readFileString(`${repoRoot}/existing.ts`),
+        ).toBe("user code");
+        expect(yield* hostFileSystem.exists(`${repoRoot}/created.ts`)).toBe(
+          false,
+        );
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
   it.effect("should preserve the host file when composing", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
@@ -119,15 +175,20 @@ describe("ApplyPreviewService", () => {
       );
 
       const result = yield* service.preview({
-        apply: makeApply([
-          composed("package.json", "modify", [
-            {
-              _tag: "json-pkg-scripts",
-              fileType: "json",
-              entries: [{ name: "dev", value: "vite" }],
-            },
-          ]),
-        ]),
+        apply: makeApply(
+          [
+            composed("package.json", "modify", [
+              {
+                _tag: "json-pkg-scripts",
+                fileType: "json",
+                entries: [{ name: "dev", value: "vite" }],
+              },
+            ]),
+          ],
+          [],
+          repoRoot,
+          { "package.json": original },
+        ),
         repoRoot,
       });
 
@@ -182,19 +243,35 @@ describe("ApplyPreviewService", () => {
       );
       const original = encodeJson({ name: "windows-app" });
       yield* hostFileSystem.writeFileString(packageJsonPath, original);
+      const windowsBaseline = yield* Effect.gen(function* () {
+        const state = yield* RepositoryStateService;
+        return yield* state.capture({
+          repoRoot: windowsRepoRoot,
+          paths: ["package.json"],
+        });
+      }).pipe(
+        Effect.provide(
+          RepositoryStateService.layer.pipe(Layer.provide(hostLayer)),
+        ),
+      );
 
       const result = yield* Effect.gen(function* () {
         const service = yield* ApplyPreviewService;
         return yield* service.preview({
-          apply: makeApply([
-            composed("package.json", "modify", [
-              {
-                _tag: "json-pkg-scripts",
-                fileType: "json",
-                entries: [{ name: "dev", value: "vite" }],
-              },
-            ]),
-          ]),
+          apply: makeApply(
+            [
+              composed("package.json", "modify", [
+                {
+                  _tag: "json-pkg-scripts",
+                  fileType: "json",
+                  entries: [{ name: "dev", value: "vite" }],
+                },
+              ]),
+            ],
+            [],
+            windowsBaseline.root,
+            { "package.json": original },
+          ),
           repoRoot: windowsRepoRoot,
         });
       }).pipe(Effect.provide(previewLayer));

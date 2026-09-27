@@ -26,6 +26,12 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
     };
 
   const fileSystem = {
+    realPath: (absolutePath: string) => Effect.succeed(absolutePath),
+    readLink: (absolutePath: string) =>
+      Effect.fail({
+        _tag: "NotSymbolicLink",
+        message: `Not a symbolic link: ${absolutePath}`,
+      }),
     stat: (absolutePath: string) =>
       Match.value(getEntry(absolutePath)).pipe(
         Match.tag("PlatformError", (error) => Effect.fail(error)),
@@ -35,12 +41,12 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
         ),
         Match.orElse(() => Effect.succeed({ type: "File" as const })),
       ),
-    readFileString: (absolutePath: string) =>
+    readFile: (absolutePath: string) =>
       Match.value(getEntry(absolutePath)).pipe(
         Match.tag("PlatformError", (error) => Effect.fail(error)),
         Match.tag("readError", ({ error }) => Effect.fail(error)),
         Match.when({ _tag: "file" }, ({ contents }) =>
-          Effect.succeed(contents),
+          Effect.succeed(new TextEncoder().encode(contents)),
         ),
         Match.orElse(() =>
           Effect.fail({
@@ -49,7 +55,7 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
           }),
         ),
       ),
-  } as FileSystem.FileSystem;
+  } as never;
 
   return Layer.mergeAll(
     Layer.succeed(FileSystem.FileSystem, fileSystem),

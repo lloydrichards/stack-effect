@@ -78,3 +78,24 @@ export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
     });
   }
 }
+
+export const StalePlanChange = Schema.Struct({
+  path: Schema.String,
+  kind: Schema.Literals([
+    "created",
+    "deleted",
+    "modified",
+    "typeChanged",
+    "rootChanged",
+  ]),
+});
+
+/** A Plan no longer describes the repository being previewed or written. */
+export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(
+  "StalePlanFailure",
+  {
+    message: Schema.String,
+    changes: Schema.Array(StalePlanChange),
+    partialResult: ApplyResult,
+  },
+) {}

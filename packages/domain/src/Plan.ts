@@ -33,10 +33,27 @@ export const RepoSnapshot = Schema.Struct({
   paths: Schema.Array(RepoSnapshotPath),
 });
 
+/** The repository state against which a Plan was computed. */
+export const PlanBaselinePath = Schema.TaggedUnion({
+  missing: { path: Schema.String },
+  directory: { path: Schema.String },
+  file: { path: Schema.String, sha256: Schema.String },
+});
+
+export const PlanBaseline = Schema.Struct({
+  root: Schema.String,
+  paths: Schema.Array(PlanBaselinePath),
+});
+
 export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
   "PlanFailure",
   {
-    reason: Schema.Literals(["repoRootNotEmpty", "invalidPlanIntent"]),
+    reason: Schema.Literals([
+      "repoRootNotEmpty",
+      "invalidPlanIntent",
+      "repoStateUnsupported",
+      "repoStateChanged",
+    ]),
     message: Schema.String,
   },
 ) {}
@@ -218,10 +235,12 @@ const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   );
 
 const PlanFields = Schema.Struct({
+  baseline: PlanBaseline,
   outcomes: Schema.Array(PlanOutcome),
   conflicts: Schema.Array(PlanConflict),
 }).check(
-  Schema.makeFilter(({ conflicts, outcomes }) => {
+  Schema.makeFilter(({ baseline, conflicts, outcomes }) => {
+    const baselinePaths = baseline.paths.map((entry) => entry.path);
     const outcomePaths = outcomes.map((outcome) => outcome.path);
     const conflictKeys = conflicts.map(planConflictKey);
     const conflictedOutcomePaths = new Set(
@@ -232,6 +251,9 @@ const PlanFields = Schema.Struct({
     const conflictPaths = new Set(conflicts.map((conflict) => conflict.path));
 
     return [
+      ...duplicates(baselinePaths).map(
+        (path) => `Plan baseline paths must be unique; duplicate path: ${path}`,
+      ),
       ...duplicates(outcomePaths).map(
         (path) => `Plan outcome paths must be unique; duplicate path: ${path}`,
       ),
@@ -260,8 +282,8 @@ const PlanFields = Schema.Struct({
  *
  * A Plan pairs each contributed file path with a classification (create,
  * modify, unchanged, or conflict) and its resolved contents or composition
- * operations. It also surfaces detected conflicts that require user decisions
- * before execution.
+ * operations. It also records the inspected repository state and surfaces
+ * detected conflicts that require user decisions before execution.
  *
  * The Plan is policy-free: it records what *would* happen but does not make
  * apply decisions. Those belong to the Apply stage via ApplyDecision entries.
@@ -272,6 +294,10 @@ const PlanFields = Schema.Struct({
 export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
   toSorted(): Plan {
     return new Plan({
+      baseline: {
+        root: this.baseline.root,
+        paths: [...this.baseline.paths].sort(pathOrd),
+      },
       outcomes: [...this.outcomes].sort(pathOrd),
       conflicts: [...this.conflicts].sort(
         Order.mapInput(Order.String, planConflictKey),

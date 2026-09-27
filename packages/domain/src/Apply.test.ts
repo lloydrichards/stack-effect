@@ -3,6 +3,7 @@ import {
   ApplyDecision,
   ApplyFailure,
   ApplyResult,
+  StalePlanFailure,
 } from "@repo/domain/Apply";
 import { Plan } from "@repo/domain/Plan";
 import { Schema } from "effect";
@@ -48,6 +49,7 @@ describe("@repo/domain Apply", () => {
   it("sorts apply decisions deterministically", () => {
     const apply = new Apply({
       plan: new Plan({
+        baseline: { root: "/workspace", paths: [] },
         outcomes: [],
         conflicts: [],
       }),
@@ -112,5 +114,22 @@ describe("@repo/domain Apply", () => {
     });
 
     expect(error.reason).toBe("invalidApplyIntent");
+  });
+
+  it("decodes stale Plan failures with a partial result and no file contents", () => {
+    const error = Schema.decodeSync(StalePlanFailure)({
+      _tag: "StalePlanFailure",
+      message: "The repository changed after planning",
+      changes: [{ path: "README.md", kind: "modified" }],
+      partialResult: {
+        created: ["package.json"],
+        modified: [],
+        skipped: [],
+        failed: [],
+      },
+    });
+
+    expect(error.changes).toEqual([{ path: "README.md", kind: "modified" }]);
+    expect(error.partialResult.created).toEqual(["package.json"]);
   });
 });

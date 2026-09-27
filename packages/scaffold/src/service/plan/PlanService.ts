@@ -19,6 +19,7 @@ import {
   type PlanningIntentPath,
 } from "./PlanAssessor";
 import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
+import { RepositoryStateService } from "./RepositoryStateService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
@@ -43,6 +44,7 @@ export class PlanService extends Context.Service<
     const contribute = yield* ContributionResolver;
     const compiler = yield* PlanningIntentCompiler;
     const snapshot = yield* RepoSnapshotService;
+    const repositoryState = yield* RepositoryStateService;
     const assessor = yield* PlanAssessor;
 
     const build = Effect.fn("PlanService.build")(function* ({
@@ -58,25 +60,47 @@ export class PlanService extends Context.Service<
 
       const repoSnapshot = yield* snapshot.load({
         paths: Arr.fromIterable(
-          new Set(
-            Arr.flatMap(planningPaths, (planningPath) => [
+          new Set([
+            ".",
+            ...Arr.flatMap(planningPaths, (planningPath) => [
               planningPath.path,
               ...collectAncestorPaths(planningPath.path),
             ]),
-          ),
+          ]),
         ),
         repoRoot,
       });
-
-      return yield* projectPlan({ planningPaths, repoSnapshot });
+      const baseline = yield* repositoryState.fromSnapshot({
+        repoRoot,
+        repoSnapshot,
+      });
+      const plan = yield* projectPlan({
+        planningPaths,
+        repoSnapshot,
+        baseline,
+      });
+      const current = yield* repositoryState.capture({
+        repoRoot,
+        paths: baseline.paths.map((entry) => entry.path),
+      });
+      const changes = repositoryState.compare(baseline, current);
+      if (changes.length > 0) {
+        return yield* new PlanFailure({
+          reason: "repoStateChanged",
+          message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+        });
+      }
+      return plan;
     });
 
     const projectPlan = ({
       planningPaths,
       repoSnapshot,
+      baseline,
     }: {
       planningPaths: ReadonlyArray<PlanningIntentPath>;
       repoSnapshot: typeof RepoSnapshot.Type;
+      baseline: (typeof Plan.Type)["baseline"];
     }) =>
       Effect.gen(function* () {
         const snapshotPaths = new Map(
@@ -122,6 +146,7 @@ export class PlanService extends Context.Service<
         );
 
         const plan = yield* Plan.makeEffect({
+          baseline,
           outcomes: Arr.map(assessedPaths, ({ planningPath, assessment }) =>
             assessor.toPlannedFileOutcome({
               planningPath,
@@ -152,6 +177,7 @@ export class PlanService extends Context.Service<
     Layer.provide(ContributionResolver.layer),
     Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(RepoSnapshotService.layer),
+    Layer.provide(RepositoryStateService.layer),
     Layer.provide(PlanAssessor.layer),
     Layer.provide(CatalogService.layer),
   );

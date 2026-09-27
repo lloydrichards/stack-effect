@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
+  const baseline = { root: "/workspace", paths: [] } as const;
   it("should accept supported classifications and reject unsupported values", () => {
     expect(Schema.decodeSync(PlanEntryClassification)("create")).toBe("create");
     expect(Schema.decodeSync(PlanEntryClassification)("modify")).toBe("modify");
@@ -36,6 +37,13 @@ describe("@repo/domain Plan", () => {
 
   it("should sort outcomes and distinct same-path diagnostics deterministically", () => {
     const plan = new Plan({
+      baseline: {
+        root: "/workspace",
+        paths: [
+          { _tag: "missing", path: "z.txt" },
+          { _tag: "file", path: "a.txt", sha256: "abc" },
+        ],
+      },
       outcomes: [
         {
           _tag: "complete",
@@ -91,6 +99,10 @@ describe("@repo/domain Plan", () => {
       "packages/domain/src/index.ts",
       "packages/domain/tsconfig.json",
     ]);
+    expect(plan.baseline.paths.map((entry) => entry.path)).toEqual([
+      "a.txt",
+      "z.txt",
+    ]);
     expect(plan.conflicts.map((conflict) => conflict.path)).toEqual([
       "packages/domain/src/index.ts",
       "apps/web/src/App.tsx",
@@ -116,9 +128,25 @@ describe("@repo/domain Plan", () => {
     readonly construct: () => Plan;
   }> = [
     {
+      name: "duplicate baseline paths",
+      construct: () =>
+        new Plan({
+          baseline: {
+            root: "/workspace",
+            paths: [
+              { _tag: "missing", path: "README.md" },
+              { _tag: "directory", path: "README.md" },
+            ],
+          },
+          outcomes: [],
+          conflicts: [],
+        }),
+    },
+    {
       name: "duplicate outcome paths",
       construct: () =>
         new Plan({
+          baseline,
           outcomes: [
             {
               _tag: "complete",
@@ -140,6 +168,7 @@ describe("@repo/domain Plan", () => {
       name: "duplicate exact conflict diagnostics",
       construct: () =>
         new Plan({
+          baseline,
           outcomes: [
             {
               _tag: "complete",
@@ -158,6 +187,7 @@ describe("@repo/domain Plan", () => {
       name: "orphan conflict diagnostics",
       construct: () =>
         new Plan({
+          baseline,
           outcomes: [],
           conflicts: [{ _tag: "completeFile", path: "README.md" }],
         }),
@@ -166,6 +196,7 @@ describe("@repo/domain Plan", () => {
       name: "conflicted outcomes without diagnostics",
       construct: () =>
         new Plan({
+          baseline,
           outcomes: [
             {
               _tag: "complete",
@@ -188,6 +219,7 @@ describe("@repo/domain Plan", () => {
   it("should reject invalid relationships when decoding", () => {
     expect(() =>
       Schema.decodeSync(Plan)({
+        baseline,
         outcomes: [],
         conflicts: [{ _tag: "completeFile", path: "README.md" }],
       }),

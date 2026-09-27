@@ -23,6 +23,7 @@ import {
   PlatformError,
   Schema,
 } from "effect";
+import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { ApplyService } from "./ApplyService";
 import {
   CompositionEngine,
@@ -130,6 +131,10 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
   });
 };
 
+const mockRepositoryStateLayer = Layer.succeed(RepositoryStateService, {
+  verify: () => Effect.succeed([]),
+} as never);
+
 const makeApplyServiceLayer = ({
   write,
   compose,
@@ -164,6 +169,7 @@ const makeApplyServiceLayer = ({
         } satisfies CompositionEngineShape),
         makeFileSystemLayer(entries),
         Path.layer,
+        mockRepositoryStateLayer,
       ),
     ),
   );
@@ -177,6 +183,13 @@ const makeApply = ({
 }) =>
   new ApplyIntent({
     plan: new Plan({
+      baseline: {
+        root: testRepoRoot,
+        paths: outcomes.map((outcome) => ({
+          _tag: "missing" as const,
+          path: outcome.path,
+        })),
+      },
       outcomes: [...outcomes],
       conflicts: outcomes
         .filter((outcome) => outcome.classification === "conflict")
@@ -810,6 +823,7 @@ describe("ApplyService", () => {
                 },
               }),
               Path.layer,
+              mockRepositoryStateLayer,
             ),
           ),
         );
@@ -877,6 +891,7 @@ describe("ApplyService", () => {
                   },
                 }),
                 Path.layer,
+                mockRepositoryStateLayer,
               ),
             ),
           );

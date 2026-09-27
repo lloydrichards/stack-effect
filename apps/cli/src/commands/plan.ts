@@ -167,6 +167,7 @@ export const plan = Command.make(
         ),
         Match.when("raw", () =>
           Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+            baseline: planResult.baseline,
             outcomes: planResult.outcomes,
             conflicts: planResult.conflicts,
             summary,

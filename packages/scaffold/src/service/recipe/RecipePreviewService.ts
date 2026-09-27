@@ -1,7 +1,7 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { CatalogService } from "@repo/catalog";
-import { Apply, ApplyFailure } from "@repo/domain/Apply";
+import { Apply, ApplyFailure, type StalePlanFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
@@ -29,7 +29,8 @@ export type RecipePreviewError =
   | BlueprintFailure
   | PlanFailure
   | CatalogNotFound
-  | ApplyFailure;
+  | ApplyFailure
+  | StalePlanFailure;
 
 export interface RecipePreviewServiceShape {
   readonly preview: (
