@@ -289,7 +289,7 @@ const makeProjectContext = (
   };
 };
 
-const cliEntrypoint = new URL("../src/index.ts", import.meta.url).pathname;
+const cliEntrypoint = new URL("./entrypoint.ts", import.meta.url).pathname;
 
 export class CLI extends Context.Service<CLI>()("e2e/CLI", {
   make: Effect.gen(function* () {

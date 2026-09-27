@@ -4,11 +4,13 @@ import { BundledCatalogLayer } from "@repo/catalog/authoring";
 import { Effect, Layer } from "effect";
 import pkg from "../../package.json";
 import { stackEffectCommand } from "../command";
+import { CatalogProvider } from "../service/CatalogProvider";
 import { StackEffectServicesLayer } from "../services";
 import { collectCliReference, validateCliReference } from "./CliReference";
 import { renderCliReferencePages } from "./CliReferenceMarkdown";
 
 const TestLayer = StackEffectServicesLayer.pipe(
+  Layer.provideMerge(CatalogProvider.authoring),
   Layer.provideMerge(BundledCatalogLayer),
   Layer.provideMerge(NodeServices.layer),
 );

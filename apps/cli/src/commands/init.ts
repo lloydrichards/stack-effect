@@ -5,7 +5,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { makeRuntime } from "@repo/domain/Scaffold";
+import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import {
   BlueprintService,
   defaultsForRuntime,
@@ -141,9 +141,10 @@ export const init = Command.make(
         flags.root,
       );
 
-      const existing = yield* configure
-        .readConfig(repoRoot)
-        .pipe(Effect.option);
+      const existing = yield* configure.readConfig(repoRoot).pipe(
+        Effect.asSome,
+        Effect.catchTag("MissingConfigError", () => Effect.succeedNone),
+      );
 
       if (Option.isSome(existing)) {
         yield* Console.log(
@@ -250,6 +251,7 @@ export const init = Command.make(
             });
 
       const config = new StackConfig({
+        $schema: STACK_CONFIG_SCHEMA_URL,
         name: projectName as typeof Schema.NonEmptyString.Type,
         runtime,
         typescript,

@@ -1,8 +1,11 @@
 import { BunServices } from "@effect/platform-bun";
 import { NodeServices } from "@effect/platform-node";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { CatalogLoader } from "@repo/scaffold";
 import { Config, Effect, Layer } from "effect";
-import { StackEffectServicesLayer } from "./services";
+import { FetchHttpClient } from "effect/unstable/http";
+import { CatalogProvider } from "./service/CatalogProvider";
+import { ConfigureService } from "./service/ConfigureService";
+import { fileCatalogCacheLayer } from "./service/FileCatalogCache";
 
 const CliConfig = Config.all({
   TARGET: Config.Literals(["bun", "node"]).pipe(Config.withDefault("node")),
@@ -15,7 +18,13 @@ export const PlatformLayer = Layer.unwrap(
   }),
 );
 
-export const StackEffectLayer = StackEffectServicesLayer.pipe(
-  Layer.provideMerge(BundledCatalogLayer),
+export const StackEffectLayer = CatalogProvider.official.pipe(
+  Layer.provideMerge(
+    CatalogLoader.layer.pipe(
+      Layer.provideMerge(fileCatalogCacheLayer()),
+      Layer.provideMerge(FetchHttpClient.layer),
+    ),
+  ),
+  Layer.provideMerge(ConfigureService.layer),
   Layer.provideMerge(PlatformLayer),
 );

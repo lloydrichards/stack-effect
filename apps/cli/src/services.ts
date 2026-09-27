@@ -1,3 +1,4 @@
+import { CatalogService } from "@repo/catalog";
 import {
   ApplyPreviewService,
   ApplyService,
@@ -8,7 +9,8 @@ import {
   RecipeService,
   ScaffoldFormatter,
 } from "@repo/scaffold";
-import { Layer } from "effect";
+import { Effect, Layer } from "effect";
+import { CatalogProvider } from "./service/CatalogProvider";
 import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
@@ -23,4 +25,14 @@ export const StackEffectServicesLayer = Layer.mergeAll(
   ConfigureService.layer,
   RecipeService.layer,
   ScaffoldPipeline.layer,
+);
+
+/** Construct services only after the parsed command asks for a catalog. */
+export const CommandServicesLayer = Layer.unwrap(
+  Effect.gen(function* () {
+    const catalog = yield* (yield* CatalogProvider).load;
+    return StackEffectServicesLayer.pipe(
+      Layer.provideMerge(Layer.succeed(CatalogService, catalog)),
+    );
+  }),
 );

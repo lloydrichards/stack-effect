@@ -1,4 +1,5 @@
 import { PlanRequest } from "@repo/domain/Plan";
+import { StackConfig } from "@repo/domain/Scaffold";
 import {
   BlueprintService,
   FinalizeService,
@@ -10,6 +11,7 @@ import {
 import {
   Array as Arr,
   Console,
+  Context,
   Effect,
   FileSystem,
   Match,
@@ -56,6 +58,37 @@ const outputFlag = Flag.String("output").pipe(
   Flag.withDescription("Write output to a file instead of stdout"),
 );
 
+export class ParsedPlanInput extends Context.Service<
+  ParsedPlanInput,
+  {
+    readonly input: typeof PlanRequest.Type;
+    readonly config: typeof StackConfig.Type;
+  }
+>()("ParsedPlanInput") {}
+
+export const parsePlanInput = (root: Option.Option<string>) =>
+  Effect.gen(function* () {
+    const repoRoot = Option.getOrElse(root, () => process.cwd());
+    const stdio = yield* Stdio;
+    const stdin = yield* stdio.stdin.pipe(Stream.decodeText(), Stream.mkString);
+    const input = yield* Schema.decodeEffect(
+      Schema.fromJsonString(PlanRequest),
+    )(stdin);
+    const configure = yield* ConfigureService;
+    const config =
+      input.config ??
+      (yield* configure
+        .readConfig(repoRoot)
+        .pipe(
+          Effect.catchTag("MissingConfigError", () =>
+            Effect.fail(
+              "No config found. Provide 'config' in stdin or ensure stack.effect.json exists at --root.",
+            ),
+          ),
+        ));
+    return { input, config };
+  });
+
 export const plan = Command.make(
   "plan",
   { root: rootFlag, format: formatFlag, output: outputFlag },
@@ -65,27 +98,7 @@ export const plan = Command.make(
       const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
       const format = Option.getOrElse(flags.format, () => "llm" as const);
 
-      const stdio = yield* Stdio;
-      const stdin = yield* stdio.stdin.pipe(
-        Stream.decodeText(),
-        Stream.mkString,
-      );
-
-      const input = yield* Schema.decodeEffect(
-        Schema.fromJsonString(PlanRequest),
-      )(stdin);
-
-      const configureService = yield* ConfigureService;
-      const fileConfig = yield* configureService
-        .readConfig(repoRoot)
-        .pipe(Effect.catch(() => Effect.void));
-
-      const config = input.config ?? fileConfig;
-      if (!config) {
-        return yield* Effect.fail(
-          "No config found. Provide 'config' in stdin or ensure stack.effect.json exists at --root.",
-        );
-      }
+      const { input, config } = yield* ParsedPlanInput;
 
       const blueprintService = yield* BlueprintService;
       const blueprint = yield* blueprintService.resolve(

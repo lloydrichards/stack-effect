@@ -3,6 +3,7 @@ import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import {
   makeRuntime,
   runtimeForPackageManager,
+  STACK_CONFIG_SCHEMA_URL,
   StackConfig,
 } from "@repo/domain/Scaffold";
 import {
@@ -110,6 +111,7 @@ const buildConfig = ({
   const runtimeDefaults = defaultsForRuntime(defaults, runtimeName);
 
   return new StackConfig({
+    $schema: STACK_CONFIG_SCHEMA_URL,
     name: projectName as typeof Schema.NonEmptyString.Type,
     runtime: runtimeConfig,
     typescript: Option.getOrElse(typescript, () => runtimeDefaults.typescript),
@@ -221,9 +223,10 @@ export const create = Command.make(
       yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
-      const existing = yield* configure
-        .readConfig(repoRoot)
-        .pipe(Effect.option);
+      const existing = yield* configure.readConfig(repoRoot).pipe(
+        Effect.asSome,
+        Effect.catchTag("MissingConfigError", () => Effect.succeedNone),
+      );
 
       if (Option.isSome(existing)) {
         return yield* Effect.fail(

@@ -47,6 +47,7 @@ import {
   runtimeFlag,
   typescriptFlag,
 } from "../flags";
+import { CommandServicesLayer } from "../services";
 
 const defaultWorkspaceRoot = "workspace/catalog-built";
 
@@ -666,6 +667,7 @@ const reset = Command.make(
       }
     }),
 ).pipe(
+  Command.provide(CommandServicesLayer),
   Command.withShortDescription("Rebuild the generated catalog workspace"),
   Command.withDescription(
     "Reset an editable generated catalog workspace and commit a git baseline.",
