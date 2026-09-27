@@ -3,6 +3,7 @@
 
 import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
 import {
@@ -59,7 +60,10 @@ const makeApply = (
 
 const TestLayer = Layer.provideMerge(
   ApplyPreviewService.layer,
-  Layer.merge(MemoryFileSystem.layer, Path.layer),
+  Layer.merge(
+    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+    Path.layer,
+  ),
 );
 describe("ApplyPreviewService", () => {
   it.effect("should return contents when creating a file", () =>
@@ -145,7 +149,9 @@ describe("ApplyPreviewService", () => {
 
   it.effect("should use POSIX paths when the host uses Windows", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* MemoryFileSystem.make;
+      const hostFileSystem = yield* MemoryFileSystem.make.pipe(
+        Effect.provide(BrowserCrypto.layer),
+      );
       const posixPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
       const windowsPath = Path.Path.of({
         ...posixPath,

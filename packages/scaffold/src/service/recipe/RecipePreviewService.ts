@@ -1,4 +1,5 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { CatalogService } from "@repo/catalog";
 import { Apply, ApplyFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
@@ -55,7 +56,9 @@ export class RecipePreviewService extends Context.Service<
       });
       const blueprint = yield* blueprints.resolve(selection, config);
 
-      const fileSystem = yield* MemoryFileSystem.make;
+      const fileSystem = yield* MemoryFileSystem.make.pipe(
+        Effect.provide(BrowserCrypto.layer),
+      );
       const path = yield* Path.Path.pipe(Effect.provide(Path.layer));
       yield* fileSystem.makeDirectory(workspaceRoot, { recursive: true }).pipe(
         Effect.mapError(

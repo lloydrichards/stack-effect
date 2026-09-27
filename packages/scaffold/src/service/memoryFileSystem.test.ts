@@ -1,6 +1,11 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer } from "effect";
+
+const MemoryLayer = MemoryFileSystem.layer.pipe(
+  Layer.provide(BrowserCrypto.layer),
+);
 
 it.effect("provides an in-memory FileSystem service", () =>
   Effect.gen(function* () {
@@ -13,7 +18,7 @@ it.effect("provides an in-memory FileSystem service", () =>
       "{}",
     );
     expect(yield* fileSystem.exists("/workspace/package.json")).toBe(true);
-  }).pipe(Effect.provide(MemoryFileSystem.layer)),
+  }).pipe(Effect.provide(MemoryLayer)),
 );
 
 it.effect("creates a fresh volume for each make invocation", () =>
@@ -25,7 +30,7 @@ it.effect("creates a fresh volume for each make invocation", () =>
 
     expect(yield* first.exists("/only-in-first")).toBe(true);
     expect(yield* second.exists("/only-in-first")).toBe(false);
-  }),
+  }).pipe(Effect.provide(BrowserCrypto.layer)),
 );
 
 it.effect("can provide isolated layer instances", () => {
@@ -40,11 +45,11 @@ it.effect("can provide isolated layer instances", () => {
   });
 
   return Effect.gen(function* () {
-    expect(
-      yield* write.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
-    ).toBe(true);
-    expect(
-      yield* read.pipe(Effect.provide(Layer.fresh(MemoryFileSystem.layer))),
-    ).toBe(false);
+    expect(yield* write.pipe(Effect.provide(Layer.fresh(MemoryLayer)))).toBe(
+      true,
+    );
+    expect(yield* read.pipe(Effect.provide(Layer.fresh(MemoryLayer)))).toBe(
+      false,
+    );
   });
 });
