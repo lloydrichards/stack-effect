@@ -60,6 +60,11 @@ it.effect("refuses an interpreter capability outside the fixed v1 set", () =>
       }),
     );
     assert.include(failure.capabilities, "token:unknown");
+    assert.deepStrictEqual(
+      failure.details.find((issue) => issue.capability === "token:unknown")
+        ?.subject,
+      { _tag: "document" },
+    );
   }),
 );
 
@@ -86,6 +91,15 @@ it.effect("refuses a new template token even when metadata omits it", () =>
       }),
     );
     assert.include(failure.capabilities, "token:unknown");
+    assert.deepStrictEqual(
+      failure.details.filter((issue) => issue.capability === "token:unknown"),
+      [
+        {
+          subject: { _tag: "module", id: first.id },
+          capability: "token:unknown",
+        },
+      ],
+    );
   }),
 );
 
@@ -188,5 +202,45 @@ it.effect("decodes a source before cross-source references are composed", () =>
     assert.strictEqual(fragment.modules.length, 1);
     const error = yield* Effect.flip(composeCatalog([fragment]));
     assert.isAbove(error.issues.length, 0);
+  }),
+);
+
+it.effect("keeps the capability message and attributes target usage", () =>
+  Effect.gen(function* () {
+    const document = yield* Schema.decodeEffect(
+      Schema.fromJsonString(CatalogDocument),
+    )(yield* exportOfficialCatalog());
+    const [target, ...targets] = document.targets;
+    assert.isDefined(target);
+    const failure = yield* Effect.flip(
+      validateCatalogCapabilities({
+        ...document,
+        requiredCapabilities: [
+          ...document.requiredCapabilities,
+          "token:declaredOnly",
+        ],
+        targets: [
+          {
+            ...target,
+            contributions: [
+              ...target.contributions,
+              { _tag: "file", path: "used.txt", contents: "{{usedOnly}}" },
+            ],
+          },
+          ...targets,
+        ],
+      }),
+    );
+    assert.strictEqual(
+      failure.message,
+      "Catalog requires unsupported or undeclared interpreter capabilities: token:declaredOnly, token:usedOnly",
+    );
+    assert.deepStrictEqual(failure.details, [
+      { subject: { _tag: "document" }, capability: "token:declaredOnly" },
+      {
+        subject: { _tag: "target", kind: target.kind },
+        capability: "token:usedOnly",
+      },
+    ]);
   }),
 );

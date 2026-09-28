@@ -57,6 +57,11 @@ it.effect(
         composeCatalog([{ targets: [], modules: [extraModule] }]),
       );
       assert.match(failure.message, /missing target workspace/);
+      assert.deepStrictEqual(failure.details[0]?.subject, {
+        _tag: "module",
+        id: "workspace-extra-example",
+      });
+      assert.strictEqual(failure.details[0]?.code, "missing-reference");
     }),
 );
 
@@ -69,6 +74,10 @@ it.effect("rejects duplicate target kinds", () =>
       ),
     );
     assert.match(failure.message, /Duplicate target kind workspace/);
+    assert.deepStrictEqual(failure.details[0]?.subject, {
+      _tag: "target",
+      kind: "workspace",
+    });
   }),
 );
 
@@ -145,6 +154,19 @@ it.effect(
       );
       assert.include(failure.message, "unsupported target");
       assert.include(failure.message, "asymmetric conflict");
+      assert.deepStrictEqual(
+        failure.details.map(({ subject, code }) => ({ subject, code })),
+        [
+          {
+            subject: { _tag: "module", id: "workspace-extra-example" },
+            code: "unsupported-target",
+          },
+          {
+            subject: { _tag: "module", id: "workspace-extra-example" },
+            code: "asymmetric-conflict",
+          },
+        ],
+      );
     }),
 );
 
@@ -167,6 +189,83 @@ it.effect("does not allow an untrusted fragment to add Finalize scripts", () =>
         { trustedFragmentIndex: 0 },
       ),
     );
-    assert.match(failure.message, /Finalize scripts/);
+    assert.include(
+      failure.issues,
+      "Fragment 1 module workspace-extra-example contains Finalize scripts",
+    );
+    assert.deepStrictEqual(
+      failure.details.map(({ subject, code, fragment }) => ({
+        subject,
+        code,
+        fragment,
+      })),
+      [
+        {
+          subject: { _tag: "module", id: "workspace-extra-example" },
+          code: "finalize-script",
+          fragment: 1,
+        },
+      ],
+    );
+  }),
+);
+
+it.effect("trusts Finalize scripts only in the named fragment", () =>
+  Effect.gen(function* () {
+    const scripted = {
+      targets: [],
+      modules: [
+        { ...extraModule, scripts: [{ label: "run", command: "echo run" }] },
+      ],
+    };
+    const workspace = {
+      targets: bundledCatalog.targets.filter(
+        (target) => target.kind === "workspace",
+      ),
+      modules: [],
+    };
+    for (const options of [{}, { trustedFragmentIndex: 1 }]) {
+      const failure = yield* Effect.flip(
+        composeCatalog([scripted, workspace], options),
+      );
+      assert.include(
+        failure.issues,
+        "Fragment 0 module workspace-extra-example contains Finalize scripts",
+      );
+    }
+    const trusted = yield* composeCatalog([scripted, workspace], {
+      trustedFragmentIndex: 0,
+    });
+    assert.strictEqual(trusted.modules[0]?.scripts?.length, 1);
+  }),
+);
+
+it.effect("names a target that ships untrusted Finalize scripts", () =>
+  Effect.gen(function* () {
+    const [workspace] = bundledCatalog.targets.filter(
+      (target) => target.kind === "workspace",
+    );
+    assert.isDefined(workspace);
+    const failure = yield* Effect.flip(
+      composeCatalog([
+        {
+          targets: [
+            { ...workspace, scripts: [{ label: "run", command: "echo run" }] },
+          ],
+          modules: [],
+        },
+      ]),
+    );
+    assert.deepStrictEqual(
+      failure.details
+        .filter((issue) => issue.code === "finalize-script")
+        .map(({ subject, message }) => ({ subject, message })),
+      [
+        {
+          subject: { _tag: "target", kind: "workspace" },
+          message: "Fragment 0 target workspace contains Finalize scripts",
+        },
+      ],
+    );
   }),
 );

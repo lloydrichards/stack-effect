@@ -8,6 +8,7 @@ export {
 export { composeCatalog } from "./composeCatalog";
 export {
   decodeCatalogDocument,
+  templateCapabilities,
   V1_INTERPRETER_CAPABILITIES,
   validateCatalogCapabilities,
 } from "./CatalogProtocol";
