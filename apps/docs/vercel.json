@@ -55,6 +55,14 @@
       "headers": {
         "Access-Control-Expose-Headers": "ETag, Last-Modified"
       },
+      "transforms": [
+        {
+          "type": "response.headers",
+          "op": "set",
+          "target": { "key": "Access-Control-Allow-Origin" },
+          "args": "*"
+        }
+      ],
       "continue": true
     },
     {
