@@ -1,15 +1,11 @@
-import {
-  type CatalogInput,
-  defineModules,
-  defineTargets,
-} from "@repo/authoring";
-import { moduleRegistry } from "./moduleRegistry";
-import { targetRegistry } from "./targetRegistry";
+import type { CatalogInput } from "@repo/authoring";
+import { moduleGroups } from "./moduleRegistry";
+import { targetGroup } from "./targetRegistry";
 
 /** The official Stack Effect catalog, authored like any external catalog. */
 export const officialCatalog: CatalogInput = {
-  targets: [defineTargets(import.meta.url, targetRegistry)],
-  modules: [defineModules(import.meta.url, moduleRegistry)],
+  targets: [targetGroup],
+  modules: moduleGroups,
 };
 
 /** Directory that official source and template paths are reported against. */

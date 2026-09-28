@@ -1,7 +1,12 @@
 import { ModuleCapability } from "@repo/domain/Catalog";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
-import { moduleRegistry } from "./moduleRegistry";
-import { targetRegistry } from "./targetRegistry";
+import { buildOfficialCatalog } from "./service";
+
+// Registry invariants are checked on the built document, as consumers see it.
+const { document } = await Effect.runPromise(buildOfficialCatalog);
+const moduleRegistry = document.modules;
+const targetRegistry = document.targets;
 
 describe("moduleRegistry", () => {
   const knownIds = new Set(moduleRegistry.map((m) => m.id));

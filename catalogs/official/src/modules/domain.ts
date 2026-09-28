@@ -1,9 +1,4 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import { domainApiContents } from "../content/api";
 import {
   domainChatContents,
@@ -18,15 +13,15 @@ import {
 } from "../content/todo";
 import { domainWebSocketContents } from "../content/websocket";
 
-const packageKind = TargetKind.make("package");
-const domainTarget = new TargetIdentity({
+const packageKind = "package";
+const domainTarget = {
   kind: packageKind,
   name: "domain",
-});
+};
 
-export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const domainModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("domain-api-contracts"),
+    id: "domain-api-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain API",
     description: "Shared domain schemas and RPC definitions",
@@ -59,7 +54,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-rpc-contracts"),
+    id: "domain-rpc-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain RPC",
     description: "Shared RPC definitions for streaming over HTTP",
@@ -92,7 +87,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-todo-contracts"),
+    id: "domain-todo-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo",
     description: "Shared Todo schemas and errors",
@@ -127,7 +122,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-todo-http-contracts"),
+    id: "domain-todo-http-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo HTTP",
     description: "Todo HTTP API contract",
@@ -137,12 +132,12 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-todo-contracts"),
+        moduleId: "domain-todo-contracts",
       },
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-api-contracts"),
+        moduleId: "domain-api-contracts",
       },
     ],
     contributions: [
@@ -166,7 +161,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-todo-rpc-contracts"),
+    id: "domain-todo-rpc-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Todo RPC",
     description: "Todo RPC contract merged into the server RPC group",
@@ -176,12 +171,12 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-todo-contracts"),
+        moduleId: "domain-todo-contracts",
       },
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-rpc-contracts"),
+        moduleId: "domain-rpc-contracts",
       },
     ],
     contributions: [
@@ -218,7 +213,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-chat-contracts"),
+    id: "domain-chat-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Chat",
     description:
@@ -269,7 +264,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-chat-managed-contracts"),
+    id: "domain-chat-managed-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain Managed Chat",
     description: "Managed chat send, watch, and interrupt RPC definitions",
@@ -284,7 +279,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        moduleId: "domain-chat-contracts",
       },
     ],
     contributions: [
@@ -308,7 +303,7 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("domain-ws-contracts"),
+    id: "domain-ws-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain WebSocket",
     description: "WebSocket RPC definitions for real-time presence",
@@ -340,4 +335,4 @@ export const domainModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

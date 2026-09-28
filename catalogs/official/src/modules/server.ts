@@ -1,9 +1,4 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import { serverHealthContents, serverHelloContents } from "../content/api";
 import {
   serverChatContents,
@@ -17,32 +12,32 @@ import { serverDevToolsContents } from "../content/server";
 import { serverTodoApiContents, serverTodoRpcContents } from "../content/todo";
 import { serverPresenceContents } from "../content/websocket";
 
-const serverKind = TargetKind.make("server");
-const packageKind = TargetKind.make("package");
-const domainTarget = new TargetIdentity({
+const serverKind = "server";
+const packageKind = "package";
+const domainTarget = {
   kind: packageKind,
   name: "domain",
-});
-const aiTarget = new TargetIdentity({
+};
+const aiTarget = {
   kind: packageKind,
   name: "ai",
-});
-const presenceTarget = new TargetIdentity({
+};
+const presenceTarget = {
   kind: packageKind,
   name: "presence",
-});
-const dbTarget = new TargetIdentity({
+};
+const dbTarget = {
   kind: packageKind,
   name: "db",
-});
-const serverApiTarget = new TargetIdentity({
+};
+const serverApiTarget = {
   kind: serverKind,
   name: "api",
-});
+};
 
-export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const serverModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("server-http-api"),
+    id: "server-http-api",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Server",
     description: "REST API endpoints with Effect HTTP",
@@ -51,7 +46,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-api-contracts"),
+        moduleId: "domain-api-contracts",
       },
     ],
     contributions: [
@@ -75,7 +70,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-http-rpc"),
+    id: "server-http-rpc",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP RPC Server",
     description: "RPC streaming server with tick handler",
@@ -84,7 +79,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-rpc-contracts"),
+        moduleId: "domain-rpc-contracts",
       },
     ],
     contributions: [
@@ -114,7 +109,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-http-api-todos"),
+    id: "server-http-api-todos",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP API",
     description: "Persistent Todo CRUD endpoints over Effect HTTP API",
@@ -123,17 +118,17 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: serverApiTarget,
-        moduleId: ModuleId.make("server-http-api"),
+        moduleId: "server-http-api",
       },
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-todo-http-contracts"),
+        moduleId: "domain-todo-http-contracts",
       },
       {
         _tag: "required-module",
         target: dbTarget,
-        moduleId: ModuleId.make("package-db-todo-repository"),
+        moduleId: "package-db-todo-repository",
       },
     ],
     contributions: [
@@ -175,7 +170,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-http-rpc-todos"),
+    id: "server-http-rpc-todos",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP RPC",
     description: "Persistent Todo CRUD operations on the shared HTTP RPC route",
@@ -184,17 +179,17 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: serverApiTarget,
-        moduleId: ModuleId.make("server-http-rpc"),
+        moduleId: "server-http-rpc",
       },
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-todo-rpc-contracts"),
+        moduleId: "domain-todo-rpc-contracts",
       },
       {
         _tag: "required-module",
         target: dbTarget,
-        moduleId: ModuleId.make("package-db-todo-repository"),
+        moduleId: "package-db-todo-repository",
       },
     ],
     contributions: [
@@ -236,7 +231,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-chat-rpc"),
+    id: "server-chat-rpc",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Server",
     description: "AI chat RPC handler with tool support",
@@ -245,12 +240,12 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        moduleId: "domain-chat-contracts",
       },
       {
         _tag: "required-module",
         target: aiTarget,
-        moduleId: ModuleId.make("package-ai-chat-service"),
+        moduleId: "package-ai-chat-service",
       },
     ],
     contributions: [
@@ -311,7 +306,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-chat-runtime-managed"),
+    id: "server-chat-runtime-managed",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Managed Chat Runtime",
     description: "In-memory managed chat send, watch, and interrupt runtime",
@@ -320,15 +315,15 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-chat-managed-contracts"),
+        moduleId: "domain-chat-managed-contracts",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("server"),
+        target: {
+          kind: "server",
           name: "api",
-        }),
-        moduleId: ModuleId.make("server-chat-rpc"),
+        },
+        moduleId: "server-chat-rpc",
       },
     ],
     contributions: [
@@ -356,7 +351,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-ws-presence"),
+    id: "server-ws-presence",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Server",
     description: "Real-time presence tracking over WebSocket RPC",
@@ -365,12 +360,12 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-ws-contracts"),
+        moduleId: "domain-ws-contracts",
       },
       {
         _tag: "required-module",
         target: presenceTarget,
-        moduleId: ModuleId.make("package-presence-service"),
+        moduleId: "package-presence-service",
       },
     ],
     contributions: [
@@ -407,7 +402,7 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("server-devtools"),
+    id: "server-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools Server",
     description: "Optional Effect DevTools tracer layer for server apps",
@@ -432,4 +427,4 @@ export const serverModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

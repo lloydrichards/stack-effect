@@ -112,12 +112,12 @@
         "@effect/platform-node": "4.0.0-rc.117",
         "@repo/authoring": "workspace:*",
         "@repo/catalog": "workspace:*",
-        "@repo/domain": "workspace:*",
         "effect": "4.0.0-rc.117",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-rc.117",
         "@repo/config-typescript": "workspace:*",
+        "@repo/domain": "workspace:*",
         "@types/node": "^26.6.3",
         "vitest": "^5.0.2",
       },

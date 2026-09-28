@@ -1,9 +1,4 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import { clientDevToolsContents } from "../content/client";
 import {
   clientHelloAtomContents,
@@ -34,16 +29,16 @@ import {
   clientImportValidationWorkerContents,
 } from "../content/client-worker";
 
-const clientReactKind = TargetKind.make("client-react");
-const serverKind = TargetKind.make("server");
-const domainTarget = new TargetIdentity({
-  kind: TargetKind.make("package"),
+const clientReactKind = "client-react";
+const serverKind = "server";
+const domainTarget = {
+  kind: "package",
   name: "domain",
-});
+};
 
-export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const clientModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("client-react-web-worker"),
+    id: "client-react-web-worker",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Browser Web Worker",
     description:
@@ -91,7 +86,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-http-api"),
+    id: "client-react-http-api",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
@@ -100,13 +95,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-api-contracts"),
+        moduleId: "domain-api-contracts",
       },
     ],
     implies: [
       {
         targetKind: serverKind,
-        moduleId: ModuleId.make("server-http-api"),
+        moduleId: "server-http-api",
       },
     ],
     contributions: [
@@ -140,7 +135,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-http-api-todos"),
+    id: "client-react-http-api-todos",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP Client",
     description: "Persistent Todo CRUD card backed by the typed HTTP API",
@@ -149,13 +144,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-todo-http-contracts"),
+        moduleId: "domain-todo-http-contracts",
       },
     ],
     implies: [
       {
         targetKind: serverKind,
-        moduleId: ModuleId.make("server-http-api-todos"),
+        moduleId: "server-http-api-todos",
       },
     ],
     contributions: [
@@ -192,7 +187,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-http-rpc"),
+    id: "client-react-http-rpc",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
@@ -201,13 +196,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-rpc-contracts"),
+        moduleId: "domain-rpc-contracts",
       },
     ],
     implies: [
       {
         targetKind: serverKind,
-        moduleId: ModuleId.make("server-http-rpc"),
+        moduleId: "server-http-rpc",
       },
     ],
     contributions: [
@@ -246,7 +241,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-chat"),
+    id: "client-react-chat",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
@@ -255,13 +250,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        moduleId: "domain-chat-contracts",
       },
     ],
     implies: [
       {
         targetKind: serverKind,
-        moduleId: ModuleId.make("server-chat-rpc"),
+        moduleId: "server-chat-rpc",
       },
     ],
     contributions: [
@@ -321,7 +316,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-ws-presence"),
+    id: "client-react-ws-presence",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",
@@ -330,13 +325,13 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: domainTarget,
-        moduleId: ModuleId.make("domain-ws-contracts"),
+        moduleId: "domain-ws-contracts",
       },
     ],
     implies: [
       {
         targetKind: serverKind,
-        moduleId: ModuleId.make("server-ws-presence"),
+        moduleId: "server-ws-presence",
       },
     ],
     contributions: [
@@ -377,7 +372,7 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("client-react-devtools"),
+    id: "client-react-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools React Client",
     description: "Optional Effect DevTools tracer layer for React atom runtime",
@@ -402,4 +397,4 @@ export const clientModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

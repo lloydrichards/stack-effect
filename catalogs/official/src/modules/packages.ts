@@ -1,10 +1,4 @@
-import {
-  ModuleCapability,
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import {
   aiAgenticLoopContents,
   aiChatServiceContents,
@@ -40,9 +34,9 @@ import {
 } from "../content/presence";
 import { todoMigrationContents, todoRepositoryContents } from "../content/todo";
 
-export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const packageModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("package-ai-core"),
+    id: "package-ai-core",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "AI Package",
     description:
@@ -50,20 +44,20 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "domain",
-        }),
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        },
+        moduleId: "domain-chat-contracts",
       },
     ],
     contributions: [
@@ -113,7 +107,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-think"),
+    id: "package-ai-toolkit-think",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Think Toolkit",
     description:
@@ -122,10 +116,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -143,7 +137,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-datetime"),
+    id: "package-ai-toolkit-datetime",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "DateTime Toolkit",
     description:
@@ -152,10 +146,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -180,7 +174,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-math"),
+    id: "package-ai-toolkit-math",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description: "Deterministic arithmetic evaluator for safe math computation",
@@ -188,10 +182,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -216,35 +210,35 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-chat-toolkit-datetime"),
+    id: "package-ai-chat-toolkit-datetime",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "DateTime Toolkit",
     description: "Attach the shared date and time toolkit to the chat service",
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-chat-service"),
+        },
+        moduleId: "package-ai-chat-service",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-toolkit-datetime"),
+        },
+        moduleId: "package-ai-toolkit-datetime",
       },
     ],
     contributions: [
@@ -273,7 +267,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-chat-toolkit-math"),
+    id: "package-ai-chat-toolkit-math",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description:
@@ -281,28 +275,28 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-chat-service"),
+        },
+        moduleId: "package-ai-chat-service",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-toolkit-math"),
+        },
+        moduleId: "package-ai-toolkit-math",
       },
     ],
     contributions: [
@@ -331,7 +325,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-memory"),
+    id: "package-ai-toolkit-memory",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Memory Toolkit",
     description:
@@ -339,10 +333,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -382,7 +376,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-plan"),
+    id: "package-ai-toolkit-plan",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Plan Toolkit",
     description:
@@ -390,10 +384,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -433,7 +427,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-toolkit-webfetch"),
+    id: "package-ai-toolkit-webfetch",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "WebFetch Toolkit",
     description:
@@ -441,10 +435,10 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -484,7 +478,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-ai-chat-service"),
+    id: "package-ai-chat-service",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Service",
     description:
@@ -492,57 +486,57 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "ai",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "domain",
-        }),
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        },
+        moduleId: "domain-chat-contracts",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-core"),
+        },
+        moduleId: "package-ai-core",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-toolkit-think"),
+        },
+        moduleId: "package-ai-toolkit-think",
       },
     ],
     children: [
       {
-        moduleId: ModuleId.make("package-ai-chat-toolkit-datetime"),
+        moduleId: "package-ai-chat-toolkit-datetime",
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("package-ai-chat-toolkit-math"),
+        moduleId: "package-ai-chat-toolkit-math",
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("package-ai-toolkit-memory"),
+        moduleId: "package-ai-toolkit-memory",
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("package-ai-toolkit-plan"),
+        moduleId: "package-ai-toolkit-plan",
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("package-ai-toolkit-webfetch"),
+        moduleId: "package-ai-toolkit-webfetch",
         requirement: "optional",
       },
     ],
@@ -577,18 +571,18 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-db-sqlite"),
+    id: "package-db-sqlite",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "SQLite Database",
     description: "Reusable Effect SQL SQLite package with migrations",
-    provides: [ModuleCapability.make("db-sql")],
+    provides: ["db-sql"],
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "db",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -690,18 +684,18 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-db-postgres"),
+    id: "package-db-postgres",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Postgres Database",
     description: "Reusable Effect SQL Postgres package with migrations",
-    provides: [ModuleCapability.make("db-sql")],
+    provides: ["db-sql"],
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "db",
-        }),
+        },
       },
     ],
     dependencies: [],
@@ -801,7 +795,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-db-todo-repository"),
+    id: "package-db-todo-repository",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo Repository",
     description:
@@ -809,28 +803,28 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "db",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-capability",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "db",
-        }),
-        capability: ModuleCapability.make("db-sql"),
+        },
+        capability: "db-sql",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "domain",
-        }),
-        moduleId: ModuleId.make("domain-todo-contracts"),
+        },
+        moduleId: "domain-todo-contracts",
       },
     ],
     contributions: [
@@ -880,7 +874,7 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("package-presence-service"),
+    id: "package-presence-service",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Presence Package",
     description:
@@ -889,20 +883,20 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     supportedOn: [
       {
         _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        identity: {
+          kind: "package",
           name: "presence",
-        }),
+        },
       },
     ],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "domain",
-        }),
-        moduleId: ModuleId.make("domain-ws-contracts"),
+        },
+        moduleId: "domain-ws-contracts",
       },
     ],
     contributions: [
@@ -944,4 +938,4 @@ export const packageModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

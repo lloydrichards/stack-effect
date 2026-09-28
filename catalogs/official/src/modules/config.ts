@@ -1,20 +1,16 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import { configTypescriptViteContents } from "../content/client";
 
-export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const configModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("config-typescript-vite"),
+    id: "config-typescript-vite",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Config TypeScript Vite",
     description: "Vite TypeScript preset for client applications",
     visibility: "internal",
     supportedOn: [
-      { _tag: "kind", kind: TargetKind.make("client-react") },
-      { _tag: "kind", kind: TargetKind.make("client-foldkit") },
+      { _tag: "kind", kind: "client-react" },
+      { _tag: "kind", kind: "client-foldkit" },
     ],
     dependencies: [],
     contributions: [
@@ -39,4 +35,4 @@ export const configModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

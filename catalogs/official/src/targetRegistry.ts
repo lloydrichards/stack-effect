@@ -1,8 +1,4 @@
-import {
-  ModuleId,
-  type TargetDefinition,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineTargets } from "@repo/authoring";
 import {
   cliIndexContents,
   cliPackageJsonContents,
@@ -60,9 +56,9 @@ import {
   packagePackageJsonContents,
 } from "./content/shared";
 
-export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
+export const targetGroup = defineTargets(import.meta.url, [
   {
-    kind: TargetKind.make("workspace"),
+    kind: "workspace",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Project Initialization",
     description:
@@ -109,12 +105,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("client-react"),
+    kind: "client-react",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Client React Application",
     description: "A frontend application built with React",
     defaultName: "web",
-    requiredModules: [ModuleId.make("config-typescript-vite")],
+    requiredModules: ["config-typescript-vite"],
     contributions: [
       {
         _tag: "file",
@@ -235,12 +231,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("client-foldkit"),
+    kind: "client-foldkit",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Client Foldkit Application",
     description: "A frontend application built with Foldkit (Elm Architecture)",
     defaultName: "web",
-    requiredModules: [ModuleId.make("config-typescript-vite")],
+    requiredModules: ["config-typescript-vite"],
     contributions: [
       {
         _tag: "file",
@@ -344,12 +340,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("server"),
+    kind: "server",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Server Application",
     description: "An Effect HTTP API server",
     defaultName: "api",
-    requiredModules: [ModuleId.make("server-http-api")],
+    requiredModules: ["server-http-api"],
     contributions: [
       {
         _tag: "file",
@@ -437,7 +433,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("server-mcp"),
+    kind: "server-mcp",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Server Application",
     description:
@@ -541,12 +537,12 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("cli"),
+    kind: "cli",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "CLI Application",
     description: "A command-line interface application",
     defaultName: "app",
-    requiredModules: [ModuleId.make("cli-command-hello")],
+    requiredModules: ["cli-command-hello"],
     contributions: [
       {
         _tag: "file",
@@ -626,7 +622,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
   },
 
   {
-    kind: TargetKind.make("package"),
+    kind: "package",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
@@ -661,4 +657,4 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
       },
     ],
   },
-];
+]);

@@ -1,9 +1,4 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import {
   cliAskCommandContents,
   cliChatDriverContents,
@@ -13,13 +8,13 @@ import {
   cliTerminalChatContents,
 } from "../content/cli";
 
-export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const cliModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("cli-command-hello"),
+    id: "cli-command-hello",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Hello Command",
     description: "A simple hello-world subcommand for the CLI",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [],
     contributions: [
       {
@@ -41,28 +36,28 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("cli-chat-driver"),
+    id: "cli-chat-driver",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat CLI Driver",
     description: "Shared direct-AI chat plumbing for CLI chat commands",
     visibility: "internal",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "domain",
-        }),
-        moduleId: ModuleId.make("domain-chat-contracts"),
+        },
+        moduleId: "domain-chat-contracts",
       },
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
+        target: {
+          kind: "package",
           name: "ai",
-        }),
-        moduleId: ModuleId.make("package-ai-chat-service"),
+        },
+        moduleId: "package-ai-chat-service",
       },
     ],
     contributions: [
@@ -91,19 +86,19 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("cli-command-chat-ask"),
+    id: "cli-command-chat-ask",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Ask Command",
     description: "One-shot AI ask command for CLI applications",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("cli"),
+        target: {
+          kind: "cli",
           name: "app",
-        }),
-        moduleId: ModuleId.make("cli-chat-driver"),
+        },
+        moduleId: "cli-chat-driver",
       },
     ],
     contributions: [
@@ -126,19 +121,19 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("cli-command-chat-terminal"),
+    id: "cli-command-chat-terminal",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Terminal Chat Command",
     description: "Interactive terminal AI chat command for CLI applications",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("cli"),
+        target: {
+          kind: "cli",
           name: "app",
-        }),
-        moduleId: ModuleId.make("cli-chat-driver"),
+        },
+        moduleId: "cli-chat-driver",
       },
     ],
     contributions: [
@@ -173,11 +168,11 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("cli-devtools"),
+    id: "cli-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Effect DevTools CLI",
     description: "Optional Effect DevTools tracer layer for CLI apps",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("cli") }],
+    supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [],
     contributions: [
       {
@@ -198,4 +193,4 @@ export const cliModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

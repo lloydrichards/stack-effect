@@ -1,23 +1,18 @@
-import {
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules } from "@repo/authoring";
 import {
   mcpHelloPromptContents,
   mcpPrimerResourceContents,
 } from "../content/mcp";
 
-const mcpServerKind = TargetKind.make("server-mcp");
-const aiTarget = new TargetIdentity({
-  kind: TargetKind.make("package"),
+const mcpServerKind = "server-mcp";
+const aiTarget = {
+  kind: "package",
   name: "ai",
-});
+};
 
-export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const mcpModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("mcp-tools"),
+    id: "mcp-tools",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Tools",
     description: "Expose Effect AI toolkits through the MCP server",
@@ -25,18 +20,18 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     dependencies: [],
     children: [
       {
-        moduleId: ModuleId.make("mcp-toolkit-datetime"),
+        moduleId: "mcp-toolkit-datetime",
         requirement: "optional",
       },
       {
-        moduleId: ModuleId.make("mcp-toolkit-math"),
+        moduleId: "mcp-toolkit-math",
         requirement: "optional",
       },
     ],
     contributions: [],
   },
   {
-    id: ModuleId.make("mcp-toolkit-datetime"),
+    id: "mcp-toolkit-datetime",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Date and Time Toolkit",
     description: "Expose the shared date and time toolkit through MCP",
@@ -45,7 +40,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: aiTarget,
-        moduleId: ModuleId.make("package-ai-toolkit-datetime"),
+        moduleId: "package-ai-toolkit-datetime",
       },
     ],
     contributions: [
@@ -71,7 +66,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("mcp-toolkit-math"),
+    id: "mcp-toolkit-math",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Math Toolkit",
     description: "Expose the shared deterministic math toolkit through MCP",
@@ -80,7 +75,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
         _tag: "required-module",
         target: aiTarget,
-        moduleId: ModuleId.make("package-ai-toolkit-math"),
+        moduleId: "package-ai-toolkit-math",
       },
     ],
     contributions: [
@@ -106,7 +101,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("mcp-prompts"),
+    id: "mcp-prompts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Prompts",
     description: "Add reusable prompt templates to the MCP server",
@@ -114,14 +109,14 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     dependencies: [],
     children: [
       {
-        moduleId: ModuleId.make("mcp-prompt-hello"),
+        moduleId: "mcp-prompt-hello",
         requirement: "optional",
       },
     ],
     contributions: [],
   },
   {
-    id: ModuleId.make("mcp-prompt-hello"),
+    id: "mcp-prompt-hello",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Hello Prompt",
     description: "Example parameterized MCP greeting prompt",
@@ -147,7 +142,7 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("mcp-resources"),
+    id: "mcp-resources",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Resources",
     description: "Publish static and templated content through MCP",
@@ -155,14 +150,14 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     dependencies: [],
     children: [
       {
-        moduleId: ModuleId.make("mcp-resource-primer"),
+        moduleId: "mcp-resource-primer",
         requirement: "optional",
       },
     ],
     contributions: [],
   },
   {
-    id: ModuleId.make("mcp-resource-primer"),
+    id: "mcp-resource-primer",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Primer Resource",
     description: "Example static text resource describing the generated server",
@@ -187,4 +182,4 @@ export const mcpModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       },
     ],
   },
-];
+]);

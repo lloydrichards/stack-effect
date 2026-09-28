@@ -1,10 +1,4 @@
-import {
-  ModuleCategory,
-  type ModuleDefinition,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
+import { defineModules, type ModuleInput } from "@repo/authoring";
 import {
   biomeJsoncContents,
   denoLintStagedConfigContents,
@@ -25,21 +19,21 @@ import {
   workspaceVscodeSettingsContents,
 } from "../content/init";
 
-const gitInitModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("workspace-devenv-git"),
+const gitInitModule: ModuleInput = {
+  id: "workspace-devenv-git",
   supportedRuntimes: ["bun", "node", "deno"],
   title: "Git",
   description: "Initialize a git repository with an initial commit",
   visibility: "internal",
-  categories: [ModuleCategory.make("git")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  categories: ["git"],
+  supportedOn: [{ _tag: "kind", kind: "workspace" }],
   dependencies: [
     {
       _tag: "required-target",
-      identity: new TargetIdentity({
-        kind: TargetKind.make("workspace"),
+      identity: {
+        kind: "workspace",
         name: "root",
-      }),
+      },
     },
   ],
   contributions: [],
@@ -53,21 +47,21 @@ const gitInitModule: typeof ModuleDefinition.Type = {
   ],
 };
 
-const nixFlakeModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("workspace-devenv-nix-flake"),
+const nixFlakeModule: ModuleInput = {
+  id: "workspace-devenv-nix-flake",
   supportedRuntimes: ["bun", "node", "deno"],
   title: "Nix Flake",
   description: "Declarative development environment with Nix",
   visibility: "internal",
-  categories: [ModuleCategory.make("devenv")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  categories: ["devenv"],
+  supportedOn: [{ _tag: "kind", kind: "workspace" }],
   dependencies: [
     {
       _tag: "required-target",
-      identity: new TargetIdentity({
-        kind: TargetKind.make("workspace"),
+      identity: {
+        kind: "workspace",
         name: "root",
-      }),
+      },
     },
   ],
   contributions: [
@@ -89,21 +83,21 @@ const nixFlakeModule: typeof ModuleDefinition.Type = {
   ],
 };
 
-const devcontainerModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("workspace-devenv-devcontainer"),
+const devcontainerModule: ModuleInput = {
+  id: "workspace-devenv-devcontainer",
   supportedRuntimes: ["bun", "node", "deno"],
   title: "Dev Container",
   description: "VS Code/GitHub Codespaces development container",
   visibility: "internal",
-  categories: [ModuleCategory.make("devenv")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  categories: ["devenv"],
+  supportedOn: [{ _tag: "kind", kind: "workspace" }],
   dependencies: [
     {
       _tag: "required-target",
-      identity: new TargetIdentity({
-        kind: TargetKind.make("workspace"),
+      identity: {
+        kind: "workspace",
         name: "root",
-      }),
+      },
     },
   ],
   contributions: [
@@ -119,22 +113,22 @@ const devcontainerModule: typeof ModuleDefinition.Type = {
   ],
 };
 
-const huskyModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("workspace-devenv-husky"),
+const huskyModule: ModuleInput = {
+  id: "workspace-devenv-husky",
   supportedRuntimes: ["bun", "node", "deno"],
   title: "Husky + lint-staged",
   description: "Run staged-file format and lint tasks before each commit",
   visibility: "internal",
-  categories: [ModuleCategory.make("devenv")],
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+  categories: ["devenv"],
+  supportedOn: [{ _tag: "kind", kind: "workspace" }],
   dependencies: [
     {
       _tag: "required-module",
-      target: new TargetIdentity({
-        kind: TargetKind.make("workspace"),
+      target: {
+        kind: "workspace",
         name: "root",
-      }),
-      moduleId: ModuleId.make("workspace-devenv-git"),
+      },
+      moduleId: "workspace-devenv-git",
     },
   ],
   contributions: [
@@ -192,22 +186,22 @@ const huskyModule: typeof ModuleDefinition.Type = {
   ],
 };
 
-export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+export const initModules = defineModules(import.meta.url, [
   {
-    id: ModuleId.make("workspace-typescript-6"),
+    id: "workspace-typescript-6",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "TypeScript 6",
     description: "TypeScript 6 with the Effect language-service plugin",
     visibility: "internal",
-    categories: [ModuleCategory.make("typescript")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["typescript"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -235,20 +229,20 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-typescript-7"),
+    id: "workspace-typescript-7",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "TypeScript 7",
     description: "TypeScript 7 with the native Effect TypeScript-Go server",
     visibility: "internal",
-    categories: [ModuleCategory.make("typescript")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["typescript"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -279,23 +273,20 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-monorepo-turbo"),
+    id: "workspace-monorepo-turbo",
     title: "Turborepo",
     description: "Monorepo build orchestration with caching",
     visibility: "internal",
-    categories: [ModuleCategory.make("monorepo")],
-    conflictsWith: [
-      ModuleId.make("workspace-monorepo-vite-plus"),
-      ModuleId.make("workspace-monorepo-nx"),
-    ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["monorepo"],
+    conflictsWith: ["workspace-monorepo-vite-plus", "workspace-monorepo-nx"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -343,25 +334,22 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-monorepo-nx"),
+    id: "workspace-monorepo-nx",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Nx",
     description:
       "Package-based monorepo task orchestration and caching with Nx",
     visibility: "internal",
-    categories: [ModuleCategory.make("monorepo")],
-    conflictsWith: [
-      ModuleId.make("workspace-monorepo-turbo"),
-      ModuleId.make("workspace-monorepo-vite-plus"),
-    ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["monorepo"],
+    conflictsWith: ["workspace-monorepo-turbo", "workspace-monorepo-vite-plus"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -414,24 +402,21 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-monorepo-vite-plus"),
+    id: "workspace-monorepo-vite-plus",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Vite+",
     description: "Monorepo task orchestration and caching with Vite+",
     visibility: "internal",
-    categories: [ModuleCategory.make("monorepo")],
-    conflictsWith: [
-      ModuleId.make("workspace-monorepo-turbo"),
-      ModuleId.make("workspace-monorepo-nx"),
-    ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["monorepo"],
+    conflictsWith: ["workspace-monorepo-turbo", "workspace-monorepo-nx"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -482,19 +467,19 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-biome"),
+    id: "workspace-quality-biome",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Shared Biome dependency and configuration",
     visibility: "internal",
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -518,21 +503,21 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-biome-lint"),
+    id: "workspace-quality-biome-lint",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Fast linter with recommended defaults",
     visibility: "internal",
-    categories: [ModuleCategory.make("lint")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["lint"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        target: {
+          kind: "workspace",
           name: "root",
-        }),
-        moduleId: ModuleId.make("workspace-quality-biome"),
+        },
+        moduleId: "workspace-quality-biome",
       },
     ],
     contributions: [
@@ -546,25 +531,22 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-biome-format"),
+    id: "workspace-quality-biome-format",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Biome",
     description: "Fast formatter with recommended defaults",
     visibility: "internal",
-    categories: [ModuleCategory.make("format")],
-    conflictsWith: [
-      ModuleId.make("workspace-quality-dprint"),
-      ModuleId.make("workspace-quality-oxfmt"),
-    ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["format"],
+    conflictsWith: ["workspace-quality-dprint", "workspace-quality-oxfmt"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-module",
-        target: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        target: {
+          kind: "workspace",
           name: "root",
-        }),
-        moduleId: ModuleId.make("workspace-quality-biome"),
+        },
+        moduleId: "workspace-quality-biome",
       },
     ],
     contributions: [
@@ -585,24 +567,24 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-oxfmt"),
+    id: "workspace-quality-oxfmt",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Oxfmt",
     description: "High-performance formatter for the JavaScript ecosystem",
     visibility: "internal",
-    categories: [ModuleCategory.make("format")],
+    categories: ["format"],
     conflictsWith: [
-      ModuleId.make("workspace-quality-biome-format"),
-      ModuleId.make("workspace-quality-dprint"),
+      "workspace-quality-biome-format",
+      "workspace-quality-dprint",
     ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -645,24 +627,24 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-dprint"),
+    id: "workspace-quality-dprint",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "dprint",
     description: "Fast pluggable formatter used by the Effect team",
     visibility: "internal",
-    categories: [ModuleCategory.make("format")],
+    categories: ["format"],
     conflictsWith: [
-      ModuleId.make("workspace-quality-biome-format"),
-      ModuleId.make("workspace-quality-oxfmt"),
+      "workspace-quality-biome-format",
+      "workspace-quality-oxfmt",
     ],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -700,20 +682,20 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-quality-oxlint"),
+    id: "workspace-quality-oxlint",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "oxlint",
     description: "Fast Rust-based linter used by the Effect team",
     visibility: "internal",
-    categories: [ModuleCategory.make("lint")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["lint"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -755,20 +737,20 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     ],
   },
   {
-    id: ModuleId.make("workspace-test-vitest"),
+    id: "workspace-test-vitest",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Vitest",
     description: "Unit and integration testing framework",
     visibility: "internal",
-    categories: [ModuleCategory.make("test")],
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("workspace") }],
+    categories: ["test"],
+    supportedOn: [{ _tag: "kind", kind: "workspace" }],
     dependencies: [
       {
         _tag: "required-target",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("workspace"),
+        identity: {
+          kind: "workspace",
           name: "root",
-        }),
+        },
       },
     ],
     contributions: [
@@ -798,4 +780,4 @@ export const initModules: ReadonlyArray<typeof ModuleDefinition.Type> = [
   nixFlakeModule,
   devcontainerModule,
   huskyModule,
-];
+]);
