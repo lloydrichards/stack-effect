@@ -7,7 +7,7 @@ sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
-    resource: ../../packages/catalog/src/registry/targetRegistry.ts
+    resource: ../../catalogs/official/src/targetRegistry.ts
   - id: source-3
     resource: ../../apps/cli/src/commands/init.ts
 generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
@@ -19,7 +19,7 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 
 ## Register the definition
 
-`TargetKind` accepts custom branded strings, so a new kind does not require adding a schema literal. Add a definition to `packages/catalog/src/registry/targetRegistry.ts`.
+`TargetKind` accepts custom branded strings, so a new kind does not require adding a schema literal. Add a definition to `catalogs/official/src/targetRegistry.ts`.
 
 ```typescript
 import { type TargetDefinition, TargetKind } from "@repo/domain/Catalog";

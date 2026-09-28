@@ -7,9 +7,9 @@ sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
-    resource: ../../packages/catalog/src/registry/modules/domain.ts
+    resource: ../../catalogs/official/src/modules/domain.ts
   - id: source-3
-    resource: ../../packages/catalog/src/registry/moduleRegistry.ts
+    resource: ../../catalogs/official/src/moduleRegistry.ts
 generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
 ---
 
@@ -19,7 +19,7 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 
 ## Define the module
 
-Prototype generated files first. Then add the definition to the relevant `packages/catalog/src/registry/modules/*.ts` group and ensure `moduleRegistry.ts` includes that group. Use an existing sibling definition as the template.
+Prototype generated files first. Then add the definition to the relevant `catalogs/official/src/modules/*.ts` group and ensure `moduleRegistry.ts` includes that group. Use an existing sibling definition as the template.
 
 This example shows the required fields for a server-owned module. The content symbol represents the validated generated file.
 

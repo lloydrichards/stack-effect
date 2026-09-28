@@ -1,13 +1,13 @@
 ---
 name: catalog-workspace
-description: Use this skill whenever working on stack-effect catalog generated code, catalog content strings, module definitions, scaffold templates, or anything under packages/catalog/src/registry/content or packages/catalog/src/registry/modules. It teaches the agent to avoid editing catalog TypeScript template strings first; instead reset the generated catalog workspace, edit real generated files with LSP/type-check feedback, inspect git diff in the workspace, then port the minimal changes back into the catalog.
+description: Use this skill whenever working on stack-effect catalog generated code, catalog content strings, module definitions, scaffold templates, or anything under catalogs/official/src/content or catalogs/official/src/modules. It teaches the agent to avoid editing catalog TypeScript template strings first; instead reset the generated catalog workspace, edit real generated files with LSP/type-check feedback, inspect git diff in the workspace, then port the minimal changes back into the catalog.
 ---
 
 # Stack Effect Catalog Workspace
 
 This skill is for changing generated code in the `stack-effect` catalog safely.
 
-The catalog stores generated TypeScript/TSX/JSON/CSS/etc. as strings in files like `packages/catalog/src/registry/content/*.ts`, which means the LSP cannot validate the generated code in-place. The safer workflow is to materialize the catalog into an editable generated workspace, make and validate changes there, then use the generated workspace diff to update the catalog source.
+The catalog stores generated TypeScript/TSX/JSON/CSS/etc. as strings in files like `catalogs/official/src/content/*.ts`, which means the LSP cannot validate the generated code in-place. The safer workflow is to materialize the catalog into an editable generated workspace, make and validate changes there, then use the generated workspace diff to update the catalog source.
 
 ## Core Rule
 
@@ -77,9 +77,9 @@ It is ignored by the parent repository and has its own internal git baseline.
    Use `.catalog-build-manifest.json` and file annotations to find the relevant catalog content symbol or module contribution. Typical locations are:
 
    ```text
-   packages/catalog/src/registry/content/*.ts
-   packages/catalog/src/registry/modules/*.ts
-   packages/catalog/src/registry/targetRegistry.ts
+   catalogs/official/src/content/*.ts
+   catalogs/official/src/modules/*.ts
+   catalogs/official/src/targetRegistry.ts
    ```
 
 7. Reset the workspace again and verify the diff disappears or matches the intended final generated output.
@@ -131,8 +131,8 @@ Each file has contributors like:
 
 Use this to decide where to port a change:
 
-- `origin: "module"` usually points to a module in `packages/catalog/src/registry/modules/*.ts` and a content string in `packages/catalog/src/registry/content/*.ts`.
-- `origin: "target"` usually points to target base files in `packages/catalog/src/registry/targetRegistry.ts` and content files under `packages/catalog/src/registry/content`.
+- `origin: "module"` usually points to a module in `catalogs/official/src/modules/*.ts` and a content string in `catalogs/official/src/content/*.ts`.
+- `origin: "target"` usually points to target base files in `catalogs/official/src/targetRegistry.ts` and content files under `catalogs/official/src/content`.
 - `contributionTag: "file"` means the generated file came from an authoritative content string.
 - `contributionTag: "ts-call-arg"`, `"ts-object-field"`, `"jsx-slot"`, `"barrel-export"`, or `"pkg-json-entry"` means the final file is composed from an operation in a module/target contribution. Port the operation, not just the final generated text.
 

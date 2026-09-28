@@ -73,9 +73,9 @@ Each phase is a distinct domain concept with its own schema and service.
 
 Modules are features that get scaffolded into a target (e.g., `http-api-client` adds an API client to a client app). To add one:
 
-1. **Content templates** — create file content as exported string constants in `packages/catalog/src/registry/content/`
-2. **Module definition** — add a `ModuleDefinition` entry in the appropriate file under `packages/catalog/src/registry/modules/` (organized by target kind: `client.ts`, `server.ts`, `domain.ts`, `packages.ts`)
-3. **Registry** — if you created a new module file, import and spread it into `packages/catalog/src/registry/moduleRegistry.ts`
+1. **Content templates** — create file content as exported string constants in `catalogs/official/src/content/`
+2. **Module definition** — add a `ModuleDefinition` entry in the appropriate file under `catalogs/official/src/modules/` (organized by target kind: `client.ts`, `server.ts`, `domain.ts`, `packages.ts`)
+3. **Registry** — if you created a new module file, import and spread it into `catalogs/official/src/moduleRegistry.ts`
 
 Each module definition specifies:
 

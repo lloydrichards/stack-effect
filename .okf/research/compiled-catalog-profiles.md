@@ -8,7 +8,7 @@ sources:
     resource: ../../packages/domain/src/Catalog.ts
     title: Declarative contribution contracts
   - id: modules
-    resource: ../../packages/catalog/src/registry/modules/client.ts
+    resource: ../../catalogs/official/src/modules/client.ts
     title: Shared JSX slot contributions
   - id: inputs
     resource: ../../packages/domain/src/Scaffold.ts

@@ -11,10 +11,10 @@ sources:
     resource: ../../apps/docs/package.json
     title: Docs tooling scripts
   - id: catalog-modules
-    resource: ../../packages/catalog/src/registry/modules/init.ts
+    resource: ../../catalogs/official/src/modules/init.ts
     title: Generated lint and format module definitions
   - id: catalog-content
-    resource: ../../packages/catalog/src/registry/content/init.ts
+    resource: ../../catalogs/official/src/content/init.ts
     title: Generated lint and format content
 ---
 

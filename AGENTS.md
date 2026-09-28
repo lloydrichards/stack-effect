@@ -88,6 +88,7 @@ The root `catalog:*` scripts use `apps/cli/src/authoring.ts` and local definitio
 - `packages/domain`: Shared Effect Schema contracts and domain vocabulary for Catalog/Selection/Blueprint/Plan/Apply/Finalize.
 - `packages/catalog`: Read-only catalog definitions and lookup service for targets/modules and dependency metadata.
 - `packages/authoring`: Catalog authoring tools that build a v1 catalog document from TypeScript definitions and template files.
+- `catalogs/official`: The official catalog definitions, authored with `@repo/authoring`; `./service` wires them into repository tooling and tests.
 - `packages/scaffold`: Runtime orchestration services (blueprint resolution, planning, apply, finalize, formatting).
 - `packages/observability`: Shared OpenTelemetry layer wiring for Effect apps.
 - `packages/config-typescript`: Shared TypeScript configuration package.
@@ -137,6 +138,7 @@ Effect.gen(function* () {
 | ----------------- | ------------------ | --------------------------- |
 | `apps/cli`        | Effect Cli         | `apps/cli/AGENTS.md`        |
 | `packages/domain` | Effect Schema, RPC | `packages/domain/AGENTS.md` |
+| `packages/authoring` | Effect, FileSystem | `packages/authoring/AGENTS.md` |
 
 ## Domain Terminology References
 

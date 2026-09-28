@@ -5,7 +5,7 @@ description: Human-facing naming conventions for targets and modules.
 status: stable
 sources:
   - id: source-1
-    resource: ../../packages/catalog/src/registry/moduleRegistry.ts
+    resource: ../../catalogs/official/src/moduleRegistry.ts
   - id: source-2
     resource: ../../packages/domain/src/Catalog.ts
 generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }

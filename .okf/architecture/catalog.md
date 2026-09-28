@@ -7,9 +7,9 @@ sources:
   - id: source-1
     resource: ../../packages/catalog/src/CatalogService.ts
   - id: source-2
-    resource: ../../packages/catalog/src/registry/targetRegistry.ts
+    resource: ../../catalogs/official/src/targetRegistry.ts
   - id: source-3
-    resource: ../../packages/catalog/src/registry/moduleRegistry.ts
+    resource: ../../catalogs/official/src/moduleRegistry.ts
   - id: source-4
     resource: ../../packages/domain/src/Catalog.ts
 generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
