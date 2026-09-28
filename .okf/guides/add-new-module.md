@@ -51,7 +51,7 @@ export const healthModules = defineModules(import.meta.url, [
 ]);
 ```
 
-Templates may contain tokens and `{{#if}}` blocks, so they are excluded from type-checking, linting, formatting, and Git line-ending conversion. Git, Oxfmt, and Oxlint read some file names in nested directories, so store `.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, and `.oxlintrc.json` templates with the dot replaced by an underscore, such as `_gitignore`, and keep the contribution `path` as `.gitignore`. A test in `catalogs/official` enforces this. Short fragments, such as `ts-call-arg` arguments, stay inline.
+Templates may contain tokens and `{{#if}}` blocks, so they are excluded from type-checking, linting, formatting, and Git line-ending conversion. Git, Oxfmt, and Oxlint read some file names in nested directories, so store `.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`, and `.editorconfig` templates with the dot replaced by an underscore, such as `_gitignore`, and keep the contribution `path` as `.gitignore`. A test in `catalogs/official` enforces this. Short fragments, such as `ts-call-arg` arguments, stay inline.
 
 Use `{ _tag: "identity", identity: { kind, name } }` when a module belongs only to one identity, such as `package/domain`. Kind support applies to every matching target kind. Visibility defaults to public; internal modules remain available for dependency resolution.
 

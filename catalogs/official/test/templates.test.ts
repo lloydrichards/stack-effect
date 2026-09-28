@@ -12,6 +12,7 @@ const toolControlled = new Set([
   ".oxfmtrc.json",
   ".oxfmtrc.jsonc",
   ".oxlintrc.json",
+  ".editorconfig",
 ]);
 
 it.effect("stores no template under a name repository tools interpret", () =>

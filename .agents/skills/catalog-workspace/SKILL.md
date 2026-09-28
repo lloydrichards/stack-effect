@@ -144,7 +144,7 @@ When porting back:
 
 - Keep the catalog change minimal.
 - Edit template bytes exactly; they are embedded verbatim, and `catalogs/official/test/catalog.golden.json` changes with them.
-- Store names that Git, Oxfmt, or Oxlint read in nested directories (`.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`) with the dot replaced by an underscore, e.g. `_gitignore`; the contribution `path` keeps the real name.
+- Store names that Git, Oxfmt, or Oxlint read in nested directories (`.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`, `.editorconfig`) with the dot replaced by an underscore, e.g. `_gitignore`; the contribution `path` keeps the real name.
 - Preserve catalog domain terms: Selection, Blueprint, Plan, Apply.
 - For Effect code, follow `effect-fp` project style: `Effect.gen`, `yield*`, declarative transforms, and Effect error channels.
 - Do not commit or stage `workspace/catalog-built`; it is a disposable generated workspace.
