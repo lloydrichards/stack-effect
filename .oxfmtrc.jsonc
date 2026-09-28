@@ -21,5 +21,9 @@
     "**/*.md",
     "**/*.mdx",
     "**/*.html",
+    // Template and golden bytes are embedded verbatim in catalog JSON.
+    "packages/authoring/test/fixtures/**/templates/**",
+    "packages/authoring/test/fixtures/invalid/**",
+    "packages/authoring/test/fixtures/**/golden/**",
   ],
 }

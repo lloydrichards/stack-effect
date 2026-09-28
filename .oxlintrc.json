@@ -13,6 +13,66 @@
         "effecttsgo/node-builtin-import": "off",
         "effecttsgo/prefer-schema-over-json": "off"
       }
+    },
+    {
+      "files": ["packages/authoring/src/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "node:*",
+                  "bun",
+                  "bun:*",
+                  "@effect/platform-*",
+                  "assert",
+                  "buffer",
+                  "child_process",
+                  "crypto",
+                  "events",
+                  "fs",
+                  "fs/*",
+                  "module",
+                  "os",
+                  "path",
+                  "path/*",
+                  "process",
+                  "stream",
+                  "url",
+                  "util",
+                  "worker_threads"
+                ],
+                "message": "Authoring runs on Bun, Node and Deno; use Effect platform services."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "Bun",
+            "message": "Authoring runs on Bun, Node and Deno; use Effect platform services."
+          },
+          {
+            "name": "Deno",
+            "message": "Authoring runs on Bun, Node and Deno; use Effect platform services."
+          },
+          {
+            "name": "process",
+            "message": "Authoring runs on Bun, Node and Deno; use Effect platform services."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/authoring/src/**/*.test.ts"],
+      "rules": {
+        "no-restricted-imports": "off",
+        "no-restricted-globals": "off"
+      }
     }
-  ]
+  ],
+  "ignorePatterns": ["packages/authoring/test/fixtures/**/templates/**"]
 }

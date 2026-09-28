@@ -1,0 +1,6 @@
+{
+  "name": "{{projectName}}",
+  "private": true,
+  "type": "module"{{#if runtime=bun}},
+  "packageManager": "{{packageManagerSpec}}"{{/if}}
+}

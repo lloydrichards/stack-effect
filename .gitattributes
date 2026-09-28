@@ -1,2 +1,7 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Catalog templates and golden documents are embedded byte-for-byte
+packages/authoring/test/fixtures/**/templates/** -text
+packages/authoring/test/fixtures/invalid/** -text
+packages/authoring/test/fixtures/**/golden/** -text

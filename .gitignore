@@ -56,7 +56,7 @@ tsconfig.tsbuildinfo
 
 # Scaffold
 .temp/
-workspace/
+/workspace/
 
 # Fallow 
 .fallow/
