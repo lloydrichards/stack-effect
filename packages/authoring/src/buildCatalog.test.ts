@@ -560,6 +560,74 @@ describe("buildCatalog", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("compares locations against root after resolving symlinks", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const temp = yield* fs.realPath(yield* fs.makeTempDirectoryScoped());
+      const catalogDir = path.join(temp, "catalog");
+      yield* fs.makeDirectory(path.join(temp, "outside"), { recursive: true });
+      yield* fs.makeDirectory(catalogDir, { recursive: true });
+      yield* fs.writeFileString(path.join(temp, "outside", "o.txt"), "out\n");
+      yield* fs.writeFileString(path.join(catalogDir, "..dots.txt"), "in\n");
+      yield* fs.symlink(
+        path.join(temp, "outside"),
+        path.join(catalogDir, "link"),
+      );
+      yield* fs.symlink(catalogDir, path.join(temp, "alias"));
+      const source = (yield* path.toFileUrl(path.join(catalogDir, "defs.ts")))
+        .href;
+      const local = templates(yield* path.toFileUrl(`${catalogDir}/`));
+      const build = (contents: ReturnType<typeof local>, root: string) =>
+        buildCatalog(
+          {
+            targets: [
+              defineTargets(source, [
+                {
+                  kind: "workspace",
+                  title: "Workspace",
+                  description: "Root",
+                  contributions: [],
+                },
+              ]),
+            ],
+            modules: [
+              defineModules(source, [
+                {
+                  ...standaloneModule,
+                  contributions: [{ _tag: "file", path: "x.txt", contents }],
+                },
+              ]),
+            ],
+          },
+          { catalogId: "acme", root },
+        );
+      const escaped = yield* Effect.flip(
+        build(local("./link/o.txt"), catalogDir),
+      );
+      assert.deepStrictEqual(
+        escaped.issues.map(({ code, message }) => ({ code, message })),
+        [
+          {
+            code: "invalid-template",
+            message:
+              "Module acme-extra contribution 0 contents template is outside the catalog root",
+          },
+        ],
+      );
+      const dotted = yield* build(local("./..dots.txt"), catalogDir);
+      assert.strictEqual(
+        dotted.provenance.at(-1)?.templates[0]?.template,
+        "..dots.txt",
+      );
+      const aliased = yield* build(
+        local("./..dots.txt"),
+        path.join(temp, "alias"),
+      );
+      assert.strictEqual(aliased.json, dotted.json);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it("resolves template paths with URL semantics", () => {
     const base = new URL("file:///catalog/templates/");
     assert.strictEqual(

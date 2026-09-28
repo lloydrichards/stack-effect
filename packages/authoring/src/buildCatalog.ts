@@ -179,10 +179,14 @@ const decodeUtf8 = (bytes: Uint8Array) =>
     catch: () => "is not valid UTF-8",
   });
 
-/** Resolves file URLs and absolute paths, confined to the catalog root. */
+/**
+ * Resolves file URLs and absolute paths, confined to the catalog root. Paths
+ * are compared after resolving symlinks, so a link cannot reach outside root.
+ */
 const makeLocations = Effect.fn("Authoring.locations")(function* (
   root: URL | string,
 ) {
+  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const toFilePath = (location: URL | string) =>
     typeof location === "string" && path.isAbsolute(location)
@@ -199,7 +203,22 @@ const makeLocations = Effect.fn("Authoring.locations")(function* (
               ),
           ),
         );
+  /** The real path of a file, or of its parent when the file does not exist. */
+  const realPathOf = (file: string) =>
+    fs.realPath(file).pipe(
+      Effect.catch(() =>
+        fs.realPath(path.dirname(file)).pipe(
+          Effect.map((directory) => path.join(directory, path.basename(file))),
+          Effect.orElseSucceed(() => file),
+        ),
+      ),
+    );
   const rootPath = yield* toFilePath(root).pipe(
+    Effect.flatMap((file) =>
+      fs
+        .realPath(file)
+        .pipe(Effect.mapError(() => "is not an existing directory")),
+    ),
     Effect.catch((reason) =>
       fail([
         {
@@ -214,10 +233,12 @@ const makeLocations = Effect.fn("Authoring.locations")(function* (
   /** A location as a root-relative POSIX path, failing outside the root. */
   const withinRoot = (location: URL | string) =>
     toFilePath(location).pipe(
+      Effect.flatMap(realPathOf),
       Effect.flatMap((file) => {
         const relative = path.relative(rootPath, file);
         return relative === "" ||
-          relative.startsWith("..") ||
+          relative === ".." ||
+          relative.startsWith(`..${path.sep}`) ||
           path.isAbsolute(relative)
           ? Effect.fail("is outside the catalog root")
           : Effect.succeed({
