@@ -5,4 +5,4 @@
 - [Catalog architecture](catalog.md) describes definitions, lookup, and contributions.
 - [Catalog ID naming](catalog-id-semantics.md) records human-facing naming conventions.
 
-- [Catalog distribution and freshness](catalog-distribution.md) records the accepted remote-catalog policy; implementation remains pending.
+- [Catalog distribution and freshness](catalog-distribution.md) records the official-source implementation and its freshness policy.

@@ -20,12 +20,14 @@ sources:
     resource: https://github.com/lloydrichards/stack-effect/issues/272
   - id: composition
     resource: https://github.com/lloydrichards/stack-effect/issues/249
-generated: { by: codex, at: "2026-09-27T21:00:00+02:00" }
+  - id: qualification
+    resource: https://github.com/lloydrichards/stack-effect/issues/275
+generated: { by: codex, at: "2026-09-28T08:24:00+02:00" }
 ---
 
 # Catalog distribution and freshness
 
-Status: Accepted direction. Local work for #249 composes and injects validated definitions. Local work for #271 defines the v1 JSON document and a shared HTTP loader with validated cache fallback. Local work for #272 generates the public assets and Vercel rules. Local work for #273 and #274 connects the CLI and Recipe Builder to the loader with user and browser cache adapters. Deployed behavior and cross-client generation parity remain unverified. GitHub issues own implementation scope, sequencing, and acceptance evidence; this document owns the reusable decisions and their consequences.
+Status: Implemented for the official source. Catalog composition, the v1 JSON loader, public assets, and CLI and Recipe Builder cache adapters are in place. Controlled tests compare CLI and browser generation; public HTTP and Chromium checks verify both assets, conditional requests, CORS, and missing-path responses. A compatible catalog description update reached production without a CLI release. GitHub issue #275 records the qualification evidence. Community-source configuration remains a later decision.
 
 ## Separate content delivery from engine releases
 
@@ -87,4 +89,4 @@ See [catalog architecture](catalog.md "describes the current composition model")
 - Silently serving stale or bundled definitions obscures which catalog generated the result.
 - VFS snapshots as the public catalog protocol couple compatibility to a filesystem codec without replacing semantic definitions.
 
-The initial JSON round-trip supports the transport choice. HTTP deployment behavior and cross-client generation parity still require implementation evidence. Accepted policy must not be presented as already deployed behavior.
+The JSON round-trip, controlled CLI and browser generation tests, and deployed HTTP checks support the official-source implementation. These checks establish behavior for the tested catalog and deployment; future protocol changes still require a separate decision and qualification.
