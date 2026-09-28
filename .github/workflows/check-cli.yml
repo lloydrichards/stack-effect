@@ -7,19 +7,27 @@ on:
       - main
     paths:
       - "apps/cli/**"
-      - "packages/authoring/**"
-      - "packages/catalog/**"
-      - "packages/domain/**"
       - "catalogs/**"
+      - "packages/**"
+      - ".github/workflows/check-cli.yml"
+      - ".oxfmtrc.jsonc"
+      - ".oxlintrc.json"
+      - "bun.lock"
+      - "package.json"
+      - "turbo.json"
   pull_request:
     branches:
       - main
     paths:
       - "apps/cli/**"
-      - "packages/authoring/**"
-      - "packages/catalog/**"
-      - "packages/domain/**"
       - "catalogs/**"
+      - "packages/**"
+      - ".github/workflows/check-cli.yml"
+      - ".oxfmtrc.jsonc"
+      - ".oxlintrc.json"
+      - "bun.lock"
+      - "package.json"
+      - "turbo.json"
 
 jobs:
   lint:
