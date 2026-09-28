@@ -10,6 +10,7 @@ on:
       - "packages/authoring/**"
       - "packages/catalog/**"
       - "packages/domain/**"
+      - "catalogs/**"
   pull_request:
     branches:
       - main
@@ -18,6 +19,7 @@ on:
       - "packages/authoring/**"
       - "packages/catalog/**"
       - "packages/domain/**"
+      - "catalogs/**"
 
 jobs:
   lint:
