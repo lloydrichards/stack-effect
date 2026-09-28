@@ -31,3 +31,5 @@ New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stac
 A project can select catalog sources with an optional `catalogs` list, which `init` and `create` save from repeated `--catalog` flags. Without the list, the project uses the official catalog. Reading `catalogs` requires `stack-effect` 0.16.0 or later: older CLIs ignore the list, use the official catalog, and can drop the list when they rewrite `stack.effect.json`.
 
 Shared Recipe Builder links contain choices rather than catalog data. Reopening a link checks current definitions, may use a disclosed cached catalog during an outage, and reports choices that can no longer be resolved.
+
+To publish a catalog document from your own fork, see [Publish a catalog registry from a fork](/publish-catalog-registry). The CLI and Recipe Builder do not yet accept a custom catalog URL.

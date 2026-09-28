@@ -1,0 +1,54 @@
+# Publish a catalog registry from a fork
+
+Publish a Stack Effect v1 catalog document from your own copy of this repository. The result is a JSON URL that you can inspect and share. The released CLI and Recipe Builder currently load only the [official registry](/catalog-registry); they cannot select your URL. [Community-source design](https://github.com/lloydrichards/stack-effect/issues/276) tracks that missing consumption path.
+
+## Prepare your catalog
+
+1. Fork [Stack Effect](https://github.com/lloydrichards/stack-effect), clone your fork, and run `bun install`.
+2. Follow [Add a catalog module](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/add-new-module.md) or [Add a catalog target](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/add-new-target.md). Use the [catalog authoring workflow](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/catalog-authoring.md) to check the files your definitions generate.
+3. Change `catalogId` in `catalogs/official/src/service.ts` from `stack-effect-official` to an identifier for your published catalog. Keep `formatVersion: 1` and use only the v1 contributions and tokens supported by your target clients.
+4. Generate the JSON asset from your definitions:
+
+```bash
+bun run --cwd catalogs/official build
+bun run apps/docs/scripts/write-catalog-registry-assets.ts
+```
+
+The build writes `catalogs/official/dist/registry/v1/catalog.json`, and the docs script publishes it as `apps/docs/public/registry/v1/catalog.json`. Its top-level fields are `formatVersion`, `catalogId`, `requiredCapabilities`, `targets`, and `modules`. The build checks the catalog schema, references, and v1 capabilities before writing the file, and the docs script refuses a missing or stale build.
+
+## Check the document
+
+Run the repository checks before publishing:
+
+```bash
+bun format
+bun lint
+bun run type-check
+bun run test --filter=@repo/catalog-official
+bun run test --filter=stack-effect
+bun run --cwd apps/docs build
+```
+
+The docs build regenerates the catalog document. It also generates the project configuration schema at `apps/docs/public/schemas/v1/stack.effect.schema.json`. That schema describes `stack.effect.json`; it does not describe the catalog document.
+
+## Publish and inspect the URL
+
+Deploy the built `apps/docs/build/client` directory on a static host. The build copies the catalog document from `public` to `build/client/registry/v1/catalog.json`. The catalog URL on your host is `/registry/v1/catalog.json`. Check the deployed response, replacing the example host with yours:
+
+```bash
+curl -fSi https://your-host.example/registry/v1/catalog.json
+```
+
+Expect HTTP `200`, a JSON content type, and a document whose `catalogId` matches your change. Test a missing path as well. It must return `404` instead of your site's HTML page:
+
+```bash
+curl -si https://your-host.example/registry/v1/missing.json
+```
+
+For browser clients, allow cross-origin `GET` and `HEAD` requests. If your host supports conditional requests, allow the `If-None-Match` request header, expose `ETag`, and return CORS headers on both `200` and `304` responses. The repository's `apps/docs/vercel.json` shows the official deployment's Vercel rules. Check your host's actual responses after deployment; a local build cannot verify its HTTP behavior.
+
+## Consume the catalog today
+
+The published JSON is available to tools that you write against the v1 [`CatalogDocument`](https://github.com/lloydrichards/stack-effect/blob/main/packages/domain/src/Catalog.ts) contract. Stack Effect's released CLI has no `--catalog-url` flag or project setting for another source. Its `init`, `add`, `create`, `graph`, and `schema` commands use the official registry URL, so they cannot generate a project from this fork's hosted document.
+
+To try changed definitions with this repository's local authoring commands, follow the [catalog authoring workflow](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/catalog-authoring.md). To use a hosted community catalog in the CLI or Recipe Builder, wait for the public configuration design in [issue #276](https://github.com/lloydrichards/stack-effect/issues/276) and its implementation.
