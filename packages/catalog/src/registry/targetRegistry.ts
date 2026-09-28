@@ -347,7 +347,7 @@ export const targetRegistry: ReadonlyArray<typeof TargetDefinition.Type> = [
     kind: TargetKind.make("server"),
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Server Application",
-    description: "A backend application, such as an API server",
+    description: "An Effect HTTP API server",
     defaultName: "api",
     requiredModules: [ModuleId.make("server-http-api")],
     contributions: [
