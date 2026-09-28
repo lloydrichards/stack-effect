@@ -1,17 +1,17 @@
-export type {
-  CatalogIssueCode,
+export {
   CatalogIssueSubject,
-  CatalogDocument,
+  type CatalogDocument,
+  type CatalogIssueCode,
 } from "@repo/domain/Catalog";
 export {
   buildCatalog,
   CatalogBuildError,
+  CatalogBuildIssue,
+  CatalogBuildIssueCode,
+  DefinitionProvenance,
+  TemplateProvenance,
   type BuildCatalogOptions,
   type BuildCatalogResult,
-  type CatalogBuildIssue,
-  type CatalogBuildIssueCode,
-  type DefinitionProvenance,
-  type TemplateProvenance,
 } from "./buildCatalog";
 export {
   defineModules,

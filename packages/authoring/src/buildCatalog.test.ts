@@ -9,7 +9,7 @@ import {
   templates,
 } from "@repo/authoring";
 import { CatalogDocument } from "@repo/domain/Catalog";
-import { Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Path, Schema } from "effect";
 import { catalog, root } from "../test/fixtures/standalone/catalog";
 import { acmeTargets } from "../test/fixtures/standalone/targets";
 
@@ -45,7 +45,9 @@ describe("buildCatalog", () => {
       const fs = yield* FileSystem.FileSystem;
       const first = yield* buildCatalog(catalog, { catalogId: "acme", root });
       const second = yield* buildCatalog(catalog, { catalogId: "acme", root });
-      const golden = yield* fs.readFileString(goldenUrl.pathname);
+      const golden = yield* fs.readFileString(
+        yield* (yield* Path.Path).fromFileUrl(goldenUrl),
+      );
 
       assert.strictEqual(first.json, golden);
       assert.strictEqual(second.json, first.json);
@@ -229,7 +231,8 @@ describe("buildCatalog", () => {
         {
           subject: { _tag: "module", id: "acme-extra" },
           code: "finalize-script",
-          message: "Fragment 0 module acme-extra contains Finalize scripts",
+          message:
+            'Module acme-extra declares Finalize scripts, which contributed catalogs cannot ship; only an application-trusted build may pass finalizeScripts: "allow"',
           sources: ["src/buildCatalog.test.ts"],
         },
       ]);
@@ -337,7 +340,7 @@ describe("buildCatalog", () => {
       const cases = [
         {
           definitions: [yield* untyped('{"title":"No id"}')],
-          subject: "(missing)",
+          subject: "(unnamed module 1 in src/buildCatalog.test.ts)",
         },
         {
           definitions: [
@@ -355,8 +358,14 @@ describe("buildCatalog", () => {
           ],
           subject: "acme-null",
         },
-        { definitions: [yield* untyped("null")], subject: "(missing)" },
-        { definitions: yield* untyped("{}"), subject: "(missing)" },
+        {
+          definitions: [yield* untyped("null")],
+          subject: "(unnamed module 1 in src/buildCatalog.test.ts)",
+        },
+        {
+          definitions: yield* untyped("{}"),
+          subject: "(unnamed module 1 in src/buildCatalog.test.ts)",
+        },
       ];
       for (const { definitions, subject } of cases) {
         const issues = yield* buildFailure({
@@ -381,7 +390,7 @@ describe("buildCatalog", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("reports invalid URLs as build issues", () =>
+  it.effect("reports invalid locations as build issues", () =>
     Effect.gen(function* () {
       const badRoot = yield* Effect.flip(
         buildCatalog(catalog, { catalogId: "acme", root: "./relative/" }),
@@ -391,43 +400,178 @@ describe("buildCatalog", () => {
         [
           {
             code: "invalid-options",
-            message: "root ./relative/ is not a file URL",
+            message: "root ./relative/ is not a file URL or absolute path",
           },
         ],
       );
-      const issues = yield* buildFailure({
+      const badSource = yield* buildFailure({
         targets: catalog.targets,
         modules: [
-          ...catalog.modules,
-          {
-            source: "hand-written.ts",
-            definitions: [
-              {
-                ...standaloneModule,
-                contributions: [
-                  {
-                    _tag: "file",
-                    path: "a.txt",
-                    contents: { _tag: "TemplateRef", url: "relative.txt" },
-                  },
-                ],
-              },
-            ],
-          },
+          { source: "hand-written.ts", definitions: [standaloneModule] },
         ],
       });
-      assert.deepStrictEqual(issues, [
+      assert.deepStrictEqual(
+        badSource.map(({ code, message }) => ({ code, message })),
+        [
+          {
+            code: "invalid-options",
+            message:
+              "Definition source hand-written.ts is not a file URL or absolute path",
+          },
+        ],
+      );
+      const outside = yield* buildFailure({
+        targets: catalog.targets,
+        modules: [defineModules("file:///elsewhere/a.ts", [standaloneModule])],
+      });
+      assert.strictEqual(outside[0]?.code, "invalid-options");
+      assert.include(outside[0]?.message, "is outside the catalog root");
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("accepts an absolute path as the catalog root", () =>
+    Effect.gen(function* () {
+      const path = yield* Path.Path;
+      const fromPath = yield* buildCatalog(catalog, {
+        catalogId: "acme",
+        root: yield* path.fromFileUrl(root),
+      });
+      const fromUrl = yield* buildCatalog(catalog, { catalogId: "acme", root });
+      assert.strictEqual(fromPath.json, fromUrl.json);
+      assert.deepStrictEqual(fromPath.provenance, fromUrl.provenance);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("rejects templates that are not readable UTF-8 files in root", () =>
+    Effect.gen(function* () {
+      const issues = yield* buildFailure(
+        withModule({
+          ...standaloneModule,
+          contributions: [
+            {
+              _tag: "file",
+              path: "utf8.txt",
+              contents: template("./invalid/invalid-utf8.txt"),
+            },
+            {
+              _tag: "file",
+              path: "dir.txt",
+              contents: template("./invalid/a-directory"),
+            },
+            {
+              _tag: "file",
+              path: "outside.txt",
+              contents: { _tag: "TemplateRef", url: "file:///elsewhere.txt" },
+            },
+          ],
+        }),
+      );
+      assert.deepStrictEqual(
+        issues.map(({ code, message, template }) => ({
+          code,
+          message,
+          template,
+        })),
+        [
+          {
+            code: "invalid-template",
+            message:
+              "Module acme-extra contribution 0 contents template is not valid UTF-8",
+            template: "test/fixtures/invalid/invalid-utf8.txt",
+          },
+          {
+            code: "invalid-template",
+            message:
+              "Module acme-extra contribution 1 contents template is not a file",
+            template: "test/fixtures/invalid/a-directory",
+          },
+          {
+            code: "invalid-template",
+            message:
+              "Module acme-extra contribution 2 contents template is outside the catalog root",
+            template: "file:///elsewhere.txt",
+          },
+        ],
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports an unknown token both inline and in its template", () =>
+    Effect.gen(function* () {
+      const issues = yield* buildFailure(
+        withModule({
+          ...standaloneModule,
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{acmeToken}}.txt",
+              contents: template("./invalid/unknown-token.txt"),
+            },
+          ],
+        }),
+      );
+      assert.deepStrictEqual(
+        issues.map((issue) => issue.template),
+        [undefined, "test/fixtures/invalid/unknown-token.txt"],
+      );
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("reports every shape error in a definition at once", () =>
+    Effect.gen(function* () {
+      const untyped = yield* Schema.decodeEffect(
+        Schema.fromJsonString(Schema.Any),
+      )(
+        '{"id":"acme-shapes","title":1,"description":2,"supportedOn":[],"dependencies":[],"contributions":[],"junk":true}',
+      );
+      const issues = yield* buildFailure({
+        targets: catalog.targets,
+        modules: [defineModules(import.meta.url, [untyped])],
+      });
+      assert.lengthOf(issues, 1);
+      for (const key of ["title", "description", "junk"])
+        assert.include(issues[0]?.message, `["${key}"]`);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("records provenance for templated barrel exports", () =>
+    Effect.gen(function* () {
+      const { provenance } = yield* buildCatalog(
+        withModule({
+          ...standaloneModule,
+          contributions: [
+            {
+              _tag: "barrel-export",
+              barrelPath: "{{targetPath}}/src/index.ts",
+              exportPath: template("./invalid/barrel-export.txt"),
+            },
+          ],
+        }),
+        { catalogId: "acme", root: packageRoot },
+      );
+      assert.deepStrictEqual(provenance.at(-1)?.templates, [
         {
-          subject: { _tag: "module", id: "acme-extra" },
-          code: "missing-template",
-          message:
-            "Module acme-extra contribution 0 contents template is not a URL",
-          sources: ["hand-written.ts"],
-          template: "relative.txt",
+          contribution: 0,
+          field: "exportPath",
+          contributionPath: "{{targetPath}}/src/index.ts",
+          template: "test/fixtures/invalid/barrel-export.txt",
         },
       ]);
     }).pipe(Effect.provide(NodeServices.layer)),
   );
+
+  it("resolves template paths with URL semantics", () => {
+    const base = new URL("file:///catalog/templates/");
+    assert.strictEqual(
+      templates(base)("./app/main.ts").url,
+      "file:///catalog/templates/app/main.ts",
+    );
+    // Without a trailing slash the base names a file, as in module resolution.
+    assert.strictEqual(
+      templates(new URL("file:///catalog/templates"))("./app/main.ts").url,
+      "file:///catalog/app/main.ts",
+    );
+  });
 
   it.effect("formats issues with their location for authors", () =>
     Effect.gen(function* () {

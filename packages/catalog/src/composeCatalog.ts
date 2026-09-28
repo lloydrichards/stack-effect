@@ -4,6 +4,7 @@ import {
   type CatalogIssueCode,
   type CatalogIssueSubject,
   CatalogValidationError,
+  catalogIssueLabel,
 } from "@repo/domain/Catalog";
 import { Array as Arr, Effect, Schema } from "effect";
 
@@ -54,31 +55,33 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
 
   const duplicates = (ids: ReadonlyArray<string>) =>
     ids.filter((id, index) => ids.indexOf(id) !== index);
-  for (const kind of duplicates(targets.map((target) => target.kind)))
-    report(
-      targetSubject(kind),
-      "duplicate-id",
-      `Duplicate target kind ${kind}`,
-    );
-  for (const id of duplicates(modules.map((module) => module.id)))
-    report(moduleSubject(id), "duplicate-id", `Duplicate module ID ${id}`);
+  issues.push(
+    ...duplicates(targets.map((target) => target.kind)).map(
+      (kind): CatalogIssue => ({
+        subject: targetSubject(kind),
+        code: "duplicate-id",
+        message: `Duplicate target kind ${kind}`,
+      }),
+    ),
+    ...duplicates(modules.map((module) => module.id)).map(
+      (id): CatalogIssue => ({
+        subject: moduleSubject(id),
+        code: "duplicate-id",
+        message: `Duplicate module ID ${id}`,
+      }),
+    ),
+  );
 
   const supports = (module: (typeof modules)[number], kind: string) =>
     module.supportedOn.some(
       (rule) => rule._tag === "kind" && rule.kind === kind,
     );
-  const ownerLabel = (owner: CatalogIssueSubject) =>
-    owner._tag === "module"
-      ? `Module ${owner.id}`
-      : owner._tag === "target"
-        ? `Target ${owner.kind}`
-        : "Catalog";
   const requireTarget = (kind: string, owner: CatalogIssueSubject) => {
     if (!targetByKind.has(kind))
       report(
         owner,
         "missing-reference",
-        `${ownerLabel(owner)} references missing target ${kind}`,
+        `${catalogIssueLabel(owner)} references missing target ${kind}`,
       );
   };
   const requireModule = (id: string, owner: CatalogIssueSubject) => {
@@ -86,7 +89,7 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
       report(
         owner,
         "missing-reference",
-        `${ownerLabel(owner)} references missing module ${id}`,
+        `${catalogIssueLabel(owner)} references missing module ${id}`,
       );
   };
 
@@ -192,27 +195,30 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
         );
     }
   }
-  decoded.forEach((fragment, index) => {
-    if (index === options.trustedFragmentIndex) return;
-    for (const target of fragment.targets) {
-      if (target.scripts?.length)
-        issues.push({
-          subject: targetSubject(target.kind),
-          code: "finalize-script",
-          message: `Fragment ${index} target ${target.kind} contains Finalize scripts`,
-          fragment: index,
-        });
-    }
-    for (const module of fragment.modules) {
-      if (module.scripts?.length)
-        issues.push({
-          subject: moduleSubject(module.id),
-          code: "finalize-script",
-          message: `Fragment ${index} module ${module.id} contains Finalize scripts`,
-          fragment: index,
-        });
-    }
-  });
+  issues.push(
+    ...decoded.flatMap((fragment, index): ReadonlyArray<CatalogIssue> =>
+      index === options.trustedFragmentIndex
+        ? []
+        : [
+            ...fragment.targets
+              .filter((target) => target.scripts?.length)
+              .map((target) => ({
+                subject: targetSubject(target.kind),
+                code: "finalize-script" as const,
+                message: `Fragment ${index} target ${target.kind} contains Finalize scripts`,
+                fragment: index,
+              })),
+            ...fragment.modules
+              .filter((module) => module.scripts?.length)
+              .map((module) => ({
+                subject: moduleSubject(module.id),
+                code: "finalize-script" as const,
+                message: `Fragment ${index} module ${module.id} contains Finalize scripts`,
+                fragment: index,
+              })),
+          ],
+    ),
+  );
 
   if (issues.length)
     return yield* new CatalogValidationError({ details: issues });

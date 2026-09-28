@@ -6,8 +6,11 @@ import {
 } from "@repo/catalog";
 import {
   CatalogDocument,
-  type CatalogIssueCode,
-  type CatalogIssueSubject,
+  type CatalogIssue,
+  CatalogIssueCode,
+  CatalogIssueSubject,
+  catalogIssueKey,
+  catalogIssueLabel,
   ModuleDefinition,
   TargetDefinition,
 } from "@repo/domain/Catalog";
@@ -16,27 +19,34 @@ import {
   Data,
   Effect,
   FileSystem,
+  Option,
   Path,
   Predicate,
   Schema,
 } from "effect";
-import type { CatalogInput } from "./Define";
+import type { CatalogInput, DefinitionGroup } from "./Define";
 import { isTemplateRef, type TemplateRef } from "./Template";
 
-export type CatalogBuildIssueCode =
-  | CatalogIssueCode
-  | "invalid-options"
-  | "missing-template"
-  | "unsupported-capability";
+export const CatalogBuildIssueCode = Schema.Union([
+  CatalogIssueCode,
+  Schema.Literals([
+    "invalid-options",
+    "missing-template",
+    "invalid-template",
+    "unsupported-capability",
+  ]),
+]);
+export type CatalogBuildIssueCode = typeof CatalogBuildIssueCode.Type;
 
 /** One build failure, located by its definition, source file and template. */
-export interface CatalogBuildIssue {
-  readonly subject: CatalogIssueSubject;
-  readonly code: CatalogBuildIssueCode;
-  readonly message: string;
-  readonly sources: ReadonlyArray<string>;
-  readonly template?: string;
-}
+export const CatalogBuildIssue = Schema.Struct({
+  subject: CatalogIssueSubject,
+  code: CatalogBuildIssueCode,
+  message: Schema.String,
+  sources: Schema.Array(Schema.String),
+  template: Schema.optionalKey(Schema.String),
+});
+export type CatalogBuildIssue = typeof CatalogBuildIssue.Type;
 
 const formatIssue = (issue: CatalogBuildIssue): string => {
   const location = [
@@ -56,23 +66,28 @@ export class CatalogBuildError extends Data.TaggedError("CatalogBuildError")<{
   }
 }
 
-export interface TemplateProvenance {
-  readonly contribution: number;
-  readonly field: string;
-  readonly contributionPath: string;
-  readonly template: string;
-}
+export const TemplateProvenance = Schema.Struct({
+  contribution: Schema.Int,
+  field: Schema.String,
+  contributionPath: Schema.String,
+  template: Schema.String,
+});
+export type TemplateProvenance = typeof TemplateProvenance.Type;
 
 /** Where a definition and its template-backed contributions were authored. */
-export interface DefinitionProvenance {
-  readonly subject: CatalogIssueSubject;
-  readonly source: string;
-  readonly templates: ReadonlyArray<TemplateProvenance>;
-}
+export const DefinitionProvenance = Schema.Struct({
+  subject: CatalogIssueSubject,
+  source: Schema.String,
+  templates: Schema.Array(TemplateProvenance),
+});
+export type DefinitionProvenance = typeof DefinitionProvenance.Type;
 
 export interface BuildCatalogOptions {
   readonly catalogId: string;
-  /** Directory that reported source and template paths are relative to. */
+  /**
+   * Directory, as a file URL or absolute path, that every source and template
+   * must live in. Reported paths are relative to it, so builds are portable.
+   */
   readonly root: URL | string;
   /** Contributed catalogs cannot ship Finalize scripts; loaders decide trust. */
   readonly finalizeScripts?: "reject" | "allow";
@@ -105,19 +120,17 @@ interface ResolvedTemplate extends TemplateField {
   readonly text: string;
 }
 
-const subjectKey = (subject: CatalogIssueSubject): string =>
-  subject._tag === "module"
-    ? `module:${subject.id}`
-    : subject._tag === "target"
-      ? `target:${subject.kind}`
-      : "document";
+type Decoded =
+  | { readonly _tag: "target"; readonly target: typeof TargetDefinition.Type }
+  | { readonly _tag: "module"; readonly module: typeof ModuleDefinition.Type };
 
-const subjectLabel = (subject: CatalogIssueSubject): string =>
-  subject._tag === "module"
-    ? `Module ${subject.id}`
-    : subject._tag === "target"
-      ? `Target ${subject.kind}`
-      : "Catalog";
+const documentSubject: CatalogIssueSubject = { _tag: "document" };
+
+const fail = (issues: ReadonlyArray<CatalogBuildIssue>) =>
+  Effect.fail(new CatalogBuildError({ issues }));
+
+const failWhenAny = (issues: ReadonlyArray<CatalogBuildIssue>) =>
+  issues.length ? fail(issues) : Effect.void;
 
 /*
  * Untyped callers can pass malformed definitions. These guards only keep the
@@ -141,8 +154,23 @@ const contributionsOf = (entry: Entry): ReadonlyArray<unknown> | undefined =>
 const fieldsOf = (contribution: unknown) =>
   Predicate.isObject(contribution) ? Object.entries(contribution) : [];
 
-const fail = (issues: ReadonlyArray<CatalogBuildIssue>) =>
-  Effect.fail(new CatalogBuildError({ issues }));
+/** Strings authored inline in a definition, skipping template references. */
+const inlineStrings = (value: unknown): ReadonlyArray<string> =>
+  typeof value === "string"
+    ? [value]
+    : isTemplateRef(value)
+      ? []
+      : Array.isArray(value)
+        ? value.flatMap(inlineStrings)
+        : Predicate.isObject(value)
+          ? Object.values(value).flatMap(inlineStrings)
+          : [];
+
+const templateFieldKey = (
+  entryIndex: number,
+  contribution: number,
+  field: string,
+) => `${entryIndex}:${contribution}:${field}`;
 
 const decodeUtf8 = (bytes: Uint8Array) =>
   Effect.try({
@@ -151,20 +179,245 @@ const decodeUtf8 = (bytes: Uint8Array) =>
     catch: () => "is not valid UTF-8",
   });
 
+/** Resolves file URLs and absolute paths, confined to the catalog root. */
+const makeLocations = Effect.fn("Authoring.locations")(function* (
+  root: URL | string,
+) {
+  const path = yield* Path.Path;
+  const toFilePath = (location: URL | string) =>
+    typeof location === "string" && path.isAbsolute(location)
+      ? Effect.succeed(path.resolve(location))
+      : Effect.try({
+          try: () => new URL(location),
+          catch: () => "is not a file URL or absolute path",
+        }).pipe(
+          Effect.flatMap((url) =>
+            path
+              .fromFileUrl(url)
+              .pipe(
+                Effect.mapError(() => "is not a file URL or absolute path"),
+              ),
+          ),
+        );
+  const rootPath = yield* toFilePath(root).pipe(
+    Effect.catch((reason) =>
+      fail([
+        {
+          subject: documentSubject,
+          code: "invalid-options",
+          message: `root ${String(root)} ${reason}`,
+          sources: [],
+        },
+      ]),
+    ),
+  );
+  /** A location as a root-relative POSIX path, failing outside the root. */
+  const withinRoot = (location: URL | string) =>
+    toFilePath(location).pipe(
+      Effect.flatMap((file) => {
+        const relative = path.relative(rootPath, file);
+        return relative === "" ||
+          relative.startsWith("..") ||
+          path.isAbsolute(relative)
+          ? Effect.fail("is outside the catalog root")
+          : Effect.succeed({
+              file,
+              display: relative.split(path.sep).join("/"),
+            });
+      }),
+    );
+  return { withinRoot };
+});
+
+type Locations = Effect.Success<ReturnType<typeof makeLocations>>;
+
+const collectEntries = Effect.fn("Authoring.collectEntries")(function* (
+  catalog: CatalogInput,
+  locations: Locations,
+) {
+  const groups = [
+    ...catalog.targets.map((group) => ["target", group] as const),
+    ...catalog.modules.map((group) => ["module", group] as const),
+  ] satisfies ReadonlyArray<
+    readonly ["target" | "module", DefinitionGroup<unknown>]
+  >;
+  const [invalid, sources] = yield* Effect.partition(groups, ([, group]) =>
+    locations.withinRoot(group.source).pipe(
+      Effect.map(({ display }) => display),
+      Effect.mapError((reason): CatalogBuildIssue => ({
+        subject: documentSubject,
+        code: "invalid-options",
+        message: `Definition source ${String(group.source)} ${reason}`,
+        sources: [],
+      })),
+    ),
+  );
+  yield* failWhenAny(invalid);
+  return groups.flatMap(([kind, group], index) => {
+    const source = sources[index] ?? String(group.source);
+    return definitionsOf(group.definitions).map((input, position): Entry => {
+      const label =
+        stringField(input, kind === "target" ? "kind" : "id") ??
+        `(unnamed ${kind} ${position + 1} in ${source})`;
+      return {
+        kind,
+        subject:
+          kind === "target"
+            ? { _tag: "target", kind: label }
+            : { _tag: "module", id: label },
+        source,
+        input,
+      };
+    });
+  });
+});
+
+const resolveTemplates = Effect.fn("Authoring.resolveTemplates")(function* (
+  entries: ReadonlyArray<Entry>,
+  locations: Locations,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const fields: ReadonlyArray<TemplateField> = entries.flatMap(
+    (entry, entryIndex) =>
+      (contributionsOf(entry) ?? []).flatMap((contribution, index) =>
+        fieldsOf(contribution).flatMap(([field, value]) =>
+          isTemplateRef(value)
+            ? [{ entry, entryIndex, contribution: index, field, ref: value }]
+            : [],
+        ),
+      ),
+  );
+  const [failed, resolved] = yield* Effect.partition(fields, (item) => {
+    const issue = (
+      code: "missing-template" | "invalid-template",
+      reason: string,
+      template: string,
+    ): CatalogBuildIssue => ({
+      subject: item.entry.subject,
+      code,
+      message: `${catalogIssueLabel(item.entry.subject)} contribution ${item.contribution} ${item.field} template ${reason}`,
+      sources: [item.entry.source],
+      template,
+    });
+    return locations.withinRoot(item.ref.url).pipe(
+      Effect.mapError((reason) =>
+        issue("invalid-template", reason, item.ref.url),
+      ),
+      Effect.flatMap(({ file, display }) =>
+        fs.stat(file).pipe(
+          Effect.mapError((error) =>
+            error.reason._tag === "NotFound"
+              ? issue("missing-template", "was not found", display)
+              : issue("missing-template", "could not be read", display),
+          ),
+          Effect.flatMap((info) =>
+            info.type === "File"
+              ? fs
+                  .readFile(file)
+                  .pipe(
+                    Effect.mapError(() =>
+                      issue("missing-template", "could not be read", display),
+                    ),
+                  )
+              : Effect.fail(
+                  issue("invalid-template", "is not a file", display),
+                ),
+          ),
+          Effect.flatMap((bytes) =>
+            decodeUtf8(bytes).pipe(
+              Effect.mapError((reason) =>
+                issue("invalid-template", reason, display),
+              ),
+            ),
+          ),
+          Effect.map((text): ResolvedTemplate => ({
+            ...item,
+            template: display,
+            text,
+          })),
+        ),
+      ),
+    );
+  });
+  yield* failWhenAny(failed);
+  return resolved;
+});
+
+const decodeEntries = Effect.fn("Authoring.decodeEntries")(function* (
+  entries: ReadonlyArray<Entry>,
+  resolved: ReadonlyArray<ResolvedTemplate>,
+) {
+  const templateText = new Map(
+    resolved.map((item) => [
+      templateFieldKey(item.entryIndex, item.contribution, item.field),
+      item.text,
+    ]),
+  );
+  const resolveInput = (entry: Entry, entryIndex: number): unknown => {
+    const contributions = contributionsOf(entry);
+    return contributions && Predicate.isObject(entry.input)
+      ? {
+          ...entry.input,
+          contributions: contributions.map((contribution, index) =>
+            Predicate.isObject(contribution)
+              ? Object.fromEntries(
+                  fieldsOf(contribution).map(([field, value]) => [
+                    field,
+                    isTemplateRef(value)
+                      ? templateText.get(
+                          templateFieldKey(entryIndex, index, field),
+                        )
+                      : value,
+                  ]),
+                )
+              : contribution,
+          ),
+        }
+      : entry.input;
+  };
+  const options = { onExcessProperty: "error", errors: "all" } as const;
+  const [invalid, decoded] = yield* Effect.partition(
+    entries.map((entry, index) => [entry, index] as const),
+    ([entry, index]): Effect.Effect<Decoded, CatalogBuildIssue> => {
+      const input = resolveInput(entry, index);
+      const decode: Effect.Effect<Decoded, Schema.SchemaError> =
+        entry.kind === "target"
+          ? Schema.decodeUnknownEffect(TargetDefinition)(input, options).pipe(
+              Effect.map((target) => ({ _tag: "target", target })),
+            )
+          : Schema.decodeUnknownEffect(ModuleDefinition)(input, options).pipe(
+              Effect.map((module) => ({ _tag: "module", module })),
+            );
+      return decode.pipe(
+        Effect.mapError((error) => ({
+          subject: entry.subject,
+          code: "invalid-shape",
+          message: `${catalogIssueLabel(entry.subject)} is invalid: ${error.message}`,
+          sources: [entry.source],
+        })),
+      );
+    },
+  );
+  yield* failWhenAny(invalid);
+  return decoded;
+});
+
+const composeMessage = (issue: CatalogIssue): string =>
+  issue.code === "finalize-script"
+    ? `${catalogIssueLabel(issue.subject)} declares Finalize scripts, which contributed catalogs cannot ship; only an application-trusted build may pass finalizeScripts: "allow"`
+    : issue.message;
+
 /**
  * Build a deterministic v1 catalog document from authored definitions.
  *
- * Stages run in order (templates, definition shape, references, interpreter
- * capabilities) and the build stops after the first stage that reports issues.
+ * Stages run in order (options and sources, templates, definition shape,
+ * references, interpreter capabilities) and the build stops after the first
+ * stage that reports issues.
  */
 export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
   catalog: CatalogInput,
   options: BuildCatalogOptions,
 ) {
-  const fs = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
-  const documentSubject: CatalogIssueSubject = { _tag: "document" };
-
   const catalogId = yield* Schema.decodeEffect(Schema.NonEmptyString)(
     options.catalogId,
   ).pipe(
@@ -179,187 +432,19 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
       ]),
     ),
   );
-  const toFilePath = (url: URL | string) =>
-    Effect.try({
-      try: () => new URL(url),
-      catch: () => "is not a URL",
-    }).pipe(
-      Effect.flatMap((parsed) =>
-        path
-          .fromFileUrl(parsed)
-          .pipe(Effect.mapError(() => "is not a file URL")),
-      ),
-    );
-  const rootPath = yield* toFilePath(options.root).pipe(
-    Effect.catch(() =>
-      fail([
-        {
-          subject: documentSubject,
-          code: "invalid-options",
-          message: `root ${String(options.root)} is not a file URL`,
-          sources: [],
-        },
-      ]),
-    ),
-  );
-  const display = (url: string) =>
-    toFilePath(url).pipe(
-      Effect.map((file) =>
-        path.relative(rootPath, file).split(path.sep).join("/"),
-      ),
-      Effect.orElseSucceed(() => url),
-    );
-
-  const entries: ReadonlyArray<Entry> = yield* Effect.all([
-    Effect.forEach(catalog.targets, (group) =>
-      Effect.map(display(group.source), (source) =>
-        definitionsOf(group.definitions).map((input): Entry => ({
-          kind: "target",
-          subject: {
-            _tag: "target",
-            kind: stringField(input, "kind") ?? "(missing)",
-          },
-          source,
-          input,
-        })),
-      ),
-    ),
-    Effect.forEach(catalog.modules, (group) =>
-      Effect.map(display(group.source), (source) =>
-        definitionsOf(group.definitions).map((input): Entry => ({
-          kind: "module",
-          subject: {
-            _tag: "module",
-            id: stringField(input, "id") ?? "(missing)",
-          },
-          source,
-          input,
-        })),
-      ),
-    ),
-  ]).pipe(Effect.map(([targets, modules]) => [...targets, ...modules].flat()));
-
-  const sourcesBySubject = Arr.reduce(
-    entries,
-    new Map<string, ReadonlyArray<string>>(),
-    (sources, entry) => {
-      const key = subjectKey(entry.subject);
-      const known = sources.get(key) ?? [];
-      return sources.set(
-        key,
-        known.includes(entry.source) ? known : [...known, entry.source],
-      );
-    },
-  );
+  const locations = yield* makeLocations(options.root);
+  const entries = yield* collectEntries(catalog, locations);
   const sourcesOf = (subject: CatalogIssueSubject) =>
-    sourcesBySubject.get(subjectKey(subject)) ?? [];
-
-  const templateFields: ReadonlyArray<TemplateField> = entries.flatMap(
-    (entry, entryIndex) =>
-      (contributionsOf(entry) ?? []).flatMap(
-        (contribution, contributionIndex) =>
-          fieldsOf(contribution).flatMap(([field, value]) =>
-            isTemplateRef(value)
-              ? [
-                  {
-                    entry,
-                    entryIndex,
-                    contribution: contributionIndex,
-                    field,
-                    ref: value,
-                  },
-                ]
-              : [],
-          ),
-      ),
-  );
-  const [missing, resolved] = yield* Effect.partition(templateFields, (item) =>
-    Effect.gen(function* () {
-      const template = yield* display(item.ref.url);
-      const text = yield* toFilePath(item.ref.url).pipe(
-        Effect.flatMap((file) =>
-          fs.readFile(file).pipe(Effect.mapError(() => "could not be read")),
-        ),
-        Effect.flatMap(decodeUtf8),
-        Effect.mapError((reason): CatalogBuildIssue => ({
-          subject: item.entry.subject,
-          code: "missing-template",
-          message: `${subjectLabel(item.entry.subject)} contribution ${item.contribution} ${item.field} template ${reason}`,
-          sources: [item.entry.source],
-          template,
-        })),
-      );
-      return { ...item, template, text } satisfies ResolvedTemplate;
-    }),
-  );
-  if (missing.length) return yield* fail(missing);
-
-  const textAt = new Map(
-    resolved.map((item) => [
-      `${item.entryIndex}:${item.contribution}:${item.field}`,
-      item.text,
-    ]),
-  );
-  const resolveContribution = (
-    contribution: unknown,
-    entryIndex: number,
-    contributionIndex: number,
-  ): unknown =>
-    Predicate.isObject(contribution)
-      ? Object.fromEntries(
-          fieldsOf(contribution).map(([field, value]) => [
-            field,
-            isTemplateRef(value)
-              ? textAt.get(`${entryIndex}:${contributionIndex}:${field}`)
-              : value,
-          ]),
+    Arr.dedupe(
+      entries
+        .filter(
+          (entry) =>
+            catalogIssueKey(entry.subject) === catalogIssueKey(subject),
         )
-      : contribution;
-  const resolveInput = (entry: Entry, entryIndex: number): unknown => {
-    const contributions = contributionsOf(entry);
-    return contributions && Predicate.isObject(entry.input)
-      ? {
-          ...entry.input,
-          contributions: contributions.map((contribution, index) =>
-            resolveContribution(contribution, entryIndex, index),
-          ),
-        }
-      : entry.input;
-  };
-
-  type Decoded =
-    | { readonly _tag: "target"; readonly target: typeof TargetDefinition.Type }
-    | {
-        readonly _tag: "module";
-        readonly module: typeof ModuleDefinition.Type;
-      };
-  const decodeEntry = (
-    entry: Entry,
-    entryIndex: number,
-  ): Effect.Effect<Decoded, CatalogBuildIssue> => {
-    const input = resolveInput(entry, entryIndex);
-    const decoded: Effect.Effect<Decoded, Schema.SchemaError> =
-      entry.kind === "target"
-        ? Schema.decodeUnknownEffect(TargetDefinition)(input, {
-            onExcessProperty: "error",
-          }).pipe(Effect.map((target) => ({ _tag: "target", target })))
-        : Schema.decodeUnknownEffect(ModuleDefinition)(input, {
-            onExcessProperty: "error",
-          }).pipe(Effect.map((module) => ({ _tag: "module", module })));
-    return decoded.pipe(
-      Effect.mapError((error) => ({
-        subject: entry.subject,
-        code: "invalid-shape",
-        message: `${subjectLabel(entry.subject)} is invalid: ${error.message}`,
-        sources: [entry.source],
-      })),
+        .map((entry) => entry.source),
     );
-  };
-  const [invalid, decoded] = yield* Effect.partition(
-    entries.map((entry, index) => [entry, index] as const),
-    ([entry, index]) => decodeEntry(entry, index),
-  );
-  if (invalid.length) return yield* fail(invalid);
+  const resolved = yield* resolveTemplates(entries, locations);
+  const decoded = yield* decodeEntries(entries, resolved);
 
   const definitions = yield* composeCatalog(
     [
@@ -379,7 +464,7 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
         error.details.map((issue) => ({
           subject: issue.subject,
           code: issue.code,
-          message: issue.message,
+          message: composeMessage(issue),
           sources: sourcesOf(issue.subject),
         })),
       ),
@@ -392,10 +477,6 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
     requiredCapabilities: V1_INTERPRETER_CAPABILITIES,
     ...definitions,
   };
-  const templatesOf = (subject: CatalogIssueSubject) =>
-    resolved.filter(
-      (item) => subjectKey(item.entry.subject) === subjectKey(subject),
-    );
   yield* validateCatalogCapabilities(document).pipe(
     Effect.catchTag("CatalogCapabilityError", (error) =>
       fail(
@@ -406,15 +487,27 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
             message:
               subject._tag === "document"
                 ? `Catalog declares unsupported capability ${capability}`
-                : `${subjectLabel(subject)} uses unsupported capability ${capability}`,
+                : `${catalogIssueLabel(subject)} uses unsupported capability ${capability}`,
             sources: sourcesOf(subject),
           };
-          const using = templatesOf(subject).filter((item) =>
-            templateCapabilities(item.text).includes(capability),
-          );
-          return using.length
-            ? using.map((item) => ({ ...issue, template: item.template }))
-            : [issue];
+          const owned = (item: { readonly subject: CatalogIssueSubject }) =>
+            catalogIssueKey(item.subject) === catalogIssueKey(subject);
+          const templates = resolved
+            .filter((item) => owned(item.entry))
+            .filter((item) =>
+              templateCapabilities(item.text).includes(capability),
+            )
+            .map((item) => ({ ...issue, template: item.template }));
+          const inline = entries
+            .filter(owned)
+            .some((entry) =>
+              inlineStrings(entry.input)
+                .flatMap(templateCapabilities)
+                .includes(capability),
+            );
+          return inline || templates.length === 0
+            ? [issue, ...templates]
+            : templates;
         }),
       ),
     ),
@@ -423,36 +516,40 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
   const json = yield* Schema.encodeEffect(
     Schema.fromJsonString(CatalogDocument),
   )(document).pipe(Effect.orDie);
-  const provenance: ReadonlyArray<DefinitionProvenance> = entries.map(
-    (entry, entryIndex) => ({
+  const provenance = entries.map((entry, entryIndex): DefinitionProvenance => {
+    const definition = Option.fromNullishOr(decoded[entryIndex]).pipe(
+      Option.map((item) =>
+        item._tag === "target" ? item.target : item.module,
+      ),
+    );
+    return {
       subject: entry.subject,
       source: entry.source,
-      templates: (contributionsOf(entry) ?? []).flatMap(
-        (contribution, contributionIndex) => {
-          const output = resolveContribution(
-            contribution,
-            entryIndex,
-            contributionIndex,
-          );
-          return resolved
-            .filter(
-              (item) =>
-                item.entryIndex === entryIndex &&
-                item.contribution === contributionIndex,
-            )
-            .map((item) => ({
-              contribution: contributionIndex,
-              field: item.field,
-              contributionPath:
-                stringField(output, "path") ??
-                stringField(output, "barrelPath") ??
-                "",
-              template: item.template,
-            }));
-        },
-      ),
-    }),
-  );
+      templates: resolved
+        .filter((item) => item.entryIndex === entryIndex)
+        .flatMap((item) =>
+          Option.match(
+            Option.flatMap(definition, (value) =>
+              Option.fromNullishOr(value.contributions[item.contribution]),
+            ),
+            {
+              onNone: () => [],
+              onSome: (contribution) => [
+                {
+                  contribution: item.contribution,
+                  field: item.field,
+                  contributionPath:
+                    contribution._tag === "barrel-export"
+                      ? contribution.barrelPath
+                      : contribution.path,
+                  template: item.template,
+                },
+              ],
+            },
+          ),
+        ),
+    };
+  });
   return {
     json: `${json}\n`,
     document,

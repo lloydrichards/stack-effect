@@ -70,28 +70,30 @@ export const templateCapabilities = (text: string): ReadonlyArray<string> => {
     (text.match(/\{\{/g)?.length ?? 0) === tokens.length
       ? []
       : ["syntax:malformed-template"];
-  let inConditional = false;
-  const parsedTokens = tokens.flatMap((match) => {
-    const raw = match[1];
-    if (raw === undefined) return ["syntax:malformed-template"];
-    if (raw === "/if") {
-      if (!inConditional) return ["syntax:malformed-template"];
-      inConditional = false;
-      return [];
-    }
-    if (raw.startsWith("#if")) {
-      const condition = /^#if\s+(\w+)(?:=([\w-]+))?$/.exec(raw);
-      if (condition === null || inConditional)
-        return ["syntax:malformed-template"];
-      inConditional = true;
-      return [`condition:${condition[1]}`];
-    }
-    return [`token:${raw}`];
-  });
+  const [unclosed, parsedTokens] = Arr.mapAccum(
+    tokens,
+    false,
+    (inConditional, match): [boolean, ReadonlyArray<string>] => {
+      const raw = match[1];
+      if (raw === undefined)
+        return [inConditional, ["syntax:malformed-template"]];
+      if (raw === "/if")
+        return inConditional
+          ? [false, []]
+          : [false, ["syntax:malformed-template"]];
+      if (raw.startsWith("#if")) {
+        const condition = /^#if\s+(\w+)(?:=([\w-]+))?$/.exec(raw);
+        return condition === null || inConditional
+          ? [inConditional, ["syntax:malformed-template"]]
+          : [true, [`condition:${condition[1]}`]];
+      }
+      return [inConditional, [`token:${raw}`]];
+    },
+  );
   return [
-    ...parsedTokens,
+    ...parsedTokens.flat(),
     ...syntax,
-    ...(inConditional ? ["syntax:malformed-template"] : []),
+    ...(unclosed ? ["syntax:malformed-template"] : []),
   ];
 };
 

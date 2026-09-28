@@ -387,32 +387,54 @@ export const CatalogDocument = Schema.Struct({
 export type CatalogDocument = typeof CatalogDocument.Type;
 
 /** The Catalog definition an issue belongs to, so authoring tools can locate it. */
-export type CatalogIssueSubject =
-  | { readonly _tag: "module"; readonly id: string }
-  | { readonly _tag: "target"; readonly kind: string }
-  | { readonly _tag: "document" };
+export const CatalogIssueSubject = Schema.TaggedUnion({
+  module: { id: Schema.String },
+  target: { kind: Schema.String },
+  document: {},
+});
+export type CatalogIssueSubject = typeof CatalogIssueSubject.Type;
 
-export type CatalogIssueCode =
-  | "invalid-shape"
-  | "duplicate-id"
-  | "missing-reference"
-  | "unsupported-target"
-  | "unavailable-capability"
-  | "asymmetric-conflict"
-  | "finalize-script";
+/** Human label for an issue subject, as used in validation messages. */
+export const catalogIssueLabel = (subject: CatalogIssueSubject): string =>
+  CatalogIssueSubject.match(subject, {
+    module: ({ id }) => `Module ${id}`,
+    target: ({ kind }) => `Target ${kind}`,
+    document: () => "Catalog",
+  });
 
-export interface CatalogIssue {
-  readonly subject: CatalogIssueSubject;
-  readonly code: CatalogIssueCode;
-  readonly message: string;
-  readonly fragment?: number;
-}
+/** Stable key identifying the definition an issue subject names. */
+export const catalogIssueKey = (subject: CatalogIssueSubject): string =>
+  CatalogIssueSubject.match(subject, {
+    module: ({ id }) => `module:${id}`,
+    target: ({ kind }) => `target:${kind}`,
+    document: () => "document",
+  });
+
+export const CatalogIssueCode = Schema.Literals([
+  "invalid-shape",
+  "duplicate-id",
+  "missing-reference",
+  "unsupported-target",
+  "unavailable-capability",
+  "asymmetric-conflict",
+  "finalize-script",
+]);
+export type CatalogIssueCode = typeof CatalogIssueCode.Type;
+
+export const CatalogIssue = Schema.Struct({
+  subject: CatalogIssueSubject,
+  code: CatalogIssueCode,
+  message: Schema.String,
+  fragment: Schema.optionalKey(Schema.Int),
+});
+export type CatalogIssue = typeof CatalogIssue.Type;
 
 /** An interpreter capability outside the v1 set, or used without being declared. */
-export interface CatalogCapabilityIssue {
-  readonly subject: CatalogIssueSubject;
-  readonly capability: string;
-}
+export const CatalogCapabilityIssue = Schema.Struct({
+  subject: CatalogIssueSubject,
+  capability: Schema.String,
+});
+export type CatalogCapabilityIssue = typeof CatalogCapabilityIssue.Type;
 
 export class CatalogValidationError extends Data.TaggedError(
   "CatalogValidationError",
