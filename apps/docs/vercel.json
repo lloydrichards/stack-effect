@@ -50,6 +50,14 @@
   ],
   "routes": [
     {
+      "src": "/(registry/v1/catalog|schemas/v1/stack\\.effect\\.schema)\\.json",
+      "methods": ["GET", "HEAD"],
+      "headers": {
+        "Access-Control-Expose-Headers": "ETag, Last-Modified"
+      },
+      "continue": true
+    },
+    {
       "src": "/(registry|schemas/v1)/.*",
       "methods": ["OPTIONS"],
       "status": 204,
