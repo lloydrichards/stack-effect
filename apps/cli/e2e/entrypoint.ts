@@ -1,5 +1,5 @@
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { exportOfficialCatalog } from "@repo/catalog/authoring";
+import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import { Effect, Layer } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/unstable/http";
@@ -10,7 +10,7 @@ import { ConfigureService } from "../src/service/ConfigureService";
 const FixtureHttpClient = Layer.effect(
   HttpClient.HttpClient,
   Effect.gen(function* () {
-    const json = yield* exportOfficialCatalog();
+    const json = yield* exportOfficialCatalog;
     return HttpClient.make((request) =>
       Effect.succeed(
         HttpClientResponse.fromWeb(

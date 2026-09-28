@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
-import { exportOfficialCatalog } from "@repo/catalog/authoring";
+import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import {
   BlueprintService,
   CatalogCache,
@@ -36,7 +36,7 @@ const request = Schema.decodeSync(
 )(await Bun.stdin.text());
 
 const sourceUrl = "https://fixture.example.test/registry/v1/catalog.json";
-const document = await Effect.runPromise(exportOfficialCatalog());
+const document = await Effect.runPromise(exportOfficialCatalog);
 const client = HttpClient.make((httpRequest) =>
   Effect.succeed(
     HttpClientResponse.fromWeb(

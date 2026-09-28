@@ -1,6 +1,6 @@
 import { BrowserCrypto } from "@effect/platform-browser";
 import { assert, it } from "@effect/vitest";
-import { exportOfficialCatalog } from "@repo/catalog/authoring";
+import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
@@ -141,7 +141,7 @@ it.effect(
   "loads the complete official export through strict wire validation",
   () =>
     Effect.gen(function* () {
-      const official = yield* exportOfficialCatalog();
+      const official = yield* exportOfficialCatalog;
       const loaded = yield* Effect.gen(function* () {
         return yield* (yield* CatalogLoader).load({
           sourceUrl,

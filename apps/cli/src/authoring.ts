@@ -1,5 +1,5 @@
 import { NodeRuntime } from "@effect/platform-node";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Effect, Layer } from "effect";
 import { cliProgram } from "./cliProgram";
 import { PlatformLayer } from "./runtime";
@@ -7,7 +7,7 @@ import { CatalogProvider } from "./service/CatalogProvider";
 import { ConfigureService } from "./service/ConfigureService";
 
 const AuthoringLayer = CatalogProvider.authoring.pipe(
-  Layer.provideMerge(BundledCatalogLayer),
+  Layer.provideMerge(OfficialCatalogLayer),
   Layer.provideMerge(ConfigureService.layer),
   Layer.provideMerge(PlatformLayer),
 );

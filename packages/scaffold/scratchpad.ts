@@ -1,5 +1,5 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Apply as ApplyIntent } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
@@ -160,7 +160,7 @@ BunRuntime.runMain(
         PlanService.layer,
         ScaffoldFormatter.layer,
       ).pipe(
-        Layer.provideMerge(BundledCatalogLayer),
+        Layer.provideMerge(OfficialCatalogLayer),
         Layer.provideMerge(BunServices.layer),
       ),
     ),

@@ -1,6 +1,6 @@
 import { describe, layer } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
@@ -70,15 +70,15 @@ const defaultTargetNames = new Map([
   ["package", "domain"],
 ]);
 
-const catalogModules = Effect.runSync(
+const catalogModules = await Effect.runPromise(
   Effect.map(CatalogService, (catalog) => catalog.getModules()).pipe(
-    Effect.provide(BundledCatalogLayer),
+    Effect.provide(OfficialCatalogLayer),
   ),
 );
-const getCapabilityProviders = Effect.runSync(
+const getCapabilityProviders = await Effect.runPromise(
   Effect.map(CatalogService, (catalog) =>
     catalog.getCapabilityProviders.bind(catalog),
-  ).pipe(Effect.provide(BundledCatalogLayer)),
+  ).pipe(Effect.provide(OfficialCatalogLayer)),
 );
 const catalogModulesById = new Map(
   catalogModules.map((module) => [module.id, module]),
@@ -194,8 +194,8 @@ const buildMatrix = Effect.gen(function* () {
   return entries;
 });
 
-const matrix = Effect.runSync(
-  buildMatrix.pipe(Effect.provide(BundledCatalogLayer)),
+const matrix = await Effect.runPromise(
+  buildMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
 const individualModuleEntries = matrix.filter(
@@ -305,8 +305,8 @@ const buildChildrenMatrix = Effect.gen(function* () {
   return entries;
 });
 
-const childrenMatrix = Effect.runSync(
-  buildChildrenMatrix.pipe(Effect.provide(BundledCatalogLayer)),
+const childrenMatrix = await Effect.runPromise(
+  buildChildrenMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
 const buildCapabilityMatrix = Effect.gen(function* () {
@@ -339,8 +339,8 @@ const buildCapabilityMatrix = Effect.gen(function* () {
   return entries;
 });
 
-const capabilityMatrix = Effect.runSync(
-  buildCapabilityMatrix.pipe(Effect.provide(BundledCatalogLayer)),
+const capabilityMatrix = await Effect.runPromise(
+  buildCapabilityMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
 const buildFullStackMatrix = Effect.gen(function* () {
@@ -385,8 +385,8 @@ const buildFullStackMatrix = Effect.gen(function* () {
   return results;
 });
 
-const fullStackMatrix = Effect.runSync(
-  buildFullStackMatrix.pipe(Effect.provide(BundledCatalogLayer)),
+const fullStackMatrix = await Effect.runPromise(
+  buildFullStackMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
 const buildMaximalClientMatrix = Effect.gen(function* () {
@@ -412,8 +412,8 @@ const buildMaximalClientMatrix = Effect.gen(function* () {
   );
 });
 
-const maximalClientMatrix = Effect.runSync(
-  buildMaximalClientMatrix.pipe(Effect.provide(BundledCatalogLayer)),
+const maximalClientMatrix = await Effect.runPromise(
+  buildMaximalClientMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
 const expectInstallPasses = (project: {

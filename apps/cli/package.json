@@ -47,6 +47,7 @@
     "@effect/platform-node": "4.0.0-rc.117",
     "@effect/vitest": "4.0.0-rc.117",
     "@repo/catalog": "workspace:*",
+    "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",

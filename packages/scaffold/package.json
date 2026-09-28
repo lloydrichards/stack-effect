@@ -28,6 +28,7 @@
   "devDependencies": {
     "@effect/vitest": "4.0.0-rc.117",
     "@types/node": "^26.6.3",
+    "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "vitest": "^5.0.2"
   }

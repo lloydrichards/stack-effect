@@ -1,4 +1,4 @@
-import { exportOfficialCatalog } from "@repo/catalog/authoring";
+import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Schema } from "effect";
 
@@ -10,7 +10,7 @@ const JsonString = Schema.fromJsonString(Schema.Unknown, { space: 2 });
 export const generateCatalogRegistryAssets = Effect.fn(
   "Docs.generateCatalogRegistryAssets",
 )(function* () {
-  const catalog = yield* exportOfficialCatalog();
+  const catalog = yield* exportOfficialCatalog;
   const configSchema = {
     ...Schema.toStandardJSONSchemaV1(StackConfig)["~standard"].jsonSchema.input(
       {

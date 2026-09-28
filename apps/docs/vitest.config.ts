@@ -13,7 +13,7 @@ export default defineConfig({
           "bun",
           [
             "-e",
-            "import { exportOfficialCatalog } from '@repo/catalog/authoring'; import { Effect } from 'effect'; process.stdout.write(await Effect.runPromise(exportOfficialCatalog()));",
+            "import { exportOfficialCatalog } from '@repo/catalog-official/service'; import { Effect } from 'effect'; process.stdout.write(await Effect.runPromise(exportOfficialCatalog));",
           ],
           { cwd: process.cwd() },
         ).toString();

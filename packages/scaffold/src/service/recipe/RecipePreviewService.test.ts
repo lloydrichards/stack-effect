@@ -1,6 +1,9 @@
 import { assert, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
-import { BundledCatalogLayer, bundledCatalog } from "@repo/catalog/authoring";
+import {
+  OfficialCatalogLayer,
+  officialCatalogLayerWith,
+} from "@repo/catalog-official/service";
 import {
   ModuleId,
   TargetIdentity,
@@ -39,10 +42,9 @@ it.effect(
         },
       ],
     };
-    const catalogLayer = CatalogService.fromFragments(
-      [bundledCatalog, { targets: [], modules: [extra] }],
-      { trustedFragmentIndex: 0 },
-    );
+    const catalogLayer = officialCatalogLayerWith([
+      { targets: [], modules: [extra] },
+    ]);
     return Effect.gen(function* () {
       const catalog = yield* CatalogService;
       const previews = yield* RecipePreviewService;
@@ -147,7 +149,7 @@ it.effect("should preview Deno SQLite files", () =>
     );
   }).pipe(
     Effect.provide(
-      RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
     ),
   ),
 );
@@ -194,7 +196,7 @@ it.effect(
       );
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -216,7 +218,7 @@ it.effect(
       assert.isUndefined(fileContents("dprint.json"));
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -255,7 +257,7 @@ it.effect(
       );
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -278,7 +280,7 @@ it.effect(
       );
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -303,7 +305,7 @@ it.effect(
       );
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -323,7 +325,7 @@ it.effect(
       );
     }).pipe(
       Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+        RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
       ),
     ),
 );
@@ -357,7 +359,7 @@ it.effect("should generate standalone Oxlint when monorepo is omitted", () =>
     );
   }).pipe(
     Effect.provide(
-      RecipePreviewService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+      RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
     ),
   ),
 );

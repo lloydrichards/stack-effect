@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
-import { bundledCatalog } from "@repo/catalog/authoring";
+import { officialCatalogLayerWith } from "@repo/catalog-official/service";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import {
   type ModuleDefinition,
@@ -162,26 +162,22 @@ const makeFinalizeLayer = (
 
 it.effect("collects next steps from an injected declarative module", () => {
   const moduleId = ModuleId.make("server-extra-example");
-  const catalogLayer = CatalogService.fromFragments(
-    [
-      bundledCatalog,
-      {
-        targets: [],
-        modules: [
-          {
-            id: moduleId,
-            title: "Extra example",
-            description: "Contributed guidance",
-            supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-            dependencies: [],
-            contributions: [],
-            nextSteps: ["Read {{targetPath}}/extra.txt"],
-          },
-        ],
-      },
-    ],
-    { trustedFragmentIndex: 0 },
-  );
+  const catalogLayer = officialCatalogLayerWith([
+    {
+      targets: [],
+      modules: [
+        {
+          id: moduleId,
+          title: "Extra example",
+          description: "Contributed guidance",
+          supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+          dependencies: [],
+          contributions: [],
+          nextSteps: ["Read {{targetPath}}/extra.txt"],
+        },
+      ],
+    },
+  ]);
   const serviceLayer = FinalizeService.layer.pipe(
     Layer.provide(catalogLayer),
     Layer.provide(makeSpawnerLayer([])),

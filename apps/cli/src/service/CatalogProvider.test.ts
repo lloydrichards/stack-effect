@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { exportOfficialCatalog } from "@repo/catalog/authoring";
+import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogDocument } from "@repo/domain/Catalog";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import {
@@ -82,7 +82,7 @@ it.effect("loads once for a graph command through controlled HTTP", () => {
 
 it.effect("uses changed file content on the next generation command", () =>
   Effect.gen(function* () {
-    const initial = yield* exportOfficialCatalog();
+    const initial = yield* exportOfficialCatalog;
     const decoded = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
     )(initial);

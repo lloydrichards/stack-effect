@@ -6,7 +6,7 @@ import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Apply, type ApplyDecision } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import {
@@ -84,7 +84,7 @@ const TestLayer = Layer.provideMerge(
   Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
-    BundledCatalogLayer,
+    OfficialCatalogLayer,
   ),
 );
 const WorkspaceTestLayer = Layer.provideMerge(
@@ -92,7 +92,7 @@ const WorkspaceTestLayer = Layer.provideMerge(
   Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
-    BundledCatalogLayer,
+    OfficialCatalogLayer,
   ),
 );
 describe("ApplyPreviewService", () => {
@@ -282,7 +282,7 @@ describe("ApplyPreviewService", () => {
       );
       const previewLayer = ApplyPreviewService.layer.pipe(
         Layer.provide(hostLayer),
-        Layer.provide(BundledCatalogLayer),
+        Layer.provide(OfficialCatalogLayer),
       );
       const windowsRepoRoot = "C:\\repo";
       const packageJsonPath = nodePath.win32.join(
@@ -442,7 +442,7 @@ describe("ApplyWorkspaceService", () => {
         Effect.provide(
           Layer.provideMerge(
             ApplyWorkspaceService.layer.pipe(
-              Layer.provide(BundledCatalogLayer),
+              Layer.provide(OfficialCatalogLayer),
             ),
             Layer.merge(
               Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
@@ -494,7 +494,7 @@ describe("ApplyWorkspaceService", () => {
     }).pipe(
       Effect.provide(
         Layer.provideMerge(
-          ApplyWorkspaceService.layer.pipe(Layer.provide(BundledCatalogLayer)),
+          ApplyWorkspaceService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
           Layer.merge(
             Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
             Path.layer,

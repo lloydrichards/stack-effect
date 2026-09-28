@@ -7,30 +7,24 @@ import {
 } from "@repo/domain/Catalog";
 import { ContributionTokenContext, StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Schema } from "effect";
-import { bundledCatalog, exportOfficialCatalog } from "./authoring";
 import {
   decodeCatalogDocument,
   validateCatalogCapabilities,
 } from "./CatalogProtocol";
 import { composeCatalog } from "./composeCatalog";
+import { exportTestCatalog, testCatalog } from "./testCatalog";
 
 it.effect(
-  "exports and decodes every official definition with TargetIdentity behavior",
+  "exports and decodes every definition with TargetIdentity behavior",
   () =>
     Effect.gen(function* () {
-      const json = yield* exportOfficialCatalog();
+      const json = yield* exportTestCatalog();
       const document = yield* Schema.decodeEffect(
         Schema.fromJsonString(CatalogDocument),
       )(json);
       assert.strictEqual(document.formatVersion, 1);
-      assert.strictEqual(
-        document.targets.length,
-        bundledCatalog.targets.length,
-      );
-      assert.strictEqual(
-        document.modules.length,
-        bundledCatalog.modules.length,
-      );
+      assert.strictEqual(document.targets.length, testCatalog.targets.length);
+      assert.strictEqual(document.modules.length, testCatalog.modules.length);
       const dependency = document.modules
         .flatMap((module) => module.dependencies)
         .find((item) => item._tag === "required-module");
@@ -49,7 +43,7 @@ it.effect("refuses an interpreter capability outside the fixed v1 set", () =>
   Effect.gen(function* () {
     const document = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
-    )(yield* exportOfficialCatalog());
+    )(yield* exportTestCatalog());
     const failure = yield* Effect.flip(
       validateCatalogCapabilities({
         ...document,
@@ -72,7 +66,7 @@ it.effect("refuses a new template token even when metadata omits it", () =>
   Effect.gen(function* () {
     const document = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
-    )(yield* exportOfficialCatalog());
+    )(yield* exportTestCatalog());
     const first = document.modules[0];
     assert.isDefined(first);
     const failure = yield* Effect.flip(
@@ -107,7 +101,7 @@ it.effect("refuses template forms the renderer leaves unresolved", () =>
   Effect.gen(function* () {
     const document = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
-    )(yield* exportOfficialCatalog());
+    )(yield* exportTestCatalog());
     const first = document.modules[0];
     assert.isDefined(first);
     const context = new ContributionTokenContext({
@@ -155,7 +149,7 @@ it.effect(
     Effect.gen(function* () {
       const document = yield* Schema.decodeEffect(
         Schema.fromJsonString(CatalogDocument),
-      )(yield* exportOfficialCatalog());
+      )(yield* exportTestCatalog());
       const first = document.modules[0];
       assert.isDefined(first);
       const failure = yield* Effect.flip(
@@ -186,7 +180,7 @@ it.effect("decodes a source before cross-source references are composed", () =>
   Effect.gen(function* () {
     const official = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
-    )(yield* exportOfficialCatalog());
+    )(yield* exportTestCatalog());
     const module = official.modules.find((item) =>
       item.dependencies.some(
         (dependency) => dependency._tag === "required-module",
@@ -209,7 +203,7 @@ it.effect("keeps the capability message and attributes target usage", () =>
   Effect.gen(function* () {
     const document = yield* Schema.decodeEffect(
       Schema.fromJsonString(CatalogDocument),
-    )(yield* exportOfficialCatalog());
+    )(yield* exportTestCatalog());
     const [target, ...targets] = document.targets;
     assert.isDefined(target);
     const failure = yield* Effect.flip(

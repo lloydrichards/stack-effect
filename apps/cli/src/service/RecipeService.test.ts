@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import {
   ModuleCapability,
   ModuleId,
@@ -34,7 +34,7 @@ const testConfig = new StackConfig(testConfigFields);
 
 const makeTestLayer = (defaults: StackConfig) =>
   RecipeService.layer.pipe(
-    Layer.provide(BundledCatalogLayer),
+    Layer.provide(OfficialCatalogLayer),
     Layer.provide(Layer.succeed(StackConfigDefaults, defaults)),
   );
 

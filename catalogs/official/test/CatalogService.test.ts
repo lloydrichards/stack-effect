@@ -1,10 +1,10 @@
 import { assert, layer } from "@effect/vitest";
+import { CatalogService } from "@repo/catalog";
 import { ModuleId } from "@repo/domain/Catalog";
 import { Effect } from "effect";
-import { BundledCatalogLayer } from "./authoring";
-import { CatalogService } from "./CatalogService";
+import { OfficialCatalogLayer } from "../src/service";
 
-layer(BundledCatalogLayer)("CatalogService", (it) => {
+layer(OfficialCatalogLayer)("CatalogService", (it) => {
   it.effect(
     "should expose module incompatibilities when building the public catalog tree",
     () =>

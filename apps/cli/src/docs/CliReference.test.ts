@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Effect, Layer } from "effect";
 import pkg from "../../package.json";
 import { stackEffectCommand } from "../command";
@@ -11,7 +11,7 @@ import { renderCliReferencePages } from "./CliReferenceMarkdown";
 
 const TestLayer = StackEffectServicesLayer.pipe(
   Layer.provideMerge(CatalogProvider.authoring),
-  Layer.provideMerge(BundledCatalogLayer),
+  Layer.provideMerge(OfficialCatalogLayer),
   Layer.provideMerge(NodeServices.layer),
 );
 

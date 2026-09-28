@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, expect, layer } from "@effect/vitest";
-import { BundledCatalogLayer } from "@repo/catalog/authoring";
+import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import {
   type Blueprint,
   BlueprintFailure,
@@ -44,7 +44,7 @@ const denoConfig = new StackConfig({
 });
 
 const TestLayer = BlueprintService.layer.pipe(
-  Layer.provide(BundledCatalogLayer),
+  Layer.provide(OfficialCatalogLayer),
 );
 
 describe("BlueprintService", () => {

@@ -31,6 +31,7 @@
         "@effect/platform-node": "4.0.0-rc.117",
         "@effect/vitest": "4.0.0-rc.117",
         "@repo/catalog": "workspace:*",
+        "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@repo/domain": "workspace:*",
         "@repo/scaffold": "workspace:*",
@@ -85,6 +86,7 @@
         "@effect/vitest": "4.0.0-rc.117",
         "@mdx-js/rollup": "^3.1.1",
         "@react-router/dev": "8.4.0",
+        "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@tailwindcss/vite": "^4.3.3",
         "@types/mdx": "^2.0.14",
@@ -101,6 +103,23 @@
         "vite": "8.3.1",
         "vitest": "^5.0.2",
         "vitest-browser-react": "^2.3.0",
+      },
+    },
+    "catalogs/official": {
+      "name": "@repo/catalog-official",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/platform-node": "4.0.0-rc.117",
+        "@repo/authoring": "workspace:*",
+        "@repo/catalog": "workspace:*",
+        "@repo/domain": "workspace:*",
+        "effect": "4.0.0-rc.117",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.0.0-rc.117",
+        "@repo/config-typescript": "workspace:*",
+        "@types/node": "^26.6.3",
+        "vitest": "^5.0.2",
       },
     },
     "packages/authoring": {
@@ -161,6 +180,7 @@
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0-rc.117",
+        "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@types/node": "^26.6.3",
         "vitest": "^5.0.2",
@@ -519,6 +539,8 @@
     "@repo/authoring": ["@repo/authoring@workspace:packages/authoring"],
 
     "@repo/catalog": ["@repo/catalog@workspace:packages/catalog"],
+
+    "@repo/catalog-official": ["@repo/catalog-official@workspace:catalogs/official"],
 
     "@repo/config-typescript": ["@repo/config-typescript@workspace:packages/config-typescript"],
 

@@ -7,8 +7,8 @@ import {
   type ModuleDefinition,
 } from "@repo/domain/Catalog";
 import { Effect } from "effect";
-import { bundledCatalog } from "./authoring";
 import { composeCatalog } from "./composeCatalog";
+import { testCatalog } from "./testCatalog";
 
 const extraModule: typeof ModuleDefinition.Type = {
   id: ModuleId.make("workspace-extra-example"),
@@ -19,15 +19,17 @@ const extraModule: typeof ModuleDefinition.Type = {
   contributions: [{ _tag: "file", path: "extra.txt", contents: "extra\n" }],
 };
 
-it.effect("composes an independent module against an official target", () =>
-  Effect.gen(function* () {
-    const catalog = yield* composeCatalog(
-      [bundledCatalog, { targets: [], modules: [extraModule] }],
-      { trustedFragmentIndex: 0 },
-    );
-    assert.strictEqual(catalog.modules.at(-1)?.id, extraModule.id);
-    assert.strictEqual(catalog.targets.length, bundledCatalog.targets.length);
-  }),
+it.effect(
+  "composes an independent module against another fragment's target",
+  () =>
+    Effect.gen(function* () {
+      const catalog = yield* composeCatalog(
+        [testCatalog, { targets: [], modules: [extraModule] }],
+        { trustedFragmentIndex: 0 },
+      );
+      assert.strictEqual(catalog.modules.at(-1)?.id, extraModule.id);
+      assert.strictEqual(catalog.targets.length, testCatalog.targets.length);
+    }),
 );
 
 it.effect(
@@ -36,10 +38,7 @@ it.effect(
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
         composeCatalog(
-          [
-            bundledCatalog,
-            { targets: [], modules: [bundledCatalog.modules[0]] },
-          ],
+          [testCatalog, { targets: [], modules: [testCatalog.modules[0]] }],
           {
             trustedFragmentIndex: 0,
           },
@@ -69,7 +68,7 @@ it.effect("rejects duplicate target kinds", () =>
   Effect.gen(function* () {
     const failure = yield* Effect.flip(
       composeCatalog(
-        [bundledCatalog, { targets: [bundledCatalog.targets[0]], modules: [] }],
+        [testCatalog, { targets: [testCatalog.targets[0]], modules: [] }],
         { trustedFragmentIndex: 0 },
       ),
     );
@@ -113,7 +112,7 @@ it.effect("rejects broken graph references before constructing a service", () =>
       conflictsWith: [ModuleId.make("missing-conflict")],
     };
     const failure = yield* Effect.flip(
-      composeCatalog([bundledCatalog, { targets: [], modules: [invalid] }], {
+      composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
         trustedFragmentIndex: 0,
       }),
     );
@@ -148,7 +147,7 @@ it.effect(
         conflictsWith: [ModuleId.make("workspace-quality-oxlint")],
       };
       const failure = yield* Effect.flip(
-        composeCatalog([bundledCatalog, { targets: [], modules: [invalid] }], {
+        composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
           trustedFragmentIndex: 0,
         }),
       );
@@ -175,7 +174,7 @@ it.effect("does not allow an untrusted fragment to add Finalize scripts", () =>
     const failure = yield* Effect.flip(
       composeCatalog(
         [
-          bundledCatalog,
+          testCatalog,
           {
             targets: [],
             modules: [
@@ -219,7 +218,7 @@ it.effect("trusts Finalize scripts only in the named fragment", () =>
       ],
     };
     const workspace = {
-      targets: bundledCatalog.targets.filter(
+      targets: testCatalog.targets.filter(
         (target) => target.kind === "workspace",
       ),
       modules: [],
@@ -242,7 +241,7 @@ it.effect("trusts Finalize scripts only in the named fragment", () =>
 
 it.effect("names a target that ships untrusted Finalize scripts", () =>
   Effect.gen(function* () {
-    const [workspace] = bundledCatalog.targets.filter(
+    const [workspace] = testCatalog.targets.filter(
       (target) => target.kind === "workspace",
     );
     assert.isDefined(workspace);
