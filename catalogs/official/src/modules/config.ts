@@ -1,5 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import { configTypescriptViteContents } from "../content/client";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 export const configModules = defineModules(import.meta.url, [
   {
@@ -17,7 +18,9 @@ export const configModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "packages/config-typescript/vite.json",
-        contents: configTypescriptViteContents,
+        contents: template(
+          "./config-typescript-vite/packages/config-typescript/vite.json",
+        ),
       },
       {
         _tag: "pkg-json-entry",

@@ -1,0 +1,7 @@
+{
+  "*.{js,jsx,cjs,mjs,ts,tsx,cts,mts}": [
+    "deno task --if-present format --"{{#if lint=biome}},
+    "deno task lint --"{{/if}}{{#if lint=oxlint}},
+    "deno task lint:fix --"{{/if}}
+  ]
+}

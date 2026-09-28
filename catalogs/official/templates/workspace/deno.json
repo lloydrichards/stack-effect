@@ -1,0 +1,11 @@
+{
+  "nodeModulesDir": "auto",
+  "unstable": ["sloppy-imports"],
+  "workspace": ["apps/*", "packages/*"],
+  "tasks": {
+    "dev:all": "{{#if monorepo}}deno task dev{{/if}}{{#if noMonorepo}}deno task --recursive --if-present dev{{/if}}",
+    "build:all": "{{#if monorepo}}deno task build{{/if}}{{#if noMonorepo}}deno task --recursive --if-present build{{/if}}",
+    "test:all": "deno task --recursive --if-present test",
+    "type-check:all": "{{#if monorepo}}deno task type-check{{/if}}{{#if noMonorepo}}deno task --recursive --if-present type-check{{/if}}"
+  }
+}

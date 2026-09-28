@@ -1,23 +1,6 @@
-import { defineModules, type ModuleInput } from "@repo/authoring";
-import {
-  biomeJsoncContents,
-  denoLintStagedConfigContents,
-  devcontainerJsonContents,
-  dprintJsonContents,
-  envrcContents,
-  flakeNixContents,
-  huskyPreCommitContents,
-  lintStagedConfigContents,
-  nxHashEnvContents,
-  nxJsonContents,
-  oxfmtJsoncContents,
-  oxfmtVscodeExtensionsContents,
-  oxlintJsonContents,
-  turboJsonContents,
-  vitePlusConfigContents,
-  vitestConfigContents,
-  workspaceVscodeSettingsContents,
-} from "../content/init";
+import { defineModules, type ModuleInput, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const gitInitModule: ModuleInput = {
   id: "workspace-devenv-git",
@@ -68,12 +51,12 @@ const nixFlakeModule: ModuleInput = {
     {
       _tag: "file",
       path: "{{targetPath}}/flake.nix",
-      contents: flakeNixContents,
+      contents: template("./workspace-devenv-nix-flake/flake.nix"),
     },
     {
       _tag: "file",
       path: "{{targetPath}}/.envrc",
-      contents: envrcContents,
+      contents: template("./workspace-devenv-nix-flake/.envrc"),
     },
   ],
   nextSteps: [
@@ -104,7 +87,9 @@ const devcontainerModule: ModuleInput = {
     {
       _tag: "file",
       path: "{{targetPath}}/.devcontainer/devcontainer.json",
-      contents: devcontainerJsonContents,
+      contents: template(
+        "./workspace-devenv-devcontainer/.devcontainer/devcontainer.json",
+      ),
     },
   ],
   nextSteps: [
@@ -135,17 +120,17 @@ const huskyModule: ModuleInput = {
     {
       _tag: "file",
       path: "{{targetPath}}/.husky/pre-commit",
-      contents: huskyPreCommitContents,
+      contents: template("./workspace-devenv-husky/.husky/pre-commit"),
     },
     {
       _tag: "file",
       path: "{{#if runtime=bun}}{{targetPath}}/.lintstagedrc.json{{/if}}{{#if runtime=node}}{{targetPath}}/.lintstagedrc.json{{/if}}",
-      contents: lintStagedConfigContents,
+      contents: template("./workspace-devenv-husky/.lintstagedrc.json"),
     },
     {
       _tag: "file",
       path: "{{#if runtime=deno}}{{targetPath}}/.lintstagedrc.json{{/if}}",
-      contents: denoLintStagedConfigContents,
+      contents: template("./workspace-devenv-husky/.lintstagedrc.deno.json"),
     },
     {
       _tag: "pkg-json-entry",
@@ -293,7 +278,7 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/turbo.json",
-        contents: turboJsonContents,
+        contents: template("./workspace-monorepo-turbo/turbo.json"),
       },
       {
         _tag: "pkg-json-entry",
@@ -353,15 +338,20 @@ export const initModules = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      // HACK: Nx 23.1.1 cannot parse Bun 1.4's lockfile version 2. Bun recipes hash
+      // the lockfile through sharedGlobals instead; remove when Nx accepts version 2.
+      // Nx source analysis imports TypeScript's JavaScript API, which native TS7 does
+      // not expose. Generated projects declare cross-project dependencies in package
+      // manifests, so Nx can build the project graph without source analysis.
       {
         _tag: "file",
         path: "{{targetPath}}/nx.json",
-        contents: nxJsonContents,
+        contents: template("./workspace-monorepo-nx/nx.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/scripts/hash-env.mjs",
-        contents: nxHashEnvContents,
+        contents: template("./workspace-monorepo-nx/scripts/hash-env.mjs"),
       },
       {
         _tag: "pkg-json-entry",
@@ -423,7 +413,7 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/vite.config.ts",
-        contents: vitePlusConfigContents,
+        contents: template("./workspace-monorepo-vite-plus/vite.config.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -486,12 +476,12 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/biome.jsonc",
-        contents: biomeJsoncContents,
+        contents: template("./workspace-quality-biome/biome.jsonc"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/.vscode/settings.json",
-        contents: workspaceVscodeSettingsContents,
+        contents: template("./workspace-quality-biome/.vscode/settings.json"),
       },
       {
         _tag: "pkg-json-entry",
@@ -591,17 +581,17 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/.oxfmtrc.jsonc",
-        contents: oxfmtJsoncContents,
+        contents: template("./workspace-quality-oxfmt/_oxfmtrc.jsonc"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/.vscode/settings.json",
-        contents: workspaceVscodeSettingsContents,
+        contents: template("./workspace-quality-biome/.vscode/settings.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/.vscode/extensions.json",
-        contents: oxfmtVscodeExtensionsContents,
+        contents: template("./workspace-quality-oxfmt/.vscode/extensions.json"),
       },
       {
         _tag: "pkg-json-entry",
@@ -651,12 +641,12 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/dprint.json",
-        contents: dprintJsonContents,
+        contents: template("./workspace-quality-dprint/dprint.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/.vscode/settings.json",
-        contents: workspaceVscodeSettingsContents,
+        contents: template("./workspace-quality-biome/.vscode/settings.json"),
       },
       {
         _tag: "pkg-json-entry",
@@ -702,7 +692,7 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{#if standaloneOxlint}}{{targetPath}}/.oxlintrc.json{{/if}}",
-        contents: oxlintJsonContents,
+        contents: template("./workspace-quality-oxlint/_oxlintrc.json"),
       },
       {
         _tag: "pkg-json-entry",
@@ -757,7 +747,7 @@ export const initModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/vitest.config.ts",
-        contents: vitestConfigContents,
+        contents: template("./workspace-test-vitest/vitest.config.ts"),
       },
       {
         _tag: "pkg-json-entry",

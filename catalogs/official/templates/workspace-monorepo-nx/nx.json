@@ -1,0 +1,49 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "pluginsConfig": {
+    "@nx/js": {
+      "analyzeSourceFiles": false{{#if runtime=bun}},
+      "analyzeLockfile": false{{/if}}
+    }
+  },
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "sharedGlobals": [
+      "{workspaceRoot}/package.json",
+      "{workspaceRoot}/bun.lock",
+      "{workspaceRoot}/bun.lockb",
+      "{workspaceRoot}/package-lock.json",
+      "{workspaceRoot}/npm-shrinkwrap.json",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/pnpm-lock.yml",
+      "{workspaceRoot}/pnpm-workspace.yaml",
+      "{workspaceRoot}/scripts/hash-env.mjs",
+      { "runtime": "{{#if runtime=deno}}deno run --allow-read ./scripts/hash-env.mjs{{/if}}{{#if runtime=bun}}node ./scripts/hash-env.mjs{{/if}}{{#if runtime=node}}node ./scripts/hash-env.mjs{{/if}}" }
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["default", "^default"],
+      "outputs": ["{projectRoot}/dist"]
+    },
+    "dev": {
+      "cache": false,
+      "continuous": true
+    },
+    "type-check": {
+      "cache": true,
+      "dependsOn": ["^type-check"],
+      "inputs": ["default", "^default"]
+    },
+    "test": {
+      "cache": true,
+      "dependsOn": ["^test"],
+      "inputs": ["default", "^default"]
+    },
+    "clean": {
+      "cache": false
+    }
+  }
+}

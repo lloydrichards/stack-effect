@@ -1,33 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import { clientDevToolsContents } from "../content/client";
-import {
-  clientHelloAtomContents,
-  clientRestCardContents,
-} from "../content/client-api";
-import {
-  clientChatAtomContents,
-  clientChatBoxContents,
-  clientChatRpcClientContents,
-} from "../content/client-chat";
-import {
-  clientRpcCardContents,
-  clientRpcClientContents,
-  clientTickAtomContents,
-} from "../content/client-rpc";
-import {
-  clientTodoAtomContents,
-  clientTodoCardContents,
-} from "../content/client-todo";
-import {
-  clientPresencePanelContents,
-  clientWebSocketClientContents,
-} from "../content/client-websocket";
-import {
-  clientImportValidationAtomContents,
-  clientImportValidationCardContents,
-  clientImportValidationDomainContents,
-  clientImportValidationWorkerContents,
-} from "../content/client-worker";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const clientReactKind = "client-react";
 const serverKind = "server";
@@ -49,22 +22,30 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/workers/import-validation/domain.ts",
-        contents: clientImportValidationDomainContents,
+        contents: template(
+          "./client-react-web-worker/src/workers/import-validation/domain.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/workers/import-validation/import-validation.worker.ts",
-        contents: clientImportValidationWorkerContents,
+        contents: template(
+          "./client-react-web-worker/src/workers/import-validation/import-validation.worker.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/import-validation-worker.ts",
-        contents: clientImportValidationAtomContents,
+        contents: template(
+          "./client-react-web-worker/src/lib/import-validation-worker.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/import-validation-card.tsx",
-        contents: clientImportValidationCardContents,
+        contents: template(
+          "./client-react-web-worker/src/components/import-validation-card.tsx",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -108,12 +89,16 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/atoms/hello-atom.ts",
-        contents: clientHelloAtomContents,
+        contents: template(
+          "./client-react-http-api/src/lib/atoms/hello-atom.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/rest-card.tsx",
-        contents: clientRestCardContents,
+        contents: template(
+          "./client-react-http-api/src/components/rest-card.tsx",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -157,12 +142,16 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/atoms/todo-atom.ts",
-        contents: clientTodoAtomContents,
+        contents: template(
+          "./client-react-http-api-todos/src/lib/atoms/todo-atom.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/todo-card.tsx",
-        contents: clientTodoCardContents,
+        contents: template(
+          "./client-react-http-api-todos/src/components/todo-card.tsx",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -209,17 +198,21 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/rpc-client.ts",
-        contents: clientRpcClientContents,
+        contents: template("./client-react-http-rpc/src/lib/rpc-client.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/atoms/tick-atom.ts",
-        contents: clientTickAtomContents,
+        contents: template(
+          "./client-react-http-rpc/src/lib/atoms/tick-atom.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/rpc-card.tsx",
-        contents: clientRpcCardContents,
+        contents: template(
+          "./client-react-http-rpc/src/components/rpc-card.tsx",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -263,17 +256,17 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/chat-rpc-client.ts",
-        contents: clientChatRpcClientContents,
+        contents: template("./client-react-chat/src/lib/chat-rpc-client.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/atoms/chat-atom.ts",
-        contents: clientChatAtomContents,
+        contents: template("./client-react-chat/src/lib/atoms/chat-atom.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/chat-box.tsx",
-        contents: clientChatBoxContents,
+        contents: template("./client-react-chat/src/components/chat-box.tsx"),
       },
       {
         _tag: "pkg-json-entry",
@@ -338,12 +331,16 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/web-socket-client.ts",
-        contents: clientWebSocketClientContents,
+        contents: template(
+          "./client-react-ws-presence/src/lib/web-socket-client.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/presence-panel.tsx",
-        contents: clientPresencePanelContents,
+        contents: template(
+          "./client-react-ws-presence/src/components/presence-panel.tsx",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -382,7 +379,7 @@ export const clientModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/devtools.ts",
-        contents: clientDevToolsContents,
+        contents: template("./client-react-devtools/src/lib/devtools.ts"),
       },
       {
         _tag: "ts-call-arg",

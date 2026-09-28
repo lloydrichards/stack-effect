@@ -1,0 +1,1 @@
+{{#if runtime=deno}}deno task lint-staged{{/if}}{{#if runtime=bun}}bun run lint-staged{{/if}}{{#if runtime=node}}{{packageManager}} run lint-staged{{/if}}

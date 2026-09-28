@@ -1,0 +1,32 @@
+{
+  "name": "{{projectName}}",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node",
+
+  "features": {
+    {{#if runtime=bun}}"ghcr.io/shyim/devcontainers-features/bun:0": {}{{/if}}{{#if runtime=deno}}"ghcr.io/devcontainers-community/features/deno": {"version": "2.9.4"}{{/if}}
+  },
+
+  "postCreateCommand": "{{packageManager}} install",
+
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "editor.formatOnSave": true{{#if format=biome}},
+        "editor.defaultFormatter": "biomejs.biome"{{/if}}{{#if format=dprint}},
+        "editor.defaultFormatter": "dprint.dprint"{{/if}}{{#if format=oxfmt}},
+        "editor.defaultFormatter": "oxc.oxc-vscode"{{/if}}
+      },
+      "extensions": [
+        {{#if lint=biome}}"biomejs.biome",
+        {{/if}}{{#if format=biome}}"biomejs.biome",
+        {{/if}}{{#if lint=oxlint}}"oxlint.oxlint-vscode",
+        {{/if}}{{#if format=dprint}}"dprint.dprint",
+        {{/if}}{{#if format=oxfmt}}"oxc.oxc-vscode",
+        {{/if}}{{#if runtime=bun}}"oven.bun-vscode",
+        {{/if}}{{#if runtime=deno}}"denoland.vscode-deno",
+        {{/if}}"effectful-tech.effect-vscode",
+        "YoavBls.pretty-ts-errors"
+      ]
+    }
+  }
+}

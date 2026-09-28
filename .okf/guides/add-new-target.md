@@ -19,14 +19,11 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 
 ## Register the definition
 
-`TargetKind` accepts custom branded strings, so a new kind does not require adding a schema literal. Add a definition to `catalogs/official/src/targetRegistry.ts`.
+`TargetKind` accepts custom strings, so a new kind does not require adding a schema literal. Add a plain definition to the `defineTargets(import.meta.url, [...])` group in `catalogs/official/src/targetRegistry.ts`, with file bodies in `catalogs/official/templates/<kind>/`.
 
 ```typescript
-import { type TargetDefinition, TargetKind } from "@repo/domain/Catalog";
-import { workerContents } from "./content/worker";
-
-export const workerTarget: typeof TargetDefinition.Type = {
-  kind: TargetKind.make("worker"),
+{
+  kind: "worker",
   title: "Worker application",
   description: "A background worker",
   defaultName: "jobs",
@@ -35,10 +32,10 @@ export const workerTarget: typeof TargetDefinition.Type = {
     {
       _tag: "file",
       path: "{{targetPath}}/src/index.ts",
-      contents: workerContents,
+      contents: template("./worker/src/index.ts"),
     },
   ],
-};
+}
 ```
 
 This illustrates the definition shape. Add the package manifest, scripts, dependencies, and TypeScript configuration needed by the validated prototype. They are tagged contributions, not separate contribution buckets. Use existing target definitions to identify shared modules rather than duplicating their setup.

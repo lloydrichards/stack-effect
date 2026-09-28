@@ -1,0 +1,29 @@
+{
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"{{#if lint=biome}},
+  "editor.codeActionsOnSave": {
+    "source.organizeImports.biome": "explicit"
+  }{{/if}},
+  "[javascript]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "{{#if format=biome}}biomejs.biome{{/if}}{{#if format=dprint}}dprint.dprint{{/if}}{{#if format=oxfmt}}oxc.oxc-vscode{{/if}}"
+  }{{#if typescript=7}},
+  "js/ts.tsdk.additionalLocations": ["./node_modules/typescript/bin"],
+  "js/ts.tsdk.promptToUseWorkspaceVersion": true,
+  "js/ts.tsdk.path": "./node_modules/typescript/bin",
+  "js/ts.experimental.useTsgo": true{{/if}}
+}

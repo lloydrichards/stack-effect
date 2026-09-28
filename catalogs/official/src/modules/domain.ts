@@ -1,17 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import { domainApiContents } from "../content/api";
-import {
-  domainChatContents,
-  domainChatManagedRpcContents,
-  domainChatRpcContents,
-} from "../content/chat";
-import { domainRpcContents } from "../content/rpc";
-import {
-  domainTodoApiContents,
-  domainTodoContents,
-  domainTodoRpcContents,
-} from "../content/todo";
-import { domainWebSocketContents } from "../content/websocket";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const packageKind = "package";
 const domainTarget = {
@@ -37,7 +26,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Api.ts",
-        contents: domainApiContents,
+        contents: template("./domain-api-contracts/src/Api.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -70,7 +59,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc.ts",
-        contents: domainRpcContents,
+        contents: template("./domain-rpc-contracts/src/Rpc.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -103,7 +92,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Todo.ts",
-        contents: domainTodoContents,
+        contents: template("./domain-todo-contracts/src/Todo.ts"),
       },
       ...["Todo"].flatMap((name) => [
         {
@@ -144,7 +133,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/TodoApi.ts",
-        contents: domainTodoApiContents,
+        contents: template("./domain-todo-http-contracts/src/TodoApi.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -183,7 +172,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/TodoRpc.ts",
-        contents: domainTodoRpcContents,
+        contents: template("./domain-todo-rpc-contracts/src/TodoRpc.ts"),
       },
       {
         _tag: "ts-call-arg",
@@ -230,12 +219,12 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Chat.ts",
-        contents: domainChatContents,
+        contents: template("./domain-chat-contracts/src/Chat.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/ChatRpc.ts",
-        contents: domainChatRpcContents,
+        contents: template("./domain-chat-contracts/src/ChatRpc.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -286,7 +275,9 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/ChatManagedRpc.ts",
-        contents: domainChatManagedRpcContents,
+        contents: template(
+          "./domain-chat-managed-contracts/src/ChatManagedRpc.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -319,7 +310,7 @@ export const domainModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/WebSocket.ts",
-        contents: domainWebSocketContents,
+        contents: template("./domain-ws-contracts/src/WebSocket.ts"),
       },
       {
         _tag: "pkg-json-entry",

@@ -1,0 +1,25 @@
+{{#if typescript=6}}{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "options": {
+    "denyWarnings": true
+  }
+}{{/if}}{{#if effectOxlint}}{
+  "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
+  "extends": [
+    "./node_modules/@effect/tsgo/oxlint-presets/recommended.json",
+    "./node_modules/@effect/tsgo/oxlint-presets/effect-native.json"
+  ],
+  "options": {
+    "denyWarnings": true
+  },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "effecttsgo/async-function": "off",
+        "effecttsgo/node-builtin-import": "off",
+        "effecttsgo/prefer-schema-over-json": "off"
+      }
+    }
+  ]
+}{{/if}}

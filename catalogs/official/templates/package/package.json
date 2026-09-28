@@ -1,0 +1,14 @@
+{
+  "name": "{{packageName}}",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {},
+  "dependencies": {
+    "effect": "4.0.0-rc.117"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "{{workspaceDependency}}",
+    "vitest": "^4.1.4"
+  }
+}

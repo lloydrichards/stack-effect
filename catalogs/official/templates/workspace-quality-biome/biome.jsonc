@@ -1,0 +1,40 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.5.2/schema.json",
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }{{#if format=biome}},
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space"
+  }{{/if}},
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "preset": "recommended",
+      "suspicious": {
+        "noShadowRestrictedNames": "off",
+        "noUnknownAtRules": "off"
+      }
+    }
+  }{{#if format=biome}},
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "double"
+    }
+  }{{/if}},
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  }
+}

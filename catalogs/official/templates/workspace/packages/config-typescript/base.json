@@ -1,0 +1,89 @@
+{
+  "$schema": "{{#if typescript=6}}../../node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}../../node_modules/@effect/tsgo/schema.json{{/if}}",
+  "display": "Default",
+  "compilerOptions": {
+    "moduleResolution": "bundler",
+    "module": "ESNext",
+    "target": "ES2022",
+    "lib": ["ES2023"{{#if runtime=deno}}, "DOM"{{/if}}],
+    {{#if runtime=deno}}"types": ["deno", "node"],
+    {{/if}}
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "useDefineForClassFields": true,
+    "isolatedModules": true,
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "declarationMap": true,
+    "inlineSources": false,
+    "preserveWatchOutput": true,
+    "removeComments": false,
+    "sourceMap": true,
+    "allowImportingTsExtensions": false,
+    "verbatimModuleSyntax": false,
+    "skipLibCheck": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "barrelImportPackages": ["effect"],
+        "includeSuggestionsInTsc": true{{#if typescript=6}},
+        "quickinfoMaximumLength": 1200{{/if}}{{#if effectOxlint}},
+        "diagnostics": false{{/if}},
+        "diagnosticSeverity": {
+          "abortControllerInEffect": "warning",
+          "asyncFunction": "warning",
+          "cryptoRandomUUID": "warning",
+          "cryptoRandomUUIDInEffect": "warning",
+          "extendsNativeError": "warning",
+          "globalConsole": "warning",
+          "globalConsoleInEffect": "warning",
+          "globalDate": "warning",
+          "globalDateInEffect": "warning",
+          "globalFetch": "warning",
+          "globalFetchInEffect": "warning",
+          "globalRandom": "warning",
+          "globalRandomInEffect": "warning",
+          "globalTimers": "warning",
+          "globalTimersInEffect": "warning",
+          "instanceOfSchema": "warning",
+          "layerMergeAllWithDependencies": "warning",
+          "missingEffectServiceDependency": "warning",
+          "newPromise": "warning",
+          "nodeBuiltinImport": "warning",
+          "preferSchemaOverJson": "warning",
+          "processEnv": "warning",
+          "processEnvInEffect": "warning",
+          {{#if typescript=7}}"schemaNumber": "warning",
+          "schemaSyncInEffect": "warning",
+          {{/if}}"unsafeEffectTypeAssertion": "warning"
+        },
+        "overrides": [
+          {
+            "include": [
+              "**/*.test.ts",
+              "**/*.test.tsx"
+            ],
+            "options": {
+              "diagnosticSeverity": {
+                "asyncFunction": "off",
+                "nodeBuiltinImport": "off",
+                "preferSchemaOverJson": "off"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "exclude": ["node_modules", "dist", "build", ".next", "coverage"]
+}

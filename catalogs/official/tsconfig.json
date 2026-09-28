@@ -9,6 +9,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src", "scripts", "test"],
+  "include": ["src", "scripts", "test", "vitest.config.ts"],
   "exclude": ["dist", "build", "node_modules", "**/templates/**"]
 }

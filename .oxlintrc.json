@@ -74,5 +74,8 @@
       }
     }
   ],
-  "ignorePatterns": ["packages/authoring/test/fixtures/**/templates/**"]
+  "ignorePatterns": [
+    "packages/authoring/test/fixtures/**/templates/**",
+    "catalogs/**/templates/**"
+  ]
 }

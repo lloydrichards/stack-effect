@@ -1,0 +1,11 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: true
+  msgpackr-extract: true{{#if monorepo=nx}}
+  nx: true{{/if}}
+
+overrides:
+  "@effect/platform-node-shared": "4.0.0-rc.117"

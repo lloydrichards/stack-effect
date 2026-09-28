@@ -1,0 +1,20 @@
+{
+  "$schema": "{{#if typescript=6}}./node_modules/@effect/language-service/schema.json{{/if}}{{#if typescript=7}}./node_modules/@effect/tsgo/schema.json{{/if}}",
+  "extends": "./packages/config-typescript/base.json",
+  "files": []{{#if typescript7Diagnostics}},
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
+  }{{/if}}{{#if effectOxlint}},
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "@effect/language-service",
+        "diagnostics": false
+      }
+    ]
+  }{{/if}}
+}

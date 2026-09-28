@@ -14,8 +14,8 @@ sources:
     resource: ../../catalogs/official/src/modules/init.ts
     title: Generated lint and format module definitions
   - id: catalog-content
-    resource: ../../catalogs/official/src/content/init.ts
-    title: Generated lint and format content
+    resource: ../../catalogs/official/templates/workspace-quality-oxlint/_oxlintrc.json
+    title: Generated lint configuration template
 ---
 
 # Oxlint and Oxfmt with Effect tsgo: migration research

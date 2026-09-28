@@ -1,0 +1,11 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "outDir": "dist",
+    "noEmit": true,
+    "types": ["{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}node{{/if}}{{#if runtime=deno}}deno", "node{{/if}}"]
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"]
+}

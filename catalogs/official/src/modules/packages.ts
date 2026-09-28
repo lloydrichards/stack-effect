@@ -1,38 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import {
-  aiAgenticLoopContents,
-  aiChatServiceContents,
-  aiDateTimeToolkitContents,
-  aiIndexContents,
-  aiLanguageModelContents,
-  aiMailboxEventsContents,
-  aiMathToolkitContents,
-  aiMemoryToolkitContents,
-  aiPlanToolkitContents,
-  aiThinkToolkitContents,
-  aiWebFetchToolkitContents,
-} from "../content/ai";
-import {
-  dbDatabaseContents,
-  dbDenoSqliteCompatContents,
-  dbHealthCheckContents,
-  dbHealthScriptContents,
-  dbIndexContents,
-  dbMigrateScriptContents,
-  dbMigration0001CreateDbHealthContents,
-  dbMigrationsContents,
-  dbPostgresDatabaseContents,
-  dbPostgresDockerComposeContents,
-  dbPostgresEnvExampleContents,
-  dbPostgresMigration0001CreateDbHealthContents,
-  dbPostgresMigrationsContents,
-} from "../content/db";
-import {
-  presenceClientGeneratorContents,
-  presenceIndexContents,
-  presenceServiceContents,
-} from "../content/presence";
-import { todoMigrationContents, todoRepositoryContents } from "../content/todo";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 export const packageModules = defineModules(import.meta.url, [
   {
@@ -64,17 +32,17 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: aiIndexContents,
+        contents: template("./package-ai-core/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/LanguageModel.ts",
-        contents: aiLanguageModelContents,
+        contents: template("./package-ai-core/src/LanguageModel.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/workflow/MailboxEvents.ts",
-        contents: aiMailboxEventsContents,
+        contents: template("./package-ai-core/src/workflow/MailboxEvents.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -127,7 +95,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/ThinkToolkit.ts",
-        contents: aiThinkToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-think/src/toolkits/ThinkToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -157,7 +127,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/DateTimeToolkit.ts",
-        contents: aiDateTimeToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-datetime/src/toolkits/DateTimeToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -193,7 +165,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/MathToolkit.ts",
-        contents: aiMathToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-math/src/toolkits/MathToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -344,7 +318,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/MemoryToolkit.ts",
-        contents: aiMemoryToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-memory/src/toolkits/MemoryToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -395,7 +371,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/PlanToolkit.ts",
-        contents: aiPlanToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-plan/src/toolkits/PlanToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -446,7 +424,9 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/toolkits/WebFetchToolkit.ts",
-        contents: aiWebFetchToolkitContents,
+        contents: template(
+          "./package-ai-toolkit-webfetch/src/toolkits/WebFetchToolkit.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -544,12 +524,16 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        contents: aiChatServiceContents,
+        contents: template(
+          "./package-ai-chat-service/src/services/AiChatService.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/workflow/AgenticLoop.ts",
-        contents: aiAgenticLoopContents,
+        contents: template(
+          "./package-ai-chat-service/src/workflow/AgenticLoop.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -590,42 +574,44 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: dbIndexContents,
+        contents: template("./package-db-sqlite/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{#if runtime=deno}}{{targetPath}}/src/DenoSqliteCompat.ts{{/if}}",
-        contents: dbDenoSqliteCompatContents,
+        contents: template("./package-db-sqlite/src/DenoSqliteCompat.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Database.ts",
-        contents: dbDatabaseContents,
+        contents: template("./package-db-sqlite/src/Database.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Migrations.ts",
-        contents: dbMigrationsContents,
+        contents: template("./package-db-sqlite/src/Migrations.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/HealthCheck.ts",
-        contents: dbHealthCheckContents,
+        contents: template("./package-db-sqlite/src/HealthCheck.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/migrations/0001_create_db_health.ts",
-        contents: dbMigration0001CreateDbHealthContents,
+        contents: template(
+          "./package-db-sqlite/src/migrations/0001_create_db_health.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/scripts/migrate.ts",
-        contents: dbMigrateScriptContents,
+        contents: template("./package-db-sqlite/scripts/migrate.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/scripts/health.ts",
-        contents: dbHealthScriptContents,
+        contents: template("./package-db-sqlite/scripts/health.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -703,47 +689,49 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: dbIndexContents,
+        contents: template("./package-db-sqlite/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Database.ts",
-        contents: dbPostgresDatabaseContents,
+        contents: template("./package-db-postgres/src/Database.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Migrations.ts",
-        contents: dbPostgresMigrationsContents,
+        contents: template("./package-db-postgres/src/Migrations.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/HealthCheck.ts",
-        contents: dbHealthCheckContents,
+        contents: template("./package-db-sqlite/src/HealthCheck.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/migrations/0001_create_db_health.ts",
-        contents: dbPostgresMigration0001CreateDbHealthContents,
+        contents: template(
+          "./package-db-postgres/src/migrations/0001_create_db_health.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/scripts/migrate.ts",
-        contents: dbMigrateScriptContents,
+        contents: template("./package-db-sqlite/scripts/migrate.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/scripts/health.ts",
-        contents: dbHealthScriptContents,
+        contents: template("./package-db-sqlite/scripts/health.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/.env.example",
-        contents: dbPostgresEnvExampleContents,
+        contents: template("./package-db-postgres/.env.example"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/docker-compose.yml",
-        contents: dbPostgresDockerComposeContents,
+        contents: template("./package-db-postgres/docker-compose.yml"),
       },
       {
         _tag: "pkg-json-entry",
@@ -831,12 +819,16 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/TodoRepository.ts",
-        contents: todoRepositoryContents,
+        contents: template(
+          "./package-db-todo-repository/src/TodoRepository.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/migrations/0002_create_todos.ts",
-        contents: todoMigrationContents,
+        contents: template(
+          "./package-db-todo-repository/src/migrations/0002_create_todos.ts",
+        ),
       },
       {
         _tag: "barrel-export",
@@ -903,17 +895,21 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: presenceIndexContents,
+        contents: template("./package-presence-service/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/ClientGenerator.ts",
-        contents: presenceClientGeneratorContents,
+        contents: template(
+          "./package-presence-service/src/services/ClientGenerator.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/PresenceService.ts",
-        contents: presenceServiceContents,
+        contents: template(
+          "./package-presence-service/src/services/PresenceService.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",

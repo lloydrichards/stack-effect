@@ -73,9 +73,10 @@ Each phase is a distinct domain concept with its own schema and service.
 
 Modules are features that get scaffolded into a target (e.g., `http-api-client` adds an API client to a client app). To add one:
 
-1. **Content templates** — create file content as exported string constants in `catalogs/official/src/content/`
-2. **Module definition** — add a `ModuleDefinition` entry in the appropriate file under `catalogs/official/src/modules/` (organized by target kind: `client.ts`, `server.ts`, `domain.ts`, `packages.ts`)
-3. **Registry** — if you created a new module file, import and spread it into `catalogs/official/src/moduleRegistry.ts`
+1. **Templates** — put each generated file body in `catalogs/official/templates/<module-id>/<path>` (store names that Git, Oxfmt, or Oxlint read, such as `.gitignore`, as `_gitignore`)
+2. **Module definition** — add a plain definition to the `defineModules(import.meta.url, [...])` group in the appropriate file under `catalogs/official/src/modules/` (organized by target kind: `client.ts`, `server.ts`, `domain.ts`, `packages.ts`), referencing templates with `template("./<module-id>/<path>")`
+3. **Registry** — if you created a new module file, add its group to `catalogs/official/src/moduleRegistry.ts`
+4. **Golden** — intended output changes also update `catalogs/official/test/catalog.golden.json`
 
 Each module definition specifies:
 

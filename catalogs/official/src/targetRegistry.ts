@@ -1,60 +1,6 @@
-import { defineTargets } from "@repo/authoring";
-import {
-  cliIndexContents,
-  cliPackageJsonContents,
-  cliTsconfigContents,
-} from "./content/cli";
-import {
-  clientAppTsxContents,
-  clientAtomContents,
-  clientIndexCssContents,
-  clientIndexHtmlContents,
-  clientMainTsxContents,
-  clientPackageJsonContents,
-  clientShadcnComponentJson,
-  clientThemeToggleContents,
-  clientTsconfigConfigContents,
-  clientTsconfigContents,
-  clientUtilsContents,
-  clientViteConfigContents,
-  clientViteEnvContents,
-} from "./content/client";
-import {
-  foldkitComposeContents,
-  foldkitEntryContents,
-  foldkitIndexHtmlContents,
-  foldkitMainContents,
-  foldkitPackageJsonContents,
-  foldkitStylesContents,
-  foldkitThemeFeatureContents,
-  foldkitThemeInitContents,
-  foldkitTsconfigConfigContents,
-  foldkitTsconfigContents,
-  foldkitViteConfigContents,
-} from "./content/client-foldkit";
-import {
-  configTypescriptBaseContents,
-  configTypescriptPackageJsonContents,
-  denoJsonContents,
-  gitignoreContents,
-  pnpmWorkspaceContents,
-  rootPackageJsonContents,
-  rootTsconfigContents,
-} from "./content/init";
-import {
-  mcpServerIndexContents,
-  mcpServerPackageJsonContents,
-  mcpServerTsconfigContents,
-} from "./content/mcp";
-import {
-  serverIndexContents,
-  serverPackageJsonContents,
-  serverTsconfigContents,
-} from "./content/server";
-import {
-  packageDomainTsconfigContents,
-  packagePackageJsonContents,
-} from "./content/shared";
+import { defineTargets, templates } from "@repo/authoring";
+
+const template = templates(new URL("../templates/", import.meta.url));
 
 export const targetGroup = defineTargets(import.meta.url, [
   {
@@ -69,37 +15,39 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/.gitignore",
-        contents: gitignoreContents,
+        contents: template("./workspace/_gitignore"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: rootPackageJsonContents,
+        contents: template("./workspace/package.json"),
       },
       {
         _tag: "file",
         path: "{{#if runtime=deno}}{{targetPath}}/deno.json{{/if}}",
-        contents: denoJsonContents,
+        contents: template("./workspace/deno.json"),
       },
       {
         _tag: "file",
         path: "{{#if packageManager=pnpm}}{{targetPath}}/pnpm-workspace.yaml{{/if}}",
-        contents: pnpmWorkspaceContents,
+        contents: template("./workspace/pnpm-workspace.yaml"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: rootTsconfigContents,
+        contents: template("./workspace/tsconfig.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/packages/config-typescript/base.json",
-        contents: configTypescriptBaseContents,
+        contents: template("./workspace/packages/config-typescript/base.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/packages/config-typescript/package.json",
-        contents: configTypescriptPackageJsonContents,
+        contents: template(
+          "./workspace/packages/config-typescript/package.json",
+        ),
       },
     ],
   },
@@ -115,67 +63,67 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: clientPackageJsonContents,
+        contents: template("./client-react/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/index.html",
-        contents: clientIndexHtmlContents,
+        contents: template("./client-react/index.html"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/components.json",
-        contents: clientShadcnComponentJson,
+        contents: template("./client-react/components.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/main.tsx",
-        contents: clientMainTsxContents,
+        contents: template("./client-react/src/main.tsx"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/app.tsx",
-        contents: clientAppTsxContents,
+        contents: template("./client-react/src/app.tsx"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.css",
-        contents: clientIndexCssContents,
+        contents: template("./client-react/src/index.css"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/vite.config.ts",
-        contents: clientViteConfigContents,
+        contents: template("./client-react/vite.config.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.config.json",
-        contents: clientTsconfigConfigContents,
+        contents: template("./client-react/tsconfig.config.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/utils.ts",
-        contents: clientUtilsContents,
+        contents: template("./client-react/src/lib/utils.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/atom.ts",
-        contents: clientAtomContents,
+        contents: template("./client-react/src/lib/atom.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/theme-toggle.tsx",
-        contents: clientThemeToggleContents,
+        contents: template("./client-react/src/components/theme-toggle.tsx"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/vite-env.d.ts",
-        contents: clientViteEnvContents,
+        contents: template("./client-react/src/vite-env.d.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: clientTsconfigContents,
+        contents: template("./client-react/tsconfig.json"),
         conflictOnModify: true,
       },
       {
@@ -241,57 +189,57 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: foldkitPackageJsonContents,
+        contents: template("./client-foldkit/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/index.html",
-        contents: foldkitIndexHtmlContents,
+        contents: template("./client-foldkit/index.html"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/public/theme-init.js",
-        contents: foldkitThemeInitContents,
+        contents: template("./client-foldkit/public/theme-init.js"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/entry.ts",
-        contents: foldkitEntryContents,
+        contents: template("./client-foldkit/src/entry.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/main.ts",
-        contents: foldkitMainContents,
+        contents: template("./client-foldkit/src/main.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/theme.ts",
-        contents: foldkitThemeFeatureContents,
+        contents: template("./client-foldkit/src/features/theme.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/lib/compose.ts",
-        contents: foldkitComposeContents,
+        contents: template("./client-foldkit/src/lib/compose.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/styles.css",
-        contents: foldkitStylesContents,
+        contents: template("./client-foldkit/src/styles.css"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/vite.config.ts",
-        contents: foldkitViteConfigContents,
+        contents: template("./client-foldkit/vite.config.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.config.json",
-        contents: foldkitTsconfigConfigContents,
+        contents: template("./client-foldkit/tsconfig.config.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: foldkitTsconfigContents,
+        contents: template("./client-foldkit/tsconfig.json"),
         conflictOnModify: true,
       },
       {
@@ -350,17 +298,17 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: serverPackageJsonContents,
+        contents: template("./server/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: serverIndexContents,
+        contents: template("./server/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: serverTsconfigContents,
+        contents: template("./server/tsconfig.json"),
         conflictOnModify: true,
       },
       {
@@ -444,17 +392,17 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: mcpServerPackageJsonContents,
+        contents: template("./server-mcp/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: mcpServerIndexContents,
+        contents: template("./server-mcp/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: mcpServerTsconfigContents,
+        contents: template("./server-mcp/tsconfig.json"),
         conflictOnModify: true,
       },
       {
@@ -547,17 +495,17 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: cliPackageJsonContents,
+        contents: template("./cli/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
-        contents: cliIndexContents,
+        contents: template("./cli/src/index.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: cliTsconfigContents,
+        contents: template("./cli/tsconfig.json"),
         conflictOnModify: true,
       },
       {
@@ -632,12 +580,12 @@ export const targetGroup = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
-        contents: packagePackageJsonContents,
+        contents: template("./package/package.json"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
-        contents: packageDomainTsconfigContents,
+        contents: template("./package/tsconfig.json"),
         conflictOnModify: true,
       },
       {

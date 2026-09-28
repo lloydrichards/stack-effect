@@ -1,18 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import { foldkitDevToolsContents } from "../content/client-foldkit";
-import { foldkitRestFeatureContents } from "../content/client-foldkit-api";
-import {
-  foldkitChatClientContents,
-  foldkitChatFeatureContents,
-} from "../content/client-foldkit-chat";
-import {
-  foldkitRpcClientContents,
-  foldkitTicksFeatureContents,
-} from "../content/client-foldkit-rpc";
-import {
-  foldkitPresenceFeatureContents,
-  foldkitWsClientContents,
-} from "../content/client-foldkit-websocket";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const foldkitKind = "client-foldkit";
 const domainTarget = {
@@ -43,7 +31,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/devtools.ts",
-        contents: foldkitDevToolsContents,
+        contents: template("./client-foldkit-devtools/src/devtools.ts"),
       },
       {
         _tag: "ts-object-field",
@@ -82,7 +70,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/rest.ts",
-        contents: foldkitRestFeatureContents,
+        contents: template("./client-foldkit-http-api/src/features/rest.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -173,12 +161,14 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/ticks.ts",
-        contents: foldkitTicksFeatureContents,
+        contents: template("./client-foldkit-http-rpc/src/features/ticks.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/rpc-client.ts",
-        contents: foldkitRpcClientContents,
+        contents: template(
+          "./client-foldkit-http-rpc/src/services/rpc-client.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -283,12 +273,16 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/presence.ts",
-        contents: foldkitPresenceFeatureContents,
+        contents: template(
+          "./client-foldkit-ws-presence/src/features/presence.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/ws-client.ts",
-        contents: foldkitWsClientContents,
+        contents: template(
+          "./client-foldkit-ws-presence/src/services/ws-client.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -398,17 +392,19 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/chat.ts",
-        contents: foldkitChatFeatureContents,
+        contents: template("./client-foldkit-chat/src/features/chat.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/chat-client.ts",
-        contents: foldkitChatClientContents,
+        contents: template("./client-foldkit-chat/src/services/chat-client.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/services/rpc-client.ts",
-        contents: foldkitRpcClientContents,
+        contents: template(
+          "./client-foldkit-http-rpc/src/services/rpc-client.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",

@@ -1,8 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import {
-  mcpHelloPromptContents,
-  mcpPrimerResourceContents,
-} from "../content/mcp";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const mcpServerKind = "server-mcp";
 const aiTarget = {
@@ -126,7 +124,7 @@ export const mcpModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/prompts/HelloPrompt.ts",
-        contents: mcpHelloPromptContents,
+        contents: template("./mcp-prompt-hello/src/prompts/HelloPrompt.ts"),
       },
       {
         _tag: "ts-call-arg",
@@ -167,7 +165,9 @@ export const mcpModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/resources/PrimerResource.ts",
-        contents: mcpPrimerResourceContents,
+        contents: template(
+          "./mcp-resource-primer/src/resources/PrimerResource.ts",
+        ),
       },
       {
         _tag: "ts-call-arg",

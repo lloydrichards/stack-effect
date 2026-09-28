@@ -1,12 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import {
-  cliAskCommandContents,
-  cliChatDriverContents,
-  cliDevToolsContents,
-  cliHelloCommandContents,
-  cliTerminalChatCommandContents,
-  cliTerminalChatContents,
-} from "../content/cli";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 export const cliModules = defineModules(import.meta.url, [
   {
@@ -20,7 +14,7 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/commands/hello.ts",
-        contents: cliHelloCommandContents,
+        contents: template("./cli-command-hello/src/commands/hello.ts"),
       },
       {
         _tag: "ts-call-arg",
@@ -64,7 +58,7 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/chat/ChatDriver.ts",
-        contents: cliChatDriverContents,
+        contents: template("./cli-chat-driver/src/chat/ChatDriver.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -105,7 +99,7 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/commands/ask.ts",
-        contents: cliAskCommandContents,
+        contents: template("./cli-command-chat-ask/src/commands/ask.ts"),
       },
       {
         _tag: "ts-call-arg",
@@ -140,12 +134,14 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/commands/chat.ts",
-        contents: cliTerminalChatCommandContents,
+        contents: template("./cli-command-chat-terminal/src/commands/chat.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/chat/TerminalChat.ts",
-        contents: cliTerminalChatContents,
+        contents: template(
+          "./cli-command-chat-terminal/src/chat/TerminalChat.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -178,7 +174,7 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/observability/DevTools.ts",
-        contents: cliDevToolsContents,
+        contents: template("./cli-devtools/src/observability/DevTools.ts"),
       },
       {
         _tag: "ts-call-arg",

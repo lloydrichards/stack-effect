@@ -1,16 +1,6 @@
-import { defineModules } from "@repo/authoring";
-import { serverHealthContents, serverHelloContents } from "../content/api";
-import {
-  serverChatContents,
-  serverChatManagedContents,
-  serverChatManagedRuntimeContents,
-  serverChatRuntimeContents,
-  serverChatSessionsContents,
-} from "../content/chat";
-import { serverTickContents } from "../content/rpc";
-import { serverDevToolsContents } from "../content/server";
-import { serverTodoApiContents, serverTodoRpcContents } from "../content/todo";
-import { serverPresenceContents } from "../content/websocket";
+import { defineModules, templates } from "@repo/authoring";
+
+const template = templates(new URL("../../templates/", import.meta.url));
 
 const serverKind = "server";
 const packageKind = "package";
@@ -53,12 +43,12 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Api/Health.ts",
-        contents: serverHealthContents,
+        contents: template("./server-http-api/src/Api/Health.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Api/Hello.ts",
-        contents: serverHelloContents,
+        contents: template("./server-http-api/src/Api/Hello.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -86,7 +76,7 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Event.ts",
-        contents: serverTickContents,
+        contents: template("./server-http-rpc/src/Rpc/Event.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -135,7 +125,7 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Api/Todo.ts",
-        contents: serverTodoApiContents,
+        contents: template("./server-http-api-todos/src/Api/Todo.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -196,7 +186,7 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Todo.ts",
-        contents: serverTodoRpcContents,
+        contents: template("./server-http-rpc-todos/src/Rpc/Todo.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -252,17 +242,17 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Chat.ts",
-        contents: serverChatContents,
+        contents: template("./server-chat-rpc/src/Rpc/Chat.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/runtime/ChatSessions.ts",
-        contents: serverChatSessionsContents,
+        contents: template("./server-chat-rpc/src/runtime/ChatSessions.ts"),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/runtime/ChatRuntime.ts",
-        contents: serverChatRuntimeContents,
+        contents: template("./server-chat-rpc/src/runtime/ChatRuntime.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -330,12 +320,16 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/ChatManaged.ts",
-        contents: serverChatManagedContents,
+        contents: template(
+          "./server-chat-runtime-managed/src/Rpc/ChatManaged.ts",
+        ),
       },
       {
         _tag: "file",
         path: "{{targetPath}}/src/runtime/ChatManagedRuntime.ts",
-        contents: serverChatManagedRuntimeContents,
+        contents: template(
+          "./server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts",
+        ),
       },
       {
         _tag: "ts-call-arg",
@@ -372,7 +366,7 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Rpc/Presence.ts",
-        contents: serverPresenceContents,
+        contents: template("./server-ws-presence/src/Rpc/Presence.ts"),
       },
       {
         _tag: "pkg-json-entry",
@@ -412,7 +406,7 @@ export const serverModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/observability/DevTools.ts",
-        contents: serverDevToolsContents,
+        contents: template("./server-devtools/src/observability/DevTools.ts"),
       },
       {
         _tag: "ts-call-arg",

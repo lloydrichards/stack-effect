@@ -1,0 +1,37 @@
+# dependencies
+node_modules{{#if monorepo=vite-plus}}
+node_modules/.vite/task-cache{{/if}}
+
+# build
+dist
+build
+.cache
+{{#if monorepo=turbo}}.turbo
+{{/if}}{{#if monorepo=vite-plus}}.turbo
+{{/if}}{{#if monorepo=nx}}.nx/cache
+.nx/workspace-data
+{{/if}}tsconfig.tsbuildinfo
+
+# env
+.env
+.env.local
+.env.*.local
+
+# ide
+.idea
+*.swp
+*.swo
+
+# os
+.DS_Store
+Thumbs.db
+
+# test
+coverage
+playwright-report
+test-results
+
+# nix
+result
+result-*
+.direnv/

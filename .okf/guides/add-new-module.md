@@ -21,34 +21,39 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 
 Prototype generated files first. Then add the definition to the relevant `catalogs/official/src/modules/*.ts` group and ensure `moduleRegistry.ts` includes that group. Use an existing sibling definition as the template.
 
-This example shows the required fields for a server-owned module. The content symbol represents the validated generated file.
+Definitions are plain JSON-shaped data grouped by `defineModules(import.meta.url, [...])` from `@repo/authoring`, which records the source file for build errors. Keep each generated file body in `catalogs/official/templates/<module-id>/<path>` and reference it with `template(...)`; the build embeds its exact bytes. This example shows the required fields for a server-owned module:
 
 ```typescript
-import { type ModuleDefinition, ModuleId, TargetKind } from "@repo/domain/Catalog";
-import { healthContents } from "../content/health";
+import { defineModules, templates } from "@repo/authoring";
 
-export const healthModule: typeof ModuleDefinition.Type = {
-  id: ModuleId.make("server-health"),
-  title: "Health endpoint",
-  description: "HTTP health endpoint for the server",
-  supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-  dependencies: [],
-  contributions: [
-    {
-      _tag: "file",
-      path: "{{targetPath}}/src/Health.ts",
-      contents: healthContents,
-    },
-    {
-      _tag: "barrel-export",
-      barrelPath: "{{targetPath}}/src/index.ts",
-      exportPath: "./Health",
-    },
-  ],
-};
+const template = templates(new URL("../../templates/", import.meta.url));
+
+export const healthModules = defineModules(import.meta.url, [
+  {
+    id: "server-health",
+    title: "Health endpoint",
+    description: "HTTP health endpoint for the server",
+    supportedOn: [{ _tag: "kind", kind: "server" }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Health.ts",
+        contents: template("./server-health/src/Health.ts"),
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./Health",
+      },
+    ],
+  },
+]);
 ```
 
-Use `{ _tag: "identity", identity: new TargetIdentity({ kind, name }) }` when a module belongs only to one identity, such as `package/domain`. Kind support applies to every matching target kind. Visibility defaults to public; internal modules remain available for dependency resolution.
+Templates may contain tokens and `{{#if}}` blocks, so they are excluded from type-checking, linting, formatting, and Git line-ending conversion. Git, Oxfmt, and Oxlint read some file names in nested directories, so store `.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, and `.oxlintrc.json` templates with the dot replaced by an underscore, such as `_gitignore`, and keep the contribution `path` as `.gitignore`. A test in `catalogs/official` enforces this. Short fragments, such as `ts-call-arg` arguments, stay inline.
+
+Use `{ _tag: "identity", identity: { kind, name } }` when a module belongs only to one identity, such as `package/domain`. Kind support applies to every matching target kind. Visibility defaults to public; internal modules remain available for dependency resolution.
 
 ## Declare cross-target requirements
 
@@ -60,7 +65,7 @@ dependencies: [
   {
     _tag: "required-module",
     target: domainTarget,
-    moduleId: ModuleId.make("domain-api-contracts"),
+    moduleId: "domain-api-contracts",
   },
 ]
 ```

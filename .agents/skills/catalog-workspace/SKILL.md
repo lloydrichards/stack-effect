@@ -1,19 +1,19 @@
 ---
 name: catalog-workspace
-description: Use this skill whenever working on stack-effect catalog generated code, catalog content strings, module definitions, scaffold templates, or anything under catalogs/official/src/content or catalogs/official/src/modules. It teaches the agent to avoid editing catalog TypeScript template strings first; instead reset the generated catalog workspace, edit real generated files with LSP/type-check feedback, inspect git diff in the workspace, then port the minimal changes back into the catalog.
+description: Use this skill whenever working on stack-effect catalog generated code, catalog template files, module definitions, scaffold templates, or anything under catalogs/official/templates or catalogs/official/src/modules. It teaches the agent to avoid editing catalog templates first; instead reset the generated catalog workspace, edit real generated files with LSP/type-check feedback, inspect git diff in the workspace, then port the minimal changes back into the catalog.
 ---
 
 # Stack Effect Catalog Workspace
 
 This skill is for changing generated code in the `stack-effect` catalog safely.
 
-The catalog stores generated TypeScript/TSX/JSON/CSS/etc. as strings in files like `catalogs/official/src/content/*.ts`, which means the LSP cannot validate the generated code in-place. The safer workflow is to materialize the catalog into an editable generated workspace, make and validate changes there, then use the generated workspace diff to update the catalog source.
+The catalog stores generated TypeScript/TSX/JSON/CSS/etc. as template files under `catalogs/official/templates/<owner>/`. They contain `{{token}}` and `{{#if}}` syntax and are excluded from type-checking and linting, so the LSP cannot validate the generated code in place. The safer workflow is to materialize the catalog into an editable generated workspace, make and validate changes there, then use the generated workspace diff to update the catalog source.
 
 ## Core Rule
 
-Do not start by editing catalog content strings directly.
+Do not start by editing catalog template files directly.
 
-Start from the generated catalog workspace whenever the task touches generated files, generated app/package code, module scaffolding behavior, or catalog content. Use direct catalog edits only after you have learned the desired concrete file diff from the generated workspace.
+Start from the generated catalog workspace whenever the task touches generated files, generated app/package code, module scaffolding behavior, or catalog templates. Use direct catalog edits only after you have learned the desired concrete file diff from the generated workspace.
 
 ## Commands
 
@@ -74,10 +74,10 @@ It is ignored by the parent repository and has its own internal git baseline.
 
 6. Port the minimal change back to the catalog source.
 
-   Use `.catalog-build-manifest.json` and file annotations to find the relevant catalog content symbol or module contribution. Typical locations are:
+   Use `.catalog-build-manifest.json` and file annotations to find the relevant catalog template file or module contribution. Typical locations are:
 
    ```text
-   catalogs/official/src/content/*.ts
+   catalogs/official/templates/**
    catalogs/official/src/modules/*.ts
    catalogs/official/src/targetRegistry.ts
    ```
@@ -131,19 +131,20 @@ Each file has contributors like:
 
 Use this to decide where to port a change:
 
-- `origin: "module"` usually points to a module in `catalogs/official/src/modules/*.ts` and a content string in `catalogs/official/src/content/*.ts`.
-- `origin: "target"` usually points to target base files in `catalogs/official/src/targetRegistry.ts` and content files under `catalogs/official/src/content`.
-- `contributionTag: "file"` means the generated file came from an authoritative content string.
+- `origin: "module"` usually points to a module in `catalogs/official/src/modules/*.ts` and a template under `catalogs/official/templates/<module-id>/`.
+- `origin: "target"` usually points to target base files in `catalogs/official/src/targetRegistry.ts` and templates under `catalogs/official/templates/<target-kind>/`.
+- `contributionTag: "file"` means the generated file came from an authoritative template file. Follow the `template("./...")` call in the owning definition to find it: a template shared by several modules (for example the Biome `.vscode/settings.json` or the SQLite files reused by Postgres) lives under its first owner, and runtime variants carry a suffix such as `.lintstagedrc.deno.json`.
 - `contributionTag: "ts-call-arg"`, `"ts-object-field"`, `"jsx-slot"`, `"barrel-export"`, or `"pkg-json-entry"` means the final file is composed from an operation in a module/target contribution. Port the operation, not just the final generated text.
 
 ## Editing Guidance
 
-Prefer modifying generated files first even for small changes. It is easier to see import errors, JSX mistakes, Effect type errors, and missing dependencies in the generated workspace than inside template strings.
+Prefer modifying generated files first even for small changes. It is easier to see import errors, JSX mistakes, Effect type errors, and missing dependencies in the generated workspace than inside template files.
 
 When porting back:
 
 - Keep the catalog change minimal.
-- Preserve existing content string style and escaping.
+- Edit template bytes exactly; they are embedded verbatim, and `catalogs/official/test/catalog.golden.json` changes with them.
+- Store names that Git, Oxfmt, or Oxlint read in nested directories (`.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`) with the dot replaced by an underscore, e.g. `_gitignore`; the contribution `path` keeps the real name.
 - Preserve catalog domain terms: Selection, Blueprint, Plan, Apply.
 - For Effect code, follow `effect-fp` project style: `Effect.gen`, `yield*`, declarative transforms, and Effect error channels.
 - Do not commit or stage `workspace/catalog-built`; it is a disposable generated workspace.
@@ -152,20 +153,20 @@ When porting back:
 
 ### Authoritative generated file
 
-If the manifest contributor is a single `file` contribution, edit the generated file first, then port the final file contents back to the corresponding content string.
+If the manifest contributor is a single `file` contribution, edit the generated file first, then port the final file contents back to the corresponding template file.
 
 ### Composed generated file
 
 If the generated file includes target content plus module operations, inspect the diff carefully. A change may belong in:
 
-- the base target content string,
+- the base target template file,
 - a module `ts-call-arg` contribution,
 - a module `ts-object-field` contribution,
 - a JSX slot contribution,
 - a package JSON entry,
 - or a barrel export contribution.
 
-Do not blindly paste the whole composed file back into a base content string if the change really belongs to a module contribution.
+Do not blindly paste the whole composed file back into a base template file if the change really belongs to a module contribution.
 
 ### JSON files
 
