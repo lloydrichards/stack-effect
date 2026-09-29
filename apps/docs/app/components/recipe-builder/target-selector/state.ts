@@ -359,6 +359,52 @@ export function removeTargetSupportSelections(
   );
 }
 
+/**
+ * Keep the support selections the current catalog still resolves. Removing a
+ * catalog source can drop a support target or module that a selection names.
+ */
+export function retainCatalogSupportSelections(
+  selections: ReadonlyArray<SupportSelection>,
+  catalog: Pick<typeof RecipeBuilderCatalog.Type, "targetModules">,
+): {
+  readonly selections: ReadonlyArray<SupportSelection>;
+  readonly removedModules: ReadonlyArray<string>;
+} {
+  const modulesByOwner = new Map(
+    catalog.targetModules.map(({ owner, modules }) => [
+      ownerKey(owner),
+      new Set<string>(modules.map((module) => module.id)),
+    ]),
+  );
+  const reconciled = selections.map((selection) => {
+    const supported = modulesByOwner.get(ownerKey(selection.owner));
+    const kept =
+      supported?.has(selection.parentId) === true
+        ? selection.selected.filter((id) => supported.has(id))
+        : undefined;
+    return {
+      selection:
+        kept === undefined
+          ? undefined
+          : kept.length === selection.selected.length
+            ? selection
+            : { ...selection, selected: kept },
+      removed: selection.selected.filter((id) => !kept?.includes(id)),
+    };
+  });
+  const retained = reconciled.flatMap(({ selection }) =>
+    selection === undefined ? [] : [selection],
+  );
+  return {
+    selections:
+      retained.length === selections.length &&
+      retained.every((selection, index) => selection === selections[index])
+        ? selections
+        : retained,
+    removedModules: reconciled.flatMap(({ removed }) => removed),
+  };
+}
+
 function nextTargetName(
   baseName: string,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,

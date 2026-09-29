@@ -1,3 +1,4 @@
+import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 import type { SupportSelection } from "../../../../app/components/recipe-builder/form";
@@ -7,6 +8,7 @@ import {
   moduleRequiresCapability,
   removeModuleSupportSelections,
   removeTargetAndDependencies,
+  retainCatalogSupportSelections,
   toggleTargetModule,
 } from "../../../../app/components/recipe-builder/target-selector/state";
 import {
@@ -453,5 +455,64 @@ describe("recipe builder state", () => {
         { ...clientTargetFixture, id: "client-4", name: "web-4" },
       ]).name,
     ).toBe("web-3");
+  });
+});
+
+describe("retainCatalogSupportSelections", () => {
+  const owner = { kind: "package", name: "support" };
+  const catalogWith = (modules: ReadonlyArray<typeof CatalogModule.Type>) => ({
+    targetModules: [
+      {
+        owner: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "support",
+        }),
+        modules,
+      },
+    ],
+  });
+  const selection: SupportSelection = {
+    owner,
+    parentId: childModuleFixture.id,
+    selected: [leafModuleFixture.id],
+  };
+
+  it("keeps selections the catalog still resolves", () => {
+    const selections = [selection];
+    const result = retainCatalogSupportSelections(
+      selections,
+      catalogWith([childModuleFixture, leafModuleFixture]),
+    );
+
+    expect(result.selections).toBe(selections);
+    expect(result.removedModules).toEqual([]);
+  });
+
+  it("drops a selection whose support target left with its catalog", () => {
+    const result = retainCatalogSupportSelections([selection], {
+      targetModules: [],
+    });
+
+    expect(result.selections).toEqual([]);
+    expect(result.removedModules).toEqual([leafModuleFixture.id]);
+  });
+
+  it("drops a selection whose parent module is no longer provided", () => {
+    const result = retainCatalogSupportSelections(
+      [selection],
+      catalogWith([leafModuleFixture]),
+    );
+
+    expect(result.selections).toEqual([]);
+  });
+
+  it("removes only the optional modules the catalog lost", () => {
+    const result = retainCatalogSupportSelections(
+      [selection],
+      catalogWith([childModuleFixture]),
+    );
+
+    expect(result.selections).toEqual([{ ...selection, selected: [] }]);
+    expect(result.removedModules).toEqual([leafModuleFixture.id]);
   });
 });

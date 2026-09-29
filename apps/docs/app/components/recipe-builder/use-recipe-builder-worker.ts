@@ -7,6 +7,7 @@ import {
   formatCatalogSources,
 } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
+import { batch } from "@tanstack/store";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import {
   useCallback,
@@ -28,6 +29,7 @@ import {
   TargetInstance,
   toRecipePreviewInput,
 } from "./form";
+import { retainCatalogSupportSelections } from "./target-selector/state";
 
 let nextCatalogSessionId = 0;
 
@@ -196,10 +198,25 @@ export function useRecipeBuilderWorker(
         return;
 
       const reconciliation = reconcileTargetsWithCatalog(targets, nextCatalog);
-      setCompatibilityNotice(compatibilityMessage(reconciliation));
-      if (reconciliation.targets !== targets) {
-        form.setFieldValue("targets", reconciliation.targets);
-      }
+      const support = retainCatalogSupportSelections(
+        values.supportSelections,
+        nextCatalog,
+      );
+      setCompatibilityNotice(
+        compatibilityMessage({
+          ...reconciliation,
+          removedModules: [
+            ...reconciliation.removedModules,
+            ...support.removedModules,
+          ],
+        }),
+      );
+      batch(() => {
+        if (reconciliation.targets !== targets)
+          form.setFieldValue("targets", reconciliation.targets);
+        if (support.selections !== values.supportSelections)
+          form.setFieldValue("supportSelections", support.selections);
+      });
     },
   );
 
