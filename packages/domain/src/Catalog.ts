@@ -422,6 +422,7 @@ export const CatalogIssueCode = Schema.Literals([
   "finalize-script",
   "undeclared-reference",
   "missing-source",
+  "cross-source-conflict",
 ]);
 export type CatalogIssueCode = typeof CatalogIssueCode.Type;
 

@@ -268,3 +268,35 @@ it.effect("names a target that ships untrusted Finalize scripts", () =>
     );
   }),
 );
+
+it.effect("keeps conflicts within one named source", () =>
+  Effect.gen(function* () {
+    const failure = yield* Effect.flip(
+      composeCatalog(
+        [
+          { targets: testCatalog.targets, modules: testCatalog.modules },
+          {
+            targets: [],
+            modules: [
+              {
+                ...extraModule,
+                conflictsWith: [testCatalog.modules[0]!.id],
+              },
+            ],
+          },
+        ],
+        {
+          allowFinalizeScripts: true,
+          sources: [
+            { name: "official", requires: [] },
+            { name: "ext", requires: ["official"] },
+          ],
+        },
+      ),
+    );
+    assert.deepStrictEqual(
+      failure.details.map(({ code, fragment }) => ({ code, fragment })),
+      [{ code: "cross-source-conflict", fragment: 1 }],
+    );
+  }),
+);

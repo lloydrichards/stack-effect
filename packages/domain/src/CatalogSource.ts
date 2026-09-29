@@ -18,23 +18,30 @@ export const CatalogSourceName = Schema.String.check(
 const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 // Domain code has no WHATWG URL global, so split the parts the rules need.
-const absoluteUrl = /^([a-z][a-z0-9+.-]*):\/\/([^/?#]+)[^#]*$/i;
+const absoluteUrl =
+  /^(?<scheme>[a-z][a-z0-9+.-]*):\/\/(?<authority>[^/?#\s]*)[^#\s]*$/i;
+const hostAndPort = /^(?<host>\[[0-9a-f:.]+\]|[^:[\]]+)(?::(?<port>\d+))?$/i;
 
 const catalogUrlIssue = (value: string): string | undefined => {
-  if (value.includes("#"))
-    return `Catalog URL must not contain a fragment: ${value}`;
-  const match = absoluteUrl.exec(value);
-  if (match === null) return `Catalog URL must be absolute: ${value}`;
-  const scheme = match[1]!.toLowerCase();
-  const authority = match[2]!;
-  if (authority.includes("@"))
-    return "Catalog URL must not contain credentials";
-  const host = authority.replace(/:\d+$/, "").toLowerCase();
-  if (scheme === "http" && !loopbackHosts.has(host))
-    return `Catalog URL must use https unless it targets a loopback host: ${value}`;
-  if (scheme !== "https" && scheme !== "http")
-    return `Catalog URL must use https: ${value}`;
-  return undefined;
+  const parts = absoluteUrl.exec(value)?.groups;
+  const scheme = parts?.["scheme"]?.toLowerCase();
+  const authority = parts?.["authority"] ?? "";
+  const address = hostAndPort.exec(authority)?.groups;
+  const host = address?.["host"]?.toLowerCase();
+  const port = Number(address?.["port"] ?? 0);
+  return value.includes("#")
+    ? `Catalog URL must not contain a fragment: ${value}`
+    : parts === undefined
+      ? `Catalog URL must be absolute, without whitespace: ${value}`
+      : authority.includes("@")
+        ? "Catalog URL must not contain credentials"
+        : host === undefined || port > 65_535
+          ? `Catalog URL must name a host and a valid port: ${value}`
+          : scheme !== "https" && scheme !== "http"
+            ? `Catalog URL must use https: ${value}`
+            : scheme === "http" && !loopbackHosts.has(host)
+              ? `Catalog URL must use https unless it targets a loopback host: ${value}`
+              : undefined;
 };
 
 /** Absolute https URL, or http on a loopback host for local previews. */
@@ -79,3 +86,26 @@ export type CatalogSources = typeof CatalogSources.Type;
 export const defaultCatalogSources: CatalogSources = [
   { name: OFFICIAL_CATALOG_SOURCE },
 ];
+
+/** `name` for the official source, `name=url` otherwise, as the CLI flag spells it. */
+export const formatCatalogSource = (source: CatalogSource): string =>
+  "url" in source ? `${source.name}=${source.url}` : source.name;
+
+export const formatCatalogSources = (sources: ReadonlyArray<CatalogSource>) =>
+  sources.map(formatCatalogSource).join(", ");
+
+/** Order carries no meaning, so compare selections as sets. */
+export const sameCatalogSources = (a: CatalogSources, b: CatalogSources) => {
+  const keys = new Set(a.map(formatCatalogSource));
+  return (
+    a.length === b.length &&
+    b.every((source) => keys.has(formatCatalogSource(source)))
+  );
+};
+
+export const selectsOfficialCatalog = (sources: ReadonlyArray<CatalogSource>) =>
+  sources.some((source) => source.name === OFFICIAL_CATALOG_SOURCE);
+
+/** A named source other than the official one; its scripts need explicit trust. */
+export const isCustomCatalogSource = (name: string | undefined) =>
+  name !== undefined && name !== OFFICIAL_CATALOG_SOURCE;

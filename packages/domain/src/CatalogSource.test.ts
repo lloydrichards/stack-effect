@@ -36,6 +36,12 @@ describe("CatalogSources", () => {
     ["a file url", [{ ...acme, url: "file:///tmp/catalog.json" }]],
     ["a url fragment", [{ ...acme, url: `${acme.url}#latest` }]],
     ["credentials in the url", [{ ...acme, url: "https://me:pw@acme.dev/v1" }]],
+    ["an empty host", [{ ...acme, url: "https://:443/catalog.json" }]],
+    ["whitespace in the host", [{ ...acme, url: "https://acme .dev/v1.json" }]],
+    [
+      "a port above 65535",
+      [{ ...acme, url: "https://acme.dev:99999/v1.json" }],
+    ],
     ["a repeated name", [acme, { ...acme, url: "https://mirror.dev/v1.json" }]],
     ["one url under two names", [acme, { ...acme, name: "acme-mirror" }]],
     ["a repeated official entry", [{ name: "official" }, { name: "official" }]],

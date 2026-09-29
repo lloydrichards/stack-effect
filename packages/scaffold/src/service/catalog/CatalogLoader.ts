@@ -5,7 +5,10 @@ import {
   type CatalogIssue,
   type CatalogValidationError,
 } from "@repo/domain/Catalog";
-import type { CatalogSources } from "@repo/domain/CatalogSource";
+import {
+  type CatalogSources,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import {
   Clock,
   Context,
@@ -13,6 +16,7 @@ import {
   Data,
   Effect,
   Layer,
+  Result,
   Schema,
   Stream,
 } from "effect";
@@ -56,6 +60,8 @@ export interface CatalogLoadWarning {
 
 interface LoadedDocument<A> {
   readonly value: A;
+  /** Entry to cache once the caller has finished validating the document. */
+  readonly pending?: CatalogCacheEntry;
   readonly sourceUrl: string;
   readonly digest: string;
   readonly freshness: "current" | "cached";
@@ -150,6 +156,16 @@ const normalizedUrl = (sourceUrl: string) =>
     catch: () =>
       failure("invalidSource", sourceUrl, `Invalid catalog URL: ${sourceUrl}`),
   });
+
+const persistenceWarningFor = (
+  sourceUrl: string,
+  validatedAt: number,
+): CatalogLoadWarning => ({
+  kind: "persistence",
+  sourceUrl,
+  lastValidatedAt: validatedAt,
+  message: `Catalog from ${sourceUrl} is current, but it could not be cached.`,
+});
 
 const isTransient = (error: CatalogLoadFailure) =>
   error.reason === "unavailable" || error.reason === "timeout";
@@ -275,11 +291,22 @@ export class CatalogLoader extends Context.Service<
       return bytes;
     });
 
+    const writeCache = (entry: CatalogCacheEntry) =>
+      cache.write(entry).pipe(
+        Effect.as(true),
+        Effect.orElseSucceed(() => false),
+      );
+
     const loadDocument = Effect.fn("CatalogLoader.loadDocument")(function* <A>(
       inputUrl: string,
       check: (
         document: CatalogDocument,
       ) => Effect.Effect<A, CatalogLoadFailure>,
+      /**
+       * Hand the fetched entry back instead of caching it, for callers whose
+       * validation finishes only after this document joins others.
+       */
+      deferPersistence = false,
     ) {
       const sourceUrl = yield* normalizedUrl(inputUrl);
       const startedAt = yield* Clock.currentTimeMillis;
@@ -299,17 +326,16 @@ export class CatalogLoader extends Context.Service<
         Effect.orElseSucceed(() => undefined),
       );
 
+      const deferred: { entry?: CatalogCacheEntry } = {};
       const persist = (entry: CatalogCacheEntry) =>
-        cache.write(entry).pipe(
-          Effect.as(true),
-          Effect.orElseSucceed(() => false),
-        );
-      const persistenceWarning = (validatedAt: number): CatalogLoadWarning => ({
-        kind: "persistence",
-        sourceUrl,
-        lastValidatedAt: validatedAt,
-        message: `Catalog from ${sourceUrl} is current, but it could not be cached.`,
-      });
+        deferPersistence
+          ? Effect.sync(() => {
+              deferred.entry = entry;
+              return true;
+            })
+          : writeCache(entry);
+      const persistenceWarning = (validatedAt: number) =>
+        persistenceWarningFor(sourceUrl, validatedAt);
 
       const fetchCurrent = Effect.fn("CatalogLoader.fetchCurrent")(
         function* () {
@@ -448,23 +474,30 @@ export class CatalogLoader extends Context.Service<
                   : error,
               ),
             );
-      if (cached === undefined) return yield* current;
-      const staleFallback = Effect.succeed({
-        value: cached.value,
-        sourceUrl,
-        digest: cached.digest,
-        freshness: "cached" as const,
-        warning: {
-          kind: "stale" as const,
-          sourceUrl,
-          lastValidatedAt: cached.entry.validatedAt,
-          message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
-        },
-      });
-      const loaded: LoadedDocument<A> = yield* current.pipe(
-        Effect.catchIf(isTransient, () => staleFallback),
-      );
-      return loaded;
+      const loaded: LoadedDocument<A> =
+        cached === undefined
+          ? yield* current
+          : yield* current.pipe(
+              Effect.catchIf(isTransient, () =>
+                Effect.succeed({
+                  value: cached.value,
+                  sourceUrl,
+                  digest: cached.digest,
+                  freshness: "cached" as const,
+                  warning: {
+                    kind: "stale" as const,
+                    sourceUrl,
+                    lastValidatedAt: cached.entry.validatedAt,
+                    message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
+                  },
+                }),
+              ),
+            );
+      const result: LoadedDocument<A> = {
+        ...loaded,
+        ...(deferred.entry === undefined ? {} : { pending: deferred.entry }),
+      };
+      return result;
     });
 
     const load = Effect.fn("CatalogLoader.load")(function* ({
@@ -491,14 +524,29 @@ export class CatalogLoader extends Context.Service<
       sources,
       officialUrl,
     }: Parameters<CatalogLoaderShape["loadSources"]>[0]) {
-      const loaded = yield* Effect.forEach(
+      const officialAlias = selectsOfficialCatalog(sources)
+        ? sources.find(
+            (source) => "url" in source && source.url === officialUrl,
+          )
+        : undefined;
+      if (officialAlias !== undefined)
+        return yield* new CatalogLoadFailure({
+          reason: "invalidSource",
+          sourceUrl: officialUrl,
+          sourceName: officialAlias.name,
+          message: `Catalog source ${officialAlias.name} repeats the official catalog URL; select it once as official.`,
+        });
+      const results = yield* Effect.forEach(
         sources,
         (source) =>
-          loadDocument("url" in source ? source.url : officialUrl, (document) =>
-            Effect.succeed(document),
+          loadDocument(
+            "url" in source ? source.url : officialUrl,
+            (document) => Effect.succeed(document),
+            true,
           ).pipe(
-            Effect.map(({ value, ...rest }) => ({
+            Effect.map(({ value, pending, ...rest }) => ({
               document: value,
+              pending,
               source: { name: source.name, ...rest },
             })),
             Effect.mapError(
@@ -513,10 +561,17 @@ export class CatalogLoader extends Context.Service<
                     : { status: error.status }),
                 }),
             ),
+            Effect.result,
           ),
         { concurrency: "unbounded" },
       );
-      const loadedSources = loaded.map(({ source }) => source);
+      // Report the first failure in selection order, however the fetches raced.
+      const failed = results.find(Result.isFailure);
+      if (failed !== undefined) return yield* failed.failure;
+      const loaded = results.flatMap((result) =>
+        Result.isSuccess(result) ? [result.success] : [],
+      );
+      const composedSources = loaded.map(({ source }) => source);
       const catalog = yield* CatalogService.pipe(
         Effect.provide(
           CatalogService.fromFragments(
@@ -534,9 +589,29 @@ export class CatalogLoader extends Context.Service<
           (error: CatalogValidationError) =>
             new CatalogCompositionFailure({
               issues: error.details,
-              sources: loadedSources,
+              sources: composedSources,
             }),
         ),
+      );
+      // Only a selection that composed may replace any source's last validated entry.
+      const loadedSources = yield* Effect.forEach(
+        loaded,
+        ({ source, pending }) =>
+          pending === undefined
+            ? Effect.succeed(source)
+            : writeCache(pending).pipe(
+                Effect.map((written) =>
+                  written
+                    ? source
+                    : {
+                        ...source,
+                        warning: persistenceWarningFor(
+                          source.sourceUrl,
+                          pending.validatedAt,
+                        ),
+                      },
+                ),
+              ),
       );
       return { catalog, sources: loadedSources } satisfies LoadedCatalogSet;
     });
