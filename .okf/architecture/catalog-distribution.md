@@ -20,6 +20,8 @@ sources:
     resource: https://github.com/lloydrichards/stack-effect/issues/272
   - id: composition
     resource: https://github.com/lloydrichards/stack-effect/issues/249
+  - id: selection
+    resource: catalog-source-selection.md
   - id: qualification
     resource: https://github.com/lloydrichards/stack-effect/issues/275
 generated: { by: codex, at: "2026-09-28T08:24:00+02:00" }
@@ -27,7 +29,7 @@ generated: { by: codex, at: "2026-09-28T08:24:00+02:00" }
 
 # Catalog distribution and freshness
 
-Status: Implemented for the official source. Catalog composition, the v1 JSON loader, public assets, and CLI and Recipe Builder cache adapters are in place. Controlled tests compare CLI and browser generation; public HTTP and Chromium checks verify both assets, conditional requests, CORS, and missing-path responses. A compatible catalog description update reached production without a CLI release. GitHub issue #275 records the qualification evidence. Community-source configuration remains a later decision.
+Status: Implemented for the official source. Catalog composition, the v1 JSON loader, public assets, and CLI and Recipe Builder cache adapters are in place. Controlled tests compare CLI and browser generation; public HTTP and Chromium checks verify both assets, conditional requests, CORS, and missing-path responses. A compatible catalog description update reached production without a CLI release. GitHub issue #275 records the qualification evidence. The [source selection decision](catalog-source-selection.md "defines named sources and script consent") defines community-source configuration.
 
 ## Separate content delivery from engine releases
 
@@ -69,11 +71,11 @@ Do not freeze independently evolving catalog IDs into the configuration schema a
 
 ## Preserve declarative composition across sources
 
-The official source ships first. Community-source configuration and UX remain a follow-up decision. The shared composition boundary accepts declarative definitions, rejects duplicate target kinds/module IDs, and preserves meaningful declaration order. Validate each source structurally, then validate references and ownership across the complete composed catalog; a fragment may refer to another configured source.
+The official source ships first. The [source selection decision](catalog-source-selection.md) defines community-source configuration, dependency declarations, and UX. The shared composition boundary accepts declarative definitions, rejects duplicate target kinds/module IDs, and preserves meaningful declaration order. Validate each source structurally, then validate references and ownership across the complete composed catalog; a fragment may refer to the official source when it declares that dependency.
 
-Source aliases provide provenance, not override precedence or executable trust. Do not automatically load additional URLs merely because a downloaded definition mentions them. Keep contributed Finalize scripts disabled initially. Preserve official Finalize approval behavior through explicit trusted application wiring; existing `--trust` is not a publisher-trust setting.
+Source aliases provide provenance, not override precedence. Do not automatically load additional URLs merely because a downloaded definition mentions them. Contributed Finalize scripts are allowed and gated by run-time consent: `--yes` runs official scripts only, and `--trust` also runs scripts from custom sources. The source selection decision supersedes the earlier rule that kept contributed scripts disabled.
 
-JSON avoids running remote catalog modules during loading, but generated source and package scripts remain executable user output. It is not a sandbox. New contribution operations, arbitrary configuration semantics, custom path rules, executable hooks, and private-source authentication require separate decisions.
+JSON avoids running remote catalog modules during loading, but generated source and package scripts remain executable user output. It is not a sandbox. New contribution operations, arbitrary configuration semantics, custom path rules, and private-source authentication require separate decisions.
 
 ## Keep filesystem artifacts separate from catalog meaning
 

@@ -6,3 +6,4 @@
 - [Catalog ID naming](catalog-id-semantics.md) records human-facing naming conventions.
 
 - [Catalog distribution and freshness](catalog-distribution.md) records the official-source implementation and its freshness policy.
+- [Catalog source selection](catalog-source-selection.md) records the accepted named-source model, precedence, and script consent.
