@@ -65,7 +65,8 @@ const loaderLayer = CatalogLoader.layer.pipe(
   Layer.provideMerge(NodeServices.layer),
 );
 
-const blueprint = await Effect.runPromise(
+// Built in-process from the same catalog; the CLI run below supplies only the files.
+const expectedBlueprint = await Effect.runPromise(
   Effect.gen(function* () {
     const { catalog } = yield* (yield* CatalogLoader).loadSources({
       sources: request.input.config.catalogSources,
@@ -121,7 +122,7 @@ try {
   const run = (args: ReadonlyArray<string>) => {
     const result = Bun.spawnSync(
       [process.execPath, "run", "e2e/entrypoint.ts", ...args],
-      { cwd: join(import.meta.dir, ".."), env, timeout: 60_000 },
+      { cwd: join(import.meta.dir, "../.."), env, timeout: 60_000 },
     );
     if (result.exitCode !== 0)
       throw new Error(
@@ -145,7 +146,7 @@ try {
       contents: readFileSync(path, "utf8"),
     }))
     .sort((left, right) => left.path.localeCompare(right.path));
-  process.stdout.write(JSON.stringify({ blueprint, files }));
+  process.stdout.write(JSON.stringify({ expectedBlueprint, files }));
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });
 }

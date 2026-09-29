@@ -62,9 +62,9 @@ const document = (
   });
 
 /**
- * Controlled catalogs for the four source sets in the catalog source decision:
- * `ext` extends the official server target, `acme` stands alone with its own
- * workspace, and `beta` stands alone beside it. `clash` collides with `acme`.
+ * Controlled catalogs for the catalog source decision: `ext` extends the
+ * official server target, `acme` stands alone with its own workspace, and
+ * `clash` collides with `acme`.
  */
 export const customCatalogDocuments = {
   ext: document("ext", {
@@ -91,16 +91,35 @@ export const customCatalogDocuments = {
       ]),
     ],
   }),
-  beta: document("beta", {
-    targets: [
-      target("worker", [
-        file("{{targetPath}}/src/worker.ts", "export const worker = 'beta';\n"),
-      ]),
-    ],
-  }),
   clash: document("clash", {
     targets: [target("api")],
   }),
 } as const;
 
 export type CustomCatalogName = keyof typeof customCatalogDocuments;
+
+/**
+ * Compatible revisions served while the registry fixture is in "revised"
+ * mode: `acme` renames its API target and changes the file it contributes.
+ */
+export const revisedCustomCatalogDocuments = {
+  acme: document("acme", {
+    targets: [
+      target("workspace", [file("README.md", "# Acme workspace\n")]),
+      {
+        ...target("api", [
+          file(
+            "{{targetPath}}/src/index.ts",
+            "export const api = 'acme revised';\n",
+          ),
+        ]),
+        title: "api target revised",
+      },
+    ],
+    modules: [
+      module("acme-api-rest", "api", [
+        file("{{targetPath}}/src/rest.ts", "export const rest = true;\n"),
+      ]),
+    ],
+  }),
+} satisfies Partial<Record<CustomCatalogName, string>>;

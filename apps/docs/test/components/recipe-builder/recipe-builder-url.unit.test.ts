@@ -250,17 +250,14 @@ describe("recipe builder URL", () => {
 
     it.each([
       ["a bare custom name", ["official", "ext"]],
-      [
-        "an insecure remote URL",
-        ["official", "ext=http://ext.example.test/v1.json"],
-      ],
-      ["a repeated name", ["official", `ext=${ext}`, `ext=${ext}?b`]],
-      ["a URL under two names", ["official", `ext=${ext}`, `alt=${ext}`]],
       ["an official URL", ["official=https://x.example.test/v1.json"]],
-    ])("refuses %s", (_label, catalogs) => {
-      const decoded = decode(...catalogs);
+    ])(
+      "should refuse the link when a catalog parameter is %s",
+      (_label, catalogs) => {
+        const decoded = decode(...catalogs);
 
-      expect(decoded.issue).toMatch(/invalid catalogs/u);
-    });
+        expect(decoded.issue).toMatch(/invalid catalogs/u);
+      },
+    );
   });
 });

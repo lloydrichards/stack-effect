@@ -477,7 +477,7 @@ describe("retainCatalogSupportSelections", () => {
     selected: [leafModuleFixture.id],
   };
 
-  it("keeps selections the catalog still resolves", () => {
+  it("should return the original selections by identity when the catalog still resolves every selection", () => {
     const selections = [selection];
     const result = retainCatalogSupportSelections(
       selections,
@@ -488,7 +488,7 @@ describe("retainCatalogSupportSelections", () => {
     expect(result.removedModules).toEqual([]);
   });
 
-  it("drops a selection whose support target left with its catalog", () => {
+  it("should drop a selection when its support target left with its catalog", () => {
     const result = retainCatalogSupportSelections([selection], {
       targetModules: [],
     });
@@ -497,16 +497,17 @@ describe("retainCatalogSupportSelections", () => {
     expect(result.removedModules).toEqual([leafModuleFixture.id]);
   });
 
-  it("drops a selection whose parent module is no longer provided", () => {
+  it("should drop a selection when its parent module is no longer provided", () => {
     const result = retainCatalogSupportSelections(
       [selection],
       catalogWith([leafModuleFixture]),
     );
 
     expect(result.selections).toEqual([]);
+    expect(result.removedModules).toEqual([leafModuleFixture.id]);
   });
 
-  it("removes only the optional modules the catalog lost", () => {
+  it("should remove only the optional modules when the catalog lost some of them", () => {
     const result = retainCatalogSupportSelections(
       [selection],
       catalogWith([childModuleFixture]),

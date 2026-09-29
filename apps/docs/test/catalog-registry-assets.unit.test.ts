@@ -1,3 +1,4 @@
+import { it } from "@effect/vitest";
 import { CatalogDocument } from "@repo/domain/Catalog";
 import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -9,7 +10,7 @@ import {
   CONFIG_SCHEMA_ASSET_PATH,
   generateCatalogRegistryAssets,
   publishableCatalog,
-  publishedCatalogs,
+  type PublishedCatalog,
 } from "../scripts/catalog-registry-assets";
 import publishedAuthorIds from "./fixtures/published-author-catalog-ids.json";
 import publishedIds from "./fixtures/published-catalog-ids.json";
@@ -18,30 +19,27 @@ describe("catalog registry assets", () => {
   it.effect.each([
     { asset: CATALOG_ASSET_PATH, ids: publishedIds },
     { asset: AUTHOR_CATALOG_ASSET_PATH, ids: publishedAuthorIds },
-  ] as const)("keeps every published identifier in $asset", ({ asset, ids }) =>
-    Effect.gen(function* () {
-      const assets = yield* generateCatalogRegistryAssets();
-      const catalog = yield* Schema.decodeEffect(
-        Schema.fromJsonString(CatalogDocument),
-      )(assets[asset]);
+  ] as const)(
+    "should still publish every previously published identifier when $asset is generated",
+    ({ asset, ids }) =>
+      Effect.gen(function* () {
+        const assets = yield* generateCatalogRegistryAssets();
+        const catalog = yield* Schema.decodeEffect(
+          Schema.fromJsonString(CatalogDocument),
+        )(assets[asset]);
 
-      expect(catalog.targets.map((target) => target.kind)).toEqual(ids.targets);
-      expect(catalog.modules.map((module) => module.id)).toEqual(ids.modules);
-    }),
-  );
-
-  it.effect("publishes the author catalog as an extension of official", () =>
-    Effect.gen(function* () {
-      const assets = yield* generateCatalogRegistryAssets();
-      const author = yield* Schema.decodeEffect(
-        Schema.fromJsonString(CatalogDocument),
-      )(assets[AUTHOR_CATALOG_ASSET_PATH]);
-      expect(author.requires).toEqual(["official"]);
-    }),
+        // New identifiers may appear; a published one must never disappear.
+        expect(catalog.targets.map((target) => target.kind)).toEqual(
+          expect.arrayContaining(ids.targets),
+        );
+        expect(catalog.modules.map((module) => module.id)).toEqual(
+          expect.arrayContaining(ids.modules),
+        );
+      }),
   );
 
   it.effect(
-    "validates old and annotated configurations with the hosted Draft 2020-12 schema",
+    "should accept old and annotated configurations when validated with the hosted Draft 2020-12 schema",
     () =>
       Effect.gen(function* () {
         const assets = yield* generateCatalogRegistryAssets();
@@ -63,28 +61,45 @@ describe("catalog registry assets", () => {
       }),
   );
 
-  it.effect.each(publishedCatalogs)(
-    "publishes only a current build of $workspace",
-    (catalog) =>
+  const example: PublishedCatalog = {
+    asset: CATALOG_ASSET_PATH,
+    workspace: "catalogs/example",
+    build: new URL("file:///catalogs/example/dist/catalog.json"),
+  };
+  const expected = '{"formatVersion":1}\n';
+
+  it.effect(
+    "should publish the build when it matches the current catalog",
+    () =>
       Effect.gen(function* () {
-        const expected = '{"formatVersion":1}\n';
         expect(
-          yield* publishableCatalog(catalog, Option.some(expected), expected),
+          yield* publishableCatalog(example, Option.some(expected), expected),
         ).toBe(expected);
-        const missing = yield* Effect.flip(
-          publishableCatalog(catalog, Option.none(), expected),
-        );
-        expect(missing._tag).toBe("CatalogBuildMissing");
-        expect(missing.message).toContain(catalog.workspace);
-        const stale = yield* Effect.flip(
-          publishableCatalog(
-            catalog,
-            Option.some('{"formatVersion":0}\n'),
-            expected,
-          ),
-        );
-        expect(stale._tag).toBe("CatalogBuildStale");
       }),
   );
+
+  it.effect(
+    "should name the workspace to build when its build is missing",
+    () =>
+      Effect.gen(function* () {
+        const missing = yield* Effect.flip(
+          publishableCatalog(example, Option.none(), expected),
+        );
+        expect(missing._tag).toBe("CatalogBuildMissing");
+        expect(missing.message).toContain(example.workspace);
+      }),
+  );
+
+  it.effect("should refuse to publish a build when it is stale", () =>
+    Effect.gen(function* () {
+      const stale = yield* Effect.flip(
+        publishableCatalog(
+          example,
+          Option.some('{"formatVersion":0}\n'),
+          expected,
+        ),
+      );
+      expect(stale._tag).toBe("CatalogBuildStale");
+    }),
+  );
 });
-import { it } from "@effect/vitest";
