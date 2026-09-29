@@ -24,8 +24,10 @@ validation errors and provenance.
   inside the build `root`, so reported paths and provenance are the same on
   every machine.
 - Catalog source selection and trust policy stay in the CLI and loaders.
-  `finalizeScripts: "allow"` only lets a build emit scripts; loaders decide
-  whether to run them.
+  `finalizeScripts: "allow"` only lets a build emit scripts; the CLI decides
+  whether to run them (`apps/cli/src/service/ScaffoldPipeline.ts`). It prompts
+  interactively; `--yes` runs only official-source scripts, and `--trust` also
+  runs custom-source scripts.
 - `requires: ["official"]` composes the caller-supplied `official` document
   for validation only. Official definitions never appear in the output, and
   no network access happens inside `buildCatalog`; `loadOfficialCatalog`

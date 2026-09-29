@@ -64,7 +64,6 @@ Each phase is a distinct domain concept with its own schema and service.
 | `packages/domain`            | Effect Schema contracts for every pipeline phase             |
 | `packages/catalog`           | Read-only target and module definitions                      |
 | `packages/scaffold`          | Blueprint resolution, planning, apply, and finalize services |
-| `packages/observability`     | Shared OpenTelemetry layer                                   |
 | `packages/config-typescript` | Shared TypeScript configuration                              |
 
 ## Common Contributions
@@ -76,7 +75,6 @@ Modules are features that get scaffolded into a target (e.g., `http-api-client` 
 1. **Templates** — put each generated file body in `catalogs/official/templates/<module-id>/<path>` (store names that Git, Oxfmt, or Oxlint read, such as `.gitignore`, as `_gitignore`)
 2. **Module definition** — add a plain definition to the `defineModules(import.meta.url, [...])` group in the appropriate file under `catalogs/official/src/modules/` (organized by target kind: `client.ts`, `server.ts`, `domain.ts`, `packages.ts`), referencing templates with `template("./<module-id>/<path>")`
 3. **Registry** — if you created a new module file, add its group to `catalogs/official/src/moduleRegistry.ts`
-4. **Golden** — intended output changes also update `catalogs/official/test/catalog.golden.json`
 
 Each module definition specifies:
 
@@ -145,6 +143,8 @@ bun run type-check
 
 Releases use [changesets](https://github.com/changesets/changesets). Add a changeset with `bunx changeset`. When changesets are pending on `main`, the Release workflow opens a "chore: version packages" PR. Merging that PR publishes the bumped packages to npm.
 
+Changes that affect the published registry assets (`/registry/v1/*.json` and `/schemas/v1/*`) also follow the deployment and qualification checklist in [apps/docs/REGISTRY-DEPLOYMENT.md](./apps/docs/REGISTRY-DEPLOYMENT.md): run `check:registry` against a public preview and production, then prove the create path with a newly installed CLI.
+
 The workflow has no npm token. npm authenticates it through [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC). Each package's `repository` field must name this repository and its `directory`.
 
 ### Publish a new package for the first time
@@ -167,7 +167,13 @@ npm can configure a trusted publisher only for a package that already exists. So
    cd packages/author && npm publish --access public
    ```
 
-4. On npmjs.com, open the package's **Settings → Trusted Publisher**. Choose GitHub Actions with repository `lloydrichards/stack-effect` and workflow `publish.yml`, and leave the environment empty. Under **Allowed actions**, also select **npm publish**. New publishers allow only `npm stage publish` by default, and Changesets publishes directly.
+4. Configure the trusted publisher. Your npm account must have two-factor authentication enabled; the command asks for it:
+
+   ```bash
+   npm trust github @stack-effect/author --file publish.yml --repo lloydrichards/stack-effect --allow-publish
+   ```
+
+   `--allow-publish` is required: new publishers allow only `npm stage publish` by default, and Changesets publishes directly. Leave the environment unset. Check the result with `npm trust list @stack-effect/author`.
 5. Optional: under **Publishing access**, require two-factor authentication and disallow tokens.
 6. Merge the version packages PR. CI publishes the first real version with provenance. For `@stack-effect/author`, CI then installs the published version in a clean project.
 

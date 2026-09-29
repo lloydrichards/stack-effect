@@ -90,8 +90,9 @@ The root `catalog:*` scripts use `apps/cli/src/authoring.ts` and local definitio
 - `packages/authoring`: Catalog authoring tools that build a v1 catalog document from TypeScript definitions and template files.
 - `packages/author`: The published `@stack-effect/author` package. It bundles `@repo/authoring` and its workspace dependencies into ESM and types with an exact `effect` peer; `verify:package` proves a clean install.
 - `catalogs/official`: The official catalog definitions, authored with `@repo/authoring`; `./service` wires them into repository tooling and tests.
+- `catalogs/author`: The author catalog (`stack-effect-author`), which scaffolds a standalone catalog registry project; `./service` wires it into repository tooling and tests.
 - `packages/scaffold`: Runtime orchestration services (blueprint resolution, planning, apply, finalize, formatting).
-- `packages/observability`: Shared OpenTelemetry layer wiring for Effect apps.
+- `packages/tui`: Shared terminal UI components (prompts, selects, layout, key bindings) built on `effect-boxes` for the CLI.
 - `packages/config-typescript`: Shared TypeScript configuration package.
 
 ## Hard Domain Rules
@@ -140,6 +141,10 @@ Effect.gen(function* () {
 | `apps/cli`        | Effect Cli         | `apps/cli/AGENTS.md`        |
 | `packages/domain` | Effect Schema, RPC | `packages/domain/AGENTS.md` |
 | `packages/authoring` | Effect, FileSystem | `packages/authoring/AGENTS.md` |
+| `packages/author` | Bundled npm package | — |
+| `packages/tui` | Effect, effect-boxes | — |
+| `catalogs/official` | `@repo/authoring` | — |
+| `catalogs/author` | `@repo/authoring` | — |
 
 ## Domain Terminology References
 
@@ -155,11 +160,11 @@ Prefer these canonical terms in code reviews, issues, docs, commit messages, and
 - Production CLI commands and Recipe Builder sessions load the official JSON catalog through `CatalogLoader`. Keep one loaded `CatalogService` through selection, Blueprint, Plan, Apply, and Finalize.
 - Repository authoring uses the local bundled definitions. Do not import that adapter into production CLI or worker entrypoints.
 - Use controlled HTTP fixtures for routine tests. Qualify deployed registry headers, validators, CORS, and genuine 404 responses separately before releasing dependent clients.
-- Keep community-source configuration in issue #276; the official source is an internal default, not a new project-file field.
+- Catalog sources are configurable: `stack.effect.json` saves them in the optional `catalogs` field (`StackConfig` in `packages/domain/src/Scaffold.ts`), and `--catalog official` / `--catalog <name>=<url>` selects them (`apps/cli/src/lib/catalogSources.ts`). Without either, the official source is the default; an existing project rejects a `--catalog` set that differs from its saved one.
 
 ## Complexity Analysis
 
-Use the complexity report to identify refactoring targets before making changes.
+Use `fallow` (configured in `.fallowrc.json`) to identify dead code and refactoring targets before making changes.
 The `--json` flag emits structured output suitable for direct consumption.
 
 ```bash
