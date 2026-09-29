@@ -10,19 +10,19 @@ sources:
     resource: ../../packages/domain/src/Scaffold.ts
   - id: source-3
     resource: ../../package.json
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Catalog authoring workflow
 
-Generated file bodies live in `catalogs/official/templates/**` as ordinary files, but tokens and `{{#if}}` blocks mean they are not checked in place. Follow the repository's catalog workspace skill at `.agents/skills/catalog-workspace/SKILL.md` before changing generated content.
+Generated file bodies live in `catalogs/official/templates/**` as ordinary files, but tokens and `{{#if}}` blocks mean they are not checked in place. Follow the repository's catalog workspace skill at `.agents/skills/catalog-workspace/SKILL.md` before changing generated content. The definitions are built with the [catalog authoring package](../architecture/catalog-authoring-package.md "builds definitions with").
 
 1. Run `bun run catalog:reset-workspace`. This replaces the disposable `workspace/catalog-built` directory, runs Finalize, and creates its internal baseline. Save any experiments you need before resetting.
 2. Locate the generated file through source annotations or `.catalog-build-manifest.json`. Edit and check that real file first. For a new module or target, prototype its files in the generated workspace before adding the catalog definition.
 3. Run `bun run catalog:validate-workspace` and inspect `bun run catalog:diff-workspace`.
 4. Port the smallest validated change to its owning contribution or template file. A composed file may belong to several contributors; do not copy the entire result into one base template.
 5. Reset again and confirm the catalog reproduces the intended output. Run validation on that freshly generated result.
-6. Run `bun format`, `bun lint`, and `bun run type-check`. For catalog behavior changes, also run `bun run test --filter=@repo/catalog-official` and `bun run test --filter=stack-effect`, plus the relevant generated-project checks. An intended output change also updates `catalogs/official/test/catalog.golden.json`; regenerate it with `bun run --cwd catalogs/official build` and copy `catalogs/official/dist/registry/v1/catalog.json` over the golden file.
+6. Run `bun format`, `bun lint`, and `bun run type-check`. For catalog behavior changes, also run `bun run test --filter=@repo/catalog-official` and `bun run test --filter=stack-effect`, plus the relevant generated-project checks.
 
 Reset can fail during dependency installation or a module finalizer. Resolve that failure before treating the workspace as a validated baseline. Do not commit `workspace/catalog-built` to the parent repository.
 

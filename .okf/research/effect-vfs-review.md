@@ -5,7 +5,7 @@ description: Dated source evidence and experiments supporting the VFS research d
 status: draft
 sources:
   - id: presentation
-    resource: ../assets/effect-vfs-design-research.html
+    resource: https://github.com/lloydrichards/stack-effect/blob/b08562a31c1cafaefdd9156a8ced81eb188089b7/.okf/assets/effect-vfs-design-research.html
   - id: source-1
     resource: https://github.com/lloydrichards/effect-virtual-fs/tree/e9df27fcb565d189bbc501500cc3267561b23533
 generated: { by: codex, at: "2026-09-27T09:07:55+00:00" }
@@ -23,7 +23,7 @@ For the catalog, prefer immutable snapshots of selected generated recipes, with 
 
 This report recommends exploring these directions, not replacing Selection, Blueprint, Plan, or Apply. The report records the initial review. Follow the [repository state decision](../architecture/plan-apply-repository-state.md "records accepted behavior") and [staged workspace research](staged-workspace.md "tracks the next design") for current direction.
 
-## What exists today
+## What existed at the reviewed revision
 
 Selection expresses user intent. Blueprint resolves dependencies. Plan assesses proposed changes against repository contents. Apply combines those outcomes with explicit conflict decisions and executes them. Finalize runs commands derived from the Blueprint and configuration. These boundaries remain useful with a virtual filesystem. [plan: PlanService.ts L44–164](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/plan/PlanService.ts#L44-L164) [apply: ApplyService.ts L268–400](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400) [finalize: FinalizeService.ts L107–212](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/finalize/FinalizeService.ts#L107-L212)
 
@@ -87,7 +87,7 @@ A bounded first version can capture only planned paths and the ancestors needed 
 
 Conflict experiments then become repeatable. Start two candidates from the same baseline, apply skip in one and override in the other, and compare their resulting files. Replacing either candidate leaves the baseline intact. The JSON and TypeScript composers still decide what each accepted action means. [overlay: VirtualFileSystem.ts L1973–2035](https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts#L1973-L2035) [apply: ApplyService.ts L268–400](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/ApplyService.ts#L268-L400)
 
-The [repository state decision](../architecture/plan-apply-repository-state.md "sets the accepted drift rule") now requires a new Plan and review when relevant host state changes. It also defines wrong-root detection, newly created paths, deleted files, ancestor changes, and partial publication. A content fingerprint check alone does not create a host transaction. [write: WriteEngine.ts L44–201](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201)
+The repository state decision now requires a new Plan and review when relevant host state changes. It also defines wrong-root detection, newly created paths, deleted files, ancestor changes, and partial publication. A content fingerprint check alone does not create a host transaction. [write: WriteEngine.ts L44–201](https://github.com/lloydrichards/stack-effect/blob/b72a69a6deb0b5ad85c68b86ae75a6b7ef7379a3/packages/scaffold/src/service/apply/WriteEngine.ts#L44-L201)
 
 ## Direction 2: use snapshots for generated artifacts
 
@@ -143,11 +143,11 @@ The CLI currently continues into Finalize handling after reporting failed Apply 
 
 | Concept | Relationship to this research |
 | --- | --- |
-| [Repository state authority](../architecture/plan-apply-repository-state.md) | Accepted drift, repository identity, and preview contract |
-| [Staged workspace lifecycle](staged-workspace.md) | Proposed setup, seeding, binding, and capture after state authority |
-| [Virtual validation](virtual-validation.md) | Candidate structural tests and a bounded build experiment |
-| [Generated workspace artifacts](generated-artifacts.md) | Open completeness and compatibility requirements |
-| [Compiled catalog profiles](compiled-catalog-profiles.md) | Relationship between concrete snapshots and declarative fragments |
+| Repository state authority (linked above) | Accepted drift, repository identity, and preview contract |
+| Staged workspace lifecycle (linked above) | Proposed setup, seeding, binding, and capture after state authority |
+| [Virtual validation](virtual-validation.md "proposes candidate checks") | Candidate structural tests and a bounded build experiment |
+| [Generated workspace artifacts](generated-artifacts.md "leaves requirements open") | Open completeness and compatibility requirements |
+| [Compiled catalog profiles](compiled-catalog-profiles.md "relates snapshots to fragments") | Relationship between concrete snapshots and declarative fragments |
 
 The less-developed question is how compiled artifacts relate to declarative fragments, parametrization, provenance, and upgrade identity.
 
@@ -237,4 +237,4 @@ Observed output:
 
 This verifies sibling isolation and rejects the right sibling's delta against the left sibling, even though the two changed different file paths. It establishes the behavior on local VFS 0.5.0/Effect rc.115, not the VFS 0.2.0/Effect rc.114 baseline inspected for the original report.
 
-The original HTML report is preserved at `.okf/assets/effect-vfs-design-research.html`. It is a dated rendition; the linked research concepts track subsequent decisions.
+The original HTML report was removed from the bundle; its [last version](https://github.com/lloydrichards/stack-effect/blob/b08562a31c1cafaefdd9156a8ced81eb188089b7/.okf/assets/effect-vfs-design-research.html) is preserved in Git history. It is a dated rendition; the linked research concepts track subsequent decisions.

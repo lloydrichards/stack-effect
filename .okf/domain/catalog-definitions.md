@@ -69,4 +69,4 @@ In code:
 
 - `ModuleChild`
 
-See the [scaffold lifecycle](../architecture/scaffold-lifecycle.md "implements these contracts").
+See the [catalog architecture](../architecture/catalog.md "implemented by").

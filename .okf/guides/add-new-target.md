@@ -10,7 +10,7 @@ sources:
     resource: ../../catalogs/official/src/targetRegistry.ts
   - id: source-3
     resource: ../../apps/cli/src/commands/init.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Add a catalog target
@@ -65,6 +65,6 @@ bun run start -- init test-app --yes --root "$TMP_REPO"
 bun run start -- add --yes --root "$TMP_REPO/test-app" --target worker/jobs --dry-run
 ```
 
-For a missing target, check registration and visibility. For incompatible modules, check their `supportedOn` rules. For a missing required module, check the exact ModuleId and registry inclusion.
+For a missing target, check registration and visibility. For incompatible modules, check their `supportedOn` rules. For a missing required module, check the exact ModuleId and that `moduleRegistry.ts` includes its group.
 
 See [identity contracts](../domain/identity.md "defines path behavior") and [catalog architecture](../architecture/catalog.md "owns target definitions").

@@ -138,4 +138,4 @@ In code:
 
 - `SupportedOn`
 
-See the [scaffold lifecycle](../architecture/scaffold-lifecycle.md "implements these contracts").
+See the [scaffold lifecycle](../architecture/scaffold-lifecycle.md "implements these contracts"). The [ubiquitous language](ubiquitous-language.md "gives conversation wording") shows how to say these terms in reviews.

@@ -13,9 +13,6 @@ sources:
   - id: inputs
     resource: ../../packages/domain/src/Scaffold.ts
     title: Rendering input dimensions
-  - id: catalog-architecture
-    resource: ../architecture/catalog.md
-    title: Catalog composition boundary
   - id: report
     resource: effect-vfs-review.md
     title: Catalog alternatives and evidence

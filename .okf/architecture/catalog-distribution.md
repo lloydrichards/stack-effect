@@ -12,24 +12,22 @@ sources:
     resource: ../../packages/domain/src/Scaffold.ts
   - id: schema-export
     resource: ../../apps/cli/src/commands/schema.ts
-  - id: research
-    resource: ../research/catalog-registry.md
   - id: loader
     resource: https://github.com/lloydrichards/stack-effect/issues/271
   - id: publication
     resource: https://github.com/lloydrichards/stack-effect/issues/272
   - id: composition
     resource: https://github.com/lloydrichards/stack-effect/issues/249
-  - id: selection
-    resource: catalog-source-selection.md
+  - id: loader-code
+    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
   - id: qualification
     resource: https://github.com/lloydrichards/stack-effect/issues/275
-generated: { by: codex, at: "2026-09-28T08:24:00+02:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Catalog distribution and freshness
 
-Status: Implemented for the official source. Catalog composition, the v1 JSON loader, public assets, and CLI and Recipe Builder cache adapters are in place. Controlled tests compare CLI and browser generation; public HTTP and Chromium checks verify both assets, conditional requests, CORS, and missing-path responses. A compatible catalog description update reached production without a CLI release. GitHub issue #275 records the qualification evidence. The [source selection decision](catalog-source-selection.md "defines named sources and script consent") defines community-source configuration.
+Status: Implemented.
 
 ## Separate content delivery from engine releases
 
@@ -49,7 +47,7 @@ Selection remains user intent. Blueprint resolves dependency closure. Plan descr
 
 A new command or session attempts current content. A running operation keeps its catalog even if the server changes. Shared recipe links carry choices rather than a frozen catalog; reopening them can produce different output, and unresolved choices must be reported explicitly.
 
-Local authoring and production consumption are separate compositions. Repository authoring uses local definitions so edits are visible before publication. Production clients must not import the authoring catalog through a hidden bundled fallback.
+Local authoring and production consumption are separate compositions. Repository authoring uses the local authoring definitions, built from `catalogs/official` source, so edits are visible before publication. Production clients must not import the local authoring definitions through a hidden bundled fallback. The author catalog in `catalogs/author` is a separate published catalog, not these definitions.
 
 ## Use cache fallback for outages, not invalid content
 
@@ -71,11 +69,7 @@ Do not freeze independently evolving catalog IDs into the configuration schema a
 
 ## Preserve declarative composition across sources
 
-The official source ships first. The [source selection decision](catalog-source-selection.md) defines community-source configuration, dependency declarations, and UX. The shared composition boundary accepts declarative definitions, rejects duplicate target kinds/module IDs, and preserves meaningful declaration order. Validate each source structurally, then validate references and ownership across the complete composed catalog; a fragment may refer to the official source when it declares that dependency.
-
-Source aliases provide provenance, not override precedence. Do not automatically load additional URLs merely because a downloaded definition mentions them. Contributed Finalize scripts are allowed and gated by run-time consent: `--yes` runs official scripts only, and `--trust` also runs scripts from custom sources. The source selection decision supersedes the earlier rule that kept contributed scripts disabled.
-
-JSON avoids running remote catalog modules during loading, but generated source and package scripts remain executable user output. It is not a sandbox. New contribution operations, arbitrary configuration semantics, custom path rules, and private-source authentication require separate decisions.
+Composition across sources follows the [source selection decision](catalog-source-selection.md "defines composition, provenance, and script consent"): definitions stay declarative, collisions are errors, source names give provenance rather than precedence, and scripts from custom sources run only with consent.
 
 ## Keep filesystem artifacts separate from catalog meaning
 
@@ -91,4 +85,4 @@ See [catalog architecture](catalog.md "describes the current composition model")
 - Silently serving stale or bundled definitions obscures which catalog generated the result.
 - VFS snapshots as the public catalog protocol couple compatibility to a filesystem codec without replacing semantic definitions.
 
-The JSON round-trip, controlled CLI and browser generation tests, and deployed HTTP checks support the official-source implementation. These checks establish behavior for the tested catalog and deployment; future protocol changes still require a separate decision and qualification.
+The JSON round-trip, controlled CLI and browser generation tests, and deployed HTTP and Chromium checks of both assets, conditional requests, CORS, and missing-path responses support the official-source implementation. A compatible catalog description update reached production without a CLI release. These checks establish behavior for the tested catalog and deployment; future protocol changes still require a separate decision and qualification.

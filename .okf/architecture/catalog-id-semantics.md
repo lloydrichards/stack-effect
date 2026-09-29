@@ -1,21 +1,33 @@
 ---
 type: Convention
-title: Catalog ID naming
-description: Human-facing naming conventions for targets and modules.
+title: Target and module ID naming
+description: Human-facing naming conventions for target kinds and module IDs, kept separate from catalogId and source names.
 status: stable
 sources:
   - id: source-1
     resource: ../../catalogs/official/src/moduleRegistry.ts
   - id: source-2
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+  - id: source-3
+    resource: ../../packages/domain/src/CatalogSource.ts
+  - id: source-4
+    resource: ../../packages/catalog/src/composeCatalog.ts
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
-# Catalog ID Naming Guidelines
+# Target and module ID naming
 
-> Human-facing guidelines for naming catalog target and module IDs. These rules
+> Human-facing guidelines for naming target kinds and module IDs. These rules
 > define the intent behind the semantic structure without treating IDs as a
 > machine-parsed grammar.
+
+## Three different identifiers
+
+- **Target kinds and module IDs** identify definitions. This page covers them.
+- **`catalogId`** names one catalog document, such as `stack-effect-official`.
+- **Source names** name where a project loads a document from, such as `official` or `acme`. The project chooses them in `stack.effect.json`.
+
+A `catalogId` or source name never qualifies a target kind or module ID. The composed catalog has one set of definition IDs, with no namespacing by source. A custom catalog therefore needs globally distinctive IDs, such as `acme-api-rest`. If a custom definition reuses an official ID or another source's ID, composition fails with `duplicate-id`.
 
 ## Why This Exists
 

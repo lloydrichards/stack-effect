@@ -4,6 +4,7 @@ The Scaffolding bounded context turns Selection and StackConfig into repository 
 
 - [Lifecycle terms](lifecycle.md)
 - [Catalog definitions](catalog-definitions.md)
+- [Catalog sources and documents](catalog-sources.md) defines Catalog Source, Catalog Document, the composed catalog, source provenance, `requires`, digest, and freshness.
 - [Blueprint graph](blueprint-graph.md)
 - [Identity and compatibility](identity.md)
 - [Contributions and configuration](contributions.md)

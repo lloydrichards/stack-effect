@@ -7,4 +7,4 @@
 
 - [Effect VFS design review](effect-vfs-review.md) preserves the dated source review and bounded experiment behind these proposals.
 
-- [HTTP catalog registry](catalog-registry.md) compares independent catalog releases, community composition, and VFS compatibility.
+- [HTTP catalog registry](catalog-registry.md) is deprecated. It keeps the dated measurements, distribution alternatives, and registry precedents behind the catalog distribution and source selection decisions.

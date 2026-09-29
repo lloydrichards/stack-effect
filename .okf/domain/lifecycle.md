@@ -16,7 +16,9 @@ sources:
     resource: ../../packages/domain/src/Apply.ts
   - id: source-6
     resource: ../../packages/domain/src/Finalize.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+  - id: source-7
+    resource: ../../packages/domain/src/CatalogSource.ts
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Lifecycle terms
@@ -28,13 +30,15 @@ Read-only reference data that defines what targets and modules can exist, plus c
 
 Invariants:
 
+- One operation uses one composed catalog, built from the catalog documents of its selected catalog sources. The [catalog source contracts](catalog-sources.md "defines where the catalog comes from") define sources, documents, `requires`, provenance, digest, and freshness.
+- The loaded catalog is read-only within an operation. Hosted registry content can change between operations.
 - A catalog entry is either a target definition or a module definition.
 - Catalog graph edges describe `supportedOn`, `requiredModule`, `implies`, and `childOf` relationships.
 - A missing referenced catalog entity is a lookup failure (`CatalogNotFound`).
 
 Connected terms:
 
-- `TargetDefinition`, `ModuleDefinition`, `Selection`, `CatalogGraph`
+- `TargetDefinition`, `ModuleDefinition`, `Selection`, `CatalogGraph`, `CatalogSource`, `CatalogDocument`
 
 In code:
 

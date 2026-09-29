@@ -10,12 +10,12 @@ sources:
     resource: ../../catalogs/official/src/modules/domain.ts
   - id: source-3
     resource: ../../catalogs/official/src/moduleRegistry.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Add a catalog module
 
-Start with the [catalog authoring workflow](catalog-authoring.md "validates generated output"). Choose a [catalog ID](../architecture/catalog-id-semantics.md "guides naming") that describes the owning layer and capability.
+Start with the [catalog authoring workflow](catalog-authoring.md "validates generated output"). Choose a [module ID](../architecture/catalog-id-semantics.md "guides naming") that describes the owning layer and capability.
 
 ## Define the module
 
@@ -90,4 +90,4 @@ A package dependency entry has this shape:
 }
 ```
 
-Finish the reset, diff, and validation cycle in the authoring workflow. Check the catalog graph and selection behavior. For a missing module, check registry inclusion and identifier spelling; for a missing picker entry, check visibility, supported identity, and parent-child membership.
+Finish the reset, diff, and validation cycle in the authoring workflow. Check the catalog graph and selection behavior. For a missing module, check that `moduleRegistry.ts` includes its group and that the identifier is spelled correctly; for a missing picker entry, check visibility, supported identity, and parent-child membership.

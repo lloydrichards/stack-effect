@@ -7,9 +7,6 @@ sources:
   - id: preview
     resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
     title: Current changed-file result
-  - id: report
-    resource: effect-vfs-review.md
-    title: Snapshot and delta evidence
 generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
 ---
 
@@ -19,7 +16,7 @@ Choose a concrete consumer before defining a public artifact: project download, 
 
 Current previews omit unchanged and skipped files. Configuration is appended separately in Recipe previews. A complete artifact cannot be inferred from that list.
 
-VFS snapshots can transport a concrete tree without keeping a live volume per variant. Deltas require a matching semantic base. A focused experiment in the research report confirmed sibling isolation and `BaseMismatch` when a sibling delta was applied to a changed base, despite disjoint edited paths.
+VFS snapshots can transport a concrete tree without keeping a live volume per variant. Deltas require a matching semantic base. A focused experiment in the [VFS design review](effect-vfs-review.md "reports the experiment") confirmed sibling isolation and `BaseMismatch` when a sibling delta was applied to a changed base, despite disjoint edited paths.
 
 Use a Stack Effect-owned versioned manifest so the snapshot codec remains replaceable. Candidate metadata includes source catalog identity, effective inputs, generation stage, supported entry types, root mapping, exclusions, integrity, and validation provenance. Distinguish pre-Finalize source files from installed or tool-modified output.
 

@@ -7,9 +7,6 @@ sources:
   - id: report
     resource: effect-vfs-review.md
     title: VFS design research
-  - id: authority
-    resource: ../architecture/plan-apply-repository-state.md
-    title: Accepted repository state authority
   - id: preview
     resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
     title: Current in-memory preview

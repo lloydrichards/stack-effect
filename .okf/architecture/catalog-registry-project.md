@@ -12,22 +12,22 @@ sources:
     resource: ../../catalogs/author/src/modules.ts
   - id: e2e
     resource: ../../apps/cli/e2e/registry-project.test.ts
-  - id: selection
-    resource: catalog-source-selection.md
   - id: escape
     resource: https://github.com/lloydrichards/stack-effect/issues/304
-generated: { by: claude, at: "2026-09-29T13:30:00+02:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Catalog registry project
 
-Status: Implemented. Issue #297 owns the generated project. Issue #298 hosts `author.json` at `/registry/v1/author.json` beside the official catalog, and proves the deployed create path with `check:registry` and `verify:create-path`.
+Status: Implemented.
+
+The docs site hosts `author.json` at `/registry/v1/author.json` beside the official catalog. `check:registry` and `verify:create-path` check the deployed create path.
 
 ## Keep the author catalog separate from the official catalog
 
-`catalogs/author` defines the author catalog with `@repo/authoring`, like `catalogs/official`. Its build writes `dist/registry/v1/author.json`. Adding its definitions to the official catalog would change the official document and offer an authoring target in every project.
+`catalogs/author` defines the author catalog with the [catalog authoring package](catalog-authoring-package.md "is built with"), like `catalogs/official`. Its build writes `dist/registry/v1/author.json`. Adding its definitions to the official catalog would change the official document and offer an authoring target in every project.
 
-The author catalog declares `requires: ["official"]` and defines no `workspace` target. The registry project uses the official workspace: its tooling, TypeScript config, and Finalize steps. Its files depend on that workspace, for example by extending `@repo/config-typescript/base.json`. Declaring the dependency makes a custom-only selection fail with the named `requires` error instead of creating a broken project. Consumers select `--catalog official --catalog author=<url>`.
+The author catalog declares `requires: ["official"]` and defines no `workspace` target. The registry project uses the official workspace: its tooling, TypeScript config, and Finalize steps. Its files depend on that workspace, for example by extending `@repo/config-typescript/base.json`. Declaring the dependency makes a custom-only selection fail with the named `requires` error instead of creating a broken project. Consumers select it [with the official source](catalog-source-selection.md "selected via"): `--catalog official --catalog author=<url>`.
 
 ## Split tooling from the example
 
@@ -59,7 +59,7 @@ Tests keep the repeated oxfmt and dprint configs equal to the official ones. The
 
 ## Build token text at runtime
 
-Stack Effect resolves every known token in every file it creates, including the registry project's own definitions. v1 has no escape syntax (#304). Literal token text in the starter would therefore be resolved against the author's project and bake wrong paths into their catalog. The starter builds token text in `catalog/tokens.ts` from repeated single braces. Its template files contain no tokens. Any file that needs a token, such as the app's `package.json` with its package name, is written in the definition instead of a template file. The same limit rejects other double-brace text in templates, such as JSX style objects. Remove the helper once #304 accepts an escape.
+Stack Effect resolves every known token in every file it creates, including the registry project's own definitions. v1 has no escape syntax. Literal token text in the starter would therefore be resolved against the author's project and bake wrong paths into their catalog. The starter builds token text in `catalog/tokens.ts` from repeated single braces. Its template files contain no tokens. Any file that needs a token, such as the app's `package.json` with its package name, is written in the definition instead of a template file. The same limit rejects other double-brace text in templates, such as JSX style objects. Remove the helper once v1 accepts an escape.
 
 ## Alternatives not selected
 
