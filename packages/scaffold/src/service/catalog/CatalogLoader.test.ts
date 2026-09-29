@@ -83,6 +83,19 @@ it.effect("keeps a validated response and revalidates it with ETag", () => {
   }).pipe(Effect.provide(layer));
 });
 
+it.effect("sends no trace headers that would need a CORS preflight", () => {
+  const requests: Array<HttpClientRequest.HttpClientRequest> = [];
+  const layer = testLayer((request) => {
+    requests.push(request);
+    return response(request, 200, document);
+  });
+  return Effect.gen(function* () {
+    const loader = yield* CatalogLoader;
+    yield* loader.load({ sourceUrl });
+    assert.deepStrictEqual(Object.keys(requests[0]?.headers ?? {}), ["accept"]);
+  }).pipe(Effect.provide(layer));
+});
+
 it.effect(
   "returns a labeled stale catalog for a transient server failure",
   () => {

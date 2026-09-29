@@ -355,17 +355,18 @@ export class CatalogLoader extends Context.Service<
                 "if-modified-since",
                 cached.entry.lastModified,
               );
-            const response = yield* client
-              .execute(request)
-              .pipe(
-                Effect.mapError(() =>
-                  failure(
-                    "unavailable",
-                    sourceUrl,
-                    `Could not fetch catalog from ${sourceUrl}.`,
-                  ),
+            const response = yield* client.execute(request).pipe(
+              // Trace headers are not CORS-safelisted, so a browser would
+              // preflight every catalog fetch, and hosts need not allow them.
+              Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+              Effect.mapError(() =>
+                failure(
+                  "unavailable",
+                  sourceUrl,
+                  `Could not fetch catalog from ${sourceUrl}.`,
                 ),
-              );
+              ),
+            );
             if (response.status === 304) {
               if (cached !== undefined) {
                 const validatedAt = yield* Clock.currentTimeMillis;
