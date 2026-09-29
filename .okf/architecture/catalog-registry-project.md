@@ -31,13 +31,13 @@ The author catalog declares `requires: ["official"]` and defines no `workspace` 
 
 ## Split tooling from the example
 
-- The `catalog` target (default name `registry`, so `apps/catalog-registry`) contributes the tooling. This covers `package.json`, `tsconfig.json`, the README, `catalog/index.ts`, and the `build`, `validate`, and `preview` scripts. It supports Bun and Node.
+- The `catalog` target (default name `registry`, so `apps/catalog-registry`) contributes the tooling. This covers `package.json`, `tsconfig.json`, the README, `catalog/index.ts`, and the `build`, `validate`, and `preview` scripts. It supports Bun and Node. The end-to-end test covers Bun. Node with npm, pnpm, turbo, and nx was checked by hand.
 - The required `catalog-starter` module contributes the example definitions and template files. It adds its definition groups to `catalog/index.ts` through `ts-call-arg` on `Array.of`, so later modules can add their own groups the same way.
 - The generated catalog is standalone. It supplies its own `workspace` target, an `app` target, and one module with one plain template file. Its `catalogId` is the project name, and its build writes `dist/registry/v1/catalog.json`.
 
 ## Depend only on published packages
 
-The registry project depends on `@stack-effect/author` and `stack-effect` with `~` ranges, because pre-1.0 minor versions may break. The `effect` pins equal the author package's `effect` peer. A test in `catalogs/author` enforces this, and a boundary test allows no other `@repo/` reference than the generated workspace's own `@repo/config-typescript`.
+The registry project depends on `@stack-effect/author` and `stack-effect` with `~` ranges, because pre-1.0 minor versions may break. The `effect` pins equal the author package's `effect` peer. A test in `catalogs/author` enforces the pins, though not the `~` ranges, and a boundary test allows no other `@repo/` reference than the generated workspace's own `@repo/config-typescript`.
 
 ## Preview through the CLI
 
@@ -59,7 +59,7 @@ Tests keep the repeated oxfmt and dprint configs equal to the official ones. The
 
 ## Build token text at runtime
 
-Stack Effect resolves every known token in every file it creates, including the registry project's own definitions. v1 has no escape syntax (#304). Literal token text in the starter would therefore be resolved against the author's project and bake wrong paths into their catalog. The starter builds token text in `catalog/tokens.ts` from repeated single braces. Its template files contain no tokens. Remove the helper once #304 accepts an escape.
+Stack Effect resolves every known token in every file it creates, including the registry project's own definitions. v1 has no escape syntax (#304). Literal token text in the starter would therefore be resolved against the author's project and bake wrong paths into their catalog. The starter builds token text in `catalog/tokens.ts` from repeated single braces. Its template files contain no tokens. Any file that needs a token, such as the app's `package.json` with its package name, is written in the definition instead of a template file. The same limit rejects other double-brace text in templates, such as JSX style objects. Remove the helper once #304 accepts an escape.
 
 ## Alternatives not selected
 
