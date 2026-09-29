@@ -5,6 +5,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { selectsOfficialCatalog } from "@repo/domain/CatalogSource";
 import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import {
   BlueprintService,
@@ -31,7 +32,7 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
-import { CatalogSelection, selectsOfficial } from "../service/CatalogSelection";
+import { CatalogSelection } from "../service/CatalogSelection";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -238,7 +239,7 @@ export const init = Command.make(
 
       // workspace-devenv-git is an official module; custom-only sets bring their own.
       const git =
-        flags.noGit || !selectsOfficial(catalogSelection.sources)
+        flags.noGit || !selectsOfficialCatalog(catalogSelection.sources)
           ? false
           : flags.yes
             ? true

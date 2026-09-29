@@ -1,6 +1,7 @@
 import { CatalogService } from "@repo/catalog";
 import {
   type CatalogSources,
+  isCustomCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
 } from "@repo/domain/CatalogSource";
 import {
@@ -61,7 +62,7 @@ export class CatalogProvider extends Context.Service<
       const catalog = yield* CatalogService;
       return {
         load: (sources) =>
-          sources.every((source) => source.name === OFFICIAL_CATALOG_SOURCE)
+          sources.every((source) => !isCustomCatalogSource(source.name))
             ? Effect.succeed({
                 catalog,
                 sources: [

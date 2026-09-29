@@ -68,7 +68,7 @@ Writing files is not always the last step. Modules can also provide setup comman
 
 In an interactive run, the CLI shows a preselected list before running anything. You can change that selection. A dry run previews the commands without running them.
 
-`--trust` skips the command-selection prompt and runs every Finalize command. `--yes` does the same, which is why `init my-app --yes` is fully non-interactive.
+`--yes` skips the prompt and runs the commands from the official catalog, which is why `init my-app --yes` is fully non-interactive. Commands contributed by a custom catalog run only with `--trust`; without it, `--yes` lists them as next steps. `--trust` skips the prompt and runs every Finalize command.
 
 The **FinalizeReport** records which attempted commands succeeded or failed. It is not a build report and does not prove that the generated application works. ApplyResult tells you what happened to the files; FinalizeReport tells you what happened to the commands.
 

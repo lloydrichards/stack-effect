@@ -18,4 +18,6 @@ With no usable cache, the operation stops before generating files. An invalid do
 
 New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stack.effect.schema.json). Existing files without it remain valid. The link helps editors describe the file; the installed CLI validates configuration with its own schema. Project files contain no downloaded catalog, catalog version pin, or lockfile.
 
+A project can select catalog sources with an optional `catalogs` list, which `init` and `create` save from repeated `--catalog` flags. Without the list, the project uses the official catalog. Reading `catalogs` requires `stack-effect` 0.16.0 or later: older CLIs ignore the list, use the official catalog, and can drop the list when they rewrite `stack.effect.json`.
+
 Shared Recipe Builder links contain choices rather than catalog data. Reopening a link checks current definitions, may use a disclosed cached catalog during an outage, and reports choices that can no longer be resolved.

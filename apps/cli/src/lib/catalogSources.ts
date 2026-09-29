@@ -1,28 +1,20 @@
 import {
   CatalogSources,
   defaultCatalogSources,
+  formatCatalogSources,
+  sameCatalogSources,
 } from "@repo/domain/CatalogSource";
 import type { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Option, Schema } from "effect";
+import { Data, Effect, Option, Schema } from "effect";
 import { CONFIG_FILENAME } from "../service/ConfigureService";
 
-const describe = (sources: CatalogSources) =>
-  sources
-    .map((source) =>
-      "url" in source ? `${source.name}=${source.url}` : source.name,
-    )
-    .join(", ");
-
-const sourceKey = (source: CatalogSources[number]) =>
-  "url" in source ? `${source.name}=${source.url}` : source.name;
-
-/** Order carries no meaning, so compare selections as sets. */
-export const sameCatalogSources = (a: CatalogSources, b: CatalogSources) => {
-  const keys = new Set(a.map(sourceKey));
-  return (
-    a.length === b.length && b.every((source) => keys.has(sourceKey(source)))
-  );
-};
+/** A --catalog selection the CLI refuses before loading any catalog. */
+export class CatalogSelectionError extends Data.TaggedError(
+  "CatalogSelectionError",
+)<{
+  readonly reason: "invalidFlag" | "mismatch";
+  readonly message: string;
+}> {}
 
 const parseCatalogFlag = (entry: string) => {
   const separator = entry.indexOf("=");
@@ -34,7 +26,10 @@ const parseCatalogFlag = (entry: string) => {
   return entry === "official"
     ? Effect.succeed({ name: entry })
     : Effect.fail(
-        `Invalid --catalog "${entry}": use "official" or <name>=<url>.`,
+        new CatalogSelectionError({
+          reason: "invalidFlag",
+          message: `Invalid --catalog "${entry}": use "official" or <name>=<url>.`,
+        }),
       );
 };
 
@@ -45,21 +40,37 @@ export const parseCatalogFlags = Effect.fn("parseCatalogFlags")(function* (
   if (Option.isNone(values)) return Option.none<CatalogSources>();
   const raw = yield* Effect.forEach(values.value, parseCatalogFlag);
   const sources = yield* Schema.decodeUnknownEffect(CatalogSources)(raw).pipe(
-    Effect.mapError((error) => `Invalid --catalog selection: ${error.message}`),
+    Effect.mapError(
+      (error) =>
+        new CatalogSelectionError({
+          reason: "invalidFlag",
+          message: `Invalid --catalog selection: ${error.message}`,
+        }),
+    ),
   );
   return Option.some(sources);
 });
 
-/** `init` and `create`: flags define the exact set; no flags means official only. */
-export const selectionFromFlags = (
+/**
+ * `init` and `create`: flags define the exact set. Without flags a project's
+ * saved set is kept, so re-initialising never drops it; otherwise official only.
+ */
+export const selectionFromFlags = <E, R>(
   values: Option.Option<ReadonlyArray<string>>,
+  saved: Effect.Effect<Option.Option<StackConfig>, E, R>,
 ) =>
-  parseCatalogFlags(values).pipe(
-    Effect.map((explicit) => ({
+  Effect.gen(function* () {
+    const flags = yield* parseCatalogFlags(values);
+    const explicit = Option.isSome(flags)
+      ? flags
+      : Option.flatMap(yield* saved, (config) =>
+          Option.fromUndefinedOr(config.catalogs),
+        );
+    return {
       explicit,
       sources: Option.getOrElse(explicit, () => defaultCatalogSources),
-    })),
-  );
+    };
+  });
 
 /** Existing projects use their saved set; a differing --catalog set is an error. */
 export const selectionFromProject = <E, R>(
@@ -75,9 +86,10 @@ export const selectionFromProject = <E, R>(
       Option.isSome(savedSources) &&
       !sameCatalogSources(explicit.value, savedSources.value)
     )
-      return yield* Effect.fail(
-        `--catalog selects ${describe(explicit.value)}, but ${CONFIG_FILENAME} saves ${describe(savedSources.value)}. Edit "catalogs" in ${CONFIG_FILENAME} to change sources.`,
-      );
+      return yield* new CatalogSelectionError({
+        reason: "mismatch",
+        message: `--catalog selects ${formatCatalogSources(explicit.value)}, but ${CONFIG_FILENAME} saves ${formatCatalogSources(savedSources.value)}. Edit "catalogs" in ${CONFIG_FILENAME} to change sources.`,
+      });
     return {
       explicit,
       sources: Option.getOrElse(

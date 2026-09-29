@@ -2,7 +2,7 @@ import { CatalogService } from "@repo/catalog";
 import { PlanRequest } from "@repo/domain/Plan";
 import { Console, Effect, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
-import { catalogFlag } from "../flags";
+import { catalogFlag, rootFlag } from "../flags";
 
 /**
  * Serializes the catalog for external consumption (LLMs, CI, tooling).
@@ -11,22 +11,25 @@ import { catalogFlag } from "../flags";
  * - `catalog`: tree-structured catalog (targets with nested modules)
  * - `planInput`: JSON Schema for the Selection input accepted by `plan`
  */
-export const schema = Command.make("schema", { catalog: catalogFlag }, () =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+export const schema = Command.make(
+  "schema",
+  { catalog: catalogFlag, root: rootFlag },
+  () =>
+    Effect.gen(function* () {
+      const catalog = yield* CatalogService;
 
-    const planInput = Schema.toStandardJSONSchemaV1(PlanRequest)[
-      "~standard"
-    ].jsonSchema.input({ target: "draft-2020-12" });
+      const planInput = Schema.toStandardJSONSchemaV1(PlanRequest)[
+        "~standard"
+      ].jsonSchema.input({ target: "draft-2020-12" });
 
-    const serialized = yield* Schema.encodeEffect(
-      Schema.fromJsonString(Schema.Unknown),
-    )({
-      catalog: catalog.toCatalogTree,
-      planInput,
-    });
-    yield* Console.log(serialized);
-  }),
+      const serialized = yield* Schema.encodeEffect(
+        Schema.fromJsonString(Schema.Unknown),
+      )({
+        catalog: catalog.toCatalogTree,
+        planInput,
+      });
+      yield* Console.log(serialized);
+    }),
 ).pipe(
   Command.withDescription(
     "Serialize the full catalog (targets with nested modules) and the JSON Schema for plan input. Useful for LLMs, CI, and external tooling.",

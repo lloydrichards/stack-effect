@@ -57,6 +57,7 @@ const selection = { targets: [] };
 const script = {
   label: "Failing finalize",
   command: "exit 1",
+  workdir: ".",
   phase: "finalize" as const,
   origin: "test",
 };

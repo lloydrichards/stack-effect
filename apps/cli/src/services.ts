@@ -1,5 +1,8 @@
 import { CatalogService } from "@repo/catalog";
-import type { CatalogSources } from "@repo/domain/CatalogSource";
+import {
+  type CatalogSources,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyPreviewService,
@@ -14,7 +17,7 @@ import {
 } from "@repo/scaffold";
 import { Effect, Layer, type Option } from "effect";
 import { CatalogProvider } from "./service/CatalogProvider";
-import { CatalogSelection, selectsOfficial } from "./service/CatalogSelection";
+import { CatalogSelection } from "./service/CatalogSelection";
 import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
@@ -71,7 +74,7 @@ export const commandServicesLayer = <E, R>(
             }),
             Layer.succeed(
               StackConfigDefaults,
-              selectsOfficial(sources)
+              selectsOfficialCatalog(sources)
                 ? defaults
                 : customOnlyDefaults(defaults),
             ),

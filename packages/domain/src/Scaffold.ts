@@ -76,6 +76,21 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   /** Explicit catalog selection. Absent means the official source only. */
   catalogs: Schema.optional(CatalogSources),
 }) {
+  /** The same config with a catalog selection, e.g. a project's saved sources. */
+  withCatalogs(catalogs: CatalogSources): StackConfig {
+    return new StackConfig({
+      $schema: this.$schema,
+      name: this.name,
+      runtime: this.runtime,
+      typescript: this.typescript,
+      lint: this.lint,
+      format: this.format,
+      test: this.test,
+      monorepo: this.monorepo,
+      catalogs,
+    });
+  }
+
   get catalogSources(): CatalogSources {
     return this.catalogs ?? defaultCatalogSources;
   }

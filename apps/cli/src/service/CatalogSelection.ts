@@ -1,14 +1,14 @@
 import {
   type CatalogSources,
   defaultCatalogSources,
-  OFFICIAL_CATALOG_SOURCE,
+  isCustomCatalogSource,
 } from "@repo/domain/CatalogSource";
 import type { LoadedCatalogSource } from "@repo/scaffold";
-import { Context, Option } from "effect";
+import { Array as Arr, Context, Option } from "effect";
 
 /** The catalog sources a command resolved and loaded before any other work. */
 export interface CatalogSelectionShape {
-  /** Sources passed with --catalog; only these are saved by init and create. */
+  /** Sources init and create save: --catalog, or init's existing saved set. */
   readonly explicit: Option.Option<CatalogSources>;
   readonly sources: CatalogSources;
   readonly loaded: ReadonlyArray<LoadedCatalogSource>;
@@ -25,9 +25,29 @@ export const CatalogSelection = Context.Reference<CatalogSelectionShape>(
   },
 );
 
-export const selectsOfficial = (sources: CatalogSources) =>
-  sources.some((source) => source.name === OFFICIAL_CATALOG_SOURCE);
+export const customSourcesOf = (
+  scripts: ReadonlyArray<{ readonly source?: string | undefined }>,
+) =>
+  Arr.dedupe(
+    scripts.flatMap(({ source }) =>
+      source !== undefined && isCustomCatalogSource(source) ? [source] : [],
+    ),
+  );
 
-/** Scripts from a named, non-official source need --trust or an explicit opt-in. */
-export const isCustomSource = (source: string | undefined) =>
-  source !== undefined && source !== OFFICIAL_CATALOG_SOURCE;
+export const sourceLabel = (
+  loaded: ReadonlyArray<LoadedCatalogSource>,
+  source: string,
+) =>
+  `catalog ${source} (${
+    loaded.find((entry) => entry.name === source)?.sourceUrl ?? "unknown URL"
+  })`;
+
+/** One line per custom source whose scripts wait for --trust. */
+export const trustNotes = (
+  scripts: ReadonlyArray<{ readonly source?: string | undefined }>,
+  loaded: ReadonlyArray<LoadedCatalogSource>,
+) =>
+  customSourcesOf(scripts).map(
+    (source) =>
+      `${sourceLabel(loaded, source)}: finalize scripts from this catalog run only with --trust.`,
+  );

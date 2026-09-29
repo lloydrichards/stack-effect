@@ -668,7 +668,9 @@ const reset = Command.make(
       }
     }),
 ).pipe(
-  Command.provide(commandServicesLayer(selectionFromFlags(Option.none()))),
+  Command.provide(
+    commandServicesLayer(selectionFromFlags(Option.none(), Effect.succeedNone)),
+  ),
   Command.withShortDescription("Rebuild the generated catalog workspace"),
   Command.withDescription(
     "Reset an editable generated catalog workspace and commit a git baseline.",

@@ -29,6 +29,18 @@ const projectConfig = (root: Option.Option<string>) =>
       );
   });
 
+/** The config at the project `init` or `create` would target, if one exists. */
+const targetProjectConfig = (
+  name: Option.Option<string>,
+  root: Option.Option<string>,
+) =>
+  Option.isNone(name)
+    ? Effect.succeedNone
+    : Effect.gen(function* () {
+        const { repoRoot } = yield* resolveNameAndRoot(name.value, root);
+        return yield* projectConfig(Option.some(repoRoot));
+      });
+
 const inspectProjectConfig = (
   name: Option.Option<string>,
   root: Option.Option<string>,
@@ -51,7 +63,12 @@ export const stackEffectCommand = Command.make("stack-effect").pipe(
   Command.withSubcommands([
     init.pipe(
       Command.provide((flags) =>
-        commandServicesLayer(selectionFromFlags(flags.catalog)),
+        commandServicesLayer(
+          selectionFromFlags(
+            flags.catalog,
+            targetProjectConfig(flags.name, flags.root),
+          ),
+        ),
       ),
       Command.provideEffectDiscard((flags) =>
         inspectProjectConfig(flags.name, flags.root),
@@ -59,7 +76,9 @@ export const stackEffectCommand = Command.make("stack-effect").pipe(
     ),
     create.pipe(
       Command.provide((flags) =>
-        commandServicesLayer(selectionFromFlags(flags.catalog)),
+        commandServicesLayer(
+          selectionFromFlags(flags.catalog, Effect.succeedNone),
+        ),
       ),
       Command.provideEffectDiscard((flags) =>
         inspectProjectConfig(flags.name, flags.root),
@@ -78,7 +97,7 @@ export const stackEffectCommand = Command.make("stack-effect").pipe(
     graph.pipe(
       Command.provide((flags) =>
         commandServicesLayer(
-          selectionFromProject(flags.catalog, projectConfig(Option.none())),
+          selectionFromProject(flags.catalog, projectConfig(flags.root)),
         ),
       ),
     ),
@@ -98,7 +117,7 @@ export const stackEffectCommand = Command.make("stack-effect").pipe(
     schema.pipe(
       Command.provide((flags) =>
         commandServicesLayer(
-          selectionFromProject(flags.catalog, projectConfig(Option.none())),
+          selectionFromProject(flags.catalog, projectConfig(flags.root)),
         ),
       ),
     ),

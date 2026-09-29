@@ -1,4 +1,5 @@
 import { Apply } from "@repo/domain/Apply";
+import { isCustomCatalogSource } from "@repo/domain/CatalogSource";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
@@ -11,6 +12,7 @@ import {
   FinalizeService,
   PlanService,
   ScaffoldFormatter,
+  scriptKey,
 } from "@repo/scaffold";
 import { Confirm, type ConfirmOptions, MultiSelect } from "@repo/tui";
 import {
@@ -26,7 +28,12 @@ import {
 import { Ansi, Box } from "effect-boxes";
 import { DryRunPreview } from "../components/DryRunPreview";
 import { NextStepsPreview } from "../components/NextStepsPreview";
-import { CatalogSelection, isCustomSource } from "./CatalogSelection";
+import {
+  CatalogSelection,
+  customSourcesOf,
+  sourceLabel,
+  trustNotes,
+} from "./CatalogSelection";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
@@ -40,16 +47,22 @@ export class FinalizeScriptFailure extends Data.TaggedError(
   failed: number;
 }> {}
 
-const selectedCommandSet = (
-  scripts: ReadonlyArray<{ command: string }>,
-): ReadonlySet<string> => new Set(scripts.map((script) => script.command));
+type PreviewScript = Parameters<typeof scriptKey>[0] & {
+  readonly label: string;
+  readonly phase: "finalize" | "config" | "post-finalize";
+  readonly origin: string;
+};
+
+const selectedScriptKeys = (
+  scripts: ReadonlyArray<PreviewScript>,
+): ReadonlySet<string> => new Set(scripts.map(scriptKey));
 
 const skippedFinalizeScripts = (
-  previewScripts: ReadonlyArray<{ label: string; command: string }>,
-  selectedCommands: ReadonlySet<string>,
+  previewScripts: ReadonlyArray<PreviewScript>,
+  selectedKeys: ReadonlySet<string>,
 ) =>
   previewScripts
-    .filter((script) => !selectedCommands.has(script.command))
+    .filter((script) => !selectedKeys.has(scriptKey(script)))
     .map((script) => ({ label: script.label, command: script.command }));
 
 const conflictGroupsFrom = (plan: Plan) =>
@@ -206,6 +219,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               finalizeConfig,
             );
 
+            const { loaded } = yield* CatalogSelection;
             yield* Console.log(
               Box.renderPrettySync(
                 DryRunPreview({
@@ -217,6 +231,9 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                   generatedFiles: applyPreview?.files,
                 }),
               ),
+            );
+            yield* Effect.forEach(trustNotes(previewScripts, loaded), (note) =>
+              Console.log(note),
             );
             return;
           }
@@ -264,69 +281,67 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           );
           if (previewScripts.length > 0) {
             const { loaded } = yield* CatalogSelection;
-            const sourceLabel = (source: string | undefined) =>
-              source === undefined
-                ? ""
-                : `catalog ${source} (${
-                    loaded.find((entry) => entry.name === source)?.sourceUrl ??
-                    "unknown URL"
-                  })`;
-            const customSources = Arr.dedupe(
-              previewScripts.flatMap((script) =>
-                isCustomSource(script.source) && script.source !== undefined
-                  ? [script.source]
-                  : [],
-              ),
-            );
+            const customSources = customSourcesOf(previewScripts);
+            const isCustom = (script: PreviewScript) =>
+              isCustomCatalogSource(script.source);
             const skipPrompt = yes || trust;
 
             // --yes accepts defaults: official scripts run; custom-source scripts need --trust.
             const selectedScripts = trust
               ? previewScripts
               : yes
-                ? previewScripts.filter(
-                    (script) => !isCustomSource(script.source),
-                  )
+                ? previewScripts.filter((script) => !isCustom(script))
                 : yield* MultiSelect({
                     message: "Finalize scripts to run:",
-                    groups: [
-                      { key: "finalize", label: "Finalize" },
-                      { key: "config", label: "Install & Format" },
-                      { key: "post-finalize", label: "Post-Finalize" },
-                      ...customSources.map((source) => ({
-                        key: `source:${source}`,
-                        label: `From ${sourceLabel(source)}`,
-                      })),
-                    ],
+                    // With custom catalogs selected, group by source so provenance is visible.
+                    groups:
+                      customSources.length === 0
+                        ? [
+                            { key: "finalize", label: "Finalize" },
+                            { key: "config", label: "Install & Format" },
+                            { key: "post-finalize", label: "Post-Finalize" },
+                          ]
+                        : [
+                            ...Arr.dedupe(
+                              previewScripts.flatMap(({ source }) =>
+                                source === undefined ? [] : [source],
+                              ),
+                            ).map((source) => ({
+                              key: `source:${source}`,
+                              label: `From ${sourceLabel(loaded, source)}`,
+                            })),
+                            { key: "config", label: "Install & Format" },
+                          ],
                     choices: previewScripts.map((s) => ({
                       title: `${s.command}`,
                       description: s.origin,
                       value: s,
-                      selected: !isCustomSource(s.source),
-                      group: isCustomSource(s.source)
-                        ? `source:${s.source}`
-                        : s.phase,
+                      selected: !isCustom(s),
+                      group:
+                        customSources.length === 0 || s.source === undefined
+                          ? s.phase
+                          : `source:${s.source}`,
                     })),
                   });
 
             // NOTE: Non-interactive runs still print the script list as an audit trail.
             if (skipPrompt) {
               yield* Console.log("\nFinalize scripts:");
-              for (const script of previewScripts) {
-                yield* Console.log(
+              yield* Effect.forEach(previewScripts, (script) =>
+                Console.log(
                   `  ${script.label}: ${script.command} (${script.origin}${
-                    isCustomSource(script.source)
-                      ? `, ${sourceLabel(script.source)}`
+                    isCustom(script) && script.source !== undefined
+                      ? `, ${sourceLabel(loaded, script.source)}`
                       : ""
                   })`,
-                );
-              }
-            }
-            if (!trust && yes && customSources.length > 0) {
-              yield* Console.log(
-                `\nSkipped finalize scripts from ${customSources.join(", ")}. Run again with --trust to run them, or run them from the next steps below.`,
+                ),
               );
             }
+            if (!trust && yes)
+              yield* Effect.forEach(
+                trustNotes(previewScripts, loaded),
+                (note) => Console.error(note),
+              );
 
             if (selectedScripts.length === 0) {
               yield* Console.log("\nNo finalize scripts selected. Skipping.");
@@ -337,9 +352,9 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 finalizeConfig,
               );
 
-              const selectedCommands = selectedCommandSet(selectedScripts);
+              const selectedKeys = selectedScriptKeys(selectedScripts);
               const filteredExecutables = executables.filter((e) =>
-                selectedCommands.has(e.script.command),
+                selectedKeys.has(scriptKey(e.script)),
               );
 
               const results = yield* Effect.forEach(
@@ -387,7 +402,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
             const skippedScripts = skippedFinalizeScripts(
               previewScripts,
-              selectedCommandSet(selectedScripts),
+              selectedScriptKeys(selectedScripts),
             );
 
             const nextSteps = yield* finalizeService.collectNextSteps(

@@ -4,6 +4,7 @@ import type {
   CatalogGraph,
   CatalogNode,
 } from "@repo/domain/Catalog";
+import { isCustomCatalogSource } from "@repo/domain/CatalogSource";
 import { Table } from "@repo/tui";
 import {
   Array as Arr,
@@ -17,8 +18,8 @@ import {
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Command, Flag } from "effect/unstable/cli";
-import { catalogFlag } from "../flags";
-import { CatalogSelection, isCustomSource } from "../service/CatalogSelection";
+import { catalogFlag, rootFlag } from "../flags";
+import { CatalogSelection } from "../service/CatalogSelection";
 
 const formatFlag = Flag.Literals("format", ["table", "mermaid", "dot"]).pipe(
   Flag.optional,
@@ -322,14 +323,14 @@ const renderTable = (
 
 export const graph = Command.make(
   "graph",
-  { format: formatFlag, catalog: catalogFlag },
+  { format: formatFlag, catalog: catalogFlag, root: rootFlag },
   (flags) =>
     Effect.gen(function* () {
       const catalog = yield* CatalogService;
       const selection = yield* CatalogSelection;
-      // Official-only output stays unchanged; a Source column appears once custom catalogs are selected.
+      // Official-only output stays unchanged; sources appear once custom catalogs are selected.
       const sourceOf = selection.sources.some((source) =>
-        isCustomSource(source.name),
+        isCustomCatalogSource(source.name),
       )
         ? Option.some((node: typeof CatalogNode.Type) =>
             Option.getOrElse(
@@ -344,12 +345,17 @@ export const graph = Command.make(
         : Option.none();
       const g = catalog.toGraph;
       const fmt = Option.getOrElse(flags.format, () => "table" as const);
+      const labelWithSource = Option.match(sourceOf, {
+        onNone: () => nodeLabel,
+        onSome: (source) => (node: typeof CatalogNode.Type) =>
+          `${nodeLabel(node)} (${source(node)})`,
+      });
 
       switch (fmt) {
         case "mermaid": {
           yield* Console.log(
             Graph.toMermaid(g, {
-              nodeLabel,
+              nodeLabel: labelWithSource,
               edgeLabel: (e) => e,
               direction: "LR",
             }),
@@ -358,7 +364,10 @@ export const graph = Command.make(
         }
         case "dot": {
           yield* Console.log(
-            Graph.toGraphViz(g, { nodeLabel, edgeLabel: (e) => e }),
+            Graph.toGraphViz(g, {
+              nodeLabel: labelWithSource,
+              edgeLabel: (e) => e,
+            }),
           );
           break;
         }

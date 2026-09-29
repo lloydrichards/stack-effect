@@ -1,5 +1,8 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import type { CatalogSources } from "@repo/domain/CatalogSource";
+import {
+  type CatalogSources,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import {
   makeRuntime,
@@ -35,7 +38,7 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
-import { CatalogSelection, selectsOfficial } from "../service/CatalogSelection";
+import { CatalogSelection } from "../service/CatalogSelection";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
@@ -229,7 +232,7 @@ export const create = Command.make(
       // workspace-devenv-git is an official module; custom-only sets bring their own.
       const recipeSpec = buildRecipeSpec(
         flags.target.value,
-        !flags.noGit && selectsOfficial(catalogSelection.sources),
+        !flags.noGit && selectsOfficialCatalog(catalogSelection.sources),
       );
       const selection = yield* recipes.resolve(recipeSpec, {
         config,
