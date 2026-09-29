@@ -1,8 +1,16 @@
-import { exportOfficialCatalog } from "@repo/catalog-official/service";
+import {
+  exportAuthorCatalog,
+  publishedAuthorCatalogUrl,
+} from "@repo/catalog-author/service";
+import {
+  exportOfficialCatalog,
+  publishedCatalogUrl,
+} from "@repo/catalog-official/service";
 import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { Data, Effect, Option, Schema } from "effect";
 
 export const CATALOG_ASSET_PATH = "/registry/v1/catalog.json";
+export const AUTHOR_CATALOG_ASSET_PATH = "/registry/v1/author.json";
 export const CONFIG_SCHEMA_ASSET_PATH = "/schemas/v1/stack.effect.schema.json";
 
 const JsonString = Schema.fromJsonString(Schema.Unknown, { space: 2 });
@@ -11,6 +19,7 @@ export const generateCatalogRegistryAssets = Effect.fn(
   "Docs.generateCatalogRegistryAssets",
 )(function* () {
   const catalog = yield* exportOfficialCatalog;
+  const author = yield* exportAuthorCatalog;
   const configSchema = {
     ...Schema.toStandardJSONSchemaV1(StackConfig)["~standard"].jsonSchema.input(
       {
@@ -23,43 +32,60 @@ export const generateCatalogRegistryAssets = Effect.fn(
   const encodedSchema = yield* Schema.encodeEffect(JsonString)(configSchema);
   return {
     [CATALOG_ASSET_PATH]: catalog,
+    [AUTHOR_CATALOG_ASSET_PATH]: author,
     [CONFIG_SCHEMA_ASSET_PATH]: `${encodedSchema}\n`,
   };
 });
 
-const rebuild = "run `bun run --cwd catalogs/official build` first";
+/** A catalog the site hosts, with the workspace whose build it publishes. */
+export interface PublishedCatalog {
+  readonly asset: typeof CATALOG_ASSET_PATH | typeof AUTHOR_CATALOG_ASSET_PATH;
+  readonly workspace: string;
+  readonly build: URL;
+}
 
-export class OfficialCatalogBuildMissing extends Data.TaggedError(
-  "OfficialCatalogBuildMissing",
-) {
+export const publishedCatalogs: ReadonlyArray<PublishedCatalog> = [
+  {
+    asset: CATALOG_ASSET_PATH,
+    workspace: "catalogs/official",
+    build: publishedCatalogUrl,
+  },
+  {
+    asset: AUTHOR_CATALOG_ASSET_PATH,
+    workspace: "catalogs/author",
+    build: publishedAuthorCatalogUrl,
+  },
+];
+
+export class CatalogBuildMissing extends Data.TaggedError(
+  "CatalogBuildMissing",
+)<{ readonly catalog: PublishedCatalog }> {
   override get message(): string {
-    return `No built official catalog; ${rebuild}.`;
+    return `No built catalog for ${this.catalog.asset}; run \`bun run --cwd ${this.catalog.workspace} build\` first.`;
   }
 }
 
-export class OfficialCatalogBuildStale extends Data.TaggedError(
-  "OfficialCatalogBuildStale",
-) {
+export class CatalogBuildStale extends Data.TaggedError("CatalogBuildStale")<{
+  readonly catalog: PublishedCatalog;
+}> {
   override get message(): string {
-    return `The built official catalog is out of date; ${rebuild}.`;
+    return `The built catalog for ${this.catalog.asset} is out of date; run \`bun run --cwd ${this.catalog.workspace} build\` first.`;
   }
 }
 
 /**
- * Publish the catalog workspace's build output only when it matches the
+ * Publish a catalog workspace's build output only when it matches the
  * definitions checked in this run, so the site never serves a stale build.
  */
 export const publishableCatalog = (
+  catalog: PublishedCatalog,
   built: Option.Option<string>,
   expected: string,
-): Effect.Effect<
-  string,
-  OfficialCatalogBuildMissing | OfficialCatalogBuildStale
-> =>
+): Effect.Effect<string, CatalogBuildMissing | CatalogBuildStale> =>
   Option.match(built, {
-    onNone: () => Effect.fail(new OfficialCatalogBuildMissing()),
-    onSome: (catalog) =>
-      catalog === expected
-        ? Effect.succeed(catalog)
-        : Effect.fail(new OfficialCatalogBuildStale()),
+    onNone: () => Effect.fail(new CatalogBuildMissing({ catalog })),
+    onSome: (source) =>
+      source === expected
+        ? Effect.succeed(source)
+        : Effect.fail(new CatalogBuildStale({ catalog })),
   });

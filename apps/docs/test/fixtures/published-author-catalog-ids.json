@@ -1,0 +1,4 @@
+{
+  "targets": ["catalog"],
+  "modules": ["catalog-starter"]
+}

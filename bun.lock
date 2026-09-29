@@ -87,6 +87,7 @@
         "@effect/vitest": "4.0.0-rc.117",
         "@mdx-js/rollup": "^3.1.1",
         "@react-router/dev": "8.4.0",
+        "@repo/catalog-author": "workspace:*",
         "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@tailwindcss/vite": "^4.3.3",

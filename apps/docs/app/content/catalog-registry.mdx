@@ -14,6 +14,16 @@ If a network failure or temporary server error prevents a current load, Stack Ef
 
 With no usable cache, the operation stops before generating files. An invalid document, unsupported catalog capability, or permanent HTTP error also stops the operation, even if an older cache exists. Retry in Recipe Builder starts a new session and checks the registry again.
 
+## Create a catalog project
+
+The [author catalog](/registry/v1/author.json) creates a project for publishing a catalog of your own. It extends the official catalog, so select both:
+
+```bash
+stack-effect create my-catalog --catalog official --catalog author=https://stack-effect.lloydrichards.dev/registry/v1/author.json --target catalog/registry:catalog-starter
+```
+
+The project lives in `apps/catalog-registry`. There, `bun run validate` checks the definitions, `bun run preview app/:app-greeting` shows the files a consumer would get, and `bun run build` writes `dist/registry/v1/catalog.json`. The starter is a standalone catalog, so consumers select it on its own. This requires `stack-effect` 0.16.0 or later.
+
 ## Project configuration
 
 New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stack.effect.schema.json). Existing files without it remain valid. The link helps editors describe the file; the installed CLI validates configuration with its own schema. Project files contain no downloaded catalog, catalog version pin, or lockfile.

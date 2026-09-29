@@ -4,27 +4,39 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect } from "vitest";
 import {
+  AUTHOR_CATALOG_ASSET_PATH,
   CATALOG_ASSET_PATH,
   CONFIG_SCHEMA_ASSET_PATH,
   generateCatalogRegistryAssets,
   publishableCatalog,
+  publishedCatalogs,
 } from "../scripts/catalog-registry-assets";
+import publishedAuthorIds from "./fixtures/published-author-catalog-ids.json";
 import publishedIds from "./fixtures/published-catalog-ids.json";
 
 describe("catalog registry assets", () => {
-  it.effect("keeps every published target and module identifier", () =>
+  it.effect.each([
+    { asset: CATALOG_ASSET_PATH, ids: publishedIds },
+    { asset: AUTHOR_CATALOG_ASSET_PATH, ids: publishedAuthorIds },
+  ] as const)("keeps every published identifier in $asset", ({ asset, ids }) =>
     Effect.gen(function* () {
       const assets = yield* generateCatalogRegistryAssets();
       const catalog = yield* Schema.decodeEffect(
         Schema.fromJsonString(CatalogDocument),
-      )(assets[CATALOG_ASSET_PATH]);
+      )(assets[asset]);
 
-      expect(catalog.targets.map((target) => target.kind)).toEqual(
-        publishedIds.targets,
-      );
-      expect(catalog.modules.map((module) => module.id)).toEqual(
-        publishedIds.modules,
-      );
+      expect(catalog.targets.map((target) => target.kind)).toEqual(ids.targets);
+      expect(catalog.modules.map((module) => module.id)).toEqual(ids.modules);
+    }),
+  );
+
+  it.effect("publishes the author catalog as an extension of official", () =>
+    Effect.gen(function* () {
+      const assets = yield* generateCatalogRegistryAssets();
+      const author = yield* Schema.decodeEffect(
+        Schema.fromJsonString(CatalogDocument),
+      )(assets[AUTHOR_CATALOG_ASSET_PATH]);
+      expect(author.requires).toEqual(["official"]);
     }),
   );
 
@@ -51,21 +63,28 @@ describe("catalog registry assets", () => {
       }),
   );
 
-  it.effect("publishes only a current official catalog build", () =>
-    Effect.gen(function* () {
-      const expected = '{"formatVersion":1}\n';
-      expect(yield* publishableCatalog(Option.some(expected), expected)).toBe(
-        expected,
-      );
-      const missing = yield* Effect.flip(
-        publishableCatalog(Option.none(), expected),
-      );
-      expect(missing._tag).toBe("OfficialCatalogBuildMissing");
-      const stale = yield* Effect.flip(
-        publishableCatalog(Option.some('{"formatVersion":0}\n'), expected),
-      );
-      expect(stale._tag).toBe("OfficialCatalogBuildStale");
-    }),
+  it.effect.each(publishedCatalogs)(
+    "publishes only a current build of $workspace",
+    (catalog) =>
+      Effect.gen(function* () {
+        const expected = '{"formatVersion":1}\n';
+        expect(
+          yield* publishableCatalog(catalog, Option.some(expected), expected),
+        ).toBe(expected);
+        const missing = yield* Effect.flip(
+          publishableCatalog(catalog, Option.none(), expected),
+        );
+        expect(missing._tag).toBe("CatalogBuildMissing");
+        expect(missing.message).toContain(catalog.workspace);
+        const stale = yield* Effect.flip(
+          publishableCatalog(
+            catalog,
+            Option.some('{"formatVersion":0}\n'),
+            expected,
+          ),
+        );
+        expect(stale._tag).toBe("CatalogBuildStale");
+      }),
   );
 });
 import { it } from "@effect/vitest";

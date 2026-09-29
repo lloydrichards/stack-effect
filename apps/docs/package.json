@@ -6,14 +6,15 @@
   "scripts": {
     "build": "react-router build",
     "clean": "rm -rf build node_modules .turbo .react-router tsconfig.tsbuildinfo",
-    "dev": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run scripts/write-catalog-registry-assets.ts && react-router dev",
+    "dev": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts && react-router dev",
     "lint": "oxlint .",
-    "prebuild": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run scripts/write-catalog-registry-assets.ts",
+    "prebuild": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts",
     "start": "react-router-serve ./build/server/index.js",
     "test": "vitest run",
     "test:browser": "vitest run --project=browser",
     "test:watch": "vitest",
-    "type-check": "react-router typegen && tsc"
+    "type-check": "react-router typegen && tsc",
+    "check:registry": "bun run scripts/check-registry.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -56,6 +57,7 @@
     "@effect/vitest": "4.0.0-rc.117",
     "@mdx-js/rollup": "^3.1.1",
     "@react-router/dev": "8.4.0",
+    "@repo/catalog-author": "workspace:*",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@tailwindcss/vite": "^4.3.3",

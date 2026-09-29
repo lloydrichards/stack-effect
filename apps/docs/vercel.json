@@ -25,6 +25,29 @@
       ]
     },
     {
+      "source": "/registry/v1/author.json",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json; charset=utf-8" },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, HEAD, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "If-None-Match, If-Modified-Since"
+        },
+        {
+          "key": "Access-Control-Expose-Headers",
+          "value": "ETag, Last-Modified"
+        }
+      ]
+    },
+    {
       "source": "/schemas/v1/stack.effect.schema.json",
       "headers": [
         { "key": "Content-Type", "value": "application/json; charset=utf-8" },
@@ -50,7 +73,7 @@
   ],
   "routes": [
     {
-      "src": "/(registry/v1/catalog|schemas/v1/stack\\.effect\\.schema)\\.json",
+      "src": "/(registry/v1/catalog|registry/v1/author|schemas/v1/stack\\.effect\\.schema)\\.json",
       "methods": ["GET", "HEAD"],
       "headers": {
         "Access-Control-Expose-Headers": "ETag, Last-Modified"
