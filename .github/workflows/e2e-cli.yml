@@ -14,6 +14,7 @@ on:
       - "flake.nix"
       - "catalogs/**"
       - "packages/authoring/**"
+      - "packages/author/**"
   pull_request:
     branches:
       - main
@@ -26,10 +27,11 @@ on:
       - "flake.nix"
       - "catalogs/**"
       - "packages/authoring/**"
+      - "packages/author/**"
 
 jobs:
   e2e:
-    name: "E2E Test (init + add)"
+    name: "E2E Test (init + add + registry project)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -64,4 +66,5 @@ jobs:
             cd apps/cli
             bunx vitest run --config vitest.e2e.config.ts e2e/init.test.ts
             bunx vitest run --config vitest.e2e.config.ts e2e/add.test.ts
+            bunx vitest run --config vitest.e2e.config.ts e2e/registry-project.test.ts
           '
