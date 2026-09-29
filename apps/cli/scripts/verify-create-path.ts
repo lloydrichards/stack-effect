@@ -14,10 +14,19 @@ import {
   NodeRuntime,
   NodeServices,
 } from "@effect/platform-node";
-import { Console, Data, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import {
+  Console,
+  Data,
+  Effect,
+  FileSystem,
+  Layer,
+  Path,
+  Schema,
+  Stream,
+} from "effect";
 import { HttpServer, HttpServerResponse } from "effect/unstable/http";
+import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { spawnCommand } from "../e2e/harness";
 
 const AUTHOR_CATALOG_URL =
   "https://stack-effect.lloydrichards.dev/registry/v1/author.json";
@@ -61,18 +70,40 @@ const program = Effect.gen(function* () {
   });
   const cli = path.join(root, "cli/node_modules/.bin/stack-effect");
   // A fresh catalog cache, so every source is fetched from its host.
-  const cache = `XDG_CACHE_HOME=${path.join(root, "cache")}`;
+  const env = { XDG_CACHE_HOME: path.join(root, "cache") };
 
-  const step = (label: string, cwd: string, ...command: Array<string>) =>
-    spawnCommand(spawner, command, cwd, root).pipe(
-      Effect.flatMap((result) =>
-        result.exitCode === 0
-          ? Console.log(`PASS  ${label}`)
-          : new CreatePathFailed({
-              message: `FAIL  ${label} (exit ${result.exitCode})\n${result.stdout.slice(-3000)}\n${result.stderr.slice(-3000)}`,
-            }),
-      ),
-    );
+  // Arguments go to the process as argv, never through a shell, so a
+  // supplied npm spec or URL stays one literal argument.
+  const step = (
+    label: string,
+    cwd: string,
+    command: string,
+    ...commandArgs: Array<string>
+  ) =>
+    Effect.gen(function* () {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(command, commandArgs, {
+          cwd,
+          env,
+          extendEnv: true,
+          stdout: "pipe",
+          stderr: "pipe",
+        }),
+      );
+      const [stdout, stderr, exitCode] = yield* Effect.all(
+        [
+          Stream.mkString(Stream.decodeText(handle.stdout)),
+          Stream.mkString(Stream.decodeText(handle.stderr)),
+          handle.exitCode,
+        ],
+        { concurrency: "unbounded" },
+      );
+      return exitCode === 0
+        ? yield* Console.log(`PASS  ${label}`)
+        : yield* new CreatePathFailed({
+            message: `FAIL  ${label} (exit ${exitCode})\n${stdout.slice(-3000)}\n${stderr.slice(-3000)}`,
+          });
+    }).pipe(Effect.scoped);
   const catalogsOf = (project: string) =>
     fs.readFileString(path.join(root, project, "stack.effect.json")).pipe(
       Effect.flatMap(Schema.decodeEffect(Config)),
@@ -93,8 +124,6 @@ const program = Effect.gen(function* () {
   yield* step(
     `create a registry project from ${authorUrl}`,
     root,
-    "env",
-    cache,
     cli,
     "create",
     "reg",
@@ -103,7 +132,7 @@ const program = Effect.gen(function* () {
     "--catalog",
     "official",
     "--catalog",
-    `'author=${authorUrl}'`,
+    `author=${authorUrl}`,
     "--target",
     "catalog/",
     "--yes",
@@ -146,15 +175,13 @@ const program = Effect.gen(function* () {
   yield* step(
     "create a second project from the standalone catalog alone",
     root,
-    "env",
-    cache,
     cli,
     "create",
     "consumer",
     "--root",
     root,
     "--catalog",
-    `'mine=${mine}'`,
+    `mine=${mine}`,
     "--target",
     "app/:app-greeting",
     "--yes",
