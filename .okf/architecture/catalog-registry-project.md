@@ -21,7 +21,7 @@ generated: { by: claude, at: "2026-09-29T13:30:00+02:00" }
 
 # Catalog registry project
 
-Status: Implemented. Issue #297 owns the generated project. Issue #298 owns hosting `author.json` and the deployed create path.
+Status: Implemented. Issue #297 owns the generated project. Issue #298 hosts `author.json` at `/registry/v1/author.json` beside the official catalog, and proves the deployed create path with `check:registry` and `verify:create-path`.
 
 ## Keep the author catalog separate from the official catalog
 
