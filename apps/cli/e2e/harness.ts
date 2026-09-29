@@ -37,13 +37,14 @@ import {
 import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 
-interface CommandResult {
+export interface CommandResult {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
 }
 
-const spawnCommand = (
+/** Run a shell command in `cwd`, with temporary files kept under `tempDir`. */
+export const spawnCommand = (
   spawner: ChildProcessSpawner["Service"],
   args: ReadonlyArray<string>,
   cwd: string,

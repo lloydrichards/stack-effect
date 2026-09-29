@@ -4,11 +4,11 @@ import { createServer } from "node:http";
 import { NodeHttpServer, NodeServices } from "@effect/platform-node";
 import { assert, describe, layer } from "@effect/vitest";
 import { exportAuthorCatalog } from "@repo/catalog-author/service";
-import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
+import { CatalogDocument } from "@repo/domain/Catalog";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { HttpServer, HttpServerResponse } from "effect/unstable/http";
-import { ChildProcess } from "effect/unstable/process";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
-import { CLI } from "./harness";
+import { CLI, type CommandResult, spawnCommand } from "./harness";
 
 /**
  * Acceptance test for the registry project the author catalog generates.
@@ -22,63 +22,20 @@ const repoRoot = new URL("../../../", import.meta.url).pathname;
 const registry = "reg/apps/catalog-registry";
 const catalogFile = `${registry}/dist/registry/v1/catalog.json`;
 
-type Spawner = ChildProcessSpawner["Service"];
-
-const run = (spawner: Spawner, cwd: string, args: ReadonlyArray<string>) =>
-  Effect.gen(function* () {
-    const [command = "", ...rest] = args;
-    const handle = yield* spawner.spawn(
-      ChildProcess.make(command, rest, { cwd, stdout: "pipe", stderr: "pipe" }),
-    );
-    const [stdout, stderr, exitCode] = yield* Effect.all(
-      [
-        Stream.mkString(Stream.decodeText(handle.stdout)),
-        Stream.mkString(Stream.decodeText(handle.stderr)),
-        handle.exitCode,
-      ],
-      { concurrency: "unbounded" },
-    );
-    return { stdout, stderr, exitCode };
-  }).pipe(Effect.scoped, Effect.orDie);
-
-const expectSuccess = (
-  spawner: Spawner,
-  cwd: string,
-  args: ReadonlyArray<string>,
-) =>
-  run(spawner, cwd, args).pipe(
-    Effect.tap((result) =>
-      result.exitCode === 0
-        ? Effect.void
-        : Effect.die(
-            new Error(
-              `${args.join(" ")} failed (exit ${result.exitCode})\n${result.stdout.slice(-2000)}\n${result.stderr.slice(-2000)}`,
-            ),
+const expectExit =
+  (label: string, code = 0) =>
+  (result: CommandResult) =>
+    result.exitCode === code
+      ? Effect.succeed(result)
+      : Effect.die(
+          new Error(
+            `${label}: expected exit ${code}, got ${result.exitCode}\n${result.stdout.slice(-2000)}\n${result.stderr.slice(-2000)}`,
           ),
-    ),
-  );
+        );
 
-/** Build a workspace package and pack it into `destination`. */
-const pack = (spawner: Spawner, workspace: string, destination: string) =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const cwd = path.join(repoRoot, workspace);
-    yield* expectSuccess(spawner, cwd, ["bun", "run", "build"]);
-    const { stdout } = yield* expectSuccess(spawner, cwd, [
-      "npm",
-      "pack",
-      "--json",
-      "--pack-destination",
-      destination,
-    ]);
-    const [packed] = yield* Schema.decodeEffect(
-      Schema.fromJsonString(
-        Schema.Array(Schema.Struct({ filename: Schema.String })),
-      ),
-    )(stdout).pipe(Effect.orDie);
-    assert.isDefined(packed);
-    return path.join(destination, packed.filename);
-  });
+const PackResult = Schema.fromJsonString(
+  Schema.Array(Schema.Struct({ filename: Schema.String })),
+);
 
 /** Serve the author catalog on a free loopback port for this scope. */
 const serveAuthorCatalog = Effect.gen(function* () {
@@ -113,12 +70,35 @@ describe("registry project", () => {
             const url = yield* serveAuthorCatalog;
             const tarballs = path.join(cli.workdir, "tarballs");
             yield* fs.makeDirectory(tarballs).pipe(Effect.orDie);
-            const author = yield* pack(spawner, "packages/author", tarballs);
-            const stackEffect = yield* pack(spawner, "apps/cli", tarballs);
 
-            // Finalize installs the published versions, which may not exist
-            // yet; the files are written before Finalize runs.
-            yield* cli.run(
+            /** Build a workspace package and pack it outside the checkout. */
+            const pack = (workspace: string) =>
+              Effect.gen(function* () {
+                const cwd = path.join(repoRoot, workspace);
+                const exec = (...args: ReadonlyArray<string>) =>
+                  spawnCommand(spawner, args, cwd, tarballs).pipe(
+                    Effect.flatMap(
+                      expectExit(`${workspace}: ${args.join(" ")}`),
+                    ),
+                  );
+                yield* exec("bun", "run", "build");
+                const { stdout } = yield* exec(
+                  "npm",
+                  "pack",
+                  "--json",
+                  "--pack-destination",
+                  tarballs,
+                );
+                const [packed] = yield* Schema.decodeEffect(PackResult)(
+                  stdout,
+                ).pipe(Effect.orDie);
+                assert.isDefined(packed);
+                return path.join(tarballs, packed.filename);
+              });
+            const author = yield* pack("packages/author");
+            const stackEffect = yield* pack("apps/cli");
+
+            const created = yield* cli.run(
               "create",
               "reg",
               "--root",
@@ -132,6 +112,13 @@ describe("registry project", () => {
               "--yes",
               "--no-git",
             );
+            // Until the pinned versions are published, Finalize's install is
+            // the only step allowed to fail; Apply has written every file.
+            if (created.exitCode !== 0)
+              assert.match(
+                created.stdout + created.stderr,
+                /@stack-effect\/author@~0\.1\.0 failed to resolve/,
+              );
             yield* cli.expectFileExists(`${registry}/catalog/starter.ts`);
             yield* cli.expectFileContaining(
               "reg/stack.effect.json",
@@ -139,68 +126,56 @@ describe("registry project", () => {
             );
 
             yield* cli.withinProject("reg", function* (project) {
-              const registryDir = path.join(
-                project.dir,
-                "apps/catalog-registry",
-              );
               const read = (file: string) =>
                 fs
                   .readFileString(path.join(cli.workdir, file))
                   .pipe(Effect.orDie);
-              const script = (...args: ReadonlyArray<string>) =>
-                run(spawner, registryDir, ["bun", "run", ...args]);
+              const script = (code: number, ...args: ReadonlyArray<string>) =>
+                project
+                  .exec("bun", "run", "--cwd", "apps/catalog-registry", ...args)
+                  .pipe(Effect.flatMap(expectExit(args.join(" "), code)));
+              const build = Effect.andThen(
+                script(0, "build"),
+                read(catalogFile),
+              );
 
-              const manifest = path.join(registryDir, "package.json");
-              yield* fs
-                .writeFileString(
-                  manifest,
-                  (yield* read(`${registry}/package.json`))
-                    .replace(/"~0\.1\.0"/, `"file:${author}"`)
-                    .replace(/"~0\.16\.0"/, `"file:${stackEffect}"`),
-                )
-                .pipe(Effect.orDie);
+              const manifest = yield* read(`${registry}/package.json`);
+              const local = manifest
+                .replace('"~0.1.0"', `"file:${author}"`)
+                .replace('"~0.16.0"', `"file:${stackEffect}"`);
+              assert.notInclude(local, '"~0.', "every pinned range replaced");
+              yield* project.writeFile(
+                "apps/catalog-registry/package.json",
+                local,
+              );
               yield* project.expectInstallSucceeds();
 
-              // The generated project's own checks pass.
-              yield* project.expectTypeCheckPasses();
+              // The registry project's files arrive formatted; then run the
+              // same lint and format steps as Finalize and the checks.
+              yield* project.expectCommandSucceeds(
+                "Generated files are formatted",
+                "bunx",
+                "oxfmt",
+                "--check",
+                "apps/catalog-registry",
+              );
               yield* project.expectLintPasses();
+              yield* project.expectCommandSucceeds("Format", "bun", "format");
               yield* project.expectFormatPasses();
-              const validate = yield* script("validate");
-              assert.strictEqual(validate.exitCode, 0, validate.stderr);
+              yield* project.expectTypeCheckPasses();
+              const validate = yield* script(0, "validate");
               assert.include(validate.stdout, "Catalog reg is valid");
 
               // Two builds, and a format run between builds, give identical bytes.
-              yield* project.expectCommandSucceeds(
-                "Build",
-                "bun",
-                "run",
-                "--cwd",
-                "apps/catalog-registry",
-                "build",
-              );
-              const first = yield* read(catalogFile);
-              yield* project.expectCommandSucceeds(
-                "Format",
-                "bun",
-                "run",
-                "format",
-              );
-              yield* script("build");
-              assert.strictEqual(yield* read(catalogFile), first);
+              const first = yield* build;
+              yield* project.expectCommandSucceeds("Format", "bun", "format");
+              assert.strictEqual(yield* build, first);
 
-              // The standalone document carries real tokens and no official source.
+              // A v1 standalone document with real tokens and no official source.
               const document = yield* Schema.decodeEffect(
-                Schema.fromJsonString(
-                  Schema.Struct({
-                    catalogId: Schema.String,
-                    requires: Schema.optional(Schema.Array(Schema.String)),
-                    targets: Schema.Array(
-                      Schema.Struct({ kind: Schema.String }),
-                    ),
-                    modules: Schema.Array(Schema.Struct({ id: Schema.String })),
-                  }),
-                ),
+                Schema.fromJsonString(CatalogDocument),
               )(first).pipe(Effect.orDie);
+              assert.strictEqual(document.formatVersion, 1);
               assert.strictEqual(document.catalogId, "reg");
               assert.isUndefined(document.requires);
               assert.deepStrictEqual(
@@ -212,10 +187,11 @@ describe("registry project", () => {
                 ["app-greeting"],
               );
               assert.include(first, `"path":"{{targetPath}}/src/greeting.ts"`);
+              assert.include(first, '\\"name\\": \\"{{packageName}}\\"');
 
-              const preview = yield* script("preview", "app/:app-greeting");
-              assert.strictEqual(preview.exitCode, 0, preview.stderr);
+              const preview = yield* script(0, "preview", "app/:app-greeting");
               assert.include(preview.stdout, "apps/app-demo/src/greeting.ts");
+              assert.include(preview.stdout, '"name": "app-demo"');
               assert.include(
                 preview.stdout,
                 "Hello from a Stack Effect catalog",
@@ -226,23 +202,19 @@ describe("registry project", () => {
                 "apps/catalog-registry/templates/app-greeting/src/greeting.ts",
                 'export const greeting = "Edited greeting";\n',
               );
-              yield* script("build");
-              assert.include(yield* read(catalogFile), "Edited greeting");
-              const edited = yield* script("preview", "app/:app-greeting");
-              assert.strictEqual(edited.exitCode, 0, edited.stderr);
+              assert.include(yield* build, "Edited greeting");
+              const edited = yield* script(0, "preview", "app/:app-greeting");
               assert.include(edited.stdout, "Edited greeting");
 
               // An invalid definition fails with the source that caused it.
-              const starter = `${registry}/catalog/starter.ts`;
               yield* project.writeFile(
                 "apps/catalog-registry/catalog/starter.ts",
-                (yield* read(starter)).replace(
+                (yield* read(`${registry}/catalog/starter.ts`)).replace(
                   '_tag: "kind", kind: "app"',
                   '_tag: "kind", kind: "ap"',
                 ),
               );
-              const invalid = yield* script("validate");
-              assert.strictEqual(invalid.exitCode, 1);
+              const invalid = yield* script(1, "validate");
               assert.include(
                 invalid.stderr,
                 "catalog/starter.ts: Module app-greeting references missing target ap",
