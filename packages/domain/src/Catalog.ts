@@ -380,6 +380,8 @@ export const CatalogDocument = Schema.Struct({
   formatVersion: Schema.Literal(1),
   catalogId: Schema.NonEmptyString,
   requiredCapabilities: Schema.Array(Schema.String),
+  /** Selected sources this document may reference. v1 accepts only the official source. */
+  requires: Schema.optionalKey(Schema.Array(Schema.Literal("official"))),
   targets: Schema.Array(TargetDefinition),
   modules: Schema.Array(ModuleDefinition),
 });
@@ -418,6 +420,8 @@ export const CatalogIssueCode = Schema.Literals([
   "unavailable-capability",
   "asymmetric-conflict",
   "finalize-script",
+  "undeclared-reference",
+  "missing-source",
 ]);
 export type CatalogIssueCode = typeof CatalogIssueCode.Type;
 

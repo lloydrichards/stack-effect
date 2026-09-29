@@ -5,7 +5,11 @@ export {
   type BuilderCatalogTargetModules,
   CatalogService,
 } from "./CatalogService";
-export { composeCatalog } from "./composeCatalog";
+export {
+  type CatalogFragmentSource,
+  type ComposeCatalogOptions,
+  composeCatalog,
+} from "./composeCatalog";
 export {
   decodeCatalogDocument,
   templateCapabilities,

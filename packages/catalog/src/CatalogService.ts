@@ -19,9 +19,10 @@ import {
   Graph,
   Layer,
   Match,
+  Option,
   Result,
 } from "effect";
-import { composeCatalog } from "./composeCatalog";
+import { type ComposeCatalogOptions, composeCatalog } from "./composeCatalog";
 
 export type BuilderCatalogTarget = {
   readonly kind: typeof TargetKind.Type;
@@ -101,16 +102,25 @@ const requiredCapabilityDependency = Match.type<
   Match.orElse(() => Result.fail("skip" as const)),
 );
 
-const CatalogDefinitions = Context.Service<CatalogFragment>(
-  "@repo/catalog/CatalogDefinitions",
-);
+/** Source name per definition, present when fragments came from named sources. */
+type CatalogOrigins = {
+  readonly targets: ReadonlyMap<string, string>;
+  readonly modules: ReadonlyMap<string, string>;
+};
+
+const CatalogDefinitions = Context.Service<
+  CatalogFragment & { readonly origins?: CatalogOrigins }
+>("@repo/catalog/CatalogDefinitions");
 
 export class CatalogService extends Context.Service<CatalogService>()(
   "CatalogService",
   {
     make: Effect.gen(function* () {
-      const { targets: targetRegistry, modules: moduleRegistry } =
-        yield* CatalogDefinitions;
+      const {
+        targets: targetRegistry,
+        modules: moduleRegistry,
+        origins,
+      } = yield* CatalogDefinitions;
       const targetIndex = new Map(targetRegistry.map((t) => [t.kind, t]));
       const moduleIndex = new Map(moduleRegistry.map((m) => [m.id, m]));
 
@@ -445,8 +455,21 @@ export class CatalogService extends Context.Service<CatalogService>()(
         })),
       };
 
+      /** The selected source that supplied a definition, when sources are named. */
+      const getSource = (
+        subject:
+          | { readonly _tag: "target"; readonly kind: string }
+          | { readonly _tag: "module"; readonly id: string },
+      ): Option.Option<string> =>
+        Option.fromUndefinedOr(
+          subject._tag === "target"
+            ? origins?.targets.get(subject.kind)
+            : origins?.modules.get(subject.id),
+        );
+
       return {
         getImplications,
+        getSource,
         getCapabilityProviders,
         getModules,
         getModule,
@@ -464,7 +487,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
 ) {
   static readonly fromFragments = (
     fragments: ReadonlyArray<unknown>,
-    options?: { readonly trustedFragmentIndex?: number },
+    options?: ComposeCatalogOptions,
   ) =>
     Layer.effect(CatalogService)(CatalogService.make).pipe(
       Layer.provide(

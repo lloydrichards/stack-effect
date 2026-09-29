@@ -1,8 +1,11 @@
 import { CatalogService, decodeCatalogDocument } from "@repo/catalog";
 import {
   CatalogCapabilityError,
+  type CatalogDocument,
+  type CatalogIssue,
   type CatalogValidationError,
 } from "@repo/domain/Catalog";
+import type { CatalogSources } from "@repo/domain/CatalogSource";
 import {
   Clock,
   Context,
@@ -40,6 +43,8 @@ export class CatalogLoadFailure extends Data.TaggedError("CatalogLoadFailure")<{
   readonly sourceUrl: string;
   readonly message: string;
   readonly status?: number;
+  /** Selected source name, when the failure came from `loadSources`. */
+  readonly sourceName?: string;
 }> {}
 
 export interface CatalogLoadWarning {
@@ -47,6 +52,14 @@ export interface CatalogLoadWarning {
   readonly sourceUrl: string;
   readonly lastValidatedAt: number;
   readonly message: string;
+}
+
+interface LoadedDocument<A> {
+  readonly value: A;
+  readonly sourceUrl: string;
+  readonly digest: string;
+  readonly freshness: "current" | "cached";
+  readonly warning?: CatalogLoadWarning;
 }
 
 export interface LoadedCatalog {
@@ -57,12 +70,59 @@ export interface LoadedCatalog {
   readonly warning?: CatalogLoadWarning;
 }
 
+/** One selected source as it was loaded for this operation. */
+export interface LoadedCatalogSource {
+  readonly name: string;
+  readonly sourceUrl: string;
+  readonly digest: string;
+  readonly freshness: "current" | "cached";
+  readonly warning?: CatalogLoadWarning;
+}
+
+export interface LoadedCatalogSet {
+  readonly catalog: typeof CatalogService.Service;
+  readonly sources: ReadonlyArray<LoadedCatalogSource>;
+}
+
+const describeSource = (source: LoadedCatalogSource) =>
+  `${source.name} (${source.sourceUrl}, ${
+    source.warning?.kind === "stale"
+      ? `cached, last validated at ${source.warning.lastValidatedAt} ms since epoch`
+      : source.freshness
+  })`;
+
+/** Every selected source loaded, but their definitions do not form one catalog. */
+export class CatalogCompositionFailure extends Data.TaggedError(
+  "CatalogCompositionFailure",
+)<{
+  readonly issues: ReadonlyArray<CatalogIssue>;
+  readonly sources: ReadonlyArray<LoadedCatalogSource>;
+}> {
+  override get message(): string {
+    return `Selected catalogs do not compose: ${this.issues
+      .map((issue) => issue.message)
+      .join("; ")}. Sources: ${this.sources.map(describeSource).join(", ")}.`;
+  }
+}
+
 export interface CatalogLoaderShape {
   readonly load: (input: {
     readonly sourceUrl: string;
     /** Application-owned authority. Never inferred from a downloaded catalogId. */
     readonly allowFinalizeScripts?: boolean;
   }) => Effect.Effect<LoadedCatalog, CatalogLoadFailure>;
+  /**
+   * Load every selected source, then compose them once. Any source without
+   * usable data fails the whole selection.
+   */
+  readonly loadSources: (input: {
+    readonly sources: CatalogSources;
+    /** Application-owned URL for the reserved `official` source. */
+    readonly officialUrl: string;
+  }) => Effect.Effect<
+    LoadedCatalogSet,
+    CatalogLoadFailure | CatalogCompositionFailure
+  >;
 }
 
 const failure = (
@@ -123,10 +183,12 @@ export class CatalogLoader extends Context.Service<
       ).join("");
     });
 
-    const decodeBytes = Effect.fn("CatalogLoader.decode")(function* (
+    const decodeBytes = Effect.fn("CatalogLoader.decode")(function* <A>(
       bytes: Uint8Array,
       sourceUrl: string,
-      allowFinalizeScripts: boolean,
+      check: (
+        document: CatalogDocument,
+      ) => Effect.Effect<A, CatalogLoadFailure>,
     ) {
       const digest = yield* digestBytes(bytes, sourceUrl);
       const text = yield* Effect.try({
@@ -171,18 +233,8 @@ export class CatalogLoader extends Context.Service<
               ),
         ),
       );
-      const catalog = yield* CatalogService.pipe(
-        Effect.provide(
-          CatalogService.fromFragments(
-            [document],
-            allowFinalizeScripts ? { trustedFragmentIndex: 0 } : {},
-          ),
-        ),
-        Effect.mapError((error: CatalogValidationError) =>
-          failure("invalidCatalog", sourceUrl, error.message),
-        ),
-      );
-      return { catalog, digest };
+      const value = yield* check(document);
+      return { value, digest };
     });
 
     const readBounded = Effect.fn("CatalogLoader.readBounded")(function* (
@@ -223,10 +275,12 @@ export class CatalogLoader extends Context.Service<
       return bytes;
     });
 
-    const load = Effect.fn("CatalogLoader.load")(function* ({
-      sourceUrl: inputUrl,
-      allowFinalizeScripts = false,
-    }: Parameters<CatalogLoaderShape["load"]>[0]) {
+    const loadDocument = Effect.fn("CatalogLoader.loadDocument")(function* <A>(
+      inputUrl: string,
+      check: (
+        document: CatalogDocument,
+      ) => Effect.Effect<A, CatalogLoadFailure>,
+    ) {
       const sourceUrl = yield* normalizedUrl(inputUrl);
       const startedAt = yield* Clock.currentTimeMillis;
       const cached = yield* cache.read(sourceUrl).pipe(
@@ -237,11 +291,7 @@ export class CatalogLoader extends Context.Service<
                 const bytes = new Uint8Array(entry.bytes);
                 const digest = yield* digestBytes(bytes, sourceUrl);
                 if (digest !== entry.digest) return undefined;
-                const decoded = yield* decodeBytes(
-                  bytes,
-                  sourceUrl,
-                  allowFinalizeScripts,
-                );
+                const decoded = yield* decodeBytes(bytes, sourceUrl, check);
                 return { entry: { ...entry, bytes }, ...decoded };
               }),
         ),
@@ -298,7 +348,7 @@ export class CatalogLoader extends Context.Service<
                   validatedAt,
                 });
                 return {
-                  catalog: cached.catalog,
+                  value: cached.value,
                   sourceUrl,
                   digest: cached.digest,
                   freshness: "current" as const,
@@ -344,11 +394,7 @@ export class CatalogLoader extends Context.Service<
                 `Catalog response from ${sourceUrl} is not JSON.`,
               );
             const bytes = yield* readBounded(response, sourceUrl);
-            const decoded = yield* decodeBytes(
-              bytes,
-              sourceUrl,
-              allowFinalizeScripts,
-            );
+            const decoded = yield* decodeBytes(bytes, sourceUrl, check);
             const validatedAt = yield* Clock.currentTimeMillis;
             const entry: CatalogCacheEntry = {
               sourceUrl,
@@ -364,7 +410,7 @@ export class CatalogLoader extends Context.Service<
             };
             const written = yield* persist(entry);
             return {
-              catalog: decoded.catalog,
+              value: decoded.value,
               sourceUrl,
               digest: decoded.digest,
               freshness: "current" as const,
@@ -404,7 +450,7 @@ export class CatalogLoader extends Context.Service<
             );
       if (cached === undefined) return yield* current;
       const staleFallback = Effect.succeed({
-        catalog: cached.catalog,
+        value: cached.value,
         sourceUrl,
         digest: cached.digest,
         freshness: "cached" as const,
@@ -415,12 +461,87 @@ export class CatalogLoader extends Context.Service<
           message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
         },
       });
-      return yield* current.pipe(
+      const loaded: LoadedDocument<A> = yield* current.pipe(
         Effect.catchIf(isTransient, () => staleFallback),
       );
+      return loaded;
     });
 
-    return { load } satisfies CatalogLoaderShape;
+    const load = Effect.fn("CatalogLoader.load")(function* ({
+      sourceUrl,
+      allowFinalizeScripts = false,
+    }: Parameters<CatalogLoaderShape["load"]>[0]) {
+      const { value, ...loaded } = yield* loadDocument(sourceUrl, (document) =>
+        CatalogService.pipe(
+          Effect.provide(
+            CatalogService.fromFragments(
+              [document],
+              allowFinalizeScripts ? { trustedFragmentIndex: 0 } : {},
+            ),
+          ),
+          Effect.mapError((error: CatalogValidationError) =>
+            failure("invalidCatalog", sourceUrl, error.message),
+          ),
+        ),
+      );
+      return { ...loaded, catalog: value } satisfies LoadedCatalog;
+    });
+
+    const loadSources = Effect.fn("CatalogLoader.loadSources")(function* ({
+      sources,
+      officialUrl,
+    }: Parameters<CatalogLoaderShape["loadSources"]>[0]) {
+      const loaded = yield* Effect.forEach(
+        sources,
+        (source) =>
+          loadDocument("url" in source ? source.url : officialUrl, (document) =>
+            Effect.succeed(document),
+          ).pipe(
+            Effect.map(({ value, ...rest }) => ({
+              document: value,
+              source: { name: source.name, ...rest },
+            })),
+            Effect.mapError(
+              (error) =>
+                new CatalogLoadFailure({
+                  reason: error.reason,
+                  sourceUrl: error.sourceUrl,
+                  sourceName: source.name,
+                  message: `Catalog source ${source.name}: ${error.message}`,
+                  ...(error.status === undefined
+                    ? {}
+                    : { status: error.status }),
+                }),
+            ),
+          ),
+        { concurrency: "unbounded" },
+      );
+      const loadedSources = loaded.map(({ source }) => source);
+      const catalog = yield* CatalogService.pipe(
+        Effect.provide(
+          CatalogService.fromFragments(
+            loaded.map(({ document }) => document),
+            {
+              allowFinalizeScripts: true,
+              sources: loaded.map(({ document, source }) => ({
+                name: source.name,
+                requires: document.requires ?? [],
+              })),
+            },
+          ),
+        ),
+        Effect.mapError(
+          (error: CatalogValidationError) =>
+            new CatalogCompositionFailure({
+              issues: error.details,
+              sources: loadedSources,
+            }),
+        ),
+      );
+      return { catalog, sources: loadedSources } satisfies LoadedCatalogSet;
+    });
+
+    return { load, loadSources } satisfies CatalogLoaderShape;
   });
 
   static readonly layer = Layer.effect(this, this.make);

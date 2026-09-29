@@ -9,6 +9,7 @@
     "./Api": "./src/Api.ts",
     "./Blueprint": "./src/Blueprint.ts",
     "./Catalog": "./src/Catalog.ts",
+    "./CatalogSource": "./src/CatalogSource.ts",
     "./Chat": "./src/Chat.ts",
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",

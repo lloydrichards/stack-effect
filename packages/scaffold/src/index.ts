@@ -6,11 +6,14 @@ export {
   type CatalogCacheShape,
 } from "./service/catalog/CatalogCache";
 export {
+  CatalogCompositionFailure,
   CatalogLoader,
   CatalogLoadFailure,
   type CatalogLoadWarning,
   type CatalogLoadReason,
   type LoadedCatalog,
+  type LoadedCatalogSet,
+  type LoadedCatalogSource,
 } from "./service/catalog/CatalogLoader";
 export {
   type ApplyPreview,
