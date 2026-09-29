@@ -1,0 +1,14 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "outDir": "./dist",
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["src", "scripts", "test", "vitest.config.ts"],
+  "exclude": ["dist", "build", "node_modules", "**/templates/**"]
+}

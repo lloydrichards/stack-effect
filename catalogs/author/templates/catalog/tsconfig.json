@@ -1,0 +1,12 @@
+{
+  "extends": "@repo/config-typescript/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "declaration": false,
+    "declarationMap": false,
+    "types": ["{{runtime}}"]
+  },
+  "include": ["catalog", "scripts"],
+  "exclude": ["node_modules", "dist", "templates"]
+}

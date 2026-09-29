@@ -1,0 +1,31 @@
+{
+  "name": "@repo/catalog-author",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./service": "./src/service.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run",
+    "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@effect/platform-node": "4.0.0-rc.117",
+    "@repo/authoring": "workspace:*",
+    "@repo/catalog-official": "workspace:*",
+    "effect": "4.0.0-rc.117"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.0.0-rc.117",
+    "@repo/config-typescript": "workspace:*",
+    "@repo/domain": "workspace:*",
+    "@types/node": "^26.6.3",
+    "vitest": "^5.0.2"
+  }
+}

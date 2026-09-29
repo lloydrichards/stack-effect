@@ -1,0 +1,8 @@
+{
+  // The catalog embeds template files byte for byte; check the definitions only.
+  "root": false,
+  "extends": "//",
+  "files": {
+    "includes": ["**", "!templates/**"]
+  }
+}

@@ -1,0 +1,2 @@
+# The catalog embeds template files byte for byte; lint the definitions only.
+templates/
