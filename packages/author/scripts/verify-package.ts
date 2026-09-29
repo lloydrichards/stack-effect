@@ -128,10 +128,9 @@ const program = Effect.gen(function* () {
     packageDir,
     "../authoring/test/fixtures/standalone",
   );
-  const { name, peerDependencies } = yield* Schema.decodeEffect(Manifest)(
+  const { name } = yield* Schema.decodeEffect(Manifest)(
     yield* fs.readFileString(path.join(packageDir, "package.json")),
   );
-  const effectVersion = peerDependencies.effect;
   const version = yield* registryVersion;
   const project = yield* fs.makeTempDirectoryScoped({
     prefix: "stack-effect-author-",
@@ -166,6 +165,15 @@ const program = Effect.gen(function* () {
     return yield* new VerifyError({
       message: `Tarball ships unexpected files: ${unexpected.join(", ")}`,
     });
+  // Install the Effect release that the verified tarball, not this checkout,
+  // declares as its peer.
+  const effectVersion = (yield* Schema.decodeEffect(Manifest)(
+    yield* run(
+      "tar",
+      ["-xzf", packed.filename, "-O", "package/package.json"],
+      project,
+    ),
+  )).peerDependencies.effect;
 
   // The standalone fixture, importing the package the way an author would.
   const catalogDir = path.join(project, "catalog");

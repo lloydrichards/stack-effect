@@ -48,6 +48,11 @@ export const modules = defineModules(import.meta.url, [
 ```
 
 ```ts
+// templates/rest.ts, embedded byte for byte
+export const rest = "REST entry point";
+```
+
+```ts
 // targets.ts
 import { defineTargets } from "@stack-effect/author";
 
@@ -118,6 +123,8 @@ Consumers must select the official catalog too, for example `--catalog official 
 | `CatalogBuildError`, `OfficialCatalogUnavailable` | Typed failures. |
 | `CatalogBuildIssue`, `CatalogBuildIssueCode`, `DefinitionProvenance`, `TemplateProvenance` | Schemas for build issues and provenance. |
 | `CatalogInput`, `TargetInput`, `ModuleInput`, `ContributionInput`, `DefinitionGroup`, `TemplateRef`, `isTemplateRef` | Input types and the template reference guard. |
+| `BuildCatalogOptions`, `BuildCatalogResult` | Types of `buildCatalog`'s options and result. |
+| `CatalogDocument`, `CatalogIssueCode`, `CatalogIssueSubject` | The v1 document type, issue codes, and the schema naming an issue's definition. |
 
 `buildCatalog` options:
 
