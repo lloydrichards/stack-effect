@@ -224,11 +224,28 @@ describe("recipe builder URL", () => {
       });
     });
 
-    it("refuses a link without the official catalog", () => {
+    it("round trips a link without the official catalog", () => {
       const decoded = decode(`ext=${ext}`);
 
-      expect(decoded.issue).toMatch(/needs the official catalog/u);
-      expect(decoded.initialValues.config.catalogs).toBeUndefined();
+      expect(decoded.issue).toBeUndefined();
+      expect(decoded.initialValues.config.catalogs).toEqual([
+        { name: "ext", url: ext },
+      ]);
+      expect(
+        encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
+      ).toEqual([`ext=${ext}`]);
+    });
+
+    it("leaves official tool and Git choices out of a custom-only link", () => {
+      const decoded = decode(`ext=${ext}`);
+      const encoded = encodeRecipeBuilderUrl({
+        ...decoded.initialValues,
+        config: { ...decoded.initialValues.config, lint: "biome" },
+        gitEnabled: false,
+      });
+
+      expect(encoded.has("lint")).toBe(false);
+      expect(encoded.has("no-git")).toBe(false);
     });
 
     it.each([

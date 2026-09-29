@@ -69,6 +69,7 @@ export class CatalogProvider extends Context.Service<
                   {
                     name: OFFICIAL_CATALOG_SOURCE,
                     sourceUrl: "local:authoring",
+                    requires: [],
                     digest: "",
                     freshness: "current" as const,
                   },

@@ -29,16 +29,10 @@ const TargetNameSchema = Schema.String.check(
   }),
 );
 
-export const officialCatalogRequiredIssue =
-  "Recipe Builder needs the official catalog. Add catalog=official to use custom catalogs alongside it.";
-
-// Builder controls assume official tool and database modules, so custom-only
-// sets stay CLI-only for now.
-export const BuilderCatalogSources = CatalogSources.check(
-  Schema.makeFilter((sources) =>
-    selectsOfficialCatalog(sources) ? undefined : officialCatalogRequiredIssue,
-  ),
-);
+/** Absent sources mean the official catalog only, as in `stack.effect.json`. */
+export const usesOfficialCatalog = (
+  catalogs: CatalogSources | undefined,
+): boolean => catalogs === undefined || selectsOfficialCatalog(catalogs);
 
 const StackConfigurationSchema = Schema.Struct({
   name: ProjectNameSchema,
@@ -49,7 +43,7 @@ const StackConfigurationSchema = Schema.Struct({
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
   /** Absent selects the official catalog only, as in `stack.effect.json`. */
-  catalogs: Schema.optional(BuilderCatalogSources),
+  catalogs: Schema.optional(CatalogSources),
 });
 
 const TargetModuleRequirementSchema = Schema.Struct({
@@ -163,9 +157,35 @@ export function useRecipeBuilderForm(
 
 export type RecipeBuilderFormApi = ReturnType<typeof useRecipeBuilderForm>;
 
-export function toRecipePreviewInput(
+/**
+ * Tool, database, and Git controls pick official modules, so a selection
+ * without the official catalog drops them, as a custom-only CLI config does.
+ */
+const withoutOfficialChoices = (
   values: RecipeBuilderFormValues,
+): RecipeBuilderFormValues => {
+  const {
+    monorepo: _monorepo,
+    lint: _lint,
+    format: _format,
+    test: _test,
+    ...config
+  } = values.config;
+  return {
+    ...values,
+    config,
+    database: "none",
+    gitEnabled: false,
+    developerExperienceModules: [],
+  };
+};
+
+export function toRecipePreviewInput(
+  formValues: RecipeBuilderFormValues,
 ): RecipePreviewInput {
+  const values = usesOfficialCatalog(formValues.config.catalogs)
+    ? formValues
+    : withoutOfficialChoices(formValues);
   const supportTargets: ReadonlyArray<TargetInstance> =
     values.supportSelections.flatMap((selection) =>
       selection.selected.length > 0

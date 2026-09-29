@@ -2,7 +2,6 @@ import {
   CatalogSources,
   formatCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
-  selectsOfficialCatalog,
 } from "@repo/domain/CatalogSource";
 import { makeRuntime, runtimeForPackageManager } from "@repo/domain/Scaffold";
 import { encodeRecipeTargetSpecs, RecipeTargetString } from "@repo/scaffold";
@@ -10,11 +9,11 @@ import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
-  officialCatalogRequiredIssue,
   RecipeBuilderFormSchema,
   type RecipeBuilderFormValues,
   type TargetInstance,
   toRecipePreviewInput,
+  usesOfficialCatalog,
 } from "./form";
 
 const defaults = initialRecipeBuilderValues.config;
@@ -123,8 +122,6 @@ const decodeCatalogParameters = (
       issue:
         'This shared recipe lists invalid catalogs. Each catalog parameter must be "official" or <name>=<https URL>, without repeats.',
     };
-  if (!selectsOfficialCatalog(decoded.value))
-    return { issue: officialCatalogRequiredIssue };
   // An explicit official-only list is the default set, so it is stored as absent.
   return {
     catalogs: decoded.value.every(
@@ -313,6 +310,8 @@ export const encodeRecipeBuilderUrl = (
   if (values.config.typescript !== runtimeDefaults.typescript) {
     params.set("typescript", values.config.typescript ?? "6");
   }
+  // Tool and Git choices name official modules, so a custom-only link has none.
+  if (!usesOfficialCatalog(values.config.catalogs)) return params;
   (["monorepo", "lint", "format", "test"] as const).forEach((field) => {
     const value = values.config[field];
     const defaultValue = runtimeDefaults[field];

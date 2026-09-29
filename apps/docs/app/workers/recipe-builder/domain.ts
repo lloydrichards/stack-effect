@@ -36,6 +36,8 @@ export const CatalogModule = Schema.Struct({
 export const RecipeBuilderCatalogSource = Schema.Struct({
   name: Schema.String,
   sourceUrl: Schema.String,
+  /** Sources the document depends on, such as `official`. */
+  requires: Schema.Array(Schema.String),
   freshness: Schema.Literals(["current", "cached"]),
   warning: Schema.optional(
     Schema.Struct({

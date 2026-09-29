@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type CatalogSource,
   CatalogSources,
   formatCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
@@ -21,6 +22,7 @@ import {
 import { Input } from "~/components/ui/input";
 import { recipeBuilderRpcFailure } from "../../atom/recipe-builder-atom";
 import { registryUrl } from "../../workers/recipe-builder/registry-url";
+import { usesOfficialCatalog } from "./form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -50,6 +52,15 @@ export function CatalogSourcesPanel() {
       ? recipeBuilderRpcFailure(catalogResult.cause)
       : undefined;
   const selected = catalogs ?? [{ name: OFFICIAL_CATALOG_SOURCE }];
+  const officialSelected = usesOfficialCatalog(catalogs);
+  // A failed composition still reports the sources it loaded, so a missing
+  // official dependency is known before the selection works.
+  const requiringOfficial = (catalog?.sources ?? failure?.sources ?? [])
+    .filter((source) => source.requires.includes(OFFICIAL_CATALOG_SOURCE))
+    .map((source) => source.name);
+  const rows: ReadonlyArray<CatalogSource> = officialSelected
+    ? selected
+    : [{ name: OFFICIAL_CATALOG_SOURCE }, ...selected];
   const officialUrl =
     typeof window === "undefined"
       ? undefined
@@ -105,12 +116,44 @@ export function CatalogSourcesPanel() {
 
   const removeSource = (sourceName: string) => {
     const remaining = selected.filter((source) => source.name !== sourceName);
+    if (remaining.length === 0) return;
     setCatalogs(
       remaining.every((source) => source.name === OFFICIAL_CATALOG_SOURCE)
         ? undefined
         : Schema.decodeUnknownOption(CatalogSources)(remaining).pipe(
             Option.getOrUndefined,
           ),
+    );
+  };
+
+  const addOfficial = () =>
+    setCatalogs([{ name: OFFICIAL_CATALOG_SOURCE }, ...selected]);
+
+  const officialAction = () => {
+    if (!officialSelected)
+      return (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addOfficial}
+          aria-label="Add catalog official"
+        >
+          Add
+        </Button>
+      );
+    const locked = requiringOfficial.length > 0 || selected.length === 1;
+    return (
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        disabled={locked}
+        onClick={() => removeSource(OFFICIAL_CATALOG_SOURCE)}
+        aria-label="Remove catalog official"
+      >
+        Remove
+      </Button>
     );
   };
 
@@ -127,10 +170,11 @@ export function CatalogSourcesPanel() {
     >
       <div className="flex flex-col gap-4 p-4 md:p-5">
         <ul aria-label="Selected catalogs" className="flex flex-col gap-2">
-          {selected.map((source) => (
+          {rows.map((source) => (
             <li
               key={formatCatalogSource(source)}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
+              data-selected={"url" in source || officialSelected}
+              className="flex flex-wrap items-center justify-between gap-2 rounded-md border p-3 data-[selected=false]:border-dashed data-[selected=false]:opacity-70"
             >
               <div className="min-w-0">
                 <p className="font-mono text-sm font-medium">{source.name}</p>
@@ -139,19 +183,24 @@ export function CatalogSourcesPanel() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {statusFor(source.name)}
+                {"url" in source || officialSelected ? (
+                  statusFor(source.name)
+                ) : (
+                  <Badge variant="outline">Not selected</Badge>
+                )}
                 {"url" in source ? (
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
+                    disabled={selected.length === 1}
                     onClick={() => removeSource(source.name)}
                     aria-label={`Remove catalog ${source.name}`}
                   >
                     Remove
                   </Button>
                 ) : (
-                  <Badge variant="outline">Required</Badge>
+                  officialAction()
                 )}
               </div>
             </li>
@@ -186,9 +235,12 @@ export function CatalogSourcesPanel() {
         </form>
         {issue ? <FieldError>{issue}</FieldError> : null}
         <FieldDescription>
-          The official catalog is required in Recipe Builder for now. Custom
-          catalogs are combined with it, and the command and shared link include
-          every selected catalog.
+          {requiringOfficial.length > 0
+            ? `The official catalog stays selected because ${requiringOfficial.join(", ")} ${requiringOfficial.length === 1 ? "requires" : "require"} it. `
+            : officialSelected
+              ? "To try a standalone catalog on its own, add it and remove the official catalog. "
+              : "Without the official catalog, tool, database, and Git options are unavailable, and your catalogs must supply the workspace. "}
+          The command and shared link include every selected catalog.
         </FieldDescription>
       </div>
     </DisclosurePanel>

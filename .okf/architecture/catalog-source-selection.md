@@ -25,7 +25,7 @@ generated: { by: claude, at: "2026-09-29T12:00:00+02:00" }
 
 # Catalog source selection
 
-Status: Implemented in #306, #308, and #309, with two known gaps. Rendered `create` commands do not yet add the `--trust` note, and the Recipe Builder form still requires `official`. Issue #276 owns this decision. Issues #293, #294, #295, and #296 implement it. The official-only behavior described in the [distribution decision](catalog-distribution.md "records freshness and cache policy") stays the default.
+Status: Implemented in #306, #308, and #309, with one known gap: rendered `create` commands do not yet add the `--trust` note. Issue #276 owns this decision. Issues #293, #294, #295, and #296 implement it. The official-only behavior described in the [distribution decision](catalog-distribution.md "records freshness and cache policy") stays the default.
 
 ## Select sources as an ordered list of names
 
@@ -130,6 +130,8 @@ Every project still has a `workspace` target at `.`.
 - `plan --format raw|llm` includes `sources: [{ name, url, digest, freshness }]`.
 - `graph` shows the source of each target and module.
 - Recipe Builder shows which sources supplied the current choices and keeps stale and failed sources visible until generation.
+- Recipe Builder accepts all four source sets. Without `official`, it hides the tool, database, and Git controls, because they name official modules, and it omits their fields and flags from the preview, command, and link. It keeps `official` selected while a loaded source declares `requires: ["official"]`, and a selection that fails for want of it offers to add it.
+- Catalog fetches send no trace headers. They are not CORS-safelisted, so a browser would preflight each fetch and fail on hosts that allow only the cache validators.
 - A browser fetch failure may come from CORS or from transport, and the browser cannot tell which. Its message names the source and URL and does not claim either cause.
 
 ## Carry sources in shared Builder links

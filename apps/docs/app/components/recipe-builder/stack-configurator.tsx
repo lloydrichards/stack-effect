@@ -28,7 +28,7 @@ import {
 import { Spinner } from "~/components/ui/spinner";
 import { Toggle } from "~/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
-import { initialRecipeBuilderValues } from "./form";
+import { initialRecipeBuilderValues, usesOfficialCatalog } from "./form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -55,6 +55,8 @@ export function StackConfigurator() {
     (state) => state.values.gitEnabled,
   );
   const choices = catalog?.configuration;
+  // Tool and repository choices name official modules.
+  const official = usesOfficialCatalog(config.catalogs);
   const runtime = config.runtime._tag;
   const packageManager =
     config.runtime._tag === "node"
@@ -200,67 +202,82 @@ export function StackConfigurator() {
           }
         />
 
-        {(["monorepo", "lint", "format", "test"] as const).map((field) => (
-          <ConfigurationSelect
-            key={field}
-            id={`stack-${field}`}
-            label={field === "monorepo" ? "Monorepo" : Str.capitalize(field)}
-            value={config[field] ?? ""}
-            options={
-              choices?.[field].map((choice) => ({
-                value: choice.value,
-                label: choice.supportedRuntimes.includes(runtime)
-                  ? choice.title
-                  : `${choice.title} (unavailable with ${runtime})`,
-                disabled: !choice.supportedRuntimes.includes(runtime),
-              })) ?? []
-            }
-            disabled={choices === undefined}
-            onChange={(value) => updateTool(field, value)}
-          />
-        ))}
-
-        <FieldSet className="sm:col-span-2">
-          <FieldLegend variant="label" className="mb-2">
-            Repository and DX
-          </FieldLegend>
-          <FieldGroup
-            variant="outlined"
-            className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2"
-          >
-            <ConfigurationToggle
-              id="stack-git"
-              title="Git"
-              description="Initialize a Git repository with an initial commit."
-              checked={gitEnabled}
-              onCheckedChange={(enabled) => {
-                form.setFieldValue("gitEnabled", enabled);
-                if (!enabled) {
-                  form.setFieldValue("developerExperienceModules", (current) =>
-                    current.filter((id) => id !== huskyModuleId),
-                  );
+        {official ? (
+          <>
+            {(["monorepo", "lint", "format", "test"] as const).map((field) => (
+              <ConfigurationSelect
+                key={field}
+                id={`stack-${field}`}
+                label={
+                  field === "monorepo" ? "Monorepo" : Str.capitalize(field)
                 }
-              }}
-            />
-            {choices?.devenv.map((choice) => (
-              <ConfigurationToggle
-                key={choice.value}
-                id={`stack-${choice.value}`}
-                title={choice.title}
-                description={choice.description}
-                checked={developerExperienceModules.includes(choice.value)}
-                disabled={!gitEnabled && choice.value === huskyModuleId}
-                onCheckedChange={() =>
-                  form.setFieldValue("developerExperienceModules", (current) =>
-                    current.includes(choice.value)
-                      ? current.filter((id) => id !== choice.value)
-                      : [...current, choice.value],
-                  )
+                value={config[field] ?? ""}
+                options={
+                  choices?.[field].map((choice) => ({
+                    value: choice.value,
+                    label: choice.supportedRuntimes.includes(runtime)
+                      ? choice.title
+                      : `${choice.title} (unavailable with ${runtime})`,
+                    disabled: !choice.supportedRuntimes.includes(runtime),
+                  })) ?? []
                 }
+                disabled={choices === undefined}
+                onChange={(value) => updateTool(field, value)}
               />
             ))}
-          </FieldGroup>
-        </FieldSet>
+
+            <FieldSet className="sm:col-span-2">
+              <FieldLegend variant="label" className="mb-2">
+                Repository and DX
+              </FieldLegend>
+              <FieldGroup
+                variant="outlined"
+                className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2"
+              >
+                <ConfigurationToggle
+                  id="stack-git"
+                  title="Git"
+                  description="Initialize a Git repository with an initial commit."
+                  checked={gitEnabled}
+                  onCheckedChange={(enabled) => {
+                    form.setFieldValue("gitEnabled", enabled);
+                    if (!enabled) {
+                      form.setFieldValue(
+                        "developerExperienceModules",
+                        (current) =>
+                          current.filter((id) => id !== huskyModuleId),
+                      );
+                    }
+                  }}
+                />
+                {choices?.devenv.map((choice) => (
+                  <ConfigurationToggle
+                    key={choice.value}
+                    id={`stack-${choice.value}`}
+                    title={choice.title}
+                    description={choice.description}
+                    checked={developerExperienceModules.includes(choice.value)}
+                    disabled={!gitEnabled && choice.value === huskyModuleId}
+                    onCheckedChange={() =>
+                      form.setFieldValue(
+                        "developerExperienceModules",
+                        (current) =>
+                          current.includes(choice.value)
+                            ? current.filter((id) => id !== choice.value)
+                            : [...current, choice.value],
+                      )
+                    }
+                  />
+                ))}
+              </FieldGroup>
+            </FieldSet>
+          </>
+        ) : (
+          <p className="text-sm text-muted-foreground sm:col-span-2">
+            Tool and repository options come from the official catalog. Add it
+            under Catalogs to choose them.
+          </p>
+        )}
       </FieldGroup>
     </DisclosurePanel>
   );

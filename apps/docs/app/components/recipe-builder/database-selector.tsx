@@ -4,6 +4,7 @@ import { useSelector } from "@tanstack/react-form";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Field, FieldDescription, FieldLabel } from "~/components/ui/field";
 import { ToggleGroup, ToggleGroupItem } from "~/components/ui/toggle-group";
+import { usesOfficialCatalog } from "./form";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -26,6 +27,9 @@ export function DatabaseSelector() {
   const { catalog, catalogOwnersByTargetId } = useRecipeBuilderCatalog();
   const database = useSelector(form.store, (state) => state.values.database);
   const targets = useSelector(form.store, (state) => state.values.targets);
+  const official = useSelector(form.store, (state) =>
+    usesOfficialCatalog(state.values.config.catalogs),
+  );
   const selectedModules = targets.flatMap((target) => {
     const owner = catalogOwnersByTargetId.get(target.id) ?? target;
     const modules = catalog?.targetModules.find(
@@ -71,6 +75,9 @@ export function DatabaseSelector() {
     ? `Remove ${moduleTitleList.format(databaseRequirementTitles)} to choose None.`
     : "Database-backed modules become available after you select a database.";
   const selectedLabel = choices.find(({ value }) => value === database)?.label;
+
+  // Database providers are official modules.
+  if (!official) return null;
 
   return (
     <DisclosurePanel

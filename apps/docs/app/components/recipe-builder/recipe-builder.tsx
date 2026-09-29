@@ -1,5 +1,7 @@
 "use client";
 
+import { OFFICIAL_CATALOG_SOURCE } from "@repo/domain/CatalogSource";
+import { useSelector } from "@tanstack/react-form";
 import { Option } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 import { AlertCircle } from "lucide-react";
@@ -15,6 +17,7 @@ import {
 } from "../../atom/recipe-builder-atom";
 import { CatalogSourcesPanel } from "./catalog-sources";
 import { DatabaseSelector } from "./database-selector";
+import { usesOfficialCatalog } from "./form";
 import {
   RecipeBuilderProvider,
   useRecipeBuilderCatalog,
@@ -50,6 +53,14 @@ function RecipeBuilderContent() {
   const catalogFailure = AsyncResult.isFailure(catalogResult)
     ? recipeBuilderRpcFailure(catalogResult.cause)
     : undefined;
+  const catalogs = useSelector(
+    form.store,
+    (state) => state.values.config.catalogs,
+  );
+  const missingOfficial =
+    catalogs !== undefined &&
+    !usesOfficialCatalog(catalogs) &&
+    catalogFailure?.issues?.some((issue) => issue.code === "missing-source");
   const cachedSources =
     catalog?.sources.filter((source) => source.freshness === "cached") ?? [];
   const location = useLocation();
@@ -182,6 +193,16 @@ function RecipeBuilderContent() {
                   : "Could not load the recipe catalog."}
               </span>
             )}
+            {missingOfficial ? (
+              <Button
+                type="button"
+                onClick={() =>
+                  setCatalogs([{ name: OFFICIAL_CATALOG_SOURCE }, ...catalogs])
+                }
+              >
+                Add the official catalog
+              </Button>
+            ) : null}
             <Button type="button" variant="outline" onClick={retryCatalog}>
               Retry catalog
             </Button>

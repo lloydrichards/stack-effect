@@ -15,6 +15,8 @@ const workerCalls = vi.hoisted(() => ({
   failCatalogOnce: false,
   failCatalogSource: undefined as string | undefined,
   catalogWarning: undefined as "stale" | "persistence" | undefined,
+  /** Custom sources whose documents declare `requires: ["official"]`. */
+  requiresOfficial: [] as Array<string>,
   deferIdentityCatalog: false,
   catalogRequests: [] as Array<CatalogAtomRequest>,
   pendingIdentityCatalogs: [] as Array<{
@@ -103,6 +105,35 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
               sourceUrl: failedSource.url,
             },
           });
+        const sourcesFor = (sources: typeof request.sources) =>
+          sources.map((source) => ({
+            name: source.name,
+            sourceUrl:
+              "url" in source
+                ? source.url
+                : "https://docs.example.test/registry/v1/catalog.json",
+            requires: workerCalls.requiresOfficial.includes(source.name)
+              ? ["official"]
+              : [],
+            freshness: "current" as const,
+          }));
+        const missingOfficial = request.sources.find(
+          (source) =>
+            workerCalls.requiresOfficial.includes(source.name) &&
+            !request.sources.some(({ name }) => name === "official"),
+        );
+        if (missingOfficial !== undefined)
+          return Effect.fail({
+            _tag: "RecipeBuilderRpcFailure",
+            message: "Selected catalogs do not compose.",
+            issues: [
+              {
+                code: "missing-source",
+                message: `Source ${missingOfficial.name} requires the official catalog, which is not selected; select it with --catalog official`,
+              },
+            ],
+            sources: sourcesFor(request.sources),
+          });
         if (workerCalls.failCatalogOnce) {
           workerCalls.failCatalogOnce = false;
           return Effect.fail({
@@ -138,6 +169,9 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
             return {
               name: source.name,
               sourceUrl,
+              requires: workerCalls.requiresOfficial.includes(source.name)
+                ? ["official"]
+                : [],
               freshness:
                 warning === "stale"
                   ? ("cached" as const)
@@ -210,6 +244,7 @@ beforeEach(() => {
   workerCalls.failCatalogOnce = false;
   workerCalls.failCatalogSource = undefined;
   workerCalls.catalogWarning = undefined;
+  workerCalls.requiresOfficial = [];
   workerCalls.deferIdentityCatalog = false;
   workerCalls.catalogRequests = [];
   workerCalls.pendingIdentityCatalogs = [];
@@ -775,18 +810,66 @@ test("should start over with the official catalog when a visitor declines", asyn
   await expect.poll(sharedCatalogParams).toEqual([]);
 });
 
-test("should refuse a shared link without the official catalog", async () => {
-  await renderRecipeBuilder(
-    `/builder?catalog=${encodeURIComponent(`ext=${extUrl}`)}`,
-  );
+const customOnlyLink = `/builder?name=ext-app&catalog=${encodeURIComponent(`ext=${extUrl}`)}`;
+const lastRequestedSources = () =>
+  workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name);
+
+test("should load a shared link without the official catalog", async () => {
+  await renderRecipeBuilder(customOnlyLink);
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+
+  await expect.poll(lastRequestedSources).toEqual(["ext"]);
+  await expect
+    .element(page.getByText(/Tool and repository options come from/u))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: /^Database/u }))
+    .not.toBeInTheDocument();
+  await expect.poll(sharedCatalogParams).toEqual([`ext=${extUrl}`]);
+});
+
+test("should remove and restore the official catalog", async () => {
+  await renderRecipeBuilder(sharedExtLink);
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+  await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
+
+  await page.getByRole("button", { name: "Remove catalog official" }).click();
+  await expect.poll(lastRequestedSources).toEqual(["ext"]);
+  await expect.poll(sharedCatalogParams).toEqual([`ext=${extUrl}`]);
+  await expect
+    .element(page.getByRole("button", { name: "Remove catalog ext" }))
+    .toBeDisabled();
+
+  await page.getByRole("button", { name: "Add catalog official" }).click();
+  await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
+});
+
+test("should keep the official catalog while a selected catalog requires it", async () => {
+  workerCalls.requiresOfficial = ["ext"];
+  await renderRecipeBuilder(sharedExtLink);
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
 
   await expect
-    .element(page.getByText("Shared recipe could not be restored"))
-    .toBeVisible();
+    .element(page.getByRole("button", { name: "Remove catalog official" }))
+    .toBeDisabled();
   await expect
-    .element(page.getByText(/needs the official catalog/u))
+    .element(page.getByText(/stays selected because ext requires it/u))
     .toBeVisible();
-  expect(workerCalls.catalogRequests).toHaveLength(0);
+});
+
+test("should offer the official catalog when a selected catalog requires it", async () => {
+  workerCalls.requiresOfficial = ["ext"];
+  await renderRecipeBuilder(customOnlyLink);
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+
+  await expect
+    .element(page.getByText("Selected catalogs do not combine"))
+    .toBeVisible();
+  await page.getByRole("button", { name: "Add the official catalog" }).click();
+
+  await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
+  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
 });
 
 test("should load a catalog the visitor adds without asking again", async () => {

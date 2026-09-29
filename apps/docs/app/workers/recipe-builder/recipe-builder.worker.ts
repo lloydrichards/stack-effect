@@ -45,11 +45,13 @@ const sessionKey = (sources: CatalogSources, officialUrl: string) =>
 const toRpcSource = ({
   name,
   sourceUrl,
+  requires,
   freshness,
   warning,
 }: LoadedCatalogSource) => ({
   name,
   sourceUrl,
+  requires,
   freshness,
   ...(warning === undefined ? {} : { warning }),
 });

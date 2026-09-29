@@ -80,6 +80,8 @@ export interface LoadedCatalog {
 export interface LoadedCatalogSource {
   readonly name: string;
   readonly sourceUrl: string;
+  /** Sources this document declares it depends on, such as `official`. */
+  readonly requires: ReadonlyArray<"official">;
   readonly digest: string;
   readonly freshness: "current" | "cached";
   readonly warning?: CatalogLoadWarning;
@@ -548,7 +550,11 @@ export class CatalogLoader extends Context.Service<
             Effect.map(({ value, pending, ...rest }) => ({
               document: value,
               pending,
-              source: { name: source.name, ...rest },
+              source: {
+                name: source.name,
+                requires: value.requires ?? [],
+                ...rest,
+              },
             })),
             Effect.mapError(
               (error) =>
