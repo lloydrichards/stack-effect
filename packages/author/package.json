@@ -46,6 +46,7 @@
     "effect": "4.0.0-rc.117"
   },
   "devDependencies": {
+    "@effect/platform-node": "4.0.0-rc.117",
     "@repo/authoring": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@types/node": "^26.6.3",

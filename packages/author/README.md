@@ -18,7 +18,12 @@ The platform packages accept later release candidates of their shared dependency
 }
 ```
 
-With Bun, use `overrides` or `resolutions`. With pnpm, use `pnpm.overrides`.
+With Bun, use `overrides` or `resolutions`. pnpm reads overrides from `pnpm-workspace.yaml`:
+
+```yaml
+overrides:
+  "@effect/platform-node-shared": "4.0.0-rc.117"
+```
 
 ## Build a catalog
 
@@ -43,11 +48,26 @@ export const modules = defineModules(import.meta.url, [
 ```
 
 ```ts
+// targets.ts
+import { defineTargets } from "@stack-effect/author";
+
+export const targets = defineTargets(import.meta.url, [
+  {
+    kind: "api",
+    title: "API",
+    description: "An HTTP API application",
+    defaultName: "server",
+    contributions: [],
+  },
+]);
+```
+
+```ts
 // build.ts
 import { NodeServices } from "@effect/platform-node";
 import { buildCatalog } from "@stack-effect/author";
 import { Effect } from "effect";
-import { writeFile } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { modules } from "./modules.ts";
 import { targets } from "./targets.ts";
 
@@ -57,10 +77,13 @@ const { json } = await Effect.runPromise(
     { catalogId: "acme", root: new URL("./", import.meta.url) },
   ).pipe(Effect.provide(NodeServices.layer)),
 );
+await mkdir("dist", { recursive: true });
 await writeFile("dist/catalog.json", json);
 ```
 
 A failed build raises `CatalogBuildError`. Each issue names its `code`, the definition, and the source file. When a template is involved, the issue names the template too.
+
+Paths and contents can use tokens such as `targetPath` or `packageName` in double braces. Any other double-brace text, such as a JSX style object or a GitHub Actions expression, fails as an unsupported token, and v1 has no escape yet ([#304](https://github.com/lloydrichards/stack-effect/issues/304)).
 
 ## Extend the official catalog
 
@@ -71,6 +94,10 @@ import { NodeServices } from "@effect/platform-node";
 import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
+import { modules } from "./modules.ts";
+
+const catalog = { targets: [], modules: [modules] };
+const root = new URL("./", import.meta.url);
 
 const program = Effect.gen(function* () {
   const official = yield* loadOfficialCatalog();
@@ -88,7 +115,9 @@ Consumers must select the official catalog too, for example `--catalog official 
 | `templates` | Point a contribution field at a template file, resolved at build time. |
 | `buildCatalog` | Validate the definitions and return `{ json, document, provenance }`. |
 | `loadOfficialCatalog`, `OFFICIAL_CATALOG_URL` | Fetch the official document for `requires: ["official"]`. |
-| `CatalogBuildError`, `CatalogBuildIssue`, `OfficialCatalogUnavailable` | Typed failures. |
+| `CatalogBuildError`, `OfficialCatalogUnavailable` | Typed failures. |
+| `CatalogBuildIssue`, `CatalogBuildIssueCode`, `DefinitionProvenance`, `TemplateProvenance` | Schemas for build issues and provenance. |
+| `CatalogInput`, `TargetInput`, `ModuleInput`, `ContributionInput`, `DefinitionGroup`, `TemplateRef`, `isTemplateRef` | Input types and the template reference guard. |
 
 `buildCatalog` options:
 
@@ -100,5 +129,5 @@ Consumers must select the official catalog too, for example `--catalog official 
 ## Compatibility
 
 - The package emits catalog `formatVersion: 1` with the v1 interpreter capabilities.
-- It is ESM only and runs on Node 22.18+, Bun, and Deno.
+- It is ESM only and runs on Node 22.18+, Bun, and Deno. CI verifies it on Node 24.
 - While the version is below 1.0, a minor release may change the API. The release notes say when it does.
