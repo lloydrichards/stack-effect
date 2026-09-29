@@ -12,7 +12,10 @@ const cors = {
   "access-control-expose-headers": "ETag, Last-Modified",
 };
 
-/** A registry that serves `/good.json` correctly and `/bare.json` without CORS or validators. */
+/**
+ * A registry that serves `/good.json` correctly, `/bare.json` without CORS
+ * or validators, and `/stale.json` with a 304 that lacks CORS headers.
+ */
 const StubRegistry = Layer.succeed(
   HttpClient.HttpClient,
   HttpClient.make((request) => {
@@ -21,14 +24,20 @@ const StubRegistry = Layer.succeed(
       Effect.succeed(
         HttpClientResponse.fromWeb(request, new Response(body, init)),
       );
-    if (pathname === "/good.json") {
+    if (pathname === "/good.json" || pathname === "/stale.json") {
       if (request.method === "OPTIONS")
         return respond(null, {
           status: 204,
-          headers: { ...cors, "access-control-allow-headers": "If-None-Match" },
+          headers: {
+            ...cors,
+            "access-control-allow-headers": "If-None-Match, If-Modified-Since",
+          },
         });
       if (request.headers["if-none-match"] === etag)
-        return respond(null, { status: 304, headers: { etag } });
+        return respond(null, {
+          status: 304,
+          headers: pathname === "/good.json" ? { ...cors, etag } : { etag },
+        });
       return respond("{}", {
         headers: {
           ...cors,
@@ -50,6 +59,15 @@ describe("registry checks", () => {
       const results = yield* checkRegistry(base, ["/good.json"]);
       expect(results.filter((check) => !check.ok)).toEqual([]);
       expect(results.map((check) => check.check)).toContain("missing path 404");
+    }).pipe(Effect.provide(StubRegistry)),
+  );
+
+  it.effect("reject a conditional 304 that a browser cannot read", () =>
+    Effect.gen(function* () {
+      const results = yield* checkRegistry(base, ["/stale.json"]);
+      expect(
+        results.filter((check) => !check.ok).map((check) => check.check),
+      ).toEqual(["conditional 304"]);
     }).pipe(Effect.provide(StubRegistry)),
   );
 

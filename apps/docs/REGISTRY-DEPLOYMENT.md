@@ -10,7 +10,7 @@ After a production deployment, check every asset:
 bun run --cwd apps/docs check:registry https://stack-effect.lloydrichards.dev
 ```
 
-For each asset, it checks a JSON `200`, `must-revalidate`, a `304` for `If-None-Match` with the returned ETag, and CORS on a cross-origin GET and on an `OPTIONS` preflight for `If-None-Match`. It also expects `404` for `/registry/v1/missing.json`, and exits non-zero on any failure. Run it against a publicly accessible Vercel preview before production. The current PR previews require Vercel SSO and return a `302` before the asset route runs, so their public HTTP behavior cannot be verified without a preview protection exception. A local docs build proves asset generation, not deployed response behavior.
+For each asset, it checks a JSON `200` and `must-revalidate`. A cross-origin `If-None-Match` with the returned ETag must get a `304` that carries CORS headers, because browsers revalidate cross-origin. It also checks CORS on a cross-origin GET and on an `OPTIONS` preflight for both `If-None-Match` and `If-Modified-Since`. It also expects `404` for `/registry/v1/missing.json`, and exits non-zero on any failure. Run it against a publicly accessible Vercel preview before production. The current PR previews require Vercel SSO and return a `302` before the asset route runs, so their public HTTP behavior cannot be verified without a preview protection exception. A local docs build proves asset generation, not deployed response behavior.
 
 Then prove the create path with a newly installed CLI:
 

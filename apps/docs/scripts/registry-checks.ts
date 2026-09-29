@@ -17,6 +17,9 @@ export const MISSING_ASSET_PATH = "/registry/v1/missing.json";
 
 const origin = "https://registry-check.example";
 
+// The validators the CLI and browser loaders send when revalidating a cache.
+const validators = ["if-none-match", "if-modified-since"];
+
 const result = (
   path: string,
   check: string,
@@ -44,9 +47,10 @@ const checkAsset = (client: HttpClient.HttpClient, base: URL, path: string) =>
     const url = new URL(path, base).href;
     const plain = yield* client.execute(HttpClientRequest.get(url));
     const etag = header(plain, "etag");
+    // Browsers revalidate cross-origin, so the 304 itself needs CORS headers.
     const conditional = yield* client.execute(
       HttpClientRequest.get(url).pipe(
-        HttpClientRequest.setHeader("If-None-Match", etag),
+        HttpClientRequest.setHeaders({ Origin: origin, "If-None-Match": etag }),
       ),
     );
     const cors = yield* client.execute(
@@ -59,7 +63,7 @@ const checkAsset = (client: HttpClient.HttpClient, base: URL, path: string) =>
         HttpClientRequest.setHeaders({
           Origin: origin,
           "Access-Control-Request-Method": "GET",
-          "Access-Control-Request-Headers": "if-none-match",
+          "Access-Control-Request-Headers": validators.join(", "),
         }),
       ),
     );
@@ -82,8 +86,12 @@ const checkAsset = (client: HttpClient.HttpClient, base: URL, path: string) =>
       result(
         path,
         "conditional 304",
-        etag !== "" && conditional.status === 304,
-        etag === "" ? "no ETag" : `status ${conditional.status}`,
+        etag !== "" &&
+          conditional.status === 304 &&
+          header(conditional, "access-control-allow-origin") === "*",
+        etag === ""
+          ? "no ETag"
+          : `status ${conditional.status}, allow-origin "${header(conditional, "access-control-allow-origin")}"`,
       ),
       result(
         path,
@@ -97,9 +105,11 @@ const checkAsset = (client: HttpClient.HttpClient, base: URL, path: string) =>
         "CORS preflight",
         preflight.status < 300 &&
           header(preflight, "access-control-allow-origin") === "*" &&
-          includesToken(
-            header(preflight, "access-control-allow-headers"),
-            "if-none-match",
+          validators.every((validator) =>
+            includesToken(
+              header(preflight, "access-control-allow-headers"),
+              validator,
+            ),
           ),
         `status ${preflight.status}, allow-headers "${header(preflight, "access-control-allow-headers")}"`,
       ),
