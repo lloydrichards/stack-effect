@@ -24,6 +24,7 @@ generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
 - `catalogs/official/src/targetRegistry.ts` defines target kinds and base contributions.
 - `catalogs/official/src/moduleRegistry.ts` orders the per-file module groups from `catalogs/official/src/modules/`.
 - `catalogs/official/templates/<owner>/` holds generated file bodies. The `template()` call in each definition is the authority for which file it uses, since shared and runtime-variant templates live under one owner. Edit their generated files first using the [catalog authoring workflow](../guides/catalog-authoring.md "governs template changes").
+- `catalogs/author` defines the author catalog, which generates a standalone [catalog registry project](catalog-registry-project.md "records its shape").
 - `packages/catalog/src/CatalogService.ts` indexes target kinds, module IDs, and capability providers.
 
 Targets include workspace, package, server, CLI, React, and Foldkit destinations. Treat the registry as the complete list, rather than copying an exhaustive inventory into documentation.

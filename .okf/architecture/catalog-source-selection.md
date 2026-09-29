@@ -25,7 +25,7 @@ generated: { by: claude, at: "2026-09-29T12:00:00+02:00" }
 
 # Catalog source selection
 
-Status: Accepted design; not implemented. Issue #276 owns this decision. Issues #293, #294, #295, and #296 implement it. The official-only behavior described in the [distribution decision](catalog-distribution.md "records freshness and cache policy") stays the default.
+Status: Implemented, with two known gaps. Rendered `create` commands do not yet add the `--trust` note, and the Recipe Builder form still requires `official`. Issue #276 owns this decision. Issues #293, #294, #295, and #296 implement it. The official-only behavior described in the [distribution decision](catalog-distribution.md "records freshness and cache policy") stays the default.
 
 ## Select sources as an ordered list of names
 
