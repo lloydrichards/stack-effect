@@ -23,7 +23,11 @@ import {
 } from "@repo/scaffold";
 import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { Effect, Layer, Schema } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientResponse,
+} from "effect/unstable/http";
 
 const request = Schema.decodeSync(
   Schema.fromJsonString(
@@ -37,27 +41,35 @@ const request = Schema.decodeSync(
 
 const sourceUrl = "https://fixture.example.test/registry/v1/catalog.json";
 const document = await Effect.runPromise(exportOfficialCatalog);
-const client = HttpClient.make((httpRequest) =>
-  Effect.succeed(
-    HttpClientResponse.fromWeb(
-      httpRequest,
-      new Response(document, {
-        headers: { "content-type": "application/json" },
-      }),
+// Custom catalogs in the selection are served by the browser test's fixture server.
+const client = Layer.effect(
+  HttpClient.HttpClient,
+  Effect.map(HttpClient.HttpClient, (network) =>
+    HttpClient.make((httpRequest) =>
+      httpRequest.url === sourceUrl
+        ? Effect.succeed(
+            HttpClientResponse.fromWeb(
+              httpRequest,
+              new Response(document, {
+                headers: { "content-type": "application/json" },
+              }),
+            ),
+          )
+        : network.execute(httpRequest),
     ),
   ),
-);
+).pipe(Layer.provide(FetchHttpClient.layer));
 const loaderLayer = CatalogLoader.layer.pipe(
   Layer.provideMerge(CatalogCache.memory),
-  Layer.provideMerge(Layer.succeed(HttpClient.HttpClient, client)),
+  Layer.provideMerge(client),
   Layer.provideMerge(NodeServices.layer),
 );
 
 const blueprint = await Effect.runPromise(
   Effect.gen(function* () {
-    const { catalog } = yield* (yield* CatalogLoader).load({
-      sourceUrl,
-      allowFinalizeScripts: true,
+    const { catalog } = yield* (yield* CatalogLoader).loadSources({
+      sources: request.input.config.catalogSources,
+      officialUrl: sourceUrl,
     });
     return yield* Effect.gen(function* () {
       const selection = yield* (yield* RecipeService).resolve(
@@ -92,7 +104,11 @@ try {
     chmodSync(stub, 0o755);
   }
 
-  const words = request.command.split(" ");
+  // Whole-word single quotes (such as --catalog name=url) are unwrapped;
+  // anything needing a real shell parser is outside the controlled recipes.
+  const words = request.command
+    .split(" ")
+    .map((word) => (/^'[^']*'$/.test(word) ? word.slice(1, -1) : word));
   const createAt = words.indexOf("create");
   if (createAt < 0 || words.some((word) => word.includes("'")))
     throw new Error(

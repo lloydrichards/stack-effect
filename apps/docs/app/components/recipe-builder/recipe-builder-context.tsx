@@ -25,9 +25,10 @@ type RecipeBuilderPreviewModel = Pick<
   "canPreview" | "previewResult"
 >;
 
-type RecipeBuilderUrlModel = {
-  readonly urlIssue: string | undefined;
-};
+type RecipeBuilderUrlModel = Pick<
+  ReturnType<typeof useRecipeBuilderUrlState>,
+  "urlIssue" | "unconfirmedCatalogs" | "confirmCatalogs" | "setCatalogs"
+>;
 
 const RecipeBuilderCatalogContext = createContext<
   RecipeBuilderCatalogModel | undefined
@@ -74,8 +75,18 @@ export function RecipeBuilderProvider({
     [worker.canPreview, worker.previewResult],
   );
   const url = useMemo<RecipeBuilderUrlModel>(
-    () => ({ urlIssue: urlState.urlIssue }),
-    [urlState.urlIssue],
+    () => ({
+      urlIssue: urlState.urlIssue,
+      unconfirmedCatalogs: urlState.unconfirmedCatalogs,
+      confirmCatalogs: urlState.confirmCatalogs,
+      setCatalogs: urlState.setCatalogs,
+    }),
+    [
+      urlState.urlIssue,
+      urlState.unconfirmedCatalogs,
+      urlState.confirmCatalogs,
+      urlState.setCatalogs,
+    ],
   );
 
   return (

@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
@@ -45,6 +45,18 @@ export default defineConfig({
               : target.contributions,
         }));
         const revisedDocument = JSON.stringify(revisedCatalog);
+        const customDocuments = JSON.parse(
+          execFileSync(
+            "bun",
+            [
+              "-e",
+              "import { customCatalogDocuments } from './test/fixtures/custom-catalogs.ts'; process.stdout.write(JSON.stringify(customCatalogDocuments));",
+            ],
+            { cwd: process.cwd() },
+          ).toString(),
+        ) as Record<string, string>;
+        // Custom catalogs send no CORS headers, so only same-origin loads succeed.
+        const customOutages = new Set<string>();
         let mode: "current" | "outage" | "invalid" | "revised" = "current";
         server.middlewares.use((request, response, next) => {
           if (
@@ -54,22 +66,23 @@ export default defineConfig({
             const chunks: Array<Buffer> = [];
             request.on("data", (chunk: Buffer) => chunks.push(chunk));
             request.on("end", () => {
-              try {
-                const result = execFileSync(
-                  "bun",
-                  ["run", "../cli/scripts/registry-parity.ts"],
-                  {
-                    cwd: process.cwd(),
-                    input: Buffer.concat(chunks),
-                    maxBuffer: 32 * 1024 * 1024,
-                  },
-                );
-                response.setHeader("content-type", "application/json");
-                response.end(result);
-              } catch {
-                response.statusCode = 500;
-                response.end("CLI parity fixture failed");
-              }
+              // Asynchronous so this server can still serve the custom catalogs
+              // the CLI fetches while the fixture runs.
+              const child = execFile(
+                "bun",
+                ["run", "../cli/scripts/registry-parity.ts"],
+                { cwd: process.cwd(), maxBuffer: 32 * 1024 * 1024 },
+                (error, stdout, stderr) => {
+                  if (error !== null) {
+                    response.statusCode = 500;
+                    response.end(`CLI parity fixture failed: ${stderr}`);
+                    return;
+                  }
+                  response.setHeader("content-type", "application/json");
+                  response.end(stdout);
+                },
+              );
+              child.stdin?.end(Buffer.concat(chunks));
             });
             return;
           }
@@ -86,6 +99,29 @@ export default defineConfig({
             )
               mode = requested;
             response.end(mode);
+            return;
+          }
+          if (request.url?.startsWith("/registry-test/custom-mode")) {
+            const params = new URL(request.url, "http://localhost")
+              .searchParams;
+            const name = params.get("name") ?? "";
+            if (params.get("value") === "outage") customOutages.add(name);
+            else customOutages.delete(name);
+            response.end(params.get("value") ?? "");
+            return;
+          }
+          const custom = /^\/registry-test\/custom\/([a-z-]+)\.json/.exec(
+            request.url ?? "",
+          )?.[1];
+          if (custom !== undefined) {
+            const body = customDocuments[custom];
+            if (customOutages.has(custom) || body === undefined) {
+              response.statusCode = body === undefined ? 404 : 503;
+              response.end();
+              return;
+            }
+            response.setHeader("content-type", "application/json");
+            response.end(body);
             return;
           }
           if (request.url?.startsWith("/registry/v1/catalog.json")) {

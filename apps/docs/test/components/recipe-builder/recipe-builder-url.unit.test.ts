@@ -173,4 +173,77 @@ describe("recipe builder URL", () => {
     ).toBe(false);
     expect(encoded.getAll("target")).toContain("package/db:package-db-sqlite");
   });
+
+  describe("catalog parameters", () => {
+    const ext = "https://ext.example.test/v1.json";
+    const decode = (...catalogs: ReadonlyArray<string>) =>
+      decodeRecipeBuilderUrl(
+        new URLSearchParams([
+          ["name", "catalog-app"],
+          ...catalogs.map((value) => ["catalog", value] as [string, string]),
+        ]),
+      );
+
+    it("uses the official catalog when a link names none", () => {
+      const decoded = decode();
+
+      expect(decoded.issue).toBeUndefined();
+      expect(decoded.initialValues.config.catalogs).toBeUndefined();
+    });
+
+    it("stores an explicit official-only link as the default set", () => {
+      const decoded = decode("official");
+
+      expect(decoded.issue).toBeUndefined();
+      expect(decoded.initialValues.config.catalogs).toBeUndefined();
+      expect(
+        encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
+      ).toEqual([]);
+    });
+
+    it("round trips a custom catalog beside the official one in order", () => {
+      const decoded = decode(`ext=${ext}`, "official");
+
+      expect(decoded.issue).toBeUndefined();
+      expect(decoded.initialValues.config.catalogs).toEqual([
+        { name: "ext", url: ext },
+        { name: "official" },
+      ]);
+      expect(
+        encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
+      ).toEqual([`ext=${ext}`, "official"]);
+    });
+
+    it("splits a catalog parameter at the first equals sign", () => {
+      const url = `${ext}?channel=beta`;
+      const decoded = decode("official", `ext=${url}`);
+
+      expect(decoded.initialValues.config.catalogs).toContainEqual({
+        name: "ext",
+        url,
+      });
+    });
+
+    it("refuses a link without the official catalog", () => {
+      const decoded = decode(`ext=${ext}`);
+
+      expect(decoded.issue).toMatch(/needs the official catalog/u);
+      expect(decoded.initialValues.config.catalogs).toBeUndefined();
+    });
+
+    it.each([
+      ["a bare custom name", ["official", "ext"]],
+      [
+        "an insecure remote URL",
+        ["official", "ext=http://ext.example.test/v1.json"],
+      ],
+      ["a repeated name", ["official", `ext=${ext}`, `ext=${ext}?b`]],
+      ["a URL under two names", ["official", `ext=${ext}`, `alt=${ext}`]],
+      ["an official URL", ["official=https://x.example.test/v1.json"]],
+    ])("refuses %s", (_label, catalogs) => {
+      const decoded = decode(...catalogs);
+
+      expect(decoded.issue).toMatch(/invalid catalogs/u);
+    });
+  });
 });

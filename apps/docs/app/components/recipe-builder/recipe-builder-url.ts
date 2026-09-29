@@ -1,9 +1,16 @@
+import {
+  CatalogSources,
+  formatCatalogSource,
+  OFFICIAL_CATALOG_SOURCE,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import { makeRuntime, runtimeForPackageManager } from "@repo/domain/Scaffold";
 import { encodeRecipeTargetSpecs, RecipeTargetString } from "@repo/scaffold";
 import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
+  officialCatalogRequiredIssue,
   RecipeBuilderFormSchema,
   type RecipeBuilderFormValues,
   type TargetInstance,
@@ -52,7 +59,11 @@ const scalarRecipeParameters = [
   "no-git",
 ] as const;
 
-const knownRecipeParameters = new Set([...scalarRecipeParameters, "target"]);
+const knownRecipeParameters = new Set([
+  ...scalarRecipeParameters,
+  "target",
+  "catalog",
+]);
 
 const decodeUrl = Schema.decodeUnknownOption(RecipeUrlSchema);
 
@@ -88,8 +99,45 @@ const mergeTargets = (targets: ReadonlyArray<typeof RecipeTargetString.Type>) =>
       .values(),
   );
 
+/** `official` or `<name>=<url>`, split at the first `=` as the CLI flag is. */
+const parseCatalogParameter = (entry: string) => {
+  const separator = entry.indexOf("=");
+  return separator === -1
+    ? { name: entry }
+    : { name: entry.slice(0, separator), url: entry.slice(separator + 1) };
+};
+
+type DecodedCatalogs =
+  | { readonly catalogs: CatalogSources | undefined; readonly issue?: never }
+  | { readonly issue: string };
+
+const decodeCatalogParameters = (
+  entries: ReadonlyArray<string>,
+): DecodedCatalogs => {
+  if (entries.length === 0) return { catalogs: undefined };
+  const decoded = Schema.decodeUnknownOption(CatalogSources)(
+    entries.map(parseCatalogParameter),
+  );
+  if (Option.isNone(decoded))
+    return {
+      issue:
+        'This shared recipe lists invalid catalogs. Each catalog parameter must be "official" or <name>=<https URL>, without repeats.',
+    };
+  if (!selectsOfficialCatalog(decoded.value))
+    return { issue: officialCatalogRequiredIssue };
+  // An explicit official-only list is the default set, so it is stored as absent.
+  return {
+    catalogs: decoded.value.every(
+      (source) => source.name === OFFICIAL_CATALOG_SOURCE,
+    )
+      ? undefined
+      : decoded.value,
+  };
+};
+
 const toInitialValues = (
   recipe: typeof RecipeUrlSchema.Type,
+  catalogs: CatalogSources | undefined,
 ): RecipeBuilderFormValues | undefined => {
   const packageManager = recipe.packageManager ?? "bun";
   const runtime = recipe.runtime ?? runtimeForPackageManager(packageManager);
@@ -103,6 +151,7 @@ const toInitialValues = (
     lint: recipe.lint ?? runtimeDefaults.lint,
     format: recipe.format ?? runtimeDefaults.format,
     test: recipe.test ?? runtimeDefaults.test,
+    ...(catalogs === undefined ? {} : { catalogs }),
   };
   const targets = mergeTargets(recipe.target);
   const workspaceTargets = targets.filter(
@@ -213,7 +262,11 @@ export const decodeRecipeBuilderUrl = (
   if (hasDuplicateModules(decoded.value.target)) {
     return { ...invalidRecipeUrl, initialValues: initialRecipeBuilderValues };
   }
-  const initialValues = toInitialValues(decoded.value);
+  const catalogs = decodeCatalogParameters(searchParams.getAll("catalog"));
+  if (catalogs.issue !== undefined) {
+    return { issue: catalogs.issue, initialValues: initialRecipeBuilderValues };
+  }
+  const initialValues = toInitialValues(decoded.value, catalogs.catalogs);
   return initialValues === undefined
     ? { ...invalidRecipeUrl, initialValues: initialRecipeBuilderValues }
     : { initialValues, issue: undefined };
@@ -242,6 +295,9 @@ export const encodeRecipeBuilderUrl = (
   );
 
   params.set("name", values.config.name);
+  values.config.catalogs?.forEach((source) =>
+    params.append("catalog", formatCatalogSource(source)),
+  );
   encodeRecipeTargetSpecs(targets)
     .sort()
     .forEach((target) => params.append("target", target));

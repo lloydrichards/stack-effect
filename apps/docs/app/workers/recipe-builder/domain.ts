@@ -1,9 +1,11 @@
 import {
+  CatalogIssueCode,
   ModuleDefinition,
   SupportedRuntime,
   TargetDefinition,
   TargetIdentity,
 } from "@repo/domain/Catalog";
+import { CatalogSources } from "@repo/domain/CatalogSource";
 import {
   RecipePreview,
   RecipePreviewInput,
@@ -26,11 +28,15 @@ export const CatalogModule = Schema.Struct({
   dependencies: ModuleDefinition.fields.dependencies,
   implies: Schema.requiredKey(ModuleDefinition.fields.implies.schema),
   children: Schema.requiredKey(ModuleDefinition.fields.children.schema),
+  /** Selected source that supplied the module. */
+  source: Schema.optional(Schema.String),
 });
 
-export const RecipeBuilderCatalog = Schema.Struct({
-  sourceUrl: Schema.optional(Schema.String),
-  freshness: Schema.optional(Schema.Literals(["current", "cached"])),
+/** One selected source as the session loaded it. */
+export const RecipeBuilderCatalogSource = Schema.Struct({
+  name: Schema.String,
+  sourceUrl: Schema.String,
+  freshness: Schema.Literals(["current", "cached"]),
   warning: Schema.optional(
     Schema.Struct({
       kind: Schema.Literals(["stale", "persistence"]),
@@ -39,6 +45,10 @@ export const RecipeBuilderCatalog = Schema.Struct({
       message: Schema.String,
     }),
   ),
+});
+
+export const RecipeBuilderCatalog = Schema.Struct({
+  sources: Schema.Array(RecipeBuilderCatalogSource),
   targets: Schema.Array(
     Schema.Struct({
       kind: TargetDefinition.fields.kind,
@@ -48,6 +58,8 @@ export const RecipeBuilderCatalog = Schema.Struct({
       requiredModules: Schema.requiredKey(
         TargetDefinition.fields.requiredModules.schema,
       ),
+      /** Selected source that supplied the target. */
+      source: Schema.optional(Schema.String),
     }),
   ),
   targetModules: Schema.Array(
@@ -69,6 +81,18 @@ export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpc
   "RecipeBuilderRpcFailure",
   {
     message: Schema.String,
+    /** The selected source that failed to load, when one did. */
+    failedSource: Schema.optional(
+      Schema.Struct({ name: Schema.String, sourceUrl: Schema.String }),
+    ),
+    /** Composition issues across the selected sources. */
+    issues: Schema.optional(
+      Schema.Array(
+        Schema.Struct({ code: CatalogIssueCode, message: Schema.String }),
+      ),
+    ),
+    /** Sources that loaded before composition failed. */
+    sources: Schema.optional(Schema.Array(RecipeBuilderCatalogSource)),
   },
 ) {}
 
@@ -99,7 +123,9 @@ export class RecipeBuilderRpc extends RpcGroup.make(
   Rpc.make("catalog", {
     payload: {
       owners: Schema.Array(TargetIdentity),
-      sourceUrl: Schema.String,
+      sources: CatalogSources,
+      /** Application-supplied URL for the reserved `official` source. */
+      officialUrl: Schema.String,
       sessionId: Schema.Finite,
     },
     success: RecipeBuilderCatalog,

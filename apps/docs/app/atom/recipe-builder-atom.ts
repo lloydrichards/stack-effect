@@ -1,5 +1,6 @@
 import * as BrowserWorker from "@effect/platform-browser/BrowserWorker";
 import type { TargetIdentity } from "@repo/domain/Catalog";
+import type { CatalogSources } from "@repo/domain/CatalogSource";
 import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { Cause, Effect, Layer, Option } from "effect";
 import { AtomRpc } from "effect/unstable/reactivity";
@@ -38,7 +39,8 @@ class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
 
 export type CatalogAtomRequest = {
   readonly sessionId: number;
-  readonly sourceUrl: string;
+  readonly sources: CatalogSources;
+  readonly officialUrl: string;
   readonly targetIdentityKey: string;
   readonly targets: ReadonlyArray<{
     readonly id: string;
@@ -57,7 +59,8 @@ export const catalogAtom = RecipeBuilderClient.runtime.fn(
     const client = yield* RecipeBuilderClient;
     const catalog = yield* client("catalog", {
       owners: request.targets.map(({ owner }) => owner),
-      sourceUrl: request.sourceUrl,
+      sources: request.sources,
+      officialUrl: request.officialUrl,
       sessionId: request.sessionId,
     });
     return { request, catalog } as const;
@@ -75,6 +78,15 @@ export const previewAtom = RecipeBuilderClient.runtime.fn(
     return { request, preview } as const;
   }),
 );
+
+/** The worker's typed failure, when the cause carries one. */
+export const recipeBuilderRpcFailure = (
+  cause: Cause.Cause<RecipeBuilderRpcFailure | RpcClientError>,
+): RecipeBuilderRpcFailure | undefined =>
+  Cause.findErrorOption(cause).pipe(
+    Option.filter((error) => error._tag === "RecipeBuilderRpcFailure"),
+    Option.getOrUndefined,
+  );
 
 export const recipeBuilderRpcErrorMessage = (
   cause: Cause.Cause<RecipeBuilderRpcFailure | RpcClientError>,

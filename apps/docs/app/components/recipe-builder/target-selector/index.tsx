@@ -11,6 +11,7 @@ import { Skeleton } from "~/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { cn } from "~/lib/utils";
 import { RecipeBuilderCatalog } from "../../../workers/recipe-builder/domain";
+import { CatalogSourceBadge } from "../catalog-sources";
 import { TargetConfiguration } from "./target-configuration";
 import { newTargetTabId, useTargetEditor } from "./use-target-editor";
 
@@ -158,6 +159,7 @@ function TargetOptions({
                   <span className="font-mono text-xs text-muted-foreground">
                     {target.kind}
                   </span>
+                  <CatalogSourceBadge source={target.source} />
                 </span>
                 <span className="@2xs:block mt-1.5 hidden text-sm leading-5 text-muted-foreground">
                   {target.description}

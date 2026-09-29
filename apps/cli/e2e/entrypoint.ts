@@ -2,27 +2,39 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import { Effect, Layer } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import {
+  FetchHttpClient,
+  HttpClient,
+  HttpClientResponse,
+} from "effect/unstable/http";
 import { cliProgram } from "../src/cliProgram";
-import { CatalogProvider } from "../src/service/CatalogProvider";
+import {
+  CatalogProvider,
+  OFFICIAL_CATALOG_URL,
+} from "../src/service/CatalogProvider";
 import { ConfigureService } from "../src/service/ConfigureService";
 
+// The official catalog comes from local definitions; selected custom catalogs
+// are fetched from the controlled fixture server named in --catalog.
 const FixtureHttpClient = Layer.effect(
   HttpClient.HttpClient,
   Effect.gen(function* () {
     const json = yield* exportOfficialCatalog;
+    const network = yield* HttpClient.HttpClient;
     return HttpClient.make((request) =>
-      Effect.succeed(
-        HttpClientResponse.fromWeb(
-          request,
-          new Response(json, {
-            headers: { "content-type": "application/json" },
-          }),
-        ),
-      ),
+      request.url === OFFICIAL_CATALOG_URL
+        ? Effect.succeed(
+            HttpClientResponse.fromWeb(
+              request,
+              new Response(json, {
+                headers: { "content-type": "application/json" },
+              }),
+            ),
+          )
+        : network.execute(request),
     );
   }),
-);
+).pipe(Layer.provide(FetchHttpClient.layer));
 
 const FixtureLayer = CatalogProvider.official.pipe(
   Layer.provideMerge(

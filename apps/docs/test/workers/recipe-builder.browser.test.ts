@@ -1,7 +1,12 @@
 import { assert, it } from "@effect/vitest";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
-import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
+import { ModuleId } from "@repo/domain/Catalog";
+import {
+  CatalogSources,
+  defaultCatalogSources,
+} from "@repo/domain/CatalogSource";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyPreviewFileSchema,
   RecipePreviewInput,
@@ -19,6 +24,7 @@ import {
   type PreviewAtomRequest,
 } from "../../app/atom/recipe-builder-atom";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
+import { RecipeBuilderRpcFailure } from "../../app/workers/recipe-builder/domain";
 import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
 import { registryParityCases } from "../fixtures/registry-parity";
 
@@ -43,6 +49,49 @@ const runAtom = <Arg, A, E>(
 
 const catalogSource = () =>
   new URL("/registry/v1/catalog.json", window.location.origin).toString();
+
+const customSource = (name: string, query = "") => ({
+  name,
+  url: new URL(
+    `/registry-test/custom/${name}.json${query}`,
+    window.location.origin,
+  ).toString(),
+});
+
+const sourcesOf = (...entries: ReadonlyArray<unknown>) =>
+  Schema.decodeUnknownSync(CatalogSources)(entries);
+
+const official = { name: "official" };
+
+const setCustomOutage = (name: string, outage: boolean) =>
+  Effect.gen(function* () {
+    const client = yield* HttpClient.HttpClient;
+    yield* client.get(
+      `${window.location.origin}/registry-test/custom-mode?name=${name}&value=${outage ? "outage" : "current"}`,
+    );
+  }).pipe(Effect.provide(FetchHttpClient.layer), Effect.orDie);
+
+const rpcFailure = <A, E>(exit: Exit.Exit<A, E>) =>
+  Exit.isFailure(exit)
+    ? Cause.findErrorOption(exit.cause).pipe(
+        Option.filter(Schema.is(RecipeBuilderRpcFailure)),
+        Option.getOrUndefined,
+      )
+    : undefined;
+
+const customOnlyInput = (
+  name: string,
+  catalogs: CatalogSources,
+  targets: RecipePreviewInput["recipe"]["targets"],
+): RecipePreviewInput => ({
+  config: new StackConfig({
+    $schema: STACK_CONFIG_SCHEMA_URL,
+    name,
+    runtime: { _tag: "bun" },
+    catalogs,
+  }),
+  recipe: { targets },
+});
 
 const setRegistryMode = (mode: "current" | "outage" | "invalid" | "revised") =>
   Effect.gen(function* () {
@@ -90,10 +139,15 @@ const makeSession = Effect.gen(function* () {
     }),
   );
   return {
-    catalog: (sessionId = 1, sourceUrl = catalogSource()) => {
+    catalog: (
+      sessionId = 1,
+      sources: CatalogSources = defaultCatalogSources,
+      officialUrl = catalogSource(),
+    ) => {
       registry.set(catalogAtom, {
         sessionId,
-        sourceUrl,
+        sources,
+        officialUrl,
         targetIdentityKey: "fixture",
         targets: [],
       });
@@ -167,16 +221,17 @@ it.live("uses a persisted catalog after reload during an outage", () =>
     yield* Effect.gen(function* () {
       const session = yield* makeSession;
       assert.strictEqual(
-        (yield* session.catalog(20)).catalog.freshness,
+        (yield* session.catalog(20)).catalog.sources[0]?.freshness,
         "current",
       );
     }).pipe(Effect.scoped);
     yield* setRegistryMode("outage");
     const reloaded = yield* makeSession;
-    const result = yield* reloaded.catalog(21);
-    assert.strictEqual(result.catalog.freshness, "cached");
-    assert.strictEqual(result.catalog.warning?.kind, "stale");
-    assert.strictEqual(result.catalog.warning?.sourceUrl, catalogSource());
+    const [official] = (yield* reloaded.catalog(21)).catalog.sources;
+    assert.strictEqual(official?.name, "official");
+    assert.strictEqual(official?.freshness, "cached");
+    assert.strictEqual(official?.warning?.kind, "stale");
+    assert.strictEqual(official?.warning?.sourceUrl, catalogSource());
   }).pipe(Effect.scoped),
 );
 
@@ -193,10 +248,38 @@ it.live(
       yield* setRegistryMode("outage");
       assert.isTrue(
         Exit.isFailure(
-          yield* Effect.exit(seed.catalog(32, `${catalogSource()}?cold=32`)),
+          yield* Effect.exit(
+            seed.catalog(
+              32,
+              defaultCatalogSources,
+              `${catalogSource()}?cold=32`,
+            ),
+          ),
         ),
       );
     }).pipe(Effect.scoped),
+);
+
+it.live("keeps a session usable after its first request is superseded", () =>
+  Effect.gen(function* () {
+    yield* setRegistryMode("current");
+    const registry = AtomRegistry.make();
+    const stop = registry.mount(catalogAtom);
+    yield* Effect.addFinalizer(() => Effect.sync(stop));
+    const request = {
+      sessionId: 45,
+      sources: defaultCatalogSources,
+      officialUrl: `${catalogSource()}?superseded=45`,
+      targets: [],
+    };
+    // React StrictMode repeats effects, so the same session is requested twice.
+    registry.set(catalogAtom, { ...request, targetIdentityKey: "first" });
+    registry.set(catalogAtom, { ...request, targetIdentityKey: "second" });
+    const result = yield* AtomRegistry.getResult(registry, catalogAtom, {
+      suspendOnWaiting: true,
+    });
+    assert.strictEqual(result.catalog.sources[0]?.freshness, "current");
+  }).pipe(Effect.scoped),
 );
 
 it.live("rejects previews from a replaced catalog session", () =>
@@ -302,7 +385,8 @@ it.live(
       });
       const result = yield* runAtom(catalogAtom, {
         sessionId: 1,
-        sourceUrl: catalogSource(),
+        sources: defaultCatalogSources,
+        officialUrl: catalogSource(),
         targetIdentityKey: owner.toKey(),
         targets: [{ id: "mcp", owner }],
       });
@@ -377,4 +461,227 @@ it.live(
       });
       assert.include(valid.preview.command, "full-stack-app");
     }).pipe(Effect.scoped),
+);
+
+const officialPlusExt = () =>
+  toRecipePreviewInput({
+    ...fullStackRecipeFixture,
+    gitEnabled: false,
+    config: {
+      ...fullStackRecipeFixture.config,
+      name: "ext-app",
+      catalogs: sourcesOf(official, customSource("ext")),
+    },
+    targets: [
+      { id: "server", kind: "server", name: "api", modules: ["ext-auth"] },
+    ],
+    supportSelections: [],
+  });
+
+it.live(
+  "composes the official catalog with a custom catalog that extends it",
+  () =>
+    Effect.gen(function* () {
+      yield* setRegistryMode("current");
+      const session = yield* makeSession;
+      const input = officialPlusExt();
+      const { catalog } = yield* session.catalog(
+        60,
+        input.config.catalogs ?? defaultCatalogSources,
+      );
+      assert.deepEqual(
+        catalog.sources.map(({ name, freshness }) => ({ name, freshness })),
+        [
+          { name: "official", freshness: "current" },
+          { name: "ext", freshness: "current" },
+        ],
+      );
+      const preview = yield* session.preview({
+        sessionId: 60,
+        targetIdentityKey: "ext",
+        input,
+      });
+      assert.include(
+        preview.preview.files.map((file) => file.path),
+        "apps/server-api/src/ext-auth.ts",
+      );
+      assert.include(
+        preview.preview.command,
+        `--catalog official --catalog 'ext=${customSource("ext").url}'`,
+      );
+      const cli = yield* cliParity(input, preview.preview.command);
+      assert.deepEqual(preview.preview.blueprint, cli.blueprint);
+      assert.deepEqual(preview.preview.files, cli.files);
+    }).pipe(Effect.scoped),
+  60_000,
+);
+
+it.live("labels definitions with the catalog that supplied them", () =>
+  Effect.gen(function* () {
+    const owner = new TargetIdentity({
+      kind: TargetKind.make("server"),
+      name: "api",
+    });
+    const result = yield* runAtom(catalogAtom, {
+      sessionId: 1,
+      sources: sourcesOf(official, customSource("ext")),
+      officialUrl: catalogSource(),
+      targetIdentityKey: owner.toKey(),
+      targets: [{ id: "server", owner }],
+    });
+    const modules =
+      result.catalog.targetModules.find(
+        (entry) => entry.owner.toKey() === owner.toKey(),
+      )?.modules ?? [];
+    assert.strictEqual(
+      modules.find((module) => module.id === "ext-auth")?.source,
+      "ext",
+    );
+    assert.strictEqual(
+      result.catalog.targets.find((target) => target.kind === "server")?.source,
+      "official",
+    );
+  }),
+);
+
+it.live("previews a custom catalog without the official catalog", () =>
+  Effect.gen(function* () {
+    const session = yield* makeSession;
+    const catalogs = sourcesOf(customSource("acme"));
+    const { catalog } = yield* session.catalog(70, catalogs);
+    assert.deepEqual(
+      catalog.sources.map((source) => source.name),
+      ["acme"],
+    );
+    assert.deepEqual(catalog.targets.map((target) => target.kind).sort(), [
+      "api",
+      "workspace",
+    ]);
+    const input = customOnlyInput("acme-app", catalogs, [
+      {
+        target: new TargetIdentity({
+          kind: TargetKind.make("api"),
+          name: "api",
+        }),
+        modules: [ModuleId.make("acme-api-rest")],
+      },
+    ]);
+    const preview = yield* session.preview({
+      sessionId: 70,
+      targetIdentityKey: "acme",
+      input,
+    });
+    const paths = preview.preview.files.map((file) => file.path);
+    assert.include(paths, "README.md");
+    assert.isTrue(paths.some((path) => path.endsWith("src/rest.ts")));
+    const config =
+      preview.preview.files.find((file) => file.path === "stack.effect.json")
+        ?.contents ?? "";
+    assert.notInclude(config, '"lint"');
+    assert.include(config, customSource("acme").url);
+  }).pipe(Effect.scoped),
+);
+
+it.live("combines two independent custom catalogs", () =>
+  Effect.gen(function* () {
+    const session = yield* makeSession;
+    const { catalog } = yield* session.catalog(
+      80,
+      sourcesOf(customSource("acme"), customSource("beta")),
+    );
+    assert.deepEqual(
+      catalog.targets.map(({ kind, source }) => `${kind}:${source}`).sort(),
+      ["api:acme", "worker:beta", "workspace:acme"],
+    );
+  }).pipe(Effect.scoped),
+);
+
+it.live("names every catalog involved in a duplicate definition", () =>
+  Effect.gen(function* () {
+    const session = yield* makeSession;
+    const failure = rpcFailure(
+      yield* Effect.exit(
+        session.catalog(
+          90,
+          sourcesOf(customSource("acme"), customSource("clash")),
+        ),
+      ),
+    );
+    assert.isDefined(failure);
+    assert.include(
+      failure?.issues?.map((issue) => issue.code) ?? [],
+      "duplicate-id",
+    );
+    assert.match(failure?.message ?? "", /acme/u);
+    assert.match(failure?.message ?? "", /clash/u);
+  }).pipe(Effect.scoped),
+);
+
+it.live("uses one catalog's cached copy while the others stay current", () =>
+  Effect.gen(function* () {
+    yield* setRegistryMode("current");
+    yield* Effect.addFinalizer(() => setCustomOutage("ext", false));
+    const catalogs = sourcesOf(official, customSource("ext", "?cache=100"));
+    yield* Effect.gen(function* () {
+      const seed = yield* makeSession;
+      yield* seed.catalog(100, catalogs);
+    }).pipe(Effect.scoped);
+    yield* setCustomOutage("ext", true);
+    const session = yield* makeSession;
+    const { catalog } = yield* session.catalog(101, catalogs);
+    const byName = new Map(
+      catalog.sources.map((source) => [source.name, source]),
+    );
+    assert.strictEqual(byName.get("official")?.freshness, "current");
+    assert.strictEqual(byName.get("ext")?.freshness, "cached");
+    assert.strictEqual(byName.get("ext")?.warning?.kind, "stale");
+    assert.strictEqual(
+      byName.get("ext")?.warning?.sourceUrl,
+      customSource("ext", "?cache=100").url,
+    );
+  }).pipe(Effect.scoped),
+);
+
+it.live("fails the session and names a catalog with no usable data", () =>
+  Effect.gen(function* () {
+    yield* setRegistryMode("current");
+    yield* setCustomOutage("ext", true);
+    yield* Effect.addFinalizer(() => setCustomOutage("ext", false));
+    const session = yield* makeSession;
+    const source = customSource("ext", "?cold=110");
+    const failure = rpcFailure(
+      yield* Effect.exit(session.catalog(110, sourcesOf(official, source))),
+    );
+    assert.deepEqual(failure?.failedSource, {
+      name: "ext",
+      sourceUrl: source.url,
+    });
+    assert.include(failure?.message ?? "", "Catalog source ext");
+    assert.include(failure?.message ?? "", source.url);
+  }).pipe(Effect.scoped),
+);
+
+it.live("reports a blocked cross-origin catalog without naming a cause", () =>
+  Effect.gen(function* () {
+    yield* setRegistryMode("current");
+    const origin = new URL(window.location.origin);
+    // The fixture sends no CORS headers, so the other loopback name is refused.
+    origin.hostname =
+      origin.hostname === "localhost" ? "127.0.0.1" : "localhost";
+    const source = {
+      name: "ext",
+      url: new URL(
+        "/registry-test/custom/ext.json?cors=120",
+        origin,
+      ).toString(),
+    };
+    const session = yield* makeSession;
+    const failure = rpcFailure(
+      yield* Effect.exit(session.catalog(120, sourcesOf(official, source))),
+    );
+    assert.strictEqual(failure?.failedSource?.name, "ext");
+    assert.include(failure?.message ?? "", source.url);
+    assert.include(failure?.message ?? "", "may not allow requests");
+    assert.notMatch(failure?.message ?? "", /CORS/u);
+  }).pipe(Effect.scoped),
 );

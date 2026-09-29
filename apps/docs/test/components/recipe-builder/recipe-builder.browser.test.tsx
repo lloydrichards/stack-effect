@@ -13,6 +13,7 @@ import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-bui
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
   failCatalogOnce: false,
+  failCatalogSource: undefined as string | undefined,
   catalogWarning: undefined as "stale" | "persistence" | undefined,
   deferIdentityCatalog: false,
   catalogRequests: [] as Array<CatalogAtomRequest>,
@@ -39,11 +40,12 @@ vi.mock("~/hooks/use-copy-to-clipboard", () => ({
 }));
 
 vi.mock("../../../app/atom/recipe-builder-atom", async () => {
-  const [{ Effect }, { Atom }, { recipeCatalogFixture }] = await Promise.all([
-    import("effect"),
-    import("effect/unstable/reactivity"),
-    import("./recipe-fixtures"),
-  ]);
+  const [{ Cause, Effect, Option }, { Atom }, { recipeCatalogFixture }] =
+    await Promise.all([
+      import("effect"),
+      import("effect/unstable/reactivity"),
+      import("./recipe-fixtures"),
+    ]);
   const previewFor = ({ input }: PreviewAtomRequest) => {
     const targets = input.recipe.targets.map(({ target, modules }) => ({
       identity: target,
@@ -75,9 +77,32 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
   return {
     recipeBuilderRpcErrorMessage: () =>
       "The preview worker stopped unexpectedly.",
+    recipeBuilderRpcFailure: (cause: import("effect").Cause.Cause<unknown>) =>
+      Cause.findErrorOption(cause).pipe(
+        Option.filter(
+          (error): error is { _tag: "RecipeBuilderRpcFailure" } =>
+            typeof error === "object" &&
+            error !== null &&
+            "_tag" in error &&
+            error._tag === "RecipeBuilderRpcFailure",
+        ),
+        Option.getOrUndefined,
+      ),
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
         workerCalls.catalogRequests.push(request);
+        const failedSource = request.sources.find(
+          (source) => source.name === workerCalls.failCatalogSource,
+        );
+        if (failedSource !== undefined && "url" in failedSource)
+          return Effect.fail({
+            _tag: "RecipeBuilderRpcFailure",
+            message: `Catalog source ${failedSource.name}: Could not fetch catalog from ${failedSource.url}.`,
+            failedSource: {
+              name: failedSource.name,
+              sourceUrl: failedSource.url,
+            },
+          });
         if (workerCalls.failCatalogOnce) {
           workerCalls.failCatalogOnce = false;
           return Effect.fail({
@@ -101,22 +126,34 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
         }));
         const catalog = {
           ...recipeCatalogFixture,
-          sourceUrl: "https://docs.example.test/registry/v1/catalog.json",
-          freshness:
-            workerCalls.catalogWarning === "stale"
-              ? ("cached" as const)
-              : ("current" as const),
-          ...(workerCalls.catalogWarning === undefined
-            ? {}
-            : {
-                warning: {
-                  kind: workerCalls.catalogWarning,
-                  sourceUrl:
-                    "https://docs.example.test/registry/v1/catalog.json",
-                  lastValidatedAt: 1_700_000_000_000,
-                  message: "Catalog cache notice",
-                },
-              }),
+          sources: request.sources.map((source) => {
+            const sourceUrl =
+              "url" in source
+                ? source.url
+                : "https://docs.example.test/registry/v1/catalog.json";
+            const warning =
+              source.name === "official"
+                ? workerCalls.catalogWarning
+                : undefined;
+            return {
+              name: source.name,
+              sourceUrl,
+              freshness:
+                warning === "stale"
+                  ? ("cached" as const)
+                  : ("current" as const),
+              ...(warning === undefined
+                ? {}
+                : {
+                    warning: {
+                      kind: warning,
+                      sourceUrl,
+                      lastValidatedAt: 1_700_000_000_000,
+                      message: "Catalog cache notice",
+                    },
+                  }),
+            };
+          }),
           targetModules: workerCalls.reconcileModules
             ? request.targets.map(({ owner }) => ({
                 owner,
@@ -171,6 +208,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async () => {
 beforeEach(() => {
   workerCalls.reconcileModules = false;
   workerCalls.failCatalogOnce = false;
+  workerCalls.failCatalogSource = undefined;
   workerCalls.catalogWarning = undefined;
   workerCalls.deferIdentityCatalog = false;
   workerCalls.catalogRequests = [];
@@ -614,7 +652,9 @@ test("should keep a cached-catalog notice visible while previews work", async ()
   workerCalls.catalogWarning = "stale";
   await renderRecipeBuilder();
 
-  await expect.element(page.getByText("Using a cached catalog")).toBeVisible();
+  await expect
+    .element(page.getByText("Using cached catalog official"))
+    .toBeVisible();
   await expect
     .element(page.getByText(/docs.example.test\/registry\/v1\/catalog.json/u))
     .toBeVisible();
@@ -630,7 +670,7 @@ test("should keep a cached-catalog notice visible while previews work", async ()
     .toBeGreaterThan(requestsBeforeRetry);
   await expect.element(page.getByText("Current catalog")).toBeVisible();
   await expect
-    .element(page.getByText("Using a cached catalog"))
+    .element(page.getByText("Using cached catalog official"))
     .not.toBeInTheDocument();
 });
 
@@ -639,7 +679,7 @@ test("should keep a current preview usable when browser storage fails", async ()
   await renderRecipeBuilder();
 
   await expect
-    .element(page.getByText("Catalog could not be saved"))
+    .element(page.getByText("Catalog official could not be saved"))
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
@@ -686,4 +726,122 @@ test("should show the newest preview when an older request completes after it is
   await expect
     .element(page.getByLabelText("Command to run locally"))
     .toHaveTextContent("bunx stack-effect create second-name");
+});
+
+const extUrl = "https://ext.example.test/registry/v1/catalog.json";
+const sharedCatalogParams = () =>
+  new URLSearchParams(
+    page.getByLabelText("Recipe URL search").element().textContent ?? "",
+  ).getAll("catalog");
+const sharedExtLink = `/builder?name=ext-app&catalog=official&catalog=${encodeURIComponent(`ext=${extUrl}`)}`;
+
+test("should ask before loading a custom catalog named by a shared link", async () => {
+  await renderRecipeBuilder(sharedExtLink);
+
+  await expect
+    .element(page.getByText("Load catalogs from this link?"))
+    .toBeVisible();
+  await expect.element(page.getByText(`ext · ${extUrl}`)).toBeVisible();
+  expect(workerCalls.catalogRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+
+  await expect
+    .poll(() =>
+      workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name),
+    )
+    .toEqual(["official", "ext"]);
+  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
+  await expect.poll(sharedCatalogParams).toEqual(["official", `ext=${extUrl}`]);
+});
+
+test("should start over with the official catalog when a visitor declines", async () => {
+  await renderRecipeBuilder(sharedExtLink);
+
+  await page
+    .getByRole("button", { name: "Start with the official catalog" })
+    .click();
+
+  await expect
+    .poll(() =>
+      workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name),
+    )
+    .toEqual(["official"]);
+  expect(
+    workerCalls.catalogRequests.some((request) =>
+      request.sources.some((source) => source.name === "ext"),
+    ),
+  ).toBe(false);
+  await expect.poll(sharedCatalogParams).toEqual([]);
+});
+
+test("should refuse a shared link without the official catalog", async () => {
+  await renderRecipeBuilder(
+    `/builder?catalog=${encodeURIComponent(`ext=${extUrl}`)}`,
+  );
+
+  await expect
+    .element(page.getByText("Shared recipe could not be restored"))
+    .toBeVisible();
+  await expect
+    .element(page.getByText(/needs the official catalog/u))
+    .toBeVisible();
+  expect(workerCalls.catalogRequests).toHaveLength(0);
+});
+
+test("should load a catalog the visitor adds without asking again", async () => {
+  await renderRecipeBuilder();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+
+  await page.getByLabelText("Catalog name").fill("ext");
+  await page.getByLabelText("Catalog URL").fill(extUrl);
+  await page.getByRole("button", { name: "Add catalog" }).click();
+
+  await expect
+    .poll(() =>
+      workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name),
+    )
+    .toEqual(["official", "ext"]);
+  await expect
+    .element(page.getByText("Load catalogs from this link?"))
+    .not.toBeInTheDocument();
+  await expect.poll(sharedCatalogParams).toEqual(["official", `ext=${extUrl}`]);
+
+  await page.getByRole("button", { name: "Remove catalog ext" }).click();
+  await expect
+    .poll(() =>
+      workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name),
+    )
+    .toEqual(["official"]);
+});
+
+test("should reject an invalid catalog entry without changing the selection", async () => {
+  await renderRecipeBuilder();
+  const requests = workerCalls.catalogRequests.length;
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+
+  await page.getByLabelText("Catalog name").fill("ext");
+  await page
+    .getByLabelText("Catalog URL")
+    .fill("http://ext.example.test/v1.json");
+  await page.getByRole("button", { name: "Add catalog" }).click();
+
+  await expect.element(page.getByText(/an https URL/u)).toBeVisible();
+  expect(
+    workerCalls.catalogRequests
+      .slice(requests)
+      .some((request) => request.sources.length > 1),
+  ).toBe(false);
+});
+
+test("should name the catalog that failed to load", async () => {
+  workerCalls.failCatalogSource = "ext";
+  await renderRecipeBuilder(sharedExtLink);
+  await page.getByRole("button", { name: "Load these catalogs" }).click();
+
+  await expect.element(page.getByText("Catalog ext unavailable")).toBeVisible();
+  await expect.element(page.getByText("Failed")).toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeDisabled();
 });

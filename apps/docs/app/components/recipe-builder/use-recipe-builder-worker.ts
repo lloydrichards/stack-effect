@@ -2,6 +2,10 @@
 
 import { useAtom } from "@effect/atom-react";
 import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  defaultCatalogSources,
+  formatCatalogSources,
+} from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { AsyncResult, Atom } from "effect/unstable/reactivity";
 import {
@@ -41,7 +45,9 @@ const reconcileTargetsWithCatalog = (
   );
   const reconciliation = targets.map((target) => {
     const supported = supportedModulesByOwner.get(ownerKey(target));
-    if (supported === undefined) return { target, removedModules: [] };
+    // The worker only projects owners whose kind the selected catalogs define.
+    if (supported === undefined)
+      return { target: undefined, removedTarget: target, removedModules: [] };
     const filteredModules = target.modules.filter((module) =>
       supported.has(module),
     );
@@ -50,20 +56,45 @@ const reconcileTargetsWithCatalog = (
         filteredModules.length === target.modules.length
           ? target
           : { ...target, modules: filteredModules },
+      removedTarget: undefined,
       removedModules: target.modules.filter((module) => !supported.has(module)),
     };
   });
-  const reconciled = reconciliation.map(({ target }) => target);
+  const reconciled = reconciliation.flatMap(({ target }) =>
+    target === undefined ? [] : [target],
+  );
 
   return {
-    targets: reconciled.every((target, index) => target === targets[index])
-      ? targets
-      : reconciled,
+    targets:
+      reconciled.length === targets.length &&
+      reconciled.every((target, index) => target === targets[index])
+        ? targets
+        : reconciled,
+    removedTargets: reconciliation.flatMap(({ removedTarget }) =>
+      removedTarget === undefined ? [] : [ownerKey(removedTarget)],
+    ),
     removedModules: reconciliation.flatMap(
       ({ removedModules }) => removedModules,
     ),
   };
 };
+
+const compatibilityMessage = ({
+  removedTargets,
+  removedModules,
+}: ReturnType<typeof reconcileTargetsWithCatalog>) =>
+  [
+    ...(removedTargets.length === 0
+      ? []
+      : [
+          `These targets are not provided by the selected catalogs and were removed: ${removedTargets.join(", ")}.`,
+        ]),
+    ...(removedModules.length === 0
+      ? []
+      : [
+          `These modules could not be resolved in the current catalog and were removed: ${removedModules.join(", ")}.`,
+        ]),
+  ].join(" ") || undefined;
 
 export function useRecipeBuilderWorker(
   form: RecipeBuilderFormApi,
@@ -74,7 +105,17 @@ export function useRecipeBuilderWorker(
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
   const [previewRequestResult, requestPreview] = useAtom(previewAtom);
   const [compatibilityNotice, setCompatibilityNotice] = useState<string>();
-  const [sessionId, setSessionId] = useState(newCatalogSessionId);
+  const catalogSources = values.config.catalogs ?? defaultCatalogSources;
+  const sourcesKey = formatCatalogSources(catalogSources);
+  const [session, setSession] = useState(() => ({
+    id: newCatalogSessionId(),
+    sourcesKey,
+  }));
+  // A different source set is a different catalog, so it starts a new session
+  // during render; stale choices and previews never pair with the new sources.
+  if (session.sourcesKey !== sourcesKey)
+    setSession({ id: newCatalogSessionId(), sourcesKey });
+  const sessionId = session.id;
   const [catalogSnapshot, setCatalogSnapshot] = useState<
     | {
         readonly request: CatalogAtomRequest;
@@ -112,14 +153,18 @@ export function useRecipeBuilderWorker(
     setCatalogSnapshot(undefined);
     requestPreview(Atom.Interrupt);
     requestCatalog(Atom.Interrupt);
-    setSessionId(newCatalogSessionId());
+    setSession((current) => ({ ...current, id: newCatalogSessionId() }));
   }, [enabled, requestCatalog, requestPreview]);
 
   useEffect(() => {
     if (!enabled) return;
     const request = {
       sessionId,
-      sourceUrl: registryUrl(window.location.origin, import.meta.env.BASE_URL),
+      sources: catalogSources,
+      officialUrl: registryUrl(
+        window.location.origin,
+        import.meta.env.BASE_URL,
+      ),
       targetIdentityKey,
       targets: [
         ...targets.map(({ id, kind, name }) => ({
@@ -137,7 +182,7 @@ export function useRecipeBuilderWorker(
     } as const;
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
-    // targetIdentityKey captures the identity fields used by this effect.
+    // targetIdentityKey and sessionId capture the fields used by this effect.
   }, [enabled, requestCatalog, sessionId, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(
@@ -151,11 +196,7 @@ export function useRecipeBuilderWorker(
         return;
 
       const reconciliation = reconcileTargetsWithCatalog(targets, nextCatalog);
-      setCompatibilityNotice(
-        reconciliation.removedModules.length === 0
-          ? undefined
-          : `These modules could not be resolved in the current catalog and were removed: ${reconciliation.removedModules.join(", ")}.`,
-      );
+      setCompatibilityNotice(compatibilityMessage(reconciliation));
       if (reconciliation.targets !== targets) {
         form.setFieldValue("targets", reconciliation.targets);
       }

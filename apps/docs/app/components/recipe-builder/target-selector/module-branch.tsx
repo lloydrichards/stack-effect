@@ -7,6 +7,7 @@ import {
 } from "~/components/ui/field";
 import { cn } from "~/lib/utils";
 import { CatalogModule } from "../../../workers/recipe-builder/domain";
+import { CatalogSourceBadge } from "../catalog-sources";
 import {
   ownerKey,
   type SupportConfiguration,
@@ -82,6 +83,7 @@ export function ModuleBranch({
               <span className="text-sm/5 font-medium text-foreground">
                 {module.title}
               </span>
+              <CatalogSourceBadge source={module.source} />
               {requirement ? (
                 <span className="text-xs font-normal text-muted-foreground">
                   {requirement}

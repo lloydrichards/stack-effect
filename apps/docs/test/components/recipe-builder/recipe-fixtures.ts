@@ -141,6 +141,13 @@ export const serverTargetFixture: TargetInstance = {
 export const recipeCatalogFixture = Schema.decodeUnknownSync(
   RecipeBuilderCatalog,
 )({
+  sources: [
+    {
+      name: "official",
+      sourceUrl: "https://docs.example.test/registry/v1/catalog.json",
+      freshness: "current",
+    },
+  ],
   targets: [
     {
       kind: "client-react",

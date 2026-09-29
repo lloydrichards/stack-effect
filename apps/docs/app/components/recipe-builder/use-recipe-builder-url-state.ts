@@ -1,5 +1,6 @@
+import type { CatalogSources } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
-import { useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { useRecipeBuilderForm } from "./form";
 import {
@@ -17,6 +18,44 @@ export function useRecipeBuilderUrlState() {
   const formValid = useSelector(form.store, (state) => state.isValid);
   const formDirty = useSelector(form.store, (state) => state.isDirty);
   const hasRecipeParams = search.length > 0;
+  // Fetching a URL exposes the visitor to that host, and links come from
+  // untrusted places, so custom URLs load only after this page approves them.
+  const [approvedCatalogUrls, setApprovedCatalogUrls] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
+  const catalogs = values.config.catalogs;
+  const unconfirmedCatalogs = useMemo(
+    () =>
+      (catalogs ?? []).flatMap((source) =>
+        "url" in source &&
+        source.url !== undefined &&
+        !approvedCatalogUrls.has(source.url)
+          ? [{ name: source.name, url: source.url }]
+          : [],
+      ),
+    [approvedCatalogUrls, catalogs],
+  );
+  const approveCatalogUrls = useCallback(
+    (urls: ReadonlyArray<string>) =>
+      setApprovedCatalogUrls((approved) => new Set([...approved, ...urls])),
+    [],
+  );
+  const setCatalogs = useCallback(
+    (next: CatalogSources | undefined) => {
+      approveCatalogUrls(
+        (next ?? []).flatMap((source) => ("url" in source ? [source.url] : [])),
+      );
+      form.setFieldValue("config", (config) => {
+        const { catalogs: _previous, ...rest } = config;
+        return next === undefined ? rest : { ...rest, catalogs: next };
+      });
+    },
+    [approveCatalogUrls, form],
+  );
+  const confirmCatalogs = useCallback(
+    () => approveCatalogUrls(unconfirmedCatalogs.map((source) => source.url)),
+    [approveCatalogUrls, unconfirmedCatalogs],
+  );
   const lastSearchRef = useRef(search);
   const externalNavigationPendingRef = useRef(false);
   const decodedSearch = decoded.issue
@@ -69,6 +108,10 @@ export function useRecipeBuilderUrlState() {
   return {
     form,
     urlIssue: decoded.issue,
-    workerEnabled: decoded.issue === undefined,
+    unconfirmedCatalogs,
+    confirmCatalogs,
+    setCatalogs,
+    workerEnabled:
+      decoded.issue === undefined && unconfirmedCatalogs.length === 0,
   };
 }

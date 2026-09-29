@@ -1,4 +1,8 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  CatalogSources,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
@@ -25,6 +29,17 @@ const TargetNameSchema = Schema.String.check(
   }),
 );
 
+export const officialCatalogRequiredIssue =
+  "Recipe Builder needs the official catalog. Add catalog=official to use custom catalogs alongside it.";
+
+// Builder controls assume official tool and database modules, so custom-only
+// sets stay CLI-only for now.
+export const BuilderCatalogSources = CatalogSources.check(
+  Schema.makeFilter((sources) =>
+    selectsOfficialCatalog(sources) ? undefined : officialCatalogRequiredIssue,
+  ),
+);
+
 const StackConfigurationSchema = Schema.Struct({
   name: ProjectNameSchema,
   runtime: RuntimeSchema,
@@ -33,6 +48,8 @@ const StackConfigurationSchema = Schema.Struct({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
+  /** Absent selects the official catalog only, as in `stack.effect.json`. */
+  catalogs: Schema.optional(BuilderCatalogSources),
 });
 
 const TargetModuleRequirementSchema = Schema.Struct({

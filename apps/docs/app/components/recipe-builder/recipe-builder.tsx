@@ -9,7 +9,11 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { trackEvent } from "~/lib/analytics";
-import { recipeBuilderRpcErrorMessage } from "../../atom/recipe-builder-atom";
+import {
+  recipeBuilderRpcErrorMessage,
+  recipeBuilderRpcFailure,
+} from "../../atom/recipe-builder-atom";
+import { CatalogSourcesPanel } from "./catalog-sources";
 import { DatabaseSelector } from "./database-selector";
 import {
   RecipeBuilderProvider,
@@ -40,7 +44,14 @@ function RecipeBuilderContent() {
     retryCatalog,
   } = useRecipeBuilderCatalog();
   const { canPreview, previewResult } = useRecipeBuilderPreview();
-  const { urlIssue } = useRecipeBuilderUrl();
+  const { urlIssue, unconfirmedCatalogs, confirmCatalogs, setCatalogs } =
+    useRecipeBuilderUrl();
+  const awaitingConfirmation = unconfirmedCatalogs.length > 0;
+  const catalogFailure = AsyncResult.isFailure(catalogResult)
+    ? recipeBuilderRpcFailure(catalogResult.cause)
+    : undefined;
+  const cachedSources =
+    catalog?.sources.filter((source) => source.freshness === "cached") ?? [];
   const location = useLocation();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
 
@@ -91,15 +102,52 @@ function RecipeBuilderContent() {
             Choose targets, attach their modules, and inspect the generated
             repository before running the command.
           </p>
-          {catalog?.freshness === "current" ? (
+          {catalog !== undefined && cachedSources.length === 0 ? (
             <Badge variant="secondary" className="mt-3">
-              Current catalog
+              {catalog.sources.length === 1
+                ? "Current catalog"
+                : `${catalog.sources.length} current catalogs`}
             </Badge>
           ) : null}
         </div>
       </header>
 
-      {urlIssue === undefined && catalog === undefined && !catalogFailed ? (
+      {awaitingConfirmation && urlIssue === undefined ? (
+        <Alert role="alert">
+          <AlertCircle />
+          <AlertTitle>Load catalogs from this link?</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3">
+            <span>
+              This recipe uses catalogs from other hosts. Loading them sends a
+              request from your browser to each URL.
+            </span>
+            <ul className="flex flex-col gap-1 font-mono text-xs">
+              {unconfirmedCatalogs.map((source) => (
+                <li key={source.name}>
+                  {source.name} · {source.url}
+                </li>
+              ))}
+            </ul>
+            <span className="flex flex-wrap gap-3">
+              <Button type="button" onClick={confirmCatalogs}>
+                Load these catalogs
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCatalogs(undefined)}
+              >
+                Start with the official catalog
+              </Button>
+            </span>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {urlIssue === undefined &&
+      !awaitingConfirmation &&
+      catalog === undefined &&
+      !catalogFailed ? (
         <Alert role="status">
           <AlertTitle>Loading the recipe catalog</AlertTitle>
           <AlertDescription>
@@ -111,13 +159,29 @@ function RecipeBuilderContent() {
       {catalogFailed ? (
         <Alert variant="destructive" role="alert">
           <AlertCircle />
-          <AlertTitle>Recipe catalog unavailable</AlertTitle>
+          <AlertTitle>
+            {catalogFailure?.issues
+              ? "Selected catalogs do not combine"
+              : catalogFailure?.failedSource
+                ? `Catalog ${catalogFailure.failedSource.name} unavailable`
+                : "Recipe catalog unavailable"}
+          </AlertTitle>
           <AlertDescription className="flex flex-wrap items-center gap-3">
-            <span>
-              {AsyncResult.isFailure(catalogResult)
-                ? recipeBuilderRpcErrorMessage(catalogResult.cause)
-                : "Could not load the recipe catalog."}
-            </span>
+            {catalogFailure?.issues ? (
+              <ul className="w-full list-disc pl-5">
+                {catalogFailure.issues.map((issue) => (
+                  <li key={`${issue.code}:${issue.message}`}>
+                    {issue.message}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <span>
+                {AsyncResult.isFailure(catalogResult)
+                  ? recipeBuilderRpcErrorMessage(catalogResult.cause)
+                  : "Could not load the recipe catalog."}
+              </span>
+            )}
             <Button type="button" variant="outline" onClick={retryCatalog}>
               Retry catalog
             </Button>
@@ -125,34 +189,36 @@ function RecipeBuilderContent() {
         </Alert>
       ) : null}
 
-      {catalog?.warning ? (
-        <Alert role="status">
-          <AlertCircle />
-          <AlertTitle>
-            {catalog.freshness === "cached"
-              ? "Using a cached catalog"
-              : "Catalog could not be saved"}
-          </AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center gap-3">
-            <span>
-              {catalog.warning.sourceUrl} · Last validated{" "}
-              {new Intl.DateTimeFormat(undefined, {
-                dateStyle: "medium",
-                timeStyle: "short",
-              }).format(catalog.warning.lastValidatedAt)}
-              .
-              {catalog.freshness === "cached"
-                ? " The registry is unavailable."
-                : " This preview is current, but may not be available offline."}
-            </span>
-            {catalog.freshness === "cached" ? (
-              <Button type="button" variant="outline" onClick={retryCatalog}>
-                Retry catalog
-              </Button>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {catalog?.sources
+        .filter((source) => source.warning !== undefined)
+        .map((source) => (
+          <Alert role="status" key={source.name}>
+            <AlertCircle />
+            <AlertTitle>
+              {source.freshness === "cached"
+                ? `Using cached catalog ${source.name}`
+                : `Catalog ${source.name} could not be saved`}
+            </AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center gap-3">
+              <span>
+                {source.sourceUrl} · Last validated{" "}
+                {new Intl.DateTimeFormat(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                }).format(source.warning?.lastValidatedAt)}
+                .
+                {source.freshness === "cached"
+                  ? " The registry is unavailable."
+                  : " This preview is current, but may not be available offline."}
+              </span>
+              {source.freshness === "cached" ? (
+                <Button type="button" variant="outline" onClick={retryCatalog}>
+                  Retry catalog
+                </Button>
+              ) : null}
+            </AlertDescription>
+          </Alert>
+        ))}
 
       {AsyncResult.builder(previewResult)
         .onInitialOrWaiting(() => null)
@@ -187,6 +253,10 @@ function RecipeBuilderContent() {
       <div className="grid min-w-0 items-start gap-4 lg:grid-cols-2 lg:gap-5 xl:grid-cols-[minmax(22rem,0.8fr)_minmax(0,1.45fr)] xl:gap-6">
         <div className="contents xl:col-start-1 xl:row-start-1 xl:flex xl:min-w-0 xl:flex-col xl:gap-6">
           <div className="min-w-0">
+            <CatalogSourcesPanel />
+          </div>
+
+          <div className="min-w-0">
             <StackConfigurator />
           </div>
 
@@ -215,6 +285,11 @@ function RecipeBuilderContent() {
             {!commandReady ? (
               <Badge variant="secondary" className="ml-2">
                 Not ready
+              </Badge>
+            ) : null}
+            {cachedSources.length > 0 ? (
+              <Badge variant="destructive" className="ml-2">
+                Cached: {cachedSources.map((source) => source.name).join(", ")}
               </Badge>
             ) : null}
           </>
