@@ -1,0 +1,58 @@
+{
+  "name": "@stack-effect/author",
+  "version": "0.0.0",
+  "description": "Author, validate, and build Stack Effect catalogs",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "homepage": "https://stack-effect.lloydrichards.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lloydrichards/stack-effect.git",
+    "directory": "packages/author"
+  },
+  "bugs": {
+    "url": "https://github.com/lloydrichards/stack-effect/issues"
+  },
+  "keywords": [
+    "effect",
+    "stack-effect",
+    "catalog",
+    "scaffolding"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "type-check": "tsc --noEmit",
+    "verify:package": "bun scripts/verify-package.ts",
+    "clean": "git clean -xdf .turbo dist node_modules tsconfig.tsbuildinfo"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0-rc.117"
+  },
+  "devDependencies": {
+    "@repo/authoring": "workspace:*",
+    "@repo/config-typescript": "workspace:*",
+    "@types/node": "^26.6.3",
+    "effect": "4.0.0-rc.117",
+    "tsdown": "^0.23.0"
+  },
+  "engines": {
+    "node": ">=22.18"
+  }
+}

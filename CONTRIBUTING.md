@@ -141,6 +141,36 @@ bun run test --filter=@repo/scaffold
 bun run type-check
 ```
 
+## Releasing
+
+Releases use [changesets](https://github.com/changesets/changesets). Add a changeset with `bunx changeset`. When changesets are pending on `main`, the Release workflow opens a "chore: version packages" PR. Merging that PR publishes the bumped packages to npm.
+
+The workflow has no npm token. npm authenticates it through [trusted publishing](https://docs.npmjs.com/trusted-publishers) (OIDC). Each package's `repository` field must name this repository and its `directory`.
+
+### Publish a new package for the first time
+
+npm can configure a trusted publisher only for a package that already exists. So a new public package, such as `@stack-effect/author`, needs one manual publish:
+
+1. Create the npm scope's organization, if it does not exist yet.
+2. Check out the merged `main`, then build and verify the package:
+
+   ```bash
+   bun install
+   bun run build --filter=@stack-effect/author
+   bun run --cwd packages/author verify:package
+   ```
+
+3. Publish the current `0.0.0` version as a bootstrap release:
+
+   ```bash
+   npm login
+   cd packages/author && npm publish --access public
+   ```
+
+4. On npmjs.com, open the package's **Settings → Trusted Publisher**. Choose GitHub Actions with repository `lloydrichards/stack-effect` and workflow `publish.yml`, and leave the environment empty.
+5. Optional: under **Publishing access**, require two-factor authentication and disallow tokens.
+6. Merge the version packages PR. CI publishes the first real version with provenance. For `@stack-effect/author`, CI then installs the published version in a clean project.
+
 ## References
 
 - [AGENTS.md](./AGENTS.md) — code style, domain rules, Effect patterns

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build": {
+      // The bundle inlines these workspace sources, so they invalidate its cache.
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/packages/tsconfig.author-dts.json",
+        "$TURBO_ROOT$/packages/authoring/src/**",
+        "$TURBO_ROOT$/packages/catalog/src/**",
+        "$TURBO_ROOT$/packages/domain/src/**"
+      ],
+      "outputs": ["dist/**"]
+    }
+  }
+}

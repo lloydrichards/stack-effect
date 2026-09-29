@@ -3,6 +3,7 @@ import {
   type CatalogSources,
   isCustomCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
+  OFFICIAL_CATALOG_URL,
 } from "@repo/domain/CatalogSource";
 import {
   type CatalogCompositionFailure,
@@ -13,8 +14,7 @@ import {
 } from "@repo/scaffold";
 import { Console, Context, DateTime, Effect, Layer } from "effect";
 
-export const OFFICIAL_CATALOG_URL =
-  "https://stack-effect.lloydrichards.dev/registry/v1/catalog.json";
+export { OFFICIAL_CATALOG_URL };
 
 const isoTime = (millis: number) =>
   DateTime.formatIso(DateTime.makeUnsafe(millis));

@@ -220,7 +220,7 @@ describe("buildCatalog", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
-  it.effect("rejects contributed Finalize scripts unless allowed", () =>
+  it.effect("publishes Finalize scripts only when allowed", () =>
     Effect.gen(function* () {
       const input = withModule({
         ...standaloneModule,
@@ -232,7 +232,7 @@ describe("buildCatalog", () => {
           subject: { _tag: "module", id: "acme-extra" },
           code: "finalize-script",
           message:
-            'Module acme-extra declares Finalize scripts, which contributed catalogs cannot ship; only an application-trusted build may pass finalizeScripts: "allow"',
+            'Module acme-extra declares Finalize scripts; pass finalizeScripts: "allow" to publish them',
           sources: ["src/buildCatalog.test.ts"],
         },
       ]);

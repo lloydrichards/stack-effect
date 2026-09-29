@@ -1,0 +1,13 @@
+{
+  // Declarations for @stack-effect/author. rolldown-plugin-dts passes this
+  // file's directory to tsgo as rootDir, so it must contain every source the
+  // bundle inlines.
+  "extends": "./author/tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    // Published declarations stay portable across Node, Bun, and Deno.
+    "types": []
+  },
+  "include": ["author/src", "authoring/src", "catalog/src", "domain/src"],
+  "exclude": ["**/*.test.ts", "**/test/**", "**/node_modules/**"]
+}

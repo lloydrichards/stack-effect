@@ -49,8 +49,24 @@ jobs:
         id: changesets
         uses: changesets/action@v2.1.2
         with:
+          # Required as an input for release tags and notes in v2.
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          # npm authenticates through trusted publishing (OIDC, id-token: write);
+          # there is no NPM_TOKEN. Each package needs a trusted publisher on npm.
           publish-script: npx changeset publish
           pr-title: "chore: version packages"
           commit-message: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify published author package
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '"@stack-effect/author"')
+        env:
+          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+        run: |
+          version=$(jq -r '.[] | select(.name == "@stack-effect/author") | .version' <<< "$PUBLISHED")
+          # The registry can take a moment to serve a new version.
+          for attempt in 1 2 3 4 5 6; do
+            npm view "@stack-effect/author@$version" version && break
+            sleep 20
+          done
+          bun run --cwd packages/author verify:package --registry "$version"

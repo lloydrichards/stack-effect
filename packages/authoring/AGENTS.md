@@ -16,15 +16,20 @@ validation errors and provenance.
 - Portable across Bun, Node and Deno: `src/` must not use `node:*`, `bun`,
   `Bun`, `Deno` or `process`; read files through Effect `FileSystem` and
   `Path`, which callers provide with their platform layer. Oxlint enforces
-  this. The package still ships raw TypeScript with extensionless imports, so
-  it loads under Bun, Deno and bundler resolvers such as Vitest, but not plain
-  `node`; a built, installable package belongs to #293.
+  this. This workspace package ships raw TypeScript for repository consumers;
+  `packages/author` bundles it, with `@repo/catalog` and `@repo/domain`, into
+  the published `@stack-effect/author`. Anything exported from `src/index.ts`
+  becomes public API there.
 - Every definition source and template must be a file URL or absolute path
   inside the build `root`, so reported paths and provenance are the same on
   every machine.
 - Catalog source selection and trust policy stay in the CLI and loaders.
   `finalizeScripts: "allow"` only lets a build emit scripts; loaders decide
   whether to run them.
+- `requires: ["official"]` composes the caller-supplied `official` document
+  for validation only. Official definitions never appear in the output, and
+  no network access happens inside `buildCatalog`; `loadOfficialCatalog`
+  fetches with the caller's `HttpClient`.
 - Provenance is returned beside the document and never written into it.
 
 ## Fixture

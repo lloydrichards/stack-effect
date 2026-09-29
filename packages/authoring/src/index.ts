@@ -23,3 +23,8 @@ export {
   type TargetInput,
 } from "./Define";
 export { isTemplateRef, templates, type TemplateRef } from "./Template";
+export {
+  loadOfficialCatalog,
+  OFFICIAL_CATALOG_URL,
+  OfficialCatalogUnavailable,
+} from "./official";

@@ -89,8 +89,18 @@ export interface BuildCatalogOptions {
    * must live in. Reported paths are relative to it, so builds are portable.
    */
   readonly root: URL | string;
-  /** Contributed catalogs cannot ship Finalize scripts; loaders decide trust. */
+  /**
+   * `"allow"` publishes Finalize scripts. Consumers still decide whether to
+   * run them: the CLI runs a custom catalog's scripts only with consent.
+   */
   readonly finalizeScripts?: "reject" | "allow";
+  /**
+   * Sources this catalog may reference. v1 accepts only the official source;
+   * pass its document as `official` so references are checked as the CLI does.
+   */
+  readonly requires?: ReadonlyArray<"official">;
+  /** The official catalog document, used for validation and never embedded. */
+  readonly official?: CatalogDocument;
 }
 
 export interface BuildCatalogResult {
@@ -425,8 +435,42 @@ const decodeEntries = Effect.fn("Authoring.decodeEntries")(function* (
 
 const composeMessage = (issue: CatalogIssue): string =>
   issue.code === "finalize-script"
-    ? `${catalogIssueLabel(issue.subject)} declares Finalize scripts, which contributed catalogs cannot ship; only an application-trusted build may pass finalizeScripts: "allow"`
+    ? `${catalogIssueLabel(issue.subject)} declares Finalize scripts; pass finalizeScripts: "allow" to publish them`
     : issue.message;
+
+const invalidOptions = (message: string): CatalogBuildIssue => ({
+  subject: documentSubject,
+  code: "invalid-options",
+  message,
+  sources: [],
+});
+
+/** The official document to compose beside this catalog, when it requires one. */
+const officialFragment = (catalogId: string, options: BuildCatalogOptions) => {
+  const requiresOfficial = options.requires?.includes("official") ?? false;
+  const issues = [
+    ...(requiresOfficial && options.official === undefined
+      ? [
+          invalidOptions(
+            'requires: ["official"] needs the official catalog document as `official`; load it with loadOfficialCatalog',
+          ),
+        ]
+      : []),
+    ...(!requiresOfficial && options.official !== undefined
+      ? [
+          invalidOptions(
+            'official is only used with requires: ["official"]; remove it or declare the dependency',
+          ),
+        ]
+      : []),
+    ...(requiresOfficial && catalogId === "official"
+      ? [invalidOptions("A catalog cannot require its own source")]
+      : []),
+  ];
+  return issues.length > 0
+    ? fail(issues)
+    : Effect.succeed(requiresOfficial ? options.official : undefined);
+};
 
 /**
  * Build a deterministic v1 catalog document from authored definitions.
@@ -453,6 +497,7 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
       ]),
     ),
   );
+  const official = yield* officialFragment(catalogId, options);
   const locations = yield* makeLocations(options.root);
   const entries = yield* collectEntries(catalog, locations);
   const sourcesOf = (subject: CatalogIssueSubject) =>
@@ -467,18 +512,29 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
   const resolved = yield* resolveTemplates(entries, locations);
   const decoded = yield* decodeEntries(entries, resolved);
 
-  const definitions = yield* composeCatalog(
-    [
-      {
-        targets: decoded.flatMap((item) =>
-          item._tag === "target" ? [item.target] : [],
-        ),
-        modules: decoded.flatMap((item) =>
-          item._tag === "module" ? [item.module] : [],
-        ),
-      },
-    ],
-    options.finalizeScripts === "allow" ? { trustedFragmentIndex: 0 } : {},
+  const authored = {
+    targets: decoded.flatMap((item) =>
+      item._tag === "target" ? [item.target] : [],
+    ),
+    modules: decoded.flatMap((item) =>
+      item._tag === "module" ? [item.module] : [],
+    ),
+  };
+  const allowScripts = options.finalizeScripts === "allow";
+  const composed = yield* composeCatalog(
+    official === undefined ? [authored] : [official, authored],
+    official === undefined
+      ? { allowFinalizeScripts: allowScripts }
+      : {
+          // The official document is fragment 0; its own scripts always pass.
+          ...(allowScripts
+            ? { allowFinalizeScripts: true }
+            : { trustedFragmentIndex: 0 }),
+          sources: [
+            { name: "official", requires: [] },
+            { name: catalogId, requires: ["official"] },
+          ],
+        },
   ).pipe(
     Effect.catchTag("CatalogValidationError", (error) =>
       fail(
@@ -492,11 +548,22 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
     ),
   );
 
+  // Official definitions only validate references; they are never published.
+  const ownedBy = (
+    origins: ReadonlyMap<string, string> | undefined,
+    key: string,
+  ) => origins === undefined || origins.get(key) === catalogId;
   const document: CatalogDocument = {
     formatVersion: 1,
     catalogId,
     requiredCapabilities: V1_INTERPRETER_CAPABILITIES,
-    ...definitions,
+    ...(official === undefined ? {} : { requires: ["official"] }),
+    targets: composed.targets.filter((target) =>
+      ownedBy(composed.origins?.targets, target.kind),
+    ),
+    modules: composed.modules.filter((module) =>
+      ownedBy(composed.origins?.modules, module.id),
+    ),
   };
   yield* validateCatalogCapabilities(document).pipe(
     Effect.catchTag("CatalogCapabilityError", (error) =>
