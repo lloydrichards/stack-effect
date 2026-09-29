@@ -59,7 +59,8 @@ stack-effect create my-app --catalog official --catalog acme=https://catalog.acm
 ```
 
 - `init` and `create`: the `--catalog` flags define the exact source set. The command saves them to `catalogs`. Without `--catalog`, the command writes no `catalogs` key.
-- Other commands (`add`, `plan`, `graph`, `schema`, and `catalog workspace`) read `catalogs` from the project. If `--catalog` is passed and its set differs from the saved set, the command fails with a named error. To change sources, edit `stack.effect.json`. An absent list counts as the set `[official]`.
+- Re-running `init` on a project without `--catalog` keeps the project's saved `catalogs`.
+- Other commands (`add`, `plan`, `graph`, `schema`, and `catalog workspace`) read `catalogs` from the project at `--root`, or at the current directory when `--root` is not given. A `plan` config on stdin that lists no `catalogs` keeps the project's saved sources. If `--catalog` is passed and its set differs from the saved set, the command fails with a named error. To change sources, edit `stack.effect.json`. An absent list counts as the set `[official]`.
 - Resolve the configuration and the source set before loading any catalog. Today the CLI loads the catalog layer before it reads the config. That order must be reversed.
 - Rendered `create` commands include the `--catalog` flags. These are the commands shown by `renderCreateCommand` and by Recipe Builder.
 
@@ -72,6 +73,8 @@ A v1 `CatalogDocument` gains an optional top-level `requires` field. In v1, the 
 - A custom document may reference the targets and modules it defines itself. It may also reference official definitions, if it declares `requires: ["official"]`.
 - An undeclared reference to an official definition is an error, even when `official` is selected.
 - A document cannot reference definitions in another custom source. When custom sources A and B are selected together, the catalog is the union of two independent catalogs.
+- `conflictsWith` stays within one source. Conflicts must be symmetric, and one source cannot edit the other source's side, so a conflict with another source's module is a `cross-source-conflict` error.
+- A document cannot require its own source, including the official document declaring `requires: ["official"]`.
 - If a document declares `requires: ["official"]` and `official` is not selected, the operation fails before composition. The error names the source and suggests `--catalog official`. The official source is never added implicitly.
 - Nothing fetches a URL that a document mentions.
 
