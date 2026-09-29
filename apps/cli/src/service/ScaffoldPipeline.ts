@@ -26,6 +26,7 @@ import {
 import { Ansi, Box } from "effect-boxes";
 import { DryRunPreview } from "../components/DryRunPreview";
 import { NextStepsPreview } from "../components/NextStepsPreview";
+import { CatalogSelection, isCustomSource } from "./CatalogSelection";
 
 class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   message: string;
@@ -262,34 +263,69 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             finalizeConfig,
           );
           if (previewScripts.length > 0) {
+            const { loaded } = yield* CatalogSelection;
+            const sourceLabel = (source: string | undefined) =>
+              source === undefined
+                ? ""
+                : `catalog ${source} (${
+                    loaded.find((entry) => entry.name === source)?.sourceUrl ??
+                    "unknown URL"
+                  })`;
+            const customSources = Arr.dedupe(
+              previewScripts.flatMap((script) =>
+                isCustomSource(script.source) && script.source !== undefined
+                  ? [script.source]
+                  : [],
+              ),
+            );
             const skipPrompt = yes || trust;
 
-            const selectedScripts = skipPrompt
+            // --yes accepts defaults: official scripts run; custom-source scripts need --trust.
+            const selectedScripts = trust
               ? previewScripts
-              : yield* MultiSelect({
-                  message: "Finalize scripts to run:",
-                  groups: [
-                    { key: "finalize", label: "Finalize" },
-                    { key: "config", label: "Install & Format" },
-                    { key: "post-finalize", label: "Post-Finalize" },
-                  ],
-                  choices: previewScripts.map((s) => ({
-                    title: `${s.command}`,
-                    description: s.origin,
-                    value: s,
-                    selected: true,
-                    group: s.phase,
-                  })),
-                });
+              : yes
+                ? previewScripts.filter(
+                    (script) => !isCustomSource(script.source),
+                  )
+                : yield* MultiSelect({
+                    message: "Finalize scripts to run:",
+                    groups: [
+                      { key: "finalize", label: "Finalize" },
+                      { key: "config", label: "Install & Format" },
+                      { key: "post-finalize", label: "Post-Finalize" },
+                      ...customSources.map((source) => ({
+                        key: `source:${source}`,
+                        label: `From ${sourceLabel(source)}`,
+                      })),
+                    ],
+                    choices: previewScripts.map((s) => ({
+                      title: `${s.command}`,
+                      description: s.origin,
+                      value: s,
+                      selected: !isCustomSource(s.source),
+                      group: isCustomSource(s.source)
+                        ? `source:${s.source}`
+                        : s.phase,
+                    })),
+                  });
 
             // NOTE: Non-interactive runs still print the script list as an audit trail.
             if (skipPrompt) {
               yield* Console.log("\nFinalize scripts:");
               for (const script of previewScripts) {
                 yield* Console.log(
-                  `  ${script.label}: ${script.command} (${script.origin})`,
+                  `  ${script.label}: ${script.command} (${script.origin}${
+                    isCustomSource(script.source)
+                      ? `, ${sourceLabel(script.source)}`
+                      : ""
+                  })`,
                 );
               }
+            }
+            if (!trust && yes && customSources.length > 0) {
+              yield* Console.log(
+                `\nSkipped finalize scripts from ${customSources.join(", ")}. Run again with --trust to run them, or run them from the next steps below.`,
+              );
             }
 
             if (selectedScripts.length === 0) {

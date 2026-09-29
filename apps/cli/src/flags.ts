@@ -19,6 +19,15 @@ export const recipeTargetFlag = Flag.String("target").pipe(
   ),
 );
 
+export const catalogFlag = Flag.String("catalog").pipe(
+  Flag.atLeast(1),
+  Flag.optional,
+  Flag.withMetavar("official|<name>=<url>"),
+  Flag.withDescription(
+    "Catalog source to load; repeat for several. init and create save the set to stack.effect.json; other commands must match the saved set",
+  ),
+);
+
 export const rootFlag = Flag.Directory("root").pipe(
   Flag.optional,
   Flag.withMetavar("<dir>"),
@@ -51,7 +60,7 @@ export const yesFlag = Flag.Boolean("yes").pipe(
   Flag.withDefault(false),
   Flag.withAlias("y"),
   Flag.withDescription(
-    "Skip confirmation prompts (uses defaults where available)",
+    "Skip confirmation prompts (uses defaults where available); runs only official finalize scripts",
   ),
 );
 
@@ -63,7 +72,7 @@ export const noGitFlag = Flag.Boolean("no-git").pipe(
 export const trustFlag = Flag.Boolean("trust").pipe(
   Flag.withDefault(false),
   Flag.withDescription(
-    "Skip finalize script approval prompt and run all scripts",
+    "Run all finalize scripts without a prompt, including scripts from custom catalogs",
   ),
 );
 

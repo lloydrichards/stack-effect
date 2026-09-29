@@ -228,7 +228,10 @@ it.effect(
           stdout[1] ?? "",
         ),
       );
-      assert.include(stderr.join("\n"), "Using cached catalog from");
+      assert.include(
+        stderr.join("\n"),
+        "catalog official (https://stack-effect.lloydrichards.dev/registry/v1/catalog.json): using cached data",
+      );
     }).pipe(
       Effect.provide(
         Layer.merge(

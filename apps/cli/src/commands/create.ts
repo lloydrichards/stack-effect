@@ -1,4 +1,5 @@
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import type { CatalogSources } from "@repo/domain/CatalogSource";
 import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
 import {
   makeRuntime,
@@ -15,6 +16,7 @@ import {
 import { Array as Arr, Console, Effect, Option, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
 import {
+  catalogFlag,
   dryRunFlag,
   formatFlag,
   lintFlag,
@@ -33,6 +35,7 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
+import { CatalogSelection, selectsOfficial } from "../service/CatalogSelection";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
@@ -89,6 +92,7 @@ const buildConfig = ({
   format,
   test,
   defaults,
+  catalogs,
 }: {
   readonly projectName: string;
   readonly runtime: Option.Option<"bun" | "deno" | "node">;
@@ -99,6 +103,7 @@ const buildConfig = ({
   readonly format: Option.Option<string>;
   readonly test: Option.Option<string>;
   readonly defaults: StackConfig;
+  readonly catalogs: Option.Option<CatalogSources>;
 }): typeof StackConfig.Type => {
   const packageManagerName = Option.getOrElse(
     packageManager,
@@ -119,6 +124,10 @@ const buildConfig = ({
     lint: Option.getOrElse(lint, () => runtimeDefaults.lint),
     format: Option.getOrElse(format, () => runtimeDefaults.format),
     test: Option.getOrElse(test, () => runtimeDefaults.test),
+    ...Option.match(catalogs, {
+      onNone: () => ({}),
+      onSome: (sources) => ({ catalogs: sources }),
+    }),
   });
 };
 
@@ -147,6 +156,7 @@ export const create = Command.make(
   {
     name: projectNameArg,
     target: recipeTargetFlag,
+    catalog: catalogFlag,
     root: rootFlag,
     runtime: runtimeFlag,
     packageManager: packageManagerFlag,
@@ -168,6 +178,7 @@ export const create = Command.make(
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeService;
       const defaults = yield* StackConfigDefaults;
+      const catalogSelection = yield* CatalogSelection;
 
       if (Option.isNone(flags.name)) {
         return yield* Effect.fail(
@@ -213,8 +224,13 @@ export const create = Command.make(
         format: flags.format,
         test: flags.test,
         defaults,
+        catalogs: catalogSelection.explicit,
       });
-      const recipeSpec = buildRecipeSpec(flags.target.value, !flags.noGit);
+      // workspace-devenv-git is an official module; custom-only sets bring their own.
+      const recipeSpec = buildRecipeSpec(
+        flags.target.value,
+        !flags.noGit && selectsOfficial(catalogSelection.sources),
+      );
       const selection = yield* recipes.resolve(recipeSpec, {
         config,
         providerStrategy: { _tag: "fail-on-ambiguous" },
@@ -251,7 +267,7 @@ export const create = Command.make(
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,
-        trust: flags.trust || flags.yes,
+        trust: flags.trust,
         config,
         createCommand,
       });

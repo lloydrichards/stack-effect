@@ -11,7 +11,7 @@ import {
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Layer, Result, Stream } from "effect";
+import { Effect, Layer, Option, Result, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
@@ -116,6 +116,7 @@ const makeCatalogLayer = (
       };
       return { ...base, ...modules[moduleId] } as typeof ModuleDefinition.Type;
     }),
+    getSource: () => Option.none(),
   } as never);
 
 const makeSpawnerLayer = (

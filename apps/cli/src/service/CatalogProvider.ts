@@ -1,16 +1,41 @@
 import { CatalogService } from "@repo/catalog";
-import { CatalogLoader, type CatalogLoadFailure } from "@repo/scaffold";
+import {
+  type CatalogSources,
+  OFFICIAL_CATALOG_SOURCE,
+} from "@repo/domain/CatalogSource";
+import {
+  type CatalogCompositionFailure,
+  CatalogLoader,
+  CatalogLoadFailure,
+  type LoadedCatalogSet,
+  type LoadedCatalogSource,
+} from "@repo/scaffold";
 import { Console, Context, DateTime, Effect, Layer } from "effect";
 
 export const OFFICIAL_CATALOG_URL =
   "https://stack-effect.lloydrichards.dev/registry/v1/catalog.json";
 
+const isoTime = (millis: number) =>
+  DateTime.formatIso(DateTime.makeUnsafe(millis));
+
+/** One stderr line per source keeps stdout machine-readable. */
+const warnAbout = ({ name, sourceUrl, warning }: LoadedCatalogSource) =>
+  warning === undefined
+    ? Effect.void
+    : Console.error(
+        warning.kind === "stale"
+          ? `catalog ${name} (${sourceUrl}): using cached data last validated at ${isoTime(warning.lastValidatedAt)}.`
+          : `catalog ${name} (${sourceUrl}): current, but it could not be cached (validated at ${isoTime(warning.lastValidatedAt)}).`,
+      );
+
 export class CatalogProvider extends Context.Service<
   CatalogProvider,
   {
-    readonly load: Effect.Effect<
-      typeof CatalogService.Service,
-      CatalogLoadFailure
+    readonly load: (
+      sources: CatalogSources,
+    ) => Effect.Effect<
+      LoadedCatalogSet,
+      CatalogLoadFailure | CatalogCompositionFailure
     >;
   }
 >()("CatalogProvider") {
@@ -19,32 +44,44 @@ export class CatalogProvider extends Context.Service<
     Effect.gen(function* () {
       const loader = yield* CatalogLoader;
       return {
-        load: loader
-          .load({
-            sourceUrl: OFFICIAL_CATALOG_URL,
-            allowFinalizeScripts: true,
-          })
-          .pipe(
-            Effect.tap(({ warning }) =>
-              warning === undefined
-                ? Effect.void
-                : Console.error(
-                    warning.kind === "stale"
-                      ? `Using cached catalog from ${warning.sourceUrl}; last validated at ${DateTime.formatIso(DateTime.makeUnsafe(warning.lastValidatedAt))}.`
-                      : `Catalog from ${warning.sourceUrl} is current, but it could not be cached (validated at ${DateTime.formatIso(DateTime.makeUnsafe(warning.lastValidatedAt))}).`,
-                  ),
+        load: (sources) =>
+          loader
+            .loadSources({ sources, officialUrl: OFFICIAL_CATALOG_URL })
+            .pipe(
+              Effect.tap(({ sources }) => Effect.forEach(sources, warnAbout)),
             ),
-            Effect.map(({ catalog }) => catalog),
-          ),
       };
     }),
   );
 
+  /** Local definitions for repository authoring; only the official source exists. */
   static readonly authoring = Layer.effect(
     this,
     Effect.gen(function* () {
       const catalog = yield* CatalogService;
-      return { load: Effect.succeed(catalog) };
+      return {
+        load: (sources) =>
+          sources.every((source) => source.name === OFFICIAL_CATALOG_SOURCE)
+            ? Effect.succeed({
+                catalog,
+                sources: [
+                  {
+                    name: OFFICIAL_CATALOG_SOURCE,
+                    sourceUrl: "local:authoring",
+                    digest: "",
+                    freshness: "current" as const,
+                  },
+                ],
+              })
+            : Effect.fail(
+                new CatalogLoadFailure({
+                  reason: "invalidSource",
+                  sourceUrl: "local:authoring",
+                  message:
+                    "The authoring entrypoint only provides the local official catalog.",
+                }),
+              ),
+      };
     }),
   );
 }

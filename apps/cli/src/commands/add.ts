@@ -33,6 +33,7 @@ import {
 import { Ansi, Box } from "effect-boxes";
 import { Command } from "effect/unstable/cli";
 import {
+  catalogFlag,
   dryRunFlag,
   recipeTargetFlag,
   rootFlag,
@@ -853,6 +854,7 @@ export const add = Command.make(
   {
     root: rootFlag,
     target: recipeTargetFlag,
+    catalog: catalogFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
     showFiles: showFilesFlag,
@@ -906,7 +908,7 @@ export const add = Command.make(
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,
-        trust: flags.trust || flags.yes,
+        trust: flags.trust,
         config,
         createCommand,
       });

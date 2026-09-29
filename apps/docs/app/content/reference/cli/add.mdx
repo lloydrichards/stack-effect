@@ -16,10 +16,11 @@ stack-effect add [flags]
 | --- | --- |
 | `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
 | `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
-| `--yes, -y` | Skip confirmation prompts (uses defaults where available) |
+| `--catalog official\|<name>=<url>` | Catalog source to load; repeat for several. init and create save the set to stack.effect.json; other commands must match the saved set |
+| `--yes, -y` | Skip confirmation prompts (uses defaults where available); runs only official finalize scripts |
 | `--dry-run` | Preview changes without writing to disk |
 | `--show-files` | Include generated file contents in a dry-run preview |
-| `--trust` | Skip finalize script approval prompt and run all scripts |
+| `--trust` | Run all finalize scripts without a prompt, including scripts from custom catalogs |
 
 ## Examples
 

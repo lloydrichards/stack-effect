@@ -49,7 +49,33 @@ const configPackageManager = (
 ): "bun" | "deno" | "pnpm" | "npm" =>
   runtime._tag === "node" ? runtime.packageManager : runtime._tag;
 
+const customWorkspaceModules = (config: typeof StackConfig.Type) =>
+  Arr.dedupe(
+    [
+      ["tool", config.monorepo],
+      ["lint", config.lint],
+      ["format", config.format],
+      ["tool", config.test],
+    ].flatMap(([category, tool]) =>
+      tool === undefined || tool === ""
+        ? []
+        : [
+            ModuleId.make(
+              toWorkspaceModuleId(category as "lint" | "format" | "tool", tool),
+            ),
+          ],
+    ),
+  );
+
+/** Without the official source, only tools the user named become modules. */
 const configWorkspaceModules = (
+  config: typeof StackConfig.Type,
+): ReadonlyArray<typeof ModuleId.Type> =>
+  config.usesOfficialCatalog
+    ? officialWorkspaceModules(config)
+    : customWorkspaceModules(config);
+
+const officialWorkspaceModules = (
   config: typeof StackConfig.Type,
 ): ReadonlyArray<typeof ModuleId.Type> =>
   Arr.dedupe(
@@ -198,9 +224,45 @@ export class RecipeService extends Context.Service<
     const catalog = yield* CatalogService;
     const defaults = yield* StackConfigDefaults;
 
+    const requireCustomWorkspace = Effect.fn(
+      "RecipeService.requireCustomWorkspace",
+    )(function* (config: typeof StackConfig.Type) {
+      if (config.usesOfficialCatalog) return;
+      const hasWorkspace = yield* catalog
+        .getTarget(TargetKind.make("workspace"))
+        .pipe(
+          Effect.as(true),
+          Effect.orElseSucceed(() => false),
+        );
+      const missingModules = yield* Effect.filter(
+        customWorkspaceModules(config),
+        (id) =>
+          catalog.getModule(id).pipe(
+            Effect.as(false),
+            Effect.orElseSucceed(() => true),
+          ),
+      );
+      const issues = [
+        ...(hasWorkspace
+          ? []
+          : [
+              {
+                path: ["catalogs"],
+                message: `The selected catalogs (${config.catalogSources.map((source) => source.name).join(", ")}) provide no workspace target.`,
+              },
+            ]),
+        ...missingModules.map((id) => ({
+          path: ["config"],
+          message: `Workspace tool module "${id}" is not provided by the selected catalogs.`,
+        })),
+      ];
+      if (issues.length > 0) return yield* new InvalidRecipeSpec({ issues });
+    });
+
     const resolve: RecipeServiceShape["resolve"] = Effect.fn(
       "RecipeService.resolve",
     )(function* (recipe, options) {
+      yield* requireCustomWorkspace(options.config);
       const recipeTargets = yield* Effect.forEach(recipe.targets, (target) =>
         Effect.gen(function* () {
           const identity = yield* resolveTargetIdentity(
@@ -237,7 +299,17 @@ export class RecipeService extends Context.Service<
             ? "deno run -A npm:"
             : "npx";
       const packageManager = configPackageManager(config.runtime);
-      const runtimeDefaults = defaultsForRuntime(defaults, config.runtime._tag);
+      const official = config.usesOfficialCatalog;
+      // Custom-only configs compare tools against no defaults, so every named tool renders.
+      const runtimeDefaults = official
+        ? defaultsForRuntime(defaults, config.runtime._tag)
+        : {
+            ...defaultsForRuntime(defaults, config.runtime._tag),
+            monorepo: undefined,
+            lint: undefined,
+            format: undefined,
+            test: undefined,
+          };
       const configModuleIds = new Set(configWorkspaceModules(config));
       const targetFlags = pipe(
         selection.targets,
@@ -273,6 +345,12 @@ export class RecipeService extends Context.Service<
           : ["stack-effect@latest"]),
         "create",
         quoteShellArg(config.name),
+        ...(config.catalogs ?? []).flatMap((source) => [
+          "--catalog",
+          quoteShellArg(
+            "url" in source ? `${source.name}=${source.url}` : source.name,
+          ),
+        ]),
         ...targetFlags,
         ...(config.runtime._tag === defaults.runtime._tag
           ? []
@@ -297,7 +375,8 @@ export class RecipeService extends Context.Service<
           runtimeDefaults.format ?? "",
         ),
         ...renderChangedFlag("--test", config.test, runtimeDefaults.test ?? ""),
-        ...(selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
+        ...(!official ||
+        selectionIncludesWorkspaceModule(selection, "workspace-devenv-git")
           ? []
           : ["--no-git"]),
       ].join(" ");

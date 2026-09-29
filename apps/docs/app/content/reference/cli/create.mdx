@@ -21,6 +21,7 @@ stack-effect create [flags] [<project-name>]
 | Option | Description |
 | --- | --- |
 | `--target <targetKind>/<targetName>:<moduleId>[,...]` | Target spec as &lt;targetKind&gt;/&lt;targetName&gt;:&lt;moduleId&gt;[,&lt;moduleId&gt;...] |
+| `--catalog official\|<name>=<url>` | Catalog source to load; repeat for several. init and create save the set to stack.effect.json; other commands must match the saved set |
 | `--root, -r <dir>` | Root directory of the repository (defaults to cwd) |
 | `--runtime choice` | Runtime to use (choices: bun, deno, node) |
 | `--package-manager choice` | Override the default package manager. bun and deno use their own package managers; pnpm/npm imply --runtime node. (choices: bun, deno, pnpm, npm) |
@@ -30,8 +31,8 @@ stack-effect create [flags] [<project-name>]
 | `--format string` | Override the default format tool |
 | `--test string` | Override the default test framework |
 | `--no-git` | Skip git repository initialization |
-| `--yes, -y` | Skip confirmation prompts (uses defaults where available) |
-| `--trust` | Skip finalize script approval prompt and run all scripts |
+| `--yes, -y` | Skip confirmation prompts (uses defaults where available); runs only official finalize scripts |
+| `--trust` | Run all finalize scripts without a prompt, including scripts from custom catalogs |
 | `--dry-run` | Preview changes without writing to disk |
 | `--show-files` | Include generated file contents in a dry-run preview |
 

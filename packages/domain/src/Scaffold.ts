@@ -1,5 +1,10 @@
 import { Match, Schema } from "effect";
 import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
+import {
+  CatalogSources,
+  defaultCatalogSources,
+  OFFICIAL_CATALOG_SOURCE,
+} from "./CatalogSource";
 
 export const TargetContribution = Schema.Struct({
   targetKey: TargetKey,
@@ -68,7 +73,20 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   format: Schema.optional(Schema.String),
   test: Schema.optional(Schema.String),
   monorepo: Schema.optional(Schema.String),
+  /** Explicit catalog selection. Absent means the official source only. */
+  catalogs: Schema.optional(CatalogSources),
 }) {
+  get catalogSources(): CatalogSources {
+    return this.catalogs ?? defaultCatalogSources;
+  }
+
+  /** Official tool defaults and workspace modules apply only with the official source. */
+  get usesOfficialCatalog(): boolean {
+    return this.catalogSources.some(
+      (source) => source.name === OFFICIAL_CATALOG_SOURCE,
+    );
+  }
+
   get typescriptVersion(): typeof TypeScriptVersion.Type {
     return this.typescript ?? "6";
   }

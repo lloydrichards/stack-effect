@@ -18,6 +18,7 @@ import { Console, Effect, Option, Schema } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Command } from "effect/unstable/cli";
 import {
+  catalogFlag,
   dryRunFlag,
   noGitFlag,
   projectNameArg,
@@ -30,6 +31,7 @@ import {
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
+import { CatalogSelection, selectsOfficial } from "../service/CatalogSelection";
 import {
   CONFIG_FILENAME,
   ConfigureService,
@@ -76,14 +78,18 @@ const chooseOptionalTool = <A extends string>(
   yes: boolean,
   message: string,
   choices: ReadonlyArray<{ title: string; value: A }>,
-  fallback: A,
-) => (yes ? Effect.succeedSome(fallback) : optionalSelect(message, choices));
+  fallback: A | undefined,
+) =>
+  yes
+    ? Effect.succeed(Option.fromUndefinedOr(fallback))
+    : optionalSelect(message, choices);
 
 export const init = Command.make(
   "init",
   {
     name: projectNameArg,
     root: rootFlag,
+    catalog: catalogFlag,
     yes: yesFlag,
     dryRun: dryRunFlag,
     showFiles: showFilesFlag,
@@ -98,6 +104,7 @@ export const init = Command.make(
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogService;
       const defaults = yield* StackConfigDefaults;
+      const catalogSelection = yield* CatalogSelection;
 
       const monorepoChoices = workspaceChoices(
         catalog,
@@ -208,35 +215,37 @@ export const init = Command.make(
         flags.yes,
         "What monorepo tool will you use?",
         monorepoChoices,
-        runtimeDefaults.monorepo ?? "",
+        runtimeDefaults.monorepo,
       );
       const lint = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for linting?",
         lintChoices,
-        runtimeDefaults.lint ?? "",
+        runtimeDefaults.lint,
       );
       const format_ = yield* chooseOptionalTool(
         flags.yes,
         "What will you use for formatting?",
         formatChoices,
-        runtimeDefaults.format ?? "",
+        runtimeDefaults.format,
       );
       const test = yield* chooseOptionalTool(
         flags.yes,
         "What test framework will you use?",
         testChoices,
-        runtimeDefaults.test ?? "",
+        runtimeDefaults.test,
       );
 
-      const git = flags.noGit
-        ? false
-        : flags.yes
-          ? true
-          : yield* Confirm({
-              message: "Initialize a git repository?",
-              initial: true,
-            });
+      // workspace-devenv-git is an official module; custom-only sets bring their own.
+      const git =
+        flags.noGit || !selectsOfficial(catalogSelection.sources)
+          ? false
+          : flags.yes
+            ? true
+            : yield* Confirm({
+                message: "Initialize a git repository?",
+                initial: true,
+              });
 
       const dxExtras =
         devenvChoices.length === 0 || flags.yes
@@ -270,6 +279,10 @@ export const init = Command.make(
         ...Option.match(monorepo, {
           onNone: () => ({}),
           onSome: (v) => ({ monorepo: v }),
+        }),
+        ...Option.match(catalogSelection.explicit, {
+          onNone: () => ({}),
+          onSome: (sources) => ({ catalogs: sources }),
         }),
       });
 
@@ -378,7 +391,7 @@ export const init = Command.make(
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,
-        trust: flags.trust || flags.yes,
+        trust: flags.trust,
         config,
       });
     }),

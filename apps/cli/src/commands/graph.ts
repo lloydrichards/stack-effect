@@ -17,6 +17,8 @@ import {
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Command, Flag } from "effect/unstable/cli";
+import { catalogFlag } from "../flags";
+import { CatalogSelection, isCustomSource } from "../service/CatalogSelection";
 
 const formatFlag = Flag.Literals("format", ["table", "mermaid", "dot"]).pipe(
   Flag.optional,
@@ -227,7 +229,10 @@ const countEdges = (g: CatalogGraph) => {
   };
 };
 
-const renderTable = (g: CatalogGraph) => {
+const renderTable = (
+  g: CatalogGraph,
+  sourceOf: Option.Option<(node: typeof CatalogNode.Type) => string>,
+) => {
   const nodeCount = Graph.nodeCount(g);
   const edgeCount = Graph.edgeCount(g);
   const acyclic = Graph.isAcyclic(g);
@@ -262,7 +267,11 @@ const renderTable = (g: CatalogGraph) => {
     { header: "requires →", width: 16 },
     { header: "implies →", width: 16 },
     { header: "childOf →", width: 16 },
-  ] as const;
+    ...Option.match(sourceOf, {
+      onNone: () => [],
+      onSome: () => [{ header: "Source", width: 12 }],
+    }),
+  ];
 
   const sortedRows = Arr.sortBy(
     Order.mapInput(Order.String, (r: RowData) =>
@@ -294,6 +303,12 @@ const renderTable = (g: CatalogGraph) => {
     Box.para(Arr.join(r.childOf, "\n") || "—", Box.left, 16).pipe(
       Box.annotate(Ansi.dim),
     ),
+    ...Option.match(sourceOf, {
+      onNone: () => [],
+      onSome: (source) => [
+        Box.text(source(r.node)).pipe(Box.annotate(Ansi.dim)),
+      ],
+    }),
   ]);
 
   const table = Table([...columns], rows);
@@ -305,35 +320,54 @@ const renderTable = (g: CatalogGraph) => {
   ).pipe(Box.pad(0, 1), Box.border("rounded"));
 };
 
-export const graph = Command.make("graph", { format: formatFlag }, (flags) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogService;
-    const g = catalog.toGraph;
-    const fmt = Option.getOrElse(flags.format, () => "table" as const);
+export const graph = Command.make(
+  "graph",
+  { format: formatFlag, catalog: catalogFlag },
+  (flags) =>
+    Effect.gen(function* () {
+      const catalog = yield* CatalogService;
+      const selection = yield* CatalogSelection;
+      // Official-only output stays unchanged; a Source column appears once custom catalogs are selected.
+      const sourceOf = selection.sources.some((source) =>
+        isCustomSource(source.name),
+      )
+        ? Option.some((node: typeof CatalogNode.Type) =>
+            Option.getOrElse(
+              catalog.getSource(
+                node._tag === "target"
+                  ? { _tag: "target", kind: node.definition.kind }
+                  : { _tag: "module", id: node.definition.id },
+              ),
+              () => "—",
+            ),
+          )
+        : Option.none();
+      const g = catalog.toGraph;
+      const fmt = Option.getOrElse(flags.format, () => "table" as const);
 
-    switch (fmt) {
-      case "mermaid": {
-        yield* Console.log(
-          Graph.toMermaid(g, {
-            nodeLabel,
-            edgeLabel: (e) => e,
-            direction: "LR",
-          }),
-        );
-        break;
+      switch (fmt) {
+        case "mermaid": {
+          yield* Console.log(
+            Graph.toMermaid(g, {
+              nodeLabel,
+              edgeLabel: (e) => e,
+              direction: "LR",
+            }),
+          );
+          break;
+        }
+        case "dot": {
+          yield* Console.log(
+            Graph.toGraphViz(g, { nodeLabel, edgeLabel: (e) => e }),
+          );
+          break;
+        }
+        case "table": {
+          yield* Console.log(Box.renderPrettySync(renderTable(g, sourceOf)));
+          break;
+        }
       }
-      case "dot": {
-        yield* Console.log(
-          Graph.toGraphViz(g, { nodeLabel, edgeLabel: (e) => e }),
-        );
-        break;
-      }
-      case "table": {
-        yield* Console.log(Box.renderPrettySync(renderTable(g)));
-        break;
-      }
-    }
-  }),
+    }),
 ).pipe(
   Command.withDescription(
     "Output the catalog dependency graph in table, Mermaid, or DOT format for visualization or tooling.",

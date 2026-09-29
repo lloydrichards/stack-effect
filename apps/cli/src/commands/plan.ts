@@ -22,7 +22,8 @@ import {
 import { Box } from "effect-boxes";
 import { Stdio } from "effect/Stdio";
 import { Command, Flag } from "effect/unstable/cli";
-import { rootFlag } from "../flags";
+import { catalogFlag, rootFlag } from "../flags";
+import { CatalogSelection } from "../service/CatalogSelection";
 import { ConfigureService } from "../service/ConfigureService";
 
 /**
@@ -91,7 +92,12 @@ export const parsePlanInput = (root: Option.Option<string>) =>
 
 export const plan = Command.make(
   "plan",
-  { root: rootFlag, format: formatFlag, output: outputFlag },
+  {
+    root: rootFlag,
+    format: formatFlag,
+    output: outputFlag,
+    catalog: catalogFlag,
+  },
   (flags) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
@@ -99,6 +105,13 @@ export const plan = Command.make(
       const format = Option.getOrElse(flags.format, () => "llm" as const);
 
       const { input, config } = yield* ParsedPlanInput;
+      const { loaded } = yield* CatalogSelection;
+      const sources = loaded.map(({ name, sourceUrl, digest, freshness }) => ({
+        name,
+        url: sourceUrl,
+        digest,
+        freshness,
+      }));
 
       const blueprintService = yield* BlueprintService;
       const blueprint = yield* blueprintService.resolve(
@@ -168,18 +181,20 @@ export const plan = Command.make(
           ),
         ),
         Match.when("llm", () =>
-          Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-            renderPlanForLlm({
+          Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+            sources,
+            ...renderPlanForLlm({
               outcomes: planResult.outcomes,
               conflicts: planResult.conflicts,
               finalize: finalizeWithCreateCommand,
               summary,
               tree,
             }),
-          ),
+          }),
         ),
         Match.when("raw", () =>
           Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+            sources,
             baseline: planResult.baseline,
             outcomes: planResult.outcomes,
             conflicts: planResult.conflicts,

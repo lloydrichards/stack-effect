@@ -2,6 +2,7 @@ import { CatalogService } from "@repo/catalog";
 import { PlanRequest } from "@repo/domain/Plan";
 import { Console, Effect, Schema } from "effect";
 import { Command } from "effect/unstable/cli";
+import { catalogFlag } from "../flags";
 
 /**
  * Serializes the catalog for external consumption (LLMs, CI, tooling).
@@ -10,7 +11,7 @@ import { Command } from "effect/unstable/cli";
  * - `catalog`: tree-structured catalog (targets with nested modules)
  * - `planInput`: JSON Schema for the Selection input accepted by `plan`
  */
-export const schema = Command.make("schema", {}, () =>
+export const schema = Command.make("schema", { catalog: catalogFlag }, () =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
 
