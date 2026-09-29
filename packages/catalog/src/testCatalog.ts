@@ -108,3 +108,37 @@ export const exportTestCatalog = Effect.fn("Catalog.exportTest")(function* () {
     ...definitions,
   });
 });
+
+/** The exported test catalog decoded back into a v1 document. */
+export const decodedTestCatalog = Effect.gen(function* () {
+  return yield* Schema.decodeEffect(Schema.fromJsonString(CatalogDocument))(
+    yield* exportTestCatalog(),
+  );
+});
+
+type TestDocument = typeof CatalogDocument.Type;
+type TestContribution =
+  TestDocument["modules"][number]["contributions"][number];
+
+/**
+ * Moves the document's first module to the end with extra contributions, so a
+ * capability check sees the added content on a known module.
+ */
+export const withModuleContribution = (
+  document: TestDocument,
+  contributions: ReadonlyArray<TestContribution>,
+): TestDocument => {
+  const [first, ...rest] = document.modules;
+  return first === undefined
+    ? document
+    : {
+        ...document,
+        modules: [
+          ...rest,
+          {
+            ...first,
+            contributions: [...first.contributions, ...contributions],
+          },
+        ],
+      };
+};

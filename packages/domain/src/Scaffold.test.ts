@@ -206,7 +206,7 @@ describe("StackConfig TypeScript version", () => {
 });
 
 describe("StackConfig editor schema metadata", () => {
-  it("decodes old configurations and the canonical editor URL", () => {
+  it("should keep $schema optional when a config omits it or uses the canonical editor URL", () => {
     const old = Schema.decodeSync(StackConfig)({
       name: "old-project",
       runtime: { _tag: "bun" },

@@ -1,12 +1,13 @@
 import { assert, it } from "@effect/vitest";
 import {
+  type CatalogIssueSubject,
   ModuleCapability,
   ModuleId,
   TargetIdentity,
   TargetKind,
   type ModuleDefinition,
 } from "@repo/domain/Catalog";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { composeCatalog } from "./composeCatalog";
 import { testCatalog } from "./testCatalog";
 
@@ -20,7 +21,7 @@ const extraModule: typeof ModuleDefinition.Type = {
 };
 
 it.effect(
-  "composes an independent module against another fragment's target",
+  "should compose a module against another fragment's target when the fragments are independent",
   () =>
     Effect.gen(function* () {
       const catalog = yield* composeCatalog(
@@ -33,7 +34,7 @@ it.effect(
 );
 
 it.effect(
-  "rejects duplicate identifiers before lookup indexes can overwrite them",
+  "should fail with duplicate-id naming the module when two fragments define the same module ID",
   () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
@@ -44,12 +45,21 @@ it.effect(
           },
         ),
       );
+      assert.deepStrictEqual(
+        failure.details.map(({ subject, code }) => ({ subject, code })),
+        [
+          {
+            subject: { _tag: "module", id: "workspace-quality-oxlint" },
+            code: "duplicate-id",
+          },
+        ],
+      );
       assert.match(failure.message, /Duplicate module ID/);
     }),
 );
 
 it.effect(
-  "validates references after composition and rejects missing targets",
+  "should fail with missing-reference when a module is supported on a target no fragment defines",
   () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
@@ -64,72 +74,76 @@ it.effect(
     }),
 );
 
-it.effect("rejects duplicate target kinds", () =>
-  Effect.gen(function* () {
-    const failure = yield* Effect.flip(
-      composeCatalog(
-        [testCatalog, { targets: [testCatalog.targets[0]], modules: [] }],
-        { trustedFragmentIndex: 0 },
-      ),
-    );
-    assert.match(failure.message, /Duplicate target kind workspace/);
-    assert.deepStrictEqual(failure.details[0]?.subject, {
-      _tag: "target",
-      kind: "workspace",
-    });
-  }),
-);
-
-it.effect("rejects broken graph references before constructing a service", () =>
-  Effect.gen(function* () {
-    const target = new TargetIdentity({
-      kind: TargetKind.make("workspace"),
-      name: "root",
-    });
-    const invalid: typeof ModuleDefinition.Type = {
-      ...extraModule,
-      dependencies: [
-        {
-          _tag: "required-module",
-          target,
-          moduleId: ModuleId.make("missing-module"),
-        },
-        {
-          _tag: "required-capability",
-          target,
-          capability: ModuleCapability.make("missing-capability"),
-        },
-      ],
-      implies: [
-        {
-          targetKind: TargetKind.make("workspace"),
-          moduleId: ModuleId.make("missing-implied"),
-        },
-      ],
-      children: [
-        { moduleId: ModuleId.make("missing-child"), requirement: "required" },
-      ],
-      conflictsWith: [ModuleId.make("missing-conflict")],
-    };
-    const failure = yield* Effect.flip(
-      composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
-        trustedFragmentIndex: 0,
-      }),
-    );
-    for (const missing of [
-      "missing-module",
-      "missing-capability",
-      "missing-implied",
-      "missing-child",
-      "missing-conflict",
-    ]) {
-      assert.include(failure.message, missing);
-    }
-  }),
+it.effect(
+  "should fail naming the target when two fragments define the same target kind",
+  () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        composeCatalog(
+          [testCatalog, { targets: [testCatalog.targets[0]], modules: [] }],
+          { trustedFragmentIndex: 0 },
+        ),
+      );
+      assert.match(failure.message, /Duplicate target kind workspace/);
+      assert.deepStrictEqual(failure.details[0]?.subject, {
+        _tag: "target",
+        kind: "workspace",
+      });
+    }),
 );
 
 it.effect(
-  "rejects references to modules on the wrong target and one-sided conflicts",
+  "should name every missing graph reference when a module references absent modules and capabilities",
+  () =>
+    Effect.gen(function* () {
+      const target = new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "root",
+      });
+      const invalid: typeof ModuleDefinition.Type = {
+        ...extraModule,
+        dependencies: [
+          {
+            _tag: "required-module",
+            target,
+            moduleId: ModuleId.make("missing-module"),
+          },
+          {
+            _tag: "required-capability",
+            target,
+            capability: ModuleCapability.make("missing-capability"),
+          },
+        ],
+        implies: [
+          {
+            targetKind: TargetKind.make("workspace"),
+            moduleId: ModuleId.make("missing-implied"),
+          },
+        ],
+        children: [
+          { moduleId: ModuleId.make("missing-child"), requirement: "required" },
+        ],
+        conflictsWith: [ModuleId.make("missing-conflict")],
+      };
+      const failure = yield* Effect.flip(
+        composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
+          trustedFragmentIndex: 0,
+        }),
+      );
+      for (const missing of [
+        "missing-module",
+        "missing-capability",
+        "missing-implied",
+        "missing-child",
+        "missing-conflict",
+      ]) {
+        assert.include(failure.message, missing);
+      }
+    }),
+);
+
+it.effect(
+  "should fail with unsupported-target and asymmetric-conflict when a module references the wrong target and conflicts one-sidedly",
   () =>
     Effect.gen(function* () {
       const invalid: typeof ModuleDefinition.Type = {
@@ -169,134 +183,134 @@ it.effect(
     }),
 );
 
-it.effect("does not allow an untrusted fragment to add Finalize scripts", () =>
-  Effect.gen(function* () {
-    const failure = yield* Effect.flip(
-      composeCatalog(
-        [
-          testCatalog,
-          {
-            targets: [],
-            modules: [
-              {
-                ...extraModule,
-                scripts: [{ label: "run", command: "echo run" }],
-              },
-            ],
-          },
-        ],
-        { trustedFragmentIndex: 0 },
-      ),
-    );
-    assert.include(
-      failure.issues,
-      "Fragment 1 module workspace-extra-example contains Finalize scripts",
-    );
-    assert.deepStrictEqual(
-      failure.details.map(({ subject, code, fragment }) => ({
-        subject,
-        code,
-        fragment,
-      })),
-      [
-        {
-          subject: { _tag: "module", id: "workspace-extra-example" },
-          code: "finalize-script",
-          fragment: 1,
-        },
-      ],
-    );
-  }),
+const script = { label: "run", command: "echo run" };
+const [workspaceTarget] = testCatalog.targets.filter(
+  (target) => target.kind === "workspace",
 );
 
-it.effect("trusts Finalize scripts only in the named fragment", () =>
-  Effect.gen(function* () {
-    const scripted = {
-      targets: [],
-      modules: [
-        { ...extraModule, scripts: [{ label: "run", command: "echo run" }] },
-      ],
-    };
-    const workspace = {
-      targets: testCatalog.targets.filter(
-        (target) => target.kind === "workspace",
-      ),
-      modules: [],
-    };
-    for (const options of [{}, { trustedFragmentIndex: 1 }]) {
+interface ScriptedSubject {
+  readonly subject: CatalogIssueSubject;
+  readonly label: string;
+  /** The scripted fragment first, then a fragment that completes the catalog. */
+  readonly fragments: readonly [unknown, unknown];
+  readonly scriptCount: (
+    catalog: Effect.Success<ReturnType<typeof composeCatalog>>,
+  ) => number | undefined;
+}
+
+const scriptedModule: ScriptedSubject = {
+  subject: { _tag: "module", id: extraModule.id },
+  label: `module ${extraModule.id}`,
+  fragments: [
+    { targets: [], modules: [{ ...extraModule, scripts: [script] }] },
+    { targets: [workspaceTarget], modules: [] },
+  ],
+  scriptCount: (catalog) =>
+    catalog.modules.find((module) => module.id === extraModule.id)?.scripts
+      ?.length,
+};
+
+const scriptedTarget: ScriptedSubject = {
+  subject: { _tag: "target", kind: TargetKind.make("workspace") },
+  label: "target workspace",
+  fragments: [
+    { targets: [{ ...workspaceTarget, scripts: [script] }], modules: [] },
+    { targets: [], modules: [] },
+  ],
+  scriptCount: (catalog) =>
+    catalog.targets.find((target) => target.kind === "workspace")?.scripts
+      ?.length,
+};
+
+const trustCases = [scriptedModule, scriptedTarget].flatMap((scripted) => [
+  {
+    scripted,
+    kind: scripted.subject._tag,
+    outcome: "reject",
+    trust: "untrusted",
+    options: {},
+  },
+  {
+    scripted,
+    kind: scripted.subject._tag,
+    outcome: "reject",
+    trust: "not the trusted index",
+    options: { trustedFragmentIndex: 1 },
+  },
+  {
+    scripted,
+    kind: scripted.subject._tag,
+    outcome: "accept",
+    trust: "the trusted index",
+    options: { trustedFragmentIndex: 0 },
+  },
+]);
+
+it.effect.each(trustCases)(
+  "should $outcome Finalize scripts on a $kind when its fragment is $trust",
+  ({ scripted, outcome, options }) =>
+    Effect.gen(function* () {
+      const result = yield* Effect.result(
+        composeCatalog(scripted.fragments, options),
+      );
+      assert.deepStrictEqual(
+        Result.match(result, {
+          onSuccess: (catalog) => ({ scripts: scripted.scriptCount(catalog) }),
+          onFailure: (failure) => ({
+            issues: failure.details
+              .filter((issue) => issue.code === "finalize-script")
+              .map(({ subject, fragment, message }) => ({
+                subject,
+                fragment,
+                message,
+              })),
+          }),
+        }),
+        outcome === "accept"
+          ? { scripts: 1 }
+          : {
+              issues: [
+                {
+                  subject: scripted.subject,
+                  fragment: 0,
+                  message: `Fragment 0 ${scripted.label} contains Finalize scripts`,
+                },
+              ],
+            },
+      );
+    }),
+);
+
+it.effect(
+  "should fail with cross-source-conflict when a module conflicts with a module from another source",
+  () =>
+    Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        composeCatalog([scripted, workspace], options),
-      );
-      assert.include(
-        failure.issues,
-        "Fragment 0 module workspace-extra-example contains Finalize scripts",
-      );
-    }
-    const trusted = yield* composeCatalog([scripted, workspace], {
-      trustedFragmentIndex: 0,
-    });
-    assert.strictEqual(trusted.modules[0]?.scripts?.length, 1);
-  }),
-);
-
-it.effect("names a target that ships untrusted Finalize scripts", () =>
-  Effect.gen(function* () {
-    const [workspace] = testCatalog.targets.filter(
-      (target) => target.kind === "workspace",
-    );
-    assert.isDefined(workspace);
-    const failure = yield* Effect.flip(
-      composeCatalog([
-        {
-          targets: [
-            { ...workspace, scripts: [{ label: "run", command: "echo run" }] },
+        composeCatalog(
+          [
+            { targets: testCatalog.targets, modules: testCatalog.modules },
+            {
+              targets: [],
+              modules: [
+                {
+                  ...extraModule,
+                  conflictsWith: [testCatalog.modules[0]!.id],
+                },
+              ],
+            },
           ],
-          modules: [],
-        },
-      ]),
-    );
-    assert.deepStrictEqual(
-      failure.details
-        .filter((issue) => issue.code === "finalize-script")
-        .map(({ subject, message }) => ({ subject, message })),
-      [
-        {
-          subject: { _tag: "target", kind: "workspace" },
-          message: "Fragment 0 target workspace contains Finalize scripts",
-        },
-      ],
-    );
-  }),
-);
-
-it.effect("keeps conflicts within one named source", () =>
-  Effect.gen(function* () {
-    const failure = yield* Effect.flip(
-      composeCatalog(
-        [
-          { targets: testCatalog.targets, modules: testCatalog.modules },
           {
-            targets: [],
-            modules: [
-              {
-                ...extraModule,
-                conflictsWith: [testCatalog.modules[0]!.id],
-              },
+            allowFinalizeScripts: true,
+            sources: [
+              { name: "official", requires: [] },
+              { name: "ext", requires: ["official"] },
             ],
           },
-        ],
-        {
-          allowFinalizeScripts: true,
-          sources: [
-            { name: "official", requires: [] },
-            { name: "ext", requires: ["official"] },
-          ],
-        },
-      ),
-    );
-    assert.deepStrictEqual(
-      failure.details.map(({ code, fragment }) => ({ code, fragment })),
-      [{ code: "cross-source-conflict", fragment: 1 }],
-    );
-  }),
+        ),
+      );
+      assert.deepStrictEqual(
+        failure.details.map(({ code, fragment }) => ({ code, fragment })),
+        [{ code: "cross-source-conflict", fragment: 1 }],
+      );
+    }),
 );

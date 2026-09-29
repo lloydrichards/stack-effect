@@ -11,7 +11,7 @@ import {
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Layer, Option, Result, Stream } from "effect";
+import { Effect, Layer, Result, Schema, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
@@ -26,12 +26,12 @@ const clientIdentity = new TargetIdentity({
 });
 
 const bunConfig = new StackConfig({
-  name: "test-project" as typeof import("effect").Schema.NonEmptyString.Type,
+  name: Schema.NonEmptyString.make("test-project"),
   runtime: { _tag: "bun" },
 });
 
 const nodeConfig = new StackConfig({
-  name: "test-project" as typeof import("effect").Schema.NonEmptyString.Type,
+  name: Schema.NonEmptyString.make("test-project"),
   runtime: { _tag: "node", packageManager: "pnpm" },
 });
 
@@ -72,52 +72,55 @@ const targetWithModule = (
     ],
   });
 
-const makeCatalogLayer = (
-  targets: Record<string, Partial<typeof TargetDefinition.Type>> = {},
-  modules: Record<string, Partial<typeof ModuleDefinition.Type>> = {},
+type TargetOverrides = Record<string, Partial<typeof TargetDefinition.Type>>;
+type ModuleOverrides = Record<string, Partial<typeof ModuleDefinition.Type>>;
+
+/** One catalog fragment with the server and client-react targets plus overrides. */
+const fragmentWith = (
+  targets: TargetOverrides = {},
+  modules: ModuleOverrides = {},
+) => ({
+  targets: Object.entries({
+    server: {},
+    "client-react": {},
+    ...targets,
+  }).map(([kind, overrides]): typeof TargetDefinition.Type => ({
+    kind: TargetKind.make(kind),
+    title: kind,
+    description: `The ${kind} target`,
+    contributions: [],
+    ...overrides,
+  })),
+  modules: Object.entries(modules).map(
+    ([id, overrides]): typeof ModuleDefinition.Type => ({
+      id: ModuleId.make(id),
+      title: id,
+      description: `The ${id} module`,
+      supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+      dependencies: [],
+      contributions: [],
+      ...overrides,
+    }),
+  ),
+});
+
+/** A real, composed catalog whose fragment may declare Finalize scripts. */
+const catalogLayerWith = (
+  targets: TargetOverrides = {},
+  modules: ModuleOverrides = {},
 ) =>
-  Layer.succeed(CatalogService, {
-    getTarget: Effect.fn("MockCatalog.getTarget")(function* (
-      kind: typeof TargetKind.Type,
-    ) {
-      const base = {
-        kind: TargetKind.make(kind),
-        title: kind,
-        description: "",
-        contributions: {
-          files: [],
-          dependencies: [],
-          scripts: [],
-          barrelExports: [],
-          tsconfigs: [],
-        },
-        scripts: [],
-      };
-      return { ...base, ...targets[kind] } as typeof TargetDefinition.Type;
-    }),
-    getModule: Effect.fn("MockCatalog.getModule")(function* (
-      moduleId: typeof ModuleId.Type,
-    ) {
-      const base = {
-        id: moduleId,
-        title: moduleId,
-        description: "",
-        supportedOn: [],
-        dependencies: [],
-        implies: [],
-        contributions: {
-          files: [],
-          dependencies: [],
-          scripts: [],
-          barrelExports: [],
-          tsconfigs: [],
-        },
-        scripts: [],
-      };
-      return { ...base, ...modules[moduleId] } as typeof ModuleDefinition.Type;
-    }),
-    getSource: () => Option.none(),
-  } as never);
+  CatalogService.fromFragments([fragmentWith(targets, modules)], {
+    allowFinalizeScripts: true,
+  });
+
+/** A target whose only Finalize script runs `bun run codegen` at the repository root. */
+const codegenTarget = (kind: string): typeof TargetDefinition.Type => ({
+  kind: TargetKind.make(kind),
+  title: kind,
+  description: `The ${kind} target`,
+  contributions: [],
+  scripts: [{ label: "Codegen", command: "bun run codegen", workdir: "." }],
+});
 
 const makeSpawnerLayer = (
   executed: string[],
@@ -157,41 +160,44 @@ const makeFinalizeLayer = (
   } = {},
 ) =>
   Layer.effect(FinalizeService)(FinalizeService.make).pipe(
-    Layer.provide(makeCatalogLayer(opts.targets, opts.modules)),
+    Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
     Layer.provide(makeSpawnerLayer(executed, opts.failures)),
   );
 
-it.effect("collects next steps from an injected declarative module", () => {
-  const moduleId = ModuleId.make("server-extra-example");
-  const catalogLayer = officialCatalogLayerWith([
-    {
-      targets: [],
-      modules: [
-        {
-          id: moduleId,
-          title: "Extra example",
-          description: "Contributed guidance",
-          supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-          dependencies: [],
-          contributions: [],
-          nextSteps: ["Read {{targetPath}}/extra.txt"],
-        },
-      ],
-    },
-  ]);
-  const serviceLayer = FinalizeService.layer.pipe(
-    Layer.provide(catalogLayer),
-    Layer.provide(makeSpawnerLayer([])),
-  );
-  return Effect.gen(function* () {
-    const finalize = yield* FinalizeService;
-    const steps = yield* finalize.collectNextSteps(
-      targetWithModule(serverIdentity, moduleId),
-      makeConfig(),
+it.effect(
+  "should resolve next-step tokens when a module injected into the official catalog declares next steps",
+  () => {
+    const moduleId = ModuleId.make("server-extra-example");
+    const catalogLayer = officialCatalogLayerWith([
+      {
+        targets: [],
+        modules: [
+          {
+            id: moduleId,
+            title: "Extra example",
+            description: "Contributed guidance",
+            supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+            dependencies: [],
+            contributions: [],
+            nextSteps: ["Read {{targetPath}}/extra.txt"],
+          },
+        ],
+      },
+    ]);
+    const serviceLayer = FinalizeService.layer.pipe(
+      Layer.provide(catalogLayer),
+      Layer.provide(makeSpawnerLayer([])),
     );
-    expect(steps).toContain("Read apps/server-api/extra.txt");
-  }).pipe(Effect.provide(serviceLayer));
-});
+    return Effect.gen(function* () {
+      const finalize = yield* FinalizeService;
+      const steps = yield* finalize.collectNextSteps(
+        targetWithModule(serverIdentity, moduleId),
+        makeConfig(),
+      );
+      expect(steps).toContain("Read apps/server-api/extra.txt");
+    }).pipe(Effect.provide(serviceLayer));
+  },
+);
 
 const runToReport = (
   svc: typeof FinalizeService.Service,
@@ -218,10 +224,10 @@ const runToReport = (
 describe("FinalizeService", () => {
   describe("preview", () => {
     it.effect(
-      "returns only config-derived scripts when blueprint has no finalize scripts",
-      () =>
-        Effect.gen(function* () {
-          const executed: string[] = [];
+      "should return only config-derived scripts when the blueprint has no Finalize scripts",
+      () => {
+        const executed: string[] = [];
+        return Effect.gen(function* () {
           const svc = yield* FinalizeService;
 
           const scripts = yield* svc.preview(
@@ -232,31 +238,37 @@ describe("FinalizeService", () => {
           expect(scripts.map((s) => s.label)).toEqual(["Install dependencies"]);
           expect(scripts[0]?.command).toBe("bun install");
           expect(executed).toEqual([]);
-        }).pipe(Effect.provide(makeFinalizeLayer([]))),
-    );
-
-    it.effect("includes lint and format scripts when configured", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const config = new StackConfig({
-          name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
-          runtime: { _tag: "bun" },
-          lint: "biome",
-          format: "biome",
-        });
-
-        const scripts = yield* svc.preview(emptyBlueprint, makeConfig(config));
-
-        expect(scripts.map((s) => s.label)).toEqual([
-          "Install dependencies",
-          "Run biome lint",
-          "Run biome format",
-        ]);
-      }).pipe(Effect.provide(makeFinalizeLayer([]))),
+        }).pipe(Effect.provide(makeFinalizeLayer(executed)));
+      },
     );
 
     it.effect(
-      "uses pnpm as package manager when runtime is node with pnpm",
+      "should include lint and format scripts when lint and format tools are configured",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const config = new StackConfig({
+            name: Schema.NonEmptyString.make("test"),
+            runtime: { _tag: "bun" },
+            lint: "biome",
+            format: "biome",
+          });
+
+          const scripts = yield* svc.preview(
+            emptyBlueprint,
+            makeConfig(config),
+          );
+
+          expect(scripts.map((s) => s.label)).toEqual([
+            "Install dependencies",
+            "Run biome lint",
+            "Run biome format",
+          ]);
+        }).pipe(Effect.provide(makeFinalizeLayer([]))),
+    );
+
+    it.effect(
+      "should install with pnpm when the runtime is Node with pnpm",
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
@@ -270,24 +282,29 @@ describe("FinalizeService", () => {
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
-    it.effect("runs Deno's prepare task after installing dependencies", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const config = new StackConfig({
-          name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
-          runtime: { _tag: "deno" },
-        });
-        const scripts = yield* svc.preview(emptyBlueprint, makeConfig(config));
+    it.effect(
+      "should run the prepare task after installing dependencies when the runtime is Deno",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const config = new StackConfig({
+            name: Schema.NonEmptyString.make("test"),
+            runtime: { _tag: "deno" },
+          });
+          const scripts = yield* svc.preview(
+            emptyBlueprint,
+            makeConfig(config),
+          );
 
-        expect(scripts.map((script) => script.command)).toEqual([
-          "deno install",
-          "deno task --if-present prepare",
-        ]);
-      }).pipe(Effect.provide(makeFinalizeLayer([]))),
+          expect(scripts.map((script) => script.command)).toEqual([
+            "deno install",
+            "deno task --if-present prepare",
+          ]);
+        }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
     it.effect(
-      "collects finalize scripts from target definitions before config-derived scripts",
+      "should list target Finalize scripts before config-derived scripts when a target declares scripts",
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
@@ -317,67 +334,125 @@ describe("FinalizeService", () => {
         ),
     );
 
-    it.effect("collects finalize scripts from module definitions", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const moduleId = ModuleId.make("shadcn-init");
-        const blueprint = targetWithModule(clientIdentity, moduleId);
+    it.effect(
+      "should list module Finalize scripts before config-derived scripts when a module declares scripts",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const moduleId = ModuleId.make("shadcn-init");
+          const blueprint = targetWithModule(clientIdentity, moduleId);
 
-        const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.preview(blueprint, makeConfig());
 
-        expect(scripts.map((s) => s.label)).toEqual([
-          "Initialize shadcn",
-          "Install dependencies",
-        ]);
-      }).pipe(
-        Effect.provide(
-          makeFinalizeLayer([], {
-            modules: {
-              "shadcn-init": {
-                scripts: [
-                  {
-                    label: "Initialize shadcn",
-                    command: "bunx shadcn init",
-                  },
-                ],
+          expect(scripts.map((s) => s.label)).toEqual([
+            "Initialize shadcn",
+            "Install dependencies",
+          ]);
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              modules: {
+                "shadcn-init": {
+                  scripts: [
+                    {
+                      label: "Initialize shadcn",
+                      command: "bunx shadcn init",
+                    },
+                  ],
+                },
               },
-            },
-          }),
+            }),
+          ),
         ),
-      ),
     );
 
-    it.effect("resolves token placeholders in script commands", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const blueprint = singleTargetBlueprint(serverIdentity);
+    it.effect(
+      "should resolve token placeholders when a script command contains them",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const blueprint = singleTargetBlueprint(serverIdentity);
 
-        const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.preview(blueprint, makeConfig());
 
-        expect(scripts[0]?.command).toBe("bun run build --cwd apps/server-api");
-      }).pipe(
-        Effect.provide(
-          makeFinalizeLayer([], {
-            targets: {
-              server: {
-                scripts: [
-                  {
-                    label: "Build",
-                    command:
-                      "{{packageManager}} run build --cwd {{targetPath}}",
-                  },
-                ],
+          expect(scripts[0]?.command).toBe(
+            "bun run build --cwd apps/server-api",
+          );
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              targets: {
+                server: {
+                  scripts: [
+                    {
+                      label: "Build",
+                      command:
+                        "{{packageManager}} run build --cwd {{targetPath}}",
+                    },
+                  ],
+                },
               },
-            },
-          }),
+            }),
+          ),
         ),
-      ),
+    );
+
+    it.effect(
+      "should keep both scripts when different sources declare the same command and workdir",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const blueprint = new Blueprint({
+            nodes: [serverIdentity, clientIdentity].map((identity) => ({
+              _tag: "target" as const,
+              id: identity.toKey(),
+              identity,
+            })),
+            edges: [],
+          });
+
+          const scripts = yield* svc.preview(blueprint, makeConfig());
+
+          expect(
+            scripts
+              .filter((script) => script.phase === "finalize")
+              .map(({ command, workdir, source }) => ({
+                command,
+                workdir,
+                source,
+              })),
+          ).toEqual([
+            { command: "bun run codegen", workdir: ".", source: "acme" },
+            { command: "bun run codegen", workdir: ".", source: "beta" },
+          ]);
+        }).pipe(
+          Effect.provide(
+            FinalizeService.layer.pipe(
+              Layer.provide(
+                CatalogService.fromFragments(
+                  [
+                    { targets: [codegenTarget("server")], modules: [] },
+                    { targets: [codegenTarget("client-react")], modules: [] },
+                  ],
+                  {
+                    allowFinalizeScripts: true,
+                    sources: [
+                      { name: "acme", requires: [] },
+                      { name: "beta", requires: [] },
+                    ],
+                  },
+                ),
+              ),
+              Layer.provide(makeSpawnerLayer([])),
+            ),
+          ),
+        ),
     );
   });
 
   describe("run", () => {
     it.effect(
-      "executes scripts sequentially and returns a success report",
+      "should execute scripts and report success when every command exits cleanly",
       () => {
         const executed: string[] = [];
         return Effect.gen(function* () {
@@ -393,36 +468,38 @@ describe("FinalizeService", () => {
       },
     );
 
-    it.effect("continues executing after a script failure and reports it", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const config = new StackConfig({
-          name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
-          runtime: { _tag: "bun" },
-          lint: "biome",
-        });
+    it.effect(
+      "should keep executing and report the failure when one script fails",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const config = new StackConfig({
+            name: Schema.NonEmptyString.make("test"),
+            runtime: { _tag: "bun" },
+            lint: "biome",
+          });
 
-        const report = yield* runToReport(
-          svc,
-          emptyBlueprint,
-          makeConfig(config),
-        );
+          const report = yield* runToReport(
+            svc,
+            emptyBlueprint,
+            makeConfig(config),
+          );
 
-        // NOTE: Finalize reports failures after attempting every configured script.
-        expect(report.results).toHaveLength(2);
-        expect(report.results[0]?._tag).toBe("Failure");
-        expect(report.results[1]?._tag).toBe("Success");
-      }).pipe(
-        Effect.provide(
-          makeFinalizeLayer([], {
-            failures: new Set(["bun install"]),
-          }),
+          // NOTE: Finalize reports failures after attempting every configured script.
+          expect(report.results).toHaveLength(2);
+          expect(report.results[0]?._tag).toBe("Failure");
+          expect(report.results[1]?._tag).toBe("Success");
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              failures: new Set(["bun install"]),
+            }),
+          ),
         ),
-      ),
     );
 
     it.effect(
-      "runs module finalize scripts before config-derived scripts",
+      "should run module Finalize scripts before config-derived scripts when a module declares scripts",
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
@@ -454,7 +531,7 @@ describe("FinalizeService", () => {
     );
 
     it.effect(
-      "runs target finalize scripts before module finalize scripts",
+      "should run target Finalize scripts before module Finalize scripts when both declare scripts",
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
@@ -499,46 +576,48 @@ describe("FinalizeService", () => {
         ),
     );
 
-    it.effect("runs post-finalize scripts after config-derived scripts", () =>
-      Effect.gen(function* () {
-        const svc = yield* FinalizeService;
-        const moduleId = ModuleId.make("workspace-devenv-git");
-        const blueprint = targetWithModule(serverIdentity, moduleId);
+    it.effect(
+      "should run post-finalize scripts after config-derived scripts when a module declares a post-finalize phase",
+      () =>
+        Effect.gen(function* () {
+          const svc = yield* FinalizeService;
+          const moduleId = ModuleId.make("workspace-devenv-git");
+          const blueprint = targetWithModule(serverIdentity, moduleId);
 
-        const report = yield* runToReport(svc, blueprint, makeConfig());
+          const report = yield* runToReport(svc, blueprint, makeConfig());
 
-        const labels = report.results.map((r) =>
-          Result.isSuccess(r) ? r.success.label : r.failure.label,
-        );
-        expect(labels).toEqual(["Install dependencies", "Git init"]);
-      }).pipe(
-        Effect.provide(
-          makeFinalizeLayer([], {
-            modules: {
-              "workspace-devenv-git": {
-                scripts: [
-                  {
-                    label: "Git init",
-                    command: "git init",
-                    phase: "post-finalize",
-                  },
-                ],
+          const labels = report.results.map((r) =>
+            Result.isSuccess(r) ? r.success.label : r.failure.label,
+          );
+          expect(labels).toEqual(["Install dependencies", "Git init"]);
+        }).pipe(
+          Effect.provide(
+            makeFinalizeLayer([], {
+              modules: {
+                "workspace-devenv-git": {
+                  scripts: [
+                    {
+                      label: "Git init",
+                      command: "git init",
+                      phase: "post-finalize",
+                    },
+                  ],
+                },
               },
-            },
-          }),
+            }),
+          ),
         ),
-      ),
     );
 
     it.effect(
-      "orders finalize scripts, then config-derived, then post-finalize",
+      "should order Finalize, config-derived, then post-finalize scripts when all phases are present",
       () =>
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
           const moduleId = ModuleId.make("workspace-devenv-git");
           const blueprint = targetWithModule(serverIdentity, moduleId);
           const config = new StackConfig({
-            name: "test" as typeof import("effect").Schema.NonEmptyString.Type,
+            name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "bun" },
             lint: "biome",
           });

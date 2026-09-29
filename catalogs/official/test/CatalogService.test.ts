@@ -1,8 +1,59 @@
-import { assert, layer } from "@effect/vitest";
+import { assert, it as baseIt, layer } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
-import { ModuleId } from "@repo/domain/Catalog";
-import { Effect } from "effect";
-import { OfficialCatalogLayer } from "../src/service";
+import {
+  type ModuleDefinition,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
+import { Effect, Graph } from "effect";
+import { OfficialCatalogLayer, officialCatalogLayerWith } from "../src/service";
+
+const extra: typeof ModuleDefinition.Type = {
+  id: ModuleId.make("package-extra-example"),
+  title: "Extra example",
+  description: "A contributed file",
+  supportedOn: [{ _tag: "kind", kind: TargetKind.make("package") }],
+  dependencies: [],
+  contributions: [
+    {
+      _tag: "file",
+      path: "{{targetPath}}/extra.txt",
+      contents: "from fragment\n",
+    },
+  ],
+};
+
+baseIt.effect(
+  "should project an injected module into the builder catalog, catalog tree and graph when a fragment is added to the official catalog",
+  () =>
+    Effect.gen(function* () {
+      const catalog = yield* CatalogService;
+      const projection = yield* catalog.toBuilderCatalog([
+        new TargetIdentity({ kind: TargetKind.make("package"), name: "extra" }),
+      ]);
+      assert.isTrue(
+        projection.targetModules[0]?.modules.some(
+          (module) => module.id === extra.id,
+        ),
+      );
+      assert.isTrue(
+        catalog.toCatalogTree.targets.some((target) =>
+          target.modules.some((module) => module.id === extra.id),
+        ),
+      );
+      assert.isTrue(
+        [...Graph.nodes(catalog.toGraph)].some(
+          ([, node]) =>
+            node._tag === "module" && node.definition.id === extra.id,
+        ),
+      );
+    }).pipe(
+      Effect.provide(
+        officialCatalogLayerWith([{ targets: [], modules: [extra] }]),
+      ),
+    ),
+);
 
 layer(OfficialCatalogLayer)("CatalogService", (it) => {
   it.effect(

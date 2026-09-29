@@ -8,17 +8,22 @@ const decode = (input: unknown) =>
 const acme = { name: "acme", url: "https://catalog.acme.dev/v1.json" };
 
 describe("CatalogSources", () => {
-  it("accepts the official source alongside a named custom source", () => {
+  it("should accept the selection when the official source is paired with a named custom source", () => {
     expect(Result.isSuccess(decode([{ name: "official" }, acme]))).toBe(true);
   });
 
-  it("accepts plain http only on loopback hosts", () => {
-    for (const url of [
-      "http://localhost:4173/registry/v1/catalog.json",
-      "http://127.0.0.1/catalog.json",
-      "http://[::1]:8080/catalog.json",
-    ])
+  it.each([
+    "http://localhost:4173/registry/v1/catalog.json",
+    "http://127.0.0.1/catalog.json",
+    "http://[::1]:8080/catalog.json",
+  ])(
+    "should accept plain http when the url %s is on a loopback host",
+    (url) => {
       expect(Result.isSuccess(decode([{ name: "local", url }]))).toBe(true);
+    },
+  );
+
+  it("should reject plain http when the host is not loopback", () => {
     expect(
       Result.isFailure(
         decode([{ name: "remote", url: "http://catalog.acme.dev/v1.json" }]),
@@ -45,11 +50,11 @@ describe("CatalogSources", () => {
     ["a repeated name", [acme, { ...acme, url: "https://mirror.dev/v1.json" }]],
     ["one url under two names", [acme, { ...acme, name: "acme-mirror" }]],
     ["a repeated official entry", [{ name: "official" }, { name: "official" }]],
-  ])("rejects %s", (_, input) => {
+  ])("should reject a selection when it contains %s", (_, input) => {
     expect(Result.isFailure(decode(input))).toBe(true);
   });
 
-  it("allows query strings", () => {
+  it("should accept the selection when the url has a query string", () => {
     expect(
       Result.isSuccess(decode([{ ...acme, url: `${acme.url}?channel=beta` }])),
     ).toBe(true);
