@@ -248,7 +248,27 @@ curl -fsSI https://catalog.example.dev/registry/v1/catalog.json
 curl -sSI https://catalog.example.dev/registry/v1/missing.json
 ```
 
-The first response should have status `200` and a `content-type` of `application/json`. The second should have status `404`. A local build cannot prove how a host responds, so repeat these checks after each deployment.
+The first response should have status `200` and a `content-type` of `application/json`. The second should have status `404`.
+
+Then check what Recipe Builder needs. These requests send an `Origin` header the way a browser does. First, a cross-origin `GET`:
+
+```bash
+curl -sSI -H "Origin: https://example.com" https://catalog.example.dev/registry/v1/catalog.json
+```
+
+The response should include `access-control-allow-origin` and, if the host sends an `ETag`, `access-control-expose-headers: ETag`. Next, the preflight a browser sends before revalidating:
+
+```bash
+curl -sSi -X OPTIONS -H "Origin: https://example.com" -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: if-none-match" https://catalog.example.dev/registry/v1/catalog.json
+```
+
+It should return `200` or `204`, with `access-control-allow-origin` and an `access-control-allow-headers` value that includes `If-None-Match`. Last, revalidate with the `etag` value from the first response:
+
+```bash
+curl -sSI -H "Origin: https://example.com" -H 'If-None-Match: "<etag>"' https://catalog.example.dev/registry/v1/catalog.json
+```
+
+It should return `304` and still include `access-control-allow-origin`. Without that header, browsers reject the cached copy on the next visit. A local build cannot prove how a host responds, so repeat these checks after each deployment.
 
 ### Release changes safely
 
