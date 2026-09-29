@@ -114,6 +114,7 @@ describe("registry project", () => {
             );
             // Until the pinned versions are published, Finalize's install is
             // the only step allowed to fail; Apply has written every file.
+            // TODO(lloydrichards): remove once @stack-effect/author 0.1.0 is published
             if (created.exitCode !== 0)
               assert.match(
                 created.stdout + created.stderr,

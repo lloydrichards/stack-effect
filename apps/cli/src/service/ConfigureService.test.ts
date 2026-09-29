@@ -9,7 +9,7 @@ const testLayer = ConfigureService.layer.pipe(
 );
 
 it.effect(
-  "round-trips optional editor metadata without adding it to old configs",
+  "should round-trip $schema without adding it to configs that lack it when the config is rewritten",
   () =>
     Effect.gen(function* () {
       const configure = yield* ConfigureService;
