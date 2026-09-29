@@ -28,6 +28,19 @@ const Manifest = Schema.fromJsonString(
   }),
 );
 
+const DependencyMap = Schema.optional(
+  Schema.Record(Schema.String, Schema.String),
+);
+
+/** The dependency fields npm resolves when a consumer installs the package. */
+const InstalledDependencies = Schema.fromJsonString(
+  Schema.Struct({
+    dependencies: DependencyMap,
+    peerDependencies: DependencyMap,
+    optionalDependencies: DependencyMap,
+  }),
+);
+
 const Packed = Schema.fromJsonString(
   Schema.Array(
     Schema.Struct({
@@ -165,15 +178,28 @@ const program = Effect.gen(function* () {
     return yield* new VerifyError({
       message: `Tarball ships unexpected files: ${unexpected.join(", ")}`,
     });
+  const packedManifest = yield* run(
+    "tar",
+    ["-xzf", packed.filename, "-O", "package/package.json"],
+    project,
+  );
+  // Consumers cannot resolve `workspace:` ranges; only devDependencies may keep them.
+  const installed = yield* Schema.decodeEffect(InstalledDependencies)(
+    packedManifest,
+  );
+  const workspaceRanges = Object.entries(installed).flatMap(([field, ranges]) =>
+    Object.entries(ranges ?? {})
+      .filter(([, range]) => range.startsWith("workspace:"))
+      .map(([dependency, range]) => `${field}.${dependency}: ${range}`),
+  );
+  if (Arr.isArrayNonEmpty(workspaceRanges))
+    return yield* new VerifyError({
+      message: `Packed package.json uses the workspace protocol: ${workspaceRanges.join(", ")}`,
+    });
   // Install the Effect release that the verified tarball, not this checkout,
   // declares as its peer.
-  const effectVersion = (yield* Schema.decodeEffect(Manifest)(
-    yield* run(
-      "tar",
-      ["-xzf", packed.filename, "-O", "package/package.json"],
-      project,
-    ),
-  )).peerDependencies.effect;
+  const effectVersion = (yield* Schema.decodeEffect(Manifest)(packedManifest))
+    .peerDependencies.effect;
 
   // The standalone fixture, importing the package the way an author would.
   const catalogDir = path.join(project, "catalog");

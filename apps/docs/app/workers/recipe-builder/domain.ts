@@ -33,7 +33,7 @@ export const CatalogModule = Schema.Struct({
 });
 
 /** One selected source as the session loaded it. */
-export const RecipeBuilderCatalogSource = Schema.Struct({
+const RecipeBuilderCatalogSource = Schema.Struct({
   name: Schema.String,
   sourceUrl: Schema.String,
   /** Sources the document depends on, such as `official`. */

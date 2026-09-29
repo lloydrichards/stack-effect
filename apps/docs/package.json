@@ -6,9 +6,10 @@
   "scripts": {
     "build": "react-router build",
     "clean": "rm -rf build node_modules .turbo .react-router tsconfig.tsbuildinfo",
-    "dev": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts && react-router dev",
+    "assets:generate": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts",
+    "dev": "bun run assets:generate && react-router dev",
     "lint": "oxlint .",
-    "prebuild": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts",
+    "prebuild": "bun run assets:generate",
     "start": "react-router-serve ./build/server/index.js",
     "test": "vitest run",
     "test:browser": "vitest run --project=browser",

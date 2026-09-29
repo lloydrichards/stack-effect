@@ -62,5 +62,5 @@ jobs:
         run: |
           nix develop --command bash -lc '
             cd apps/cli
-            bunx vitest run --config vitest.e2e.config.ts e2e/matrix.test.ts
+            bun run test:e2e e2e/matrix.test.ts
           '

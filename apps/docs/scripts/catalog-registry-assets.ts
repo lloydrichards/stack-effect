@@ -57,15 +57,15 @@ export const publishedCatalogs: ReadonlyArray<PublishedCatalog> = [
   },
 ];
 
-export class CatalogBuildMissing extends Data.TaggedError(
-  "CatalogBuildMissing",
-)<{ readonly catalog: PublishedCatalog }> {
+class CatalogBuildMissing extends Data.TaggedError("CatalogBuildMissing")<{
+  readonly catalog: PublishedCatalog;
+}> {
   override get message(): string {
     return `No built catalog for ${this.catalog.asset}; run \`bun run --cwd ${this.catalog.workspace} build\` first.`;
   }
 }
 
-export class CatalogBuildStale extends Data.TaggedError("CatalogBuildStale")<{
+class CatalogBuildStale extends Data.TaggedError("CatalogBuildStale")<{
   readonly catalog: PublishedCatalog;
 }> {
   override get message(): string {

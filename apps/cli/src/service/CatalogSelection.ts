@@ -7,7 +7,7 @@ import type { LoadedCatalogSource } from "@repo/scaffold";
 import { Array as Arr, Context, Option } from "effect";
 
 /** The catalog sources a command resolved and loaded before any other work. */
-export interface CatalogSelectionShape {
+interface CatalogSelectionShape {
   /** Sources init and create save: --catalog, or init's existing saved set. */
   readonly explicit: Option.Option<CatalogSources>;
   readonly sources: CatalogSources;

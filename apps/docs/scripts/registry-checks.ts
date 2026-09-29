@@ -6,14 +6,14 @@ import {
 } from "effect/unstable/http";
 
 /** One observable property of a deployed registry asset. */
-export interface RegistryCheck {
+interface RegistryCheck {
   readonly path: string;
   readonly check: string;
   readonly ok: boolean;
   readonly detail: string;
 }
 
-export const MISSING_ASSET_PATH = "/registry/v1/missing.json";
+const MISSING_ASSET_PATH = "/registry/v1/missing.json";
 
 const origin = "https://registry-check.example";
 

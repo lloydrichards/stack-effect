@@ -9,9 +9,7 @@ import { Data, Effect, Option, Schema } from "effect";
 import { CONFIG_FILENAME } from "../service/ConfigureService";
 
 /** A --catalog selection the CLI refuses before loading any catalog. */
-export class CatalogSelectionError extends Data.TaggedError(
-  "CatalogSelectionError",
-)<{
+class CatalogSelectionError extends Data.TaggedError("CatalogSelectionError")<{
   readonly reason: "invalidFlag" | "mismatch";
   readonly message: string;
 }> {}
@@ -34,7 +32,7 @@ const parseCatalogFlag = (entry: string) => {
 };
 
 /** Parse repeated `--catalog official` / `--catalog <name>=<url>` values. */
-export const parseCatalogFlags = Effect.fn("parseCatalogFlags")(function* (
+const parseCatalogFlags = Effect.fn("parseCatalogFlags")(function* (
   values: Option.Option<ReadonlyArray<string>>,
 ) {
   if (Option.isNone(values)) return Option.none<CatalogSources>();

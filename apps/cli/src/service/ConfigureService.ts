@@ -5,7 +5,7 @@ export { StackConfig };
 
 export const CONFIG_FILENAME = "stack.effect.json" as const;
 
-export class MissingConfigError extends Data.TaggedError("MissingConfigError")<{
+class MissingConfigError extends Data.TaggedError("MissingConfigError")<{
   readonly path: string;
 }> {
   override get message(): string {
@@ -13,9 +13,7 @@ export class MissingConfigError extends Data.TaggedError("MissingConfigError")<{
   }
 }
 
-export class MalformedConfigError extends Data.TaggedError(
-  "MalformedConfigError",
-)<{
+class MalformedConfigError extends Data.TaggedError("MalformedConfigError")<{
   readonly path: string;
   readonly detail: string;
 }> {
@@ -24,7 +22,7 @@ export class MalformedConfigError extends Data.TaggedError(
   }
 }
 
-export class ConfigFileError extends Data.TaggedError("ConfigFileError")<{
+class ConfigFileError extends Data.TaggedError("ConfigFileError")<{
   readonly path: string;
   readonly detail: string;
 }> {
