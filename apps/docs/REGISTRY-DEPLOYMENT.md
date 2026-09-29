@@ -2,8 +2,22 @@
 
 The docs site is deployed through Vercel. The repository's production GitHub deployment is created by `vercel[bot]`, the public docs response identifies Vercel, and the Vercel PR deployment metadata identifies `apps/docs` as the project root. [`vercel.json`](vercel.json) applies there.
 
-`bun run --cwd apps/docs build` builds the official catalog in `catalogs/official`, publishes that build, and regenerates the config schema from the local domain schema before building the site. The generated files live under `apps/docs/public/registry/v1/` and `apps/docs/public/schemas/v1/`; they are not fetched from production or committed. Vercel publishes them at `/registry/v1/catalog.json` and `/schemas/v1/stack.effect.schema.json` in one deployment. The v1 catalog's identifier fixture is in `test/fixtures/published-catalog-ids.json` and must retain every previously published ID.
+`bun run --cwd apps/docs build` builds the official catalog in `catalogs/official` and the author catalog in `catalogs/author`, publishes both builds, and regenerates the config schema from the local domain schema before building the site. A missing or stale build of either catalog stops the build. The generated files live under `apps/docs/public/registry/v1/` and `apps/docs/public/schemas/v1/`; they are not fetched from production or committed. Vercel publishes them at `/registry/v1/catalog.json`, `/registry/v1/author.json`, and `/schemas/v1/stack.effect.schema.json` in one deployment. The identifier fixtures `test/fixtures/published-catalog-ids.json` and `test/fixtures/published-author-catalog-ids.json` must retain every previously published ID.
 
-After a production deployment, check both URLs with `curl -i`, then send `If-None-Match` using each returned ETag and expect `304`. Send a cross-origin GET and OPTIONS preflight with `Origin` and `Access-Control-Request-Headers: If-None-Match`; confirm CORS headers and exposed validators. A request to `/registry/v1/missing.json` must return `404`. Run the same checks against a publicly accessible Vercel preview before production. The current PR previews require Vercel SSO and return a `302` before the asset route runs, so their public HTTP behavior cannot be verified without a preview protection exception. A local docs build proves asset generation, not deployed response behavior.
+After a production deployment, check every asset:
 
-To roll back a bad catalog, redeploy the previous known-good production deployment in the Vercel project's Deployments page. Verify its two asset URLs and HTTP behavior before resuming publication. If the schema alone is wrong, use the same rollback so the catalog and schema remain from one deployment. Then fix the source or generator and deploy a new build; do not edit generated assets by hand.
+```bash
+bun run --cwd apps/docs check:registry https://stack-effect.lloydrichards.dev
+```
+
+For each asset, it checks a JSON `200`, `must-revalidate`, a `304` for `If-None-Match` with the returned ETag, and CORS on a cross-origin GET and on an `OPTIONS` preflight for `If-None-Match`. It also expects `404` for `/registry/v1/missing.json`, and exits non-zero on any failure. Run it against a publicly accessible Vercel preview before production. The current PR previews require Vercel SSO and return a `302` before the asset route runs, so their public HTTP behavior cannot be verified without a preview protection exception. A local docs build proves asset generation, not deployed response behavior.
+
+Then prove the create path with a newly installed CLI:
+
+```bash
+bun run --cwd apps/cli verify:create-path
+```
+
+It installs `stack-effect@latest` in a temporary directory, creates a registry project from the deployed `author.json`, and checks that the saved sources are `official` and `author`. It then validates and builds the project's standalone catalog, and creates a second project that selects only that catalog. Pass another author URL or `--cli <npm spec>` to check a preview or a specific release.
+
+To roll back a bad catalog, redeploy the previous known-good production deployment in the Vercel project's Deployments page. Run `check:registry` against it before resuming publication. If one asset alone is wrong, use the same rollback so every asset remains from one deployment. Then fix the source or generator and deploy a new build; do not edit generated assets by hand.

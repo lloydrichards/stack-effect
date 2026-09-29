@@ -40,7 +40,8 @@
     "test": "vitest run src",
     "test:e2e": "vitest run --config vitest.e2e.config.ts",
     "type-check": "tsc --noEmit",
-    "clean": "git clean -xdf .cache .turbo dist node_modules"
+    "clean": "git clean -xdf .cache .turbo dist node_modules",
+    "verify:create-path": "bun scripts/verify-create-path.ts"
   },
   "devDependencies": {
     "@effect/platform-bun": "4.0.0-rc.117",
