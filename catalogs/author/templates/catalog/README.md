@@ -52,6 +52,13 @@ when a consumer creates a project. Write the token name in double braces, for
 example `targetPath`, `targetName`, `packageName`, `projectName`, or `runtime`.
 Stack Effect also resolved this project's own files when it created them, so
 `catalog/tokens.ts` builds token text at runtime instead of writing it literally.
+
+Any other text in double braces fails validation as an unsupported token, and
+there is no escape yet ([#304](https://github.com/lloydrichards/stack-effect/issues/304)).
+This affects JSX style objects, GitHub Actions expressions, and Vue or
+Handlebars templates. Keep such text out of template files, or build the
+contents in the definition the way `catalog/starter.ts` builds the app's
+`package.json`.
 See the [`@stack-effect/author` README](https://www.npmjs.com/package/@stack-effect/author)
 for the authoring API.
 

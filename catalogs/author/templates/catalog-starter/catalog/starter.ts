@@ -1,5 +1,5 @@
 import { defineModules, defineTargets, templates } from "@stack-effect/author";
-import { targetPath } from "./tokens.ts";
+import { packageName, targetPath } from "./tokens.ts";
 
 // Template paths resolve against this directory. Each file is embedded in the
 // built catalog exactly as written.
@@ -30,7 +30,9 @@ export const starterTargets = defineTargets(import.meta.url, [
       {
         _tag: "file",
         path: `${targetPath}/package.json`,
-        contents: template("./app/package.json"),
+        // Written here rather than in a template file so the package name
+        // token survives until a consumer creates the target.
+        contents: `${JSON.stringify({ name: packageName, private: true, type: "module" }, null, 2)}\n`,
       },
     ],
   },

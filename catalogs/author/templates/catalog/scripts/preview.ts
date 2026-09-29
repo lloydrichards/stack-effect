@@ -11,11 +11,12 @@ class PreviewError extends Data.TaggedError("PreviewError")<{
 }> {}
 
 const usage =
-  "Usage: preview <target>/<name>[:<module>,...], for example `preview app/:app-greeting`";
+  "Usage: preview <target>/<name>[:<module>,...] [...], for example `preview app/:app-greeting`";
 
 const program = Effect.gen(function* () {
-  const [target] = process.argv.slice(2);
-  if (target === undefined) return yield* new PreviewError({ message: usage });
+  // pnpm forwards the `--` separator to the script, so drop it.
+  const targets = process.argv.slice(2).filter((arg) => arg !== "--");
+  if (targets.length === 0) return yield* new PreviewError({ message: usage });
 
   const { json } = yield* buildCatalog(catalog, { catalogId, root });
   yield* HttpServer.serveEffect(
@@ -42,7 +43,7 @@ const program = Effect.gen(function* () {
         "preview",
         `--root=${scratch}`,
         `--catalog=preview=${url}`,
-        `--target=${target}`,
+        ...targets.map((target) => `--target=${target}`),
         "--yes",
         "--dry-run",
         "--show-files",

@@ -6,3 +6,6 @@ const token = (name: string) => `${"{".repeat(2)}${name}${"}".repeat(2)}`;
 
 /** Where the consumer's target lives, for example `apps/app-demo`. */
 export const targetPath = token("targetPath");
+
+/** The target's package name, for example `app-demo`. */
+export const packageName = token("packageName");

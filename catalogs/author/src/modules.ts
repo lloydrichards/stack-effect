@@ -30,7 +30,6 @@ export const moduleGroup = defineModules(import.meta.url, [
       starterFile("catalog/tokens.ts"),
       starterFile("catalog/starter.ts"),
       starterFile("templates/workspace/package.json"),
-      starterFile("templates/app/package.json"),
       starterFile("templates/app-greeting/src/greeting.ts"),
       catalogEntry("targets", "starterTargets"),
       catalogEntry("modules", "starterModules"),
