@@ -58,8 +58,10 @@ const args = process.argv.slice(2);
 const cliAt = args.indexOf("--cli");
 const cliSpec = cliAt === -1 ? "stack-effect@latest" : (args[cliAt + 1] ?? "");
 const authorUrl =
-  args.find((arg, index) => !arg.startsWith("--") && index !== cliAt + 1) ??
-  AUTHOR_CATALOG_URL;
+  args.find(
+    (arg, index) =>
+      !arg.startsWith("--") && (cliAt === -1 || index !== cliAt + 1),
+  ) ?? AUTHOR_CATALOG_URL;
 
 const program = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
