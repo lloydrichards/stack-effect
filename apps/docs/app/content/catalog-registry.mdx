@@ -16,13 +16,7 @@ With no usable cache, the operation stops before generating files. An invalid do
 
 ## Create a catalog project
 
-The [author catalog](/registry/v1/author.json) creates a project for publishing a catalog of your own. It extends the official catalog, so select both:
-
-```bash
-stack-effect create my-catalog --catalog official --catalog author=https://stack-effect.lloydrichards.dev/registry/v1/author.json --target catalog/registry:catalog-starter
-```
-
-The project lives in `apps/catalog-registry`. There, `bun run validate` checks the definitions, `bun run preview app/:app-greeting` shows the files a consumer would get, and `bun run build` writes `dist/registry/v1/catalog.json`. The starter is a standalone catalog, so consumers select it on its own. This requires `stack-effect` 0.16.0 or later.
+To publish a catalog of your own and select it with `--catalog`, follow [Publish your own catalog](/publish-catalog-registry). The [author catalog](/registry/v1/author.json) creates the project it starts from.
 
 ## Project configuration
 
@@ -31,5 +25,3 @@ New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stac
 A project can select catalog sources with an optional `catalogs` list, which `init` and `create` save from repeated `--catalog` flags. Without the list, the project uses the official catalog. Reading `catalogs` requires `stack-effect` 0.16.0 or later: older CLIs ignore the list, use the official catalog, and can drop the list when they rewrite `stack.effect.json`.
 
 Shared Recipe Builder links contain choices rather than catalog data. Reopening a link checks current definitions, may use a disclosed cached catalog during an outage, and reports choices that can no longer be resolved.
-
-To publish a catalog document from your own fork, see [Publish a catalog registry from a fork](/publish-catalog-registry). The CLI and Recipe Builder do not yet accept a custom catalog URL.

@@ -1,54 +1,523 @@
-# Publish a catalog registry from a fork
+# Publish your own catalog
 
-Publish a Stack Effect v1 catalog document from your own copy of this repository. The result is a JSON URL that you can inspect and share. The released CLI and Recipe Builder currently load only the [official registry](/catalog-registry); they cannot select your URL. [Community-source design](https://github.com/lloydrichards/stack-effect/issues/276) tracks that missing consumption path.
+A catalog is a JSON document that tells Stack Effect what it can generate. Stack Effect loads the [official catalog](/catalog-registry) by default, and it can load yours from any URL you host.
 
-## Prepare your catalog
+In this guide you create a catalog project, change its starter module, and validate, preview, and build it. You try the result locally, publish it, and then select it from the CLI, `stack.effect.json`, and Recipe Builder. You finish with a URL that anyone can pass to `--catalog`.
 
-1. Fork [Stack Effect](https://github.com/lloydrichards/stack-effect), clone your fork, and run `bun install`.
-2. Follow [Add a catalog module](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/add-new-module.md) or [Add a catalog target](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/add-new-target.md). Use the [catalog authoring workflow](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/catalog-authoring.md) to check the files your definitions generate.
-3. Change `catalogId` in `catalogs/official/src/service.ts` from `stack-effect-official` to an identifier for your published catalog. Keep `formatVersion: 1` and use only the v1 contributions and tokens supported by your target clients.
-4. Generate the JSON asset from your definitions:
+A catalog uses four terms. [How Stack Effect changes your repository](/how-it-works) explains the rest.
 
-```bash
-bun run --cwd catalogs/official build
-bun run apps/docs/scripts/write-catalog-registry-assets.ts
-```
+- **Target**: a place in the repository, such as a server app at `apps/server-api`. Its **kind** (`server`) says what sort of place it is.
+- **Module**: a feature added to a target, such as an HTTP API on a server.
+- **Contribution**: one change a module or target makes, such as a whole file or one `package.json` script.
+- **Finalize scripts**: commands, such as `bun install`, that run after the files are written.
 
-The build writes `catalogs/official/dist/registry/v1/catalog.json`, and the docs script publishes it as `apps/docs/public/registry/v1/catalog.json`. Its top-level fields are `formatVersion`, `catalogId`, `requiredCapabilities`, `targets`, and `modules`. The build checks the catalog schema, references, and v1 capabilities before writing the file, and the docs script refuses a missing or stale build.
+## Before you begin
 
-## Check the document
+You will need:
 
-Run the repository checks before publishing:
+- Bun, or Node 22.18 or later with npm or pnpm;
+- `stack-effect` 0.16.0 or later, the first release that reads `--catalog`;
+- a static host that can serve a JSON file over HTTPS, such as GitHub Pages, Netlify, Vercel, or an object store.
 
-```bash
-bun format
-bun lint
-bun run type-check
-bun run test --filter=@repo/catalog-official
-bun run test --filter=stack-effect
-bun run --cwd apps/docs build
-```
+You write definitions in TypeScript. The build scripts use [Effect](https://effect.website), but you only edit them if you [extend the official catalog](#extend-the-official-catalog). The project pins `effect` to the exact release that `@stack-effect/author` needs. Effect 4 release candidates are not compatible with each other, so keep that pin when you add dependencies.
 
-The docs build regenerates the catalog document. It also generates the project configuration schema at `apps/docs/public/schemas/v1/stack.effect.schema.json`. That schema describes `stack.effect.json`; it does not describe the catalog document.
+Run the guide from a clean parent directory, not from inside an existing Stack Effect project.
 
-## Publish and inspect the URL
+## Choose the kind of catalog
 
-Deploy the built `apps/docs/build/client` directory on a static host. The build copies the catalog document from `public` to `build/client/registry/v1/catalog.json`. The catalog URL on your host is `/registry/v1/catalog.json`. Check the deployed response, replacing the example host with yours:
+A catalog is one of two kinds. Consumers select each kind differently.
 
-```bash
-curl -fSi https://your-host.example/registry/v1/catalog.json
-```
+| Kind | Defines | Consumers select |
+| --- | --- | --- |
+| Standalone | Its own `workspace` target and every target its modules use | `--catalog mine=<url>`, alone or with other standalone catalogs |
+| Extension | Modules, and optionally targets, that build on official definitions. Declares `requires: ["official"]` | `--catalog official --catalog mine=<url>` |
 
-Expect HTTP `200`, a JSON content type, and a document whose `catalogId` matches your change. Test a missing path as well. It must return `404` instead of your site's HTML page:
+The starter project builds a standalone catalog. To add house modules to projects that use the official catalog, you want an extension. Follow steps 1 to 5 with the starter first, then convert it with [Extend the official catalog](#extend-the-official-catalog) before you publish.
+
+## 1. Create the catalog project
+
+The catalog project is itself generated by Stack Effect, from a small catalog called `author`. The author catalog adds the project to an official workspace, so select both catalogs:
 
 ```bash
-curl -si https://your-host.example/registry/v1/missing.json
+bunx stack-effect@latest create my-catalog --catalog official --catalog author=https://stack-effect.lloydrichards.dev/registry/v1/author.json --target catalog/registry:catalog-starter --yes
 ```
 
-For browser clients, allow cross-origin `GET` and `HEAD` requests. If your host supports conditional requests, allow the `If-None-Match` request header, expose `ETag`, and return CORS headers on both `200` and `304` responses. The repository's `apps/docs/vercel.json` shows the official deployment's Vercel rules. Check your host's actual responses after deployment; a local build cannot verify its HTTP behavior.
+The parts of the command:
 
-## Consume the catalog today
+- `create my-catalog` makes a new repository in `./my-catalog`.
+- Each `--catalog` flag selects a source: `official` by its reserved name, and `author` by `name=url`.
+- `--target catalog/registry:catalog-starter` reads as `<kind>/<name>:<module>`. It adds a `catalog` target named `registry`, with the `catalog-starter` module.
+- `--yes` accepts the default choices instead of prompting. It runs the official Finalize scripts, which install dependencies, lint and format the files, and create the first Git commit.
 
-The published JSON is available to tools that you write against the v1 [`CatalogDocument`](https://github.com/lloydrichards/stack-effect/blob/main/packages/domain/src/Catalog.ts) contract. Stack Effect's released CLI has no `--catalog-url` flag or project setting for another source. Its `init`, `add`, `create`, `graph`, and `schema` commands use the official registry URL, so they cannot generate a project from this fork's hosted document.
+Stack Effect saves both sources to `stack.effect.json`. Keep the `author` entry: later `add` commands in this workspace load the same sources.
 
-To try changed definitions with this repository's local authoring commands, follow the [catalog authoring workflow](https://github.com/lloydrichards/stack-effect/blob/main/.okf/guides/catalog-authoring.md). To use a hosted community catalog in the CLI or Recipe Builder, wait for the public configuration design in [issue #276](https://github.com/lloydrichards/stack-effect/issues/276) and its implementation.
+```json
+{
+  "catalogs": [
+    { "name": "official" },
+    {
+      "name": "author",
+      "url": "https://stack-effect.lloydrichards.dev/registry/v1/author.json"
+    }
+  ]
+}
+```
+
+The catalog project lives in `apps/catalog-registry`:
+
+```text
+apps/catalog-registry
+├── catalog
+│   ├── index.ts       collects definition groups and sets the catalog ID
+│   ├── starter.ts     a workspace target, an app target, and one module
+│   └── tokens.ts      builds token text at runtime
+├── scripts            validate, preview, and build
+├── templates          file bodies, embedded byte for byte
+│   ├── app-greeting/src/greeting.ts
+│   └── workspace/package.json
+└── package.json
+```
+
+The project depends only on published packages: [`@stack-effect/author`](https://www.npmjs.com/package/@stack-effect/author) builds the document, and `stack-effect` runs the preview. The catalog ID is your project name, `my-catalog`.
+
+Move into the project for steps 2 to 5:
+
+```bash
+cd my-catalog/apps/catalog-registry
+```
+
+## 2. Change the starter module
+
+Open `templates/app-greeting/src/greeting.ts` and change the text:
+
+```ts
+export const greeting = "Hello from my catalog";
+
+console.log(greeting);
+```
+
+The module that uses this file is defined in `catalog/starter.ts`. Its `supportedOn` field names the target kind it can be added to, and its `contributions` point at the template:
+
+```ts
+{
+  id: "app-greeting",
+  title: "Greeting",
+  description: "Prints a greeting",
+  supportedOn: [{ _tag: "kind", kind: "app" }],
+  dependencies: [],
+  contributions: [
+    {
+      _tag: "file",
+      path: `${targetPath}/src/greeting.ts`,
+      contents: template("./app-greeting/src/greeting.ts"),
+    },
+  ],
+}
+```
+
+Add targets and modules in the same way. Register each new definition group in `catalog/index.ts`, next to `starterTargets` and `starterModules`.
+
+A module can also declare:
+
+| Field | Purpose |
+| --- | --- |
+| `dependencies` | Modules or targets that must exist first, for example `{ _tag: "required-module", target: { kind: "server", name: "api" }, moduleId: "server-http-api" }` |
+| `conflictsWith` | Module IDs that cannot be added to the same project |
+| `implies` | Modules to add automatically on another target kind |
+| `scripts` and `nextSteps` | Finalize commands and printed next steps |
+| `visibility` | `"internal"` hides the module from pickers, but dependencies can still add it |
+
+A contribution is one of these types:
+
+| `_tag` | Writes |
+| --- | --- |
+| `file` | A whole file. Set `conflictOnModify: true` to report a conflict instead of replacing an existing file |
+| `pkg-json-entry` | One entry in `exports`, `dependencies`, `devDependencies`, or `scripts` of a `package.json` |
+| `barrel-export` | An `export * from` line in a barrel file |
+| `ts-call-arg` | An argument to a function call, with its import, such as a Layer in `Layer.mergeAll` |
+| `ts-object-field` | A property in an object passed to a function call |
+| `jsx-slot` | Content at a named slot comment in a file |
+
+Module IDs and target kinds are public names, and they must be unique across every catalog a consumer selects. Prefix them with your catalog's name, for example `acme-auth`. The [`CatalogDocument` schema](https://github.com/lloydrichards/stack-effect/blob/main/packages/domain/src/Catalog.ts) defines every field.
+
+### Tokens
+
+Paths and contents can use tokens that Stack Effect replaces when a consumer creates a project. A token is a name in double braces: `targetPath`, `targetName`, `packageName`, `projectName`, `runtime`, and others.
+
+Stack Effect also replaced tokens when it created your catalog project. If `starter.ts` contained a literal token, it would already hold your project's own path. The starter therefore builds token text at runtime in `catalog/tokens.ts`. Import `targetPath` and `packageName` from there instead of typing a token.
+
+Any other double-brace text in a template fails validation as an unsupported token, and v1 has no escape yet ([#304](https://github.com/lloydrichards/stack-effect/issues/304)). This affects JSX style objects, GitHub Actions expressions, and Vue or Handlebars templates. Build such contents in the definition instead, the way `catalog/starter.ts` builds the app's `package.json`.
+
+## 3. Validate the definitions
+
+```bash
+bun run validate
+```
+
+Validation runs every build check without writing a file. It prints:
+
+```text
+Catalog my-catalog is valid: 2 targets, 1 modules
+```
+
+A failed check exits with code 1 and names the definition source. To see one, change the module's `supportedOn` kind from `app` to `ap`, which no target defines, and run `bun run validate` again:
+
+```text
+Catalog build failed:
+  catalog/starter.ts: Module app-greeting references missing target ap
+```
+
+When a template file causes the issue, the message names that file as well. Change the kind back to `app` before you continue.
+
+## 4. Preview a module
+
+```bash
+bun run preview app/:app-greeting
+```
+
+The spec leaves the target name empty, so the `app` target's default name, `demo`, applies and the target lands in `apps/app-demo`.
+
+The preview builds the catalog and serves it on a free loopback port. It then runs the project's own `stack-effect` dependency with `create --dry-run --show-files`, using your catalog as the only source. It writes nothing. The output lists the Blueprint, which is every target and module the spec resolves to, and the planned files:
+
+```text
+.
+├── apps
+│   ╰── app-demo
+│       ├── src
+│       │   ╰── [+] greeting.ts
+│       ╰── [+] package.json
+╰── [+] package.json
+```
+
+Under **Generated Files**, `apps/app-demo/src/greeting.ts` shows your new text. The preview accepts any number of target specs.
+
+## 5. Build the document
+
+```bash
+bun run build
+```
+
+The build prints `Wrote dist/registry/v1/catalog.json`. The same definitions always produce the same bytes. The document starts with the fields every v1 catalog has:
+
+```json
+{"formatVersion":1,"catalogId":"my-catalog","requiredCapabilities":["contribution:file",…],"targets":[…],"modules":[…]}
+```
+
+The workspace formatter and linter skip `templates/`, so a format run leaves the document unchanged.
+
+## 6. Try the catalog locally
+
+Serve the build on your machine. The CLI accepts plain `http:` for `localhost`, so you can test before you deploy:
+
+```bash
+bunx serve@14 dist -l 4000
+```
+
+In a second terminal, from the clean parent directory that contains `my-catalog`, create a project from the local catalog:
+
+```bash
+bunx stack-effect@latest create my-app --catalog mine=http://localhost:4000/registry/v1/catalog.json --target app/:app-greeting --yes
+```
+
+`my-app/apps/app-demo/src/greeting.ts` contains your text. Stop the server when you are done.
+
+## 7. Publish the document
+
+Upload the `dist` directory to your static host. Your catalog URL is the host's address followed by `/registry/v1/catalog.json`.
+
+The CLI needs these responses:
+
+- **HTTPS**. Plain `http:` is accepted only for `localhost`, `127.0.0.1`, and `[::1]`.
+- **A JSON `200`** for the catalog URL.
+- **A real `404`** for missing paths. Hosts configured for single-page apps often return `index.html` instead, so turn that fallback off for the catalog path.
+
+Recipe Builder fetches from the browser, so it also needs CORS:
+
+- `Access-Control-Allow-Origin` on `GET` and `HEAD` responses.
+- If your host sends `ETag`, expose it, allow the `If-None-Match` request header, and send CORS headers on `304` responses too.
+
+The official deployment's rules in [`apps/docs/vercel.json`](https://github.com/lloydrichards/stack-effect/blob/main/apps/docs/vercel.json) are one working example. The CLI sends no credentials, so the catalog must be reachable without authentication. A catalog on a private network works for the CLI, but not for Recipe Builder unless the browser can reach it too.
+
+Check the deployed responses. Replace `catalog.example.dev` with your host here and in every later example:
+
+```bash
+curl -fsSI https://catalog.example.dev/registry/v1/catalog.json
+```
+
+```bash
+curl -sSI https://catalog.example.dev/registry/v1/missing.json
+```
+
+The first response should have status `200` and a `content-type` of `application/json`. The second should have status `404`. A local build cannot prove how a host responds, so repeat these checks after each deployment.
+
+### Release changes safely
+
+Consumers get new content on their next command. Stack Effect has no version pins and no release channels, so plan changes this way:
+
+- **Automate the release.** In CI, run `bun run validate` and `bun run build`, deploy `dist`, then run both `curl` checks.
+- **Stage first.** Deploy to a second URL, such as a preview deployment, and try it with `--catalog mine-next=<url>`.
+- **Keep the previous `dist`.** Rolling back means uploading it again.
+- **Add, don't rename.** A published target kind or module ID works as a public name. Files already generated stay in consumers' repositories. But `add` and `plan` fail in projects whose choices name a kind or ID you removed.
+
+### Know what a catalog can do
+
+Selecting a catalog never runs code while it loads. Its templates become files in consumers' repositories, including their `package.json` scripts. A catalog can also contribute Finalize scripts if its build passes `finalizeScripts: "allow"` to `buildCatalog` in `scripts/build.ts`. There is no sandbox or signature check. Consumers rely on the URL and on the consent prompts in [Finalize scripts from custom catalogs](#finalize-scripts-from-custom-catalogs).
+
+## 8. Use your catalog
+
+Every catalog-dependent command loads the sources you select. `init` and `create` take the set from repeated `--catalog` flags and save it to `stack.effect.json`. Later commands, such as `add`, `plan`, and `graph`, read the saved set. Share your catalog as the `--catalog` flag to copy, and commit `stack.effect.json` so every clone uses the same sources.
+
+| Source set | `--catalog` flags | Recipe Builder |
+| --- | --- | --- |
+| Custom only | `--catalog mine=<url>` | Supported |
+| Official plus custom | `--catalog official --catalog ext=<url>` | Supported |
+| Two custom | `--catalog mine=<url> --catalog extras=<url>` | Supported |
+| Official only | none | Default |
+
+Names are lowercase, start with a letter, and have up to 32 characters. `official` is reserved and takes no URL. A source name only labels where definitions came from. It never appears in target specs, module IDs, or output paths.
+
+### Custom only
+
+Select a standalone catalog, such as the starter, on its own:
+
+```bash
+bunx stack-effect@latest create my-app --catalog mine=https://catalog.example.dev/registry/v1/catalog.json --target app/:app-greeting --yes
+```
+
+```json
+{
+  "catalogs": [
+    { "name": "mine", "url": "https://catalog.example.dev/registry/v1/catalog.json" }
+  ]
+}
+```
+
+Your catalog supplies the `workspace` target. Official tool defaults do not apply, so `stack.effect.json` has no `lint`, `format`, `test`, or `monorepo` fields, and the project contains only your catalog's files.
+
+### Official plus custom
+
+Select the official catalog next to an [extension catalog](#extend-the-official-catalog). Its modules can target official kinds such as `server`:
+
+```bash
+bunx stack-effect@latest create my-app --catalog official --catalog ext=https://ext.example.dev/registry/v1/catalog.json --target server/api:ext-greeting --yes
+```
+
+```json
+{
+  "catalogs": [
+    { "name": "official" },
+    { "name": "ext", "url": "https://ext.example.dev/registry/v1/catalog.json" }
+  ]
+}
+```
+
+The project gets the official tool defaults for lint, format, test, and monorepo, and the official Finalize scripts.
+
+### Two custom catalogs
+
+Two standalone catalogs compose into one catalog when their target kinds and module IDs do not collide:
+
+```bash
+bunx stack-effect@latest create my-app --catalog mine=https://catalog.example.dev/registry/v1/catalog.json --catalog extras=https://extras.example.dev/registry/v1/catalog.json --target app/:app-greeting --target worker/:worker-heartbeat --yes
+```
+
+Only one of them may define `workspace`. Two copies of the starter both define `workspace` and `app`, so they cannot be selected together. Remove `workspace` from the second catalog, and give its targets their own kinds. A catalog cannot reference another custom catalog's definitions, so each one must be complete on its own.
+
+### Official only
+
+Without `--catalog`, a project uses the official catalog, and `stack.effect.json` has no `catalogs` key:
+
+```bash
+bunx stack-effect@latest create my-app --target server/api:server-http-api --yes
+```
+
+### Add a catalog to an existing project
+
+Commands after `create` use the saved set, and passing a different `--catalog` set fails:
+
+```text
+--catalog selects official, but stack.effect.json saves mine=https://catalog.example.dev/registry/v1/catalog.json. Edit "catalogs" in stack.effect.json to change sources.
+```
+
+To add a source, edit `stack.effect.json`. A project without a `catalogs` list uses the official catalog, so list `official` explicitly next to your extension:
+
+```json
+{
+  "catalogs": [
+    { "name": "official" },
+    { "name": "ext", "url": "https://ext.example.dev/registry/v1/catalog.json" }
+  ]
+}
+```
+
+Then add a module as usual:
+
+```bash
+bunx stack-effect@latest add --target server/api:ext-greeting
+```
+
+An empty `catalogs` list is an error. It never falls back to the official catalog. CLIs older than 0.16.0 ignore the list and may drop it when they rewrite the file, so everyone on the project needs 0.16.0 or later.
+
+### Recipe Builder
+
+Open [Recipe Builder](/builder), expand **Catalogs**, and add a name and URL. The rendered command and shared link include every source. A shared link repeats a `catalog` parameter for each source. Before it loads a link that names a custom URL, the Builder asks the visitor to confirm.
+
+To try a standalone catalog on its own, add it and then remove the official catalog. Tool, database, and Git options come from official modules, so they are hidden until you add the official catalog back. While a selected catalog declares `requires: ["official"]`, the official catalog cannot be removed. A shared link that selects such a catalog without `official` fails to load, and offers **Add the official catalog**.
+
+### Finalize scripts from custom catalogs
+
+Consumers decide whether a custom catalog's Finalize scripts run:
+
+- Interactive runs show custom scripts grouped by source, with their URL and exact commands, and leave them unselected.
+- `--yes` runs official scripts only, and prints custom scripts as next steps. Automation that uses `--yes` skips them.
+- `--trust` runs every script, including custom ones.
+
+Rendered commands never include `--trust`.
+
+## Extend the official catalog
+
+An extension catalog adds modules, and optionally targets, to projects built on official definitions. Validation checks your references against the current official document, and consumers always select it with `official`.
+
+### 1. Replace the starter definitions
+
+In `catalog/starter.ts`, remove the `workspace` and `app` targets, and point the module at an official kind. This module adds a file and a `package.json` script to an official server, and requires the official HTTP API module on it:
+
+```ts
+export const starterTargets = defineTargets(import.meta.url, []);
+
+export const starterModules = defineModules(import.meta.url, [
+  {
+    id: "ext-greeting",
+    title: "Greeting script",
+    description: "Adds a greet script to an official server",
+    supportedOn: [{ _tag: "kind", kind: "server" }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: { kind: "server", name: "api" },
+        moduleId: "server-http-api",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: `${targetPath}/src/greeting.ts`,
+        contents: template("./app-greeting/src/greeting.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: `${targetPath}/package.json`,
+        field: "scripts",
+        name: "greet",
+        value: "bun src/greeting.ts",
+      },
+    ],
+  },
+]);
+```
+
+Drop the unused `packageName` import, and delete `templates/workspace/`. To find official kinds and module IDs, run `bunx stack-effect@latest schema`, which prints the official catalog with every target and its modules.
+
+### 2. Load the official document in each script
+
+Each script builds your catalog with `requires: ["official"]` and the official document. Loading it needs an HTTP client, so each script also provides `FetchHttpClient.layer`.
+
+In `scripts/validate.ts`, replace the program and its layer:
+
+```ts
+import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
+import { Console, Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/unstable/http";
+import { catalog, catalogId, root } from "../catalog/index.ts";
+import { runMain, Services } from "./platform.ts";
+
+const program = Effect.gen(function* () {
+  const official = yield* loadOfficialCatalog();
+  const { document } = yield* buildCatalog(catalog, {
+    catalogId,
+    root,
+    requires: ["official"],
+    official,
+  });
+  yield* Console.log(
+    `Catalog ${catalogId} is valid: ${document.targets.length} targets, ${document.modules.length} modules`,
+  );
+});
+
+runMain(
+  program.pipe(
+    Effect.tapError((error) => Console.error(error.message)),
+    Effect.provide(Layer.mergeAll(Services, FetchHttpClient.layer)),
+  ),
+  { disableErrorReporting: true },
+);
+```
+
+In `scripts/build.ts` and `scripts/preview.ts`, make the same three changes:
+
+1. Import `loadOfficialCatalog` next to `buildCatalog`, `Layer` from `effect` if it is missing, and `FetchHttpClient` from `effect/unstable/http`.
+2. Replace the `buildCatalog(catalog, { catalogId, root })` line inside `Effect.gen`:
+
+   ```ts
+   const official = yield* loadOfficialCatalog();
+   const { json } = yield* buildCatalog(catalog, {
+     catalogId,
+     root,
+     requires: ["official"],
+     official,
+   });
+   ```
+
+3. Add `FetchHttpClient.layer` to the layer at the bottom of the file. In `build.ts`, that is `Effect.provide(Layer.mergeAll(Services, FetchHttpClient.layer))`. In `preview.ts`, it is `Effect.provide(Layer.mergeAll(LoopbackServer, Services, FetchHttpClient.layer))`.
+
+### 3. Preview with the official catalog
+
+In `scripts/preview.ts`, add `"--catalog=official"` to the `stack-effect` arguments, directly before `` `--catalog=preview=${url}` ``. Then validate and preview:
+
+```bash
+bun run validate
+```
+
+```bash
+bun run preview server/api:ext-greeting
+```
+
+Validation now reports `0 targets, 1 modules`. The preview's Blueprint shows `server-http-api` added to `apps/server-api` as a required module, and the planned `package.json` contains the `greet` script.
+
+Without the changes in step 2, a module on an official kind fails validation:
+
+```text
+Catalog build failed:
+  catalog/starter.ts: Module ext-greeting references missing target server
+```
+
+Validation also rejects an ID that the official catalog already uses, for example `Duplicate module ID mcp-tools in sources official and ext`. The build output declares `"requires":["official"]` and never embeds official definitions. Because the build fetches the official document, it fails with `OfficialCatalogUnavailable` when the official registry is unreachable. When official definitions change, the same definitions can also validate differently.
+
+Templates that land in official targets pass through the consumer's official lint and format steps at Finalize. For example, the official oxlint rules reject `console.log` in Effect code, so a template that uses it makes the lint script fail in the consumer's project. Run the preview's generated files through the same checks before you publish.
+
+## When a catalog fails to load
+
+Stack Effect stops before writing any file when a selected source cannot be used. Each message names the source and its URL.
+
+| Situation | Message |
+| --- | --- |
+| The URL is plain `http:` on a public host | `Invalid --catalog selection: Catalog URL must use https unless it targets a loopback host: <url>` |
+| The host is unreachable and nothing is cached | `Catalog source mine: Could not fetch catalog from <url>.` |
+| The document is not a valid v1 catalog | `Catalog source mine: Catalog from <url> uses an unsupported formatVersion.` |
+| An extension catalog is selected without `official` | `Selected catalogs do not compose: Source ext requires the official catalog, which is not selected; select it with --catalog official.` |
+| Two sources define the same kind or ID, including an official one | `Selected catalogs do not compose: Duplicate target kind workspace in sources mine and extras; …` |
+
+A transport failure does not always stop the command. If a source was loaded before, Stack Effect uses its validated cache and warns on stderr:
+
+```text
+catalog mine (<url>): using cached data last validated at 2026-09-29T14:03:46.595Z.
+```
+
+If you see this warning, your host is failing and consumers are getting older definitions. An invalid document or a permanent HTTP error always fails, even with a cache. [Catalog updates and offline use](/catalog-registry) explains the cache policy.
+
+## Reference
+
+- [`@stack-effect/author` README](https://www.npmjs.com/package/@stack-effect/author) for the authoring API, `buildCatalog` options, and Effect version pins.
+- [`CatalogDocument`](https://github.com/lloydrichards/stack-effect/blob/main/packages/domain/src/Catalog.ts) for the v1 document fields.
+- [`stack.effect.json` schema](/schemas/v1/stack.effect.schema.json) for the `catalogs` entry format.
+- [`stack-effect create`](/reference/cli/create) for every flag, including `--catalog` and `--trust`.
