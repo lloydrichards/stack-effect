@@ -118,6 +118,24 @@ describe("buildCatalog requires", () => {
     }).pipe(Effect.provide(NodeServices.layer)),
   );
 
+  it.effect("rejects a document that is not the official catalog", () =>
+    Effect.gen(function* () {
+      // It holds the referenced definitions, so only its identity is wrong.
+      const issues = yield* issuesOf({
+        catalogId: "ext",
+        root: packageRoot,
+        requires: ["official"],
+        official: { ...official, catalogId: "acme" },
+      });
+
+      assert.deepStrictEqual(
+        issues.map((issue) => issue.code),
+        ["invalid-options"],
+      );
+      assert.match(issues[0]?.message ?? "", /stack-effect-official/u);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("rejects an official document the catalog does not require", () =>
     Effect.gen(function* () {
       const issues = yield* issuesOf({

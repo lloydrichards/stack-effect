@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { buildCatalog } from "@repo/authoring";
 import { CatalogService } from "@repo/catalog";
+import { OFFICIAL_CATALOG_ID } from "@repo/domain/CatalogSource";
 import { Effect, Layer } from "effect";
 import { officialCatalog, officialCatalogRoot } from "./index";
 
@@ -9,7 +10,7 @@ import { officialCatalog, officialCatalogRoot } from "./index";
  * application-owned wiring allows Finalize scripts; loaders decide trust.
  */
 export const buildOfficialCatalog = buildCatalog(officialCatalog, {
-  catalogId: "stack-effect-official",
+  catalogId: OFFICIAL_CATALOG_ID,
   root: officialCatalogRoot,
   finalizeScripts: "allow",
 }).pipe(Effect.provide(NodeServices.layer));

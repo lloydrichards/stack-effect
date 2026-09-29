@@ -59,9 +59,9 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Verify published author package
-        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs.publishedPackages, '"@stack-effect/author"')
+        if: steps.changesets.outputs.published == 'true' && contains(steps.changesets.outputs['published-packages'], '"@stack-effect/author"')
         env:
-          PUBLISHED: ${{ steps.changesets.outputs.publishedPackages }}
+          PUBLISHED: ${{ steps.changesets.outputs['published-packages'] }}
         run: |
           version=$(jq -r '.[] | select(.name == "@stack-effect/author") | .version' <<< "$PUBLISHED")
           # The registry can take a moment to serve a new version.

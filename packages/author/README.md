@@ -8,7 +8,17 @@ Author, validate, and build [Stack Effect](https://stack-effect.lloydrichards.de
 npm install @stack-effect/author effect@4.0.0-rc.117 @effect/platform-node@4.0.0-rc.117
 ```
 
-`effect` is a peer dependency pinned to one exact release. Effect 4 release candidates are not compatible with each other, so install the version the package names. You provide the platform layer (`@effect/platform-node`, `-bun`, or `-browser`), which supplies `FileSystem` and `Path`.
+`effect` is a peer dependency pinned to one exact release. Effect 4 release candidates are not compatible with each other, so install the version the package names. You provide the platform layer, which supplies `FileSystem` and `Path`: `@effect/platform-node`, `-bun`, or `-browser`.
+
+The platform packages accept later release candidates of their shared dependency. Pin it in `package.json` too, or npm may install a newer release candidate that does not type-check:
+
+```json
+{
+  "overrides": { "@effect/platform-node-shared": "4.0.0-rc.117" }
+}
+```
+
+With Bun, use `overrides` or `resolutions`. With pnpm, use `pnpm.overrides`.
 
 ## Build a catalog
 

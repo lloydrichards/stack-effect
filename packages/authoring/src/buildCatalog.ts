@@ -14,6 +14,7 @@ import {
   ModuleDefinition,
   TargetDefinition,
 } from "@repo/domain/Catalog";
+import { OFFICIAL_CATALOG_ID } from "@repo/domain/CatalogSource";
 import {
   Array as Arr,
   Data,
@@ -460,6 +461,16 @@ const officialFragment = (catalogId: string, options: BuildCatalogOptions) => {
       ? [
           invalidOptions(
             'official is only used with requires: ["official"]; remove it or declare the dependency',
+          ),
+        ]
+      : []),
+    // References checked against another catalog would fail in the CLI.
+    ...(requiresOfficial &&
+    options.official !== undefined &&
+    options.official.catalogId !== OFFICIAL_CATALOG_ID
+      ? [
+          invalidOptions(
+            `official must be the official catalog (catalogId ${OFFICIAL_CATALOG_ID}), not ${options.official.catalogId}`,
           ),
         ]
       : []),

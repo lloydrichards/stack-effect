@@ -3,6 +3,9 @@ import { Schema } from "effect";
 /** Reserved source name whose URL the application supplies. */
 export const OFFICIAL_CATALOG_SOURCE = "official";
 
+/** `catalogId` of the official catalog document. */
+export const OFFICIAL_CATALOG_ID = "stack-effect-official";
+
 /** Production URL of the official catalog document. */
 export const OFFICIAL_CATALOG_URL =
   "https://stack-effect.lloydrichards.dev/registry/v1/catalog.json";

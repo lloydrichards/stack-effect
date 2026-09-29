@@ -167,7 +167,7 @@ npm can configure a trusted publisher only for a package that already exists. So
    cd packages/author && npm publish --access public
    ```
 
-4. On npmjs.com, open the package's **Settings → Trusted Publisher**. Choose GitHub Actions with repository `lloydrichards/stack-effect` and workflow `publish.yml`, and leave the environment empty.
+4. On npmjs.com, open the package's **Settings → Trusted Publisher**. Choose GitHub Actions with repository `lloydrichards/stack-effect` and workflow `publish.yml`, and leave the environment empty. Under **Allowed actions**, also select **npm publish**. New publishers allow only `npm stage publish` by default, and Changesets publishes directly.
 5. Optional: under **Publishing access**, require two-factor authentication and disallow tokens.
 6. Merge the version packages PR. CI publishes the first real version with provenance. For `@stack-effect/author`, CI then installs the published version in a clean project.
 
