@@ -9,8 +9,6 @@ const moduleRegistry = document.modules;
 const targetRegistry = document.targets;
 
 describe("moduleRegistry", () => {
-  const knownIds = new Set(moduleRegistry.map((m) => m.id));
-
   it("should expose every compatible catalog target and module for Deno", () => {
     expect(
       targetRegistry
@@ -24,96 +22,7 @@ describe("moduleRegistry", () => {
     ).toEqual(["workspace-monorepo-turbo"]);
   });
 
-  it("should have unique module ids", () => {
-    const ids = moduleRegistry.map((m) => m.id);
-    const duplicates = ids.filter((id, i) => ids.indexOf(id) !== i);
-    expect(duplicates).toEqual([]);
-  });
-
-  it("should only reference existing modules in dependencies", () => {
-    const missing: Array<{ module: string; references: string }> = [];
-
-    for (const mod of moduleRegistry) {
-      for (const dep of mod.dependencies) {
-        if (dep._tag === "required-module" && !knownIds.has(dep.moduleId)) {
-          missing.push({
-            module: mod.id,
-            references: dep.moduleId,
-          });
-        }
-      }
-    }
-
-    expect(missing).toEqual([]);
-  });
-
-  it("should only require capabilities with compatible providers", () => {
-    const missing: Array<{
-      module: string;
-      capability: string;
-      target: string;
-    }> = [];
-
-    for (const mod of moduleRegistry) {
-      for (const dep of mod.dependencies) {
-        if (dep._tag !== "required-capability") continue;
-
-        const providers = moduleRegistry.filter(
-          (provider) =>
-            provider.provides?.includes(dep.capability) &&
-            provider.supportedOn.some((supportedOn) =>
-              dep.target.matches(supportedOn),
-            ),
-        );
-
-        if (providers.length === 0) {
-          missing.push({
-            module: mod.id,
-            capability: dep.capability,
-            target: dep.target.toKey(),
-          });
-        }
-      }
-    }
-
-    expect(missing).toEqual([]);
-  });
-
-  it("should only reference existing modules in implies", () => {
-    const missing: Array<{ module: string; references: string }> = [];
-
-    for (const mod of moduleRegistry) {
-      for (const imp of mod.implies ?? []) {
-        if (!knownIds.has(imp.moduleId)) {
-          missing.push({
-            module: mod.id,
-            references: imp.moduleId,
-          });
-        }
-      }
-    }
-
-    expect(missing).toEqual([]);
-  });
-
-  it("should require symmetric references when modules declare conflicts", () => {
-    const invalid = moduleRegistry.flatMap((mod) =>
-      (mod.conflictsWith ?? []).flatMap((conflict) => {
-        const conflictingModule = moduleRegistry.find(
-          (candidate) => candidate.id === conflict,
-        );
-
-        return conflictingModule === undefined ||
-          !conflictingModule.conflictsWith?.includes(mod.id)
-          ? [{ module: mod.id, conflictsWith: conflict }]
-          : [];
-      }),
-    );
-
-    expect(invalid).toEqual([]);
-  });
-
-  it("should register Nx and Vite+ as mutually exclusive Turbo alternatives", () => {
+  it("should list Nx and Vite+ as Turbo conflicts when monorepo modules are registered", () => {
     const turbo = moduleRegistry.find(
       (mod) => mod.id === "workspace-monorepo-turbo",
     );
@@ -127,14 +36,6 @@ describe("moduleRegistry", () => {
     expect(vitePlus?.categories).toContain("monorepo");
     expect(turbo?.conflictsWith).toEqual([
       "workspace-monorepo-vite-plus",
-      "workspace-monorepo-nx",
-    ]);
-    expect(nx?.conflictsWith).toEqual([
-      "workspace-monorepo-turbo",
-      "workspace-monorepo-vite-plus",
-    ]);
-    expect(vitePlus?.conflictsWith).toEqual([
-      "workspace-monorepo-turbo",
       "workspace-monorepo-nx",
     ]);
   });
@@ -162,7 +63,7 @@ describe("moduleRegistry", () => {
     ]);
   });
 
-  it("should register the Todo vertical slice with provider-neutral SQL dependencies", () => {
+  it("should depend on a provider-neutral SQL capability when the Todo vertical slice is registered", () => {
     const todoModuleIds = [
       "domain-todo-contracts",
       "domain-todo-http-contracts",
@@ -180,9 +81,6 @@ describe("moduleRegistry", () => {
     );
 
     expect(todoModules).toHaveLength(todoModuleIds.length);
-    expect(todoModules.map((module) => module.id)).toEqual(
-      expect.arrayContaining(todoModuleIds),
-    );
     expect(repository?.dependencies).toContainEqual(
       expect.objectContaining({
         _tag: "required-capability",

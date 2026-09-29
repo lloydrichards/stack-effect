@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { assert, it } from "@effect/vitest";
+import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
 const allowed = [
@@ -35,55 +35,59 @@ const boundaryViolations = (
     )
     .map((specifier) => `${file}: ${specifier}`);
 
-it.effect("detects imports that escape the authoring boundary", () =>
-  Effect.gen(function* () {
-    const path = yield* Path.Path;
-    const source = [
-      `import { buildCatalog } from "@repo/authoring";`,
-      `import type { Schema } from "effect";`,
-      `import { local } from "./local";`,
-      `import { official } from '@repo/catalog';`,
-      `export * from "../../../src/index";`,
-      `import "@repo/domain/Catalog";`,
-      `const fs = require("node:fs");`,
-      "const lazy = import(`apps/docs`);",
-    ].join("\n");
-    assert.deepStrictEqual(
-      boundaryViolations(path, "/fixture", "catalog.ts", source),
-      [
-        "catalog.ts: @repo/catalog",
-        "catalog.ts: ../../../src/index",
-        "catalog.ts: @repo/domain/Catalog",
-        "catalog.ts: node:fs",
-        "catalog.ts: apps/docs",
-      ],
-    );
-  }).pipe(Effect.provide(NodeServices.layer)),
-);
+layer(NodeServices.layer)("fixture boundary", (it) => {
+  it.effect(
+    "should report each escaping import when a source mixes allowed and forbidden imports",
+    () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const source = [
+          `import { buildCatalog } from "@repo/authoring";`,
+          `import type { Schema } from "effect";`,
+          `import { local } from "./local";`,
+          `import { official } from '@repo/catalog';`,
+          `export * from "../../../src/index";`,
+          `import "@repo/domain/Catalog";`,
+          `const fs = require("node:fs");`,
+          "const lazy = import(`apps/docs`);",
+        ].join("\n");
+        assert.deepStrictEqual(
+          boundaryViolations(path, "/fixture", "catalog.ts", source),
+          [
+            "catalog.ts: @repo/catalog",
+            "catalog.ts: ../../../src/index",
+            "catalog.ts: @repo/domain/Catalog",
+            "catalog.ts: node:fs",
+            "catalog.ts: apps/docs",
+          ],
+        );
+      }),
+  );
 
-it.effect(
-  "keeps the standalone fixture on the public authoring entry point",
-  () =>
-    Effect.gen(function* () {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const fixture = yield* path.fromFileUrl(
-        new URL("../test/fixtures/standalone/", import.meta.url),
-      );
-      const files = (yield* fs.readDirectory(fixture, { recursive: true }))
-        .filter((file) => /\.[cm]?[jt]sx?$/.test(file))
-        .filter((file) => !file.split(path.sep).includes("templates"));
-      assert.isNotEmpty(files);
+  it.effect(
+    "should find no escaping import when the standalone fixture is scanned",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const fixture = yield* path.fromFileUrl(
+          new URL("../test/fixtures/standalone/", import.meta.url),
+        );
+        const files = (yield* fs.readDirectory(fixture, { recursive: true }))
+          .filter((file) => /\.[cm]?[jt]sx?$/.test(file))
+          .filter((file) => !file.split(path.sep).includes("templates"));
+        assert.isNotEmpty(files);
 
-      const violations = yield* Effect.forEach(files, (file) =>
-        fs
-          .readFileString(path.join(fixture, file))
-          .pipe(
-            Effect.map((source) =>
-              boundaryViolations(path, fixture, file, source),
+        const violations = yield* Effect.forEach(files, (file) =>
+          fs
+            .readFileString(path.join(fixture, file))
+            .pipe(
+              Effect.map((source) =>
+                boundaryViolations(path, fixture, file, source),
+              ),
             ),
-          ),
-      );
-      assert.deepStrictEqual(violations.flat(), []);
-    }).pipe(Effect.provide(NodeServices.layer)),
-);
+        );
+        assert.deepStrictEqual(violations.flat(), []);
+      }),
+  );
+});

@@ -143,7 +143,7 @@ Prefer modifying generated files first even for small changes. It is easier to s
 When porting back:
 
 - Keep the catalog change minimal.
-- Edit template bytes exactly; they are embedded verbatim, and `catalogs/official/test/catalog.golden.json` changes with them.
+- Edit template bytes exactly; they are embedded verbatim in the published catalog.
 - Store names that Git, Oxfmt, or Oxlint read in nested directories (`.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`, `.editorconfig`) with the dot replaced by an underscore, e.g. `_gitignore`; the contribution `path` keeps the real name.
 - Preserve catalog domain terms: Selection, Blueprint, Plan, Apply.
 - For Effect code, follow `effect-fp` project style: `Effect.gen`, `yield*`, declarative transforms, and Effect error channels.

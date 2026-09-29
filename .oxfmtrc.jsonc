@@ -26,6 +26,5 @@
     "packages/authoring/test/fixtures/invalid/**",
     "packages/authoring/test/fixtures/**/golden/**",
     "catalogs/**/templates/**",
-    "catalogs/**/*.golden.json",
   ],
 }

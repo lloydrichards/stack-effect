@@ -6,4 +6,3 @@ packages/authoring/test/fixtures/**/templates/** -text
 packages/authoring/test/fixtures/invalid/** -text
 packages/authoring/test/fixtures/**/golden/** -text
 catalogs/**/templates/** -text
-catalogs/**/*.golden.json -text

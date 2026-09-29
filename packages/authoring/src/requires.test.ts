@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { assert, describe, it } from "@effect/vitest";
+import { assert, describe, it, layer } from "@effect/vitest";
 import {
   buildCatalog,
   type CatalogInput,
@@ -61,16 +61,17 @@ const extension: CatalogInput = {
   modules: [defineModules(import.meta.url, [extAuth])],
 };
 
-const issuesOf = (options: Parameters<typeof buildCatalog>[1]) =>
-  Effect.flip(buildCatalog(extension, options)).pipe(
-    Effect.map((error) =>
-      error.issues.map(({ code, message }) => ({ code, message })),
-    ),
+const issuesOf = (
+  options: Parameters<typeof buildCatalog>[1],
+  input: CatalogInput = extension,
+) =>
+  Effect.flip(buildCatalog(input, options)).pipe(
+    Effect.map((error) => error.issues),
   );
 
-describe("buildCatalog requires", () => {
+layer(NodeServices.layer)("buildCatalog requires", (it) => {
   it.effect(
-    "checks official references without publishing official definitions",
+    "should publish only its own definitions when official references are checked",
     () =>
       Effect.gen(function* () {
         const { document } = yield* buildCatalog(extension, {
@@ -86,69 +87,121 @@ describe("buildCatalog requires", () => {
           document.modules.map((module) => module.id),
           ["ext-auth"],
         );
-      }).pipe(Effect.provide(NodeServices.layer)),
+      }),
   );
 
-  it.effect("reports an undeclared reference to an official definition", () =>
-    Effect.gen(function* () {
-      const issues = yield* issuesOf({ catalogId: "ext", root: packageRoot });
+  it.effect(
+    "should report the unresolved official references when official is not required",
+    () =>
+      Effect.gen(function* () {
+        const issues = yield* issuesOf({ catalogId: "ext", root: packageRoot });
 
-      assert.isTrue(issues.length > 0);
-      assert.isTrue(
-        issues.every((issue) =>
-          ["missing-reference", "unsupported-target"].includes(issue.code),
-        ),
-      );
-    }).pipe(Effect.provide(NodeServices.layer)),
+        assert.deepStrictEqual(
+          issues.map(({ subject, code, message }) => ({
+            subject,
+            code,
+            message,
+          })),
+          [
+            {
+              subject: { _tag: "module", id: "ext-auth" },
+              code: "missing-reference",
+              message: "Module ext-auth references missing target server",
+            },
+            {
+              subject: { _tag: "module", id: "ext-auth" },
+              code: "missing-reference",
+              message: "Module ext-auth references missing target server",
+            },
+            {
+              subject: { _tag: "module", id: "ext-auth" },
+              code: "missing-reference",
+              message: "Module ext-auth references missing module server-http",
+            },
+          ],
+        );
+      }),
   );
 
-  it.effect("needs the official document when it is required", () =>
-    Effect.gen(function* () {
-      const issues = yield* issuesOf({
-        catalogId: "ext",
-        root: packageRoot,
-        requires: ["official"],
-      });
-
-      assert.deepStrictEqual(
-        issues.map((issue) => issue.code),
-        ["invalid-options"],
-      );
-      assert.match(issues[0]?.message ?? "", /loadOfficialCatalog/u);
-    }).pipe(Effect.provide(NodeServices.layer)),
-  );
-
-  it.effect("rejects a document that is not the official catalog", () =>
-    Effect.gen(function* () {
+  it.effect.each([
+    {
+      condition: "official is required but not supplied",
+      options: { catalogId: "ext", requires: ["official"] },
+      message:
+        'requires: ["official"] needs the official catalog document as `official`; load it with loadOfficialCatalog',
+    },
+    {
+      condition: "the supplied document is not the official catalog",
       // It holds the referenced definitions, so only its identity is wrong.
-      const issues = yield* issuesOf({
+      options: {
         catalogId: "ext",
-        root: packageRoot,
         requires: ["official"],
         official: { ...official, catalogId: "acme" },
-      });
+      },
+      message:
+        "official must be the official catalog (catalogId stack-effect-official), not acme",
+    },
+    {
+      condition: "official is supplied but not required",
+      options: { catalogId: "ext", official },
+      message:
+        'official is only used with requires: ["official"]; remove it or declare the dependency',
+    },
+    {
+      condition: "the catalog requires its own official source",
+      options: { catalogId: "official", requires: ["official"], official },
+      message: "A catalog cannot require its own source",
+    },
+  ] satisfies ReadonlyArray<{
+    readonly condition: string;
+    readonly options: Omit<Parameters<typeof buildCatalog>[1], "root">;
+    readonly message: string;
+  }>)("should reject the options when $condition", ({ options, message }) =>
+    Effect.gen(function* () {
+      const issues = yield* issuesOf({ ...options, root: packageRoot });
 
       assert.deepStrictEqual(
-        issues.map((issue) => issue.code),
-        ["invalid-options"],
+        issues.map(({ code, message }) => ({ code, message })),
+        [{ code: "invalid-options", message }],
       );
-      assert.match(issues[0]?.message ?? "", /stack-effect-official/u);
-    }).pipe(Effect.provide(NodeServices.layer)),
+    }),
   );
 
-  it.effect("rejects an official document the catalog does not require", () =>
-    Effect.gen(function* () {
-      const issues = yield* issuesOf({
-        catalogId: "ext",
-        root: packageRoot,
-        official,
-      });
+  it.effect(
+    "should reject the extension's own Finalize scripts when it requires official without allowing scripts",
+    () =>
+      Effect.gen(function* () {
+        const issues = yield* issuesOf(
+          {
+            catalogId: "ext",
+            root: packageRoot,
+            requires: ["official"],
+            official,
+          },
+          {
+            targets: [],
+            modules: [
+              defineModules(import.meta.url, [
+                {
+                  ...extAuth,
+                  scripts: [{ label: "Seed", command: "bun run seed" }],
+                },
+              ]),
+            ],
+          },
+        );
 
-      assert.deepStrictEqual(
-        issues.map((issue) => issue.code),
-        ["invalid-options"],
-      );
-    }).pipe(Effect.provide(NodeServices.layer)),
+        // The official module's own script is trusted and not reported.
+        assert.deepStrictEqual(
+          issues.map(({ subject, code }) => ({ subject, code })),
+          [
+            {
+              subject: { _tag: "module", id: "ext-auth" },
+              code: "finalize-script",
+            },
+          ],
+        );
+      }),
   );
 });
 
@@ -160,37 +213,65 @@ const serving = (response: () => Response) =>
     ),
   );
 
-describe("loadOfficialCatalog", () => {
-  it.effect("decodes the served official document", () =>
-    Effect.gen(function* () {
-      const document = yield* loadOfficialCatalog(
-        "https://official.test/v1.json",
-      );
+const json = (body: string) =>
+  new Response(body, { headers: { "content-type": "application/json" } });
 
-      assert.strictEqual(document.catalogId, "stack-effect-official");
-    }).pipe(
-      Effect.provide(
-        serving(
-          () =>
-            new Response(
+describe("loadOfficialCatalog", () => {
+  it.effect(
+    "should decode the served document when the official catalog is available",
+    () =>
+      Effect.gen(function* () {
+        const document = yield* loadOfficialCatalog(
+          "https://official.test/v1.json",
+        );
+
+        assert.strictEqual(document.catalogId, "stack-effect-official");
+      }).pipe(
+        Effect.provide(
+          serving(() =>
+            json(
               Schema.encodeSync(Schema.fromJsonString(CatalogDocument))(
                 official,
               ),
-              { headers: { "content-type": "application/json" } },
             ),
+          ),
         ),
       ),
-    ),
   );
 
-  it.effect("names the URL when the official catalog is unavailable", () =>
-    Effect.gen(function* () {
-      const error = yield* Effect.flip(
-        loadOfficialCatalog("https://official.test/v1.json"),
-      );
+  it.effect(
+    "should name the URL when the official catalog responds with an error status",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          loadOfficialCatalog("https://official.test/v1.json"),
+        );
 
-      assert.strictEqual(error._tag, "OfficialCatalogUnavailable");
-      assert.include(error.message, "https://official.test/v1.json");
-    }).pipe(Effect.provide(serving(() => new Response("", { status: 503 })))),
+        assert.strictEqual(error._tag, "OfficialCatalogUnavailable");
+        assert.include(error.message, "https://official.test/v1.json");
+      }).pipe(Effect.provide(serving(() => new Response("", { status: 503 })))),
+  );
+
+  it.effect(
+    "should fail as unavailable when the official catalog serves an invalid document",
+    () =>
+      Effect.gen(function* () {
+        const error = yield* Effect.flip(
+          loadOfficialCatalog("https://official.test/v1.json"),
+        );
+
+        assert.strictEqual(error._tag, "OfficialCatalogUnavailable");
+        assert.strictEqual(error.url, "https://official.test/v1.json");
+        assert.include(
+          error.message,
+          "Could not load the official catalog from https://official.test/v1.json: ",
+        );
+      }).pipe(
+        Effect.provide(
+          serving(() =>
+            json('{"formatVersion":1,"catalogId":"stack-effect-official"}'),
+          ),
+        ),
+      ),
   );
 });
