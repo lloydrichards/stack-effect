@@ -166,10 +166,18 @@ describe("registry project", () => {
               const validate = yield* script(0, "validate");
               assert.include(validate.stdout, "Catalog reg is valid");
 
-              // Two builds, and a format run between builds, give identical bytes.
+              // Templates are embedded byte for byte, so a format run must leave
+              // an author's unformatted template, and the document, unchanged.
+              const greeting =
+                "apps/catalog-registry/templates/app-greeting/src/greeting.ts";
+              const unformatted =
+                'export const greeting = "Hello from a Stack Effect catalog"\nconst  spacing = {a:1}\n';
+              yield* project.writeFile(greeting, unformatted);
               const first = yield* build;
               yield* project.expectCommandSucceeds("Format", "bun", "format");
+              assert.strictEqual(yield* read(`reg/${greeting}`), unformatted);
               assert.strictEqual(yield* build, first);
+              assert.include(first, "const  spacing = {a:1}");
 
               // A v1 standalone document with real tokens and no official source.
               const document = yield* Schema.decodeEffect(
