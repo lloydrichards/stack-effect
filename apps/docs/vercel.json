@@ -4,12 +4,18 @@
     {
       "source": "/registry/v1/catalog.json",
       "headers": [
-        { "key": "Content-Type", "value": "application/json; charset=utf-8" },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
         },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
         {
           "key": "Access-Control-Allow-Methods",
           "value": "GET, HEAD, OPTIONS"
@@ -27,12 +33,18 @@
     {
       "source": "/registry/v1/author.json",
       "headers": [
-        { "key": "Content-Type", "value": "application/json; charset=utf-8" },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
         },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
         {
           "key": "Access-Control-Allow-Methods",
           "value": "GET, HEAD, OPTIONS"
@@ -50,12 +62,18 @@
     {
       "source": "/schemas/v1/stack.effect.schema.json",
       "headers": [
-        { "key": "Content-Type", "value": "application/json; charset=utf-8" },
+        {
+          "key": "Content-Type",
+          "value": "application/json; charset=utf-8"
+        },
         {
           "key": "Cache-Control",
           "value": "public, max-age=0, must-revalidate"
         },
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
         {
           "key": "Access-Control-Allow-Methods",
           "value": "GET, HEAD, OPTIONS"
@@ -67,6 +85,162 @@
         {
           "key": "Access-Control-Expose-Headers",
           "value": "ETag, Last-Modified"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</index.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/use-with-coding-agents",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</use-with-coding-agents.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/getting-started",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</getting-started.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/how-it-works",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</how-it-works.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/catalog-registry",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</catalog-registry.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/publish-catalog-registry",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</publish-catalog-registry.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/schema",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/schema.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/plan",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/plan.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/init",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/init.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/create",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/create.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/add",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/add.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/graph",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/graph.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/reference/cli/catalog",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</reference/cli/catalog.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        },
+        {
+          "key": "Link",
+          "value": "</llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
+      "source": "/llms.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
         }
       ]
     }
@@ -82,7 +256,9 @@
         {
           "type": "response.headers",
           "op": "set",
-          "target": { "key": "Access-Control-Allow-Origin" },
+          "target": {
+            "key": "Access-Control-Allow-Origin"
+          },
           "args": "*"
         }
       ],
@@ -98,9 +274,28 @@
         "Access-Control-Allow-Headers": "If-None-Match, If-Modified-Since"
       }
     },
-    { "handle": "filesystem" },
-    { "src": "/registry/.*", "status": 404 },
-    { "src": "/schemas/v1/.*", "status": 404 },
-    { "src": "/.*", "dest": "/index.html" }
+    {
+      "handle": "filesystem"
+    },
+    {
+      "src": "/registry/.*",
+      "status": 404
+    },
+    {
+      "src": "/schemas/v1/.*",
+      "status": 404
+    },
+    {
+      "src": "/.*\\.md(?:/.*)?",
+      "status": 404
+    },
+    {
+      "src": "/llms(?:-full)?\\.txt(?:/.*)?",
+      "status": 404
+    },
+    {
+      "src": "/.*",
+      "dest": "/index.html"
+    }
   ]
 }

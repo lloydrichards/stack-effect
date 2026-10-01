@@ -12,6 +12,7 @@ import {
 } from "react-router";
 import { AppSidebar } from "~/components/app-sidebar";
 import { DocFooter } from "~/components/doc-footer";
+import { DocMarkdownActions } from "~/components/doc-markdown-actions";
 import { GithubIcon } from "~/components/icons";
 import { TableOfContents } from "~/components/table-of-contents";
 import { ThemeToggle } from "~/components/theme-toggle";
@@ -27,6 +28,7 @@ import {
   SidebarTrigger,
   useSidebar,
 } from "~/components/ui/sidebar";
+import { docMarkdownPath, findDocPage } from "~/lib/docs-manifest";
 import type { TOCItem } from "~/lib/remark-toc-export";
 import { cn } from "~/lib/utils";
 import { isPrimaryNavigationActive, primaryNavigation } from "~/nav.config";
@@ -82,6 +84,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const isLandingPage = pathname === "/";
   const isBuilderPage = pathname === "/builder";
+  const docPage = findDocPage(pathname);
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -98,6 +101,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ) : null}
         <Meta />
         <Links />
+        <link rel="describedby" href="/llms.txt" />
+        {docPage ? (
+          <link
+            rel="alternate"
+            type="text/markdown"
+            href={docMarkdownPath(docPage.route)}
+          />
+        ) : null}
       </head>
       <body>
         {isLandingPage || isBuilderPage ? (
@@ -134,6 +145,7 @@ export default function App() {
   const hasToc = toc.length > 0;
   const isLandingPage = pathname === "/";
   const isBuilderPage = pathname === "/builder";
+  const docPage = findDocPage(pathname);
 
   return (
     <MDXProvider components={proseComponents}>
@@ -146,6 +158,14 @@ export default function App() {
           isLandingPage || isBuilderPage ? "max-w-[96rem]" : "max-w-[72ch]",
         )}
       >
+        {docPage ? (
+          <div className={isLandingPage ? "mx-auto max-w-4xl" : undefined}>
+            <DocMarkdownActions
+              key={docPage.route}
+              href={docMarkdownPath(docPage.route)}
+            />
+          </div>
+        ) : null}
         <Outlet />
         {!isBuilderPage ? <DocFooter /> : null}
       </div>

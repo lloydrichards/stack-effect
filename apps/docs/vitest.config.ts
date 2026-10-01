@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
+import { docsMarkdown } from "./scripts/docs-markdown-plugin.ts";
 import { registryFixtureServer } from "./test/fixtures/registry-fixture-server.ts";
 
 export default defineConfig({
@@ -30,7 +31,7 @@ export default defineConfig({
       {
         extends: true,
         // Only the browser project fetches the registry fixture.
-        plugins: [registryFixtureServer()],
+        plugins: [registryFixtureServer(), docsMarkdown()],
         test: {
           name: "browser",
           include: ["test/**/*.browser.test.{ts,tsx}"],

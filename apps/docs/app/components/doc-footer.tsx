@@ -58,7 +58,8 @@ export function DocFooter() {
           )}
         </div>
       </div>
-      <div className="mt-4 flex justify-end">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+        <AgentLinks />
         <a
           href={editUrl}
           target="_blank"
@@ -87,7 +88,11 @@ function LandingFooter() {
         </Button>
         .
       </p>
-      <nav aria-label="Project links" className="flex items-center gap-5">
+      <AgentLinks />
+      <nav
+        aria-label="Project links"
+        className="flex flex-wrap items-center gap-5"
+      >
         <Button
           render={<a href={REPO_URL} target="_blank" />}
           variant="link"
@@ -117,5 +122,27 @@ function LandingFooter() {
         </Button>
       </nav>
     </footer>
+  );
+}
+
+function AgentLinks() {
+  return (
+    <nav
+      aria-label="Agent documentation"
+      className="flex flex-wrap items-center gap-x-4 text-xs text-muted-foreground"
+    >
+      <a
+        href="/use-with-coding-agents"
+        className="inline-flex min-h-11 items-center underline-offset-4 hover:text-foreground hover:underline lg:min-h-6"
+      >
+        Use with coding agents
+      </a>
+      <a
+        href="/llms.txt"
+        className="inline-flex min-h-11 items-center underline-offset-4 hover:text-foreground hover:underline lg:min-h-6"
+      >
+        llms.txt
+      </a>
+    </nav>
   );
 }

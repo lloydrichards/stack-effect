@@ -8,6 +8,7 @@
     "test/**/*"
   ],
   "compilerOptions": {
+    "allowImportingTsExtensions": true,
     "rootDirs": [".", "./.react-router/types"],
     "paths": {
       "~/*": ["./app/*"]
