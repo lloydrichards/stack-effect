@@ -1,6 +1,6 @@
 import { Api, type ApiResponse } from "@repo/domain/Api";
 import { Effect } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 export const HelloGroupLive = HttpApiBuilder.group(Api, "hello", (handlers) =>
   handlers.handle("get", () => {

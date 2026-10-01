@@ -451,7 +451,7 @@ await Effect.runPromise(
             );
             yield* project.expectFileContaining(
               "apps/cli-custom/package.json",
-              '"effect-boxes": "^0.16.1"',
+              '"effect-boxes": "^0.17.3"',
             );
             yield* project.expectFileNotExists(
               "apps/cli-custom/src/commands/ask.ts",

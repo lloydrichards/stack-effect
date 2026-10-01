@@ -14,8 +14,8 @@ import {
   Result,
   Stream,
 } from "effect";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 export type FinalizeConfig = {
   readonly config: typeof StackConfig.Type;

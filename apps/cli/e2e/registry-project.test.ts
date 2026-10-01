@@ -6,8 +6,8 @@ import { assert, describe, layer } from "@effect/vitest";
 import { exportAuthorCatalog } from "@repo/catalog-author/service";
 import { CatalogDocument } from "@repo/domain/Catalog";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-import { HttpServer, HttpServerResponse } from "effect/unstable/http";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { HttpServer, HttpServerResponse } from "effect/http";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { CLI, type CommandResult, spawnCommand } from "./harness";
 
 /**
@@ -114,11 +114,11 @@ describe("registry project", () => {
             );
             // Until the pinned versions are published, Finalize's install is
             // the only step allowed to fail; Apply has written every file.
-            // TODO(lloydrichards): remove once @stack-effect/author 0.1.0 is published
+            // Install the packed packages below before running the generated scripts.
             if (created.exitCode !== 0)
               assert.match(
                 created.stdout + created.stderr,
-                /@stack-effect\/author@~0\.1\.0 failed to resolve/,
+                /@stack-effect\/author@~0\.2\.0 failed to resolve/,
               );
             yield* cli.expectFileExists(`${registry}/catalog/starter.ts`);
             yield* cli.expectFileContaining(
@@ -142,8 +142,8 @@ describe("registry project", () => {
 
               const manifest = yield* read(`${registry}/package.json`);
               const local = manifest
-                .replace('"~0.1.0"', `"file:${author}"`)
-                .replace('"~0.16.0"', `"file:${stackEffect}"`);
+                .replace('"~0.2.0"', `"file:${author}"`)
+                .replace('"~0.17.0"', `"file:${stackEffect}"`);
               assert.notInclude(local, '"~0.', "every pinned range replaced");
               yield* project.writeFile(
                 "apps/catalog-registry/package.json",

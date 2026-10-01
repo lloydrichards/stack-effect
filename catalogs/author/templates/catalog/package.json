@@ -11,13 +11,13 @@
     "clean": "git clean -xdf .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0-rc.117",
-    "@stack-effect/author": "~0.1.0",
-    "effect": "4.0.0-rc.117"
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.0.0",
+    "@stack-effect/author": "~0.2.0",
+    "effect": "4.0.0"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
     {{#if runtime=bun}}"@types/bun": "^1.2.17",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}
-    "stack-effect": "~0.16.0"
+    "stack-effect": "~0.17.0"
   }
 }

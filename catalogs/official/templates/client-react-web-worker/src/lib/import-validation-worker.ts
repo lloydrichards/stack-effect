@@ -1,7 +1,7 @@
 import * as BrowserWorker from "@effect/platform-browser/BrowserWorker";
 import { Effect, Layer, Stream } from "effect";
-import { type Atom, AtomRpc } from "effect/unstable/reactivity";
-import { RpcClient } from "effect/unstable/rpc";
+import { type Atom, AtomRpc } from "effect/reactivity";
+import { RpcClient } from "effect/rpc";
 import {
   ImportValidationRpc,
   type ImportValidationEvent,

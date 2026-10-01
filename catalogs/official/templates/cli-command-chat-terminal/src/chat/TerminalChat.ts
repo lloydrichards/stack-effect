@@ -14,7 +14,7 @@ import {
   String,
   Terminal,
 } from "effect";
-import { Prompt } from "effect/unstable/cli";
+import { Prompt } from "effect/cli";
 import { Ansi, Box, Cmd, Flex } from "effect-boxes";
 import type { TerminalChatDriver } from "./ChatDriver";
 

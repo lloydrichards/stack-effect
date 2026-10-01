@@ -19,7 +19,7 @@ You will need:
 - `stack-effect` 0.16.0 or later, the first release that reads `--catalog`;
 - a static host that can serve a JSON file over HTTPS, such as GitHub Pages, Netlify, Vercel, or an object store.
 
-You write definitions in TypeScript. The build scripts use [Effect](https://effect.website), but you only edit them if you [extend the official catalog](#extend-the-official-catalog). The project pins `effect` to the exact release that `@stack-effect/author` needs. Effect 4 release candidates are not compatible with each other, so keep that pin when you add dependencies.
+You write definitions in TypeScript. The build scripts use [Effect](https://effect.website), but you only edit them if you [extend the official catalog](#extend-the-official-catalog). The project pins `effect` to the exact release that `@stack-effect/author` needs. Keep that pin when you add dependencies so authoring schemas and platform services use the same Effect version.
 
 Run the guide from a clean parent directory, not from inside an existing Stack Effect project.
 
@@ -447,7 +447,7 @@ In `scripts/validate.ts`, replace the program and its layer:
 ```ts
 import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
 import { Console, Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import { catalog, catalogId, root } from "../catalog/index.ts";
 import { runMain, Services } from "./platform.ts";
 
@@ -475,7 +475,7 @@ runMain(
 
 In `scripts/build.ts` and `scripts/preview.ts`, make the same three changes:
 
-1. Import `loadOfficialCatalog` next to `buildCatalog`, `Layer` from `effect` if it is missing, and `FetchHttpClient` from `effect/unstable/http`.
+1. Import `loadOfficialCatalog` next to `buildCatalog`, `Layer` from `effect` if it is missing, and `FetchHttpClient` from `effect/http`.
 2. Replace the `buildCatalog(catalog, { catalogId, root })` line inside `Effect.gen`:
 
    ```ts

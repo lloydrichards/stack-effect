@@ -24,9 +24,9 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { HttpServer, HttpServerResponse } from "effect/unstable/http";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { HttpServer, HttpServerResponse } from "effect/http";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 const AUTHOR_CATALOG_URL =
   "https://stack-effect.lloydrichards.dev/registry/v1/author.json";

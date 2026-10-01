@@ -273,7 +273,7 @@ const collectEntries = Effect.fn("Authoring.collectEntries")(function* (
   ] satisfies ReadonlyArray<
     readonly ["target" | "module", DefinitionGroup<unknown>]
   >;
-  const [invalid, sources] = yield* Effect.partition(groups, ([, group]) =>
+  const [sources, invalid] = yield* Effect.partition(groups, ([, group]) =>
     locations.withinRoot(group.source).pipe(
       Effect.map(({ display }) => display),
       Effect.mapError((reason): CatalogBuildIssue => ({
@@ -319,7 +319,7 @@ const resolveTemplates = Effect.fn("Authoring.resolveTemplates")(function* (
         ),
       ),
   );
-  const [failed, resolved] = yield* Effect.partition(fields, (item) => {
+  const [resolved, failed] = yield* Effect.partition(fields, (item) => {
     const issue = (
       code: "missing-template" | "invalid-template",
       reason: string,
@@ -408,7 +408,7 @@ const decodeEntries = Effect.fn("Authoring.decodeEntries")(function* (
       : entry.input;
   };
   const options = { onExcessProperty: "error", errors: "all" } as const;
-  const [invalid, decoded] = yield* Effect.partition(
+  const [decoded, invalid] = yield* Effect.partition(
     entries.map((entry, index) => [entry, index] as const),
     ([entry, index]): Effect.Effect<Decoded, CatalogBuildIssue> => {
       const input = resolveInput(entry, index);

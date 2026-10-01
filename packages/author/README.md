@@ -5,16 +5,16 @@ Author, validate, and build [Stack Effect](https://stack-effect.lloydrichards.de
 ## Install
 
 ```bash
-npm install @stack-effect/author effect@4.0.0-rc.117 @effect/platform-node@4.0.0-rc.117
+npm install @stack-effect/author effect@4.0.0 @effect/platform-node@4.0.0
 ```
 
-`effect` is a peer dependency pinned to one exact release. Effect 4 release candidates are not compatible with each other, so install the version the package names. You provide the platform layer, which supplies `FileSystem` and `Path`: `@effect/platform-node`, `-bun`, or `-browser`.
+`effect` is a peer dependency pinned to one exact release. Install the exact Effect version declared by the package to keep authoring schemas and platform services compatible. You provide the platform layer, which supplies `FileSystem` and `Path`: `@effect/platform-node`, `-bun`, or `-browser`.
 
-The platform packages accept later release candidates of their shared dependency. Pin it in `package.json` too, or npm may install a newer release candidate that does not type-check:
+Pin the shared platform dependency in `package.json` too so it stays aligned with the Effect version used by the author package:
 
 ```json
 {
-  "overrides": { "@effect/platform-node-shared": "4.0.0-rc.117" }
+  "overrides": { "@effect/platform-node-shared": "4.0.0" }
 }
 ```
 
@@ -22,7 +22,7 @@ With Bun, use `overrides` or `resolutions`. pnpm reads overrides from `pnpm-work
 
 ```yaml
 overrides:
-  "@effect/platform-node-shared": "4.0.0-rc.117"
+  "@effect/platform-node-shared": "4.0.0"
 ```
 
 ## Build a catalog
@@ -98,7 +98,7 @@ A catalog may reference official targets and modules if it declares `requires: [
 import { NodeServices } from "@effect/platform-node";
 import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
 import { Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import { modules } from "./modules.ts";
 
 const catalog = { targets: [], modules: [modules] };

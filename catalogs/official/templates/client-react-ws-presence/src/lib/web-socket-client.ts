@@ -2,12 +2,12 @@ import { BrowserSocket } from "@effect/platform-browser";
 import type { WebSocketEvent } from "@repo/domain/WebSocket";
 import { WebSocketRpc } from "@repo/domain/WebSocket";
 import { type Cause, Effect, Layer, Stream } from "effect";
-import { type Atom, AtomRpc } from "effect/unstable/reactivity";
+import { type Atom, AtomRpc } from "effect/reactivity";
 import {
   RpcClient,
   type RpcClientError,
   RpcSerialization,
-} from "effect/unstable/rpc";
+} from "effect/rpc";
 
 const WS_URL = import.meta.env.VITE_WS_URL || "ws://localhost:9000/ws";
 

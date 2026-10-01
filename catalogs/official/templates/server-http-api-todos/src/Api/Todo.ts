@@ -1,7 +1,7 @@
 import { TodoRepository } from "@repo/db";
 import { TodoApi } from "@repo/domain/TodoApi";
 import { Effect, Layer } from "effect";
-import { HttpApiBuilder } from "effect/unstable/httpapi";
+import { HttpApiBuilder } from "effect/http-api";
 
 export const TodoGroupLive = HttpApiBuilder.group(
   TodoApi,

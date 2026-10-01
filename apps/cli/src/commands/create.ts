@@ -17,7 +17,7 @@ import {
   StackConfigDefaults,
 } from "@repo/scaffold";
 import { Array as Arr, Console, Effect, Option, Schema } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import {
   catalogFlag,
   dryRunFlag,

@@ -1,5 +1,5 @@
 import { DateTime, Effect, Option, Schema, String } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 
 const getCurrentDatetimeTool = Tool.make("get_current_datetime", {
   description: String.stripMargin(`

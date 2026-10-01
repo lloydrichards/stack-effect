@@ -20,8 +20,8 @@ import type {
   LoadedCatalogSource,
 } from "@repo/scaffold/browser";
 import { Data, Effect, Fiber, Layer, Option, SynchronizedRef } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
-import { RpcServer } from "effect/unstable/rpc";
+import { FetchHttpClient } from "effect/http";
+import { RpcServer } from "effect/rpc";
 import {
   makeRecipeBuilderRpcFailure,
   RecipeBuilderRpc,

@@ -1,5 +1,5 @@
 import { Array as Arr, Console, Effect, Option, pipe, Record } from "effect";
-import { CliOutput, Command, type HelpDoc } from "effect/unstable/cli";
+import { CliOutput, Command, type HelpDoc } from "effect/cli";
 
 export interface CliReferenceFlag {
   readonly name: string;

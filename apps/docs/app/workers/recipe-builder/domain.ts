@@ -11,7 +11,7 @@ import {
   RecipePreviewInput,
 } from "@repo/scaffold/recipe-preview";
 import { Option, Schema } from "effect";
-import { Rpc, RpcGroup } from "effect/unstable/rpc";
+import { Rpc, RpcGroup } from "effect/rpc";
 
 const CatalogChoice = Schema.Struct({
   title: ModuleDefinition.fields.title,

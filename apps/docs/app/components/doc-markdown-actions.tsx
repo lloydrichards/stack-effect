@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { FetchHttpClient, HttpClient } from "effect/unstable/http";
+import { FetchHttpClient, HttpClient } from "effect/http";
 import { Check, Copy, FileText } from "lucide-react";
 import { useState } from "react";
 import { Button, buttonVariants } from "~/components/ui/button";

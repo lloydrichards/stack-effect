@@ -1,6 +1,6 @@
 import { RecipeTargetString } from "@repo/scaffold";
 import { Effect, Schema } from "effect";
-import { Argument, Flag } from "effect/unstable/cli";
+import { Argument, Flag } from "effect/cli";
 
 const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
 

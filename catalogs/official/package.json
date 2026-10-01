@@ -16,13 +16,13 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect/platform-node": "4.0.0-rc.117",
+    "@effect/platform-node": "4.0.0",
     "@repo/authoring": "workspace:*",
     "@repo/catalog": "workspace:*",
-    "effect": "4.0.0-rc.117"
+    "effect": "4.0.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.117",
+    "@effect/vitest": "4.0.0",
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",
     "@types/node": "^26.6.3",

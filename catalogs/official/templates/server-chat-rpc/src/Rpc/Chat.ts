@@ -1,6 +1,6 @@
 import { ChatRpc } from "@repo/domain/ChatRpc";
 import { Effect, Layer } from "effect";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { RpcSerialization, RpcServer } from "effect/rpc";
 import { ChatRuntime, ChatRuntimeLive } from "../runtime/ChatRuntime";
 
 const ChatRpcHandlers = ChatRpc.toLayer(

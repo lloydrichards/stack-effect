@@ -4,7 +4,7 @@ import { makeRuntime } from "@repo/domain/Scaffold";
 import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { useSelector } from "@tanstack/react-form";
 import { String as Str } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { Check } from "lucide-react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Button } from "~/components/ui/button";

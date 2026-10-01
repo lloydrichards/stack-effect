@@ -12,12 +12,8 @@ import {
   RecipePreviewInput,
 } from "@repo/scaffold/recipe-preview";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientRequest,
-} from "effect/unstable/http";
-import { AtomRegistry } from "effect/unstable/reactivity";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import { AtomRegistry } from "effect/reactivity";
 import { beforeEach } from "vitest";
 import {
   type CatalogAtomRequest,

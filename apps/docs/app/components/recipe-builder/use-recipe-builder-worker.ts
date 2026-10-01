@@ -8,7 +8,7 @@ import {
 } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
 import {
   useCallback,
   useEffect,

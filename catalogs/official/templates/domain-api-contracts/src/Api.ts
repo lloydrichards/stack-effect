@@ -3,7 +3,7 @@ import {
   HttpApi,
   HttpApiEndpoint,
   HttpApiGroup,
-} from "effect/unstable/httpapi";
+} from "effect/http-api";
 
 export const ApiResponse = Schema.Struct({
   message: Schema.String,

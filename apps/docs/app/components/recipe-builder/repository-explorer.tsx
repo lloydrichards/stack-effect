@@ -2,7 +2,7 @@
 
 import type { RecipePreview } from "@repo/scaffold/recipe-preview";
 import { Option } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { FileCode2 } from "lucide-react";
 import { type CSSProperties, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";

@@ -23,11 +23,7 @@ import {
 } from "@repo/scaffold";
 import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { Effect, Layer, Schema } from "effect";
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 const request = Schema.decodeSync(
   Schema.fromJsonString(

@@ -3,7 +3,7 @@
 import { OFFICIAL_CATALOG_SOURCE } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { Option } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { AlertCircle } from "lucide-react";
 import { useLocation } from "react-router";
 import { CommandDock } from "~/components/molecules/command-dock";

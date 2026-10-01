@@ -1,5 +1,5 @@
 import { useAtom } from "@effect/atom-react";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { useEffect, useMemo, useState } from "react";
 import { importValidationAtom } from "@/lib/import-validation-worker";
 import type { ImportValidationEvent } from "@/workers/import-validation/domain";

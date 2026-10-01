@@ -1,6 +1,6 @@
 import type { ChatStreamPart } from "@repo/domain/Chat";
 import { Cause, Context, Effect, Layer, Option, Queue, String } from "effect";
-import { Chat, Prompt, Toolkit } from "effect/unstable/ai";
+import { Chat, Prompt, Toolkit } from "effect/ai";
 import { ThinkToolkit, ThinkToolkitLive } from "../toolkits/ThinkToolkit";
 import {
   AgenticLoopService,

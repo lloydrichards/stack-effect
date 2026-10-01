@@ -12,7 +12,7 @@ import {
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Layer, Result, Schema, Stream } from "effect";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { type FinalizeConfig, FinalizeService } from "./FinalizeService";
 
 const serverIdentity = new TargetIdentity({

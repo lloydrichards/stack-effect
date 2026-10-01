@@ -9,7 +9,7 @@ import {
 } from "@repo/authoring";
 import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect, Layer, Schema } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 
 const packageRoot = new URL("../", import.meta.url);
 

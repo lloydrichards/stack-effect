@@ -1,7 +1,7 @@
 import { useAtom } from "@effect/atom-react";
 import type { ChatId, ChatResponse, MessageSegment } from "@repo/domain/Chat";
 import { Cause } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import {
   CircleAlertIcon,
   CircleCheckIcon,

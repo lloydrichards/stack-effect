@@ -1,6 +1,6 @@
 import { AnthropicClient, AnthropicLanguageModel } from "@effect/ai-anthropic";
 import { Config, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 
 const AnthropicLive = AnthropicClient.layerConfig({
   apiKey: Config.Redacted("ANTHROPIC_API_KEY"),

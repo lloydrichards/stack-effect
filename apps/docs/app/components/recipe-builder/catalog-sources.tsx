@@ -8,7 +8,7 @@ import {
 } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { Option, Schema } from "effect";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { type FormEvent, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import { Badge } from "~/components/ui/badge";

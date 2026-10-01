@@ -1,5 +1,5 @@
 import { Console, Data, Effect, Exit } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import {
   AUTHOR_CATALOG_ASSET_PATH,
   CATALOG_ASSET_PATH,

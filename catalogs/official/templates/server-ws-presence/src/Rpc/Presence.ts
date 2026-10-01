@@ -6,7 +6,7 @@ import {
 } from "@repo/domain/WebSocket";
 import { ClientGenerator, PresenceService } from "@repo/presence";
 import { DateTime, Effect, Layer, Queue, Stream } from "effect";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { RpcSerialization, RpcServer } from "effect/rpc";
 
 const PresenceRpcHandlers = WebSocketRpc.toLayer(
   Effect.gen(function* () {

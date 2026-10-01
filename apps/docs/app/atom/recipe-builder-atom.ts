@@ -3,9 +3,9 @@ import type { TargetIdentity } from "@repo/domain/Catalog";
 import type { CatalogSources } from "@repo/domain/CatalogSource";
 import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { Cause, Effect, Layer, Option } from "effect";
-import { AtomRpc } from "effect/unstable/reactivity";
-import { RpcClient } from "effect/unstable/rpc";
-import type { RpcClientError } from "effect/unstable/rpc/RpcClientError";
+import { AtomRpc } from "effect/reactivity";
+import { RpcClient } from "effect/rpc";
+import type { RpcClientError } from "effect/rpc/RpcClientError";
 import {
   RecipeBuilderRpc,
   type RecipeBuilderRpcFailure,

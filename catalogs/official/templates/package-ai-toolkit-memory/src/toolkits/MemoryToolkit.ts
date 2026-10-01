@@ -7,7 +7,7 @@ import {
   Schema,
   String,
 } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 
 const memorySetTool = Tool.make("memory_set", {
   description: String.stripMargin(`

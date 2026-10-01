@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { NodeServices } from "@effect/platform-node";
 import { CatalogLoader } from "@repo/scaffold";
 import { Config, Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import { CatalogProvider } from "./service/CatalogProvider";
 import { ConfigureService } from "./service/ConfigureService";
 import { fileCatalogCacheLayer } from "./service/FileCatalogCache";

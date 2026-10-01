@@ -1,6 +1,6 @@
 import { ChatManagedRpc } from "@repo/domain/ChatManagedRpc";
 import { Effect, Layer } from "effect";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { RpcSerialization, RpcServer } from "effect/rpc";
 import {
   ChatManagedRuntime,
   ChatManagedRuntimeLive,

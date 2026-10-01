@@ -6,7 +6,7 @@ import {
   type ToolCall,
 } from "@repo/domain/Chat";
 import { Effect, Stream } from "effect";
-import type { Atom as AtomType } from "effect/unstable/reactivity";
+import type { Atom as AtomType } from "effect/reactivity";
 import { runtime } from "../atom";
 import { ChatRpcClient } from "../chat-rpc-client";
 

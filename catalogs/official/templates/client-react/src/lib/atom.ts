@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { Atom } from "effect/unstable/reactivity";
+import { Atom } from "effect/reactivity";
 
 // NOTE: Modules append additional runtime layers through Layer.mergeAll.
 const RuntimeLayer = Layer.mergeAll(Layer.empty);

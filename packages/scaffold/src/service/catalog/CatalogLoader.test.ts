@@ -3,12 +3,8 @@ import { assert, describe, it } from "@effect/vitest";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
 import { CatalogLoader as BrowserCatalogLoader } from "../../browser";
 import {
   CatalogCache,

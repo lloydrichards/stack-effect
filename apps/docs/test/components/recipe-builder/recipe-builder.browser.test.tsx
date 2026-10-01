@@ -49,7 +49,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
       // The original module only builds its Worker when an atom first runs.
       importOriginal<typeof import("../../../app/atom/recipe-builder-atom")>(),
       import("effect"),
-      import("effect/unstable/reactivity"),
+      import("effect/reactivity"),
       import("./recipe-fixtures"),
     ]);
   const previewFor = ({ input }: PreviewAtomRequest) => {

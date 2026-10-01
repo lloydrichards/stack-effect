@@ -1,5 +1,5 @@
 import { Effect, String } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { TerminalChatDriver, TerminalChatDriverLive } from "../chat/ChatDriver";
 import { TerminalChat } from "../chat/TerminalChat";
 

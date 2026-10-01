@@ -2,7 +2,7 @@ import { useAtom } from "@effect/atom-react";
 import { Option } from "effect";
 import { Check, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { todoAtom } from "@/lib/atoms/todo-atom";
 import { Button } from "@/components/ui/button";
 import {

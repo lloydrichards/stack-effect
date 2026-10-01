@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { McpServer } from "effect/unstable/ai";
+import { McpServer } from "effect/ai";
 
 export const PrimerResourceLive = Layer.mergeAll(
   McpServer.resource({

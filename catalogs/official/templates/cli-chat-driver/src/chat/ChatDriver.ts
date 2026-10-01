@@ -1,7 +1,7 @@
 import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
 import type { ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
 import { Array, Context, Effect, Layer, Match, pipe, Stream } from "effect";
-import { Prompt } from "effect/unstable/ai";
+import { Prompt } from "effect/ai";
 
 // NOTE: CLI chat keeps this converter local to avoid depending on server/RPC modules.
 const toPromptMessage = (message: ChatMessage) => {

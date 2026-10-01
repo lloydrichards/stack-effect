@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { add } from "./commands/add";
 import { catalog } from "./commands/catalog";
 import { create } from "./commands/create";

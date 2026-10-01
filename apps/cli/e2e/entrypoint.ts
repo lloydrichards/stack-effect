@@ -2,11 +2,7 @@ import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import { Effect, Layer } from "effect";
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { cliProgram } from "../src/cliProgram";
 import {
   CatalogProvider,

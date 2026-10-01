@@ -241,7 +241,7 @@ const generatedModuleExpectations: Readonly<
       },
       {
         path: "apps/client-react-web/package.json",
-        pattern: '"@effect/platform-browser": "4.0.0-rc.117"',
+        pattern: '"@effect/platform-browser": "4.0.0"',
       },
     ],
   },

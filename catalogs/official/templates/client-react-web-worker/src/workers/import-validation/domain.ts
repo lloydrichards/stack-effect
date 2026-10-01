@@ -1,5 +1,5 @@
 import { Effect, Option, Schema } from "effect";
-import { Rpc, RpcGroup } from "effect/unstable/rpc";
+import { Rpc, RpcGroup } from "effect/rpc";
 
 export const ImportRecord = Schema.Struct({
   email: Schema.String.check(

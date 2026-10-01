@@ -14,8 +14,8 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 class VerifyError extends Data.TaggedError("VerifyError")<{
   readonly message: string;
@@ -236,7 +236,7 @@ const program = Effect.gen(function* () {
       effect: effectVersion,
     },
     devDependencies: { "@types/node": "^24", typescript: "~5.9.3" },
-    // Effect RCs are not mutually compatible; keep platform packages on the peer.
+    // Keep the shared platform dependency aligned with the exact Effect peer.
     overrides: { "@effect/platform-node-shared": effectVersion },
   });
   yield* writeJson("tsconfig.json", {

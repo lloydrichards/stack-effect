@@ -36,9 +36,9 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Command } from "effect/unstable/cli";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { Command } from "effect/cli";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import {
   formatFlag,
   monorepoFlag,

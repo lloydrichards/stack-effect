@@ -1,7 +1,7 @@
 import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
 import type { ChatId, ChatMessage } from "@repo/domain/Chat";
 import { Context, Effect, Layer, Stream } from "effect";
-import { Prompt } from "effect/unstable/ai";
+import { Prompt } from "effect/ai";
 import { ChatSessions } from "./ChatSessions";
 
 const toPromptMessage = (message: ChatMessage) => {

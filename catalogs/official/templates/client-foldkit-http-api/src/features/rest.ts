@@ -4,7 +4,7 @@ import {
   FetchHttpClient,
   HttpClient,
   HttpClientRequest,
-} from "effect/unstable/http";
+} from "effect/http";
 import { Command } from "foldkit";
 import type { Html } from "foldkit/html";
 import { html } from "foldkit/html";

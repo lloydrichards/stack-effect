@@ -3,7 +3,7 @@ import {
   HttpClient,
   HttpClientRequest,
   type HttpClientResponse,
-} from "effect/unstable/http";
+} from "effect/http";
 
 /** One observable property of a deployed registry asset. */
 interface RegistryCheck {

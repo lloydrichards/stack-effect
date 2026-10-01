@@ -20,11 +20,7 @@ import {
   Schema,
   Stream,
 } from "effect";
-import {
-  HttpClient,
-  HttpClientRequest,
-  HttpClientResponse,
-} from "effect/unstable/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { CatalogCache, type CatalogCacheEntry } from "./CatalogCache";
 
 const maxBytes = 8 * 1024 * 1024;

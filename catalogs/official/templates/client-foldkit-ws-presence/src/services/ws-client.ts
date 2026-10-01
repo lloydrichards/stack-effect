@@ -5,7 +5,7 @@ import {
   RpcClient as EffectRpcClient,
   RpcClientError,
   RpcSerialization,
-} from "effect/unstable/rpc";
+} from "effect/rpc";
 
 const WS_URL = "ws://localhost:9000/ws";
 

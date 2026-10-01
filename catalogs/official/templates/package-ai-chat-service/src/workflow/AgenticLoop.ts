@@ -13,7 +13,7 @@ import type {
   LanguageModel,
   Tool,
   Toolkit,
-} from "effect/unstable/ai";
+} from "effect/ai";
 import { createMailboxEvents } from "./MailboxEvents";
 
 export const AgenticLoopState = Schema.Struct({

@@ -20,8 +20,8 @@ import {
   Stream,
 } from "effect";
 import { Box } from "effect-boxes";
+import { Command, Flag } from "effect/cli";
 import { Stdio } from "effect/Stdio";
-import { Command, Flag } from "effect/unstable/cli";
 import { catalogFlag, rootFlag } from "../flags";
 import { CatalogSelection, trustNotes } from "../service/CatalogSelection";
 import { ConfigureService } from "../service/ConfigureService";

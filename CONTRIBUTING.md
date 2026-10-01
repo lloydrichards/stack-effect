@@ -93,7 +93,7 @@ bun run type-check
 
 ### Adding a CLI Command
 
-Commands use `Command.make()` from `effect/unstable/cli`:
+Commands use `Command.make()` from `effect/cli`:
 
 1. Create the command in `apps/cli/src/commands/<name>.ts`
 2. Register it in `apps/cli/src/index.ts` via `Command.withSubcommands()`

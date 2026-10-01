@@ -1,11 +1,11 @@
 import { EventRpc } from "@repo/domain/Rpc";
 import { Context, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import {
   RpcClient as EffectRpcClient,
   RpcClientError,
   RpcSerialization,
-} from "effect/unstable/rpc";
+} from "effect/rpc";
 
 const SERVER_URL = "http://localhost:9000";
 

@@ -1,5 +1,5 @@
 import { Config, Effect, Layer } from "effect";
-import { DevTools } from "effect/unstable/devtools";
+import { DevTools } from "effect/devtools";
 
 const DevToolsConfig = Config.all({
   enableDevTools: Config.Boolean("DEVTOOLS").pipe(Config.withDefault(false)),

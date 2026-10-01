@@ -17,7 +17,7 @@ import {
   Result,
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
-import { Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/cli";
 import { catalogFlag, rootFlag } from "../flags";
 import { CatalogSelection } from "../service/CatalogSelection";
 

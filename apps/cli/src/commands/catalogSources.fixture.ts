@@ -19,15 +19,15 @@ import {
   Sink,
   Stream,
 } from "effect";
-import * as Stdio from "effect/Stdio";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import {
   HttpClient,
   type HttpClientRequest,
   HttpClientResponse,
-} from "effect/unstable/http";
-import * as ChildProcess from "effect/unstable/process/ChildProcess";
-import * as ChildProcessSpawner from "effect/unstable/process/ChildProcessSpawner";
+} from "effect/http";
+import * as ChildProcess from "effect/process/ChildProcess";
+import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
+import * as Stdio from "effect/Stdio";
 import { stackEffectCommand } from "../command";
 import {
   CatalogProvider,

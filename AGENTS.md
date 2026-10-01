@@ -24,7 +24,7 @@
 
 ## Tech Stack
 
-Bun 1.2+, TypeScript 5.9, Effect 4-beta, Vitest 4, Oxlint, Oxfmt
+Bun 1.2+, TypeScript 5.9, Effect 4, Vitest 4, Oxlint, Oxfmt
 
 ## Task Completion Requirements
 

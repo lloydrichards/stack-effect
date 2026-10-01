@@ -1,5 +1,5 @@
 import { Effect, Layer, Schema } from "effect";
-import { McpServer } from "effect/unstable/ai";
+import { McpServer } from "effect/ai";
 
 export const HelloPromptLive = Layer.mergeAll(
   McpServer.prompt({

@@ -2,7 +2,7 @@ import { decodeCatalogDocument } from "@repo/catalog";
 import type { CatalogDocument } from "@repo/domain/Catalog";
 import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
 import { Data, Effect } from "effect";
-import { HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { HttpClient, HttpClientResponse } from "effect/http";
 
 export { OFFICIAL_CATALOG_URL };
 

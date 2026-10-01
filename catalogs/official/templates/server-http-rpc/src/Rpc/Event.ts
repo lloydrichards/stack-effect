@@ -1,6 +1,6 @@
 import { EventRpc, RpcApi, type TickEvent } from "@repo/domain/Rpc";
 import { Effect, Layer, Queue } from "effect";
-import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
+import { RpcSerialization, RpcServer } from "effect/rpc";
 
 const EventRpcHandlers = EventRpc.toLayer(
   Effect.gen(function* () {

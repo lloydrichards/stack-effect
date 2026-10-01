@@ -1,6 +1,6 @@
 {{#if runtime=bun}}import { BunRuntime, BunServices } from "@effect/platform-bun";{{/if}}{{#if runtime=deno}}import { DenoRuntime, DenoServices } from "@effect/platform-deno";{{/if}}{{#if runtime=node}}import { NodeRuntime, NodeServices } from "@effect/platform-node";{{/if}}
 import { Effect, Layer } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 
 const root = Command.make("{{packageName}}");
 

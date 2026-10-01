@@ -8,7 +8,7 @@ import {
   Stream,
   String,
 } from "effect";
-import { Argument, Command } from "effect/unstable/cli";
+import { Argument, Command } from "effect/cli";
 import { TerminalChatDriver, TerminalChatDriverLive } from "../chat/ChatDriver";
 
 const message = Argument.String("message").pipe(

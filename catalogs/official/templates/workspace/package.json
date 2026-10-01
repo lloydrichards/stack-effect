@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.0-rc.117"
+    "@effect/platform-node-shared": "4.0.0"
   },
   {{#if runtime=bun}}"packageManager": "{{packageManagerSpec}}",{{/if}}{{#if runtime=node}}"packageManager": "{{packageManagerSpec}}",{{/if}}
   "scripts": {},

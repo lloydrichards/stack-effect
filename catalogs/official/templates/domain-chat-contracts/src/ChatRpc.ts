@@ -1,5 +1,5 @@
 import { Schema } from "effect";
-import { Rpc, RpcGroup } from "effect/unstable/rpc";
+import { Rpc, RpcGroup } from "effect/rpc";
 import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
 
 export class ChatNotFoundError extends Schema.TaggedError<ChatNotFoundError>()(

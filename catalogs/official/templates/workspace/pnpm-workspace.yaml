@@ -8,4 +8,4 @@ allowBuilds:
   nx: true{{/if}}
 
 overrides:
-  "@effect/platform-node-shared": "4.0.0-rc.117"
+  "@effect/platform-node-shared": "4.0.0"

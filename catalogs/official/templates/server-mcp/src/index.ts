@@ -2,8 +2,8 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import -- NodeHttpServer.layerConfig requires the Node server factory.
 import { createServer } from "node:http";{{/if}}
 import { Config, Effect, Layer } from "effect";
-import { McpProtocol, McpServer } from "effect/unstable/ai";
-import { HttpRouter, HttpServer } from "effect/unstable/http";
+import { McpProtocol, McpServer } from "effect/ai";
+import { HttpRouter, HttpServer } from "effect/http";
 
 export const McpServerConfig = Config.all({
   port: Config.Number("MCP_PORT").pipe(Config.withDefault(9009)),

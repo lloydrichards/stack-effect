@@ -16,16 +16,16 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect/platform-browser": "4.0.0-rc.117",
-    "@effect-vfs/memory": "^0.7.0",
+    "@effect/platform-browser": "4.0.0",
+    "@effect-vfs/memory": "^0.7.1",
     "@repo/domain": "workspace:*",
     "@repo/catalog": "workspace:*",
-    "effect": "4.0.0-rc.117",
-    "effect-boxes": "^0.17.2",
+    "effect": "4.0.0",
+    "effect-boxes": "^0.17.3",
     "ts-morph": "^28.0.0"
   },
   "devDependencies": {
-    "@effect/vitest": "4.0.0-rc.117",
+    "@effect/vitest": "4.0.0",
     "@types/node": "^26.6.3",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",

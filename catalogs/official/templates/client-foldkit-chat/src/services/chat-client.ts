@@ -3,7 +3,7 @@ import { Context, Layer } from "effect";
 import {
   RpcClient as EffectRpcClient,
   RpcClientError,
-} from "effect/unstable/rpc";
+} from "effect/rpc";
 import { RpcProtocolLive } from "./rpc-client";
 
 type ChatRpcClient = EffectRpcClient.FromGroup<

@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { Prompt } from "effect/unstable/cli";
+import { Prompt } from "effect/cli";
 import { TextInput } from "../../src/components/TextInput.js";
 import * as MockTerminal from "../services/MockTerminal.js";
 import { TestLayer } from "../services/TestLayer.js";

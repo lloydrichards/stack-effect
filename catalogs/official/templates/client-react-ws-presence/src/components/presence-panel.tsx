@@ -5,7 +5,7 @@ import type {
   ClientStatus,
   WebSocketEvent,
 } from "@repo/domain/WebSocket";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { useEffect, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";

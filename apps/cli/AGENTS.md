@@ -13,7 +13,7 @@
 ## Conventions
 
 - Keep the initial CLI scaffold single-file until complexity appears.
-- Use `effect/unstable/cli` with `Command.make(...)` and `Command.run(...)`.
+- Use `effect/cli` with `Command.make(...)` and `Command.run(...)`.
 - Provide the configured Node or Bun runtime services through `PlatformLayer`.
 - Production commands use `CatalogProvider.official`; local authoring uses `CatalogProvider.authoring`. Keep registry warnings on stderr so JSON stdout remains parseable.
 - E2E tests use `e2e/entrypoint.ts` for a controlled catalog response. Do not make routine tests depend on the deployed registry.

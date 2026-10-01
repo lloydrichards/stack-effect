@@ -1,10 +1,10 @@
 import { EventRpc } from "@repo/domain/Rpc";
 import { Context, Effect, Layer } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import { FetchHttpClient } from "effect/http";
 import {
   RpcClient as EffectRpcClient,
   RpcSerialization,
-} from "effect/unstable/rpc";
+} from "effect/rpc";
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:9000";
 

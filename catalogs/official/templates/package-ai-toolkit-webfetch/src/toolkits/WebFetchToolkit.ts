@@ -1,10 +1,10 @@
 import { Effect, Layer, Match, pipe, Schema, String } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 import {
   FetchHttpClient,
   HttpClient,
   HttpClientResponse,
-} from "effect/unstable/http";
+} from "effect/http";
 
 const MAX_CONTENT_LENGTH = 8000;
 

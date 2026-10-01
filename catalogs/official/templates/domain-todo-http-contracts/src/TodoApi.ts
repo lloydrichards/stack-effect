@@ -4,7 +4,7 @@ import {
   HttpApiEndpoint,
   HttpApiGroup,
   HttpApiSchema,
-} from "effect/unstable/httpapi";
+} from "effect/http-api";
 import {
   CreateTodoInput,
   Todo,

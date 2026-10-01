@@ -44,9 +44,9 @@
     "verify:create-path": "bun scripts/verify-create-path.ts"
   },
   "devDependencies": {
-    "@effect/platform-bun": "4.0.0-rc.117",
-    "@effect/platform-node": "4.0.0-rc.117",
-    "@effect/vitest": "4.0.0-rc.117",
+    "@effect/platform-bun": "4.0.0",
+    "@effect/platform-node": "4.0.0",
+    "@effect/vitest": "4.0.0",
     "@repo/catalog": "workspace:*",
     "@repo/catalog-author": "workspace:*",
     "@repo/catalog-official": "workspace:*",
@@ -55,8 +55,8 @@
     "@repo/scaffold": "workspace:*",
     "@repo/tui": "workspace:*",
     "@types/bun": "1.4.2",
-    "effect": "4.0.0-rc.117",
-    "effect-boxes": "^0.17.2",
+    "effect": "4.0.0",
+    "effect-boxes": "^0.17.3",
     "vitest": "^5.0.2"
   }
 }

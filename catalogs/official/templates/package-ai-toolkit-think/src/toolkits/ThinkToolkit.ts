@@ -1,5 +1,5 @@
 import { Effect, Schema, String } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 
 const thinkTool = Tool.make("think", {
   description: String.stripMargin(`

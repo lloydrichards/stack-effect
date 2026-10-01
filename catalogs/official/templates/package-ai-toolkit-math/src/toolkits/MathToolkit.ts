@@ -1,5 +1,5 @@
 import { Effect, pipe, Schema, String } from "effect";
-import { Tool, Toolkit } from "effect/unstable/ai";
+import { Tool, Toolkit } from "effect/ai";
 
 const SAFE_EXPRESSION_PATTERN = /^[\d\s+\-*/().,%^e]+$/;
 

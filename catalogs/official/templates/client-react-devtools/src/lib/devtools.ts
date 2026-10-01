@@ -1,5 +1,5 @@
 import { Layer } from "effect";
-import { DevTools } from "effect/unstable/devtools";
+import { DevTools } from "effect/devtools";
 
 export const DevToolsLive =
   import.meta.env.VITE_ENABLE_DEVTOOLS === "true"

@@ -1,8 +1,8 @@
 import { buildCatalog } from "@stack-effect/author";
 import { Console, Data, Effect, FileSystem, Layer, Path, Stream } from "effect";
-import { HttpServer, HttpServerResponse } from "effect/unstable/http";
-import { ChildProcess } from "effect/unstable/process";
-import { ChildProcessSpawner } from "effect/unstable/process/ChildProcessSpawner";
+import { HttpServer, HttpServerResponse } from "effect/http";
+import { ChildProcess } from "effect/process";
+import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { catalog, catalogId, root } from "../catalog/index.ts";
 import { LoopbackServer, runMain, Services } from "./platform.ts";
 

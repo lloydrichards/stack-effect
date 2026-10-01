@@ -1,6 +1,6 @@
 import { Cause, Console, Effect } from "effect";
 import { Ansi, Box } from "effect-boxes";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import pkg from "../package.json";
 import { stackEffectCommand } from "./command";
 
