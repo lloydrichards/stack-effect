@@ -1,10 +1,10 @@
 # Use Stack Effect with coding agents
 
-A coding agent can use Stack Effect to discover available capabilities and preview repository changes as structured data. The agent stays out of the interactive CLI and brings the proposed edits and commands back to a person for approval.
+A coding agent can use Stack Effect to discover available capabilities and preview repository changes as structured data. The agent stays out of the interactive CLI, presents the proposed work, and acts within the authorization the user has given.
 
-> **Agent contract:** Do not use Stack Effect's interactive prompts. Use `schema` and `plan` for discovery and planning. Do not edit files or run Finalize commands until a human explicitly approves them.
+> **Agent contract:** Do not use Stack Effect's interactive prompts. Use `schema` and `plan` for discovery and planning. Respect authorization already given. Request approval before edits, conflict resolutions, or Finalize commands that fall outside it.
 
-The example adds an Effect HTTP API to an initialized Stack Effect repository. It is the agent-safe version of the [Getting started](/getting-started) walkthrough: commands are non-interactive, and approval happens outside the CLI.
+The example adds an Effect HTTP API to an initialized Stack Effect repository. It is the agent-safe version of the [Getting started](/getting-started) walkthrough: commands are non-interactive, and authorization is handled in the agent conversation.
 
 ## Establish the planning session
 
@@ -23,7 +23,7 @@ STACK_EFFECT_VERSION="$(bunx stack-effect@latest --version | sed 's/^stack-effec
 bunx "stack-effect@${STACK_EFFECT_VERSION}" --version
 ```
 
-Record `REPO_ROOT`, `STACK_EFFECT_VERSION`, and the status output in the approval report. Do not switch back to `@latest` midway through the session. The Catalog and input schema can change between releases.
+Record `REPO_ROOT`, `STACK_EFFECT_VERSION`, and the status output in the approval report. Do not switch back to `@latest` midway through the session. The executable and input schema can change between releases. Catalog contents refresh independently from their configured URLs, so pinning the CLI does not freeze the Catalog. Separate discovery and planning commands may load different definitions.
 
 Keep the planning artifacts outside the repository:
 
@@ -38,15 +38,25 @@ Ask the pinned CLI for its machine-readable discovery document:
 
 ```bash
 bunx "stack-effect@${STACK_EFFECT_VERSION}" schema \
+  --root "$REPO_ROOT" \
   > "$AGENT_WORK_DIR/schema.json"
 ```
 
 The document contains two authoritative sources:
 
-- `catalog` describes the targets and modules available in this version.
+- `catalog` describes the targets and modules in the loaded sources.
 - `planInput` is the JSON Schema accepted by `plan`.
 
-Inspect the input contract and locate the target and module in the live catalog:
+In this walkthrough, Plan input contains only `selection`, so using the same
+`--root` for discovery and planning reads the project's saved `catalogs` set.
+An explicit `config.catalogs` in Plan input overrides that saved set; the
+shared root alone then does not align discovery with planning. Use the
+[override workflow](#discover-for-an-explicit-catalog-override) before constructing
+a Selection against different sources.
+
+Without a saved set, the official catalog is the default. Do not run discovery from an unrelated directory and assume its sources match the project. Explicit `--catalog` flags on an existing project must match its saved sources. See [Catalog updates and sources](/catalog-registry).
+
+Inspect the input contract and locate the target and module in the loaded catalog:
 
 ```bash
 jq '.planInput' "$AGENT_WORK_DIR/schema.json"
@@ -114,7 +124,26 @@ In the `llm` output, **Create equivalent project** is reference information for 
 
 All three planning commands are read-only. They resolve a [Blueprint](/how-it-works#first-stack-effect-resolves-the-project-shape) and compare it with the repository to produce a [Plan](/how-it-works#then-it-compares-that-shape-with-your-repository). They do not apply the result or run Finalize commands.
 
-## Stop for human approval
+## Inspect source identity and freshness
+
+Both structured Plan formats include `sources` and `notes`. Record each source's name, URL, digest, and freshness, and read the trust notes before proposing Finalize commands:
+
+```bash
+jq '{sources, notes}' "$AGENT_WORK_DIR/plan.llm.json"
+jq '{sources, notes}' "$AGENT_WORK_DIR/plan.raw.json"
+
+jq -S '[.sources[] | {name, url, digest}] | sort_by(.name)' \
+  "$AGENT_WORK_DIR/plan.llm.json" > "$AGENT_WORK_DIR/llm-sources.json"
+jq -S '[.sources[] | {name, url, digest}] | sort_by(.name)' \
+  "$AGENT_WORK_DIR/plan.raw.json" > "$AGENT_WORK_DIR/raw-sources.json"
+diff -u "$AGENT_WORK_DIR/llm-sources.json" "$AGENT_WORK_DIR/raw-sources.json"
+```
+
+The comparison should produce no differences. If source identities or digests differ, discard the pair, restart discovery and planning, and review the new proposed work. The `schema` output has no source digests, so it cannot prove that discovery and a later Plan used identical catalog bytes. Validate the Selection against the fresh Plan result.
+
+During a temporary registry outage, the CLI may use a previously validated compatible cache. Disclose the reported freshness and last validation information. A compatible cache may be used unless the user requires current network definitions. If a fresh load is required, wait for a successful load rather than describing cached definitions as current.
+
+## Present the Plan and check authorization
 
 Before changing the repository, present a compact report:
 
@@ -122,6 +151,8 @@ Before changing the repository, present a compact report:
 Stack Effect version:
 Repository root:
 Repository status:
+Catalog sources, digests, and freshness:
+Catalog trust notes:
 
 Requested Selection:
 Resolved dependencies:
@@ -136,13 +167,14 @@ Finalize commands proposed:
 Verification proposed:
 ```
 
-Name the paths and commands, not only their counts. A request such as “add an API” authorizes discovery and planning; it does not authorize edits or commands. Wait for an explicit instruction to apply the reported change. Silence is not approval.
+Name the paths and commands, not only their counts. Check the proposed work against the user's instructions. If the user already authorized implementation and the specific setup commands, proceed within that scope without asking again. If authorization covers only exploration or planning, request approval for the concrete edits and commands before acting. Silence does not extend authorization.
 
 ### Handle conflicts explicitly
 
 Keep the normal path conflict-free. If the Plan reports a conflict, identify
-the exact path, explain why Stack Effect could not compose it, propose the
-smallest resolution, and request approval for that path.
+the exact path, explain why Stack Effect could not compose it, and propose the
+smallest resolution. Request approval when that resolution falls outside the
+user's existing authorization.
 
 There is currently no public machine-readable command that accepts a generated
 Plan with agent-selected `ApplyDecision` values. Do not invent such a command
@@ -150,16 +182,16 @@ or imply that Plan output can be piped back into `add`. `--yes` is not
 agent-controlled conflict resolution: in the scaffold pipeline it skips
 conflicted paths rather than transmitting the agent's decisions.
 
-## Apply only the approved edits
+## Apply only the authorized edits
 
-After approval, use `plan.llm.json` as editing guidance:
+Once the edits are authorized, use `plan.llm.json` as editing guidance:
 
 1. Reread each existing path immediately before editing it.
 2. For a `create` outcome, write the supplied contents and follow any editing
    instructions.
 3. For a `modify` outcome with instructions, apply them to the current contents. When the instructions are empty, replace the file with the supplied contents.
 4. Leave `unchanged` paths untouched.
-5. Apply only conflict resolutions that received path-specific approval.
+5. Apply only conflict resolutions covered by the user's authorization.
 
 The Plan describes one repository snapshot; it is not a durable patch. If a
 person, editor, agent, or tool changes the repository after planning, discard
@@ -171,6 +203,8 @@ an approved edit.
 Run the same `llm` and `raw` commands again after the filesystem edits. Compare
 the new result with the approved intent and current diff.
 
+Compare the second Plan's source identities and digests with the earlier Plan as well. If they changed, restart discovery and planning, then review the changed work against the user's authorization. Read fresh trust notes and disclose any change in cache freshness.
+
 The second Plan should not reveal missing files, unresolved instructions,
 unexpected conflicts, or unexplained outcomes. Some composed files can still
 be classified as `modify`, so do not require every path to become `unchanged`.
@@ -178,10 +212,11 @@ Investigate differences instead of forcing the repository to match stale
 output.
 
 Finalize is a separate trust boundary. Extract the actual finalize commands
-from the fresh Plan, omit **Create equivalent project**, and present them for a
-second approval. Run only the commands the human approves, in their reported
-order, and record each result. Approval to edit files is not approval to run
-commands.
+from the fresh Plan, omit **Create equivalent project**, and present them for
+review. Compare those commands with the user's existing authorization, request
+approval for any commands outside it, and run authorized commands in their
+reported order. Record each result. Authorization limited to file edits does
+not include running setup commands.
 
 ## Verify the repository and behavior
 
@@ -253,10 +288,63 @@ failures, and deviations directly.
 In an initialized project, `plan` reads configuration from
 `stack.effect.json` at `--root`. In a directory without that file, the stdin
 document must contain both `selection` and `config`. An input `config` takes
-precedence over `stack.effect.json` when both are present. Use the pinned CLI's
+precedence over `stack.effect.json` when both are present, except that omitting
+`config.catalogs` preserves the saved catalog sources. Supplying
+`config.catalogs` selects that explicit set. Any Plan `--catalog` flags must
+match the effective configuration's sources. Use the pinned CLI's
 emitted `planInput` schema to discover every required configuration field and
 validate the complete input. Do not copy an old configuration object into a new
 planning session.
+
+For a new project, choose a persistent empty directory outside the existing
+repository. Replace the example path below with that destination and confirm
+that it is empty before discovery. Keep this root outside `$AGENT_WORK_DIR`,
+whose exit trap deletes temporary artifacts. Select the same sources that you
+will put in `config.catalogs`. An extension that requires official definitions
+needs both flags:
+
+```bash
+GREENFIELD_ROOT="/absolute/path/to/new-project"
+mkdir -p "$GREENFIELD_ROOT"
+bunx "stack-effect@${STACK_EFFECT_VERSION}" schema \
+  --root "$GREENFIELD_ROOT" \
+  --catalog official \
+  --catalog "acme=https://catalog.example.dev/registry/v1/catalog.json"
+```
+
+Replace the example URL with the chosen catalog. In the Plan input, use the
+same `catalogs` entries, `{"name":"official"}` and
+`{"name":"acme","url":"https://catalog.example.dev/registry/v1/catalog.json"}`.
+A custom-only source set replaces the official default; include official only
+when the selected catalogs need it. No files need to be initialized to produce
+a greenfield Plan. Run both Plan formats against `$GREENFIELD_ROOT` with the
+complete stdin configuration and Selection. Apply authorized edits and run
+Finalize commands in this same persistent root. Keep schema and Plan JSON in
+`$AGENT_WORK_DIR` so its cleanup never deletes the generated project.
+
+## Discover for an explicit catalog override
+
+If Plan input supplies `config.catalogs` that differs from an existing project's
+saved set, discover those sources in an empty temporary directory. `schema`
+does not read Plan input, and different `--catalog` flags against the existing
+project root are rejected. Keep the actual project unchanged during discovery:
+
+```bash
+DISCOVERY_ROOT="$AGENT_WORK_DIR/discovery"
+mkdir "$DISCOVERY_ROOT"
+bunx "stack-effect@${STACK_EFFECT_VERSION}" schema \
+  --root "$DISCOVERY_ROOT" \
+  --catalog official \
+  --catalog "acme=https://catalog.example.dev/registry/v1/catalog.json" \
+  > "$AGENT_WORK_DIR/schema.json"
+```
+
+Replace these flags with the exact source set in the intended `config.catalogs`.
+Construct the Selection from this discovery document. Run both Plan formats
+against `$REPO_ROOT` with that explicit configuration in stdin. Any Plan catalog
+flags must match the stdin source set. Inspect the reported sources and compare
+digests as described above. Do not reuse a Selection discovered against the
+saved sources when planning against an override.
 
 ## Command reference
 

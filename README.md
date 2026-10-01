@@ -2,6 +2,8 @@
 
 Scaffolding CLI for full-stack TypeScript apps built on Effect.
 
+Using a coding agent? Start with the [agent guide](https://stack-effect.lloydrichards.dev/use-with-coding-agents.md) for structured discovery and planning. The [documentation index](https://stack-effect.lloydrichards.dev/llms.txt) links the Markdown reference pages.
+
 ![init demo](./media/init-demo.gif)
 
 ## Quick Start
