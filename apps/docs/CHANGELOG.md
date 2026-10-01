@@ -1,5 +1,11 @@
 # @stack-effect/docs
 
+## 0.4.0
+
+### Minor Changes
+
+- 31102fa: The documentation now provides llms.txt, Markdown for every content page, and a copyable coding-agent prompt. Use Copy Markdown or View Markdown to read the current page as text.
+
 ## 0.3.0
 
 ### Minor Changes

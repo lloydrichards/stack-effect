@@ -1,5 +1,13 @@
 # @stack-effect/author
 
+## 0.2.0
+
+### Minor Changes
+
+- 7f1b883: Generated projects and catalog authoring now use stable Effect 4.0.0.
+  
+  The author package requires `effect@4.0.0`. Update imports from `effect/unstable/*` to `effect/*`, using `effect/http-api` for HTTP API modules. `Effect.partition` now returns `[successes, failures]`.
+
 ## 0.1.0
 
 ### Minor Changes
