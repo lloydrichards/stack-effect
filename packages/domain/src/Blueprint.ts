@@ -4,6 +4,7 @@ import {
   ModuleId,
   TargetIdentity,
   TargetKey,
+  TargetPath,
 } from "./Catalog";
 import { idOrd } from "./Order";
 
@@ -23,6 +24,7 @@ export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
 export const BlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
+  path: Schema.optional(TargetPath),
 });
 
 /**

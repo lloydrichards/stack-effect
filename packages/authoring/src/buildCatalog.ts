@@ -567,7 +567,13 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
   const document: CatalogDocument = {
     formatVersion: 1,
     catalogId,
-    requiredCapabilities: V1_INTERPRETER_CAPABILITIES,
+    requiredCapabilities: authored.modules.some(
+      (module) => module.targetPath !== undefined,
+    )
+      ? V1_INTERPRETER_CAPABILITIES
+      : V1_INTERPRETER_CAPABILITIES.filter(
+          (capability) => capability !== "target:path",
+        ),
     ...(official === undefined ? {} : { requires: ["official"] }),
     targets: composed.targets.filter((target) =>
       ownedBy(composed.origins?.targets, target.kind),

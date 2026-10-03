@@ -225,6 +225,7 @@ const createTokenContext = (
   new ContributionTokenContext({
     targetKey: target.id,
     identity: target.identity,
+    targetPath: target.path,
     config: config.config,
   });
 

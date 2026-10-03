@@ -28,6 +28,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
               const context = new ContributionTokenContext({
                 targetKey: node.id,
                 identity: node.identity,
+                targetPath: node.path,
                 config,
               });
 

@@ -36,6 +36,104 @@ const tokenContext = new ContributionTokenContext({
 
 describe("CatalogProtocol", () => {
   it.effect(
+    "keeps older flat documents valid without the placement capability",
+    () =>
+      Effect.gen(function* () {
+        const original = yield* decodedTestCatalog;
+        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
+        const flat = {
+          ...base,
+          requiredCapabilities: original.requiredCapabilities.filter(
+            (name) => name !== "target:path",
+          ),
+        };
+        const document = yield* decodeCatalogDocument(flat);
+        assert.isTrue(
+          document.modules.every((module) => module.targetPath === undefined),
+        );
+      }),
+  );
+  it.effect(
+    "rejects unsafe placement and undeclared placement capability",
+    () =>
+      Effect.gen(function* () {
+        const original = yield* decodedTestCatalog;
+        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
+        const placed = (path: string) => ({
+          ...base,
+          modules: base.modules.map((module, index) =>
+            index === 2
+              ? {
+                  ...module,
+                  supportedOn: [
+                    {
+                      _tag: "identity" as const,
+                      identity: { kind: "package", name: "sdk-client" },
+                    },
+                  ],
+                  targetPath: path,
+                }
+              : module,
+          ),
+        });
+        for (const path of [
+          "packages/sdk/../escape",
+          "packages/sdk//client",
+          "packages/sdk/",
+          "/packages/sdk",
+          "packages/sdk\\\\client",
+          "packages/sdk/./client",
+        ]) {
+          const result = yield* Effect.exit(
+            decodeCatalogDocument(placed(path)),
+          );
+          assert.isTrue(result._tag === "Failure", path);
+        }
+        const result = yield* Effect.exit(
+          decodeCatalogDocument({
+            ...placed("packages/sdk/client"),
+            requiredCapabilities: base.requiredCapabilities.filter(
+              (name) => name !== "target:path",
+            ),
+          }),
+        );
+        assert.isTrue(result._tag === "Failure");
+      }),
+  );
+  it.effect(
+    "preserves module-owned package placement across document serialization",
+    () =>
+      Effect.gen(function* () {
+        const original = yield* decodedTestCatalog;
+        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
+        const wire = {
+          ...base,
+          modules: base.modules.map((module, index) =>
+            index === 2
+              ? {
+                  ...module,
+                  supportedOn: [
+                    {
+                      _tag: "identity",
+                      identity: { kind: "package", name: "sdk-client" },
+                    },
+                  ],
+                  targetPath: "packages/sdk/client",
+                }
+              : module,
+          ),
+        };
+        const decoded =
+          yield* Schema.decodeUnknownEffect(CatalogDocument)(wire);
+        const encoded = yield* Schema.encodeEffect(CatalogDocument)(decoded);
+        assert.strictEqual(
+          encoded.modules[2]?.targetPath,
+          "packages/sdk/client",
+        );
+      }),
+  );
+
+  it.effect(
     "should round-trip every definition with TargetIdentity behavior when the catalog is exported and decoded",
     () =>
       Effect.gen(function* () {

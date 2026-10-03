@@ -8,6 +8,7 @@ import {
   type TargetDefinition,
   TargetIdentity,
   TargetKind,
+  TargetPath,
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
@@ -195,6 +196,60 @@ it.effect(
         makeConfig(),
       );
       expect(steps).toContain("Read apps/server-api/extra.txt");
+    }).pipe(Effect.provide(serviceLayer));
+  },
+);
+
+it.effect(
+  "resolves script workdirs and next steps from a placed package blueprint",
+  () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("package"),
+      name: "sdk-client",
+    });
+    const blueprint = new Blueprint({
+      nodes: [
+        {
+          _tag: "target",
+          id: identity.toKey(),
+          identity,
+          path: TargetPath.make("packages/sdk/client"),
+        },
+      ],
+      edges: [],
+    });
+    const catalog = CatalogService.fromFragments(
+      [
+        {
+          targets: [
+            {
+              kind: TargetKind.make("package"),
+              title: "Package",
+              description: "Package",
+              contributions: [],
+              scripts: [
+                { label: "Inspect", command: "pwd", workdir: "{{targetPath}}" },
+              ],
+              nextSteps: ["Read {{targetDir}}/README.md"],
+            },
+          ],
+          modules: [],
+        },
+      ],
+      { allowFinalizeScripts: true },
+    );
+    const serviceLayer = FinalizeService.layer.pipe(
+      Layer.provide(catalog),
+      Layer.provide(makeSpawnerLayer([])),
+    );
+    return Effect.gen(function* () {
+      const finalize = yield* FinalizeService;
+      const steps = yield* finalize.collectNextSteps(blueprint, makeConfig());
+      expect(steps).toContain("Read packages/sdk/client/README.md");
+      const preview = yield* finalize.preview(blueprint, makeConfig());
+      expect(
+        preview.some((script) => script.workdir === "packages/sdk/client"),
+      ).toBe(true);
     }).pipe(Effect.provide(serviceLayer));
   },
 );

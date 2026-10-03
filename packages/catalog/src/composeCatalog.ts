@@ -190,6 +190,28 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
     })),
   );
 
+  issues.push(
+    ...modules.flatMap((module, position): ReadonlyArray<CatalogIssue> =>
+      module.targetPath === undefined ||
+      (module.supportedOn.length > 0 &&
+        module.supportedOn.every(
+          (rule) =>
+            rule._tag === "identity" && rule.identity.kind === "package",
+        ))
+        ? []
+        : [
+            {
+              subject: moduleSubject(module.id),
+              code: "unsupported-target",
+              message: `Module ${module.id} placement requires only exact package identities`,
+              ...(moduleFragments[position] === undefined
+                ? {}
+                : { fragment: moduleFragments[position] }),
+            },
+          ],
+    ),
+  );
+
   const supports = (module: (typeof modules)[number], kind: string) =>
     module.supportedOn.some(
       (rule) => rule._tag === "kind" && rule.kind === kind,
