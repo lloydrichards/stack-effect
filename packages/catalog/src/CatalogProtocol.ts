@@ -52,6 +52,7 @@ export const V1_INTERPRETER_CAPABILITIES: ReadonlyArray<string> = [
   ...contributionTags.map((tag) => `contribution:${tag}`),
   ...tokenNames.map((name) => `token:${name}`),
   ...conditionalNames.map((name) => `condition:${name}`),
+  "target:path",
 ];
 
 const stringsIn = (value: unknown): ReadonlyArray<string> =>
@@ -106,6 +107,9 @@ const capabilitiesUsedBy = (
   ];
   return Arr.dedupe([
     ...contributions.map((contribution) => `contribution:${contribution._tag}`),
+    ...document.modules
+      .filter((module) => module.targetPath !== undefined)
+      .map(() => "target:path"),
     ...stringsIn({
       targets: document.targets,
       modules: document.modules,
@@ -120,6 +124,9 @@ const definitionCapabilities = (definition: {
     ...definition.contributions.map(
       (contribution) => `contribution:${contribution._tag}`,
     ),
+    ...("targetPath" in definition && definition.targetPath !== undefined
+      ? ["target:path"]
+      : []),
     ...stringsIn(definition).flatMap(templateCapabilities),
   ]);
 

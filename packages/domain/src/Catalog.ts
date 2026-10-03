@@ -23,6 +23,21 @@ export const TargetKind = Schema.Union([
 ]).pipe(Schema.brand("TargetKind"));
 
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
+/** Only canonical, repository-relative native package directories are placeable. */
+export const PackageTargetPath = Schema.String.check(
+  Schema.makeFilter(
+    (path) =>
+      (path.startsWith("packages/") &&
+        !/[\\\0]/.test(path) &&
+        !path
+          .split("/")
+          .some(
+            (segment) => segment === "" || segment === "." || segment === "..",
+          ) &&
+        !/^[A-Za-z]:/.test(path)) ||
+      "Invalid canonical package target path",
+  ),
+).pipe(Schema.brand("TargetPath"));
 export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
 
 export class TargetIdentity extends Schema.Class<TargetIdentity>(
@@ -307,6 +322,8 @@ export const ModuleDefinition = Schema.Struct({
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
   supportedOn: Schema.Array(SupportedOn),
+  /** Canonical location of this module's exact package owner, even when unattached. */
+  targetPath: Schema.optional(PackageTargetPath),
   supportedRuntimes: Schema.optional(Schema.Array(SupportedRuntime)),
   dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(

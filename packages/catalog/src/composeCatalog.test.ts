@@ -21,6 +21,55 @@ const extraModule: typeof ModuleDefinition.Type = {
 };
 
 it.effect(
+  "rejects kind-wide placement but retains exact package placement",
+  () =>
+    Effect.gen(function* () {
+      const base = testCatalog.modules.find(
+        (module) => module.id === "domain-api-contracts",
+      );
+      assert.isDefined(base);
+      const placement = { ...base, targetPath: "packages/sdk/client" };
+      const failure = yield* Effect.flip(
+        composeCatalog([
+          {
+            ...testCatalog,
+            modules: [
+              placement,
+              ...testCatalog.modules.filter(
+                (module) => module.id !== placement.id,
+              ),
+            ],
+          },
+        ]),
+      );
+      assert.match(failure.message, /only exact package identities/);
+      const exact = {
+        ...placement,
+        supportedOn: [
+          {
+            _tag: "identity" as const,
+            identity: new TargetIdentity({
+              kind: TargetKind.make("package"),
+              name: "sdk-client",
+            }),
+          },
+        ],
+      };
+      const composed = yield* composeCatalog([
+        testCatalog,
+        {
+          targets: [],
+          modules: [{ ...exact, id: ModuleId.make("sdk-client-placement") }],
+        },
+      ]);
+      assert.strictEqual(
+        composed.modules.at(-1)?.targetPath,
+        "packages/sdk/client",
+      );
+    }),
+);
+
+it.effect(
   "should compose a module against another fragment's target when the fragments are independent",
   () =>
     Effect.gen(function* () {

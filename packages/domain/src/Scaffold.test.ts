@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
+import { TargetIdentity, TargetKey, TargetKind, TargetPath } from "./Catalog";
 import {
   ContributionTokenContext,
   STACK_CONFIG_SCHEMA_URL,
@@ -8,6 +8,24 @@ import {
 } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
+  it("resolves physical path tokens without changing logical package naming", () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("package"),
+      name: "sdk-client",
+    });
+    const context = new ContributionTokenContext({
+      targetKey: identity.toKey(),
+      identity,
+      targetPath: TargetPath.make("packages/sdk/client"),
+      config: new StackConfig({
+        name: Schema.NonEmptyString.make("sdk"),
+        runtime: { _tag: "bun" },
+      }),
+    });
+    expect(
+      context.resolve("{{targetPath}}/src {{targetDir}} {{packageName}}"),
+    ).toBe("packages/sdk/client/src packages/sdk/client @repo/sdk-client");
+  });
   it("accepts realistic target identities users are expected to provide", () => {
     const packageIdentity = Schema.decodeSync(TargetIdentity)({
       kind: "package",

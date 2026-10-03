@@ -33,6 +33,52 @@ const withModule = (module: ModuleInput): CatalogInput => ({
   modules: [...catalog.modules, defineModules(import.meta.url, [module])],
 });
 
+it.effect(
+  "publishes exact package placement and its required capability without changing flat output",
+  () =>
+    Effect.gen(function* () {
+      const input: CatalogInput = {
+        targets: [
+          defineTargets(import.meta.url, [
+            {
+              kind: "package",
+              title: "Package",
+              description: "Package",
+              contributions: [],
+            },
+          ]),
+        ],
+        modules: [
+          defineModules(import.meta.url, [
+            {
+              id: "sdk-client-placement",
+              title: "Placement",
+              description: "Placement",
+              supportedOn: [
+                {
+                  _tag: "identity",
+                  identity: { kind: "package", name: "sdk-client" },
+                },
+              ],
+              targetPath: "packages/sdk/client",
+              dependencies: [],
+              contributions: [],
+            },
+          ]),
+        ],
+      };
+      const result = yield* buildCatalog(input, {
+        catalogId: "acme",
+        root: packageRoot,
+      });
+      assert.strictEqual(
+        result.document.modules[0]?.targetPath,
+        "packages/sdk/client",
+      );
+      assert.include(result.document.requiredCapabilities, "target:path");
+    }).pipe(Effect.provide(NodeServices.layer)),
+);
+
 const buildError = (input: CatalogInput) =>
   Effect.flip(buildCatalog(input, { catalogId: "acme", root: packageRoot }));
 
