@@ -56,26 +56,14 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         const targets = Arr.fromIterable(HashMap.values(finalState.targets));
         const placed = yield* Effect.forEach(targets, (node) =>
           Effect.gen(function* () {
-            const definitions = yield* catalog.getSupportedModules(
-              node.identity.kind,
-            );
-            const claims = Arr.dedupe(
-              definitions.flatMap((definition) =>
-                definition.targetPath !== undefined &&
-                definition.supportedOn.some((rule) =>
-                  node.identity.matches(rule),
-                )
-                  ? [definition.targetPath]
-                  : [],
-              ),
-            );
-            if (claims.length > 1)
-              return yield* new BlueprintFailure({
-                message: `Conflicting package paths for ${node.id}: ${claims.join(", ")}`,
-              });
-            return claims[0] === undefined
-              ? node
-              : { ...node, path: claims[0] };
+            const path = yield* catalog
+              .getTargetPath(node.identity)
+              .pipe(
+                Effect.mapError(
+                  (error) => new BlueprintFailure({ message: error.message }),
+                ),
+              );
+            return Option.isSome(path) ? { ...node, path: path.value } : node;
           }),
         );
         const owned = placed.filter((node) => node.identity.kind === "package");

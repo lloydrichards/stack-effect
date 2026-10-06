@@ -10,6 +10,17 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   }
 }
 
+export class CatalogMetadataConflict extends Data.TaggedError(
+  "CatalogMetadataConflict",
+)<{
+  identity: TargetIdentity;
+  paths: ReadonlyArray<typeof PackageTargetPath.Type>;
+}> {
+  override get message(): string {
+    return `Conflicting package paths for ${this.identity.toKey()}: ${this.paths.join(", ")}`;
+  }
+}
+
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
 export const ModuleCapability = Schema.String.pipe(
@@ -32,7 +43,10 @@ export const PackageTargetPath = Schema.String.check(
         !path
           .split("/")
           .some(
-            (segment) => segment === "" || segment === "." || segment === "..",
+            (segment) =>
+              segment === "" ||
+              segment.startsWith(".") ||
+              segment.toLowerCase() === "node_modules",
           ) &&
         !/^[A-Za-z]:/.test(path)) ||
       "Invalid canonical package target path",

@@ -60,6 +60,7 @@ const makeRepositoryStateServiceLayer = (
       ),
     });
   return Layer.succeed(RepositoryStateService, {
+    discoverOwners: () => Effect.succeed([]),
     fromSnapshot,
     capture: ({
       repoRoot,

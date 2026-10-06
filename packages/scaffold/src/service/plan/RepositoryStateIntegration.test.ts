@@ -4,8 +4,17 @@ import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Apply, StalePlanFailure } from "@repo/domain/Apply";
-import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  Blueprint,
+  BlueprintTargetNode,
+  toAttachedModuleNodeId,
+} from "@repo/domain/Blueprint";
+import {
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+  TargetPath,
+} from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
@@ -70,7 +79,197 @@ const build = buildAt(repoRoot);
 
 const intent = (plan: Plan) => new Apply({ plan, decisions: [] });
 
+const writeManifest = (directory: string, contents: string) =>
+  Effect.gen(function* () {
+    const files = yield* FileSystem.FileSystem;
+    const absolute = `${repoRoot}/${directory}`;
+    yield* files.makeDirectory(absolute, { recursive: true });
+    yield* files.writeFileString(`${absolute}/package.json`, contents);
+  });
+const ownerManifest = (directory: string, name: string) =>
+  writeManifest(directory, JSON.stringify({ name }));
+const packageNode = (
+  name: string,
+  path?: string,
+): typeof BlueprintTargetNode.Type => {
+  const identity = new TargetIdentity({
+    kind: TargetKind.make("package"),
+    name,
+  });
+  return {
+    _tag: "target",
+    id: identity.toKey(),
+    identity,
+    path: path === undefined ? undefined : TargetPath.make(path),
+  };
+};
+const targetBlueprint = (
+  nodes: ReadonlyArray<typeof BlueprintTargetNode.Type>,
+) => new Blueprint({ nodes, edges: [] }).toSorted();
+const buildProposed = (proposed: Blueprint) =>
+  Effect.gen(function* () {
+    const plans = yield* PlanService;
+    return yield* plans.build({ blueprint: proposed, repoRoot, config });
+  });
+
 describe("Plan and Apply repository state", () => {
+  const ownershipRejections = [
+    {
+      title: "rejects a helper package owning the parent of a proposed package",
+      setup: ownerManifest("packages/domain", "@repo/other"),
+      proposed: blueprint,
+      message: "packages/domain",
+    },
+    ...[
+      { path: "packages", name: "@repo/sdk" },
+      { path: "packages/domain/client", name: "@repo/client" },
+      { path: "packages/other", name: "@repo/domain" },
+      { path: "packages/Domain", name: "@repo/other" },
+    ].map(({ path, name }) => ({
+      title: `rejects incompatible existing owner ${name} at ${path}`,
+      setup: ownerManifest(path, name),
+      proposed: blueprint,
+      message: path,
+    })),
+    {
+      title: "rejects overlapping proposed package owners before projection",
+      setup: Effect.void,
+      proposed: targetBlueprint([
+        packageNode("domain"),
+        packageNode("sdk", "packages/domain/client"),
+      ]),
+      message: "packages/domain/client",
+    },
+    ...["build", "dist"].map((directory) => {
+      const ownerRoot = `packages/${directory}/sdk`;
+      return {
+        title: `rejects an owner under packages/${directory} enclosing a proposed package`,
+        setup: ownerManifest(ownerRoot, "@repo/sdk"),
+        proposed: targetBlueprint([
+          packageNode("domain", `${ownerRoot}/client`),
+        ]),
+        message: ownerRoot,
+      };
+    }),
+    {
+      title: "rejects protected native placement before projection",
+      setup: Effect.void,
+      proposed: targetBlueprint([
+        packageNode("domain", "packages/sdk/NODE_MODULES/shared"),
+      ]),
+      message: "packages/sdk/NODE_MODULES/shared",
+    },
+    {
+      title: "rejects a malformed owner manifest without guessing ownership",
+      setup: writeManifest("packages/helper", "invalid json"),
+      proposed: blueprint,
+      message: "packages/helper/package.json",
+    },
+    {
+      title: "rejects symbolic links in package discovery",
+      setup: Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* files.makeDirectory(`${repoRoot}/packages`, { recursive: true });
+        yield* files.makeDirectory("/foreign", { recursive: true });
+        yield* files.symlink("/foreign", `${repoRoot}/packages/helper`);
+      }),
+      proposed: blueprint,
+      message: "packages/helper",
+    },
+  ];
+  ownershipRejections.forEach(({ title, setup, proposed, message }) => {
+    it.effect(title, () =>
+      Effect.gen(function* () {
+        yield* setup;
+        const failure = yield* Effect.flip(buildProposed(proposed));
+        assert(failure._tag === "PlanFailure");
+        expect(failure.message).toContain(message);
+      }).pipe(Effect.provide(TestLayer)),
+    );
+  });
+
+  it.effect(
+    "creates two authorized package manifests without self-staleness",
+    () =>
+      Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* ownerManifest("packages/a/b", "@repo/shared-utils");
+        yield* ownerManifest("packages/a-c", "@repo/sdk-codecs");
+        const twoPackages = targetBlueprint([
+          packageNode("domain"),
+          packageNode("sdk"),
+        ]);
+        const plan = yield* buildProposed(twoPackages);
+        const service = yield* ApplyService;
+        const result = yield* service.apply({ apply: intent(plan), repoRoot });
+        expect(result.created).toContain("packages/domain/package.json");
+        expect(result.created).toContain("packages/sdk/package.json");
+        expect(
+          yield* files.exists(`${repoRoot}/packages/sdk/package.json`),
+        ).toBe(true);
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect("accepts an unrelated deep unowned directory", () =>
+    Effect.gen(function* () {
+      const files = yield* FileSystem.FileSystem;
+      const deep = `packages/${Array.from({ length: 10 }, (_, index) => `level${index}`).join("/")}`;
+      yield* files.makeDirectory(`${repoRoot}/${deep}`, { recursive: true });
+      const plan = yield* build;
+      expect(plan.baseline.packageOwners).toEqual([]);
+    }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect("ignores synthetic case-variant dependency directories", () =>
+    Effect.gen(function* () {
+      yield* writeManifest("packages/sdk/NODE_MODULES/shared", "not-json");
+      const plan = yield* build;
+      expect(plan.baseline.packageOwners).toEqual([]);
+    }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect("accepts an unowned container and same-owner continuation", () =>
+    Effect.gen(function* () {
+      yield* ownerManifest("packages/domain", "@repo/domain");
+      const plan = yield* build;
+      expect(plan.baseline.packageOwners).toEqual([
+        { path: "packages/domain", name: "@repo/domain" },
+      ]);
+    }).pipe(Effect.provide(TestLayer)),
+  );
+
+  for (const change of ["removed", "renamed", "discovered"] as const) {
+    const discovered = change === "discovered";
+    const title = discovered
+      ? "rejects a newly discovered helper manifest after planning"
+      : `rejects a ${change} helper owner after planning`;
+    it.effect(title, () =>
+      Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* ownerManifest(
+          discovered ? "packages/unrelated" : "packages/helper",
+          discovered ? "@repo/unrelated" : "@repo/helper",
+        );
+        const plan = yield* build;
+        const mutation =
+          change === "removed"
+            ? files.remove(`${repoRoot}/packages/helper/package.json`)
+            : ownerManifest(
+                "packages/helper",
+                discovered ? "@repo/helper" : "@repo/changed",
+              );
+        yield* mutation;
+        const service = yield* ApplyService;
+        const failure = yield* Effect.flip(
+          service.apply({ apply: intent(plan), repoRoot }),
+        );
+        expect(failure).toBeInstanceOf(StalePlanFailure);
+        assert(failure._tag === "StalePlanFailure");
+        expect(failure.partialResult.created).toEqual([]);
+      }).pipe(Effect.provide(TestLayer)),
+    );
+  }
   it.effect(
     "plans and applies real catalog files in one seeded workspace",
     () =>
@@ -418,7 +617,10 @@ describe("Plan and Apply repository state", () => {
       );
       assert(candidate, "Expected a planned package.json merge");
       const absolute = `${repoRoot}/${candidate.path}`;
-      yield* files.writeFileString(absolute, "original invalid JSON");
+      yield* files.writeFileString(
+        absolute,
+        '{"name":"@repo/domain","exports":{"./Api":"./local.ts"}}',
+      );
 
       const plan = yield* build;
       const conflict = plan.outcomes.find(
@@ -429,7 +631,10 @@ describe("Plan and Apply repository state", () => {
       const decisions = plan.outcomes
         .filter((entry) => entry.classification === "conflict")
         .map((entry) => ({ path: entry.path, value: "skip" as const }));
-      yield* files.writeFileString(absolute, "changed after planning");
+      yield* files.writeFileString(
+        absolute,
+        '{"name":"@repo/domain","exports":{"./Api":"./other.ts"}}',
+      );
 
       const failure = yield* Effect.flip(
         service.apply({ apply: new Apply({ plan, decisions }), repoRoot }),
@@ -441,9 +646,69 @@ describe("Plan and Apply repository state", () => {
       });
       expect(failure.partialResult.created).toEqual([]);
       expect(yield* files.readFileString(absolute)).toBe(
-        "changed after planning",
+        '{"name":"@repo/domain","exports":{"./Api":"./other.ts"}}',
       );
     }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect(
+    "stops when a foreign owner appears after an authorized write",
+    () =>
+      Effect.gen(function* () {
+        const files = yield* MemoryFileSystem.make.pipe(
+          Effect.provide(BrowserCrypto.layer),
+        );
+        yield* files.makeDirectory(repoRoot, { recursive: true });
+        const foreign = `${repoRoot}/packages/foreign/package.json`;
+        const trigger = { first: "" };
+        const wrapped = {
+          ...files,
+          rename: (from: string, to: string) =>
+            files
+              .rename(from, to)
+              .pipe(
+                Effect.tap(() =>
+                  to === trigger.first
+                    ? ownerManifest("packages/foreign", "@repo/foreign").pipe(
+                        Effect.provideService(FileSystem.FileSystem, files),
+                      )
+                    : Effect.void,
+                ),
+              ),
+        };
+        const layer = Layer.provideMerge(
+          Layer.merge(PlanService.layer, ApplyService.layer).pipe(
+            Layer.provide(OfficialCatalogLayer),
+          ),
+          Layer.merge(
+            Layer.succeed(FileSystem.FileSystem, wrapped),
+            Path.layer,
+          ),
+        );
+        const failure = yield* Effect.gen(function* () {
+          const plan = yield* build;
+          const first = plan.outcomes.find(
+            (entry) => entry.classification === "create",
+          );
+          assert(first);
+          trigger.first = `${repoRoot}/${first.path}`;
+          const service = yield* ApplyService;
+          return yield* Effect.flip(
+            service.apply({ apply: intent(plan), repoRoot }),
+          );
+        }).pipe(Effect.provide(layer));
+        assert(failure._tag === "StalePlanFailure");
+        expect(failure.changes).toContainEqual({
+          path: "packages",
+          kind: "modified",
+        });
+        expect(failure.partialResult.created).toContain(
+          trigger.first.slice(`${repoRoot}/`.length),
+        );
+        expect(yield* files.readFileString(foreign)).toBe(
+          '{"name":"@repo/foreign"}',
+        );
+      }),
   );
 
   it.effect(

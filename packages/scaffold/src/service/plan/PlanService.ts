@@ -12,6 +12,7 @@ import {
   SchemaIssue,
 } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
+import { validatePackageOwners } from "./PackageOwnership";
 import {
   collectAncestorPaths,
   PlanAssessor,
@@ -51,6 +52,8 @@ export class PlanService extends Context.Service<
       repoRoot,
       config,
     }: PlanServiceBuildInput) {
+      const owners = yield* repositoryState.discoverOwners(repoRoot);
+      yield* validatePackageOwners(blueprint, owners);
       const normalizedContributions = yield* contribute.resolve(
         blueprint,
         config,

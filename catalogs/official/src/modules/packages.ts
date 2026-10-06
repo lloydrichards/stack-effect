@@ -588,6 +588,11 @@ export const packageModules = defineModules(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/src/RuntimePaths.ts",
+        contents: template("./package-db-sqlite/src/RuntimePaths.ts"),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/src/Migrations.ts",
         contents: template("./package-db-sqlite/src/Migrations.ts"),
       },
@@ -666,7 +671,8 @@ export const packageModules = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "SQLite Database: Set `DATABASE_FILE` for `{{targetPath}}` if you want a database path other than the default `../../data/app.sqlite`.{{#if runtime=deno}} Set `DATABASE_FILE=./data/app.sqlite` when launching a compiled executable from the project root.{{/if}}",
+      "SQLite Database: Defaults for `{{targetPath}}` use the nearest `stack.effect.json` above the deployed module: `data/app.sqlite` at that root and migrations at `{{targetPath}}/src/migrations`, independent of the working directory. Explicit `DATABASE_FILE` values, including relative paths and `:memory:`, are unchanged.",
+      "SQLite deployment: Keep that project marker above the deployed module, or set absolute `DATABASE_FILE` and `MIGRATIONS_DIRECTORY` paths. Deploy runtime-loadable migration assets and their dependencies; relative `MIGRATIONS_DIRECTORY` values are rejected.",
     ],
   },
   {

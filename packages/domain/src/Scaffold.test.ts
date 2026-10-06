@@ -1,6 +1,12 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { TargetIdentity, TargetKey, TargetKind, TargetPath } from "./Catalog";
+import {
+  PackageTargetPath,
+  TargetIdentity,
+  TargetKey,
+  TargetKind,
+  TargetPath,
+} from "./Catalog";
 import {
   ContributionTokenContext,
   STACK_CONFIG_SCHEMA_URL,
@@ -8,6 +14,13 @@ import {
 } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
+  it.each([
+    "packages/.hidden/sdk",
+    "packages/sdk/node_modules/shared",
+    "packages/sdk/NODE_MODULES/shared",
+  ])("rejects protected package placement %s", (path) =>
+    expect(() => Schema.decodeSync(PackageTargetPath)(path)).toThrow(),
+  );
   it("resolves physical path tokens without changing logical package naming", () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("package"),

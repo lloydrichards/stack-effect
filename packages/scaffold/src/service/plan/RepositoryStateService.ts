@@ -6,6 +6,7 @@ import {
   type RepoSnapshot,
 } from "@repo/domain/Plan";
 import { Context, Crypto, Effect, FileSystem, Layer, Path } from "effect";
+import { discoverPackageOwners } from "./PackageOwnership";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
 export type RepositoryChange = {
@@ -61,13 +62,34 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
         },
       );
 
+      const discoverOwners = (repoRoot: string) =>
+        discoverPackageOwners(repoRoot).pipe(
+          Effect.provideService(FileSystem.FileSystem, fileSystem),
+          Effect.provideService(Path.Path, path),
+        );
+      const sameOwners = (
+        expected: ReadonlyArray<{
+          readonly path: string;
+          readonly name: string;
+        }>,
+        actual: ReadonlyArray<{ readonly path: string; readonly name: string }>,
+      ) =>
+        expected.length === actual.length &&
+        expected.every(
+          (owner, index) =>
+            owner.path === actual[index]?.path &&
+            owner.name === actual[index]?.name,
+        );
+
       const fromSnapshot = Effect.fn("RepositoryStateService.fromSnapshot")(
         function* ({
           repoRoot,
           repoSnapshot,
+          includeOwnership = true,
         }: {
           readonly repoRoot: string;
           readonly repoSnapshot: typeof RepoSnapshot.Type;
+          readonly includeOwnership?: boolean;
         }) {
           const root = yield* canonicalRoot(repoRoot);
           const paths = yield* Effect.forEach(repoSnapshot.paths, (entry) =>
@@ -95,7 +117,14 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
               };
             }),
           );
-          return { root, paths } satisfies typeof PlanBaseline.Type;
+          const ownership = includeOwnership
+            ? yield* discoverOwners(repoRoot)
+            : undefined;
+          return {
+            root,
+            paths,
+            ...(ownership === undefined ? {} : { packageOwners: ownership }),
+          } satisfies typeof PlanBaseline.Type;
         },
       );
 
@@ -121,6 +150,11 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
           ...(expected.root === actual.root
             ? []
             : [{ path: ".", kind: "rootChanged" as const }]),
+          ...(expected.packageOwners === undefined ||
+          (actual.packageOwners !== undefined &&
+            sameOwners(expected.packageOwners, actual.packageOwners))
+            ? []
+            : [{ path: "packages", kind: "modified" as const }]),
           ...expected.paths.flatMap(
             (entry): ReadonlyArray<RepositoryChange> => {
               const current = actualByPath.get(entry.path);
@@ -160,7 +194,10 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
             ? baseline.paths
             : baseline.paths.filter((entry) => paths.includes(entry.path));
         const changes = yield* Effect.forEach(selected, (entry) =>
-          capture({ repoRoot, paths: [entry.path] }).pipe(
+          snapshot.load({ repoRoot, paths: [entry.path] }).pipe(
+            Effect.flatMap((repoSnapshot) =>
+              fromSnapshot({ repoRoot, repoSnapshot, includeOwnership: false }),
+            ),
             Effect.map((actual) =>
               compare({ root: baseline.root, paths: [entry] }, actual).filter(
                 (change) => change.kind !== "rootChanged",
@@ -171,7 +208,18 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
             ]),
           ),
         );
+        const expectedOwners = baseline.packageOwners;
+        const ownershipChanged =
+          expectedOwners === undefined
+            ? false
+            : yield* discoverOwners(repoRoot).pipe(
+                Effect.map((owners) => !sameOwners(expectedOwners, owners)),
+                Effect.orElseSucceed(() => true),
+              );
         return [
+          ...(ownershipChanged
+            ? [{ path: "packages", kind: "modified" as const }]
+            : []),
           ...(currentRoot === baseline.root
             ? []
             : [{ path: ".", kind: "rootChanged" as const }]),
@@ -179,7 +227,14 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
         ] satisfies ReadonlyArray<RepositoryChange>;
       });
 
-      return { capture, fromSnapshot, canonicalRoot, compare, verify } as const;
+      return {
+        capture,
+        fromSnapshot,
+        canonicalRoot,
+        compare,
+        verify,
+        discoverOwners,
+      } as const;
     }),
   },
 ) {

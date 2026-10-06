@@ -43,6 +43,10 @@ export const PlanBaselinePath = Schema.TaggedUnion({
 export const PlanBaseline = Schema.Struct({
   root: Schema.String,
   paths: Schema.Array(PlanBaselinePath),
+  /** Discovered package ownership, retained for stale-Plan verification. */
+  packageOwners: Schema.optional(
+    Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })),
+  ),
 });
 
 export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
@@ -296,6 +300,9 @@ export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
     return new Plan({
       baseline: {
         root: this.baseline.root,
+        ...(this.baseline.packageOwners === undefined
+          ? {}
+          : { packageOwners: [...this.baseline.packageOwners].sort(pathOrd) }),
         paths: [...this.baseline.paths].sort(pathOrd),
       },
       outcomes: [...this.outcomes].sort(pathOrd),

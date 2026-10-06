@@ -2,13 +2,13 @@
 import { SqliteClient } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}{{#if runtime=deno}}import { DenoFileSystem, DenoPath } from "@effect/platform-deno";
 import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}
-import { Config, Effect, FileSystem, Layer, Path, String } from "effect";
+import { Effect, FileSystem, Layer, Path, String } from "effect";
+import { makeDatabaseConfig } from "./RuntimePaths";
 
-export const DatabaseConfig = Config.all({
-  filename: Config.String("DATABASE_FILE").pipe(
-    Config.withDefault("../../data/app.sqlite"),
-  ),
-});
+export const DatabaseConfig = makeDatabaseConfig(
+  new URL(import.meta.url),
+  Layer.mergeAll({{#if runtime=bun}}BunFileSystem.layer, BunPath.layer{{/if}}{{#if runtime=node}}NodeFileSystem.layer, NodePath.layer{{/if}}{{#if runtime=deno}}DenoFileSystem.layer, DenoPath.layer{{/if}}),
+);
 
 const ensureDatabaseDirectory = (filename: string) =>
   Effect.gen(function* () {

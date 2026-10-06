@@ -5,6 +5,7 @@ import {
   ApplyResult,
   StalePlanFailure,
 } from "@repo/domain/Apply";
+import { pathOrd } from "@repo/domain/Order";
 import { CompositionOperation } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -17,6 +18,7 @@ import {
   Path,
   Schema,
 } from "effect";
+import { parsePackageOwner } from "../plan/PackageOwnership";
 import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
@@ -404,6 +406,7 @@ export class ApplyService extends Context.Service<
     }) {
       const attempts: Array<WriteAttempt> = [];
       const createdDirectories = new Set<string>();
+      let expectedOwners = applyIntent.plan.baseline.packageOwners;
       const recordCreatedDirectories = (filePath: string) =>
         applyIntent.plan.baseline.paths
           .filter(
@@ -427,6 +430,9 @@ export class ApplyService extends Context.Service<
             const changes = yield* repositoryState.verify({
               baseline: {
                 root: applyIntent.plan.baseline.root,
+                ...(expectedOwners === undefined
+                  ? {}
+                  : { packageOwners: expectedOwners }),
                 paths: applyIntent.plan.baseline.paths.map((entry) =>
                   createdDirectories.has(entry.path)
                     ? { _tag: "directory" as const, path: entry.path }
@@ -469,6 +475,36 @@ export class ApplyService extends Context.Service<
             attempts.push(attempt);
             if (attempt.status === "created" || attempt.status === "modified") {
               recordCreatedDirectories(writeRequest.path);
+              if (
+                expectedOwners !== undefined &&
+                writeRequest.path.startsWith("packages/") &&
+                writeRequest.path.endsWith("/package.json")
+              ) {
+                const owner = yield* parsePackageOwner(
+                  writeRequest.path,
+                  writeRequest.contents,
+                ).pipe(
+                  Effect.mapError(
+                    () =>
+                      new StalePlanFailure({
+                        changes: [
+                          { path: writeRequest.path, kind: "modified" },
+                        ],
+                        partialResult: toApplyResult({
+                          skippedPaths,
+                          writeAttempts: attempts,
+                        }),
+                        message: `Invalid package ownership at ${writeRequest.path}. Replan and try again.`,
+                      }),
+                  ),
+                );
+                expectedOwners = [
+                  ...expectedOwners.filter(
+                    (existing) => existing.path !== owner.path,
+                  ),
+                  owner,
+                ].sort(pathOrd);
+              }
             }
           }),
         { concurrency: 1, discard: true },
