@@ -23,20 +23,16 @@ export const resolveRuntimeAsset = (
             const info = yield* fs.stat(marker);
             return info.type === "File"
               ? directory
-              : yield* Effect.fail(
-                  new ConfigProvider.SourceError({
-                    message: `Project marker is not a file: ${marker}`,
-                  }),
-                );
+              : yield* new ConfigProvider.SourceError({
+                  message: `Project marker is not a file: ${marker}`,
+                });
           }
 
           const parent = path.dirname(directory);
           return parent === directory
-            ? yield* Effect.fail(
-                new ConfigProvider.SourceError({
-                  message: "No ancestor stack.effect.json file was found.",
-                }),
-              )
+            ? yield* new ConfigProvider.SourceError({
+                message: "No ancestor stack.effect.json file was found.",
+              })
             : yield* findRoot(parent);
         }),
       );
