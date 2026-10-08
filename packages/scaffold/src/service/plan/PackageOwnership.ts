@@ -45,7 +45,6 @@ export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
           ),
           Effect.mapError(() => unsupported(relative, "could not stat entry")),
         );
-        if (stat === null) return null;
         const link = yield* fs.readLink(absolute).pipe(
           Effect.map(() => true),
           Effect.orElseSucceed(() => false),
@@ -77,6 +76,15 @@ export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
             Effect.mapError(() =>
               unsupported(relative, "could not list directory"),
             ),
+          );
+        const manifestAlias = names.find(
+          (name) =>
+            name.toLowerCase() === "package.json" && name !== "package.json",
+        );
+        if (manifestAlias !== undefined)
+          return yield* unsupported(
+            `${relative}/${manifestAlias}`,
+            "package manifests must use the canonical package.json filename",
           );
         const manifest = names.includes("package.json")
           ? yield* Effect.gen(function* () {

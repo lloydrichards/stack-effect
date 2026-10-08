@@ -72,10 +72,14 @@ export class PlanService extends Context.Service<
         ),
         repoRoot,
       });
-      const baseline = yield* repositoryState.fromSnapshot({
-        repoRoot,
-        repoSnapshot,
-      });
+      const baseline = {
+        ...(yield* repositoryState.fromSnapshot({
+          repoRoot,
+          repoSnapshot,
+          includeOwnership: false,
+        })),
+        packageOwners: owners,
+      };
       const plan = yield* projectPlan({
         planningPaths,
         repoSnapshot,

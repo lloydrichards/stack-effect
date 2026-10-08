@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
-import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import {
+  OfficialCatalogLayer,
+  officialCatalogLayerWith,
+} from "@repo/catalog-official/service";
 import { Apply, StalePlanFailure } from "@repo/domain/Apply";
 import {
   Blueprint,
@@ -11,6 +14,7 @@ import {
 } from "@repo/domain/Blueprint";
 import {
   ModuleId,
+  PackageTargetPath,
   TargetIdentity,
   TargetKind,
   TargetPath,
@@ -21,6 +25,7 @@ import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { ApplyService } from "../apply/ApplyService";
 import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
+import { BlueprintService } from "../blueprint/BlueprintService";
 import { PlanService } from "./PlanService";
 import { RepositoryStateService } from "./RepositoryStateService";
 
@@ -140,6 +145,15 @@ describe("Plan and Apply repository state", () => {
       ]),
       message: "packages/domain/client",
     },
+    {
+      title: "rejects case-only aliases between proposed package owners",
+      setup: Effect.void,
+      proposed: targetBlueprint([
+        packageNode("domain", "packages/sdk/Client"),
+        packageNode("sdk", "packages/sdk/client"),
+      ]),
+      message: "packages/sdk/client",
+    },
     ...["build", "dist"].map((directory) => {
       const ownerRoot = `packages/${directory}/sdk`;
       return {
@@ -176,6 +190,29 @@ describe("Plan and Apply repository state", () => {
       proposed: blueprint,
       message: "packages/helper",
     },
+    {
+      title: "rejects dangling symbolic links in package discovery",
+      setup: Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* files.makeDirectory(`${repoRoot}/packages`, { recursive: true });
+        yield* files.symlink("/missing-owner", `${repoRoot}/packages/helper`);
+      }),
+      proposed: blueprint,
+      message: "packages/helper",
+    },
+    {
+      title: "rejects case-variant owner manifest names",
+      setup: Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* ownerManifest("packages/domain", "@repo/other");
+        yield* files.rename(
+          `${repoRoot}/packages/domain/package.json`,
+          `${repoRoot}/packages/domain/Package.json`,
+        );
+      }),
+      proposed: blueprint,
+      message: "packages/domain/Package.json",
+    },
   ];
   ownershipRejections.forEach(({ title, setup, proposed, message }) => {
     it.effect(title, () =>
@@ -187,6 +224,141 @@ describe("Plan and Apply repository state", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
   });
+
+  it.effect(
+    "rejects ownership changes before capturing the Plan baseline",
+    () =>
+      Effect.gen(function* () {
+        const files = yield* MemoryFileSystem.make.pipe(
+          Effect.provide(BrowserCrypto.layer),
+        );
+        yield* files.makeDirectory(repoRoot, { recursive: true });
+        const wrapped = {
+          ...files,
+          stat: (path: string) =>
+            files
+              .stat(path)
+              .pipe(
+                Effect.tapError(() =>
+                  path === `${repoRoot}/packages`
+                    ? ownerManifest("packages/domain", "@repo/other").pipe(
+                        Effect.provideService(FileSystem.FileSystem, files),
+                      )
+                    : Effect.void,
+                ),
+              ),
+        };
+        const failure = yield* Effect.flip(build).pipe(
+          Effect.provide(
+            PlanService.layer.pipe(
+              Layer.provide(OfficialCatalogLayer),
+              Layer.provide(
+                Layer.merge(
+                  Layer.succeed(FileSystem.FileSystem, wrapped),
+                  Path.layer,
+                ),
+              ),
+            ),
+          ),
+        );
+        expect(failure._tag).toBe("PlanFailure");
+        assert(failure._tag === "PlanFailure");
+        expect(failure.reason).toBe("repoStateChanged");
+        expect(
+          yield* files.readFileString(
+            `${repoRoot}/packages/domain/package.json`,
+          ),
+        ).toBe('{"name":"@repo/other"}');
+      }),
+  );
+
+  for (const [existingPath, proposedPath] of [
+    ["packages/domain", "packages/domain"],
+    ["packages/domain", "packages/domain/client"],
+    ["packages/domain/client", "packages/domain"],
+  ] as const) {
+    it.effect(
+      `rejects incremental reuse of ${existingPath} by ${proposedPath}`,
+      () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          const service = yield* ApplyService;
+          const initial = yield* buildProposed(
+            targetBlueprint([packageNode("sdk", existingPath)]),
+          );
+          yield* service.apply({ apply: intent(initial), repoRoot });
+          const manifestPath = `${repoRoot}/${existingPath}/package.json`;
+          const original = yield* files.readFileString(manifestPath);
+          const proposed = new Blueprint({
+            nodes: blueprint.nodes.map((node) =>
+              node._tag === "target"
+                ? { ...node, path: TargetPath.make(proposedPath) }
+                : node,
+            ),
+            edges: blueprint.edges,
+          });
+          const failure = yield* Effect.flip(buildProposed(proposed));
+          expect(failure._tag).toBe("PlanFailure");
+          expect(yield* files.readFileString(manifestPath)).toBe(original);
+          expect(
+            yield* files.exists(`${repoRoot}/${proposedPath}/src/Api.ts`),
+          ).toBe(false);
+        }).pipe(Effect.provide(TestLayer)),
+    );
+  }
+
+  it.effect(
+    "rejects relocation after a loaded catalog declaration changes",
+    () =>
+      Effect.gen(function* () {
+        const resolve = (path: string) =>
+          Effect.gen(function* () {
+            const resolver = yield* BlueprintService;
+            return yield* resolver.resolve({
+              targets: [{ identity: target, modules: [] }],
+            });
+          }).pipe(
+            Effect.provide(
+              BlueprintService.layer.pipe(
+                Layer.provide(
+                  officialCatalogLayerWith([
+                    {
+                      targets: [],
+                      modules: [
+                        {
+                          id: ModuleId.make("domain-placement"),
+                          title: "Domain placement",
+                          description: "Unattached package placement",
+                          supportedOn: [{ _tag: "identity", identity: target }],
+                          targetPath: PackageTargetPath.make(path),
+                          dependencies: [],
+                          contributions: [],
+                        },
+                      ],
+                    },
+                  ]),
+                ),
+              ),
+            ),
+          );
+        const files = yield* FileSystem.FileSystem;
+        const service = yield* ApplyService;
+        const initial = yield* buildProposed(
+          yield* resolve("packages/sdk/domain"),
+        );
+        yield* service.apply({ apply: intent(initial), repoRoot });
+        const manifestPath = `${repoRoot}/packages/sdk/domain/package.json`;
+        const original = yield* files.readFileString(manifestPath);
+        const failure = yield* Effect.flip(
+          buildProposed(yield* resolve("packages/new-sdk/domain")),
+        );
+        expect(failure._tag).toBe("PlanFailure");
+        expect(yield* files.readFileString(manifestPath)).toBe(original);
+        expect(yield* files.exists(`${repoRoot}/packages/new-sdk/domain`)).toBe(
+          false,
+        );
+      }).pipe(Effect.provide(TestLayer)),
+  );
 
   it.effect(
     "creates two authorized package manifests without self-staleness",
