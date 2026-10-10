@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
+import { CatalogService } from "@repo/catalog";
 import {
   OfficialCatalogLayer,
   officialCatalogLayerWith,
@@ -15,10 +16,11 @@ import {
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
+import { Effect, FileSystem, Layer, Path, PlatformError, Schema } from "effect";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { ApplyService } from "../apply/ApplyService";
 import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
+import { BlueprintService } from "../blueprint/BlueprintService";
 import { PlanService } from "./PlanService";
 import { RepositoryStateService } from "./RepositoryStateService";
 
@@ -115,6 +117,223 @@ const nestedServerBlueprint = targetBlueprint([
 ]);
 
 describe("Plan and Apply repository state", () => {
+  for (const runtime of [
+    { _tag: "deno" },
+    { _tag: "node", packageManager: "pnpm" },
+  ] as const) {
+    it.effect(
+      `should preserve ${runtime._tag} workspace settings when nested packages are added incrementally`,
+      () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          yield* ownerManifest("packages/helper", "@repo/helper");
+          yield* writeManifest("packages/helper/templates/workspace", "{}");
+          yield* files.writeFileString(
+            `${repoRoot}/package.json`,
+            '{"name":"project","workspaces":["apps/**","packages/**","tools/*"],"scripts":{"custom":"echo custom"}}',
+          );
+          yield* files.writeFileString(
+            `${repoRoot}/deno.json`,
+            '{"workspace":["apps/**","packages/**"],"tasks":{"custom":"echo custom"}}',
+          );
+          yield* files.writeFileString(
+            `${repoRoot}/pnpm-workspace.yaml`,
+            'packages:\n  - "apps/**"\n  - "packages/**"\n\nallowBuilds:\n  esbuild: true\n',
+          );
+          const apply = yield* ApplyService;
+          const plans = yield* PlanService;
+          const configuration = new StackConfig({ name: "project", runtime });
+          const workspace = new TargetIdentity({
+            kind: TargetKind.make("workspace"),
+            name: configuration.name,
+          });
+          const proposed = (name: string) =>
+            targetBlueprint([
+              { _tag: "target", identity: workspace, id: workspace.toKey() },
+              packageNode(name),
+            ]);
+          const planAt = (name: string) =>
+            plans.build({
+              blueprint: proposed(name),
+              repoRoot,
+              config: configuration,
+            });
+          for (const name of ["sdk/client", "sdk/codecs"]) {
+            const plan = yield* planAt(name);
+            expect(plan.conflicts).toEqual([]);
+            expect(
+              (yield* apply.apply({ apply: intent(plan), repoRoot })).failed,
+            ).toEqual([]);
+          }
+          const members = [
+            "packages/config-typescript",
+            "packages/helper",
+            "packages/sdk/client",
+            "packages/sdk/codecs",
+          ];
+          const manifest = yield* Schema.decodeEffect(
+            Schema.fromJsonString(
+              Schema.Struct({
+                workspaces: Schema.Array(Schema.String),
+                scripts: Schema.Record(Schema.String, Schema.String),
+              }),
+            ),
+          )(yield* files.readFileString(`${repoRoot}/package.json`));
+          expect(manifest.workspaces).toEqual([...members, "tools/*"]);
+          expect(manifest.scripts["custom"]).toBe("echo custom");
+          const deno = yield* Schema.decodeEffect(
+            Schema.fromJsonString(
+              Schema.Struct({
+                workspace: Schema.Array(Schema.String),
+                tasks: Schema.Record(Schema.String, Schema.String),
+              }),
+            ),
+          )(yield* files.readFileString(`${repoRoot}/deno.json`));
+          expect(deno.workspace).toEqual(members);
+          expect(deno.tasks["custom"]).toBe("echo custom");
+          const pnpm = yield* files.readFileString(
+            `${repoRoot}/pnpm-workspace.yaml`,
+          );
+          expect(pnpm).toBe(
+            `packages:\n${members.map((member) => `  - ${member}\n`).join("")}\nallowBuilds:\n  esbuild: true\n`,
+          );
+          const repeated = yield* planAt("sdk/codecs");
+          expect(
+            (yield* apply.apply({ apply: intent(repeated), repoRoot })).failed,
+          ).toEqual([]);
+          expect(
+            yield* files.readFileString(`${repoRoot}/pnpm-workspace.yaml`),
+          ).toBe(pnpm);
+          expect(
+            yield* files.readFileString(`${repoRoot}/deno.json`),
+          ).toContain('"custom": "echo custom"');
+          expect(
+            repeated.outcomes
+              .filter((outcome) =>
+                ["package.json", "deno.json", "pnpm-workspace.yaml"].includes(
+                  outcome.path,
+                ),
+              )
+              .every((outcome) => outcome.classification === "unchanged"),
+          ).toBe(true);
+        }).pipe(Effect.provide(TestLayer)),
+    );
+  }
+
+  for (const manifest of [
+    {
+      path: "deno.json",
+      previous: '{"workspace":[],"custom":"old"}',
+      proposed: '{"workspace":[],"custom":"new"}',
+    },
+    {
+      path: "pnpm-workspace.yaml",
+      previous: "packages: []\nsetting: old\n",
+      proposed: "packages: []\nsetting: new\n",
+    },
+  ]) {
+    it.effect(
+      `should require an Apply decision when ${manifest.path} conflicts while membership changes`,
+      () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          yield* files.makeDirectory(repoRoot, { recursive: true });
+          yield* files.writeFileString(
+            `${repoRoot}/${manifest.path}`,
+            manifest.previous,
+          );
+          const workspace = new TargetIdentity({
+            kind: TargetKind.make("workspace"),
+            name: config.name,
+          });
+          const catalog = CatalogService.fromFragments([
+            {
+              targets: [
+                {
+                  kind: "workspace",
+                  title: "Workspace",
+                  description: "Workspace",
+                  contributions: [
+                    {
+                      _tag: "file",
+                      path: manifest.path,
+                      contents: manifest.proposed,
+                      conflictOnModify: true,
+                    },
+                  ],
+                },
+                {
+                  kind: "package",
+                  title: "Package",
+                  description: "Package",
+                  contributions: [
+                    {
+                      _tag: "file",
+                      path: "{{targetPath}}/package.json",
+                      contents: '{"name":"{{packageName}}"}',
+                    },
+                  ],
+                },
+              ],
+              modules: [],
+            },
+          ]);
+          const services = Layer.merge(
+            PlanService.layer,
+            ApplyService.layer,
+          ).pipe(
+            Layer.provide(catalog),
+            Layer.provide(
+              Layer.merge(
+                Layer.succeed(FileSystem.FileSystem, files),
+                Path.layer,
+              ),
+            ),
+          );
+          yield* Effect.gen(function* () {
+            const plans = yield* PlanService;
+            const service = yield* ApplyService;
+            const plan = yield* plans.build({
+              blueprint: targetBlueprint([
+                { _tag: "target", id: workspace.toKey(), identity: workspace },
+                packageNode("sdk/client"),
+              ]),
+              repoRoot,
+              config,
+            });
+            expect(plan.conflicts.map((conflict) => conflict.path)).toEqual([
+              manifest.path,
+            ]);
+            expect(
+              plan.outcomes.find((outcome) => outcome.path === manifest.path)
+                ?.classification,
+            ).toBe("conflict");
+            expect(
+              (yield* Effect.flip(
+                service.apply({ apply: intent(plan), repoRoot }),
+              ))._tag,
+            ).toBe("ApplyFailure");
+            expect(
+              yield* files.readFileString(`${repoRoot}/${manifest.path}`),
+            ).toBe(manifest.previous);
+            const result = yield* service.apply({
+              apply: new Apply({
+                plan,
+                decisions: [{ path: manifest.path, value: "override" }],
+              }),
+              repoRoot,
+            });
+            expect(result.failed).toEqual([]);
+            const updated = yield* files.readFileString(
+              `${repoRoot}/${manifest.path}`,
+            );
+            expect(updated).toContain("packages/sdk/client");
+            expect(updated).toContain("new");
+          }).pipe(Effect.provide(Layer.fresh(services)));
+        }).pipe(Effect.provide(TestLayer)),
+    );
+  }
+
   const ownershipRejections = [
     {
       title: "rejects a helper package owning the parent of a proposed package",
@@ -430,32 +649,12 @@ describe("Plan and Apply repository state", () => {
   for (const fixtureDirectory of [".fixtures", "dist"]) {
     for (const contents of ["{}", '{"name":"fixture-owner"}']) {
       it.effect(
-        `applies owner-internal ${fixtureDirectory} manifest ${contents} followed by later writes without self-staleness`,
+        `should complete later writes when an owner contains a ${fixtureDirectory} manifest ${contents}`,
         () =>
           Effect.gen(function* () {
             const files = yield* FileSystem.FileSystem;
             const name = ModuleId.make("domain-fixture-regression");
             const identity = packageNode("domain").identity;
-            const attached = toAttachedModuleNodeId(identity.toKey(), name);
-            const fixtureBlueprint = new Blueprint({
-              nodes: [
-                packageNode("domain"),
-                {
-                  _tag: "attached-module",
-                  id: attached,
-                  targetId: identity.toKey(),
-                  moduleId: name,
-                },
-              ],
-              edges: [
-                {
-                  id: `owns-module=>${identity.toKey()}=>${attached}`,
-                  from: identity.toKey(),
-                  to: attached,
-                  reason: "owns-module",
-                },
-              ],
-            }).toSorted();
             const fixtureCatalog = officialCatalogLayerWith([
               {
                 targets: [],
@@ -483,6 +682,7 @@ describe("Plan and Apply repository state", () => {
               },
             ]);
             const services = Layer.mergeAll(
+              BlueprintService.layer,
               PlanService.layer,
               ApplyService.layer,
             ).pipe(
@@ -495,6 +695,11 @@ describe("Plan and Apply repository state", () => {
               ),
             );
             const result = yield* Effect.gen(function* () {
+              const resolver = yield* BlueprintService;
+              const fixtureBlueprint = yield* resolver.resolve(
+                { targets: [{ identity, modules: [{ id: name }] }] },
+                config,
+              );
               const plan = yield* buildProposed(fixtureBlueprint);
               const service = yield* ApplyService;
               return yield* service.apply({ apply: intent(plan), repoRoot });

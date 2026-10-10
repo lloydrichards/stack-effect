@@ -6,8 +6,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { ContributionTokenContext, StackConfig } from "@repo/domain/Scaffold";
-import { Effect, Graph, Schema } from "effect";
+import { Effect, Graph } from "effect";
 import { OfficialCatalogLayer, officialCatalogLayerWith } from "../src/service";
 
 const extra: typeof ModuleDefinition.Type = {
@@ -57,41 +56,6 @@ baseIt.effect(
 );
 
 layer(OfficialCatalogLayer)("CatalogService", (it) => {
-  it.effect(
-    "generates Node pnpm workspace metadata that discovers nested apps and packages",
-    () =>
-      Effect.gen(function* () {
-        const catalog = yield* CatalogService;
-        const identity = new TargetIdentity({
-          kind: TargetKind.make("workspace"),
-          name: "catalog-control",
-        });
-        const context = new ContributionTokenContext({
-          targetKey: identity.toKey(),
-          identity,
-          config: new StackConfig({
-            name: Schema.NonEmptyString.make("catalog-control"),
-            runtime: { _tag: "node", packageManager: "pnpm" },
-          }),
-        });
-        const workspace = yield* catalog.getTarget(
-          TargetKind.make("workspace"),
-        );
-        for (const filename of ["package.json", "pnpm-workspace.yaml"]) {
-          const file = workspace.contributions.find(
-            (contribution) =>
-              contribution._tag === "file" &&
-              context.resolve(contribution.path) === filename,
-          );
-          assert.isDefined(file);
-          assert.strictEqual(file._tag, "file");
-          if (file._tag === "file") {
-            assert.include(context.resolve(file.contents), "packages/**");
-            assert.include(context.resolve(file.contents), "apps/**");
-          }
-        }
-      }),
-  );
   it.effect(
     "should expose module incompatibilities when building the public catalog tree",
     () =>

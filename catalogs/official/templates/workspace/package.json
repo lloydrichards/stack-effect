@@ -13,8 +13,5 @@
   },{{/if}}{{#if runtime=node}}"engines": {
     "node": ">=24"
   },{{/if}}
-  "workspaces": [
-    "apps/**",
-    "packages/**"
-  ]
+  "workspaces": []
 }

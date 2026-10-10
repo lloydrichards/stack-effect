@@ -19,6 +19,7 @@
         packages = with pkgs; [
           git
           bun
+          deno
           corepack
           nodejs_24
           pnpm

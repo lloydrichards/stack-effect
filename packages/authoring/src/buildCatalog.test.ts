@@ -33,57 +33,9 @@ const withModule = (module: ModuleInput): CatalogInput => ({
   modules: [...catalog.modules, defineModules(import.meta.url, [module])],
 });
 
-it.effect(
-  "publishes hierarchical owner identities and their required capability",
-  () =>
-    Effect.gen(function* () {
-      const input: CatalogInput = {
-        targets: [
-          defineTargets(import.meta.url, [
-            {
-              kind: "package",
-              title: "Package",
-              description: "Package",
-              contributions: [],
-            },
-          ]),
-        ],
-        modules: [
-          defineModules(import.meta.url, [
-            {
-              id: "sdk-client-placement",
-              title: "Placement",
-              description: "Placement",
-              supportedOn: [
-                {
-                  _tag: "identity",
-                  identity: { kind: "package", name: "sdk/client" },
-                },
-              ],
-              dependencies: [],
-              contributions: [],
-            },
-          ]),
-        ],
-      };
-      const result = yield* buildCatalog(input, {
-        catalogId: "acme",
-        root: packageRoot,
-      });
-      assert.strictEqual(
-        result.document.modules[0]?.supportedOn[0]?._tag,
-        "identity",
-      );
-      assert.include(
-        result.document.requiredCapabilities,
-        "target:hierarchical-name",
-      );
-    }).pipe(Effect.provide(NodeServices.layer)),
-);
-
-for (const hierarchicalField of ["default", "dependency"] as const) {
+for (const hierarchicalField of ["owner", "default", "dependency"] as const) {
   it.effect(
-    `declares hierarchical-name capability for a ${hierarchicalField} identity`,
+    `should declare hierarchical-name capability when a ${hierarchicalField} identity is nested`,
     () =>
       Effect.gen(function* () {
         const input: CatalogInput = {
@@ -106,7 +58,15 @@ for (const hierarchicalField of ["default", "dependency"] as const) {
                 id: "sdk-example",
                 title: "SDK",
                 description: "SDK",
-                supportedOn: [{ _tag: "kind", kind: "package" }],
+                supportedOn:
+                  hierarchicalField === "owner"
+                    ? [
+                        {
+                          _tag: "identity",
+                          identity: { kind: "package", name: "sdk/client" },
+                        },
+                      ]
+                    : [{ _tag: "kind", kind: "package" }],
                 dependencies:
                   hierarchicalField === "dependency"
                     ? [

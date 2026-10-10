@@ -31,7 +31,7 @@ on:
 
 jobs:
   e2e:
-    name: "E2E Test (init + add + registry project)"
+    name: "E2E Test (init + add + registry project + Deno)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -67,4 +67,5 @@ jobs:
             bun run test:e2e e2e/init.test.ts
             bun run test:e2e e2e/add.test.ts
             bun run test:e2e e2e/registry-project.test.ts
+            bun run test:e2e e2e/deno.test.ts
           '

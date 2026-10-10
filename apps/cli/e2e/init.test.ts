@@ -171,7 +171,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "mono-app/package.json",
             "scripts.clean",
-            'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+            'vp cache clean && vp run --no-cache --filter "./apps/**" --filter "./packages/**" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
           );
           yield* cli.expectFileContaining(
             "mono-app/package.json",
@@ -416,7 +416,12 @@ describe("init", () => {
             yield* project.expectBuildSucceeds();
             yield* project.expectTestsPasses();
 
-            const cached = yield* project.exec("bun", "run", "build");
+            const cached = yield* project.exec(
+              "bun",
+              "run",
+              "build",
+              "--output-style=static",
+            );
             assert.strictEqual(cached.exitCode, 0);
             assert.match(cached.stdout, /read the output from the cache/i);
 
@@ -429,7 +434,12 @@ describe("init", () => {
             assert.match(digest.stdout, /^[a-f0-9]{64}$/);
             assert.strictEqual(digest.stderr, "");
 
-            const invalidated = yield* project.exec("bun", "run", "build");
+            const invalidated = yield* project.exec(
+              "bun",
+              "run",
+              "build",
+              "--output-style=static",
+            );
             const invalidatedOutput = `${invalidated.stdout}\n${invalidated.stderr}`;
             assert.strictEqual(invalidated.exitCode, 0);
             assert.isFalse(
@@ -439,7 +449,12 @@ describe("init", () => {
               /must-not-appear-in-nx-output/.test(invalidatedOutput),
             );
 
-            const projectEnvCached = yield* project.exec("bun", "run", "build");
+            const projectEnvCached = yield* project.exec(
+              "bun",
+              "run",
+              "build",
+              "--output-style=static",
+            );
             assert.match(
               projectEnvCached.stdout,
               /read the output from the cache/i,
@@ -622,7 +637,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "vite-plus-app/package.json",
             "scripts.clean",
-            'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+            'vp cache clean && vp run --no-cache --filter "./apps/**" --filter "./packages/**" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
           );
           yield* cli.expectFileContaining(
             "vite-plus-app/.gitignore",

@@ -61,6 +61,10 @@ const renderOperation = (
         .join("\n");
       return `In \`${path}\`, add these packages to "${o.section}":\n${entries}`;
     }),
+    Match.tag(
+      "json-workspace-members",
+      (o) => `${o.field}: ${o.members.join(", ")}`,
+    ),
     Match.tag("json-pkg-scripts", (o) => {
       const entries = o.entries
         .map((e) => `  "${e.name}": "${e.value}"`)

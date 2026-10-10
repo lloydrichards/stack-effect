@@ -122,6 +122,16 @@ describe("Deno generated project", () => {
               "build:all",
             );
 
+            yield* project.expectCommandSucceeds(
+              "Bundle deployment migrations",
+              "deno",
+              "bundle",
+              "packages/db/src/migrations/0001_create_db_health.ts",
+              "packages/db/src/migrations/0002_create_todos.ts",
+              "--outdir",
+              "deployment/migrations",
+            );
+
             const hello = yield* project.exec(
               "apps/cli-app/dist/cli-app",
               "hello",
@@ -135,7 +145,8 @@ describe("Deno generated project", () => {
               `#!/bin/sh
 set -eu
 PORT=$((20000 + $$ % 20000))
-HOST=127.0.0.1 PORT="$PORT" DATABASE_FILE=./data/app.sqlite apps/server-api/dist/server-api >server.log 2>&1 &
+project_root="$(pwd)"
+HOST=127.0.0.1 PORT="$PORT" DATABASE_FILE="$project_root/data/app.sqlite" MIGRATIONS_DIRECTORY="$project_root/deployment/migrations" apps/server-api/dist/server-api >server.log 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40; do

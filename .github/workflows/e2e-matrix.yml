@@ -62,5 +62,5 @@ jobs:
         run: |
           nix develop --command bash -lc '
             cd apps/cli
-            bun run test:e2e e2e/matrix.test.ts
+            bun run test:e2e e2e/matrix.test.ts e2e/hierarchical-workspaces.test.ts --maxWorkers=1 --hookTimeout=120000
           '

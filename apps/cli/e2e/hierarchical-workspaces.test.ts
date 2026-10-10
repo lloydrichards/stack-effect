@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { officialCatalogLayerWith } from "@repo/catalog-official/service";
@@ -11,7 +12,7 @@ import {
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { ApplyWorkspaceService, BlueprintService } from "@repo/scaffold";
-import { Effect, FileSystem, Layer, Path, Stream } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 const modes = [
@@ -72,7 +73,10 @@ for (const mode of modes) {
         dependencies: [],
         contributions: [
           entry("exports", ".", "./src/peer.ts"),
-          file("{{targetPath}}/src/peer.ts", 'export const value = "codec";\n'),
+          file(
+            "{{targetPath}}/src/peer.ts",
+            'export const value = "codec";\nexport const codecUrl = import.meta.url;\n',
+          ),
         ],
       },
       {
@@ -93,7 +97,7 @@ for (const mode of modes) {
           entry("dependencies", "@repo/sdk-codecs", "{{workspaceDependency}}"),
           file(
             "{{targetPath}}/src/peer.ts",
-            'import { value } from "@repo/sdk-codecs";\nexport const result = `client:${value}`;\n',
+            'import { value, codecUrl } from "@repo/sdk-codecs";\nexport { codecUrl };\nexport const clientUrl = import.meta.url;\nexport const result = `client:${value}`;\n',
           ),
         ],
       },
@@ -115,7 +119,7 @@ for (const mode of modes) {
           entry("dependencies", "@repo/sdk-client", "{{workspaceDependency}}"),
           file(
             "{{targetPath}}/src/build.ts",
-            'import { mkdirSync, writeFileSync } from "node:fs";\nimport { result } from "@repo/sdk-client";\nmkdirSync("dist", { recursive: true });\nwriteFileSync("dist/probe.txt", result);\n',
+            'import { mkdirSync, writeFileSync } from "node:fs";\nimport { result, clientUrl, codecUrl } from "@repo/sdk-client";\nmkdirSync("dist", { recursive: true });\nwriteFileSync("dist/probe.txt", result);\nwriteFileSync("dist/urls.json", JSON.stringify({ clientUrl, codecUrl }));\n',
           ),
         ],
       },
@@ -133,7 +137,7 @@ for (const mode of modes) {
       Layer.provideMerge(NodeServices.layer),
     );
     it.live(
-      `${mode.label} builds a generated ${layout} app through workspace peers`,
+      `should build and resolve workspace peers when ${mode.label} uses a ${layout} layout`,
       () =>
         Effect.gen(function* () {
           const fs = yield* FileSystem.FileSystem;
@@ -215,6 +219,15 @@ for (const mode of modes) {
                 return result;
               }),
             ).pipe(Effect.timeout("90 seconds"));
+          const internalManifest = path.join(
+            root,
+            app.toPath(),
+            "templates/workspace/package.json",
+          );
+          yield* fs.makeDirectory(path.dirname(internalManifest), {
+            recursive: true,
+          });
+          yield* fs.writeFileString(internalManifest, '{"private":true}');
           const manager = config.packageManagerName;
           yield* run(
             manager,
@@ -282,6 +295,30 @@ for (const mode of modes) {
             ),
             "client:codec",
           );
+          if (manager === "deno") {
+            assert.deepStrictEqual(
+              yield* Schema.decodeEffect(
+                Schema.fromJsonString(
+                  Schema.Struct({
+                    clientUrl: Schema.String,
+                    codecUrl: Schema.String,
+                  }),
+                ),
+              )(
+                yield* fs.readFileString(
+                  path.join(root, app.toPath(), "dist/urls.json"),
+                ),
+              ),
+              {
+                clientUrl: pathToFileURL(
+                  path.join(root, client.toPath(), "src/peer.ts"),
+                ).href,
+                codecUrl: pathToFileURL(
+                  path.join(root, codecs.toPath(), "src/peer.ts"),
+                ).href,
+              },
+            );
+          }
           assert.isTrue(
             yield* fs.exists(path.join(root, client.toPath(), "package.json")),
           );

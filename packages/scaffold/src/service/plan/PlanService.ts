@@ -21,6 +21,10 @@ import {
 import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
 import { RepositoryStateService } from "./RepositoryStateService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
+import {
+  registerWorkspaceMembers,
+  workspaceManifestPaths,
+} from "./WorkspaceMembership";
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
@@ -64,6 +68,7 @@ export class PlanService extends Context.Service<
         paths: Arr.fromIterable(
           new Set([
             ".",
+            ...workspaceManifestPaths,
             ...Arr.flatMap(planningPaths, (planningPath) => [
               planningPath.path,
               ...collectAncestorPaths(planningPath.path),
@@ -153,11 +158,15 @@ export class PlanService extends Context.Service<
 
         const plan = yield* Plan.makeEffect({
           baseline,
-          outcomes: Arr.map(assessedPaths, ({ planningPath, assessment }) =>
-            assessor.toPlannedFileOutcome({
-              planningPath,
-              classification: assessment.classification,
-            }),
+          outcomes: yield* registerWorkspaceMembers(
+            Arr.map(assessedPaths, ({ planningPath, assessment }) =>
+              assessor.toPlannedFileOutcome({
+                planningPath,
+                classification: assessment.classification,
+              }),
+            ),
+            repoSnapshot,
+            (baseline.packageOwners ?? []).map((owner) => owner.path),
           ),
           conflicts: Arr.flatMap(
             assessedPaths,

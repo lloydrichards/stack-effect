@@ -68,6 +68,10 @@ const applyJsonOperation = (
   op: JsonCompositionOperation,
 ): Effect.Effect<void, ApplyFailure, never> =>
   Match.typeTags<JsonCompositionOperation>()({
+    "json-workspace-members": (o) =>
+      Effect.sync(() => {
+        pkg[o.field] = o.members;
+      }),
     "json-pkg-exports": (o) =>
       assignPackageJsonEntries(pkg, "exports", o.entries),
     "json-pkg-deps": (o) => assignPackageJsonEntries(pkg, o.section, o.entries),

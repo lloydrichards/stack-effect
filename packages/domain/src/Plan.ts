@@ -138,7 +138,17 @@ export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
   content: Schema.String,
 });
 
+export const JsonWorkspaceMembersOp = Schema.TaggedStruct(
+  "json-workspace-members",
+  {
+    fileType: Schema.tag("json"),
+    field: Schema.Literals(["workspaces", "workspace"]),
+    members: Schema.Array(Schema.String),
+  },
+);
+
 const JsonCompositionOperationSchema = Schema.Union([
+  JsonWorkspaceMembersOp,
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,

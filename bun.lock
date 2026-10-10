@@ -22,7 +22,7 @@
     },
     "apps/cli": {
       "name": "stack-effect",
-      "version": "0.16.0",
+      "version": "0.17.0",
       "bin": {
         "stack-effect": "dist/index.js",
       },
@@ -45,7 +45,7 @@
     },
     "apps/docs": {
       "name": "@stack-effect/docs",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "dependencies": {
         "@base-ui/react": "^1.8.0",
         "@effect/atom-react": "4.0.0",
@@ -150,7 +150,7 @@
     },
     "packages/author": {
       "name": "@stack-effect/author",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "devDependencies": {
         "@effect/platform-node": "4.0.0",
         "@repo/authoring": "workspace:*",
@@ -218,6 +218,7 @@
         "effect": "4.0.0",
         "effect-boxes": "^0.17.3",
         "ts-morph": "^28.0.0",
+        "yaml": "^2.9.1",
       },
       "devDependencies": {
         "@effect/vitest": "4.0.0",

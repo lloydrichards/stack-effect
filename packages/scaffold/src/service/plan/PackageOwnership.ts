@@ -159,7 +159,7 @@ export const validatePackageOwners = (
     );
   });
 
-const isRootManifest = (
+export const isRootManifest = (
   manifestPath: string,
   ownerPaths: ReadonlyArray<string>,
 ) => {
