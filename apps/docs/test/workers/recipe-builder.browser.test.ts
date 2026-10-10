@@ -331,14 +331,21 @@ it.live(
       const preview = yield* session.preview({
         sessionId: 1,
         targetIdentityKey: "full-stack",
-        input: toRecipePreviewInput(fullStackRecipeFixture),
+        input: toRecipePreviewInput({
+          ...fullStackRecipeFixture,
+          targets: fullStackRecipeFixture.targets.map((target) =>
+            target.kind === "client-react"
+              ? { ...target, name: "sdk/web" }
+              : target,
+          ),
+        }),
       });
       const targetKeys = preview.preview.blueprint.nodes.flatMap((node) =>
         node._tag === "target" ? [node.id] : [],
       );
       const paths = preview.preview.files.map((file) => file.path);
 
-      assert.include(targetKeys, TargetKey.make("apps/client-react-web"));
+      assert.include(targetKeys, TargetKey.make("apps/sdk/client-react-web"));
       assert.include(targetKeys, TargetKey.make("apps/server-api"));
       assert.include(targetKeys, TargetKey.make("packages/domain"));
       assert.include(paths, "stack.effect.json");
@@ -347,7 +354,17 @@ it.live(
           ?.contents ?? "",
         STACK_CONFIG_SCHEMA_URL,
       );
-      assert.include(paths, "apps/client-react-web/package.json");
+      assert.include(paths, "apps/sdk/client-react-web/package.json");
+      assert.equal(
+        (yield* Schema.decodeEffect(
+          Schema.fromJsonString(Schema.Struct({ name: Schema.String })),
+        )(
+          preview.preview.files.find(
+            (file) => file.path === "apps/sdk/client-react-web/package.json",
+          )!.contents,
+        )).name,
+        "client-react-sdk-web",
+      );
       assert.include(paths, "apps/server-api/package.json");
       assert.include(paths, "packages/domain/package.json");
       assert.include(preview.preview.command, "full-stack-app");

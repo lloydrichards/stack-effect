@@ -11,21 +11,24 @@ import { fullStackRecipeFixture } from "./recipe-fixtures";
 const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormSchema);
 
 describe("recipe builder form", () => {
-  it("should reject a target name when it is outside the canonical path format", () => {
-    const result = decodeForm({
-      ...initialRecipeBuilderValues,
-      targets: [
-        {
-          id: "client-1",
-          kind: "client-react",
-          name: "Invalid Name",
-          modules: [],
-        },
-      ],
-    });
+  it.each(["Invalid Name", "sdk//web", "../web", "sdk/con"])(
+    "should reject %s when it is outside the safe canonical path format",
+    (name) => {
+      const result = decodeForm({
+        ...initialRecipeBuilderValues,
+        targets: [
+          {
+            id: "client-1",
+            kind: "client-react",
+            name,
+            modules: [],
+          },
+        ],
+      });
 
-    expect(Option.isNone(result)).toBe(true);
-  });
+      expect(Option.isNone(result)).toBe(true);
+    },
+  );
 
   it("should reject target identities when their kind and name are duplicated", () => {
     const target = {

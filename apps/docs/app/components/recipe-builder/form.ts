@@ -1,4 +1,9 @@
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+  TargetName,
+} from "@repo/domain/Catalog";
 import {
   CatalogSources,
   selectsOfficialCatalog,
@@ -23,10 +28,14 @@ const ProjectNameSchema = Schema.String.check(
   ),
 );
 
-const TargetNameSchema = Schema.String.check(
-  Schema.isPattern(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*)?$/, {
-    message: "Use lowercase letters, numbers, and single hyphens.",
-  }),
+const TargetNameSchema = TargetName.check(
+  Schema.isPattern(
+    /^(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$/,
+    {
+      message:
+        "Use lowercase letters, numbers, and single hyphens; separate folders with /.",
+    },
+  ),
 );
 
 /** Absent sources mean the official catalog only, as in `stack.effect.json`. */

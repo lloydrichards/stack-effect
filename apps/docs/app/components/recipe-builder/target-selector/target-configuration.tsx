@@ -77,7 +77,7 @@ export function TargetConfiguration({
     ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
     : target.name.length === 0
       ? "Optional; leave blank to use the target kind for its path and package name."
-      : "Lowercase letters, numbers, and hyphens; used in paths and package names.";
+      : "Use / for nested folders, e.g. sdk/web. Package names join folders with hyphens.";
   const childIds = new Set(
     modules.flatMap((module) => module.children.map((child) => child.moduleId)),
   );

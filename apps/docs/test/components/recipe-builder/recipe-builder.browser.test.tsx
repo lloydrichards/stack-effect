@@ -381,8 +381,18 @@ test("should generate a usable preview when the user completes a valid Selection
   await renderRecipeBuilder();
 
   await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByLabelText("Target name").fill("sdk/web");
   await page.getByText("HTTP API Client", { exact: true }).click();
 
+  await expect
+    .poll(() =>
+      new URLSearchParams(
+        page.getByLabelText("Recipe URL search").element().textContent ?? "",
+      ).getAll("target"),
+    )
+    .toContain(
+      "client-react/sdk/web:config-typescript-vite,client-react-http-api",
+    );
   await expect
     .element(page.getByText("3 resolved targets").first())
     .toBeVisible();
@@ -698,7 +708,8 @@ test("should retain the last valid preview when the current Selection becomes in
     .element(command)
     .toHaveTextContent("bunx stack-effect create my-effect-app");
 
-  await page.getByLabelText("Project name").fill("");
+  await page.getByRole("button", { name: "Client React Application" }).click();
+  await page.getByLabelText("Target name").fill("sdk//web");
 
   await expect.element(page.getByText("1 file", { exact: true })).toBeVisible();
   await expect

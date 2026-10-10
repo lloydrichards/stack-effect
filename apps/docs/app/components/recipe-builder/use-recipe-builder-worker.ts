@@ -8,6 +8,7 @@ import {
 } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
+import { Option, Schema } from "effect";
 import { AsyncResult, Atom } from "effect/reactivity";
 import {
   useCallback,
@@ -126,6 +127,9 @@ export function useRecipeBuilderWorker(
     | undefined
   >(undefined);
   const { targets } = values;
+  const identitiesValid = targets.every((target) =>
+    Option.isSome(Schema.decodeOption(TargetIdentity)(target)),
+  );
   const targetIdentityKey = targets.map(ownerKey).join("\u0000");
   const catalogResult = useMemo(
     () => AsyncResult.map(catalogRequestResult, ({ catalog }) => catalog),
@@ -159,7 +163,7 @@ export function useRecipeBuilderWorker(
   }, [enabled, requestCatalog, requestPreview]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !identitiesValid) return;
     const request = {
       sessionId,
       sources: catalogSources,
@@ -185,7 +189,7 @@ export function useRecipeBuilderWorker(
     requestCatalog(request);
     // Module selection deliberately does not invalidate catalog metadata.
     // targetIdentityKey and sessionId capture the fields used by this effect.
-  }, [enabled, requestCatalog, sessionId, targetIdentityKey]);
+  }, [enabled, identitiesValid, requestCatalog, sessionId, targetIdentityKey]);
 
   const reconcileCatalog = useEffectEvent(
     (result: typeof catalogRequestResult) => {
@@ -239,7 +243,7 @@ export function useRecipeBuilderWorker(
       requestPreview(Atom.Interrupt);
       return;
     }
-    if (!formValid || catalog === undefined) {
+    if (!formValid || !identitiesValid || catalog === undefined) {
       requestPreview(Atom.Interrupt);
       return;
     }
@@ -252,6 +256,7 @@ export function useRecipeBuilderWorker(
     catalog,
     enabled,
     formValid,
+    identitiesValid,
     requestPreview,
     sessionId,
     targetIdentityKey,
@@ -259,7 +264,8 @@ export function useRecipeBuilderWorker(
   ]);
 
   return {
-    canPreview: enabled && formValid && catalog !== undefined,
+    canPreview:
+      enabled && formValid && identitiesValid && catalog !== undefined,
     catalog,
     catalogFailed,
     catalogOwnersByTargetId,
