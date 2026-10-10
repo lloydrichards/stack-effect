@@ -8,7 +8,7 @@ import {
 } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
-  it("resolves physical path tokens without changing logical package naming", () => {
+  it("should resolve path tokens and flat npm names when the target name is nested", () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("package"),
       name: "sdk/client",
@@ -56,7 +56,7 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toPackageName()).toBe("server");
   });
 
-  it("rejects a dot as a target name", () => {
+  it("should reject a target identity when its name is a dot", () => {
     expect(() =>
       Schema.decodeSync(TargetIdentity)({ kind: "client-react", name: "." }),
     ).toThrow();
@@ -75,14 +75,14 @@ describe("@repo/domain Scaffold", () => {
   it("slugifies names with spaces into canonical keys and paths", () => {
     const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
-      name: "my api",
+      name: "SDK/My API",
     });
 
-    expect(identity.toKey()).toBe("apps/server-my-api");
-    expect(identity.toPath()).toBe("apps/server-my-api");
+    expect(identity.toKey()).toBe("apps/sdk/server-my-api");
+    expect(identity.toPath()).toBe("apps/sdk/server-my-api");
   });
 
-  it("preserves slash-separated hierarchy in canonical keys and paths", () => {
+  it("should preserve slash-separated hierarchy when deriving canonical keys and paths", () => {
     const identity = Schema.decodeSync(TargetIdentity)({
       kind: "package",
       name: "domain/core",
@@ -90,6 +90,7 @@ describe("@repo/domain Scaffold", () => {
 
     expect(identity.toKey()).toBe("packages/domain/core");
     expect(identity.toPath()).toBe("packages/domain/core");
+    expect(identity.toPackageName()).toBe("@repo/domain-core");
   });
 
   it("slugifies names with underscores into canonical keys and paths", () => {
@@ -105,11 +106,11 @@ describe("@repo/domain Scaffold", () => {
   it("normalizes surrounding whitespace before deriving canonical keys and paths", () => {
     const identity = Schema.decodeSync(TargetIdentity)({
       kind: "server",
-      name: "  My Api  ",
+      name: "  SDK/My Api  ",
     });
 
-    expect(identity.toKey()).toBe("apps/server-my-api");
-    expect(identity.toPath()).toBe("apps/server-my-api");
+    expect(identity.toKey()).toBe("apps/sdk/server-my-api");
+    expect(identity.toPath()).toBe("apps/sdk/server-my-api");
   });
 
   describe("toPackageName", () => {

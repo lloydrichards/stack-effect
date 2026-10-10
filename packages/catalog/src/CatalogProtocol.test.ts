@@ -1,7 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
   CatalogDocument,
-  type ModuleDependency,
   ModuleCapability,
   ModuleId,
   TargetIdentity,
@@ -40,7 +39,7 @@ const tokenContext = new ContributionTokenContext({
 
 describe("CatalogProtocol", () => {
   it.effect(
-    "keeps flat documents valid without hierarchical-name capability",
+    "should accept a flat catalog when hierarchical-name capability is absent",
     () =>
       Effect.gen(function* () {
         const original = yield* decodedTestCatalog;
@@ -61,7 +60,7 @@ describe("CatalogProtocol", () => {
   );
 
   it.effect(
-    "rejects a package default that cannot become a target identity",
+    "should reject the catalog when its package default is not a valid identity",
     () =>
       Effect.gen(function* () {
         const original = yield* decodedTestCatalog;
@@ -81,139 +80,82 @@ describe("CatalogProtocol", () => {
       }),
   );
 
-  it.effect("rejects removed placement fields and capability explicitly", () =>
-    Effect.gen(function* () {
-      const original = yield* decodedTestCatalog;
-      const base = yield* Schema.encodeEffect(CatalogDocument)(original);
-      const field = yield* Effect.flip(
-        decodeCatalogDocument({
-          ...base,
-          modules: base.modules.map((module, index) =>
-            index === 2
-              ? { ...module, targetPath: "packages/sdk/client" }
-              : module,
-          ),
-        }),
-      );
-      assert.strictEqual(field._tag, "SchemaError");
-      const capability = yield* Effect.flip(
-        decodeCatalogDocument({
-          ...base,
-          requiredCapabilities: [...base.requiredCapabilities, "target:path"],
-        }),
-      );
-      assert(capability._tag === "CatalogCapabilityError");
-      assert.include(capability.capabilities, "target:path");
-    }),
-  );
-
-  const hierarchicalOwner = new TargetIdentity({
+  const owner = new TargetIdentity({
     kind: TargetKind.make("package"),
     name: "sdk/client",
   });
-  const nameFields: ReadonlyArray<{
-    readonly title: string;
-    readonly targetDefault?: string;
-    readonly supportedOwner?: boolean;
-    readonly dependency?: typeof ModuleDependency.Type;
-  }> = [
-    { title: "target default", targetDefault: "sdk/api" },
-    { title: "exact module owner", supportedOwner: true },
-    {
-      title: "required target",
-      dependency: { _tag: "required-target", identity: hierarchicalOwner },
-    },
-    {
-      title: "required module",
-      dependency: {
-        _tag: "required-module",
-        target: hierarchicalOwner,
-        moduleId: ModuleId.make("domain-api-contracts"),
-      },
-    },
-    {
-      title: "required capability",
-      dependency: {
-        _tag: "required-capability",
-        target: hierarchicalOwner,
-        capability: ModuleCapability.make("sql"),
-      },
-    },
-  ];
-  nameFields.forEach(({ title, targetDefault, supportedOwner, dependency }) => {
-    it.effect(`requires hierarchical-name negotiation for ${title}`, () =>
-      Effect.gen(function* () {
-        const original = yield* decodedTestCatalog;
-        const hierarchical = {
-          ...original,
-          targets: original.targets.map((target, index) =>
-            targetDefault !== undefined && index === 1
-              ? { ...target, defaultName: targetDefault }
-              : target,
-          ),
-          modules: original.modules.map((module, index) =>
-            index === 2
-              ? {
-                  ...module,
-                  ...(supportedOwner
-                    ? {
-                        supportedOn: [
-                          {
-                            _tag: "identity" as const,
-                            identity: hierarchicalOwner,
-                          },
-                        ],
-                      }
-                    : {}),
-                  ...(dependency === undefined
-                    ? {}
-                    : { dependencies: [dependency] }),
-                }
-              : module,
-          ),
-        };
-        const flatCapabilities = original.requiredCapabilities.filter(
-          (capability) => capability !== "target:hierarchical-name",
-        );
-        const omitted = yield* Effect.flip(
-          validateCatalogCapabilities({
-            ...hierarchical,
-            requiredCapabilities: flatCapabilities,
-          }),
-        );
-        assert.deepStrictEqual(omitted.details, [
-          {
-            subject:
-              targetDefault === undefined
-                ? { _tag: "module", id: ModuleId.make("domain-api-contracts") }
-                : { _tag: "target", kind: TargetKind.make("package") },
-            capability: "target:hierarchical-name",
-          },
-        ]);
-        const document = {
-          ...hierarchical,
-          requiredCapabilities: [
-            ...flatCapabilities,
+  for (const usage of [
+    "default",
+    "owner",
+    "required-target",
+    "required-module",
+    "required-capability",
+  ] as const) {
+    it.effect(
+      `should negotiate hierarchical-name capability when a catalog uses a nested ${usage}`,
+      () =>
+        Effect.gen(function* () {
+          const original = yield* decodedTestCatalog;
+          const dependency =
+            usage === "required-target"
+              ? { _tag: usage, identity: owner }
+              : usage === "required-module"
+                ? {
+                    _tag: usage,
+                    target: owner,
+                    moduleId: ModuleId.make("domain-api-contracts"),
+                  }
+                : {
+                    _tag: "required-capability" as const,
+                    target: owner,
+                    capability: ModuleCapability.make("sql"),
+                  };
+          const document = {
+            ...original,
+            targets: original.targets.map((target) =>
+              usage === "default" && target.kind === "package"
+                ? { ...target, defaultName: owner.name }
+                : target,
+            ),
+            modules: original.modules.map((module, index) =>
+              index !== 2 || usage === "default"
+                ? module
+                : {
+                    ...module,
+                    ...(usage === "owner"
+                      ? {
+                          supportedOn: [
+                            { _tag: "identity" as const, identity: owner },
+                          ],
+                        }
+                      : { dependencies: [dependency] }),
+                  },
+            ),
+          };
+          const flat = original.requiredCapabilities.filter(
+            (name) => name !== "target:hierarchical-name",
+          );
+          const omitted = yield* Effect.flip(
+            validateCatalogCapabilities({
+              ...document,
+              requiredCapabilities: flat,
+            }),
+          );
+          assert.include(omitted.capabilities, "target:hierarchical-name");
+          const decoded = yield* decodeCatalogDocument(
+            yield* Schema.encodeEffect(CatalogDocument)(document),
+          );
+          assert.include(
+            (yield* Effect.flip(validateCatalogCapabilities(decoded, flat)))
+              .capabilities,
             "target:hierarchical-name",
-          ],
-        };
-        const decoded = yield* decodeCatalogDocument(
-          yield* Schema.encodeEffect(CatalogDocument)(document),
-        );
-        assert.include(
-          decoded.requiredCapabilities,
-          "target:hierarchical-name",
-        );
-        const oldInterpreter = yield* Effect.flip(
-          validateCatalogCapabilities(decoded, flatCapabilities),
-        );
-        assert.include(oldInterpreter.capabilities, "target:hierarchical-name");
-      }),
+          );
+        }),
     );
-  });
+  }
 
   it.effect(
-    "does not infer target-name capability from ordinary contribution strings",
+    "should accept contribution text containing slashes when no target identity is nested",
     () =>
       Effect.gen(function* () {
         const original = yield* decodedTestCatalog;

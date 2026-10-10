@@ -4,7 +4,7 @@ import { RecipeTargetString } from "./RecipeTargets";
 
 describe("recipe target syntax", () => {
   it.each(["server/sdk/api:server-http-api", "package/sdk/client"])(
-    "splits %s at the first slash",
+    "should retain nested names when parsing %s",
     (value) => {
       const spec = Schema.decodeSync(RecipeTargetString)(value);
       expect(spec.target.kind).toBe(
@@ -22,7 +22,7 @@ describe("recipe target syntax", () => {
     "server/sdk/../api",
     "server/api:",
     "server/api: , ",
-  ])("rejects malformed %s", (value) => {
+  ])("should reject target syntax when parsing malformed %s", (value) => {
     expect(() => Schema.decodeSync(RecipeTargetString)(value)).toThrow();
   });
 });

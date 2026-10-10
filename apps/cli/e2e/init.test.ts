@@ -310,7 +310,7 @@ describe("init", () => {
             "create",
             "nx-bun-app",
             "--target",
-            "client-react/web:client-react-http-api",
+            "client-react/sdk/web:client-react-http-api",
             "--target",
             "server/api:server-http-api",
             "--yes",
@@ -408,7 +408,7 @@ describe("init", () => {
               0,
               `${discovered.stdout}\n${discovered.stderr}`,
             );
-            assert.match(discovered.stdout, /client-react-web/);
+            assert.match(discovered.stdout, /client-react-sdk-web/);
             assert.match(discovered.stdout, /server-api/);
             assert.isFalse(/nx-bun-app/.test(discovered.stdout));
 
@@ -426,7 +426,7 @@ describe("init", () => {
             assert.match(cached.stdout, /read the output from the cache/i);
 
             yield* project.writeFile(
-              "apps/client-react-web/.env.local",
+              "apps/sdk/client-react-web/.env.local",
               "NX_GAUNTLET_SECRET=must-not-appear-in-nx-output\n",
             );
             const digest = yield* project.exec("node", "scripts/hash-env.mjs");
@@ -474,6 +474,34 @@ describe("init", () => {
               /read the output from the cache/i.test(rootEnvOutput),
             );
             assert.isFalse(/also-must-not-appear/.test(rootEnvOutput));
+            const before = yield* project.exec("node", "scripts/hash-env.mjs");
+            yield* project.writeFile(
+              "apps/sdk/client-react-web/templates/package.json",
+              "{}",
+            );
+            yield* project.writeFile(
+              "apps/sdk/client-react-web/templates/.env",
+              "IGNORED",
+            );
+            const after = yield* project.exec("node", "scripts/hash-env.mjs");
+            assert.strictEqual(after.exitCode, 0);
+            assert.strictEqual(after.stdout, before.stdout);
+            const linked = yield* project.exec(
+              "ln",
+              "-s",
+              "../missing-group",
+              "apps/group-link",
+            );
+            assert.strictEqual(linked.exitCode, 0);
+            const rejected = yield* project.exec(
+              "node",
+              "scripts/hash-env.mjs",
+            );
+            assert.notStrictEqual(rejected.exitCode, 0);
+            assert.include(
+              rejected.stderr,
+              "Symbolic workspace grouping directory is unsupported",
+            );
           });
         }),
       { timeout: 180_000 },

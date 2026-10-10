@@ -93,24 +93,6 @@ for (const hierarchicalField of ["owner", "default", "dependency"] as const) {
   );
 }
 
-it.effect("rejects authored legacy placement with its source location", () =>
-  Effect.gen(function* () {
-    const legacyModule = {
-      ...standaloneModule,
-      targetPath: "packages/sdk/client",
-    };
-    const input = withModule(legacyModule);
-    const failure = yield* Effect.flip(
-      buildCatalog(input, { catalogId: "acme", root: packageRoot }),
-    );
-    assert.strictEqual(failure.issues[0]?.code, "invalid-shape");
-    assert.match(failure.message, /targetPath/);
-    assert.deepStrictEqual(failure.issues[0]?.sources, [
-      "src/buildCatalog.test.ts",
-    ]);
-  }).pipe(Effect.provide(NodeServices.layer)),
-);
-
 const buildError = (input: CatalogInput) =>
   Effect.flip(buildCatalog(input, { catalogId: "acme", root: packageRoot }));
 

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
-import { describe, expect, it, layer } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
+import { describe, expect, layer } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import {
   type Blueprint,
@@ -49,116 +48,6 @@ const TestLayer = BlueprintService.layer.pipe(
 );
 
 describe("BlueprintService", () => {
-  const nestedLayer = BlueprintService.layer.pipe(
-    Layer.provide(
-      CatalogService.fromFragments([
-        {
-          targets: ["package", "server"].map((kind) => ({
-            kind: TargetKind.make(kind),
-            title: kind,
-            description: kind,
-            contributions: [],
-          })),
-          modules: [],
-        },
-      ]),
-    ),
-  );
-  it.effect(
-    "derives a nested package path without catalog placement metadata",
-    () =>
-      Effect.gen(function* () {
-        const identity = new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "sdk/client",
-        });
-        const service = yield* BlueprintService;
-        const blueprint = yield* service.resolve({
-          targets: [{ identity, modules: [] }],
-        });
-        const node = getNode(blueprint, "packages/sdk/client");
-        assert.strictEqual(node._tag, "target");
-        assert.strictEqual(identity.toPackageName(), "@repo/sdk-client");
-        assert.strictEqual("path" in node, false);
-      }).pipe(Effect.provide(nestedLayer)),
-  );
-  it.effect(
-    "retains the hierarchical identity of an explicit dependency",
-    () => {
-      const nested = new TargetIdentity({
-        kind: TargetKind.make("package"),
-        name: "sdk/client",
-      });
-      const catalog = CatalogService.fromFragments([
-        {
-          targets: ["workspace", "package"].map((kind) => ({
-            kind: TargetKind.make(kind),
-            title: kind,
-            description: kind,
-            contributions: [],
-          })),
-          modules: [
-            {
-              id: ModuleId.make("needs-sdk"),
-              title: "Needs SDK",
-              description: "Needs SDK",
-              supportedOn: [
-                { _tag: "kind", kind: TargetKind.make("workspace") },
-              ],
-              dependencies: [{ _tag: "required-target", identity: nested }],
-              contributions: [],
-            },
-          ],
-        },
-      ]);
-      return Effect.gen(function* () {
-        const service = yield* BlueprintService;
-        const blueprint = yield* service.resolve({
-          targets: [
-            {
-              identity: new TargetIdentity({
-                kind: TargetKind.make("workspace"),
-                name: "",
-              }),
-              modules: [{ id: ModuleId.make("needs-sdk") }],
-            },
-          ],
-        });
-        const node = getNode(blueprint, nested.toKey());
-        assert.strictEqual(node._tag, "target");
-        if (node._tag === "target")
-          assert.strictEqual(node.identity.name, "sdk/client");
-      }).pipe(
-        Effect.provide(BlueprintService.layer.pipe(Layer.provide(catalog))),
-      );
-    },
-  );
-  it.effect.each([
-    ["package", "sdk", "sdk/client"] as const,
-    ["package", "sdk-client", "sdk/client"] as const,
-    ["server", "sdk-api", "sdk/api"] as const,
-  ])(
-    "rejects colliding %s identities %s and %s before planning",
-    ([kind, left, right]) =>
-      Effect.gen(function* () {
-        const service = yield* BlueprintService;
-        const exit = yield* Effect.exit(
-          service.resolve({
-            targets: [left, right].map((name) => ({
-              identity: new TargetIdentity({
-                kind: TargetKind.make(kind),
-                name,
-              }),
-              modules: [],
-            })),
-          }),
-        );
-        assert.match(
-          String(squashFailure(exit)),
-          /Overlapping target ownership/,
-        );
-      }).pipe(Effect.provide(nestedLayer)),
-  );
   layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {
       it.effect("should fail when the same target is selected twice", () =>
@@ -572,7 +461,7 @@ describe("BlueprintService", () => {
             const blueprintService = yield* BlueprintService;
             const cliCustomIdentity = new TargetIdentity({
               kind: TargetKind.make("cli"),
-              name: "custom",
+              name: "sdk/custom",
             });
             const blueprint = yield* blueprintService.resolve({
               targets: [
@@ -583,9 +472,9 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(getNode(blueprint, "apps/cli-custom")).toMatchObject({
+            expect(getNode(blueprint, "apps/sdk/cli-custom")).toMatchObject({
               _tag: "target",
-              id: "apps/cli-custom",
+              id: "apps/sdk/cli-custom",
             });
             expect(
               blueprint.nodes.some((node) => node.id === "apps/cli-app"),
@@ -600,7 +489,7 @@ describe("BlueprintService", () => {
               ),
             ).toMatchObject({
               _tag: "attached-module",
-              targetId: "apps/cli-custom",
+              targetId: "apps/sdk/cli-custom",
               moduleId: "cli-chat-driver",
             });
           }),

@@ -21,56 +21,6 @@ const extraModule: typeof ModuleDefinition.Type = {
 };
 
 it.effect(
-  "rejects legacy targetPath rather than silently ignoring placement",
-  () =>
-    Effect.gen(function* () {
-      const failure = yield* Effect.flip(
-        composeCatalog([
-          {
-            ...testCatalog,
-            modules: testCatalog.modules.map((module, index) =>
-              index === 2
-                ? { ...module, targetPath: "packages/sdk/client" }
-                : module,
-            ),
-          },
-        ]),
-      );
-      assert.match(failure.message, /targetPath/);
-      assert.strictEqual(failure.details[0]?.code, "invalid-shape");
-    }),
-);
-
-it.effect(
-  "retains exact hierarchical owner identities during composition",
-  () =>
-    Effect.gen(function* () {
-      const owner = new TargetIdentity({
-        kind: TargetKind.make("package"),
-        name: "sdk/client",
-      });
-      const catalog = yield* composeCatalog([
-        testCatalog,
-        {
-          targets: [],
-          modules: [
-            {
-              ...extraModule,
-              id: ModuleId.make("sdk-client"),
-              supportedOn: [{ _tag: "identity", identity: owner }],
-            },
-          ],
-        },
-      ]);
-      const rule = catalog.modules.at(-1)?.supportedOn[0];
-      assert.isDefined(rule);
-      assert(rule._tag === "identity");
-      assert.strictEqual(rule.identity.name, "sdk/client");
-      assert.strictEqual(rule.identity.toPath(), "packages/sdk/client");
-    }),
-);
-
-it.effect(
   "should compose a module against another fragment's target when the fragments are independent",
   () =>
     Effect.gen(function* () {

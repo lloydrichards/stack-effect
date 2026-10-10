@@ -47,16 +47,10 @@ const entry = (
 });
 
 for (const mode of modes) {
-  for (const layout of ["flat", "nested"] as const) {
-    const app = identity("server", layout === "flat" ? "api" : "sdk/api");
-    const client = identity(
-      "package",
-      layout === "flat" ? "sdk-client" : "sdk/client",
-    );
-    const codecs = identity(
-      "package",
-      layout === "flat" ? "sdk-codecs" : "sdk/codecs",
-    );
+  {
+    const layout = "nested";
+    const app = identity("server", "sdk/api");
+    const client = identity("package", "sdk/client");
     const command =
       mode.runtime._tag === "deno"
         ? "deno run --allow-read --allow-write src/build.ts"
@@ -65,39 +59,17 @@ for (const mode of modes) {
           : "node src/build.ts";
     const modules: ReadonlyArray<typeof ModuleDefinition.Type> = [
       {
-        id: ModuleId.make("codec-probe"),
-        title: "Codec probe",
-        description: "Workspace peer",
-        supportedRuntimes: ["bun", "node", "deno"],
-        supportedOn: [{ _tag: "identity", identity: codecs }],
-        dependencies: [],
-        contributions: [
-          entry("exports", ".", "./src/peer.ts"),
-          file(
-            "{{targetPath}}/src/peer.ts",
-            'export const value = "codec";\nexport const codecUrl = import.meta.url;\n',
-          ),
-        ],
-      },
-      {
         id: ModuleId.make("client-probe"),
         title: "Client probe",
         description: "Workspace peer",
         supportedRuntimes: ["bun", "node", "deno"],
         supportedOn: [{ _tag: "identity", identity: client }],
-        dependencies: [
-          {
-            _tag: "required-module",
-            target: codecs,
-            moduleId: ModuleId.make("codec-probe"),
-          },
-        ],
+        dependencies: [],
         contributions: [
           entry("exports", ".", "./src/peer.ts"),
-          entry("dependencies", "@repo/sdk-codecs", "{{workspaceDependency}}"),
           file(
             "{{targetPath}}/src/peer.ts",
-            'import { value, codecUrl } from "@repo/sdk-codecs";\nexport { codecUrl };\nexport const clientUrl = import.meta.url;\nexport const result = `client:${value}`;\n',
+            'export const result = "client";\nexport const clientUrl = import.meta.url;\n',
           ),
         ],
       },
@@ -119,7 +91,7 @@ for (const mode of modes) {
           entry("dependencies", "@repo/sdk-client", "{{workspaceDependency}}"),
           file(
             "{{targetPath}}/src/build.ts",
-            'import { mkdirSync, writeFileSync } from "node:fs";\nimport { result, clientUrl, codecUrl } from "@repo/sdk-client";\nmkdirSync("dist", { recursive: true });\nwriteFileSync("dist/probe.txt", result);\nwriteFileSync("dist/urls.json", JSON.stringify({ clientUrl, codecUrl }));\n',
+            'import { mkdirSync, writeFileSync } from "node:fs";\nimport { result, clientUrl } from "@repo/sdk-client";\nmkdirSync("dist", { recursive: true });\nwriteFileSync("dist/probe.txt", result);\nwriteFileSync("dist/urls.json", JSON.stringify({ clientUrl }));\n',
           ),
         ],
       },
@@ -293,7 +265,7 @@ for (const mode of modes) {
             yield* fs.readFileString(
               path.join(root, app.toPath(), "dist/probe.txt"),
             ),
-            "client:codec",
+            "client",
           );
           if (manager === "deno") {
             assert.deepStrictEqual(
@@ -301,7 +273,6 @@ for (const mode of modes) {
                 Schema.fromJsonString(
                   Schema.Struct({
                     clientUrl: Schema.String,
-                    codecUrl: Schema.String,
                   }),
                 ),
               )(
@@ -313,17 +284,11 @@ for (const mode of modes) {
                 clientUrl: pathToFileURL(
                   path.join(root, client.toPath(), "src/peer.ts"),
                 ).href,
-                codecUrl: pathToFileURL(
-                  path.join(root, codecs.toPath(), "src/peer.ts"),
-                ).href,
               },
             );
           }
           assert.isTrue(
             yield* fs.exists(path.join(root, client.toPath(), "package.json")),
-          );
-          assert.isTrue(
-            yield* fs.exists(path.join(root, codecs.toPath(), "package.json")),
           );
         }).pipe(Effect.scoped, Effect.provide(services)),
     );

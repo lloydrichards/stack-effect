@@ -464,41 +464,43 @@ describe("RecipeService", () => {
         }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should resolve empty app target names to catalog defaults", () =>
-      Effect.gen(function* () {
-        const service = yield* RecipeService;
-        const selection = yield* service.resolve(
-          {
-            targets: [
-              {
-                target: new TargetIdentity({
-                  kind: TargetKind.make("client-react"),
-                  name: "",
-                }),
-                modules: [ModuleId.make("client-react-http-api")],
-              },
-              {
-                target: new TargetIdentity({
-                  kind: TargetKind.make("server"),
-                  name: "",
-                }),
-                modules: [ModuleId.make("server-http-api")],
-              },
-            ],
-          },
-          {
-            config: testConfig,
-            providerStrategy: { _tag: "fail-on-ambiguous" },
-          },
-        );
+    it.effect(
+      "should use catalog defaults when app target names are empty",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const selection = yield* service.resolve(
+            {
+              targets: [
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("client-react"),
+                    name: "",
+                  }),
+                  modules: [ModuleId.make("client-react-http-api")],
+                },
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("server"),
+                    name: "",
+                  }),
+                  modules: [ModuleId.make("server-http-api")],
+                },
+              ],
+            },
+            {
+              config: testConfig,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
 
-        assertTargetModules(selection, "apps/client-react-web", [
-          ModuleId.make("client-react-http-api"),
-        ]);
-        assertTargetModules(selection, "apps/server-api", [
-          ModuleId.make("server-http-api"),
-        ]);
-      }).pipe(Effect.provide(TestLayer)),
+          assertTargetModules(selection, "apps/client-react-web", [
+            ModuleId.make("client-react-http-api"),
+          ]);
+          assertTargetModules(selection, "apps/server-api", [
+            ModuleId.make("server-http-api"),
+          ]);
+        }).pipe(Effect.provide(TestLayer)),
     );
 
     it.effect("should allow recipes to omit explicit workspace targets", () =>
@@ -637,7 +639,7 @@ describe("RecipeService", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("rejects unnamed package targets at the recipe boundary", () =>
+    it.effect("should reject the recipe when a package target is unnamed", () =>
       Effect.gen(function* () {
         const error = yield* Effect.flip(
           Schema.decodeEffect(RecipeSpec)({
