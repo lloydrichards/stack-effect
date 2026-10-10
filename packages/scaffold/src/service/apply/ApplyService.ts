@@ -6,7 +6,7 @@ import {
   StalePlanFailure,
 } from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
-import { CompositionOperation } from "@repo/domain/Plan";
+import { CompositionOperation, type PackageOwner } from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -18,7 +18,7 @@ import {
   Path,
   Schema,
 } from "effect";
-import { parsePackageOwner } from "../plan/PackageOwnership";
+import { prepareOwnerWrites } from "../plan/PackageOwnership";
 import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { CompositionEngine } from "./CompositionEngine";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
@@ -398,7 +398,9 @@ export class ApplyService extends Context.Service<
       writeRequests,
       applyIntent,
       skippedPaths,
+      ownerWrites,
     }: {
+      ownerWrites: ReadonlyArray<PackageOwner>;
       repoRoot: string;
       writeRequests: ReadonlyArray<ApplyWriteRequest>;
       applyIntent: typeof Apply.Type;
@@ -415,8 +417,16 @@ export class ApplyService extends Context.Service<
               (entry.path === "." || filePath.startsWith(`${entry.path}/`)),
           )
           .forEach((entry) => createdDirectories.add(entry.path));
+      const ownerManifestPaths = new Set(
+        ownerWrites.map((owner) => `${owner.path}/package.json`),
+      );
+      // Establish package boundaries before publishing fixture manifests inside them.
+      const orderedWrites = [
+        ...writeRequests.filter((write) => ownerManifestPaths.has(write.path)),
+        ...writeRequests.filter((write) => !ownerManifestPaths.has(write.path)),
+      ];
       yield* Effect.forEach(
-        writeRequests,
+        orderedWrites,
         (writeRequest) =>
           Effect.gen(function* () {
             const relevantPaths = applyIntent.plan.baseline.paths
@@ -475,29 +485,11 @@ export class ApplyService extends Context.Service<
             attempts.push(attempt);
             if (attempt.status === "created" || attempt.status === "modified") {
               recordCreatedDirectories(writeRequest.path);
-              if (
-                expectedOwners !== undefined &&
-                writeRequest.path.startsWith("packages/") &&
-                writeRequest.path.endsWith("/package.json")
-              ) {
-                const owner = yield* parsePackageOwner(
-                  writeRequest.path,
-                  writeRequest.contents,
-                ).pipe(
-                  Effect.mapError(
-                    () =>
-                      new StalePlanFailure({
-                        changes: [
-                          { path: writeRequest.path, kind: "modified" },
-                        ],
-                        partialResult: toApplyResult({
-                          skippedPaths,
-                          writeAttempts: attempts,
-                        }),
-                        message: `Invalid package ownership at ${writeRequest.path}. Replan and try again.`,
-                      }),
-                  ),
-                );
+              const owner = ownerWrites.find(
+                (candidate) =>
+                  `${candidate.path}/package.json` === writeRequest.path,
+              );
+              if (expectedOwners !== undefined && owner !== undefined) {
                 expectedOwners = [
                   ...expectedOwners.filter(
                     (existing) => existing.path !== owner.path,
@@ -600,6 +592,35 @@ export class ApplyService extends Context.Service<
       }).toSorted();
     };
 
+    const validateOwnerWrites = Effect.fn("ApplyService.validateOwnerWrites")(
+      function* (
+        applyIntent: typeof Apply.Type,
+        repoRoot: string,
+        writes: ReadonlyArray<ApplyWriteRequest>,
+      ) {
+        const existing =
+          applyIntent.plan.baseline.packageOwners ??
+          (yield* repositoryState.discoverOwners(repoRoot).pipe(
+            Effect.mapError(
+              (error) =>
+                new ApplyFailure({
+                  reason: "invalidApplyIntent",
+                  message: error.message,
+                }),
+            ),
+          ));
+        return yield* prepareOwnerWrites(existing, writes).pipe(
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                reason: "invalidApplyIntent",
+                message: error.message,
+              }),
+          ),
+        );
+      },
+    );
+
     const apply = Effect.fn("ApplyService.apply")(function* ({
       apply: applyIntent,
       repoRoot,
@@ -613,7 +634,13 @@ export class ApplyService extends Context.Service<
       const actionProjection = yield* prepareWrites({ actions, repoRoot });
       yield* validateBaseline({ applyIntent, repoRoot });
 
+      const ownerWrites = yield* validateOwnerWrites(
+        applyIntent,
+        repoRoot,
+        actionProjection.writeRequests,
+      );
       const writeAttempts = yield* executeWrites({
+        ownerWrites,
         repoRoot,
         writeRequests: actionProjection.writeRequests,
         applyIntent,
@@ -637,6 +664,11 @@ export class ApplyService extends Context.Service<
       yield* validateBaseline({ applyIntent, repoRoot });
       const actionProjection = yield* prepareWrites({ actions, repoRoot });
       yield* validateBaseline({ applyIntent, repoRoot });
+      yield* validateOwnerWrites(
+        applyIntent,
+        repoRoot,
+        actionProjection.writeRequests,
+      );
 
       return toApplyResult({
         skippedPaths: actionProjection.skippedPaths,

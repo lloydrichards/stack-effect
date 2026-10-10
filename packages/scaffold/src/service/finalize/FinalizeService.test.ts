@@ -8,7 +8,6 @@ import {
   type TargetDefinition,
   TargetIdentity,
   TargetKind,
-  TargetPath,
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/Scaffold";
@@ -201,11 +200,11 @@ it.effect(
 );
 
 it.effect(
-  "resolves script workdirs and next steps from a placed package blueprint",
+  "derives nested script workdirs and next steps from target identity",
   () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("package"),
-      name: "sdk-client",
+      name: "sdk/client",
     });
     const blueprint = new Blueprint({
       nodes: [
@@ -213,7 +212,6 @@ it.effect(
           _tag: "target",
           id: identity.toKey(),
           identity,
-          path: TargetPath.make("packages/sdk/client"),
         },
       ],
       edges: [],

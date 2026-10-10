@@ -49,107 +49,63 @@ const TestLayer = BlueprintService.layer.pipe(
 );
 
 describe("BlueprintService", () => {
-  const sdkClient = new TargetIdentity({
-    kind: TargetKind.make("package"),
-    name: "sdk-client",
-  });
-  const placement = (id: string, path: string) => ({
-    id: ModuleId.make(id),
-    title: id,
-    description: id,
-    supportedOn: [{ _tag: "identity" as const, identity: sdkClient }],
-    targetPath: path,
-    dependencies: [],
-    contributions: [],
-  });
-  const nestedLayer = (paths: ReadonlyArray<string>) =>
-    BlueprintService.layer.pipe(
-      Layer.provide(
-        CatalogService.fromFragments([
-          {
-            targets: [
-              {
-                kind: TargetKind.make("package"),
-                title: "Package",
-                description: "Package",
-                contributions: [],
-              },
-            ],
-            modules: paths.map((path, index) =>
-              placement(`placement-${index}`, path),
-            ),
-          },
-        ]),
-      ),
-    );
+  const nestedLayer = BlueprintService.layer.pipe(
+    Layer.provide(
+      CatalogService.fromFragments([
+        {
+          targets: ["package", "server"].map((kind) => ({
+            kind: TargetKind.make(kind),
+            title: kind,
+            description: kind,
+            contributions: [],
+          })),
+          modules: [],
+        },
+      ]),
+    ),
+  );
   it.effect(
-    "resolves an unattached exact placement and leaves logical identity unchanged",
+    "derives a nested package path without catalog placement metadata",
     () =>
       Effect.gen(function* () {
+        const identity = new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "sdk/client",
+        });
         const service = yield* BlueprintService;
         const blueprint = yield* service.resolve({
-          targets: [{ identity: sdkClient, modules: [] }],
+          targets: [{ identity, modules: [] }],
         });
-        const node = getNode(blueprint, sdkClient.toKey());
+        const node = getNode(blueprint, "packages/sdk/client");
         assert.strictEqual(node._tag, "target");
-        if (node._tag === "target")
-          assert.strictEqual(node.path, "packages/sdk/client");
-        assert.strictEqual(sdkClient.toKey(), "packages/sdk-client");
-        assert.strictEqual(sdkClient.toPackageName(), "@repo/sdk-client");
-      }).pipe(Effect.provide(nestedLayer(["packages/sdk/client"]))),
+        assert.strictEqual(identity.toPackageName(), "@repo/sdk-client");
+        assert.strictEqual("path" in node, false);
+      }).pipe(Effect.provide(nestedLayer)),
   );
   it.effect(
-    "accepts equal claims and rejects conflicting or overlapping package locations",
-    () =>
-      Effect.gen(function* () {
-        const service = yield* BlueprintService;
-        const selection = { targets: [{ identity: sdkClient, modules: [] }] };
-        const blueprint = yield* service.resolve(selection);
-        assert.strictEqual(
-          getNode(blueprint, sdkClient.toKey())._tag,
-          "target",
-        );
-      }).pipe(
-        Effect.provide(
-          nestedLayer(["packages/sdk/client", "packages/sdk/client"]),
-        ),
-      ),
-  );
-  it.effect(
-    "places a dependency-introduced target without attaching its declaring module",
+    "retains the hierarchical identity of an explicit dependency",
     () => {
-      const workspace = new TargetIdentity({
-        kind: TargetKind.make("workspace"),
-        name: "",
+      const nested = new TargetIdentity({
+        kind: TargetKind.make("package"),
+        name: "sdk/client",
       });
       const catalog = CatalogService.fromFragments([
         {
-          targets: [
-            {
-              kind: TargetKind.make("workspace"),
-              title: "Root",
-              description: "Root",
-              contributions: [],
-            },
-            {
-              kind: TargetKind.make("package"),
-              title: "Package",
-              description: "Package",
-              contributions: [],
-            },
-          ],
+          targets: ["workspace", "package"].map((kind) => ({
+            kind: TargetKind.make(kind),
+            title: kind,
+            description: kind,
+            contributions: [],
+          })),
           modules: [
-            placement("placement", "packages/sdk/client"),
             {
               id: ModuleId.make("needs-sdk"),
-              title: "Needs SDK client",
-              description: "Needs SDK client",
+              title: "Needs SDK",
+              description: "Needs SDK",
               supportedOn: [
-                { _tag: "kind" as const, kind: TargetKind.make("workspace") },
+                { _tag: "kind", kind: TargetKind.make("workspace") },
               ],
-              dependencies: [
-                { _tag: "required-target" as const, identity: sdkClient },
-              ],
+              dependencies: [{ _tag: "required-target", identity: nested }],
               contributions: [],
             },
           ],
@@ -160,58 +116,48 @@ describe("BlueprintService", () => {
         const blueprint = yield* service.resolve({
           targets: [
             {
-              identity: workspace,
+              identity: new TargetIdentity({
+                kind: TargetKind.make("workspace"),
+                name: "",
+              }),
               modules: [{ id: ModuleId.make("needs-sdk") }],
             },
           ],
         });
-        const node = getNode(blueprint, sdkClient.toKey());
+        const node = getNode(blueprint, nested.toKey());
         assert.strictEqual(node._tag, "target");
         if (node._tag === "target")
-          assert.strictEqual(node.path, "packages/sdk/client");
-        assert.strictEqual(
-          blueprint.nodes.some(
-            (candidate) => candidate.id === `${sdkClient.toKey()}#placement`,
-          ),
-          false,
-        );
+          assert.strictEqual(node.identity.name, "sdk/client");
       }).pipe(
         Effect.provide(BlueprintService.layer.pipe(Layer.provide(catalog))),
       );
     },
   );
-  it.effect("rejects overlap with a flat package owner before planning", () =>
-    Effect.gen(function* () {
-      const service = yield* BlueprintService;
-      const exit = yield* Effect.exit(
-        service.resolve({
-          targets: [
-            { identity: sdkClient, modules: [] },
-            {
+  it.effect.each([
+    ["package", "sdk", "sdk/client"] as const,
+    ["package", "sdk-client", "sdk/client"] as const,
+    ["server", "sdk-api", "sdk/api"] as const,
+  ])(
+    "rejects colliding %s identities %s and %s before planning",
+    ([kind, left, right]) =>
+      Effect.gen(function* () {
+        const service = yield* BlueprintService;
+        const exit = yield* Effect.exit(
+          service.resolve({
+            targets: [left, right].map((name) => ({
               identity: new TargetIdentity({
-                kind: TargetKind.make("package"),
-                name: "sdk",
+                kind: TargetKind.make(kind),
+                name,
               }),
               modules: [],
-            },
-          ],
-        }),
-      );
-      assert.match(String(squashFailure(exit)), /Overlapping package paths/);
-    }).pipe(Effect.provide(nestedLayer(["packages/sdk/client"]))),
-  );
-  it.effect("fails conflicting claims before planning", () =>
-    Effect.gen(function* () {
-      const service = yield* BlueprintService;
-      const exit = yield* Effect.exit(
-        service.resolve({ targets: [{ identity: sdkClient, modules: [] }] }),
-      );
-      assert.match(String(squashFailure(exit)), /Conflicting package paths/);
-    }).pipe(
-      Effect.provide(
-        nestedLayer(["packages/sdk/client", "packages/elsewhere"]),
-      ),
-    ),
+            })),
+          }),
+        );
+        assert.match(
+          String(squashFailure(exit)),
+          /Overlapping target ownership/,
+        );
+      }).pipe(Effect.provide(nestedLayer)),
   );
   layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {

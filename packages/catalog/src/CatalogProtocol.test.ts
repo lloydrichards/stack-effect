@@ -1,6 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
   CatalogDocument,
+  type ModuleDependency,
+  ModuleCapability,
+  ModuleId,
   TargetIdentity,
   TargetKind,
   TargetKey,
@@ -10,6 +13,7 @@ import { Array as Arr, Effect, Schema } from "effect";
 import {
   decodeCatalogDocument,
   validateCatalogCapabilities,
+  V1_INTERPRETER_CAPABILITIES,
 } from "./CatalogProtocol";
 import { composeCatalog } from "./composeCatalog";
 import {
@@ -36,100 +40,200 @@ const tokenContext = new ContributionTokenContext({
 
 describe("CatalogProtocol", () => {
   it.effect(
-    "keeps older flat documents valid without the placement capability",
+    "keeps flat documents valid without hierarchical-name capability",
     () =>
       Effect.gen(function* () {
         const original = yield* decodedTestCatalog;
-        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
         const flat = {
-          ...base,
+          ...original,
           requiredCapabilities: original.requiredCapabilities.filter(
-            (name) => name !== "target:path",
+            (name) => name !== "target:hierarchical-name",
           ),
         };
-        const document = yield* decodeCatalogDocument(flat);
-        assert.isTrue(
-          document.modules.every((module) => module.targetPath === undefined),
+        const document = yield* decodeCatalogDocument(
+          yield* Schema.encodeEffect(CatalogDocument)(flat),
+        );
+        assert.deepStrictEqual(
+          document.requiredCapabilities,
+          flat.requiredCapabilities,
         );
       }),
   );
+
   it.effect(
-    "rejects unsafe placement and undeclared placement capability",
+    "rejects a package default that cannot become a target identity",
     () =>
       Effect.gen(function* () {
         const original = yield* decodedTestCatalog;
         const base = yield* Schema.encodeEffect(CatalogDocument)(original);
-        const placed = (path: string) => ({
-          ...base,
-          modules: base.modules.map((module, index) =>
-            index === 2
-              ? {
-                  ...module,
-                  supportedOn: [
-                    {
-                      _tag: "identity" as const,
-                      identity: { kind: "package", name: "sdk-client" },
-                    },
-                  ],
-                  targetPath: path,
-                }
-              : module,
-          ),
-        });
-        for (const path of [
-          "packages/sdk/../escape",
-          "packages/sdk//client",
-          "packages/sdk/",
-          "/packages/sdk",
-          "packages/sdk\\\\client",
-          "packages/sdk/./client",
-        ]) {
-          const result = yield* Effect.exit(
-            decodeCatalogDocument(placed(path)),
-          );
-          assert.isTrue(result._tag === "Failure", path);
-        }
-        const result = yield* Effect.exit(
+        const error = yield* Effect.flip(
           decodeCatalogDocument({
-            ...placed("packages/sdk/client"),
-            requiredCapabilities: base.requiredCapabilities.filter(
-              (name) => name !== "target:path",
+            ...base,
+            targets: base.targets.map((target) =>
+              target.kind === "package"
+                ? { ...target, defaultName: "" }
+                : target,
             ),
           }),
         );
-        assert.isTrue(result._tag === "Failure");
+        assert.strictEqual(error._tag, "SchemaError");
+        assert.include(error.message, "Default target names must be valid");
       }),
   );
-  it.effect(
-    "preserves module-owned package placement across document serialization",
-    () =>
-      Effect.gen(function* () {
-        const original = yield* decodedTestCatalog;
-        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
-        const wire = {
+
+  it.effect("rejects removed placement fields and capability explicitly", () =>
+    Effect.gen(function* () {
+      const original = yield* decodedTestCatalog;
+      const base = yield* Schema.encodeEffect(CatalogDocument)(original);
+      const field = yield* Effect.flip(
+        decodeCatalogDocument({
           ...base,
           modules: base.modules.map((module, index) =>
             index === 2
+              ? { ...module, targetPath: "packages/sdk/client" }
+              : module,
+          ),
+        }),
+      );
+      assert.strictEqual(field._tag, "SchemaError");
+      const capability = yield* Effect.flip(
+        decodeCatalogDocument({
+          ...base,
+          requiredCapabilities: [...base.requiredCapabilities, "target:path"],
+        }),
+      );
+      assert(capability._tag === "CatalogCapabilityError");
+      assert.include(capability.capabilities, "target:path");
+    }),
+  );
+
+  const hierarchicalOwner = new TargetIdentity({
+    kind: TargetKind.make("package"),
+    name: "sdk/client",
+  });
+  const nameFields: ReadonlyArray<{
+    readonly title: string;
+    readonly targetDefault?: string;
+    readonly supportedOwner?: boolean;
+    readonly dependency?: typeof ModuleDependency.Type;
+  }> = [
+    { title: "target default", targetDefault: "sdk/api" },
+    { title: "exact module owner", supportedOwner: true },
+    {
+      title: "required target",
+      dependency: { _tag: "required-target", identity: hierarchicalOwner },
+    },
+    {
+      title: "required module",
+      dependency: {
+        _tag: "required-module",
+        target: hierarchicalOwner,
+        moduleId: ModuleId.make("domain-api-contracts"),
+      },
+    },
+    {
+      title: "required capability",
+      dependency: {
+        _tag: "required-capability",
+        target: hierarchicalOwner,
+        capability: ModuleCapability.make("sql"),
+      },
+    },
+  ];
+  nameFields.forEach(({ title, targetDefault, supportedOwner, dependency }) => {
+    it.effect(`requires hierarchical-name negotiation for ${title}`, () =>
+      Effect.gen(function* () {
+        const original = yield* decodedTestCatalog;
+        const hierarchical = {
+          ...original,
+          targets: original.targets.map((target, index) =>
+            targetDefault !== undefined && index === 1
+              ? { ...target, defaultName: targetDefault }
+              : target,
+          ),
+          modules: original.modules.map((module, index) =>
+            index === 2
               ? {
                   ...module,
-                  supportedOn: [
-                    {
-                      _tag: "identity",
-                      identity: { kind: "package", name: "sdk-client" },
-                    },
-                  ],
-                  targetPath: "packages/sdk/client",
+                  ...(supportedOwner
+                    ? {
+                        supportedOn: [
+                          {
+                            _tag: "identity" as const,
+                            identity: hierarchicalOwner,
+                          },
+                        ],
+                      }
+                    : {}),
+                  ...(dependency === undefined
+                    ? {}
+                    : { dependencies: [dependency] }),
                 }
               : module,
           ),
         };
-        const decoded =
-          yield* Schema.decodeUnknownEffect(CatalogDocument)(wire);
-        const encoded = yield* Schema.encodeEffect(CatalogDocument)(decoded);
-        assert.strictEqual(
-          encoded.modules[2]?.targetPath,
-          "packages/sdk/client",
+        const flatCapabilities = original.requiredCapabilities.filter(
+          (capability) => capability !== "target:hierarchical-name",
         );
+        const omitted = yield* Effect.flip(
+          validateCatalogCapabilities({
+            ...hierarchical,
+            requiredCapabilities: flatCapabilities,
+          }),
+        );
+        assert.deepStrictEqual(omitted.details, [
+          {
+            subject:
+              targetDefault === undefined
+                ? { _tag: "module", id: ModuleId.make("domain-api-contracts") }
+                : { _tag: "target", kind: TargetKind.make("package") },
+            capability: "target:hierarchical-name",
+          },
+        ]);
+        const document = {
+          ...hierarchical,
+          requiredCapabilities: [
+            ...flatCapabilities,
+            "target:hierarchical-name",
+          ],
+        };
+        const decoded = yield* decodeCatalogDocument(
+          yield* Schema.encodeEffect(CatalogDocument)(document),
+        );
+        assert.include(
+          decoded.requiredCapabilities,
+          "target:hierarchical-name",
+        );
+        const oldInterpreter = yield* Effect.flip(
+          validateCatalogCapabilities(decoded, flatCapabilities),
+        );
+        assert.include(oldInterpreter.capabilities, "target:hierarchical-name");
+      }),
+    );
+  });
+
+  it.effect(
+    "does not infer target-name capability from ordinary contribution strings",
+    () =>
+      Effect.gen(function* () {
+        const original = yield* decodedTestCatalog;
+        const document = {
+          ...original,
+          requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter(
+            (name) => name !== "target:hierarchical-name",
+          ),
+          modules: original.modules.map((module, index) =>
+            index === 2
+              ? {
+                  ...module,
+                  contributions: [
+                    extraFile("sdk/client and packages/sdk/client"),
+                  ],
+                }
+              : module,
+          ),
+        };
+        yield* validateCatalogCapabilities(document);
       }),
   );
 

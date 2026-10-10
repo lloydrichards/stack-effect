@@ -12,20 +12,13 @@ import {
   BlueprintTargetNode,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import {
-  ModuleId,
-  PackageTargetPath,
-  TargetIdentity,
-  TargetKind,
-  TargetPath,
-} from "@repo/domain/Catalog";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, PlatformError } from "effect";
 import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { ApplyService } from "../apply/ApplyService";
 import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
-import { BlueprintService } from "../blueprint/BlueprintService";
 import { PlanService } from "./PlanService";
 import { RepositoryStateService } from "./RepositoryStateService";
 
@@ -93,10 +86,7 @@ const writeManifest = (directory: string, contents: string) =>
   });
 const ownerManifest = (directory: string, name: string) =>
   writeManifest(directory, JSON.stringify({ name }));
-const packageNode = (
-  name: string,
-  path?: string,
-): typeof BlueprintTargetNode.Type => {
+const packageNode = (name: string): typeof BlueprintTargetNode.Type => {
   const identity = new TargetIdentity({
     kind: TargetKind.make("package"),
     name,
@@ -105,7 +95,6 @@ const packageNode = (
     _tag: "target",
     id: identity.toKey(),
     identity,
-    path: path === undefined ? undefined : TargetPath.make(path),
   };
 };
 const targetBlueprint = (
@@ -116,6 +105,14 @@ const buildProposed = (proposed: Blueprint) =>
     const plans = yield* PlanService;
     return yield* plans.build({ blueprint: proposed, repoRoot, config });
   });
+
+const nestedServer = new TargetIdentity({
+  kind: TargetKind.make("server"),
+  name: "sdk/api",
+});
+const nestedServerBlueprint = targetBlueprint([
+  { _tag: "target", id: nestedServer.toKey(), identity: nestedServer },
+]);
 
 describe("Plan and Apply repository state", () => {
   const ownershipRejections = [
@@ -137,42 +134,63 @@ describe("Plan and Apply repository state", () => {
       message: path,
     })),
     {
+      title:
+        "rejects a case-only npm name collision with an existing app owner",
+      setup: ownerManifest("apps/other", "SERVER-SDK-API"),
+      proposed: nestedServerBlueprint,
+      message: "SERVER-SDK-API",
+    },
+    {
+      title: "rejects an existing app owner enclosing a proposed nested app",
+      setup: ownerManifest("apps/sdk", "helper-app"),
+      proposed: nestedServerBlueprint,
+      message: "apps/sdk",
+    },
+    {
+      title:
+        "rejects a legacy flattened app location before nesting its identity",
+      setup: ownerManifest("apps/server-sdk-api", "server-sdk-api"),
+      proposed: nestedServerBlueprint,
+      message: "apps/server-sdk-api",
+    },
+    {
+      title: "rejects an app grouping symlink before any package writes",
+      setup: Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* files.makeDirectory(`${repoRoot}/apps`, { recursive: true });
+        yield* files.symlink("/missing-group", `${repoRoot}/apps/sdk`);
+      }),
+      proposed: blueprint,
+      message: "apps/sdk",
+    },
+    {
       title: "rejects overlapping proposed package owners before projection",
       setup: Effect.void,
       proposed: targetBlueprint([
         packageNode("domain"),
-        packageNode("sdk", "packages/domain/client"),
+        packageNode("domain/client"),
       ]),
       message: "packages/domain/client",
     },
     {
-      title: "rejects case-only aliases between proposed package owners",
+      title:
+        "rejects flat and hierarchical names producing the same npm package name",
       setup: Effect.void,
       proposed: targetBlueprint([
-        packageNode("domain", "packages/sdk/Client"),
-        packageNode("sdk", "packages/sdk/client"),
+        packageNode("sdk-client"),
+        packageNode("sdk/client"),
       ]),
-      message: "packages/sdk/client",
+      message: "@repo/sdk-client",
     },
     ...["build", "dist"].map((directory) => {
       const ownerRoot = `packages/${directory}/sdk`;
       return {
         title: `rejects an owner under packages/${directory} enclosing a proposed package`,
         setup: ownerManifest(ownerRoot, "@repo/sdk"),
-        proposed: targetBlueprint([
-          packageNode("domain", `${ownerRoot}/client`),
-        ]),
+        proposed: targetBlueprint([packageNode(`${directory}/sdk/client`)]),
         message: ownerRoot,
       };
     }),
-    {
-      title: "rejects protected native placement before projection",
-      setup: Effect.void,
-      proposed: targetBlueprint([
-        packageNode("domain", "packages/sdk/NODE_MODULES/shared"),
-      ]),
-      message: "packages/sdk/NODE_MODULES/shared",
-    },
     {
       title: "rejects a malformed owner manifest without guessing ownership",
       setup: writeManifest("packages/helper", "invalid json"),
@@ -221,6 +239,10 @@ describe("Plan and Apply repository state", () => {
         const failure = yield* Effect.flip(buildProposed(proposed));
         assert(failure._tag === "PlanFailure");
         expect(failure.message).toContain(message);
+        const files = yield* FileSystem.FileSystem;
+        expect(
+          yield* files.exists(`${repoRoot}/packages/domain/src/Api.ts`),
+        ).toBe(false);
       }).pipe(Effect.provide(TestLayer)),
     );
   });
@@ -272,93 +294,92 @@ describe("Plan and Apply repository state", () => {
       }),
   );
 
-  for (const [existingPath, proposedPath] of [
-    ["packages/domain", "packages/domain"],
-    ["packages/domain", "packages/domain/client"],
-    ["packages/domain/client", "packages/domain"],
+  for (const [existingName, proposedName] of [
+    ["domain", "domain/client"],
+    ["domain/client", "domain"],
+    ["sdk-client", "sdk/client"],
   ] as const) {
     it.effect(
-      `rejects incremental reuse of ${existingPath} by ${proposedPath}`,
+      `rejects incremental reuse of ${existingName} by ${proposedName} without relocating existing files`,
       () =>
         Effect.gen(function* () {
           const files = yield* FileSystem.FileSystem;
           const service = yield* ApplyService;
-          const initial = yield* buildProposed(
-            targetBlueprint([packageNode("sdk", existingPath)]),
-          );
+          const initialNode = packageNode(existingName);
+          const initial = yield* buildProposed(targetBlueprint([initialNode]));
           yield* service.apply({ apply: intent(initial), repoRoot });
-          const manifestPath = `${repoRoot}/${existingPath}/package.json`;
+          const manifestPath = `${repoRoot}/${initialNode.identity.toPath()}/package.json`;
           const original = yield* files.readFileString(manifestPath);
-          const proposed = new Blueprint({
-            nodes: blueprint.nodes.map((node) =>
-              node._tag === "target"
-                ? { ...node, path: TargetPath.make(proposedPath) }
-                : node,
-            ),
-            edges: blueprint.edges,
-          });
+          const proposed = targetBlueprint([packageNode(proposedName)]);
           const failure = yield* Effect.flip(buildProposed(proposed));
           expect(failure._tag).toBe("PlanFailure");
           expect(yield* files.readFileString(manifestPath)).toBe(original);
           expect(
-            yield* files.exists(`${repoRoot}/${proposedPath}/src/Api.ts`),
+            yield* files.exists(
+              `${repoRoot}/${packageNode(proposedName).identity.toPath()}/src/index.ts`,
+            ),
           ).toBe(false);
         }).pipe(Effect.provide(TestLayer)),
     );
   }
 
-  it.effect(
-    "rejects relocation after a loaded catalog declaration changes",
-    () =>
-      Effect.gen(function* () {
-        const resolve = (path: string) =>
-          Effect.gen(function* () {
-            const resolver = yield* BlueprintService;
-            return yield* resolver.resolve({
-              targets: [{ identity: target, modules: [] }],
-            });
-          }).pipe(
-            Effect.provide(
-              BlueprintService.layer.pipe(
-                Layer.provide(
-                  officialCatalogLayerWith([
-                    {
-                      targets: [],
-                      modules: [
-                        {
-                          id: ModuleId.make("domain-placement"),
-                          title: "Domain placement",
-                          description: "Unattached package placement",
-                          supportedOn: [{ _tag: "identity", identity: target }],
-                          targetPath: PackageTargetPath.make(path),
-                          dependencies: [],
-                          contributions: [],
-                        },
-                      ],
-                    },
-                  ]),
-                ),
-              ),
-            ),
+  for (const existingOwner of [false, true]) {
+    it.effect(
+      existingOwner
+        ? "rejects a planned manifest colliding with an existing owner before writes"
+        : "rejects duplicate planned manifest names before any writes",
+      () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          yield* files.makeDirectory(repoRoot, { recursive: true });
+          if (existingOwner)
+            yield* ownerManifest("packages/existing", "@repo/shared");
+          const destinations = existingOwner
+            ? ["packages/new"]
+            : ["packages/new-a", "packages/new-b"];
+          const state = yield* RepositoryStateService;
+          const baseline = yield* state.capture({
+            repoRoot,
+            paths: [
+              ".",
+              "packages",
+              ...destinations.flatMap((path) => [path, `${path}/package.json`]),
+            ],
+          });
+          const apply = new Apply({
+            plan: new Plan({
+              baseline,
+              outcomes: destinations.map((path) => ({
+                _tag: "complete" as const,
+                path: `${path}/package.json`,
+                classification: "create" as const,
+                contents: '{"name":"@repo/shared"}',
+              })),
+              conflicts: [],
+            }),
+            decisions: [],
+          });
+          const service = yield* ApplyService;
+          const failure = yield* Effect.flip(
+            service.apply({ apply, repoRoot }),
           );
-        const files = yield* FileSystem.FileSystem;
-        const service = yield* ApplyService;
-        const initial = yield* buildProposed(
-          yield* resolve("packages/sdk/domain"),
-        );
-        yield* service.apply({ apply: intent(initial), repoRoot });
-        const manifestPath = `${repoRoot}/packages/sdk/domain/package.json`;
-        const original = yield* files.readFileString(manifestPath);
-        const failure = yield* Effect.flip(
-          buildProposed(yield* resolve("packages/new-sdk/domain")),
-        );
-        expect(failure._tag).toBe("PlanFailure");
-        expect(yield* files.readFileString(manifestPath)).toBe(original);
-        expect(yield* files.exists(`${repoRoot}/packages/new-sdk/domain`)).toBe(
-          false,
-        );
-      }).pipe(Effect.provide(TestLayer)),
-  );
+          assert(failure._tag === "ApplyFailure");
+          expect(failure.reason).toBe("invalidApplyIntent");
+          expect(failure.message).toContain("@repo/shared");
+          yield* Effect.forEach(destinations, (path) =>
+            Effect.gen(function* () {
+              expect(yield* files.exists(`${repoRoot}/${path}`)).toBe(false);
+            }),
+          );
+          if (existingOwner)
+            expect(
+              yield* files.readFileString(
+                `${repoRoot}/packages/existing/package.json`,
+              ),
+            ).toBe('{"name":"@repo/shared"}');
+        }).pipe(Effect.provide(TestLayer)),
+    );
+  }
 
   it.effect(
     "creates two authorized package manifests without self-staleness",
@@ -382,6 +403,115 @@ describe("Plan and Apply repository state", () => {
         ).toBe(true);
       }).pipe(Effect.provide(TestLayer)),
   );
+
+  it.effect(
+    "treats existing owner build manifests, fixtures and symlinks as content during unrelated additions",
+    () =>
+      Effect.gen(function* () {
+        const files = yield* FileSystem.FileSystem;
+        yield* ownerManifest("packages/helper", "@repo/helper");
+        yield* ownerManifest("packages/helper/dist", "@repo/helper");
+        yield* writeManifest("packages/helper/tests/fixtures", "{}");
+        yield* files.symlink(
+          "/missing-source",
+          `${repoRoot}/packages/helper/source-link`,
+        );
+        const plan = yield* build;
+        expect(plan.baseline.packageOwners).toEqual([
+          { path: "packages/helper", name: "@repo/helper" },
+        ]);
+        const service = yield* ApplyService;
+        const result = yield* service.apply({ apply: intent(plan), repoRoot });
+        expect(result.failed).toEqual([]);
+        expect(result.created).toContain("packages/domain/package.json");
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
+  for (const fixtureDirectory of [".fixtures", "dist"]) {
+    for (const contents of ["{}", '{"name":"fixture-owner"}']) {
+      it.effect(
+        `applies owner-internal ${fixtureDirectory} manifest ${contents} followed by later writes without self-staleness`,
+        () =>
+          Effect.gen(function* () {
+            const files = yield* FileSystem.FileSystem;
+            const name = ModuleId.make("domain-fixture-regression");
+            const identity = packageNode("domain").identity;
+            const attached = toAttachedModuleNodeId(identity.toKey(), name);
+            const fixtureBlueprint = new Blueprint({
+              nodes: [
+                packageNode("domain"),
+                {
+                  _tag: "attached-module",
+                  id: attached,
+                  targetId: identity.toKey(),
+                  moduleId: name,
+                },
+              ],
+              edges: [
+                {
+                  id: `owns-module=>${identity.toKey()}=>${attached}`,
+                  from: identity.toKey(),
+                  to: attached,
+                  reason: "owns-module",
+                },
+              ],
+            }).toSorted();
+            const fixtureCatalog = officialCatalogLayerWith([
+              {
+                targets: [],
+                modules: [
+                  {
+                    id: name,
+                    title: "Fixture",
+                    description: "Fixture",
+                    supportedOn: [{ _tag: "identity", identity }],
+                    dependencies: [],
+                    contributions: [
+                      {
+                        _tag: "file",
+                        path: `{{targetPath}}/${fixtureDirectory}/package.json`,
+                        contents,
+                      },
+                      {
+                        _tag: "file",
+                        path: "{{targetPath}}/z.txt",
+                        contents: "later",
+                      },
+                    ],
+                  },
+                ],
+              },
+            ]);
+            const services = Layer.mergeAll(
+              PlanService.layer,
+              ApplyService.layer,
+            ).pipe(
+              Layer.provide(fixtureCatalog),
+              Layer.provide(
+                Layer.merge(
+                  Layer.succeed(FileSystem.FileSystem, files),
+                  Path.layer,
+                ),
+              ),
+            );
+            const result = yield* Effect.gen(function* () {
+              const plan = yield* buildProposed(fixtureBlueprint);
+              const service = yield* ApplyService;
+              return yield* service.apply({ apply: intent(plan), repoRoot });
+            }).pipe(Effect.provide(Layer.fresh(services)));
+            expect(result.failed).toEqual([]);
+            expect(
+              yield* files.readFileString(`${repoRoot}/packages/domain/z.txt`),
+            ).toBe("later");
+            expect(
+              yield* files.readFileString(
+                `${repoRoot}/packages/domain/${fixtureDirectory}/package.json`,
+              ),
+            ).toBe(contents);
+          }).pipe(Effect.provide(TestLayer)),
+      );
+    }
+  }
 
   it.effect("accepts an unrelated deep unowned directory", () =>
     Effect.gen(function* () {
@@ -871,7 +1001,7 @@ describe("Plan and Apply repository state", () => {
         }).pipe(Effect.provide(layer));
         assert(failure._tag === "StalePlanFailure");
         expect(failure.changes).toContainEqual({
-          path: "packages",
+          path: ".",
           kind: "modified",
         });
         expect(failure.partialResult.created).toContain(

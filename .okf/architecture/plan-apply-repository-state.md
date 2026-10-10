@@ -25,7 +25,7 @@ sources:
   - id: writing
     resource: ../../packages/scaffold/src/service/apply/WriteEngine.ts
     title: Host writes
-generated: { by: codex, at: "2026-09-27T09:22:00+00:00" }
+generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
 ---
 
 # Repository state authority for Plan and Apply
@@ -46,6 +46,13 @@ Without a repository baseline, Apply could read newer contents when composing a 
 - Plan records the type of every path planning inspected, including missing paths, ancestors, unchanged outcomes, and paths later skipped by an Apply decision. Existing text files use cryptographic content fingerprints. The serializable Plan does not contain copies of existing user files.
 - Explicit planning paths remain in scope even when `.gitignore` matches them. Timestamps and permissions alone do not make a Plan stale. A file changed and restored before validation is acceptable when its checked type and contents match the recorded state.
 - A symlink within the relevant paths, a non-text file, or a special entry makes planning fail clearly. A symlink used only as an alias to the repository root is resolved to the canonical root.
+
+### Preserve package ownership
+
+- Discover package roots under `apps` and `packages` through grouping directories. Stop at each `package.json`; manifests and symlinks inside an existing package are content rather than additional owners.
+- Ignore hidden grouping directories and `node_modules`. Reject symlinks encountered while searching grouping directories, including dangling links.
+- Reject distinct owners with colliding npm names or equal, case-aliased, or ancestor directory paths. A target with a hierarchical name cannot silently relocate an existing package from its former flattened location.
+- Record the discovered roots in `Plan.baseline.packageOwners` and recheck them during Apply. Validate final root manifest writes together before any file is written; ignore owner-internal fixture manifests using the same boundary rule.
 
 ### Reject drift before preview or publication
 

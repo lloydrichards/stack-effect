@@ -2,6 +2,7 @@ import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import {
   PlanBaseline,
   type PlanBaselinePath,
+  type PackageOwner,
   PlanFailure,
   type RepoSnapshot,
 } from "@repo/domain/Plan";
@@ -68,11 +69,8 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
           Effect.provideService(Path.Path, path),
         );
       const sameOwners = (
-        expected: ReadonlyArray<{
-          readonly path: string;
-          readonly name: string;
-        }>,
-        actual: ReadonlyArray<{ readonly path: string; readonly name: string }>,
+        expected: ReadonlyArray<PackageOwner>,
+        actual: ReadonlyArray<PackageOwner>,
       ) =>
         expected.length === actual.length &&
         expected.every(
@@ -154,7 +152,7 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
           (actual.packageOwners !== undefined &&
             sameOwners(expected.packageOwners, actual.packageOwners))
             ? []
-            : [{ path: "packages", kind: "modified" as const }]),
+            : [{ path: ".", kind: "modified" as const }]),
           ...expected.paths.flatMap(
             (entry): ReadonlyArray<RepositoryChange> => {
               const current = actualByPath.get(entry.path);
@@ -218,7 +216,7 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
               );
         return [
           ...(ownershipChanged
-            ? [{ path: "packages", kind: "modified" as const }]
+            ? [{ path: ".", kind: "modified" as const }]
             : []),
           ...(currentRoot === baseline.root
             ? []

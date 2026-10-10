@@ -9,7 +9,6 @@ import {
   type Contribution,
   type ModuleDefinition,
   ModuleId,
-  PackageTargetPath,
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
@@ -63,17 +62,15 @@ const entry = (
 });
 const sdkModule = (
   name: string,
-  placement: string,
   contents: string,
   dependencies: (typeof ModuleDefinition.Type)["dependencies"] = [],
   entries: (typeof ModuleDefinition.Type)["contributions"] = [],
 ): typeof ModuleDefinition.Type => ({
-  id: ModuleId.make(name),
+  id: ModuleId.make(name.replaceAll("/", "-")),
   title: name,
   description: "Native Deno SDK peer fixture",
   supportedOn: [{ _tag: "identity", identity: packageIdentity(name) }],
   supportedRuntimes: ["deno"],
-  targetPath: PackageTargetPath.make(placement),
   dependencies,
   contributions: [
     entry("exports", ".", "./src/peer.ts"),
@@ -104,6 +101,8 @@ const collect = <E, R>(
   ).pipe(Effect.map((buffer) => buffer.toString("utf8")));
 
 ["flat", "nested"].forEach((layout) => {
+  const clientName = layout === "flat" ? "sdk-client" : "sdk/client";
+  const codecsName = layout === "flat" ? "sdk-codecs" : "sdk/codecs";
   const clientPath =
     layout === "flat" ? "packages/sdk-client" : "packages/sdk/client";
   const codecsPath =
@@ -128,15 +127,13 @@ console.log(JSON.stringify({ value, clientUrl, codecsUrl,
   };
   const modules: ReadonlyArray<typeof ModuleDefinition.Type> = [
     sdkModule(
-      "sdk-codecs",
-      codecsPath,
+      codecsName,
       `export const marker = "sdk-codecs";
 export const codecsUrl = import.meta.url;
 `,
     ),
     sdkModule(
-      "sdk-client",
-      clientPath,
+      clientName,
       `import { marker, codecsUrl } from "@repo/sdk-codecs";
 export { codecsUrl };
 export const value = "sdk-client:" + marker;
@@ -145,7 +142,7 @@ export const clientUrl = import.meta.url;
       [
         {
           _tag: "required-module",
-          target: packageIdentity("sdk-codecs"),
+          target: packageIdentity(codecsName),
           moduleId: ModuleId.make("sdk-codecs"),
         },
       ],
@@ -182,7 +179,7 @@ export const clientUrl = import.meta.url;
         targets: [
           { identity, modules: [{ id: probe.id }] },
           {
-            identity: packageIdentity("sdk-client"),
+            identity: packageIdentity(clientName),
             modules: [{ id: ModuleId.make("sdk-client") }],
           },
         ],
@@ -194,9 +191,10 @@ export const clientUrl = import.meta.url;
       const materialized = yield* workspace.materialize(
         new Apply({ plan, decisions: [] }),
       );
-      const root = yield* fs.makeTempDirectoryScoped({
+      const temporaryRoot = yield* fs.makeTempDirectoryScoped({
         prefix: "stack-effect-deno-sdk-",
       });
+      const root = yield* fs.realPath(temporaryRoot);
       yield* Effect.forEach(materialized.files, (file) =>
         Effect.gen(function* () {
           const destination = path.join(root, file.path);
@@ -208,19 +206,11 @@ export const clientUrl = import.meta.url;
           assert.isTrue(yield* fs.exists(destination));
         }),
       );
-      const manifest = (
-        owner: TargetIdentity,
-        placement: string,
-        filename: string,
-      ) =>
+      const manifest = (owner: TargetIdentity, filename: string) =>
         Effect.gen(function* () {
           const context = new ContributionTokenContext({
             identity: owner,
             targetKey: owner.toKey(),
-            targetPath:
-              placement === "."
-                ? owner.toPath()
-                : PackageTargetPath.make(placement),
             config,
           });
           const definition = yield* catalog.getTarget(owner.kind);
@@ -236,18 +226,20 @@ export const clientUrl = import.meta.url;
           assert.isDefined(file);
           return yield* Schema.decodeEffect(manifestCodec)(file.contents);
         });
-      const rootManifest = yield* manifest(identity, ".", "package.json");
-      const denoManifest = yield* manifest(identity, ".", "deno.json");
+      const rootManifest = yield* manifest(identity, "package.json");
+      const denoManifest = yield* manifest(identity, "deno.json");
       const sdk = yield* manifest(
-        packageIdentity("sdk-client"),
-        clientPath,
+        packageIdentity(clientName),
         `${clientPath}/package.json`,
       );
       assert.deepStrictEqual(rootManifest.workspaces, [
-        "apps/*",
+        "apps/**",
         "packages/**",
       ]);
-      assert.deepStrictEqual(denoManifest.workspace, ["apps/*", "packages/*"]);
+      assert.deepStrictEqual(denoManifest.workspace, [
+        "apps/**",
+        "packages/**",
+      ]);
       assert.isUndefined(rootManifest.packageManager);
       assert.strictEqual(config.packageManagerName, "deno");
       assert.strictEqual(sdk.name, "@repo/sdk-client");

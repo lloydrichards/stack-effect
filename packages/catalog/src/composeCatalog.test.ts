@@ -21,51 +21,52 @@ const extraModule: typeof ModuleDefinition.Type = {
 };
 
 it.effect(
-  "rejects kind-wide placement but retains exact package placement",
+  "rejects legacy targetPath rather than silently ignoring placement",
   () =>
     Effect.gen(function* () {
-      const base = testCatalog.modules.find(
-        (module) => module.id === "domain-api-contracts",
-      );
-      assert.isDefined(base);
-      const placement = { ...base, targetPath: "packages/sdk/client" };
       const failure = yield* Effect.flip(
         composeCatalog([
           {
             ...testCatalog,
-            modules: [
-              placement,
-              ...testCatalog.modules.filter(
-                (module) => module.id !== placement.id,
-              ),
-            ],
+            modules: testCatalog.modules.map((module, index) =>
+              index === 2
+                ? { ...module, targetPath: "packages/sdk/client" }
+                : module,
+            ),
           },
         ]),
       );
-      assert.match(failure.message, /only exact package identities/);
-      const exact = {
-        ...placement,
-        supportedOn: [
-          {
-            _tag: "identity" as const,
-            identity: new TargetIdentity({
-              kind: TargetKind.make("package"),
-              name: "sdk-client",
-            }),
-          },
-        ],
-      };
-      const composed = yield* composeCatalog([
+      assert.match(failure.message, /targetPath/);
+      assert.strictEqual(failure.details[0]?.code, "invalid-shape");
+    }),
+);
+
+it.effect(
+  "retains exact hierarchical owner identities during composition",
+  () =>
+    Effect.gen(function* () {
+      const owner = new TargetIdentity({
+        kind: TargetKind.make("package"),
+        name: "sdk/client",
+      });
+      const catalog = yield* composeCatalog([
         testCatalog,
         {
           targets: [],
-          modules: [{ ...exact, id: ModuleId.make("sdk-client-placement") }],
+          modules: [
+            {
+              ...extraModule,
+              id: ModuleId.make("sdk-client"),
+              supportedOn: [{ _tag: "identity", identity: owner }],
+            },
+          ],
         },
       ]);
-      assert.strictEqual(
-        composed.modules.at(-1)?.targetPath,
-        "packages/sdk/client",
-      );
+      const rule = catalog.modules.at(-1)?.supportedOn[0];
+      assert.isDefined(rule);
+      assert(rule._tag === "identity");
+      assert.strictEqual(rule.identity.name, "sdk/client");
+      assert.strictEqual(rule.identity.toPath(), "packages/sdk/client");
     }),
 );
 

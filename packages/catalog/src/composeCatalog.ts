@@ -1,5 +1,6 @@
 import {
   CatalogFragment,
+  CatalogDocument,
   type CatalogIssue,
   type CatalogIssueCode,
   type CatalogIssueSubject,
@@ -32,7 +33,9 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
   options: ComposeCatalogOptions = {},
 ) {
   const decoded = yield* Effect.forEach(fragments, (fragment, index) =>
-    Schema.decodeUnknownEffect(CatalogFragment)(fragment).pipe(
+    Schema.decodeUnknownEffect(
+      Schema.Union([CatalogFragment, CatalogDocument]),
+    )(fragment, { onExcessProperty: "error" }).pipe(
       Effect.mapError(
         (error) =>
           new CatalogValidationError({
@@ -188,28 +191,6 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
       code: "duplicate-id",
       message: `Duplicate module ID ${id}${inSources(owners)}`,
     })),
-  );
-
-  issues.push(
-    ...modules.flatMap((module, position): ReadonlyArray<CatalogIssue> =>
-      module.targetPath === undefined ||
-      (module.supportedOn.length > 0 &&
-        module.supportedOn.every(
-          (rule) =>
-            rule._tag === "identity" && rule.identity.kind === "package",
-        ))
-        ? []
-        : [
-            {
-              subject: moduleSubject(module.id),
-              code: "unsupported-target",
-              message: `Module ${module.id} placement requires only exact package identities`,
-              ...(moduleFragments[position] === undefined
-                ? {}
-                : { fragment: moduleFragments[position] }),
-            },
-          ],
-    ),
   );
 
   const supports = (module: (typeof modules)[number], kind: string) =>

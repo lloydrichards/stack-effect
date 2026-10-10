@@ -81,12 +81,11 @@ const wiring = (owner: string, runtime: (typeof runtimes)[number]) =>
     const catalog = yield* CatalogService;
     const identity = new Catalog.TargetIdentity({
       kind: Catalog.TargetKind.make("package"),
-      name: "db",
+      name: owner.slice("packages/".length),
     });
     const context = new ContributionTokenContext({
       targetKey: identity.toKey(),
       identity,
-      targetPath: Catalog.TargetPath.make(owner),
       config: new StackConfig({
         name: Schema.NonEmptyString.make("sqlite-contract"),
         runtime,

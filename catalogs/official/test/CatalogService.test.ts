@@ -58,7 +58,7 @@ baseIt.effect(
 
 layer(OfficialCatalogLayer)("CatalogService", (it) => {
   it.effect(
-    "generates Node pnpm workspace metadata that discovers nested packages",
+    "generates Node pnpm workspace metadata that discovers nested apps and packages",
     () =>
       Effect.gen(function* () {
         const catalog = yield* CatalogService;
@@ -85,8 +85,10 @@ layer(OfficialCatalogLayer)("CatalogService", (it) => {
           );
           assert.isDefined(file);
           assert.strictEqual(file._tag, "file");
-          if (file._tag === "file")
+          if (file._tag === "file") {
             assert.include(context.resolve(file.contents), "packages/**");
+            assert.include(context.resolve(file.contents), "apps/**");
+          }
         }
       }),
   );

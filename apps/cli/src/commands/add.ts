@@ -52,11 +52,14 @@ export type CollectedTarget = {
   confirmed: boolean;
 };
 
-const TargetNameInput = Schema.Trim;
-
-const validateTargetName = (value: string) =>
-  Schema.decodeEffect(TargetNameInput)(value).pipe(
-    Effect.mapError(() => "Target name cannot be empty"),
+const validateTargetName = (kind: typeof TargetKind.Type) => (value: string) =>
+  Schema.decodeEffect(TargetIdentity)({ kind, name: value }).pipe(
+    Effect.map((identity) => identity.name),
+    Effect.mapError(() =>
+      kind === "package"
+        ? "Package names must contain safe, non-empty directory segments"
+        : "Target names must contain safe directory segments",
+    ),
   );
 
 const wasTargetFlagProvided = (args: ReadonlyArray<string>) =>
@@ -293,7 +296,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
                   Effect.gen(function* () {
                     const name = yield* TextInput({
                       message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
-                      validate: validateTargetName,
+                      validate: validateTargetName(implication.targetKind),
                     });
                     targets.push({
                       kind: implication.targetKind,
@@ -423,7 +426,9 @@ const findTarget = (
 ) =>
   Arr.findFirst(
     targets,
-    (target) => target.kind === identity.kind && target.name === identity.name,
+    (target) =>
+      new TargetIdentity({ kind: target.kind, name: target.name }).toKey() ===
+      identity.toKey(),
   );
 
 const ensureTargetModule = (
@@ -695,7 +700,7 @@ const collectTargetsInteractive = Effect.gen(function* () {
 
     const name = yield* TextInput({
       message: `What should this ${kind} target be called?`,
-      validate: validateTargetName,
+      validate: validateTargetName(kind),
     });
 
     const availableModules = yield* catalog.getSupportedModules(kind, {

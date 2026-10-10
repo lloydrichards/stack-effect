@@ -1,7 +1,7 @@
 {
   "nodeModulesDir": "auto",
   "unstable": ["sloppy-imports"],
-  "workspace": ["apps/*", "packages/*"],
+  "workspace": ["apps/**", "packages/**"],
   "tasks": {
     "dev:all": "{{#if monorepo}}deno task dev{{/if}}{{#if noMonorepo}}deno task --recursive --if-present dev{{/if}}",
     "build:all": "{{#if monorepo}}deno task build{{/if}}{{#if noMonorepo}}deno task --recursive --if-present build{{/if}}",

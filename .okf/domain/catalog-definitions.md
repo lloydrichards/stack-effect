@@ -6,7 +6,7 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
 ---
 
 # Catalog definitions
@@ -40,9 +40,9 @@ Invariants:
 - Compatibility is declared via `SupportedOn` rules.
 - Dependencies are tagged as `required-target`, `required-module`, or `required-capability`. A required module also requires its owning target. Provider selection must resolve a required capability before Blueprint resolution.
 - Children declare same-target parent-child relationships for nested selection UI.
-- Optional `targetPath` declares a canonical `packages/` directory for exact package identities only; it does not change logical target keys or package names. A Blueprint uses matching declarations from the loaded catalog even when the declaring module is not attached; declarations never attach modules or their contributions. Equal claims agree; conflicting claims or overlap with another resolved package location fail before Plan/Apply. Unclaimed targets retain their flat default location.
-- Native package placement and ownership discovery exclude hidden path segments and `node_modules` (case-insensitive); ordinary nested directories, including `build` and `dist`, remain eligible.
-- A document using `targetPath` requires the `target:path` interpreter capability; older documents remain unchanged.
+- Modules contribute only to their owning targets; target paths derive from the identity name, including slash-separated group segments.
+- A catalog document containing a hierarchical default name, exact owner identity, or dependency identity requires the `target:hierarchical-name` interpreter capability. Ordinary contribution strings do not require it; flat catalog capability sets remain unchanged.
+- Legacy `targetPath` metadata is rejected when decoding a catalog document.
 
 Connected terms:
 

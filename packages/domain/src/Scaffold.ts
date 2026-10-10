@@ -1,11 +1,5 @@
 import { Match, Schema } from "effect";
-import {
-  Contribution,
-  ModuleId,
-  TargetIdentity,
-  TargetKey,
-  TargetPath,
-} from "./Catalog";
+import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 import {
   CatalogSources,
   defaultCatalogSources,
@@ -147,7 +141,6 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 )({
   targetKey: TargetKey,
   identity: TargetIdentity,
-  targetPath: Schema.optional(TargetPath),
   config: StackConfig,
 }) {
   /**
@@ -183,7 +176,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         ? this.identity.name
         : this.identity.kind;
 
-    const targetPath = this.targetPath ?? this.identity.toPath();
+    const targetPath = this.identity.toPath();
 
     // NOTE: Workspace targets omit "./" so token output matches contribution paths.
     const resolveTargetToken = (t: string, token: string) =>

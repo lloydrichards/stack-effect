@@ -2,6 +2,9 @@ import {
   type CatalogCapabilityIssue,
   CatalogCapabilityError,
   CatalogDocument,
+  type CatalogFragment,
+  type ModuleDefinition,
+  type TargetDefinition,
   type CatalogIssueSubject,
 } from "@repo/domain/Catalog";
 import { Array as Arr, Effect, Schema } from "effect";
@@ -52,7 +55,7 @@ export const V1_INTERPRETER_CAPABILITIES: ReadonlyArray<string> = [
   ...contributionTags.map((tag) => `contribution:${tag}`),
   ...tokenNames.map((name) => `token:${name}`),
   ...conditionalNames.map((name) => `condition:${name}`),
-  "target:path",
+  "target:hierarchical-name",
 ];
 
 const stringsIn = (value: unknown): ReadonlyArray<string> =>
@@ -98,43 +101,63 @@ export const templateCapabilities = (text: string): ReadonlyArray<string> => {
   ];
 };
 
-const capabilitiesUsedBy = (
-  document: CatalogDocument,
+type Definition = typeof TargetDefinition.Type | typeof ModuleDefinition.Type;
+
+const definitionHierarchicalNameCapabilities = (
+  definition: Definition,
 ): ReadonlyArray<string> => {
-  const contributions = [
-    ...document.targets.flatMap((target) => target.contributions),
-    ...document.modules.flatMap((module) => module.contributions),
-  ];
-  return Arr.dedupe([
-    ...contributions.map((contribution) => `contribution:${contribution._tag}`),
-    ...document.modules
-      .filter((module) => module.targetPath !== undefined)
-      .map(() => "target:path"),
-    ...stringsIn({
-      targets: document.targets,
-      modules: document.modules,
-    }).flatMap(templateCapabilities),
-  ]);
+  const names =
+    "supportedOn" in definition
+      ? [
+          ...definition.supportedOn.flatMap((rule) =>
+            rule._tag === "identity" ? [rule.identity.name] : [],
+          ),
+          ...definition.dependencies.map((dependency) =>
+            dependency._tag === "required-target"
+              ? dependency.identity.name
+              : dependency.target.name,
+          ),
+        ]
+      : [definition.defaultName ?? ""];
+  return names.some((name) => name.includes("/"))
+    ? ["target:hierarchical-name"]
+    : [];
 };
 
-const definitionCapabilities = (definition: {
-  readonly contributions: ReadonlyArray<{ readonly _tag: string }>;
-}): ReadonlySet<string> =>
+/** Capabilities required by structured target names, excluding template text. */
+export const hierarchicalNameCapabilities = (
+  fragment: CatalogFragment,
+): ReadonlyArray<string> =>
+  Arr.dedupe(
+    [...fragment.targets, ...fragment.modules].flatMap(
+      definitionHierarchicalNameCapabilities,
+    ),
+  );
+
+const definitionCapabilities = (definition: Definition): ReadonlySet<string> =>
   new Set([
     ...definition.contributions.map(
       (contribution) => `contribution:${contribution._tag}`,
     ),
-    ...("targetPath" in definition && definition.targetPath !== undefined
-      ? ["target:path"]
-      : []),
+    ...definitionHierarchicalNameCapabilities(definition),
     ...stringsIn(definition).flatMap(templateCapabilities),
   ]);
 
-/** Reject documents that need an interpreter operation outside the fixed v1 set. */
+const capabilitiesUsedBy = (document: CatalogDocument): ReadonlyArray<string> =>
+  Arr.dedupe(
+    [...document.targets, ...document.modules].flatMap((definition) => [
+      ...definitionCapabilities(definition),
+    ]),
+  );
+
+/** Reject unsupported operations and undeclared capabilities used by definitions. */
 export const validateCatalogCapabilities = Effect.fn(
   "Catalog.validateCapabilities",
-)(function* (document: CatalogDocument) {
-  const supported = new Set(V1_INTERPRETER_CAPABILITIES);
+)(function* (
+  document: CatalogDocument,
+  interpreterCapabilities: ReadonlyArray<string> = V1_INTERPRETER_CAPABILITIES,
+) {
+  const supported = new Set(interpreterCapabilities);
   const declared = new Set(document.requiredCapabilities);
   const documentSubject: CatalogIssueSubject = { _tag: "document" };
   const users: ReadonlyArray<{

@@ -1,12 +1,6 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import {
-  PackageTargetPath,
-  TargetIdentity,
-  TargetKey,
-  TargetKind,
-  TargetPath,
-} from "./Catalog";
+import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 import {
   ContributionTokenContext,
   STACK_CONFIG_SCHEMA_URL,
@@ -14,22 +8,14 @@ import {
 } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
-  it.each([
-    "packages/.hidden/sdk",
-    "packages/sdk/node_modules/shared",
-    "packages/sdk/NODE_MODULES/shared",
-  ])("rejects protected package placement %s", (path) =>
-    expect(() => Schema.decodeSync(PackageTargetPath)(path)).toThrow(),
-  );
   it("resolves physical path tokens without changing logical package naming", () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("package"),
-      name: "sdk-client",
+      name: "sdk/client",
     });
     const context = new ContributionTokenContext({
       targetKey: identity.toKey(),
       identity,
-      targetPath: TargetPath.make("packages/sdk/client"),
       config: new StackConfig({
         name: Schema.NonEmptyString.make("sdk"),
         runtime: { _tag: "bun" },
@@ -70,16 +56,10 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toPackageName()).toBe("server");
   });
 
-  it("treats punctuation-only app target names as unnamed", () => {
-    const identity = Schema.decodeSync(TargetIdentity)({
-      kind: "client-react",
-      name: ".",
-    });
-
-    expect(identity.hasExplicitName()).toBe(false);
-    expect(identity.toKey()).toBe("apps/client-react");
-    expect(identity.toPath()).toBe("apps/client-react");
-    expect(identity.toPackageName()).toBe("client-react");
+  it("rejects a dot as a target name", () => {
+    expect(() =>
+      Schema.decodeSync(TargetIdentity)({ kind: "client-react", name: "." }),
+    ).toThrow();
   });
 
   it("slugifies uppercase names into canonical keys and paths", () => {
@@ -102,14 +82,14 @@ describe("@repo/domain Scaffold", () => {
     expect(identity.toPath()).toBe("apps/server-my-api");
   });
 
-  it("slugifies names with slashes into canonical keys and paths", () => {
+  it("preserves slash-separated hierarchy in canonical keys and paths", () => {
     const identity = Schema.decodeSync(TargetIdentity)({
       kind: "package",
       name: "domain/core",
     });
 
-    expect(identity.toKey()).toBe("packages/domain-core");
-    expect(identity.toPath()).toBe("packages/domain-core");
+    expect(identity.toKey()).toBe("packages/domain/core");
+    expect(identity.toPath()).toBe("packages/domain/core");
   });
 
   it("slugifies names with underscores into canonical keys and paths", () => {

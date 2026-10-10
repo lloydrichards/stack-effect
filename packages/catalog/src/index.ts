@@ -12,6 +12,7 @@ export {
 } from "./composeCatalog";
 export {
   decodeCatalogDocument,
+  hierarchicalNameCapabilities,
   templateCapabilities,
   V1_INTERPRETER_CAPABILITIES,
   validateCatalogCapabilities,

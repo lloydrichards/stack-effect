@@ -1,4 +1,11 @@
-import { Data, Effect, type Graph, Schema, String as Str } from "effect";
+import {
+  Data,
+  Effect,
+  type Graph,
+  Result,
+  Schema,
+  String as Str,
+} from "effect";
 
 export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   catalog: "target" | "module";
@@ -10,56 +17,69 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   }
 }
 
-export class CatalogMetadataConflict extends Data.TaggedError(
-  "CatalogMetadataConflict",
-)<{
-  identity: TargetIdentity;
-  paths: ReadonlyArray<typeof PackageTargetPath.Type>;
-}> {
-  override get message(): string {
-    return `Conflicting package paths for ${this.identity.toKey()}: ${this.paths.join(", ")}`;
-  }
-}
-
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
 export const ModuleCapability = Schema.String.pipe(
   Schema.brand("ModuleCapability"),
 );
 
-export const TargetKind = Schema.Union([
-  Schema.Literal("workspace"),
-  Schema.Literal("package"),
-  Schema.String,
-]).pipe(Schema.brand("TargetKind"));
+const isSafeTargetSegment = (segment: string): boolean => {
+  const trimmed = segment.trim();
+  const normalized = Str.kebabCase(trimmed);
+  return (
+    trimmed.length > 0 &&
+    !trimmed.startsWith(".") &&
+    !/[\\:\0]/.test(trimmed) &&
+    normalized.length > 0 &&
+    normalized !== "node-modules" &&
+    !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i.test(normalized)
+  );
+};
+
+export const TargetName = Schema.String.check(
+  Schema.makeFilter(
+    (name) =>
+      name.trim() === "" ||
+      name.split("/").every(isSafeTargetSegment) ||
+      "Target names must contain safe, non-empty directory segments",
+  ),
+);
+
+export const TargetKind = Schema.String.check(
+  Schema.makeFilter(
+    (kind) =>
+      (!kind.includes("/") &&
+        isSafeTargetSegment(kind) &&
+        kind === Str.kebabCase(kind)) ||
+      "Target kinds must be canonical safe directory segments",
+  ),
+).pipe(Schema.brand("TargetKind"));
 
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
-/** Only canonical, repository-relative native package directories are placeable. */
-export const PackageTargetPath = Schema.String.check(
-  Schema.makeFilter(
-    (path) =>
-      (path.startsWith("packages/") &&
-        !/[\\\0]/.test(path) &&
-        !path
-          .split("/")
-          .some(
-            (segment) =>
-              segment === "" ||
-              segment.startsWith(".") ||
-              segment.toLowerCase() === "node_modules",
-          ) &&
-        !/^[A-Za-z]:/.test(path)) ||
-      "Invalid canonical package target path",
-  ),
-).pipe(Schema.brand("TargetPath"));
+
+/** Directory ownership overlaps only at complete segment boundaries. */
+export const targetPathsOverlap = (left: string, right: string): boolean => {
+  const a = left.toLowerCase();
+  const b = right.toLowerCase();
+  return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
+};
 export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
 
 export class TargetIdentity extends Schema.Class<TargetIdentity>(
   "TargetIdentity",
-)({
-  kind: TargetKind,
-  name: Schema.String,
-}) {
+)(
+  Schema.Struct({
+    kind: TargetKind,
+    name: TargetName,
+  }).check(
+    Schema.makeFilter(
+      (identity) =>
+        identity.kind !== "package" ||
+        identity.name.trim().length > 0 ||
+        "Package targets require a non-empty name",
+    ),
+  ),
+) {
   hasExplicitName(): boolean {
     return targetNameSlug(this).length > 0;
   }
@@ -75,7 +95,8 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   /**
    * Returns the package.json "name" field value for this target.
    * - Packages use scoped names: `@repo/<name>`
-   * - Apps use their folder name: `<kind>` or `<kind>-<name>`
+   * - Apps use flat names: `<kind>` or `<kind>-<name>`
+   * Hierarchical name segments are joined with hyphens for npm names.
    */
   toPackageName(): string {
     const slug = targetNameSlug(this);
@@ -99,18 +120,33 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 }
 
 const targetNameSlug = (identity: TargetIdentity): string =>
-  Str.kebabCase(identity.name.trim());
+  identity.name
+    .trim()
+    .split("/")
+    .map((segment) => Str.kebabCase(segment.trim()))
+    .join("-");
 
 const toTargetPathString = (identity: TargetIdentity): string => {
-  const slug = targetNameSlug(identity);
+  const segments =
+    identity.name.trim() === ""
+      ? []
+      : identity.name
+          .split("/")
+          .map((segment) => Str.kebabCase(segment.trim()));
+  const leaf = segments.at(-1) ?? "";
+  const group = segments.slice(0, -1);
 
   switch (identity.kind) {
     case "workspace":
       return ".";
     case "package":
-      return `packages/${slug}`;
+      return `packages/${segments.join("/")}`;
     default:
-      return `apps/${identity.kind}${slug ? `-${slug}` : ""}`;
+      return [
+        "apps",
+        ...group,
+        `${identity.kind}${leaf ? `-${leaf}` : ""}`,
+      ].join("/");
   }
 };
 
@@ -336,8 +372,6 @@ export const ModuleDefinition = Schema.Struct({
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
   supportedOn: Schema.Array(SupportedOn),
-  /** Canonical location of this module's exact package owner, even when unattached. */
-  targetPath: Schema.optional(PackageTargetPath),
   supportedRuntimes: Schema.optional(Schema.Array(SupportedRuntime)),
   dependencies: Schema.Array(ModuleDependency),
   implies: Schema.Array(ModuleImplication).pipe(
@@ -376,10 +410,10 @@ export const TargetDefinition = Schema.Struct({
    *
    * Used by `create` when an implication needs a missing target and by `add`
    * when the user supplies an empty target name such as
-   * `--target server/api:server-chat-rpc`. Identity-specific package
+   * `--target server/:server-chat-rpc`. Identity-specific package
    * modules should remain explicit.
    */
-  defaultName: Schema.optional(Schema.String),
+  defaultName: Schema.optional(TargetName),
   visibility: Visibility.pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed("public" as const)),
@@ -398,7 +432,16 @@ export const TargetDefinition = Schema.Struct({
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed([])),
   ),
-});
+}).check(
+  Schema.makeFilter(
+    ({ kind, defaultName }) =>
+      defaultName === undefined ||
+      Result.isSuccess(
+        Schema.decodeResult(TargetIdentity)({ kind, name: defaultName }),
+      ) ||
+      "Default target names must be valid for their target kind",
+  ),
+);
 
 export const CatalogFragment = Schema.Struct({
   targets: Schema.Array(TargetDefinition),

@@ -3,7 +3,14 @@ import {
   RecipeTargetSpec,
   type RecipeTargetSpec as RecipeTargetSpecType,
 } from "@repo/domain/Recipe";
-import { Array as Arr, Effect, pipe, Schema, SchemaGetter } from "effect";
+import {
+  Array as Arr,
+  Effect,
+  pipe,
+  Result,
+  Schema,
+  SchemaGetter,
+} from "effect";
 
 const splitCommaSeparated = (values: ReadonlyArray<string>): Array<string> =>
   Arr.flatMap(values, (value) =>
@@ -22,61 +29,48 @@ const duplicatedValues = (values: ReadonlyArray<string>): Array<string> =>
     Arr.map(([value]) => value),
   );
 
-const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
-const TrimTargetName = Schema.Trim.check(
-  Schema.isPattern(/^[^:]*$/, {
-    message: "Target names cannot contain a colon.",
+const targetParts = (value: string) => {
+  const slash = value.indexOf("/");
+  const colon = value.indexOf(":", slash + 1);
+  return {
+    kind: value.slice(0, slash).trim(),
+    name: value.slice(slash + 1, colon < 0 ? undefined : colon).trim(),
+    modules: colon < 0 ? [] : splitCommaSeparated([value.slice(colon + 1)]),
+    hasModules: colon >= 0,
+  };
+};
+
+export const RecipeTargetString = Schema.String.check(
+  Schema.makeFilter((value) => {
+    const parts = targetParts(value);
+    return (
+      (value.includes("/") &&
+        Result.isSuccess(
+          Schema.decodeResult(TargetIdentity)({
+            kind: parts.kind,
+            name: parts.name,
+          }),
+        ) &&
+        (!parts.hasModules || parts.modules.length > 0) &&
+        !parts.name.includes(":")) ||
+      "Expected kind/name[:module-id,...] with a valid target name"
+    );
   }),
-);
-
-const RecipeTargetStringPartsWithModules = Schema.TemplateLiteralParser([
-  TrimNonEmptyString,
-  "/",
-  TrimTargetName,
-  ":",
-  TrimNonEmptyString.check(
-    Schema.makeFilter((value) =>
-      Arr.isArrayNonEmpty(splitCommaSeparated([value]))
-        ? undefined
-        : "Expected at least one module ID.",
-    ),
-  ),
-]);
-
-const RecipeTargetStringPartsWithoutModules = Schema.TemplateLiteralParser([
-  TrimNonEmptyString,
-  "/",
-  TrimTargetName,
-]);
-
-const RecipeTargetStringParts = Schema.Union([
-  RecipeTargetStringPartsWithModules,
-  RecipeTargetStringPartsWithoutModules,
-]);
-
-const RecipeTargetPartsFromString = Schema.String.pipe(
-  Schema.decodeTo(RecipeTargetStringParts),
-);
-
-export const RecipeTargetString = RecipeTargetPartsFromString.pipe(
+).pipe(
   Schema.decodeTo(RecipeTargetSpec, {
-    decode: SchemaGetter.transform((parts) => ({
-      target: new TargetIdentity({
-        kind: TargetKind.make(parts[0]),
-        name: parts[2],
-      }),
-      modules: parts.length === 5 ? splitCommaSeparated([parts[4]]) : [],
-    })),
-    encode: SchemaGetter.transform((spec) =>
-      spec.modules.length > 0
-        ? [
-            spec.target.kind,
-            "/" as const,
-            spec.target.name,
-            ":" as const,
-            pipe(spec.modules, Arr.map(String), Arr.join(",")),
-          ]
-        : [spec.target.kind, "/" as const, spec.target.name],
+    decode: SchemaGetter.transform((value) => {
+      const parts = targetParts(value);
+      return {
+        target: new TargetIdentity({
+          kind: TargetKind.make(parts.kind),
+          name: parts.name,
+        }),
+        modules: parts.modules,
+      };
+    }),
+    encode: SchemaGetter.transform(
+      (spec) =>
+        `${spec.target.kind}/${spec.target.name}${spec.modules.length > 0 ? `:${spec.modules.join(",")}` : ""}`,
     ),
   }),
 );

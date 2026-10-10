@@ -133,6 +133,7 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
 
 const mockRepositoryStateLayer = Layer.succeed(RepositoryStateService, {
   verify: () => Effect.succeed([]),
+  discoverOwners: () => Effect.succeed([]),
 } as never);
 
 const makeApplyServiceLayer = ({

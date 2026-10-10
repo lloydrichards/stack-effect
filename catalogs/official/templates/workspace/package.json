@@ -14,7 +14,7 @@
     "node": ">=24"
   },{{/if}}
   "workspaces": [
-    "apps/*",
+    "apps/**",
     "packages/**"
   ]
 }

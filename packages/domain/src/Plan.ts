@@ -40,13 +40,18 @@ export const PlanBaselinePath = Schema.TaggedUnion({
   file: { path: Schema.String, sha256: Schema.String },
 });
 
+export const PackageOwner = Schema.Struct({
+  path: Schema.String,
+  name: Schema.NonEmptyString,
+});
+
+export type PackageOwner = typeof PackageOwner.Type;
+
 export const PlanBaseline = Schema.Struct({
   root: Schema.String,
   paths: Schema.Array(PlanBaselinePath),
   /** Discovered package ownership, retained for stale-Plan verification. */
-  packageOwners: Schema.optional(
-    Schema.Array(Schema.Struct({ path: Schema.String, name: Schema.String })),
-  ),
+  packageOwners: Schema.optional(Schema.Array(PackageOwner)),
 });
 
 export class PlanFailure extends Schema.TaggedError<PlanFailure>()(

@@ -9,6 +9,7 @@ import {
 } from "@repo/domain/Blueprint";
 import {
   ModuleDependency,
+  targetPathsOverlap,
   type ModuleId,
   type TargetIdentity,
 } from "@repo/domain/Catalog";
@@ -54,35 +55,30 @@ export class BlueprintService extends Context.Service<BlueprintService>()(
         const state = yield* resolveSelection(selection, catalog);
         const finalState = yield* Ref.get(state);
         const targets = Arr.fromIterable(HashMap.values(finalState.targets));
-        const placed = yield* Effect.forEach(targets, (node) =>
-          Effect.gen(function* () {
-            const path = yield* catalog
-              .getTargetPath(node.identity)
-              .pipe(
-                Effect.mapError(
-                  (error) => new BlueprintFailure({ message: error.message }),
-                ),
-              );
-            return Option.isSome(path) ? { ...node, path: path.value } : node;
-          }),
+        const owned = Arr.filter(
+          targets,
+          (node) => node.identity.kind !== "workspace",
         );
-        const owned = placed.filter((node) => node.identity.kind === "package");
-        const collisions = owned.flatMap((left, index) =>
-          owned.slice(index + 1).flatMap((right) => {
-            const a = left.path ?? left.identity.toPath();
-            const b = right.path ?? right.identity.toPath();
-            return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`)
-              ? [`${left.id} (${a}) and ${right.id} (${b})`]
-              : [];
-          }),
+        const collisions = Arr.flatMap(owned, (left, index) =>
+          Arr.flatMap(owned.slice(index + 1), (right) =>
+            targetPathsOverlap(
+              left.identity.toPath(),
+              right.identity.toPath(),
+            ) ||
+            left.identity.toPackageName() === right.identity.toPackageName()
+              ? [
+                  `${left.id} (${left.identity.toPackageName()}) and ${right.id} (${right.identity.toPackageName()})`,
+                ]
+              : [],
+          ),
         );
         if (collisions.length > 0)
           return yield* new BlueprintFailure({
-            message: `Overlapping package paths: ${collisions.join("; ")}`,
+            message: `Overlapping target ownership: ${collisions.join("; ")}`,
           });
 
         const blueprint = yield* Blueprint.makeEffect({
-          nodes: [...placed, ...HashMap.values(finalState.attachedModules)],
+          nodes: [...targets, ...HashMap.values(finalState.attachedModules)],
           edges: Arr.fromIterable(HashMap.values(finalState.edges)),
         }).pipe(
           Effect.mapError(

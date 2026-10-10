@@ -1,6 +1,6 @@
 /* oxlint-disable effecttsgo/async-function, effecttsgo/node-builtin-import -- This Nx build helper uses runtime file APIs and is intentionally outside the Effect runtime. */
 import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 const workspaceRoot = process.cwd();
@@ -22,17 +22,35 @@ const readDirectoryIfPresent = (path) =>
     throw error;
   });
 
-const childDirectories = async (path) =>
-  (await readDirectoryIfPresent(path))
-    .filter((entry) => entry.isDirectory())
-    .map((entry) => entry.name);
+// A package root owns its descendants; fixture/build manifests are not projects.
+const discoverProjectRoots = async (directory) => {
+  const info = await lstat(directory).catch((error) => {
+    if (error.code === "ENOENT") return undefined;
+    throw error;
+  });
+  if (info === undefined) return [];
+  if (info.isSymbolicLink())
+    throw new Error(`Symbolic workspace grouping directory is unsupported: ${directory}`);
+  if (!info.isDirectory()) return [];
+  const entries = await readDirectoryIfPresent(directory);
+  if (entries.some((entry) => entry.name === "package.json" && entry.isFile()))
+    return [directory];
+  return (
+    await Promise.all(
+      entries
+        .filter((entry) =>
+          !entry.name.startsWith(".") && entry.name.toLowerCase() !== "node_modules" &&
+          (entry.isDirectory() || entry.isSymbolicLink()),
+        )
+        .map((entry) => discoverProjectRoots(join(directory, entry.name))),
+    )
+  ).flat();
+};
 
 const projectRoots = (
   await Promise.all(
-    workspaceDirectories.map(async (directory) =>
-      (await childDirectories(join(workspaceRoot, directory))).map((name) =>
-        join(workspaceRoot, directory, name),
-      ),
+    workspaceDirectories.map((directory) =>
+      discoverProjectRoots(join(workspaceRoot, directory)),
     ),
   )
 ).flat();

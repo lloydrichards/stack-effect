@@ -34,7 +34,7 @@ const withModule = (module: ModuleInput): CatalogInput => ({
 });
 
 it.effect(
-  "publishes exact package placement and its required capability without changing flat output",
+  "publishes hierarchical owner identities and their required capability",
   () =>
     Effect.gen(function* () {
       const input: CatalogInput = {
@@ -57,10 +57,9 @@ it.effect(
               supportedOn: [
                 {
                   _tag: "identity",
-                  identity: { kind: "package", name: "sdk-client" },
+                  identity: { kind: "package", name: "sdk/client" },
                 },
               ],
-              targetPath: "packages/sdk/client",
               dependencies: [],
               contributions: [],
             },
@@ -72,11 +71,84 @@ it.effect(
         root: packageRoot,
       });
       assert.strictEqual(
-        result.document.modules[0]?.targetPath,
-        "packages/sdk/client",
+        result.document.modules[0]?.supportedOn[0]?._tag,
+        "identity",
       );
-      assert.include(result.document.requiredCapabilities, "target:path");
+      assert.include(
+        result.document.requiredCapabilities,
+        "target:hierarchical-name",
+      );
     }).pipe(Effect.provide(NodeServices.layer)),
+);
+
+for (const hierarchicalField of ["default", "dependency"] as const) {
+  it.effect(
+    `declares hierarchical-name capability for a ${hierarchicalField} identity`,
+    () =>
+      Effect.gen(function* () {
+        const input: CatalogInput = {
+          targets: [
+            defineTargets(import.meta.url, [
+              {
+                kind: "package",
+                title: "Package",
+                description: "Package",
+                ...(hierarchicalField === "default"
+                  ? { defaultName: "sdk/client" }
+                  : {}),
+                contributions: [],
+              },
+            ]),
+          ],
+          modules: [
+            defineModules(import.meta.url, [
+              {
+                id: "sdk-example",
+                title: "SDK",
+                description: "SDK",
+                supportedOn: [{ _tag: "kind", kind: "package" }],
+                dependencies:
+                  hierarchicalField === "dependency"
+                    ? [
+                        {
+                          _tag: "required-target",
+                          identity: { kind: "package", name: "sdk/client" },
+                        },
+                      ]
+                    : [],
+                contributions: [],
+              },
+            ]),
+          ],
+        };
+        const result = yield* buildCatalog(input, {
+          catalogId: "acme",
+          root: packageRoot,
+        });
+        assert.include(
+          result.document.requiredCapabilities,
+          "target:hierarchical-name",
+        );
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
+}
+
+it.effect("rejects authored legacy placement with its source location", () =>
+  Effect.gen(function* () {
+    const legacyModule = {
+      ...standaloneModule,
+      targetPath: "packages/sdk/client",
+    };
+    const input = withModule(legacyModule);
+    const failure = yield* Effect.flip(
+      buildCatalog(input, { catalogId: "acme", root: packageRoot }),
+    );
+    assert.strictEqual(failure.issues[0]?.code, "invalid-shape");
+    assert.match(failure.message, /targetPath/);
+    assert.deepStrictEqual(failure.issues[0]?.sources, [
+      "src/buildCatalog.test.ts",
+    ]);
+  }).pipe(Effect.provide(NodeServices.layer)),
 );
 
 const buildError = (input: CatalogInput) =>

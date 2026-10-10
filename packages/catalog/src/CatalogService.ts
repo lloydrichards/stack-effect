@@ -11,11 +11,7 @@ import type {
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
-import {
-  CatalogMetadataConflict,
-  CatalogNotFound,
-  TargetIdentity,
-} from "@repo/domain/Catalog";
+import { CatalogNotFound, TargetIdentity } from "@repo/domain/Catalog";
 import {
   Array as Arr,
   Context,
@@ -237,23 +233,6 @@ export class CatalogService extends Context.Service<CatalogService>()(
             hasVisibility(mod, options?.visibility),
         );
       });
-
-      const getTargetPath = Effect.fn("CatalogService.getTargetPath")(
-        function* (identity: TargetIdentity) {
-          const paths = Arr.dedupe(
-            Arr.flatMap(Arr.fromIterable(moduleIndex.values()), (mod) =>
-              mod.targetPath !== undefined &&
-              Arr.some(mod.supportedOn, (rule) => identity.matches(rule))
-                ? [mod.targetPath]
-                : [],
-            ),
-          ).sort();
-          if (paths.length > 1) {
-            return yield* new CatalogMetadataConflict({ identity, paths });
-          }
-          return Option.fromUndefinedOr(paths[0]);
-        },
-      );
 
       const getCapabilityProviders = (options: {
         capability: typeof ModuleCapability.Type;
@@ -495,7 +474,6 @@ export class CatalogService extends Context.Service<CatalogService>()(
         getModules,
         getModule,
         getSupportedModules,
-        getTargetPath,
         getTarget,
         getTargetKinds,
         toBuilderCatalog,

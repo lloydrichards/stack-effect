@@ -449,7 +449,7 @@ export const initModules = defineModules(import.meta.url, [
         field: "scripts",
         name: "clean",
         value:
-          'vp cache clean && vp run --no-cache --filter "./apps/*" --filter "./packages/*" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+          'vp cache clean && vp run --no-cache --filter "./apps/**" --filter "./packages/**" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
       },
     ],
     nextSteps: [

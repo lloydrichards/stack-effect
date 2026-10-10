@@ -18,6 +18,20 @@ A **target** owns a location in the repository. A **module** adds a capability t
 
 The HTTP API needs shared domain contracts, so your server request also brings in `domain-api-contracts` on a domain target. Stack Effect shows you that complete shape before it examines any files.
 
+## Place a target in nested directories
+
+Use slash-separated names for grouping. For example:
+
+```sh
+stack-effect add --target server/sdk/api:server-http-api
+```
+
+The name `sdk/api` creates the server at `apps/sdk/server-api`, with `server-sdk-api` in `package.json`. Use the same target argument when adding another module to that server. For packages, `package/sdk/client` creates `packages/sdk/client`, with the npm name `@repo/sdk-client`.
+
+Stack Effect keeps npm names flat. `package/sdk/client` and `package/sdk-client` therefore cannot coexist even though their directories differ. It also rejects nested package roots and attempts to relocate an existing package. Grouping directories can contain multiple packages; a package directory owns its contents.
+
+Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group.
+
 ## First, Stack Effect resolves the project shape
 
 The read-only **Catalog** lists the available targets and modules, where each module can attach, and which dependencies it requires.

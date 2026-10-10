@@ -1,77 +1,48 @@
-import assert from "node:assert/strict";
-import { it } from "@effect/vitest";
-import {
-  CatalogMetadataConflict,
-  ModuleId,
-  TargetIdentity,
-  TargetKind,
-} from "@repo/domain/Catalog";
-import { Cause, Effect, Exit, Option } from "effect";
+import { assert, it } from "@effect/vitest";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { Effect } from "effect";
 import { CatalogService } from "./CatalogService";
 
 const owner = new TargetIdentity({
   kind: TargetKind.make("package"),
-  name: "sdk-client",
+  name: "sdk/client",
 });
 const other = new TargetIdentity({
   kind: TargetKind.make("package"),
-  name: "other",
+  name: "sdk/other",
 });
-
-const catalog = (paths: ReadonlyArray<string>) =>
-  CatalogService.fromFragments([
-    {
-      targets: [
-        {
-          kind: TargetKind.make("package"),
-          title: "Package",
-          description: "Package",
-          contributions: [],
-        },
-      ],
-      modules: paths.map((path, index) => ({
-        id: ModuleId.make(`placement-${index}`),
-        title: "Placement",
-        description: "Placement",
-        supportedOn: [{ _tag: "identity" as const, identity: owner }],
-        targetPath: path,
+const moduleId = ModuleId.make("sdk-client-code");
+const catalog = CatalogService.fromFragments([
+  {
+    targets: [
+      {
+        kind: owner.kind,
+        title: "Package",
+        description: "Package",
+        contributions: [],
+      },
+    ],
+    modules: [
+      {
+        id: moduleId,
+        title: "SDK client",
+        description: "SDK client",
+        supportedOn: [{ _tag: "identity", identity: owner }],
         dependencies: [],
         contributions: [],
-      })),
-    },
-  ]);
+      },
+    ],
+  },
+]);
 
-it.effect("resolves unattached owner claims, including equal claims", () =>
-  Effect.gen(function* () {
-    const service = yield* CatalogService;
-    const path = yield* service.getTargetPath(owner);
-    assert.deepEqual(path, Option.some("packages/sdk/client"));
-    assert.deepEqual(yield* service.getTargetPath(other), Option.none());
-  }).pipe(
-    Effect.provide(catalog(["packages/sdk/client", "packages/sdk/client"])),
-  ),
-);
-
-it.effect("returns no metadata when no module claims a path", () =>
-  Effect.gen(function* () {
-    const service = yield* CatalogService;
-    assert.deepEqual(yield* service.getTargetPath(owner), Option.none());
-  }).pipe(Effect.provide(catalog([]))),
-);
-
-it.effect("reports contradictory claims as catalog metadata error", () =>
-  Effect.gen(function* () {
-    const service = yield* CatalogService;
-    const result = yield* Effect.exit(service.getTargetPath(owner));
-    assert(Exit.isFailure(result));
-    const error = Cause.squash(result.cause);
-    assert(error instanceof CatalogMetadataConflict);
-    assert.deepEqual(error.paths, [
-      "packages/elsewhere",
-      "packages/sdk/client",
-    ]);
-    assert.strictEqual(error.identity.toKey(), owner.toKey());
-  }).pipe(
-    Effect.provide(catalog(["packages/sdk/client", "packages/elsewhere"])),
-  ),
+it.effect(
+  "matches exact hierarchical owners without attaching modules or altering names",
+  () =>
+    Effect.gen(function* () {
+      const service = yield* CatalogService;
+      assert.isTrue(yield* service.isSupportedOn(moduleId, owner));
+      assert.isFalse(yield* service.isSupportedOn(moduleId, other));
+      assert.strictEqual(owner.toPath(), "packages/sdk/client");
+      assert.strictEqual(owner.toPackageName(), "@repo/sdk-client");
+    }).pipe(Effect.provide(catalog)),
 );

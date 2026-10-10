@@ -6,7 +6,7 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
 ---
 
 # Identity and compatibility
@@ -20,6 +20,10 @@ Invariants:
 
 - `toKey()` and `toPath()` are deterministic from identity fields.
 - `matches()` checks either kind-level or exact-identity support rules.
+- Each slash-separated name segment is normalized to kebab-case. Group segments determine directories; the final segment names the target. `server/sdk/api` resolves to `apps/sdk/server-api`, while `package/sdk/client` resolves to `packages/sdk/client`.
+- npm names join all name segments with hyphens: `server-sdk-api` and `@repo/sdk-client` in those examples. Hierarchical and flat names remain different identities, but colliding npm names cannot coexist.
+- Names reject empty, hidden, dot, `node_modules`, and unsafe directory segments. Package names must be non-empty; unnamed apps retain their kind-based default.
+- Placement has no independent catalog or Blueprint override. Dependencies keep their declared identities.
 
 Connected terms:
 
