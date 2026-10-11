@@ -1,2 +1,5 @@
-// Export the public API here. Use .js extensions for relative exports.
-export {};
+import { Effect } from "effect";
+
+export const greet = Effect.fnUntraced(function* (name: string) {
+  return yield* Effect.succeed(`Hello, ${name}!`);
+});

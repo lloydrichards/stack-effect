@@ -14,14 +14,31 @@ README.md
 tsconfig.json
 tsconfig.build.json
 scripts/clean.mjs
+scripts/example.mjs
 src/index.ts
 ```
 
 One `package.json` describes both workspace use and npm publication. It exports compiled files from `dist/` and sets `private` to `false`.
 
+## Run the example
+
+After installing workspace dependencies, run `npm run example` from `packages/sdk`. It builds the library and prints `Hello, Effect!`.
+
+The public entry point exports a small Effect you can build on:
+
+```ts
+import { Effect } from "effect";
+
+export const greet = Effect.fnUntraced(function* (name: string) {
+  return yield* Effect.succeed(`Hello, ${name}!`);
+});
+```
+
+`scripts/example.mjs` imports `greet` through the package name and runs it. Edit the greeting or use the script to try additional public exports.
+
 ## Add your public API
 
-Add implementation files under `src/` and export them from `src/index.ts`:
+Replace the starter greeting or add implementation files under `src/` and export them from `src/index.ts`:
 
 ```ts
 export { greet } from "./greet.js";
