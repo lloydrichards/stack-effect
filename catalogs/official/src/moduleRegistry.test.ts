@@ -9,6 +9,19 @@ const moduleRegistry = document.modules;
 const targetRegistry = document.targets;
 
 describe("moduleRegistry", () => {
+  it("offers a publishable library on named package targets without child modules", () => {
+    const library = moduleRegistry.find(
+      (module) => module.id === "package-library",
+    );
+    const packageTarget = targetRegistry.find(
+      (target) => target.kind === "package",
+    );
+    expect(library?.supportedOn).toEqual([{ _tag: "kind", kind: "package" }]);
+    expect(library?.children ?? []).toEqual([]);
+    expect(library?.dependencies).toEqual([]);
+    expect(packageTarget?.visibility ?? "public").toBe("public");
+    expect(packageTarget?.defaultName).toBe("library");
+  });
   it("should expose every compatible catalog target and module for Deno", () => {
     expect(
       targetRegistry
@@ -19,7 +32,7 @@ describe("moduleRegistry", () => {
       moduleRegistry
         .filter((module) => !module.supportedRuntimes?.includes("deno"))
         .map((module) => module.id),
-    ).toEqual(["workspace-monorepo-turbo"]);
+    ).toEqual(["workspace-monorepo-turbo", "package-library"]);
   });
 
   it("should list Nx and Vite+ as Turbo conflicts when monorepo modules are registered", () => {

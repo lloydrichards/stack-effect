@@ -1,10 +1,11 @@
-import { Contribution } from "@repo/domain/Catalog";
+import { Contribution, PackageJsonField } from "@repo/domain/Catalog";
 import { PlanFailure } from "@repo/domain/Plan";
 import type { NormalizedContributions } from "@repo/domain/Scaffold";
 import {
   Array as Arr,
   Context,
   Effect,
+  Equal,
   Layer,
   Match,
   Option,
@@ -12,6 +13,7 @@ import {
   Record,
   Schema,
 } from "effect";
+import { comparablePackageJsonFieldValue } from "./PackageJsonFieldValue";
 import type { PlanningIntentPath } from "./PlanAssessor";
 
 export interface PlanningIntentCompilerShape {
@@ -60,6 +62,10 @@ function compile(normalizedContributions: typeof NormalizedContributions.Type) {
 }
 
 const PlanningIntentEntry = Schema.TaggedUnion({
+  packageJsonField: {
+    path: Schema.String,
+    ...PackageJsonField.fields,
+  },
   authoritative: {
     path: Schema.String,
     contents: Schema.String,
@@ -139,6 +145,13 @@ const toPlanningIntentEntries = (
   Arr.flatMap(
     contributions,
     Contribution.match({
+      "pkg-json-field": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+        PlanningIntentEntry.cases.packageJsonField.make({
+          path: c.path,
+          field: c.field,
+          value: c.value,
+        }),
+      ],
       file: (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
         PlanningIntentEntry.cases.authoritative.make({
           path: c.path,
@@ -212,6 +225,9 @@ const toPlanningIntentEntries = (
   );
 
 type PlanningIntentEntryGroups = {
+  readonly packageJsonFields: ReadonlyArray<
+    typeof PlanningIntentEntry.cases.packageJsonField.Type
+  >;
   readonly authoritative: ReadonlyArray<
     typeof PlanningIntentEntry.cases.authoritative.Type
   >;
@@ -235,6 +251,9 @@ type PlanningIntentEntryGroups = {
 const groupPlanningIntentEntries = (
   entries: ReadonlyArray<typeof PlanningIntentEntry.Type>,
 ): PlanningIntentEntryGroups => ({
+  packageJsonFields: entries.filter(
+    PlanningIntentEntry.guards.packageJsonField,
+  ),
   authoritative: entries.filter(PlanningIntentEntry.guards.authoritative),
   packageJson: entries.filter(PlanningIntentEntry.guards.packageJsonEntry),
   barrel: entries.filter(PlanningIntentEntry.guards.barrelExport),
@@ -244,6 +263,7 @@ const groupPlanningIntentEntries = (
 });
 
 const emptyPackageJsonFields = {
+  packageJsonFields: [],
   exports: [],
   dependencies: [],
   scripts: [],
@@ -270,7 +290,7 @@ const makePlanningIntentPath = ({
   readonly contents: string | undefined;
   readonly packageJsonFields?: Pick<
     PlanningIntentPath,
-    "exports" | "dependencies" | "scripts"
+    "exports" | "dependencies" | "scripts" | "packageJsonFields"
   >;
   readonly barrelExports?: PlanningIntentPath["barrelExports"];
   readonly compositions?: PlanningIntentPath["compositions"];
@@ -310,6 +330,16 @@ const derivePlanningIntentPath = ({
       groups.authoritative.some((e) => e.conflictOnModify);
 
     const resolvePackageJsonFields = () => {
+      const overlappingField = groups.packageJsonFields.find((field) =>
+        groups.packageJson.some((entry) => entry.field === field.field),
+      );
+      if (overlappingField)
+        return Effect.fail(
+          new PlanFailure({
+            reason: "invalidPlanIntent",
+            message: `Whole-field and entry contributions overlap for ${path} field ${overlappingField.field}.`,
+          }),
+        );
       type PackageJsonCase =
         typeof PlanningIntentEntry.cases.packageJsonEntry.Type;
 
@@ -330,6 +360,13 @@ const derivePlanningIntentPath = ({
       );
 
       return Effect.all({
+        packageJsonFields: collectUniqueEntries({
+          entries: groups.packageJsonFields,
+          keyOf: (entry) => entry.field,
+          valueOf: comparablePackageJsonFieldValue,
+          toResult: ({ field, value }) => ({ field, value }),
+          errorMessage: `Conflicting package.json field outcomes for ${path}.`,
+        }),
         exports: collectUniqueEntries({
           entries: exportEntries,
           keyOf: (entry) => entry.name,
@@ -562,6 +599,7 @@ type PlanningIntentFamily =
   | "jsxSlot";
 
 const toPlanningIntentFamily = PlanningIntentEntry.match({
+  packageJsonField: () => "packageJson" as const,
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
   barrelExport: () => "barrel" as const,
@@ -588,7 +626,7 @@ const requireSingleValue = <Value>({
           }),
         ),
       onSome: (firstValue) =>
-        Arr.every(values, (value) => value === firstValue)
+        Arr.every(values, (value) => Equal.equals(value, firstValue))
           ? Effect.succeed(firstValue)
           : Effect.fail(
               new PlanFailure({
@@ -608,7 +646,7 @@ const collectUniqueEntries = <Entry, Result>({
 }: {
   entries: ReadonlyArray<Entry>;
   keyOf: (entry: Entry) => string;
-  valueOf: (entry: Entry) => string;
+  valueOf: (entry: Entry) => unknown;
   toResult: (entry: Entry) => Result;
   errorMessage: string;
 }) =>

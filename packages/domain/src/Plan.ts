@@ -1,4 +1,5 @@
 import { Array as Arr, Order, Schema } from "effect";
+import { PackageJsonField } from "./Catalog";
 import { pathOrd } from "./Order";
 import { StackConfig } from "./Scaffold";
 import { Selection } from "./Selection";
@@ -147,7 +148,13 @@ export const JsonWorkspaceMembersOp = Schema.TaggedStruct(
   },
 );
 
+export const JsonPkgFieldsOp = Schema.TaggedStruct("json-pkg-fields", {
+  fileType: Schema.tag("json"),
+  entries: Schema.Array(PackageJsonField),
+});
+
 const JsonCompositionOperationSchema = Schema.Union([
+  JsonPkgFieldsOp,
   JsonWorkspaceMembersOp,
   JsonPkgExportsOp,
   JsonPkgDepsOp,
@@ -197,6 +204,10 @@ export const PlanOutcome = Schema.TaggedUnion({
 });
 
 export const PlanConflict = Schema.TaggedUnion({
+  packageJsonField: {
+    path: Schema.String,
+    field: PackageJsonField.fields.field,
+  },
   exports: {
     path: Schema.String,
     name: Schema.String,
@@ -233,6 +244,7 @@ export const PlanConflict = Schema.TaggedUnion({
 
 const planConflictKey = (conflict: typeof PlanConflict.Type): string =>
   PlanConflict.match(conflict, {
+    packageJsonField: (c) => JSON.stringify([c._tag, c.path, c.field]),
     exports: (c) => JSON.stringify([c._tag, c.path, c.name]),
     dependencies: (c) => JSON.stringify([c._tag, c.path, c.section, c.name]),
     scripts: (c) => JSON.stringify([c._tag, c.path, c.name]),

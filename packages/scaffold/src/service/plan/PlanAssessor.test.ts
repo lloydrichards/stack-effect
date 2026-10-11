@@ -5,6 +5,7 @@ import { PlanAssessor, type PlanningIntentPath } from "./PlanAssessor";
 const makeJsxSlotPath = (contents?: string): PlanningIntentPath => ({
   path: "apps/web/src/App.tsx",
   contents,
+  packageJsonFields: [],
   exports: [],
   dependencies: [],
   scripts: [],

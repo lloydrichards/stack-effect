@@ -4,6 +4,109 @@ const template = templates(new URL("../../templates/", import.meta.url));
 
 export const packageModules = defineModules(import.meta.url, [
   {
+    id: "package-library",
+    supportedRuntimes: ["bun", "node"],
+    title: "Publishable Library",
+    description:
+      "A small ESM library with compiled JavaScript and TypeScript declarations",
+    supportedOn: [{ _tag: "kind", kind: "package" }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/index.ts",
+        contents: template("./package-library/src/index.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.build.json",
+        contents: template("./package-library/tsconfig.build.json"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scripts/clean.mjs",
+        contents: template("./package-library/scripts/clean.mjs"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./package-library/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "private",
+        value: false,
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "files",
+        value: ["dist"],
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "types",
+        value: "./dist/index.d.ts",
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "publishConfig",
+        value: { access: "public" },
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        value: {
+          ".": { types: "./dist/index.d.ts", import: "./dist/index.js" },
+        },
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        value: {},
+      },
+      {
+        _tag: "pkg-json-field",
+        path: "{{targetPath}}/package.json",
+        field: "peerDependencies",
+        value: { effect: "4.0.0" },
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "effect",
+        value: "4.0.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "node scripts/clean.mjs && tsc -p tsconfig.build.json",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "prepack",
+        value: "npm run build",
+      },
+    ],
+    nextSteps: [
+      "Library: edit {{targetPath}}/src/index.ts, then run `npm run build` and `npm pack` from {{targetPath}}. Choose an npm package name and license before publishing; see {{targetPath}}/README.md. Node and npm are required for packaging.",
+    ],
+  },
+  {
     id: "package-ai-core",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "AI Package",

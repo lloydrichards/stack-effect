@@ -29,6 +29,7 @@ export const navigation: NavSection[] = [
       { label: "How it works", href: "/how-it-works" },
       { label: "Catalog updates", href: "/catalog-registry" },
       { label: "Publish a catalog", href: "/publish-catalog-registry" },
+      { label: "Create a library", href: "/publish-library" },
       {
         label: "Use with coding agents",
         href: "/use-with-coding-agents",
