@@ -67,7 +67,7 @@ const defaultTargetNames = new Map([
   ["client-foldkit", "app"],
   ["server-mcp", ""],
   ["cli", "app"],
-  ["package", "domain"],
+  ["package", "library"],
 ]);
 
 const catalogModules = await Effect.runPromise(
