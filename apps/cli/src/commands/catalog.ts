@@ -108,12 +108,19 @@ export class WorkspaceValidationFailed extends Data.TaggedError(
   }
 }
 
-const targetIdentityFrom = (supportedOn: typeof SupportedOn.Type) =>
+const targetIdentityFrom = (
+  supportedOn: typeof SupportedOn.Type,
+  moduleId: string,
+) =>
   supportedOn._tag === "identity"
     ? supportedOn.identity
     : new TargetIdentity({
         kind: supportedOn.kind,
-        name: defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind,
+        // Generic package starters need their own authoring package, away from domain content.
+        name:
+          supportedOn.kind === "package"
+            ? moduleId.replace(/^package-/, "")
+            : (defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind),
       });
 
 const contributionPath = (contribution: typeof Contribution.Type) =>
@@ -210,7 +217,9 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
         if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
           continue;
         }
-        const target = ensureTarget(targetIdentityFrom(supportedOn));
+        const target = ensureTarget(
+          targetIdentityFrom(supportedOn, moduleDefinition.id),
+        );
         const provides = moduleDefinition.provides ?? [];
         const hasExistingProvider = provides.some((capability) =>
           target.capabilities.has(capability),

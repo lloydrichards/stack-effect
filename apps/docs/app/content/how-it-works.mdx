@@ -30,6 +30,8 @@ The name `sdk/api` creates the server at `apps/sdk/server-api`, with `server-sdk
 
 Stack Effect keeps npm names flat. `package/sdk/client` and `package/sdk-client` therefore cannot coexist even though their directories differ. It also rejects nested package roots and attempts to relocate an existing package. Grouping directories can contain multiple packages; a package directory owns its contents.
 
+To create a package with compiled JavaScript and declarations for npm, use the `package-library` module. See [Create a publishable library](/publish-library).
+
 Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group.
 
 ## First, Stack Effect resolves the project shape

@@ -165,6 +165,37 @@ const symlinkedCatalog = Effect.gen(function* () {
 
 layer(NodeServices.layer)("buildCatalog", (it) => {
   it.effect(
+    "declares publishing-field support only when the authored catalog uses it",
+    () =>
+      Effect.gen(function* () {
+        const plain = yield* buildCatalog(catalog, { catalogId: "acme", root });
+        const publishing = yield* buildCatalog(
+          withModule({
+            ...standaloneModule,
+            contributions: [
+              {
+                _tag: "pkg-json-field",
+                path: "package.json",
+                field: "files",
+                value: ["dist"],
+              },
+            ],
+          }),
+          { catalogId: "acme", root: packageRoot },
+        );
+        assert.isFalse(
+          plain.document.requiredCapabilities.includes(
+            "contribution:pkg-json-field",
+          ),
+        );
+        assert.isTrue(
+          publishing.document.requiredCapabilities.includes(
+            "contribution:pkg-json-field",
+          ),
+        );
+      }),
+  );
+  it.effect(
     "should match the golden v1 document byte for byte when the standalone fixture is built twice",
     () =>
       Effect.gen(function* () {

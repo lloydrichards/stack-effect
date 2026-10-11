@@ -41,6 +41,14 @@ export const docPages: ReadonlyArray<DocPage> = [
     group: "Start here",
   },
   {
+    route: "/publish-library",
+    source: "publish-library.mdx",
+    title: "Create a publishable library",
+    summary:
+      "Build and pack an ESM library with TypeScript declarations under packages/.",
+    group: "Start here",
+  },
+  {
     route: "/catalog-registry",
     source: "catalog-registry.mdx",
     title: "Catalog updates and sources",

@@ -574,7 +574,7 @@ export const targetGroup = defineTargets(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Shared Package",
     description: "A shared library package for code reuse across targets",
-    visibility: "internal",
+    defaultName: "library",
     requiredModules: [],
     contributions: [
       {

@@ -1,0 +1,53 @@
+# Create a publishable library
+
+Add a small ESM library to an existing Stack Effect project with a Bun or Node runtime:
+
+```sh
+stack-effect add --target package/sdk:package-library
+```
+
+Use a new package name. This starter exposes one root entry point and has no child modules. It creates these files under `packages/sdk`:
+
+```text
+package.json
+README.md
+tsconfig.json
+tsconfig.build.json
+scripts/clean.mjs
+src/index.ts
+```
+
+## Add your public API
+
+Add implementation files under `src/` and export them from `src/index.ts`:
+
+```ts
+export { greet } from "./greet.js";
+```
+
+Keep `.js` extensions in relative imports and exports. TypeScript resolves these paths to your source files and emits imports that work in Node.
+
+Consumers import your library through its package name. Add explicit `package.json` export entries when you need public subpaths.
+
+## Build and pack
+
+Install the workspace dependencies, then run these commands from `packages/sdk`:
+
+```sh
+npm run build
+npm pack
+```
+
+Node and npm are required for this packaging workflow, including in a Bun workspace. The build checks NodeNext module resolution and emits JavaScript and declarations to `dist/`. Each build removes the previous output. The `prepack` script rebuilds the package before npm packs or publishes it.
+
+The tarball contains `dist/` and package documentation. Effect is a peer dependency, so consumers supply the compatible Effect version. Remove both Effect entries if your library does not use Effect.
+
+## Prepare publication
+
+Replace the placeholder `@repo/sdk` package name and update workspace consumers. Choose a version and license, add the appropriate license file, and fill in your description and repository metadata.
+
+Install the packed tarball in a separate project and check its runtime imports and declarations. Keep unpublished `@repo/*` dependencies out of the emitted files. The generated README includes the publication checklist.
+
+The package declares public npm access. Publish deliberately after inspecting the tarball; Stack Effect does not publish it automatically.
+
+For repository maintainers, `bun run --cwd apps/cli verify:library` generates Bun and npm workspaces and tests their tarballs in clean consumers. It checks runtime imports, declarations, private subpaths, and removal of stale build files. All temporary projects are removed afterward.

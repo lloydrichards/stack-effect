@@ -143,6 +143,15 @@
       ]
     },
     {
+      "source": "/publish-library",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</publish-library.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
+    },
+    {
       "source": "/reference/cli",
       "headers": [
         {

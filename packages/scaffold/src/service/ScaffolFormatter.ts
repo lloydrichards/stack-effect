@@ -378,6 +378,7 @@ const formatConflictLine = (conflict: typeof PlanConflict.Type) =>
     Match.value(conflict).pipe(
       Match.tags({
         completeFile: () => "merge: complete file",
+        packageJsonField: (c) => `merge: ${c.field}`,
         barrelExport: (c) => `merge: export ${c.exportPath}`,
         dependencies: (c) => `merge: ${c.section}.${c.name}`,
         exports: (c) => `merge: exports ${c.name}`,

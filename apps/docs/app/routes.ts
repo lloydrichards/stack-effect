@@ -12,6 +12,7 @@ export default [
   route("how-it-works", "content/how-it-works.mdx"),
   route("catalog-registry", "content/catalog-registry.mdx"),
   route("publish-catalog-registry", "content/publish-catalog-registry.mdx"),
+  route("publish-library", "content/publish-library.mdx"),
   route("use-with-coding-agents", "routes/use-with-coding-agents.tsx"),
   ...prefix("reference/cli", [
     index("content/reference/cli/index.mdx"),
