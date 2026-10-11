@@ -1,4 +1,3 @@
-import { PackageJsonField } from "@repo/domain/Catalog";
 import {
   CompositionOperation,
   Plan,
@@ -12,7 +11,6 @@ import {
   Array as Arr,
   Context,
   Effect,
-  Equal,
   Layer,
   Match,
   Option,
@@ -22,7 +20,6 @@ import {
   String as Str,
 } from "effect";
 import { findJsxSlotMarker, makeJsxSourceFile } from "../JsxSlot";
-import { comparablePackageJsonFieldValue } from "./PackageJsonFieldValue";
 
 type PlanningIntentPackageJsonDependency = {
   readonly section: "dependencies" | "devDependencies";
@@ -71,7 +68,6 @@ export type PlanningIntentJsxSlot = {
 };
 
 export type PlanningIntentPath = {
-  readonly packageJsonFields: ReadonlyArray<typeof PackageJsonField.Type>;
   readonly path: string;
   readonly contents: string | undefined;
   readonly exports: ReadonlyArray<{ name: string; value: string }>;
@@ -161,14 +157,6 @@ function toCompositionOperations(
   planningPath: PlanningIntentPath,
 ): Array<typeof CompositionOperation.Type> {
   const operations: Array<typeof CompositionOperation.Type> = [];
-
-  if (planningPath.packageJsonFields.length > 0) {
-    operations.push({
-      _tag: "json-pkg-fields",
-      fileType: "json",
-      entries: planningPath.packageJsonFields,
-    });
-  }
 
   if (planningPath.exports.length > 0) {
     operations.push({
@@ -280,7 +268,6 @@ function assessPlanningPath({
 }): PathAssessment {
   const hasContents = planningPath.contents !== undefined;
   const hasPackageJsonFields =
-    planningPath.packageJsonFields.length > 0 ||
     planningPath.exports.length > 0 ||
     planningPath.dependencies.length > 0 ||
     planningPath.scripts.length > 0;
@@ -650,8 +637,10 @@ const assessPackageJsonMerge = (
     });
   }
 
-  // Existing composed files are edited from disk; their creation seed is not reapplied.
-  if (!hasAdditions) {
+  const requiredContents = planningPath.contents!;
+  const authoritativeContentMatches = existingContents === requiredContents;
+
+  if (authoritativeContentMatches && !hasAdditions) {
     return createPathAssessment({ classification: "unchanged" });
   }
 
@@ -709,9 +698,6 @@ const collectInvalidPackageJsonConflicts = (
     scripts: requiredScripts,
   } = planningPath;
   return [
-    ...Arr.map(planningPath.packageJsonFields, (entry) =>
-      PlanConflict.cases.packageJsonField.make({ path, field: entry.field }),
-    ),
     ...Arr.map(requiredExports, (e) => planConflict.exports(path, e.name)),
     ...Arr.map(requiredDependencies, (d) => planConflict.dependencies(path, d)),
     ...Arr.map(requiredScripts, (s) => planConflict.scripts(path, s.name)),
@@ -726,20 +712,6 @@ const assessPackageJsonEntries = ({
   planningPath: PlanningIntentPath;
 }): FlatStringRecordAssessment<typeof PlanConflict.Type> => {
   const { path } = planningPath;
-  const fieldConflicts = Arr.flatMap(
-    planningPath.packageJsonFields,
-    ({ field, value }) =>
-      packageJson[field] === undefined ||
-      Equal.equals(
-        comparablePackageJsonFieldValue({
-          field,
-          value: Schema.decodeUnknownSync(Schema.Json)(packageJson[field]),
-        }),
-        comparablePackageJsonFieldValue({ field, value }),
-      )
-        ? []
-        : [PlanConflict.cases.packageJsonField.make({ path, field })],
-  );
   const dependenciesBySection = Arr.groupBy(
     planningPath.dependencies,
     (plannedDependency) => plannedDependency.section,
@@ -780,7 +752,6 @@ const assessPackageJsonEntries = ({
 
   return {
     conflicts: [
-      ...fieldConflicts,
       ...exportAssessment.conflicts,
       ...Arr.flatMap(
         dependencyAssessments,
@@ -789,10 +760,6 @@ const assessPackageJsonEntries = ({
       ...scriptAssessment.conflicts,
     ],
     hasAdditions:
-      Arr.some(
-        planningPath.packageJsonFields,
-        ({ field }) => packageJson[field] === undefined,
-      ) ||
       exportAssessment.hasAdditions ||
       Arr.some(
         dependencyAssessments,

@@ -8,7 +8,7 @@ import {
   type StackConfig,
   TargetContribution,
 } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, Option, Schema } from "effect";
+import { Array as Arr, Context, Effect, Layer, Option } from "effect";
 
 export class ContributionResolver extends Context.Service<ContributionResolver>()(
   "ContributionResolver",
@@ -97,32 +97,10 @@ const resolveContributionTokens = (
   context: ContributionTokenContext,
 ): ReadonlyArray<typeof Contribution.Type> => {
   const resolveString = (value: string) => context.resolve(value);
-  const resolveJson = (
-    value: typeof Schema.Json.Type,
-  ): typeof Schema.Json.Type =>
-    typeof value === "string"
-      ? resolveString(value)
-      : Array.isArray(value)
-        ? value.map(resolveJson)
-        : value !== null && typeof value === "object"
-          ? Object.fromEntries(
-              Object.entries(value).map(([key, entry]) => [
-                key,
-                resolveJson(entry),
-              ]),
-            )
-          : value;
 
   return Arr.flatMap(
     contributions,
     Contribution.match({
-      "pkg-json-field": (c): ReadonlyArray<typeof Contribution.Type> => [
-        Contribution.cases["pkg-json-field"].make({
-          path: resolveString(c.path),
-          field: c.field,
-          value: resolveJson(c.value),
-        }),
-      ],
       file: (c): ReadonlyArray<typeof Contribution.Type> => {
         const path = resolveString(c.path).trim();
         if (path.length === 0) return [];

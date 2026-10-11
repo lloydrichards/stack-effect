@@ -4,13 +4,15 @@ Initial research and proposal, 2026-10-11. The original design discussion below 
 
 ## Implementation result
 
-The `package-library` module now supports Bun and Node package targets with custom names, one compiled root export, and no child modules. The shared package target is visible in target selection. The build uses a separate NodeNext configuration and removes stale output before emitting JavaScript and declarations.
+The `package-library` module supports Bun and Node packages with custom names, one compiled root export, and no child modules. It uses the existing catalog contribution types; no interpreter extension or CLI release is required to scaffold it.
 
-`pkg-json-field` composes complete publishing fields, including conditional exports and Effect peer dependencies. Competing contributions fail planning; differing values on disk require an Apply decision. Catalogs that do not use the new operation retain their previous capability requirements.
+The workspace package remains private and exports its source. A separate `package.publish.json` describes the published package. `npm run pack` rebuilds JavaScript and declarations into `dist/`, copies the publication manifest and documentation there, and packs that directory. Publication uses `npm publish ./dist`.
 
-The clean-consumer verifier passed for generated Bun and npm workspaces, including Node imports, NodeNext and bundler declarations, private subpaths, and stale-output cleanup. See the [usage guide](../../apps/docs/app/content/publish-library.mdx) and [repeatable verifier](../../apps/cli/scripts/verify-library.ts).
+This supersedes the root-manifest composition proposal below. The original proposal needed a new `pkg-json-field` operation because the existing engine cannot set complete publishing fields on an existing package manifest. Keeping publication metadata in its own ordinary file avoids that engine change and its release changeset.
 
-## Recommendation
+The clean-consumer verifier covers Bun and npm workspaces, Node execution, NodeNext and bundler declarations, private subpaths, and stale-output cleanup. See the [usage guide](../../apps/docs/app/content/publish-library.mdx) and [verifier](../../apps/cli/scripts/verify-library.ts).
+
+## Original recommendation (superseded)
 
 Add one public `package-library` module to the existing `package` target kind. It creates a small ESM library under `packages/<name>`, with one root export and no child modules. Use TypeScript to emit JavaScript and declarations. Add build tooling, subpath exports, and release automation only when a library needs them.
 

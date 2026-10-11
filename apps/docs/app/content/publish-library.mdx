@@ -6,16 +6,20 @@ Add a small ESM library to an existing Stack Effect project with a Bun or Node r
 stack-effect add --target package/sdk:package-library
 ```
 
-Use a new package name. This starter exposes one root entry point and has no child modules. It creates these files under `packages/sdk`:
+Use a new package name. This starter has one root entry point and no child modules. It creates these files under `packages/sdk`:
 
 ```text
 package.json
+package.publish.json
 README.md
 tsconfig.json
 tsconfig.build.json
 scripts/clean.mjs
+scripts/prepare-package.mjs
 src/index.ts
 ```
+
+The workspace package stays private and exports TypeScript source for local use. `package.publish.json` owns the npm publication metadata. The build copies that manifest into `dist/package.json`, beside the compiled JavaScript and declarations.
 
 ## Add your public API
 
@@ -25,29 +29,34 @@ Add implementation files under `src/` and export them from `src/index.ts`:
 export { greet } from "./greet.js";
 ```
 
-Keep `.js` extensions in relative imports and exports. TypeScript resolves these paths to your source files and emits imports that work in Node.
+Keep `.js` extensions in relative imports and exports. TypeScript resolves these paths to source files and emits imports that work in Node.
 
-Consumers import your library through its package name. Add explicit `package.json` export entries when you need public subpaths.
+Published consumers import the library through its npm name. Add explicit entries to `package.publish.json` when you need public subpaths.
 
 ## Build and pack
 
-Install the workspace dependencies, then run these commands from `packages/sdk`:
+Install the workspace dependencies, then run this command from `packages/sdk`:
 
 ```sh
-npm run build
-npm pack
+npm run pack
 ```
 
-Node and npm are required for this packaging workflow, including in a Bun workspace. The build checks NodeNext module resolution and emits JavaScript and declarations to `dist/`. Each build removes the previous output. The `prepack` script rebuilds the package before npm packs or publishes it.
+The command rebuilds the library and packs `dist/`. Each build removes previous output, checks NodeNext module resolution, emits JavaScript and declarations, and copies the publication manifest and documentation. Node and npm are required for packaging, including in a Bun workspace.
 
-The tarball contains `dist/` and package documentation. Effect is a peer dependency, so consumers supply the compatible Effect version. Remove both Effect entries if your library does not use Effect.
+Use `npm run build` to inspect `dist/` without creating a tarball. The tarball exposes one compiled root export and declares Effect as a peer dependency. Remove the peer entry from `package.publish.json` if your public API does not use Effect.
 
 ## Prepare publication
 
-Replace the placeholder `@repo/sdk` package name and update workspace consumers. Choose a version and license, add the appropriate license file, and fill in your description and repository metadata.
+Set your npm name, version, license, description, and repository in `package.publish.json`. Add a `LICENSE` file beside that manifest; the build copies it into `dist/` when present. The workspace package can keep its private `@repo/sdk` name.
 
-Install the packed tarball in a separate project and check its runtime imports and declarations. Keep unpublished `@repo/*` dependencies out of the emitted files. The generated README includes the publication checklist.
+Install the tarball in a separate project and check runtime imports and declarations. Keep unpublished workspace dependencies out of emitted files. The generated README includes the publication checklist.
 
-The package declares public npm access. Publish deliberately after inspecting the tarball; Stack Effect does not publish it automatically.
+After reviewing the tarball, publish the compiled package:
 
-For repository maintainers, `bun run --cwd apps/cli verify:library` generates Bun and npm workspaces and tests their tarballs in clean consumers. It checks runtime imports, declarations, private subpaths, and removal of stale build files. All temporary projects are removed afterward.
+```sh
+npm publish ./dist
+```
+
+Publish `dist/`, which declares public npm access. The workspace root package remains private. Stack Effect does not publish automatically.
+
+Repository maintainers can run `bun run --cwd apps/cli verify:library` to test generated Bun and npm libraries in clean consumers. It checks the packed JavaScript and declarations, private subpaths, and stale-output cleanup. All temporary projects are removed afterward.
