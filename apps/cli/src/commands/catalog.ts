@@ -128,6 +128,8 @@ const contributionPath = (contribution: typeof Contribution.Type) =>
     ? contribution.barrelPath
     : contribution.path;
 
+export { buildWorkspaceSelection };
+
 const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
   function* (
     config: typeof StackConfig.Type,
@@ -212,7 +214,13 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       initTarget.modules.add(moduleId);
     }
 
-    for (const moduleDefinition of catalog.getModules()) {
+    for (const moduleDefinition of catalog
+      .getModules()
+      .filter(
+        (module) =>
+          module.supportedRuntimes === undefined ||
+          module.supportedRuntimes.includes(config.runtime._tag),
+      )) {
       for (const supportedOn of moduleDefinition.supportedOn) {
         if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
           continue;
