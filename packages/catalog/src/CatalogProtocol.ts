@@ -37,6 +37,8 @@ const tokenNames = [
 ] as const;
 
 const conditionalNames = [
+  "module",
+  "noModule",
   "runtime",
   "packageManager",
   "typescript",

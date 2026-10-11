@@ -142,6 +142,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
   targetKey: TargetKey,
   identity: TargetIdentity,
   config: StackConfig,
+  moduleIds: Schema.optional(Schema.Array(Schema.String)),
 }) {
   /**
    * Resolve template tokens and conditionals in a string.
@@ -162,6 +163,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * ## Conditionals
    * - `{{#if field}}...{{/if}}` - Include content if field is truthy (non-empty)
    * - `{{#if field=value}}...{{/if}}` - Include content if field equals value
+   * - `{{#if module=module-id}}...{{/if}}` - Include content when the target has that module
+   * - `{{#if noModule=module-id}}...{{/if}}` - Include content when the target lacks that module
    * - `effectOxlint` - Truthy for TypeScript 7 with Oxlint
    * - `standaloneOxlint` - Truthy for Oxlint outside Vite+
    * - `standaloneEffectOxlint` - Truthy for Effect Oxlint outside Vite+
@@ -232,6 +235,13 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
       const conditionalRegex =
         /\{\{#if\s+(\w+)(?:=([\w-]+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
       return t.replace(conditionalRegex, (_, field, value, content) => {
+        if (
+          value !== undefined &&
+          (field === "module" || field === "noModule")
+        ) {
+          const selected = this.moduleIds?.includes(value) ?? false;
+          return (field === "module" ? selected : !selected) ? content : "";
+        }
         const configValue = getConfigValue(field);
         if (value !== undefined) {
           return configValue === value ? content : "";

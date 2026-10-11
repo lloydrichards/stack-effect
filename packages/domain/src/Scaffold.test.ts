@@ -265,6 +265,29 @@ describe("ContributionTokenContext.resolve", () => {
       }),
     });
 
+  it("selects template branches using modules attached to this target", () => {
+    const template =
+      "{{#if module=package-library}}public{{/if}}{{#if noModule=package-library}}private{{/if}}";
+    const base = makeContext();
+    expect(base.resolve(template)).toBe("private");
+    expect(
+      new ContributionTokenContext({
+        targetKey: base.targetKey,
+        identity: base.identity,
+        config: base.config,
+        moduleIds: ["package-library"],
+      }).resolve(template),
+    ).toBe("public");
+    expect(
+      new ContributionTokenContext({
+        targetKey: base.targetKey,
+        identity: base.identity,
+        config: base.config,
+        moduleIds: ["other"],
+      }).resolve(template),
+    ).toBe("private");
+  });
+
   describe("simple tokens", () => {
     it("resolves {{lint}} token", () => {
       const ctx = makeContext({ lint: "biome" });

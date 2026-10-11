@@ -10,16 +10,14 @@ Use a new package name. This starter has one root entry point and no child modul
 
 ```text
 package.json
-package.publish.json
 README.md
 tsconfig.json
 tsconfig.build.json
 scripts/clean.mjs
-scripts/prepare-package.mjs
 src/index.ts
 ```
 
-The workspace package stays private and exports TypeScript source for local use. `package.publish.json` owns the npm publication metadata. The build copies that manifest into `dist/package.json`, beside the compiled JavaScript and declarations.
+One `package.json` describes both workspace use and npm publication. It exports compiled files from `dist/` and sets `private` to `false`.
 
 ## Add your public API
 
@@ -29,34 +27,36 @@ Add implementation files under `src/` and export them from `src/index.ts`:
 export { greet } from "./greet.js";
 ```
 
-Keep `.js` extensions in relative imports and exports. TypeScript resolves these paths to source files and emits imports that work in Node.
+Keep `.js` extensions in relative imports and exports. TypeScript resolves these paths to source files and emits imports that work in Node. Add explicit entries to `package.json` exports when you need public subpaths.
 
-Published consumers import the library through its npm name. Add explicit entries to `package.publish.json` when you need public subpaths.
+## Build and develop
+
+Install workspace dependencies, then run `npm run build` from `packages/sdk` before another workspace package imports the library. Run `npm run dev` to recompile changes during development. Workspace and published consumers both use the compiled root entry point.
 
 ## Build and pack
 
-Install the workspace dependencies, then run this command from `packages/sdk`:
+Run this command from `packages/sdk`:
 
 ```sh
 npm run pack
 ```
 
-The command rebuilds the library and packs `dist/`. Each build removes previous output, checks NodeNext module resolution, emits JavaScript and declarations, and copies the publication manifest and documentation. Node and npm are required for packaging, including in a Bun workspace.
+The command rebuilds the library and packs the package root. Each build removes previous output and emits JavaScript and declarations using NodeNext module resolution. The manifest's `files` list includes compiled JavaScript and declarations under `dist/`. npm also includes the root manifest, README, and LICENSE when present. Node and npm are required for packaging, including in a Bun workspace.
 
-Use `npm run build` to inspect `dist/` without creating a tarball. The tarball exposes one compiled root export and declares Effect as a peer dependency. Remove the peer entry from `package.publish.json` if your public API does not use Effect.
+Effect is a peer dependency for consumers and a development dependency for local builds. Remove both entries if your library does not use Effect.
 
 ## Prepare publication
 
-Set your npm name, version, license, description, and repository in `package.publish.json`. Add a `LICENSE` file beside that manifest; the build copies it into `dist/` when present. The workspace package can keep its private `@repo/sdk` name.
+Set your npm name, version, license, description, and repository in `package.json`. Update workspace imports and dependency entries if you change the generated `@repo/sdk` name. Add a `LICENSE` file beside the manifest.
 
 Install the tarball in a separate project and check runtime imports and declarations. Keep unpublished workspace dependencies out of emitted files. The generated README includes the publication checklist.
 
-After reviewing the tarball, publish the compiled package:
+After reviewing the tarball, publish from `packages/sdk`:
 
 ```sh
-npm publish ./dist
+npm publish
 ```
 
-Publish `dist/`, which declares public npm access. The workspace root package remains private. Stack Effect does not publish automatically.
+The library declares public npm access. Stack Effect does not publish automatically.
 
 Repository maintainers can run `bun run --cwd apps/cli verify:library` to test generated Bun and npm libraries in clean consumers. It checks the packed JavaScript and declarations, private subpaths, and stale-output cleanup. All temporary projects are removed afterward.

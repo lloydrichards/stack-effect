@@ -37,42 +37,36 @@ export const packageModules = defineModules(import.meta.url, [
         conflictOnModify: true,
       },
       {
-        _tag: "file",
-        path: "{{targetPath}}/scripts/prepare-package.mjs",
-        contents: template("./package-library/scripts/prepare-package.mjs"),
-        conflictOnModify: true,
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/package.publish.json",
-        contents: template("./package-library/package.publish.json"),
-        conflictOnModify: true,
-      },
-      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "exports",
         name: ".",
-        value: "./src/index.ts",
+        value: "./dist/index.js",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "build",
-        value:
-          "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/prepare-package.mjs",
+        value: "node scripts/clean.mjs && tsc -p tsconfig.build.json",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "pack",
-        value: "npm run build && npm pack ./dist",
+        value: "npm run build && npm pack",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "tsc -p tsconfig.build.json --watch",
       },
     ],
     nextSteps: [
-      "Library: edit {{targetPath}}/src/index.ts, then run `npm run pack` from {{targetPath}}. Choose an npm package name in package.publish.json and a license before publishing; see {{targetPath}}/README.md. Node and npm are required for packaging.",
+      "Library: edit {{targetPath}}/src/index.ts, then run `npm run pack` from {{targetPath}}. Choose an npm package name in package.json and a license before publishing; see {{targetPath}}/README.md. Node and npm are required for packaging.",
     ],
   },
   {

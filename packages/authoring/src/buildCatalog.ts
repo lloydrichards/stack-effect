@@ -568,10 +568,15 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
   const document: CatalogDocument = {
     formatVersion: 1,
     catalogId,
-    requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter(
-      (capability) =>
-        capability !== "target:hierarchical-name" ||
-        hierarchicalNameCapabilities(authored).includes(capability),
+    requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter((capability) =>
+      capability === "target:hierarchical-name"
+        ? hierarchicalNameCapabilities(authored).includes(capability)
+        : capability === "condition:module" ||
+            capability === "condition:noModule"
+          ? inlineStrings(authored)
+              .flatMap(templateCapabilities)
+              .includes(capability)
+          : true,
     ),
     ...(official === undefined ? {} : { requires: ["official"] }),
     targets: composed.targets.filter((target) =>
