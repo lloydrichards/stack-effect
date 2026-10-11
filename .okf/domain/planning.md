@@ -8,7 +8,7 @@ sources:
     resource: ../../packages/domain/src/Plan.ts
   - id: source-2
     resource: ../../packages/domain/src/Apply.ts
-generated: { by: codex, at: "2026-10-11T14:06:18+02:00" }
+generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
 ---
 
 # Planning and conflict terms
@@ -39,8 +39,7 @@ Invariants:
 
 - Operations are tagged unions with `_tag` and `fileType` discriminators.
 - `fileType` is `"json"` or `"typescript"` for type-safe filtering.
-- JSON operations: `json-pkg-exports`, `json-pkg-deps`, `json-pkg-scripts`, `json-pkg-fields`, and `json-workspace-members`.
-- `json-pkg-fields` replaces the requested complete fields and preserves unrelated metadata. Existing composed package manifests are unchanged when all requested values are present; their creation seed is not reapplied.
+- JSON operations: `json-pkg-exports`, `json-pkg-deps`, `json-pkg-scripts`.
 - TypeScript operations: `ts-add-import`, `ts-add-reexport`, `ts-append-call-arg`, `ts-object-field`, and `ts-jsx-slot`.
 - Composition behavior depends on the operation. Check the composer tests for duplicate handling and missing AST targets; do not assume every operation silently skips duplicates.
 - Composition errors flow through Effect error channel as typed tagged errors.

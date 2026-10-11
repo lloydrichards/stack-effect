@@ -10,7 +10,7 @@ sources:
     resource: ../../catalogs/official/src/modules/domain.ts
   - id: source-3
     resource: ../../catalogs/official/src/moduleRegistry.ts
-generated: { by: codex, at: "2026-10-11T14:06:18+02:00" }
+generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
 # Add a catalog module
@@ -77,19 +77,6 @@ An implication uses `{ targetKind, moduleId }` in `implies`. It connects selecti
 ## Choose contribution operations
 
 Use `file` for authoritative content; `pkg-json-entry` for an export, dependency, devDependency, or script; `barrel-export` for a re-export; and `ts-call-arg`, `ts-object-field`, or `jsx-slot` for composition into existing code. A file contribution can set `conflictOnModify` when replacing existing content should require a decision.
-
-Use `pkg-json-field` for a complete publishing field. Its `field` is `private`, `files`, `types`, `publishConfig`, `peerDependencies`, `dependencies`, or `exports`; its `value` is JSON. For example:
-
-```typescript
-{
-  _tag: "pkg-json-field",
-  path: "{{targetPath}}/package.json",
-  field: "exports",
-  value: { ".": { types: "./dist/index.d.ts", import: "./dist/index.js" } },
-}
-```
-
-Object values replace the complete field. Do not combine a whole-field contribution with `pkg-json-entry` contributions to that same field. Different existing values produce a Plan conflict rather than an implicit override. The build declares `contribution:pkg-json-field` only for catalogs that use it.
 
 A package dependency entry has this shape:
 

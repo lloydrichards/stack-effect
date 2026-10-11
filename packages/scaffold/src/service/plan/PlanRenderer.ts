@@ -49,11 +49,6 @@ const renderOperation = (
   op: typeof CompositionOperation.Type,
 ): string =>
   Match.value(op).pipe(
-    Match.tag(
-      "json-pkg-fields",
-      (o) =>
-        `In \`${path}\`, set these complete package.json fields:\n${o.entries.map((e) => `  "${e.field}": ${JSON.stringify(e.value)}`).join("\n")}`,
-    ),
     Match.tag("json-pkg-exports", (o) => {
       const entries = o.entries
         .map((e) => `  "${e.name}": "${e.value}"`)
@@ -106,11 +101,6 @@ const renderConflict = (
   conflict: typeof PlanConflict.Type,
 ): { path: string; kind: string; description: string } =>
   Match.value(conflict).pipe(
-    Match.tag("packageJsonField", (c) => ({
-      path: c.path,
-      kind: "package-json-field",
-      description: `Package.json field "${c.field}" differs in ${c.path}`,
-    })),
     Match.tag("exports", (c) => ({
       path: c.path,
       kind: "exports",

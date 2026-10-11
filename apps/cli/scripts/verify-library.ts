@@ -138,8 +138,10 @@ const verify = (runtime: "bun" | "node") =>
     yield* fs.remove(path.join(library, "src/Obsolete.ts"));
     const packed = yield* Schema.decodeEffect(Packed)(
       yield* run(library, "npm", [
+        "--silent",
+        "run",
         "pack",
-        ".",
+        "--",
         "--json",
         "--pack-destination",
         root,
@@ -152,19 +154,16 @@ const verify = (runtime: "bun" | "node") =>
       });
     const files = archive.files.map((file) => file.path);
     yield* requireThat(
-      [
-        "dist/index.js",
-        "dist/index.d.ts",
-        "dist/Answer.js",
-        "dist/Answer.d.ts",
-      ].every((file) => files.includes(file)),
+      ["index.js", "index.d.ts", "Answer.js", "Answer.d.ts"].every((file) =>
+        files.includes(file),
+      ),
       "Tarball is missing public JavaScript or declarations",
     );
     yield* requireThat(
       files.every(
         (file) =>
           ["package.json", "README.md", "LICENSE"].includes(file) ||
-          (file.startsWith("dist/") &&
+          ((file.endsWith(".js") || file.endsWith(".d.ts")) &&
             !file.includes("Obsolete") &&
             !file.endsWith(".map")),
       ),

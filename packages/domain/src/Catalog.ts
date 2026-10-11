@@ -179,21 +179,15 @@ export const ModuleImplication = Schema.Struct({
   moduleId: ModuleId,
 });
 
-/** Whole package.json fields. Object values replace the field, rather than merge it. */
-export const PackageJsonField = Schema.Struct({
-  field: Schema.Literals([
-    "private",
-    "files",
-    "types",
-    "publishConfig",
-    "peerDependencies",
-    "dependencies",
-    "exports",
-  ]),
-  value: Schema.Json,
-});
-
-/** A Contribution declares desired files, package.json fields/entries, or TypeScript composition. */
+/**
+ * A Contribution declares a single unit of desired repository state.
+ *
+ * Tagged union of contribution types:
+ * - `file`: Authoritative file content (replaces entire file)
+ * - `pkg-json-entry`: Entry in package.json (exports, dependencies, scripts)
+ * - `barrel-export`: Re-export statement in a TypeScript barrel file
+ * - `ts-call-arg`: Argument appended to a TypeScript function call
+ */
 export const Contribution = Schema.TaggedUnion({
   /**
    * Authoritative file content - the complete desired file.
@@ -220,12 +214,6 @@ export const Contribution = Schema.TaggedUnion({
     ]),
     name: Schema.String,
     value: Schema.String,
-  },
-
-  /** Sets one complete field, with differing existing values reported as conflicts. */
-  "pkg-json-field": {
-    path: Schema.String,
-    ...PackageJsonField.fields,
   },
 
   /**

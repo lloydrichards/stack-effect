@@ -570,14 +570,8 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
     catalogId,
     requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter(
       (capability) =>
-        (capability !== "target:hierarchical-name" ||
-          hierarchicalNameCapabilities(authored).includes(capability)) &&
-        (capability !== "contribution:pkg-json-field" ||
-          [...authored.targets, ...authored.modules].some((definition) =>
-            definition.contributions.some(
-              (contribution) => contribution._tag === "pkg-json-field",
-            ),
-          )),
+        capability !== "target:hierarchical-name" ||
+        hierarchicalNameCapabilities(authored).includes(capability),
     ),
     ...(official === undefined ? {} : { requires: ["official"] }),
     targets: composed.targets.filter((target) =>
