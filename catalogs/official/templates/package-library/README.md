@@ -2,9 +2,15 @@
 
 A small ESM library with TypeScript declarations.
 
+## Run the example
+
+Run `npm run example` from this directory to build the library and print `Hello, Effect!`.
+
+`src/index.ts` exports `greet(name)`, which returns an Effect containing a greeting. `scripts/example.mjs` imports the compiled public API by package name, runs the Effect, and prints its result. Change the greeting or use this script to try new exports.
+
 ## Add public exports
 
-Add implementation files under `src/` and export them from `src/index.ts`:
+Replace the starter greeting or add implementation files under `src/` and export them from `src/index.ts`:
 
 ```ts
 export { greet } from "./greet.js";

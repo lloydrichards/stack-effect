@@ -32,6 +32,12 @@ export const packageModules = defineModules(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/scripts/example.mjs",
+        contents: template("./package-library/scripts/example.mjs"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/README.md",
         contents: template("./package-library/README.md"),
         conflictOnModify: true,
@@ -64,9 +70,16 @@ export const packageModules = defineModules(import.meta.url, [
         name: "dev",
         value: "tsc -p tsconfig.build.json --watch",
       },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "example",
+        value: "npm run build && node scripts/example.mjs",
+      },
     ],
     nextSteps: [
-      "Library: edit {{targetPath}}/src/index.ts, then run `npm run pack` from {{targetPath}}. Choose an npm package name in package.json and a license before publishing; see {{targetPath}}/README.md. Node and npm are required for packaging.",
+      "Library: run `npm run example` from {{targetPath}} to try the greeting, edit src/index.ts, then run `npm run pack` from {{targetPath}}. Choose an npm package name in package.json and a license before publishing; see {{targetPath}}/README.md. Node and npm are required for packaging.",
     ],
   },
   {

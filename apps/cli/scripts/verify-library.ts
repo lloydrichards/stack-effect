@@ -118,6 +118,12 @@ const verify = (runtime: "bun" | "node") =>
     ]);
 
     const library = path.join(project, "packages/sdk");
+    yield* requireThat(
+      (yield* run(library, "npm", ["run", "example"])).includes(
+        "Hello, Effect!",
+      ),
+      "Generated library example must run through its public export",
+    );
     yield* fs.writeFileString(
       path.join(library, "src/index.ts"),
       'export { answer } from "./Answer.js";\n',
