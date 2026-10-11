@@ -132,6 +132,17 @@ const verify = (runtime: "bun" | "node") =>
     );
     yield* run(library, "npm", ["run", "build"]);
     yield* requireThat(
+      !(yield* fs.exists(path.join(library, "package.publish.json"))) &&
+        !(yield* fs.exists(path.join(library, "scripts/prepare-package.mjs"))),
+      "Library must use a single manifest without a preparation script",
+    );
+    yield* fs.writeFileString(
+      path.join(library, "verify-workspace.mjs"),
+      'import { answer } from "@repo/sdk";\nimport { Effect } from "effect";\nif (Effect.runSync(answer) !== 42) throw new Error("Workspace compiled export failed");\n',
+    );
+    yield* run(library, "node", ["verify-workspace.mjs"]);
+
+    yield* requireThat(
       yield* fs.exists(path.join(library, "dist/Obsolete.js")),
       "Build must emit the source file before the cleanup check",
     );
@@ -154,16 +165,20 @@ const verify = (runtime: "bun" | "node") =>
       });
     const files = archive.files.map((file) => file.path);
     yield* requireThat(
-      ["index.js", "index.d.ts", "Answer.js", "Answer.d.ts"].every((file) =>
-        files.includes(file),
-      ),
+      [
+        "dist/index.js",
+        "dist/index.d.ts",
+        "dist/Answer.js",
+        "dist/Answer.d.ts",
+      ].every((file) => files.includes(file)),
       "Tarball is missing public JavaScript or declarations",
     );
     yield* requireThat(
       files.every(
         (file) =>
           ["package.json", "README.md", "LICENSE"].includes(file) ||
-          ((file.endsWith(".js") || file.endsWith(".d.ts")) &&
+          (file.startsWith("dist/") &&
+            (file.endsWith(".js") || file.endsWith(".d.ts")) &&
             !file.includes("Obsolete") &&
             !file.endsWith(".map")),
       ),

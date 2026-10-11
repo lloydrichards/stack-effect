@@ -29,6 +29,10 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
                 targetKey: node.id,
                 identity: node.identity,
                 config,
+                moduleIds: blueprint.nodes
+                  .filter(BlueprintNode.guards["attached-module"])
+                  .filter((module) => module.targetId === node.id)
+                  .map((module) => module.moduleId),
               });
 
               return {
