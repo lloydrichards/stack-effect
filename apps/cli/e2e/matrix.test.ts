@@ -108,10 +108,13 @@ const requiredProviderSelections = (
       }
       if (dependency._tag !== "required-capability") continue;
 
-      const provider = getCapabilityProviders({
+      const providers = getCapabilityProviders({
         capability: dependency.capability,
         target: dependency.target,
-      })[0];
+      });
+      const provider =
+        providers.find((candidate) => moduleIds.includes(candidate.id)) ??
+        providers[0];
       if (!provider) continue;
 
       const target = identityToTarget(dependency.target);
@@ -164,6 +167,32 @@ function groupModulesByTarget(
   return groups;
 }
 
+const providedCapabilities = (moduleId: string) =>
+  catalogModulesById.get(ModuleId.make(moduleId))?.provides ?? [];
+
+/** Maximal bundles choose one provider for each capability. */
+const maximalBundles = (moduleIds: ReadonlyArray<string>) =>
+  [...new Set(moduleIds.flatMap(providedCapabilities))].reduce<
+    ReadonlyArray<ReadonlyArray<string>>
+  >(
+    (bundles, capability) =>
+      bundles.flatMap((bundle) => {
+        const providers = bundle.filter((id) =>
+          providedCapabilities(id).includes(capability),
+        );
+        return providers.length <= 1
+          ? [bundle]
+          : providers.map((provider) =>
+              bundle.filter(
+                (id) =>
+                  id === provider ||
+                  !providedCapabilities(id).includes(capability),
+              ),
+            );
+      }),
+    [moduleIds],
+  );
+
 const buildMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
   const entries: Array<MatrixEntry> = [];
@@ -181,11 +210,13 @@ const buildMatrix = Effect.gen(function* () {
         });
       }
 
-      if (moduleIds.length > 1) {
+      for (const bundle of maximalBundles(moduleIds).filter(
+        (bundle) => bundle.length > 1,
+      )) {
         entries.push({
           target,
-          modules: moduleIds,
-          label: `${target} + [all: ${moduleIds.join(", ")}]`,
+          modules: bundle,
+          label: `${target} + [all: ${bundle.join(", ")}]`,
         });
       }
     }
