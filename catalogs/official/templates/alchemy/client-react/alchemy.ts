@@ -1,6 +1,3 @@
-// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
-// Catalog contributors: apps/{{packageName}}#alchemy-{{packageName}}site:file
-
 // @effect-diagnostics nodeBuiltinImport:off
 // oxlint-disable-next-line effecttsgo/node-builtin-import -- Deployment runs in Node and needs an absolute package path.
 import { fileURLToPath } from "node:url";

@@ -54,6 +54,7 @@ const defaultWorkspaceRoot = "workspace/catalog-built";
 
 const defaultTargetNames = new Map<string, string>([
   ["server", "api"],
+  ["cloudflare-worker", "api"],
   ["client-react", "web"],
   ["client-foldkit", "app"],
   ["server-mcp", ""],
