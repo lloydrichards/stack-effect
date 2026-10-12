@@ -1,0 +1,72 @@
+# Deploy with Alchemy
+
+Alchemy deployment is optional. Select it through ordinary modules on a React, Foldkit or Cloudflare Worker target. The CLI generates target declarations and an editable root `alchemy.run.ts`. You register resources and connect applications in that TypeScript file.
+
+## Select applications
+
+A frontend alone:
+
+```sh
+stack-effect create website --yes --target client-foldkit/web:alchemy-client-foldkit-website
+```
+
+A Worker alone:
+
+```sh
+stack-effect create backend --yes --target cloudflare-worker/api:alchemy-worker-deployment
+```
+
+A Foldkit frontend with the Worker HTTP client:
+
+```sh
+stack-effect create application --yes \
+  --target client-foldkit/web:client-foldkit-http-api-worker,alchemy-client-foldkit-website \
+  --target cloudflare-worker/api:alchemy-worker-deployment
+```
+
+For React, substitute `client-react`, `client-react-http-api-worker` and `alchemy-client-react-website`. These selections can represent CAFE or CAVE without stack-specific modules. The Worker HTTP client uses the shared API contracts. Select the backend independently and supply its URL in Alchemy code. Its socket-server alternatives conflict through the existing catalog rules.
+
+Deployment modules support Bun and Node. Add `--runtime node --package-manager npm` for Node/npm projects. Projects that omit these modules retain their existing development setup.
+
+## Compose the root Stack
+
+The generated root initially has no registered resources. Add imports for your declarations and replace its empty `Applications` declaration. Keep the generated providers, state and `Alchemy.Stack` configuration.
+
+For a frontend alone:
+
+```ts
+import Website from "./apps/client-foldkit-web/alchemy";
+
+const Applications = Website().pipe(Effect.map((web) => ({ web: web.url })));
+```
+
+For a Worker alone:
+
+```ts
+import Worker from "./apps/cloudflare-worker-api/alchemy";
+
+const Applications = Worker.pipe(Effect.map((api) => ({ api: api.url })));
+```
+
+To connect them:
+
+```ts
+import Website from "./apps/client-foldkit-web/alchemy";
+import Worker from "./apps/cloudflare-worker-api/alchemy";
+
+const Applications = Effect.gen(function* () {
+  const api = yield* Worker;
+  const web = yield* Website({ VITE_SERVER_URL: api.url.as<string>() });
+  return { api: api.url, web: web.url };
+});
+```
+
+Use the actual generated paths when naming targets differently. You can add queues, databases and other Alchemy resources to this same Stack. The CLI preserves modified declarations as file conflicts; repeat additions with `--yes` skip those conflicts. It does not rewrite your registrations or store a second binding configuration.
+
+## Run infrastructure
+
+Run `bun run infra:check`, then `bun run infra:dev`. Use `npm run` in Node/npm projects. Existing application `dev` commands remain available.
+
+The root also exposes `infra:plan`, `infra:deploy` and `infra:destroy`, initially using the `dev` stage. Edit the scripts or invoke Alchemy directly for other stages. Alchemy and its frontend integration are pinned to `2.0.0-beta.81`.
+
+Local development uses local state. Account-backed plan, deployment and cleanup require a configured Cloudflare profile and may create resources. They have not been qualified by the local smoke tests. The initial Worker implements the shared health and hello HTTP contracts; Worker RPC, SQL, chat and presence adapters are outside this version.

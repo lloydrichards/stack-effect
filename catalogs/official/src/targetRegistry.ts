@@ -53,6 +53,27 @@ export const targetGroup = defineTargets(import.meta.url, [
   },
 
   {
+    kind: "cloudflare-worker",
+    title: "Cloudflare HTTP Worker",
+    description: "Effect HTTP API with optional Alchemy deployment",
+    defaultName: "api",
+    supportedRuntimes: ["bun", "node"],
+    requiredModules: ["cloudflare-worker-http"],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: template("./cloudflare-worker/package.json"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: template("./cloudflare-worker/tsconfig.json"),
+      },
+    ],
+  },
+
+  {
     kind: "client-react",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Client React Application",

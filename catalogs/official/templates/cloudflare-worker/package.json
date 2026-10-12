@@ -1,0 +1,16 @@
+{
+  "name": "{{packageName}}",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "effect": "4.0.0",
+    "@repo/domain": "{{workspaceDependency}}"
+  },
+  "devDependencies": {
+    "@repo/config-typescript": "{{workspaceDependency}}",
+    "@types/node": "^26.6.3"
+  }
+}

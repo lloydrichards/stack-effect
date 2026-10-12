@@ -35,6 +35,11 @@ describe("catalog authoring workspace runtime", () => {
           config,
         );
         expect(blueprint).toBeDefined();
+        expect(
+          selection.targets.some(
+            (target) => target.identity.kind === "cloudflare-worker",
+          ),
+        ).toBe(false);
       }).pipe(Effect.provide(TestLayer)),
   );
 

@@ -1,0 +1,14 @@
+{
+  "extends": "./packages/config-typescript/base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "declarationMap": false,
+    "lib": ["ES2023", "DOM"],
+    "types": ["node"]
+  },
+  "include": [
+    "alchemy.run.ts",
+    "apps/**/alchemy.ts"
+  ]
+}

@@ -252,6 +252,15 @@
           "value": "public, max-age=0, must-revalidate"
         }
       ]
+    },
+    {
+      "source": "/alchemy",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "</alchemy.md>; rel=\"alternate\"; type=\"text/markdown\", </llms.txt>; rel=\"describedby\""
+        }
+      ]
     }
   ],
   "routes": [

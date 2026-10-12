@@ -177,6 +177,12 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
     };
 
     for (const targetKind of catalog.getTargetKinds()) {
+      const definition = yield* catalog.getTarget(targetKind);
+      if (
+        definition.supportedRuntimes !== undefined &&
+        !definition.supportedRuntimes.includes(config.runtime._tag)
+      )
+        continue;
       ensureTarget(
         new TargetIdentity({
           kind: targetKind,
