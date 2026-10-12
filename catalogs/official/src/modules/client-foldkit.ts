@@ -11,12 +11,8 @@ const domainTarget = {
 const updateCaseValue = (namespace: string, modelField: string) =>
   `({ message }) => {
   const [nextChild, cmds] = ${namespace}.update(model.${modelField}, message);
-  const mappedCommands = cmds.map(
-    Command.mapEffect(
-      Effect.map((message) => ${namespace}.GotMessage({ message })),
-    ),
-  ) as ReadonlyArray<Command.Command<Message>>;
-  return [{ ...model, ${modelField}: nextChild }, mappedCommands];
+  const commands = Command.mapMessages(cmds, (message) => ${namespace}.GotMessage({ message }));
+  return { model: { ...model, ${modelField}: nextChild }, commands };
 }`;
 
 export const clientFoldkitModules = defineModules(import.meta.url, [
@@ -37,7 +33,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         _tag: "ts-object-field",
         path: "{{targetPath}}/src/entry.ts",
         targetVariable: "program",
-        functionName: "Runtime.makeProgram",
+        functionName: "Runtime.makeApplication",
         field: "devTools",
         value: "devTools",
         import: {
@@ -130,7 +126,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/main.ts",
         targetVariable: "view",
         functionName: "Views.compose",
-        argument: `Rest.view(model.rest, (msg) => Rest.GotMessage({ message: msg }))`,
+        argument: `Rest.view(model.rest, (msg) => Rest.GotMessage({ message: msg }), h)`,
         import: {
           moduleSpecifier: "./features/rest",
           namespaceImport: "Rest",
@@ -242,7 +238,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/main.ts",
         targetVariable: "view",
         functionName: "Views.compose",
-        argument: `Ticks.view(model.ticks, (msg) => Ticks.GotMessage({ message: msg }))`,
+        argument: `Ticks.view(model.ticks, (msg) => Ticks.GotMessage({ message: msg }), h)`,
         import: {
           moduleSpecifier: "./features/ticks",
           namespaceImport: "Ticks",
@@ -356,7 +352,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/main.ts",
         targetVariable: "view",
         functionName: "Views.compose",
-        argument: `Presence.view(model.presence, (msg) => Presence.GotMessage({ message: msg }))`,
+        argument: `Presence.view(model.presence, (msg) => Presence.GotMessage({ message: msg }), h)`,
         import: {
           moduleSpecifier: "./features/presence",
           namespaceImport: "Presence",
@@ -478,7 +474,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/main.ts",
         targetVariable: "view",
         functionName: "Views.compose",
-        argument: `Chat.view(model.chat, (msg) => Chat.GotMessage({ message: msg }))`,
+        argument: `Chat.view(model.chat, (msg) => Chat.GotMessage({ message: msg }), h)`,
         import: {
           moduleSpecifier: "./features/chat",
           namespaceImport: "Chat",

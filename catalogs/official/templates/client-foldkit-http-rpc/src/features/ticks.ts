@@ -1,10 +1,9 @@
 import { TickEvent } from "@repo/domain/Rpc";
 import { Effect, Match, Schema, Stream } from "effect";
 import { Command, Subscription } from "foldkit";
-import type { Html } from "foldkit/html";
-import { html } from "foldkit/html";
-import { m } from "foldkit/message";
-import { evo } from "foldkit/struct";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import { taggedStruct as m } from "foldkit/schema";
+import { modifyFields as evo } from "foldkit/struct";
 import { RpcClient, RpcClientLive } from "../services/rpc-client";
 
 export const Model = Schema.Struct({
@@ -99,9 +98,8 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
 export const view = <ParentMessage>(
   model: Model,
   toParentMessage: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const h = html<ParentMessage>();
-
   return h.div(
     [h.Class("flex h-full min-h-0 flex-col gap-4")],
     [

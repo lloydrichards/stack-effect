@@ -1,5 +1,5 @@
 import { EventRpc, RpcApi, type TickEvent } from "@repo/domain/Rpc";
-import { Effect, Layer, Queue } from "effect";
+import { Cause, Effect, Layer, Queue } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 
 const EventRpcHandlers = EventRpc.toLayer(
@@ -8,7 +8,10 @@ const EventRpcHandlers = EventRpc.toLayer(
     return EventRpc.of({
       tick: Effect.fn(function* (payload) {
         yield* Effect.logDebug("Creating new tick stream");
-        const queue = yield* Queue.unbounded<typeof TickEvent.Type>();
+        const queue = yield* Queue.unbounded<
+          typeof TickEvent.Type,
+          Cause.Done
+        >();
         yield* Effect.forkScoped(
           Effect.gen(function* () {
             yield* Queue.offer(queue, { _tag: "starting" });
@@ -19,7 +22,7 @@ const EventRpcHandlers = EventRpc.toLayer(
             }
             yield* Queue.offer(queue, { _tag: "end" });
             yield* Effect.logDebug("End event sent");
-          }).pipe(Effect.ensuring(Queue.shutdown(queue))),
+          }).pipe(Effect.ensuring(Queue.end(queue))),
         );
         return queue;
       }),

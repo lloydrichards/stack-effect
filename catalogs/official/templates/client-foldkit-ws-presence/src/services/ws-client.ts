@@ -7,7 +7,7 @@ import {
   RpcSerialization,
 } from "effect/rpc";
 
-const WS_URL = "ws://localhost:9000/ws";
+const WS_URL = import.meta.env["VITE_WS_URL"] || "ws://localhost:9000/ws";
 
 type WsRpcClient = EffectRpcClient.FromGroup<
   typeof WebSocketRpc,
