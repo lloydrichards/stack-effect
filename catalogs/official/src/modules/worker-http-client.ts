@@ -15,7 +15,9 @@ export const workerHttpClientModules = defineModules(
       id: `${module.id}-worker`,
       title: `${module.title} for a Cloudflare Worker`,
       description: "Effect HTTP API client for a Cloudflare Worker",
-      implies: [],
+      implies: [
+        { targetKind: "cloudflare-worker", moduleId: "cloudflare-worker-http" },
+      ],
       supportedRuntimes: ["bun", "node"],
       conflictsWith: [
         ...clientModules.definitions,

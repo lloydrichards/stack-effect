@@ -24,7 +24,7 @@ stack-effect create application --yes \
   --target cloudflare-worker/api:alchemy-worker-deployment
 ```
 
-For React, substitute `client-react`, `client-react-http-api-worker` and `alchemy-client-react-website`. These selections can represent CAFE or CAVE without stack-specific modules. The Worker HTTP client uses the shared API contracts. Select the backend independently and supply its URL in Alchemy code. Its socket-server alternatives conflict through the existing catalog rules.
+For React, substitute `client-react`, `client-react-http-api-worker` and `alchemy-client-react-website`. These selections can represent CAFE or CAVE without stack-specific modules. The Worker HTTP client uses the shared API contracts. Selecting a Worker HTTP client also adds a Cloudflare Worker with its HTTP handlers. Alchemy deployment remains optional; select the Worker deployment module and supply its URL in Alchemy code. Its socket-server alternatives conflict through the existing catalog rules.
 
 Deployment modules support Bun and Node. Add `--runtime node --package-manager npm` for Node/npm projects. Projects that omit these modules retain their existing development setup.
 

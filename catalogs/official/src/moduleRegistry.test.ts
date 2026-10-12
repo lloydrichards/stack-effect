@@ -119,3 +119,14 @@ describe("moduleRegistry", () => {
     ).toEqual(["package-db-sqlite", "package-db-postgres"]);
   });
 });
+
+for (const kind of ["client-foldkit", "client-react"]) {
+  it(`${kind} Worker HTTP client implies HTTP handlers without Alchemy deployment`, () => {
+    expect(
+      moduleRegistry.find((module) => module.id === `${kind}-http-api-worker`)
+        ?.implies,
+    ).toEqual([
+      { targetKind: "cloudflare-worker", moduleId: "cloudflare-worker-http" },
+    ]);
+  });
+}
