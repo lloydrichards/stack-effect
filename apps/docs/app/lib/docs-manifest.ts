@@ -41,6 +41,14 @@ export const docPages: ReadonlyArray<DocPage> = [
     group: "Start here",
   },
   {
+    route: "/alchemy",
+    source: "alchemy.mdx",
+    title: "Deploy with Alchemy",
+    summary:
+      "Select Cloudflare deployment modules and compose resources in TypeScript.",
+    group: "Start here",
+  },
+  {
     route: "/publish-library",
     source: "publish-library.mdx",
     title: "Create a publishable library",

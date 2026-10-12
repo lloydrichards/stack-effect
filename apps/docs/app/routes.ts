@@ -8,6 +8,7 @@ import {
 export default [
   index("content/index.mdx"),
   route("builder", "routes/builder.tsx"),
+  route("alchemy", "content/alchemy.mdx"),
   route("getting-started", "content/getting-started.mdx"),
   route("how-it-works", "content/how-it-works.mdx"),
   route("catalog-registry", "content/catalog-registry.mdx"),

@@ -68,6 +68,8 @@ export const clientModules = defineModules(import.meta.url, [
   },
   {
     id: "client-react-http-api",
+    provides: ["client-http-api"],
+    conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Client",
     description: "REST API client with Effect Atom and typed HttpApiClient",
@@ -121,6 +123,7 @@ export const clientModules = defineModules(import.meta.url, [
   },
   {
     id: "client-react-http-api-todos",
+    conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Todo HTTP Client",
     description: "Persistent Todo CRUD card backed by the typed HTTP API",
@@ -177,6 +180,7 @@ export const clientModules = defineModules(import.meta.url, [
   },
   {
     id: "client-react-http-rpc",
+    conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP RPC Client",
     description: "RPC streaming client with tick atom and UI",
@@ -235,6 +239,7 @@ export const clientModules = defineModules(import.meta.url, [
   },
   {
     id: "client-react-chat",
+    conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Client",
     description: "AI chat UI with streaming, tool calls, and state machine",
@@ -310,6 +315,7 @@ export const clientModules = defineModules(import.meta.url, [
   },
   {
     id: "client-react-ws-presence",
+    conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Client",
     description: "Real-time presence UI with WebSocket RPC",

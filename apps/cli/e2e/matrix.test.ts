@@ -63,6 +63,7 @@ interface CapabilityMatrixEntry {
  */
 const defaultTargetNames = new Map([
   ["server", "api"],
+  ["cloudflare-worker", "api"],
   ["client-react", "web"],
   ["client-foldkit", "app"],
   ["server-mcp", ""],
@@ -427,7 +428,11 @@ const buildMaximalClientMatrix = Effect.gen(function* () {
     [TargetKind.make("client-react"), TargetKind.make("client-foldkit")],
     (kind) =>
       Effect.gen(function* () {
-        const modules = yield* catalog.getSupportedModules(kind);
+        const supported = yield* catalog.getSupportedModules(kind);
+        // Worker variants have their own maximal target and deployment cases.
+        const modules = supported.filter(
+          (module) => module.id !== `${kind}-http-api-worker`,
+        );
         const serverModules = modules.flatMap((module) =>
           (module.implies ?? [])
             .filter((implication) => implication.targetKind === "server")

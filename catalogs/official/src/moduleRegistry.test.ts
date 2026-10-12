@@ -27,12 +27,22 @@ describe("moduleRegistry", () => {
       targetRegistry
         .filter((target) => !target.supportedRuntimes?.includes("deno"))
         .map((target) => target.kind),
-    ).toEqual([]);
+    ).toEqual(["cloudflare-worker"]);
     expect(
       moduleRegistry
         .filter((module) => !module.supportedRuntimes?.includes("deno"))
         .map((module) => module.id),
-    ).toEqual(["workspace-monorepo-turbo", "package-library"]);
+    ).toEqual([
+      "workspace-monorepo-turbo",
+      "cloudflare-worker-http",
+      "client-react-http-api-worker",
+      "client-foldkit-http-api-worker",
+      "alchemy-cloudflare",
+      "alchemy-worker-deployment",
+      "alchemy-client-foldkit-website",
+      "alchemy-client-react-website",
+      "package-library",
+    ]);
   });
 
   it("should list Nx and Vite+ as Turbo conflicts when monorepo modules are registered", () => {
