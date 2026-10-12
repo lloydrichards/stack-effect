@@ -9,10 +9,9 @@ import {
   Stream,
 } from "effect";
 import { Command, Subscription } from "foldkit";
-import type { Html } from "foldkit/html";
-import { html } from "foldkit/html";
-import { m } from "foldkit/message";
-import { evo } from "foldkit/struct";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import { taggedStruct as m } from "foldkit/schema";
+import { modifyFields as evo } from "foldkit/struct";
 import { WsClient, WsClientLive } from "../services/ws-client";
 
 const PresenceClient = Schema.Struct({
@@ -69,10 +68,7 @@ export const init = (): readonly [
   [],
 ];
 
-const applyPresenceEvent = (
-  model: Model,
-  event: WebSocketEvent,
-): Model =>
+const applyPresenceEvent = (model: Model, event: WebSocketEvent): Model =>
   Match.valueTags(event, {
     connected: ({ clientId, connectedAt }) =>
       evo(model, {
@@ -153,23 +149,21 @@ export const update = (model: Model, message: Message) => {
   });
 };
 
-export const SetStatus = Command.define(
-  "SetStatus",
-  { clientId: ClientId, status: ClientStatus },
-  SucceededSetStatus,
-  FailedSetStatus,
-)(({ clientId, status }) =>
-  Effect.gen(function* () {
-    const client = yield* WsClient;
-    yield* client.setStatus({ clientId, status });
-    return SucceededSetStatus();
-  }).pipe(
-    Effect.orElseSucceed(() =>
-      FailedSetStatus({ error: "Failed to set status" }),
+export const SetStatus = Command.define("SetStatus", {
+  args: { clientId: ClientId, status: ClientStatus },
+  messages: [SucceededSetStatus, FailedSetStatus],
+  execute: ({ clientId, status }) =>
+    Effect.gen(function* () {
+      const client = yield* WsClient;
+      yield* client.setStatus({ clientId, status });
+      return SucceededSetStatus();
+    }).pipe(
+      Effect.orElseSucceed(() =>
+        FailedSetStatus({ error: "Failed to set status" }),
+      ),
+      Effect.provide(WsClientLive),
     ),
-    Effect.provide(WsClientLive),
-  ),
-);
+});
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   presenceStream: entry(
@@ -193,8 +187,8 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
 export const view = <ParentMessage>(
   model: Model,
   toParentMessage: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const h = html<ParentMessage>();
   const isConnected = model.presenceEnabled;
 
   return h.div(
@@ -268,7 +262,7 @@ export const view = <ParentMessage>(
 };
 
 const statusButton = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   toParentMessage: (message: Message) => ParentMessage,
   label: string,
   status: ClientStatus,
@@ -286,7 +280,7 @@ const statusButton = <ParentMessage>(
   );
 
 const clientListView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Html =>
   h.div(

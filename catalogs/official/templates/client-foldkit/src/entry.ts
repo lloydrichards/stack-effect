@@ -2,7 +2,7 @@ import { Runtime } from "foldkit";
 import "./styles.css";
 import { init, Model, subscriptions, update, view } from "./main";
 
-const program = Runtime.makeProgram({
+const program = Runtime.makeApplication({
   Model,
   init,
   update,

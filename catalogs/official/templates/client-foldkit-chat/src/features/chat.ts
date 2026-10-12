@@ -7,10 +7,9 @@ import {
 } from "@repo/domain/Chat";
 import { Effect, Match, Option, Schema, Stream } from "effect";
 import { Command, Subscription } from "foldkit";
-import type { Html } from "foldkit/html";
-import { html } from "foldkit/html";
-import { m } from "foldkit/message";
-import { evo } from "foldkit/struct";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import { taggedStruct as m } from "foldkit/schema";
+import { modifyFields as evo } from "foldkit/struct";
 import { ChatClient, ChatClientLive } from "../services/chat-client";
 
 const ChatMessageSchema = Schema.Struct({
@@ -87,10 +86,7 @@ type MutableSegment =
   | { _tag: "text"; content: string; isComplete: boolean }
   | { _tag: "tool-call"; tool: ToolCall };
 
-const applyChatPart = (
-  model: Model,
-  part: ChatStreamPart,
-): Model => {
+const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
   const segments: Array<MutableSegment> = [...model.chatSegments];
 
   return ChatStreamPart.match<Model>(part, {
@@ -186,8 +182,7 @@ const extractTextFromSegments = (
 ): string =>
   segments
     .filter(
-      (seg): seg is MessageSegment & { _tag: "text" } =>
-        seg._tag === "text",
+      (seg): seg is MessageSegment & { _tag: "text" } => seg._tag === "text",
     )
     .map((seg) => seg.content)
     .join("");
@@ -281,23 +276,21 @@ export const update = (
   });
 };
 
-export const StartChat = Command.define(
-  "StartChat",
-  { messagesJson: Schema.String },
-  StartedChat,
-  FailedStartChat,
-)(({ messagesJson }) =>
-  Effect.gen(function* () {
-    const client = yield* ChatClient;
-    const { chatId } = yield* client.chat_start();
-    return StartedChat({ chatId, messagesJson });
-  }).pipe(
-    Effect.orElseSucceed(() =>
-      FailedStartChat({ error: "Failed to start chat" }),
+export const StartChat = Command.define("StartChat", {
+  args: { messagesJson: Schema.String },
+  messages: [StartedChat, FailedStartChat],
+  execute: ({ messagesJson }) =>
+    Effect.gen(function* () {
+      const client = yield* ChatClient;
+      const { chatId } = yield* client.chat_start();
+      return StartedChat({ chatId, messagesJson });
+    }).pipe(
+      Effect.orElseSucceed(() =>
+        FailedStartChat({ error: "Failed to start chat" }),
+      ),
+      Effect.provide(ChatClientLive),
     ),
-    Effect.provide(ChatClientLive),
-  ),
-);
+});
 
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   chatStream: entry(
@@ -324,9 +317,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
           ? Effect.gen(function* () {
               const client = yield* ChatClient;
               const messages =
-                yield* Schema.decodeEffect(ChatMessagesJson)(
-                  messagesJson,
-                );
+                yield* Schema.decodeEffect(ChatMessagesJson)(messagesJson);
               return Option.match(chatId, {
                 onNone: () => Stream.empty,
                 onSome: (id) =>
@@ -350,8 +341,8 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
 export const view = <ParentMessage>(
   model: Model,
   toParentMessage: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const h = html<ParentMessage>();
   const isStreaming = model.chatState === "streaming";
   const isDisabled = isStreaming;
 
@@ -487,7 +478,7 @@ export const view = <ParentMessage>(
 };
 
 const emptyStateView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> => {
   if (model.chatHistory.length > 0 || model.chatSegments.length > 0) return [];
@@ -513,7 +504,7 @@ const emptyStateView = <ParentMessage>(
 };
 
 const historyView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> =>
   model.chatHistory.map((msg) =>
@@ -543,7 +534,7 @@ const historyView = <ParentMessage>(
   );
 
 const streamingSegmentsView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> => {
   if (model.chatSegments.length === 0) return [];
@@ -557,7 +548,7 @@ const streamingSegmentsView = <ParentMessage>(
 };
 
 const segmentsView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   segments: ReadonlyArray<MessageSegment>,
 ): Array<Html> =>
   segments.map((segment) =>
@@ -570,7 +561,7 @@ const segmentsView = <ParentMessage>(
   );
 
 const toolCallView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   tool: ToolCall,
 ): Html => {
   const statusIcon =
@@ -623,7 +614,7 @@ const toolCallView = <ParentMessage>(
 };
 
 const reasoningView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> =>
   Option.match(model.chatReasoning, {
@@ -646,7 +637,7 @@ const reasoningView = <ParentMessage>(
   });
 
 const errorView = <ParentMessage>(
-  h: ReturnType<typeof html<ParentMessage>>,
+  h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> =>
   Option.match(model.chatError, {

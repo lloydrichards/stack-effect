@@ -1,7 +1,6 @@
-import { Effect, Match as M, Schema as S } from "effect";
+import { Match as M, Schema as S } from "effect";
 import { Command, Runtime, Subscription } from "foldkit";
-import { type Document, html } from "foldkit/html";
-
+import { type Document, type HtmlBuilder } from "foldkit/html";
 import * as Theme from "./features/theme";
 import { Init, Views } from "./lib/compose";
 
@@ -10,39 +9,35 @@ export const Model = S.Struct({
 });
 export type Model = typeof Model.Type;
 
-export const Message = S.Union([
-  Theme.GotMessage,
-]);
+export const Message = S.Union([Theme.GotMessage]);
 export type Message = typeof Message.Type;
 
 export const update = (model: Model, message: Message) =>
   M.value(message).pipe(
-    M.withReturnType<
-      readonly [Model, ReadonlyArray<Command.Command<Message>>]
-    >(),
+    M.withReturnType<{
+      readonly model: Model;
+      readonly commands: ReadonlyArray<Command.Command<Message>>;
+    }>(),
     M.tagsExhaustive({
       GotThemeMessage: ({ message }) => {
         const [nextChild, cmds] = Theme.update(model.theme, message);
-        const mappedCommands = cmds.map(
-          Command.mapEffect(
-            Effect.map((message) => Theme.GotMessage({ message })),
-          ),
-        ) as ReadonlyArray<Command.Command<Message>>;
-        return [{ ...model, theme: nextChild }, mappedCommands];
+        const mappedCommands = Command.mapMessages(cmds, (message) =>
+          Theme.GotMessage({ message }),
+        );
+        return {
+          model: { ...model, theme: nextChild },
+          commands: mappedCommands,
+        };
       },
     }),
   );
 
-export const init: Runtime.ProgramInit<Model, Message> = () =>
-  Init.compose(
-    Init.child(Theme, "theme", Theme.GotMessage),
-  );
+export const init: Runtime.ApplicationInit<Model, Message> = () =>
+  Init.compose(Init.child(Theme, "theme", Theme.GotMessage));
 
 export const subscriptions = Subscription.aggregate<Model, Message>()();
 
-export const view = (model: Model): Document => {
-  const h = html<Message>();
-
+export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
   return {
     title: "Foldkit Client",
     body: h.div(
@@ -52,7 +47,7 @@ export const view = (model: Model): Document => {
         ),
       ],
       [
-        Theme.view(model.theme, (msg) => Theme.GotMessage({ message: msg })),
+        Theme.view(model.theme, (msg) => Theme.GotMessage({ message: msg }), h),
 
         h.div(
           [h.Class("text-center")],

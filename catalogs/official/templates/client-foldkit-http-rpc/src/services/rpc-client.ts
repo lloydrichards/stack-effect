@@ -7,7 +7,8 @@ import {
   RpcSerialization,
 } from "effect/rpc";
 
-const SERVER_URL = "http://localhost:9000";
+const SERVER_URL =
+  import.meta.env["VITE_SERVER_URL"] || "http://localhost:9000";
 
 type EventRpcClient = EffectRpcClient.FromGroup<
   typeof EventRpc,

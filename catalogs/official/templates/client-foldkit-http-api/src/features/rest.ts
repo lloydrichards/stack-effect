@@ -1,18 +1,14 @@
 import { ApiResponse } from "@repo/domain/Api";
 import { Effect, Match, Schema } from "effect";
-import {
-  FetchHttpClient,
-  HttpClient,
-  HttpClientRequest,
-} from "effect/http";
+import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { Command } from "foldkit";
-import type { Html } from "foldkit/html";
-import { html } from "foldkit/html";
-import { m } from "foldkit/message";
-import { ts } from "foldkit/schema";
-import { evo } from "foldkit/struct";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import { taggedStruct as m } from "foldkit/schema";
+import { taggedStruct as ts } from "foldkit/schema";
+import { modifyFields as evo } from "foldkit/struct";
 
-const SERVER_URL = "http://localhost:9000";
+const SERVER_URL =
+  import.meta.env["VITE_SERVER_URL"] || "http://localhost:9000";
 
 const ApiInit = ts("ApiInit");
 const ApiLoading = ts("ApiLoading");
@@ -62,42 +58,39 @@ export const update = (model: Model, message: Message) =>
       [evo(model, { api: () => ApiFailure({ error }) }), []] as const,
   });
 
-export const FetchHello = Command.define(
-  "FetchHello",
-  {},
-  SucceededFetchHello,
-  FailedFetchHello,
-)(() =>
-  Effect.gen(function* () {
-    const client = yield* HttpClient.HttpClient;
-    const request = HttpClientRequest.get(`${SERVER_URL}/hello`);
-    const response = yield* client.execute(request);
+export const FetchHello = Command.define("FetchHello", {
+  args: {},
+  messages: [SucceededFetchHello, FailedFetchHello],
+  execute: () =>
+    Effect.gen(function* () {
+      const client = yield* HttpClient.HttpClient;
+      const request = HttpClientRequest.get(`${SERVER_URL}/hello`);
+      const response = yield* client.execute(request);
 
-    if (response.status !== 200) {
-      return yield* Effect.fail(
-        FailedFetchHello({ error: `HTTP ${response.status}` }),
-      );
-    }
+      if (response.status !== 200) {
+        return yield* Effect.fail(
+          FailedFetchHello({ error: `HTTP ${response.status}` }),
+        );
+      }
 
-    const json = yield* response.json;
-    const data = yield* Schema.decodeUnknownEffect(ApiResponse)(json);
-    return SucceededFetchHello({ data });
-  }).pipe(
-    Effect.catchTag("FailedFetchHello", (error) => Effect.succeed(error)),
-    Effect.orElseSucceed(() =>
-      FailedFetchHello({ error: "Failed to fetch API" }),
+      const json = yield* response.json;
+      const data = yield* Schema.decodeUnknownEffect(ApiResponse)(json);
+      return SucceededFetchHello({ data });
+    }).pipe(
+      Effect.catchTag("FailedFetchHello", (error) => Effect.succeed(error)),
+      Effect.orElseSucceed(() =>
+        FailedFetchHello({ error: "Failed to fetch API" }),
+      ),
+      Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+      Effect.provide(FetchHttpClient.layer),
     ),
-    Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-    Effect.provide(FetchHttpClient.layer),
-  ),
-);
+});
 
 export const view = <ParentMessage>(
   model: Model,
   toParentMessage: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const h = html<ParentMessage>();
-
   return h.div(
     [h.Class("flex h-full min-h-0 flex-col gap-4")],
     [

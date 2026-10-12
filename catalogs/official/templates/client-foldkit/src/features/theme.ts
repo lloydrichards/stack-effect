@@ -1,9 +1,8 @@
 import { Effect, Match, Schema } from "effect";
 import { Command } from "foldkit";
-import type { Html } from "foldkit/html";
-import { html } from "foldkit/html";
-import { m } from "foldkit/message";
-import { evo } from "foldkit/struct";
+import type { Html, HtmlBuilder } from "foldkit/html";
+import { taggedStruct as m } from "foldkit/schema";
+import { modifyFields as evo } from "foldkit/struct";
 
 const ThemeSchema = Schema.Literals(["Light", "Dark"]);
 export type Theme = typeof ThemeSchema.Type;
@@ -47,35 +46,31 @@ export const update = (model: Model, message: Message) =>
 
 const resolveTheme = (theme: Theme): boolean => theme === "Dark";
 
-export const SaveTheme = Command.define(
-  "SaveTheme",
-  { theme: ThemeSchema },
-  CompletedSaveTheme,
-  CompletedSaveTheme,
-)(({ theme }) =>
-  Effect.sync(() => {
-    localStorage.setItem("theme", theme === "Dark" ? "dark" : "light");
-    return CompletedSaveTheme();
-  }),
-);
+export const SaveTheme = Command.define("SaveTheme", {
+  args: { theme: ThemeSchema },
+  messages: [CompletedSaveTheme, CompletedSaveTheme],
+  execute: ({ theme }) =>
+    Effect.sync(() => {
+      localStorage.setItem("theme", theme === "Dark" ? "dark" : "light");
+      return CompletedSaveTheme();
+    }),
+});
 
-export const ApplyTheme = Command.define(
-  "ApplyTheme",
-  { theme: ThemeSchema },
-  CompletedSaveTheme,
-  CompletedSaveTheme,
-)(({ theme }) =>
-  Effect.sync(() => {
-    document.documentElement.classList.toggle("dark", resolveTheme(theme));
-    return CompletedSaveTheme();
-  }),
-);
+export const ApplyTheme = Command.define("ApplyTheme", {
+  args: { theme: ThemeSchema },
+  messages: [CompletedSaveTheme, CompletedSaveTheme],
+  execute: ({ theme }) =>
+    Effect.sync(() => {
+      document.documentElement.classList.toggle("dark", resolveTheme(theme));
+      return CompletedSaveTheme();
+    }),
+});
 
 export const view = <ParentMessage>(
   model: Model,
   toParentMessage: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const h = html<ParentMessage>();
   const isDark = model.theme === "Dark";
 
   return h.div(
