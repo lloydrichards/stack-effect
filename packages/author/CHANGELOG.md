@@ -1,5 +1,18 @@
 # @stack-effect/author
 
+## 0.3.0
+
+### Minor Changes
+
+- f820f29: Target names now support nested directories while keeping npm package names flat.
+  
+  For example, `package/sdk/client` creates `packages/sdk/client` with the name `@repo/sdk-client`, and `server/sdk/api` creates `apps/sdk/server-api` with the name `server-sdk-api`. Additions use the same target name to find the existing package. Conflicting package names and overlapping package roots are rejected before files are written.
+  
+  Generated workspaces register package owners explicitly so nested template manifests do not interfere with dependency installation.
+- 1665149: Catalog templates can select content based on the modules attached to a target with `module` and `noModule` conditions.
+  
+  Publishable libraries now use one `package.json` for workspace use and npm publication. Build before importing the library in the workspace, use `npm run dev` to watch changes, and run `npm run pack` or `npm publish` from the library directory.
+
 ## 0.2.0
 
 ### Minor Changes
