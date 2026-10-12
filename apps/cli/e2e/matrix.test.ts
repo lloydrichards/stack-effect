@@ -187,7 +187,10 @@ const maximalBundles = (moduleIds: ReadonlyArray<string>) =>
               bundle.filter(
                 (id) =>
                   id === provider ||
-                  !providedCapabilities(id).includes(capability),
+                  (!providedCapabilities(id).includes(capability) &&
+                    !catalogModulesById
+                      .get(ModuleId.make(provider))
+                      ?.conflictsWith?.includes(ModuleId.make(id))),
               ),
             );
       }),
