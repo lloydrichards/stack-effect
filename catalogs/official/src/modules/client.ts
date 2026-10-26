@@ -52,7 +52,7 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0",
+        value: "4.0.6",
       },
       {
         _tag: "jsx-slot",
@@ -285,7 +285,7 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0",
+        value: "4.0.6",
       },
       {
         _tag: "pkg-json-entry",
@@ -360,7 +360,7 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.0",
+        value: "4.0.6",
       },
       {
         _tag: "jsx-slot",

@@ -22,7 +22,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       return {
         start: Effect.gen(function* () {
           const chatId = ChatId.make(
-            yield* crypto.randomUUIDv4.pipe(Effect.orDie),
+            yield* crypto.randomUUIDv4().pipe(Effect.orDie),
           );
           const session: ChatSession = { active: false };
           yield* Ref.update(sessions, HashMap.set(chatId, session));

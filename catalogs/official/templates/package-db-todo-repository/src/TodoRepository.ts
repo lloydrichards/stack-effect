@@ -44,7 +44,7 @@ export class TodoRepository extends Context.Service<TodoRepository>()(
       const sql = yield* SqlClient;
       const crypto = yield* Crypto.Crypto;
 
-      const generateId = crypto.randomUUIDv4.pipe(
+      const generateId = crypto.randomUUIDv4().pipe(
         Effect.map((id) => TodoId.make(id)),
         Effect.mapError(persistenceError),
       );

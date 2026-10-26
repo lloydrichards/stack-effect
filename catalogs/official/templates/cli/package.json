@@ -8,8 +8,8 @@
   },
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.0",
-    "effect": "4.0.0"
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.0.6",
+    "effect": "4.0.6"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",

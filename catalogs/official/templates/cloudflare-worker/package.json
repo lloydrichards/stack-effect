@@ -6,7 +6,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "@repo/domain": "{{workspaceDependency}}"
   },
   "devDependencies": {
