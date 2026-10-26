@@ -1,0 +1,29 @@
+import { Effect, Schema } from "effect";
+import { Tool, type Toolkit } from "effect/ai";
+import { prepareChatTurn } from "./ChatTurnExtensions";
+
+const localTool = Tool.make("local", {
+  parameters: Schema.Struct({ value: Schema.Finite }),
+  success: Schema.Finite,
+});
+const remoteTool = Tool.make("remote", {
+  parameters: Schema.Struct({ text: Schema.String }),
+  success: Schema.String,
+  failure: Schema.String,
+});
+declare const local: Toolkit.WithHandler<{ local: typeof localTool }>;
+declare const remote: Toolkit.WithHandler<{ remote: typeof remoteTool }>;
+
+export const checkToolContracts = Effect.gen(function* () {
+  const prepared = yield* prepareChatTurn([], local, [
+    () => Effect.succeed({ toolkit: remote }),
+  ]);
+  yield* prepared.toolkit.handle("local", { value: 42 });
+  yield* prepared.toolkit.handle("remote", { text: "context" });
+  // @ts-expect-error Unknown tool names must remain invalid after composition.
+  yield* prepared.toolkit.handle("missing", {});
+  // @ts-expect-error Local and remote parameter schemas must remain distinct.
+  yield* prepared.toolkit.handle("local", { text: "context" });
+  // @ts-expect-error Remote parameters must retain their encoded types.
+  yield* prepared.toolkit.handle("remote", { text: 42 });
+});

@@ -30,7 +30,11 @@ const McpHttpLive = Effect.gen(function* () {
     name: "Stack Effect MCP Server",
     version: "0.1.0",
     path: "/mcp",
-    protocols: [McpProtocol.v2025_06_18],
+    protocols: [
+      McpProtocol.v2026_07_28,
+      McpProtocol.v2025_11_25,
+      McpProtocol.v2025_06_18,
+    ],
     allowedOrigins,
   }).pipe(
     Layer.provideMerge(McpCapabilities),

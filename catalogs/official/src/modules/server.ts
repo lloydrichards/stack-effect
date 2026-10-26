@@ -1,4 +1,5 @@
 import { defineModules, templates } from "@repo/authoring";
+import { chatMcpChildren } from "./chat-mcp";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 
@@ -238,6 +239,7 @@ export const serverModules = defineModules(import.meta.url, [
         moduleId: "package-ai-chat-service",
       },
     ],
+    children: chatMcpChildren("server"),
     contributions: [
       {
         _tag: "file",

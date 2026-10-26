@@ -1,18 +1,11 @@
-import { Effect, Layer, Schema } from "effect";
+import { GreetingPromptArguments } from "@repo/domain/McpServerPrompt";
+import { Effect } from "effect";
 import { McpServer } from "effect/ai";
 
-export const HelloPromptLive = Layer.mergeAll(
-  McpServer.prompt({
-    name: "hello",
-    description: "Greet a person and introduce the MCP server",
-    parameters: {
-      name: Schema.String.pipe(
-        Schema.annotate({
-          description: "The name of the person to greet",
-        }),
-      ),
-    },
-    content: ({ name }) =>
-      Effect.succeed(`Hello, ${name}! Welcome to the Stack Effect MCP server.`),
-  }),
-);
+export const HelloPromptLive = McpServer.prompt({
+  name: "hello",
+  description: "Ask the assistant to greet a person",
+  parameters: GreetingPromptArguments.fields,
+  content: ({ name }) =>
+    Effect.succeed(`Greet ${name} warmly and briefly introduce yourself.`),
+});

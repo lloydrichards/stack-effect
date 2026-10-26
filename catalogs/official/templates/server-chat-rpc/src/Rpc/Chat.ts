@@ -9,7 +9,8 @@ const ChatRpcHandlers = ChatRpc.toLayer(
     yield* Effect.logInfo("Starting Chat RPC Live Implementation");
     return ChatRpc.of({
       chat_start: () => runtime.start,
-      chat_ask: ({ chatId, messages }) => runtime.ask(chatId, messages),
+      chat_ask: ({ chatId, messages, options }) =>
+        runtime.ask(chatId, messages, options),
     });
   }),
 );

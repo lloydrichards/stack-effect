@@ -241,6 +241,32 @@ const maximalTargetEntries = matrix.filter((entry) => entry.modules.length > 1);
 const generatedModuleExpectations: Readonly<
   Record<string, GeneratedModuleExpectation>
 > = {
+  ...Object.fromEntries(
+    (["server", "cli"] as const).flatMap((kind) =>
+      (["tools", "resources", "prompts"] as const).map((capability) => [
+        `${kind}-chat-mcp-${capability}`,
+        {
+          files: [
+            `apps/${kind === "server" ? "server-api" : "cli-app"}/src/mcp/McpClient.ts`,
+            `apps/${kind === "server" ? "server-api" : "cli-app"}/src/mcp/Mcp${{ tools: "Tools", resources: "Resources", prompts: "Prompts" }[capability]}.ts`,
+          ],
+          contents: [
+            {
+              path:
+                kind === "server"
+                  ? "apps/server-api/src/runtime/ChatRuntime.ts"
+                  : "apps/cli-app/src/chat/ChatDriver.ts",
+              pattern: {
+                tools: "makeMcpTools",
+                resources: "makeMcpResources",
+                prompts: "makeMcpPromptPreparation",
+              }[capability],
+            },
+          ],
+        },
+      ]),
+    ),
+  ),
   "client-react-web-worker": {
     files: [
       "apps/client-react-web/src/workers/import-validation/domain.ts",

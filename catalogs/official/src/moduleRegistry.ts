@@ -1,4 +1,5 @@
 import { alchemyModules } from "./modules/alchemy";
+import { chatMcpModules } from "./modules/chat-mcp";
 import { cliModules } from "./modules/cli";
 import { clientModules } from "./modules/client";
 import { clientFoldkitModules } from "./modules/client-foldkit";
@@ -19,6 +20,7 @@ export const moduleGroups = [
   serverModules,
   cloudflareWorkerModules,
   mcpModules,
+  chatMcpModules,
   clientModules,
   clientFoldkitModules,
   workerHttpClientModules,

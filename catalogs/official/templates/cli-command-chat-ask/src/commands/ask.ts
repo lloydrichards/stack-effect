@@ -1,19 +1,31 @@
 import type { ChatStreamPart } from "@repo/domain/Chat";
 import {
   Console,
+  Data,
   Effect,
   Match,
+  Option,
   Schema,
   Stdio,
   Stream,
   String,
 } from "effect";
 import { Argument, Command } from "effect/cli";
-import { TerminalChatDriver, TerminalChatDriverLive } from "../chat/ChatDriver";
+import type { ChatCommandConfiguration as Configuration } from "../chat/ChatCommand";
+import {
+  ChatCommandConfiguration,
+  ChatCommandDependencies,
+} from "../chat/ChatCommandConfiguration";
+import { TerminalChatDriver } from "../chat/ChatDriver";
+
+class ChatCommandInputError extends Data.TaggedError("ChatCommandInputError")<{
+  readonly message: string;
+}> {}
 
 const message = Argument.String("message").pipe(
   Argument.withSchema(Schema.NonEmptyString),
   Argument.withDescription("Message to send to the assistant"),
+  Argument.optional,
 );
 
 const askSystemPrompt = String.stripMargin(`
@@ -36,30 +48,51 @@ const failCommand = (message: string) =>
     ),
   );
 
-export const ask = Command.make("ask", { message }, ({ message }) =>
-  Effect.gen(function* () {
-    const driver = yield* TerminalChatDriver;
-
-    yield* driver
-      .streamTurn([
-        { role: "system", content: askSystemPrompt },
-        { role: "user", content: message },
-      ])
-      .pipe(
-        Stream.runForEach((part: ChatStreamPart) =>
-          Match.value(part).pipe(
-            Match.tag("text", ({ delta }) =>
-              Stdio.Stdio.use((stdio) =>
-                Stream.make(delta).pipe(Stream.run(stdio.stdout())),
+const makeAskCommand = <Config extends Command.Command.Config, R>(
+  configuration: Configuration<Config, R>,
+) =>
+  Command.make(
+    "ask",
+    { message, flags: configuration.flags },
+    ({ message, flags }) =>
+      Effect.gen(function* () {
+        const action = yield* configuration.resolve(flags, "ask");
+        if (action._tag === "handled") return;
+        if (Option.isNone(message) && !action.providesInput) {
+          return yield* new ChatCommandInputError({
+            message: "Provide a message or select an input source",
+          });
+        }
+        const driver = yield* TerminalChatDriver;
+        yield* driver
+          .streamTurn(
+            [
+              { role: "system", content: askSystemPrompt },
+              ...Option.toArray(message).map((content) => ({
+                role: "user" as const,
+                content,
+              })),
+            ],
+            action.turnOptions,
+            action.inputMessages,
+          )
+          .pipe(
+            Stream.runForEach((part: ChatStreamPart) =>
+              Match.value(part).pipe(
+                Match.tag("text", ({ delta }) =>
+                  Stdio.Stdio.use((stdio) =>
+                    Stream.make(delta).pipe(Stream.run(stdio.stdout())),
+                  ),
+                ),
+                Match.tag("error", ({ message }) => failCommand(message)),
+                Match.orElse(() => Effect.void),
               ),
             ),
-            Match.tag("error", ({ message }) => failCommand(message)),
-            Match.orElse(() => Effect.void),
-          ),
-        ),
-      );
-  }).pipe(
-    Effect.catch((error) => failCommand(error.message)),
-    Effect.provide(TerminalChatDriverLive),
-  ),
-).pipe(Command.withDescription("Ask the assistant a single question"));
+          );
+      }).pipe(
+        Effect.catch((error) => failCommand(error.message)),
+        Effect.provide(ChatCommandDependencies),
+      ),
+  ).pipe(Command.withDescription("Ask the assistant a single question"));
+
+export const ask = makeAskCommand(ChatCommandConfiguration);

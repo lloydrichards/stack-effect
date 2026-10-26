@@ -9,6 +9,131 @@ const moduleRegistry = document.modules;
 const targetRegistry = document.targets;
 
 describe("moduleRegistry", () => {
+  it("attaches MCP capabilities to existing chat features with app-owned connections", () => {
+    for (const kind of ["server", "cli"]) {
+      const parent = kind === "server" ? "server-chat-rpc" : "cli-chat-driver";
+      const target = { kind, name: kind === "server" ? "api" : "app" };
+      const connection = moduleRegistry.find(
+        (module) => module.id === `${kind}-chat-mcp`,
+      );
+      expect(connection?.visibility ?? "public").toBe("public");
+      expect(connection?.title).toBe("MCP Client");
+      expect(connection?.dependencies).toEqual([
+        { _tag: "required-module", target, moduleId: parent },
+      ]);
+      for (const capability of ["tools", "resources", "prompts"]) {
+        const id = `${kind}-chat-mcp-${capability}`;
+        const child = moduleRegistry.find((module) => module.id === id);
+        expect(child?.supportedOn).toEqual([{ _tag: "kind", kind }]);
+        expect(child?.dependencies).toEqual([
+          { _tag: "required-module", target, moduleId: parent },
+          { _tag: "required-module", target, moduleId: `${kind}-chat-mcp` },
+          ...(capability === "resources"
+            ? [
+                {
+                  _tag: "required-module",
+                  target: { kind: "package", name: "domain" },
+                  moduleId: "domain-mcp-resources",
+                },
+              ]
+            : []),
+          ...(capability === "prompts"
+            ? [
+                {
+                  _tag: "required-module",
+                  target: { kind: "package", name: "domain" },
+                  moduleId:
+                    kind === "server"
+                      ? "domain-chat-mcp-prompts"
+                      : "domain-chat-mcp-options",
+                },
+              ]
+            : []),
+        ]);
+        expect(child?.contributions).toContainEqual(
+          expect.objectContaining({
+            _tag: "file",
+            path: `{{targetPath}}/src/mcp/Mcp${capability[0]?.toUpperCase()}${capability.slice(1)}.ts`,
+          }),
+        );
+        if (capability === "prompts") {
+          expect(child?.contributions).toContainEqual(
+            expect.objectContaining({
+              _tag: "ts-call-arg",
+              targetVariable: "ChatTurnPreparations",
+              argument: "makeMcpPromptPreparation",
+            }),
+          );
+          expect(child?.contributions).toContainEqual(
+            expect.objectContaining({
+              _tag: "file",
+              path:
+                kind === "cli"
+                  ? "{{targetPath}}/src/mcp/McpPromptOptions.ts"
+                  : "{{targetPath}}/src/rpc/Prompt.ts",
+            }),
+          );
+        } else {
+          expect(child?.contributions).toContainEqual(
+            expect.objectContaining({
+              _tag: "ts-call-arg",
+              targetVariable: "ChatTurnPreparations",
+              functionName: "Effect.all",
+            }),
+          );
+        }
+        expect(connection?.children).toContainEqual({
+          moduleId: id,
+          requirement: "optional",
+        });
+        const parents =
+          kind === "server"
+            ? [parent]
+            : [parent, "cli-command-chat-ask", "cli-command-chat-terminal"];
+        for (const idOfParent of parents) {
+          expect(
+            moduleRegistry.find((module) => module.id === idOfParent)?.children,
+          ).toContainEqual({
+            moduleId: `${kind}-chat-mcp`,
+            requirement: "optional",
+          });
+          expect(
+            moduleRegistry.find((module) => module.id === idOfParent)?.children,
+          ).not.toContainEqual({ moduleId: id, requirement: "optional" });
+        }
+      }
+    }
+    expect(
+      moduleRegistry.filter((module) =>
+        ["server-mcp-client", "cli-mcp-client", "package-mcp-client"].includes(
+          module.id,
+        ),
+      ),
+    ).toEqual([]);
+  });
+
+  it("keeps reusable MCP prompt models independent of chat request composition", () => {
+    const models = moduleRegistry.find(
+      (module) => module.id === "domain-mcp-prompts",
+    );
+    expect(models?.dependencies).not.toContainEqual(
+      expect.objectContaining({ moduleId: "domain-chat-contracts" }),
+    );
+    expect(models?.contributions).not.toContainEqual(
+      expect.objectContaining({ _tag: "ts-object-field" }),
+    );
+    const options = moduleRegistry.find(
+      (module) => module.id === "domain-chat-mcp-options",
+    );
+    expect(options?.contributions).toContainEqual(
+      expect.objectContaining({
+        _tag: "ts-object-field",
+        targetVariable: "ChatTurnOptions",
+        field: "prompt",
+      }),
+    );
+  });
+
   it("offers a publishable library on named package targets without child modules", () => {
     const library = moduleRegistry.find(
       (module) => module.id === "package-library",

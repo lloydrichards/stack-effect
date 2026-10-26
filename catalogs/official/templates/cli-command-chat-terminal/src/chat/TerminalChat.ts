@@ -20,7 +20,7 @@ import type { TerminalChatDriver } from "./ChatDriver";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-const TerminalChatEvent = Schema.TaggedUnion({
+export const TerminalChatEvent = Schema.TaggedUnion({
   StreamPart: { part: ChatStreamPart },
   TurnComplete: {},
   TurnFailed: { message: Schema.String },
@@ -295,21 +295,26 @@ const completeTurn = (state: TerminalChatState): TerminalChatState => {
   };
 };
 
-const startTurn = (
+export const startTerminalChatTurn = (
   streamTurn: TerminalChatStreamTurn,
   systemPrompt: string,
   events: Queue.Queue<TerminalChatEvent>,
   state: TerminalChatState,
+  submitted: ReadonlyArray<ChatMessage> = [
+    { role: "user", content: String.trim(state.input) },
+  ],
+  inputMessages: ReadonlyArray<ChatMessage> = [],
 ) => {
-  const userMessage: ChatMessage = {
-    role: "user",
-    content: String.trim(state.input),
-  };
-  const nextMessages = [...state.messages, userMessage];
-  return streamTurn([
-    { role: "system", content: systemPrompt },
-    ...nextMessages,
-  ]).pipe(
+  const nextMessages = [...state.messages, ...submitted, ...inputMessages];
+  return streamTurn(
+    [
+      { role: "system", content: systemPrompt },
+      ...state.messages,
+      ...submitted,
+    ],
+    {},
+    inputMessages,
+  ).pipe(
     Stream.runForEach((part) =>
       Queue.offer(events, TerminalChatEvent.cases.StreamPart.make({ part })),
     ),
@@ -354,7 +359,12 @@ const handleSubmit = (
   if (input === "/clear") return next({ ...state, messages: [], error: null });
 
   return Effect.gen(function* () {
-    const nextState = yield* startTurn(streamTurn, systemPrompt, events, state);
+    const nextState = yield* startTerminalChatTurn(
+      streamTurn,
+      systemPrompt,
+      events,
+      state,
+    );
     return Action.NextFrame({ state: nextState });
   });
 };
@@ -476,19 +486,32 @@ const processEvent = (
 export const TerminalChat = (
   streamTurn: TerminalChatStreamTurn,
   systemPrompt: string,
+  initialInputMessages: ReadonlyArray<ChatMessage> = [],
 ) =>
   Effect.gen(function* () {
     const events = yield* Queue.make<TerminalChatEvent>();
     let hasRendered = false;
 
+    const emptyState: TerminalChatState = {
+      input: "",
+      cursor: 0,
+      messages: [],
+      activeTurn: null,
+      error: null,
+    };
+    const initialState =
+      initialInputMessages.length === 0
+        ? emptyState
+        : yield* startTerminalChatTurn(
+            streamTurn,
+            systemPrompt,
+            events,
+            emptyState,
+            [],
+            initialInputMessages,
+          );
     return yield* Prompt.Custom<TerminalChatState, void, TerminalChatEvent>(
-      {
-        input: "",
-        cursor: 0,
-        messages: [],
-        activeTurn: null,
-        error: null,
-      },
+      initialState,
       Queue.asDequeue(events),
       {
         render: Effect.fnUntraced(function* (

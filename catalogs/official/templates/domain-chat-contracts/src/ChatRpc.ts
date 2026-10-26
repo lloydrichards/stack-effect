@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
+import { ChatTurnOptions } from "./ChatTurnOptions";
 
 export class ChatNotFoundError extends Schema.TaggedError<ChatNotFoundError>()(
   "ChatNotFoundError",
@@ -22,6 +23,7 @@ export class ChatRpc extends RpcGroup.make(
     payload: {
       chatId: ChatId,
       messages: Schema.Array(ChatMessage),
+      options: Schema.optional(ChatTurnOptions),
     },
     success: ChatStreamPart,
     error: Schema.Union([ChatNotFoundError, GenerationInProgressError]),

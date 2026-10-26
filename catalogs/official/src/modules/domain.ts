@@ -10,6 +10,197 @@ const domainTarget = {
 
 export const domainModules = defineModules(import.meta.url, [
   {
+    id: "domain-mcp-client",
+    title: "MCP Client Models",
+    description: "Shared content failures for MCP client capabilities",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/McpClient.ts",
+        contents: template("./domain-mcp-client/src/McpClient.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./McpClient",
+        value: "./src/McpClient.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./McpClient",
+      },
+    ],
+  },
+  {
+    id: "domain-mcp-server-prompts",
+    title: "MCP Server Prompt Arguments",
+    description: "Public inputs for the greeting and workshop briefing prompts",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/McpServerPrompt.ts",
+        contents: template(
+          "./domain-mcp-server-prompts/src/McpServerPrompt.ts",
+        ),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./McpServerPrompt",
+        value: "./src/McpServerPrompt.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./McpServerPrompt",
+      },
+    ],
+  },
+  {
+    id: "domain-mcp-resources",
+    title: "MCP Resource Models",
+    description: "Shared resource selection schemas for app-owned MCP clients",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-mcp-client",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/McpResource.ts",
+        contents: template("./domain-mcp-resources/src/McpResource.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./McpResource",
+        value: "./src/McpResource.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./McpResource",
+      },
+    ],
+  },
+  {
+    id: "domain-mcp-prompts",
+    title: "MCP Prompt Models",
+    description:
+      "Shared prompt selection, discovery, message schemas, and errors for app-owned MCP clients",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-mcp-client",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/McpPrompt.ts",
+        contents: template("./domain-mcp-prompts/src/McpPrompt.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./McpPrompt",
+        value: "./src/McpPrompt.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./McpPrompt",
+      },
+    ],
+  },
+  {
+    id: "domain-chat-mcp-options",
+    title: "MCP Chat Options",
+    description: "Compose MCP prompt selection into chat requests",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-chat-contracts",
+      },
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-mcp-prompts",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "ts-object-field",
+        path: "{{targetPath}}/src/ChatTurnOptions.ts",
+        targetVariable: "ChatTurnOptions",
+        functionName: "Schema.Struct",
+        field: "prompt",
+        value: "Schema.optional(McpPromptSelection)",
+        import: {
+          moduleSpecifier: "./McpPrompt",
+          namedImports: ["McpPromptSelection"],
+        },
+      },
+    ],
+  },
+  {
+    id: "domain-chat-mcp-prompts",
+    title: "MCP Prompt RPC",
+    description:
+      "Optional server chat prompt selection and discovery contracts",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-chat-mcp-options",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/McpPromptRpc.ts",
+        contents: template("./domain-chat-mcp-prompts/src/McpPromptRpc.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./McpPromptRpc",
+        value: "./src/McpPromptRpc.ts",
+      },
+    ],
+  },
+  {
     id: "domain-api-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Domain API",
@@ -216,6 +407,23 @@ export const domainModules = defineModules(import.meta.url, [
     ],
     dependencies: [],
     contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/ChatTurnOptions.ts",
+        contents: template("./domain-chat-contracts/src/ChatTurnOptions.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./ChatTurnOptions",
+        value: "./src/ChatTurnOptions.ts",
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./ChatTurnOptions",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Chat.ts",

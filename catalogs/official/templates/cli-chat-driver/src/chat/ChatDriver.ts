@@ -1,5 +1,10 @@
 import { AiChatService, AiChatServiceLive, FastModelLive } from "@repo/ai";
-import type { ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
+import { ChatPreparationError, type ChatMessage, type ChatStreamPart } from "@repo/domain/Chat";
+import {
+  type ChatTurnOptions,
+  chatTurnOptionKeys,
+  validateChatTurnOptions,
+} from "@repo/domain/ChatTurnOptions";
 import { Array, Context, Effect, Layer, Match, pipe, Stream } from "effect";
 import { Prompt } from "effect/ai";
 
@@ -24,14 +29,25 @@ const toPromptMessage = (message: ChatMessage) => {
   );
 };
 
+const ChatTurnOptionKeys = chatTurnOptionKeys();
+const ChatTurnPreparations = Effect.all([
+  Effect.succeed((options: ChatTurnOptions) =>
+    validateChatTurnOptions(options, ChatTurnOptionKeys).pipe(Effect.mapError((error) => new ChatPreparationError({ reason: { code: "invalid-input", message: error.message, source: "chat-options" } }))),
+  ),
+]);
+const TerminalChatDependencies = Layer.mergeAll(AiChatServiceLive);
+
 export class TerminalChatDriver extends Context.Service<TerminalChatDriver>()(
   "TerminalChatDriver",
   {
     make: Effect.gen(function* () {
       const chat = yield* AiChatService;
+      const preparations = yield* ChatTurnPreparations;
 
       const streamTurn = (
         messages: ReadonlyArray<ChatMessage>,
+        options: ChatTurnOptions = {},
+        inputMessages: ReadonlyArray<ChatMessage> = [],
       ): Stream.Stream<ChatStreamPart> =>
         Stream.unwrap(
           Effect.gen(function* () {
@@ -40,21 +56,27 @@ export class TerminalChatDriver extends Context.Service<TerminalChatDriver>()(
               Array.map(toPromptMessage),
             );
 
+            const turnPreparations = preparations.map((prepare) =>
+              Effect.fnUntraced(function* () {
+                return yield* prepare(options);
+              }),
+            );
             const queue = yield* chat
-              .chat(promptMessages)
+              .chat(promptMessages, [
+                ...turnPreparations,
+                () => Effect.succeed({ inputMessages: inputMessages.map(toPromptMessage) }),
+              ])
               .pipe(Effect.provide(FastModelLive), Effect.orDie);
 
             return Stream.fromQueue(queue);
           }),
         );
 
-      return {
-        streamTurn,
-      } as const;
+      return { streamTurn } as const;
     }),
   },
 ) {}
 
 export const TerminalChatDriverLive = Layer.effect(TerminalChatDriver)(
   TerminalChatDriver.make,
-).pipe(Layer.provide(AiChatServiceLive));
+).pipe(Layer.provide(TerminalChatDependencies));
