@@ -1,5 +1,12 @@
 # stack-effect
 
+## 0.18.1
+
+### Patch Changes
+
+- 3041aea: TypeScript composition now rejects conflicting values for the same object field instead of silently keeping the existing value, while allowing repeated contributions that differ only in formatting.
+- a194358: Generated projects and catalog authoring now use Effect 4.0.6.
+
 ## 0.18.0
 
 ### Minor Changes
