@@ -1,6 +1,6 @@
 {
   "name": "@stack-effect/author",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Author, validate, and build Stack Effect catalogs",
   "license": "MIT",
   "type": "module",

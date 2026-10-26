@@ -1,5 +1,11 @@
 # @stack-effect/author
 
+## 0.3.1
+
+### Patch Changes
+
+- a194358: Generated projects and catalog authoring now use Effect 4.0.6.
+
 ## 0.3.0
 
 ### Minor Changes
