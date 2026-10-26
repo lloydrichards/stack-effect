@@ -5,7 +5,7 @@ Author, validate, and build [Stack Effect](https://stack-effect.lloydrichards.de
 ## Install
 
 ```bash
-npm install @stack-effect/author effect@4.0.0 @effect/platform-node@4.0.0
+npm install @stack-effect/author effect@4.0.6 @effect/platform-node@4.0.6
 ```
 
 `effect` is a peer dependency pinned to one exact release. Install the exact Effect version declared by the package to keep authoring schemas and platform services compatible. You provide the platform layer, which supplies `FileSystem` and `Path`: `@effect/platform-node`, `-bun`, or `-browser`.
@@ -14,7 +14,7 @@ Pin the shared platform dependency in `package.json` too so it stays aligned wit
 
 ```json
 {
-  "overrides": { "@effect/platform-node-shared": "4.0.0" }
+  "overrides": { "@effect/platform-node-shared": "4.0.6" }
 }
 ```
 
@@ -22,7 +22,7 @@ With Bun, use `overrides` or `resolutions`. pnpm reads overrides from `pnpm-work
 
 ```yaml
 overrides:
-  "@effect/platform-node-shared": "4.0.0"
+  "@effect/platform-node-shared": "4.0.6"
 ```
 
 ## Build a catalog

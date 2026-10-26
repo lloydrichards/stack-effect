@@ -53,11 +53,11 @@ export const alchemyModules = defineModules(import.meta.url, [
         "@alchemy.run/frontend-frameworks",
         "2.0.0-beta.81",
       ),
-      entry("devDependencies", "effect", "4.0.0"),
+      entry("devDependencies", "effect", "4.0.6"),
       entry(
         "devDependencies",
         "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}",
-        "4.0.0",
+        "4.0.6",
       ),
       entry("devDependencies", "@types/node", "^26.6.3"),
       entry("scripts", "infra:check", "tsc -p tsconfig.infra.json --noEmit"),

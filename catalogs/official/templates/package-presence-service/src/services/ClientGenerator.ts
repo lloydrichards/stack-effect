@@ -8,7 +8,7 @@ export class ClientGenerator extends Context.Service<ClientGenerator>()(
       const crypto = yield* Crypto.Crypto;
       return {
         generateClientId: Effect.fn("generateClientId")(function* () {
-          const uuid = yield* crypto.randomUUIDv4.pipe(Effect.orDie);
+          const uuid = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
           return ClientId.make(uuid);
         }),
       };

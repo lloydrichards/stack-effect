@@ -16,11 +16,11 @@
   "dependencies": {
     "@repo/catalog": "workspace:*",
     "@repo/domain": "workspace:*",
-    "effect": "4.0.0"
+    "effect": "4.0.6"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.0.0",
-    "@effect/vitest": "4.0.0",
+    "@effect/platform-node": "4.0.6",
+    "@effect/vitest": "4.0.6",
     "@repo/config-typescript": "workspace:*",
     "@types/node": "^26.6.3",
     "vitest": "^5.0.2"

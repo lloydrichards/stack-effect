@@ -2,17 +2,17 @@
   "name": "{{packageName}}",
   "private": {{#if module=package-library}}false{{/if}}{{#if noModule=package-library}}true{{/if}},
 {{#if module=package-library}}  "files": ["dist/**/*.js", "dist/**/*.d.ts"],
-  "peerDependencies": { "effect": "4.0.0" },
+  "peerDependencies": { "effect": "4.0.6" },
   "publishConfig": { "access": "public" },
 {{/if}}
   "version": "0.0.0",
   "type": "module",
   "scripts": {},
   "dependencies": {
-{{#if noModule=package-library}}    "effect": "4.0.0"{{/if}}
+{{#if noModule=package-library}}    "effect": "4.0.6"{{/if}}
   },
   "devDependencies": {
-{{#if module=package-library}}    "effect": "4.0.0",{{/if}}
+{{#if module=package-library}}    "effect": "4.0.6",{{/if}}
     "@repo/config-typescript": "{{workspaceDependency}}",
     "vitest": "^4.1.4"
   }

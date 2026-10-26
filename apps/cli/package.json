@@ -45,9 +45,9 @@
     "verify:library": "bun scripts/verify-library.ts"
   },
   "devDependencies": {
-    "@effect/platform-bun": "4.0.0",
-    "@effect/platform-node": "4.0.0",
-    "@effect/vitest": "4.0.0",
+    "@effect/platform-bun": "4.0.6",
+    "@effect/platform-node": "4.0.6",
+    "@effect/vitest": "4.0.6",
     "@repo/catalog": "workspace:*",
     "@repo/catalog-author": "workspace:*",
     "@repo/catalog-official": "workspace:*",
@@ -56,7 +56,7 @@
     "@repo/scaffold": "workspace:*",
     "@repo/tui": "workspace:*",
     "@types/bun": "1.4.2",
-    "effect": "4.0.0",
+    "effect": "4.0.6",
     "effect-boxes": "^0.17.3",
     "vitest": "^5.0.2"
   }
