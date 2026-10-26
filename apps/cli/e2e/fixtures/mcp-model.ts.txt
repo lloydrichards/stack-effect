@@ -1,0 +1,35 @@
+import { Effect, Layer, Stream } from "effect";
+import { LanguageModel } from "effect/ai";
+
+export const requests: Array<LanguageModel.ProviderOptions> = [];
+export const resetModel = () => {
+  requests.length = 0;
+};
+const finish = (reason: "stop" | "tool-calls") => ({
+  type: "finish" as const,
+  reason,
+  usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } },
+});
+
+export const FastModelLive = Layer.effect(
+  LanguageModel.LanguageModel,
+  LanguageModel.make({
+    generateText: () => Effect.succeed([]),
+    streamText: (options) => Stream.unwrap(Effect.sync(() => {
+      requests.push(options);
+      return Stream.fromIterable(!options.prompt.content.some((message) => Array.isArray(message.content) && message.content.some((part) => part.type === "tool-result"))
+        ? [
+            { type: "tool-call" as const, id: "local-call", name: "think", params: { thought: "local-context" } },
+            ...(options.tools.some((tool) => tool.name === "mcp__double") ? [{ type: "tool-call" as const, id: "remote-call", name: "mcp__double", params: { value: 21 } }] : []),
+            finish("tool-calls"),
+          ]
+        : [
+            { type: "text-start" as const, id: "answer" },
+            { type: "text-delta" as const, id: "answer", delta: "completed" },
+            { type: "text-end" as const, id: "answer" },
+            finish("stop"),
+          ]);
+    })),
+  }),
+);
+export const SmartModelLive = FastModelLive;

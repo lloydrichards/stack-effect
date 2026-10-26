@@ -3,6 +3,27 @@ import { Schema } from "effect";
 export const ChatId = Schema.String.pipe(Schema.brand("ChatId"));
 export type ChatId = Schema.Schema.Type<typeof ChatId>;
 
+export const ChatFailure = Schema.Struct({
+  code: Schema.Literals([
+    "invalid-input",
+    "unsupported-content",
+    "remote-failure",
+    "tool-conflict",
+  ]),
+  message: Schema.String,
+  source: Schema.optional(Schema.String),
+});
+export type ChatFailure = Schema.Schema.Type<typeof ChatFailure>;
+
+export class ChatPreparationError extends Schema.TaggedError<ChatPreparationError>()(
+  "ChatPreparationError",
+  { reason: ChatFailure },
+) {
+  override get message() {
+    return this.reason.message;
+  }
+}
+
 export const ChatStreamPart = Schema.TaggedUnion({
   text: {
     delta: Schema.String,
@@ -39,6 +60,7 @@ export const ChatStreamPart = Schema.TaggedUnion({
   error: {
     message: Schema.String,
     recoverable: Schema.Boolean,
+    reason: Schema.optional(ChatFailure),
   },
 });
 
@@ -84,6 +106,7 @@ export type UsageMetadata = Schema.Schema.Type<typeof UsageMetadata>;
 export const ErrorMetadata = Schema.Struct({
   message: Schema.String,
   recoverable: Schema.Boolean,
+  reason: Schema.optional(ChatFailure),
 });
 
 export type ErrorMetadata = Schema.Schema.Type<typeof ErrorMetadata>;

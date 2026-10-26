@@ -1,0 +1,486 @@
+import { BunServices } from "@effect/platform-bun";
+import { Command } from "effect/cli";
+import { ask } from "./src/commands/ask";
+import type { McpPromptSelection } from "@repo/domain/McpPrompt";
+import { strict as assert } from "node:assert";
+import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
+import { McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
+import { FetchHttpClient, HttpRouter } from "effect/http";
+import { AiChatService, AiChatServiceLive } from "@repo/ai";
+import type { ChatStreamPart } from "@repo/domain/Chat";
+import { FastModelLive, requests, resetModel } from "../../packages/ai/src/LanguageModel";
+import { TerminalChatDriver, TerminalChatDriverLive } from "./src/chat/ChatDriver";
+import { ChatRuntime, ChatRuntimeLive } from "../server-api/src/runtime/ChatRuntime";
+import { ChatSessionsLive } from "../server-api/src/runtime/ChatSessions";
+
+const isolatedCapability = process.argv[2];
+const history = [
+  { role: "user" as const, content: "previous question" },
+  { role: "assistant" as const, content: "previous answer" },
+  { role: "user" as const, content: "current request" },
+];
+let requestCount = 0;
+let toolDiscoveries = 0;
+let promptDiscoveries = 0;
+const readUris: Array<string> = [];
+const promptArguments: Array<Record<string, unknown>> = [];
+const calls: Array<number> = [];
+let scenario = "normal";
+let deletes = 0;
+let initialized = 0;
+let cancellations = 0;
+let toolStarted: Deferred.Deferred<void>;
+
+const toolkit = Toolkit.make(Tool.make("double", {
+  parameters: Schema.Struct({ value: Schema.Number }),
+  success: Schema.Struct({ value: Schema.Number }),
+  failure: Schema.String,
+  failureMode: "return",
+}));
+const handlers = toolkit.toLayer(Effect.succeed({
+  double: ({ value }) => Effect.gen(function* () {
+    calls.push(value);
+    if (scenario === "tool-error") return yield* Effect.fail("remote denied");
+    if (scenario === "hang") {
+      yield* Deferred.succeed(toolStarted, undefined);
+      return yield* Effect.never;
+    }
+    return { value: value * 2 };
+  }),
+}));
+const capabilities = Layer.mergeAll(
+  McpServer.toolkit(toolkit).pipe(Layer.provide(handlers)),
+  McpServer.resource({
+    uri: "fixture://selected", name: "Selected context",
+    content: Effect.sync(() => {
+      readUris.push("fixture://selected");
+      return scenario === "binary-resource" ? new Uint8Array([1, 2]) : "selected-resource-context";
+    }),
+  }),
+  McpServer.resource({
+    uri: "fixture://unselected", name: "Must not read",
+    content: Effect.sync(() => { readUris.push("fixture://unselected"); return "unselected-context"; }),
+  }),
+  McpServer.prompt({
+    name: "greeting", parameters: { name: Schema.String },
+    content: ({ name }) => Effect.sync(() => {
+      promptArguments.push({ name });
+      return scenario === "image-prompt"
+        ? [{ role: "user" as const, content: { type: "image" as const, data: new Uint8Array([1]), mimeType: "image/png" } }]
+        : [
+            { role: "user" as const, content: { type: "text" as const, text: `remote-prompt-${name}` } },
+            { role: "assistant" as const, content: { type: "text" as const, text: "remote-assistant-context" } },
+          ];
+    }),
+  }),
+);
+const server = McpServer.layerHttp({
+  name: "controlled-fixture", version: "1.0.0", path: "/mcp",
+  protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25],
+}).pipe(Layer.provide(capabilities));
+
+const config = (protocol: string, extra: Record<string, string> = {}) => ConfigProvider.layer(ConfigProvider.fromUnknown({
+  MCP_SERVER_URL: "http://localhost/mcp",
+  ...(isolatedCapability === "tools" ? {} : { MCP_PROTOCOL_VERSION: protocol }),
+  ...(isolatedCapability === undefined ? {
+    MCP_AUTH_TOKEN: "fixture-token",
+    MCP_RESOURCE_URIS: '["fixture://selected"]',
+  } : isolatedCapability === "resources" ? {
+    MCP_RESOURCE_URIS: '["fixture://selected"]',
+  } : isolatedCapability === "prompts" ? {
+  } : {}),
+  ...extra,
+}));
+const textOf = (message: Prompt.Message) => typeof message.content === "string"
+  ? message.content
+  : message.content.map((part) => "text" in part ? part.text : "").join("");
+
+const main = Effect.scoped(Effect.gen(function* () {
+  const web = yield* Effect.acquireRelease(
+    Effect.sync(() => HttpRouter.toWebHandler(server, { disableLogger: true })),
+    (web) => Effect.promise(() => web.dispose()),
+  );
+  const localFetch: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    assert.equal(request.headers.get("authorization"), isolatedCapability === undefined ? "Bearer fixture-token" : null);
+    if (isolatedCapability === "tools") assert.equal(request.headers.get("mcp-protocol-version"), "2026-07-28", "URL-only tools configuration uses the default protocol");
+    if (request.method === "DELETE") deletes++;
+    if (request.method === "POST") {
+      const body: unknown = await request.clone().json();
+      requestCount++;
+      if (typeof body === "object" && body !== null && "method" in body) {
+        if (body.method === "initialize") initialized++;
+        if (body.method === "tools/list") toolDiscoveries++;
+        if (body.method === "prompts/list") promptDiscoveries++;
+        if (body.method === "notifications/cancelled") cancellations++;
+      }
+    }
+    return web.handler(request);
+  };
+  const fetchLayer = Layer.succeed(FetchHttpClient.Fetch, localFetch);
+  const selectedPrompt = { name: "greeting", arguments: { name: "Ada" } };
+  const runApp = (app: "cli" | "server", protocol: string, extra: Record<string, string> = {}, repeat = false, prompt?: McpPromptSelection) =>
+    (app === "cli"
+      ? Effect.gen(function* () {
+          const driver = yield* TerminalChatDriver;
+          const parts = yield* driver.streamTurn(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect);
+          if (!repeat) return parts;
+          resetModel();
+          return [...parts, ...yield* driver.streamTurn(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect)];
+        }).pipe(Effect.provide(TerminalChatDriverLive))
+      : Effect.gen(function* () {
+          const runtime = yield* ChatRuntime;
+          const parts = yield* runtime.generate(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect);
+          if (!repeat) return parts;
+          resetModel();
+          return [...parts, ...yield* runtime.generate(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect)];
+        }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))))
+    ).pipe(Effect.provide(config(protocol, extra)), Effect.provide(fetchLayer));
+
+  if (isolatedCapability !== undefined) {
+    assert(["tools", "resources", "prompts"].includes(isolatedCapability));
+    for (const app of ["cli", "server"] as const) {
+      resetModel();
+      const parts = yield* runApp(app, "2026-07-28", {}, false, isolatedCapability === "prompts" ? selectedPrompt : undefined);
+      assert(!parts.some((part) => part._tag === "error"), `${app}/${isolatedCapability} must work without unrelated configuration`);
+      assert.equal(requests.length, 2);
+      const names = requests[0].tools.map((tool) => tool.name);
+      assert(names.includes("think"));
+      assert.equal(names.includes("mcp__double"), isolatedCapability === "tools");
+      const first = requests[0].prompt.content;
+      const texts = first.map(textOf);
+      const resourceIndex = texts.findIndex((text) => text.includes("selected-resource-context"));
+      const promptIndex = texts.indexOf("remote-prompt-Ada");
+      const currentIndex = texts.indexOf("current request");
+      assert(currentIndex >= 0);
+      assert.equal(resourceIndex >= 0, isolatedCapability === "resources");
+      assert.equal(promptIndex >= 0, isolatedCapability === "prompts");
+      if (isolatedCapability === "resources") {
+        assert(resourceIndex < currentIndex);
+        assert.equal(first[resourceIndex].role, "user");
+      }
+      if (isolatedCapability === "prompts") {
+        assert(promptIndex < currentIndex);
+        assert.equal(first[promptIndex].role, "user");
+        assert.equal(first[texts.indexOf("remote-assistant-context")].role, "assistant");
+      }
+      assert(parts.some((part) => part._tag === "tool-success" && part.name === "think"));
+    }
+    assert.equal(calls.length, isolatedCapability === "tools" ? 2 : 0);
+    assert.equal(readUris.length, isolatedCapability === "resources" ? 2 : 0);
+    assert.equal(promptArguments.length, isolatedCapability === "prompts" ? 2 : 0);
+    yield* Effect.log(`MCP isolated ${isolatedCapability} passed`);
+    return;
+  }
+
+  for (const app of ["cli", "server"] as const) {
+    for (const protocol of ["2026-07-28", "2025-11-25"]) {
+      scenario = "normal";
+      resetModel();
+      const beforeInit = initialized;
+      const beforeDelete = deletes;
+      const beforeCalls = calls.length;
+      const parts = yield* runApp(app, protocol, {}, false, selectedPrompt);
+      assert.equal(requests.length, 2, `${app}/${protocol}: tool result must reach the next model turn`);
+      assert.deepEqual(calls.slice(beforeCalls), [21]);
+      const names = requests[0].tools.map((tool) => tool.name);
+      assert(names.includes("think"), "local toolkit must survive");
+      assert(names.includes("mcp__double"), "remote tools must reach model");
+      const first = requests[0].prompt.content;
+      const texts = first.map(textOf);
+      assert(texts.includes("previous question"));
+      assert(texts.includes("previous answer"));
+      const currentIndex = texts.indexOf("current request");
+      assert(currentIndex >= 0);
+      const resourceIndex = texts.findIndex((text) => text.includes("selected-resource-context"));
+      assert(resourceIndex >= 0 && resourceIndex < currentIndex, "selected resource content must precede the current request");
+      assert.equal(first[resourceIndex].role, "user", "remote resource content must not become a system instruction");
+      assert(texts.indexOf("remote-prompt-Ada") < currentIndex);
+      assert.equal(first[texts.indexOf("remote-prompt-Ada")].role, "user");
+      assert.equal(first[texts.indexOf("remote-assistant-context")].role, "assistant");
+      const next = JSON.stringify(requests[1].prompt.content);
+      assert(next.includes("local-context"));
+      assert(next.includes("42"));
+      for (const name of ["think", "mcp__double"]) {
+        assert(parts.some((part) => part._tag === "tool-start" && part.name === name));
+        assert(parts.some((part) => part._tag === "tool-success" && part.name === name));
+      }
+      assert(parts.some((part) => part._tag === "text" && part.delta === "completed"));
+      assert(!parts.some((part) => part._tag === "error"));
+      if (protocol === "2025-11-25") {
+        assert.equal(initialized - beforeInit, 1, "capabilities share one app connection");
+        assert.equal(deletes - beforeDelete, 1, "closing app scope deletes the legacy session");
+      }
+    }
+  }
+  for (const app of ["cli", "server"] as const) {
+    resetModel();
+    const beforeInit = initialized;
+    const beforeDelete = deletes;
+    const beforeTools = toolDiscoveries;
+    const beforePrompts = promptDiscoveries;
+    const beforeReads = readUris.length;
+    const beforePromptArguments = promptArguments.length;
+    const parts = yield* runApp(app, "2025-11-25", {}, true, selectedPrompt);
+    assert.equal(initialized - beforeInit, 1, `${app}: generations share one connection`);
+    assert.equal(deletes - beforeDelete, 1);
+    assert.equal(toolDiscoveries - beforeTools, 2, `${app}: remote tools are refreshed for each generation`);
+    assert.equal(promptDiscoveries - beforePrompts, 2, `${app}: remote prompts are rediscovered for each generation`);
+    assert.equal(readUris.length - beforeReads, 2, `${app}: resources are read for each generation`);
+    assert.equal(promptArguments.length - beforePromptArguments, 2, `${app}: prompt messages are fetched for each generation`);
+    assert.equal(parts.filter((part) => part._tag === "tool-success" && part.name === "mcp__double").length, 2);
+  }
+  assert(!readUris.includes("fixture://unselected"));
+  assert(promptArguments.every((args) => args.name === "Ada"));
+
+  for (const failure of ["binary-resource", "image-prompt", "tool-error"]) {
+    scenario = failure;
+    resetModel();
+    const parts = yield* runApp("cli", "2026-07-28", {}, false, failure === "image-prompt" ? selectedPrompt : undefined);
+    const error = parts.find((part) => part._tag === "error");
+    assert(error, `${failure} must reach chat error reporting`);
+    const detail = failure === "binary-resource" ? "fixture://selected" : failure === "image-prompt" ? "image" : "remote denied";
+    assert(error.message.includes(detail), `${failure} must explain the failing capability`);
+    if (failure !== "tool-error") {
+      assert.equal(requests.length, 0, "unsupported content must not reach model");
+      assert(parts.some((part) => part._tag === "error" && part.reason?.code === "unsupported-content" && !part.recoverable));
+    }
+  }
+  scenario = "normal";
+  resetModel();
+  const missing = yield* runApp("server", "2026-07-28", {}, false, { name: "does-not-exist" });
+  assert(missing.some((part) => part._tag === "error" && part.message.includes("does-not-exist")));
+  assert.equal(requests.length, 0);
+  const malformed = yield* Effect.exit(runApp("cli", "2026-07-28", { MCP_RESOURCE_URIS: "invalid-json" }));
+  assert(Exit.isFailure(malformed));
+
+  resetModel();
+  const noExtensionRequests = requestCount;
+  const plain = yield* Effect.gen(function* () {
+    const chat = yield* AiChatService;
+    const queue = yield* chat.chat([Prompt.userMessage({ content: [Prompt.textPart({ text: "plain request" })] })]);
+    return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
+  assert.equal(requestCount, noExtensionRequests, "no extensions must make no MCP requests");
+  assert.deepEqual(requests[0].tools.map((tool) => tool.name), ["think"]);
+  assert(plain.some((part) => part._tag === "tool-success" && part.name === "think"));
+
+  resetModel();
+  const duplicateToolkit = Toolkit.make(Tool.make("think", {
+    parameters: Schema.Struct({ thought: Schema.String }), success: Schema.String,
+  }));
+  const duplicate = yield* duplicateToolkit.pipe(Effect.provide(duplicateToolkit.toLayer({
+    think: ({ thought }) => Effect.succeed(thought),
+  })));
+  const collision = yield* Effect.gen(function* () {
+    const chat = yield* AiChatService;
+    const queue = yield* chat.chat([Prompt.userMessage({ content: [Prompt.textPart({ text: "collision request" })] })], [
+      () => Effect.succeed({ toolkit: duplicate }),
+    ]);
+    return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
+  assert(collision.some((part) => part._tag === "error"), "duplicate tool names must fail rather than overwrite handlers");
+  assert.equal(requests.length, 0);
+  assert(collision.some((part) => part._tag === "error" && part.reason?.code === "tool-conflict"));
+
+  const defect = yield* Effect.gen(function* () {
+    const chat = yield* AiChatService;
+    const queue = yield* chat.chat([], [() => Effect.die(new Error("private diagnostic"))]);
+    return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
+  assert(defect.some((part) => part._tag === "error" && part.message === "Chat generation failed" && !part.recoverable));
+  assert(!JSON.stringify(defect).includes("private diagnostic"), "diagnostic causes stay out of client events");
+
+  for (const app of ["cli", "server"] as const) {
+    const beforeInit = initialized;
+    const beforeDelete = deletes;
+    const beforeCancellation = cancellations;
+    const exerciseCancellation = (generate: () => Stream.Stream<ChatStreamPart>) => Effect.gen(function* () {
+      scenario = "hang";
+      resetModel();
+      toolStarted = yield* Deferred.make<void>();
+      const generation = yield* generate().pipe(Stream.runDrain, Effect.forkChild);
+      yield* Deferred.await(toolStarted);
+      yield* Fiber.interrupt(generation);
+      assert.equal(cancellations - beforeCancellation, 1, `${app}: cancelling a generation notifies the remote server`);
+      assert.equal(deletes - beforeDelete, 0, `${app}: cancelling a generation keeps the connection open`);
+
+      scenario = "normal";
+      resetModel();
+      const beforeCalls = calls.length;
+      const parts = yield* generate().pipe(Stream.runCollect);
+      assert.deepEqual(calls.slice(beforeCalls), [21], `${app}: the next generation reuses the connection`);
+      assert.equal(requests.length, 2, `${app}: the reused connection delivers the result to the next model turn`);
+      assert(JSON.stringify(requests[1].prompt.content).includes("42"));
+      assert(parts.some((part) => part._tag === "tool-success" && part.name === "mcp__double"));
+      assert(parts.some((part) => part._tag === "text" && part.delta === "completed"));
+      assert(!parts.some((part) => part._tag === "error"));
+      assert.equal(initialized - beforeInit, 1, `${app}: cancellation and reuse share one legacy session`);
+      assert.equal(deletes - beforeDelete, 0, `${app}: the session stays open until the app runtime closes`);
+    });
+    yield* (app === "cli"
+      ? Effect.gen(function* () {
+          const driver = yield* TerminalChatDriver;
+          yield* exerciseCancellation(() => driver.streamTurn(history));
+        }).pipe(Effect.provide(TerminalChatDriverLive))
+      : Effect.gen(function* () {
+          const runtime = yield* ChatRuntime;
+          yield* exerciseCancellation(() => runtime.generate(history));
+        }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))))
+    ).pipe(Effect.provide(config("2025-11-25")), Effect.provide(fetchLayer));
+    assert.equal(deletes - beforeDelete, 1, `${app}: closing the runtime deletes the shared session once`);
+    assert.equal(cancellations - beforeCancellation, 1);
+  }
+
+  const promptDomain = yield* Effect.promise(() => import("@repo/domain/McpPrompt"));
+  const resourceDomain = yield* Effect.promise(() => import("@repo/domain/McpClient"));
+  const selectionErrorJson = Schema.fromJsonString(promptDomain.McpPromptSelectionError);
+  const selectionError = new promptDomain.McpPromptSelectionError({ message: "Invalid selection" });
+  const restoredSelectionError = yield* Schema.decodeEffect(selectionErrorJson)(yield* Schema.encodeEffect(selectionErrorJson)(selectionError));
+  assert(restoredSelectionError instanceof promptDomain.McpPromptSelectionError);
+  assert.equal(restoredSelectionError.message, selectionError.message);
+  const optionErrorJson = Schema.fromJsonString(promptDomain.McpPromptOptionError);
+  const optionError = new promptDomain.McpPromptOptionError({ message: "Invalid prompt options" });
+  const restoredOptionError = yield* Schema.decodeEffect(optionErrorJson)(yield* Schema.encodeEffect(optionErrorJson)(optionError));
+  assert(restoredOptionError instanceof promptDomain.McpPromptOptionError);
+  assert.equal(restoredOptionError.message, optionError.message);
+  const contentErrorJson = Schema.fromJsonString(resourceDomain.UnsupportedMcpContentError);
+  const contentError = new resourceDomain.UnsupportedMcpContentError({ capability: "resource", source: "fixture://selected", contentType: "blob", message: "Unsupported content" });
+  const restoredContentError = yield* Schema.decodeEffect(contentErrorJson)(yield* Schema.encodeEffect(contentErrorJson)(contentError));
+  assert(restoredContentError instanceof resourceDomain.UnsupportedMcpContentError);
+  assert.equal(restoredContentError.message, contentError.message);
+  scenario = "normal";
+  for (const app of ["cli", "server"] as const) {
+    const beforeGets = promptArguments.length;
+    const beforeLists = promptDiscoveries;
+    const exercise = (generate: (prompt?: McpPromptSelection) => Stream.Stream<ChatStreamPart>, list: () => Effect.Effect<ReadonlyArray<{ name: string; arguments?: ReadonlyArray<{ name: string; required?: boolean }> }>, unknown>, render: (selection: McpPromptSelection) => Effect.Effect<unknown, unknown>) => Effect.gen(function* () {
+      resetModel();
+      const available = yield* list();
+      assert(available.some((prompt) => prompt.name === "greeting" && prompt.arguments?.some((arg) => arg.name === "name" && arg.required)));
+      assert.equal(requests.length, 0, "discovery does not invoke the model");
+      resetModel();
+      yield* generate().pipe(Stream.runDrain);
+      assert.equal(promptArguments.length, beforeGets, "ordinary turns do not fetch prompts");
+      assert.equal(promptDiscoveries, beforeLists + 1, "ordinary turns do not discover prompts");
+      const invalid = yield* Effect.flip(render({ name: "greeting", arguments: {} }));
+      assert(invalid instanceof promptDomain.McpPromptSelectionError, "both apps use the canonical domain error");
+      const unknown = yield* Effect.exit(render({ name: "greeting", arguments: { name: "Ada", typo: "value" } }));
+      assert(Exit.isFailure(unknown));
+      assert.equal(promptArguments.length, beforeGets, "invalid arguments fail before prompts/get");
+      resetModel();
+      const parts = yield* generate({ name: "greeting", arguments: { name: app } }).pipe(Stream.runCollect);
+      assert(!parts.some((part) => part._tag === "error"));
+      assert.equal(promptArguments.length, beforeGets + 1, "one selected request renders once across model tool turns");
+      assert(JSON.stringify(requests[0].prompt.content).includes(`remote-prompt-${app}`));
+      resetModel();
+      yield* generate().pipe(Stream.runDrain);
+      assert.equal(promptArguments.length, beforeGets + 1, "selection does not leak into the next request");
+    });
+    const promptModule = yield* Effect.promise(() => app === "cli"
+      ? import("./src/mcp/McpPrompts")
+      : import("../server-api/src/mcp/McpPrompts"));
+    yield* Effect.gen(function* () {
+      const prompts = yield* promptModule.McpPrompts;
+      yield* (app === "cli"
+        ? Effect.gen(function* () {
+            const driver = yield* TerminalChatDriver;
+            yield* exercise((prompt) => driver.streamTurn([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
+          }).pipe(Effect.provide(TerminalChatDriverLive))
+        : Effect.gen(function* () {
+            const runtime = yield* ChatRuntime;
+            yield* exercise((prompt) => runtime.generate([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
+          }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive)))));
+    }).pipe(Effect.provide(promptModule.McpPromptsLive), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
+  }
+  const terminal = yield* Effect.promise(() => import("./src/chat/TerminalChat"));
+  const command = yield* Effect.promise(() => import("./src/chat/ChatCommandConfiguration"));
+  const beforeInteractiveGets = promptArguments.length;
+  yield* Effect.gen(function* () {
+    const action = yield* command.ChatCommandConfiguration.resolve({ base: {}, mcp: { prompt: Option.some("greeting"), promptArgs: { name: "interactive" }, listPrompts: false } }, "chat");
+    assert.equal(action._tag, "chat");
+    if (action._tag !== "chat") return;
+    const driver = yield* TerminalChatDriver;
+    const events = yield* Queue.make<Schema.Schema.Type<typeof terminal.TerminalChatEvent>>();
+    const finishTurn = () => Stream.fromQueue(events).pipe(
+      Stream.takeUntil((event) => event._tag === "TurnComplete" || event._tag === "TurnFailed"),
+      Stream.runCollect,
+      Effect.tap((events) => Effect.sync(() => assert(!events.some((event) => event._tag === "TurnFailed")))),
+    );
+    resetModel();
+    const state = yield* terminal.startTerminalChatTurn(driver.streamTurn, "interactive system", events,
+      { input: "", cursor: 0, messages: [], activeTurn: null, error: null }, [], action.inputMessages);
+    yield* finishTurn();
+    const first = requests[0].prompt.content;
+    const texts = first.map((message) => JSON.stringify(message.content));
+    const resourceIndex = texts.findIndex((text) => text.includes("selected-resource-context"));
+    const promptIndex = texts.findIndex((text) => text.includes("remote-prompt-interactive"));
+    const assistantIndex = texts.findIndex((text) => text.includes("remote-assistant-context"));
+    assert(resourceIndex >= 0 && resourceIndex < promptIndex && promptIndex < assistantIndex, "interactive startup puts resources before the complete prompt sequence");
+    assert.equal(first[promptIndex].role, "user");
+    assert.equal(first[assistantIndex].role, "assistant");
+    assert(state.messages.some((message) => message.content === "remote-prompt-interactive"), "rendered input is retained in terminal history");
+    assert.equal(promptArguments.length - beforeInteractiveGets, 1);
+    resetModel();
+    yield* terminal.startTerminalChatTurn(driver.streamTurn, "interactive system", events, { ...state, input: "follow up", activeTurn: null });
+    yield* finishTurn();
+    assert(JSON.stringify(requests[0].prompt.content).includes("remote-prompt-interactive"), "later turns retain the rendered prompt snapshot");
+    assert.equal(promptArguments.length - beforeInteractiveGets, 1, "later interactive turns do not render the prompt again");
+  }).pipe(Effect.provide(command.ChatCommandDependencies), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
+  resetModel();
+  const beforeConcurrentGets = promptArguments.length;
+  yield* Effect.gen(function* () {
+    const runtime = yield* ChatRuntime;
+    const results = yield* Effect.all(["left", "right"].map((name) =>
+      runtime.generate([{ role: "user", content: `concurrent-${name}` }], {
+        prompt: { name: "greeting", arguments: { name } },
+      }).pipe(Stream.runCollect)), { concurrency: "unbounded" });
+    assert(results.every((parts) => !parts.some((part) => part._tag === "error")));
+  }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
+  assert.equal(promptArguments.length - beforeConcurrentGets, 2);
+  for (const name of ["left", "right"]) {
+    const request = requests.find((request) => {
+      const text = JSON.stringify(request.prompt.content);
+      return text.includes(`concurrent-${name}`) && text.includes(`remote-prompt-${name}`);
+    });
+    assert(request, `concurrent ${name} keeps its own selected prompt`);
+    assert(!JSON.stringify(request.prompt.content).includes(`remote-prompt-${name === "left" ? "right" : "left"}`));
+  }
+  const plainRuntimeModule = yield* Effect.promise(() => import("../server-plain/src/runtime/ChatRuntime"));
+  const plainSessionsModule = yield* Effect.promise(() => import("../server-plain/src/runtime/ChatSessions"));
+  resetModel();
+  const unsupported = yield* Effect.gen(function* () {
+    const runtime = yield* plainRuntimeModule.ChatRuntime;
+    return yield* runtime.generate(history, { prompt: selectedPrompt }).pipe(Stream.runCollect);
+  }).pipe(Effect.provide(plainRuntimeModule.ChatRuntimeLive.pipe(Layer.provide(plainSessionsModule.ChatSessionsLive))));
+  assert(unsupported.some((part) => part._tag === "error" && part.message.includes("Unsupported chat options")));
+  assert.equal(requests.length, 0, "shared domain options do not enable capabilities in another server");
+  resetModel();
+  const beforeListGets = promptArguments.length;
+  const beforeListInit = initialized;
+  yield* Command.runWith(ask, { version: "0.0.0" })(["--list-prompts"]).pipe(Effect.provide(BunServices.layer), Effect.provide(config("2025-11-25")), Effect.provide(fetchLayer));
+  assert.equal(requests.length, 0);
+  assert.equal(promptArguments.length, beforeListGets);
+  assert.equal(initialized - beforeListInit, 1, "listing and driver share one connection");
+  resetModel();
+  const beforeAskInit = initialized;
+  yield* Command.runWith(ask, { version: "0.0.0" })(["--prompt", "greeting", "--prompt-arg", "name=CLI"]).pipe(Effect.provide(BunServices.layer), Effect.provide(config("2025-11-25")), Effect.provide(fetchLayer));
+  assert.equal(process.exitCode ?? 0, 0);
+  assert.equal(initialized - beforeAskInit, 1, "prompt selection and generation share one connection");
+  assert.equal(requests.length, 2, "prompt-only ask is a complete request");
+  assert.equal(requests[0].prompt.content[0].role, "system", "prompt-only input preserves the leading system instruction");
+  assert(JSON.stringify(requests[0].prompt.content).includes("remote-prompt-CLI"));
+
+  scenario = "hang";
+  resetModel();
+  toolStarted = yield* Deferred.make<void>();
+  const beforeDelete = deletes;
+  const beforeCancellation = cancellations;
+  const fiber = yield* runApp("cli", "2025-11-25").pipe(Effect.forkChild);
+  yield* Deferred.await(toolStarted);
+  yield* Fiber.interrupt(fiber);
+  assert.equal(deletes - beforeDelete, 1, "interruption closes the owned connection");
+  assert.equal(cancellations - beforeCancellation, 1, "interruption notifies the remote server");
+  yield* Effect.log("MCP chat integration passed");
+}));
+
+await Effect.runPromise(main);

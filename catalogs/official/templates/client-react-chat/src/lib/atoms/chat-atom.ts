@@ -25,7 +25,7 @@ export const accumulateChatResponse = (
   state: ChatResponse,
   part: ChatStreamPart,
 ): ChatResponse =>
-  ChatStreamPart.match(part, {
+  ChatStreamPart.match<ChatResponse>(part, {
     text: (part) => {
       const currentSegments = state._tag === "initial" ? [] : state.segments;
       const lastSegment = currentSegments[currentSegments.length - 1];
@@ -122,6 +122,7 @@ export const accumulateChatResponse = (
         error: {
           message: part.message,
           recoverable: part.recoverable,
+          reason: part.reason,
         },
       };
     },

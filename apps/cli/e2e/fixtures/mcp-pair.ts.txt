@@ -1,0 +1,83 @@
+import { strict as assert } from "node:assert";
+import { Effect, Layer, Stream } from "effect";
+import { McpClient, McpProtocol } from "effect/ai";
+import { FetchHttpClient } from "effect/http";
+import { RpcClient, RpcSerialization } from "effect/rpc";
+import { ChatRpc } from "@repo/domain/ChatRpc";
+import { McpPromptRpc } from "@repo/domain/McpPromptRpc";
+
+const root = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
+const children: ReturnType<typeof Bun.spawn>[] = [];
+const allocatePort = () => { const server = Bun.serve({ port: 0, fetch: () => new Response() }); const port = server.port!; server.stop(true); return port; };
+const mcpPort = allocatePort();
+const apiPort = allocatePort();
+const mcpUrl = `http://127.0.0.1:${mcpPort}/mcp`;
+const apiUrl = `http://127.0.0.1:${apiPort}`;
+const ready = async (url: string, child: ReturnType<typeof Bun.spawn>) => {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    if (child.exitCode !== null) throw new Error(`server exited: ${child.exitCode}`);
+    try { await fetch(url); return; } catch { await Bun.sleep(50); }
+  }
+  throw new Error(`Server did not start: ${url}`);
+};
+const http = (path: string) => RpcClient.layerProtocolHttp({ url: `${apiUrl}${path}` }).pipe(
+  Layer.provide(FetchHttpClient.layer), Layer.provide(RpcSerialization.layerNdjson),
+);
+try {
+  const mcp = Bun.spawn(["bun", "apps/server-mcp-remote/src/index.ts"], {
+    cwd: root, env: { ...process.env, MCP_PORT: String(mcpPort), MCP_HOST: "127.0.0.1" },
+    stdout: Bun.file(`${root}/mcp-server.log`), stderr: Bun.file(`${root}/mcp-server-errors.log`),
+  }); children.push(mcp); await ready(mcpUrl, mcp);
+  const transport = McpClient.layerHttp({ name: "scaffold-review", version: "0.0.0", url: mcpUrl, protocol: McpProtocol.v2026_07_28 }).pipe(Layer.provide(FetchHttpClient.layer));
+  const capabilities = await Effect.runPromise(Effect.gen(function* () {
+    const client = yield* McpClient.McpClient;
+    const tools = yield* client.listTools();
+    const prompts = yield* client.listPrompts();
+    const resources = yield* client.listResources();
+    return { tools: tools.map((tool) => tool.name), prompts: prompts.map((prompt) => prompt.name), resources: resources.map((resource) => resource.uri) };
+  }).pipe(Effect.provide(transport)));
+  console.log("CAPABILITIES", JSON.stringify(capabilities));
+  assert(capabilities.tools.includes("calculate"));
+  assert(capabilities.prompts.includes("briefing"));
+  assert(capabilities.resources.includes("stack-effect://primer"));
+  const api = Bun.spawn(["bun", "apps/server-api/src/index.ts"], {
+    cwd: root, env: { ...process.env, PORT: String(apiPort), HOST: "127.0.0.1", MCP_SERVER_URL: mcpUrl, MCP_RESOURCE_URIS: '["stack-effect://primer"]' },
+    stdout: Bun.file(`${root}/api.log`), stderr: Bun.file(`${root}/api-errors.log`),
+  }); children.push(api); await ready(`${apiUrl}/health`, api);
+  const available = await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
+    const rpc = yield* RpcClient.make(McpPromptRpc);
+    return yield* rpc.prompts_list();
+  })).pipe(Effect.provide(http("/chat-prompts-rpc"))));
+  console.log("AVAILABLE", JSON.stringify(available));
+  assert(available.some((prompt) => prompt.name === "briefing"));
+  const parts = await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
+    const client = yield* RpcClient.make(ChatRpc);
+    const { chatId } = yield* client.chat_start();
+    return yield* client.chat_ask({ chatId, messages: [], options: { prompt: { name: "briefing", arguments: { name: "Ada" } } } }).pipe(Stream.runCollect);
+  })).pipe(Effect.provide(http("/chat-rpc"))));
+  assert(!parts.some((part) => part._tag === "error"), JSON.stringify(parts));
+  assert(parts.some((part) => part._tag === "tool-success" && part.name === "mcp__calculate" && part.output.includes("42")));
+  assert(parts.some((part) => part._tag === "text" && part.delta === "completed"));
+  await Bun.sleep(50);
+  const log = await Bun.file(`${root}/api.log`).text();
+  const requests = log.split("\n").filter((line) => line.startsWith("PAIR_MODEL_REQUEST ")).map((line) => JSON.parse(line.slice("PAIR_MODEL_REQUEST ".length)));
+  assert.equal(requests.length, 2);
+  assert(requests[0].tools.includes("mcp__calculate"));
+  assert(JSON.stringify(requests[0].messages).includes("Prepare a short welcome briefing for Ada"));
+  assert(JSON.stringify(requests[0].messages).includes("Workshop plan: 6 groups"));
+  const resourceIndex = requests[0].messages.findIndex((message) => JSON.stringify(message).includes("Workshop plan: 6 groups"));
+  const promptIndex = requests[0].messages.findIndex((message) => JSON.stringify(message).includes("Prepare a short welcome briefing for Ada"));
+  assert(resourceIndex < promptIndex, "resource context precedes selected prompt input regardless of registration order");
+  assert(JSON.stringify(requests[1].messages).includes("42"));
+  const invalid = await Effect.runPromise(Effect.scoped(Effect.gen(function* () {
+    const rpc = yield* RpcClient.make(ChatRpc);
+    const { chatId } = yield* rpc.chat_start();
+    return yield* rpc.chat_ask({chatId, messages: [], options: {prompt: {name: "briefing", arguments: {}}}}).pipe(Stream.runCollect);
+  })).pipe(Effect.provide(http("/chat-rpc"))));
+  assert(invalid.some((part) => part._tag === "error" && part.reason?.code === "invalid-input" && part.recoverable && !part.message.includes("System error")));
+  console.log("MCP paired example passed");
+} finally {
+  for (const child of children) child.kill();
+  await Promise.all(children.map((child) => child.exited));
+
+}

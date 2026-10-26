@@ -1,4 +1,5 @@
 import { defineModules, templates } from "@repo/authoring";
+import { chatMcpChildren } from "./chat-mcp";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 
@@ -54,11 +55,24 @@ export const cliModules = defineModules(import.meta.url, [
         moduleId: "package-ai-chat-service",
       },
     ],
+    children: chatMcpChildren("cli"),
     contributions: [
       {
         _tag: "file",
         path: "{{targetPath}}/src/chat/ChatDriver.ts",
         contents: template("./cli-chat-driver/src/chat/ChatDriver.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/chat/ChatCommand.ts",
+        contents: template("./cli-chat-driver/src/chat/ChatCommand.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/chat/ChatCommandConfiguration.ts",
+        contents: template(
+          "./cli-chat-driver/src/chat/ChatCommandConfiguration.ts",
+        ),
       },
       {
         _tag: "pkg-json-entry",
@@ -95,6 +109,7 @@ export const cliModules = defineModules(import.meta.url, [
         moduleId: "cli-chat-driver",
       },
     ],
+    children: chatMcpChildren("cli"),
     contributions: [
       {
         _tag: "file",
@@ -130,6 +145,7 @@ export const cliModules = defineModules(import.meta.url, [
         moduleId: "cli-chat-driver",
       },
     ],
+    children: chatMcpChildren("cli"),
     contributions: [
       {
         _tag: "file",

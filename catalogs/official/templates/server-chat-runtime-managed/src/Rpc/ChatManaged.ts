@@ -12,7 +12,12 @@ const ChatManagedRpcHandlers = ChatManagedRpc.toLayer(
     const runtime = yield* ChatManagedRuntime;
     yield* Effect.logInfo("Starting Chat Managed RPC Live Implementation");
     return ChatManagedRpc.of({
-      chat_send: ({ chatId, message }) => runtime.send({ chatId, message }),
+      chat_send: ({ chatId, message, options }) =>
+        runtime.send({
+          chatId,
+          message,
+          ...(options === undefined ? {} : { options }),
+        }),
       chat_watch: ({ chatId }) => runtime.watch(chatId),
       chat_interrupt: ({ chatId }) => runtime.interrupt(chatId),
     });

@@ -602,6 +602,18 @@ export const packageModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/src/workflow/ChatTurnExtensions.ts",
+        contents: template(
+          "./package-ai-chat-service/src/workflow/ChatTurnExtensions.ts",
+        ),
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./workflow/ChatTurnExtensions",
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/src/services/AiChatService.ts",
         contents: template(
           "./package-ai-chat-service/src/services/AiChatService.ts",

@@ -4,6 +4,7 @@ import type {
   ChatNotFoundError,
   GenerationInProgressError,
 } from "@repo/domain/ChatRpc";
+import type { ChatTurnOptions } from "@repo/domain/ChatTurnOptions";
 import {
   Context,
   Effect,
@@ -55,9 +56,11 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
         send: ({
           chatId,
           message,
+          options,
         }: {
           readonly chatId: ChatId;
           readonly message: ChatMessage;
+          readonly options?: ChatTurnOptions;
         }): Effect.Effect<
           void,
           ChatNotFoundError | GenerationInProgressError
@@ -81,7 +84,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
               ] as const;
             });
 
-            const fiber = yield* runtime.generate(history).pipe(
+            const fiber = yield* runtime.generate(history, options).pipe(
               Stream.tap((part) =>
                 publish(
                   chatId,

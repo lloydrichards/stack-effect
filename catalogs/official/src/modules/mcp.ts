@@ -110,6 +110,7 @@ export const mcpModules = defineModules(import.meta.url, [
         moduleId: "mcp-prompt-hello",
         requirement: "optional",
       },
+      { moduleId: "mcp-prompt-briefing", requirement: "optional" },
     ],
     contributions: [],
   },
@@ -119,8 +120,21 @@ export const mcpModules = defineModules(import.meta.url, [
     title: "Hello Prompt",
     description: "Example parameterized MCP greeting prompt",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
-    dependencies: [],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: { kind: "package", name: "domain" },
+        moduleId: "domain-mcp-server-prompts",
+      },
+    ],
     contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/src/prompts/HelloPrompt.ts",
@@ -135,6 +149,58 @@ export const mcpModules = defineModules(import.meta.url, [
         import: {
           moduleSpecifier: "./prompts/HelloPrompt",
           namedImports: ["HelloPromptLive"],
+        },
+      },
+    ],
+  },
+  {
+    id: "mcp-prompt-briefing",
+    title: "Workshop Briefing Prompt",
+    description:
+      "Combine a selected prompt, primer resource, and remote calculator in one chat task",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: { kind: "server-mcp", name: "mcp" },
+        moduleId: "mcp-toolkit-math",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "server-mcp", name: "mcp" },
+        moduleId: "mcp-resource-primer",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "package", name: "domain" },
+        moduleId: "domain-mcp-server-prompts",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/prompts/BriefingPrompt.ts",
+        contents: template(
+          "./mcp-prompt-briefing/src/prompts/BriefingPrompt.ts",
+        ),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "McpCapabilities",
+        functionName: "Layer.mergeAll",
+        argument: "BriefingPromptLive",
+        import: {
+          moduleSpecifier: "./prompts/BriefingPrompt",
+          namedImports: ["BriefingPromptLive"],
         },
       },
     ],
