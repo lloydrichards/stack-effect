@@ -302,7 +302,7 @@ describe("PlanService", () => {
             getOutcome(plan, "apps/server-api/src/index.ts").classification,
           ).toBe("create");
           expect(
-            getOutcome(plan, "apps/server-api/src/Api/Health.ts")
+            getOutcome(plan, "apps/server-api/src/api/Health.ts")
               .classification,
           ).toBe("create");
           expect(
@@ -408,7 +408,7 @@ const HttpRpcRouter = Layer.empty;
             expect.arrayContaining([
               expect.objectContaining({
                 _tag: "ts-add-import",
-                moduleSpecifier: "./Rpc/Chat",
+                moduleSpecifier: "./rpc/Chat",
                 namedImports: ["ChatRpcLive"],
               }),
             ]),

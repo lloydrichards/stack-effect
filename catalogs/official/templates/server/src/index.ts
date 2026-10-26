@@ -5,8 +5,8 @@ import { Api } from "@repo/domain/Api";
 import { Config, Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
-import { HealthGroupLive } from "./Api/Health";
-import { HelloGroupLive } from "./Api/Hello";
+import { HealthGroupLive } from "./api/Health";
+import { HelloGroupLive } from "./api/Hello";
 
 export const ServerConfig = Config.all({
   port: Config.Number("PORT").pipe(Config.withDefault(9000)),

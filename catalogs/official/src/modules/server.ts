@@ -43,12 +43,12 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Api/Health.ts",
+        path: "{{targetPath}}/src/api/Health.ts",
         contents: template("./server-http-api/src/Api/Health.ts"),
       },
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Api/Hello.ts",
+        path: "{{targetPath}}/src/api/Hello.ts",
         contents: template("./server-http-api/src/Api/Hello.ts"),
       },
       {
@@ -76,7 +76,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Rpc/Event.ts",
+        path: "{{targetPath}}/src/rpc/Event.ts",
         contents: template("./server-http-rpc/src/Rpc/Event.ts"),
       },
       {
@@ -93,7 +93,7 @@ export const serverModules = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "EventRpcLive",
         import: {
-          moduleSpecifier: "./Rpc/Event",
+          moduleSpecifier: "./rpc/Event",
           namedImports: ["EventRpcLive"],
         },
       },
@@ -125,7 +125,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Api/Todo.ts",
+        path: "{{targetPath}}/src/api/Todo.ts",
         contents: template("./server-http-api-todos/src/Api/Todo.ts"),
       },
       {
@@ -142,7 +142,7 @@ export const serverModules = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "TodoApiLive",
         import: {
-          moduleSpecifier: "./Api/Todo",
+          moduleSpecifier: "./api/Todo",
           namedImports: ["TodoApiLive"],
         },
       },
@@ -186,7 +186,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Rpc/Todo.ts",
+        path: "{{targetPath}}/src/rpc/Todo.ts",
         contents: template("./server-http-rpc-todos/src/Rpc/Todo.ts"),
       },
       {
@@ -198,7 +198,7 @@ export const serverModules = defineModules(import.meta.url, [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/Rpc/Event.ts",
+        path: "{{targetPath}}/src/rpc/Event.ts",
         targetVariable: "RpcHandlers",
         functionName: "Layer.mergeAll",
         argument: "TodoRpcHandlers",
@@ -243,7 +243,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Rpc/Chat.ts",
+        path: "{{targetPath}}/src/rpc/Chat.ts",
         contents: template("./server-chat-rpc/src/Rpc/Chat.ts"),
       },
       {
@@ -277,7 +277,7 @@ export const serverModules = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "ChatRpcLive",
         import: {
-          moduleSpecifier: "./Rpc/Chat",
+          moduleSpecifier: "./rpc/Chat",
           namedImports: ["ChatRpcLive"],
         },
       },
@@ -321,7 +321,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Rpc/ChatManaged.ts",
+        path: "{{targetPath}}/src/rpc/ChatManaged.ts",
         contents: template(
           "./server-chat-runtime-managed/src/Rpc/ChatManaged.ts",
         ),
@@ -340,7 +340,7 @@ export const serverModules = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "ChatManagedRpcLive",
         import: {
-          moduleSpecifier: "./Rpc/ChatManaged",
+          moduleSpecifier: "./rpc/ChatManaged",
           namedImports: ["ChatManagedRpcLive"],
         },
       },
@@ -367,7 +367,7 @@ export const serverModules = defineModules(import.meta.url, [
     contributions: [
       {
         _tag: "file",
-        path: "{{targetPath}}/src/Rpc/Presence.ts",
+        path: "{{targetPath}}/src/rpc/Presence.ts",
         contents: template("./server-ws-presence/src/Rpc/Presence.ts"),
       },
       {
@@ -391,7 +391,7 @@ export const serverModules = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "PresenceRpcLive",
         import: {
-          moduleSpecifier: "./Rpc/Presence",
+          moduleSpecifier: "./rpc/Presence",
           namedImports: ["PresenceRpcLive"],
         },
       },
