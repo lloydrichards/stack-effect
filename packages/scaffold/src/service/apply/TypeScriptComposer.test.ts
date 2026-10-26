@@ -115,3 +115,40 @@ describe("TypeScriptComposer JSX slots", () => {
     }),
   );
 });
+
+describe("TypeScriptComposer object fields", () => {
+  it.effect(
+    "repeats deeply nested values and rejects changes within them",
+    () =>
+      Effect.gen(function* () {
+        const nested = (leaf: string): string =>
+          Array.from({ length: 12 }).reduce<string>(
+            (value) => `Schema.Struct({ child: ${value} })`,
+            leaf,
+          );
+        const operation = (value: string) =>
+          ({
+            _tag: "ts-object-field",
+            fileType: "typescript",
+            targetVariable: "Options",
+            functionName: "Schema.Struct",
+            field: "input",
+            value,
+          }) as const;
+        const operations = [operation(nested("Schema.String"))];
+        const once = yield* compose(
+          "const Options = Schema.Struct({});",
+          operations,
+        );
+        const repeated = yield* compose(once, operations);
+
+        expect(repeated).toBe(once);
+        const failure = yield* Effect.flip(
+          compose(once, [operation(nested("Schema.Number"))]),
+        );
+        expect(failure.message).toContain(
+          "Conflicting value for Options.input",
+        );
+      }),
+  );
+});

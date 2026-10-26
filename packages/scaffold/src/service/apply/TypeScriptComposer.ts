@@ -17,7 +17,14 @@ import {
   pipe,
 } from "effect";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
-import { Project, SyntaxKind } from "ts-morph";
+import {
+  IndentationText,
+  NewLineKind,
+  Project,
+  QuoteKind,
+  SyntaxKind,
+  ts,
+} from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
 export interface TypeScriptComposerShape {
@@ -39,6 +46,11 @@ export class TypeScriptComposer extends Context.Service<
       const project = new Project({
         useInMemoryFileSystem: true,
         skipAddingFilesFromTsConfig: true,
+        manipulationSettings: {
+          indentationText: IndentationText.TwoSpaces,
+          newLineKind: NewLineKind.LineFeed,
+          quoteKind: QuoteKind.Double,
+        },
       });
 
       const sourceFile = project.createSourceFile(
@@ -255,6 +267,36 @@ const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   return yield* missingTarget(op.targetVariable, op.functionName);
 });
 
+const expressionStructure = (value: string): string => {
+  const source = ts.createSourceFile(
+    "expression.ts",
+    `const value = ${value};`,
+    ts.ScriptTarget.Latest,
+    true,
+  );
+  const statement = source.statements[0];
+  if (!statement || !ts.isVariableStatement(statement)) return value;
+  const expression = statement.declarationList.declarations[0]?.initializer;
+  type SyntaxTree = readonly [number, string | ReadonlyArray<SyntaxTree>];
+  const syntax = (node: ts.Node): SyntaxTree => {
+    const children = node.getChildren(source);
+    const withoutTrailingComma =
+      node.kind === ts.SyntaxKind.SyntaxList &&
+      children.at(-1)?.kind === ts.SyntaxKind.CommaToken
+        ? children.slice(0, -1)
+        : children;
+    return [
+      node.kind,
+      withoutTrailingComma.length > 0
+        ? withoutTrailingComma.map(syntax)
+        : ts.isStringLiteral(node)
+          ? node.text
+          : node.getText(source),
+    ];
+  };
+  return expression ? JSON.stringify(syntax(expression)) : value;
+};
+
 const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
   sourceFile: SourceFile,
   op: typeof TsObjectFieldOp.Type,
@@ -264,34 +306,39 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
     return yield* missingTarget(op.targetVariable, op.functionName);
   }
 
-  const addFieldToCall = (call: CallExpression): boolean => {
-    const args = call.getArguments();
-    const objectArg = args.find((arg) =>
-      arg.isKind(SyntaxKind.ObjectLiteralExpression),
-    );
-
-    if (!objectArg) return false;
-
-    const objectLiteral = objectArg.asKindOrThrow(
-      SyntaxKind.ObjectLiteralExpression,
-    );
-
-    const existingProp = objectLiteral.getProperty(op.field);
-    if (existingProp) return true;
-
-    objectLiteral.addPropertyAssignment({
-      name: op.field,
-      initializer: op.value,
-    });
-    return true;
-  };
-
   const call = findCallExpression(initializer.value, op.functionName);
-  if (call && addFieldToCall(call)) {
-    return;
+  const objectArg = call
+    ?.getArguments()
+    .find((arg) => arg.isKind(SyntaxKind.ObjectLiteralExpression));
+  if (!objectArg) {
+    return yield* missingTarget(op.targetVariable, op.functionName);
   }
 
-  return yield* missingTarget(op.targetVariable, op.functionName);
+  const objectLiteral = objectArg.asKindOrThrow(
+    SyntaxKind.ObjectLiteralExpression,
+  );
+  const existingProp = objectLiteral.getProperty(op.field);
+  if (existingProp) {
+    const existingValue = existingProp.isKind(SyntaxKind.PropertyAssignment)
+      ? existingProp.getInitializer()?.getText()
+      : undefined;
+    if (
+      existingValue !== undefined &&
+      expressionStructure(existingValue) === expressionStructure(op.value)
+    ) {
+      return;
+    }
+    return yield* new ApplyFailure({
+      reason: "repoRootInvalid",
+      message: `Conflicting value for ${op.targetVariable}.${op.field} during TypeScript composition.`,
+    });
+  }
+
+  objectLiteral.addPropertyAssignment({
+    name: op.field,
+    initializer: op.value,
+  });
+  return;
 });
 
 const missingTarget = (targetVariable: string, functionName: string) =>
