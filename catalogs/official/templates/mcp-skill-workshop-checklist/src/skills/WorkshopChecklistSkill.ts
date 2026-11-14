@@ -5,7 +5,13 @@ export const WorkshopChecklistSkillLive = McpServer.skill({
   files: {
     "SKILL.md": `---
 name: workshop-checklist
-description: Prepare a materials checklist when someone is planning a group workshop.
+description: >-
+  Make a packing list for a group workshop. Use when someone needs to know how
+  many kits to prepare, what to pack for each group, or which supplies to share.
+license: MIT
+metadata:
+  author: stack-effect
+  version: "1.0"
 ---
 
 Ask for the number of groups and the materials each group needs.
