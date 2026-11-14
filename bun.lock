@@ -211,7 +211,7 @@
       "name": "@repo/scaffold",
       "version": "0.0.0",
       "dependencies": {
-        "@effect-vfs/memory": "^0.10.0",
+        "@effect-vfs/memory": "^0.11.0",
         "@effect/platform-browser": "4.1.4",
         "@repo/catalog": "workspace:*",
         "@repo/domain": "workspace:*",
@@ -243,10 +243,6 @@
         "vitest": "^5.1.0",
       },
     },
-  },
-  "patchedDependencies": {
-    "@effect-vfs/core@0.10.0": "patches/@effect-vfs%2Fcore@0.10.0.patch",
-    "@effect-vfs/memory@0.10.0": "patches/@effect-vfs%2Fmemory@0.10.0.patch",
   },
   "overrides": {
     "@effect/platform-node-shared": "4.1.4",
@@ -368,9 +364,9 @@
 
     "@dotenvx/primitives": ["@dotenvx/primitives@0.8.0", "", {}, "sha512-VYJy0uhFm9zTJ1TxBaW/pA8bjbOM/OttaNMwZ1RHG4JKyRG7DhSdiqD1ipQoAyoD22olUtxbP78W9xY3Wd11bg=="],
 
-    "@effect-vfs/core": ["@effect-vfs/core@0.10.0", "", { "peerDependencies": { "effect": "~4.0.7" } }, "sha512-For8AMxJC3Wby0g0d7IQ/P5G+LV+88S2XNBfUjujK4yFTn0XDinWnCONDYBRrGpFp+TrV79UfgSZy0IW+kY89A=="],
+    "@effect-vfs/core": ["@effect-vfs/core@0.11.0", "", { "peerDependencies": { "effect": "~4.1.4" } }, "sha512-0xOkjk5mjdGnlq1rbecW4Km/JpMZQTIHPNTS+jxT5HX1DGxSnKeM2X1UDgckrajfQ0tCn9M4tt/E68cxgZUYzg=="],
 
-    "@effect-vfs/memory": ["@effect-vfs/memory@0.10.0", "", { "dependencies": { "@effect-vfs/core": "^0.10.0" }, "peerDependencies": { "effect": "~4.0.7" } }, "sha512-P5yczYAgVh5sn2Xz8Pi2yCj6LYYMYhdNh1HxFmtb3bObZp1fIYnDN3fnXxKUCb7w6RGFKicXMykx1qaD+1mS1g=="],
+    "@effect-vfs/memory": ["@effect-vfs/memory@0.11.0", "", { "dependencies": { "@effect-vfs/core": "^0.11.0" }, "peerDependencies": { "effect": "~4.1.4" } }, "sha512-U1YEnF0rzrdsq8kbN+lN5+irI8q3miHKOQfGmy4yJqYwEBhkUQfZ60qKiA3UXJGsMVXMNpCebgJXiSaONRDmxA=="],
 
     "@effect/atom-react": ["@effect/atom-react@4.1.4", "", { "peerDependencies": { "effect": "^4.1.4", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-Xj58DcAzKsysHhzBCPaz2v1QAJq6NvMdGVmG7SV4zkw1RMiTZv8gaOXA1VqIRlpmvdspMwRe/BQ4eayuzRZTpQ=="],
 

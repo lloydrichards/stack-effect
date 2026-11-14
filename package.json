@@ -46,9 +46,5 @@
     "apps/*",
     "catalogs/*",
     "packages/*"
-  ],
-  "patchedDependencies": {
-    "@effect-vfs/core@0.10.0": "patches/@effect-vfs%2Fcore@0.10.0.patch",
-    "@effect-vfs/memory@0.10.0": "patches/@effect-vfs%2Fmemory@0.10.0.patch"
-  }
+  ]
 }
