@@ -1,0 +1,49 @@
+import assert from "node:assert/strict";
+import { Effect, Layer, Stream } from "effect";
+import type { ChatId, ChatStreamPart } from "@repo/domain/Chat";
+import type { Action } from "./packages/ai/src/LanguageModel";
+import { ChatRuntime, ChatRuntimeLive } from "./apps/server-api/src/runtime/ChatRuntime";
+import { ChatManagedRuntime, ChatManagedRuntimeLive } from "./apps/server-api/src/runtime/ChatManagedRuntime";
+import { ChatSessionsLive } from "./apps/server-api/src/runtime/ChatSessions";
+
+const message = (content: Action) => ({ role: "user" as const, content });
+const result = (parts: ReadonlyArray<ChatStreamPart>) => {
+  const part = parts.find((part) => part._tag === "tool-success" || part._tag === "tool-failure");
+  assert(part, JSON.stringify(parts));
+  return part;
+};
+const output = (parts: ReadonlyArray<ChatStreamPart>) => {
+  const part = result(parts);
+  assert(part._tag === "tool-success", JSON.stringify(part));
+  return part.output;
+};
+
+await Effect.runPromise(Effect.gen(function* () {
+  const runtime = yield* ChatRuntime;
+  const managed = yield* ChatManagedRuntime;
+  const a = (yield* runtime.start).chatId;
+  const b = (yield* runtime.start).chatId;
+  const ask = (chatId: ChatId, action: Action) => runtime.ask(chatId, [message(action)]).pipe(Stream.runCollect);
+  const generate = (action: Action) => runtime.generate([message(action)]).pipe(Stream.runCollect);
+  output(yield* ask(a, "remember"));
+  assert.equal(result(yield* ask(b, "recall"))._tag, "tool-failure");
+  assert.equal(output(yield* ask(a, "recall")), "alpha");
+  output(yield* generate("remember"));
+  assert.equal(result(yield* generate("recall"))._tag, "tool-failure");
+
+  output(yield* ask(a, "plan"));
+  const initial = output(yield* ask(a, "first"));
+  assert.equal(result(yield* ask(a, "invalid"))._tag, "tool-failure");
+  assert.equal(output(yield* ask(a, "inspect")), initial);
+  const advanced = JSON.parse(output(yield* ask(a, "second")));
+  assert.deepEqual(advanced.steps.map((step: { status: string }) => step.status), ["completed", "in_progress"]);
+  assert.match(output(yield* ask(b, "inspect")), /No plan exists/);
+
+  yield* managed.send({ chatId: a, message: message("recall") });
+  const [recalled] = yield* managed.watch(a).pipe(
+    Stream.filter((event) => event._tag === "assistant-part" && (event.part._tag === "tool-success" || event.part._tag === "tool-failure")),
+    Stream.take(1), Stream.runCollect, Effect.timeout("5 seconds"),
+  );
+  assert(recalled?._tag === "assistant-part");
+  assert.equal(output([recalled.part]), "alpha");
+}).pipe(Effect.provide(ChatManagedRuntimeLive.pipe(Layer.provideMerge(ChatRuntimeLive), Layer.provide(ChatSessionsLive)))));

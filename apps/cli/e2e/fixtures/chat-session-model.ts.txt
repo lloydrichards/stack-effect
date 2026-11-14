@@ -1,0 +1,29 @@
+import { Effect, Layer, Stream } from "effect";
+import { LanguageModel, type Response } from "effect/ai";
+
+const actions = {
+  remember: { name: "memory_set", params: { key: "draft", value: "alpha" } },
+  recall: { name: "memory_get", params: { key: "draft" } },
+  plan: { name: "plan_create", params: { steps: ["first", "second"] } },
+  first: { name: "plan_update", params: { stepIndex: 0, status: "in_progress" } },
+  second: { name: "plan_update", params: { stepIndex: 1, status: "in_progress" } },
+  invalid: { name: "plan_update", params: { stepIndex: 3, status: "in_progress" } },
+  inspect: { name: "plan_get", params: {} },
+};
+export type Action = keyof typeof actions;
+
+export const FastModelLive = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+  generateText: () => Effect.die("Expected streaming generation"),
+  streamText: ({ prompt }) => {
+    const last = prompt.content.at(-1);
+    const part = last?.role === "user" ? last.content[0] : undefined;
+    const action = part?.type === "text" && Object.hasOwn(actions, part.text)
+      ? actions[part.text as Action] : undefined;
+    const finish: Response.StreamPartEncoded = {
+      type: "finish", reason: action ? "tool-calls" : "stop", usage: { inputTokens: {}, outputTokens: {} },
+    };
+    return Stream.fromIterable<Response.StreamPartEncoded>(action
+      ? [{ type: "tool-call", id: "call", ...action }, finish] : [finish]);
+  },
+}));
+export const SmartModelLive = FastModelLive;

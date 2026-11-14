@@ -1,6 +1,5 @@
 import {
-  AiChatService,
-  AiChatServiceLive,
+  type AiChatService,
   chatPrompt,
   chatErrorPart,
   FastModelLive,
@@ -12,53 +11,52 @@ import {
   chatTurnOptionKeys,
 } from "@repo/domain/ChatTurnOptions";
 import { Context, Effect, Layer, Stream } from "effect";
-import { ChatSessions } from "./ChatSessions";
+import { ChatSessions, makeSessionAi } from "./ChatSessions";
 
-const ChatRuntimeDependencies = Layer.mergeAll(AiChatServiceLive);
+const ChatRuntimeDependencies = Layer.mergeAll(Layer.empty);
 const ChatTurnOptionKeys = chatTurnOptionKeys();
-const makeGenerate = Effect.gen(function* () {
+const makeChatRuntime = Effect.gen(function* () {
   const turn = yield* Effect.all({
-    ai: AiChatService,
+    sessions: ChatSessions,
   });
-  return (
+  const generate = (
     messages: ReadonlyArray<ChatMessage>,
     options: ChatTurnOptions = {},
+    sessionAi?: typeof AiChatService.Service,
   ) =>
     Stream.unwrap(
       Effect.gen(function* () {
         yield* validateChatTurnOptions(options, ChatTurnOptionKeys);
+        const ai = sessionAi ?? (yield* makeSessionAi);
         const prompt = chatPrompt(messages, {});
-        return turn.ai.stream({ prompt });
+        return ai.stream({ prompt });
       }),
     ).pipe(
       Stream.provide(FastModelLive),
       Stream.catchCause((cause) => Stream.fromEffect(chatErrorPart(cause))),
     );
+  return {
+    start: turn.sessions.start,
+    generate,
+    ask: (
+      chatId: ChatId,
+      messages: ReadonlyArray<ChatMessage>,
+      options: ChatTurnOptions = {},
+    ) =>
+      Stream.unwrap(
+        Effect.gen(function* () {
+          const ai = yield* Effect.acquireRelease(
+            turn.sessions.reserve(chatId),
+            () => turn.sessions.release(chatId),
+          );
+          return generate(messages, options, ai);
+        }),
+      ),
+  } as const;
 });
 
 export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
-  make: Effect.gen(function* () {
-    const sessions = yield* ChatSessions;
-
-    const generate = yield* makeGenerate;
-    return {
-      start: sessions.start,
-      generate,
-      ask: (
-        chatId: ChatId,
-        messages: ReadonlyArray<ChatMessage>,
-        options: ChatTurnOptions = {},
-      ) =>
-        Stream.unwrap(
-          Effect.gen(function* () {
-            yield* sessions.reserve(chatId);
-            return generate(messages, options).pipe(
-              Stream.ensuring(sessions.release(chatId)),
-            );
-          }),
-        ),
-    } as const;
-  }),
+  make: makeChatRuntime,
 }) {}
 
 export const ChatRuntimeLive = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(

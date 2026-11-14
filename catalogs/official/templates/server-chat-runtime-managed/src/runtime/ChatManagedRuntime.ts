@@ -66,7 +66,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
           ChatNotFoundError | GenerationInProgressError
         > =>
           Effect.gen(function* () {
-            yield* sessions.reserve(chatId);
+            const ai = yield* sessions.reserve(chatId);
 
             const userEvent = ChatWatchEvent.cases["user-message"].make({
               message,
@@ -84,7 +84,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
               ] as const;
             });
 
-            const fiber = yield* runtime.generate(history, options).pipe(
+            const fiber = yield* runtime.generate(history, options, ai).pipe(
               Stream.tap((part) =>
                 publish(
                   chatId,

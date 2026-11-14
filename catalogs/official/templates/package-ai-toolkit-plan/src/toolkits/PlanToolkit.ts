@@ -1,12 +1,4 @@
-import {
-  Array as Arr,
-  Effect,
-  Option,
-  pipe,
-  Ref,
-  Schema,
-  String,
-} from "effect";
+import { Array as Arr, Effect, SynchronizedRef, Schema, String } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 
 const PlanStatus = Schema.Literals([
@@ -76,13 +68,7 @@ const planGetTool = Tool.make("plan_get", {
   failureMode: "return",
 });
 
-/**
- * Structured task tracking for agentic loops. Forces the model to plan
- * before acting and track progress through steps. Enforces at most one
- * step in_progress at a time.
- *
- * @module
- */
+/** Tracks an ordered plan with at most one step in progress. */
 export const PlanToolkit = Toolkit.make(
   planCreateTool,
   planUpdateTool,
@@ -95,7 +81,7 @@ const formatPlan = (steps: Array<PlanStep>): PlanResponse => ({
 
 export const PlanToolkitLive = PlanToolkit.toLayer(
   Effect.gen(function* () {
-    const planRef = yield* Ref.make<Array<PlanStep>>([]);
+    const planRef = yield* SynchronizedRef.make<Array<PlanStep>>([]);
 
     return {
       plan_create: (params) =>
@@ -105,50 +91,34 @@ export const PlanToolkitLive = PlanToolkit.toLayer(
             status: "pending" as const,
           }));
 
-          yield* Ref.set(planRef, steps);
+          yield* SynchronizedRef.set(planRef, steps);
           yield* Effect.logDebug(`Plan created with ${steps.length} steps`);
           return formatPlan(steps);
         }),
 
-      plan_update: (params) =>
-        Effect.gen(function* () {
-          const steps = yield* Ref.get(planRef);
-
-          if (Arr.isArrayEmpty(steps)) {
-            return yield* Effect.fail("No plan exists. Use plan_create first.");
-          }
-
-          const updated = yield* pipe(
-            params.status === "in_progress"
-              ? Option.some(
-                  Arr.map(steps, (step, i): PlanStep => {
-                    if (i === params.stepIndex)
-                      return { ...step, status: "in_progress" };
-                    if (step.status === "in_progress")
-                      return { ...step, status: "completed" };
-                    return step;
-                  }),
-                )
-              : Arr.modify(steps, params.stepIndex, (step) => ({
-                  ...step,
-                  status: params.status,
-                })),
-            Effect.fromOption,
-            Effect.mapError(
-              () =>
-                `Invalid step index ${params.stepIndex}. Plan has ${steps.length} steps (0-${steps.length - 1}).`,
-            ),
-          );
-
-          yield* Ref.set(planRef, updated);
-          yield* Effect.logDebug(
-            `Plan step ${params.stepIndex} -> ${params.status}`,
-          );
-          return formatPlan(updated);
-        }),
+      plan_update: ({ stepIndex, status }) =>
+        SynchronizedRef.modifyEffect(planRef, (steps) => {
+          if (Arr.isArrayEmpty(steps))
+            return Effect.fail("No plan exists. Use plan_create first.");
+          if (stepIndex >= steps.length)
+            return Effect.fail(
+              `Invalid step index ${stepIndex}. Plan has ${steps.length} steps (0-${steps.length - 1}).`,
+            );
+          const updated = Arr.map(steps, (step, index): PlanStep => {
+            if (index === stepIndex) return { ...step, status };
+            if (status === "in_progress" && step.status === "in_progress")
+              return { ...step, status: "completed" };
+            return step;
+          });
+          return Effect.succeed([formatPlan(updated), updated] as const);
+        }).pipe(
+          Effect.tap(() =>
+            Effect.logDebug(`Plan step ${stepIndex} -> ${status}`),
+          ),
+        ),
 
       plan_get: () =>
-        Ref.get(planRef).pipe(
+        SynchronizedRef.get(planRef).pipe(
           Effect.map((steps) =>
             Arr.isArrayEmpty(steps)
               ? { message: "No plan exists. Use plan_create to create one." }

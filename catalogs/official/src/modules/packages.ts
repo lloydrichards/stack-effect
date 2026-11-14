@@ -381,8 +381,7 @@ export const packageModules = defineModules(import.meta.url, [
     id: "package-ai-toolkit-memory",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Memory Toolkit",
-    description:
-      "In-memory key-value scratchpad shared by all chats using the same layer",
+    description: "In-memory key-value scratchpad for a chat",
     supportedOn: [
       {
         _tag: "identity",
