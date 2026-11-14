@@ -7,6 +7,8 @@ import {
 
 export default [
   index("content/index.mdx"),
+  route("catalog-prototypes", "routes/catalog-prototypes.tsx"),
+  route("catalog-graph", "routes/catalog-graph.tsx"),
   route("builder", "routes/builder.tsx"),
   route("alchemy", "content/alchemy.mdx"),
   route("getting-started", "content/getting-started.mdx"),

@@ -27,6 +27,8 @@ export const navigation: NavSection[] = [
     items: [
       { label: "Getting Started", href: "/getting-started" },
       { label: "How it works", href: "/how-it-works" },
+      { label: "Explorer prototypes", href: "/catalog-prototypes" },
+      { label: "Catalog explorer", href: "/catalog-graph" },
       { label: "Catalog updates", href: "/catalog-registry" },
       { label: "Publish a catalog", href: "/publish-catalog-registry" },
       { label: "Deploy with Alchemy", href: "/alchemy" },

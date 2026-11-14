@@ -83,7 +83,10 @@ const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const isLandingPage = pathname === "/";
-  const isBuilderPage = pathname === "/builder";
+  const isWorkbenchPage =
+    pathname === "/builder" ||
+    pathname === "/catalog-graph" ||
+    pathname === "/catalog-prototypes";
   const docPage = findDocPage(pathname);
 
   return (
@@ -111,7 +114,9 @@ export function Layout({ children }: { children: React.ReactNode }) {
         ) : null}
       </head>
       <body>
-        {isLandingPage || isBuilderPage ? (
+        {pathname === "/catalog-prototypes" ? (
+          <main className="h-dvh w-full overflow-hidden">{children}</main>
+        ) : isLandingPage || isWorkbenchPage ? (
           <div className="flex min-h-screen flex-col">
             <LandingHeader />
             <main className="w-full min-w-0 flex-1 overflow-x-clip px-5 py-8 sm:px-8 lg:px-12 lg:py-10">
@@ -144,18 +149,25 @@ export default function App() {
   const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
   const hasToc = toc.length > 0;
   const isLandingPage = pathname === "/";
-  const isBuilderPage = pathname === "/builder";
+  const isWorkbenchPage =
+    pathname === "/builder" ||
+    pathname === "/catalog-graph" ||
+    pathname === "/catalog-prototypes";
   const docPage = findDocPage(pathname);
 
   return (
     <MDXProvider components={proseComponents}>
-      {!isLandingPage && !isBuilderPage && hasToc && (
+      {!isLandingPage && !isWorkbenchPage && hasToc && (
         <TableOfContents toc={toc} />
       )}
       <div
         className={cn(
           "mx-auto w-full",
-          isLandingPage || isBuilderPage ? "max-w-[96rem]" : "max-w-[72ch]",
+          pathname === "/catalog-prototypes"
+            ? "max-w-none"
+            : isLandingPage || isWorkbenchPage
+              ? "max-w-[96rem]"
+              : "max-w-[72ch]",
         )}
       >
         {docPage ? (
@@ -167,9 +179,9 @@ export default function App() {
           </div>
         ) : null}
         <Outlet />
-        {!isBuilderPage ? <DocFooter /> : null}
+        {!isWorkbenchPage ? <DocFooter /> : null}
       </div>
-      {!isLandingPage && !isBuilderPage && hasToc && (
+      {!isLandingPage && !isWorkbenchPage && hasToc && (
         <TableOfContents toc={toc} desktopOnly />
       )}
     </MDXProvider>
