@@ -258,29 +258,7 @@ export const mcpModules = defineModules(import.meta.url, [
     children: [
       { moduleId: "mcp-skill-workshop-checklist", requirement: "optional" },
     ],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/skills/Skill.ts",
-        contents: template("./mcp-skills/src/skills/Skill.ts"),
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/skills/index.ts",
-        contents: template("./mcp-skills/src/skills/index.ts"),
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "McpCapabilities",
-        functionName: "Layer.mergeAll",
-        argument: "McpSkillsLive",
-        import: {
-          moduleSpecifier: "./skills",
-          namedImports: ["McpSkillsLive"],
-        },
-      },
-    ],
+    contributions: [],
   },
   {
     id: "mcp-skill-workshop-checklist",
@@ -289,13 +267,7 @@ export const mcpModules = defineModules(import.meta.url, [
     description:
       "Teach an agent to prepare a materials checklist for a group workshop",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
-    dependencies: [
-      {
-        _tag: "required-module",
-        target: { kind: mcpServerKind, name: "mcp" },
-        moduleId: "mcp-skills",
-      },
-    ],
+    dependencies: [],
     contributions: [
       {
         _tag: "file",
@@ -306,13 +278,13 @@ export const mcpModules = defineModules(import.meta.url, [
       },
       {
         _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/skills/index.ts",
-        targetVariable: "McpSkillsLive",
-        functionName: "Skill.layer",
-        argument: "workshopChecklist",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "McpCapabilities",
+        functionName: "Layer.mergeAll",
+        argument: "WorkshopChecklistSkillLive",
         import: {
-          moduleSpecifier: "./WorkshopChecklistSkill",
-          namedImports: ["workshopChecklist"],
+          moduleSpecifier: "./skills/WorkshopChecklistSkill",
+          namedImports: ["WorkshopChecklistSkillLive"],
         },
       },
     ],

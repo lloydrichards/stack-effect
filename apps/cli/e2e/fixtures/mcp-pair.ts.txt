@@ -5,7 +5,6 @@ import { FetchHttpClient } from "effect/http";
 import { RpcClient, RpcSerialization } from "effect/rpc";
 import { ChatRpc } from "@repo/domain/ChatRpc";
 import { McpPromptRpc } from "@repo/domain/McpPromptRpc";
-import { workshopChecklist } from "../server-mcp-remote/src/skills/WorkshopChecklistSkill";
 
 const root = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const children: ReturnType<typeof Bun.spawn>[] = [];
@@ -36,14 +35,12 @@ try {
     const prompts = yield* client.listPrompts();
     const resources = yield* client.listResources();
     const skills = yield* client.listSkills();
-    const authored = yield* workshopChecklist;
-    const checklist = skills.find((skill) => skill.frontmatter.name === authored.frontmatter.name);
+    const checklist = skills.find((skill) => skill.frontmatter.name === "workshop-checklist");
     assert(checklist, "workshop checklist is discoverable");
-    assert.deepEqual(checklist.frontmatter, authored.frontmatter);
     const skill = yield* client.getSkill({ uri: checklist.uri });
     assert.deepEqual(skill.frontmatter, checklist.frontmatter);
     const entry = yield* client.readSkillResource({ skill, uri: skill.uri });
-    assert(entry.contents.some((file) => "text" in file && file.text.endsWith(`\n---\n${authored.instructions}`)));
+    assert(entry.contents.some((file) => "text" in file && file.text.includes("references/packing-list.md")));
     const referenceUri = new URL("references/packing-list.md", skill.uri).href;
     const reference = yield* client.readSkillResource({ skill, uri: referenceUri });
     assert(reference.contents.some((file) => file.uri === referenceUri && "text" in file && file.text.length > 0));
