@@ -16,6 +16,8 @@ layer(CLI.layer)("generated AI chat", (it) => {
           cli.workdir,
           "--target",
           "package/ai:package-ai-chat-service",
+          "--target",
+          "client-foldkit/app:client-foldkit-chat",
           "--yes",
           "--no-git",
         );

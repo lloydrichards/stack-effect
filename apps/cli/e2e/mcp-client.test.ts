@@ -199,6 +199,31 @@ describe("MCP chat extensions", () => {
           }
           yield* cli.withinProject("mcp-incremental", function* (project) {
             yield* project.expectTypeCheckPasses();
+            const driver = "apps/cli-app/src/chat/ChatDriver.ts";
+            const readDriver = fs
+              .readFileString(`${project.dir}/${driver}`)
+              .pipe(Effect.orDie);
+            const contents = yield* readDriver;
+            const custom = contents.replace(
+              "turn.ai.stream({ prompt })",
+              "turn.ai.stream({ prompt, toolkit: turn.ai.toolkit })",
+            );
+            assert.notStrictEqual(custom, contents);
+            yield* project.writeFile(driver, custom);
+            const conflict = yield* cli.run(
+              "add",
+              "--root",
+              `${cli.workdir}/mcp-incremental`,
+              "--target",
+              "cli/app:cli-chat-mcp-tools",
+              "--yes",
+            );
+            assert.notStrictEqual(conflict.exitCode, 0);
+            assert.include(
+              conflict.stdout + conflict.stderr,
+              "Conflicting value for makeGenerate.toolkit",
+            );
+            assert.strictEqual(yield* readDriver, custom);
           });
         }).pipe(Effect.provide(NodeServices.layer)),
       { timeout: 180_000 },

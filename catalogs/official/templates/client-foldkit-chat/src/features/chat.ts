@@ -51,7 +51,6 @@ export const FailedStartChat = m("FailedStartChat", { error: Schema.String });
 export const ReceivedChatPart = m("ReceivedChatPart", {
   part: ChatStreamPart,
 });
-export const CompletedChatStream = m("CompletedChatStream");
 export const FailedChatStream = m("FailedChatStream", { error: Schema.String });
 
 export const Message = Schema.Union([
@@ -60,7 +59,6 @@ export const Message = Schema.Union([
   StartedChat,
   FailedStartChat,
   ReceivedChatPart,
-  CompletedChatStream,
   FailedChatStream,
 ]);
 export type Message = typeof Message.Type;
@@ -168,6 +166,16 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
       }),
     finish: ({ reason }) =>
       evo(model, {
+        chatHistory: (prev) => [
+          ...prev,
+          {
+            role: "assistant" as const,
+            content: extractTextFromSegments(model.chatSegments),
+            segments: Option.some([...model.chatSegments]),
+          },
+        ],
+        chatSegments: () => [],
+        chatReasoning: () => Option.none(),
         reachedStepLimit: () => reason === ChatStepLimit.reason,
         chatState: () => "complete" as const,
         chatStreaming: () => false,
@@ -251,24 +259,6 @@ export const update = (
         [],
       ] as const,
     ReceivedChatPart: ({ part }) => [applyChatPart(model, part), []] as const,
-    CompletedChatStream: () =>
-      [
-        evo(model, {
-          chatState: () => "complete" as const,
-          chatStreaming: () => false,
-          chatHistory: (prev) => [
-            ...prev,
-            {
-              role: "assistant" as const,
-              content: extractTextFromSegments(model.chatSegments),
-              segments: Option.some([...model.chatSegments]),
-            },
-          ],
-          chatSegments: () => [],
-          chatReasoning: () => Option.none(),
-        }),
-        [],
-      ] as const,
     FailedChatStream: ({ error }) =>
       [
         evo(model, {
@@ -326,10 +316,9 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
               return Option.match(chatId, {
                 onNone: () => Stream.empty,
                 onSome: (id) =>
-                  client.chat_ask({ chatId: id, messages }).pipe(
-                    Stream.map((part) => ReceivedChatPart({ part })),
-                    Stream.concat(Stream.make(CompletedChatStream())),
-                  ),
+                  client
+                    .chat_ask({ chatId: id, messages })
+                    .pipe(Stream.map((part) => ReceivedChatPart({ part }))),
               });
             }).pipe(
               Stream.unwrap,

@@ -30,8 +30,7 @@ const makeGenerate = Effect.gen(function* () {
         const prompt = chatPrompt(messages, {
           input: inputMessages,
         });
-        const queue = yield* turn.ai.chat(prompt);
-        return Stream.fromQueue(queue);
+        return turn.ai.stream({ prompt });
       }),
     ).pipe(
       Stream.provide(FastModelLive),

@@ -69,3 +69,10 @@ jobs:
             bun run test:e2e e2e/registry-project.test.ts
             bun run test:e2e e2e/deno.test.ts
           '
+
+      - name: Run generated chat and MCP tests
+        run: |
+          nix develop --command bash -lc '
+            cd apps/cli
+            bun run test:e2e --maxWorkers=1 e2e/chat-stream.test.ts e2e/mcp-client.test.ts
+          '

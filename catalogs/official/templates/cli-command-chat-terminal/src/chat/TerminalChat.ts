@@ -14,6 +14,7 @@ import {
   Option,
   Queue,
   Schema,
+  Scope,
   Stream,
   String,
   Terminal,
@@ -337,7 +338,7 @@ export const startTerminalChatTurn = (
         }),
       ),
     ),
-    Effect.forkDetach({ startImmediately: true }),
+    Effect.forkScoped({ startImmediately: true }),
     Effect.as({
       ...state,
       input: "",
@@ -497,6 +498,7 @@ export const TerminalChat = (
   initialInputMessages: ReadonlyArray<ChatMessage> = [],
 ) =>
   Effect.gen(function* () {
+    const sessionScope = yield* Effect.scope;
     const events = yield* Queue.make<TerminalChatEvent>();
     let hasRendered = false;
 
@@ -563,7 +565,13 @@ export const TerminalChat = (
               Option.match(getTerminalInput(input), {
                 onNone: () => Effect.succeed(Action.Beep()),
                 onSome: (event) =>
-                  processInput(streamTurn, systemPrompt, events, event, state),
+                  processInput(
+                    streamTurn,
+                    systemPrompt,
+                    events,
+                    event,
+                    state,
+                  ).pipe(Effect.provideService(Scope.Scope, sessionScope)),
               }),
             ),
             Match.tag("Event", ({ value }) => processEvent(value, state)),
@@ -573,4 +581,4 @@ export const TerminalChat = (
         clear: () => Effect.succeed(""),
       },
     );
-  });
+  }).pipe(Effect.scoped);
