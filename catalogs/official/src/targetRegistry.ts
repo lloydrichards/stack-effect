@@ -34,6 +34,11 @@ export const targetGroup = defineTargets(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{#if packageManager=bun}}{{targetPath}}/bunfig.toml{{/if}}",
+        contents: template("./workspace/bunfig.toml"),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: template("./workspace/tsconfig.json"),
       },
@@ -337,14 +342,14 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}esbuild{{/if}}",
-        value: "^0.27.0",
+        value: "^0.28.2",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}tsx{{/if}}",
-        value: "^4.20.0",
+        value: "^4.23.15",
       },
       {
         _tag: "pkg-json-entry",
@@ -431,14 +436,14 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}esbuild{{/if}}",
-        value: "^0.27.0",
+        value: "^0.28.2",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}tsx{{/if}}",
-        value: "^4.20.0",
+        value: "^4.23.15",
       },
       {
         _tag: "pkg-json-entry",
@@ -534,14 +539,14 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}esbuild{{/if}}",
-        value: "^0.27.0",
+        value: "^0.28.2",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if runtime=node}}tsx{{/if}}",
-        value: "^4.20.0",
+        value: "^4.23.15",
       },
       {
         _tag: "pkg-json-entry",

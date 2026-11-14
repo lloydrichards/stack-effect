@@ -1,3 +1,4 @@
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import {
   type CreateTodoInput,
   Todo,
@@ -7,7 +8,7 @@ import {
   type UpdateTodoInput,
 } from "@repo/domain/Todo";
 {{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
-import { Context, Crypto, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
 const TodoRow = Schema.Struct({
@@ -42,9 +43,9 @@ export class TodoRepository extends Context.Service<TodoRepository>()(
   {
     make: Effect.gen(function* () {
       const sql = yield* SqlClient;
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* SecureRandom.SecureRandom;
 
-      const generateId = crypto.randomUUIDv4().pipe(
+      const generateId = crypto.uuidV4().pipe(
         Effect.map((id) => TodoId.make(id)),
         Effect.mapError(persistenceError),
       );

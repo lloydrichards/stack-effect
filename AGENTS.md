@@ -24,7 +24,8 @@
 
 ## Tech Stack
 
-Bun 1.2+, TypeScript 5.9, Effect 4, Vitest 4, Oxlint, Oxfmt
+Bun 1.4+, TypeScript 7.0, Effect 4.1, Vitest 5, Oxlint, Oxfmt.
+Generated projects also support the TypeScript 6 language-service option.
 
 ## Task Completion Requirements
 

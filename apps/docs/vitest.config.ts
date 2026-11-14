@@ -34,6 +34,8 @@ export default defineConfig({
         plugins: [registryFixtureServer(), docsMarkdown()],
         test: {
           name: "browser",
+          // The registry fixture has one shared outage/revision mode.
+          fileParallelism: false,
           include: ["test/**/*.browser.test.{ts,tsx}"],
           browser: {
             enabled: true,

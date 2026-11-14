@@ -155,9 +155,9 @@ layer(TestLayer)("RecipePreviewService with the official catalog", (it) => {
         assert.strictEqual(packageJson.scripts["format:check"], "dprint check");
         assert.strictEqual(
           packageJson.devDependencies["@biomejs/biome"],
-          "2.5.2",
+          "2.6.7",
         );
-        assert.strictEqual(packageJson.devDependencies["dprint"], "^0.54.0");
+        assert.strictEqual(packageJson.devDependencies["dprint"], "^0.64.3");
         assert.isDefined(fileContents("biome.jsonc"));
         assert.isDefined(fileContents("dprint.json"));
         assert.include(
@@ -186,7 +186,7 @@ layer(TestLayer)("RecipePreviewService with the official catalog", (it) => {
           packageJson.scripts["format:check"],
           "oxfmt --check",
         );
-        assert.strictEqual(packageJson.devDependencies["oxfmt"], "^0.65.0");
+        assert.strictEqual(packageJson.devDependencies["oxfmt"], "^0.78.0");
         assert.isUndefined(fileContents("dprint.json"));
       }),
   );
@@ -296,10 +296,10 @@ layer(TestLayer)("RecipePreviewService with the official catalog", (it) => {
 
       assert.strictEqual(packageJson.scripts["lint"], "oxlint");
       assert.strictEqual(packageJson.scripts["lint:fix"], "oxlint --fix");
-      assert.strictEqual(packageJson.devDependencies["oxlint"], "1.80.0");
+      assert.strictEqual(packageJson.devDependencies["oxlint"], "1.93.0");
       assert.strictEqual(
         packageJson.devDependencies["oxlint-tsgolint"],
-        "7.0.2001",
+        "7.0.2006",
       );
       assert.include(
         fileContents(".oxlintrc.json"),

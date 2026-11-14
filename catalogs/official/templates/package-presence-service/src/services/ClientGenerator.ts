@@ -1,14 +1,15 @@
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ClientId } from "@repo/domain/WebSocket";
-import { Context, Crypto, Effect, Layer } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 export class ClientGenerator extends Context.Service<ClientGenerator>()(
   "ClientGenerator",
   {
     make: Effect.gen(function* () {
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* SecureRandom.SecureRandom;
       return {
         generateClientId: Effect.fn("generateClientId")(function* () {
-          const uuid = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+          const uuid = yield* crypto.uuidV4().pipe(Effect.orDie);
           return ClientId.make(uuid);
         }),
       };

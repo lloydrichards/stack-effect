@@ -35,7 +35,7 @@ sources:
   - id: services
     resource: ../../apps/cli/src/services.ts
     title: CLI command service layer
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+generated: { by: codex, at: "2026-11-14T13:56:19+00:00" }
 ---
 
 # Scaffold lifecycle
@@ -61,6 +61,8 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 `BlueprintService` validates Selection and resolves target/module dependency closure through CatalogService. Blueprint contains identities and dependency edges, not file contributions.
 
 `PlanService` resolves contributions, compiles planning intent by path, loads relevant repository state, and asks `PlanAssessor` to classify outcomes. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
+
+The CLI rejects required dependency conflicts before Apply in interactive and automatic modes. Other conflicted paths retain explicit override or skip decisions. This policy stays in `ScaffoldPipeline`; Plan remains policy-free.
 
 `ApplyService` prepares skip, authoritative-write, or composed-write actions. `CompositionEngine` dispatches JSON and TypeScript operations to their composers. `WriteEngine` enforces create, modify, or override expectations at each path. These internal services should not become caller-owned policy.
 

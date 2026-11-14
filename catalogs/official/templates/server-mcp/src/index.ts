@@ -15,7 +15,7 @@ export const McpServerConfig = Config.all({
 
 // NOTE: Modules append tools, prompts, and resources to this layer.
 const McpCapabilities = Layer.mergeAll(Layer.empty).pipe(
-  Layer.satisfiesServicesType<never>(),
+  Layer.satisfiesServicesType<McpServer.McpServer>(),
 );
 
 const McpHttpLive = Effect.gen(function* () {
@@ -36,8 +36,8 @@ const McpHttpLive = Effect.gen(function* () {
       McpProtocol.v2025_06_18,
     ],
     allowedOrigins,
+    registrations: McpCapabilities,
   }).pipe(
-    Layer.provideMerge(McpCapabilities),
     HttpRouter.serve,
     HttpServer.withLogAddress,
     Layer.provide({{#if runtime=bun}}BunHttpServer.layerConfig(McpServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, McpServerConfig){{/if}}{{#if runtime=deno}}DenoHttpServer.layerConfig(McpServerConfig){{/if}}),

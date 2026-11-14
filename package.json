@@ -3,7 +3,7 @@
   "private": true,
   "license": "MIT",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.6"
+    "@effect/platform-node-shared": "4.1.4"
   },
   "scripts": {
     "build": "turbo run build",
@@ -25,18 +25,18 @@
   },
   "devDependencies": {
     "@changesets/cli": "^3.0.3",
-    "@effect/language-service": "^0.87.2",
-    "@effect/platform-bun": "4.0.6",
-    "@types/bun": "^1.4.2",
-    "effect": "4.0.6",
-    "turbo": "^2.11.4",
+    "@effect/language-service": "^0.87.5",
+    "@effect/platform-bun": "4.1.4",
+    "@types/bun": "^1.4.4",
+    "effect": "4.1.4",
+    "turbo": "^2.11.11",
     "typescript": "7.0.2",
-    "vitest": "^5.0.2",
-    "@effect/tsgo": "0.46.1",
-    "okf-graph": "0.3.0",
-    "oxfmt": "0.65.0",
-    "oxlint": "1.85.0",
-    "oxlint-tsgolint": "7.0.2003"
+    "vitest": "^5.1.0",
+    "@effect/tsgo": "0.68.1",
+    "okf-graph": "0.3.1",
+    "oxfmt": "0.78.0",
+    "oxlint": "1.93.0",
+    "oxlint-tsgolint": "7.0.2006"
   },
   "engines": {
     "node": ">=24"

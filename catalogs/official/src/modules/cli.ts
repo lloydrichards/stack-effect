@@ -164,7 +164,7 @@ export const cliModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect-boxes",
-        value: "^0.17.3",
+        value: "^0.18.1",
       },
       {
         _tag: "ts-call-arg",

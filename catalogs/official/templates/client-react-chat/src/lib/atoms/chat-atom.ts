@@ -25,8 +25,8 @@ export const accumulateChatResponse = (
   state: ChatResponse,
   part: ChatStreamPart,
 ): ChatResponse =>
-  ChatStreamPart.match<ChatResponse>(part, {
-    text: (part) => {
+  ChatStreamPart.match(part, {
+    text: (part): ChatResponse => {
       const currentSegments = state._tag === "initial" ? [] : state.segments;
       const lastSegment = currentSegments[currentSegments.length - 1];
 
@@ -59,7 +59,7 @@ export const accumulateChatResponse = (
       };
     },
 
-    reasoning: (part) => {
+    reasoning: (part): ChatResponse => {
       const currentSegments = state._tag === "initial" ? [] : state.segments;
       return {
         _tag: "streaming",
@@ -70,7 +70,7 @@ export const accumulateChatResponse = (
       };
     },
 
-    "tool-start": (part) => {
+    "tool-start": (part): ChatResponse => {
       const currentSegments = state._tag === "initial" ? [] : state.segments;
       return {
         _tag: "streaming",
@@ -90,21 +90,21 @@ export const accumulateChatResponse = (
       };
     },
 
-    "tool-success": (part) =>
+    "tool-success": (part): ChatResponse =>
       updateToolResult(state, {
         id: part.id,
         status: "complete",
         result: part.output,
       }),
 
-    "tool-failure": (part) =>
+    "tool-failure": (part): ChatResponse =>
       updateToolResult(state, {
         id: part.id,
         status: "failed",
         result: part.error,
       }),
 
-    finish: (part) => {
+    finish: (part): ChatResponse => {
       const segments = state._tag === "streaming" ? state.segments : [];
       return {
         _tag: "complete",
@@ -114,7 +114,7 @@ export const accumulateChatResponse = (
       };
     },
 
-    error: (part) => {
+    error: (part): ChatResponse => {
       const segments = state._tag === "streaming" ? state.segments : [];
       return {
         _tag: "error",

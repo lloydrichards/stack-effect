@@ -1,6 +1,3 @@
-// This test fixture runs the real CLI in a disposable repository.
-// @effect-diagnostics nodeBuiltinImport:off
-
 import {
   chmodSync,
   mkdirSync,
@@ -10,9 +7,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+// This test fixture runs the real CLI in a disposable repository.
+// @effect-diagnostics nodeBuiltinImport:off
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import {
@@ -58,7 +57,7 @@ const client = Layer.effect(
 const loaderLayer = CatalogLoader.layer.pipe(
   Layer.provideMerge(CatalogCache.memory),
   Layer.provideMerge(client),
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
 );
 
 // Built in-process from the same catalog; the CLI run below supplies only the files.

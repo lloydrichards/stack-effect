@@ -69,6 +69,12 @@ export const make = Effect.gen(function* () {
   );
 
   const terminal = Terminal.make({
+    size: Effect.gen(function* () {
+      const sizes = yield* Queue.make<Terminal.Size, Cause.Done>();
+      yield* Queue.offer(sizes, { columns: 80, rows: 24 });
+      yield* Effect.addFinalizer(() => Queue.shutdown(sizes));
+      return Queue.asDequeue(sizes);
+    }),
     columns: Effect.succeed(80),
     rows: Effect.succeed(24),
     display,

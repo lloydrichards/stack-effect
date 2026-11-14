@@ -7,7 +7,7 @@ export const chatTurnOptionKeys = (
   ...keys: ReadonlyArray<keyof ChatTurnOptions>
 ) => keys;
 
-export class UnsupportedChatTurnOption extends Schema.TaggedError<UnsupportedChatTurnOption>()(
+export class UnsupportedChatTurnOption extends Schema.TaggedError<UnsupportedChatTurnOption, { readonly brand: unique symbol }>()(
   "UnsupportedChatTurnOption",
   { message: Schema.String },
 ) {}

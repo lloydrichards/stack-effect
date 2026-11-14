@@ -40,6 +40,10 @@ class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   retry?: boolean;
 }> {}
 
+export class DependencyConflictFailure extends Data.TaggedError(
+  "DependencyConflictFailure",
+)<{ message: string }> {}
+
 export class FinalizeScriptFailure extends Data.TaggedError(
   "FinalizeScriptFailure",
 )<{
@@ -96,6 +100,18 @@ export const resolveConflictDecisions = <E, R>({
 }) =>
   Effect.forEach(conflictGroupsFrom(plan), ({ path, conflicts }) =>
     Effect.gen(function* () {
+      const dependencyConflicts = Arr.filter(
+        conflicts,
+        (conflict) => conflict._tag === "dependencies",
+      );
+      if (dependencyConflicts.length > 0) {
+        return yield* new DependencyConflictFailure({
+          message: `Cannot apply modules with required dependency conflicts at ${path}: ${Arr.join(
+            Arr.map(dependencyConflicts, (conflict) => conflict.name),
+            ", ",
+          )}. Resolve the dependency versions before applying these modules.`,
+        });
+      }
       const override = yes
         ? false
         : yield* confirm({

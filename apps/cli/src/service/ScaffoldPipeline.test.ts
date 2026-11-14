@@ -182,6 +182,41 @@ describe("ScaffoldPipeline", () => {
       }),
   );
 
+  for (const yes of [true, false]) {
+    it.effect(
+      `should reject incompatible required dependencies in ${yes ? "automatic" : "interactive"} mode`,
+      () =>
+        Effect.gen(function* () {
+          const exit = yield* Effect.exit(
+            resolveConflictDecisions({
+              plan: new Plan({
+                ...conflictPlan,
+                conflicts: [
+                  {
+                    _tag: "dependencies",
+                    path: "package.json",
+                    section: "dependencies",
+                    name: "foldkit",
+                  },
+                ],
+              }),
+              yes,
+              planBox: Box.text("formatted plan"),
+              confirm: () =>
+                Effect.die(
+                  new Error("dependency conflicts must fail before prompting"),
+                ),
+            }),
+          );
+          expect(squashFailure(exit)).toMatchObject({
+            _tag: "DependencyConflictFailure",
+            message:
+              "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
+          });
+        }),
+    );
+  }
+
   it.effect("should fail when a non-dry-run finalize script fails", () =>
     Effect.gen(function* () {
       const pipeline = yield* ScaffoldPipeline;

@@ -1,10 +1,11 @@
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ChatId } from "@repo/domain/Chat";
 import {
   ChatNotFoundError,
   GenerationInProgressError,
 } from "@repo/domain/ChatRpc";
 {{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
-import { Context, Crypto, Effect, HashMap, Layer, Option, Ref } from "effect";
+import { Context, Effect, HashMap, Layer, Option, Ref } from "effect";
 
 type ChatSession = {
   readonly active: boolean;
@@ -17,12 +18,12 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
         HashMap.empty(),
       );
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* SecureRandom.SecureRandom;
 
       return {
         start: Effect.gen(function* () {
           const chatId = ChatId.make(
-            yield* crypto.randomUUIDv4().pipe(Effect.orDie),
+            yield* crypto.uuidV4().pipe(Effect.orDie),
           );
           const session: ChatSession = { active: false };
           yield* Ref.update(sessions, HashMap.set(chatId, session));

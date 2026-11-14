@@ -1,11 +1,12 @@
-{{#if effectOxlint}}import { effectNative, recommended } from "@effect/tsgo/oxlint-presets";
+{{#if effectOxlint}}import { effectNative, recommended, strict } from "@effect/tsgo/oxlint-presets";
 {{/if}}import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   {{#if effectOxlint}}lint: {
-    extends: [recommended, effectNative],
+    extends: [recommended, effectNative, strict],
+    // Style suggestions remain visible; strict preset errors fail lint.
     options: {
-      denyWarnings: true,
+      denyWarnings: false,
     },
     overrides: [
       {
@@ -13,7 +14,8 @@ export default defineConfig({
         rules: {
           "effecttsgo/async-function": "off",
           "effecttsgo/node-builtin-import": "off",
-          "effecttsgo/prefer-schema-over-json": "off",
+          "effecttsgo/global-json": "off",
+          "effecttsgo/global-json-in-effect": "off",
         },
       },
     ],

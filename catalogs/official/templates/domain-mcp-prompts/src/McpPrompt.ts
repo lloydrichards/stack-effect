@@ -29,17 +29,17 @@ export const McpPromptMessage = Schema.Struct({
 });
 export type McpPromptMessage = Schema.Schema.Type<typeof McpPromptMessage>;
 
-export class McpPromptSelectionError extends Schema.TaggedError<McpPromptSelectionError>()(
+export class McpPromptSelectionError extends Schema.TaggedError<McpPromptSelectionError, { readonly brand: unique symbol }>()(
   "McpPromptSelectionError",
   { message: Schema.String },
 ) {}
 
-export class McpPromptOptionError extends Schema.TaggedError<McpPromptOptionError>()(
+export class McpPromptOptionError extends Schema.TaggedError<McpPromptOptionError, { readonly brand: unique symbol }>()(
   "McpPromptOptionError",
   { message: Schema.String },
 ) {}
 
-export class McpPromptError extends Schema.TaggedError<McpPromptError>()(
+export class McpPromptError extends Schema.TaggedError<McpPromptError, { readonly brand: unique symbol }>()(
   "McpPromptError",
   { message: Schema.String },
 ) {}

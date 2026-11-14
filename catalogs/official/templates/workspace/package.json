@@ -3,11 +3,11 @@
   "private": true,
   "type": "module",
   "overrides": {
-    "@effect/platform-node-shared": "4.0.6"
+    "@effect/platform-node-shared": "4.1.4"
   },
   {{#if runtime=bun}}"packageManager": "{{packageManagerSpec}}",{{/if}}{{#if runtime=node}}"packageManager": "{{packageManagerSpec}}",{{/if}}
   "scripts": {},
-  "devDependencies": { {{#if runtime=deno}}"@types/deno": "^2.7.0", "@types/node": "^26.0.0"{{/if}} },
+  "devDependencies": { {{#if runtime=deno}}"@types/deno": "^2.7.0", "@types/node": "^26.6.6"{{/if}} },
   {{#if runtime=bun}}"engines": {
     "node": ">=24"
   },{{/if}}{{#if runtime=node}}"engines": {

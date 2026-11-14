@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogDocument } from "@repo/domain/Catalog";
@@ -102,7 +102,10 @@ it.effect(
       assert.strictEqual(requested.length, 2);
       assert.notInclude(output.stdout[0] ?? "", "Registry revision marker");
       assert.include(output.stdout[1] ?? "", "Registry revision marker");
-    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+    }).pipe(
+      Effect.scoped,
+      Effect.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
+    ),
 );
 
 it.effect(

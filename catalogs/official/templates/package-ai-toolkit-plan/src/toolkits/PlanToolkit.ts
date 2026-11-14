@@ -133,13 +133,11 @@ export const PlanToolkitLive = PlanToolkit.toLayer(
                   ...step,
                   status: params.status,
                 })),
-            Option.match({
-              onNone: () =>
-                Effect.fail(
-                  `Invalid step index ${params.stepIndex}. Plan has ${steps.length} steps (0-${steps.length - 1}).`,
-                ),
-              onSome: Effect.succeed,
-            }),
+            Effect.fromOption,
+            Effect.mapError(
+              () =>
+                `Invalid step index ${params.stepIndex}. Plan has ${steps.length} steps (0-${steps.length - 1}).`,
+            ),
           );
 
           yield* Ref.set(planRef, updated);

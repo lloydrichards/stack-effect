@@ -180,7 +180,9 @@ There is currently no public machine-readable command that accepts a generated
 Plan with agent-selected `ApplyDecision` values. Do not invent such a command
 or imply that Plan output can be piped back into `add`. `--yes` is not
 agent-controlled conflict resolution: in the scaffold pipeline it skips
-conflicted paths rather than transmitting the agent's decisions.
+ordinary conflicted paths rather than transmitting the agent's decisions.
+Required dependency conflicts stop the command before Apply. Resolve those
+versions first so new code cannot be written against incompatible dependencies.
 
 ## Apply only the authorized edits
 

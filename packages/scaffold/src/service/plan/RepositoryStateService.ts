@@ -6,7 +6,8 @@ import {
   PlanFailure,
   type RepoSnapshot,
 } from "@repo/domain/Plan";
-import { Context, Crypto, Effect, FileSystem, Layer, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Path } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { discoverPackageOwners } from "./PackageOwnership";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 
@@ -26,7 +27,7 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
     make: Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* Digest.Digest;
       const snapshot = yield* RepoSnapshotService;
 
       const canonicalRoot = Effect.fn("RepositoryStateService.canonicalRoot")(
@@ -95,23 +96,14 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
               if (entry._tag !== "file") {
                 return entry satisfies typeof PlanBaselinePath.Type;
               }
-              const digest = yield* crypto
-                .digest("SHA-256", new TextEncoder().encode(entry.contents))
-                .pipe(
-                  Effect.mapError(
-                    () =>
-                      new PlanFailure({
-                        reason: "repoStateUnsupported",
-                        message: `Could not fingerprint ${entry.path} during planning.`,
-                      }),
-                  ),
-                );
+              const sha256 = yield* crypto.digestHex(
+                Digest.sha256,
+                new TextEncoder().encode(entry.contents),
+              );
               return {
                 _tag: "file" as const,
                 path: entry.path,
-                sha256: Array.from(digest, (byte) =>
-                  byte.toString(16).padStart(2, "0"),
-                ).join(""),
+                sha256,
               };
             }),
           );

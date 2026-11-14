@@ -25,7 +25,7 @@ export const ImportValidationEvent = Schema.TaggedUnion({
   },
 });
 
-export class ImportValidationFailure extends Schema.TaggedError<ImportValidationFailure>()(
+export class ImportValidationFailure extends Schema.TaggedError<ImportValidationFailure, { readonly brand: unique symbol }>()(
   "ImportValidationFailure",
   { message: Schema.String },
 ) {}

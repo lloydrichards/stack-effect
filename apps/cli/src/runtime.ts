@@ -1,5 +1,5 @@
-import { BunServices } from "@effect/platform-bun";
-import { NodeServices } from "@effect/platform-node";
+import { BunServices, BunCrypto } from "@effect/platform-bun";
+import { NodeServices, NodeCrypto } from "@effect/platform-node";
 import { CatalogLoader } from "@repo/scaffold";
 import { Config, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
@@ -14,7 +14,9 @@ const CliConfig = Config.all({
 export const PlatformLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* CliConfig;
-    return config.TARGET === "bun" ? BunServices.layer : NodeServices.layer;
+    return config.TARGET === "bun"
+      ? Layer.merge(BunServices.layer, BunCrypto.layer)
+      : Layer.merge(NodeServices.layer, NodeCrypto.layer);
   }),
 );
 
