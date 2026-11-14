@@ -10,3 +10,5 @@ TypeScript 7 projects with Oxlint now enable the strict Effect preset. Expected 
 `@stack-effect/author` now requires Effect 4.1.4. Update the Effect runtime packages together when upgrading an existing author project.
 
 Recipe Builder now treats None tooling selections as absent configuration when generating a preview.
+
+Adding Foldkit RPC, presence, or chat modules now reports a dependency conflict before writing files when an existing target uses a different Foldkit version. Upgrade Foldkit and migrate existing subscriptions to the 0.170 API before adding these modules.

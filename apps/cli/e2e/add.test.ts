@@ -1,5 +1,6 @@
-import { describe, layer } from "@effect/vitest";
-import { Effect } from "effect";
+import { NodeServices } from "@effect/platform-node";
+import { assert, describe, layer } from "@effect/vitest";
+import { Effect, FileSystem } from "effect";
 import { CLI } from "./harness";
 
 /**
@@ -10,6 +11,92 @@ import { CLI } from "./harness";
  */
 describe("add", () => {
   layer(CLI.layer)("layer", (it) => {
+    for (const [moduleId, feature] of [
+      ["client-foldkit-http-rpc", "ticks"],
+      ["client-foldkit-ws-presence", "presence"],
+      ["client-foldkit-chat", "chat"],
+    ] as const) {
+      it.effect(
+        `rejects ${moduleId} on a released Foldkit version before changing project files`,
+        () =>
+          Effect.gen(function* () {
+            const cli = yield* CLI;
+            const fs = yield* FileSystem.FileSystem;
+            const name = `foldkit-legacy-${feature}`;
+            const root = `${cli.workdir}/${name}`;
+            yield* cli.run(
+              "create",
+              name,
+              "--root",
+              cli.workdir,
+              "--target",
+              "client-foldkit/app",
+              "--target",
+              "package/domain:domain-rpc-contracts",
+              "--lint",
+              "biome",
+              "--yes",
+              "--no-git",
+            );
+            yield* cli.expectExitCode(0);
+            const manifestPath = `${root}/apps/client-foldkit-app/package.json`;
+            const manifest = yield* fs.readFileString(manifestPath);
+            assert.include(manifest, '"foldkit": "0.170.0"');
+            yield* fs.writeFileString(
+              manifestPath,
+              manifest.replace('"foldkit": "0.170.0"', '"foldkit": "0.165.0"'),
+            );
+            const paths = [
+              manifestPath,
+              `${root}/apps/client-foldkit-app/src/main.ts`,
+              `${root}/stack.effect.json`,
+              `${root}/bun.lock`,
+            ];
+            const before = yield* Effect.forEach(paths, (path) =>
+              fs.readFileString(path),
+            );
+            const result = yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              `client-foldkit/app:${moduleId}`,
+            );
+            assert.strictEqual(
+              result.exitCode,
+              1,
+              result.stdout + result.stderr,
+            );
+            assert.match(result.stdout + result.stderr, /conflict/i);
+            const after = yield* Effect.forEach(paths, (path) =>
+              fs.readFileString(path),
+            );
+            assert.deepStrictEqual(after, before);
+            assert.isFalse(
+              yield* fs.exists(
+                `${root}/apps/client-foldkit-app/src/features/${feature}.ts`,
+              ),
+            );
+            assert.isFalse(yield* fs.exists(`${root}/apps/server-api`));
+            yield* fs.writeFileString(manifestPath, manifest);
+            yield* cli.run(
+              "add",
+              "--yes",
+              "--root",
+              root,
+              "--target",
+              `client-foldkit/app:${moduleId}`,
+            );
+            yield* cli.expectExitCode(0);
+            yield* cli.withinProject(name, function* (project) {
+              yield* project.expectTypeCheckPasses();
+            });
+          }).pipe(Effect.provide(NodeServices.layer)),
+        { timeout: 120_000 },
+      );
+    }
+
     it.effect(
       "fails fast when --yes --target is missing a value",
       () =>

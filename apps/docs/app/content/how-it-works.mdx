@@ -74,7 +74,7 @@ If the Plan contains a conflict, the interactive CLI asks what to do with that p
 - `skip` leaves the path untouched;
 - `override` lets Stack Effect replace the conflicting content.
 
-Those choices belong to Apply, not Plan. The Plan records what Stack Effect found; Apply combines that information with your decision about what may be written. `--yes` does not silently replace conflicts—it skips them.
+Those choices belong to Apply, not Plan. The Plan records what Stack Effect found; Apply combines that information with your decision about what may be written. `--yes` skips ordinary file conflicts. A required dependency conflict stops the command before Apply in both interactive and automatic modes. Resolve the dependency versions before adding the modules.
 
 A Plan only describes the repository snapshot it inspected. If a person, editor, or another process changes a relevant file before Apply, plan again instead of relying on stale outcomes.
 

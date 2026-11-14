@@ -15,6 +15,15 @@ const updateCaseValue = (namespace: string, modelField: string) =>
   return { model: { ...model, ${modelField}: nextChild }, commands };
 }`;
 
+// Surface incompatible installed versions in Plan before adding subscription code.
+const foldkitSubscriptionDependency = {
+  _tag: "pkg-json-entry",
+  path: "{{targetPath}}/package.json",
+  field: "dependencies",
+  name: "foldkit",
+  value: "0.170.0",
+} as const;
+
 export const clientFoldkitModules = defineModules(import.meta.url, [
   {
     id: "client-foldkit-devtools",
@@ -157,6 +166,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      foldkitSubscriptionDependency,
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/ticks.ts",
@@ -270,6 +280,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      foldkitSubscriptionDependency,
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/presence.ts",
@@ -390,6 +401,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      foldkitSubscriptionDependency,
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/chat.ts",
