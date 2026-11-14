@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import {
   CatalogDocument,
@@ -20,6 +20,7 @@ import {
   Stream,
 } from "effect";
 import { Command } from "effect/cli";
+import type * as Digest from "effect/crypto/Digest";
 import {
   HttpClient,
   type HttpClientRequest,
@@ -215,12 +216,14 @@ export const recordingSpawner = (executed: Array<ExecutedCommand>) =>
     ),
   );
 
+const TestNodeServices = Layer.merge(NodeServices.layer, NodeCrypto.layer);
+
 /** The production CLI layer over a controlled registry client. */
 export const cliLayer = (
   client: HttpClient.HttpClient,
   services: Layer.Layer<
-    Layer.Success<typeof NodeServices.layer>
-  > = NodeServices.layer,
+    Layer.Success<typeof TestNodeServices>
+  > = TestNodeServices,
 ) =>
   CatalogProvider.official.pipe(
     Layer.provideMerge(
@@ -279,7 +282,7 @@ export const catalogSourcesFixture = Effect.gen(function* () {
     const output = captureConsole();
     const layer = cliLayer(
       registry.client,
-      Layer.merge(NodeServices.layer, recordingSpawner(executed)),
+      Layer.merge(TestNodeServices, recordingSpawner(executed)),
     ).pipe(
       Layer.provideMerge(output.layer),
       // NOTE: Merged last so the test stdin replaces the Node one.
@@ -338,8 +341,12 @@ export const catalogSourcesFixture = Effect.gen(function* () {
 
 /** Provides the Node services and scope that the fixture's temp root needs. */
 export const withNodeServices = <A, E>(
-  effect: Effect.Effect<A, E, FileSystem.FileSystem | Path.Path | Scope.Scope>,
-) => effect.pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  effect: Effect.Effect<
+    A,
+    E,
+    FileSystem.FileSystem | Path.Path | Digest.Digest | Scope.Scope
+  >,
+) => effect.pipe(Effect.scoped, Effect.provide(TestNodeServices));
 
 /**
  * The `stack-effect create …` arguments of a rendered create command, from

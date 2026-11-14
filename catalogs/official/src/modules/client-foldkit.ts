@@ -228,12 +228,12 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         targetVariable: "subscriptions",
         functionName: "Subscription.aggregate",
         argument: `Subscription.lift(Ticks.subscriptions)<Model, Message>({
-    toChildModel: (model) => model.ticks,
+    read: (model) => Option.some(model.ticks),
     toParentMessage: (message) => Ticks.GotMessage({ message }),
   })`,
         import: {
-          moduleSpecifier: "./features/ticks",
-          namespaceImport: "Ticks",
+          moduleSpecifier: "effect",
+          namedImports: ["Option"],
         },
       },
       {
@@ -343,12 +343,12 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         targetVariable: "subscriptions",
         functionName: "Subscription.aggregate",
         argument: `Subscription.lift(Presence.subscriptions)<Model, Message>({
-    toChildModel: (model) => model.presence,
+    read: (model) => Option.some(model.presence),
     toParentMessage: (message) => Presence.GotMessage({ message }),
   })`,
         import: {
-          moduleSpecifier: "./features/presence",
-          namespaceImport: "Presence",
+          moduleSpecifier: "effect",
+          namedImports: ["Option"],
         },
       },
       {
@@ -466,12 +466,12 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
         targetVariable: "subscriptions",
         functionName: "Subscription.aggregate",
         argument: `Subscription.lift(Chat.subscriptions)<Model, Message>({
-    toChildModel: (model) => model.chat,
+    read: (model) => Option.some(model.chat),
     toParentMessage: (message) => Chat.GotMessage({ message }),
   })`,
         import: {
-          moduleSpecifier: "./features/chat",
-          namespaceImport: "Chat",
+          moduleSpecifier: "effect",
+          namedImports: ["Option"],
         },
       },
       {

@@ -89,8 +89,8 @@ type MutableSegment =
 const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
   const segments: Array<MutableSegment> = [...model.chatSegments];
 
-  return ChatStreamPart.match<Model>(part, {
-    text: ({ delta }) => {
+  return ChatStreamPart.match(part, {
+    text: ({ delta }): Model => {
       const last = segments[segments.length - 1];
       if (last?._tag === "text") {
         return evo(model, {
@@ -111,12 +111,12 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         ],
       });
     },
-    reasoning: ({ delta }) =>
+    reasoning: ({ delta }): Model =>
       evo(model, {
         chatReasoning: (previous) =>
           Option.some(Option.getOrElse(previous, () => "") + delta),
       }),
-    "tool-start": ({ id, name, input }) =>
+    "tool-start": ({ id, name, input }): Model =>
       evo(model, {
         chatSegments: () => [
           ...segments,
@@ -131,7 +131,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
           },
         ],
       }),
-    "tool-success": ({ id, output }) =>
+    "tool-success": ({ id, output }): Model =>
       evo(model, {
         chatSegments: () =>
           segments.map((seg) =>
@@ -147,7 +147,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
               : seg,
           ),
       }),
-    "tool-failure": ({ id, error }) =>
+    "tool-failure": ({ id, error }): Model =>
       evo(model, {
         chatSegments: () =>
           segments.map((seg) =>
@@ -168,7 +168,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         chatState: () => "complete" as const,
         chatStreaming: () => false,
       }),
-    error: ({ message }) =>
+    error: ({ message }): Model =>
       evo(model, {
         chatState: () => "error" as const,
         chatStreaming: () => false,

@@ -6,11 +6,11 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
-    "effect": "4.0.6",
+    "effect": "4.1.4",
     "@repo/domain": "{{workspaceDependency}}"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
-    "@types/node": "^26.6.3"
+    "@types/node": "^26.6.6"
   }
 }

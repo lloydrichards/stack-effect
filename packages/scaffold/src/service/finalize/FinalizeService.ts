@@ -291,12 +291,12 @@ const executeScript = (
   const workdir =
     script.workdir === "." ? repoRoot : `${repoRoot}/${script.workdir}`;
 
-  const command = ChildProcess.make({
+  const command = ChildProcess.make(script.command, {
     cwd: workdir,
     shell: true,
     stdout: "pipe",
     stderr: "pipe",
-  })`${script.command}`;
+  });
 
   return Effect.gen(function* () {
     const handle = yield* spawner.spawn(command);

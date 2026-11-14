@@ -77,7 +77,8 @@ const capabilities = Layer.mergeAll(
 const server = McpServer.layerHttp({
   name: "controlled-fixture", version: "1.0.0", path: "/mcp",
   protocols: [McpProtocol.v2026_07_28, McpProtocol.v2025_11_25],
-}).pipe(Layer.provide(capabilities));
+  registrations: capabilities,
+});
 
 const config = (protocol: string, extra: Record<string, string> = {}) => ConfigProvider.layer(ConfigProvider.fromUnknown({
   MCP_SERVER_URL: "http://localhost/mcp",

@@ -60,12 +60,13 @@
           "missingEffectServiceDependency": "warning",
           "newPromise": "warning",
           "nodeBuiltinImport": "warning",
-          "preferSchemaOverJson": "warning",
           "processEnv": "warning",
           "processEnvInEffect": "warning",
           "schemaNumber": "warning",
           "schemaSyncInEffect": "warning",
-          "unsafeEffectTypeAssertion": "warning"
+          "unsafeEffectTypeAssertion": "warning",
+          "globalJson": "warning",
+          "globalJsonInEffect": "warning"
         },
         "overrides": [
           {
@@ -87,12 +88,15 @@
               "diagnosticSeverity": {
                 "asyncFunction": "off",
                 "nodeBuiltinImport": "off",
-                "preferSchemaOverJson": "off",
-                "globalErrorInEffectFailure": "off"
+                "globalErrorInEffectFailure": "off",
+                "globalJson": "off",
+                "globalJsonInEffect": "off"
               }
             }
           }
-        ]
+        ],
+        "ignoreEffectSuggestionsInTscExitCode": true,
+        "ignoreEffectWarningsInTscExitCode": true
       }
     ]
   },

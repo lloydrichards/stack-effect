@@ -1,0 +1,113 @@
+diff --git a/dist/MemoryFileSystem-CzrpydX3.js b/dist/MemoryFileSystem-CzrpydX3.js
+index f3bd6b3ff44668f29ca3e89871ea782559c9d206..5a1d9752e400e54884255965ce2ba042ba2dac84 100644
+--- a/dist/MemoryFileSystem-CzrpydX3.js
++++ b/dist/MemoryFileSystem-CzrpydX3.js
+@@ -1,6 +1,5 @@
+ import { t as __exportAll } from "./rolldown-runtime-D3KUYPsf.js";
+ import { a as openOptions, c as textPath, d as resourceError, f as toPlatformError, i as listingNames, l as validateMode, n as at, o as sizeInput, r as info, s as textOf, t as FILE_INFO_TYPE, u as argumentError } from "./adapterSupport-CGSKfnlF.js";
+-import { t as makeGlob } from "./glob-D4yMs166.js";
+ import { VolumeId } from "@effect-vfs/core/Volume";
+ import { dual } from "effect/Function";
+ import * as Predicate from "effect/Predicate";
+@@ -505,6 +504,7 @@ const bindOperations = (caller, watch = (path) => Stream.fail(systemError({
+ 		open,
+ 		makeDirectory,
+ 		readDirectory,
++		readDirectoryEntries: makeDirectoryEntries(caller),
+ 		remove,
+ 		copy,
+ 		copyFile,
+@@ -530,12 +530,7 @@ const bindOperations = (caller, watch = (path) => Stream.fail(systemError({
+ 		makeTempDirectoryScoped: (options) => Effect.acquireRelease(temp("makeTempDirectoryScoped", "directory", options), cleanupTemporary).pipe(Effect.map((value) => value.path)),
+ 		makeTempFileScoped: (options) => Effect.acquireRelease(temp("makeTempFileScoped", "file", options), cleanupTemporary).pipe(Effect.map((value) => value.path)),
+ 		watch,
+-		glob: makeGlob({
+-			readDirectory,
+-			readDirectoryEntries: makeDirectoryEntries(caller),
+-			stat: (path) => caller.stat(path).pipe(Effect.mapError((error) => toPlatformError(error, "stat", path)), Effect.flatMap((value) => info(value, path))),
+-			readLink: (path) => caller.readLink(path).pipe(Effect.flatMap((link) => textOf(link, "readLink")), Effect.mapError((error) => toPlatformError(error, "readLink", path)))
+-		})
++
+ 	});
+ });
+ // src/internal/memoryFileSystem.ts
+diff --git a/dist/MemoryFileSystem.d.ts b/dist/MemoryFileSystem.d.ts
+index 9a43f645c5f17c30e52a9c3ef3768665f80a0c60..2ca322278f26ca97128b13b3ccc2352703a77cc7 100644
+--- a/dist/MemoryFileSystem.d.ts
++++ b/dist/MemoryFileSystem.d.ts
+@@ -9,7 +9,8 @@
+  * @since 0.1.0
+  */
+ import type * as Vfs from "@effect-vfs/core/VirtualFileSystem";
+-import type * as Crypto from "effect/Crypto";
++import type * as SecureRandom from "effect/crypto/SecureRandom";
++import type * as Digest from "effect/crypto/Digest";
+ import type * as Effect from "effect/Effect";
+ import type * as FileSystem from "effect/FileSystem";
+ import type * as Layer from "effect/Layer";
+@@ -69,7 +70,7 @@ export declare const isWatchOverflow: (error: PlatformError.PlatformError) => bo
+  * @category constructors
+  * @since 0.1.0
+  */
+-export declare const make: Effect.Effect<FileSystem.FileSystem, never, Crypto.Crypto>;
++export declare const make: Effect.Effect<FileSystem.FileSystem, never, SecureRandom.SecureRandom | Digest.Digest>;
+ /**
+  * Provides a `FileSystem.FileSystem` backed by a fresh in-memory volume.
+  *
+@@ -146,7 +147,7 @@ export declare const make: Effect.Effect<FileSystem.FileSystem, never, Crypto.Cr
+  * @category layers
+  * @since 0.1.0
+  */
+-export declare const layer: Layer.Layer<FileSystem.FileSystem, never, Crypto.Crypto>;
++export declare const layer: Layer.Layer<FileSystem.FileSystem, never, SecureRandom.SecureRandom | Digest.Digest>;
+ /**
+  * Provides a `FileSystem.FileSystem` backed by a fresh fixture volume.
+  *
+@@ -184,8 +185,8 @@ export declare const layer: Layer.Layer<FileSystem.FileSystem, never, Crypto.Cry
+  * @since 0.8.0
+  */
+ export declare const layerFromFixture: {
+-    (volumeOptions?: Vfs.VolumeOptions, callerOptions?: Vfs.RootCallerOptions): (fixture: Vfs.Fixture) => Layer.Layer<FileSystem.FileSystem, Vfs.VfsError, Crypto.Crypto>;
+-    (fixture: Vfs.Fixture, volumeOptions?: Vfs.VolumeOptions, callerOptions?: Vfs.RootCallerOptions): Layer.Layer<FileSystem.FileSystem, Vfs.VfsError, Crypto.Crypto>;
++    (volumeOptions?: Vfs.VolumeOptions, callerOptions?: Vfs.RootCallerOptions): (fixture: Vfs.Fixture) => Layer.Layer<FileSystem.FileSystem, Vfs.VfsError, SecureRandom.SecureRandom | Digest.Digest>;
++    (fixture: Vfs.Fixture, volumeOptions?: Vfs.VolumeOptions, callerOptions?: Vfs.RootCallerOptions): Layer.Layer<FileSystem.FileSystem, Vfs.VfsError, SecureRandom.SecureRandom | Digest.Digest>;
+ };
+ /**
+  * Creates a `FileSystem.FileSystem` service backed by an existing core volume.
+diff --git a/dist/TreeTransfer.d.ts b/dist/TreeTransfer.d.ts
+index edfdceea75cc0f1113f1d3ea18e143419c13ff71..67b719ca9c17aa28c2ea138ed615128db3b1d245 100644
+--- a/dist/TreeTransfer.d.ts
++++ b/dist/TreeTransfer.d.ts
+@@ -1,6 +1,7 @@
+ import type * as Vfs from "@effect-vfs/core/VirtualFileSystem";
+ import type * as Cause from "effect/Cause";
+-import type * as Crypto from "effect/Crypto";
++import type * as SecureRandom from "effect/crypto/SecureRandom";
++import type * as Digest from "effect/crypto/Digest";
+ import type * as Effect from "effect/Effect";
+ import type * as FileSystem from "effect/FileSystem";
+ import type * as PlatformError from "effect/PlatformError";
+@@ -672,8 +673,8 @@ export interface VolumeTransferOptions {
+  * @since 0.6.0
+  */
+ export declare const toVolume: {
+-    (options?: VolumeTransferOptions): <E, R>(entries: Stream.Stream<Entry, E, R>) => Effect.Effect<Vfs.Volume, E | TransferError | Vfs.VfsError, R | Crypto.Crypto>;
+-    <E, R>(entries: Stream.Stream<Entry, E, R>, options?: VolumeTransferOptions): Effect.Effect<Vfs.Volume, E | TransferError | Vfs.VfsError, R | Crypto.Crypto>;
++    (options?: VolumeTransferOptions): <E, R>(entries: Stream.Stream<Entry, E, R>) => Effect.Effect<Vfs.Volume, E | TransferError | Vfs.VfsError, R | SecureRandom.SecureRandom | Digest.Digest>;
++    <E, R>(entries: Stream.Stream<Entry, E, R>, options?: VolumeTransferOptions): Effect.Effect<Vfs.Volume, E | TransferError | Vfs.VfsError, R | SecureRandom.SecureRandom | Digest.Digest>;
+ };
+ /**
+  * Streams the tree at `root` through an application-provided Effect `FileSystem`.
+diff --git a/package.json b/package.json
+index 1eac4fcdf1cd2a46924d0179d14332462c037e8d..5a07349292087ef8b1cef061f264bc3b747d3b83 100644
+--- a/package.json
++++ b/package.json
+@@ -64,7 +64,7 @@
+     "type-check": "tsc --noEmit"
+   },
+   "peerDependencies": {
+-    "effect": "~4.0.7"
++    "effect": "~4.1.4"
+   },
+   "devDependencies": {
+     "@effect/platform-node-shared": "4.0.7",

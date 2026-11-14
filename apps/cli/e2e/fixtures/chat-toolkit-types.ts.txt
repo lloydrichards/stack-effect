@@ -22,8 +22,10 @@ export const checkToolContracts = Effect.gen(function* () {
   yield* prepared.toolkit.handle("remote", { text: "context" });
   // @ts-expect-error Unknown tool names must remain invalid after composition.
   yield* prepared.toolkit.handle("missing", {});
+  prepared.toolkit.tools.local.parametersSchema.make({ value: 42 });
+  prepared.toolkit.tools.remote.parametersSchema.make({ text: "context" });
   // @ts-expect-error Local and remote parameter schemas must remain distinct.
-  yield* prepared.toolkit.handle("local", { text: "context" });
-  // @ts-expect-error Remote parameters must retain their encoded types.
-  yield* prepared.toolkit.handle("remote", { text: 42 });
+  prepared.toolkit.tools.local.parametersSchema.make({ text: "context" });
+  // @ts-expect-error Remote parameter schemas must preserve their decoded types.
+  prepared.toolkit.tools.remote.parametersSchema.make({ text: 42 });
 });

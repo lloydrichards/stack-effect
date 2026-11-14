@@ -11,7 +11,8 @@
       "rules": {
         "effecttsgo/async-function": "off",
         "effecttsgo/node-builtin-import": "off",
-        "effecttsgo/prefer-schema-over-json": "off"
+        "effecttsgo/global-json": "off",
+        "effecttsgo/global-json-in-effect": "off"
       }
     },
     {

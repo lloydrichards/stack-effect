@@ -14,7 +14,7 @@ import {
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { AtomRegistry } from "effect/reactivity";
-import { beforeEach } from "vitest";
+import { afterEach, beforeEach } from "vitest";
 import {
   type CatalogAtomRequest,
   catalogAtom,
@@ -89,6 +89,8 @@ beforeEach(() =>
     Effect.all([clearCatalogCache, setRegistryMode("current")]),
   ),
 );
+
+afterEach(() => Effect.runPromise(setRegistryMode("current")));
 
 const cliParity = (
   input: RecipePreviewInput,

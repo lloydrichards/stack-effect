@@ -2,7 +2,7 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import -- Deployment runs in Node and needs an absolute package path.
 import { fileURLToPath } from "node:url";
 import type { Input } from "alchemy";
-import * as Cloudflare from "alchemy/Cloudflare";
+import * as Cloudflare from "@alchemy.run/cloudflare";
 
 export default (env: Readonly<Record<string, Input<string>>> = {}) =>
   Cloudflare.Website.Vite("{{packageName}}", {

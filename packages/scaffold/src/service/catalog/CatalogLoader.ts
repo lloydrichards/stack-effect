@@ -12,7 +12,6 @@ import {
 import {
   Clock,
   Context,
-  Crypto,
   Data,
   Effect,
   Layer,
@@ -20,6 +19,7 @@ import {
   Schema,
   Stream,
 } from "effect";
+import * as Digest from "effect/crypto/Digest";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { CatalogCache, type CatalogCacheEntry } from "./CatalogCache";
 
@@ -175,26 +175,12 @@ export class CatalogLoader extends Context.Service<
   static readonly make = Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
     const cache = yield* CatalogCache;
-    const crypto = yield* Crypto.Crypto;
+    const crypto = yield* Digest.Digest;
 
     const digestBytes = Effect.fn("CatalogLoader.digest")(function* (
       bytes: Uint8Array,
-      sourceUrl: string,
     ) {
-      const digest = yield* crypto
-        .digest("SHA-256", bytes)
-        .pipe(
-          Effect.mapError(() =>
-            failure(
-              "unavailable",
-              sourceUrl,
-              `Could not hash catalog data from ${sourceUrl}.`,
-            ),
-          ),
-        );
-      return Array.from(digest, (byte) =>
-        byte.toString(16).padStart(2, "0"),
-      ).join("");
+      return yield* crypto.digestHex(Digest.sha256, bytes);
     });
 
     const decodeBytes = Effect.fn("CatalogLoader.decode")(function* <A>(
@@ -204,7 +190,7 @@ export class CatalogLoader extends Context.Service<
         document: CatalogDocument,
       ) => Effect.Effect<A, CatalogLoadFailure>,
     ) {
-      const digest = yield* digestBytes(bytes, sourceUrl);
+      const digest = yield* digestBytes(bytes);
       const text = yield* Effect.try({
         try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
         catch: () =>
@@ -314,7 +300,7 @@ export class CatalogLoader extends Context.Service<
             ? Effect.as(Effect.void, undefined)
             : Effect.gen(function* () {
                 const bytes = new Uint8Array(entry.bytes);
-                const digest = yield* digestBytes(bytes, sourceUrl);
+                const digest = yield* digestBytes(bytes);
                 if (digest !== entry.digest) return undefined;
                 const decoded = yield* decodeBytes(bytes, sourceUrl, check);
                 return { entry: { ...entry, bytes }, ...decoded };

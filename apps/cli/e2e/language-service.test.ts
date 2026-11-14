@@ -272,7 +272,7 @@ describe("generated language services", () => {
             );
             yield* project.expectFileContaining(
               "package.json",
-              '"oxlint-tsgolint": "7.0.2001"',
+              '"oxlint-tsgolint": "7.0.2006"',
             );
             yield* project.expectFileContaining(
               ".oxlintrc.json",
@@ -340,7 +340,7 @@ describe("generated language services", () => {
             );
             yield* project.expectFileContaining(
               "package.json",
-              '"oxlint-tsgolint": "7.0.2001"',
+              '"oxlint-tsgolint": "7.0.2006"',
             );
             yield* project.expectFileContaining(
               "vite.config.ts",

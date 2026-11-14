@@ -36,7 +36,9 @@
       {
         "name": "@effect/language-service",
         "barrelImportPackages": ["effect"],
-        "includeSuggestionsInTsc": true{{#if typescript=6}},
+        {{#if typescript=7}}"ignoreEffectSuggestionsInTscExitCode": true,
+        "ignoreEffectWarningsInTscExitCode": true,
+        {{/if}}"includeSuggestionsInTsc": true{{#if typescript=6}},
         "quickinfoMaximumLength": 1200{{/if}}{{#if effectOxlint}},
         "diagnostics": false{{/if}},
         "diagnosticSeverity": {
@@ -60,7 +62,8 @@
           "missingEffectServiceDependency": "warning",
           "newPromise": "warning",
           "nodeBuiltinImport": "warning",
-          "preferSchemaOverJson": "warning",
+          {{#if typescript=6}}"preferSchemaOverJson": "warning"{{/if}}{{#if typescript=7}}"globalJson": "warning",
+          "globalJsonInEffect": "warning"{{/if}},
           "processEnv": "warning",
           "processEnvInEffect": "warning",
           {{#if typescript=7}}"schemaNumber": "warning",
@@ -77,7 +80,8 @@
               "diagnosticSeverity": {
                 "asyncFunction": "off",
                 "nodeBuiltinImport": "off",
-                "preferSchemaOverJson": "off"
+                {{#if typescript=6}}"preferSchemaOverJson": "off"{{/if}}{{#if typescript=7}}"globalJson": "off",
+                "globalJsonInEffect": "off"{{/if}}
               }
             }
           }

@@ -1,3 +1,4 @@
+import { NodeCrypto } from "@effect/platform-node";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
@@ -40,7 +41,7 @@ const FixtureLayer = CatalogProvider.official.pipe(
     ),
   ),
   Layer.provideMerge(ConfigureService.layer),
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
 );
 
 NodeRuntime.runMain(cliProgram.pipe(Effect.provide(FixtureLayer)), {

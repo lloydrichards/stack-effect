@@ -32,7 +32,12 @@ export const starterTargets = defineTargets(import.meta.url, [
         path: `${targetPath}/package.json`,
         // Written here rather than in a template file so the package name
         // token survives until a consumer creates the target.
-        contents: `${JSON.stringify({ name: packageName, private: true, type: "module" }, null, 2)}\n`,
+        contents: `{
+  "name": "${packageName}",
+  "private": true,
+  "type": "module"
+}
+`,
       },
     ],
   },

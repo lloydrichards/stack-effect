@@ -52,7 +52,7 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.6",
+        value: "4.1.4",
       },
       {
         _tag: "jsx-slot",
@@ -285,14 +285,14 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.6",
+        value: "4.1.4",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@shadcn/react",
-        value: "^0.2.0",
+        value: "^0.3.1",
       },
       {
         _tag: "jsx-slot",
@@ -360,7 +360,7 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/platform-browser",
-        value: "4.0.6",
+        value: "4.1.4",
       },
       {
         _tag: "jsx-slot",

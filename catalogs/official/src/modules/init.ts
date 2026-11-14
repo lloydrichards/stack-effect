@@ -144,7 +144,7 @@ const huskyModule: ModuleInput = {
       path: "{{targetPath}}/package.json",
       field: "devDependencies",
       name: "lint-staged",
-      value: "17.4.1",
+      value: "17.6.0",
     },
     {
       _tag: "pkg-json-entry",
@@ -195,7 +195,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@effect/language-service",
-        value: "^0.87.0",
+        value: "^0.87.5",
       },
       {
         _tag: "pkg-json-entry",
@@ -236,7 +236,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@effect/tsgo",
-        value: "0.38.0",
+        value: "0.68.1",
       },
       {
         _tag: "pkg-json-entry",
@@ -285,7 +285,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "turbo",
-        value: "^2.9.6",
+        value: "^2.11.11",
       },
       {
         _tag: "pkg-json-entry",
@@ -338,8 +338,8 @@ export const initModules = defineModules(import.meta.url, [
       },
     ],
     contributions: [
-      // HACK: Nx 23.1.1 cannot parse Bun 1.4's lockfile version 2. Bun recipes hash
-      // the lockfile through sharedGlobals instead; remove when Nx accepts version 2.
+      // Bun recipes hash the lockfile through sharedGlobals so lockfile changes
+      // invalidate every task without Nx lockfile analysis.
       // Nx source analysis imports TypeScript's JavaScript API, which native TS7 does
       // not expose. Generated projects declare cross-project dependencies in package
       // manifests, so Nx can build the project graph without source analysis.
@@ -358,7 +358,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "nx",
-        value: "^23.1.1",
+        value: "^24.0.6",
       },
       {
         _tag: "pkg-json-entry",
@@ -420,7 +420,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "vite-plus",
-        value: "0.3.0",
+        value: "1.6.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -488,7 +488,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@biomejs/biome",
-        value: "2.5.2",
+        value: "2.6.7",
       },
     ],
   },
@@ -598,7 +598,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "oxfmt",
-        value: "^0.65.0",
+        value: "^0.78.0",
       },
       {
         _tag: "pkg-json-entry",
@@ -653,7 +653,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "dprint",
-        value: "^0.54.0",
+        value: "^0.64.3",
       },
       {
         _tag: "pkg-json-entry",
@@ -699,14 +699,14 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "oxlint",
-        value: "1.80.0",
+        value: "1.93.0",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "{{#if effectOxlint}}oxlint-tsgolint{{/if}}",
-        value: "7.0.2001",
+        value: "7.0.2006",
       },
       {
         _tag: "pkg-json-entry",
@@ -754,7 +754,7 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "vitest",
-        value: "^4.1.11",
+        value: "^5.1.0",
       },
       {
         _tag: "pkg-json-entry",

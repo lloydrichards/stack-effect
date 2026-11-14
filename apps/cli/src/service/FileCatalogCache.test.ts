@@ -1,7 +1,7 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { CatalogCache } from "@repo/scaffold";
-import { Effect, FileSystem, Path } from "effect";
+import { Effect, FileSystem, Layer, Path } from "effect";
 import { fileCatalogCacheLayer } from "./FileCatalogCache";
 
 const sourceUrl = "https://catalog.example.test/catalog.json";
@@ -28,7 +28,10 @@ const withCacheDirectory = <A, E>(
     return yield* body(directory).pipe(
       Effect.provide(fileCatalogCacheLayer(directory)),
     );
-  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
+  );
 
 it.effect(
   "should return the latest entry and keep one file when a source is written twice",

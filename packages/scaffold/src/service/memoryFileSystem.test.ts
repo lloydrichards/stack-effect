@@ -33,6 +33,30 @@ it.effect("creates a fresh volume for each make invocation", () =>
   }).pipe(Effect.provide(BrowserCrypto.layer)),
 );
 
+it.effect(
+  "lists typed directory entries and finds nested files with glob",
+  () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      yield* fileSystem.makeDirectory("/workspace/src", { recursive: true });
+      yield* fileSystem.writeFileString(
+        "/workspace/src/index.ts",
+        "export {};",
+      );
+      yield* fileSystem.writeFileString("/workspace/README.md", "Example");
+
+      expect(yield* fileSystem.readDirectoryEntries("/workspace")).toEqual(
+        expect.arrayContaining([
+          { name: "src", type: "Directory" },
+          { name: "README.md", type: "File" },
+        ]),
+      );
+      expect(yield* fileSystem.glob("**/*.ts", { root: "/workspace" })).toEqual(
+        ["src/index.ts"],
+      );
+    }).pipe(Effect.provide(MemoryLayer)),
+);
+
 it.effect("can provide isolated layer instances", () => {
   const write = Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;

@@ -7,7 +7,6 @@ import {
 } from "@repo/scaffold";
 import {
   Config,
-  Crypto,
   Effect,
   FileSystem,
   Layer,
@@ -15,6 +14,8 @@ import {
   Path,
   Schema,
 } from "effect";
+import * as Digest from "effect/crypto/Digest";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 
 const StoredEntry = Schema.Struct({
   sourceUrl: Schema.String,
@@ -54,23 +55,18 @@ export const fileCatalogCacheLayer = (directory?: string) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const crypto = yield* Crypto.Crypto;
+      const crypto = yield* Digest.Digest;
+      const random = yield* SecureRandom.SecureRandom;
       const root = directory ?? (yield* defaultCacheRoot(path));
 
       const entryPath = Effect.fn("FileCatalogCache.entryPath")(function* (
         sourceUrl: string,
       ) {
-        const hash = yield* crypto
-          .digest("SHA-256", new TextEncoder().encode(sourceUrl))
-          .pipe(
-            Effect.mapError(
-              () =>
-                new CatalogCacheFailure({
-                  message: "Could not locate catalog cache entry.",
-                }),
-            ),
-          );
-        return path.join(root, `${toHex(hash)}.json`);
+        const hash = yield* crypto.digestHex(
+          Digest.sha256,
+          new TextEncoder().encode(sourceUrl),
+        );
+        return path.join(root, `${hash}.json`);
       });
 
       const fail = (message: string) => new CatalogCacheFailure({ message });
@@ -108,13 +104,7 @@ export const fileCatalogCacheLayer = (directory?: string) =>
         entry: CatalogCacheEntry,
       ) {
         const location = yield* entryPath(entry.sourceUrl);
-        const nonce = yield* crypto
-          .randomBytes(8)
-          .pipe(
-            Effect.mapError(() =>
-              fail("Could not create a catalog cache temporary file."),
-            ),
-          );
+        const nonce = yield* random.randomBytes(8);
         const temporary = `${location}.${toHex(nonce)}.tmp`;
         const json = yield* Schema.encodeEffect(StoredJson)({
           ...entry,
