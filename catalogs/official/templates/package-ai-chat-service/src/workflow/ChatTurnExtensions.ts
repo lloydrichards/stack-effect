@@ -43,8 +43,8 @@ export const prepareChatTurn = <
   preparations: ReadonlyArray<() => Effect.Effect<ChatTurnExtension<Extra>, E>>,
 ) =>
   Effect.gen(function* () {
-    const prepared = yield* Effect.all(
-      preparations.map((prepare) => prepare()),
+    const prepared = yield* Effect.forEach(preparations, (prepare) =>
+      prepare(),
     );
     const extras = prepared.flatMap((extension) =>
       extension.toolkit === undefined ? [] : [extension.toolkit],
@@ -67,7 +67,9 @@ export const prepareChatTurn = <
       });
     }
     const context = prepared.flatMap((extension) => extension.messages ?? []);
-    const input = prepared.flatMap((extension) => extension.inputMessages ?? []);
+    const input = prepared.flatMap(
+      (extension) => extension.inputMessages ?? [],
+    );
     const contextIndex =
       history.at(-1)?.role === "user" ? history.length - 1 : history.length;
     return {

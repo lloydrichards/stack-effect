@@ -15,7 +15,7 @@ export const ChatFailure = Schema.Struct({
 });
 export type ChatFailure = Schema.Schema.Type<typeof ChatFailure>;
 
-export class ChatPreparationError extends Schema.TaggedError<ChatPreparationError>()(
+export class ChatPreparationError extends Schema.TaggedError<ChatPreparationError, { readonly brand: unique symbol }>()(
   "ChatPreparationError",
   { reason: ChatFailure },
 ) {

@@ -1,0 +1,3 @@
+[install]
+# TypeScript 7 cannot name some inferred Effect declarations through isolated links.
+linker = "hoisted"

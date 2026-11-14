@@ -3,12 +3,12 @@ import { Rpc, RpcGroup } from "effect/rpc";
 import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
 import { ChatTurnOptions } from "./ChatTurnOptions";
 
-export class ChatNotFoundError extends Schema.TaggedError<ChatNotFoundError>()(
+export class ChatNotFoundError extends Schema.TaggedError<ChatNotFoundError, { readonly brand: unique symbol }>()(
   "ChatNotFoundError",
   { chatId: ChatId },
 ) {}
 
-export class GenerationInProgressError extends Schema.TaggedError<GenerationInProgressError>()(
+export class GenerationInProgressError extends Schema.TaggedError<GenerationInProgressError, { readonly brand: unique symbol }>()(
   "GenerationInProgressError",
   { chatId: ChatId },
 ) {}

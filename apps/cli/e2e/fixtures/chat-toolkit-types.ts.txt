@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Effect, Schema, Stream } from "effect";
 import { Tool, type Toolkit } from "effect/ai";
 import { prepareChatTurn } from "./ChatTurnExtensions";
 
@@ -18,10 +18,10 @@ export const checkToolContracts = Effect.gen(function* () {
   const prepared = yield* prepareChatTurn([], local, [
     () => Effect.succeed({ toolkit: remote }),
   ]);
-  yield* prepared.toolkit.handle("local", { value: 42 });
-  yield* prepared.toolkit.handle("remote", { text: "context" });
+  yield* Stream.runDrain(yield* prepared.toolkit.handle("local", { value: 42 }));
+  yield* Stream.runDrain(yield* prepared.toolkit.handle("remote", { text: "context" }));
   // @ts-expect-error Unknown tool names must remain invalid after composition.
-  yield* prepared.toolkit.handle("missing", {});
+  yield* Stream.runDrain(yield* prepared.toolkit.handle("missing", {}));
   prepared.toolkit.tools.local.parametersSchema.make({ value: 42 });
   prepared.toolkit.tools.remote.parametersSchema.make({ text: "context" });
   // @ts-expect-error Local and remote parameter schemas must remain distinct.

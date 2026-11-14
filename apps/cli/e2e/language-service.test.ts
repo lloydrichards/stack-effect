@@ -3,6 +3,7 @@ import { Effect } from "effect";
 import { CLI } from "./harness";
 
 const fixtureContents = `import { Effect, Schema } from "effect";
+import * as Digest from "effect/crypto/Digest";
 
 export const now = Effect.gen(function* () {
   Schema.decodeSync(Schema.String)("value");
@@ -11,6 +12,9 @@ export const now = Effect.gen(function* () {
 
 export const random = Math.random();
 export const numberSchema = Schema.Number;
+export const digestAlgorithm = Digest.sha256;
+export const mapped = [1].map((value) => value + 1);
+export class Unbranded extends Schema.Class<Unbranded>("Unbranded")({ value: Schema.String }) {}
 `;
 
 const testBoundaryContents = `import path from "node:path";
@@ -51,7 +55,7 @@ const createCommand = (
 describe("generated language services", () => {
   layer(CLI.layer)("full catalog", (it) => {
     it.effect(
-      "should generate the full catalog without Effect lint warnings",
+      "should generate the full catalog with strict Effect checks and visible advisories",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -248,7 +252,7 @@ describe("generated language services", () => {
       { timeout: 60_000 },
     );
     it.effect(
-      "should fail standalone Oxlint on an Effect-native diagnostic",
+      "should fail standalone Oxlint on strict Effect errors while reporting native style warnings",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -291,9 +295,20 @@ describe("generated language services", () => {
               testBoundaryContents,
             );
 
-            const lint = yield* project.exec("bun", "run", "lint");
+            const lint = yield* project.exec(
+              "bun",
+              "run",
+              "lint",
+              "--format=unix",
+            );
             const output = `${lint.stdout}\n${lint.stderr}`;
             assert.notStrictEqual(lint.exitCode, 0, output);
+            assert.match(
+              output,
+              /Error\/effecttsgo\(schema-class-missing-brand\)/,
+            );
+            assert.match(output, /Error\/effecttsgo\(unstable-api-usage\)/);
+            assert.match(output, /Warning\/effecttsgo\(prefer-effect-array\)/);
             assert.strictEqual(
               output.match(/effecttsgo\(global-date-in-effect\)/g)?.length,
               1,
@@ -348,7 +363,7 @@ describe("generated language services", () => {
             );
             yield* project.expectFileContaining(
               "vite.config.ts",
-              "extends: [recommended, effectNative]",
+              "extends: [recommended, effectNative, strict]",
             );
             yield* project.writeFile(
               "apps/cli-app/src/effect-lsp-smoke.ts",
@@ -359,9 +374,20 @@ describe("generated language services", () => {
               testBoundaryContents,
             );
 
-            const lint = yield* project.exec("bun", "run", "lint");
+            const lint = yield* project.exec(
+              "bun",
+              "run",
+              "lint",
+              "--format=unix",
+            );
             const output = `${lint.stdout}\n${lint.stderr}`;
             assert.notStrictEqual(lint.exitCode, 0, output);
+            assert.match(
+              output,
+              /Error\/effecttsgo\(schema-class-missing-brand\)/,
+            );
+            assert.match(output, /Error\/effecttsgo\(unstable-api-usage\)/);
+            assert.match(output, /Warning\/effecttsgo\(prefer-effect-array\)/);
             assert.strictEqual(
               output.match(/effecttsgo\(global-date-in-effect\)/g)?.length,
               1,

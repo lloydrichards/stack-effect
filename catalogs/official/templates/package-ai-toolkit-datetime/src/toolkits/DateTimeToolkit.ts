@@ -1,4 +1,4 @@
-import { DateTime, Effect, Option, Schema, String } from "effect";
+import { DateTime, Effect, Schema, String } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 
 const getCurrentDatetimeTool = Tool.make("get_current_datetime", {
@@ -34,11 +34,13 @@ export const DateTimeToolkitLive = DateTimeToolkit.toLayer(
       Effect.gen(function* () {
         const tz = params.timezone || "UTC";
         const now = yield* DateTime.now;
-        const zoned = yield* Option.match(DateTime.setZoneNamed(now, tz), {
-          onNone: () =>
-            Effect.fail(`Invalid timezone "${tz}": not a valid IANA timezone`),
-          onSome: Effect.succeed,
-        });
+        const zoned = yield* Effect.fromOption(
+          DateTime.setZoneNamed(now, tz),
+        ).pipe(
+          Effect.mapError(
+            () => `Invalid timezone "${tz}": not a valid IANA timezone`,
+          ),
+        );
 
         yield* Effect.logDebug(`Getting current datetime for timezone: ${tz}`);
 

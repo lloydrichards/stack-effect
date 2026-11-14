@@ -203,6 +203,8 @@ bun run lint
 bun run build
 ```
 
+With TypeScript 7 and Oxlint, lint uses the strict Effect preset. Strict violations fail lint, while style suggestions remain visible as warnings. Configure accepted unstable APIs through `allowedUnstableApis` in `packages/config-typescript/base.json`; keep the API check enabled.
+
 Each command should exit successfully. The default workspace has no tests yet; these commands check its types, lint rules, and production build. You already checked the running application in the browser.
 
 You now have the full first pass: scaffold a project, inspect the proposed changes, run the application, and check the result.

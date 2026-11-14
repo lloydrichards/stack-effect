@@ -34,6 +34,11 @@ export const targetGroup = defineTargets(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{#if packageManager=bun}}{{targetPath}}/bunfig.toml{{/if}}",
+        contents: template("./workspace/bunfig.toml"),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: template("./workspace/tsconfig.json"),
       },

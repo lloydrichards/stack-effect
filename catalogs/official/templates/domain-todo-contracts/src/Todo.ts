@@ -21,12 +21,12 @@ export const UpdateTodoInput = Schema.Struct({
 });
 export type UpdateTodoInput = Schema.Schema.Type<typeof UpdateTodoInput>;
 
-export class TodoNotFound extends Schema.TaggedError<TodoNotFound>()(
+export class TodoNotFound extends Schema.TaggedError<TodoNotFound, { readonly brand: unique symbol }>()(
   "TodoNotFound",
   { id: TodoId },
 ) {}
 
-export class TodoPersistenceError extends Schema.TaggedError<TodoPersistenceError>()(
+export class TodoPersistenceError extends Schema.TaggedError<TodoPersistenceError, { readonly brand: unique symbol }>()(
   "TodoPersistenceError",
   { message: Schema.String },
 ) {}

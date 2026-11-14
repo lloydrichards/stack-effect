@@ -706,6 +706,11 @@ export const packageModules = defineModules(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/scripts/tsconfig.json",
+        contents: template("./package-db-sqlite/scripts/tsconfig.json"),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/scripts/health.ts",
         contents: template("./package-db-sqlite/scripts/health.ts"),
       },
@@ -814,6 +819,11 @@ export const packageModules = defineModules(import.meta.url, [
         _tag: "file",
         path: "{{targetPath}}/scripts/migrate.ts",
         contents: template("./package-db-sqlite/scripts/migrate.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scripts/tsconfig.json",
+        contents: template("./package-db-sqlite/scripts/tsconfig.json"),
       },
       {
         _tag: "file",
