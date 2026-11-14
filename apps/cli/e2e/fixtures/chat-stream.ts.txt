@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import { Effect, Layer, Queue, Schema, Stream } from "effect";
+import { LanguageModel, Tool, Toolkit, type Response } from "effect/ai";
+import { AiChatService, AiChatServiceLive } from "@repo/ai";
+
+const toolCall = (id: string, name = "lookup"): Response.StreamPartEncoded => ({
+  type: "tool-call", id, name, params: {},
+});
+const finish = (reason: Response.FinishReason, tokens?: number): Response.StreamPartEncoded => ({
+  type: "finish", reason,
+  usage: { inputTokens: tokens === undefined ? {} : { total: tokens }, outputTokens: { total: 1 } },
+});
+
+const tools = Toolkit.make(
+  Tool.make("lookup", { success: Schema.String }),
+  Tool.make("confirm", { success: Schema.String, needsApproval: true }),
+);
+const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) => {
+  let requests = 0;
+  let executions = 0;
+  const provider = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+    generateText: () => Effect.die("Expected streaming generation"),
+    streamText: () => Stream.fromIterable(round(++requests)),
+  }));
+  return Effect.gen(function* () {
+    const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
+      lookup: (_, context) => Effect.gen(function* () {
+        executions++;
+        yield* context.preliminary("progress");
+        return "found";
+      }),
+      confirm: () => Effect.die("An unapproved tool ran"),
+    })));
+    const service = yield* AiChatService;
+    const queue = yield* service.chat([], [() => Effect.succeed({ toolkit })]);
+    const parts = yield* Queue.collect(queue);
+    return { requests, executions, parts };
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(provider));
+};
+
+await Effect.runPromise(Effect.gen(function* () {
+  const completed = yield* run((n) => n === 1 ? [
+    { type: "tool-params-start", id: "a", name: "lookup" },
+    { type: "tool-params-delta", id: "a", delta: "{}" },
+    { type: "tool-params-end", id: "a" },
+    toolCall("a"), finish("tool-calls", 3),
+  ] : [finish("stop", 7)]);
+  assert.equal(completed.requests, 2);
+  assert.equal(completed.executions, 1);
+  assert.deepEqual(completed.parts, [
+    { _tag: "tool-start", id: "a", name: "lookup", input: "{}" },
+    { _tag: "tool-success", id: "a", name: "lookup", output: "found" },
+    { _tag: "finish", reason: "stop", usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 } },
+  ]);
+
+  const capped = yield* run((n) => [toolCall(String(n)), finish("tool-calls", 1)]);
+  assert.equal(capped.requests, 12);
+  assert.equal(capped.executions, 12);
+  assert.deepEqual(capped.parts.filter((part) => part._tag === "finish"), [
+    { _tag: "finish", reason: "max-iterations", usage: { promptTokens: 12, completionTokens: 12, totalTokens: 24 } },
+  ]);
+
+  const partialUsage = yield* run((n) => n === 1
+    ? [toolCall("a"), finish("tool-calls")] : [finish("stop", 7)]);
+  const last = partialUsage.parts.at(-1);
+  assert(last?._tag === "finish" && last.usage === undefined);
+
+  const cases = [
+    { label: "approval", requests: 1, message: /approval/, round: () => [toolCall("a", "confirm"), finish("tool-calls")] },
+    { label: "empty tool round", requests: 1, message: /without calling a tool/, round: () => [finish("tool-calls")] },
+    { label: "empty follow-up", requests: 2, message: /without a final finish/, round: (n: number) => n === 1 ? [toolCall("a"), finish("tool-calls")] : [] },
+    { label: "provider error", requests: 1, message: /example failure/, round: () => [{ type: "error" as const, error: "example failure" }, finish("error")] },
+  ];
+  for (const example of cases) {
+    const result = yield* run(example.round);
+    assert.equal(result.requests, example.requests, example.label);
+    const terminal = result.parts.filter((p) => p._tag === "finish" || p._tag === "error");
+    assert.equal(terminal.length, 1, example.label);
+    assert(terminal[0]?._tag === "error", example.label);
+    assert.match(terminal[0].message, example.message, example.label);
+  }
+}));

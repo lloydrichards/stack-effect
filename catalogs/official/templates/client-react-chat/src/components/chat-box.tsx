@@ -1,5 +1,10 @@
 import { useAtom } from "@effect/atom-react";
-import type { ChatId, ChatResponse, MessageSegment } from "@repo/domain/Chat";
+import {
+  ChatStepLimit,
+  type ChatId,
+  type ChatResponse,
+  type MessageSegment,
+} from "@repo/domain/Chat";
 import { Cause } from "effect";
 import { AsyncResult } from "effect/reactivity";
 import {
@@ -250,10 +255,13 @@ export function ChatBox() {
                               />
                             ))}
                           </MessageGroup>
-                          {msg.usage && msg.finishReason && (
+                          {msg.finishReason && (
                             <MessageFooter className="text-[0.6rem]">
-                              {msg.usage.totalTokens} tokens |{" "}
-                              {msg.finishReason}
+                              {msg.usage &&
+                                `${msg.usage.totalTokens} tokens | `}
+                              {msg.finishReason === ChatStepLimit.reason
+                                ? ChatStepLimit.message
+                                : msg.finishReason}
                             </MessageFooter>
                           )}
                         </MessageContent>

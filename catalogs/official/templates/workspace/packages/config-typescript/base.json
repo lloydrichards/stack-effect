@@ -67,6 +67,7 @@
           "effect/ai/McpProtocol",
           "effect/ai/McpServer",
           "effect/ai/Prompt",
+          "effect/ai/Response",
           "effect/ai/Tool",
           "effect/ai/Toolkit",
           "effect/cli/Argument",

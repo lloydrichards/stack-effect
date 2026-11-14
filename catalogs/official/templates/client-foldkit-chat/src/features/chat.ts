@@ -1,6 +1,7 @@
 import {
   ChatId,
   ChatMessage,
+  ChatStepLimit,
   ChatStreamPart,
   MessageSegment,
   type ToolCall,
@@ -36,6 +37,7 @@ export const Model = Schema.Struct({
   chatReasoning: Schema.Option(Schema.String),
   chatError: Schema.Option(Schema.String),
   chatStreaming: Schema.Boolean,
+  reachedStepLimit: Schema.Boolean,
 });
 export type Model = typeof Model.Type;
 
@@ -74,6 +76,7 @@ export const init = (): readonly [
     chatInput: "",
     chatHistory: [],
     chatState: "idle",
+    reachedStepLimit: false,
     chatSegments: [],
     chatReasoning: Option.none(),
     chatError: Option.none(),
@@ -163,8 +166,9 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
               : seg,
           ),
       }),
-    finish: () =>
+    finish: ({ reason }) =>
       evo(model, {
+        reachedStepLimit: () => reason === ChatStepLimit.reason,
         chatState: () => "complete" as const,
         chatStreaming: () => false,
       }),
@@ -215,6 +219,7 @@ export const update = (
       return [
         evo(model, {
           chatInput: () => "",
+          reachedStepLimit: () => false,
           chatHistory: () => nextHistory,
           chatState: () => "streaming" as const,
           chatStreaming: () => Option.isSome(model.chatId),
@@ -431,6 +436,9 @@ export const view = <ParentMessage>(
               ...historyView(h, model),
               ...streamingSegmentsView(h, model),
               ...reasoningView(h, model),
+              ...(model.reachedStepLimit
+                ? [h.p([], [ChatStepLimit.message])]
+                : []),
               ...errorView(h, model),
             ],
           ),

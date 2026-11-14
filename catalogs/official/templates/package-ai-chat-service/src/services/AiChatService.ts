@@ -19,10 +19,7 @@ import {
   type ChatTurnExtension,
 } from "../workflow/ChatTurnExtensions";
 import { ThinkToolkit, ThinkToolkitLive } from "../toolkits/ThinkToolkit";
-import {
-  AgenticLoopService,
-  AgenticLoopServiceLive,
-} from "../workflow/AgenticLoop";
+import { publishChatStream } from "../workflow/MailboxEvents";
 
 // NOTE: Catalog composition appends additional toolkits to this merge call.
 export const ChatToolkit = Toolkit.merge(ThinkToolkit);
@@ -35,7 +32,6 @@ export class AiChatService extends Context.Service<AiChatService>()(
   {
     make: Effect.gen(function* () {
       const toolkit = yield* ChatToolkit;
-      const loop = yield* AgenticLoopService;
 
       const chat = Effect.fn("chat")(function* <
         Tools extends Record<string, Tool.Any> = {},
@@ -74,11 +70,16 @@ export class AiChatService extends Context.Service<AiChatService>()(
             ),
           );
 
-          yield* loop.run({
-            chat: session,
+          const maxSteps = 12;
+          yield* publishChatStream(
+            session.streamText({
+              prompt: [],
+              toolkit: prepared.toolkit,
+              maxSteps,
+            }),
             queue,
-            toolkit: prepared.toolkit,
-          });
+            maxSteps,
+          );
         }).pipe(
           Effect.withSpan("AiChatService.generation", {
             attributes: {
@@ -96,7 +97,7 @@ export class AiChatService extends Context.Service<AiChatService>()(
           tracedGeneration.pipe(
             Effect.catchCause((cause) =>
               Effect.gen(function* () {
-                if (Cause.hasInterrupts(cause)) return;
+                if (Cause.hasInterruptsOnly(cause)) return;
                 yield* Effect.logError("Chat generation failed", cause);
                 const failure = Option.getOrUndefined(
                   Cause.findErrorOption(cause),
@@ -130,4 +131,4 @@ export class AiChatService extends Context.Service<AiChatService>()(
 
 export const AiChatServiceLive = Layer.effect(AiChatService)(
   AiChatService.make,
-).pipe(Layer.provide(ChatToolkitLive), Layer.provide(AgenticLoopServiceLive));
+).pipe(Layer.provide(ChatToolkitLive));

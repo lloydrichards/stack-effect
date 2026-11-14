@@ -1,4 +1,8 @@
-import { type ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
+import {
+  type ChatMessage,
+  ChatStepLimit,
+  ChatStreamPart,
+} from "@repo/domain/Chat";
 import {
   Array,
   Cause,
@@ -261,6 +265,10 @@ const processStreamPart = (
         ...state.activeTurn,
         status: null,
       },
+    })),
+    Match.when({ _tag: "finish", reason: ChatStepLimit.reason }, () => ({
+      ...state,
+      error: ChatStepLimit.message,
     })),
     Match.tag("tool-start", ({ name }) =>
       withActiveTurn(state, (turn) => ({
