@@ -37,7 +37,10 @@ try {
     const skills = yield* client.listSkills();
     const checklist = skills.find((skill) => skill.frontmatter.name === "workshop-checklist");
     assert(checklist, "workshop checklist is discoverable");
+    assert.equal(checklist.frontmatter.license, "MIT");
+    assert.deepEqual(checklist.frontmatter.metadata, { author: "stack-effect", version: "1.0" });
     const skill = yield* client.getSkill({ uri: checklist.uri });
+    assert.deepEqual(skill.frontmatter, checklist.frontmatter);
     const instructions = yield* client.readSkillResource({ skill, uri: skill.uri });
     assert(instructions.contents.some((file) => "text" in file && file.text.includes("List shared supplies separately")));
     return { tools: tools.map((tool) => tool.name), prompts: prompts.map((prompt) => prompt.name), resources: resources.map((resource) => resource.uri) };
