@@ -158,7 +158,7 @@ export const packageModules = defineModules(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Think Toolkit",
     description:
-      "Minimal AI toolkit with a think tool for step-by-step reasoning",
+      "A think tool for sharing a brief progress note or plan with the user",
     visibility: "internal",
     supportedOn: [
       {
@@ -382,7 +382,7 @@ export const packageModules = defineModules(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Memory Toolkit",
     description:
-      "Key-value scratchpad for persisting facts across tool invocations",
+      "In-memory key-value scratchpad shared by all chats using the same layer",
     supportedOn: [
       {
         _tag: "identity",

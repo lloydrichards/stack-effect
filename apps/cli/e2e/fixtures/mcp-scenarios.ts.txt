@@ -3,7 +3,7 @@ import { Command } from "effect/cli";
 import { ask } from "./src/commands/ask";
 import type { McpPromptSelection } from "@repo/domain/McpPrompt";
 import { strict as assert } from "node:assert";
-import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
+import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream, Terminal } from "effect";
 import { LanguageModel, McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { AiChatService, AiChatServiceLive } from "@repo/ai";
@@ -397,6 +397,27 @@ const main = Effect.scoped(Effect.gen(function* () {
     }).pipe(Effect.provide(promptModule.McpPromptsLive), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
   }
   const terminal = yield* Effect.promise(() => import("./src/chat/TerminalChat"));
+  const turnStarted = yield* Deferred.make<void>();
+  const turnClosed = yield* Deferred.make<void>();
+  const keys = yield* Queue.make<Terminal.UserInput>();
+  const screen = Terminal.make({
+    columns: Effect.succeed(80), rows: Effect.succeed(24),
+    size: Effect.die("unexpected resize"), display: () => Effect.void,
+    readInput: Effect.succeed(Queue.asDequeue(keys)), readLine: Effect.die("unexpected readLine"),
+  });
+  const ui = yield* terminal.TerminalChat(
+    () => Stream.fromEffectDrain(Deferred.succeed(turnStarted, undefined)).pipe(
+      Stream.concat(Stream.never), Stream.ensuring(Deferred.succeed(turnClosed, undefined)),
+    ), "interactive system",
+  ).pipe(Effect.provideService(Terminal.Terminal, screen), Effect.provide(BunServices.layer), Effect.forkChild);
+  const typeKeys = (names: ReadonlyArray<string>) => Queue.offerAll(keys, names.map((name) => ({
+    input: Option.some(name), key: { name, ctrl: false, meta: false, shift: false },
+  })));
+  yield* typeKeys(["h", "i", "enter"]);
+  yield* Deferred.await(turnStarted);
+  yield* typeKeys(["/", "e", "x", "i", "t", "enter"]);
+  yield* Fiber.join(ui);
+  assert(yield* Deferred.isDone(turnClosed), "leaving terminal chat must release its active turn");
   const command = yield* Effect.promise(() => import("./src/chat/ChatCommandConfiguration"));
   const beforeInteractiveGets = promptArguments.length;
   yield* Effect.gen(function* () {

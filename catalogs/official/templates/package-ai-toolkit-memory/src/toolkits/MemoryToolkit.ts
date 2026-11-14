@@ -11,7 +11,7 @@ import { Tool, Toolkit } from "effect/ai";
 
 const memorySetTool = Tool.make("memory_set", {
   description: String.stripMargin(`
-    |Store a key-value pair in session memory. Overwrites existing keys.
+    |Store a key-value pair in shared application memory. Overwrites existing keys.
     `),
   parameters: Schema.Struct({
     key: Schema.String,
@@ -24,7 +24,7 @@ const memorySetTool = Tool.make("memory_set", {
 
 const memoryGetTool = Tool.make("memory_get", {
   description: String.stripMargin(`
-    |Retrieve a value by key from session memory.
+    |Retrieve a value by key from shared application memory.
     `),
   parameters: Schema.Struct({
     key: Schema.String,
@@ -36,7 +36,7 @@ const memoryGetTool = Tool.make("memory_get", {
 
 const memoryListTool = Tool.make("memory_list", {
   description: String.stripMargin(`
-    |List all keys in session memory.
+    |List all keys in shared application memory.
     `),
   parameters: Tool.EmptyParams,
   success: Schema.String,
@@ -46,7 +46,7 @@ const memoryListTool = Tool.make("memory_list", {
 
 const memoryDeleteTool = Tool.make("memory_delete", {
   description: String.stripMargin(`
-    |Remove a key from session memory.
+    |Remove a key from shared application memory.
     `),
   parameters: Schema.Struct({
     key: Schema.String,
@@ -56,12 +56,7 @@ const memoryDeleteTool = Tool.make("memory_delete", {
   failureMode: "return",
 });
 
-/**
- * Key-value scratchpad for agentic loops. Allows the model to persist
- * and retrieve facts across tool invocations within a single session.
- *
- * @module
- */
+/** All chats using the same handler layer share this scratchpad. */
 export const MemoryToolkit = Toolkit.make(
   memorySetTool,
   memoryGetTool,

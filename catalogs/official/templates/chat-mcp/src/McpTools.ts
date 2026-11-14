@@ -10,7 +10,7 @@ export function mergeMcpToolkit<
   local: Toolkit.WithHandler<Local>,
   remote: Toolkit.WithHandler<Remote>,
 ): Effect.Effect<
-  Toolkit.WithHandler<Toolkit.MergeRecords<Local | Remote>>,
+  Toolkit.WithHandler<Local & Toolkit.MergeRecords<Local | Remote>>,
   ChatPreparationError
 >;
 export function mergeMcpToolkit<Tools extends Record<string, Tool.Any>>(

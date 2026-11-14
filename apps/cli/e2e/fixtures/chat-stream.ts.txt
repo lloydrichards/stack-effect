@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
-import { Effect, Layer, Queue, Schema, Stream } from "effect";
+import { Deferred, Effect, Layer, Schema, Stream } from "effect";
 import { LanguageModel, Tool, Toolkit, type Response } from "effect/ai";
 import { AiChatService, AiChatServiceLive } from "@repo/ai";
+import { init, ReceivedChatPart, update } from "./apps/client-foldkit-app/src/features/chat";
+import type { ChatStreamPart } from "@repo/domain/Chat";
+
+const receive = (parts: ReadonlyArray<ChatStreamPart>) => parts.reduce(
+  (model, part) => update(model, ReceivedChatPart({ part }))[0], init()[0],
+);
 
 const toolCall = (id: string, name = "lookup"): Response.StreamPartEncoded => ({
   type: "tool-call", id, name, params: {},
@@ -20,7 +26,13 @@ const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) =>
   let executions = 0;
   const provider = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
     generateText: () => Effect.die("Expected streaming generation"),
-    streamText: () => Stream.fromIterable(round(++requests)),
+    streamText: ({ prompt }) => {
+      const systems = prompt.content.filter((message) => message.role === "system");
+      assert.equal(systems.length, 2);
+      assert.equal(systems[1]?.content, "Answer in French.");
+      assert(!systems[0]?.content.includes("Answer in French."));
+      return Stream.fromIterable(round(++requests));
+    },
   }));
   return Effect.gen(function* () {
     const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
@@ -32,8 +44,10 @@ const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) =>
       confirm: () => Effect.die("An unapproved tool ran"),
     })));
     const service = yield* AiChatService;
-    const queue = yield* service.chat([], toolkit);
-    const parts = yield* Queue.collect(queue);
+    const parts = yield* service.stream({
+      prompt: [{ role: "system", content: "Answer in French." }, { role: "user", content: [{ type: "text", text: "Hello" }] }],
+      toolkit,
+    }).pipe(Stream.runCollect);
     return { requests, executions, parts };
   }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(provider));
 };
@@ -44,14 +58,34 @@ await Effect.runPromise(Effect.gen(function* () {
     { type: "tool-params-delta", id: "a", delta: "{}" },
     { type: "tool-params-end", id: "a" },
     toolCall("a"), finish("tool-calls", 3),
-  ] : [finish("stop", 7)]);
+  ] : [
+    { type: "reasoning-start", id: "summary" },
+    { type: "reasoning-delta", id: "summary", delta: "Checked the result." },
+    { type: "reasoning-end", id: "summary" },
+    finish("stop", 7),
+  ]);
   assert.equal(completed.requests, 2);
   assert.equal(completed.executions, 1);
   assert.deepEqual(completed.parts, [
     { _tag: "tool-start", id: "a", name: "lookup", input: "{}" },
     { _tag: "tool-success", id: "a", name: "lookup", output: "found" },
+    { _tag: "reasoning", delta: "Checked the result." },
     { _tag: "finish", reason: "stop", usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 } },
   ]);
+
+  const released = yield* Deferred.make<void>();
+  const streamingProvider = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+    generateText: () => Effect.die("Expected streaming generation"),
+    streamText: () => Stream.make<Response.StreamPartEncoded>(
+      { type: "text-start", id: "a" }, { type: "text-delta", id: "a", delta: "first" },
+    ).pipe(Stream.concat(Stream.never), Stream.ensuring(Deferred.succeed(released, undefined))),
+  }));
+  yield* Effect.gen(function* () {
+    const ai = yield* AiChatService;
+    const first = yield* ai.stream({ prompt: "Hello" }).pipe(Stream.take(1), Stream.runCollect);
+    assert.deepEqual(first, [{ _tag: "text", delta: "first" }]);
+    assert(yield* Deferred.isDone(released), "ending the consumer must release the provider");
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(streamingProvider));
 
   const capped = yield* run((n) => [toolCall(String(n)), finish("tool-calls", 1)]);
   assert.equal(capped.requests, 12);
@@ -59,6 +93,11 @@ await Effect.runPromise(Effect.gen(function* () {
   assert.deepEqual(capped.parts.filter((part) => part._tag === "finish"), [
     { _tag: "finish", reason: "max-iterations", usage: { promptTokens: 12, completionTokens: 12, totalTokens: 24 } },
   ]);
+
+  const cappedClient = receive(capped.parts);
+  assert(cappedClient.reachedStepLimit);
+  assert.equal(cappedClient.chatHistory.length, 1);
+  assert.equal(cappedClient.chatHistory[0]?.role, "assistant");
 
   const partialUsage = yield* run((n) => n === 1
     ? [toolCall("a"), finish("tool-calls")] : [finish("stop", 7)]);
@@ -78,5 +117,8 @@ await Effect.runPromise(Effect.gen(function* () {
     assert.equal(terminal.length, 1, example.label);
     assert(terminal[0]?._tag === "error", example.label);
     assert.match(terminal[0].message, example.message, example.label);
+    const failedClient = receive(result.parts);
+    assert.equal(failedClient.chatState, "error");
+    assert.equal(failedClient.chatHistory.length, 0);
   }
 }));

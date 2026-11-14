@@ -1,6 +1,6 @@
 import { Effect, Schema, Stream } from "effect";
 import { Tool, type Toolkit } from "effect/ai";
-import { mergeMcpToolkit } from "./McpTools";
+import { mergeMcpToolkit, readMcpToolkit } from "./McpTools";
 
 const localTool = Tool.make("local", {
   parameters: Schema.Struct({ value: Schema.Finite }),
@@ -15,6 +15,11 @@ declare const local: Toolkit.WithHandler<{ local: typeof localTool }>;
 declare const remote: Toolkit.WithHandler<{ remote: typeof remoteTool }>;
 
 export const checkToolContracts = Effect.gen(function* () {
+  const discover = yield* readMcpToolkit;
+  const discovered = yield* discover(local);
+  const preserved: typeof localTool = discovered.tools.local;
+  preserved.parametersSchema.make({ value: 42 });
+
   const toolkit = yield* mergeMcpToolkit(local, remote);
   yield* Stream.runDrain(yield* toolkit.handle("local", { value: 42 }));
   yield* Stream.runDrain(yield* toolkit.handle("remote", { text: "context" }));

@@ -144,11 +144,12 @@ export const chatMcpModules = defineModules(
             ...(id === "tools"
               ? [
                   {
-                    _tag: "ts-call-arg" as const,
+                    _tag: "ts-object-field" as const,
                     path: `{{targetPath}}/src/${runtime}`,
                     targetVariable: "makeGenerate",
-                    functionName: "turn.ai.chat",
-                    argument: "yield* turn.tools(turn.ai.toolkit)",
+                    functionName: "turn.ai.stream",
+                    field: "toolkit",
+                    value: "yield* turn.tools(turn.ai.toolkit)",
                     import: {
                       moduleSpecifier: "../mcp/McpTools",
                       namedImports: [maker],

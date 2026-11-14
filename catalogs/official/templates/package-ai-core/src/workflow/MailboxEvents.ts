@@ -4,11 +4,9 @@ import {
   type UsageMetadata,
 } from "@repo/domain/Chat";
 import {
-  type Cause,
   Data,
   Effect,
   Inspectable,
-  Queue,
   Schema,
   SchemaGetter,
   Stream,
@@ -36,12 +34,11 @@ class ChatStreamError extends Data.TaggedError("ChatStreamError")<{
 const streamError = (message: string) =>
   Effect.fail(new ChatStreamError({ message }));
 
-export const publishChatStream = Effect.fn("AiChatService.publishChatStream")(
-  function* <E, R>(
-    parts: Stream.Stream<Response.AnyPart, E, R>,
-    queue: Queue.Queue<ChatStreamPart, Cause.Done>,
-    maxSteps: number,
-  ) {
+export const chatEvents = <E, R>(
+  parts: Stream.Stream<Response.AnyPart, E, R>,
+  maxSteps: number,
+) =>
+  Stream.suspend(() => {
     let rounds = 0;
     let finishReason: Response.FinishReason | undefined;
     let approval: string | undefined;
@@ -53,20 +50,25 @@ export const publishChatStream = Effect.fn("AiChatService.publishChatStream")(
     const pending = new Set<string>();
     let sawToolCall = false;
 
-    yield* parts.pipe(
-      Stream.runForEach((part) =>
-        Effect.gen(function* () {
+    const events = parts.pipe(
+      Stream.mapEffect((part) =>
+        Effect.gen(function* (): Effect.fn.Return<
+          ChatStreamPart | undefined,
+          ChatStreamError
+        > {
           if (finishReason !== undefined) {
             // Each native round ends with a finish, including intermediate tool rounds.
             sawToolCall = false;
             finishReason = undefined;
           }
           switch (part.type) {
+            case "reasoning-delta":
+              return { _tag: "reasoning", delta: part.delta };
             case "text-delta":
-              return yield* Queue.offer(queue, {
+              return {
                 _tag: "text",
                 delta: part.delta,
-              });
+              };
             case "tool-call": {
               pending.add(part.id);
               sawToolCall = true;
@@ -74,33 +76,30 @@ export const publishChatStream = Effect.fn("AiChatService.publishChatStream")(
                 part.params === undefined
                   ? ""
                   : (yield* displayValue(part.params)).trim();
-              return yield* Queue.offer(queue, {
+              return {
                 _tag: "tool-start",
                 id: part.id,
                 name: part.name,
                 ...(input ? { input } : {}),
-              });
+              };
             }
             case "tool-result": {
               if (part.preliminary) return;
               pending.delete(part.id);
               const result = yield* displayValue(part.result);
-              return yield* Queue.offer(
-                queue,
-                part.isFailure
-                  ? {
-                      _tag: "tool-failure",
-                      id: part.id,
-                      name: part.name,
-                      error: result,
-                    }
-                  : {
-                      _tag: "tool-success",
-                      id: part.id,
-                      name: part.name,
-                      output: result,
-                    },
-              );
+              return part.isFailure
+                ? {
+                    _tag: "tool-failure",
+                    id: part.id,
+                    name: part.name,
+                    error: result,
+                  }
+                : {
+                    _tag: "tool-success",
+                    id: part.id,
+                    name: part.name,
+                    output: result,
+                  };
             }
             case "error":
               return yield* streamError(yield* displayValue(part.error));
@@ -128,36 +127,42 @@ export const publishChatStream = Effect.fn("AiChatService.publishChatStream")(
           }
         }),
       ),
+      Stream.filter((part) => part !== undefined),
     );
 
-    if (approval !== undefined)
-      return yield* streamError(
-        `Tool call ${approval} requires approval, which this chat does not support.`,
-      );
-    if (pending.size > 0)
-      return yield* streamError(
-        `Tool calls awaiting results: ${[...pending].join(", ")}`,
-      );
-    if (finishReason === "error")
-      return yield* streamError("The model reported an error.");
-    if (finishReason === "pause")
-      return yield* streamError(
-        "The model paused and this chat cannot resume it.",
-      );
-    if (finishReason === "tool-calls" && !sawToolCall)
-      return yield* streamError(
-        "The model finished a tool round without calling a tool.",
-      );
-    if (
-      finishReason === undefined ||
-      (finishReason === "tool-calls" && rounds < maxSteps)
-    ) {
-      return yield* streamError(
-        "The model stream ended without a final finish.",
-      );
-    }
-    const reason =
-      finishReason === "tool-calls" ? ChatStepLimit.reason : finishReason;
-    yield* Queue.offer(queue, { _tag: "finish", reason, usage });
-  },
-);
+    const finish = Effect.gen(function* (): Effect.fn.Return<
+      ChatStreamPart,
+      ChatStreamError
+    > {
+      if (approval !== undefined)
+        return yield* streamError(
+          `Tool call ${approval} requires approval, which this chat does not support.`,
+        );
+      if (pending.size > 0)
+        return yield* streamError(
+          `Tool calls awaiting results: ${[...pending].join(", ")}`,
+        );
+      if (finishReason === "error")
+        return yield* streamError("The model reported an error.");
+      if (finishReason === "pause")
+        return yield* streamError(
+          "The model paused and this chat cannot resume it.",
+        );
+      if (finishReason === "tool-calls" && !sawToolCall)
+        return yield* streamError(
+          "The model finished a tool round without calling a tool.",
+        );
+      if (
+        finishReason === undefined ||
+        (finishReason === "tool-calls" && rounds < maxSteps)
+      ) {
+        return yield* streamError(
+          "The model stream ended without a final finish.",
+        );
+      }
+      const reason =
+        finishReason === "tool-calls" ? ChatStepLimit.reason : finishReason;
+      return { _tag: "finish", reason, usage };
+    });
+    return Stream.concat(events, Stream.fromEffect(finish));
+  });
