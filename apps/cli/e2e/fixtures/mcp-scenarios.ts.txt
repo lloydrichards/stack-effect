@@ -4,7 +4,7 @@ import { ask } from "./src/commands/ask";
 import type { McpPromptSelection } from "@repo/domain/McpPrompt";
 import { strict as assert } from "node:assert";
 import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
-import { McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
+import { LanguageModel, McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { AiChatService, AiChatServiceLive } from "@repo/ai";
 import type { ChatStreamPart } from "@repo/domain/Chat";
@@ -273,24 +273,27 @@ const main = Effect.scoped(Effect.gen(function* () {
   const duplicate = yield* duplicateToolkit.pipe(Effect.provide(duplicateToolkit.toLayer({
     think: ({ thought }) => Effect.succeed(thought),
   })));
+  const { mergeMcpToolkit } = yield* Effect.promise(() => import("./src/mcp/McpTools"));
   const collision = yield* Effect.gen(function* () {
-    const chat = yield* AiChatService;
-    const queue = yield* chat.chat([Prompt.userMessage({ content: [Prompt.textPart({ text: "collision request" })] })], [
-      () => Effect.succeed({ toolkit: duplicate }),
-    ]);
-    return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
-  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
-  assert(collision.some((part) => part._tag === "error"), "duplicate tool names must fail rather than overwrite handlers");
+    const ai = yield* AiChatService;
+    return yield* Effect.flip(mergeMcpToolkit(ai.toolkit, duplicate));
+  }).pipe(Effect.provide(AiChatServiceLive));
+  assert.equal(collision.reason.code, "tool-conflict");
+  assert.equal(collision.reason.source, "think");
   assert.equal(requests.length, 0);
-  assert(collision.some((part) => part._tag === "error" && part.reason?.code === "tool-conflict"));
 
+  scenario = "normal";
+  resetModel();
   const defect = yield* Effect.gen(function* () {
-    const chat = yield* AiChatService;
-    const queue = yield* chat.chat([], [() => Effect.die(new Error("private diagnostic"))]);
-    return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
-  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
+    const ai = yield* AiChatService;
+    const queue = yield* ai.chat("defective request");
+    return yield* Queue.collect(queue);
+  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+    generateText: () => Effect.die("unexpected"),
+    streamText: () => Stream.die(new Error("private diagnostic")),
+  }))));
   assert(defect.some((part) => part._tag === "error" && part.message === "Chat generation failed" && !part.recoverable));
-  assert(!JSON.stringify(defect).includes("private diagnostic"), "diagnostic causes stay out of client events");
+  assert(!JSON.stringify(defect).includes("private diagnostic"));
 
   for (const app of ["cli", "server"] as const) {
     const beforeInit = initialized;

@@ -108,10 +108,11 @@ describe("MCP chat extensions", () => {
                   );
                 }
               }
-              yield* project.writeFile(
-                "packages/ai/src/workflow/ChatTurnExtensions.typecheck.ts",
-                toolTypes,
-              );
+              if (capability === "tools")
+                yield* project.writeFile(
+                  "apps/cli-app/src/mcp/McpTools.typecheck.ts",
+                  toolTypes,
+                );
               yield* project.expectTypeCheckPasses();
               yield* project.writeFile(
                 "packages/ai/src/LanguageModel.ts",

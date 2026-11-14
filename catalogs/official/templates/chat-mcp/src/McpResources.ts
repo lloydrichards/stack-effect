@@ -3,7 +3,7 @@ import { UnsupportedMcpContentError } from "@repo/domain/McpClient";
 import { McpResourceUris } from "@repo/domain/McpResource";
 
 import { Array, Config, Effect, Schema } from "effect";
-import { McpClient, Prompt } from "effect/ai";
+import { McpClient } from "effect/ai";
 
 export const makeMcpResources = Effect.gen(function* () {
   const client = yield* McpClient.McpClient;
@@ -19,15 +19,10 @@ export const makeMcpResources = Effect.gen(function* () {
           const resource = yield* client.readResource({ uri });
           return yield* Effect.forEach(resource.contents, (content) =>
             "text" in content
-              ? Effect.succeed(
-                  Prompt.userMessage({
-                    content: [
-                      Prompt.textPart({
-                        text: `MCP resource ${content.uri}\n${content.text}`,
-                      }),
-                    ],
-                  }),
-                )
+              ? Effect.succeed({
+                  role: "user" as const,
+                  content: `MCP resource ${content.uri}\n${content.text}`,
+                })
               : Effect.fail(
                   new UnsupportedMcpContentError({
                     capability: "resource",
@@ -39,7 +34,7 @@ export const makeMcpResources = Effect.gen(function* () {
           );
         }),
       );
-      return { messages: Array.flatten(messages) };
+      return Array.flatten(messages);
     },
     Effect.mapError(
       (error) =>
