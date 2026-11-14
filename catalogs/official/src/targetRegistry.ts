@@ -411,7 +411,7 @@ export const targetGroup = defineTargets(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "MCP Server Application",
     description:
-      "A Model Context Protocol server with composable tools, prompts, and resources",
+      "A Model Context Protocol server with composable tools, prompts, resources, and agent skills",
     defaultName: "",
     requiredModules: [],
     contributions: [
