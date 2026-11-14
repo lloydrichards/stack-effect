@@ -28,12 +28,18 @@ try {
     cwd: root, env: { ...process.env, MCP_PORT: String(mcpPort), MCP_HOST: "127.0.0.1" },
     stdout: Bun.file(`${root}/mcp-server.log`), stderr: Bun.file(`${root}/mcp-server-errors.log`),
   }); children.push(mcp); await ready(mcpUrl, mcp);
-  const transport = McpClient.layerHttp({ name: "scaffold-review", version: "0.0.0", url: mcpUrl, protocol: McpProtocol.v2026_07_28 }).pipe(Layer.provide(FetchHttpClient.layer));
+  const transport = McpClient.layerHttp({ name: "scaffold-review", version: "0.0.0", url: mcpUrl, protocol: McpProtocol.v2026_07_28, extensions: { skills: true } }).pipe(Layer.provide(FetchHttpClient.layer));
   const capabilities = await Effect.runPromise(Effect.gen(function* () {
     const client = yield* McpClient.McpClient;
     const tools = yield* client.listTools();
     const prompts = yield* client.listPrompts();
     const resources = yield* client.listResources();
+    const skills = yield* client.listSkills();
+    const checklist = skills.find((skill) => skill.frontmatter.name === "workshop-checklist");
+    assert(checklist, "workshop checklist is discoverable");
+    const skill = yield* client.getSkill({ uri: checklist.uri });
+    const instructions = yield* client.readSkillResource({ skill, uri: skill.uri });
+    assert(instructions.contents.some((file) => "text" in file && file.text.includes("List shared supplies separately")));
     return { tools: tools.map((tool) => tool.name), prompts: prompts.map((prompt) => prompt.name), resources: resources.map((resource) => resource.uri) };
   }).pipe(Effect.provide(transport)));
   console.log("CAPABILITIES", JSON.stringify(capabilities));

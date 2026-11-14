@@ -248,4 +248,45 @@ export const mcpModules = defineModules(import.meta.url, [
       },
     ],
   },
+  {
+    id: "mcp-skills",
+    supportedRuntimes: ["bun", "node", "deno"],
+    title: "MCP Skills",
+    description: "Publish agent skills through the MCP server",
+    supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
+    dependencies: [],
+    children: [
+      { moduleId: "mcp-skill-workshop-checklist", requirement: "optional" },
+    ],
+    contributions: [],
+  },
+  {
+    id: "mcp-skill-workshop-checklist",
+    supportedRuntimes: ["bun", "node", "deno"],
+    title: "Workshop Checklist Skill",
+    description:
+      "Teach an agent to prepare a materials checklist for a group workshop",
+    supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/skills/WorkshopChecklistSkill.ts",
+        contents: template(
+          "./mcp-skill-workshop-checklist/src/skills/WorkshopChecklistSkill.ts",
+        ),
+      },
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "McpCapabilities",
+        functionName: "Layer.mergeAll",
+        argument: "WorkshopChecklistSkillLive",
+        import: {
+          moduleSpecifier: "./skills/WorkshopChecklistSkill",
+          namedImports: ["WorkshopChecklistSkillLive"],
+        },
+      },
+    ],
+  },
 ]);

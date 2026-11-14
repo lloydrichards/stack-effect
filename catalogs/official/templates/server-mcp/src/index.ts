@@ -13,7 +13,7 @@ export const McpServerConfig = Config.all({
   ),
 });
 
-// NOTE: Modules append tools, prompts, and resources to this layer.
+// NOTE: Modules append their MCP registrations to this layer.
 const McpCapabilities = Layer.mergeAll(Layer.empty).pipe(
   Layer.satisfiesServicesType<McpServer.McpServer>(),
 );

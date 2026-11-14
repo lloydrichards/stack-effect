@@ -214,7 +214,7 @@ describe("MCP chat extensions", () => {
             "--root",
             cli.workdir,
             "--target",
-            "server-mcp/remote:mcp-prompt-briefing",
+            "server-mcp/remote:mcp-prompt-briefing,mcp-skill-workshop-checklist",
             "--target",
             "server/api:server-chat-mcp-tools,server-chat-mcp-resources,server-chat-mcp-prompts",
             "--yes",
