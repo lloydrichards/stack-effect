@@ -5,6 +5,7 @@ import { FetchHttpClient } from "effect/http";
 import { RpcClient, RpcSerialization } from "effect/rpc";
 import { ChatRpc } from "@repo/domain/ChatRpc";
 import { McpPromptRpc } from "@repo/domain/McpPromptRpc";
+import { workshopChecklist } from "../server-mcp-remote/src/skills/WorkshopChecklistSkill";
 
 const root = new URL("../..", import.meta.url).pathname.replace(/\/$/, "");
 const children: ReturnType<typeof Bun.spawn>[] = [];
@@ -35,14 +36,13 @@ try {
     const prompts = yield* client.listPrompts();
     const resources = yield* client.listResources();
     const skills = yield* client.listSkills();
-    const checklist = skills.find((skill) => skill.frontmatter.name === "workshop-checklist");
+    const checklist = skills.find((skill) => skill.frontmatter.name === workshopChecklist.frontmatter.name);
     assert(checklist, "workshop checklist is discoverable");
-    assert.equal(checklist.frontmatter.license, "MIT");
-    assert.deepEqual(checklist.frontmatter.metadata, { author: "stack-effect", version: "1.0" });
+    assert.deepEqual(checklist.frontmatter, workshopChecklist.frontmatter);
     const skill = yield* client.getSkill({ uri: checklist.uri });
     assert.deepEqual(skill.frontmatter, checklist.frontmatter);
     const instructions = yield* client.readSkillResource({ skill, uri: skill.uri });
-    assert(instructions.contents.some((file) => "text" in file && file.text.includes("List shared supplies separately")));
+    assert(instructions.contents.some((file) => "text" in file && file.text.trimEnd().endsWith(workshopChecklist.instructions)));
     return { tools: tools.map((tool) => tool.name), prompts: prompts.map((prompt) => prompt.name), resources: resources.map((resource) => resource.uri) };
   }).pipe(Effect.provide(transport)));
   console.log("CAPABILITIES", JSON.stringify(capabilities));
