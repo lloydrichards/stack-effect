@@ -41,6 +41,8 @@ export const chatMcpModules = defineModules(
     const target = { kind, name: kind === "server" ? "api" : "app" };
     const runtime =
       kind === "server" ? "runtime/ChatRuntime.ts" : "chat/ChatDriver.ts";
+    const driver = kind === "server" ? "makeChatRuntime" : "makeGenerate";
+    const ai = kind === "server" ? "ai" : "turn.ai";
     const importPath = "../mcp/McpClient";
     const connection = `${kind}-chat-mcp`;
     return [
@@ -132,7 +134,7 @@ export const chatMcpModules = defineModules(
             {
               _tag: "ts-object-field",
               path: `{{targetPath}}/src/${runtime}`,
-              targetVariable: "makeGenerate",
+              targetVariable: driver,
               functionName: "Effect.all",
               field: id === "prompts" ? "prompt" : id,
               value: maker,
@@ -146,10 +148,10 @@ export const chatMcpModules = defineModules(
                   {
                     _tag: "ts-object-field" as const,
                     path: `{{targetPath}}/src/${runtime}`,
-                    targetVariable: "makeGenerate",
-                    functionName: "turn.ai.stream",
+                    targetVariable: driver,
+                    functionName: `${ai}.stream`,
                     field: "toolkit",
-                    value: "yield* turn.tools(turn.ai.toolkit)",
+                    value: `yield* turn.tools(${ai}.toolkit)`,
                     import: {
                       moduleSpecifier: "../mcp/McpTools",
                       namedImports: [maker],
@@ -160,7 +162,7 @@ export const chatMcpModules = defineModules(
                   {
                     _tag: "ts-object-field" as const,
                     path: `{{targetPath}}/src/${runtime}`,
-                    targetVariable: "makeGenerate",
+                    targetVariable: driver,
                     functionName: "chatPrompt",
                     field: id === "prompts" ? "prompt" : "resources",
                     value:

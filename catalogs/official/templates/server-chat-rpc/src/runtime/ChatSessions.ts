@@ -1,3 +1,4 @@
+import { AiChatServiceLive, AiChatService } from "@repo/ai";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ChatId } from "@repo/domain/Chat";
 import {
@@ -5,10 +6,15 @@ import {
   GenerationInProgressError,
 } from "@repo/domain/ChatRpc";
 {{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
-import { Context, Effect, HashMap, Layer, Option, Ref } from "effect";
+import { Context, Effect, HashMap, Layer, Option, Ref, Scope } from "effect";
+
+export const makeSessionAi = Layer.build(Layer.fresh(AiChatServiceLive)).pipe(
+  Effect.map(Context.get(AiChatService)),
+);
 
 type ChatSession = {
   readonly active: boolean;
+  readonly ai: typeof AiChatService.Service;
 };
 
 export class ChatSessions extends Context.Service<ChatSessions>()(
@@ -18,14 +24,14 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
         HashMap.empty(),
       );
+      const scope = yield* Effect.scope;
       const crypto = yield* SecureRandom.SecureRandom;
 
       return {
         start: Effect.gen(function* () {
-          const chatId = ChatId.make(
-            yield* crypto.uuidV4().pipe(Effect.orDie),
-          );
-          const session: ChatSession = { active: false };
+          const chatId = ChatId.make(yield* crypto.uuidV4().pipe(Effect.orDie));
+          const ai = yield* Scope.provide(makeSessionAi, scope);
+          const session: ChatSession = { active: false, ai };
           yield* Ref.update(sessions, HashMap.set(chatId, session));
           return { chatId };
         }),
@@ -45,7 +51,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
               current,
             ): readonly [
               Effect.Effect<
-                void,
+                typeof AiChatService.Service,
                 ChatNotFoundError | GenerationInProgressError
               >,
               HashMap.HashMap<ChatId, ChatSession>,
@@ -63,7 +69,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
                         current,
                       ] as const)
                     : ([
-                        Effect.void,
+                        Effect.succeed(session.ai),
                         HashMap.set(current, chatId, {
                           ...session,
                           active: true,
@@ -84,6 +90,6 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
   },
 ) {}
 
-export const ChatSessionsLive = Layer.effect(ChatSessions)(ChatSessions.make).pipe(
-  Layer.provide(PlatformCryptoLayer),
-);
+export const ChatSessionsLive = Layer.effect(ChatSessions)(
+  ChatSessions.make,
+).pipe(Layer.provide(PlatformCryptoLayer));
