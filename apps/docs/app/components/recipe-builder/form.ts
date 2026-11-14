@@ -237,6 +237,10 @@ export function toRecipePreviewInput(
   return {
     config: new StackConfig({
       ...values.config,
+      monorepo: values.config.monorepo || undefined,
+      lint: values.config.lint || undefined,
+      format: values.config.format || undefined,
+      test: values.config.test || undefined,
       $schema: STACK_CONFIG_SCHEMA_URL,
     }),
     recipe: {

@@ -47,6 +47,23 @@ describe("recipe builder form", () => {
 });
 
 describe("recipe preview input", () => {
+  it("should represent None tooling choices as absent configuration instead of empty module IDs", () => {
+    const input = toRecipePreviewInput({
+      ...initialRecipeBuilderValues,
+      config: {
+        ...initialRecipeBuilderValues.config,
+        monorepo: "",
+        lint: "",
+        format: "",
+        test: "",
+      },
+    });
+    expect(input.config.monorepo).toBeUndefined();
+    expect(input.config.lint).toBeUndefined();
+    expect(input.config.format).toBeUndefined();
+    expect(input.config.test).toBeUndefined();
+  });
+
   const ext = Schema.decodeSync(CustomCatalogSource)({
     name: "ext",
     url: "https://ext.example.test/v1.json",
