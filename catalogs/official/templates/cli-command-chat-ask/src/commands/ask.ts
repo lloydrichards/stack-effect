@@ -1,4 +1,4 @@
-import type { ChatStreamPart } from "@repo/domain/Chat";
+import { ChatStepLimit, type ChatStreamPart } from "@repo/domain/Chat";
 import {
   Console,
   Data,
@@ -83,6 +83,10 @@ const makeAskCommand = <Config extends Command.Command.Config, R>(
                   Stdio.Stdio.use((stdio) =>
                     Stream.make(delta).pipe(Stream.run(stdio.stdout())),
                   ),
+                ),
+                Match.when(
+                  { _tag: "finish", reason: ChatStepLimit.reason },
+                  () => failCommand(ChatStepLimit.message),
                 ),
                 Match.tag("error", ({ message }) => failCommand(message)),
                 Match.orElse(() => Effect.void),

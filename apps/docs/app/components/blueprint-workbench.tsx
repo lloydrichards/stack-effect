@@ -110,7 +110,7 @@ ${bold}- packages/domain (package)${reset}
 ├── ${bold}packages/ai${reset}
 │   ├── ${green}[+]${reset} src/services/AiChatService.ts
 │   ├── ${green}[+]${reset} src/toolkits/ThinkToolkit.ts
-│   ╰── ${green}[+]${reset} src/workflow/AgenticLoop.ts
+│   ╰── ${green}[+]${reset} src/workflow/ChatTurnExtensions.ts
 ├── ${bold}packages/domain${reset}
 │   ├── ${green}[+]${reset} src/Api.ts
 │   ├── ${green}[+]${reset} src/Chat.ts
@@ -165,7 +165,7 @@ ${bold}- packages/domain (package)${reset}
 ├── ${bold}packages/ai${reset}
 │   ├── ${green}[+]${reset} src/services/AiChatService.ts
 │   ├── ${green}[+]${reset} src/toolkits/ThinkToolkit.ts
-│   ╰── ${green}[+]${reset} src/workflow/AgenticLoop.ts
+│   ╰── ${green}[+]${reset} src/workflow/ChatTurnExtensions.ts
 ├── ${bold}packages/domain${reset}
 │   ├── ${green}[+]${reset} src/Chat.ts
 │   ╰── ${green}[+]${reset} src/ChatRpc.ts

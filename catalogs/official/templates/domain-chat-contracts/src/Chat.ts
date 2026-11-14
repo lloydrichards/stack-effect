@@ -24,6 +24,11 @@ export class ChatPreparationError extends Schema.TaggedError<ChatPreparationErro
   }
 }
 
+export const ChatStepLimit = {
+  reason: "max-iterations",
+  message: "Chat reached its model round limit.",
+} as const;
+
 export const ChatStreamPart = Schema.TaggedUnion({
   text: {
     delta: Schema.String,

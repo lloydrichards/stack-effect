@@ -1,13 +1,19 @@
-import { ChatStreamPart } from "@repo/domain/Chat";
+import {
+  ChatStepLimit,
+  type ChatStreamPart,
+  type UsageMetadata,
+} from "@repo/domain/Chat";
 import {
   type Cause,
+  Data,
   Effect,
   Inspectable,
   Queue,
   Schema,
   SchemaGetter,
-  String,
+  Stream,
 } from "effect";
+import type { Response } from "effect/ai";
 
 const JsonString = Schema.String.pipe(
   Schema.decodeTo(Schema.Unknown, {
@@ -16,142 +22,142 @@ const JsonString = Schema.String.pipe(
   }),
 );
 
-const stringifyJson = (value: unknown) =>
-  Schema.encodeUnknownEffect(JsonString)(value).pipe(
-    Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
-  );
+const displayValue = (value: unknown) =>
+  typeof value === "string"
+    ? Effect.succeed(value)
+    : Schema.encodeUnknownEffect(JsonString)(value).pipe(
+        Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
+      );
 
-const stringifyValue = (value: unknown) =>
-  typeof value === "string" ? Effect.succeed(value) : stringifyJson(value);
+class ChatStreamError extends Data.TaggedError("ChatStreamError")<{
+  readonly message: string;
+}> {}
 
-const optionalNonEmpty = (value: string) => {
-  const input = String.trim(value);
-  return String.isEmpty(input) ? {} : { input };
-};
+const streamError = (message: string) =>
+  Effect.fail(new ChatStreamError({ message }));
 
-type ToolStart = {
-  id: string;
-  name: string;
-  input?: string;
-  params?: unknown;
-};
+export const publishChatStream = Effect.fn("AiChatService.publishChatStream")(
+  function* <E, R>(
+    parts: Stream.Stream<Response.AnyPart, E, R>,
+    queue: Queue.Queue<ChatStreamPart, Cause.Done>,
+    maxSteps: number,
+  ) {
+    let rounds = 0;
+    let finishReason: Response.FinishReason | undefined;
+    let approval: string | undefined;
+    let usage: UsageMetadata | undefined = {
+      promptTokens: 0,
+      completionTokens: 0,
+      totalTokens: 0,
+    };
+    const pending = new Set<string>();
+    let sawToolCall = false;
 
-type ToolResult = {
-  id: string;
-  name: string;
-  result: unknown;
-  isFailure: boolean;
-};
+    yield* parts.pipe(
+      Stream.runForEach((part) =>
+        Effect.gen(function* () {
+          if (finishReason !== undefined) {
+            // Each native round ends with a finish, including intermediate tool rounds.
+            sawToolCall = false;
+            finishReason = undefined;
+          }
+          switch (part.type) {
+            case "text-delta":
+              return yield* Queue.offer(queue, {
+                _tag: "text",
+                delta: part.delta,
+              });
+            case "tool-call": {
+              pending.add(part.id);
+              sawToolCall = true;
+              const input =
+                part.params === undefined
+                  ? ""
+                  : (yield* displayValue(part.params)).trim();
+              return yield* Queue.offer(queue, {
+                _tag: "tool-start",
+                id: part.id,
+                name: part.name,
+                ...(input ? { input } : {}),
+              });
+            }
+            case "tool-result": {
+              if (part.preliminary) return;
+              pending.delete(part.id);
+              const result = yield* displayValue(part.result);
+              return yield* Queue.offer(
+                queue,
+                part.isFailure
+                  ? {
+                      _tag: "tool-failure",
+                      id: part.id,
+                      name: part.name,
+                      error: result,
+                    }
+                  : {
+                      _tag: "tool-success",
+                      id: part.id,
+                      name: part.name,
+                      output: result,
+                    },
+              );
+            }
+            case "error":
+              return yield* streamError(yield* displayValue(part.error));
+            case "tool-approval-request":
+              approval = part.toolCallId;
+              return;
+            case "finish": {
+              rounds++;
+              const input = part.usage.inputTokens.total;
+              const output = part.usage.outputTokens.total;
+              usage =
+                usage && input !== undefined && output !== undefined
+                  ? {
+                      promptTokens: usage.promptTokens + input,
+                      completionTokens: usage.completionTokens + output,
+                      totalTokens: usage.totalTokens + input + output,
+                    }
+                  : undefined;
 
-const toolStartInput = (part: ToolStart) => {
-  if (part.input !== undefined) {
-    return Effect.succeed(part.input);
-  }
-
-  if (part.params === undefined) {
-    return Effect.succeed("");
-  }
-
-  return stringifyValue(part.params);
-};
-
-/**
- * MailboxEvents - Typed event emitter for ChatStreamPart
- * Provides high-level methods for common event patterns to eliminate boilerplate
- */
-export const createMailboxEvents = (
-  queue: Queue.Queue<ChatStreamPart, Cause.Done>,
-) =>
-  ({
-    text: (delta: string) =>
-      Queue.offer(queue, ChatStreamPart.cases.text.make({ delta })),
-    reasoning: (delta: string) =>
-      Queue.offer(queue, ChatStreamPart.cases.reasoning.make({ delta })),
-    toolStart: (part: ToolStart) =>
-      Effect.gen(function* () {
-        const input = yield* toolStartInput(part);
-
-        yield* Queue.offer(
-          queue,
-          ChatStreamPart.cases["tool-start"].make({
-            id: part.id,
-            name: part.name,
-            ...optionalNonEmpty(input),
-          }),
-        );
-      }),
-    toolResult: (part: ToolResult) =>
-      Effect.gen(function* () {
-        const result = yield* stringifyValue(part.result);
-
-        if (part.isFailure) {
-          yield* Queue.offer(
-            queue,
-            ChatStreamPart.cases["tool-failure"].make({
-              id: part.id,
-              name: part.name,
-              error: result,
-            }),
-          );
-          return;
-        }
-
-        yield* Queue.offer(
-          queue,
-          ChatStreamPart.cases["tool-success"].make({
-            id: part.id,
-            name: part.name,
-            output: result,
-          }),
-        );
-      }),
-    toolSuccess: (id: string, params: { name: string; output: string }) =>
-      Queue.offer(
-        queue,
-        ChatStreamPart.cases["tool-success"].make({
-          id,
-          name: params.name,
-          output: params.output,
+              finishReason = part.reason;
+              return;
+            }
+            default:
+              return;
+          }
         }),
       ),
-    toolFailure: (id: string, params: { name: string; error: string }) =>
-      Queue.offer(
-        queue,
-        ChatStreamPart.cases["tool-failure"].make({
-          id,
-          name: params.name,
-          error: params.error,
-        }),
-      ),
-    finish: (
-      reason: string,
-      usage?: {
-        promptTokens: number;
-        completionTokens: number;
-        totalTokens: number;
-      },
-    ) =>
-      Queue.offer(
-        queue,
-        ChatStreamPart.cases.finish.make({
-          reason,
-          ...(usage === undefined ? {} : { usage }),
-        }),
-      ),
-    error: (message: string, recoverable = false) =>
-      Queue.offer(
-        queue,
-        ChatStreamPart.cases.error.make({ message, recoverable }),
-      ),
-    unknownError: (error: unknown, recoverable = false) =>
-      Effect.gen(function* () {
-        const message =
-          typeof error === "string" ? error : yield* stringifyValue(error);
+    );
 
-        yield* Queue.offer(
-          queue,
-          ChatStreamPart.cases.error.make({ message, recoverable }),
-        );
-      }),
-    end: Queue.end(queue),
-  }) as const;
+    if (approval !== undefined)
+      return yield* streamError(
+        `Tool call ${approval} requires approval, which this chat does not support.`,
+      );
+    if (pending.size > 0)
+      return yield* streamError(
+        `Tool calls awaiting results: ${[...pending].join(", ")}`,
+      );
+    if (finishReason === "error")
+      return yield* streamError("The model reported an error.");
+    if (finishReason === "pause")
+      return yield* streamError(
+        "The model paused and this chat cannot resume it.",
+      );
+    if (finishReason === "tool-calls" && !sawToolCall)
+      return yield* streamError(
+        "The model finished a tool round without calling a tool.",
+      );
+    if (
+      finishReason === undefined ||
+      (finishReason === "tool-calls" && rounds < maxSteps)
+    ) {
+      return yield* streamError(
+        "The model stream ended without a final finish.",
+      );
+    }
+    const reason =
+      finishReason === "tool-calls" ? ChatStepLimit.reason : finishReason;
+    yield* Queue.offer(queue, { _tag: "finish", reason, usage });
+  },
+);

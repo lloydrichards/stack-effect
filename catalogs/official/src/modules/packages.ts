@@ -620,13 +620,6 @@ export const packageModules = defineModules(import.meta.url, [
         ),
       },
       {
-        _tag: "file",
-        path: "{{targetPath}}/src/workflow/AgenticLoop.ts",
-        contents: template(
-          "./package-ai-chat-service/src/workflow/AgenticLoop.ts",
-        ),
-      },
-      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
@@ -637,11 +630,6 @@ export const packageModules = defineModules(import.meta.url, [
         _tag: "barrel-export",
         barrelPath: "{{targetPath}}/src/index.ts",
         exportPath: "./services/AiChatService",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./workflow/AgenticLoop",
       },
     ],
   },
