@@ -257,9 +257,9 @@ const generatedModuleExpectations: Readonly<
                   ? "apps/server-api/src/runtime/ChatRuntime.ts"
                   : "apps/cli-app/src/chat/ChatDriver.ts",
               pattern: {
-                tools: "makeMcpTools",
+                tools: "readMcpToolkit",
                 resources: "makeMcpResources",
-                prompts: "makeMcpPromptPreparation",
+                prompts: "readMcpPrompt",
               }[capability],
             },
           ],

@@ -59,26 +59,11 @@ describe("moduleRegistry", () => {
         if (capability === "prompts") {
           expect(child?.contributions).toContainEqual(
             expect.objectContaining({
-              _tag: "ts-call-arg",
-              targetVariable: "ChatTurnPreparations",
-              argument: "makeMcpPromptPreparation",
-            }),
-          );
-          expect(child?.contributions).toContainEqual(
-            expect.objectContaining({
               _tag: "file",
               path:
                 kind === "cli"
                   ? "{{targetPath}}/src/mcp/McpPromptOptions.ts"
                   : "{{targetPath}}/src/rpc/Prompt.ts",
-            }),
-          );
-        } else {
-          expect(child?.contributions).toContainEqual(
-            expect.objectContaining({
-              _tag: "ts-call-arg",
-              targetVariable: "ChatTurnPreparations",
-              functionName: "Effect.all",
             }),
           );
         }

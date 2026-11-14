@@ -48,10 +48,10 @@ Server apps expose `prompts_list` on `/chat-prompts-rpc`. Pass the selection in 
 }
 ```
 
-`chat_ask` and managed `chat_send` forward options to the app's preparations. Managed chat still requires its message field. Selection is local to that request; subsequent requests do not reuse it. A server without the Prompts module rejects prompt options even when another app shares its domain schemas.
+`chat_ask` and managed `chat_send` forward options to the app's chat runtime. Managed chat still requires its message field. Selection is local to that request; subsequent requests do not reuse it. A server without the Prompts module rejects prompt options even when another app shares its domain schemas.
 
 ## Customize the integration
 
-`ChatTurnOptions` defines the request fields. Each app's chat driver or runtime declares its supported option keys, preparation factories, and dependency layers. Optional modules register at these named composition points. Their behavior lives in feature-owned files.
+`ChatTurnOptions` defines the request fields. The generated chat driver or runtime validates the options, builds the prompt, and passes it to chat. When selected, MCP tools are discovered once per request and combined with the local toolkit. Duplicate tool names fail before generation.
 
 CLI commands use `ChatCommandConfiguration` for typed flags and actions, and `ChatCommandDependencies` for command-scoped services. Prompt discovery and rendering live in `McpPrompts`; the generic chat runtime has no prompt discovery methods.

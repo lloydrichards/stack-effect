@@ -1,5 +1,4 @@
 import { ChatPreparationError } from "@repo/domain/Chat";
-import type { ChatTurnOptions } from "@repo/domain/ChatTurnOptions";
 import { UnsupportedMcpContentError } from "@repo/domain/McpClient";
 import {
   McpPromptDescriptor,
@@ -8,7 +7,7 @@ import {
   McpPromptSelectionError,
 } from "@repo/domain/McpPrompt";
 import { Context, type Duration, Effect, Layer, Schema } from "effect";
-import { McpClient, type McpClientError, Prompt } from "effect/ai";
+import { McpClient, type McpClientError } from "effect/ai";
 import { McpClientLive } from "./McpClient";
 
 export interface McpPromptsShape {
@@ -96,13 +95,13 @@ export const McpPromptsLive = Layer.effect(McpPrompts)(makeMcpPrompts).pipe(
   Layer.provide(McpClientLive),
 );
 
-export const makeMcpPromptPreparation = Effect.gen(function* () {
+export const readMcpPrompt = Effect.gen(function* () {
   const prompts = yield* McpPrompts;
   return Effect.fn("McpPrompts.prepareTurn")(function* (
-    options: ChatTurnOptions,
+    selection?: McpPromptSelection,
   ) {
-    if (options.prompt === undefined) return { inputMessages: [] };
-    const messages = yield* prompts.render(options.prompt).pipe(
+    if (selection === undefined) return [];
+    return yield* prompts.render(selection).pipe(
       Effect.mapError(
         (error) =>
           new ChatPreparationError({
@@ -115,21 +114,10 @@ export const makeMcpPromptPreparation = Effect.gen(function* () {
                     ? "unsupported-content"
                     : "remote-failure",
               message: error.message,
-              source: options.prompt?.name,
+              source: selection.name,
             },
           }),
       ),
     );
-    return {
-      inputMessages: messages.map((message) =>
-        message.role === "user"
-          ? Prompt.userMessage({
-              content: [Prompt.textPart({ text: message.content })],
-            })
-          : Prompt.assistantMessage({
-              content: [Prompt.textPart({ text: message.content })],
-            }),
-      ),
-    };
   });
 });

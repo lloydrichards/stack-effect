@@ -32,7 +32,7 @@ const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) =>
       confirm: () => Effect.die("An unapproved tool ran"),
     })));
     const service = yield* AiChatService;
-    const queue = yield* service.chat([], [() => Effect.succeed({ toolkit })]);
+    const queue = yield* service.chat([], toolkit);
     const parts = yield* Queue.collect(queue);
     return { requests, executions, parts };
   }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(provider));

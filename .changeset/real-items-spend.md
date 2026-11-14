@@ -15,4 +15,6 @@ Adding Foldkit RPC, presence, or chat modules now reports a dependency conflict 
 
 Generated AI chat now uses Effect's bounded `Chat.streamText` loop. Each tool call produces one start event, and a completed generation reports usage across all rounds when the provider supplies it. Clients receive a `max-iterations` finish after 12 consecutive tool rounds.
 
-When adopting the new templates in an existing app, migrate custom `AgenticLoopService` callers to `AiChatService.chat` for catalog events or `session.streamText({ prompt: [], toolkit, maxSteps })` for native Effect parts. Guard a zero-step budget before calling Effect if your caller allows it. Remove the old service Layer, its barrel export and `workflow/AgenticLoop.ts` after migrating the last import. `stack-effect add` leaves obsolete files in place.
+For existing apps, move custom `AgenticLoopService` callers to `AiChatService.chat` for catalog events or `session.streamText({ prompt, toolkit, maxSteps })` for native Effect parts. If your caller accepts a zero-step budget, handle it before calling Effect.
+
+Replace `ChatTurnExtension` callbacks with an explicit prompt and, when needed, a bound toolkit passed to `chat(prompt, toolkit)`. Update your chat driver or runtime before adding more MCP modules. Once callers have migrated, remove the old service Layer, the `AgenticLoop.ts` and `ChatTurnExtensions.ts` files, and their barrel exports. `stack-effect add` leaves obsolete files in place.

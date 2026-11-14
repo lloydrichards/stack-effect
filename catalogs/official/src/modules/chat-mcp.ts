@@ -5,8 +5,8 @@ const capabilities = [
   {
     id: "tools",
     title: "MCP Tools",
-    description: "Add remote tools to the existing agentic loop",
-    maker: "makeMcpTools",
+    description: "Use local and remote tools in the same chat turn",
+    maker: "readMcpToolkit",
     file: "McpTools.ts",
   },
   {
@@ -20,7 +20,7 @@ const capabilities = [
     id: "prompts",
     title: "MCP Prompts",
     description: "Add a selected remote prompt and its arguments to chat",
-    maker: "makeMcpPrompts",
+    maker: "readMcpPrompt",
     file: "McpPrompts.ts",
   },
 ] as const;
@@ -129,19 +129,51 @@ export const chatMcpModules = defineModules(
               path: `{{targetPath}}/src/mcp/${file}`,
               contents: template(`./chat-mcp/src/${file}`),
             },
-            ...(id === "prompts"
+            {
+              _tag: "ts-object-field",
+              path: `{{targetPath}}/src/${runtime}`,
+              targetVariable: "makeGenerate",
+              functionName: "Effect.all",
+              field: id === "prompts" ? "prompt" : id,
+              value: maker,
+              import: {
+                moduleSpecifier: `../mcp/${file.replace(".ts", "")}`,
+                namedImports: [maker],
+              },
+            },
+            ...(id === "tools"
               ? [
                   {
                     _tag: "ts-call-arg" as const,
                     path: `{{targetPath}}/src/${runtime}`,
-                    targetVariable: "ChatTurnPreparations",
-                    functionName: "Effect.all",
-                    argument: "makeMcpPromptPreparation",
+                    targetVariable: "makeGenerate",
+                    functionName: "turn.ai.chat",
+                    argument: "yield* turn.tools(turn.ai.toolkit)",
                     import: {
-                      moduleSpecifier: `../mcp/McpPrompts`,
-                      namedImports: ["makeMcpPromptPreparation"],
+                      moduleSpecifier: "../mcp/McpTools",
+                      namedImports: [maker],
                     },
                   },
+                ]
+              : [
+                  {
+                    _tag: "ts-object-field" as const,
+                    path: `{{targetPath}}/src/${runtime}`,
+                    targetVariable: "makeGenerate",
+                    functionName: "chatPrompt",
+                    field: id === "prompts" ? "prompt" : "resources",
+                    value:
+                      id === "prompts"
+                        ? "yield* turn.prompt(options.prompt)"
+                        : "yield* turn.resources()",
+                    import: {
+                      moduleSpecifier: `../mcp/${file.replace(".ts", "")}`,
+                      namedImports: [maker],
+                    },
+                  },
+                ]),
+            ...(id === "prompts"
+              ? [
                   {
                     _tag: "ts-call-arg" as const,
                     path: `{{targetPath}}/src/${runtime}`,
@@ -164,7 +196,7 @@ export const chatMcpModules = defineModules(
                     argument: '"prompt"',
                     import: {
                       moduleSpecifier: `../mcp/McpPrompts`,
-                      namedImports: ["makeMcpPromptPreparation"],
+                      namedImports: [maker],
                     },
                   },
                 ]
@@ -223,19 +255,7 @@ export const chatMcpModules = defineModules(
                       },
                     },
                   ]
-              : [
-                  {
-                    _tag: "ts-call-arg" as const,
-                    path: `{{targetPath}}/src/${runtime}`,
-                    targetVariable: "ChatTurnPreparations",
-                    functionName: "Effect.all",
-                    argument: maker,
-                    import: {
-                      moduleSpecifier: `../mcp/${file.replace(".ts", "")}`,
-                      namedImports: [maker],
-                    },
-                  },
-                ]),
+              : []),
           ],
         }),
       ),

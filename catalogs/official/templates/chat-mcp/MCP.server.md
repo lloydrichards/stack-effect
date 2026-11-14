@@ -1,6 +1,6 @@
 # Use MCP in server chat
 
-The server owns one HTTP MCP connection. Tools, Resources, and Prompts extend the existing chat loop through the named preparations and dependency layers in `src/runtime/ChatRuntime.ts`.
+The server owns one HTTP MCP connection. The selected modules supply a toolkit or messages to each turn in `src/runtime/ChatRuntime.ts`.
 
 ## Run the paired example
 
