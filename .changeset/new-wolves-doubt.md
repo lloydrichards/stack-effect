@@ -2,4 +2,4 @@
 "stack-effect": minor
 ---
 
-Generated MCP servers can publish agent skills. Select `mcp-skill-workshop-checklist` to serve an example through the MCP Skills extension.
+Select `mcp-skills` to author skills with `Skill.make({ frontmatter, instructions, files })` and publish them from a generated MCP server. Select `mcp-skill-workshop-checklist` for an example with a supporting Markdown file.
