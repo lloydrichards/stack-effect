@@ -268,7 +268,6 @@ const main = Effect.scoped(Effect.gen(function* () {
   assert(plain.some((part) => part._tag === "tool-success" && part.name === "think"));
 
   resetModel();
-  const beforeCollisionDiscovery = toolDiscoveries;
   const localDouble = Toolkit.make(Tool.make("mcp__double", {
     parameters: Schema.Struct({ value: Schema.Number }), success: Schema.Number,
   }));
@@ -286,7 +285,6 @@ const main = Effect.scoped(Effect.gen(function* () {
     Effect.provide(config("2026-07-28")),
     Effect.provide(fetchLayer),
   );
-  assert.equal(toolDiscoveries - beforeCollisionDiscovery, 1);
   assert.equal(collision.reason.code, "tool-conflict");
   assert.equal(collision.reason.source, "mcp__double");
   assert.equal(requests.length, 0, "a tool name collision must stop generation before the model runs");

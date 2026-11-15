@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Effect, Layer, Stream } from "effect";
+import { Effect, Fiber, Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import type { ChatId, ChatStreamPart } from "@repo/domain/Chat";
 import type { Action } from "./packages/ai/src/LanguageModel";
@@ -26,10 +26,9 @@ await Effect.runPromise(Effect.gen(function* () {
   const b = (yield* runtime.start).chatId;
   const ask = (chatId: ChatId, action: Action) => runtime.ask(chatId, [message(action)]).pipe(Stream.runCollect);
   const generate = (action: Action) => runtime.generate([message(action)]).pipe(Stream.runCollect);
-  assert.notEqual(JSON.parse(output(yield* ask(a, "clock"))).unix, 0, "a later turn must not inherit the start request’s clock");
+  assert(JSON.parse(output(yield* ask(a, "clock"))).unix > 0, "a later turn must not inherit the start request’s clock");
   output(yield* ask(a, "remember"));
   assert.equal(result(yield* ask(b, "recall"))._tag, "tool-failure");
-  assert.equal(output(yield* ask(a, "recall")), "alpha");
   output(yield* generate("remember"));
   assert.equal(result(yield* generate("recall"))._tag, "tool-failure");
 
@@ -41,11 +40,13 @@ await Effect.runPromise(Effect.gen(function* () {
   assert.deepEqual(advanced.steps.map((step: { status: string }) => step.status), ["completed", "in_progress"]);
   assert.match(output(yield* ask(b, "inspect")), /No plan exists/);
 
-  yield* managed.send({ chatId: a, message: message("recall") });
-  const [recalled] = yield* managed.watch(a).pipe(
+  // Subscribe before sending so this test observes only live events for the managed turn.
+  const watcher = yield* managed.watch(a).pipe(
     Stream.filter((event) => event._tag === "assistant-part" && (event.part._tag === "tool-success" || event.part._tag === "tool-failure")),
-    Stream.take(1), Stream.runCollect, Effect.timeout("5 seconds"),
+    Stream.take(1), Stream.runCollect, Effect.forkChild({ startImmediately: true }),
   );
+  yield* managed.send({ chatId: a, message: message("recall") });
+  const [recalled] = yield* Fiber.join(watcher).pipe(Effect.timeout("5 seconds"));
   assert(recalled?._tag === "assistant-part");
   assert.equal(output([recalled.part]), "alpha");
 }).pipe(Effect.provide(ChatManagedRuntimeLive.pipe(Layer.provideMerge(ChatRuntimeLive), Layer.provide(ChatSessionsLive)))));

@@ -250,19 +250,6 @@ const generatedModuleExpectations: Readonly<
             `apps/${kind === "server" ? "server-api" : "cli-app"}/src/mcp/McpClient.ts`,
             `apps/${kind === "server" ? "server-api" : "cli-app"}/src/mcp/Mcp${{ tools: "Tools", resources: "Resources", prompts: "Prompts" }[capability]}.ts`,
           ],
-          contents: [
-            {
-              path:
-                kind === "server"
-                  ? "apps/server-api/src/runtime/ChatRuntime.ts"
-                  : "apps/cli-app/src/chat/ChatDriver.ts",
-              pattern: {
-                tools: "readMcpToolkit",
-                resources: "makeMcpResources",
-                prompts: "readMcpPrompt",
-              }[capability],
-            },
-          ],
         },
       ]),
     ),

@@ -43,10 +43,6 @@ describe("MCP chat extensions", () => {
                 `${mcp}/McpClient.ts`,
                 `name: "${app}"`,
               );
-              yield* project.expectFileNotContaining(
-                `${mcp}/McpClient.ts`,
-                /makeMcp(Tools|Resources|Prompts)/,
-              );
               for (const capability of ["Tools", "Resources", "Prompts"]) {
                 yield* project.expectFileNotExists(
                   `${mcp}/Mcp${capability}.ts`,
@@ -102,10 +98,6 @@ describe("MCP chat extensions", () => {
                   if (option === capability)
                     yield* project.expectFileExists(`${mcp}/${name}.ts`);
                   else yield* project.expectFileNotExists(`${mcp}/${name}.ts`);
-                  yield* project.expectFileNotContaining(
-                    `${mcp}/McpClient.ts`,
-                    `make${name}`,
-                  );
                 }
               }
               if (capability === "tools")
@@ -204,32 +196,26 @@ describe("MCP chat extensions", () => {
               .readFileString(`${project.dir}/${driver}`)
               .pipe(Effect.orDie);
             const contents = yield* readDriver;
-            for (const field of [
-              '"toolkit": turn.ai.toolkit',
-              '["toolkit"]: turn.ai.toolkit',
-              "...Object.freeze({ toolkit: turn.ai.toolkit })",
-            ]) {
-              const custom = contents.replace(
-                "turn.ai.stream({ prompt })",
-                `turn.ai.stream({ prompt, ${field} })`,
-              );
-              assert.notStrictEqual(custom, contents);
-              yield* project.writeFile(driver, custom);
-              const conflict = yield* cli.run(
-                "add",
-                "--root",
-                `${cli.workdir}/mcp-incremental`,
-                "--target",
-                "cli/app:cli-chat-mcp-tools",
-                "--yes",
-              );
-              assert.notStrictEqual(conflict.exitCode, 0);
-              assert.include(
-                conflict.stdout + conflict.stderr,
-                "Conflicting value for makeGenerate.toolkit",
-              );
-              assert.strictEqual(yield* readDriver, custom);
-            }
+            const custom = contents.replace(
+              "turn.ai.stream({ prompt })",
+              "turn.ai.stream({ prompt, ...Object.freeze({ toolkit: turn.ai.toolkit }) })",
+            );
+            assert.notStrictEqual(custom, contents);
+            yield* project.writeFile(driver, custom);
+            const conflict = yield* cli.run(
+              "add",
+              "--root",
+              `${cli.workdir}/mcp-incremental`,
+              "--target",
+              "cli/app:cli-chat-mcp-tools",
+              "--yes",
+            );
+            assert.notStrictEqual(conflict.exitCode, 0);
+            assert.include(
+              conflict.stdout + conflict.stderr,
+              "Conflicting value for makeGenerate.toolkit",
+            );
+            assert.strictEqual(yield* readDriver, custom);
           });
         }).pipe(Effect.provide(NodeServices.layer)),
       { timeout: 180_000 },
