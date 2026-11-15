@@ -1,9 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { Schema } from "effect";
+import { assert, describe, expect, it } from "vitest";
 import {
   decodeRecipeBuilderUrl,
   encodeRecipeBuilderUrl,
 } from "../../../app/components/recipe-builder/recipe-builder-url";
-import { fullStackRecipeFixture } from "./recipe-fixtures";
+import { toggleTargetModule } from "../../../app/components/recipe-builder/target-selector/state";
+import { CatalogModule } from "../../../app/workers/recipe-builder/domain";
+import {
+  clientModuleFixture,
+  clientTargetFixture,
+  recipeCatalogFixture,
+  fullStackRecipeFixture,
+} from "./recipe-fixtures";
 
 describe("recipe builder URL", () => {
   it("restores which target and module brought in a dependency", () => {
@@ -36,6 +44,52 @@ describe("recipe builder URL", () => {
     });
     expect(decoded.initialValues.supportSelections).toEqual([]);
   });
+
+  it.each([false, true])(
+    "restores same-target implications and removes only automatically added modules (already selected: %s)",
+    (alreadySelected) => {
+      const implied = "client-react-http-api-todos";
+      const source = Schema.decodeUnknownSync(CatalogModule)({
+        ...clientModuleFixture,
+        implies: [{ targetKind: clientTargetFixture.kind, moduleId: implied }],
+      });
+      const target = {
+        ...clientTargetFixture,
+        modules: [
+          ...clientTargetFixture.modules,
+          ...(alreadySelected ? [implied] : []),
+        ],
+      };
+      const toggle = (current: typeof clientTargetFixture) =>
+        toggleTargetModule(
+          [current],
+          current,
+          source,
+          [source],
+          recipeCatalogFixture,
+          () => 1,
+        );
+      const encoded = encodeRecipeBuilderUrl({
+        ...fullStackRecipeFixture,
+        targets: toggle(target),
+      });
+      const decoded = decodeRecipeBuilderUrl(encoded);
+      expect(decoded.issue).toBeUndefined();
+      const [restored] = decoded.initialValues.targets;
+      assert.isDefined(restored);
+      expect(restored.requirements).toEqual([
+        {
+          sourceTargetId: restored.id,
+          sourceModuleId: source.id,
+          moduleId: implied,
+          addedModule: !alreadySelected,
+        },
+      ]);
+      expect(toggle(restored)).toMatchObject([
+        { modules: target.modules, requirements: [] },
+      ]);
+    },
+  );
 
   it("round trips Deno with its own package manager", () => {
     const values = {
