@@ -405,7 +405,18 @@ export function retainCatalogSupportSelections(
   };
 }
 
-function nextTargetName(
+export function publicRootModules<
+  T extends Pick<typeof CatalogModule.Type, "id" | "visibility" | "children">,
+>(modules: ReadonlyArray<T>) {
+  const childIds = new Set(
+    modules.flatMap((module) => module.children.map((child) => child.moduleId)),
+  );
+  return modules.filter(
+    (module) => module.visibility === "public" && !childIds.has(module.id),
+  );
+}
+
+export function nextTargetName(
   baseName: string,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
   kind: string,

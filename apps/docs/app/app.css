@@ -190,3 +190,41 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+/* Each elbow ends at the middle of its row, including wrapped labels. */
+.module-tree > li {
+  --branch-indent: 1rem;
+  position: relative;
+  padding-inline-start: var(--branch-indent);
+}
+.module-tree > li:not(:last-child)::before,
+.module-tree > li > .module-row::before {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  border-inline-start: 1px solid var(--border);
+}
+.module-tree > li:not(:last-child)::before {
+  inset-block: 0;
+  inset-inline-start: 0;
+}
+.module-tree > li > .module-row::before {
+  inset-inline-start: calc(-1 * var(--branch-indent));
+  inset-block: 0 50%;
+  width: calc(var(--branch-indent) - 0.2rem);
+  border-block-end: 1px solid var(--border);
+}
+
+@media (hover: hover) and (pointer: fine) and (not (any-pointer: coarse)) {
+  .module-row:not(:hover, :focus-within)
+    > .module-details-trigger:not([aria-expanded="true"]) {
+    opacity: 0;
+  }
+}
+
+@media (any-pointer: coarse) {
+  .module-details-trigger {
+    width: 2.75rem;
+    min-height: 2rem;
+  }
+}

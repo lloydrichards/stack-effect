@@ -1,9 +1,8 @@
 "use client";
 
-import type { RecipePreview } from "@repo/scaffold/recipe-preview";
 import { Option } from "effect";
 import { AsyncResult } from "effect/reactivity";
-import { FileCode2 } from "lucide-react";
+import { ChevronDown, FileCode2 } from "lucide-react";
 import { type CSSProperties, useId, useMemo, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
 import {
@@ -24,28 +23,48 @@ import type {
   SyntaxToken,
 } from "../../lib/syntax-highlighter";
 import { useRecipeBuilderPreview } from "./recipe-builder-context";
+import {
+  compareFiles,
+  fileTree,
+  type Files,
+  type FileChange,
+} from "./repository-files";
 import { useHighlightedSource } from "./use-highlighted-source";
 import type { RecipeBuilderWorkerModel } from "./use-recipe-builder-worker";
 
-export function RepositoryExplorer() {
+export function RepositoryExplorer({
+  activeFolder,
+}: {
+  activeFolder?: string | undefined;
+}) {
   const { canPreview, previewResult } = useRecipeBuilderPreview();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
-  const files = preview?.files ?? [];
+  const files = preview?.files;
+  const [snapshot, setSnapshot] = useState<{
+    files: Files | undefined;
+    changes: FileChange[];
+  }>({ files, changes: [] });
+  if (
+    files &&
+    files !== snapshot.files &&
+    AsyncResult.isSuccess(previewResult) &&
+    !previewResult.waiting
+  ) {
+    const changes = snapshot.files ? compareFiles(snapshot.files, files) : [];
+    setSnapshot({
+      files,
+      changes: changes.length ? changes : snapshot.changes,
+    });
+  }
   return (
     <DisclosurePanel
       title="Generated repository"
-      description={
-        <>
-          <span className="sm:hidden">Browse generated files and source.</span>
-          <span className="hidden sm:inline">
-            Actual output from ApplyPreviewService running on MemoryFileSystem.
-          </span>
-        </>
-      }
       meta={
-        <span className="font-mono text-xs text-muted-foreground">
-          {files.length} {files.length === 1 ? "file" : "files"}
-        </span>
+        files && (
+          <span className="font-mono text-xs text-muted-foreground">
+            {files.length} {files.length === 1 ? "file" : "files"}
+          </span>
+        )
       }
       defaultOpen
       keepMounted
@@ -64,33 +83,110 @@ export function RepositoryExplorer() {
             {previewStatusMessage(previewResult, canPreview)}
           </EmptyDescription>
         </Empty>
-      ) : files.length === 0 ? (
-        <Empty className="min-h-80">
-          <EmptyMedia variant="icon">
-            <FileCode2 />
-          </EmptyMedia>
-          <EmptyDescription>
-            The preview completed without generating any files.
-          </EmptyDescription>
-        </Empty>
+      ) : !files?.length ? (
+        <>
+          {files && <LatestFileChanges changes={snapshot.changes} />}
+          <Empty className="min-h-80">
+            <EmptyMedia variant="icon">
+              <FileCode2 />
+            </EmptyMedia>
+            <EmptyDescription>
+              The preview completed without generating any files.
+            </EmptyDescription>
+          </Empty>
+        </>
       ) : (
-        <RepositoryWorkspace files={files} />
+        <RepositoryWorkspace
+          activeFolder={activeFolder}
+          files={files}
+          changes={snapshot.changes}
+        />
       )}
     </DisclosurePanel>
   );
 }
 
-function RepositoryWorkspace({
-  files,
+function LatestFileChanges({
+  changes,
+  onSelect,
 }: {
-  readonly files: NonNullable<RecipePreview["files"]>;
+  changes: FileChange[];
+  onSelect?: (path: string) => void;
+}) {
+  if (!changes.length) return null;
+  return (
+    <details className="group border-b bg-background">
+      <summary className="flex min-h-10 cursor-pointer list-none flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-xs focus-visible:outline-ring">
+        <span className="font-medium">Latest changes</span>
+        <span className="text-muted-foreground" aria-live="polite">
+          {(["Added", "Changed", "Removed"] as const)
+            .flatMap((status) => {
+              const count = changes.filter(
+                (change) => change.status === status,
+              ).length;
+              return count ? [`${count} ${status.toLowerCase()}`] : [];
+            })
+            .join(" · ")}
+        </span>
+        <ChevronDown
+          aria-hidden="true"
+          className="ms-auto size-4 group-open:rotate-180"
+        />
+      </summary>
+      <ul
+        aria-label="Latest file changes"
+        className="max-h-48 overflow-auto border-t px-3 py-1 text-xs"
+      >
+        {changes.map(({ path, status }) => (
+          <li key={path} className="flex items-baseline gap-2 py-1">
+            <span className="w-14 shrink-0 text-muted-foreground">
+              {status}
+            </span>
+            {status === "Removed" ? (
+              <span className="break-all font-mono text-muted-foreground">
+                {path}
+              </span>
+            ) : (
+              <button
+                type="button"
+                className="break-all text-left font-mono text-primary hover:underline focus-visible:underline"
+                onClick={() => onSelect?.(path)}
+              >
+                {path}
+              </button>
+            )}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function RepositoryWorkspace({
+  activeFolder,
+  files,
+  changes,
+}: {
+  readonly files: Files;
+  activeFolder?: string | undefined;
+  readonly changes: FileChange[];
 }) {
   const [mobilePane, setMobilePane] = useState("files");
   const [selectedFile, setSelectedFile] = useState("");
   const activeFile = files.some((file) => file.path === selectedFile)
     ? selectedFile
-    : (files[0]?.path ?? "");
-  const tree = useMemo(() => fileTree(files.map((file) => file.path)), [files]);
+    : (files.find((file) => file.path === "README.md")?.path ??
+      files.find((file) => file.path === "stack.effect.json")?.path ??
+      files[0]?.path ??
+      "");
+  const tree = useMemo(
+    () =>
+      fileTree(
+        files.map((file) => file.path),
+        changes,
+      ),
+    [files, changes],
+  );
   const source =
     files.find((file) => file.path === activeFile)?.contents ??
     "// Select a file to inspect its generated contents";
@@ -98,10 +194,18 @@ function RepositoryWorkspace({
 
   return (
     <>
+      <LatestFileChanges
+        changes={changes}
+        onSelect={(path) => {
+          setSelectedFile(path);
+          setMobilePane("preview");
+        }}
+      />
       <div className="hidden h-[max(10rem,calc(100dvh-18rem))] lg:block">
         <ResizablePanelGroup orientation="horizontal">
           <ResizablePanel defaultSize={25} minSize={18}>
             <RepositoryFileTree
+              activeFolder={activeFolder}
               activeFile={activeFile}
               nodes={tree}
               onSelect={setSelectedFile}
@@ -133,6 +237,7 @@ function RepositoryWorkspace({
           style={{ height: "60vh" }}
         >
           <RepositoryFileTree
+            activeFolder={activeFolder}
             activeFile={activeFile}
             nodes={tree}
             onSelect={(path) => {
@@ -190,6 +295,7 @@ function SourceEditor({ activeFile, highlightedSource }: SourceEditorProps) {
 }
 
 type RepositoryFileTreeProps = {
+  activeFolder?: string | undefined;
   readonly activeFile: string;
   readonly nodes: ReadonlyArray<FileTreeNodeData>;
   readonly onSelect: (path: string) => void;
@@ -197,6 +303,7 @@ type RepositoryFileTreeProps = {
 };
 
 function RepositoryFileTree({
+  activeFolder,
   activeFile,
   nodes,
   onSelect,
@@ -210,7 +317,12 @@ function RepositoryFileTree({
         </div>
       ) : null}
       <ScrollArea className="min-h-0 flex-1" viewportClassName="p-2">
-        <FileTree nodes={nodes} selectedPath={activeFile} onSelect={onSelect} />
+        <FileTree
+          activeFolder={activeFolder}
+          nodes={nodes}
+          selectedPath={activeFile}
+          onSelect={onSelect}
+        />
       </ScrollArea>
     </div>
   );
@@ -266,43 +378,4 @@ function tokenStyle(token: SyntaxToken): ShikiTokenStyle {
     ...(fontStyle & 2 ? { fontWeight: "bold" } : {}),
     ...(fontStyle & 4 ? { textDecoration: "underline" } : {}),
   };
-}
-
-function fileTree(
-  paths: ReadonlyArray<string>,
-): ReadonlyArray<FileTreeNodeData> {
-  type MutableNode = {
-    name: string;
-    path?: string;
-    children?: Map<string, MutableNode>;
-  };
-  const root = new Map<string, MutableNode>();
-  for (const path of paths) {
-    const parts = path.split("/");
-    let level = root;
-    parts.forEach((part, index) => {
-      const leaf = index === parts.length - 1;
-      const current = level.get(part) ?? {
-        name: part,
-        ...(leaf ? { path } : { children: new Map() }),
-      };
-      level.set(part, current);
-      if (!leaf) level = current.children ?? level;
-    });
-  }
-  const serialize = (
-    level: Map<string, MutableNode>,
-  ): ReadonlyArray<FileTreeNodeData> =>
-    Array.from(level.values())
-      .sort(
-        (left, right) =>
-          Number(Boolean(right.children)) - Number(Boolean(left.children)) ||
-          left.name.localeCompare(right.name),
-      )
-      .map((node) => ({
-        name: node.name,
-        ...(node.path ? { path: node.path } : {}),
-        ...(node.children ? { children: serialize(node.children) } : {}),
-      }));
-  return serialize(root);
 }

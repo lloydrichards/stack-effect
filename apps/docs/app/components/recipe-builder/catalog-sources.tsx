@@ -45,8 +45,6 @@ export function CatalogSourcesPanel() {
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [issue, setIssue] = useState<string>();
-  // Collapsible panels take their default once; opened for links with catalogs.
-  const [openByDefault] = useState(catalogs !== undefined);
   const failure =
     !catalogResult.waiting && AsyncResult.isFailure(catalogResult)
       ? recipeBuilderRpcFailure(catalogResult.cause)
@@ -161,9 +159,9 @@ export function CatalogSourcesPanel() {
     <DisclosurePanel
       title="Catalogs"
       description="Choose the catalogs that supply targets and modules."
-      defaultOpen={openByDefault}
+      headingLevel="h3"
       meta={
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="truncate font-mono text-xs text-muted-foreground">
           {selected.map((source) => source.name).join(", ")}
         </span>
       }
@@ -208,7 +206,7 @@ export function CatalogSourcesPanel() {
         </ul>
         <form
           aria-label="Add a catalog"
-          className="grid gap-3 md:grid-cols-[minmax(0,10rem)_minmax(0,1fr)_auto] md:items-end"
+          className="grid gap-3"
           onSubmit={addSource}
         >
           <Field>
