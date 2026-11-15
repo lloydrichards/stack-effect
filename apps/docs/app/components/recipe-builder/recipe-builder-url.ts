@@ -231,7 +231,7 @@ const toInitialValues = (
     if (
       !source?.modules.includes(edge.module) ||
       !destination?.modules.includes(edge.requires) ||
-      source.id === destination.id
+      (source.id === destination.id && edge.module === edge.requires)
     )
       return undefined;
     targetsByOwner.set(edge.to, {
