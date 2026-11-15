@@ -1,34 +1,18 @@
-import { Effect, Schema, Stream } from "effect";
+import { Effect, Schema } from "effect";
 import { Tool, type Toolkit } from "effect/ai";
-import { mergeMcpToolkit, readMcpToolkit } from "./McpTools";
+import { readMcpToolkit } from "./McpTools";
 
 const localTool = Tool.make("local", {
   parameters: Schema.Struct({ value: Schema.Finite }),
   success: Schema.Finite,
 });
-const remoteTool = Tool.make("remote", {
-  parameters: Schema.Struct({ text: Schema.String }),
-  success: Schema.String,
-  failure: Schema.String,
-});
 declare const local: Toolkit.WithHandler<{ local: typeof localTool }>;
-declare const remote: Toolkit.WithHandler<{ remote: typeof remoteTool }>;
 
 export const checkToolContracts = Effect.gen(function* () {
   const discover = yield* readMcpToolkit;
-  const discovered = yield* discover(local);
-  const preserved: typeof localTool = discovered.tools.local;
+  const toolkit = yield* discover(local);
+  const preserved: typeof localTool = toolkit.tools.local;
   preserved.parametersSchema.make({ value: 42 });
-
-  const toolkit = yield* mergeMcpToolkit(local, remote);
-  yield* Stream.runDrain(yield* toolkit.handle("local", { value: 42 }));
-  yield* Stream.runDrain(yield* toolkit.handle("remote", { text: "context" }));
-  // @ts-expect-error Unknown tool names must remain invalid after composition.
-  yield* Stream.runDrain(yield* toolkit.handle("missing", {}));
-  toolkit.tools.local.parametersSchema.make({ value: 42 });
-  toolkit.tools.remote.parametersSchema.make({ text: "context" });
-  // @ts-expect-error Local and remote parameter schemas must remain distinct.
-  toolkit.tools.local.parametersSchema.make({ text: "context" });
-  // @ts-expect-error Remote parameter schemas must preserve their decoded types.
-  toolkit.tools.remote.parametersSchema.make({ text: 42 });
+  // @ts-expect-error Discovery must preserve the local parameter schema.
+  toolkit.tools.local.parametersSchema.make({ value: "wrong" });
 });

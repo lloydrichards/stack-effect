@@ -6,7 +6,15 @@ import {
   GenerationInProgressError,
 } from "@repo/domain/ChatRpc";
 {{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
-import { Context, Effect, HashMap, Layer, Option, Ref, Scope } from "effect";
+import {
+  Context,
+  Effect,
+  HashMap,
+  Layer,
+  Option,
+  Ref,
+  type Scope,
+} from "effect";
 
 export const makeSessionAi = Layer.build(Layer.fresh(AiChatServiceLive)).pipe(
   Effect.map(Context.get(AiChatService)),
@@ -24,13 +32,13 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
         HashMap.empty(),
       );
-      const scope = yield* Effect.scope;
+      const appContext = yield* Effect.context<Scope.Scope>();
       const crypto = yield* SecureRandom.SecureRandom;
 
       return {
         start: Effect.gen(function* () {
           const chatId = ChatId.make(yield* crypto.uuidV4().pipe(Effect.orDie));
-          const ai = yield* Scope.provide(makeSessionAi, scope);
+          const ai = yield* Effect.setContext(makeSessionAi, appContext);
           const session: ChatSession = { active: false, ai };
           yield* Ref.update(sessions, HashMap.set(chatId, session));
           return { chatId };

@@ -316,9 +316,21 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
               return Option.match(chatId, {
                 onNone: () => Stream.empty,
                 onSome: (id) =>
-                  client
-                    .chat_ask({ chatId: id, messages })
-                    .pipe(Stream.map((part) => ReceivedChatPart({ part }))),
+                  client.chat_ask({ chatId: id, messages }).pipe(
+                    Stream.concat(
+                      Stream.make(
+                        ChatStreamPart.cases.error.make({
+                          message:
+                            "Chat stream ended before the assistant finished.",
+                          recoverable: true,
+                        }),
+                      ),
+                    ),
+                    Stream.takeUntil(
+                      (part) => part._tag === "finish" || part._tag === "error",
+                    ),
+                    Stream.map((part) => ReceivedChatPart({ part })),
+                  ),
               });
             }).pipe(
               Stream.unwrap,
