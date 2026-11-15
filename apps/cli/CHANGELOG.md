@@ -1,5 +1,29 @@
 # stack-effect
 
+## 0.19.0
+
+### Minor Changes
+
+- de319e6: Generated MCP servers can publish agent skills. Select `mcp-skill-workshop-checklist` to serve a workshop checklist and its packing-list template.
+- 0e7b7ff: Generated chat uses Effect Chat to run up to 12 model rounds. CLI and RPC callers receive one start per tool call, summed usage when every round reports it, and a `max-iterations` finish at the limit. Stopping consumption of the generated app's stream now releases the active generation.
+  
+  The generated Foldkit client connects to `/chat-rpc` and re-enables input if an older server closes a turn without a finish event. Adding MCP tools reports a conflict when a customized driver might already supply a toolkit through an object spread.
+  
+  On the generated RPC server, each chat ID keeps its own memory and plan across turns. An invalid plan update leaves the current step unchanged.
+  
+  In existing apps, replace `AgenticLoopService` and `ChatTurnExtension` callbacks with an explicit prompt. Use `ai.stream({ prompt, toolkit })` for catalog events or `session.streamText({ prompt, toolkit, maxSteps })` for native Effect parts. The toolkit is optional for `ai.stream`. Existing queue consumers can use `ai.chat(prompt, toolkit)`. Handle a zero-step budget before calling Effect if your code accepts one.
+  
+  Update your driver or runtime before adding MCP modules. Once callers have migrated, remove the old Layer, both workflow files (`AgenticLoop.ts` and `ChatTurnExtensions.ts`), and their barrel exports. `stack-effect add` leaves obsolete files in place.
+- e37f35f: Generated projects now use Effect 4.1.4, Vitest 5, and updated application and build tooling, with migrated crypto, MCP, Foldkit, and Alchemy code.
+  
+  TypeScript 7 projects with Oxlint now enable the strict Effect preset. Expected platform APIs use explicit allowlists; style suggestions stay visible as warnings. Bun projects use the hoisted linker for TypeScript declaration compatibility.
+  
+  `@stack-effect/author` now requires Effect 4.1.4. Update the Effect runtime packages together when upgrading an existing author project.
+  
+  Recipe Builder now treats None tooling selections as absent configuration when generating a preview.
+  
+  Adding Foldkit RPC, presence, or chat modules now reports a dependency conflict before writing files when an existing target uses a different Foldkit version. Upgrade Foldkit and migrate existing subscriptions to the 0.170 API before adding these modules.
+
 ## 0.18.1
 
 ### Patch Changes
