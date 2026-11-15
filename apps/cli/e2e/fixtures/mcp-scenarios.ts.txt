@@ -10,6 +10,7 @@ import { AiChatService, AiChatServiceLive } from "@repo/ai";
 import type { ChatStreamPart } from "@repo/domain/Chat";
 import { FastModelLive, requests, resetModel } from "../../packages/ai/src/LanguageModel";
 import { TerminalChatDriver, TerminalChatDriverLive } from "./src/chat/ChatDriver";
+import { McpClientLive } from "./src/mcp/McpClient";
 import { ChatRuntime, ChatRuntimeLive } from "../server-api/src/runtime/ChatRuntime";
 import { ChatSessionsLive } from "../server-api/src/runtime/ChatSessions";
 
@@ -267,20 +268,28 @@ const main = Effect.scoped(Effect.gen(function* () {
   assert(plain.some((part) => part._tag === "tool-success" && part.name === "think"));
 
   resetModel();
-  const duplicateToolkit = Toolkit.make(Tool.make("think", {
-    parameters: Schema.Struct({ thought: Schema.String }), success: Schema.String,
+  const beforeCollisionDiscovery = toolDiscoveries;
+  const localDouble = Toolkit.make(Tool.make("mcp__double", {
+    parameters: Schema.Struct({ value: Schema.Number }), success: Schema.Number,
   }));
-  const duplicate = yield* duplicateToolkit.pipe(Effect.provide(duplicateToolkit.toLayer({
-    think: ({ thought }) => Effect.succeed(thought),
-  })));
-  const { mergeMcpToolkit } = yield* Effect.promise(() => import("./src/mcp/McpTools"));
+  const { readMcpToolkit } = yield* Effect.promise(() => import("./src/mcp/McpTools"));
   const collision = yield* Effect.gen(function* () {
+    const local = yield* localDouble;
+    const discover = yield* readMcpToolkit;
     const ai = yield* AiChatService;
-    return yield* Effect.flip(mergeMcpToolkit(ai.toolkit, duplicate));
-  }).pipe(Effect.provide(AiChatServiceLive));
+    const toolkit = yield* discover(local);
+    yield* ai.stream({ prompt: "Double 21", toolkit }).pipe(Stream.runDrain);
+  }).pipe(
+    Effect.flip,
+    Effect.provide(localDouble.toLayer({ mcp__double: ({ value }) => Effect.succeed(value * 2) })),
+    Effect.provide(Layer.mergeAll(AiChatServiceLive, FastModelLive, McpClientLive)),
+    Effect.provide(config("2026-07-28")),
+    Effect.provide(fetchLayer),
+  );
+  assert.equal(toolDiscoveries - beforeCollisionDiscovery, 1);
   assert.equal(collision.reason.code, "tool-conflict");
-  assert.equal(collision.reason.source, "think");
-  assert.equal(requests.length, 0);
+  assert.equal(collision.reason.source, "mcp__double");
+  assert.equal(requests.length, 0, "a tool name collision must stop generation before the model runs");
 
   scenario = "normal";
   resetModel();
