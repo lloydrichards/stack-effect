@@ -45,16 +45,16 @@ export function DisclosurePanel({
             <CollapsibleTrigger className="group flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 px-4 py-2 text-left hover:bg-muted/30 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none md:px-5">
               <span
                 id={titleId}
-                className="min-w-0 truncate font-heading text-base font-semibold"
+                className="shrink-0 font-heading text-base font-semibold"
               >
                 {title}
               </span>
               {description ? (
                 <span className="sr-only">{description}</span>
               ) : null}
-              <span className="flex shrink-0 items-center gap-3">
+              <span className="flex min-w-0 items-center justify-end gap-2">
                 {meta}
-                <ChevronDown className="text-muted-foreground transition-transform group-data-panel-open:rotate-180" />
+                <ChevronDown className="size-4 shrink-0 text-muted-foreground transition-transform group-data-panel-open:rotate-180" />
               </span>
             </CollapsibleTrigger>
           </Heading>

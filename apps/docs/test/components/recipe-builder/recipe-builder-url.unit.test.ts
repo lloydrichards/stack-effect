@@ -6,7 +6,7 @@ import {
 import { fullStackRecipeFixture } from "./recipe-fixtures";
 
 describe("recipe builder URL", () => {
-  it("round trips a create-compatible recipe without form bookkeeping", () => {
+  it("restores which target and module brought in a dependency", () => {
     const encoded = encodeRecipeBuilderUrl(fullStackRecipeFixture);
     const decoded = decodeRecipeBuilderUrl(encoded);
 
@@ -18,6 +18,22 @@ describe("recipe builder URL", () => {
     expect(encodeRecipeBuilderUrl(decoded.initialValues).toString()).toBe(
       encoded.toString(),
     );
+    const client = decoded.initialValues.targets.find(
+      (target) => target.kind === "client-react",
+    );
+    expect(
+      decoded.initialValues.targets.find((target) => target.kind === "server"),
+    ).toMatchObject({
+      addedByDependency: true,
+      requirements: [
+        {
+          sourceTargetId: client?.id,
+          sourceModuleId: "client-react-http-api",
+          moduleId: "server-http-api",
+          addedModule: true,
+        },
+      ],
+    });
     expect(decoded.initialValues.supportSelections).toEqual([]);
   });
 

@@ -31,7 +31,11 @@ import {
 import { docMarkdownPath, findDocPage } from "~/lib/docs-manifest";
 import type { TOCItem } from "~/lib/remark-toc-export";
 import { cn } from "~/lib/utils";
-import { isPrimaryNavigationActive, primaryNavigation } from "~/nav.config";
+import {
+  isBuilderPath,
+  isPrimaryNavigationActive,
+  primaryNavigation,
+} from "~/nav.config";
 import type { Route } from "./+types/root";
 import "./app.css";
 
@@ -83,7 +87,7 @@ const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
 export function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation();
   const isLandingPage = pathname === "/";
-  const isBuilderPage = pathname === "/builder";
+  const isBuilderPage = isBuilderPath(pathname);
   const docPage = findDocPage(pathname);
 
   return (
@@ -144,7 +148,7 @@ export default function App() {
   const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
   const hasToc = toc.length > 0;
   const isLandingPage = pathname === "/";
-  const isBuilderPage = pathname === "/builder";
+  const isBuilderPage = isBuilderPath(pathname);
   const docPage = findDocPage(pathname);
 
   return (

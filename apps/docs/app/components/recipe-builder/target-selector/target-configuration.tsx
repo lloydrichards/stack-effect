@@ -1,6 +1,6 @@
 import type { TargetIdentity } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
-import { Trash2 } from "lucide-react";
+import { LockKeyhole, Square, Trash2 } from "lucide-react";
 import { Button } from "~/components/ui/button";
 import {
   Empty,
@@ -18,7 +18,6 @@ import {
   FieldSet,
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
-import { Separator } from "~/components/ui/separator";
 import {
   CatalogModule,
   RecipeBuilderCatalog,
@@ -35,7 +34,9 @@ import {
   buildModuleRelationshipNodes,
   dependencySourceNames,
   moduleRequiresCapability,
+  publicRootModules,
 } from "./state";
+import type { useTargetEditor } from "./use-target-editor";
 
 type TargetConfigurationProps = {
   readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
@@ -53,7 +54,7 @@ type TargetConfigurationProps = {
   readonly targets: ReadonlyArray<TargetInstance>;
 };
 
-export function TargetConfiguration({
+function TargetConfiguration({
   catalog,
   catalogFailed,
   catalogOwner,
@@ -76,14 +77,9 @@ export function TargetConfiguration({
   const targetNameDescription = nameLocked
     ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
     : target.name.length === 0
-      ? "Optional; leave blank to use the target kind for its path and package name."
-      : "Use / for nested folders, e.g. sdk/web. Package names join folders with hyphens.";
-  const childIds = new Set(
-    modules.flatMap((module) => module.children.map((child) => child.moduleId)),
-  );
-  const roots = modules.filter(
-    (module) => module.visibility === "public" && !childIds.has(module.id),
-  );
+      ? "Leave blank to use the target kind."
+      : "Use / for nested folders, such as sdk/web.";
+  const roots = publicRootModules(modules);
   const requiredModuleIds = new Set([
     ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
@@ -98,45 +94,72 @@ export function TargetConfiguration({
     moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
       ? "Select a database to enable this module."
       : undefined;
-  return (
-    <section className="p-4 md:p-5">
-      <div className="border-b pb-5">
-        <FieldGroup>
-          <form.Field
-            name={`targets[${targetIndex}].name`}
-            children={(field) => {
-              const isInvalid =
-                field.state.meta.isTouched && !field.state.meta.isValid;
-              return (
-                <Field
-                  data-invalid={isInvalid}
-                  data-disabled={nameLocked || undefined}
+  const nameField = (
+    <div className="group/name">
+      <FieldGroup>
+        <form.Field
+          name={`targets[${targetIndex}].name`}
+          children={(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid;
+            return (
+              <Field
+                data-invalid={isInvalid}
+                data-disabled={nameLocked || undefined}
+              >
+                <FieldLabel htmlFor={`target-name-${target.id}`}>
+                  Target name
+                </FieldLabel>
+                <Input
+                  id={`target-name-${target.id}`}
+                  name={field.name}
+                  value={field.state.value}
+                  disabled={nameLocked}
+                  spellCheck={false}
+                  onBlur={field.handleBlur}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  aria-describedby={targetNameDescriptionId}
+                  aria-invalid={isInvalid}
+                />
+                <FieldDescription
+                  id={targetNameDescriptionId}
+                  className={
+                    nameLocked
+                      ? undefined
+                      : "sr-only group-focus-within/name:not-sr-only"
+                  }
                 >
-                  <FieldLabel htmlFor={`target-name-${target.id}`}>
-                    Target name
-                  </FieldLabel>
-                  <Input
-                    id={`target-name-${target.id}`}
-                    name={field.name}
-                    value={field.state.value}
-                    disabled={nameLocked}
-                    spellCheck={false}
-                    onBlur={field.handleBlur}
-                    onChange={(event) => field.handleChange(event.target.value)}
-                    aria-describedby={targetNameDescriptionId}
-                    aria-invalid={isInvalid}
-                  />
-                  <FieldDescription id={targetNameDescriptionId}>
-                    {targetNameDescription}
-                  </FieldDescription>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
-                </Field>
-              );
-            }}
-          />
-        </FieldGroup>
-      </div>
-      {modules.length === 0 ? (
+                  {targetNameDescription}
+                </FieldDescription>
+                {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              </Field>
+            );
+          }}
+        />
+      </FieldGroup>
+    </div>
+  );
+  const removeButton = (
+    <div className="mt-3 flex justify-end">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-muted-foreground hover:text-destructive"
+        aria-label={
+          target.requirements?.length
+            ? `Remove ${target.name} and dependent selections`
+            : `Remove ${target.name}`
+        }
+        onClick={() => onRemoveTarget(target.id)}
+      >
+        <Trash2 data-icon="inline-start" />
+        Remove target
+      </Button>
+    </div>
+  );
+  return (
+    <section className="pt-1">
+      {roots.length === 0 ? (
         <Empty className="min-h-48">
           <EmptyHeader>
             <EmptyTitle>No modules support this target identity</EmptyTitle>
@@ -146,53 +169,89 @@ export function TargetConfiguration({
           </EmptyHeader>
         </Empty>
       ) : (
-        <FieldSet className="mt-5 max-w-5xl gap-4" disabled={catalogFailed}>
-          <FieldLegend variant="label">Modules</FieldLegend>
-          <FieldGroup data-slot="checkbox-group" variant="outlined">
-            {roots.map((module, index) => (
-              <ModuleBranch
-                key={module.id}
-                module={module}
-                modules={modules}
-                disabled={catalogFailed}
-                getDisabledReason={getDisabledReason}
-                {...(getDisabledReason(module) === undefined
-                  ? {}
-                  : { disabledReason: getDisabledReason(module) })}
-                selected={target.modules}
-                divided={index > 0}
-                onToggleModule={onToggleModule}
-                onToggleSupportModule={onToggleSupportModule}
-                relationships={
-                  target.modules.includes(module.id) ||
-                  requiredModuleIds.has(module.id)
-                    ? buildModuleRelationshipNodes(module, moduleOwner, catalog)
-                    : []
-                }
-                supportSelections={supportSelections}
-                {...(requiredModuleIds.has(module.id)
-                  ? { requirement: "required" as const }
-                  : {})}
-              />
+        <FieldSet className="gap-1" disabled={catalogFailed}>
+          <FieldLegend
+            variant="label"
+            className="flex w-full flex-wrap items-center justify-between gap-2"
+          >
+            Modules
+            <span className="flex items-center gap-3 text-xs font-normal text-muted-foreground">
+              <span className="inline-flex items-center gap-1">
+                <LockKeyhole aria-hidden="true" className="size-3" />
+                Included automatically
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Square aria-hidden="true" className="size-3" />
+                Optional
+              </span>
+            </span>
+          </FieldLegend>
+          <FieldGroup
+            data-slot="checkbox-group"
+            className="divide-y border-y data-[slot=checkbox-group]:gap-0"
+          >
+            {roots.map((module) => (
+              <div key={module.id} className="px-2">
+                <ModuleBranch
+                  module={module}
+                  modules={modules}
+                  disabled={catalogFailed}
+                  getDisabledReason={getDisabledReason}
+                  selected={target.modules}
+                  onToggleModule={onToggleModule}
+                  onToggleSupportModule={onToggleSupportModule}
+                  relationships={
+                    target.modules.includes(module.id) ||
+                    requiredModuleIds.has(module.id)
+                      ? buildModuleRelationshipNodes(
+                          module,
+                          moduleOwner,
+                          catalog,
+                        )
+                      : []
+                  }
+                  supportSelections={supportSelections}
+                  {...(requiredModuleIds.has(module.id)
+                    ? { requirement: "required" as const }
+                    : {})}
+                />
+              </div>
             ))}
           </FieldGroup>
         </FieldSet>
       )}
-      <div className="mt-6 flex flex-col items-end gap-5">
-        <Separator />
-        <Button
-          variant="destructive"
-          aria-label={
-            target.requirements?.length
-              ? `Remove ${target.name} and dependent selections`
-              : `Remove ${target.name}`
-          }
-          onClick={() => onRemoveTarget(target.id)}
-        >
-          <Trash2 data-icon="inline-start" />
-          Remove target
-        </Button>
-      </div>
+
+      <details className="mt-3 border-t pt-2">
+        <summary className="w-fit cursor-pointer py-2 text-xs font-medium text-muted-foreground">
+          Target settings
+        </summary>
+        {nameField}
+        {removeButton}
+      </details>
     </section>
+  );
+}
+
+export function ActiveTargetConfiguration({
+  editor,
+}: {
+  editor: ReturnType<typeof useTargetEditor>;
+}) {
+  const target = editor.activeTarget;
+  if (!target) return null;
+  return (
+    <TargetConfiguration
+      key={target.id}
+      catalog={editor.catalog}
+      catalogFailed={editor.catalogFailed}
+      catalogOwner={editor.catalogOwnersByTargetId.get(target.id)}
+      onRemoveTarget={editor.removeTarget}
+      onToggleModule={editor.toggleModule}
+      onToggleSupportModule={editor.toggleSupportModule}
+      supportSelections={editor.supportSelections}
+      target={target}
+      targetIndex={editor.targets.findIndex((item) => item.id === target.id)}
+      targets={editor.targets}
+    />
   );
 }

@@ -17,8 +17,6 @@ import {
   toggleTargetModule,
 } from "./state";
 
-export const newTargetTabId = "new-target";
-
 export function useTargetEditor() {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogFailed, catalogOwnersByTargetId } =
@@ -28,9 +26,17 @@ export function useTargetEditor() {
     form.store,
     (state) => state.values.supportSelections,
   );
-  const [activeId, setActiveId] = useState(newTargetTabId);
+  const [activeId, setActiveId] = useState<string>();
   const nextTargetRef = useRef(0);
-  const tabRefs = useRef(new Map<string, HTMLButtonElement>());
+  const nextId = () => {
+    do {
+      nextTargetRef.current += 1;
+    } while (
+      targets.some((target) => target.id.endsWith(`-${nextTargetRef.current}`))
+    );
+    return nextTargetRef.current;
+  };
+  const targetButtons = useRef(new Map<string, HTMLButtonElement>());
   const activeTarget = targets.find((target) => target.id === activeId);
 
   const toggleModule = (module: typeof CatalogModule.Type) => {
@@ -62,7 +68,7 @@ export function useTargetEditor() {
           module,
           activeModules,
           catalog,
-          () => ++nextTargetRef.current,
+          nextId,
         ),
       );
     });
@@ -79,12 +85,11 @@ export function useTargetEditor() {
   const addTarget = (kind: string) => {
     const definition = catalog?.targets.find((target) => target.kind === kind);
     if (definition === undefined) return;
-    const id = `${kind}-${++nextTargetRef.current}`;
+    const id = `${kind}-${nextId()}`;
     form.setFieldValue("targets", (current) => [
       ...current,
       makeTargetInstance(id, definition, current),
     ]);
-    setActiveId(id);
     trackEvent("recipe-target-added", {
       target_kind: kind,
       target_count: targets.length + 1,
@@ -105,22 +110,21 @@ export function useTargetEditor() {
         removeTargetSupportSelections(current, removed),
       );
     });
-    if (id === activeId) setActiveId(focusId ?? newTargetTabId);
+    if (id === activeId) setActiveId(focusId);
     window.requestAnimationFrame(() =>
-      tabRefs.current.get(focusId ?? "")?.focus(),
+      targetButtons.current.get(focusId ?? "")?.focus(),
     );
   };
 
   return {
-    activeId,
     activeTarget,
     addTarget,
     catalog,
     catalogFailed,
     catalogOwnersByTargetId,
-    registerTargetTab: (id: string, element: HTMLButtonElement | null) => {
-      if (element) tabRefs.current.set(id, element);
-      else tabRefs.current.delete(id);
+    registerTargetButton: (id: string, element: HTMLButtonElement | null) => {
+      if (element) targetButtons.current.set(id, element);
+      else targetButtons.current.delete(id);
     },
     removeTarget,
     selectTarget: setActiveId,

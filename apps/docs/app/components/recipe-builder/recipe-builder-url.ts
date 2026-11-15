@@ -9,6 +9,7 @@ import { defaultsForRuntime } from "@repo/scaffold/browser";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
+  ownerKey,
   RecipeBuilderFormSchema,
   type RecipeBuilderFormValues,
   type TargetInstance,
@@ -21,6 +22,18 @@ const defaults = initialRecipeBuilderValues.config;
 const RecipeUrlSchema = Schema.Struct({
   name: Schema.optional(Schema.String),
   target: Schema.Array(RecipeTargetString),
+  dependencies: Schema.Array(
+    Schema.fromJsonString(
+      Schema.Struct({
+        from: Schema.String,
+        module: Schema.String,
+        to: Schema.String,
+        requires: Schema.String,
+        addedTarget: Schema.Boolean,
+        addedModule: Schema.Boolean,
+      }),
+    ),
+  ),
   runtime: Schema.optional(Schema.Literals(["bun", "deno", "node"])),
   packageManager: Schema.optional(
     Schema.Literals(["bun", "deno", "pnpm", "npm"]),
@@ -62,6 +75,7 @@ const knownRecipeParameters = new Set([
   ...scalarRecipeParameters,
   "target",
   "catalog",
+  "dependency",
 ]);
 
 const decodeUrl = Schema.decodeUnknownOption(RecipeUrlSchema);
@@ -208,6 +222,32 @@ const toInitialValues = (
             },
           ];
     });
+  const targetsByOwner = new Map(
+    formTargets.map((target) => [ownerKey(target), target]),
+  );
+  for (const edge of recipe.dependencies) {
+    const source = targetsByOwner.get(edge.from);
+    const destination = targetsByOwner.get(edge.to);
+    if (
+      !source?.modules.includes(edge.module) ||
+      !destination?.modules.includes(edge.requires) ||
+      source.id === destination.id
+    )
+      return undefined;
+    targetsByOwner.set(edge.to, {
+      ...destination,
+      addedByDependency: edge.addedTarget,
+      requirements: [
+        ...(destination.requirements ?? []),
+        {
+          sourceTargetId: source.id,
+          sourceModuleId: edge.module,
+          moduleId: edge.requires,
+          addedModule: edge.addedModule,
+        },
+      ],
+    });
+  }
   const decoded = Schema.decodeOption(RecipeBuilderFormSchema)({
     config,
     database,
@@ -215,7 +255,7 @@ const toInitialValues = (
     developerExperienceModules: workspaceModules.filter(
       (module) => module !== "workspace-devenv-git",
     ),
-    targets: formTargets,
+    targets: [...targetsByOwner.values()],
     supportSelections: [],
   });
 
@@ -244,6 +284,7 @@ export const decodeRecipeBuilderUrl = (
   const decoded = decodeUrl({
     name: searchParams.get("name") ?? undefined,
     target: searchParams.getAll("target"),
+    dependencies: searchParams.getAll("dependency"),
     runtime: searchParams.get("runtime") ?? undefined,
     packageManager: searchParams.get("package-manager") ?? undefined,
     typescript: searchParams.get("typescript") ?? undefined,
@@ -298,6 +339,29 @@ export const encodeRecipeBuilderUrl = (
   encodeRecipeTargetSpecs(targets)
     .sort()
     .forEach((target) => params.append("target", target));
+  values.targets
+    .flatMap((target) =>
+      (target.requirements ?? []).flatMap((requirement) => {
+        const source = values.targets.find(
+          ({ id }) => id === requirement.sourceTargetId,
+        );
+        return source?.modules.includes(requirement.sourceModuleId) &&
+          target.modules.includes(requirement.moduleId)
+          ? [
+              JSON.stringify({
+                from: ownerKey(source),
+                module: requirement.sourceModuleId,
+                to: ownerKey(target),
+                requires: requirement.moduleId,
+                addedTarget: target.addedByDependency === true,
+                addedModule: requirement.addedModule,
+              }),
+            ]
+          : [];
+      }),
+    )
+    .sort()
+    .forEach((edge) => params.append("dependency", edge));
   if (values.config.runtime._tag !== "bun") {
     params.set("runtime", values.config.runtime._tag);
     params.set(

@@ -14,12 +14,15 @@ export const primaryNavigation: NavItem[] = [
   { label: "Documentation", href: "/getting-started" },
 ];
 
+export const isBuilderPath = (pathname: string) =>
+  pathname === "/builder" || pathname.startsWith("/builder/");
+
 export const isPrimaryNavigationActive = (pathname: string, href: string) =>
   href === "/"
     ? pathname === "/"
     : href === "/builder"
-      ? pathname === "/builder"
-      : pathname !== "/" && pathname !== "/builder";
+      ? isBuilderPath(pathname)
+      : pathname !== "/" && !isBuilderPath(pathname);
 
 export const navigation: NavSection[] = [
   {

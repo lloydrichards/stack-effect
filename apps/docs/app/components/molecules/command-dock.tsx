@@ -46,7 +46,7 @@ export function CommandDock({
         : "Copy command";
   const statusMessage =
     status === "copied"
-      ? "Copied — paste into your terminal."
+      ? "Command copied."
       : status === "error"
         ? "Could not access the clipboard. Select the command and copy it manually."
         : "";
@@ -64,7 +64,7 @@ export function CommandDock({
   const activeStatus = shareStatus === "idle" ? status : shareStatus;
   const activeStatusMessage =
     shareStatus === "copied"
-      ? "Recipe link copied — share it with your team."
+      ? "Recipe link copied."
       : shareStatus === "error"
         ? "Could not access the clipboard. Copy the URL from your browser instead."
         : statusMessage;
@@ -72,21 +72,21 @@ export function CommandDock({
   return (
     <aside
       className={cn(
-        "grid gap-0 rounded-md border bg-background/95 p-2 shadow-2xl backdrop-blur-sm sm:gap-3 sm:p-4 dark:shadow-none",
+        "grid gap-0 rounded-md border bg-background/95 p-2 shadow-md backdrop-blur-sm sm:gap-1.5 sm:px-3 sm:py-2 dark:shadow-none",
         sticky &&
           "fixed right-2 bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-2 z-20 mx-auto max-w-384 sm:right-4 sm:bottom-4 sm:left-4",
       )}
       aria-labelledby={titleId}
     >
       <h2 id={titleId} className="sr-only">
-        Run this recipe locally
+        CLI command
       </h2>
       <div className="hidden min-w-0 flex-wrap items-baseline justify-between gap-x-4 gap-y-1 sm:flex">
         <span
           className="font-heading text-sm font-semibold tracking-[-0.01em]"
           aria-hidden="true"
         >
-          Run this recipe locally
+          CLI command
         </span>
         <div className="text-xs text-muted-foreground">{summary}</div>
       </div>
@@ -112,7 +112,7 @@ export function CommandDock({
               "mt-1.5 hidden min-h-4 text-xs sm:block",
               activeStatus === "copied" && "text-muted-foreground",
               activeStatus === "error" && "text-destructive",
-              activeStatus === "idle" && "invisible",
+              activeStatus === "idle" && "sm:hidden",
             )}
             aria-hidden="true"
           >
