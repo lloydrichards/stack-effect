@@ -11,6 +11,7 @@ export default defineConfig({
   },
   optimizeDeps: {
     include: [
+      "@base-ui/react/popover",
       "@effect/platform-browser/BrowserWorkerRunner",
       "@repo/scaffold/browser",
       "shiki/langs/dockerfile.mjs",

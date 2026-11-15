@@ -83,10 +83,10 @@ export function DatabaseSelector() {
     <DisclosurePanel
       title="Database"
       description="Choose the SQL provider shared by database-backed features."
-      defaultOpen
+      headingLevel="h3"
       meta={
         <span className="font-mono text-xs text-muted-foreground">
-          {database === "none" ? "Not configured" : selectedLabel}
+          {selectedLabel}
         </span>
       }
     >

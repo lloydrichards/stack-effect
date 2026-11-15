@@ -5,17 +5,27 @@ import { FileTreeNode } from "./file-tree-node";
 
 export type FileTreeNodeData = {
   readonly name: string;
+  readonly change?: "Added" | "Changed" | undefined;
+  readonly folderChanges?:
+    | Readonly<Record<"Added" | "Changed" | "Removed", number>>
+    | undefined;
   readonly path?: string;
   readonly children?: ReadonlyArray<FileTreeNodeData>;
 };
 
 type FileTreeProps = {
+  activeFolder?: string | undefined;
   readonly nodes: ReadonlyArray<FileTreeNodeData>;
   readonly selectedPath: string | undefined;
   readonly onSelect: (path: string) => void;
 };
 
-export function FileTree({ nodes, selectedPath, onSelect }: FileTreeProps) {
+export function FileTree({
+  activeFolder,
+  nodes,
+  selectedPath,
+  onSelect,
+}: FileTreeProps) {
   const [openByKey, setOpenByKey] = useState<ReadonlyMap<string, boolean>>(
     () => new Map(),
   );
@@ -32,8 +42,45 @@ export function FileTree({ nodes, selectedPath, onSelect }: FileTreeProps) {
     : (visibleNodes[0]?.key ?? "");
 
   useEffect(() => {
-    if (selectedPath) setFocusedKey(selectedPath);
+    if (!selectedPath) return;
+    setFocusedKey(selectedPath);
+    const parts = selectedPath.split("/");
+    if (parts.length > 1)
+      setOpenByKey((current) => {
+        const next = new Map(current);
+        for (let depth = 1; depth < parts.length; depth++) {
+          next.set(parts.slice(0, depth).join("/"), true);
+        }
+        return next;
+      });
   }, [selectedPath]);
+
+  useEffect(() => {
+    if (!activeFolder) return;
+    setOpenByKey((current) => {
+      const next = new Map(current);
+      const parts = activeFolder.split("/");
+      for (let depth = 1; depth <= parts.length; depth++) {
+        next.set(parts.slice(0, depth).join("/"), true);
+      }
+      return next;
+    });
+  }, [activeFolder]);
+
+  const folderVisible = visibleNodes.some((item) => item.key === activeFolder);
+  useEffect(() => {
+    if (!activeFolder || !folderVisible) return;
+    const row = itemRefs.current.get(activeFolder);
+    const viewport = row?.closest<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    if (!row || !viewport || !viewport.clientHeight) return;
+    const bounds = row.getBoundingClientRect();
+    const frame = viewport.getBoundingClientRect();
+    if (bounds.top < frame.top) viewport.scrollTop += bounds.top - frame.top;
+    else if (bounds.bottom > frame.bottom)
+      viewport.scrollTop += bounds.bottom - frame.bottom;
+  }, [activeFolder, folderVisible]);
 
   const focusItem = (key: string) => {
     setFocusedKey(key);
@@ -46,7 +93,12 @@ export function FileTree({ nodes, selectedPath, onSelect }: FileTreeProps) {
         <FileTreeNode
           key={item.key}
           item={item}
-          selected={selectedPath === item.node.path}
+          activeFolder={
+            item.key === activeFolder && Boolean(item.node.children)
+          }
+          selected={
+            selectedPath !== undefined && selectedPath === item.node.path
+          }
           focused={effectiveFocusedKey === item.key}
           register={(element) => {
             if (element) itemRefs.current.set(item.key, element);
@@ -113,7 +165,9 @@ function flattenVisibleNodes(
 ): ReadonlyArray<VisibleFileTreeNode> {
   return nodes.flatMap((node) => {
     const key = node.path ?? [parentKey, node.name].filter(Boolean).join("/");
-    const open = node.children ? (openByKey.get(key) ?? depth < 2) : undefined;
+    const open = node.children
+      ? (openByKey.get(key) ?? (key === "apps" || key === "packages"))
+      : undefined;
     const item = {
       key,
       node,

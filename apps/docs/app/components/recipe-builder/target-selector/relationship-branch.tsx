@@ -1,11 +1,10 @@
-import { Checkbox } from "~/components/ui/checkbox";
-import { Field, FieldGroup, FieldLabel } from "~/components/ui/field";
-import { cn } from "~/lib/utils";
 import {
   ownerKey,
   type SupportConfiguration,
   type SupportSelection,
 } from "../form";
+import { ModuleDetails } from "./module-details";
+import { ModuleRow } from "./module-row";
 import { type ModuleRelationshipNode, supportConfigurationKey } from "./state";
 
 type RelationshipBranchProps = {
@@ -37,42 +36,30 @@ export function RelationshipBranch({
     : false;
   const checked = required || selected;
   const disabled = parentDisabled || required || configuration === undefined;
-  const id = `relationship-${ownerKey(node.owner)}-${node.module.id}`;
   return (
-    <div className="relative">
-      <Field
-        orientation="horizontal"
-        variant="selection"
-        density="compact"
-        data-disabled={disabled}
-        data-selected={checked}
+    <li>
+      <ModuleRow
+        required={required}
+        checked={checked}
+        disabled={disabled}
+        onToggle={() =>
+          configuration && onToggleSupportModule(configuration, node.module.id)
+        }
+        details={
+          <ModuleDetails
+            title={node.module.title}
+            description={node.module.description}
+            requirement={node.requirement}
+            target={ownerKey(node.owner)}
+          />
+        }
       >
-        <Checkbox
-          id={id}
-          checked={checked}
-          disabled={disabled}
-          onCheckedChange={() =>
-            configuration &&
-            onToggleSupportModule(configuration, node.module.id)
-          }
-        />
-        <FieldLabel
-          htmlFor={id}
-          className={cn(
-            !required && configuration !== undefined && "cursor-pointer",
-          )}
-        >
-          <span className="text-sm/5 text-foreground">{node.module.title}</span>
-          <span className="break-all font-mono text-xs/5 font-normal text-muted-foreground sm:break-normal">
-            {node.owner.kind}/{node.owner.name} · {node.requirement}
-          </span>
-        </FieldLabel>
-      </Field>
-      {checked && node.children.length > 0 ? (
-        <FieldGroup
-          data-slot="checkbox-group"
-          variant="branch"
-          className="ml-2"
+        <span>{node.module.title}</span>
+      </ModuleRow>
+      {checked && node.children.length > 0 && (
+        <ul
+          className="module-tree ml-2"
+          aria-label={`Dependencies of ${node.module.title}`}
         >
           {node.children.map((child) => (
             <RelationshipBranch
@@ -83,8 +70,8 @@ export function RelationshipBranch({
               supportSelections={supportSelections}
             />
           ))}
-        </FieldGroup>
-      ) : null}
-    </div>
+        </ul>
+      )}
+    </li>
   );
 }

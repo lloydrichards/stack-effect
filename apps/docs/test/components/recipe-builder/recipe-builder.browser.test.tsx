@@ -3,7 +3,7 @@
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import type {
   CatalogAtomRequest,
   PreviewAtomRequest,
@@ -223,6 +223,11 @@ const sharedCatalogParams = () =>
   new URLSearchParams(
     page.getByLabelText("Recipe URL search").element().textContent ?? "",
   ).getAll("catalog");
+const currentCatalogCount = () =>
+  page
+    .getByRole("list", { name: "Selected catalogs" })
+    .getByText("Current", { exact: true })
+    .elements().length;
 const lastRequestedSources = () =>
   workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name);
 
@@ -246,8 +251,96 @@ function RecipeBuilderLocationProbe() {
   );
 }
 
+const targetsStep = () =>
+  page.getByRole("button", { name: /Targets & files/u }).click();
+const setupStep = () =>
+  page.getByRole("button", { name: /Project setup/u }).click();
+const chooseTarget = async (name: string) => {
+  await page.getByRole("radio", { name }).click();
+  await page.getByRole("button", { name: "Add target", exact: true }).click();
+};
+const openReactTarget = async () => {
+  await targetsStep();
+  await chooseTarget("React Client");
+  await page
+    .getByRole("button", { name: "Configure modules for web, client-react" })
+    .click();
+};
+test("adds a target before editing its modules in the inline overview", async () => {
+  await renderRecipeBuilder();
+  await page.getByRole("button", { name: "Next: Explore targets" }).click();
+  const add = page.getByRole("button", { name: "Add target", exact: true });
+  await expect.element(add).toBeDisabled();
+  await page.getByRole("radio", { name: "React Client" }).click();
+  expect(page.getByLabelText("Recipe URL search").element().textContent).toBe(
+    "",
+  );
+  await add.click();
+  await page
+    .getByRole("button", { name: "Configure modules for web, client-react" })
+    .click();
+  const description = page.getByText(
+    "REST API client with Effect Atom and typed HttpApiClient",
+    { exact: true },
+  );
+  await expect.element(description).not.toBeInTheDocument();
+  await page
+    .getByRole("button", { name: "Details for HTTP API Client", exact: true })
+    .click();
+  await expect.element(description).toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await page.getByText("HTTP API Client", { exact: true }).click();
+  await expect
+    .element(
+      page.getByRole("button", { name: "Configure modules for api, server" }),
+    )
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText("Included by HTTP API Client in client-react/web", {
+        exact: true,
+      }),
+    )
+    .toBeVisible();
+  const dependencies = page.getByRole("list", {
+    name: "Dependencies of HTTP API Client",
+  });
+  await expect
+    .element(dependencies.getByText("Domain API", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByText("package/domain", { exact: true }))
+    .not.toBeInTheDocument();
+  await dependencies
+    .getByRole("button", { name: "Details for Domain API" })
+    .click();
+  await expect
+    .element(
+      page.getByRole("dialog").getByText("package/domain", { exact: true }),
+    )
+    .toBeVisible();
+  await userEvent.keyboard("{Escape}");
+  await page.getByText("HTTP API Client", { exact: true }).click();
+  await expect.element(dependencies).not.toBeInTheDocument();
+});
+
+test("opens with the project fields and keeps secondary settings collapsed", async () => {
+  await renderRecipeBuilder();
+
+  await expect
+    .element(page.getByRole("heading", { name: "Recipe builder", level: 1 }))
+    .toBeVisible();
+  await expect.element(page.getByLabelText("Project name")).toBeVisible();
+  for (const name of [/^Tooling/u, /^Catalogs/u, /^Database/u]) {
+    await expect
+      .element(page.getByRole("button", { name }))
+      .toHaveAttribute("aria-expanded", "false");
+  }
+});
+
 test("should leave an invalid shared recipe URL visible without previewing a fallback", async () => {
   await renderRecipeBuilder("/builder?target=server/api:");
+  await targetsStep();
 
   await expect
     .element(page.getByText("Shared recipe could not be restored"))
@@ -301,8 +394,7 @@ test("should keep Bun selected after rapidly changing the Node package manager",
   await bunRuntime.click();
 
   await expect.element(bunRuntime).toHaveAttribute("aria-pressed", "true");
-  await expect.element(packageManager).toBeDisabled();
-  await expect.element(packageManager).toHaveTextContent("Bun");
+  await expect.element(packageManager).not.toBeInTheDocument();
   await expect
     .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
     .not.toContain("runtime=node");
@@ -316,10 +408,10 @@ test("should expose Deno configuration choices", async () => {
 
   await page.getByRole("button", { name: "Deno" }).click();
 
-  await expect.element(page.getByLabelText("Package manager")).toBeDisabled();
   await expect
     .element(page.getByLabelText("Package manager"))
-    .toHaveTextContent("Deno");
+    .not.toBeInTheDocument();
+  await page.getByRole("button", { name: /^Tooling/u }).click();
   await expect.element(page.getByLabelText("TypeScript")).toBeEnabled();
   await expect
     .element(page.getByLabelText("TypeScript"))
@@ -343,6 +435,7 @@ test("should expose Deno configuration choices", async () => {
 test("should clear Turbo when switching a recipe to Deno", async () => {
   await renderRecipeBuilder();
 
+  await page.getByRole("button", { name: /^Tooling/u }).click();
   await page.getByLabelText("Monorepo").click();
   await page.getByRole("option", { name: "Turborepo" }).click();
   await expect
@@ -362,6 +455,7 @@ test("should clear Turbo when switching a recipe to Deno", async () => {
 test("should disable and clear Husky when Git is turned off", async () => {
   await renderRecipeBuilder();
 
+  await page.getByRole("button", { name: /^Tooling/u }).click();
   const git = page.getByRole("button", { name: /^Git/u });
   const husky = page.getByRole("button", {
     name: /^Husky \+ lint-stagedRun staged-file format and lint tasks before each commit$/u,
@@ -380,7 +474,8 @@ test("should disable and clear Husky when Git is turned off", async () => {
 test("should generate a usable preview when the user completes a valid Selection", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("sdk/web");
   await page.getByText("HTTP API Client", { exact: true }).click();
 
@@ -397,7 +492,9 @@ test("should generate a usable preview when the user completes a valid Selection
     .element(page.getByText("3 resolved targets").first())
     .toBeVisible();
   await expect
-    .element(page.getByRole("tab", { name: /api · server/u }))
+    .element(
+      page.getByRole("button", { name: "Configure modules for api, server" }),
+    )
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
@@ -407,7 +504,7 @@ test("should generate a usable preview when the user completes a valid Selection
 test("should require a database before selecting a database-backed module", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
   const todoModule = page.getByRole("checkbox", { name: /Todo HTTP Client/u });
 
   await expect.element(todoModule).toBeDisabled();
@@ -415,10 +512,15 @@ test("should require a database before selecting a database-backed module", asyn
     .element(page.getByText("Select a database to enable this module."))
     .toBeVisible();
 
+  await setupStep();
+  await page.getByRole("button", { name: /^Database/u }).click();
   await page.getByRole("button", { name: "SQLite" }).click();
+  await targetsStep();
   await expect.element(todoModule).toBeEnabled();
   await page.getByText("Todo HTTP Client", { exact: true }).click();
 
+  await setupStep();
+  await page.getByRole("button", { name: /^Database/u }).click();
   await expect
     .element(page.getByRole("button", { name: "None" }))
     .toBeDisabled();
@@ -444,6 +546,8 @@ test("should name only the source module after restoring an implied database rec
   await renderRecipeBuilder(
     "/builder?name=shared&target=client-react%2Fweb%3Aconfig-typescript-vite%2Cclient-react-http-api-todos&target=package%2Fdb%3Apackage-db-sqlite&target=server%2Fapi%3Aserver-http-api-todos",
   );
+  await setupStep();
+  await page.getByRole("button", { name: /^Database/u }).click();
 
   await expect
     .element(page.getByText("Remove Todo HTTP Client to choose None."))
@@ -455,6 +559,7 @@ test("should name only the source module after restoring an implied database rec
 
 test("should log a share after copying a valid recipe link", async () => {
   await renderRecipeBuilder();
+  await targetsStep();
 
   await expect
     .element(page.getByRole("button", { name: "Share recipe" }))
@@ -476,13 +581,16 @@ test("should log a share after copying a valid recipe link", async () => {
 test("should remove unsupported modules when a renamed target resolves a different catalog", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
   await page.getByText("HTTP API Client", { exact: true }).click();
   await expect
-    .element(page.getByRole("tab", { name: /api · server/u }))
+    .element(
+      page.getByRole("button", { name: "Configure modules for api, server" }),
+    )
     .toBeVisible();
 
   workerCalls.reconcileModules = true;
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect
     .element(page.getByText(/could not be resolved in the current catalog/u))
@@ -500,6 +608,9 @@ test("should disclose an unresolved module from a shared recipe", async () => {
     "/builder?target=client-react%2Fweb%3Amissing-module",
   );
 
+  await page
+    .getByRole("button", { name: "Configure modules for web, client-react" })
+    .click();
   await expect.element(page.getByText(/missing-module/u)).toBeVisible();
   await expect
     .element(page.getByText(/could not be resolved in the current catalog/u))
@@ -509,14 +620,17 @@ test("should disclose an unresolved module from a shared recipe", async () => {
 test("should reconcile a rename after its delayed catalog request completes", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
   await page.getByText("HTTP API Client", { exact: true }).click();
   await expect
-    .element(page.getByRole("tab", { name: /api · server/u }))
+    .element(
+      page.getByRole("button", { name: "Configure modules for api, server" }),
+    )
     .toBeVisible();
 
   workerCalls.reconcileModules = true;
   workerCalls.deferIdentityCatalog = true;
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("renamed-web");
   await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
   await expect
@@ -547,15 +661,18 @@ test("should reconcile a rename after its delayed catalog request completes", as
 test("should retain modules when a duplicate target name becomes unique", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
   await expect
     .element(page.getByText("HTTP API Client", { exact: true }))
     .toBeVisible();
-  await page.getByRole("button", { name: "Add target" }).click();
-  await page.getByRole("button", { name: "Client React Application" }).click();
-  await page.getByRole("tab", { name: "web · client-react" }).click();
+  await page.getByRole("button", { name: "Add another target" }).click();
+  await chooseTarget("React Client");
+  await page
+    .getByRole("button", { name: "Configure modules for web, client-react" })
+    .click();
 
   const requestCount = workerCalls.catalogRequests.length;
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("web-2");
   await expect
     .poll(() => workerCalls.catalogRequests.length)
@@ -580,12 +697,13 @@ test("should retain modules when a duplicate target name becomes unique", async 
 test("should disable stale modules when renamed catalog resolution fails", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
   workerCalls.failCatalogOnce = true;
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("renamed-web");
 
   await expect
-    .element(page.getByRole("button", { name: "Retry options" }))
+    .element(page.getByRole("button", { name: "Retry catalog" }))
     .toBeVisible();
   await expect
     .element(page.getByRole("checkbox", { name: /HTTP API Client/u }))
@@ -598,10 +716,15 @@ test("should disable stale modules when renamed catalog resolution fails", async
 test("should generate a usable preview when the selected target has no modules", async () => {
   await renderRecipeBuilder();
 
-  await page.getByRole("button", { name: "MCP Server Application" }).click();
+  await targetsStep();
+  await chooseTarget("MCP Server");
 
   await expect
-    .element(page.getByRole("tab", { name: "server-mcp" }))
+    .element(
+      page.getByRole("button", {
+        name: "Configure modules for server-mcp, server-mcp",
+      }),
+    )
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
@@ -614,9 +737,10 @@ test("should generate a usable preview when the selected target has no modules",
 test("should hold previews until a retry succeeds when the catalog load failed", async () => {
   workerCalls.failCatalogOnce = true;
   await renderRecipeBuilder();
+  await targetsStep();
 
   await expect
-    .element(page.getByRole("button", { name: "Retry options" }))
+    .element(page.getByRole("button", { name: "Retry catalog" }))
     .toBeVisible();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
@@ -641,6 +765,7 @@ test("should hold previews until a retry succeeds when the catalog load failed",
 test("should wait for the catalog before enabling the preview", async () => {
   workerCalls.deferIdentityCatalog = true;
   await renderRecipeBuilder();
+  await targetsStep();
 
   await expect
     .element(page.getByText("Loading the recipe catalog"))
@@ -651,7 +776,12 @@ test("should wait for the catalog before enabling the preview", async () => {
   await expect.poll(() => workerCalls.pendingIdentityCatalogs.length).toBe(1);
   workerCalls.pendingIdentityCatalogs[0]?.complete();
 
-  await expect.element(page.getByText("Current catalog")).toBeVisible();
+  await setupStep();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+  await expect
+    .element(page.getByText("Current", { exact: true }))
+    .toBeVisible();
+  await targetsStep();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();
@@ -660,6 +790,7 @@ test("should wait for the catalog before enabling the preview", async () => {
 test("should keep previews usable when the official catalog is served from cache", async () => {
   workerCalls.catalogWarning = "stale";
   await renderRecipeBuilder();
+  await targetsStep();
 
   await expect
     .element(page.getByText("Using cached catalog official"))
@@ -682,7 +813,10 @@ test("should clear the cached-catalog notice when a retried catalog load is curr
   workerCalls.catalogWarning = undefined;
   await page.getByRole("button", { name: "Retry catalog" }).click();
 
-  await expect.element(page.getByText("Current catalog")).toBeVisible();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+  await expect
+    .element(page.getByText("Current", { exact: true }))
+    .toBeVisible();
   await expect
     .element(page.getByText("Using cached catalog official"))
     .not.toBeInTheDocument();
@@ -691,6 +825,7 @@ test("should clear the cached-catalog notice when a retried catalog load is curr
 test("should keep a current preview usable when browser storage fails", async () => {
   workerCalls.catalogWarning = "persistence";
   await renderRecipeBuilder();
+  await targetsStep();
 
   await expect
     .element(page.getByText("Catalog official could not be saved"))
@@ -702,13 +837,15 @@ test("should keep a current preview usable when browser storage fails", async ()
 
 test("should retain the last valid preview when the current Selection becomes invalid", async () => {
   await renderRecipeBuilder();
+  await targetsStep();
 
   const command = page.getByLabelText("Command to run locally");
   await expect
     .element(command)
     .toHaveTextContent("bunx stack-effect create my-effect-app");
 
-  await page.getByRole("button", { name: "Client React Application" }).click();
+  await openReactTarget();
+  await page.getByText("Target settings", { exact: true }).click();
   await page.getByLabelText("Target name").fill("sdk//web");
 
   await expect.element(page.getByText("1 file", { exact: true })).toBeVisible();
@@ -725,8 +862,13 @@ test("should retain the last valid preview when the current Selection becomes in
 test("should show the newest preview when an older request completes after it is superseded", async () => {
   await renderRecipeBuilder();
 
+  const preview = page
+    .getByRole("region", { name: "stack.effect.json", exact: true })
+    .first();
+  await expect
+    .poll(() => preview.element().textContent)
+    .toContain("my-effect-app");
   workerCalls.deferPreviews = true;
-
   await page.getByLabelText("Project name").fill("first-name");
   await expect.poll(() => workerCalls.pendingPreviews.length).toBe(1);
   await page.getByLabelText("Project name").fill("second-name");
@@ -734,13 +876,12 @@ test("should show the newest preview when an older request completes after it is
 
   workerCalls.pendingPreviews[0]?.complete();
   await expect
-    .element(page.getByLabelText("Command to run locally"))
-    .toHaveTextContent("Generating command…");
-
+    .poll(() => preview.element().textContent)
+    .toContain("my-effect-app");
   workerCalls.pendingPreviews[1]?.complete();
   await expect
-    .element(page.getByLabelText("Command to run locally"))
-    .toHaveTextContent("bunx stack-effect create second-name");
+    .poll(() => preview.element().textContent)
+    .toContain("second-name");
 });
 
 test("should ask before loading when a shared link names a custom catalog", async () => {
@@ -755,7 +896,8 @@ test("should ask before loading when a shared link names a custom catalog", asyn
   await page.getByRole("button", { name: "Load these catalogs" }).click();
 
   await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
-  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+  await expect.poll(currentCatalogCount).toBe(2);
   await expect.poll(sharedCatalogParams).toEqual(["official", `ext=${extUrl}`]);
 });
 
@@ -780,6 +922,8 @@ test("should load a shared link without the official catalog", async () => {
   await page.getByRole("button", { name: "Load these catalogs" }).click();
 
   await expect.poll(lastRequestedSources).toEqual(["ext"]);
+
+  await page.getByRole("button", { name: /^Tooling/u }).click();
   await expect
     .element(page.getByText(/Tool and repository options come from/u))
     .toBeVisible();
@@ -793,6 +937,7 @@ test("should request the remaining catalogs when the official catalog is removed
   await renderRecipeBuilder(sharedExtLink);
   await page.getByRole("button", { name: "Load these catalogs" }).click();
   await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
 
   await page.getByRole("button", { name: "Remove catalog official" }).click();
   await expect.poll(lastRequestedSources).toEqual(["ext"]);
@@ -806,6 +951,7 @@ test("should prevent removing the last catalog when only one remains", async () 
   await renderRecipeBuilder(customOnlyLink);
   await page.getByRole("button", { name: "Load these catalogs" }).click();
   await expect.poll(lastRequestedSources).toEqual(["ext"]);
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
 
   await expect
     .element(page.getByRole("button", { name: "Remove catalog ext" }))
@@ -816,7 +962,8 @@ test("should keep the official catalog while a selected catalog requires it", as
   workerCalls.requiresOfficial = ["ext"];
   await renderRecipeBuilder(sharedExtLink);
   await page.getByRole("button", { name: "Load these catalogs" }).click();
-  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+  await expect.poll(currentCatalogCount).toBe(2);
 
   await expect
     .element(page.getByRole("button", { name: "Remove catalog official" }))
@@ -856,7 +1003,8 @@ test("should offer the official catalog when a selected catalog requires it", as
   await page.getByRole("button", { name: "Add the official catalog" }).click();
 
   await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
-  await expect.element(page.getByText("2 current catalogs")).toBeVisible();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
+  await expect.poll(currentCatalogCount).toBe(2);
 });
 
 test("should load the catalog without asking again when the visitor adds it", async () => {
@@ -905,6 +1053,7 @@ test("should name the catalog that failed to load when a custom catalog is unava
   await page.getByRole("button", { name: "Load these catalogs" }).click();
 
   await expect.element(page.getByText("Catalog ext unavailable")).toBeVisible();
+  await page.getByRole("button", { name: /^Catalogs/u }).click();
   await expect
     .element(
       page
@@ -914,6 +1063,7 @@ test("should name the catalog that failed to load when a custom catalog is unava
         .getByText("Failed"),
     )
     .toBeVisible();
+  await targetsStep();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeDisabled();

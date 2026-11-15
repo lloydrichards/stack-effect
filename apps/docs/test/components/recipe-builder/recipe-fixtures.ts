@@ -152,21 +152,21 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   targets: [
     {
       kind: "client-react",
-      title: "Client React Application",
+      title: "React Client",
       description: "A frontend application built with React",
       defaultName: "web",
       requiredModules: ["config-typescript-vite"],
     },
     {
       kind: "server",
-      title: "Server Application",
+      title: "Server",
       description: "A backend application, such as an API server",
       defaultName: "api",
       requiredModules: ["server-http-api"],
     },
     {
       kind: "server-mcp",
-      title: "MCP Server Application",
+      title: "MCP Server",
       description: "A Model Context Protocol server",
       defaultName: "",
       requiredModules: [],
