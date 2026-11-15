@@ -1,18 +1,17 @@
-import { type McpSchema, McpServer } from "effect/ai";
-
-const frontmatter = {
-  name: "workshop-checklist",
-  description:
-    "Make a packing list for a group workshop. Use when someone needs to know how many kits to prepare, what to pack for each group, or which supplies to share.",
-  license: "MIT",
-  metadata: { author: "stack-effect", version: "1.0" },
-} satisfies McpSchema.SkillFrontmatter;
+import { McpServer } from "effect/ai";
 
 export const WorkshopChecklistSkillLive = McpServer.skill({
-  uri: `skill://stack-effect/${frontmatter.name}/SKILL.md`,
+  uri: "skill://stack-effect/workshop-checklist/SKILL.md",
   files: {
     "SKILL.md": `---
-${JSON.stringify(frontmatter, null, 2)}
+name: workshop-checklist
+description: >-
+  Make a packing list for a group workshop. Use when someone needs to know
+  how many kits to prepare, what to pack for each group, or which supplies to share.
+license: MIT
+metadata:
+  author: stack-effect
+  version: "1.0"
 ---
 
 Ask for the number of groups and the materials each group needs.
