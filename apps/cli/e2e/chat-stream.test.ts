@@ -5,7 +5,7 @@ import { CLI } from "./harness";
 
 layer(CLI.layer)("generated AI chat", (it) => {
   it.effect(
-    "streams tool results and keeps stateful tools scoped to each chat",
+    "should report the round limit in ask and Foldkit when a model keeps calling tools",
     () =>
       Effect.gen(function* () {
         const cli = yield* CLI;
@@ -18,6 +18,8 @@ layer(CLI.layer)("generated AI chat", (it) => {
           "package/ai:package-ai-chat-service,package-ai-toolkit-memory,package-ai-toolkit-plan,package-ai-chat-toolkit-datetime",
           "--target",
           "server/api:server-chat-runtime-managed",
+          "--target",
+          "cli/app:cli-command-chat-ask",
           "--target",
           "client-foldkit/app:client-foldkit-chat",
           "--yes",
@@ -33,13 +35,16 @@ layer(CLI.layer)("generated AI chat", (it) => {
           fs.readFileString(
             new URL(`./fixtures/${name}.ts.txt`, import.meta.url).pathname,
           );
-        const [stream, model, sessions] = yield* Effect.all([
+        const [stream, limitModel, sessionModel, sessions] = yield* Effect.all([
           fixture("chat-stream"),
+          fixture("step-limit-model"),
           fixture("chat-session-model"),
           fixture("chat-sessions"),
         ]);
         yield* cli.withinProject("chat-stream", function* (project) {
           yield* project.expectTypeCheckPasses();
+          const modelPath = "packages/ai/src/LanguageModel.ts";
+          yield* project.writeFile(modelPath, limitModel);
           const path = "chat-stream.scenarios.ts";
           yield* project.writeFile(path, stream);
           yield* project.expectCommandSucceeds(
@@ -47,7 +52,20 @@ layer(CLI.layer)("generated AI chat", (it) => {
             "bun",
             path,
           );
-          yield* project.writeFile("packages/ai/src/LanguageModel.ts", model);
+          const ask = yield* project.exec(
+            "bun",
+            "apps/cli-app/src/index.ts",
+            "ask",
+            "continue",
+          );
+          assert.strictEqual(ask.exitCode, 1, ask.stdout + ask.stderr);
+          assert.include(
+            ask.stderr,
+            "Chat reached its model round limit.",
+            ask.stdout + ask.stderr,
+          );
+
+          yield* project.writeFile(modelPath, sessionModel);
           yield* project.writeFile("chat-sessions.ts", sessions);
           yield* project.expectCommandSucceeds(
             "RPC chat sessions",

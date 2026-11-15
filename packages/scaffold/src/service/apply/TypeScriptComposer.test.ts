@@ -117,6 +117,34 @@ describe("TypeScriptComposer JSX slots", () => {
 });
 
 describe("TypeScriptComposer object fields", () => {
+  const operation = (value: string) =>
+    ({
+      _tag: "ts-object-field",
+      fileType: "typescript",
+      targetVariable: "Options",
+      functionName: "Schema.Struct",
+      field: "input",
+      value,
+    }) as const;
+
+  for (const key of ['"input"', '["input"]']) {
+    it.effect(
+      `should report a conflict when ${key} already has a different value`,
+      () =>
+        Effect.gen(function* () {
+          const failure = yield* Effect.flip(
+            compose(
+              `const Options = Schema.Struct({ ${key}: Schema.String });`,
+              [operation("Schema.Number")],
+            ),
+          );
+          expect(failure.message).toContain(
+            "Conflicting value for Options.input",
+          );
+        }),
+    );
+  }
+
   it.effect(
     "repeats deeply nested values and rejects changes within them",
     () =>
@@ -126,15 +154,6 @@ describe("TypeScriptComposer object fields", () => {
             (value) => `Schema.Struct({ child: ${value} })`,
             leaf,
           );
-        const operation = (value: string) =>
-          ({
-            _tag: "ts-object-field",
-            fileType: "typescript",
-            targetVariable: "Options",
-            functionName: "Schema.Struct",
-            field: "input",
-            value,
-          }) as const;
         const operations = [operation(nested("Schema.String"))];
         const once = yield* compose(
           "const Options = Schema.Struct({});",
