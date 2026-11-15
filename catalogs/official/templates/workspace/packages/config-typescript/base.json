@@ -65,7 +65,6 @@
           "effect/ai/Chat",
           "effect/ai/LanguageModel",
           "effect/ai/McpProtocol",
-          "effect/ai/McpSchema#SkillFrontmatter",
           "effect/ai/McpServer",
           "effect/ai/Prompt",
           "effect/ai/Tool",
