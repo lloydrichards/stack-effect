@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { Effect, Layer, Stream } from "effect";
+import { TestClock } from "effect/testing";
 import type { ChatId, ChatStreamPart } from "@repo/domain/Chat";
 import type { Action } from "./packages/ai/src/LanguageModel";
 import { ChatRuntime, ChatRuntimeLive } from "./apps/server-api/src/runtime/ChatRuntime";
@@ -21,10 +22,11 @@ const output = (parts: ReadonlyArray<ChatStreamPart>) => {
 await Effect.runPromise(Effect.gen(function* () {
   const runtime = yield* ChatRuntime;
   const managed = yield* ChatManagedRuntime;
-  const a = (yield* runtime.start).chatId;
+  const a = (yield* runtime.start.pipe(Effect.provide(TestClock.layer()))).chatId;
   const b = (yield* runtime.start).chatId;
   const ask = (chatId: ChatId, action: Action) => runtime.ask(chatId, [message(action)]).pipe(Stream.runCollect);
   const generate = (action: Action) => runtime.generate([message(action)]).pipe(Stream.runCollect);
+  assert.notEqual(JSON.parse(output(yield* ask(a, "clock"))).unix, 0, "a later turn must not inherit the start request’s clock");
   output(yield* ask(a, "remember"));
   assert.equal(result(yield* ask(b, "recall"))._tag, "tool-failure");
   assert.equal(output(yield* ask(a, "recall")), "alpha");

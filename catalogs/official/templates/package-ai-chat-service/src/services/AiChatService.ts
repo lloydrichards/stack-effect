@@ -125,8 +125,9 @@ export class AiChatService extends Context.Service<AiChatService>()(
       >(prompt: Prompt.RawInput, toolkit?: Toolkit.WithHandler<Tools>) {
         const queue = yield* Queue.bounded<ChatStreamPart, Cause.Done>(16);
         yield* stream({ prompt, toolkit }).pipe(
-          Stream.runIntoQueue(queue),
-          Effect.forkChild,
+          Stream.runForEach((part) => Queue.offer(queue, part)),
+          Effect.ensuring(Queue.end(queue)),
+          Effect.forkChild({ startImmediately: true }),
         );
         return queue;
       });

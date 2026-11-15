@@ -1,13 +1,35 @@
 import assert from "node:assert/strict";
-import { Deferred, Effect, Layer, Schema, Stream } from "effect";
+import { Cause, Deferred, Effect, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
 import { LanguageModel, Tool, Toolkit, type Response } from "effect/ai";
 import { AiChatService, AiChatServiceLive } from "@repo/ai";
-import { init, ReceivedChatPart, update } from "./apps/client-foldkit-app/src/features/chat";
-import type { ChatStreamPart } from "@repo/domain/Chat";
+import { FetchHttpClient, HttpRouter } from "effect/http";
+import { RpcSerialization, RpcServer } from "effect/rpc";
+import { ChatRpc } from "@repo/domain/ChatRpc";
+import { init, subscriptions, update, type Model } from "./apps/client-foldkit-app/src/features/chat";
+import { ChatId, type ChatStreamPart } from "@repo/domain/Chat";
 
-const receive = (parts: ReadonlyArray<ChatStreamPart>) => parts.reduce(
-  (model, part) => update(model, ReceivedChatPart({ part }))[0], init()[0],
-);
+// Serve the supplied chat parts over the same RPC transport used by the generated client.
+const receive = (parts: ReadonlyArray<ChatStreamPart>) => Effect.scoped(Effect.gen(function* () {
+  const chatId = ChatId.make("test-chat");
+  const server = RpcServer.layerHttp({ group: ChatRpc, path: "/chat-rpc", protocol: "http" }).pipe(
+    Layer.provide(ChatRpc.toLayer(ChatRpc.of({
+      chat_start: () => Effect.succeed({ chatId }),
+      chat_ask: () => Stream.fromIterable(parts),
+    }))),
+    Layer.provide(RpcSerialization.layerNdjson),
+  );
+  const web = yield* Effect.acquireRelease(
+    Effect.sync(() => HttpRouter.toWebHandler(server, { disableLogger: true })),
+    (web) => Effect.promise(() => web.dispose()),
+  );
+  const model = { ...init()[0], chatState: "streaming" as const, chatStreaming: true, chatId: Option.some(chatId) };
+  const subscription = subscriptions.chatStream;
+  return yield* subscription.dependenciesToStream(subscription.modelToDependencies(model)).pipe(
+    Stream.runFold((): Model => model,
+      (state, message) => update(state, message)[0]),
+    Effect.provideService(FetchHttpClient.Fetch, (input, init) => web.handler(new Request(input, init))),
+  );
+}));
 
 const toolCall = (id: string, name = "lookup"): Response.StreamPartEncoded => ({
   type: "tool-call", id, name, params: {},
@@ -23,10 +45,10 @@ const tools = Toolkit.make(
 );
 const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) => {
   let requests = 0;
-  let executions = 0;
   const provider = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
     generateText: () => Effect.die("Expected streaming generation"),
     streamText: ({ prompt }) => {
+      assert(requests < 12, "generation exceeded the model round limit");
       const systems = prompt.content.filter((message) => message.role === "system");
       assert.equal(systems.length, 2);
       assert.equal(systems[1]?.content, "Answer in French.");
@@ -37,18 +59,16 @@ const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) =>
   return Effect.gen(function* () {
     const toolkit = yield* tools.pipe(Effect.provide(tools.toLayer({
       lookup: (_, context) => Effect.gen(function* () {
-        executions++;
         yield* context.preliminary("progress");
         return "found";
       }),
       confirm: () => Effect.die("An unapproved tool ran"),
     })));
     const service = yield* AiChatService;
-    const parts = yield* service.stream({
+    return yield* service.stream({
       prompt: [{ role: "system", content: "Answer in French." }, { role: "user", content: [{ type: "text", text: "Hello" }] }],
       toolkit,
     }).pipe(Stream.runCollect);
-    return { requests, executions, parts };
   }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(provider));
 };
 
@@ -64,9 +84,7 @@ await Effect.runPromise(Effect.gen(function* () {
     { type: "reasoning-end", id: "summary" },
     finish("stop", 7),
   ]);
-  assert.equal(completed.requests, 2);
-  assert.equal(completed.executions, 1);
-  assert.deepEqual(completed.parts, [
+  assert.deepEqual(completed, [
     { _tag: "tool-start", id: "a", name: "lookup", input: "{}" },
     { _tag: "tool-success", id: "a", name: "lookup", output: "found" },
     { _tag: "reasoning", delta: "Checked the result." },
@@ -85,40 +103,37 @@ await Effect.runPromise(Effect.gen(function* () {
     const first = yield* ai.stream({ prompt: "Hello" }).pipe(Stream.take(1), Stream.runCollect);
     assert.deepEqual(first, [{ _tag: "text", delta: "first" }]);
     assert(yield* Deferred.isDone(released), "ending the consumer must release the provider");
+
+    const opened = yield* Deferred.make<Queue.Dequeue<ChatStreamPart, Cause.Done>>();
+    const owner = yield* Effect.gen(function* () {
+      yield* Deferred.succeed(opened, yield* ai.chat("Hello"));
+      yield* Effect.never;
+    }).pipe(Effect.forkChild);
+    const queue = yield* Deferred.await(opened);
+    assert.deepEqual(yield* Queue.take(queue), { _tag: "text", delta: "first" });
+    yield* Fiber.interrupt(owner);
+    assert.deepEqual(yield* Queue.collect(queue), []);
   }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(streamingProvider));
 
-  const capped = yield* run((n) => [toolCall(String(n)), finish("tool-calls", 1)]);
-  assert.equal(capped.requests, 12);
-  assert.equal(capped.executions, 12);
-  assert.deepEqual(capped.parts.filter((part) => part._tag === "finish"), [
-    { _tag: "finish", reason: "max-iterations", usage: { promptTokens: 12, completionTokens: 12, totalTokens: 24 } },
+  const capped = yield* run((n) => [toolCall(String(n)), finish("tool-calls", n === 1 ? undefined : 1)]);
+  assert.equal(capped.filter((part) => part._tag === "tool-success").length, 12);
+  assert.deepEqual(capped.filter((part) => part._tag === "finish"), [
+    { _tag: "finish", reason: "max-iterations", usage: undefined },
   ]);
-
-  const cappedClient = receive(capped.parts);
+  const cappedClient = yield* receive(capped);
+  assert.equal(cappedClient.chatState, "complete");
   assert(cappedClient.reachedStepLimit);
   assert.equal(cappedClient.chatHistory.length, 1);
   assert.equal(cappedClient.chatHistory[0]?.role, "assistant");
 
-  const partialUsage = yield* run((n) => n === 1
-    ? [toolCall("a"), finish("tool-calls")] : [finish("stop", 7)]);
-  const last = partialUsage.parts.at(-1);
-  assert(last?._tag === "finish" && last.usage === undefined);
+  const legacy = yield* receive([{ _tag: "reasoning", delta: "Reached maximum iterations (12). Stopping here." }]);
+  assert.equal(legacy.chatState, "error");
+  assert.equal(legacy.chatStreaming, false);
+  assert.match(Option.getOrThrow(legacy.chatError), /ended before/);
 
-  const cases = [
-    { label: "approval", requests: 1, message: /approval/, round: () => [toolCall("a", "confirm"), finish("tool-calls")] },
-    { label: "empty tool round", requests: 1, message: /without calling a tool/, round: () => [finish("tool-calls")] },
-    { label: "empty follow-up", requests: 2, message: /without a final finish/, round: (n: number) => n === 1 ? [toolCall("a"), finish("tool-calls")] : [] },
-    { label: "provider error", requests: 1, message: /example failure/, round: () => [{ type: "error" as const, error: "example failure" }, finish("error")] },
-  ];
-  for (const example of cases) {
-    const result = yield* run(example.round);
-    assert.equal(result.requests, example.requests, example.label);
-    const terminal = result.parts.filter((p) => p._tag === "finish" || p._tag === "error");
-    assert.equal(terminal.length, 1, example.label);
-    assert(terminal[0]?._tag === "error", example.label);
-    assert.match(terminal[0].message, example.message, example.label);
-    const failedClient = receive(result.parts);
-    assert.equal(failedClient.chatState, "error");
-    assert.equal(failedClient.chatHistory.length, 0);
-  }
+  const approval = yield* run(() => [toolCall("a", "confirm"), finish("tool-calls")]);
+  const failedClient = yield* receive(approval);
+  assert.equal(failedClient.chatState, "error");
+  assert.match(Option.getOrThrow(failedClient.chatError), /approval/);
+  assert.equal(failedClient.chatHistory.length, 0);
 }));

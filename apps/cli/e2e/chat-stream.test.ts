@@ -15,7 +15,7 @@ layer(CLI.layer)("generated AI chat", (it) => {
           "--root",
           cli.workdir,
           "--target",
-          "package/ai:package-ai-chat-service,package-ai-toolkit-memory,package-ai-toolkit-plan",
+          "package/ai:package-ai-chat-service,package-ai-toolkit-memory,package-ai-toolkit-plan,package-ai-chat-toolkit-datetime",
           "--target",
           "server/api:server-chat-runtime-managed",
           "--target",

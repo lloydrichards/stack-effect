@@ -4,7 +4,7 @@ import {
   RpcClient as EffectRpcClient,
   RpcClientError,
 } from "effect/rpc";
-import { RpcProtocolLive } from "./rpc-client";
+import { rpcProtocol } from "./rpc-client";
 
 type ChatRpcClient = EffectRpcClient.FromGroup<
   typeof ChatRpc,
@@ -18,4 +18,4 @@ export class ChatClient extends Context.Service<ChatClient, ChatRpcClient>()(
 export const ChatClientLive = Layer.effect(
   ChatClient,
   EffectRpcClient.make(ChatRpc),
-).pipe(Layer.provide(RpcProtocolLive));
+).pipe(Layer.provide(rpcProtocol("/chat-rpc")));

@@ -2,6 +2,7 @@ import { Effect, Layer, Stream } from "effect";
 import { LanguageModel, type Response } from "effect/ai";
 
 const actions = {
+  clock: { name: "get_current_datetime", params: { timezone: "UTC" } },
   remember: { name: "memory_set", params: { key: "draft", value: "alpha" } },
   recall: { name: "memory_get", params: { key: "draft" } },
   plan: { name: "plan_create", params: { steps: ["first", "second"] } },

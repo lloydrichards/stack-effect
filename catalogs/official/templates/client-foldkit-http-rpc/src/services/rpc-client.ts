@@ -19,12 +19,15 @@ export class RpcClient extends Context.Service<RpcClient, EventRpcClient>()(
   "RpcClient",
 ) {}
 
-export const RpcProtocolLive = EffectRpcClient.layerProtocolHttp({
-  url: `${SERVER_URL}/rpc`,
-}).pipe(
-  Layer.provide(FetchHttpClient.layer),
-  Layer.provide(RpcSerialization.layerNdjson),
-);
+export const rpcProtocol = (path: string) =>
+  EffectRpcClient.layerProtocolHttp({
+    url: `${SERVER_URL}${path}`,
+  }).pipe(
+    Layer.provide(FetchHttpClient.layer),
+    Layer.provide(RpcSerialization.layerNdjson),
+  );
+
+export const RpcProtocolLive = rpcProtocol("/rpc");
 
 export const RpcClientLive = Layer.effect(
   RpcClient,

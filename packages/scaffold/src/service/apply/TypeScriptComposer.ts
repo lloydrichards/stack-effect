@@ -297,6 +297,36 @@ const expressionStructure = (value: string): string => {
   return expression ? JSON.stringify(syntax(expression)) : value;
 };
 
+// Later properties win. An opaque spread or computed key can supply the field at runtime.
+const objectFieldValue = (
+  object: ts.ObjectLiteralExpression,
+  field: string,
+): ts.Expression | "unknown" | undefined => {
+  for (const property of object.properties.toReversed()) {
+    if (ts.isSpreadAssignment(property)) {
+      if (!ts.isObjectLiteralExpression(property.expression)) return "unknown";
+      const value = objectFieldValue(property.expression, field);
+      if (value !== undefined) return value;
+      continue;
+    }
+    const name = property.name;
+    if (!name) return "unknown";
+    const key = ts.isComputedPropertyName(name) ? name.expression : name;
+    if (
+      ts.isStringLiteralLike(key) ||
+      ts.isNumericLiteral(key) ||
+      (ts.isIdentifier(key) && !ts.isComputedPropertyName(name))
+    ) {
+      if (key.text !== field) continue;
+      return ts.isPropertyAssignment(property)
+        ? property.initializer
+        : "unknown";
+    }
+    return "unknown";
+  }
+  return undefined;
+};
+
 const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
   sourceFile: SourceFile,
   op: typeof TsObjectFieldOp.Type,
@@ -317,14 +347,12 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
   const objectLiteral = objectArg.asKindOrThrow(
     SyntaxKind.ObjectLiteralExpression,
   );
-  const existingProp = objectLiteral.getProperty(op.field);
-  if (existingProp) {
-    const existingValue = existingProp.isKind(SyntaxKind.PropertyAssignment)
-      ? existingProp.getInitializer()?.getText()
-      : undefined;
+  const existingValue = objectFieldValue(objectLiteral.compilerNode, op.field);
+  if (existingValue !== undefined) {
     if (
-      existingValue !== undefined &&
-      expressionStructure(existingValue) === expressionStructure(op.value)
+      existingValue !== "unknown" &&
+      expressionStructure(existingValue.getText()) ===
+        expressionStructure(op.value)
     ) {
       return;
     }
