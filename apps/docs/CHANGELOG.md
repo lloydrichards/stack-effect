@@ -1,5 +1,11 @@
 # @stack-effect/docs
 
+## 0.5.0
+
+### Minor Changes
+
+- f02e39e: Configure a recipe in two steps. Explore module dependencies inline and see which generated files change as you edit the recipe.
+
 ## 0.4.0
 
 ### Minor Changes
