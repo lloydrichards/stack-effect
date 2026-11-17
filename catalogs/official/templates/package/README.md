@@ -42,7 +42,7 @@ Then run from this directory:
 {{runCommand}} db:health
 ```
 
-Add migrations under `src/migrations/`. Deploy migration assets with the application; use an absolute `MIGRATIONS_DIRECTORY` when overriding their location.
+Add migrations under `src/migrations/`. Deploy them beside the database module in its `migrations` directory; the Postgres loader resolves this location relative to the module.
 {{/if}}{{#if module=package-db-todo-repository}}
 `TodoRepository` and `TodoRepositoryLive` implement todo persistence. Provide `DatabaseLive` to the repository layer in the consuming application.
 {{/if}}
