@@ -571,8 +571,15 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
     requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter((capability) =>
       capability === "target:hierarchical-name"
         ? hierarchicalNameCapabilities(authored).includes(capability)
-        : capability === "condition:module" ||
-            capability === "condition:noModule"
+        : [
+              "condition:module",
+              "condition:noModule",
+              "condition:hasApps",
+              "token:scaffoldRecipe",
+              "token:workspaceTargets",
+              "token:projectRoot",
+              "token:runCommand",
+            ].includes(capability)
           ? inlineStrings(authored)
               .flatMap(templateCapabilities)
               .includes(capability)

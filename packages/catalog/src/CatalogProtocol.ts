@@ -20,6 +20,10 @@ const contributionTags = [
 
 const tokenNames = [
   "projectName",
+  "scaffoldRecipe",
+  "runCommand",
+  "workspaceTargets",
+  "projectRoot",
   "runtime",
   "packageManager",
   "packageManagerSpec",
@@ -38,6 +42,7 @@ const tokenNames = [
 
 const conditionalNames = [
   "module",
+  "hasApps",
   "noModule",
   "runtime",
   "packageManager",

@@ -147,9 +147,18 @@ describe("Plan and Apply repository state", () => {
             });
           for (const name of ["sdk/client", "sdk/codecs"]) {
             const plan = yield* planAt(name);
-            expect(plan.conflicts).toEqual([]);
+            expect(plan.conflicts.map((conflict) => conflict.path)).toEqual(
+              name === "sdk/client" ? [] : ["README.md"],
+            );
+            const decisions = plan.conflicts.map(({ path }) => ({
+              path,
+              value: "skip" as const,
+            }));
             expect(
-              (yield* apply.apply({ apply: intent(plan), repoRoot })).failed,
+              (yield* apply.apply({
+                apply: new Apply({ plan, decisions }),
+                repoRoot,
+              })).failed,
             ).toEqual([]);
           }
           const members = [
@@ -186,7 +195,16 @@ describe("Plan and Apply repository state", () => {
           );
           const repeated = yield* planAt("sdk/codecs");
           expect(
-            (yield* apply.apply({ apply: intent(repeated), repoRoot })).failed,
+            (yield* apply.apply({
+              apply: new Apply({
+                plan: repeated,
+                decisions: repeated.conflicts.map(({ path }) => ({
+                  path,
+                  value: "skip" as const,
+                })),
+              }),
+              repoRoot,
+            })).failed,
           ).toEqual([]);
           expect(
             yield* files.readFileString(`${repoRoot}/pnpm-workspace.yaml`),
@@ -936,8 +954,12 @@ describe("Plan and Apply repository state", () => {
             (entry) => entry.classification === "create",
           );
           assert(creates.length >= 2, "Expected two planned writes");
-          const first = creates[0];
-          const later = creates[1];
+          const first = creates.find(
+            (entry) => entry.path === "packages/domain/package.json",
+          );
+          const later = creates.find(
+            (entry) => entry.path === "packages/domain/src/Api.ts",
+          );
           assert(first && later);
           trigger.first = `${repoRoot}/${first.path}`;
           trigger.later = `${repoRoot}/${later.path}`;

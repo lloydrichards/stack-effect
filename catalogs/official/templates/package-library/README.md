@@ -1,41 +1,47 @@
 # {{packageName}}
 
-A small ESM library with TypeScript declarations.
+An ESM library whose starter `greet(name)` function returns an Effect containing a greeting. Builds include JavaScript and TypeScript declarations.
 
-## Run the example
+## Try it
 
-Run `npm run example` from this directory to build the library and print `Hello, Effect!`.
+Complete the [workspace setup]({{projectRoot}}/README.md#get-started). Run from this directory:
 
-`src/index.ts` exports `greet(name)`, which returns an Effect containing a greeting. `scripts/example.mjs` imports the compiled public API by package name, runs the Effect, and prints its result. Change the greeting or use this script to try new exports.
-
-## Add public exports
-
-Replace the starter greeting or add implementation files under `src/` and export them from `src/index.ts`:
-
-```ts
-export { greet } from "./greet.js";
+```sh
+npm run example
 ```
 
-Keep `.js` extensions in relative imports and exports. TypeScript resolves them to source `.ts` files and emits paths that work in Node.
+The example builds the library and prints `Hello, Effect!` using its compiled public API:
 
-`package.json` describes both the workspace package and the published package. Its root export points to `dist/index.js`; TypeScript resolves the adjacent `dist/index.d.ts`. Add explicit entries to `exports` when you need public subpaths.
+```ts
+import { greet } from "{{packageName}}";
+import { Effect } from "effect";
 
-## Build and develop
+console.log(await Effect.runPromise(greet("Effect")));
+```
 
-Install workspace dependencies, then run `npm run build` before importing the library from another workspace package. Run `npm run dev` to recompile changes during development. Workspace consumers use the same compiled entry point as npm consumers.
+Consumers need the compatible `effect` peer dependency declared in `package.json`.
 
-## Pack and publish
+## Develop
 
-Run `npm run pack` from this directory to clean previous output, compile JavaScript and declarations, and pack the package root. The `files` list includes only compiled JavaScript and declarations under `dist/`; npm also includes the root manifest, README, and LICENSE when present. Node and npm are required, including in a Bun workspace.
+| Command | Purpose |
+| --- | --- |
+| `npm run build` | Clean and compile JavaScript and declarations into `dist/` |
+| `npm run dev` | Recompile on source changes |
+| `npm run type-check` | Check TypeScript without emitting files |
+| `npm run pack` | Build and create an npm tarball |
 
-Effect is a peer dependency for consumers and a development dependency for local builds. Remove both entries if your library does not use Effect.
+Export public functions from `src/index.ts`. Use `.js` extensions in relative imports and exports so compiled ESM works in Node. Add explicit `package.json` export entries for public subpaths.
 
-Before publishing:
+Workspace consumers use the compiled entry point too. Build before importing the package; use the watch command during development.
 
-- Set your npm name, version, license, description, and repository in `package.json`. Update workspace imports and dependency entries if you rename the package.
-- Add a `LICENSE` file beside `package.json`.
-- Verify the tarball in a clean consumer, including runtime imports and TypeScript declarations.
-- Keep unpublished `@repo/*` imports out of emitted JavaScript and declarations.
-- Inspect the packed files, then run `npm publish` from this directory.
+## Prepare a release
 
-The library manifest sets `private` to `false` and declares public npm access. Stack Effect does not publish automatically.
+Node and npm are required for the example and packaging scripts, including in this Bun workspace.
+
+1. Replace `{{packageName}}` with your npm package name. Set its version, description, repository, and license in `package.json`; update imports and workspace references when you rename it.
+2. Add a `LICENSE` file beside `package.json`.
+3. Run `npm run pack` and inspect the tarball. The manifest includes compiled JavaScript and declarations under `dist/`; npm also includes package metadata and root README and license files when present.
+4. Install the tarball into a clean consumer and verify runtime imports and TypeScript declarations. Keep unpublished workspace imports out of emitted files.
+5. Run `npm publish` from this directory when ready to release publicly.
+
+The starter manifest permits public publishing. Stack Effect does not publish the package automatically.

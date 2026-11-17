@@ -143,6 +143,12 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
   identity: TargetIdentity,
   config: StackConfig,
   moduleIds: Schema.optional(Schema.Array(Schema.String)),
+  scaffoldRecipe: Schema.optional(Schema.String),
+  projectTargets: Schema.optional(
+    Schema.Array(
+      Schema.Struct({ identity: TargetIdentity, description: Schema.String }),
+    ),
+  ),
 }) {
   /**
    * Resolve template tokens and conditionals in a string.
@@ -158,6 +164,10 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{format}}` - Format tool ("biome", "dprint", "oxfmt", or "")
    * - `{{test}}` - Test framework ("vitest" or "")
    * - `{{monorepo}}` - Monorepo tool (for example, "turbo", "vite-plus", or "nx")
+   * - `{{runCommand}}` - Package script runner for the selected runtime
+   * - `{{scaffoldRecipe}}` - Command to recreate the initial resolved scaffold
+   * - `{{workspaceTargets}}` - Markdown table of the initial project targets
+   * - `{{projectRoot}}` - Relative path from this target to the project root
    * - `{{targetKind}}`, `{{targetName}}`, `{{targetPath}}`, `{{targetDir}}`, `{{packageName}}`
    *
    * ## Conditionals
@@ -165,6 +175,7 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * - `{{#if field=value}}...{{/if}}` - Include content if field equals value
    * - `{{#if module=module-id}}...{{/if}}` - Include content when the target has that module
    * - `{{#if noModule=module-id}}...{{/if}}` - Include content when the target lacks that module
+   * - `hasApps` - Truthy when the initial project contains application targets
    * - `effectOxlint` - Truthy for TypeScript 7 with Oxlint
    * - `standaloneOxlint` - Truthy for Oxlint outside Vite+
    * - `standaloneEffectOxlint` - Truthy for Effect Oxlint outside Vite+
@@ -189,6 +200,13 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
 
     const getConfigValue = (field: string): string => {
       switch (field) {
+        case "hasApps":
+          return this.projectTargets?.some(
+            ({ identity }) =>
+              identity.kind !== "workspace" && identity.kind !== "package",
+          )
+            ? "true"
+            : "";
         case "runtime":
           return this.config.runtimeName;
         case "packageManager":
@@ -251,6 +269,28 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
     };
 
     const withConditionals = resolveConditionals(template);
+    const projectTargets =
+      this.projectTargets?.filter(
+        ({ identity }) => identity.kind !== "workspace",
+      ) ?? [];
+    const workspaceTargets =
+      projectTargets.length === 0
+        ? "This workspace has no application yet. Add targets with `stack-effect add`."
+        : [
+            "| Workspace | Responsibility |",
+            "| --- | --- |",
+            ...projectTargets.map(
+              ({ identity, description }) =>
+                `| [${identity.toPath()}](${identity.toPath()}) | ${description.replaceAll("|", "\\|").replaceAll("\n", " ")} |`,
+            ),
+          ].join("\n");
+    const projectRoot =
+      targetPath === "."
+        ? "."
+        : targetPath
+            .split("/")
+            .map(() => "..")
+            .join("/");
 
     return resolveTargetToken(
       resolveTargetToken(
@@ -274,6 +314,15 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         "{{targetDir}}",
       ),
       "{{targetPath}}",
-    );
+    )
+      .replaceAll(
+        "{{runCommand}}",
+        this.config.runtimeName === "deno"
+          ? "deno task"
+          : `${this.config.packageManagerName} run`,
+      )
+      .replaceAll("{{projectRoot}}", projectRoot)
+      .replaceAll("{{workspaceTargets}}", () => workspaceTargets)
+      .replaceAll("{{scaffoldRecipe}}", () => this.scaffoldRecipe ?? "");
   }
 }
