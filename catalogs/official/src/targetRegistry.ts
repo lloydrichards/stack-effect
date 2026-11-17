@@ -14,6 +14,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./workspace/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/.gitignore",
         contents: template("./workspace/_gitignore"),
       },
@@ -67,6 +73,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./cloudflare-worker/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: template("./cloudflare-worker/package.json"),
       },
@@ -86,6 +98,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     defaultName: "web",
     requiredModules: ["config-typescript-vite"],
     contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./client-react/README.md"),
+        conflictOnModify: true,
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -214,6 +232,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./client-foldkit/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: template("./client-foldkit/package.json"),
       },
@@ -323,6 +347,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./server/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: template("./server/package.json"),
       },
@@ -415,6 +445,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     defaultName: "",
     requiredModules: [],
     contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./server-mcp/README.md"),
+        conflictOnModify: true,
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",
@@ -520,6 +556,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     contributions: [
       {
         _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./cli/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: template("./cli/package.json"),
       },
@@ -603,6 +645,12 @@ export const targetGroup = defineTargets(import.meta.url, [
     defaultName: "library",
     requiredModules: [],
     contributions: [
+      {
+        _tag: "file",
+        path: "{{#if noModule=package-library}}{{targetPath}}/README.md{{/if}}",
+        contents: template("./package/README.md"),
+        conflictOnModify: true,
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/package.json",

@@ -8,6 +8,27 @@ import {
 } from "./Scaffold";
 
 describe("@repo/domain Scaffold", () => {
+  it("preserves literal replacement characters in README recipes and workspace descriptions", () => {
+    const identity = new TargetIdentity({
+      kind: TargetKind.make("package"),
+      name: "sdk/client",
+    });
+    const recipe =
+      "bunx stack-effect@latest create sdk --catalog 'mine=https://example.com/catalog.json?q=$&'";
+    const context = new ContributionTokenContext({
+      targetKey: identity.toKey(),
+      identity,
+      config: new StackConfig({ name: "sdk", runtime: { _tag: "bun" } }),
+      scaffoldRecipe: recipe,
+      projectTargets: [{ identity, description: "Price $& guide" }],
+    });
+    expect(context.resolve("{{scaffoldRecipe}}")).toBe(recipe);
+    expect(context.resolve("{{workspaceTargets}}")).toContain("Price $& guide");
+    expect(context.resolve("{{projectRoot}}/README.md")).toBe(
+      "../../../README.md",
+    );
+  });
+
   it("should resolve path tokens and flat npm names when the target name is nested", () => {
     const identity = new TargetIdentity({
       kind: TargetKind.make("package"),
