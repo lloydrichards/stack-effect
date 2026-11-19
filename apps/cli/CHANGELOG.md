@@ -1,5 +1,14 @@
 # stack-effect
 
+## 0.20.0
+
+### Minor Changes
+
+- 6299be7: Generated projects now include root and workspace READMEs with local commands, an initial scaffold recipe, and a link to the Stack Effect documentation. `stack-effect add --yes` preserves user-edited READMEs.
+  
+  Catalog authors can use the `scaffoldRecipe`, `workspaceTargets`, `projectRoot`, and `runCommand` template tokens and the `hasApps` condition. Catalogs declare these capabilities only when their templates use them.
+- fd8c8de: Use `stack-effect skill read` to print the bundled coding-agent guide or `stack-effect skill write` to install it in a repository.
+
 ## 0.19.0
 
 ### Minor Changes
