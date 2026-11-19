@@ -2,6 +2,11 @@
 
 A coding agent can use Stack Effect to discover available capabilities and preview repository changes as structured data. The agent stays out of the interactive CLI, presents the proposed work, and acts within the authorization the user has given.
 
+Run `stack-effect skill read` to give an agent the bundled Markdown. To install
+the skill in a repository, run `stack-effect skill write --path /path/to/repository`.
+The command writes `.agents/skills/stack-effect/SKILL.md`. Use `--force` when
+you want to replace an installed copy.
+
 > **Agent contract:** Do not use Stack Effect's interactive prompts. Use `schema` and `plan` for discovery and planning. Respect authorization already given. Request approval before edits, conflict resolutions, or Finalize commands that fall outside it.
 
 The example adds an Effect HTTP API to an initialized Stack Effect repository. It is the agent-safe version of the [Getting started](/getting-started) walkthrough: commands are non-interactive, and authorization is handled in the agent conversation.

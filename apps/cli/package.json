@@ -32,7 +32,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "bun build src/index.ts --outdir=dist --target=node --minify --banner '#!/usr/bin/env node'",
+    "build": "bun build src/index.ts --outdir=dist --target=node --minify --banner '#!/usr/bin/env node' && mkdir -p dist/skills/stack-effect && cp src/skills/stack-effect/SKILL.md dist/skills/stack-effect/SKILL.md",
     "build:types": "tsc --emitDeclarationOnly",
     "docs:generate": "bun run scripts/generate-cli-reference.ts",
     "dev": "bun --watch run src/index.ts",

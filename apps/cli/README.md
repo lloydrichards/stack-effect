@@ -2,7 +2,7 @@
 
 Scaffolding CLI for full-stack TypeScript apps built on [Effect](https://effect.website).
 
-Using a coding agent? Start with the [agent guide](https://stack-effect.lloydrichards.dev/use-with-coding-agents.md) for structured discovery and planning. The [documentation index](https://stack-effect.lloydrichards.dev/llms.txt) links the Markdown reference pages.
+Using a coding agent? Run `stack-effect skill read` to print the bundled skill or `stack-effect skill write` to install it in the current repository. See the [agent guide](https://stack-effect.lloydrichards.dev/use-with-coding-agents.md) for structured discovery and planning. The [documentation index](https://stack-effect.lloydrichards.dev/llms.txt) links the Markdown reference pages.
 
 [![npm version](https://img.shields.io/npm/v/stack-effect)](https://www.npmjs.com/package/stack-effect)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/lloydrichards/stack-effect/blob/main/LICENSE)

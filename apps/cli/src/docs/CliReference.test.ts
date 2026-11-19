@@ -39,6 +39,9 @@ describe("CLI reference", () => {
         "stack-effect catalog workspace reset",
         "stack-effect catalog workspace diff",
         "stack-effect catalog workspace validate",
+        "stack-effect skill",
+        "stack-effect skill read",
+        "stack-effect skill write",
       ]);
     }).pipe(Effect.provide(TestLayer)),
   );
@@ -70,6 +73,7 @@ describe("CLI reference", () => {
         "plan",
         "schema",
         "catalog",
+        "skill",
       ]);
       expect(pages.find((page) => page.slug === "add")?.content).toContain(
         "# stack-effect add",
