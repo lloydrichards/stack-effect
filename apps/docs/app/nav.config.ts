@@ -51,6 +51,7 @@ export const navigation: NavSection[] = [
       { label: "Plan", href: "/reference/cli/plan" },
       { label: "Schema", href: "/reference/cli/schema" },
       { label: "Catalog", href: "/reference/cli/catalog" },
+      { label: "Skill", href: "/reference/cli/skill" },
     ],
   },
 ];

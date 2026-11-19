@@ -24,5 +24,6 @@ export default [
     route("plan", "content/reference/cli/plan.mdx"),
     route("schema", "content/reference/cli/schema.mdx"),
     route("catalog", "content/reference/cli/catalog.mdx"),
+    route("skill", "content/reference/cli/skill.mdx"),
   ]),
 ] satisfies RouteConfig;

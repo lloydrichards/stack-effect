@@ -116,6 +116,12 @@ export const docPages: ReadonlyArray<DocPage> = [
         "stack-effect catalog",
         "Inspect and work with catalogs.",
       ],
+      [
+        "/skill",
+        "skill",
+        "stack-effect skill",
+        "Print or install the bundled skill for coding agents.",
+      ],
     ] as const
   ).map(([suffix, source, title, summary]) => ({
     route: `/reference/cli${suffix}`,

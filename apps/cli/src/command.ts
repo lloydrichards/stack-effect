@@ -7,6 +7,7 @@ import { graph } from "./commands/graph";
 import { init } from "./commands/init";
 import { parsePlanInput, ParsedPlanInput, plan } from "./commands/plan";
 import { schema } from "./commands/schema";
+import { skill } from "./commands/skill";
 import { selectionFromFlags, selectionFromProject } from "./lib/catalogSources";
 import { resolveNameAndRoot } from "./lib/project";
 import { ConfigureService } from "./service/ConfigureService";
@@ -122,5 +123,6 @@ export const stackEffectCommand = Command.make("stack-effect").pipe(
       ),
     ),
     catalog,
+    skill,
   ]),
 );
