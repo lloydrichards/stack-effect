@@ -67,8 +67,45 @@ export const alchemyModules = defineModules(import.meta.url, [
       ),
     ],
     nextSteps: [
-      "Alchemy: import your target declarations and compose resources in alchemy.run.ts, then run infra:check and infra:dev. The root starts with no registered resources. Cloudflare plan/deploy/destroy require a configured profile and may create account resources.",
+      "Run infra:check and infra:dev from the workspace root. If Applications is empty in alchemy.run.ts, import and compose your target declarations first. Cloudflare plan, deploy and destroy require a configured profile.",
     ],
+  },
+  {
+    id: "workspace-alchemy-cafe",
+    title: "CAFE starter",
+    description:
+      "Connect a Foldkit Website and typed Effect API on Cloudflare with Alchemy",
+    supportedOn: [{ _tag: "identity", identity: workspace }],
+    supportedRuntimes: ["bun", "node"],
+    categories: ["deployment"],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: { kind: "client-foldkit", name: "web" },
+        moduleId: "client-foldkit-http-api-worker",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "client-foldkit", name: "web" },
+        moduleId: "alchemy-client-foldkit-website",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "client-foldkit", name: "web" },
+        moduleId: "config-typescript-vite",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "cloudflare-worker", name: "api" },
+        moduleId: "alchemy-worker-deployment",
+      },
+      {
+        _tag: "required-module",
+        target: { kind: "cloudflare-worker", name: "api" },
+        moduleId: "cloudflare-worker-http",
+      },
+    ],
+    contributions: [],
   },
   {
     id: "alchemy-worker-deployment",
