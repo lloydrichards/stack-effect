@@ -266,6 +266,27 @@ const openReactTarget = async () => {
     .getByRole("button", { name: "Configure modules for web, client-react" })
     .click();
 };
+test("selects and clears CAFE as a shareable stack preset", async () => {
+  await renderRecipeBuilder();
+  await targetsStep();
+  const preset = page.getByRole("checkbox", { name: "CAFE starter" });
+  const selectedTargets = () =>
+    new URLSearchParams(
+      page.getByLabelText("Recipe URL search").element().textContent ?? "",
+    ).getAll("target");
+
+  await expect.element(preset).not.toBeChecked();
+  await preset.click();
+  await expect.element(preset).toBeChecked();
+  await expect
+    .poll(selectedTargets)
+    .toContain("workspace/my-effect-app:workspace-alchemy-cafe");
+
+  await preset.click();
+  await expect.element(preset).not.toBeChecked();
+  await expect.poll(selectedTargets).toEqual([]);
+});
+
 test("adds a target before editing its modules in the inline overview", async () => {
   await renderRecipeBuilder();
   await page.getByRole("button", { name: "Next: Explore targets" }).click();

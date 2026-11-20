@@ -40,6 +40,7 @@ export type BuilderCatalogModule = {
   readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
   readonly implies: ReadonlyArray<typeof ModuleImplication.Type>;
   readonly children: ReadonlyArray<typeof ModuleChild.Type>;
+  readonly conflictsWith: ReadonlyArray<typeof ModuleId.Type>;
 };
 
 export type BuilderCatalogTargetModules = {
@@ -312,6 +313,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
               visibility: module.visibility ?? "public",
               dependencies: module.dependencies,
               implies: module.implies ?? [],
+              conflictsWith: module.conflictsWith ?? [],
               children: Arr.filter(module.children ?? [], (child) =>
                 supportedIds.has(child.moduleId),
               ),

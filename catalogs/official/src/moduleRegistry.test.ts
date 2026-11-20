@@ -148,6 +148,7 @@ describe("moduleRegistry", () => {
       "client-react-http-api-worker",
       "client-foldkit-http-api-worker",
       "alchemy-cloudflare",
+      "workspace-alchemy-cafe",
       "alchemy-worker-deployment",
       "alchemy-client-foldkit-website",
       "alchemy-client-react-website",

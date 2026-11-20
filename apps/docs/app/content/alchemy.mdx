@@ -1,6 +1,6 @@
 # Deploy with Alchemy
 
-Alchemy deployment is optional. Select it through ordinary modules on a React, Foldkit or Cloudflare Worker target. The CLI generates target declarations and an editable root `alchemy.run.ts`. You register resources and connect applications in that TypeScript file.
+Alchemy deployment is optional. Select it through ordinary modules on a React, Foldkit or Cloudflare Worker target. The CLI generates target declarations and an editable root `alchemy.run.ts`. The CAFE recipe connects the Website and API Worker in that file.
 
 ## Select applications
 
@@ -16,21 +16,21 @@ A Worker alone:
 stack-effect create backend --yes --target cloudflare-worker/api:alchemy-worker-deployment
 ```
 
-A Foldkit frontend with the Worker HTTP client:
+In the [Recipe Builder](/builder), open **Targets & files** and choose **CAFE starter** under **Stack presets**. To create the app from the terminal, run:
 
 ```sh
-stack-effect create application --yes \
-  --target client-foldkit/web:client-foldkit-http-api-worker,alchemy-client-foldkit-website \
-  --target cloudflare-worker/api:alchemy-worker-deployment
+stack-effect create application --yes --target workspace/root:workspace-alchemy-cafe
 ```
 
-For React, substitute `client-react`, `client-react-http-api-worker` and `alchemy-client-react-website`. These selections can represent CAFE or CAVE without stack-specific modules. The Worker HTTP client uses the shared API contracts. Selecting a Worker HTTP client also adds a Cloudflare Worker with its HTTP handlers. Alchemy deployment remains optional; select the Worker deployment module and supply its URL in Alchemy code. Its socket-server alternatives conflict through the existing catalog rules.
+The CAFE module adds `client-foldkit/web` with the Worker HTTP client and Alchemy Website, and `cloudflare-worker/api` with the Alchemy Worker deployment. The generated Stack passes the API Worker URL to the Website as `VITE_SERVER_URL`. The HTTP client module adds the shared API contract, and the Worker target supplies its handlers.
+
+To choose different target names or use React, select the deployment and HTTP client modules directly and compose the Stack manually.
 
 Deployment modules support Bun and Node. Add `--runtime node --package-manager npm` for Node/npm projects. Projects that omit these modules retain their existing development setup.
 
 ## Compose the root Stack
 
-The generated root initially has no registered resources. Add imports for your declarations and replace its empty `Applications` declaration. Keep the generated providers, state and `Alchemy.Stack` configuration.
+When you select deployment modules directly, add imports for your declarations and replace the empty `Applications` declaration. Keep the generated providers, state and `Alchemy.Stack` configuration.
 
 For a frontend alone:
 
@@ -65,8 +65,10 @@ Use the actual generated paths when naming targets differently. You can add queu
 
 ## Run infrastructure
 
-Run `bun run infra:check`, then `bun run infra:dev`. Use `npm run` in Node/npm projects. Existing application `dev` commands remain available.
+From the generated workspace, run `bun run infra:check`, then `bun run infra:dev`. Use `npm run` in Node projects configured with npm.
 
-The root also exposes `infra:plan`, `infra:deploy` and `infra:destroy`, initially using the `dev` stage. Edit the scripts or invoke Alchemy directly for other stages. Alchemy and its frontend integration are pinned to `2.0.0-beta.81`.
+For CAFE, open the Website URL printed by Alchemy and click **Call REST API**. The API Worker returns a response that the Foldkit app decodes with the shared Effect schema. The response panel shows `"message": "Hello Effect!"` and `"success": true`.
 
-Local development uses local state. Account-backed plan, deployment and cleanup require a configured Cloudflare profile and may create resources. They have not been qualified by the local smoke tests. The initial Worker implements the shared health and hello HTTP contracts; Worker RPC, SQL, chat and presence adapters are outside this version.
+The root also exposes `infra:plan`, `infra:deploy` and `infra:destroy`, initially using the `dev` stage. Edit the scripts or invoke Alchemy directly for other stages. Alchemy and its frontend integration are pinned to `2.0.0-beta.87`.
+
+Local development uses local state. Account-backed plan, deployment and cleanup require a configured Cloudflare profile and may create resources. The initial Worker implements the shared health and hello HTTP contracts; Worker RPC, SQL, chat and presence adapters are outside this version.

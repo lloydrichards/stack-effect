@@ -9,6 +9,7 @@ import { cn } from "~/lib/utils";
 import { CatalogSourcesPanel } from "./catalog-sources";
 import { DatabaseSelector } from "./database-selector";
 import { usesOfficialCatalog } from "./form";
+import { usePresetTargets } from "./preset-targets";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -43,11 +44,9 @@ function ToolSettings() {
     }
     if (gitEnabled) summary.push("Git");
     summary.push(
-      ...extras.map(
-        (id) =>
-          catalog?.configuration.devenv.find((choice) => choice.value === id)
-            ?.title ?? id,
-      ),
+      ...(catalog?.configuration.devenv ?? [])
+        .filter((choice) => extras.includes(choice.value))
+        .map((choice) => choice.title),
     );
   }
   const tools = [...new Set(summary)];
@@ -75,6 +74,90 @@ function ToolSettings() {
       <DatabaseSelector />
       <CatalogSourcesPanel />
     </div>
+  );
+}
+
+function StackPresets() {
+  const form = useRecipeBuilderFormContext();
+  const { catalog } = useRecipeBuilderCatalog();
+  const runtime = useSelector(
+    form.store,
+    (state) => state.values.config.runtime._tag,
+  );
+  const selected = useSelector(
+    form.store,
+    (state) => state.values.developerExperienceModules,
+  );
+  const included = usePresetTargets();
+  const presets = catalog?.configuration.presets ?? [];
+  if (presets.length === 0) return null;
+
+  return (
+    <fieldset className="space-y-2 border-b pb-4">
+      <legend className="font-heading text-xl font-semibold">
+        Stack presets
+      </legend>
+      {presets.map((preset) => {
+        const checked = selected.includes(preset.value);
+        const compatible = preset.supportedRuntimes.includes(runtime);
+        const targets =
+          included
+            .find((item) => item.preset.value === preset.value)
+            ?.targets.filter(({ identity }) => identity.kind === "workspace") ??
+          [];
+        return (
+          <div key={preset.value}>
+            <label className="flex items-start gap-3 py-2">
+              <input
+                aria-label={preset.title}
+                className="mt-1 size-4 accent-primary"
+                type="checkbox"
+                checked={checked}
+                disabled={!compatible && !checked}
+                onChange={(event) => {
+                  const enabled = event.currentTarget.checked;
+                  form.setFieldValue("developerExperienceModules", (current) =>
+                    enabled
+                      ? [...current, preset.value]
+                      : current.filter((id) => id !== preset.value),
+                  );
+                }}
+              />
+              <span>
+                <span className="block text-sm font-medium">
+                  {preset.title}
+                </span>
+                <span className="block text-sm text-muted-foreground">
+                  {preset.description}
+                  {!compatible && ` Unavailable with ${runtime}.`}
+                </span>
+              </span>
+            </label>
+            {targets.length > 0 && (
+              <ul
+                aria-label={`Targets included by ${preset.title}`}
+                className="ml-7 space-y-2 border-l pl-3 text-sm"
+              >
+                {targets.map((target) => (
+                  <li key={target.id}>
+                    <span className="font-mono font-medium">
+                      {target.identity.kind === "workspace"
+                        ? "Workspace"
+                        : `${target.identity.kind}/${target.identity.name}`}
+                    </span>
+                    <ul className="text-muted-foreground">
+                      {target.modules.map((module) => (
+                        <li key={module.id}>{module.title}</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </fieldset>
   );
 }
 
@@ -166,6 +249,7 @@ export function BuilderWorkspace() {
                 Edit setup
               </Button>
             </div>
+            <StackPresets />
             <TargetWorkspace editor={editor} />
           </div>
         </section>

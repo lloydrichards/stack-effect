@@ -18,7 +18,7 @@ const preview = (kind: string, modules: ReadonlyArray<string>) =>
           {
             target: new TargetIdentity({
               kind: TargetKind.make(kind),
-              name: "app",
+              name: kind === "workspace" ? "root" : "app",
             }),
             modules: modules.map((id) => ModuleId.make(id)),
           },
@@ -120,5 +120,32 @@ it.effect(
           file.path.endsWith("/src/features/rest.ts"),
         ),
       );
+    }),
+);
+
+it.effect(
+  "the CAFE module generates a connected Foldkit Website and API Worker",
+  () =>
+    Effect.gen(function* () {
+      const result = yield* preview("workspace", ["workspace-alchemy-cafe"]);
+      const stack =
+        result.files.find(({ path }) => path === "alchemy.run.ts")?.contents ??
+        "";
+      const paths = result.files.map(({ path }) => path);
+      assert.includeMembers(paths, [
+        "apps/client-foldkit-web/alchemy.ts",
+        "apps/client-foldkit-web/src/features/rest.ts",
+        "apps/cloudflare-worker-api/alchemy.ts",
+        "apps/cloudflare-worker-api/src/Api.ts",
+        "packages/domain/src/Api.ts",
+        "packages/config-typescript/vite.json",
+      ]);
+      assert.include(stack, '"./apps/client-foldkit-web/alchemy"');
+      assert.include(stack, '"./apps/cloudflare-worker-api/alchemy"');
+      assert.include(
+        stack,
+        "Website({ VITE_SERVER_URL: api.url.as<string>() })",
+      );
+      assert.include(stack, "return { api: api.url, web: web.url }");
     }),
 );
