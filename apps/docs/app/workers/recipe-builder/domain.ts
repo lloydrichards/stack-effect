@@ -26,6 +26,7 @@ export const CatalogModule = Schema.Struct({
   description: ModuleDefinition.fields.description,
   visibility: Schema.requiredKey(ModuleDefinition.fields.visibility.schema),
   dependencies: ModuleDefinition.fields.dependencies,
+  conflictsWith: ModuleDefinition.fields.conflictsWith,
   implies: Schema.requiredKey(ModuleDefinition.fields.implies.schema),
   children: Schema.requiredKey(ModuleDefinition.fields.children.schema),
   /** Selected source that supplied the module. */
@@ -76,6 +77,7 @@ export const RecipeBuilderCatalog = Schema.Struct({
     format: Schema.Array(CatalogChoice),
     test: Schema.Array(CatalogChoice),
     devenv: Schema.Array(CatalogChoice),
+    presets: Schema.Array(CatalogChoice),
   }),
 });
 

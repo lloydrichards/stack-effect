@@ -77,7 +77,7 @@ export const alchemyModules = defineModules(import.meta.url, [
       "Connect a Foldkit Website and typed Effect API on Cloudflare with Alchemy",
     supportedOn: [{ _tag: "identity", identity: workspace }],
     supportedRuntimes: ["bun", "node"],
-    categories: ["deployment"],
+    categories: ["deployment", "preset"],
     dependencies: [
       {
         _tag: "required-module",

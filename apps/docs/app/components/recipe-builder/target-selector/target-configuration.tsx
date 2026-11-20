@@ -28,6 +28,7 @@ import type {
   TargetInstance,
 } from "../form";
 import { ownerKey } from "../form";
+import { usePresetTargets } from "../preset-targets";
 import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import { ModuleBranch } from "./module-branch";
 import {
@@ -41,6 +42,7 @@ import type { useTargetEditor } from "./use-target-editor";
 type TargetConfigurationProps = {
   readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
   readonly catalogFailed: boolean;
+  readonly presetName: string | undefined;
   readonly catalogOwner: TargetIdentity | undefined;
   readonly onRemoveTarget: (id: string) => void;
   readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
@@ -57,6 +59,7 @@ type TargetConfigurationProps = {
 function TargetConfiguration({
   catalog,
   catalogFailed,
+  presetName,
   catalogOwner,
   onRemoveTarget,
   onToggleModule,
@@ -79,8 +82,15 @@ function TargetConfiguration({
     : target.name.length === 0
       ? "Leave blank to use the target kind."
       : "Use / for nested folders, such as sdk/web.";
+  const presetTargets = usePresetTargets();
+  const presetModules = presetTargets.flatMap(({ targets }) =>
+    targets
+      .filter(({ identity }) => ownerKey(identity) === ownerKey(target))
+      .flatMap(({ modules }) => modules.map(({ id }) => id)),
+  );
   const roots = publicRootModules(modules);
   const requiredModuleIds = new Set([
+    ...presetModules,
     ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
       ?.requiredModules ?? []),
@@ -89,11 +99,18 @@ function TargetConfiguration({
     kind: target.kind,
     name: target.name,
   };
-  const getDisabledReason = (module: typeof CatalogModule.Type) =>
-    database === "none" &&
-    moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
+  const getDisabledReason = (module: typeof CatalogModule.Type) => {
+    const conflict = presetTargets.find(({ targets }) =>
+      targets.some(({ modules }) =>
+        modules.some(({ id }) => module.conflictsWith?.includes(id)),
+      ),
+    );
+    if (conflict) return `Conflicts with ${conflict.preset.title}.`;
+    return database === "none" &&
+      moduleRequiresCapability(module, moduleOwner, "db-sql", catalog)
       ? "Select a database to enable this module."
       : undefined;
+  };
   const nameField = (
     <div className="group/name">
       <FieldGroup>
@@ -221,13 +238,15 @@ function TargetConfiguration({
         </FieldSet>
       )}
 
-      <details className="mt-3 border-t pt-2">
-        <summary className="w-fit cursor-pointer py-2 text-xs font-medium text-muted-foreground">
-          Target settings
-        </summary>
-        {nameField}
-        {removeButton}
-      </details>
+      {presetName === undefined && targetIndex >= 0 && (
+        <details className="mt-3 border-t pt-2">
+          <summary className="w-fit cursor-pointer py-2 text-xs font-medium text-muted-foreground">
+            Target settings
+          </summary>
+          {nameField}
+          {removeButton}
+        </details>
+      )}
     </section>
   );
 }
@@ -250,7 +269,8 @@ export function ActiveTargetConfiguration({
       onToggleSupportModule={editor.toggleSupportModule}
       supportSelections={editor.supportSelections}
       target={target}
-      targetIndex={editor.targets.findIndex((item) => item.id === target.id)}
+      targetIndex={editor.activeTargetIndex}
+      presetName={editor.presetNames.get(ownerKey(target))}
       targets={editor.targets}
     />
   );

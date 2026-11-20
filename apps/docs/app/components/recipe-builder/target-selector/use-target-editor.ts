@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
 import { CatalogModule } from "../../../workers/recipe-builder/domain";
 import { ownerKey, type SupportConfiguration } from "../form";
+import { usePresetTargets } from "../preset-targets";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
@@ -21,7 +22,29 @@ export function useTargetEditor() {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogFailed, catalogOwnersByTargetId } =
     useRecipeBuilderCatalog();
-  const targets = useSelector(form.store, (state) => state.values.targets);
+  const explicitTargets = useSelector(
+    form.store,
+    (state) => state.values.targets,
+  );
+  const included = usePresetTargets().flatMap(({ preset, targets }) =>
+    targets
+      .filter(({ identity }) => identity.kind !== "workspace")
+      .map(({ identity }) => ({ identity, preset: preset.title })),
+  );
+  const presetNames = new Map(
+    included.map(({ identity, preset }) => [ownerKey(identity), preset]),
+  );
+  const targets = [...explicitTargets];
+  for (const { identity } of included) {
+    if (targets.some((target) => ownerKey(target) === ownerKey(identity)))
+      continue;
+    targets.push({
+      id: `preset:${ownerKey(identity)}`,
+      kind: identity.kind,
+      name: identity.name,
+      modules: [],
+    });
+  }
   const supportSelections = useSelector(
     form.store,
     (state) => state.values.supportSelections,
@@ -38,6 +61,10 @@ export function useTargetEditor() {
   };
   const targetButtons = useRef(new Map<string, HTMLButtonElement>());
   const activeTarget = targets.find((target) => target.id === activeId);
+
+  const activeTargetIndex = explicitTargets.findIndex(
+    (target) => target.id === activeId,
+  );
 
   const toggleModule = (module: typeof CatalogModule.Type) => {
     if (activeTarget === undefined || catalog === undefined) return;
@@ -63,7 +90,9 @@ export function useTargetEditor() {
       );
       form.setFieldValue("targets", (current) =>
         toggleTargetModule(
-          current,
+          current.some((target) => target.id === activeTarget.id)
+            ? current
+            : [...current, activeTarget],
           activeTarget,
           module,
           activeModules,
@@ -88,7 +117,7 @@ export function useTargetEditor() {
     const id = `${kind}-${nextId()}`;
     form.setFieldValue("targets", (current) => [
       ...current,
-      makeTargetInstance(id, definition, current),
+      makeTargetInstance(id, definition, targets),
     ]);
     trackEvent("recipe-target-added", {
       target_kind: kind,
@@ -98,9 +127,9 @@ export function useTargetEditor() {
   };
 
   const removeTarget = (id: string) => {
-    const index = targets.findIndex((target) => target.id === id);
-    const remaining = removeTargetAndDependencies(targets, id);
-    const removed = targets.filter(
+    const index = explicitTargets.findIndex((target) => target.id === id);
+    const remaining = removeTargetAndDependencies(explicitTargets, id);
+    const removed = explicitTargets.filter(
       (target) => !remaining.some((candidate) => candidate.id === target.id),
     );
     const focusId = remaining[Math.min(index, remaining.length - 1)]?.id;
@@ -118,6 +147,8 @@ export function useTargetEditor() {
 
   return {
     activeTarget,
+    activeTargetIndex,
+    presetNames,
     addTarget,
     catalog,
     catalogFailed,

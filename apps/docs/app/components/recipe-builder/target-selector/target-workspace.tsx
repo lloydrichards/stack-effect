@@ -119,7 +119,10 @@ export function TargetWorkspace({
           {targets.map((target) => {
             const name = target.name || target.kind;
             const expanded = activeTarget?.id === target.id;
-            const origin = targetOrigin(target, editor);
+            const presetName = editor.presetNames.get(ownerKey(target));
+            const origin = presetName
+              ? `Included by ${presetName}`
+              : targetOrigin(target, editor);
             const originId = `target-origin-${target.id}`;
             const identity = (
               <span className="flex min-w-0 flex-col gap-1 text-left">
@@ -128,7 +131,8 @@ export function TargetWorkspace({
                 </span>
                 <span className="break-words text-xs text-muted-foreground">
                   {titleOf(target)}
-                  {!target.addedByDependency &&
+                  {!presetName &&
+                    !target.addedByDependency &&
                     targets.some((item) => item.addedByDependency) &&
                     " · Selected directly"}
                 </span>

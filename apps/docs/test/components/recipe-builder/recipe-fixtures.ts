@@ -203,6 +203,15 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
     },
   ],
   configuration: {
+    presets: [
+      {
+        id: "workspace-alchemy-cafe",
+        title: "CAFE starter",
+        description: "Foldkit Website and Effect API Worker",
+        value: "workspace-alchemy-cafe",
+        supportedRuntimes: ["bun", "node"],
+      },
+    ],
     monorepo: [
       {
         id: "workspace-monorepo-turbo",

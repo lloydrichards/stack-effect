@@ -3,7 +3,11 @@
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
 import { CatalogService } from "@repo/catalog";
-import { ModuleCategory } from "@repo/domain/Catalog";
+import {
+  ModuleCategory,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import {
   type CatalogSources,
   formatCatalogSource,
@@ -138,12 +142,25 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
         return yield* session.load;
       });
 
+    const workspace = new TargetIdentity({
+      kind: TargetKind.make("workspace"),
+      name: "root",
+    });
+
     const configurationChoices = (
       catalogs: typeof CatalogService.Service,
       category: string,
     ) =>
       catalogs
         .getModules({ category: ModuleCategory.make(category) })
+        .filter(
+          (module) =>
+            category !== "preset" ||
+            ((module.visibility ?? "public") === "public" &&
+              module.supportedOn.some((selector) =>
+                workspace.matches(selector),
+              )),
+        )
         .map((module) => ({
           ...module,
           value: toWorkspaceToolValue(module.id),
@@ -189,7 +206,9 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
         const knownKinds = new Set<string>(catalogs.getTargetKinds());
         const projection = yield* catalogs
           // Targets from a source no longer selected have nothing to project.
-          .toBuilderCatalog(owners.filter(({ kind }) => knownKinds.has(kind)))
+          .toBuilderCatalog(
+            [...owners, workspace].filter(({ kind }) => knownKinds.has(kind)),
+          )
           .pipe(
             Effect.mapError((error) =>
               makeRecipeBuilderRpcFailure("catalog", error),
@@ -219,6 +238,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
             format: configurationChoices(catalogs, "format"),
             test: configurationChoices(catalogs, "test"),
             devenv: configurationChoices(catalogs, "devenv"),
+            presets: configurationChoices(catalogs, "preset"),
           },
         };
       }),
