@@ -10,7 +10,7 @@ sources:
     resource: ../../packages/domain/src/Scaffold.ts
   - id: source-3
     resource: ../../package.json
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
 ---
 
 # Catalog authoring workflow
@@ -39,6 +39,8 @@ Reset can fail during dependency installation or a module finalizer. Resolve tha
 | `typescript` | Selected TypeScript major, defaulting to 6 |
 | `workspaceDependency` | `*` for npm; `workspace:*` otherwise |
 | `lint`, `format`, `test`, `monorepo` | Configured tool or an empty string |
+| `runCommand`, `projectRoot` | Runtime-specific script prefix and relative path to the project root |
+| `workspaceTargets`, `scaffoldRecipe` | Resolved workspace inventory and initial create command |
 
 Write tokens as `{{targetPath}}`. Use `{{#if lint}}...{{/if}}` for a truthy config field or `{{#if format=biome}}...{{/if}}` for an equality check. Unknown conditional fields evaluate as falsy. Whitespace remains in the rendered result, so check generated JSON for misplaced commas.
 

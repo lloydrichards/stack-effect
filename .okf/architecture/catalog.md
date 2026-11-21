@@ -20,7 +20,13 @@ sources:
     resource: ../../catalogs/official/src/service.ts
   - id: loader
     resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+  - id: preset-discovery
+    resource: ../../apps/docs/app/workers/recipe-builder/recipe-builder.worker.ts
+  - id: preset-projection
+    resource: ../../apps/docs/app/components/recipe-builder/preset-targets.ts
+  - id: preset-editor
+    resource: ../../apps/docs/app/components/recipe-builder/target-selector/use-target-editor.ts
+generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
 ---
 
 # Catalog architecture
@@ -46,6 +52,8 @@ The official target and module definitions live in `catalogs/official` and are b
 Targets include workspace, package, server, CLI, React, and Foldkit destinations. Treat `targetRegistry.ts` as the complete list, rather than copying an exhaustive inventory into documentation. The `Registry` in these file names is naming only; it is not the hosted registry.
 
 ## Lookup and projections
+
+Recipe Builder discovers stack presets as public, workspace-compatible modules in the `preset` category. A preset uses ordinary catalog dependencies. The builder projects the implied targets from the preview Blueprint. Editing an implied target can add that identity to the explicit Selection while Blueprint still owns the dependency closure.
 
 `getTarget` and `getModule` fail with `CatalogNotFound` for unknown identifiers. `isSupportedOn` checks a concrete target identity. `getSupportedModules` filters by target kind and optional visibility, so callers that need exact-identity compatibility must still check the identity.
 
