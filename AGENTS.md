@@ -39,7 +39,7 @@ Read the [OKF index](.okf/index.md) to find the relevant contract or decision. U
 - Use named `Effect.fn("Service.operation")` for new service operations. Keep existing span names stable. Use `Effect.gen` for inline programs and layer construction, and `yield*` to compose effects. Use `Effect.fnUntraced` when a helper already runs inside a traced operation or would emit a span on every item in a loop.
 - Resolve service dependencies when constructing the layer. Wire platform layers and run the Effect at the entry point. Keep pure calculations as plain typed functions and keep expected failures in the Effect error channel. Recover where the caller or adapter has enough context to decide what to do.
 - Decode external inputs with Effect Schema and derive types from the schema. Fix type gaps in the model or use typed fixtures and stubs. Avoid `any` and `as unknown as` casts.
-- Check the nearest service, the installed Effect types, and `.reference/effect/LLMS.md` before choosing an unfamiliar API. Use the Effect skill for the branch relevant to the task. For dependency updates, verify against upstream source for the target version.
+- Check the nearest service and the installed Effect types before choosing an unfamiliar API. Use `.reference/effect/LLMS.md` when the local checkout matches the installed version. Otherwise, check the upstream [Effect 4.1.4 guide](https://github.com/Effect-TS/effect/blob/effect@4.1.4/LLMS.md) for the version currently pinned here. Use the Effect skill for the branch relevant to the task. For dependency updates, verify against upstream source for the target version.
 
 ## Verify changes
 

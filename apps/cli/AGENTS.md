@@ -15,7 +15,7 @@ set -e
 smoke_root="$(mktemp -d)"
 trap 'rm -rf "$smoke_root"' EXIT
 
-bun run start -- init smoke-app --yes --root "$smoke_root"
+bun run start -- init smoke-app --yes --no-git --root "$smoke_root"
 bun run start -- add --yes --root "$smoke_root/smoke-app" --target package/domain:domain-api-contracts --dry-run
 bun run start -- add --yes --root "$smoke_root/smoke-app" --target client-react/web:client-react-http-api --dry-run
 ```
