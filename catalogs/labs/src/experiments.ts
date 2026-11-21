@@ -1,6 +1,10 @@
 import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
+// Publishable Library compiles and packs src. Keep the workspace-only planner outside it.
+const plannerDirectory =
+  "{{#if module=package-library}}examples/task-plan{{/if}}{{#if noModule=package-library}}src{{/if}}";
+const domainTarget = { kind: "package", name: "domain" };
 
 export const experiments = defineModules(import.meta.url, [
   {
@@ -165,6 +169,91 @@ export const experiments = defineModules(import.meta.url, [
           namedImports: ["WebFetchToolkitLive"],
         },
       },
+    ],
+  },
+  {
+    id: "domain-task-plan",
+    title: "Task Planner Domain",
+    description: "Shared task schemas and planning errors",
+    visibility: "internal",
+    supportedRuntimes: ["bun"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Task.ts",
+        contents: template("./domain-task-plan/src/Task.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./Task",
+        value: "./src/Task.ts",
+      },
+    ],
+  },
+  {
+    id: "package-task-plan",
+    title: "Graph Task Planner",
+    description:
+      "Order tasks by prerequisite and report missing prerequisites or cycles",
+    supportedRuntimes: ["bun"],
+    supportedOn: [
+      { _tag: "identity", identity: { kind: "package", name: "task-plan" } },
+    ],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-task-plan",
+      },
+    ],
+    contributions: [
+      ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
+        _tag: "file" as const,
+        path: `{{targetPath}}/${plannerDirectory}/${file}`,
+        contents: template(`./package-task-plan/src/${file}`),
+      })),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "{{#if noModule=package-library}}@repo/domain{{/if}}",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if module=package-library}}@repo/domain{{/if}}",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "{{#if noModule=package-library}}./TaskPlan{{/if}}",
+        value: "./src/TaskPlan.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "scratch",
+        value: `bun ${plannerDirectory}/scratchpad.ts`,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run --passWithNoTests",
+      },
+    ],
+    nextSteps: [
+      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order, or `bun run --cwd {{targetPath}} test` to check error cases.{{#if module=package-library}} The planner is a workspace example and is excluded from the published library.{{/if}}",
     ],
   },
 ]);

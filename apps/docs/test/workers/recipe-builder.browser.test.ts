@@ -583,6 +583,58 @@ it.live(
   60_000,
 );
 
+it.live("keeps the Labs planner outside the publishable library build", () =>
+  Effect.gen(function* () {
+    const session = yield* makeSession;
+    const sources = sourcesOf(official, customSource("labs"));
+    const input = customOnlyInput("planner-library", sources, [
+      {
+        target: new TargetIdentity({
+          kind: TargetKind.make("package"),
+          name: "task-plan",
+        }),
+        modules: [
+          ModuleId.make("package-library"),
+          ModuleId.make("package-task-plan"),
+        ],
+      },
+    ]);
+
+    yield* session.catalog({ sessionId: 62, sources });
+    const { preview } = yield* session.preview({
+      sessionId: 62,
+      targetIdentityKey: "planner-library",
+      input,
+    });
+    const root = "packages/task-plan";
+    const files = new Map(
+      preview.files.map(({ path, contents }) => [path, contents]),
+    );
+    assert.isTrue(files.has(`${root}/examples/task-plan/TaskPlan.ts`));
+    assert.isTrue(files.has(`${root}/examples/task-plan/scratchpad.ts`));
+    assert.isFalse(files.has(`${root}/src/TaskPlan.ts`));
+
+    const entries = Schema.Record(Schema.String, Schema.String);
+    const manifest = yield* Schema.decodeEffect(
+      Schema.fromJsonString(
+        Schema.Struct({
+          dependencies: entries,
+          devDependencies: entries,
+          exports: entries,
+          scripts: entries,
+        }),
+      ),
+    )(files.get(`${root}/package.json`) ?? "");
+    assert.deepEqual(manifest.exports, { ".": "./dist/index.js" });
+    assert.notProperty(manifest.dependencies, "@repo/domain");
+    assert.property(manifest.devDependencies, "@repo/domain");
+    assert.strictEqual(
+      manifest.scripts["scratch"],
+      "bun examples/task-plan/scratchpad.ts",
+    );
+  }).pipe(Effect.scoped),
+);
+
 it.live(
   "should label each definition with its catalog when two catalogs are combined",
   () =>
