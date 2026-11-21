@@ -1,12 +1,14 @@
 import { Data, Schema } from "effect";
 
 export const TaskId = Schema.NonEmptyString;
+
 export type TaskId = typeof TaskId.Type;
 
 export const Task = Schema.Struct({
   id: TaskId,
   prerequisites: Schema.Array(TaskId),
 });
+
 export type Task = typeof Task.Type;
 
 export const Tasks = Schema.Array(Task);

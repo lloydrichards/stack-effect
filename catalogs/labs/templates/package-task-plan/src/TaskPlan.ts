@@ -1,5 +1,4 @@
-// The Labs example pins Effect while Graph is unstable.
-// @effect-diagnostics unstableApiUsage:off
+// @effect-diagnostics unstableApiUsage:off the Labs example pins Effect while Graph is unstable.
 import { Array as Arr, Effect, Graph, Option } from "effect";
 import {
   DuplicateTaskId,
@@ -10,11 +9,12 @@ import {
   type TaskPlanError,
 } from "./Task";
 
-export function planTasks(
+export const planTasks = (
   tasks: ReadonlyArray<Task>,
-): Effect.Effect<ReadonlyArray<TaskId>, TaskPlanError> {
-  return Effect.gen(function* () {
+): Effect.Effect<ReadonlyArray<TaskId>, TaskPlanError> =>
+  Effect.gen(function* () {
     const mutable = Graph.beginMutation(Graph.directed<TaskId, undefined>());
+
     const nodes = new Map<
       TaskId,
       {
@@ -38,6 +38,7 @@ export function planTasks(
     }
 
     const graph = Graph.endMutation(mutable);
+
     const cycle = Graph.findCycle(graph);
     if (Option.isSome(cycle)) {
       return yield* new TaskCycle({
@@ -46,6 +47,6 @@ export function planTasks(
         ),
       });
     }
+
     return Array.from(Graph.values(Graph.topo(graph)));
   });
-}
