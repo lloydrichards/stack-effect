@@ -176,18 +176,20 @@ export const experiments = defineModules(import.meta.url, [
     supportedOn: [{ _tag: "kind", kind: "package" }],
     dependencies: [],
     contributions: [
-      ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
-        _tag: "file" as const,
-        path: `{{targetPath}}/src/${file}`,
-        contents: template(`./package-task-plan/src/${file}`),
-      })),
-      {
-        _tag: "pkg-json-entry",
+      ...["Task.ts", "TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map(
+        (file) => ({
+          _tag: "file" as const,
+          path: `{{targetPath}}/src/${file}`,
+          contents: template(`./package-task-plan/src/${file}`),
+        }),
+      ),
+      ...["Task", "TaskPlan"].map((name) => ({
+        _tag: "pkg-json-entry" as const,
         path: "{{targetPath}}/package.json",
-        field: "exports",
-        name: "./TaskPlan",
-        value: "./src/TaskPlan.ts",
-      },
+        field: "exports" as const,
+        name: `./${name}`,
+        value: `./src/${name}.ts`,
+      })),
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",

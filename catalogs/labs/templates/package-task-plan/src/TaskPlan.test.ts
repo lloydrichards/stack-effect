@@ -1,9 +1,10 @@
-import { Result } from "effect";
+import { Effect } from "effect";
 import { expect, it } from "vitest";
+import { DuplicateTaskId, MissingPrerequisite, TaskCycle } from "./Task";
 import { planTasks } from "./TaskPlan";
 
 it("orders prerequisites before their dependents and keeps independent tasks", () => {
-  const order = Result.getOrThrow(
+  const order = Effect.runSync(
     planTasks([
       { id: "publish", prerequisites: ["build", "test"] },
       { id: "docs", prerequisites: [] },
@@ -22,42 +23,52 @@ it("orders prerequisites before their dependents and keeps independent tasks", (
   expect(order.indexOf("test")).toBeLessThan(order.indexOf("publish"));
 });
 
-it("reports the task and its missing prerequisite", () => {
-  expect(planTasks([{ id: "publish", prerequisites: ["build"] }])).toEqual(
-    Result.fail({
-      _tag: "MissingPrerequisite",
-      taskId: "publish",
-      prerequisiteId: "build",
-    }),
+it("fails with the task and its missing prerequisite", () => {
+  const error = Effect.runSync(
+    Effect.flip(planTasks([{ id: "publish", prerequisites: ["build"] }])),
   );
+
+  expect(error).toBeInstanceOf(MissingPrerequisite);
+  expect(error).toMatchObject({ taskId: "publish", prerequisiteId: "build" });
 });
 
-it("rejects duplicate task IDs", () => {
-  expect(
-    planTasks([
-      { id: "build", prerequisites: [] },
-      { id: "build", prerequisites: [] },
-    ]),
-  ).toEqual(Result.fail({ _tag: "DuplicateTaskId", taskId: "build" }));
+it("fails on duplicate task IDs", () => {
+  const error = Effect.runSync(
+    Effect.flip(
+      planTasks([
+        { id: "build", prerequisites: [] },
+        { id: "build", prerequisites: [] },
+      ]),
+    ),
+  );
+
+  expect(error).toBeInstanceOf(DuplicateTaskId);
+  expect(error).toMatchObject({ taskId: "build" });
 });
 
-it("reports a cycle in terms of the original task IDs", () => {
-  expect(
-    planTasks([
-      { id: "build", prerequisites: ["publish"] },
-      { id: "publish", prerequisites: ["build"] },
-    ]),
-  ).toEqual(
-    Result.fail({ _tag: "TaskCycle", path: ["build", "publish", "build"] }),
+it("fails with a cycle expressed as original task IDs", () => {
+  const error = Effect.runSync(
+    Effect.flip(
+      planTasks([
+        { id: "build", prerequisites: ["publish"] },
+        { id: "publish", prerequisites: ["build"] },
+      ]),
+    ),
   );
+
+  expect(error).toBeInstanceOf(TaskCycle);
+  expect(error).toMatchObject({ path: ["build", "publish", "build"] });
 });
 
-it("reports a self-cycle", () => {
-  expect(planTasks([{ id: "build", prerequisites: ["build"] }])).toEqual(
-    Result.fail({ _tag: "TaskCycle", path: ["build", "build"] }),
+it("fails with a self-cycle", () => {
+  const error = Effect.runSync(
+    Effect.flip(planTasks([{ id: "build", prerequisites: ["build"] }])),
   );
+
+  expect(error).toBeInstanceOf(TaskCycle);
+  expect(error).toMatchObject({ path: ["build", "build"] });
 });
 
 it("accepts a plan with no tasks", () => {
-  expect(planTasks([])).toEqual(Result.succeed([]));
+  expect(Effect.runSync(planTasks([]))).toEqual([]);
 });

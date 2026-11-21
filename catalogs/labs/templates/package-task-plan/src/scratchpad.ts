@@ -1,5 +1,6 @@
 import { Array as Arr, Console, Effect, Schema } from "effect";
-import { planTasks, Tasks } from "./TaskPlan";
+import { Tasks } from "./Task";
+import { planTasks } from "./TaskPlan";
 
 const input: unknown = [
   { id: "publish", prerequisites: ["build", "test"] },
@@ -10,7 +11,7 @@ const input: unknown = [
 await Effect.runPromise(
   Effect.gen(function* () {
     const tasks = yield* Schema.decodeUnknownEffect(Tasks)(input);
-    const order = yield* Effect.fromResult(planTasks(tasks));
+    const order = yield* planTasks(tasks);
     yield* Console.log(Arr.join(order, " -> "));
   }),
 );
