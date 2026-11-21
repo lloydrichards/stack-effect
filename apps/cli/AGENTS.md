@@ -1,26 +1,23 @@
-# CLI AGENTS.md
+# CLI
 
-> See root `/AGENTS.md` for monorepo conventions.
+- Start at `src/command.ts` for the published command tree and `src/authoring.ts` for repository catalog authoring. Follow the existing `effect/cli` command patterns and provide platform services through `PlatformLayer`.
+- Production commands use `CatalogProvider.official`. Repository authoring uses `CatalogProvider.authoring`. Send registry warnings to stderr so JSON stdout remains parseable.
+- For changes to flags, arguments, or help text, run `bun run docs:generate` from the repo root and review the generated CLI reference diff.
+- Use `bun dev --filter=stack-effect` from the repo root to run the CLI in watch mode. Root `catalog:*` scripts use the authoring entrypoint and bundled definitions.
+- Run `bun run test --filter=stack-effect` from the repo root. For a CLI end-to-end change, also use `bun run --cwd apps/cli test:e2e`. The E2E entrypoint at `e2e/entrypoint.ts` provides a controlled catalog response.
 
-## Commands
+## Smoke-test non-interactive commands
 
-| Command                                | Purpose                |
-| -------------------------------------- | ---------------------- |
-| `bun dev --filter=stack-effect`        | Start the CLI app      |
-| `bun run build --filter=stack-effect`  | Build the CLI app      |
-| `bun type-check --filter=stack-effect` | Type-check the CLI app |
+Run manual smoke tests from the repo root against a temporary project. Use an EXIT trap to remove the project even if a command fails.
 
-## Conventions
+```bash
+set -e
+smoke_root="$(mktemp -d)"
+trap 'rm -rf "$smoke_root"' EXIT
 
-- Keep the initial CLI scaffold single-file until complexity appears.
-- Use `effect/cli` with `Command.make(...)` and `Command.run(...)`.
-- Provide the configured Node or Bun runtime services through `PlatformLayer`.
-- Production commands use `CatalogProvider.official`; local authoring uses `CatalogProvider.authoring`. Keep registry warnings on stderr so JSON stdout remains parseable.
-- E2E tests use `e2e/entrypoint.ts` for a controlled catalog response. Do not make routine tests depend on the deployed registry.
+bun run start -- init smoke-app --yes --root "$smoke_root"
+bun run start -- add --yes --root "$smoke_root/smoke-app" --target package/domain:domain-api-contracts --dry-run
+bun run start -- add --yes --root "$smoke_root/smoke-app" --target client-react/web:client-react-http-api --dry-run
+```
 
-## Domain Terminology References
-
-Use canonical domain language from:
-
-- `.okf/domain/ubiquitous-language.md` for conversation-ready phrasing
-- `.okf/domain/index.md` for precise definitions and invariants
+This checks named init, explicit module selection, and cross-target dependencies. Use the E2E suite when the check needs to run without the deployed registry.

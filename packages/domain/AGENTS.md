@@ -1,42 +1,6 @@
-# Domain Package AGENTS.md
+# Domain contracts
 
-> See root `/AGENTS.md` for monorepo conventions.
-
-## Purpose
-
-Shared schemas, types, and RPC definitions used by both client and server.
-
-## Domain Terminology References
-
-Use canonical domain language from:
-
-- `.okf/domain/ubiquitous-language.md` for conversation-ready phrasing
-- `.okf/domain/index.md` for precise definitions and invariants
-
-## Import Pattern
-
-```typescript
-// From other workspaces, import with subpath
-import { Api, type ApiResponse } from "@repo/domain/Api";
-import { EventRpc, type TickEvent } from "@repo/domain/Rpc";
-import { WebSocketRpc, type ClientInfo } from "@repo/domain/WebSocket";
-
-// Use 'type' keyword for type-only imports
-import type { ClientStatus } from "@repo/domain/WebSocket";
-```
-
-## Naming Conventions
-
-| Element       | Convention                | Example           |
-| ------------- | ------------------------- | ----------------- |
-| Schemas       | PascalCase                | `ClientInfo`      |
-| Types         | Same as schema            | `type ClientInfo` |
-| Branded types | PascalCase noun           | `ClientId`        |
-| Events        | PascalCase + Event suffix | `WebSocketEvent`  |
-| RPC groups    | PascalCase + Rpc suffix   | `EventRpc`        |
-| API groups    | PascalCase + Group suffix | `HelloGroup`      |
-
----
-
-_This document is a living guide. Update it as the project evolves and new
-patterns emerge._
+- Put shared schemas in the file named for the contract, such as `src/Selection.ts`, `src/Plan.ts`, or `src/CatalogSource.ts`. Use the [domain definitions](../../.okf/domain/index.md) for meaning and invariants.
+- Import contracts from their declared subpath, such as `@repo/domain/Plan`. Add new public subpaths to this package's `exports` map when needed.
+- Keep contracts portable across CLI and browser consumers. Put filesystem, HTTP, and terminal behavior in the service or application that owns it.
+- Treat schema changes as boundary changes. Check affected readers and writers, including existing `stack.effect.json` files or published catalog documents when their persisted schemas change.

@@ -1,24 +1,12 @@
-## Goals/Scope
+## Problem
 
-<!--- What was the goal and scope of this PR --->
-<!--- How should it be measured as successful-->
-<!--- What would you like the reviewer to focus on -->
+<!-- What prompted this change? Who is affected? Link the issue if there is one. -->
 
-## Description
+## Change
 
-<!--- Provide a general summary of the PR -->
+<!-- Describe what happens now. Include compatibility or migration details if they apply. -->
 
-### How to Test
+## Verification
 
-<!--- Add instruction on how to create reproducible results -->
-
-## Comments
-
-<!--- Add any additional comments -->
-
----
-
-- [ ] Timeframe: [`24 hr`, `3 days`, `1 week`]
-- [ ] Urgent!
-- [ ] Merge without review
-- [ ] cc: @person
+<!-- List the commands or scenarios you checked and their results. Note any gaps. -->
+<!-- Attach a CLI transcript, generated diff, screenshot pair, or clip when it shows the change. -->
