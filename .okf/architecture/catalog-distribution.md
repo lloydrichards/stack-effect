@@ -43,7 +43,7 @@ This trades cross-date reproducibility for a simpler publishing and user-update 
 
 ## Publish experimental examples as an opt-in extension
 
-Build Labs from `catalogs/labs` and publish it at `/registry/v1/labs.json`. It declares `requires: ["official"]`. The CLI defaults to the official source and selects Labs through the existing custom source mechanism. A fresh Recipe Builder session selects both sources using the same-site Labs URL. Saved links keep their source selection. The same Finalize consent rules apply to Labs as to other custom sources.
+Build Labs from `catalogs/labs` and publish it at `/registry/v1/labs.json`. It declares `requires: ["official"]`. The CLI defaults to the official source and selects Labs through the existing custom source mechanism. A fresh Recipe Builder session selects both sources using the same-site Labs URL. Saved links keep their source selection. If a saved recipe uses a moved ID with Official alone, the Builder waits for the visitor to add Labs or remove the moved modules before reconciling the recipe. If Labs fails to load with Official selected, the Builder offers an explicit way to continue without Labs. The same Finalize consent rules apply to Labs as to other custom sources.
 
 The pilot includes the new queue example and moves the published browser worker, managed chat runtime, and Web Fetch IDs to Labs. Existing projects that use a moved ID add Labs to their saved source set. Web Fetch requires the official chat service and is selected directly on the AI package. The official chat service has no dependency on Labs.
 

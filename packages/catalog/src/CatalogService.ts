@@ -8,6 +8,7 @@ import type {
   ModuleDependency,
   ModuleId,
   ModuleImplication,
+  SupportedRuntime,
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
@@ -33,6 +34,7 @@ export type BuilderCatalogTarget = {
 };
 
 export type BuilderCatalogModule = {
+  readonly supportedRuntimes?: ReadonlyArray<typeof SupportedRuntime.Type>;
   readonly id: typeof ModuleId.Type;
   readonly title: string;
   readonly description: string;
@@ -311,6 +313,9 @@ export class CatalogService extends Context.Service<CatalogService>()(
               title: module.title,
               description: module.description,
               visibility: module.visibility ?? "public",
+              ...(module.supportedRuntimes === undefined
+                ? {}
+                : { supportedRuntimes: module.supportedRuntimes }),
               dependencies: module.dependencies,
               implies: module.implies ?? [],
               conflictsWith: module.conflictsWith ?? [],

@@ -27,7 +27,11 @@ type RecipeBuilderPreviewModel = Pick<
 
 type RecipeBuilderUrlModel = Pick<
   ReturnType<typeof useRecipeBuilderUrlState>,
-  "urlIssue" | "unconfirmedCatalogs" | "confirmCatalogs" | "setCatalogs"
+  | "urlIssue"
+  | "unconfirmedCatalogs"
+  | "confirmCatalogs"
+  | "setCatalogs"
+  | "labsMigration"
 >;
 
 const RecipeBuilderCatalogContext = createContext<
@@ -80,12 +84,14 @@ export function RecipeBuilderProvider({
       unconfirmedCatalogs: urlState.unconfirmedCatalogs,
       confirmCatalogs: urlState.confirmCatalogs,
       setCatalogs: urlState.setCatalogs,
+      labsMigration: urlState.labsMigration,
     }),
     [
       urlState.urlIssue,
       urlState.unconfirmedCatalogs,
       urlState.confirmCatalogs,
       urlState.setCatalogs,
+      urlState.labsMigration,
     ],
   );
 

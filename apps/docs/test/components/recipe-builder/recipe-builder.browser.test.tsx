@@ -283,6 +283,75 @@ test("keeps an existing recipe link without sources on the official catalog", as
   await expect.poll(lastRequestedSources).toEqual(["official"]);
 });
 
+test("preserves a moved selection until the visitor adds Labs", async () => {
+  await renderRecipeBuilder(
+    "/builder?name=legacy&target=client-react/web:client-react-web-worker",
+  );
+  await expect
+    .element(page.getByText("This recipe uses modules that moved to Labs"))
+    .toBeVisible();
+  const selectedTarget = () =>
+    new URLSearchParams(
+      page.getByLabelText("Recipe URL search").element().textContent ?? "",
+    ).get("target");
+  expect(selectedTarget()).toBe("client-react/web:client-react-web-worker");
+  expect(workerCalls.catalogRequests).toHaveLength(0);
+
+  await page.getByRole("button", { name: "Add Labs", exact: true }).click();
+  await expect.poll(lastRequestedSources).toEqual(["official", "labs"]);
+  await expect
+    .poll(selectedTarget)
+    .toBe("client-react/web:client-react-web-worker");
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+});
+
+test("allows an explicit fallback when the default Labs catalog fails", async () => {
+  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
+    message: "Labs unavailable",
+    failedSource: {
+      name: "labs",
+      sourceUrl: `${window.location.origin}/registry/v1/labs.json`,
+    },
+  });
+  await renderRecipeBuilder();
+  await expect
+    .element(page.getByText("Catalog labs unavailable"))
+    .toBeVisible();
+  expect(lastRequestedSources()).toEqual(["official", "labs"]);
+
+  workerCalls.catalogFailure = undefined;
+  await page.getByRole("button", { name: "Continue without Labs" }).click();
+  await expect.poll(lastRequestedSources).toEqual(["official"]);
+  await targetsStep();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
+});
+
+test.each([
+  ["bun", "", true],
+  ["node", "&runtime=node&package-manager=npm", false],
+  ["deno", "&runtime=deno", false],
+])("shows queue availability under %s", async (_runtime, params, enabled) => {
+  await renderRecipeBuilder(`/builder?name=queue${params}`);
+  await targetsStep();
+  await chooseTarget("CLI");
+  await page
+    .getByRole("button", { name: "Configure modules for jobs, cli" })
+    .click();
+  const queue = page.getByRole("checkbox", { name: /Persisted Queue/ });
+  if (enabled) {
+    await expect.element(queue).toBeEnabled();
+  } else {
+    await expect.element(queue).toBeDisabled();
+    await expect
+      .element(page.getByText("Supported runtimes: bun."))
+      .toBeVisible();
+  }
+});
+
 test("selects and clears CAFE as a shareable stack preset", async () => {
   await renderRecipeBuilder();
   await targetsStep();

@@ -21,6 +21,7 @@ const CatalogChoice = Schema.Struct({
 });
 
 export const CatalogModule = Schema.Struct({
+  supportedRuntimes: ModuleDefinition.fields.supportedRuntimes,
   id: ModuleDefinition.fields.id,
   title: ModuleDefinition.fields.title,
   description: ModuleDefinition.fields.description,

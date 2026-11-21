@@ -5,6 +5,10 @@ import Ajv2020 from "ajv/dist/2020.js";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect } from "vitest";
 import {
+  isMovedToLabs,
+  movedToLabs,
+} from "../app/components/recipe-builder/labs-migration";
+import {
   AUTHOR_CATALOG_ASSET_PATH,
   CATALOG_ASSET_PATH,
   CONFIG_SCHEMA_ASSET_PATH,
@@ -16,19 +20,13 @@ import {
 import publishedAuthorIds from "./fixtures/published-author-catalog-ids.json";
 import publishedIds from "./fixtures/published-catalog-ids.json";
 
-const movedToLabs = [
-  "client-react-web-worker",
-  "package-ai-toolkit-webfetch",
-  "server-chat-runtime-managed",
-];
-
 describe("catalog registry assets", () => {
   it.effect.each([
     {
       asset: CATALOG_ASSET_PATH,
       ids: {
         targets: publishedIds.targets,
-        modules: publishedIds.modules.filter((id) => !movedToLabs.includes(id)),
+        modules: publishedIds.modules.filter((id) => !isMovedToLabs(id)),
       },
     },
     { asset: AUTHOR_CATALOG_ASSET_PATH, ids: publishedAuthorIds },
@@ -62,9 +60,7 @@ describe("catalog registry assets", () => {
         const official = yield* decode(assets[CATALOG_ASSET_PATH]);
         const labs = yield* decode(assets[LABS_CATALOG_ASSET_PATH]);
         const officialIds = official.modules.map(({ id }) => id);
-        expect(officialIds.filter((id) => movedToLabs.includes(id))).toEqual(
-          [],
-        );
+        expect(officialIds.filter(isMovedToLabs)).toEqual([]);
         expect(labs.requires).toEqual(["official"]);
         expect(labs.modules.map(({ id }) => id)).toEqual(
           expect.arrayContaining([...movedToLabs, "cli-persisted-queue"]),

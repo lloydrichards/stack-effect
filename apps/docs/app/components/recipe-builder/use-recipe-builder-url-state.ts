@@ -1,10 +1,16 @@
-import { CatalogSources } from "@repo/domain/CatalogSource";
+import type { CatalogSources } from "@repo/domain/CatalogSource";
+import {
+  CustomCatalogSource,
+  defaultCatalogSources,
+  selectsOfficialCatalog,
+} from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
 import { Option, Schema } from "effect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import { useRecipeBuilderForm } from "./form";
+import { isMovedToLabs } from "./labs-migration";
 import {
   decodeRecipeBuilderUrl,
   encodeRecipeBuilderUrl,
@@ -13,26 +19,39 @@ import {
 export function useRecipeBuilderUrlState() {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.toString();
-  const labsUrl =
-    typeof window === "undefined"
-      ? undefined
-      : registryUrl(window.location.origin, import.meta.env.BASE_URL, "labs");
+  const labsCatalog = useMemo(
+    () =>
+      typeof window === "undefined"
+        ? undefined
+        : Option.getOrUndefined(
+            Schema.decodeOption(CustomCatalogSource)({
+              name: "labs",
+              url: registryUrl(
+                window.location.origin,
+                import.meta.env.BASE_URL,
+                "labs",
+              ),
+            }),
+          ),
+    [],
+  );
   const decoded = useMemo(() => {
     const result = decodeRecipeBuilderUrl(searchParams);
-    if (search !== "" || labsUrl === undefined) return result;
-    const catalogs = Schema.decodeOption(CatalogSources)([
-      { name: "official" },
-      { name: "labs", url: labsUrl },
-    ]);
-    if (Option.isNone(catalogs)) return result;
+    if (search !== "" || labsCatalog === undefined) return result;
     return {
       ...result,
       initialValues: {
         ...result.initialValues,
-        config: { ...result.initialValues.config, catalogs: catalogs.value },
+        config: {
+          ...result.initialValues.config,
+          catalogs: [
+            ...defaultCatalogSources,
+            labsCatalog,
+          ] satisfies CatalogSources,
+        },
       },
     };
-  }, [search, labsUrl]);
+  }, [search, labsCatalog]);
   const initialValuesRef = useRef(decoded.initialValues);
   const form = useRecipeBuilderForm(initialValuesRef.current);
   const values = useSelector(form.store, (state) => state.values);
@@ -50,12 +69,12 @@ export function useRecipeBuilderUrlState() {
       (catalogs ?? []).flatMap((source) =>
         "url" in source &&
         source.url !== undefined &&
-        source.url !== labsUrl &&
+        source.url !== labsCatalog?.url &&
         !approvedCatalogUrls.has(source.url)
           ? [{ name: source.name, url: source.url }]
           : [],
       ),
-    [approvedCatalogUrls, catalogs, labsUrl],
+    [approvedCatalogUrls, catalogs, labsCatalog],
   );
   const approveCatalogUrls = useCallback(
     (urls: ReadonlyArray<string>) =>
@@ -74,6 +93,36 @@ export function useRecipeBuilderUrlState() {
     },
     [approveCatalogUrls, form],
   );
+  const selectedSources = catalogs ?? defaultCatalogSources;
+  const labsMigration =
+    labsCatalog !== undefined &&
+    selectsOfficialCatalog(selectedSources) &&
+    !selectedSources.some(
+      (source) =>
+        source.name === "labs" ||
+        ("url" in source && source.url === labsCatalog.url),
+    ) &&
+    values.targets.some((target) => target.modules.some(isMovedToLabs))
+      ? {
+          addLabs: () => setCatalogs([...selectedSources, labsCatalog]),
+          discardMovedModules: () =>
+            form.setFieldValue("targets", (targets) =>
+              targets.map((target) => ({
+                ...target,
+                modules: target.modules.filter((id) => !isMovedToLabs(id)),
+                ...(target.requirements === undefined
+                  ? {}
+                  : {
+                      requirements: target.requirements.filter(
+                        ({ sourceModuleId, moduleId }) =>
+                          !isMovedToLabs(sourceModuleId) &&
+                          !isMovedToLabs(moduleId),
+                      ),
+                    }),
+              })),
+            ),
+        }
+      : undefined;
   const confirmCatalogs = useCallback(
     () => approveCatalogUrls(unconfirmedCatalogs.map((source) => source.url)),
     [approveCatalogUrls, unconfirmedCatalogs],
@@ -133,7 +182,10 @@ export function useRecipeBuilderUrlState() {
     unconfirmedCatalogs,
     confirmCatalogs,
     setCatalogs,
+    labsMigration,
     workerEnabled:
-      decoded.issue === undefined && unconfirmedCatalogs.length === 0,
+      decoded.issue === undefined &&
+      unconfirmedCatalogs.length === 0 &&
+      labsMigration === undefined,
   };
 }

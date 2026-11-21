@@ -70,6 +70,10 @@ function TargetConfiguration({
   targets,
 }: TargetConfigurationProps) {
   const form = useRecipeBuilderFormContext();
+  const runtime = useSelector(
+    form.store,
+    (state) => state.values.config.runtime._tag,
+  );
   const database = useSelector(form.store, (state) => state.values.database);
   const modules =
     catalog?.targetModules.find(
@@ -100,6 +104,12 @@ function TargetConfiguration({
     name: target.name,
   };
   const getDisabledReason = (module: typeof CatalogModule.Type) => {
+    if (
+      module.supportedRuntimes &&
+      !module.supportedRuntimes.includes(runtime)
+    ) {
+      return `Supported runtimes: ${module.supportedRuntimes.join(", ")}.`;
+    }
     const conflict = presetTargets.find(({ targets }) =>
       targets.some(({ modules }) =>
         modules.some(({ id }) => module.conflictsWith?.includes(id)),
