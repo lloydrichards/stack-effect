@@ -1,6 +1,9 @@
 import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
+// Publishable Library compiles and packs src. Keep the workspace-only planner outside it.
+const plannerDirectory =
+  "{{#if module=package-library}}examples/task-plan{{/if}}{{#if noModule=package-library}}src{{/if}}";
 const domainTarget = { kind: "package", name: "domain" };
 
 export const experiments = defineModules(import.meta.url, [
@@ -210,21 +213,28 @@ export const experiments = defineModules(import.meta.url, [
     contributions: [
       ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
         _tag: "file" as const,
-        path: `{{targetPath}}/src/${file}`,
+        path: `{{targetPath}}/${plannerDirectory}/${file}`,
         contents: template(`./package-task-plan/src/${file}`),
       })),
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
-        name: "@repo/domain",
+        name: "{{#if noModule=package-library}}@repo/domain{{/if}}",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if module=package-library}}@repo/domain{{/if}}",
         value: "{{workspaceDependency}}",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "exports",
-        name: "./TaskPlan",
+        name: "{{#if noModule=package-library}}./TaskPlan{{/if}}",
         value: "./src/TaskPlan.ts",
       },
       {
@@ -232,18 +242,18 @@ export const experiments = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "scratch",
-        value: "bun src/scratchpad.ts",
+        value: `bun ${plannerDirectory}/scratchpad.ts`,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "test",
-        value: "vitest run",
+        value: "vitest run --passWithNoTests",
       },
     ],
     nextSteps: [
-      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order, or `bun run --cwd {{targetPath}} test` to check error cases.",
+      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order, or `bun run --cwd {{targetPath}} test` to check error cases.{{#if module=package-library}} The planner is a workspace example and is excluded from the published library.{{/if}}",
     ],
   },
 ]);
