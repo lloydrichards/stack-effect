@@ -20,6 +20,29 @@ const configTypescriptViteModuleFixture = makeCatalogModule({
   children: [],
 });
 
+const queueModuleFixture = makeCatalogModule({
+  id: "cli-persisted-queue",
+  title: "Persisted Queue",
+  description: "Enqueue and consume jobs",
+  visibility: "public",
+  supportedRuntimes: ["bun"],
+  source: "labs",
+  dependencies: [],
+  implies: [],
+  children: [],
+});
+
+const workerModuleFixture = makeCatalogModule({
+  id: "client-react-web-worker",
+  title: "Browser Web Worker",
+  description: "Run an Effect RPC client in a worker",
+  visibility: "public",
+  source: "labs",
+  dependencies: [],
+  implies: [],
+  children: [],
+});
+
 const domainApiModuleFixture = makeCatalogModule({
   id: "domain-api-contracts",
   title: "Domain API",
@@ -151,6 +174,13 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   ],
   targets: [
     {
+      kind: "cli",
+      title: "CLI",
+      description: "A command line application",
+      defaultName: "jobs",
+      requiredModules: [],
+    },
+    {
       kind: "client-react",
       title: "React Client",
       description: "A frontend application built with React",
@@ -174,11 +204,16 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
   ],
   targetModules: [
     {
+      owner: { kind: "cli", name: "jobs" },
+      modules: [queueModuleFixture],
+    },
+    {
       owner: { kind: "client-react", name: "web" },
       modules: [
         configTypescriptViteModuleFixture,
         clientModuleFixture,
         clientTodoModuleFixture,
+        workerModuleFixture,
       ],
     },
     {

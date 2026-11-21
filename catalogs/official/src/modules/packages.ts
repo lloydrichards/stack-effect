@@ -483,59 +483,6 @@ export const packageModules = defineModules(import.meta.url, [
     ],
   },
   {
-    id: "package-ai-toolkit-webfetch",
-    supportedRuntimes: ["bun", "node", "deno"],
-    title: "WebFetch Toolkit",
-    description:
-      "URL content retrieval with HTML stripping for retrieval-augmented workflows",
-    supportedOn: [
-      {
-        _tag: "identity",
-        identity: {
-          kind: "package",
-          name: "ai",
-        },
-      },
-    ],
-    dependencies: [],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/toolkits/WebFetchToolkit.ts",
-        contents: template(
-          "./package-ai-toolkit-webfetch/src/toolkits/WebFetchToolkit.ts",
-        ),
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./toolkits/WebFetchToolkit",
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkit",
-        functionName: "Toolkit.merge",
-        argument: "WebFetchToolkit",
-        import: {
-          moduleSpecifier: "../toolkits/WebFetchToolkit",
-          namedImports: ["WebFetchToolkit"],
-        },
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
-        functionName: "Layer.mergeAll",
-        argument: "WebFetchToolkitLive",
-        import: {
-          moduleSpecifier: "../toolkits/WebFetchToolkit",
-          namedImports: ["WebFetchToolkitLive"],
-        },
-      },
-    ],
-  },
-  {
     id: "package-ai-chat-service",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Chat Service",
@@ -591,10 +538,6 @@ export const packageModules = defineModules(import.meta.url, [
       },
       {
         moduleId: "package-ai-toolkit-plan",
-        requirement: "optional",
-      },
-      {
-        moduleId: "package-ai-toolkit-webfetch",
         requirement: "optional",
       },
     ],

@@ -1,5 +1,6 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { exportLabsCatalog } from "@repo/catalog-labs/service";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold";
 import { Effect, Layer } from "effect";
@@ -10,26 +11,35 @@ import {
   OFFICIAL_CATALOG_URL,
 } from "../src/service/CatalogProvider";
 import { ConfigureService } from "../src/service/ConfigureService";
+import { labsFixtureUrl } from "./fixtures/labs-source";
 
-// The official catalog comes from local definitions; selected custom catalogs
-// are fetched from the controlled fixture server named in --catalog.
+// Use local definitions for the official URL and the Labs fixture URL. Fetch
+// any other custom catalog from the test server specified by --catalog.
 const FixtureHttpClient = Layer.effect(
   HttpClient.HttpClient,
   Effect.gen(function* () {
-    const json = yield* exportOfficialCatalog;
     const network = yield* HttpClient.HttpClient;
-    return HttpClient.make((request) =>
-      request.url === OFFICIAL_CATALOG_URL
-        ? Effect.succeed(
-            HttpClientResponse.fromWeb(
-              request,
-              new Response(json, {
-                headers: { "content-type": "application/json" },
-              }),
+    return HttpClient.make((request) => {
+      const fixture =
+        request.url === OFFICIAL_CATALOG_URL
+          ? exportOfficialCatalog
+          : request.url === labsFixtureUrl
+            ? exportLabsCatalog
+            : undefined;
+      return fixture === undefined
+        ? network.execute(request)
+        : fixture.pipe(
+            Effect.map((json) =>
+              HttpClientResponse.fromWeb(
+                request,
+                new Response(json, {
+                  headers: { "content-type": "application/json" },
+                }),
+              ),
             ),
-          )
-        : network.execute(request),
-    );
+            Effect.orDie,
+          );
+    });
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 

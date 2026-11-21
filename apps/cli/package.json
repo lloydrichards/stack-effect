@@ -50,6 +50,7 @@
     "@effect/vitest": "4.1.4",
     "@repo/catalog": "workspace:*",
     "@repo/catalog-author": "workspace:*",
+    "@repo/catalog-labs": "workspace:*",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",

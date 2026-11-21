@@ -4,6 +4,7 @@ import {
   AUTHOR_CATALOG_ASSET_PATH,
   CATALOG_ASSET_PATH,
   CONFIG_SCHEMA_ASSET_PATH,
+  LABS_CATALOG_ASSET_PATH,
 } from "./catalog-registry-assets";
 import { checkRegistry } from "./registry-checks";
 
@@ -25,6 +26,7 @@ const program = Effect.gen(function* () {
   const results = yield* checkRegistry(new URL(base), [
     CATALOG_ASSET_PATH,
     AUTHOR_CATALOG_ASSET_PATH,
+    LABS_CATALOG_ASSET_PATH,
     CONFIG_SCHEMA_ASSET_PATH,
   ]);
   yield* Effect.forEach(results, (check) =>

@@ -80,7 +80,7 @@ export class CatalogProvider extends Context.Service<
                   reason: "invalidSource",
                   sourceUrl: "local:authoring",
                   message:
-                    "The authoring entrypoint only provides the local official catalog.",
+                    "The authoring entrypoint only provides its bundled local catalog definitions.",
                 }),
               ),
       };

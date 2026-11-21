@@ -19,6 +19,7 @@ Use `create` for a new project. Pass one `--target kind/name:module[,module...]`
 
 ```bash
 stack-effect create my-app --root "$PARENT_DIR" --yes \
+  --catalog official --catalog labs=https://stack-effect.lloydrichards.dev/registry/v1/labs.json \
   --target client-react/web:client-react-web-worker --dry-run --show-files
 ```
 
@@ -32,7 +33,14 @@ For example, save this request as `plan-input.json` to inspect the worker in a N
 
 ```json
 {
-  "config": { "name": "worker-example", "runtime": { "_tag": "node", "packageManager": "npm" } },
+  "config": {
+    "name": "worker-example",
+    "runtime": { "_tag": "node", "packageManager": "npm" },
+    "catalogs": [
+      { "name": "official" },
+      { "name": "labs", "url": "https://stack-effect.lloydrichards.dev/registry/v1/labs.json" }
+    ]
+  },
   "selection": {
     "targets": [
       {

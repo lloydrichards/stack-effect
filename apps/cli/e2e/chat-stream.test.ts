@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
+import { labsCatalogArgs } from "./fixtures/labs-source";
 import { CLI } from "./harness";
 
 layer(CLI.layer)("generated AI chat", (it) => {
@@ -12,10 +13,11 @@ layer(CLI.layer)("generated AI chat", (it) => {
         const created = yield* cli.run(
           "create",
           "chat-stream",
+          ...labsCatalogArgs,
           "--root",
           cli.workdir,
           "--target",
-          "package/ai:package-ai-chat-service,package-ai-toolkit-memory,package-ai-toolkit-plan,package-ai-chat-toolkit-datetime",
+          "package/ai:package-ai-chat-service,package-ai-toolkit-memory,package-ai-toolkit-plan,package-ai-chat-toolkit-datetime,package-ai-toolkit-webfetch",
           "--target",
           "server/api:server-chat-runtime-managed",
           "--target",

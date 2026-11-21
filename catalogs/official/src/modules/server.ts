@@ -298,55 +298,6 @@ export const serverModules = defineModules(import.meta.url, [
     ],
   },
   {
-    id: "server-chat-runtime-managed",
-    supportedRuntimes: ["bun", "node", "deno"],
-    title: "Managed Chat Runtime",
-    description: "In-memory managed chat send, watch, and interrupt runtime",
-    supportedOn: [{ _tag: "kind", kind: serverKind }],
-    dependencies: [
-      {
-        _tag: "required-module",
-        target: domainTarget,
-        moduleId: "domain-chat-managed-contracts",
-      },
-      {
-        _tag: "required-module",
-        target: {
-          kind: "server",
-          name: "api",
-        },
-        moduleId: "server-chat-rpc",
-      },
-    ],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/rpc/ChatManaged.ts",
-        contents: template(
-          "./server-chat-runtime-managed/src/Rpc/ChatManaged.ts",
-        ),
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/runtime/ChatManagedRuntime.ts",
-        contents: template(
-          "./server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts",
-        ),
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "AllRouters",
-        functionName: "Layer.mergeAll",
-        argument: "ChatManagedRpcLive",
-        import: {
-          moduleSpecifier: "./rpc/ChatManaged",
-          namedImports: ["ChatManagedRpcLive"],
-        },
-      },
-    ],
-  },
-  {
     id: "server-ws-presence",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "WebSocket Presence Server",

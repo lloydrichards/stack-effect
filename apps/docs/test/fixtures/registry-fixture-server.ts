@@ -12,10 +12,11 @@ const FixtureDocuments = Schema.fromJsonString(
 );
 
 const exportDocuments = [
+  "import { exportLabsCatalog } from '@repo/catalog-labs/service';",
   "import { exportOfficialCatalog } from '@repo/catalog-official/service';",
   "import { Effect } from 'effect';",
   "import { customCatalogDocuments, revisedCustomCatalogDocuments } from './test/fixtures/custom-catalogs.ts';",
-  "process.stdout.write(JSON.stringify({ official: await Effect.runPromise(exportOfficialCatalog), custom: customCatalogDocuments, revised: revisedCustomCatalogDocuments }));",
+  "process.stdout.write(JSON.stringify({ official: await Effect.runPromise(exportOfficialCatalog), custom: { ...customCatalogDocuments, labs: await Effect.runPromise(exportLabsCatalog) }, revised: revisedCustomCatalogDocuments }));",
 ].join(" ");
 
 type RegistryMode = "current" | "outage" | "revised";
@@ -75,6 +76,11 @@ export const registryFixtureServer = (): Plugin => ({
         ).searchParams.get("value");
         if (isRegistryMode(requested)) mode = requested;
         response.end(mode);
+        return;
+      }
+      if (request.url?.startsWith("/registry/v1/labs.json")) {
+        response.setHeader("content-type", "application/json");
+        response.end(documents.custom["labs"]);
         return;
       }
       // Custom catalogs send no CORS headers, so only same-origin loads succeed.

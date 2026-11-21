@@ -23,7 +23,6 @@ interface ProviderSelection {
 
 interface GeneratedModuleExpectation {
   readonly files: ReadonlyArray<string>;
-  readonly standaloneMissingFiles?: ReadonlyArray<string>;
   readonly contents?: ReadonlyArray<{
     readonly path: string;
     readonly pattern: string | RegExp;
@@ -254,45 +253,6 @@ const generatedModuleExpectations: Readonly<
       ]),
     ),
   ),
-  "client-react-web-worker": {
-    files: [
-      "apps/client-react-web/src/workers/import-validation/domain.ts",
-      "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
-      "apps/client-react-web/src/lib/import-validation-worker.ts",
-      "apps/client-react-web/src/components/import-validation-card.tsx",
-    ],
-    standaloneMissingFiles: [
-      "apps/server-api/package.json",
-      "packages/domain/package.json",
-    ],
-    contents: [
-      {
-        path: "apps/client-react-web/src/workers/import-validation/domain.ts",
-        pattern: 'Rpc.make("validate"',
-      },
-      {
-        path: "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
-        pattern: 'Schedule.spaced("250 millis")',
-      },
-      {
-        path: "apps/client-react-web/src/workers/import-validation/import-validation.worker.ts",
-        pattern:
-          /const records = content[\s\S]*lineNumber: index \+ 1[\s\S]*\.filter\(/,
-      },
-      {
-        path: "apps/client-react-web/src/lib/import-validation-worker.ts",
-        pattern: "RpcClient.layerProtocolWorker",
-      },
-      {
-        path: "apps/client-react-web/src/app.tsx",
-        pattern: "<ImportValidationCard />",
-      },
-      {
-        path: "apps/client-react-web/package.json",
-        pattern: '"@effect/platform-browser": "4.1.4"',
-      },
-    ],
-  },
 };
 
 function getModuleTarget(mod: {
@@ -492,14 +452,12 @@ const expectInstallPasses = (project: {
 const assertGeneratedModuleExpectations = (
   project: {
     expectFileExists: (path: string) => Effect.Effect<void>;
-    expectFileNotExists: (path: string) => Effect.Effect<void>;
     expectFileContaining: (
       path: string,
       pattern: string | RegExp,
     ) => Effect.Effect<void>;
   },
   modules: ReadonlyArray<string>,
-  standalone: boolean,
 ) =>
   Effect.forEach(
     modules,
@@ -514,11 +472,6 @@ const assertGeneratedModuleExpectations = (
           {
             discard: true,
           },
-        ),
-        Effect.forEach(
-          standalone ? (expectation.standaloneMissingFiles ?? []) : [],
-          (path) => project.expectFileNotExists(path),
-          { discard: true },
         ),
         Effect.forEach(
           expectation.contents ?? [],
@@ -562,11 +515,7 @@ describe("matrix", () => {
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
-              yield* assertGeneratedModuleExpectations(
-                project,
-                entry.modules,
-                true,
-              );
+              yield* assertGeneratedModuleExpectations(project, entry.modules);
               yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
@@ -601,11 +550,7 @@ describe("matrix", () => {
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
-              yield* assertGeneratedModuleExpectations(
-                project,
-                entry.modules,
-                false,
-              );
+              yield* assertGeneratedModuleExpectations(project, entry.modules);
               yield* expectInstallPasses(project);
               yield* project.expectFormatPasses();
               yield* project.expectLintPasses();
@@ -682,11 +627,7 @@ describe("matrix", () => {
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
-              yield* assertGeneratedModuleExpectations(
-                project,
-                clientModules,
-                false,
-              );
+              yield* assertGeneratedModuleExpectations(project, clientModules);
               yield* expectInstallPasses(project);
               yield* project.expectFormatPasses();
               yield* project.expectLintPasses();

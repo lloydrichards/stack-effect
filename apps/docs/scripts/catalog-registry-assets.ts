@@ -3,6 +3,10 @@ import {
   publishedAuthorCatalogUrl,
 } from "@repo/catalog-author/service";
 import {
+  exportLabsCatalog,
+  publishedLabsCatalogUrl,
+} from "@repo/catalog-labs/service";
+import {
   exportOfficialCatalog,
   publishedCatalogUrl,
 } from "@repo/catalog-official/service";
@@ -11,6 +15,7 @@ import { Data, Effect, Option, Schema } from "effect";
 
 export const CATALOG_ASSET_PATH = "/registry/v1/catalog.json";
 export const AUTHOR_CATALOG_ASSET_PATH = "/registry/v1/author.json";
+export const LABS_CATALOG_ASSET_PATH = "/registry/v1/labs.json";
 export const CONFIG_SCHEMA_ASSET_PATH = "/schemas/v1/stack.effect.schema.json";
 
 const JsonString = Schema.fromJsonString(Schema.Unknown, { space: 2 });
@@ -20,6 +25,7 @@ export const generateCatalogRegistryAssets = Effect.fn(
 )(function* () {
   const catalog = yield* exportOfficialCatalog;
   const author = yield* exportAuthorCatalog;
+  const labs = yield* exportLabsCatalog;
   const configSchema = {
     ...Schema.toStandardJSONSchemaV1(StackConfig)["~standard"].jsonSchema.input(
       {
@@ -33,13 +39,17 @@ export const generateCatalogRegistryAssets = Effect.fn(
   return {
     [CATALOG_ASSET_PATH]: catalog,
     [AUTHOR_CATALOG_ASSET_PATH]: author,
+    [LABS_CATALOG_ASSET_PATH]: labs,
     [CONFIG_SCHEMA_ASSET_PATH]: `${encodedSchema}\n`,
   };
 });
 
 /** A catalog the site hosts, with the workspace whose build it publishes. */
 export interface PublishedCatalog {
-  readonly asset: typeof CATALOG_ASSET_PATH | typeof AUTHOR_CATALOG_ASSET_PATH;
+  readonly asset:
+    | typeof CATALOG_ASSET_PATH
+    | typeof AUTHOR_CATALOG_ASSET_PATH
+    | typeof LABS_CATALOG_ASSET_PATH;
   readonly workspace: string;
   readonly build: URL;
 }
@@ -54,6 +64,11 @@ export const publishedCatalogs: ReadonlyArray<PublishedCatalog> = [
     asset: AUTHOR_CATALOG_ASSET_PATH,
     workspace: "catalogs/author",
     build: publishedAuthorCatalogUrl,
+  },
+  {
+    asset: LABS_CATALOG_ASSET_PATH,
+    workspace: "catalogs/labs",
+    build: publishedLabsCatalogUrl,
   },
 ];
 

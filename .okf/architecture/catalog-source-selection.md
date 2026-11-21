@@ -141,9 +141,9 @@ Every project still has a `workspace` target at `.`.
 
 ## Carry sources in shared Builder links
 
-- A shared link repeats a `catalog` parameter: `catalog=official`, or `catalog=acme=<url>`. A link without `catalog` parameters uses the official source.
+- A shared link repeats a `catalog` parameter: `catalog=official`, or `catalog=acme=<url>`. A saved recipe link without `catalog` parameters uses the official source. A fresh Builder URL with no recipe parameters starts with official and same-site Labs.
 - An older Builder rejects the unknown parameter, and that explicit failure is intended.
-- Before loading a link that names a non-official URL, the Builder asks the visitor to confirm. Fetching exposes the visitor to that host, and links come from untrusted places.
+- Before loading a link that names a custom URL other than the same-site Labs document, the Builder asks the visitor to confirm. Fetching exposes the visitor to that host, and links come from untrusted places.
 - Reopening a link loads current content for the same source set. A link never silently changes its source set.
 
 ## Worked examples

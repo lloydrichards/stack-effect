@@ -11,62 +11,6 @@ const domainTarget = {
 
 export const clientModules = defineModules(import.meta.url, [
   {
-    id: "client-react-web-worker",
-    supportedRuntimes: ["bun", "node", "deno"],
-    title: "Browser Web Worker",
-    description:
-      "Browser Worker RPC with Effect Schema, Stream, Schedule, and Atom RPC",
-    supportedOn: [{ _tag: "kind", kind: clientReactKind }],
-    dependencies: [],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/workers/import-validation/domain.ts",
-        contents: template(
-          "./client-react-web-worker/src/workers/import-validation/domain.ts",
-        ),
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/workers/import-validation/import-validation.worker.ts",
-        contents: template(
-          "./client-react-web-worker/src/workers/import-validation/import-validation.worker.ts",
-        ),
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/lib/import-validation-worker.ts",
-        contents: template(
-          "./client-react-web-worker/src/lib/import-validation-worker.ts",
-        ),
-      },
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/components/import-validation-card.tsx",
-        contents: template(
-          "./client-react-web-worker/src/components/import-validation-card.tsx",
-        ),
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "dependencies",
-        name: "@effect/platform-browser",
-        value: "4.1.4",
-      },
-      {
-        _tag: "jsx-slot",
-        path: "{{targetPath}}/src/app.tsx",
-        slotId: "components",
-        content: "<ImportValidationCard />",
-        import: {
-          moduleSpecifier: "./components/import-validation-card",
-          namedImports: ["ImportValidationCard"],
-        },
-      },
-    ],
-  },
-  {
     id: "client-react-http-api",
     provides: ["client-http-api"],
     conflictsWith: ["client-react-http-api-worker"],

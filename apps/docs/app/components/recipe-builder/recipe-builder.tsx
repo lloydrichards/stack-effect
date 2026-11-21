@@ -52,8 +52,13 @@ function RecipeNotices() {
     retryCatalog,
   } = useRecipeBuilderCatalog();
   const { previewResult } = useRecipeBuilderPreview();
-  const { urlIssue, unconfirmedCatalogs, confirmCatalogs, setCatalogs } =
-    useRecipeBuilderUrl();
+  const {
+    urlIssue,
+    unconfirmedCatalogs,
+    confirmCatalogs,
+    setCatalogs,
+    labsMigration,
+  } = useRecipeBuilderUrl();
   const awaitingConfirmation = unconfirmedCatalogs.length > 0;
   const catalogFailure = AsyncResult.isFailure(catalogResult)
     ? recipeBuilderRpcFailure(catalogResult.cause)
@@ -62,6 +67,10 @@ function RecipeNotices() {
     form.store,
     (state) => state.values.config.catalogs,
   );
+  const failedLabs =
+    catalogFailure?.failedSource?.name === "labs" &&
+    catalogs?.some((source) => source.name === "labs") &&
+    usesOfficialCatalog(catalogs);
   const missingOfficial =
     catalogs !== undefined &&
     !usesOfficialCatalog(catalogs) &&
@@ -100,8 +109,31 @@ function RecipeNotices() {
         </Alert>
       ) : null}
 
+      {labsMigration && urlIssue === undefined && !awaitingConfirmation ? (
+        <Alert role="alert">
+          <AlertCircle />
+          <AlertTitle>This recipe uses modules that moved to Labs</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-3">
+            <span>
+              Add Labs to keep the selected modules and generate the recipe.
+            </span>
+            <Button type="button" onClick={labsMigration.addLabs}>
+              Add Labs
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={labsMigration.discardMovedModules}
+            >
+              Remove moved modules
+            </Button>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
       {urlIssue === undefined &&
       !awaitingConfirmation &&
+      labsMigration === undefined &&
       catalog === undefined &&
       !catalogFailed ? (
         <Alert role="status">
@@ -146,6 +178,24 @@ function RecipeNotices() {
                 }
               >
                 Add the official catalog
+              </Button>
+            ) : null}
+            {failedLabs ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setCatalogs([
+                    { name: OFFICIAL_CATALOG_SOURCE },
+                    ...(catalogs ?? []).filter(
+                      (source) =>
+                        source.name !== "labs" &&
+                        source.name !== OFFICIAL_CATALOG_SOURCE,
+                    ),
+                  ])
+                }
+              >
+                Continue without Labs
               </Button>
             ) : null}
             <Button type="button" variant="outline" onClick={retryCatalog}>

@@ -14,6 +14,48 @@ If a network failure or temporary server error prevents a current load, Stack Ef
 
 With no usable cache, the operation stops before generating files. An invalid document, unsupported catalog capability, or permanent HTTP error also stops the operation, even if an older cache exists. Retry in Recipe Builder starts a new session and checks the registry again.
 
+## Try the Labs catalog
+
+Labs contains experimental examples. A fresh Recipe Builder session loads the official catalog and the Labs catalog from the same site. Remove Labs in **Catalog sources** to work with official modules only. The CLI defaults to the official catalog. To use Labs in a new CLI project, select both sources.
+
+| Labs module | Target |
+| --- | --- |
+| `cli-persisted-queue` | Bun CLI |
+| `client-react-web-worker` | React client |
+| `server-chat-runtime-managed` | HTTP server |
+| `package-ai-toolkit-webfetch` | AI package |
+
+The queue module uses Effect's PersistedQueue with SQLite. The following command adds it to a CLI target.
+
+```bash
+bunx stack-effect@latest create queue-demo --runtime bun \
+  --catalog official \
+  --catalog labs=https://stack-effect.lloydrichards.dev/registry/v1/labs.json \
+  --target cli/jobs:cli-persisted-queue --yes
+
+cd queue-demo
+bun apps/cli-jobs/src/index.ts enqueue --id demo-1 "Effect queues persist jobs"
+bun apps/cli-jobs/src/index.ts consume-once
+```
+
+The second command prints `demo-1: 4 words`. Run both commands with the same database configuration. By default the project uses `data/app.sqlite`. The consumer waits if there is no pending job. Reuse the same job ID to identify the same submission.
+
+### Update a project that uses a moved module
+
+The browser worker, managed chat runtime, and Web Fetch keep their module IDs, but the live Official registry no longer supplies them after this deployment. This change affects installed CLI versions that use that registry, even without a CLI upgrade. Add Labs to an affected project's `stack.effect.json` before running commands that select those modules. If the file has no `catalogs` field, add this field. If it already has one, keep its other entries and append Labs.
+
+```json
+"catalogs": [
+  { "name": "official" },
+  {
+    "name": "labs",
+    "url": "https://stack-effect.lloydrichards.dev/registry/v1/labs.json"
+  }
+]
+```
+
+Keep `official` selected because Labs depends on it. Select Web Fetch directly on the AI package. It includes the official chat service as a dependency. A saved Builder link keeps its original source selection. When a link uses a moved module, choose **Add Labs** in the migration notice to keep the selection. Then copy the updated link. If Labs fails to load, you can retry or choose **Continue without Labs**.
+
 ## Create a catalog project
 
 To publish a catalog of your own and select it with `--catalog`, follow [Publish your own catalog](/publish-catalog-registry). The [author catalog](/registry/v1/author.json) creates the project it starts from.
