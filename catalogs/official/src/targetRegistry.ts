@@ -93,7 +93,7 @@ export const targetGroup = defineTargets(import.meta.url, [
   {
     kind: "client-react",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Client React Application",
+    title: "React Client",
     description: "A frontend application built with React",
     defaultName: "web",
     requiredModules: ["config-typescript-vite"],
@@ -225,7 +225,7 @@ export const targetGroup = defineTargets(import.meta.url, [
   {
     kind: "client-foldkit",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Client Foldkit Application",
+    title: "Foldkit Client",
     description: "A frontend application built with Foldkit (Elm Architecture)",
     defaultName: "web",
     requiredModules: ["config-typescript-vite"],
@@ -340,7 +340,7 @@ export const targetGroup = defineTargets(import.meta.url, [
   {
     kind: "server",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Server Application",
+    title: "Server",
     description: "An Effect HTTP API server",
     defaultName: "api",
     requiredModules: ["server-http-api"],
@@ -439,7 +439,7 @@ export const targetGroup = defineTargets(import.meta.url, [
   {
     kind: "server-mcp",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "MCP Server Application",
+    title: "MCP Server",
     description:
       "A Model Context Protocol server with composable tools, prompts, resources, and agent skills",
     defaultName: "",
@@ -549,7 +549,7 @@ export const targetGroup = defineTargets(import.meta.url, [
   {
     kind: "cli",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "CLI Application",
+    title: "CLI",
     description: "A command-line interface application",
     defaultName: "app",
     requiredModules: ["cli-command-hello"],
