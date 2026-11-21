@@ -20,6 +20,8 @@ sources:
     resource: https://github.com/lloydrichards/stack-effect/issues/249
   - id: loader-code
     resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+  - id: labs
+    resource: ../../catalogs/labs/src/service.ts
   - id: qualification
     resource: https://github.com/lloydrichards/stack-effect/issues/275
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
@@ -33,11 +35,19 @@ Status: Implemented.
 
 Serve the official catalog as a Stack Effect-owned JSON document at `https://stack-effect.lloydrichards.dev/registry/v1/catalog.json`. The docs origin hosts public assets; `public` is a build-source directory and is not part of the URL.
 
-The v1 path identifies a protocol family, not an immutable content release. New definitions and template fixes may replace the document while preserving existing identifiers and supported interpreter operations. Freeze the v1 capability baseline so adding a module cannot silently make the entire catalog unreadable by older v1 clients. New interpreter semantics require a separate protocol decision.
+The v1 path identifies a protocol family, not an immutable content release. New definitions and template fixes may replace the document while preserving existing identifiers and supported interpreter operations. A catalog source move preserves the ID but changes which source must supply it. Freeze the v1 capability baseline so adding a module cannot silently make the entire catalog unreadable by older v1 clients. New interpreter semantics require a separate protocol decision.
 
 Do not require catalog semver, a historical-content archive, a catalog lockfile, or a downloaded catalog committed to each project. Older `stack.effect.json` files use the official source as an internal default. A content digest identifies loaded bytes and detects cache corruption; it does not authenticate the publisher or promise that those bytes remain downloadable.
 
 This trades cross-date reproducibility for a simpler publishing and user-update model. The same inputs can produce different output after a template update. Claims of deterministic behavior therefore include the loaded catalog in their inputs.
+
+## Publish experimental examples as an opt-in extension
+
+Build Labs from `catalogs/labs` and publish it at `/registry/v1/labs.json`. It declares `requires: ["official"]`. The CLI defaults to the official source and selects Labs through the existing custom source mechanism. A fresh Recipe Builder session selects both sources using the same-site Labs URL. Saved links keep their source selection. The same Finalize consent rules apply to Labs as to other custom sources.
+
+The pilot includes the new queue example and moves the published browser worker, managed chat runtime, and Web Fetch IDs to Labs. Existing projects that use a moved ID add Labs to their saved source set. Web Fetch requires the official chat service and is selected directly on the AI package. The official chat service has no dependency on Labs.
+
+Publish both documents together. The v1 composer rejects duplicate IDs, so an older official document that still contains a moved ID must be revalidated before it can compose with Labs. Keep dependent Labs modules in the same document.
 
 ## Keep one catalog throughout an operation
 

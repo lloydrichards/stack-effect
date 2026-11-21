@@ -511,6 +511,79 @@ it.live(
 );
 
 it.live(
+  "should generate all Labs examples with official targets and reuse saved sources on CLI add",
+  () =>
+    Effect.gen(function* () {
+      const session = yield* makeSession;
+      const sources = sourcesOf(official, customSource("labs"));
+      const input = customOnlyInput("labs-queue", sources, [
+        {
+          target: new TargetIdentity({
+            kind: TargetKind.make("cli"),
+            name: "jobs",
+          }),
+          modules: [ModuleId.make("cli-persisted-queue")],
+        },
+        {
+          target: new TargetIdentity({
+            kind: TargetKind.make("server"),
+            name: "api",
+          }),
+          modules: [ModuleId.make("server-chat-runtime-managed")],
+        },
+        {
+          target: new TargetIdentity({
+            kind: TargetKind.make("client-react"),
+            name: "web",
+          }),
+          modules: [ModuleId.make("client-react-web-worker")],
+        },
+        {
+          target: new TargetIdentity({
+            kind: TargetKind.make("package"),
+            name: "ai",
+          }),
+          modules: [ModuleId.make("package-ai-toolkit-webfetch")],
+        },
+      ]);
+      yield* session.catalog({ sessionId: 61, sources });
+      const { preview } = yield* session.preview({
+        sessionId: 61,
+        targetIdentityKey: "labs",
+        input,
+      });
+      assert.includeMembers(
+        preview.files.map(({ path }) => path),
+        [
+          "apps/cli-jobs/src/commands/queue.ts",
+          "packages/domain/src/SummaryJob.ts",
+          "packages/db/src/Database.ts",
+          "apps/server-api/src/runtime/ChatManagedRuntime.ts",
+          "apps/client-react-web/src/lib/import-validation-worker.ts",
+          "packages/ai/src/toolkits/WebFetchToolkit.ts",
+          "packages/ai/src/services/AiChatService.ts",
+        ],
+      );
+      assert.include(
+        preview.files.find(
+          ({ path }) => path === "packages/ai/src/services/AiChatService.ts",
+        )?.contents,
+        "WebFetchToolkit",
+      );
+      const cli = yield* cliParity(
+        input,
+        preview.command,
+        "cli/replay:cli-persisted-queue",
+      );
+      assert.deepEqual(cli.expectedBlueprint, preview.blueprint);
+      const files = cli.files.map(({ path }) => path);
+      assert.include(files, "apps/cli-replay/src/commands/queue.ts");
+      assert.include(files, "apps/cli-jobs/src/commands/queue.ts");
+    }).pipe(Effect.scoped),
+  60_000,
+);
+
+it.live(
   "should label each definition with its catalog when two catalogs are combined",
   () =>
     Effect.gen(function* () {

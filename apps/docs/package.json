@@ -6,7 +6,7 @@
   "scripts": {
     "build": "react-router build",
     "clean": "rm -rf build node_modules .turbo .react-router tsconfig.tsbuildinfo",
-    "assets:generate": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run scripts/write-catalog-registry-assets.ts",
+    "assets:generate": "bun run --cwd ../cli docs:generate && bun run --cwd ../../catalogs/official build && bun run --cwd ../../catalogs/author build && bun run --cwd ../../catalogs/labs build && bun run scripts/write-catalog-registry-assets.ts",
     "dev": "bun run assets:generate && react-router dev",
     "lint": "oxlint .",
     "prebuild": "bun run assets:generate",
@@ -59,6 +59,7 @@
     "@mdx-js/rollup": "^3.1.1",
     "@react-router/dev": "8.5.1",
     "@repo/catalog-author": "workspace:*",
+    "@repo/catalog-labs": "workspace:*",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@tailwindcss/vite": "^4.3.5",

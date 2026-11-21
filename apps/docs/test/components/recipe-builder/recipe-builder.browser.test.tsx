@@ -266,6 +266,23 @@ const openReactTarget = async () => {
     .getByRole("button", { name: "Configure modules for web, client-react" })
     .click();
 };
+test("opens a new recipe with the official and same-site Labs catalogs", async () => {
+  await renderRecipeBuilder();
+  await expect.poll(lastRequestedSources).toEqual(["official", "labs"]);
+  expect(workerCalls.catalogRequests.at(-1)?.sources[1]).toEqual({
+    name: "labs",
+    url: new URL("/registry/v1/labs.json", window.location.origin).href,
+  });
+  await expect
+    .element(page.getByText("Load catalogs from this link?"))
+    .not.toBeInTheDocument();
+});
+
+test("keeps an existing recipe link without sources on the official catalog", async () => {
+  await renderRecipeBuilder("/builder?name=existing");
+  await expect.poll(lastRequestedSources).toEqual(["official"]);
+});
+
 test("selects and clears CAFE as a shareable stack preset", async () => {
   await renderRecipeBuilder();
   await targetsStep();
@@ -385,8 +402,14 @@ test("should replace valid URL edits and reset the existing form for external na
 
   await page.getByLabelText("Project name").fill("local-recipe");
   await expect
-    .element(page.getByLabelText("Recipe URL search"))
-    .toHaveTextContent("?name=local-recipe");
+    .poll(() => page.getByLabelText("Recipe URL search").element().textContent)
+    .toContain("?name=local-recipe");
+  await expect
+    .poll(sharedCatalogParams)
+    .toEqual([
+      "official",
+      `labs=${window.location.origin}/registry/v1/labs.json`,
+    ]);
   await expect
     .element(page.getByLabelText("Project name"))
     .toHaveValue("local-recipe");
@@ -799,9 +822,7 @@ test("should wait for the catalog before enabling the preview", async () => {
 
   await setupStep();
   await page.getByRole("button", { name: /^Catalogs/u }).click();
-  await expect
-    .element(page.getByText("Current", { exact: true }))
-    .toBeVisible();
+  await expect.poll(currentCatalogCount).toBe(2);
   await targetsStep();
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
@@ -835,9 +856,7 @@ test("should clear the cached-catalog notice when a retried catalog load is curr
   await page.getByRole("button", { name: "Retry catalog" }).click();
 
   await page.getByRole("button", { name: /^Catalogs/u }).click();
-  await expect
-    .element(page.getByText("Current", { exact: true }))
-    .toBeVisible();
+  await expect.poll(currentCatalogCount).toBe(2);
   await expect
     .element(page.getByText("Using cached catalog official"))
     .not.toBeInTheDocument();
@@ -1036,14 +1055,20 @@ test("should load the catalog without asking again when the visitor adds it", as
   await page.getByLabelText("Catalog URL").fill(extUrl);
   await page.getByRole("button", { name: "Add catalog" }).click();
 
-  await expect.poll(lastRequestedSources).toEqual(["official", "ext"]);
+  await expect.poll(lastRequestedSources).toEqual(["official", "labs", "ext"]);
   await expect
     .element(page.getByText("Load catalogs from this link?"))
     .not.toBeInTheDocument();
-  await expect.poll(sharedCatalogParams).toEqual(["official", `ext=${extUrl}`]);
+  await expect
+    .poll(sharedCatalogParams)
+    .toEqual([
+      "official",
+      `labs=${window.location.origin}/registry/v1/labs.json`,
+      `ext=${extUrl}`,
+    ]);
 
   await page.getByRole("button", { name: "Remove catalog ext" }).click();
-  await expect.poll(lastRequestedSources).toEqual(["official"]);
+  await expect.poll(lastRequestedSources).toEqual(["official", "labs"]);
 });
 
 test("should reject an invalid catalog entry without changing the selection", async () => {

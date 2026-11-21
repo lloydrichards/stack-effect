@@ -15,7 +15,7 @@ generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
 
 # Catalog authoring workflow
 
-Generated file bodies live in `catalogs/official/templates/**` as ordinary files, but tokens and `{{#if}}` blocks mean they are not checked in place. Follow the repository's catalog workspace skill at `.agents/skills/catalog-workspace/SKILL.md` before changing generated content. The definitions are built with the [catalog authoring package](../architecture/catalog-authoring-package.md "builds definitions with").
+Generated file bodies live in `catalogs/official/templates/**` and `catalogs/labs/templates/**` as ordinary files, but tokens and `{{#if}}` blocks mean they are not checked in place. Follow the repository's catalog workspace skill at `.agents/skills/catalog-workspace/SKILL.md` before changing generated content. The definitions are built with the [catalog authoring package](../architecture/catalog-authoring-package.md "builds definitions with").
 
 1. Run `bun run catalog:reset-workspace`. This replaces the disposable `workspace/catalog-built` directory, runs Finalize, and creates its internal baseline. Save any experiments you need before resetting.
 2. Locate the generated file through source annotations or `.catalog-build-manifest.json`. Edit and check that real file first. For a new module or target, prototype its files in the generated workspace before adding the catalog definition.

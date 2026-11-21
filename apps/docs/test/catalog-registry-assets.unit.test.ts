@@ -9,15 +9,28 @@ import {
   CATALOG_ASSET_PATH,
   CONFIG_SCHEMA_ASSET_PATH,
   generateCatalogRegistryAssets,
+  LABS_CATALOG_ASSET_PATH,
   publishableCatalog,
   type PublishedCatalog,
 } from "../scripts/catalog-registry-assets";
 import publishedAuthorIds from "./fixtures/published-author-catalog-ids.json";
 import publishedIds from "./fixtures/published-catalog-ids.json";
 
+const movedToLabs = [
+  "client-react-web-worker",
+  "package-ai-toolkit-webfetch",
+  "server-chat-runtime-managed",
+];
+
 describe("catalog registry assets", () => {
   it.effect.each([
-    { asset: CATALOG_ASSET_PATH, ids: publishedIds },
+    {
+      asset: CATALOG_ASSET_PATH,
+      ids: {
+        targets: publishedIds.targets,
+        modules: publishedIds.modules.filter((id) => !movedToLabs.includes(id)),
+      },
+    },
     { asset: AUTHOR_CATALOG_ASSET_PATH, ids: publishedAuthorIds },
   ] as const)(
     "should still publish every previously published identifier when $asset is generated",
@@ -28,12 +41,33 @@ describe("catalog registry assets", () => {
           Schema.fromJsonString(CatalogDocument),
         )(assets[asset]);
 
-        // New identifiers may appear; a published one must never disappear.
+        // Previously published IDs remain available except for the explicit Labs moves.
         expect(catalog.targets.map((target) => target.kind)).toEqual(
           expect.arrayContaining(ids.targets),
         );
         expect(catalog.modules.map((module) => module.id)).toEqual(
           expect.arrayContaining(ids.modules),
+        );
+      }),
+  );
+
+  it.effect(
+    "moves the published experiments to Labs without duplicating their IDs",
+    () =>
+      Effect.gen(function* () {
+        const assets = yield* generateCatalogRegistryAssets();
+        const decode = Schema.decodeEffect(
+          Schema.fromJsonString(CatalogDocument),
+        );
+        const official = yield* decode(assets[CATALOG_ASSET_PATH]);
+        const labs = yield* decode(assets[LABS_CATALOG_ASSET_PATH]);
+        const officialIds = official.modules.map(({ id }) => id);
+        expect(officialIds.filter((id) => movedToLabs.includes(id))).toEqual(
+          [],
+        );
+        expect(labs.requires).toEqual(["official"]);
+        expect(labs.modules.map(({ id }) => id)).toEqual(
+          expect.arrayContaining([...movedToLabs, "cli-persisted-queue"]),
         );
       }),
   );

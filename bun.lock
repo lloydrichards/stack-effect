@@ -32,6 +32,7 @@
         "@effect/vitest": "4.1.4",
         "@repo/catalog": "workspace:*",
         "@repo/catalog-author": "workspace:*",
+        "@repo/catalog-labs": "workspace:*",
         "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@repo/domain": "workspace:*",
@@ -88,6 +89,7 @@
         "@mdx-js/rollup": "^3.1.1",
         "@react-router/dev": "8.5.1",
         "@repo/catalog-author": "workspace:*",
+        "@repo/catalog-labs": "workspace:*",
         "@repo/catalog-official": "workspace:*",
         "@repo/config-typescript": "workspace:*",
         "@tailwindcss/vite": "^4.3.5",
@@ -129,6 +131,20 @@
         "@repo/domain": "workspace:*",
         "@types/node": "^26.6.6",
         "vitest": "^5.1.0",
+      },
+    },
+    "catalogs/labs": {
+      "name": "@repo/catalog-labs",
+      "version": "0.0.0",
+      "dependencies": {
+        "@effect/platform-node": "4.1.4",
+        "@repo/authoring": "workspace:*",
+        "@repo/catalog-official": "workspace:*",
+        "effect": "4.1.4",
+      },
+      "devDependencies": {
+        "@repo/config-typescript": "workspace:*",
+        "@types/node": "^26.6.6",
       },
     },
     "catalogs/official": {
@@ -581,6 +597,8 @@
     "@repo/catalog": ["@repo/catalog@workspace:packages/catalog"],
 
     "@repo/catalog-author": ["@repo/catalog-author@workspace:catalogs/author"],
+
+    "@repo/catalog-labs": ["@repo/catalog-labs@workspace:catalogs/labs"],
 
     "@repo/catalog-official": ["@repo/catalog-official@workspace:catalogs/official"],
 

@@ -1,5 +1,6 @@
 import { assert, describe, layer } from "@effect/vitest";
 import { Effect } from "effect";
+import { labsCatalogArgs } from "./fixtures/labs-source";
 import { CLI } from "./harness";
 
 /**
@@ -516,6 +517,7 @@ describe("init", () => {
           yield* cli.run(
             "create",
             "nx-npm-app",
+            ...labsCatalogArgs,
             "--target",
             "client-react/web:client-react-web-worker",
             "--yes",
@@ -543,6 +545,29 @@ describe("init", () => {
           );
 
           yield* cli.withinProject("nx-npm-app", function* (project) {
+            const web = "apps/client-react-web";
+            yield* project.expectFileContaining(
+              `${web}/src/app.tsx`,
+              "<ImportValidationCard />",
+            );
+            yield* project.expectFileContaining(
+              `${web}/src/lib/import-validation-worker.ts`,
+              "RpcClient.layerProtocolWorker",
+            );
+            yield* project.expectFileContaining(
+              `${web}/src/workers/import-validation/domain.ts`,
+              'Rpc.make("validate"',
+            );
+            yield* project.expectFileContaining(
+              `${web}/src/workers/import-validation/import-validation.worker.ts`,
+              'Schedule.spaced("250 millis")',
+            );
+            yield* project.expectFileContaining(
+              `${web}/package.json`,
+              '"@effect/platform-browser": "4.1.4"',
+            );
+            yield* project.expectFileNotExists("apps/server-api/package.json");
+            yield* project.expectFileNotExists("packages/domain/package.json");
             const discovered = yield* project.exec(
               "npm",
               "exec",

@@ -1,7 +1,9 @@
-import type { CatalogSources } from "@repo/domain/CatalogSource";
+import { CatalogSources } from "@repo/domain/CatalogSource";
 import { useSelector } from "@tanstack/react-form";
+import { Option, Schema } from "effect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
+import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import { useRecipeBuilderForm } from "./form";
 import {
   decodeRecipeBuilderUrl,
@@ -11,7 +13,26 @@ import {
 export function useRecipeBuilderUrlState() {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.toString();
-  const decoded = useMemo(() => decodeRecipeBuilderUrl(searchParams), [search]);
+  const labsUrl =
+    typeof window === "undefined"
+      ? undefined
+      : registryUrl(window.location.origin, import.meta.env.BASE_URL, "labs");
+  const decoded = useMemo(() => {
+    const result = decodeRecipeBuilderUrl(searchParams);
+    if (search !== "" || labsUrl === undefined) return result;
+    const catalogs = Schema.decodeOption(CatalogSources)([
+      { name: "official" },
+      { name: "labs", url: labsUrl },
+    ]);
+    if (Option.isNone(catalogs)) return result;
+    return {
+      ...result,
+      initialValues: {
+        ...result.initialValues,
+        config: { ...result.initialValues.config, catalogs: catalogs.value },
+      },
+    };
+  }, [search, labsUrl]);
   const initialValuesRef = useRef(decoded.initialValues);
   const form = useRecipeBuilderForm(initialValuesRef.current);
   const values = useSelector(form.store, (state) => state.values);
@@ -29,11 +50,12 @@ export function useRecipeBuilderUrlState() {
       (catalogs ?? []).flatMap((source) =>
         "url" in source &&
         source.url !== undefined &&
+        source.url !== labsUrl &&
         !approvedCatalogUrls.has(source.url)
           ? [{ name: source.name, url: source.url }]
           : [],
       ),
-    [approvedCatalogUrls, catalogs],
+    [approvedCatalogUrls, catalogs, labsUrl],
   );
   const approveCatalogUrls = useCallback(
     (urls: ReadonlyArray<string>) =>
