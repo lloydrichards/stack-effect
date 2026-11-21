@@ -1,7 +1,5 @@
 # Authoring Package AGENTS.md
 
-> See root `/AGENTS.md` for monorepo conventions.
-
 ## Purpose
 
 Tools for authoring a Catalog outside this repository: define targets and
@@ -23,11 +21,10 @@ validation errors and provenance.
 - Every definition source and template must be a file URL or absolute path
   inside the build `root`, so reported paths and provenance are the same on
   every machine.
-- Catalog source selection and trust policy stay in the CLI and loaders.
-  `finalizeScripts: "allow"` only lets a build emit scripts; the CLI decides
-  whether to run them (`apps/cli/src/service/ScaffoldPipeline.ts`). It prompts
-  interactively; `--yes` runs only official-source scripts, and `--trust` also
-  runs custom-source scripts.
+- Keep source selection and script trust in the CLI and loaders.
+  `finalizeScripts: "allow"` lets the build emit scripts. The
+  [CLI scaffold pipeline](../../apps/cli/src/service/ScaffoldPipeline.ts)
+  decides whether to run them.
 - `requires: ["official"]` composes the caller-supplied `official` document
   for validation only. Official definitions never appear in the output, and
   no network access happens inside `buildCatalog`; `loadOfficialCatalog`
@@ -41,3 +38,5 @@ validation errors and provenance.
 `src/fixtureBoundary.test.ts` checks. Its templates and golden JSON are
 excluded from formatting and line-ending conversion because their bytes are
 embedded verbatim; regenerate the golden file only for intended output changes.
+
+When changing the public API or packaging, run `bun run --cwd packages/author verify:package` from the repo root to check a clean install.

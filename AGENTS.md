@@ -1,210 +1,56 @@
-# AGENTS.md
+# Stack Effect
 
-> Note: This file is the authoritative source for coding agent instructions. If
-> in doubt, prefer AGENTS.md over README.md. See nested AGENTS.md files in each
-> workspace for app-specific patterns.
+Stack Effect scaffolds and extends Effect projects. The CLI in [apps/cli](apps/cli) exposes `init`, `add`, and `graph`. The docs site in [apps/docs](apps/docs) hosts Recipe Builder and serves catalog registry assets.
 
-## Commands
+## Find the owner before editing
 
-| Command                           | Purpose                                    |
-| --------------------------------- | ------------------------------------------ |
-| `bun install`                     | Install dependencies                       |
-| `bun dev`                         | Run workspace dev tasks via Turbo          |
-| `bun dev --filter=stack-effect`   | Start CLI app in watch mode                |
-| `bun run build`                   | Build all workspaces                       |
-| `bun lint`                        | Lint with Oxlint                           |
-| `bun format`                      | Format with Oxfmt                          |
-| `bun format:check`                | Validate formatting without writing        |
-| `bun run type-check`              | Run TypeScript checks across workspaces    |
-| `bun run test`                    | Run workspace tests through Turbo + Vitest |
-| `bun run test --filter=<package>` | Run tests for a specific workspace         |
-| `bun run catalog:reset-workspace` | Build the local authoring catalog workspace |
-| `bun run catalog:diff-workspace` | Compare generated authoring files           |
-| `bun run catalog:validate-workspace` | Validate generated authoring files      |
+| Change | Start here |
+| --- | --- |
+| CLI arguments, prompts, output, or command wiring | [CLI instructions](apps/cli/AGENTS.md) |
+| Recipe Builder, public docs, or registry assets | [Docs workspace instructions](apps/docs/AGENTS.md) |
+| Shared terminal prompts and key bindings | [TUI package](packages/tui/src) |
+| Shared schemas and lifecycle contracts | [Domain instructions](packages/domain/AGENTS.md) |
+| Blueprint resolution, Plan, Apply, or Finalize behavior | [Scaffold services](packages/scaffold/src) |
+| Catalog lookup and composition | [Catalog package](packages/catalog/src) |
+| Catalog authoring API or validation | [Authoring instructions](packages/authoring/AGENTS.md) |
+| Target and module definitions or generated files | [Official catalog](catalogs/official), [author catalog](catalogs/author), and [catalog authoring guides](.okf/guides/index.md) |
 
-## Tech Stack
+For official catalog modules and templates, follow the [catalog-workspace skill](.agents/skills/catalog-workspace/SKILL.md). Generate the authoring workspace, edit and validate the generated files, then port the minimal change back to the catalog.
 
-Bun 1.4+, TypeScript 7.0, Effect 4.1, Vitest 5, Oxlint, Oxfmt.
-Generated projects also support the TypeScript 6 language-service option.
+## Preserve the scaffolding contracts
 
-## Task Completion Requirements
+- Keep Selection as user intent, Blueprint as resolved dependency closure, Plan as repository-aware outcomes, and Apply as execution intent. Identical inputs should produce identical Blueprint and Plan outputs.
+- Keep Plan free of apply policy. Require exactly one ApplyDecision per conflicted planned path, with no decisions for other paths.
+- Modules contribute only to their owning target. Model cross-target effects as target or module dependencies.
+- Keep shared contracts in `@repo/domain` and runtime behavior in the scaffold or catalog service that owns it. Preserve explicit failures and conflicts so callers can handle them.
+- Production CLI commands and Recipe Builder sessions load registry JSON through `CatalogLoader`. Reuse the resolved `CatalogService` across the operation. Keep bundled definitions in repository authoring and fixtures.
+- When changing shared behavior, check the affected entry points. Consider interactive and non-interactive CLI paths, Recipe Builder, and existing projects as applicable. For a catalog source change, check both `--catalog` and persisted `stack.effect.json` sources against the [source selection contract](.okf/domain/catalog-sources.md).
 
-- All of `bun format`, `bun lint`, and `bun run type-check` must pass before considering a task complete.
-- NEVER use `bun test` in this repository. Always use `bun run test` so Turbo workspace filters and task wiring are respected.
-- For behavior changes, run a scoped test command (`bun run test --filter=<workspace>`) for impacted workspaces before completion.
+Read the [OKF index](.okf/index.md) to find the relevant contract or decision. Use the [canonical vocabulary](.okf/domain/ubiquitous-language.md) and [domain definitions](.okf/domain/index.md). When a durable rule or decision changes, use the [OKF skill](.agents/skills/okf/SKILL.md) to update its concept. Run `bun run okf:check` after bundle edits.
 
-## CLI Automation Smoke Test
+## Engineering taste
 
-When validating non-interactive CLI behavior (LLM/CI paths), run commands against a temporary repository and always clean it up.
+- Extend the existing owner first. Add a helper when it names a real concept or removes duplicated behavior. Add a service when a capability needs its own dependency or lifecycle boundary. Keep each PR focused on one outcome.
+- Keep CLI commands and Recipe Builder handlers focused on decoding inputs, calling shared services, and presenting results. Put filesystem and HTTP quirks in adapters. For example, both entry points should get the same conflict from Plan, then each can present it in its own way.
+- Infer local types. Declare types where they define a contract. Write comments for constraints the code cannot show, such as why generated template bytes must stay verbatim. Put the change history in the PR.
 
-```bash
-TMP_REPO="$(mktemp -d)"
-trap 'rm -rf "$TMP_REPO"' EXIT
+## Work with Effect in this repo
 
-# 1) Non-interactive init requires project name with --yes
-bun run start -- init smoke-app --yes --root "$TMP_REPO"
+- Use named `Effect.fn("Service.operation")` for new service operations. Keep existing span names stable. Use `Effect.gen` for inline programs and layer construction, and `yield*` to compose effects. Use `Effect.fnUntraced` when a helper already runs inside a traced operation or would emit a span on every item in a loop.
+- Resolve service dependencies when constructing the layer. Wire platform layers and run the Effect at the entry point. Keep pure calculations as plain typed functions and keep expected failures in the Effect error channel. Recover where the caller or adapter has enough context to decide what to do.
+- Decode external inputs with Effect Schema and derive types from the schema. Fix type gaps in the model or use typed fixtures and stubs. Avoid `any` and `as unknown as` casts.
+- Check the nearest service, the installed Effect types, and `.reference/effect/LLMS.md` before choosing an unfamiliar API. Use the Effect skill for the branch relevant to the task. For dependency updates, verify against upstream source for the target version.
 
-# 2) Non-interactive add with explicit Selection inputs
-bun run start -- add --yes --root "$TMP_REPO/smoke-app" --target package/domain:domain-api-contracts --dry-run
+## Verify changes
 
-# 3) Cross-target implication should resolve in non-interactive mode
-bun run start -- add --yes --root "$TMP_REPO/smoke-app" --target client-react/web:client-react-http-api --dry-run
-```
+- Use `bun install` to install dependencies. Run `bun format`, `bun lint`, and `bun run type-check` before completion. Use `bun format:check` to identify formatting drift without writing, and keep unrelated edits out of the change.
+- For behavior changes, run `bun run test --filter=<workspace>` for each impacted workspace that defines a test task. Use the package name from its manifest. Always use `bun run test` instead of `bun test` so Turbo task wiring applies.
+- Extend an existing test when it fits. Test a regression at the lowest layer that can reproduce it. Use a browser test for behavior that needs a real browser or worker. In Effect tests, use `TestClock` for time and await the relevant signal or result for concurrent work.
+- Use controlled HTTP fixtures for routine tests. Check deployed registry CORS, cache validators, and genuine 404 responses separately before releasing clients that depend on them.
+- For dead-code or complexity work, use the repo's [Fallow config](.fallowrc.json). Start with `bunx fallow dead-code -f json` or `bunx fallow health -f json`.
 
-Notes:
+## Prepare a pull request
 
-- Use `trap ... EXIT` so cleanup runs even if a command fails.
-- Do not point smoke tests at the current workspace root; always use `mktemp -d`.
-- The temporary repo must be removed after the test run.
-
-## Project Snapshot
-
-`stack-effect` is a scaffolding CLI for full-stack TypeScript apps built on Effect. The core flow is:
-
-```text
-Selection ──> Blueprint ┬─> Plan ──> Apply ──> ApplyResult
-                        ╰───────────────────────────────────> FinalizeReport
-
-```
-
-The CLI (`apps/cli`) orchestrates this flow using shared packages in `packages/*`. Users run `stack-effect init` to create a project and `stack-effect add` to incrementally add targets (client, server, cli, package) with modules (features).
-
-The root `catalog:*` scripts use `apps/cli/src/authoring.ts` and local definitions. Published `stack-effect catalog workspace` command names remain available through the CLI entrypoint.
-
-## Core Priorities
-
-1. Deterministic behavior: identical inputs should produce identical blueprint and plan outputs.
-2. Correctness over convenience: prefer explicit failures and conflict surfaces over implicit fallbacks.
-3. Predictable planning and apply semantics: preserve the Selection/Blueprint/Plan/Apply boundaries.
-
-## Maintainability
-
-- Long-term maintainability is a core priority; extract reusable logic into shared packages instead of duplicating across CLI/services.
-- Keep domain contracts in `@repo/domain` as the canonical boundary, then implement runtime behavior in `@repo/scaffold` and `@repo/catalog`.
-- Favor small, composable Effect services/layers over one-off local logic.
-
-## Package Roles
-
-- `apps/cli`: Effect CLI entrypoint and command UX (`init`, `add`, `graph`) that composes scaffold services.
-- `packages/domain`: Shared Effect Schema contracts and domain vocabulary for Catalog/Selection/Blueprint/Plan/Apply/Finalize.
-- `packages/catalog`: Read-only catalog definitions and lookup service for targets/modules and dependency metadata.
-- `packages/authoring`: Catalog authoring tools that build a v1 catalog document from TypeScript definitions and template files.
-- `packages/author`: The published `@stack-effect/author` package. It bundles `@repo/authoring` and its workspace dependencies into ESM and types with an exact `effect` peer; `verify:package` proves a clean install.
-- `catalogs/official`: The official catalog definitions, authored with `@repo/authoring`; `./service` wires them into repository tooling and tests.
-- `catalogs/author`: The author catalog (`stack-effect-author`), which scaffolds a standalone catalog registry project; `./service` wires it into repository tooling and tests.
-- `packages/scaffold`: Runtime orchestration services (blueprint resolution, planning, apply, finalize, formatting).
-- `packages/tui`: Shared terminal UI components (prompts, selects, layout, key bindings) built on `effect-boxes` for the CLI.
-- `packages/config-typescript`: Shared TypeScript configuration package.
-
-## Hard Domain Rules
-
-- Do not collapse terms: `Selection` (user intent), `Blueprint` (dependency closure), `Plan` (repo-aware outcomes), and `Apply` (execution intent) are distinct.
-- `Plan` is policy-free and must not contain apply decisions.
-- `ApplyDecision` entries are only for conflicted planned paths; missing or extra decisions are invalid.
-- A module contributes only to its owning target; cross-target effects must be modeled via target/module dependencies.
-- Preserve canonical domain terminology from `.okf/domain/ubiquitous-language.md` and `.okf/domain/index.md` in code and docs.
-
-## Code Style
-
-- **Formatting**: Spaces (not tabs), double quotes for strings
-- **Imports**: Use `@repo/domain` for shared types; Oxfmt organizes imports
-- **Types**: Effect Schema for validation; `typeof Schema.Type` for inline
-  types, `Schema.Schema.Type<typeof T>` for exports
-- **Naming**: camelCase variables/functions, PascalCase types/classes/React
-  components
-- **Effect patterns**: `Effect.gen` + `yield*` for all Effect operations; Layer
-  composition for DI
-- **Error handling**: Use Effect error channel; avoid try/catch
-- **Type safety**: Never use `as unknown as` casts; if a type cannot be expressed safely, fix the model or use framework-provided typed test stubs/helpers
-- **Declarative over imperative**: Prefer declarative, expression-based code
-  over imperative mutation and branching. Use Effect modules (`Array`, `Match`,
-  `Record`, `Option`, `pipe`, `flow`) to express transformations as data
-  pipelines rather than step-by-step procedures with `let`, `if/else`, or
-  `for` loops. When composing operations, build a declarative pipeline
-  (filter, map, reduce) instead of accumulating results imperatively.
-
-## Effect Essentials
-
-```typescript
-// Always use yield* to unwrap Effect values
-Effect.gen(function* () {
-  const service = yield* MyService; // Access service from Context
-  const result = yield* service.method(); // Unwrap Effect result
-  yield* Effect.log("done"); // Side effects
-  return result;
-});
-```
-
-## Structure
-
-| Workspace         | Stack              | AGENTS.md                   |
-| ----------------- | ------------------ | --------------------------- |
-| `apps/cli`        | Effect Cli         | `apps/cli/AGENTS.md`        |
-| `packages/domain` | Effect Schema, RPC | `packages/domain/AGENTS.md` |
-| `packages/authoring` | Effect, FileSystem | `packages/authoring/AGENTS.md` |
-| `packages/author` | Bundled npm package | — |
-| `packages/tui` | Effect, effect-boxes | — |
-| `catalogs/official` | `@repo/authoring` | — |
-| `catalogs/author` | `@repo/authoring` | — |
-
-## Domain Terminology References
-
-When working with domain language for this application, use these sources first:
-
-- `.okf/domain/ubiquitous-language.md` for conversation-ready canonical wording
-- `.okf/domain/index.md` for precise definitions, invariants, and code identifiers
-
-Prefer these canonical terms in code reviews, issues, docs, commit messages, and implementation discussions.
-
-## Catalog registry work
-
-- Production CLI commands and Recipe Builder sessions load the official JSON catalog through `CatalogLoader`. Keep one loaded `CatalogService` through selection, Blueprint, Plan, Apply, and Finalize.
-- Repository authoring uses the local bundled definitions. Do not import that adapter into production CLI or worker entrypoints.
-- Use controlled HTTP fixtures for routine tests. Qualify deployed registry headers, validators, CORS, and genuine 404 responses separately before releasing dependent clients.
-- Catalog sources are configurable: `stack.effect.json` saves them in the optional `catalogs` field (`StackConfig` in `packages/domain/src/Scaffold.ts`), and `--catalog official` / `--catalog <name>=<url>` selects them (`apps/cli/src/lib/catalogSources.ts`). Without either, the official source is the default; an existing project rejects a `--catalog` set that differs from its saved one.
-
-## Complexity Analysis
-
-Use `fallow` (configured in `.fallowrc.json`) to identify dead code and refactoring targets before making changes.
-The `--json` flag emits structured output suitable for direct consumption.
-
-```bash
-# For dead
-bunx fallow -f json
-bunx fallow dead-code -f json
-bunx fallow fix --dry-run -f json
-
-# For complexity
-bunx fallow health -f json
-
-# For specific directories
-bunx fallow -f json -r apps/cli
-```
-
-## Local Source References
-
-When answering questions about Effect, search these
-cloned source repos first. When updating dependencies, pull the latest
-commits in these repos to ensure the LLM references current code:
-
-- `.reference/effect/`
-- `.reference/t3-stack/`
-- `.reference/better-t-stack/`
-- `.reference/shadcn/`
-- `.reference/effect-boxes/`
-- `.reference/base_bevr-stack/`
-
-If any of the folders are missing (they are git ignored), clone them into
-`reference/`:
-
-- `https://github.com/Effect-TS/effect-smol.git` -> `.reference/effect/`
-- `https://github.com/t3-oss/create-t3-app.git` -> `.reference/t3-stack/`
-- `https://github.com/AmanVarshney01/create-better-t-stack.git` -> `.reference/better-t-stack/`
-- `https://github.com/shadcn-ui/ui.git` -> `.reference/shadcn/`
-- `https://github.com/lloydrichards/proj_effect-boxes.git` -> `.reference/effect-boxes/`
-- `https://github.com/lloydrichards/base_bevr-stack.git` -> `.reference/base_bevr-stack/`
-
----
-
-_This document is a living guide. Update it as the project evolves and new
-patterns emerge._
+- Open a PR when requested. Use a Conventional Commit title that names the outcome, such as `fix(cli): preserve catalog sources when adding a target`.
+- Follow the [PR template](.github/pull_request_template.md). Lead with the problem and who it affects. Describe the resulting behavior and call out any compatibility or migration impact. Give reviewers the exact checks you ran and their results, including anything you could not verify.
+- Match the evidence to the change. Use a CLI transcript or generated diff for scaffolding, before and after captures for visual changes, and a short clip for motion or timing. Attach review evidence to the PR and keep it out of source commits.
