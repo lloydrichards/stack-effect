@@ -167,4 +167,44 @@ export const experiments = defineModules(import.meta.url, [
       },
     ],
   },
+  {
+    id: "package-task-plan",
+    title: "Graph Task Planner",
+    description:
+      "Order tasks by prerequisite and report missing prerequisites or cycles",
+    supportedRuntimes: ["bun"],
+    supportedOn: [{ _tag: "kind", kind: "package" }],
+    dependencies: [],
+    contributions: [
+      ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
+        _tag: "file" as const,
+        path: `{{targetPath}}/src/${file}`,
+        contents: template(`./package-task-plan/src/${file}`),
+      })),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./TaskPlan",
+        value: "./src/TaskPlan.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "scratch",
+        value: "bun src/scratchpad.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "test",
+        value: "vitest run",
+      },
+    ],
+    nextSteps: [
+      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order, or `bun run --cwd {{targetPath}} test` to check error cases.",
+    ],
+  },
 ]);
