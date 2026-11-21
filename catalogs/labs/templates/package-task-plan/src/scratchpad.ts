@@ -1,5 +1,5 @@
+import { Tasks } from "@repo/domain/Task";
 import { Array as Arr, Console, Effect, Schema } from "effect";
-import { Tasks } from "./Task";
 import { planTasks } from "./TaskPlan";
 
 const input: unknown = [

@@ -1,6 +1,10 @@
+import {
+  DuplicateTaskId,
+  MissingPrerequisite,
+  TaskCycle,
+} from "@repo/domain/Task";
 import { Effect } from "effect";
 import { expect, it } from "vitest";
-import { DuplicateTaskId, MissingPrerequisite, TaskCycle } from "./Task";
 import { planTasks } from "./TaskPlan";
 
 it("orders prerequisites before their dependents and keeps independent tasks", () => {

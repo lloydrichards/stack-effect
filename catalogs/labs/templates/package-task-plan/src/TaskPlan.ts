@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off the Labs example pins Effect while Graph is unstable.
-import { Array as Arr, Effect, Graph, Option } from "effect";
+
 import {
   DuplicateTaskId,
   MissingPrerequisite,
@@ -7,7 +7,8 @@ import {
   TaskCycle,
   type TaskId,
   type TaskPlanError,
-} from "./Task";
+} from "@repo/domain/Task";
+import { Array as Arr, Effect, Graph, Option } from "effect";
 
 export const planTasks = (
   tasks: ReadonlyArray<Task>,

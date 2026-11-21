@@ -1,6 +1,7 @@
 import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
+const domainTarget = { kind: "package", name: "domain" };
 
 export const experiments = defineModules(import.meta.url, [
   {
@@ -168,28 +169,64 @@ export const experiments = defineModules(import.meta.url, [
     ],
   },
   {
+    id: "domain-task-plan",
+    title: "Task Planner Domain",
+    description: "Shared task schemas and planning errors",
+    visibility: "internal",
+    supportedRuntimes: ["bun"],
+    supportedOn: [{ _tag: "identity", identity: domainTarget }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Task.ts",
+        contents: template("./domain-task-plan/src/Task.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./Task",
+        value: "./src/Task.ts",
+      },
+    ],
+  },
+  {
     id: "package-task-plan",
     title: "Graph Task Planner",
     description:
       "Order tasks by prerequisite and report missing prerequisites or cycles",
     supportedRuntimes: ["bun"],
-    supportedOn: [{ _tag: "kind", kind: "package" }],
-    dependencies: [],
+    supportedOn: [
+      { _tag: "identity", identity: { kind: "package", name: "task-plan" } },
+    ],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: domainTarget,
+        moduleId: "domain-task-plan",
+      },
+    ],
     contributions: [
-      ...["Task.ts", "TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map(
-        (file) => ({
-          _tag: "file" as const,
-          path: `{{targetPath}}/src/${file}`,
-          contents: template(`./package-task-plan/src/${file}`),
-        }),
-      ),
-      ...["Task", "TaskPlan"].map((name) => ({
-        _tag: "pkg-json-entry" as const,
-        path: "{{targetPath}}/package.json",
-        field: "exports" as const,
-        name: `./${name}`,
-        value: `./src/${name}.ts`,
+      ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
+        _tag: "file" as const,
+        path: `{{targetPath}}/src/${file}`,
+        contents: template(`./package-task-plan/src/${file}`),
       })),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./TaskPlan",
+        value: "./src/TaskPlan.ts",
+      },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
