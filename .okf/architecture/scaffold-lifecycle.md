@@ -35,7 +35,11 @@ sources:
   - id: services
     resource: ../../apps/cli/src/services.ts
     title: CLI command service layer
-generated: { by: codex, at: "2026-11-14T13:56:19+00:00" }
+  - id: contribution-resolver
+    resource: ../../packages/scaffold/src/service/plan/ContributionResolver.ts
+  - id: readme-contract
+    resource: ../../packages/scaffold/src/service/recipe/Readmes.test.ts
+generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
 ---
 
 # Scaffold lifecycle
@@ -67,6 +71,12 @@ The CLI rejects required dependency conflicts before Apply in interactive and au
 `ApplyService` prepares skip, authoritative-write, or composed-write actions. `CompositionEngine` dispatches JSON and TypeScript operations to their composers. `WriteEngine` enforces create, modify, or override expectations at each path. These internal services should not become caller-owned policy.
 
 `ScaffoldFormatter` renders Blueprint and Plan for the CLI. RecipeService resolves recipe inputs; RecipePreviewService produces the builder preview. Consult the package exports for the current public service boundary.
+
+## Generated READMEs
+
+Contribution resolution derives the workspace inventory and initial scaffold recipe from the resolved Blueprint. The recipe includes resolved target identities and attached modules, including selected providers. The root README describes the starting project. Target READMEs use the resolved target's identity and modules.
+
+Official README contributions create missing files and classify differing existing contents as conflicts. A skip decision preserves an edited README. Replacing it requires an explicit override, so the root recipe is intended as a record of initial scaffolding. The [authoring guide](../guides/catalog-authoring.md "documents README tokens") lists the tokens used by these templates.
 
 ## Finalize ownership
 

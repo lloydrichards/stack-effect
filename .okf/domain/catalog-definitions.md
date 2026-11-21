@@ -6,7 +6,7 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
+generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
 ---
 
 # Catalog definitions
@@ -18,7 +18,7 @@ Catalog entity that describes a scaffoldable target kind and base contributions.
 
 Invariants:
 
-- Identity is `kind`.
+- Identity is `kind`. The `title` is a display label for target pickers and can change independently of the kind.
 - Includes contributions and optional scripts.
 
 Connected terms:

@@ -8,7 +8,7 @@ sources:
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
     resource: ../../packages/domain/src/Scaffold.ts
-generated: { by: codex, at: "2026-09-22T17:40:50+00:00" }
+generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
 ---
 
 # Contributions and configuration
@@ -89,7 +89,7 @@ Run-level configuration for runtime and toolchain choices.
 
 Invariants:
 
-- Runtime is `bun` or `node` with `pnpm|npm`.
+- Runtime is `bun`, `deno`, or `node` with `pnpm` or `npm`.
 - TypeScript version is `6` or `7`; legacy configs without the field resolve to `6`.
 - Helper behavior derives runtime and package manager names from runtime shape.
 

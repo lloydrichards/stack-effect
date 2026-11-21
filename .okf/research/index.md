@@ -1,6 +1,6 @@
 # Research
 
-- [LLM documentation discovery and use](llm-documentation.md) compares agent-facing documentation patterns and proposes Stack Effect publishing and content work.
+- [LLM documentation discovery and use](llm-documentation.md) records the implemented agent documentation workflow and the research behind it.
 
 - [Staged workspace lifecycle](staged-workspace.md) connects captured baselines, candidate workspaces, and host publication.
 - [Generated workspace artifacts](generated-artifacts.md) examines completeness, identity, and snapshot transport.

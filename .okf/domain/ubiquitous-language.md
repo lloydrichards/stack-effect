@@ -12,7 +12,7 @@ sources:
     resource: ../../packages/domain/src/CatalogSource.ts
   - id: source-4
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
 ---
 
 # Ubiquitous language
@@ -363,7 +363,7 @@ See also:
 
 ## Ambiguities We Explicitly Resolve
 
-- `Selection` means user intent; `Blueprint` means resolved implication.
+- `Selection` means user intent.
 - `Blueprint` means dependency closure; `Plan` means repository-aware projection.
 - `TargetIdentity`, `TargetKey`, and `TargetPath` are related but distinct.
 - `Catalog` is reference data, not mutable runtime state. Registry content changes between operations; the loaded catalog does not change within one.

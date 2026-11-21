@@ -9,8 +9,8 @@ sources:
   - id: source-2
     resource: ../../catalogs/official/src/targetRegistry.ts
   - id: source-3
-    resource: ../../apps/cli/src/commands/init.ts
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+    resource: ../../apps/cli/src/authoring.ts
+generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
 ---
 
 # Add a catalog target
@@ -24,7 +24,7 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 ```typescript
 {
   kind: "worker",
-  title: "Worker application",
+  title: "Worker",
   description: "A background worker",
   defaultName: "jobs",
   requiredModules: [],
@@ -40,7 +40,7 @@ Start with the [catalog authoring workflow](catalog-authoring.md "validates gene
 
 This illustrates the definition shape. Add the package manifest, scripts, dependencies, and TypeScript configuration needed by the validated prototype. They are tagged contributions, not separate contribution buckets. Use existing target definitions to identify shared modules rather than duplicating their setup.
 
-`requiredModules` lists modules that Blueprint must attach whenever the target is selected. Each module must exist and support the target. `defaultName` supplies a name where recipe creation needs a missing target; interactive visibility is a separate setting.
+`requiredModules` lists modules that Blueprint must attach whenever the target is selected. Each module must exist and support the target. `defaultName` supplies a name when a recipe omits it or when a dependency creates an implicit target. See [catalog definitions](../domain/catalog-definitions.md "defines kind and title") for the distinction between `kind` and `title`.
 
 ## Respect identity-derived paths
 
@@ -56,13 +56,13 @@ Names are trimmed and converted to kebab case for paths. TargetKey and TargetPat
 
 ## Verify the target
 
-Complete the authoring workflow checks, then exercise the new kind in a temporary repository. The add command must point at the project directory created by init:
+Complete the authoring workflow checks, then exercise the new kind in a temporary repository. Use the repository authoring entrypoint to load unpublished definitions. Point add at the project directory created by init.
 
 ```bash
 TMP_REPO="$(mktemp -d)"
 trap 'rm -rf "$TMP_REPO"' EXIT
-bun run start -- init test-app --yes --root "$TMP_REPO"
-bun run start -- add --yes --root "$TMP_REPO/test-app" --target worker/jobs --dry-run
+bun apps/cli/src/authoring.ts init test-app --yes --root "$TMP_REPO"
+bun apps/cli/src/authoring.ts add --yes --root "$TMP_REPO/test-app" --target worker/jobs --dry-run
 ```
 
 For a missing target, check registration and visibility. For incompatible modules, check their `supportedOn` rules. For a missing required module, check the exact ModuleId and that `moduleRegistry.ts` includes its group.
