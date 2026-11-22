@@ -33,6 +33,11 @@ Read the [OKF index](.okf/index.md) to find the relevant contract or decision. U
 - Extend the existing owner first. Add a helper when it names a real concept or removes duplicated behavior. Add a service when a capability needs its own dependency or lifecycle boundary. Keep each PR focused on one outcome.
 - Keep CLI commands and Recipe Builder handlers focused on decoding inputs, calling shared services, and presenting results. Put filesystem and HTTP quirks in adapters. For example, both entry points should get the same conflict from Plan, then each can present it in its own way.
 - Infer local types. Declare types where they define a contract. Write comments for constraints the code cannot show, such as why generated template bytes must stay verbatim. Put the change history in the PR.
+- Declare each feature's environment configuration in a named, module-level `Config.all({ ... })`, even when it has one field. Read it in the feature's layer or entry point. Keep defaults and secret redaction in that declaration so readers can scan the full set of settings.
+- Put domain schemas, data types, and errors in the scaffold's `packages/domain`. Keep runtime services, transport and storage adapters, and framework-specific state and messages with their implementations.
+- Use blank lines between distinct steps in a function, such as reading configuration, validating input, running an operation, and handling its result. Follow the surrounding code's structure so the steps are easy to scan.
+- Reuse existing theme tokens and UI atoms in generated clients. Follow nearby modules for form controls, cards, validation feedback, focus states, and accessible markup.
+- Keep `.test.ts` and `.test.tsx` files out of generated targets and modules. Keep scaffold and integration verification in the repository's test workspaces.
 
 ## Work with Effect in this repo
 
