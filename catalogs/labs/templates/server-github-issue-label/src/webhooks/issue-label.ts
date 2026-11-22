@@ -1,22 +1,20 @@
-import { Console, Context, Data, Effect, Layer } from "effect";
+import type {
+  GitHubLabelError,
+  IssueLabelDecision,
+  IssueOpened,
+} from "@repo/domain/GitHubIssueEvent";
+import { Console, Context, Effect, Layer } from "effect";
 
-export interface IssueOpened {
-  readonly repository: string;
-  readonly issueNumber: number;
-}
-
-export const chooseIssueLabel = (event: IssueOpened) => ({
+export const chooseIssueLabel = (event: IssueOpened): IssueLabelDecision => ({
   ...event,
-  label: "triage" as const,
+  label: "triage",
 });
-
-export class GitHubLabelError extends Data.TaggedError("GitHubLabelError") {}
 
 export class GitHubLabels extends Context.Service<
   GitHubLabels,
   {
     readonly add: (
-      decision: ReturnType<typeof chooseIssueLabel>,
+      decision: IssueLabelDecision,
     ) => Effect.Effect<void, GitHubLabelError>;
   }
 >()("example/GitHubLabels") {}
