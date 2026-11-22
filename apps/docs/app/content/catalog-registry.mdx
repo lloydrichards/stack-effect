@@ -21,6 +21,8 @@ Labs contains experimental examples. A fresh Recipe Builder session loads the of
 | Labs module | Target |
 | --- | --- |
 | `cli-persisted-queue` | Bun CLI |
+| `cli-cluster-counter` | Bun CLI |
+| `server-cluster-counter` | Bun HTTP server |
 | `client-react-web-worker` | React client |
 | `server-chat-runtime-managed` | HTTP server |
 | `package-ai-toolkit-webfetch` | AI package |
@@ -39,6 +41,35 @@ bun apps/cli-jobs/src/index.ts consume-once
 ```
 
 The second command prints `demo-1: 4 words`. Run both commands with the same database configuration. By default the project uses `data/app.sqlite`. The consumer waits if there is no pending job. Reuse the same job ID to identify the same submission.
+
+### Run the Cluster counter
+
+Select `cli-cluster-counter` to generate the command and add the counter route to the `server/api` target.
+To add just the route and runner, select `server-cluster-counter` on your Bun server target.
+
+```bash
+bunx stack-effect@latest create counter-demo --runtime bun \
+  --catalog official \
+  --catalog labs=https://stack-effect.lloydrichards.dev/registry/v1/labs.json \
+  --target cli/counter:cli-cluster-counter --yes
+
+cd counter-demo
+bun apps/server-api/src/index.ts
+```
+
+From the project root in another terminal, run the following commands while the server is running.
+
+```bash
+bun apps/cli-counter/src/index.ts counter a  # a: 1
+bun apps/cli-counter/src/index.ts counter a  # a: 2
+bun apps/cli-counter/src/index.ts counter b  # b: 1
+```
+
+The CLI sends `POST /counters/:id/increment`. The existing health route stays at `GET /`. Both use port 9000 by default. If you change the server's `PORT`, set `COUNTER_SERVER_URL` to the matching base URL.
+
+The CLI and server handler share the domain package's HTTP contract. The handler passes the route ID to `CounterEntity.client`, and Cluster routes each call to the handler for that ID.
+
+The server runs Effect's `SingleRunner` in its own process. SQLite and Bun's Digest layer supply the runner's message storage. The increment RPC is transient, and each active entity keeps its count in memory. The count resets when the entity idles out or the server restarts. See `CLUSTER.md` in the generated server for a path to add a read endpoint, share the runner between entities, or store counts by ID.
 
 ### Update a project that uses a moved module
 
