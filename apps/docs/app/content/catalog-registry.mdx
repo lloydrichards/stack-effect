@@ -69,7 +69,7 @@ The CLI sends `POST /counters/:id/increment`. The existing health route stays at
 
 The CLI and server handler share the domain package's HTTP contract. The handler passes the route ID to `CounterEntity.client`, and Cluster routes each call to the handler for that ID.
 
-The server runs Effect's `SingleRunner` in its own process. SQLite and the Web Crypto Digest layer supply the runner's message storage. The increment RPC is transient, and each active entity keeps its count in memory. The count resets when the entity idles out or the server restarts. See `CLUSTER.md` in the generated server for a path to add a read endpoint, share the runner between entities, or store counts by ID.
+The HTTP server hosts a local Cluster runner with in-memory message and runner storage. The increment RPC is transient, and each active entity keeps its count in memory. The count resets when the entity idles out or the server restarts. See `CLUSTER.md` in the generated server for a path to add a read endpoint, share the runner between entities, or store counts by ID.
 
 ### Update a project that uses a moved module
 

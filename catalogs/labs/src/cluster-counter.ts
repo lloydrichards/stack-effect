@@ -82,21 +82,6 @@ export const clusterCounter = defineModules(import.meta.url, [
         contents: template("./server-cluster-counter/src/api/Counter.ts"),
       },
       {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "dependencies",
-        name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
-        value: "4.1.4",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "{{#if runtime=deno}}counter:serve{{/if}}",
-        value:
-          "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
-      },
-      {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
@@ -120,7 +105,7 @@ export const clusterCounter = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "Start the Cluster counter from `{{targetPath}}` with `{{#if runtime=deno}}deno task counter:serve{{/if}}{{#if runtime=bun}}bun run dev{{/if}}{{#if runtime=node}}{{runCommand}} dev{{/if}}` and send `POST /counters/a/increment` to the server port (9000 by default). See `{{targetPath}}/CLUSTER.md` for the runner, state lifetime, and extension points.",
+      "Start the Cluster counter from `{{targetPath}}` with `{{#if runtime=deno}}deno task dev{{/if}}{{#if runtime=bun}}bun run dev{{/if}}{{#if runtime=node}}{{runCommand}} dev{{/if}}` and send `POST /counters/a/increment` to the server port (9000 by default). See `{{targetPath}}/CLUSTER.md` for the runner, state lifetime, and extension points.",
     ],
   },
   {
