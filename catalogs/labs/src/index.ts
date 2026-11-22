@@ -89,7 +89,14 @@ const persistedQueue = defineModules(import.meta.url, [
 
 export const labsCatalog: CatalogInput = {
   targets: [],
-  modules: [persistedQueue, experiments, graphqlQuery, graphqlClient, clusterCounter, counterClients],
+  modules: [
+    persistedQueue,
+    experiments,
+    graphqlQuery,
+    graphqlClient,
+    clusterCounter,
+    counterClients,
+  ],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
 export const LABS_CATALOG_ID = "stack-effect-labs";
