@@ -50,6 +50,7 @@ type TargetConfigurationProps = {
     configuration: SupportConfiguration,
     moduleId: string,
   ) => void;
+  readonly requiredModules: ReadonlyArray<string> | undefined;
   readonly supportSelections: ReadonlyArray<SupportSelection>;
   readonly target: TargetInstance;
   readonly targetIndex: number;
@@ -64,6 +65,7 @@ function TargetConfiguration({
   onRemoveTarget,
   onToggleModule,
   onToggleSupportModule,
+  requiredModules,
   supportSelections,
   target,
   targetIndex,
@@ -93,8 +95,13 @@ function TargetConfiguration({
       .flatMap(({ modules }) => modules.map(({ id }) => id)),
   );
   const roots = publicRootModules(modules);
+  const isDatabaseTarget = ownerKey(target) === "package/db";
   const requiredModuleIds = new Set([
     ...presetModules,
+    ...(isDatabaseTarget && database !== "none"
+      ? [`package-db-${database}`]
+      : []),
+    ...(requiredModules ?? []),
     ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
       ?.requiredModules ?? []),
@@ -104,6 +111,14 @@ function TargetConfiguration({
     name: target.name,
   };
   const getDisabledReason = (module: typeof CatalogModule.Type) => {
+    if (
+      isDatabaseTarget &&
+      (module.id === "package-db-sqlite" ||
+        module.id === "package-db-postgres") &&
+      module.id !== `package-db-${database}`
+    ) {
+      return "Choose the SQL provider in Project setup.";
+    }
     if (
       module.supportedRuntimes &&
       !module.supportedRuntimes.includes(runtime)
@@ -277,6 +292,7 @@ export function ActiveTargetConfiguration({
       onRemoveTarget={editor.removeTarget}
       onToggleModule={editor.toggleModule}
       onToggleSupportModule={editor.toggleSupportModule}
+      requiredModules={editor.activeRequiredModules}
       supportSelections={editor.supportSelections}
       target={target}
       targetIndex={editor.activeTargetIndex}

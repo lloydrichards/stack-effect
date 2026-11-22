@@ -122,7 +122,10 @@ export function TargetWorkspace({
             const presetName = editor.presetNames.get(ownerKey(target));
             const origin = presetName
               ? `Included by ${presetName}`
-              : targetOrigin(target, editor);
+              : (targetOrigin(target, editor) ??
+                (target.addedByDependency
+                  ? "Included automatically"
+                  : undefined));
             const originId = `target-origin-${target.id}`;
             const identity = (
               <span className="flex min-w-0 flex-col gap-1 text-left">

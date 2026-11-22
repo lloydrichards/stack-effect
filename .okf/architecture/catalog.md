@@ -53,7 +53,7 @@ Targets include workspace, package, server, CLI, React, and Foldkit destinations
 
 ## Lookup and projections
 
-Recipe Builder discovers stack presets as public, workspace-compatible modules in the `preset` category. A preset uses ordinary catalog dependencies. The builder projects the implied targets from the preview Blueprint. Editing an implied target can add that identity to the explicit Selection while Blueprint still owns the dependency closure.
+Recipe Builder discovers stack presets as public, workspace-compatible modules in the `preset` category. A preset uses ordinary catalog dependencies. The builder shows resolved non-workspace targets from the preview Blueprint alongside explicitly selected targets. Required module edges identify modules that the builder includes automatically. Selecting an optional module on a resolved target can add that target to the explicit Selection.
 
 `getTarget` and `getModule` fail with `CatalogNotFound` for unknown identifiers. `isSupportedOn` checks a concrete target identity. `getSupportedModules` filters by target kind and optional visibility, so callers that need exact-identity compatibility must still check the identity.
 
