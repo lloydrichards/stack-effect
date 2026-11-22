@@ -1,16 +1,22 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect Signature and HTTP responses.
+import { DiscordPing, DiscordPong } from "@repo/domain/DiscordInteraction";
 import { ByteSize, Config, Effect, Layer, Option, Schema } from "effect";
 import { SecureRandom, Signature } from "effect/crypto";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 const hex = Schema.decodeUnknownEffect(Schema.Uint8ArrayFromHex);
-const Ping = Schema.fromJsonString(Schema.Struct({ type: Schema.Literal(1) }));
+const decodePing = Schema.decodeEffect(Schema.fromJsonString(DiscordPing));
+
+const DiscordConfig = Config.all({
+  publicKey: Config.String("DISCORD_PUBLIC_KEY"),
+});
 
 export const DiscordInteractions = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const signature = yield* Signature.Signature;
-    const configuredKey = yield* Config.String("DISCORD_PUBLIC_KEY");
-    const key = yield* hex(configuredKey).pipe(
+    const { publicKey } = yield* DiscordConfig;
+
+    const key = yield* hex(publicKey).pipe(
       Effect.flatMap((bytes) => Signature.publicKey(Signature.ed25519, bytes)),
     );
 
@@ -20,6 +26,7 @@ export const DiscordInteractions = HttpRouter.use((router) =>
         const signed = yield* hex(request.headers["x-signature-ed25519"]).pipe(
           Effect.option,
         );
+
         if (
           timestamp === undefined ||
           !/^\d+$/.test(timestamp) ||
@@ -27,23 +34,31 @@ export const DiscordInteractions = HttpRouter.use((router) =>
         ) {
           return HttpServerResponse.empty({ status: 401 });
         }
+
         // Bound the raw read before authenticating the delivery.
         const raw = yield* request.arrayBuffer.pipe(
-          Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.kibibytes(4)),
+          Effect.provideService(
+            HttpServerRequest.MaxBodySize,
+            ByteSize.kibibytes(4),
+          ),
         );
         const prefix = new TextEncoder().encode(timestamp);
         const data = new Uint8Array(prefix.length + raw.byteLength);
         data.set(prefix);
         data.set(new Uint8Array(raw), prefix.length);
+
         if (!(yield* signature.verify(key, signed.value, data))) {
           return HttpServerResponse.empty({ status: 401 });
         }
-        const ping = yield* Schema.decodeEffect(Ping)(
-          new TextDecoder().decode(raw),
-        ).pipe(Effect.option);
-        if (Option.isNone(ping))
+
+        const ping = yield* decodePing(new TextDecoder().decode(raw)).pipe(
+          Effect.option,
+        );
+        if (Option.isNone(ping)) {
           return HttpServerResponse.empty({ status: 400 });
-        return yield* HttpServerResponse.json({ type: 1 });
+        }
+
+        return yield* HttpServerResponse.json(DiscordPong.make({ type: 1 }));
       }),
     );
   }),
