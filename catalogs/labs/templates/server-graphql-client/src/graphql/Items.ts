@@ -5,8 +5,6 @@ import {
   GraphQL,
   GraphQLClient,
   GraphQLGroup,
-  type GraphQLClientError,
-  type GraphQLProtocol,
 } from "effect/graphql";
 
 const FindItem = GraphQL.query("FindItem", {
@@ -17,16 +15,7 @@ const FindItem = GraphQL.query("FindItem", {
   result: Schema.Struct({ item: Schema.NullOr(UpstreamItem) }),
 });
 
-export const makeItemLookup: Effect.Effect<
-  (
-    id: string,
-  ) => Effect.Effect<
-    typeof UpstreamItem.Type,
-    typeof UpstreamItemNotFound.Type | GraphQLClientError.GraphQLClientError
-  >,
-  never,
-  GraphQLProtocol.GraphQLProtocol
-> = Effect.gen(function* () {
+export const makeItemLookup = Effect.gen(function* () {
   const client = yield* GraphQLClient.make(GraphQLGroup.make(FindItem));
 
   return Effect.fn("GraphQLItems.lookup")(function* (id: string) {

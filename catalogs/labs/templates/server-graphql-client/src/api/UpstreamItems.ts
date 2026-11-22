@@ -4,7 +4,6 @@ import { Config, Effect, Layer, Schema } from "effect";
 import { GraphQLProtocol } from "effect/graphql";
 import {
   FetchHttpClient,
-  type HttpBody,
   HttpRouter,
   HttpServerResponse,
 } from "effect/http";
@@ -21,11 +20,7 @@ const UpstreamGraphQLLive = Layer.unwrap(
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 
-export const UpstreamItemsLive: Layer.Layer<
-  never,
-  Config.ConfigError,
-  HttpRouter.HttpRouter | HttpRouter.Request<"Error", HttpBody.HttpBodyError>
-> = HttpRouter.use((router) =>
+export const UpstreamItemsLive = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const lookup = yield* makeItemLookup;
 
