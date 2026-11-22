@@ -1,5 +1,4 @@
-{{#if runtime=node}}/// <reference types="node" />
-{{/if}}{{#if runtime=deno}}import "./DenoSqliteCompat";{{/if}}{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
+{{#if runtime=deno}}import "./DenoSqliteCompat";{{/if}}{{#if runtime=bun}}import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { SqliteClient } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=node}}import { NodeFileSystem, NodePath } from "@effect/platform-node";
 import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}{{#if runtime=deno}}import { DenoFileSystem, DenoPath } from "@effect/platform-deno";
 import { SqliteClient } from "@effect/sql-sqlite-node";{{/if}}

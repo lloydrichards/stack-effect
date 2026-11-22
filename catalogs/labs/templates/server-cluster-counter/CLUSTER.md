@@ -10,7 +10,7 @@ curl -X POST http://localhost:9000/counters/b/increment  # {"id":"b","count":1}
 
 The domain package defines the ID and count schemas in `Counter.ts` and the HTTP contract in `CounterApi.ts`. The optional CLI uses that contract to call the server. The HTTP handler in `src/api/Counter.ts` uses `CounterEntity.client` to address an entity by ID. Cluster starts a handler for each active ID, so the `Ref` allocated in `src/cluster/Counter.ts` belongs to that ID.
 
-`src/cluster/Runner.ts` registers the entities and supplies a local `SingleRunner` inside the HTTP server. The runner needs SQLite and Digest for its message storage. The example uses transient RPC calls. The count lives in memory and starts from zero when an idle entity is recreated or the server restarts.
+`src/cluster/Runner.ts` registers the entities and supplies a local `SingleRunner` inside the HTTP server. The runner uses its own in-memory SQLite database and Web Crypto Digest for message storage. The example uses transient RPC calls. The count lives in memory and starts from zero when an idle entity is recreated or the server restarts.
 
 ## Try the CLI
 
