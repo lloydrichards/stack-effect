@@ -3,6 +3,8 @@
   "extends": "@repo/config-typescript/vite.json",
   "compilerOptions": {
     "outDir": "dist",
+    "declaration": false,
+    "declarationMap": false,
     "paths": {
       "@/*": ["./src/*"],
       "~/*": ["./public/*"]
