@@ -6,6 +6,7 @@ import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
 import { receiptApp } from "./receipt-app";
 import { receiptWorkflow } from "./receipt-workflow";
+import { sqliteServerRuntimeModules } from "./sqlite-server-runtime";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -100,6 +101,7 @@ export const labsCatalog: CatalogInput = {
     counterClients,
     receiptWorkflow,
     receiptApp,
+    sqliteServerRuntimeModules,
   ],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);

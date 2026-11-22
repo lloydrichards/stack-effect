@@ -1,4 +1,5 @@
 import { defineModules, templates } from "@repo/authoring";
+import { sqliteServerRuntime } from "./sqlite-server-runtime";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -70,7 +71,7 @@ export const receiptApp = defineModules(import.meta.url, [
     description:
       "Start and poll a receipt workflow through the existing HTTP server",
     supportedRuntimes: ["bun", "node", "deno"],
-    supportedOn: [{ _tag: "kind", kind: "server" }],
+    supportedOn: [{ _tag: "identity", identity: server }],
     dependencies: [
       contracts,
       {
@@ -88,6 +89,7 @@ export const receiptApp = defineModules(import.meta.url, [
         target: { kind: "package", name: "db" },
         moduleId: "package-db-sqlite",
       },
+      sqliteServerRuntime,
     ],
     contributions: [
       {
@@ -108,17 +110,6 @@ export const receiptApp = defineModules(import.meta.url, [
         contents: template("./server-workflow-receipt/RECEIPTS.md"),
       },
       ...["@repo/workflow", "@repo/db"].map(workspaceDependency),
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "RouterDependencies",
-        functionName: "Layer.mergeAll",
-        argument: "ReceiptRuntimeLive",
-        import: {
-          moduleSpecifier: "./workflows/ReceiptRuntime",
-          namedImports: ["ReceiptRuntimeLive"],
-        },
-      },
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
