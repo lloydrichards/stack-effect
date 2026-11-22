@@ -3,32 +3,23 @@ import { TodoApi } from "@repo/domain/TodoApi";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-export const TodoGroupLive = HttpApiBuilder.group(
-  TodoApi,
-  "todos",
-  (handlers) =>
-    handlers
-      .handle("create", ({ payload }) =>
-        TodoRepository.use((repository) => repository.create(payload)),
-      )
-      .handle("list", () =>
-        TodoRepository.use((repository) => repository.list()),
-      )
-      .handle("get", ({ params }) =>
-        TodoRepository.use((repository) => repository.get(params.id)),
-      )
+const TodoHandlers = HttpApiBuilder.group(TodoApi, "todos", (handlers) =>
+  Effect.gen(function* () {
+    const todos = yield* TodoRepository;
+
+    return handlers
+      .handle("create", ({ payload }) => todos.create(payload))
+      .handle("list", () => todos.list)
+      .handle("get", ({ params }) => todos.get(params.id))
       .handle("update", ({ params, payload }) =>
-        TodoRepository.use((repository) =>
-          repository.update(params.id, payload),
-        ),
+        todos.update(params.id, payload),
       )
       .handle("delete", ({ params }) =>
-        TodoRepository.use((repository) =>
-          repository.delete(params.id),
-        ).pipe(Effect.asVoid),
-      ),
+        todos.delete(params.id).pipe(Effect.asVoid),
+      );
+  }),
 );
 
-export const TodoApiLive = HttpApiBuilder.layer(TodoApi).pipe(
-  Layer.provide(TodoGroupLive),
+export const TodoRoutes = HttpApiBuilder.layer(TodoApi).pipe(
+  Layer.provide(TodoHandlers),
 );

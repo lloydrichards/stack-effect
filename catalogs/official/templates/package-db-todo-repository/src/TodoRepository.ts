@@ -7,7 +7,6 @@ import {
   TodoPersistenceError,
   type UpdateTodoInput,
 } from "@repo/domain/Todo";
-{{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
 import { Context, Effect, Layer, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
@@ -38,10 +37,28 @@ const decodeTodo = (row: unknown) =>
 const decodeTodos = (rows: ReadonlyArray<unknown>) =>
   Effect.forEach(rows, decodeTodo);
 
-export class TodoRepository extends Context.Service<TodoRepository>()(
-  "TodoRepository",
+export class TodoRepository extends Context.Service<
+  TodoRepository,
   {
-    make: Effect.gen(function* () {
+    readonly create: (
+      input: CreateTodoInput,
+    ) => Effect.Effect<Todo, TodoPersistenceError>;
+    readonly list: Effect.Effect<ReadonlyArray<Todo>, TodoPersistenceError>;
+    readonly get: (
+      id: TodoId,
+    ) => Effect.Effect<Todo, TodoNotFound | TodoPersistenceError>;
+    readonly update: (
+      id: TodoId,
+      input: UpdateTodoInput,
+    ) => Effect.Effect<Todo, TodoNotFound | TodoPersistenceError>;
+    readonly delete: (
+      id: TodoId,
+    ) => Effect.Effect<Todo, TodoNotFound | TodoPersistenceError>;
+  }
+>()("TodoRepository") {
+  static readonly layer = Layer.effect(
+    TodoRepository,
+    Effect.gen(function* () {
       const sql = yield* SqlClient;
       const crypto = yield* SecureRandom.SecureRandom;
 
@@ -56,12 +73,12 @@ export class TodoRepository extends Context.Service<TodoRepository>()(
           Effect.mapError(persistenceError),
         );
 
-      const list = Effect.fn("TodoRepository.list")(function* () {
+      const list = Effect.gen(function* () {
         const rows = yield* run(
           sql`SELECT id, title, completed FROM todos ORDER BY id`,
         );
         return yield* decodeTodos(rows);
-      });
+      }).pipe(Effect.withSpan("TodoRepository.list"));
 
       const get = Effect.fn("TodoRepository.get")(function* (id: TodoId) {
         const rows = yield* run(
@@ -123,14 +140,7 @@ export class TodoRepository extends Context.Service<TodoRepository>()(
         return yield* decodeTodo(row);
       });
 
-      return { create, list, get, update, delete: remove } as const;
+      return TodoRepository.of({ create, list, get, update, delete: remove });
     }),
-  },
-) {}
-
-export const TodoRepositoryLive = Layer.effect(TodoRepository)(
-  TodoRepository.make,
-).pipe(
-  Layer.provide(PlatformCryptoLayer),
-  Layer.satisfiesServicesType<SqlClient>(),
-);
+  );
+}

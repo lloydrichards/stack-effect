@@ -26,6 +26,27 @@ const serverApiTarget = {
   name: "api",
 };
 
+const todoRepositoryWiring = [
+  {
+    _tag: "file",
+    path: "{{targetPath}}/src/services/TodoRepository.ts",
+    contents: template(
+      "./server-todo-repository/src/Services/TodoRepository.ts",
+    ),
+  },
+  {
+    _tag: "ts-call-arg",
+    path: "{{targetPath}}/src/index.ts",
+    targetVariable: "RouterDependencies",
+    functionName: "Layer.mergeAll",
+    argument: "TodoRepositoryLayer",
+    import: {
+      moduleSpecifier: "./services/TodoRepository",
+      namedImports: ["TodoRepositoryLayer"],
+    },
+  },
+] as const;
+
 export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-sqlite-dev-permission",
@@ -150,24 +171,13 @@ export const serverModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "TodoApiLive",
+        argument: "TodoRoutes",
         import: {
           moduleSpecifier: "./api/Todo",
-          namedImports: ["TodoApiLive"],
+          namedImports: ["TodoRoutes"],
         },
       },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "RouterDependencies",
-        functionName: "Layer.mergeAll",
-        argument:
-          "TodoRepositoryLive.pipe(Layer.provide(DatabaseLive), Layer.satisfiesServicesType<never>())",
-        import: {
-          moduleSpecifier: "@repo/db",
-          namedImports: ["DatabaseLive", "TodoRepositoryLive"],
-        },
-      },
+      ...todoRepositoryWiring,
     ],
   },
   {
@@ -217,18 +227,7 @@ export const serverModules = defineModules(import.meta.url, [
           namedImports: ["TodoRpcHandlers"],
         },
       },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "RouterDependencies",
-        functionName: "Layer.mergeAll",
-        argument:
-          "TodoRepositoryLive.pipe(Layer.provide(DatabaseLive), Layer.satisfiesServicesType<never>())",
-        import: {
-          moduleSpecifier: "@repo/db",
-          namedImports: ["DatabaseLive", "TodoRepositoryLive"],
-        },
-      },
+      ...todoRepositoryWiring,
     ],
   },
   {
