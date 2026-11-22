@@ -1,4 +1,5 @@
 import { defineModules, templates } from "@repo/authoring";
+import { sqliteServerRuntime } from "./sqlite-server-runtime";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -63,7 +64,7 @@ export const clusterCounter = defineModules(import.meta.url, [
     description:
       "Host counters keyed by ID on a local Cluster runner in the HTTP server",
     supportedRuntimes: ["bun", "node", "deno"],
-    supportedOn: [{ _tag: "kind", kind: "server" }],
+    supportedOn: [{ _tag: "identity", identity: api }],
     dependencies: [
       {
         _tag: "required-module",
@@ -71,6 +72,7 @@ export const clusterCounter = defineModules(import.meta.url, [
         moduleId: "server-http-api",
       },
       counterContracts,
+      sqliteServerRuntime,
     ],
     contributions: [
       {
@@ -109,17 +111,6 @@ export const clusterCounter = defineModules(import.meta.url, [
         import: {
           moduleSpecifier: "./api/Counter",
           namedImports: ["CounterApiLive"],
-        },
-      },
-      {
-        _tag: "ts-call-arg",
-        path: "{{targetPath}}/src/index.ts",
-        targetVariable: "RouterDependencies",
-        functionName: "Layer.mergeAll",
-        argument: "ClusterLive",
-        import: {
-          moduleSpecifier: "./cluster/Runner",
-          namedImports: ["ClusterLive"],
         },
       },
     ],

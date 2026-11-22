@@ -37,4 +37,6 @@ const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
 
 export const ReceiptRuntimeLive = ClusterReceiptLive.pipe(
   Layer.provide([WorkflowSqliteLive, Digest.layerWebCrypto]),
+  // Keep the workflow mailbox bound to its database when the counter runner is also installed.
+  Layer.fresh,
 );

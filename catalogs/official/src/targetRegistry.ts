@@ -408,12 +408,12 @@ export const targetGroup = defineTargets(import.meta.url, [
           "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --allow-ffi --output dist/{{packageName}} src/index.ts{{/if}}",
       },
       ...denoFfiScript(
-        "server-cluster-counter",
+        "server-sqlite-runtime",
         "dev",
         "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       ),
       ...denoFfiScript(
-        "server-cluster-counter",
+        "server-sqlite-runtime",
         "dev:watch",
         "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}{{#if runtime=deno}}deno run --watch --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
       ),
