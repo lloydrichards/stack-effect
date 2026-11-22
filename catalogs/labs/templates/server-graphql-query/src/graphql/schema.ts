@@ -31,7 +31,7 @@ const resolveItem = (
     });
   }
 
-  const result = lookup(id).pipe(
+  const result = Effect.suspend(() => lookup(id)).pipe(
     Effect.catchTag("CatalogItemNotFound", () =>
       Effect.succeed(
         // GraphQL treats an Error returned by a resolver as a field error.
