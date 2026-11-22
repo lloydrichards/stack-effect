@@ -211,7 +211,7 @@ export const experiments = defineModules(import.meta.url, [
       },
     ],
     contributions: [
-      ...["TaskPlan.ts", "TaskPlan.test.ts", "scratchpad.ts"].map((file) => ({
+      ...["TaskPlan.ts", "scratchpad.ts"].map((file) => ({
         _tag: "file" as const,
         path: `{{targetPath}}/${plannerDirectory}/${file}`,
         contents: template(`./package-task-plan/src/${file}`),
@@ -244,16 +244,9 @@ export const experiments = defineModules(import.meta.url, [
         name: "scratch",
         value: `bun ${plannerDirectory}/scratchpad.ts`,
       },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "test",
-        value: "vitest run --passWithNoTests",
-      },
     ],
     nextSteps: [
-      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order, or `bun run --cwd {{targetPath}} test` to check error cases.{{#if module=package-library}} The planner is a workspace example and is excluded from the published library.{{/if}}",
+      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order.{{#if module=package-library}} The planner is a workspace example and is excluded from the published library.{{/if}}",
     ],
   },
 ]);

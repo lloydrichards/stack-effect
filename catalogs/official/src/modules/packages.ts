@@ -888,13 +888,6 @@ export const packageModules = defineModules(import.meta.url, [
         name: "@effect/sql-pg",
         value: "4.1.4",
       },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "test",
-        value: "vitest run --passWithNoTests",
-      },
     ],
   },
   {
