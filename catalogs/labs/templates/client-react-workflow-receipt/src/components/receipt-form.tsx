@@ -1,8 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
-// Catalog contributors: apps/client-react-receipts#client-react-workflow-receipt:file
 
 import { Effect } from "effect";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
@@ -22,26 +20,32 @@ function ReceiptStatusRow({
   row: ReceiptRow;
   onUpdate: (row: ReceiptRow) => void;
 }) {
+  const [pollFailed, setPollFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const { executionId, receiptId, status } = row;
+
   useEffect(() => {
-    if (row.status !== "Pending") return;
+    if (status !== "Pending") return;
     const controller = new AbortController();
-    void Effect.runPromise(awaitReceipt(row.executionId), {
-      signal: controller.signal,
-    }).then(
-      (result) =>
+
+    void Effect.runPromise(awaitReceipt(executionId), { signal: controller.signal }).then(
+      (result) => {
+        if (controller.signal.aborted) return;
         onUpdate({
-          ...row,
-          receiptId:
-            result._tag === "Confirmed" ? result.receiptId : row.receiptId,
+          executionId,
+          receiptId: result._tag === "Confirmed" ? result.receiptId : receiptId,
           status: result._tag === "Confirmed" ? "Confirmed" : "Failed",
-        }),
+        });
+      },
       () => {
-        if (!controller.signal.aborted)
-          onUpdate({ ...row, status: "Status unavailable" });
+        if (!controller.signal.aborted) setPollFailed(true);
       },
     );
+
     return () => controller.abort();
-  }, [row, onUpdate]);
+  }, [attempt, executionId, receiptId, status, onUpdate]);
+
+  const unavailable = status === "Pending" && pollFailed;
 
   return (
     <tr className="border-t align-top">
@@ -52,13 +56,16 @@ function ReceiptStatusRow({
         </code>
       </th>
       <td className="py-2" role="status">
-        {row.status}
-        {row.status === "Status unavailable" && (
+        {unavailable ? "Status unavailable" : status}
+        {unavailable && (
           <Button
             type="button"
             variant="link"
             size="sm"
-            onClick={() => onUpdate({ ...row, status: "Pending" })}
+            onClick={() => {
+              setPollFailed(false);
+              setAttempt((current) => current + 1);
+            }}
           >
             Retry
           </Button>
@@ -75,13 +82,16 @@ export function ReceiptForm() {
   const [error, setError] = useState("");
 
   const updateRow = useCallback((row: ReceiptRow) => {
-    saveReceipt(row);
-    setRows((current) => upsertReceipt(current, row));
+    const saved = saveReceipt(row);
+    setRows((current) => upsertReceipt(current, saved));
   }, []);
 
   useEffect(() => {
     const sync = (event: StorageEvent) => {
-      if (event.key === receiptHistoryKey) setRows(loadReceipts());
+      if (event.key === receiptHistoryKey) {
+        const stored = loadReceipts();
+        setRows((current) => stored.reduce(upsertReceipt, current));
+      }
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);
@@ -96,9 +106,7 @@ export function ReceiptForm() {
     void Effect.runPromise(startReceipt(id))
       .then(
         (executionId) => {
-          if (!rows.some((row) => row.executionId === executionId)) {
-            updateRow({ receiptId: id, executionId, status: "Pending" });
-          }
+          updateRow({ receiptId: id, executionId, status: "Pending" });
           setReceiptId((current) => (current.trim() === id ? "" : current));
         },
         () => setError("Could not start the receipt. Try again."),
@@ -112,64 +120,61 @@ export function ReceiptForm() {
         <CardTitle>Receipt workflow</CardTitle>
       </CardHeader>
       <CardContent>
-      <form className="flex flex-col gap-3" onSubmit={submit}>
-        <label htmlFor="receipt-id">Receipt ID</label>
-        <Input
-          id="receipt-id"
-          value={receiptId}
-          onChange={(event) => setReceiptId(event.target.value)}
-          required
-        />
-        <Button
-          type="submit"
-          disabled={starting || !receiptId.trim()}
-        >
-          {starting ? "Starting…" : "Start receipt"}
-        </Button>
-      </form>
-      {error && (
-        <p role="alert" className="mt-3">
-          {error}
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <label htmlFor="receipt-id">Receipt ID</label>
+          <Input
+            id="receipt-id"
+            value={receiptId}
+            onChange={(event) => setReceiptId(event.target.value)}
+            required
+          />
+          <Button type="submit" disabled={starting || !receiptId.trim()}>
+            {starting ? "Starting…" : "Start receipt"}
+          </Button>
+        </form>
+        {error && (
+          <p role="alert" className="mt-3">
+            {error}
+          </p>
+        )}
+        <h3 className="mt-6 font-medium">Receipt history</h3>
+        <p className="mb-2 text-sm text-muted-foreground">
+          Submissions from this browser.
         </p>
-      )}
-      <h3 className="mt-6 font-medium">Receipt history</h3>
-      <p className="mb-2 text-sm text-muted-foreground">
-        Submissions from this browser.
-      </p>
-      {rows.length === 0 ? (
-        <p className="text-sm">No receipts yet.</p>
-      ) : (
-        <div
-          className="max-h-72 overflow-auto"
-          tabIndex={0}
-          aria-label="Scrollable receipt history"
-        >
-          <table
-            aria-label="Receipt history"
-            className="w-full table-fixed text-sm"
+        {rows.length === 0 ? (
+          <p className="text-sm">No receipts yet.</p>
+        ) : (
+          <div
+            className="max-h-72 overflow-auto"
+            tabIndex={0}
+            aria-label="Scrollable receipt history"
           >
-            <thead>
-              <tr>
-                <th scope="col" className="w-2/3 text-left">
-                  Receipt
-                </th>
-                <th scope="col" className="text-left">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <ReceiptStatusRow
-                  key={row.executionId}
-                  row={row}
-                  onUpdate={updateRow}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            <table
+              aria-label="Receipt history"
+              className="w-full table-fixed text-sm"
+            >
+              <thead>
+                <tr>
+                  <th scope="col" className="w-2/3 text-left">
+                    Receipt
+                  </th>
+                  <th scope="col" className="text-left">
+                    Status
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((row) => (
+                  <ReceiptStatusRow
+                    key={row.executionId}
+                    row={row}
+                    onUpdate={updateRow}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

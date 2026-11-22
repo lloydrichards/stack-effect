@@ -1,4 +1,8 @@
-import { ReceiptExecutionId, ReceiptId, ReceiptStatus } from "@repo/domain/Receipt";
+import {
+  ReceiptExecutionId,
+  ReceiptId,
+  ReceiptStatus,
+} from "@repo/domain/Receipt";
 import { Effect, Match, Schema, Stream } from "effect";
 import { Command, Subscription } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
@@ -15,6 +19,7 @@ import {
 export const Model = Schema.Struct({
   receiptId: Schema.String,
   rows: Schema.Array(ReceiptRow),
+  unavailable: Schema.Array(ReceiptExecutionId),
   starting: Schema.Boolean,
   error: Schema.String,
 });
@@ -22,10 +27,7 @@ type Model = typeof Model.Type;
 
 const InputChanged = message("InputChanged", { value: Schema.String });
 const Submitted = message("Submitted");
-const Started = message("Started", {
-  receiptId: Schema.String,
-  executionId: ReceiptExecutionId,
-});
+const Started = message("Started", { submittedId: ReceiptId, row: ReceiptRow });
 const StartFailed = message("StartFailed");
 const Finished = message("Finished", {
   executionId: ReceiptExecutionId,
@@ -56,7 +58,12 @@ const Start = Command.define("StartReceipt", {
   messages: [Started, StartFailed],
   execute: ({ receiptId }) =>
     startReceipt(receiptId).pipe(
-      Effect.map((executionId) => Started({ receiptId, executionId })),
+      Effect.map((executionId) =>
+        Started({
+          submittedId: receiptId,
+          row: saveReceipt({ receiptId, executionId, status: "Pending" }),
+        }),
+      ),
       Effect.orElseSucceed(() => StartFailed()),
     ),
 });
@@ -86,7 +93,7 @@ type Update = readonly [Model, ReadonlyArray<Command.Command<Message>>];
 export const init = (): Update => {
   const rows = loadReceipts();
   return [
-    { receiptId: "", rows, starting: false, error: "" },
+    { receiptId: "", rows, unavailable: [], starting: false, error: "" },
     rows
       .filter((row) => row.status === "Pending")
       .map(({ executionId }) => Wait({ executionId })),
@@ -100,9 +107,15 @@ function updateRow(
 ): Update {
   const existing = model.rows.find((row) => row.executionId === executionId);
   if (!existing) return [model, []];
+  if (existing.status !== "Pending") return [model, []];
+
   const row = change(existing);
   return [
-    { ...model, rows: upsertReceipt(model.rows, row) },
+    {
+      ...model,
+      rows: upsertReceipt(model.rows, row),
+      unavailable: model.unavailable.filter((id) => id !== executionId),
+    },
     [Remember({ row })],
   ];
 }
@@ -122,7 +135,7 @@ export const update = (model: Model, event: Message): Update =>
     Match.tagsExhaustive({
       HistorySaved: () => [model, []],
       HistoryChanged: ({ rows }) => [
-        { ...model, rows },
+        { ...model, rows: rows.reduce(upsertReceipt, model.rows) },
         rows
           .filter(
             (row) =>
@@ -142,24 +155,19 @@ export const update = (model: Model, event: Message): Update =>
           ? [model, []]
           : [{ ...model, starting: true, error: "" }, [Start({ receiptId })]];
       },
-      Started: ({ receiptId, executionId }) => {
+      Started: ({ submittedId, row }) => {
         const next = {
           ...model,
+          rows: upsertReceipt(model.rows, row),
           starting: false,
-          receiptId:
-            model.receiptId.trim() === receiptId ? "" : model.receiptId,
+          receiptId: model.receiptId.trim() === submittedId ? "" : model.receiptId,
         };
-        if (model.rows.some((row) => row.executionId === executionId))
-          return [next, []];
-        const row = ReceiptRow.make({
-          receiptId,
-          executionId,
-          status: "Pending",
-        });
-        return [
-          { ...next, rows: upsertReceipt(model.rows, row) },
-          [Remember({ row }), Wait({ executionId })],
-        ];
+        const commands = row.status === "Pending" &&
+          !model.rows.some((item) => item.executionId === row.executionId)
+          ? [Wait({ executionId: row.executionId })]
+          : [];
+
+        return [next, commands];
       },
       StartFailed: () => [
         {
@@ -176,17 +184,19 @@ export const update = (model: Model, event: Message): Update =>
             : { ...row, status: "Failed" },
         ),
       PollFailed: ({ executionId }) =>
-        updateRow(model, executionId, (row) => ({
-          ...row,
-          status: "Status unavailable",
-        })),
-      Retry: ({ executionId }) => {
-        const [next, commands] = updateRow(model, executionId, (row) => ({
-          ...row,
-          status: "Pending",
-        }));
-        return [next, [...commands, Wait({ executionId })]];
-      },
+        model.unavailable.includes(executionId) ||
+        !model.rows.some((row) => row.executionId === executionId && row.status === "Pending")
+          ? [model, []]
+          : [{ ...model, unavailable: [...model.unavailable, executionId] }, []],
+      Retry: ({ executionId }) =>
+        model.unavailable.includes(executionId) &&
+        model.rows.some((row) => row.executionId === executionId && row.status === "Pending")
+          ? [
+              { ...model, unavailable: model.unavailable.filter((id) => id !== executionId) },
+              [Wait({ executionId })],
+            ]
+          : [model, []],
+
     }),
   );
 
@@ -195,14 +205,18 @@ const receiptForm = <ParentMessage>(
   toParent: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
-  h.div([h.Class("space-y-3")], [
+  h.div(
+    [h.Class("space-y-3")],
+    [
       h.form(
         [h.Class("flex flex-col gap-3"), h.OnSubmit(toParent(Submitted()))],
         [
           h.label([h.For("receipt-id")], ["Receipt ID"]),
           h.input([
             h.Id("receipt-id"),
-            h.Class("rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"),
+            h.Class(
+              "rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            ),
             h.Value(model.receiptId),
             h.Required(true),
             h.OnInput((value) => toParent(InputChanged({ value }))),
@@ -222,68 +236,131 @@ const receiptForm = <ParentMessage>(
       ...(model.error
         ? [h.p([h.Role("alert"), h.Class("mt-3")], [model.error])]
         : []),
-  ]);
+    ],
+  );
 
 const receiptRow = <ParentMessage>(
   row: ReceiptRow,
+  unavailable: boolean,
   toParent: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
-  h.tr([h.Class("border-t align-top")], [
-    h.th([h.Class("break-all py-2 pr-4 text-left font-medium")], [
-      row.receiptId,
-      h.code(
-        [h.Class("block break-all text-xs font-normal text-muted-foreground")],
-        [row.executionId],
+  h.tr(
+    [h.Class("border-t align-top")],
+    [
+      h.th(
+        [h.Class("break-all py-2 pr-4 text-left font-medium")],
+        [
+          row.receiptId,
+          h.code(
+            [
+              h.Class(
+                "block break-all text-xs font-normal text-muted-foreground",
+              ),
+            ],
+            [row.executionId],
+          ),
+        ],
       ),
-    ]),
-    h.td([h.Class("py-2"), h.Role("status")], [
-      row.status,
-      ...(row.status === "Status unavailable"
-        ? [h.button(
-            [h.Type("button"), h.Class("ml-2 rounded-sm underline focus-visible:ring-2 focus-visible:ring-ring"), h.OnClick(toParent(Retry({ executionId: row.executionId })))],
-            ["Retry"],
-          )]
-        : []),
-    ]),
-  ]);
+      h.td(
+        [h.Class("py-2"), h.Role("status")],
+        [
+          unavailable ? "Status unavailable" : row.status,
+          ...(unavailable
+            ? [
+                h.button(
+                  [
+                    h.Type("button"),
+                    h.Class(
+                      "ml-2 rounded-sm underline focus-visible:ring-2 focus-visible:ring-ring",
+                    ),
+                    h.OnClick(
+                      toParent(Retry({ executionId: row.executionId })),
+                    ),
+                  ],
+                  ["Retry"],
+                ),
+              ]
+            : []),
+        ],
+      ),
+    ],
+  );
 
 const receiptHistory = <ParentMessage>(
   model: Model,
   toParent: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
-  h.div([], [
-    h.h3([h.Class("mt-6 font-medium")], ["Receipt history"]),
-    h.p([h.Class("mb-2 text-sm text-muted-foreground")], ["Submissions from this browser."]),
-    model.rows.length === 0
-      ? h.p([h.Class("text-sm")], ["No receipts yet."])
-      : h.div(
-          [h.Class("max-h-72 overflow-auto"), h.Tabindex(0), h.AriaLabel("Scrollable receipt history")],
-          [h.table(
-            [h.AriaLabel("Receipt history"), h.Class("w-full table-fixed text-sm")],
+  h.div(
+    [],
+    [
+      h.h3([h.Class("mt-6 font-medium")], ["Receipt history"]),
+      h.p(
+        [h.Class("mb-2 text-sm text-muted-foreground")],
+        ["Submissions from this browser."],
+      ),
+      model.rows.length === 0
+        ? h.p([h.Class("text-sm")], ["No receipts yet."])
+        : h.div(
             [
-              h.thead([], [
-                h.tr([], [
-                  h.th([h.Class("w-2/3 text-left")], ["Receipt"]),
-                  h.th([h.Class("text-left")], ["Status"]),
-                ]),
-              ]),
-              h.tbody([], model.rows.map((row) => receiptRow(row, toParent, h))),
+              h.Class("max-h-72 overflow-auto"),
+              h.Tabindex(0),
+              h.AriaLabel("Scrollable receipt history"),
             ],
-          )],
-        ),
-  ]);
+            [
+              h.table(
+                [
+                  h.AriaLabel("Receipt history"),
+                  h.Class("w-full table-fixed text-sm"),
+                ],
+                [
+                  h.thead(
+                    [],
+                    [
+                      h.tr(
+                        [],
+                        [
+                          h.th([h.Class("w-2/3 text-left")], ["Receipt"]),
+                          h.th([h.Class("text-left")], ["Status"]),
+                        ],
+                      ),
+                    ],
+                  ),
+                  h.tbody(
+                    [],
+                    model.rows.map((row) => receiptRow(row, row.status === "Pending" && model.unavailable.includes(row.executionId), toParent, h)),
+                  ),
+                ],
+              ),
+            ],
+          ),
+    ],
+  );
 
 export const view = <ParentMessage>(
   model: Model,
   toParent: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
-  h.section([h.Class("rounded-lg border border-border bg-card text-card-foreground shadow-sm")], [
-    h.h2([h.Class("border-b border-border p-6 font-semibold leading-none tracking-tight")], ["Receipt workflow"]),
-    h.div([h.Class("p-6 pt-4")], [
-      receiptForm(model, toParent, h),
-      receiptHistory(model, toParent, h),
-    ]),
-  ]);
+  h.section(
+    [
+      h.Class(
+        "rounded-lg border border-border bg-card text-card-foreground shadow-sm",
+      ),
+    ],
+    [
+      h.h2(
+        [
+          h.Class(
+            "border-b border-border p-6 font-semibold leading-none tracking-tight",
+          ),
+        ],
+        ["Receipt workflow"],
+      ),
+      h.div(
+        [h.Class("p-6 pt-4")],
+        [receiptForm(model, toParent, h), receiptHistory(model, toParent, h)],
+      ),
+    ],
+  );
