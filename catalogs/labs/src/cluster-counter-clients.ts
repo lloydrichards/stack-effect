@@ -28,6 +28,11 @@ const browserContributions = [
     path: "{{targetPath}}/src/lib/counter-client.ts",
     contents: template("./cluster-counter-client/src/lib/counter-client.ts"),
   },
+  {
+    _tag: "file",
+    path: "{{targetPath}}/src/lib/counter-history.ts",
+    contents: template("./cluster-counter-client/src/lib/counter-history.ts"),
+  },
 ] as const;
 
 const foldkitMain = "{{targetPath}}/src/main.ts";
