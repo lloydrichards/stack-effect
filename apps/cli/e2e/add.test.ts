@@ -1,6 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, layer } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
+import { labsCatalogArgs } from "./fixtures/labs-source";
 import { CLI } from "./harness";
 
 /**
@@ -11,6 +12,45 @@ import { CLI } from "./harness";
  */
 describe("add", () => {
   layer(CLI.layer)("layer", (it) => {
+    it.effect("runs the offline GitHub issue demo without shipping tests", () =>
+      Effect.gen(function* () {
+        const cli = yield* CLI;
+        const name = "github-issue-demo";
+
+        yield* cli.run(
+          "create",
+          name,
+          ...labsCatalogArgs,
+          "--target",
+          "server/api:server-github-issue-label",
+          "--runtime",
+          "bun",
+          "--root",
+          cli.workdir,
+          "--yes",
+          "--no-git",
+        );
+        yield* cli.expectExitCode(0);
+
+        yield* cli.withinProject(`${name}/apps/server-api`, function* (server) {
+          yield* server.expectFileNotExists("src/webhooks/github.test.ts");
+
+          const fixture = yield* server.exec("bun", "run", "fixture:github");
+          assert.equal(fixture.exitCode, 0, fixture.stderr);
+          assert.deepEqual(fixture.stdout.trim().split(/\r?\n/), [
+            "Would add triage to demo/repo#3",
+            "Opened issue: HTTP 204",
+            "Would add triage to demo/repo#3",
+            "Replay of the same issue: HTTP 204",
+            "Closed issue: HTTP 204",
+            "Tampered delivery: HTTP 401",
+            "Malformed issue event: HTTP 400",
+            "Oversized delivery: HTTP 413",
+          ]);
+        });
+      }),
+    );
+
     for (const [moduleId, feature] of [
       ["client-foldkit-http-rpc", "ticks"],
       ["client-foldkit-ws-presence", "presence"],
