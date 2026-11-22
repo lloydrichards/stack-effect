@@ -1,21 +1,23 @@
 // @effect-diagnostics unstableApiUsage:off The route uses Effect HTTP response constructors.
 // @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
+import { UpstreamItemId } from "@repo/domain/UpstreamItem";
 import { Config, Effect, Layer, Schema } from "effect";
 import { GraphQLProtocol } from "effect/graphql";
-import {
-  FetchHttpClient,
-  HttpRouter,
-  HttpServerResponse,
-} from "effect/http";
+import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/http";
 import { makeItemLookup } from "../graphql/Items";
 
-const ItemParams = Schema.Struct({ id: Schema.NonEmptyString });
+const UpstreamGraphQLConfig = Config.all({
+  url: Config.String("UPSTREAM_GRAPHQL_URL").pipe(
+    Config.withDefault("http://127.0.0.1:9010/graphql"),
+  ),
+});
+
+const ItemParams = Schema.Struct({ id: UpstreamItemId });
 
 const UpstreamGraphQLLive = Layer.unwrap(
   Effect.gen(function* () {
-    const url = yield* Config.String("UPSTREAM_GRAPHQL_URL").pipe(
-      Config.withDefault("http://127.0.0.1:9010/graphql"),
-    );
+    const { url } = yield* UpstreamGraphQLConfig;
+
     return GraphQLProtocol.layerHttp({ url });
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
@@ -29,6 +31,7 @@ export const UpstreamItemsLive = HttpRouter.use((router) =>
       "/upstream-items/:id",
       Effect.gen(function* () {
         const { id } = yield* HttpRouter.schemaPathParams(ItemParams);
+
         const item = yield* lookup(id);
         return yield* HttpServerResponse.json(item);
       }).pipe(
