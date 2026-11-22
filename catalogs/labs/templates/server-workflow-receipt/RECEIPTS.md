@@ -27,7 +27,7 @@ A compiled Deno server requires `WORKFLOW_DATABASE_FILE` to point to an absolute
 If Stack Effect reports a manifest conflict, skip the override. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
 
 1. In this server's `package.json`, add `"@repo/db": "workspace:*"` and `"@repo/workflow": "workspace:*"` to the existing `dependencies`.
-2. Add `--allow-ffi` before the entry point in the existing `dev` and `dev:watch` commands. If the server's `deno compile` command lacks `--allow-ffi`, add it there too.
+2. Keep the generated `deno.json` tasks, which grant SQLite FFI access. If you already have a `deno.json`, add `--allow-ffi` before the entry point in your existing `dev` and `dev:watch` tasks. Add it to your `deno compile` command if needed.
 3. If Stack Effect skipped the domain manifest, add `"./Receipt": "./src/Receipt.ts"` and `"./ReceiptApi": "./src/ReceiptApi.ts"` to `exports` in `packages/domain/package.json`.
 4. Resolve any other conflicts reported by `stack-effect add`. Run `deno install` from the workspace root before starting the server.
 {{/if}}

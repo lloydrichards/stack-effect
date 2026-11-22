@@ -1,5 +1,4 @@
 import { defineModules, templates } from "@repo/authoring";
-import { sqliteServerRuntime } from "./sqlite-server-runtime";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -71,7 +70,7 @@ export const receiptApp = defineModules(import.meta.url, [
     description:
       "Start and poll a receipt workflow through the existing HTTP server",
     supportedRuntimes: ["bun", "node", "deno"],
-    supportedOn: [{ _tag: "identity", identity: server }],
+    supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       contracts,
       {
@@ -89,7 +88,6 @@ export const receiptApp = defineModules(import.meta.url, [
         target: { kind: "package", name: "db" },
         moduleId: "package-db-sqlite",
       },
-      sqliteServerRuntime,
     ],
     contributions: [
       {
@@ -108,6 +106,12 @@ export const receiptApp = defineModules(import.meta.url, [
         _tag: "file",
         path: "{{targetPath}}/RECEIPTS.md",
         contents: template("./server-workflow-receipt/RECEIPTS.md"),
+      },
+      {
+        _tag: "file",
+        path: "{{#if runtime=deno}}{{targetPath}}/deno.json{{/if}}",
+        contents: template("./server-workflow-receipt/deno.json"),
+        conflictOnModify: true,
       },
       ...["@repo/workflow", "@repo/db"].map(workspaceDependency),
       {
