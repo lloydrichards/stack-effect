@@ -1,5 +1,6 @@
 import { defineModules, templates, type CatalogInput } from "@repo/authoring";
 import { experiments } from "./experiments";
+import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
 
 const template = templates(new URL("../templates/", import.meta.url));
@@ -86,7 +87,7 @@ const persistedQueue = defineModules(import.meta.url, [
 
 export const labsCatalog: CatalogInput = {
   targets: [],
-  modules: [persistedQueue, experiments, graphqlQuery],
+  modules: [persistedQueue, experiments, graphqlQuery, graphqlClient],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
 export const LABS_CATALOG_ID = "stack-effect-labs";
