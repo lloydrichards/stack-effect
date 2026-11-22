@@ -70,7 +70,16 @@ export const githubIssueWebhook = defineModules(import.meta.url, [
         "GITHUB-WEBHOOK.md",
         "src/webhooks/github.ts",
         "src/webhooks/issue-label.ts",
+        "src/fixtures/github-issue.ts",
       ]),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "fixture:github",
+        value:
+          "{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}tsx{{/if}}{{#if runtime=deno}}deno run{{/if}} src/fixtures/github-issue.ts",
+      },
       serverLayer("AllRouters", "GitHubIssueWebhook", "./webhooks/github"),
       serverLayer(
         "RouterDependencies",
