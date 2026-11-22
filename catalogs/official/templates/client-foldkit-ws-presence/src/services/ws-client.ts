@@ -18,14 +18,14 @@ export class WsClient extends Context.Service<WsClient, WsRpcClient>()(
   "WsClient",
 ) {}
 
-const WsProtocolLive = EffectRpcClient.layerProtocolSocket({
+const WsProtocolLayer = EffectRpcClient.layerProtocolSocket({
   retryTransientErrors: true,
 }).pipe(
   Layer.provide(BrowserSocket.layerWebSocket(WS_URL)),
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
-export const WsClientLive = Layer.effect(
+export const WsClientLayer = Layer.effect(
   WsClient,
   EffectRpcClient.make(WebSocketRpc),
-).pipe(Layer.provide(WsProtocolLive));
+).pipe(Layer.provide(WsProtocolLayer));

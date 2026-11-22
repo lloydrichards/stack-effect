@@ -105,10 +105,10 @@ export const clusterCounter = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "CounterApiLive",
+        argument: "CounterRoutes",
         import: {
           moduleSpecifier: "./api/Counter",
-          namedImports: ["CounterApiLive"],
+          namedImports: ["CounterRoutes"],
         },
       },
     ],

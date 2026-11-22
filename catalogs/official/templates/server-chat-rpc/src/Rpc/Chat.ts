@@ -1,7 +1,7 @@
 import { ChatRpc } from "@repo/domain/ChatRpc";
 import { Effect, Layer } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
-import { ChatRuntime, ChatRuntimeLive } from "../runtime/ChatRuntime";
+import { ChatRuntime, ChatRuntimeLayer } from "../runtime/ChatRuntime";
 
 const ChatRpcHandlers = ChatRpc.toLayer(
   Effect.gen(function* () {
@@ -15,12 +15,12 @@ const ChatRpcHandlers = ChatRpc.toLayer(
   }),
 );
 
-export const ChatRpcLive = RpcServer.layerHttp({
+export const ChatRpcRoutes = RpcServer.layerHttp({
   group: ChatRpc,
   path: "/chat-rpc",
   protocol: "http",
 }).pipe(
   Layer.provide(ChatRpcHandlers),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(ChatRuntimeLive),
+  Layer.provide(ChatRuntimeLayer),
 );

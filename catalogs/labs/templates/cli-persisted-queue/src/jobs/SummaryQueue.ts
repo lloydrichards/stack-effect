@@ -1,6 +1,6 @@
 // The Labs pilot pins Effect because PersistedQueue is still unstable.
 // @effect-diagnostics unstableApiUsage:off
-import { SqliteLive } from "@repo/db";
+import { SqliteLayer } from "@repo/db";
 import { SummaryRequested, type SummaryResult } from "@repo/domain/SummaryJob";
 import { Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";
@@ -9,12 +9,12 @@ import { SqlClient } from "effect/sql";
 const makeQueue = () =>
   PersistedQueue.make({ name: "text-summary", schema: SummaryRequested });
 
-const StoreLive = PersistedQueue.layerStoreSql().pipe(
-  Layer.provide(SqliteLive),
+const QueueStoreLayer = PersistedQueue.layerStoreSql().pipe(
+  Layer.provide(SqliteLayer),
 );
-const QueueLive = PersistedQueue.layer.pipe(
-  Layer.provide(StoreLive),
-  Layer.provideMerge(SqliteLive),
+const QueueLayer = PersistedQueue.layer.pipe(
+  Layer.provide(QueueStoreLayer),
+  Layer.provideMerge(SqliteLayer),
 );
 
 export const enqueueSummary = Effect.fn("SummaryQueue.enqueue")(function* (
@@ -22,7 +22,7 @@ export const enqueueSummary = Effect.fn("SummaryQueue.enqueue")(function* (
 ) {
   const queue = yield* makeQueue();
   return yield* queue.offer(job, { id: job.jobId });
-}, Effect.provide(QueueLive));
+}, Effect.provide(QueueLayer));
 
 export const consumeSummary = Effect.fn("SummaryQueue.consume")(function* () {
   const queue = yield* makeQueue();
@@ -44,4 +44,4 @@ export const consumeSummary = Effect.fn("SummaryQueue.consume")(function* () {
       return result;
     }),
   );
-}, Effect.provide(QueueLive));
+}, Effect.provide(QueueLayer));

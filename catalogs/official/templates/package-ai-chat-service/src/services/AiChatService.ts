@@ -15,14 +15,14 @@ import {
   Stream,
 } from "effect";
 import { Chat, Prompt, Toolkit, type Tool } from "effect/ai";
-import { ThinkToolkit, ThinkToolkitLive } from "../toolkits/ThinkToolkit";
+import { ThinkToolkit, ThinkToolkitHandlers } from "../toolkits/ThinkToolkit";
 import { chatEvents } from "../workflow/MailboxEvents";
 
 // NOTE: Catalog composition appends additional toolkits to this merge call.
 export const ChatToolkit = Toolkit.merge(ThinkToolkit);
 
 // NOTE: Catalog composition appends additional toolkit layers to this merge call.
-export const ChatToolkitLive = Layer.mergeAll(ThinkToolkitLive);
+export const ChatToolkitHandlers = Layer.mergeAll(ThinkToolkitHandlers);
 
 export function chatPrompt(
   messages: ReadonlyArray<ChatMessage>,
@@ -136,6 +136,6 @@ export class AiChatService extends Context.Service<AiChatService>()(
   },
 ) {}
 
-export const AiChatServiceLive = Layer.effect(AiChatService)(
+export const AiChatServiceLayer = Layer.effect(AiChatService)(
   AiChatService.make,
-).pipe(Layer.provide(ChatToolkitLive));
+).pipe(Layer.provide(ChatToolkitHandlers));

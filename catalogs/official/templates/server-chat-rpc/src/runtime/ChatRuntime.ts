@@ -2,7 +2,7 @@ import {
   type AiChatService,
   chatPrompt,
   chatErrorPart,
-  FastModelLive,
+  FastModelLayer,
 } from "@repo/ai";
 import { type ChatId, type ChatMessage } from "@repo/domain/Chat";
 import {
@@ -32,7 +32,7 @@ const makeChatRuntime = Effect.gen(function* () {
         return ai.stream({ prompt });
       }),
     ).pipe(
-      Stream.provide(FastModelLive),
+      Stream.provide(FastModelLayer),
       Stream.catchCause((cause) => Stream.fromEffect(chatErrorPart(cause))),
     );
   return {
@@ -59,6 +59,6 @@ export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
   make: makeChatRuntime,
 }) {}
 
-export const ChatRuntimeLive = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(
+export const ChatRuntimeLayer = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(
   Layer.provide(ChatRuntimeDependencies),
 );

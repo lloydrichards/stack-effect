@@ -81,10 +81,10 @@ export const graphqlClient = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "UpstreamItemsLive",
+        argument: "UpstreamItemsRoutes",
         import: {
           moduleSpecifier: "./api/UpstreamItems",
-          namedImports: ["UpstreamItemsLive"],
+          namedImports: ["UpstreamItemsRoutes"],
         },
       },
     ],

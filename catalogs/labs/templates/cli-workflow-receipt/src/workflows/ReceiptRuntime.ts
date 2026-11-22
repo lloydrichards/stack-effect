@@ -1,7 +1,7 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { SqliteLive } from "@repo/db";
-import { ReceiptLive, Receipts } from "@repo/workflow/Receipt";
-import { ClusterReceiptLive } from "@repo/workflow/ReceiptRuntime";
+import { SqliteLayer } from "@repo/db";
+import { ReceiptLayer, Receipts } from "@repo/workflow/Receipt";
+import { ClusterReceiptLayer } from "@repo/workflow/ReceiptRuntime";
 import { Config, ConfigProvider, Effect, Layer, Option } from "effect";
 import { Digest } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow";
@@ -11,7 +11,7 @@ const ReceiptCliConfig = Config.all({
   legacyDatabaseFile: Config.String("DATABASE_FILE").pipe(Config.option),
 });
 
-const ReceiptCliSqliteLive = Layer.fresh(SqliteLive).pipe(
+const ReceiptCliSqliteLayer = Layer.fresh(SqliteLayer).pipe(
   Layer.provide(
     ConfigProvider.layerAdd(
       ReceiptCliConfig.pipe(
@@ -33,11 +33,11 @@ const MemoryReceipts = Layer.succeed(Receipts, {
   record: () => Effect.void,
 });
 
-export const MemoryReceiptLive = ReceiptLive.pipe(
+export const MemoryReceiptLayer = ReceiptLayer.pipe(
   Layer.provideMerge(WorkflowEngine.layerMemory),
   Layer.provide(MemoryReceipts),
 );
 
-export const DurableReceiptLive = ClusterReceiptLive.pipe(
-  Layer.provide([ReceiptCliSqliteLive, Digest.layerWebCrypto]),
+export const DurableReceiptLayer = ClusterReceiptLayer.pipe(
+  Layer.provide([ReceiptCliSqliteLayer, Digest.layerWebCrypto]),
 );

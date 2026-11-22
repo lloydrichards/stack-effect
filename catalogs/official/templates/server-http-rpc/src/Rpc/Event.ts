@@ -32,7 +32,7 @@ const EventRpcHandlers = EventRpc.toLayer(
 
 const RpcHandlers = Layer.mergeAll(EventRpcHandlers);
 
-export const EventRpcLive = RpcServer.layerHttp({
+export const EventRpcRoutes = RpcServer.layerHttp({
   group: RpcApi,
   path: "/rpc",
   protocol: "http",

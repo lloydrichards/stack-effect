@@ -3,7 +3,7 @@ import { ReceiptWriteError } from "@repo/domain/Receipt";
 import { Effect, Layer } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { SqlClient } from "effect/sql";
-import { ReceiptLive, Receipts } from "./Receipt.js";
+import { ReceiptLayer, Receipts } from "./Receipt.js";
 
 const SqlReceipts = Layer.effect(
   Receipts,
@@ -27,7 +27,7 @@ const DurableEngine = ClusterWorkflowEngine.layer.pipe(
   Layer.provide(SingleRunner.layer({ runnerStorage: "memory" })),
 );
 
-export const ClusterReceiptLive = ReceiptLive.pipe(
+export const ClusterReceiptLayer = ReceiptLayer.pipe(
   Layer.provideMerge(DurableEngine),
   Layer.provide(SqlReceipts),
 );

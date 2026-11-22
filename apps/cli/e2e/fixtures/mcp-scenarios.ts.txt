@@ -6,13 +6,13 @@ import { strict as assert } from "node:assert";
 import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream, Terminal } from "effect";
 import { LanguageModel, McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
 import { FetchHttpClient, HttpRouter } from "effect/http";
-import { AiChatService, AiChatServiceLive } from "@repo/ai";
+import { AiChatService, AiChatServiceLayer } from "@repo/ai";
 import type { ChatStreamPart } from "@repo/domain/Chat";
-import { FastModelLive, requests, resetModel } from "../../packages/ai/src/LanguageModel";
-import { TerminalChatDriver, TerminalChatDriverLive } from "./src/chat/ChatDriver";
-import { McpClientLive } from "./src/mcp/McpClient";
-import { ChatRuntime, ChatRuntimeLive } from "../server-api/src/runtime/ChatRuntime";
-import { ChatSessionsLive } from "../server-api/src/runtime/ChatSessions";
+import { FastModelLayer, requests, resetModel } from "../../packages/ai/src/LanguageModel";
+import { TerminalChatDriver, TerminalChatDriverLayer } from "./src/chat/ChatDriver";
+import { McpClientLayer } from "./src/mcp/McpClient";
+import { ChatRuntime, ChatRuntimeLayer } from "../server-api/src/runtime/ChatRuntime";
+import { ChatSessionsLayer } from "../server-api/src/runtime/ChatSessions";
 
 const isolatedCapability = process.argv[2];
 const history = [
@@ -129,14 +129,14 @@ const main = Effect.scoped(Effect.gen(function* () {
           if (!repeat) return parts;
           resetModel();
           return [...parts, ...yield* driver.streamTurn(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect)];
-        }).pipe(Effect.provide(TerminalChatDriverLive))
+        }).pipe(Effect.provide(TerminalChatDriverLayer))
       : Effect.gen(function* () {
           const runtime = yield* ChatRuntime;
           const parts = yield* runtime.generate(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect);
           if (!repeat) return parts;
           resetModel();
           return [...parts, ...yield* runtime.generate(history, prompt === undefined ? {} : { prompt }).pipe(Stream.runCollect)];
-        }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))))
+        }).pipe(Effect.provide(ChatRuntimeLayer.pipe(Layer.provide(ChatSessionsLayer))))
     ).pipe(Effect.provide(config(protocol, extra)), Effect.provide(fetchLayer));
 
   if (isolatedCapability !== undefined) {
@@ -262,7 +262,7 @@ const main = Effect.scoped(Effect.gen(function* () {
     const chat = yield* AiChatService;
     const queue = yield* chat.chat([Prompt.userMessage({ content: [Prompt.textPart({ text: "plain request" })] })]);
     return yield* Stream.fromQueue(queue).pipe(Stream.runCollect);
-  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(FastModelLive));
+  }).pipe(Effect.provide(AiChatServiceLayer), Effect.provide(FastModelLayer));
   assert.equal(requestCount, noExtensionRequests, "no extensions must make no MCP requests");
   assert.deepEqual(requests[0].tools.map((tool) => tool.name), ["think"]);
   assert(plain.some((part) => part._tag === "tool-success" && part.name === "think"));
@@ -281,7 +281,7 @@ const main = Effect.scoped(Effect.gen(function* () {
   }).pipe(
     Effect.flip,
     Effect.provide(localDouble.toLayer({ mcp__double: ({ value }) => Effect.succeed(value * 2) })),
-    Effect.provide(Layer.mergeAll(AiChatServiceLive, FastModelLive, McpClientLive)),
+    Effect.provide(Layer.mergeAll(AiChatServiceLayer, FastModelLayer, McpClientLayer)),
     Effect.provide(config("2026-07-28")),
     Effect.provide(fetchLayer),
   );
@@ -295,7 +295,7 @@ const main = Effect.scoped(Effect.gen(function* () {
     const ai = yield* AiChatService;
     const queue = yield* ai.chat("defective request");
     return yield* Queue.collect(queue);
-  }).pipe(Effect.provide(AiChatServiceLive), Effect.provide(Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+  }).pipe(Effect.provide(AiChatServiceLayer), Effect.provide(Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
     generateText: () => Effect.die("unexpected"),
     streamText: () => Stream.die(new Error("private diagnostic")),
   }))));
@@ -333,11 +333,11 @@ const main = Effect.scoped(Effect.gen(function* () {
       ? Effect.gen(function* () {
           const driver = yield* TerminalChatDriver;
           yield* exerciseCancellation(() => driver.streamTurn(history));
-        }).pipe(Effect.provide(TerminalChatDriverLive))
+        }).pipe(Effect.provide(TerminalChatDriverLayer))
       : Effect.gen(function* () {
           const runtime = yield* ChatRuntime;
           yield* exerciseCancellation(() => runtime.generate(history));
-        }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))))
+        }).pipe(Effect.provide(ChatRuntimeLayer.pipe(Layer.provide(ChatSessionsLayer))))
     ).pipe(Effect.provide(config("2025-11-25")), Effect.provide(fetchLayer));
     assert.equal(deletes - beforeDelete, 1, `${app}: closing the runtime deletes the shared session once`);
     assert.equal(cancellations - beforeCancellation, 1);
@@ -396,12 +396,12 @@ const main = Effect.scoped(Effect.gen(function* () {
         ? Effect.gen(function* () {
             const driver = yield* TerminalChatDriver;
             yield* exercise((prompt) => driver.streamTurn([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
-          }).pipe(Effect.provide(TerminalChatDriverLive))
+          }).pipe(Effect.provide(TerminalChatDriverLayer))
         : Effect.gen(function* () {
             const runtime = yield* ChatRuntime;
             yield* exercise((prompt) => runtime.generate([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
-          }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive)))));
-    }).pipe(Effect.provide(promptModule.McpPromptsLive), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
+          }).pipe(Effect.provide(ChatRuntimeLayer.pipe(Layer.provide(ChatSessionsLayer)))));
+    }).pipe(Effect.provide(promptModule.McpPromptsLayer), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
   }
   const terminal = yield* Effect.promise(() => import("./src/chat/TerminalChat"));
   const turnStarted = yield* Deferred.make<void>();
@@ -467,7 +467,7 @@ const main = Effect.scoped(Effect.gen(function* () {
         prompt: { name: "greeting", arguments: { name } },
       }).pipe(Stream.runCollect)), { concurrency: "unbounded" });
     assert(results.every((parts) => !parts.some((part) => part._tag === "error")));
-  }).pipe(Effect.provide(ChatRuntimeLive.pipe(Layer.provide(ChatSessionsLive))), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
+  }).pipe(Effect.provide(ChatRuntimeLayer.pipe(Layer.provide(ChatSessionsLayer))), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
   assert.equal(promptArguments.length - beforeConcurrentGets, 2);
   for (const name of ["left", "right"]) {
     const request = requests.find((request) => {
@@ -483,7 +483,7 @@ const main = Effect.scoped(Effect.gen(function* () {
   const unsupported = yield* Effect.gen(function* () {
     const runtime = yield* plainRuntimeModule.ChatRuntime;
     return yield* runtime.generate(history, { prompt: selectedPrompt }).pipe(Stream.runCollect);
-  }).pipe(Effect.provide(plainRuntimeModule.ChatRuntimeLive.pipe(Layer.provide(plainSessionsModule.ChatSessionsLive))));
+  }).pipe(Effect.provide(plainRuntimeModule.ChatRuntimeLayer.pipe(Layer.provide(plainSessionsModule.ChatSessionsLayer))));
   assert(unsupported.some((part) => part._tag === "error" && part.message.includes("Unsupported chat options")));
   assert.equal(requests.length, 0, "shared domain options do not enable capabilities in another server");
   resetModel();

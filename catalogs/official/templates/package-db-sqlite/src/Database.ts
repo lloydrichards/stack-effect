@@ -22,7 +22,7 @@ const ensureDatabaseDirectory = (filename: string) =>
     }
   });
 
-export const SqliteLive = Layer.unwrap(
+export const SqliteLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* DatabaseConfig;
     yield* ensureDatabaseDirectory(config.filename);

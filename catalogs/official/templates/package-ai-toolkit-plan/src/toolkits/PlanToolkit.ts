@@ -79,7 +79,7 @@ const formatPlan = (steps: Array<PlanStep>): PlanResponse => ({
   steps: Arr.map(steps, (step, index) => ({ index, ...step })),
 });
 
-export const PlanToolkitLive = PlanToolkit.toLayer(
+export const PlanToolkitHandlers = PlanToolkit.toLayer(
   Effect.gen(function* () {
     const planRef = yield* SynchronizedRef.make<Array<PlanStep>>([]);
 

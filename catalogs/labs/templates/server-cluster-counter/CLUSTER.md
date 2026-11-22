@@ -46,6 +46,6 @@ Both forms use the same typed HTTP client helper and decode input with the domai
 
 To read the current count, define a `Get` RPC in `CounterRpc.ts`, register it on the entity, and return `Ref.get(count)` from its handler. Add `GET /counters/:id` to the domain HTTP contract and forward it to that RPC from the server adapter.
 
-To host a second entity, merge its registration layer with `CounterEntityLive` in `src/cluster/Runner.ts` so both use the same runner. To run entities in separate processes, switch the runner wiring to an inter-runner transport and a shared SQL store such as PostgreSQL. Give each runner its own reachable address and verify that both can route messages to the shard owner. Keep the public HTTP routes and clients behind the same domain contract. Workflow uses Cluster when a multi-step operation should resume after interruption.
+To host a second entity, merge its registration layer with `CounterEntityLayer` in `src/cluster/Runner.ts` so both use the same runner. To run entities in separate processes, switch the runner wiring to an inter-runner transport and a shared SQL store such as PostgreSQL. Give each runner its own reachable address and verify that both can route messages to the shard owner. Keep the public HTTP routes and clients behind the same domain contract. Workflow uses Cluster when a multi-step operation should resume after interruption.
 
 See [Effect's Cluster messaging walkthrough](https://effect.website/blog/module-of-the-week/cluster-messaging) for more on entity IDs and routing.

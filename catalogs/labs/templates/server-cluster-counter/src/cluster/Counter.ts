@@ -5,7 +5,7 @@ import { Entity } from "effect/cluster";
 
 export const CounterEntity = Entity.make("Counter", [IncrementCounterRpc]);
 
-export const CounterEntityLive = CounterEntity.toLayer(
+export const CounterEntityLayer = CounterEntity.toLayer(
   Effect.gen(function* () {
     // Cluster builds a handler for each active entity ID.
     const count = yield* Ref.make(0);

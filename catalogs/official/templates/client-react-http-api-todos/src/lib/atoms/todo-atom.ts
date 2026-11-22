@@ -1,3 +1,4 @@
+import type { TodoId } from "@repo/domain/Todo";
 import { TodoApi } from "@repo/domain/TodoApi";
 import { Effect } from "effect";
 import { FetchHttpClient } from "effect/http";
@@ -11,11 +12,11 @@ export type TodoCommand =
   | { readonly _tag: "create"; readonly title: string }
   | {
       readonly _tag: "update";
-      readonly id: string;
+      readonly id: TodoId;
       readonly title: string;
       readonly completed: boolean;
     }
-  | { readonly _tag: "delete"; readonly id: string };
+  | { readonly _tag: "delete"; readonly id: TodoId };
 
 export const todoAtom = runtime.fn((command: TodoCommand) =>
   Effect.gen(function* () {

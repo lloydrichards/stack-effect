@@ -443,7 +443,7 @@ describe("add", () => {
             yield* project.writeFile(
               "packages/ai/math-smoke.ts",
               `import { Effect, Stream } from "effect";
-import { MathToolkit, MathToolkitLive } from "./src/toolkits/MathToolkit";
+import { MathToolkit, MathToolkitHandlers } from "./src/toolkits/MathToolkit";
 
 const cases = [
   ["-2 ^ 2", "-4"],
@@ -465,7 +465,7 @@ await Effect.runPromise(
         );
       }
     }),
-  ).pipe(Effect.provide(MathToolkitLive)),
+  ).pipe(Effect.provide(MathToolkitHandlers)),
 );
 `,
             );

@@ -64,7 +64,7 @@ export const MemoryToolkit = Toolkit.make(
 );
 
 /** Backed by an in-memory HashMap Ref scoped to the layer lifetime. */
-export const InMemoryToolkitLive = MemoryToolkit.toLayer(
+export const InMemoryToolkitHandlers = MemoryToolkit.toLayer(
   Effect.gen(function* () {
     const store = yield* Ref.make(HashMap.empty<string, string>());
 

@@ -98,4 +98,4 @@ export class PresenceService extends Context.Service<PresenceService>()(
   static layer = Layer.effect(PresenceService)(PresenceService.make);
 }
 
-export const PresenceServiceLive = PresenceService.layer;
+export const PresenceServiceLayer = PresenceService.layer;

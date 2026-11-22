@@ -16,7 +16,7 @@ const UpstreamGraphQLConfig = Config.all({
 
 const ItemParams = Schema.Struct({ id: UpstreamItemId });
 
-const UpstreamGraphQLLive = Layer.unwrap(
+const UpstreamGraphQLLayer = Layer.unwrap(
   Effect.gen(function* () {
     const { url, port } = yield* UpstreamGraphQLConfig;
 
@@ -26,7 +26,7 @@ const UpstreamGraphQLLive = Layer.unwrap(
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 
-export const UpstreamItemsLive = HttpRouter.use((router) =>
+export const UpstreamItemsRoutes = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const lookup = yield* makeItemLookup;
 
@@ -53,4 +53,4 @@ export const UpstreamItemsLive = HttpRouter.use((router) =>
       ),
     );
   }),
-).pipe(Layer.provide(UpstreamGraphQLLive));
+).pipe(Layer.provide(UpstreamGraphQLLayer));

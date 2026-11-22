@@ -3,9 +3,9 @@ import { Effect, Fiber, Layer, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import type { ChatId, ChatStreamPart } from "@repo/domain/Chat";
 import type { Action } from "./packages/ai/src/LanguageModel";
-import { ChatRuntime, ChatRuntimeLive } from "./apps/server-api/src/runtime/ChatRuntime";
-import { ChatManagedRuntime, ChatManagedRuntimeLive } from "./apps/server-api/src/runtime/ChatManagedRuntime";
-import { ChatSessionsLive } from "./apps/server-api/src/runtime/ChatSessions";
+import { ChatRuntime, ChatRuntimeLayer } from "./apps/server-api/src/runtime/ChatRuntime";
+import { ChatManagedRuntime, ChatManagedRuntimeLayer } from "./apps/server-api/src/runtime/ChatManagedRuntime";
+import { ChatSessionsLayer } from "./apps/server-api/src/runtime/ChatSessions";
 
 const message = (content: Action) => ({ role: "user" as const, content });
 const result = (parts: ReadonlyArray<ChatStreamPart>) => {
@@ -49,4 +49,4 @@ await Effect.runPromise(Effect.gen(function* () {
   const [recalled] = yield* Fiber.join(watcher).pipe(Effect.timeout("5 seconds"));
   assert(recalled?._tag === "assistant-part");
   assert.equal(output([recalled.part]), "alpha");
-}).pipe(Effect.provide(ChatManagedRuntimeLive.pipe(Layer.provideMerge(ChatRuntimeLive), Layer.provide(ChatSessionsLive)))));
+}).pipe(Effect.provide(ChatManagedRuntimeLayer.pipe(Layer.provideMerge(ChatRuntimeLayer), Layer.provide(ChatSessionsLayer)))));

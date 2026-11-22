@@ -15,7 +15,7 @@ export const DatabaseConfig = Config.all({
   ),
 });
 
-export const PostgresLive = PgClient.layerConfig({
+export const PostgresLayer = PgClient.layerConfig({
   url: DatabaseConfig.pipe(Config.map((config) => config.url)),
   maxConnections: DatabaseConfig.pipe(
     Config.map((config) => config.maxConnections),

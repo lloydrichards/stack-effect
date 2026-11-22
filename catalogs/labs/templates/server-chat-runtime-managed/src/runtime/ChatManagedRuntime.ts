@@ -141,6 +141,6 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
   },
 ) {}
 
-export const ChatManagedRuntimeLive = Layer.effect(ChatManagedRuntime)(
+export const ChatManagedRuntimeLayer = Layer.effect(ChatManagedRuntime)(
   ChatManagedRuntime.make,
 );

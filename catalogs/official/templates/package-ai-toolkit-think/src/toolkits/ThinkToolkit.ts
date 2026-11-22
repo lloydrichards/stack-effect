@@ -9,6 +9,6 @@ const thinkTool = Tool.make("think", {
 
 export const ThinkToolkit = Toolkit.make(thinkTool);
 
-export const ThinkToolkitLive = ThinkToolkit.toLayer({
+export const ThinkToolkitHandlers = ThinkToolkit.toLayer({
   think: ({ thought }) => Effect.succeed(thought),
 });

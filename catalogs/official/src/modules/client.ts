@@ -336,10 +336,10 @@ export const clientModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/lib/atom.ts",
         targetVariable: "RuntimeLayer",
         functionName: "Layer.mergeAll",
-        argument: "DevToolsLive",
+        argument: "DevToolsLayer",
         import: {
           moduleSpecifier: "./devtools",
-          namedImports: ["DevToolsLive"],
+          namedImports: ["DevToolsLayer"],
         },
       },
     ],

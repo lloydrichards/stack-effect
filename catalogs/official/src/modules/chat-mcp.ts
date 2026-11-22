@@ -82,10 +82,10 @@ export const chatMcpModules = defineModules(
                 ? "ChatRuntimeDependencies"
                 : "TerminalChatDependencies",
             functionName: "Layer.mergeAll",
-            argument: "McpClientLive",
+            argument: "McpClientLayer",
             import: {
               moduleSpecifier: importPath,
-              namedImports: ["McpClientLive"],
+              namedImports: ["McpClientLayer"],
             },
           },
         ],
@@ -185,10 +185,10 @@ export const chatMcpModules = defineModules(
                         ? "ChatRuntimeDependencies"
                         : "TerminalChatDependencies",
                     functionName: "Layer.mergeAll",
-                    argument: "McpPromptsLive",
+                    argument: "McpPromptsLayer",
                     import: {
                       moduleSpecifier: `../mcp/McpPrompts`,
-                      namedImports: ["McpPromptsLive"],
+                      namedImports: ["McpPromptsLayer"],
                     },
                   },
                   {
@@ -222,10 +222,10 @@ export const chatMcpModules = defineModules(
                       path: "{{targetPath}}/src/chat/ChatCommandConfiguration.ts",
                       targetVariable: "ChatCommandDependencies",
                       functionName: "Layer.mergeAll",
-                      argument: "McpPromptsLive",
+                      argument: "McpPromptsLayer",
                       import: {
                         moduleSpecifier: "../mcp/McpPrompts",
-                        namedImports: ["McpPromptsLive"],
+                        namedImports: ["McpPromptsLayer"],
                       },
                     },
                     {
@@ -251,10 +251,10 @@ export const chatMcpModules = defineModules(
                       path: "{{targetPath}}/src/index.ts",
                       targetVariable: "AllRouters",
                       functionName: "Layer.mergeAll",
-                      argument: "PromptRpcLive",
+                      argument: "PromptRpcRoutes",
                       import: {
                         moduleSpecifier: "./rpc/Prompt",
-                        namedImports: ["PromptRpcLive"],
+                        namedImports: ["PromptRpcRoutes"],
                       },
                     },
                   ]

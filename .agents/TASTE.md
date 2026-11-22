@@ -16,7 +16,7 @@ The app chooses the database and crypto implementations. `Layer.provide` keeps t
 
 ```ts
 export const TodoRepositoryLayer = TodoRepository.layer.pipe(
-  Layer.provide([DatabaseLive, PlatformCryptoLayer]),
+  Layer.provide([DatabaseLayer, PlatformCryptoLayer]),
 );
 ```
 
