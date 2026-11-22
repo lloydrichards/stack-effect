@@ -46,6 +46,7 @@ export function CounterForm() {
     <Card
       className="max-h-[32rem] min-h-0 overflow-auto"
       tabIndex={0}
+      role="region"
       aria-label="Cluster counter"
     >
       <CardHeader>
