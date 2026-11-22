@@ -4,8 +4,8 @@ import { Receipt } from "@repo/workflow/Receipt";
 import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import {
-  DurableReceiptLive,
-  MemoryReceiptLive,
+  DurableReceiptLayer,
+  MemoryReceiptLayer,
 } from "../workflows/ReceiptRuntime";
 
 export const workflow = Command.make(
@@ -42,7 +42,7 @@ export const workflow = Command.make(
       yield* Console.log(`Confirmed ${confirmed}`);
     }).pipe(
       Effect.provide(
-        mode === "memory" ? MemoryReceiptLive : DurableReceiptLive,
+        mode === "memory" ? MemoryReceiptLayer : DurableReceiptLayer,
       ),
     ),
 ).pipe(Command.withDescription("Record and confirm a workflow receipt"));

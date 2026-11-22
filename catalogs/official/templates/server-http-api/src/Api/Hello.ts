@@ -2,7 +2,7 @@ import { Api, type ApiResponse } from "@repo/domain/Api";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 
-export const HelloGroupLive = HttpApiBuilder.group(Api, "hello", (handlers) =>
+export const HelloHandlers = HttpApiBuilder.group(Api, "hello", (handlers) =>
   handlers.handle("get", () => {
     const data: typeof ApiResponse.Type = {
       message: "Hello Effect!",

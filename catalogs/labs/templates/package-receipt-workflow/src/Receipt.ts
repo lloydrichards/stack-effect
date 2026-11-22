@@ -15,7 +15,7 @@ export const Receipt = Workflow.make("Receipt", {
   error: ReceiptWriteError,
 });
 
-export const ReceiptLive = Layer.unwrap(
+export const ReceiptLayer = Layer.unwrap(
   Effect.gen(function* () {
     const receipts = yield* Receipts;
 

@@ -1,6 +1,6 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { DatabaseConfig, SqliteLive } from "@repo/db";
-import { ClusterReceiptLive } from "@repo/workflow/ReceiptRuntime";
+import { DatabaseConfig, SqliteLayer } from "@repo/db";
+import { ClusterReceiptLayer } from "@repo/workflow/ReceiptRuntime";
 import { Config, ConfigProvider, Effect, Layer, Option } from "effect";
 import { Digest } from "effect/crypto";
 
@@ -31,12 +31,12 @@ const workflowDatabaseProvider = Effect.gen(function* () {
   return ConfigProvider.fromUnknown({ DATABASE_FILE: filename });
 });
 
-const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
+const WorkflowSqliteLayer = Layer.fresh(SqliteLayer).pipe(
   Layer.provide(ConfigProvider.layerAdd(workflowDatabaseProvider, { asPrimary: true })),
 );
 
-export const ReceiptRuntimeLive = ClusterReceiptLive.pipe(
-  Layer.provide([WorkflowSqliteLive, Digest.layerWebCrypto]),
+export const ReceiptRuntimeLayer = ClusterReceiptLayer.pipe(
+  Layer.provide([WorkflowSqliteLayer, Digest.layerWebCrypto]),
   // Keep the workflow mailbox bound to its database when the counter runner is also installed.
   Layer.fresh,
 );

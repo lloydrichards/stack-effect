@@ -1,7 +1,7 @@
 import { Effect, Layer, Stream } from "effect";
 import { LanguageModel, type Response } from "effect/ai";
 
-export const FastModelLive = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+export const FastModelLayer = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
   generateText: () => Effect.die("Expected streaming generation"),
   streamText: ({ prompt }) => {
     const completed = prompt.content.filter((message) => message.role === "tool").length;
@@ -12,4 +12,4 @@ export const FastModelLive = Layer.effect(LanguageModel.LanguageModel, LanguageM
     ]);
   },
 }));
-export const SmartModelLive = FastModelLive;
+export const SmartModelLayer = FastModelLayer;

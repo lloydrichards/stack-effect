@@ -15,7 +15,7 @@ export class ChatClient extends Context.Service<ChatClient, ChatRpcClient>()(
   "ChatClient",
 ) {}
 
-export const ChatClientLive = Layer.effect(
+export const ChatClientLayer = Layer.effect(
   ChatClient,
   EffectRpcClient.make(ChatRpc),
 ).pipe(Layer.provide(rpcProtocol("/chat-rpc")));

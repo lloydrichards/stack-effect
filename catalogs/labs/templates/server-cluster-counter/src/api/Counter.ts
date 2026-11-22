@@ -2,9 +2,9 @@ import { CounterApi, CounterUnavailable } from "@repo/domain/CounterApi";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { CounterEntity } from "../cluster/Counter";
-import { ClusterLive } from "../cluster/Runner";
+import { ClusterLayer } from "../cluster/Runner";
 
-const CounterGroupLive = HttpApiBuilder.group(
+const CounterHandlers = HttpApiBuilder.group(
   CounterApi,
   "counters",
   (handlers) =>
@@ -23,7 +23,7 @@ const CounterGroupLive = HttpApiBuilder.group(
     }),
 );
 
-export const CounterApiLive = HttpApiBuilder.layer(CounterApi).pipe(
-  Layer.provide(CounterGroupLive),
-  Layer.provide(ClusterLive),
+export const CounterRoutes = HttpApiBuilder.layer(CounterApi).pipe(
+  Layer.provide(CounterHandlers),
+  Layer.provide(ClusterLayer),
 );

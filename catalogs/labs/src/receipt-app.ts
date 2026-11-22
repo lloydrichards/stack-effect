@@ -118,10 +118,10 @@ export const receiptApp = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "ReceiptApiLive",
+        argument: "ReceiptRoutes",
         import: {
           moduleSpecifier: "./api/Receipt",
-          namedImports: ["ReceiptApiLive"],
+          namedImports: ["ReceiptRoutes"],
         },
       },
     ],

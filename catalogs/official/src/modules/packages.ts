@@ -309,12 +309,12 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
+        targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "DateTimeToolkitLive",
+        argument: "DateTimeToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/DateTimeToolkit",
-          namedImports: ["DateTimeToolkitLive"],
+          namedImports: ["DateTimeToolkitHandlers"],
         },
       },
     ],
@@ -367,12 +367,12 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
+        targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "MathToolkitLive",
+        argument: "MathToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/MathToolkit",
-          namedImports: ["MathToolkitLive"],
+          namedImports: ["MathToolkitHandlers"],
         },
       },
     ],
@@ -419,12 +419,12 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
+        targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "InMemoryToolkitLive",
+        argument: "InMemoryToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/MemoryToolkit",
-          namedImports: ["InMemoryToolkitLive"],
+          namedImports: ["InMemoryToolkitHandlers"],
         },
       },
     ],
@@ -472,12 +472,12 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
+        targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "PlanToolkitLive",
+        argument: "PlanToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/PlanToolkit",
-          namedImports: ["PlanToolkitLive"],
+          namedImports: ["PlanToolkitHandlers"],
         },
       },
     ],

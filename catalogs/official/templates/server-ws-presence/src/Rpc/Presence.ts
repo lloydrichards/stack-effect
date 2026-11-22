@@ -101,7 +101,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
   Layer.provide(PlatformCrypto.layer),
 );
 
-export const PresenceRpcLive = RpcServer.layerHttp({
+export const PresenceRpcRoutes = RpcServer.layerHttp({
   group: WebSocketRpc,
   path: "/ws",
 }).pipe(

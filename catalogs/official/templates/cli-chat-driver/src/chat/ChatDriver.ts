@@ -1,9 +1,9 @@
 import {
   AiChatService,
-  AiChatServiceLive,
+  AiChatServiceLayer,
   chatPrompt,
   chatErrorPart,
-  FastModelLive,
+  FastModelLayer,
 } from "@repo/ai";
 import { type ChatMessage, type ChatStreamPart } from "@repo/domain/Chat";
 import {
@@ -13,7 +13,7 @@ import {
 } from "@repo/domain/ChatTurnOptions";
 import { Context, Effect, Layer, Stream } from "effect";
 
-const TerminalChatDependencies = Layer.mergeAll(AiChatServiceLive);
+const TerminalChatDependencies = Layer.mergeAll(AiChatServiceLayer);
 const ChatTurnOptionKeys = chatTurnOptionKeys();
 const makeGenerate = Effect.gen(function* () {
   const turn = yield* Effect.all({
@@ -33,7 +33,7 @@ const makeGenerate = Effect.gen(function* () {
         return turn.ai.stream({ prompt });
       }),
     ).pipe(
-      Stream.provide(FastModelLive),
+      Stream.provide(FastModelLayer),
       Stream.catchCause((cause) => Stream.fromEffect(chatErrorPart(cause))),
     );
 });
@@ -48,6 +48,6 @@ export class TerminalChatDriver extends Context.Service<TerminalChatDriver>()(
   },
 ) {}
 
-export const TerminalChatDriverLive = Layer.effect(TerminalChatDriver)(
+export const TerminalChatDriverLayer = Layer.effect(TerminalChatDriver)(
   TerminalChatDriver.make,
 ).pipe(Layer.provide(TerminalChatDependencies));

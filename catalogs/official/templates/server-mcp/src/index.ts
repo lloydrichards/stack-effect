@@ -18,7 +18,7 @@ const McpCapabilities = Layer.mergeAll(Layer.empty).pipe(
   Layer.satisfiesServicesType<McpServer.McpServer>(),
 );
 
-const McpHttpLive = Effect.gen(function* () {
+const main = Effect.gen(function* () {
   const config = yield* McpServerConfig;
   const allowedOrigins = config.allowedOrigins.split(",").map((origin) =>
     origin.trim(),
@@ -48,4 +48,4 @@ const McpHttpLive = Effect.gen(function* () {
   Effect.satisfiesServicesType<never>(),
 );
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(McpHttpLive);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(main);

@@ -2,7 +2,7 @@ import { Config, Effect, Layer, Option, Redacted } from "effect";
 import { McpClient, McpProtocol } from "effect/ai";
 import { FetchHttpClient } from "effect/http";
 
-export const McpClientLive = Layer.unwrap(
+export const McpClientLayer = Layer.unwrap(
   Effect.gen(function* () {
     const url = yield* Config.URL("MCP_SERVER_URL");
     const protocolVersion = yield* Config.Literals(

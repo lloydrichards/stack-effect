@@ -57,7 +57,7 @@ const fetchUrlTool = Tool.make("fetch_url", {
 export const WebFetchToolkit = Toolkit.make(fetchUrlTool);
 
 /** Provides its own HTTP client for network access. */
-export const WebFetchToolkitLive = WebFetchToolkit.toLayer(
+export const WebFetchToolkitHandlers = WebFetchToolkit.toLayer(
   Effect.gen(function* () {
     const client = yield* HttpClient.HttpClient;
 

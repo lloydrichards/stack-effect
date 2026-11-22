@@ -2,7 +2,7 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Platform } from "alchemy/Http";
 import { Effect, Layer } from "effect";
 import { HttpRouter } from "effect/http";
-import { ApiLive } from "./src/Api";
+import { ApiRoutes } from "./src/Api";
 
 export default Cloudflare.Worker(
   "{{packageName}}",
@@ -10,7 +10,7 @@ export default Cloudflare.Worker(
   Effect.gen(function* () {
     return {
       fetch: yield* HttpRouter.toHttpEffect(
-        ApiLive.pipe(Layer.provide(Platform)),
+        ApiRoutes.pipe(Layer.provide(Platform)),
       ),
     };
   }),

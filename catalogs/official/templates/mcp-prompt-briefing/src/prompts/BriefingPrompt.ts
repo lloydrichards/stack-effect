@@ -2,7 +2,7 @@ import { BriefingPromptArguments } from "@repo/domain/McpServerPrompt";
 import { Effect } from "effect";
 import { McpServer } from "effect/ai";
 
-export const BriefingPromptLive = McpServer.prompt({
+export const BriefingPrompt = McpServer.prompt({
   name: "briefing",
   description:
     "Use the server primer and calculator to prepare a short welcome briefing",

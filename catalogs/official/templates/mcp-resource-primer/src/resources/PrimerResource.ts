@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { McpServer } from "effect/ai";
 
-export const PrimerResourceLive = McpServer.resource({
+export const PrimerResource = McpServer.resource({
   uri: "stack-effect://primer",
   name: "Stack Effect Workshop Primer",
   description:

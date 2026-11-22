@@ -28,7 +28,7 @@ const getCurrentDatetimeTool = Tool.make("get_current_datetime", {
  */
 export const DateTimeToolkit = Toolkit.make(getCurrentDatetimeTool);
 
-export const DateTimeToolkitLive = DateTimeToolkit.toLayer(
+export const DateTimeToolkitHandlers = DateTimeToolkit.toLayer(
   Effect.succeed({
     get_current_datetime: (params) =>
       Effect.gen(function* () {

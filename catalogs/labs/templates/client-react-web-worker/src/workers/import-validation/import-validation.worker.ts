@@ -5,7 +5,7 @@ import { Effect, Layer, Schedule, Stream } from "effect";
 import { RpcServer } from "effect/rpc";
 import { ImportValidationRpc, parseImportRecord } from "./domain";
 
-const ImportValidationHandlersLive = ImportValidationRpc.toLayer(
+const ImportValidationHandlers = ImportValidationRpc.toLayer(
   Effect.succeed(
     ImportValidationRpc.of({
       validate: ({ content }) => {
@@ -37,10 +37,10 @@ const ImportValidationHandlersLive = ImportValidationRpc.toLayer(
   ),
 );
 
-const WorkerLive = RpcServer.layer(ImportValidationRpc).pipe(
-  Layer.provide(ImportValidationHandlersLive),
+const WorkerLayer = RpcServer.layer(ImportValidationRpc).pipe(
+  Layer.provide(ImportValidationHandlers),
   Layer.provide(RpcServer.layerProtocolWorkerRunner),
   Layer.provide(BrowserWorkerRunner.layer),
 );
 
-Effect.runFork(Layer.launch(WorkerLive));
+Effect.runFork(Layer.launch(WorkerLayer));

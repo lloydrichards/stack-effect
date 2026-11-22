@@ -8,7 +8,7 @@ import {
 } from "@repo/domain/McpPrompt";
 import { Context, type Duration, Effect, Layer, Schema } from "effect";
 import { McpClient, type McpClientError } from "effect/ai";
-import { McpClientLive } from "./McpClient";
+import { McpClientLayer } from "./McpClient";
 
 export interface McpPromptsShape {
   readonly list: (options?: {
@@ -91,8 +91,8 @@ export class McpPrompts extends Context.Service<McpPrompts, McpPromptsShape>()(
   "McpPrompts",
 ) {}
 
-export const McpPromptsLive = Layer.effect(McpPrompts)(makeMcpPrompts).pipe(
-  Layer.provide(McpClientLive),
+export const McpPromptsLayer = Layer.effect(McpPrompts)(makeMcpPrompts).pipe(
+  Layer.provide(McpClientLayer),
 );
 
 export const readMcpPrompt = Effect.gen(function* () {

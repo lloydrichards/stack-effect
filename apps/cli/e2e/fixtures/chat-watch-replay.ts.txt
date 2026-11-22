@@ -5,7 +5,7 @@ import { ChatManagedRuntime } from "./apps/server-api/src/runtime/ChatManagedRun
 import { ChatRuntime } from "./apps/server-api/src/runtime/ChatRuntime";
 import {
   ChatSessions,
-  ChatSessionsLive,
+  ChatSessionsLayer,
 } from "./apps/server-api/src/runtime/ChatSessions";
 
 await Effect.runPromise(
@@ -74,7 +74,7 @@ await Effect.runPromise(
       { _tag: "assistant-part", part: livePart },
     ]);
   }).pipe(
-    Effect.provide(ChatSessionsLive),
+    Effect.provide(ChatSessionsLayer),
     Effect.timeoutOrElse({
       duration: "3 seconds",
       orElse: () =>

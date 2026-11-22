@@ -5,8 +5,8 @@ import { Api } from "@repo/domain/Api";
 import { Config, Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
-import { HealthGroupLive } from "./api/Health";
-import { HelloGroupLive } from "./api/Hello";
+import { HealthHandlers } from "./api/Health";
+import { HelloHandlers } from "./api/Hello";
 
 export const ServerConfig = Config.all({
   port: Config.Number("PORT").pipe(Config.withDefault(9000)),
@@ -19,7 +19,7 @@ export const ServerConfig = Config.all({
 
 // HTTP API Router
 const ApiRouter = HttpApiBuilder.layer(Api).pipe(
-  Layer.provide([HealthGroupLive, HelloGroupLive]),
+  Layer.provide([HealthHandlers, HelloHandlers]),
 );
 
 // NOTE: Modules append additional routers through Layer.mergeAll.

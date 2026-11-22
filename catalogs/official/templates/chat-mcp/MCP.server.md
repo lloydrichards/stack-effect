@@ -62,7 +62,7 @@ On the MCP server:
 
 - Add a prompt file under `src/prompts`, define its public arguments in `@repo/domain`, and register its layer in `McpCapabilities`. `HelloPrompt.ts` is a minimal independent example; `BriefingPrompt.ts` demonstrates a combined task.
 - Add a resource file under `src/resources` and register its layer in `McpCapabilities`. Choose a stable URI and update the API's `MCP_RESOURCE_URIS` if it should supply that resource to chat.
-- Define a toolkit and handler layer, then register `McpServer.toolkit(YourToolkit).pipe(Layer.provide(YourToolkitLive))` in `McpCapabilities`. Keep app-specific implementations in the app; share toolkits through `@repo/ai` only when other apps need them.
+- Define a toolkit and handler layer, then register `McpServer.toolkit(YourToolkit).pipe(Layer.provide(YourToolkitHandlers))` in `McpCapabilities`. Keep app-specific implementations in the app; share toolkits through `@repo/ai` only when other apps need them.
 
 On the API, customize `src/mcp/McpTools.ts`, `src/mcp/McpResources.ts`, or `src/mcp/McpPrompts.ts`. `src/mcp/McpClient.ts` owns the shared connection. Domain modules own models and errors. `McpPromptsShape` stays beside the service because it describes operations and Effect requirements. The domain models module is independent of chat; a separate module contributes the chat prompt option.
 

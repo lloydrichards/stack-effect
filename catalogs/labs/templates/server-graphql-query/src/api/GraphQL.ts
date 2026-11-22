@@ -13,7 +13,7 @@ const GraphQLRequest = Schema.Struct({
   operationName: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
-export const GraphQLRouteLive = HttpRouter.use((router) =>
+export const GraphQLRoutes = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const schema = makeSchema(yield* CatalogItems);
 

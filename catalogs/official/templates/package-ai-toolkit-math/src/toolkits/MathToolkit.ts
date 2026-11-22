@@ -139,7 +139,7 @@ const evaluate = (expr: string, original: string) =>
  */
 export const MathToolkit = Toolkit.make(calculateTool);
 
-export const MathToolkitLive = MathToolkit.toLayer(
+export const MathToolkitHandlers = MathToolkit.toLayer(
   Effect.succeed({
     calculate: (params) =>
       Effect.gen(function* () {

@@ -5,9 +5,9 @@ import { Receipt } from "@repo/workflow/Receipt";
 import { Effect, Exit, Layer, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { WorkflowEngine } from "effect/workflow";
-import { ReceiptRuntimeLive } from "../workflows/ReceiptRuntime";
+import { ReceiptRuntimeLayer } from "../workflows/ReceiptRuntime";
 
-const ReceiptGroupLive = HttpApiBuilder.group(
+const ReceiptHandlers = HttpApiBuilder.group(
   ReceiptApi,
   "receipts",
   (handlers) =>
@@ -38,7 +38,7 @@ const ReceiptGroupLive = HttpApiBuilder.group(
     }),
 );
 
-export const ReceiptApiLive = HttpApiBuilder.layer(ReceiptApi).pipe(
-  Layer.provide(ReceiptGroupLive),
-  Layer.provide(ReceiptRuntimeLive),
+export const ReceiptRoutes = HttpApiBuilder.layer(ReceiptApi).pipe(
+  Layer.provide(ReceiptHandlers),
+  Layer.provide(ReceiptRuntimeLayer),
 );

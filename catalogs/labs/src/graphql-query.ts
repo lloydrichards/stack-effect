@@ -70,10 +70,10 @@ export const graphqlQuery = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "GraphQLRouteLive",
+        argument: "GraphQLRoutes",
         import: {
           moduleSpecifier: "./api/GraphQL",
-          namedImports: ["GraphQLRouteLive"],
+          namedImports: ["GraphQLRoutes"],
         },
       },
       {

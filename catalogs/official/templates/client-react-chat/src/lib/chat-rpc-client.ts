@@ -8,7 +8,7 @@ import {
 
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:9000";
 
-const ProtocolLive = EffectRpcClient.layerProtocolHttp({
+const HttpProtocolLayer = EffectRpcClient.layerProtocolHttp({
   url: `${SERVER_URL}/chat-rpc`,
 }).pipe(
   Layer.provide(FetchHttpClient.layer),
@@ -23,6 +23,6 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
   }),
 }) {
   static layer = Layer.effect(ChatRpcClient)(ChatRpcClient.make).pipe(
-    Layer.provide(ProtocolLive),
+    Layer.provide(HttpProtocolLayer),
   );
 }

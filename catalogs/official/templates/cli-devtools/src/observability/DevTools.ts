@@ -8,7 +8,7 @@ const DevToolsConfig = Config.all({
   ),
 });
 
-export const DevToolsLive = Layer.unwrap(
+export const DevToolsLayer = Layer.unwrap(
   Effect.gen(function* () {
     const config = yield* DevToolsConfig;
 

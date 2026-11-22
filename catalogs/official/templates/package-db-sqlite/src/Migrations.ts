@@ -3,7 +3,7 @@ import { SqliteMigrator } from "@effect/sql-sqlite-bun";{{/if}}{{#if runtime=nod
 import { SqliteMigrator } from "@effect/sql-sqlite-node";{{/if}}{{#if runtime=deno}}import { DenoFileSystem, DenoPath } from "@effect/platform-deno";
 import { SqliteMigrator } from "@effect/sql-sqlite-node";{{/if}}
 import { Config, Effect, Layer } from "effect";
-import { SqliteLive } from "./Database";
+import { SqliteLayer } from "./Database";
 import { makeMigrationsDirectoryConfig } from "./RuntimePaths";
 
 export const MigrationsDirectoryConfig: Config.Config<string> = makeMigrationsDirectoryConfig(
@@ -12,7 +12,7 @@ export const MigrationsDirectoryConfig: Config.Config<string> = makeMigrationsDi
   Layer.mergeAll({{#if runtime=bun}}BunFileSystem.layer, BunPath.layer{{/if}}{{#if runtime=node}}NodeFileSystem.layer, NodePath.layer{{/if}}{{#if runtime=deno}}DenoFileSystem.layer, DenoPath.layer{{/if}}),
 );
 
-export const MigrationsLive = Layer.unwrap(
+export const MigrationsLayer = Layer.unwrap(
   Effect.gen(function* () {
     const directory = yield* MigrationsDirectoryConfig;
     return SqliteMigrator.layer({
@@ -21,9 +21,9 @@ export const MigrationsLive = Layer.unwrap(
   }),
 ).pipe(Layer.provide({{#if runtime=bun}}[BunFileSystem.layer, BunPath.layer]{{/if}}{{#if runtime=node}}[NodeFileSystem.layer, NodePath.layer]{{/if}}{{#if runtime=deno}}[DenoFileSystem.layer, DenoPath.layer]{{/if}}));
 
-export const MigratedLive = MigrationsLive.pipe(
-  Layer.provide(SqliteLive),
+export const MigratedDatabaseLayer = MigrationsLayer.pipe(
+  Layer.provide(SqliteLayer),
   Layer.orDie,
 );
 
-export const DatabaseLive = Layer.mergeAll(SqliteLive, MigratedLive);
+export const DatabaseLayer = Layer.mergeAll(SqliteLayer, MigratedDatabaseLayer);

@@ -2,7 +2,7 @@ import { McpPromptRpc } from "@repo/domain/McpPromptRpc";
 import { McpPromptError } from "@repo/domain/McpPrompt";
 import { Effect, Layer } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
-import { McpPrompts, McpPromptsLive } from "../mcp/McpPrompts";
+import { McpPrompts, McpPromptsLayer } from "../mcp/McpPrompts";
 const PromptHandlers = McpPromptRpc.toLayer(
   Effect.gen(function* () {
     const prompts = yield* McpPrompts;
@@ -18,12 +18,12 @@ const PromptHandlers = McpPromptRpc.toLayer(
     });
   }),
 );
-export const PromptRpcLive = RpcServer.layerHttp({
+export const PromptRpcRoutes = RpcServer.layerHttp({
   group: McpPromptRpc,
   path: "/chat-prompts-rpc",
   protocol: "http",
 }).pipe(
   Layer.provide(PromptHandlers),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(McpPromptsLive),
+  Layer.provide(McpPromptsLayer),
 );

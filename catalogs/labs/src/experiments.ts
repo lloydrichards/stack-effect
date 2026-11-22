@@ -48,10 +48,10 @@ export const experiments = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
         functionName: "Layer.mergeAll",
-        argument: "ChatManagedRpcLive",
+        argument: "ChatManagedRpcRoutes",
         import: {
           moduleSpecifier: "./rpc/ChatManaged",
-          namedImports: ["ChatManagedRpcLive"],
+          namedImports: ["ChatManagedRpcRoutes"],
         },
       },
     ],
@@ -161,12 +161,12 @@ export const experiments = defineModules(import.meta.url, [
       {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/services/AiChatService.ts",
-        targetVariable: "ChatToolkitLive",
+        targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "WebFetchToolkitLive",
+        argument: "WebFetchToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/WebFetchToolkit",
-          namedImports: ["WebFetchToolkitLive"],
+          namedImports: ["WebFetchToolkitHandlers"],
         },
       },
     ],

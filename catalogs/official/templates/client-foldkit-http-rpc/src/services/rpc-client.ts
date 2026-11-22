@@ -27,9 +27,9 @@ export const rpcProtocol = (path: string) =>
     Layer.provide(RpcSerialization.layerNdjson),
   );
 
-export const RpcProtocolLive = rpcProtocol("/rpc");
+export const RpcProtocolLayer = rpcProtocol("/rpc");
 
-export const RpcClientLive = Layer.effect(
+export const RpcClientLayer = Layer.effect(
   RpcClient,
   EffectRpcClient.make(EventRpc),
-).pipe(Layer.provide(RpcProtocolLive));
+).pipe(Layer.provide(RpcProtocolLayer));

@@ -13,7 +13,7 @@ const actions = {
 };
 export type Action = keyof typeof actions;
 
-export const FastModelLive = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
+export const FastModelLayer = Layer.effect(LanguageModel.LanguageModel, LanguageModel.make({
   generateText: () => Effect.die("Expected streaming generation"),
   streamText: ({ prompt }) => {
     const last = prompt.content.at(-1);
@@ -27,4 +27,4 @@ export const FastModelLive = Layer.effect(LanguageModel.LanguageModel, LanguageM
       ? [{ type: "tool-call", id: "call", ...action }, finish] : [finish]);
   },
 }));
-export const SmartModelLive = FastModelLive;
+export const SmartModelLayer = FastModelLayer;

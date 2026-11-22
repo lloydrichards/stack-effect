@@ -1,6 +1,6 @@
 import { McpServer } from "effect/ai";
 
-export const WorkshopChecklistSkillLive = McpServer.skill({
+export const WorkshopChecklistSkill = McpServer.skill({
   uri: "skill://stack-effect/workshop-checklist/SKILL.md",
   files: {
     "SKILL.md": `---

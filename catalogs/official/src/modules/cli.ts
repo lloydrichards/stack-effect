@@ -197,10 +197,10 @@ export const cliModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "RuntimeLayers",
         functionName: "Layer.mergeAll",
-        argument: "DevToolsLive",
+        argument: "DevToolsLayer",
         import: {
           moduleSpecifier: "./observability/DevTools",
-          namedImports: ["DevToolsLive"],
+          namedImports: ["DevToolsLayer"],
         },
       },
     ],
