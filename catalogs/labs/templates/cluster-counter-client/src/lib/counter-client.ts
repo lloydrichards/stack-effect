@@ -10,14 +10,13 @@ const counterBrowserConfig = Config.all({
   ),
 });
 
-const makeCounterClient = Effect.gen(function* () {
-  const options = yield* counterBrowserConfig;
-
-  return yield* HttpApiClient.make(CounterApi, options);
-}).pipe(
-  Effect.provide(
-    ConfigProvider.layer(ConfigProvider.fromUnknown(import.meta.env)),
+export const { baseUrl: counterBaseUrl } = Effect.runSync(
+  counterBrowserConfig.pipe(
+    Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(import.meta.env))),
   ),
+);
+
+const makeCounterClient = HttpApiClient.make(CounterApi, { baseUrl: counterBaseUrl }).pipe(
   Effect.provideService(HttpClient.TracerPropagationEnabled, false),
   Effect.provide(FetchHttpClient.layer),
 );
