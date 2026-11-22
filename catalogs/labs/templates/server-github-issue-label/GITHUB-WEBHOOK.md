@@ -1,6 +1,6 @@
 # Apply an issue label from a GitHub webhook
 
-From this server directory, run `{{runCommand}} test src/webhooks/github.test.ts`. A local secret signs a fixture for `POST /webhooks/github`. The fixture client records one `triage` decision for an opened issue. Tampered signatures, unsupported events, and malformed bodies make no label calls. Replaying the fixture yields the same decision.
+To check the endpoint locally, send a signed issue fixture to `POST /webhooks/github` with a local webhook secret. An opened issue logs a `triage` decision. Tampered signatures, unsupported events, and malformed bodies make no label calls. Replaying the fixture yields the same decision.
 
 Configure the GitHub webhook to send `application/json`. To run the server with this module, set `GITHUB_WEBHOOK_SECRET` and run `{{runCommand}} dev`. The route verifies the original body bytes against `X-Hub-Signature-256` before decoding the event. `chooseIssueLabel` takes the repository and issue number from the decoded event. It returns a fixed allowlisted label.
 

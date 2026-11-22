@@ -2,6 +2,8 @@ import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
 
+const domain = { kind: "package", name: "domain" };
+
 const httpApi = {
   _tag: "required-module",
   target: { kind: "server", name: "api" },
@@ -30,18 +32,43 @@ const serverLayer = (
 
 export const githubIssueWebhook = defineModules(import.meta.url, [
   {
+    id: "domain-github-issue-webhook",
+    title: "GitHub Issue Event",
+    description: "GitHub issue delivery and label decision contracts",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: domain }],
+    dependencies: [],
+    contributions: [
+      ...files("domain-github-issue-webhook", ["src/GitHubIssueEvent.ts"]),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./GitHubIssueEvent",
+        value: "./src/GitHubIssueEvent.ts",
+      },
+    ],
+  },
+  {
     id: "server-github-issue-label",
     title: "GitHub Issue Label Webhook",
     description:
       "Verify a signed issue delivery and apply one allowlisted label through an injected client",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
-    dependencies: [httpApi],
+    dependencies: [
+      httpApi,
+      {
+        _tag: "required-module",
+        target: domain,
+        moduleId: "domain-github-issue-webhook",
+      },
+    ],
     contributions: [
       ...files("server-github-issue-label", [
         "GITHUB-WEBHOOK.md",
         "src/webhooks/github.ts",
-        "src/webhooks/github.test.ts",
         "src/webhooks/issue-label.ts",
       ]),
       serverLayer("AllRouters", "GitHubIssueWebhook", "./webhooks/github"),
