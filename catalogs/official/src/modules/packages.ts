@@ -782,6 +782,13 @@ export const packageModules = defineModules(import.meta.url, [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
+        field: "devDependencies",
+        name: "{{#if runtime=node}}@types/node{{/if}}",
+        value: "^24.0.0",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
         field: "exports",
         name: ".",
         value: "./src/index.ts",
