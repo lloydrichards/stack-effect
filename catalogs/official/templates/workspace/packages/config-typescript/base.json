@@ -3,8 +3,7 @@
   "display": "Default",
   "compilerOptions": {
     "moduleResolution": "bundler",
-    {{#if runtime=node}}"preserveSymlinks": true,
-    {{/if}}{{#if runtime=deno}}"preserveSymlinks": true,
+    {{#if runtime=deno}}"preserveSymlinks": true,
     {{/if}}
     "module": "ESNext",
     "target": "ES2022",
