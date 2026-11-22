@@ -84,7 +84,7 @@ describe("recipe builder state", () => {
     });
     const serverTodo = makeCatalogModule({
       id: "server-http-api-todos",
-      title: "Todo HTTP API",
+      title: "Todo Endpoints (HTTP API)",
       description: "Todo endpoints",
       visibility: "public",
       dependencies: [
@@ -99,7 +99,7 @@ describe("recipe builder state", () => {
     });
     const clientTodo = makeCatalogModule({
       id: "client-react-http-api-todos",
-      title: "Todo HTTP Client",
+      title: "Todo List",
       description: "Todo UI",
       visibility: "public",
       dependencies: [],

@@ -10,12 +10,21 @@ sources:
     resource: ../../catalogs/official/src/modules/domain.ts
   - id: source-3
     resource: ../../catalogs/official/src/moduleRegistry.ts
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+generated: { by: codex, at: "2026-11-22T19:27:00+01:00" }
 ---
 
 # Add a catalog module
 
 Start with the [catalog authoring workflow](catalog-authoring.md "validates generated output"). Choose a [module ID](../architecture/catalog-id-semantics.md "guides naming") that describes the owning layer and capability.
+
+## Choose a display title
+
+Write a short noun phrase that names what the module adds. Lead with the feature or artifact, as in `AI Chat` or `Receipt Workflow Form`. Use the product name on its own when it identifies the choice, as in `Vitest`.
+
+- Let the target heading identify the owner. Use `Cluster Counter Form` on both React Client and Foldkit Client. Keep role words when they describe the contribution, as in `HTTP API Client`, `HTTP API Endpoints`, and `HTTP API Contracts`.
+- Add a technology qualifier when it distinguishes choices, as in `Todo Endpoints (HTTP API)`. Lead with technology in familiar names such as `WebSocket Presence`.
+- Give equivalent contributions the same title across targets. Check the Recipe Builder module picker and dependency tree, and the CLI picker. Distinguish different contributions that can appear together, such as `Biome Linting` and `Biome Formatting`. If equivalent titles need disambiguation in a mixed view, show the owning target beside the title.
+- Use title case and preserve product capitalization. Put prerequisites and implementation details in the description. Keep the module ID stable when editing its display title.
 
 ## Define the module
 
@@ -31,7 +40,7 @@ const template = templates(new URL("../../templates/", import.meta.url));
 export const healthModules = defineModules(import.meta.url, [
   {
     id: "server-health",
-    title: "Health endpoint",
+    title: "Health Endpoint",
     description: "HTTP health endpoint for the server",
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [],

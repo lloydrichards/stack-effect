@@ -13,7 +13,7 @@ export const workerHttpClientModules = defineModules(
     .map((module) => ({
       ...module,
       id: `${module.id}-worker`,
-      title: `${module.title} for a Cloudflare Worker`,
+      title: "HTTP API Client (Cloudflare Worker)",
       description: "Effect HTTP API client for a Cloudflare Worker",
       implies: [
         { targetKind: "cloudflare-worker", moduleId: "cloudflare-worker-http" },

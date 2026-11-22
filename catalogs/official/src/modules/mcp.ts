@@ -12,7 +12,7 @@ export const mcpModules = defineModules(import.meta.url, [
   {
     id: "mcp-tools",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "MCP Tools",
+    title: "Tool Publishing",
     description: "Expose Effect AI toolkits through the MCP server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
     dependencies: [],
@@ -101,7 +101,7 @@ export const mcpModules = defineModules(import.meta.url, [
   {
     id: "mcp-prompts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "MCP Prompts",
+    title: "Prompt Publishing",
     description: "Add reusable prompt templates to the MCP server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
     dependencies: [],
@@ -208,7 +208,7 @@ export const mcpModules = defineModules(import.meta.url, [
   {
     id: "mcp-resources",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "MCP Resources",
+    title: "Resource Publishing",
     description: "Publish static and templated content through MCP",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
     dependencies: [],
@@ -251,7 +251,7 @@ export const mcpModules = defineModules(import.meta.url, [
   {
     id: "mcp-skills",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "MCP Skills",
+    title: "Skill Publishing",
     description: "Publish agent skills through the MCP server",
     supportedOn: [{ _tag: "kind", kind: mcpServerKind }],
     dependencies: [],

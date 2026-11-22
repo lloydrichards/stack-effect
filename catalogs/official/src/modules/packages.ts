@@ -85,7 +85,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-core",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "AI Package",
+    title: "AI Model Setup (Anthropic)",
     description:
       "Anthropic language model configuration and workflow utilities",
     supportedOn: [
@@ -188,7 +188,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-toolkit-datetime",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "DateTime Toolkit",
+    title: "Date and Time Toolkit",
     description:
       "Timezone-aware date and time tool for time-sensitive agent behavior",
     visibility: "internal",
@@ -265,7 +265,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-chat-toolkit-datetime",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "DateTime Toolkit",
+    title: "Date and Time Tools for Chat",
     description: "Attach the shared date and time toolkit to the chat service",
     supportedOn: [
       {
@@ -322,7 +322,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-chat-toolkit-math",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Math Toolkit",
+    title: "Math Tools for Chat",
     description:
       "Attach the shared deterministic math toolkit to the chat service",
     supportedOn: [
@@ -380,7 +380,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-toolkit-memory",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Memory Toolkit",
+    title: "Memory Tools for Chat",
     description: "In-memory key-value scratchpad for a chat",
     supportedOn: [
       {
@@ -432,7 +432,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-toolkit-plan",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Plan Toolkit",
+    title: "Planning Tools for Chat",
     description:
       "Structured task tracking that forces plan-before-act discipline",
     supportedOn: [
@@ -485,7 +485,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-ai-chat-service",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Chat Service",
+    title: "AI Chat Service",
     description:
       "AI chat service with agentic loop for streaming tool-augmented conversations",
     supportedOn: [
@@ -893,7 +893,7 @@ export const packageModules = defineModules(import.meta.url, [
   {
     id: "package-presence-service",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Presence Package",
+    title: "Presence Service",
     description:
       "Real-time presence tracking service with PubSub and client generation",
     visibility: "internal",

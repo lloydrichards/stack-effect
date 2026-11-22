@@ -4,21 +4,21 @@ const template = templates(new URL("../../templates/", import.meta.url));
 const capabilities = [
   {
     id: "tools",
-    title: "MCP Tools",
+    title: "Remote Tools (MCP)",
     description: "Use local and remote tools in the same chat turn",
     maker: "readMcpToolkit",
     file: "McpTools.ts",
   },
   {
     id: "resources",
-    title: "MCP Resources",
+    title: "Remote Resources (MCP)",
     description: "Add selected remote text resources to the chat context",
     maker: "makeMcpResources",
     file: "McpResources.ts",
   },
   {
     id: "prompts",
-    title: "MCP Prompts",
+    title: "Remote Prompts (MCP)",
     description: "Add a selected remote prompt and its arguments to chat",
     maker: "readMcpPrompt",
     file: "McpPrompts.ts",
@@ -48,7 +48,7 @@ export const chatMcpModules = defineModules(
     return [
       {
         id: connection,
-        title: "MCP Client",
+        title: "MCP Connection for Chat",
         description:
           "An app-owned HTTP MCP connection shared by the selected chat capabilities",
         visibility: "public",

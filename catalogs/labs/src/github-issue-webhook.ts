@@ -34,7 +34,7 @@ const serverLayer = (
 export const githubIssueWebhook = defineModules(import.meta.url, [
   {
     id: "domain-github-issue-webhook",
-    title: "GitHub Issue Event",
+    title: "GitHub Issue Webhook Contracts",
     description: "GitHub issue delivery and label decision contracts",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],

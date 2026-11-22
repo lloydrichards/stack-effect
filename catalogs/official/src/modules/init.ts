@@ -459,7 +459,7 @@ export const initModules = defineModules(import.meta.url, [
   {
     id: "workspace-quality-biome",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Biome",
+    title: "Biome Configuration",
     description: "Shared Biome dependency and configuration",
     visibility: "internal",
     supportedOn: [{ _tag: "kind", kind: "workspace" }],
@@ -495,7 +495,7 @@ export const initModules = defineModules(import.meta.url, [
   {
     id: "workspace-quality-biome-lint",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Biome",
+    title: "Biome Linting",
     description: "Fast linter with recommended defaults",
     visibility: "internal",
     categories: ["lint"],
@@ -523,7 +523,7 @@ export const initModules = defineModules(import.meta.url, [
   {
     id: "workspace-quality-biome-format",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Biome",
+    title: "Biome Formatting",
     description: "Fast formatter with recommended defaults",
     visibility: "internal",
     categories: ["format"],
@@ -559,7 +559,7 @@ export const initModules = defineModules(import.meta.url, [
   {
     id: "workspace-quality-oxfmt",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Oxfmt",
+    title: "oxfmt",
     description: "High-performance formatter for the JavaScript ecosystem",
     visibility: "internal",
     categories: ["format"],

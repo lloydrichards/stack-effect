@@ -1,6 +1,6 @@
 ---
 name: stack-effect-design
-description: Design or review Stack Effect package exports, Effect service interfaces, and dependency boundaries. Use when changing what callers import, provide, or need to know.
+description: Design or review Stack Effect package exports, Effect service interfaces, dependency boundaries, and catalog module titles. Use when changing what callers import or provide, or when naming modules for Recipe Builder and the CLI.
 ---
 
 # Package and service design
@@ -19,3 +19,7 @@ description: Design or review Stack Effect package exports, Effect service inter
 | Published CLI library entry point | The [CLI manifest](../../../apps/cli/package.json). Run `bun run --cwd apps/cli verify:library` for changes to the library exports or their packaging. |
 
 Use the [test design skill](../stack-effect-testing/SKILL.md) to check caller behavior and type guarantees. Record durable changes to contracts or ownership in the relevant OKF concept.
+
+## Name catalog modules
+
+Choose module titles with the [authoring guide](../../../.okf/guides/add-new-module.md#choose-a-display-title). Review the titles in Recipe Builder and CLI dependency trees.

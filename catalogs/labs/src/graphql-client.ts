@@ -7,7 +7,7 @@ const api = { kind: "server", name: "api" };
 export const graphqlClient = defineModules(import.meta.url, [
   {
     id: "domain-upstream-item",
-    title: "Upstream Item",
+    title: "Upstream Item Contracts",
     description: "Item schema and missing-item error for an upstream lookup",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -37,7 +37,7 @@ export const graphqlClient = defineModules(import.meta.url, [
   },
   {
     id: "server-graphql-client",
-    title: "GraphQL Client",
+    title: "Upstream GraphQL Client",
     description: "Read one item through the generated GraphQL query server",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: api }],

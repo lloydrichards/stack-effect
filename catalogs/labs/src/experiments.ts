@@ -59,7 +59,7 @@ export const experiments = defineModules(import.meta.url, [
   {
     id: "client-react-web-worker",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Browser Web Worker",
+    title: "Web Worker RPC",
     description:
       "Browser Worker RPC with Effect Schema, Stream, Schedule, and Atom RPC",
     supportedOn: [{ _tag: "kind", kind: "client-react" }],
@@ -115,7 +115,7 @@ export const experiments = defineModules(import.meta.url, [
   {
     id: "package-ai-toolkit-webfetch",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "WebFetch Toolkit",
+    title: "Web Fetch Toolkit",
     description:
       "URL content retrieval with HTML stripping for retrieval-augmented workflows",
     supportedOn: [
@@ -173,7 +173,7 @@ export const experiments = defineModules(import.meta.url, [
   },
   {
     id: "domain-task-plan",
-    title: "Task Planner Domain",
+    title: "Task Planner Contracts",
     description: "Shared task schemas and planning errors",
     visibility: "internal",
     supportedRuntimes: ["bun"],

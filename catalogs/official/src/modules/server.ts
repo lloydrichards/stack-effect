@@ -50,7 +50,7 @@ const todoRepositoryWiring = [
 export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-sqlite-dev-permission",
-    title: "SQLite Server Dev Permission",
+    title: "SQLite FFI Permission (Deno)",
     description: "Enable SQLite FFI access in generated Deno server scripts",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -61,7 +61,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-http-api",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "HTTP API Server",
+    title: "HTTP API Endpoints",
     description: "REST API endpoints with Effect HTTP",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -94,7 +94,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-http-rpc",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "HTTP RPC Server",
+    title: "HTTP RPC Streaming Handler",
     description: "RPC streaming server with tick handler",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -133,7 +133,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-http-api-todos",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Todo HTTP API",
+    title: "Todo Endpoints (HTTP API)",
     description: "Persistent Todo CRUD endpoints over Effect HTTP API",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -183,7 +183,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-http-rpc-todos",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Todo HTTP RPC",
+    title: "Todo Operations (HTTP RPC)",
     description: "Persistent Todo CRUD operations on the shared HTTP RPC route",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -233,7 +233,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-chat-rpc",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Chat Server",
+    title: "AI Chat Handler",
     description: "AI chat RPC handler with tool support",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -309,7 +309,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-ws-presence",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "WebSocket Presence Server",
+    title: "WebSocket Presence Handler",
     description: "Real-time presence tracking over WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [
@@ -360,7 +360,7 @@ export const serverModules = defineModules(import.meta.url, [
   {
     id: "server-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Effect DevTools Server",
+    title: "Effect DevTools",
     description: "Optional Effect DevTools tracer layer for server apps",
     supportedOn: [{ _tag: "kind", kind: serverKind }],
     dependencies: [],

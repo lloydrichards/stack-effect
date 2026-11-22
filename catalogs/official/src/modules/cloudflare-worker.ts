@@ -7,7 +7,7 @@ const template = templates(
 export const cloudflareWorkerModules = defineModules(import.meta.url, [
   {
     id: "cloudflare-worker-http",
-    title: "Effect HTTP Worker",
+    title: "Worker HTTP API Endpoints",
     description:
       "Public health and hello endpoints using the shared domain API",
     provides: ["effect-http-api"],

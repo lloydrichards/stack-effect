@@ -11,7 +11,7 @@ const domainTarget = {
 export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-mcp-client",
-    title: "MCP Client Models",
+    title: "MCP Client Errors",
     description: "Shared content failures for MCP client capabilities",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -69,7 +69,7 @@ export const domainModules = defineModules(import.meta.url, [
   },
   {
     id: "domain-mcp-resources",
-    title: "MCP Resource Models",
+    title: "MCP Resource Schemas",
     description: "Shared resource selection schemas for app-owned MCP clients",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -103,7 +103,7 @@ export const domainModules = defineModules(import.meta.url, [
   },
   {
     id: "domain-mcp-prompts",
-    title: "MCP Prompt Models",
+    title: "MCP Prompt Schemas",
     description:
       "Shared prompt selection, discovery, message schemas, and errors for app-owned MCP clients",
     visibility: "internal",
@@ -138,7 +138,7 @@ export const domainModules = defineModules(import.meta.url, [
   },
   {
     id: "domain-chat-mcp-options",
-    title: "MCP Chat Options",
+    title: "Chat Prompt Options (MCP)",
     description: "Compose MCP prompt selection into chat requests",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -172,7 +172,7 @@ export const domainModules = defineModules(import.meta.url, [
   },
   {
     id: "domain-chat-mcp-prompts",
-    title: "MCP Prompt RPC",
+    title: "Chat Prompt RPC Contracts (MCP)",
     description:
       "Optional server chat prompt selection and discovery contracts",
     visibility: "internal",
@@ -203,7 +203,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-api-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain API",
+    title: "HTTP API Contracts",
     description: "Shared domain schemas and RPC definitions",
     visibility: "internal",
     supportedOn: [
@@ -236,7 +236,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-rpc-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain RPC",
+    title: "HTTP RPC Streaming Contracts",
     description: "Shared RPC definitions for streaming over HTTP",
     visibility: "internal",
     supportedOn: [
@@ -269,7 +269,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-todo-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain Todo",
+    title: "Todo Schemas",
     description: "Shared Todo schemas and errors",
     visibility: "internal",
     supportedOn: [
@@ -304,7 +304,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-todo-http-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain Todo HTTP",
+    title: "Todo Contracts (HTTP API)",
     description: "Todo HTTP API contract",
     visibility: "internal",
     supportedOn: [{ _tag: "identity", identity: domainTarget }],
@@ -343,7 +343,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-todo-rpc-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain Todo RPC",
+    title: "Todo Contracts (HTTP RPC)",
     description: "Todo RPC contract merged into the server RPC group",
     visibility: "internal",
     supportedOn: [{ _tag: "identity", identity: domainTarget }],
@@ -395,7 +395,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-chat-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain Chat",
+    title: "AI Chat Contracts",
     description:
       "Chat stream protocol, message schemas, and client state machine",
     visibility: "internal",
@@ -463,7 +463,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-chat-managed-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain Managed Chat",
+    title: "Managed Chat RPC Contracts",
     description: "Managed chat send, watch, and interrupt RPC definitions",
     visibility: "internal",
     supportedOn: [
@@ -504,7 +504,7 @@ export const domainModules = defineModules(import.meta.url, [
   {
     id: "domain-ws-contracts",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Domain WebSocket",
+    title: "WebSocket Presence Contracts",
     description: "WebSocket RPC definitions for real-time presence",
     visibility: "internal",
     supportedOn: [

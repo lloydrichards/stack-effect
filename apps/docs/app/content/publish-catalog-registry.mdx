@@ -117,6 +117,8 @@ The module that uses this file is defined in `catalog/starter.ts`. Its `supporte
 
 Add targets and modules in the same way. Register each new definition group in `catalog/index.ts`, next to `starterTargets` and `starterModules`.
 
+Set `title` to a short name for what the module adds. Recipe Builder and the CLI use this title in their pickers and dependency lists. Let the target heading carry the framework name, as with **Cluster Counter Form** under both **React Client** and **Foldkit Client**. Keep technology or role words when they explain the choice, as in **WebSocket Presence** and **HTTP API Contracts**. Put setup details in `description` and keep `id` stable when editing the title.
+
 A module can also declare:
 
 | Field | Purpose |

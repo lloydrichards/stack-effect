@@ -50,7 +50,7 @@ export const receiptWorkflow = defineModules(import.meta.url, [
   },
   {
     id: "cli-workflow-receipt",
-    title: "Durable Receipt Workflow",
+    title: "Receipt Workflow Commands",
     description: "Run a receipt workflow in memory or resume it through SQLite",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "cli" }],
