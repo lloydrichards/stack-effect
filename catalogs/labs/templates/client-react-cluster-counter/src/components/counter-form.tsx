@@ -1,6 +1,9 @@
-import type { CounterState } from "@repo/domain/Counter";
+import type { CounterHistory, CounterState } from "@repo/domain/Counter";
 import { Effect } from "effect";
 import { type FormEvent, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { counterError, incrementCounter } from "../lib/counter-client";
 import {
   loadCounters,
@@ -18,8 +21,10 @@ export function CounterForm() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending || id === "") return;
+
     setPending(true);
     setError("");
+
     void Effect.runPromise(
       incrementCounter(id).pipe(
         Effect.match({
@@ -38,30 +43,46 @@ export function CounterForm() {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-6 text-card-foreground">
-      <h2 className="mb-4 font-semibold">Cluster counter</h2>
-      <form className="flex flex-col gap-3" onSubmit={submit}>
-        <label htmlFor="counter-id">Counter ID</label>
-        <input
-          id="counter-id"
-          className="rounded-md border bg-background p-2"
-          value={id}
-          onChange={(event) => setId(event.target.value)}
-          required
-        />
-        <button
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
-          type="submit"
-          disabled={pending || id === ""}
-        >
-          Increment counter
-        </button>
-      </form>
-      <p className="mt-4 break-all" role="status">
-        {pending
-          ? "Incrementing…"
-          : error || (result ? `${result.id}: ${result.count}` : "")}
-      </p>
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          <h2>Cluster counter</h2>
+        </CardTitle>
+      </CardHeader>
+
+      <CardContent>
+        <form className="flex flex-col gap-3" onSubmit={submit}>
+          <label htmlFor="counter-id">Counter ID</label>
+          <Input
+            id="counter-id"
+            value={id}
+            onChange={(event) => setId(event.target.value)}
+            required
+          />
+          <Button type="submit" disabled={pending || id === ""}>
+            Increment counter
+          </Button>
+        </form>
+
+        <p className="mt-4 break-all" role="status">
+          {pending
+            ? "Incrementing…"
+            : error || (result ? `${result.id}: ${result.count}` : "")}
+        </p>
+
+        <CounterHistoryTable counters={counters} />
+      </CardContent>
+    </Card>
+  );
+}
+
+function CounterHistoryTable({
+  counters,
+}: {
+  counters: typeof CounterHistory.Type;
+}) {
+  return (
+    <>
       <h3 className="mt-6 font-medium">Counter history</h3>
       <p className="mb-2 text-sm text-muted-foreground">
         Last values seen by this browser. A counter can change on the server.
@@ -97,6 +118,6 @@ export function CounterForm() {
           </tbody>
         </table>
       )}
-    </section>
+    </>
   );
 }

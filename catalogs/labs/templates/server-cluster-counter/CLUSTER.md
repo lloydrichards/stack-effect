@@ -8,7 +8,7 @@ curl -X POST http://localhost:9000/counters/a/increment  # {"id":"a","count":2}
 curl -X POST http://localhost:9000/counters/b/increment  # {"id":"b","count":1}
 ```
 
-The domain package defines the ID and count schemas in `Counter.ts` and the HTTP contract in `CounterApi.ts`. The optional CLI uses that contract to call the server. The HTTP handler in `src/api/Counter.ts` uses `CounterEntity.client` to address an entity by ID. Cluster starts a handler for each active ID, so the `Ref` allocated in `src/cluster/Counter.ts` belongs to that ID.
+The domain package defines the counter data in `Counter.ts`, the HTTP contract in `CounterApi.ts`, and the entity RPC in `CounterRpc.ts`. The optional CLI uses that contract to call the server. The HTTP handler in `src/api/Counter.ts` uses `CounterEntity.client` to address an entity by ID. Cluster starts a handler for each active ID, so the `Ref` allocated in `src/cluster/Counter.ts` belongs to that ID.
 
 ## Follow the runner setup
 
@@ -44,7 +44,7 @@ Both forms use the same typed HTTP client helper and decode input with the domai
 
 ## Extend the example
 
-To read the current count, add a `Get` RPC to the entity and return `Ref.get(count)` from its handler. Add `GET /counters/:id` to the domain HTTP contract and forward it to that RPC from the server adapter.
+To read the current count, define a `Get` RPC in `CounterRpc.ts`, register it on the entity, and return `Ref.get(count)` from its handler. Add `GET /counters/:id` to the domain HTTP contract and forward it to that RPC from the server adapter.
 
 To host a second entity, merge its registration layer with `CounterEntityLive` in `src/cluster/Runner.ts` so both use the same runner. To run entities in separate processes, switch the runner wiring to an inter-runner transport and a shared SQL store such as PostgreSQL. Give each runner its own reachable address and verify that both can route messages to the shard owner. Keep the public HTTP routes and clients behind the same domain contract. Workflow uses Cluster when a multi-step operation should resume after interruption.
 

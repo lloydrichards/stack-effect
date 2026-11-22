@@ -9,6 +9,7 @@ const CounterGroupLive = HttpApiBuilder.group(
   (handlers) =>
     Effect.gen(function* () {
       const counter = yield* CounterEntity.client;
+
       return handlers.handle("increment", ({ params: { id } }) =>
         counter(id)
           .Increment()
