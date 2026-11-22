@@ -1,5 +1,4 @@
 import { defineModules, templates } from "@repo/authoring";
-import { sqliteServerRuntime } from "./sqlite-server-runtime";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -64,7 +63,7 @@ export const clusterCounter = defineModules(import.meta.url, [
     description:
       "Host counters keyed by ID on a local Cluster runner in the HTTP server",
     supportedRuntimes: ["bun", "node", "deno"],
-    supportedOn: [{ _tag: "identity", identity: api }],
+    supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       {
         _tag: "required-module",
@@ -72,7 +71,6 @@ export const clusterCounter = defineModules(import.meta.url, [
         moduleId: "server-http-api",
       },
       counterContracts,
-      sqliteServerRuntime,
     ],
     contributions: [
       {
