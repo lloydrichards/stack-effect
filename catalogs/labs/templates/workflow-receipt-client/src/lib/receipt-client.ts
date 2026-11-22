@@ -32,7 +32,7 @@ export const awaitReceipt = Effect.fn("ReceiptClient.await")(function* (
 });
 
 export const savedExecutionId = () =>
-  new URL(window.location.href).searchParams.get("receiptExecution");
+  new URL(window.location.href).searchParams.get("receiptExecution") || null;
 
 export const saveExecutionId = (executionId: string) => {
   const url = new URL(window.location.href);
