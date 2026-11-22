@@ -103,9 +103,17 @@ export class CatalogCompositionFailure extends Data.TaggedError(
   readonly sources: ReadonlyArray<LoadedCatalogSource>;
 }> {
   override get message(): string {
+    const refreshHint = this.sources.some(
+      (source) => source.freshness === "cached",
+    )
+      ? " Retry when the catalog sources are reachable so they can be refreshed together."
+      : "";
+
     return `Selected catalogs do not compose: ${this.issues
       .map((issue) => issue.message)
-      .join("; ")}. Sources: ${this.sources.map(describeSource).join(", ")}.`;
+      .join(
+        "; ",
+      )}. Sources: ${this.sources.map(describeSource).join(", ")}.${refreshHint}`;
   }
 }
 

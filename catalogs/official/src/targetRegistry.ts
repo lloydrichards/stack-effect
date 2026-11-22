@@ -421,7 +421,7 @@ export const targetGroup = defineTargets(import.meta.url, [
         field: "scripts",
         name: "{{#if runtime=deno}}dev{{/if}}",
         value:
-          "deno run --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-workflow-receipt}} --allow-ffi{{/if}} src/index.ts",
+          "deno run --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-sqlite-dev-permission}} --allow-ffi{{/if}} src/index.ts",
       },
       {
         _tag: "pkg-json-entry",
@@ -437,7 +437,7 @@ export const targetGroup = defineTargets(import.meta.url, [
         field: "scripts",
         name: "{{#if runtime=deno}}dev:watch{{/if}}",
         value:
-          "deno run --watch --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-workflow-receipt}} --allow-ffi{{/if}} src/index.ts",
+          "deno run --watch --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-sqlite-dev-permission}} --allow-ffi{{/if}} src/index.ts",
       },
       {
         _tag: "pkg-json-entry",

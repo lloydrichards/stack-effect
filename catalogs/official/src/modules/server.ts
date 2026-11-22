@@ -28,6 +28,16 @@ const serverApiTarget = {
 
 export const serverModules = defineModules(import.meta.url, [
   {
+    id: "server-sqlite-dev-permission",
+    title: "SQLite Server Dev Permission",
+    description: "Enable SQLite FFI access in generated Deno server scripts",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "kind", kind: serverKind }],
+    dependencies: [],
+    contributions: [],
+  },
+  {
     id: "server-http-api",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "HTTP API Server",
