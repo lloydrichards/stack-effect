@@ -12,7 +12,7 @@ import { CLI } from "./harness";
 describe("init", () => {
   layer(CLI.layer)("layer", (it) => {
     it.effect(
-      "creates a project with default options",
+      "creates a project that passes checks with the default Vite+ toolchain",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -57,8 +57,67 @@ describe("init", () => {
             "my-app/.vscode/settings.json",
             '"js/ts.experimental.useTsgo": true',
           );
+
+          yield* cli.expectJsonFile(
+            "my-app/tsconfig.json",
+            "extends",
+            "./packages/config-typescript/base.json",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/packages/config-typescript/base.json",
+            "compilerOptions.plugins.0.name",
+            "@effect/language-service",
+          );
+
+          yield* cli.expectFileNotExists("my-app/turbo.json");
+          yield* cli.expectFileNotExists("my-app/biome.jsonc");
+          yield* cli.expectFileExists("my-app/vite.config.ts");
+          yield* cli.expectFileExists("my-app/.oxfmtrc.jsonc");
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.build",
+            "vp run -r build",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.dev",
+            "vp run -r --parallel --no-cache dev",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.type-check",
+            "vp run -r type-check",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.test",
+            "vp run -r test",
+          );
+          yield* cli.expectJsonFile(
+            "my-app/package.json",
+            "scripts.clean",
+            'vp cache clean && vp run --no-cache --filter "./apps/**" --filter "./packages/**" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
+          );
+          yield* cli.expectFileContaining(
+            "my-app/package.json",
+            /"vite-plus"\s*:/,
+          );
+          yield* cli.expectFileContaining(
+            "my-app/.gitignore",
+            /node_modules\/\.vite\/task-cache/,
+          );
+          yield* cli.expectFileContaining(
+            "my-app/package.json",
+            /"build": "vp run -r build"[\s\S]*"dev": "vp run -r --parallel --no-cache dev"[\s\S]*"type-check": "vp run -r type-check"[\s\S]*"clean": "vp cache clean[^\n]+"[\s\S]*"format":[\s\S]*"lint":[\s\S]*"test": "vp run -r test"/,
+          );
+
+          yield* cli.withinProject("my-app", function* (project) {
+            yield* project.expectLintPasses();
+            yield* project.expectFormatPasses();
+            yield* project.expectTypeCheckPasses();
+          });
         }),
-      { timeout: 30_000 },
+      { timeout: 120_000 },
     );
 
     it.effect(
@@ -110,84 +169,6 @@ describe("init", () => {
           );
         }),
       { timeout: 60_000 },
-    );
-
-    it.effect(
-      "should activate the Effect language-service plugin in the TypeScript 7 root config",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-
-          yield* cli.run(
-            "init",
-            "typescript-7-root-plugin-app",
-            "--yes",
-            "--root",
-            cli.workdir,
-          );
-
-          yield* cli.expectExitCode(0);
-          yield* cli.expectFileContaining(
-            "typescript-7-root-plugin-app/tsconfig.json",
-            '"name": "@effect/language-service"',
-          );
-        }),
-      { timeout: 30_000 },
-    );
-
-    it.effect(
-      "should generate the Vite+ toolchain when using the defaults",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-
-          yield* cli.run("init", "mono-app", "--yes", "--root", cli.workdir);
-          yield* cli.expectExitCode(0);
-
-          yield* cli.expectFileNotExists("mono-app/turbo.json");
-          yield* cli.expectFileNotExists("mono-app/biome.jsonc");
-          yield* cli.expectFileExists("mono-app/vite.config.ts");
-          yield* cli.expectFileExists("mono-app/.oxfmtrc.jsonc");
-          yield* cli.expectFileExists("mono-app/package.json");
-          yield* cli.expectJsonFile(
-            "mono-app/package.json",
-            "scripts.build",
-            "vp run -r build",
-          );
-          yield* cli.expectJsonFile(
-            "mono-app/package.json",
-            "scripts.dev",
-            "vp run -r --parallel --no-cache dev",
-          );
-          yield* cli.expectJsonFile(
-            "mono-app/package.json",
-            "scripts.type-check",
-            "vp run -r type-check",
-          );
-          yield* cli.expectJsonFile(
-            "mono-app/package.json",
-            "scripts.test",
-            "vp run -r test",
-          );
-          yield* cli.expectJsonFile(
-            "mono-app/package.json",
-            "scripts.clean",
-            'vp cache clean && vp run --no-cache --filter "./apps/**" --filter "./packages/**" clean && git clean -xdf node_modules .cache dist tsconfig.tsbuildinfo',
-          );
-          yield* cli.expectFileContaining(
-            "mono-app/package.json",
-            /"vite-plus"\s*:/,
-          );
-          yield* cli.expectFileContaining(
-            "mono-app/.gitignore",
-            /node_modules\/\.vite\/task-cache/,
-          );
-          yield* cli.expectFileContaining(
-            "mono-app/package.json",
-            /"build": "vp run -r build"[\s\S]*"dev": "vp run -r --parallel --no-cache dev"[\s\S]*"type-check": "vp run -r type-check"[\s\S]*"clean": "vp cache clean[^\n]+"[\s\S]*"format":[\s\S]*"lint":[\s\S]*"test": "vp run -r test"/,
-          );
-        }),
-      { timeout: 30_000 },
     );
 
     it.effect(
@@ -724,60 +705,6 @@ describe("init", () => {
           yield* cli.expectFileNotExists("ghost-app/package.json");
         }),
       { timeout: 15_000 },
-    );
-
-    it.effect(
-      "created project passes lint",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-
-          yield* cli.run("init", "lint-app", "--yes", "--root", cli.workdir);
-          yield* cli.expectExitCode(0);
-
-          yield* cli.withinProject("lint-app", function* (project) {
-            yield* project.expectLintPasses();
-          });
-        }),
-      { timeout: 60_000 },
-    );
-
-    it.effect(
-      "created project passes format check",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-
-          yield* cli.run("init", "format-app", "--yes", "--root", cli.workdir);
-          yield* cli.expectExitCode(0);
-
-          yield* cli.withinProject("format-app", function* (project) {
-            yield* project.expectFormatPasses();
-          });
-        }),
-      { timeout: 60_000 },
-    );
-
-    it.effect(
-      "created project type-checks",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-
-          yield* cli.run(
-            "init",
-            "typecheck-app",
-            "--yes",
-            "--root",
-            cli.workdir,
-          );
-          yield* cli.expectExitCode(0);
-
-          yield* cli.withinProject("typecheck-app", function* (project) {
-            yield* project.expectTypeCheckPasses();
-          });
-        }),
-      { timeout: 60_000 },
     );
 
     it.effect(

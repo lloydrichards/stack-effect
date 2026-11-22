@@ -1,7 +1,7 @@
 import { describe, layer } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
-import { ModuleId, TargetKind } from "@repo/domain/Catalog";
+import { ModuleId } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
 
@@ -237,6 +237,18 @@ const individualModuleEntries = matrix.filter(
 );
 const maximalTargetEntries = matrix.filter((entry) => entry.modules.length > 1);
 
+const impliedServerFiles: Readonly<Partial<Record<string, string>>> = {
+  "client-react-http-api": "src/api/Health.ts",
+  "client-react-http-api-todos": "src/api/Todo.ts",
+  "client-react-http-rpc": "src/rpc/Event.ts",
+  "client-react-chat": "src/rpc/Chat.ts",
+  "client-react-ws-presence": "src/rpc/Presence.ts",
+  "client-foldkit-http-api": "src/api/Health.ts",
+  "client-foldkit-http-rpc": "src/rpc/Event.ts",
+  "client-foldkit-chat": "src/rpc/Chat.ts",
+  "client-foldkit-ws-presence": "src/rpc/Presence.ts",
+};
+
 const generatedModuleExpectations: Readonly<
   Record<string, GeneratedModuleExpectation>
 > = {
@@ -351,82 +363,39 @@ const capabilityMatrix = await Effect.runPromise(
   buildCapabilityMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
 );
 
-const buildFullStackMatrix = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+// Non-interactive add needs a concrete target for the catalog's server implications.
+const impliedServerArgs = ({ target, modules }: MatrixEntry): Array<string> => {
+  if (!target.startsWith("client-")) return [];
 
-  const clientKinds = [
-    TargetKind.make("client-react"),
-    TargetKind.make("client-foldkit"),
-  ] as const;
-
-  const results: Array<{
-    label: string;
-    serverTarget: string;
-    serverModules: ReadonlyArray<string>;
-    clientTarget: string;
-    clientModules: ReadonlyArray<string>;
-  }> = [];
-
-  for (const kind of clientKinds) {
-    const clientModules = yield* catalog.getSupportedModules(kind);
-
-    for (const clientMod of clientModules) {
-      const implies = clientMod.implies ?? [];
-      if (implies.length === 0) continue;
-
-      const serverModuleIds = implies
-        .filter((imp) => imp.targetKind === "server")
-        .map((imp) => imp.moduleId);
-
-      if (serverModuleIds.length > 0) {
-        results.push({
-          label: `full-stack: ${clientMod.id} → server [${serverModuleIds.join(", ")}]`,
-          serverTarget: `server/${defaultTargetNames.get("server")}`,
-          serverModules: serverModuleIds,
-          clientTarget: `${kind}/${defaultTargetNames.get(kind)}`,
-          clientModules: [clientMod.id],
-        });
-      }
-    }
-  }
-
-  return results;
-});
-
-const fullStackMatrix = await Effect.runPromise(
-  buildFullStackMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
-);
-
-const buildMaximalClientMatrix = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
-
-  return yield* Effect.forEach(
-    [TargetKind.make("client-react"), TargetKind.make("client-foldkit")],
-    (kind) =>
-      Effect.gen(function* () {
-        const supported = yield* catalog.getSupportedModules(kind);
-        // Worker variants have their own maximal target and deployment cases.
-        const modules = supported.filter(
-          (module) => module.id !== `${kind}-http-api-worker`,
-        );
-        const serverModules = modules.flatMap((module) =>
-          (module.implies ?? [])
-            .filter((implication) => implication.targetKind === "server")
-            .map((implication) => implication.moduleId),
-        );
-
-        return {
-          clientTarget: `${kind}/${defaultTargetNames.get(kind)}`,
-          clientModules: modules.map((module) => module.id),
-          serverModules: [...new Set(serverModules)],
-        };
-      }),
+  const serverModules = new Set(
+    modules.flatMap((id) =>
+      (catalogModulesById.get(ModuleId.make(id))?.implies ?? [])
+        .filter((implication) => implication.targetKind === "server")
+        .map((implication) => implication.moduleId),
+    ),
   );
-});
+  return serverModules.size === 0
+    ? []
+    : ["--target", `server/api:${[...serverModules].join(",")}`];
+};
 
-const maximalClientMatrix = await Effect.runPromise(
-  buildMaximalClientMatrix.pipe(Effect.provide(OfficialCatalogLayer)),
-);
+const assertImpliedServerModules = (
+  project: { expectFileExists: (path: string) => Effect.Effect<void> },
+  moduleIds: ReadonlyArray<string>,
+) =>
+  Effect.gen(function* () {
+    const files = new Set(
+      moduleIds
+        .map((id) => impliedServerFiles[id])
+        .filter((file) => file !== undefined),
+    );
+    if (files.size === 0) return;
+
+    yield* project.expectFileExists("apps/server-api/package.json");
+    for (const file of files) {
+      yield* project.expectFileExists(`apps/server-api/${file}`);
+    }
+  });
 
 const expectInstallPasses = (project: {
   install: () => Effect.Effect<{
@@ -486,8 +455,8 @@ const assertGeneratedModuleExpectations = (
 /**
  * Acceptance tests for various module combinations in the matrix.
  *
- * The matrix is generated dynamically from the CatalogService. It proves each
- * module alone, each target's maximal bundle, and each declared relationship.
+ * The matrix covers each public module, maximal target bundles, optional
+ * children, and capability providers. Client rows include their implied server modules.
  */
 describe("matrix", () => {
   layer(CLI.layer)("every public module", (it) => {
@@ -510,12 +479,14 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
+              ...impliedServerArgs(entry),
               ...requiredProviderArgs(entry.modules),
             );
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
               yield* assertGeneratedModuleExpectations(project, entry.modules);
+              yield* assertImpliedServerModules(project, entry.modules);
               yield* expectInstallPasses(project);
               yield* project.expectTypeCheckPasses();
             });
@@ -545,89 +516,14 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
+              ...impliedServerArgs(entry),
               ...requiredProviderArgs(entry.modules),
             );
             yield* cli.expectExitCode(0);
 
             yield* cli.withinProject(name, function* (project) {
               yield* assertGeneratedModuleExpectations(project, entry.modules);
-              yield* expectInstallPasses(project);
-              yield* project.expectFormatPasses();
-              yield* project.expectLintPasses();
-              yield* project.expectTypeCheckPasses();
-              yield* project.expectBuildSucceeds();
-            });
-          }).pipe(Effect.provide(CLI.layer)),
-        { timeout: 180_000 },
-      );
-    }
-  });
-
-  layer(CLI.layer)("full-stack (client + server)", (it) => {
-    for (const entry of fullStackMatrix) {
-      it.effect(
-        entry.label,
-        () =>
-          Effect.gen(function* () {
-            const cli = yield* CLI;
-            const name = `matrix-fullstack-${entry.clientModules.join("-")}`;
-            const root = `${cli.workdir}/${name}`;
-
-            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
-            yield* cli.expectExitCode(0);
-
-            yield* cli.run(
-              "add",
-              "--yes",
-              "--root",
-              root,
-              "--target",
-              `${entry.clientTarget}:${entry.clientModules.join(",")}`,
-              ...requiredProviderArgs([
-                ...entry.clientModules,
-                ...entry.serverModules,
-              ]),
-            );
-            yield* cli.expectExitCode(0);
-
-            yield* cli.withinProject(name, function* (project) {
-              yield* expectInstallPasses(project);
-              yield* project.expectTypeCheckPasses();
-            });
-          }).pipe(Effect.provide(CLI.layer)),
-        { timeout: 120_000 },
-      );
-    }
-  });
-
-  layer(CLI.layer)("maximal client bundles", (it) => {
-    for (const entry of maximalClientMatrix) {
-      const { clientTarget, clientModules, serverModules } = entry;
-      const kindSlug = clientTarget.replace("/", "-");
-      it.effect(
-        `all ${clientTarget} modules with required server dependencies`,
-        () =>
-          Effect.gen(function* () {
-            const cli = yield* CLI;
-            const name = `matrix-fullstack-all-${kindSlug}`;
-            const root = `${cli.workdir}/${name}`;
-
-            yield* cli.run("init", name, "--yes", "--root", cli.workdir);
-            yield* cli.expectExitCode(0);
-
-            yield* cli.run(
-              "add",
-              "--yes",
-              "--root",
-              root,
-              "--target",
-              `${clientTarget}:${clientModules.join(",")}`,
-              ...requiredProviderArgs([...clientModules, ...serverModules]),
-            );
-            yield* cli.expectExitCode(0);
-
-            yield* cli.withinProject(name, function* (project) {
-              yield* assertGeneratedModuleExpectations(project, clientModules);
+              yield* assertImpliedServerModules(project, entry.modules);
               yield* expectInstallPasses(project);
               yield* project.expectFormatPasses();
               yield* project.expectLintPasses();
