@@ -84,14 +84,6 @@ export const receiptApp = defineModules(import.meta.url, [
     ],
     contributions: [
       {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "{{#if runtime=deno}}workflow:serve{{/if}}",
-        value:
-          "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
-      },
-      {
         _tag: "file",
         path: "{{targetPath}}/src/api/Receipt.ts",
         contents: template("./server-workflow-receipt/src/api/Receipt.ts"),

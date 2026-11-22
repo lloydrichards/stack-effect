@@ -25,7 +25,7 @@ sleep 6
 
 The first command exits after polling a persisted `Suspended` result. The wait becomes due while the CLI is stopped. The second command starts a new local runner and joins the same execution. It prints the confirmation without running `RecordReceipt` again. Run `resume` a second time to read the stored result.
 
-{{#if runtime=deno}}The generated `workflow:run` task grants SQLite FFI access for the durable mode.
+{{#if runtime=deno}}To use the compiled Deno CLI, run `deno task build` and substitute `./dist/{{packageName}}` for `deno task workflow:run`. Keep using an absolute `DATABASE_FILE` in durable mode. When adding the module to an existing Deno CLI, accept the generated `package.json` build change or add `--allow-ffi` to your `deno compile` command.
 
 {{/if}}## Follow the wiring
 
