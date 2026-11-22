@@ -1,17 +1,21 @@
-import { CounterState } from "@repo/domain/Counter";
+import { CounterHistory, type CounterState } from "@repo/domain/Counter";
 import { Schema } from "effect";
 
-const key = "stack-effect-counter-preview-history";
-const Rows = Schema.Array(CounterState);
-type Rows = typeof Rows.Type;
+const key = "stack-effect-cluster-counter-history";
+const previousKey = "stack-effect-counter-preview-history";
+
+type Rows = typeof CounterHistory.Type;
 type Counter = typeof CounterState.Type;
-const JsonRows = Schema.fromJsonString(Rows);
+
+const JsonRows = Schema.fromJsonString(CounterHistory);
 const decode = Schema.decodeUnknownOption(JsonRows);
 const encode = Schema.encodeOption(JsonRows);
 
 export function loadCounters(): Rows {
   try {
-    const result = decode(localStorage.getItem(key) ?? "[]");
+    const result = decode(
+      localStorage.getItem(key) ?? localStorage.getItem(previousKey) ?? "[]",
+    );
     return result._tag === "Some" ? result.value : [];
   } catch {
     return [];

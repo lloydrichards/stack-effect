@@ -13,7 +13,7 @@ export const clusterCounter = defineModules(import.meta.url, [
   {
     id: "domain-counter-contracts",
     title: "Counter API Contracts",
-    description: "Shared counter ID, response, and HTTP endpoint",
+    description: "Shared counter data, HTTP endpoint, and entity RPC",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: domain }],
@@ -30,6 +30,11 @@ export const clusterCounter = defineModules(import.meta.url, [
         contents: template("./domain-counter-contracts/src/CounterApi.ts"),
       },
       {
+        _tag: "file",
+        path: "{{targetPath}}/src/CounterRpc.ts",
+        contents: template("./domain-counter-contracts/src/CounterRpc.ts"),
+      },
+      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "exports",
@@ -42,6 +47,13 @@ export const clusterCounter = defineModules(import.meta.url, [
         field: "exports",
         name: "./CounterApi",
         value: "./src/CounterApi.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./CounterRpc",
+        value: "./src/CounterRpc.ts",
       },
     ],
   },

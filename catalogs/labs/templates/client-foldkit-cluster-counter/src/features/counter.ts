@@ -1,4 +1,4 @@
-import { CounterState } from "@repo/domain/Counter";
+import { CounterHistory, CounterState } from "@repo/domain/Counter";
 import { Effect, Match, Schema } from "effect";
 import { Command } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
@@ -14,7 +14,7 @@ export const Model = Schema.Struct({
   id: Schema.String,
   pending: Schema.Boolean,
   status: Schema.String,
-  counters: Schema.Array(CounterState),
+  counters: CounterHistory,
 });
 type Model = typeof Model.Type;
 
@@ -81,30 +81,49 @@ export const view = <ParentMessage>(
     [h.Class("rounded-lg border bg-card p-6 text-card-foreground")],
     [
       h.h2([h.Class("mb-4 font-semibold")], ["Cluster counter"]),
-      h.form(
-        [h.Class("flex flex-col gap-3"), h.OnSubmit(toParent(Submitted()))],
-        [
-          h.label([h.For("counter-id")], ["Counter ID"]),
-          h.input([
-            h.Id("counter-id"),
-            h.Class("rounded-md border bg-background p-2"),
-            h.Value(model.id),
-            h.Required(true),
-            h.OnInput((id) => toParent(InputChanged({ id }))),
-          ]),
-          h.button(
-            [
-              h.Type("submit"),
-              h.Class(
-                "rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50",
-              ),
-              h.Disabled(model.pending || model.id === ""),
-            ],
-            ["Increment counter"],
-          ),
-        ],
-      ),
+      counterForm(model, toParent, h),
       h.p([h.Class("mt-4 break-all"), h.Role("status")], [model.status]),
+      counterHistory(model.counters, h),
+    ],
+  );
+
+function counterForm<ParentMessage>(
+  model: Model,
+  toParent: (event: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
+): Html {
+  return h.form(
+    [h.Class("flex flex-col gap-3"), h.OnSubmit(toParent(Submitted()))],
+    [
+      h.label([h.For("counter-id")], ["Counter ID"]),
+      h.input([
+        h.Id("counter-id"),
+        h.Class("rounded-md border bg-background p-2"),
+        h.Value(model.id),
+        h.Required(true),
+        h.OnInput((id) => toParent(InputChanged({ id }))),
+      ]),
+      h.button(
+        [
+          h.Type("submit"),
+          h.Class(
+            "rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50",
+          ),
+          h.Disabled(model.pending || model.id === ""),
+        ],
+        ["Increment counter"],
+      ),
+    ],
+  );
+}
+
+function counterHistory<ParentMessage>(
+  counters: typeof CounterHistory.Type,
+  h: HtmlBuilder<ParentMessage>,
+): Html {
+  return h.div(
+    [],
+    [
       h.h3([h.Class("mt-6 font-medium")], ["Counter history"]),
       h.p(
         [h.Class("mb-2 text-sm text-muted-foreground")],
@@ -112,7 +131,7 @@ export const view = <ParentMessage>(
           "Last values seen by this browser. A counter can change on the server.",
         ],
       ),
-      model.counters.length === 0
+      counters.length === 0
         ? h.p([h.Class("text-sm")], ["No counters yet."])
         : h.table(
             [h.AriaLabel("Counter history"), h.Class("w-full text-sm")],
@@ -131,7 +150,7 @@ export const view = <ParentMessage>(
               ),
               h.tbody(
                 [],
-                model.counters.map((counter) =>
+                counters.map((counter) =>
                   h.tr(
                     [h.Class("border-t")],
                     [
@@ -151,3 +170,4 @@ export const view = <ParentMessage>(
           ),
     ],
   );
+}

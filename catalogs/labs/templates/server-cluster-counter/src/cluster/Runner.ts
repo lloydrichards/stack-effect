@@ -6,14 +6,21 @@ import { SingleRunner } from "effect/cluster";
 import { Digest } from "effect/crypto";
 import { CounterEntityLive } from "./Counter";
 
+const counterClusterConfig = Config.all({
+  filename: Config.String("CLUSTER_DATABASE_FILE").pipe(
+    Config.withDefault(".cache/cluster-counter.sqlite"),
+  ),
+});
+
 const ClusterSqliteLive = Layer.unwrap(
   Effect.gen(function* () {
-    const filename = yield* Config.String("CLUSTER_DATABASE_FILE").pipe(
-      Config.withDefault(".cache/cluster-counter.sqlite"),
-    );
+    const { filename } = yield* counterClusterConfig;
+
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+
     yield* fs.makeDirectory(path.dirname(filename), { recursive: true });
+
     return SqliteClient.layer({ filename });
   }),
 ).pipe(Layer.provide([{{#if runtime=bun}}BunFileSystem.layer, BunPath.layer{{/if}}{{#if runtime=node}}NodeFileSystem.layer, NodePath.layer{{/if}}{{#if runtime=deno}}DenoFileSystem.layer, DenoPath.layer{{/if}}]));
@@ -23,4 +30,6 @@ const RunnerLive = SingleRunner.layer().pipe(
 );
 
 // Register additional entity layers here to share this server's runner.
-export const ClusterLive = CounterEntityLive.pipe(Layer.provideMerge(RunnerLive));
+export const ClusterLive = CounterEntityLive.pipe(
+  Layer.provideMerge(RunnerLive),
+);
