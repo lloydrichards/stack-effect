@@ -1,4 +1,4 @@
-import { Data, Schema } from "effect";
+import { Schema } from "effect";
 
 export const CatalogItem = Schema.Struct({
   id: Schema.NonEmptyString,
@@ -6,8 +6,7 @@ export const CatalogItem = Schema.Struct({
 });
 export type CatalogItem = typeof CatalogItem.Type;
 
-export class CatalogItemNotFound extends Data.TaggedError(
-  "CatalogItemNotFound",
-)<{
-  readonly id: string;
-}> {}
+export const CatalogItemNotFound = Schema.TaggedStruct("CatalogItemNotFound", {
+  id: Schema.String,
+});
+export type CatalogItemNotFound = typeof CatalogItemNotFound.Type;

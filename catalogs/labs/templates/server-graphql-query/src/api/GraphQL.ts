@@ -1,6 +1,11 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect's HTTP JSON response constructor.
-import { Effect, Schema } from "effect";
-import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
+import { Effect, Layer, Schema } from "effect";
+import {
+  type HttpBody,
+  HttpRouter,
+  HttpServerRequest,
+  HttpServerResponse,
+} from "effect/http";
 import { graphql } from "graphql";
 import { makeSchema } from "../graphql/schema";
 import { CatalogItems } from "../services/CatalogItems";
@@ -11,7 +16,13 @@ const GraphQLRequest = Schema.Struct({
   operationName: Schema.optionalKey(Schema.String),
 });
 
-export const GraphQLRouteLive = HttpRouter.use((router) =>
+export const GraphQLRouteLive: Layer.Layer<
+  never,
+  never,
+  | CatalogItems
+  | HttpRouter.HttpRouter
+  | HttpRouter.Request<"Error", HttpBody.HttpBodyError>
+> = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const schema = makeSchema(yield* CatalogItems);
     yield* router.add(

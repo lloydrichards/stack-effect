@@ -15,7 +15,9 @@ export class CatalogItems extends Context.Service<
 
 export const CatalogItemsMemory = Layer.succeed(CatalogItems, {
   lookup: Effect.fn("CatalogItems.lookup")(function* (id: string) {
-    if (id !== "demo") return yield* new CatalogItemNotFound({ id });
+    if (id !== "demo") {
+      return yield* Effect.fail(CatalogItemNotFound.make({ id }));
+    }
     return { id, name: "Demo item" };
   }),
 });
