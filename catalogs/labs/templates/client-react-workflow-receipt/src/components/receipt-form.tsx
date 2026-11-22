@@ -1,61 +1,102 @@
 import { Effect } from "effect";
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { awaitReceipt, startReceipt } from "../lib/receipt-client";
 import {
-  awaitReceipt,
-  savedExecutionId,
-  saveExecutionId,
-  startReceipt,
-} from "../lib/receipt-client";
+  loadReceipts,
+  receiptHistoryKey,
+  type ReceiptRow,
+  saveReceipt,
+  upsertReceipt,
+} from "../lib/receipt-history";
+
+function ReceiptStatusRow({
+  row,
+  onUpdate,
+}: {
+  row: ReceiptRow;
+  onUpdate: (row: ReceiptRow) => void;
+}) {
+  useEffect(() => {
+    if (row.status !== "Pending") return;
+    const controller = new AbortController();
+    void Effect.runPromise(awaitReceipt(row.executionId), {
+      signal: controller.signal,
+    }).then(
+      (result) =>
+        onUpdate({
+          ...row,
+          receiptId:
+            result._tag === "Confirmed" ? result.receiptId : row.receiptId,
+          status: result._tag === "Confirmed" ? "Confirmed" : "Failed",
+        }),
+      () => {
+        if (!controller.signal.aborted)
+          onUpdate({ ...row, status: "Status unavailable" });
+      },
+    );
+    return () => controller.abort();
+  }, [row, onUpdate]);
+
+  return (
+    <tr className="border-t align-top">
+      <th scope="row" className="break-all py-2 pr-4 text-left font-medium">
+        {row.receiptId}
+        <code className="block break-all text-xs font-normal text-muted-foreground">
+          {row.executionId}
+        </code>
+      </th>
+      <td className="py-2" role="status">
+        {row.status}
+        {row.status === "Status unavailable" && (
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => onUpdate({ ...row, status: "Pending" })}
+          >
+            Retry
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
 
 export function ReceiptForm() {
   const [receiptId, setReceiptId] = useState("");
-  const [executionId, setExecutionId] = useState(savedExecutionId);
-  const [status, setStatus] = useState(executionId ? "Pending" : "");
-  const [busy, setBusy] = useState(executionId !== null);
+  const [rows, setRows] = useState(loadReceipts);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState("");
+
+  const updateRow = useCallback((row: ReceiptRow) => {
+    saveReceipt(row);
+    setRows((current) => upsertReceipt(current, row));
+  }, []);
 
   useEffect(() => {
-    if (executionId === null) return;
-    const controller = new AbortController();
-
-    void Effect.runPromise(awaitReceipt(executionId), {
-      signal: controller.signal,
-    }).then(
-      (result) => {
-        setStatus(
-          result._tag === "Confirmed"
-            ? `Confirmed ${result.receiptId}`
-            : "Receipt failed.",
-        );
-        setBusy(false);
-      },
-      () => {
-        if (controller.signal.aborted) return;
-        setStatus("Could not check status. Refresh to try again.");
-        setBusy(false);
-      },
-    );
-
-    return () => controller.abort();
-  }, [executionId]);
+    const sync = (event: StorageEvent) => {
+      if (event.key === receiptHistoryKey) setRows(loadReceipts());
+    };
+    window.addEventListener("storage", sync);
+    return () => window.removeEventListener("storage", sync);
+  }, []);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (busy || receiptId.trim() === "") return;
-    setBusy(true);
-    setStatus("Starting receipt…");
-    setExecutionId(null);
-
-    void Effect.runPromise(startReceipt(receiptId.trim())).then(
-      (id) => {
-        saveExecutionId(id);
-        setStatus("Pending");
-        setExecutionId(id);
-      },
-      () => {
-        setStatus("Could not start the receipt. Try again.");
-        setBusy(false);
-      },
-    );
+    const id = receiptId.trim();
+    if (starting || !id) return;
+    setError("");
+    setStarting(true);
+    void Effect.runPromise(startReceipt(id))
+      .then(
+        (executionId) => {
+          if (!rows.some((row) => row.executionId === executionId)) {
+            updateRow({ receiptId: id, executionId, status: "Pending" });
+          }
+          setReceiptId((current) => (current.trim() === id ? "" : current));
+        },
+        () => setError("Could not start the receipt. Try again."),
+      )
+      .finally(() => setStarting(false));
   }
 
   return (
@@ -73,16 +114,53 @@ export function ReceiptForm() {
         <button
           className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
           type="submit"
-          disabled={busy || receiptId.trim() === ""}
+          disabled={starting || !receiptId.trim()}
         >
-          Start receipt
+          {starting ? "Starting…" : "Start receipt"}
         </button>
       </form>
-      <p className="mt-4" role="status">
-        {status}
+      {error && (
+        <p role="alert" className="mt-3">
+          {error}
+        </p>
+      )}
+      <h3 className="mt-6 font-medium">Receipt history</h3>
+      <p className="mb-2 text-sm text-muted-foreground">
+        Submissions from this browser.
       </p>
-      {executionId && (
-        <code className="block break-all text-xs">{executionId}</code>
+      {rows.length === 0 ? (
+        <p className="text-sm">No receipts yet.</p>
+      ) : (
+        <div
+          className="max-h-72 overflow-auto"
+          tabIndex={0}
+          aria-label="Scrollable receipt history"
+        >
+          <table
+            aria-label="Receipt history"
+            className="w-full table-fixed text-sm"
+          >
+            <thead>
+              <tr>
+                <th scope="col" className="w-2/3 text-left">
+                  Receipt
+                </th>
+                <th scope="col" className="text-left">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <ReceiptStatusRow
+                  key={row.executionId}
+                  row={row}
+                  onUpdate={updateRow}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </section>
   );

@@ -27,6 +27,11 @@ const browserClient = {
   path: "{{targetPath}}/src/lib/receipt-client.ts",
   contents: template("./workflow-receipt-client/src/lib/receipt-client.ts"),
 } as const;
+const browserHistory = {
+  _tag: "file" as const,
+  path: "{{targetPath}}/src/lib/receipt-history.ts",
+  contents: template("./workflow-receipt-client/src/lib/receipt-history.ts"),
+} as const;
 const foldkitImport = {
   moduleSpecifier: "./features/receipt",
   namespaceImport: "Receipt",
@@ -132,6 +137,7 @@ export const receiptApp = defineModules(import.meta.url, [
     contributions: [
       workspaceDependency("@repo/domain"),
       browserClient,
+      browserHistory,
       {
         _tag: "file",
         path: "{{targetPath}}/src/components/receipt-form.tsx",
@@ -161,6 +167,7 @@ export const receiptApp = defineModules(import.meta.url, [
     contributions: [
       workspaceDependency("@repo/domain"),
       browserClient,
+      browserHistory,
       {
         _tag: "file",
         path: "{{targetPath}}/src/features/receipt.ts",
@@ -207,6 +214,20 @@ export const receiptApp = defineModules(import.meta.url, [
         functionName: "Init.compose",
         argument: `Init.child(Receipt, "receipt", Receipt.GotMessage)`,
         import: foldkitImport,
+      },
+      {
+        _tag: "ts-call-arg",
+        path: foldkitMain,
+        targetVariable: "subscriptions",
+        functionName: "Subscription.aggregate",
+        argument: `Subscription.lift(Receipt.subscriptions)<Model, Message>({
+          read: (model) => Option.some(model.receipt),
+          toParentMessage: (message) => Receipt.GotMessage({ message }),
+        })`,
+        import: {
+          moduleSpecifier: "effect",
+          namedImports: ["Option"],
+        },
       },
       {
         _tag: "ts-call-arg",

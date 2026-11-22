@@ -30,12 +30,3 @@ export const awaitReceipt = Effect.fn("ReceiptClient.await")(function* (
     Effect.timeout("30 seconds"),
   );
 });
-
-export const savedExecutionId = () =>
-  new URL(window.location.href).searchParams.get("receiptExecution") || null;
-
-export const saveExecutionId = (executionId: string) => {
-  const url = new URL(window.location.href);
-  url.searchParams.set("receiptExecution", executionId);
-  window.history.replaceState(window.history.state, "", url);
-};
