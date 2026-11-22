@@ -34,7 +34,7 @@ export const discordInteractions = defineModules(import.meta.url, [
     title: "Discord Interaction Webhook",
     description:
       "Verify a signed Discord interaction and answer a protocol PING",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [httpApi],
     contributions: [
