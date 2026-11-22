@@ -381,6 +381,11 @@ export const targetGroup = defineTargets(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/src/ServerConfig.ts",
+        contents: template("./server/src/ServerConfig.ts"),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
         contents: template("./server/tsconfig.json"),
         conflictOnModify: true,

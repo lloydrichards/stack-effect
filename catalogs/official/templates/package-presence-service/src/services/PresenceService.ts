@@ -11,7 +11,6 @@ export type PresenceEventType = WebSocketEvent;
 export class PresenceService extends Context.Service<
   PresenceService,
   {
-    readonly pubsub: PubSub.PubSub<PresenceEventType>;
     readonly addClient: (
       clientId: typeof ClientId.Type,
       info: ClientInfo,
@@ -101,7 +100,6 @@ export class PresenceService extends Context.Service<
     const subscribe = Stream.fromPubSub(pubsub);
 
     return {
-      pubsub,
       addClient,
       removeClient,
       setStatus,

@@ -10,11 +10,10 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 import { SqlClient } from "effect/sql/SqlClient";
 
-const TodoRow = Schema.Struct({
-  id: Schema.String,
-  title: Schema.String,
-  completed: Schema.Union([Schema.Literal(0), Schema.Literal(1)]),
-});
+const TodoRow = Todo.mapFields((fields) => ({
+  ...fields,
+  completed: Schema.BooleanFromBit,
+}));
 
 const persistenceError = () =>
   new TodoPersistenceError({ message: "Todo persistence operation failed" });
@@ -24,12 +23,6 @@ const logPersistenceCause = (cause: unknown) =>
 
 const decodeTodo = (row: unknown) =>
   Schema.decodeUnknownEffect(TodoRow)(row).pipe(
-    Effect.flatMap((decoded) =>
-      Schema.decodeEffect(Todo)({
-        ...decoded,
-        completed: decoded.completed === 1,
-      }),
-    ),
     Effect.tapError(logPersistenceCause),
     Effect.mapError(persistenceError),
   );
