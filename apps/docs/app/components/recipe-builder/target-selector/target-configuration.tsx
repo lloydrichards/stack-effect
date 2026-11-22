@@ -50,6 +50,7 @@ type TargetConfigurationProps = {
     configuration: SupportConfiguration,
     moduleId: string,
   ) => void;
+  readonly requiredModules: ReadonlyArray<string> | undefined;
   readonly supportSelections: ReadonlyArray<SupportSelection>;
   readonly target: TargetInstance;
   readonly targetIndex: number;
@@ -64,6 +65,7 @@ function TargetConfiguration({
   onRemoveTarget,
   onToggleModule,
   onToggleSupportModule,
+  requiredModules,
   supportSelections,
   target,
   targetIndex,
@@ -95,6 +97,7 @@ function TargetConfiguration({
   const roots = publicRootModules(modules);
   const requiredModuleIds = new Set([
     ...presetModules,
+    ...(requiredModules ?? []),
     ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
       ?.requiredModules ?? []),
@@ -277,6 +280,7 @@ export function ActiveTargetConfiguration({
       onRemoveTarget={editor.removeTarget}
       onToggleModule={editor.toggleModule}
       onToggleSupportModule={editor.toggleSupportModule}
+      requiredModules={editor.activeRequiredModules}
       supportSelections={editor.supportSelections}
       target={target}
       targetIndex={editor.activeTargetIndex}

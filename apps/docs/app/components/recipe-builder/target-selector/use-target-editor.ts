@@ -1,5 +1,8 @@
+import { BlueprintNode } from "@repo/domain/Blueprint";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
+import { Option } from "effect";
+import { AsyncResult } from "effect/reactivity";
 import { useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
 import { CatalogModule } from "../../../workers/recipe-builder/domain";
@@ -8,6 +11,7 @@ import { usePresetTargets } from "../preset-targets";
 import {
   useRecipeBuilderCatalog,
   useRecipeBuilderFormContext,
+  useRecipeBuilderPreview,
 } from "../recipe-builder-context";
 import {
   makeTargetInstance,
@@ -26,23 +30,42 @@ export function useTargetEditor() {
     form.store,
     (state) => state.values.targets,
   );
-  const included = usePresetTargets().flatMap(({ preset, targets }) =>
-    targets
-      .filter(({ identity }) => identity.kind !== "workspace")
-      .map(({ identity }) => ({ identity, preset: preset.title })),
-  );
+  const { previewResult } = useRecipeBuilderPreview();
+  const blueprint = Option.getOrUndefined(
+    AsyncResult.value(previewResult),
+  )?.blueprint;
   const presetNames = new Map(
-    included.map(({ identity, preset }) => [ownerKey(identity), preset]),
+    usePresetTargets().flatMap(({ preset, targets }) =>
+      targets.map(({ identity }) => [ownerKey(identity), preset.title]),
+    ),
   );
+  const requiredModuleNodes = new Set(
+    blueprint?.edges
+      .filter(({ reason }) => reason === "required-module")
+      .map(({ to }) => to),
+  );
+  const resolvedTargets =
+    blueprint?.nodes.filter(BlueprintNode.guards.target) ?? [];
+  const requiredModulesByTarget = new Map<string, string[]>();
+  for (const node of blueprint?.nodes ?? []) {
+    if (node._tag !== "attached-module" || !requiredModuleNodes.has(node.id))
+      continue;
+    const modules = requiredModulesByTarget.get(node.targetId) ?? [];
+    modules.push(node.moduleId);
+    requiredModulesByTarget.set(node.targetId, modules);
+  }
+
   const targets = [...explicitTargets];
-  for (const { identity } of included) {
-    if (targets.some((target) => ownerKey(target) === ownerKey(identity)))
+  const explicitOwners = new Set(explicitTargets.map(ownerKey));
+  for (const { id, identity } of resolvedTargets) {
+    if (identity.kind === "workspace" || explicitOwners.has(ownerKey(identity)))
       continue;
     targets.push({
-      id: `preset:${ownerKey(identity)}`,
+      id: `resolved:${id}`,
       kind: identity.kind,
       name: identity.name,
       modules: [],
+      addedByDependency: true,
     });
   }
   const supportSelections = useSelector(
@@ -92,7 +115,7 @@ export function useTargetEditor() {
         toggleTargetModule(
           current.some((target) => target.id === activeTarget.id)
             ? current
-            : [...current, activeTarget],
+            : [...current, { ...activeTarget, addedByDependency: undefined }],
           activeTarget,
           module,
           activeModules,
@@ -145,7 +168,15 @@ export function useTargetEditor() {
     );
   };
 
+  const resolvedActiveTarget = resolvedTargets.find(
+    ({ identity }) =>
+      activeTarget && ownerKey(identity) === ownerKey(activeTarget),
+  );
+
   return {
+    activeRequiredModules: resolvedActiveTarget
+      ? requiredModulesByTarget.get(resolvedActiveTarget.id)
+      : undefined,
     activeTarget,
     activeTargetIndex,
     presetNames,

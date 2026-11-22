@@ -57,14 +57,19 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
       identity: target,
       modules: modules.map((id) => ({ id })),
     }));
-    const blueprintTargets = targets.map(({ identity }) => ({
+    const requiredServer = targets.find(({ modules }) =>
+      modules.some(({ id }) => id === "server-http-api"),
+    );
+    const domain = recipeCatalogFixture.targetModules.find(
+      ({ owner }) => owner.toKey() === "packages/domain",
+    );
+    const resolvedTargets =
+      requiredServer && domain
+        ? [...targets, { identity: domain.owner, modules: [] }]
+        : targets;
+    const blueprintTargets = resolvedTargets.map(({ identity }) => ({
       _tag: "target" as const,
-      id:
-        identity.kind === "workspace"
-          ? "."
-          : identity.kind === "package"
-            ? `packages/${identity.name}`
-            : `apps/${identity.kind}-${identity.name}`,
+      id: identity.toKey(),
       identity,
     }));
     return {
@@ -602,7 +607,7 @@ test("should generate a usable preview when the user completes a valid Selection
       "client-react/sdk/web:config-typescript-vite,client-react-http-api",
     );
   await expect
-    .element(page.getByText("3 resolved targets").first())
+    .element(page.getByText("4 resolved targets").first())
     .toBeVisible();
   await expect
     .element(
@@ -612,6 +617,12 @@ test("should generate a usable preview when the user completes a valid Selection
   await expect
     .element(page.getByRole("button", { name: "Copy command" }))
     .toBeEnabled();
+  const domainTarget = page.getByRole("button", {
+    name: "Configure modules for domain, package",
+  });
+  await expect.element(domainTarget).toBeVisible();
+  await page.getByText("HTTP API Client", { exact: true }).click();
+  await expect.element(domainTarget).not.toBeInTheDocument();
 });
 
 test("should require a database before selecting a database-backed module", async () => {
