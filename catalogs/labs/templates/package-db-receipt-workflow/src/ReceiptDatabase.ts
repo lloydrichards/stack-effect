@@ -37,5 +37,5 @@ export const ReceiptDatabaseLayer = Layer.fresh(SqliteLayer).pipe(
     ConfigProvider.layerAdd(workflowDatabaseProvider, { asPrimary: true }),
   ),
 );
-{{/if}}{{#if noModule=package-db-sqlite}}export { DatabaseLayer as ReceiptDatabaseLayer } from "./Migrations";
+{{/if}}{{#if noModule=package-db-sqlite}}export { PostgresLayer as ReceiptDatabaseLayer } from "./Database";
 {{/if}}
