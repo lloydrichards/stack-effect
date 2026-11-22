@@ -1,7 +1,6 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect Signature and HTTP responses.
-import { BunCrypto } from "@effect/platform-bun";
 import { Config, Effect, Layer, Option, Schema } from "effect";
-import { Signature } from "effect/crypto";
+import { SecureRandom, Signature } from "effect/crypto";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 
 const hex = Schema.decodeUnknownEffect(Schema.Uint8ArrayFromHex);
@@ -45,4 +44,8 @@ export const DiscordInteractions = HttpRouter.use((router) =>
       }),
     );
   }),
-).pipe(Layer.provide(BunCrypto.layerSignature));
+).pipe(
+  Layer.provide(
+    Signature.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto)),
+  ),
+);
