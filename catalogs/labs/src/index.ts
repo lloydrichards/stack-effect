@@ -1,6 +1,7 @@
 import { defineModules, templates, type CatalogInput } from "@repo/authoring";
 import { clusterCounter } from "./cluster-counter";
 import { counterClients } from "./cluster-counter-clients";
+import { discordInteractions } from "./discord-interactions";
 import { experiments } from "./experiments";
 import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
@@ -99,6 +100,7 @@ export const labsCatalog: CatalogInput = {
     counterClients,
     receiptWorkflow,
     receiptApp,
+    discordInteractions,
   ],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
