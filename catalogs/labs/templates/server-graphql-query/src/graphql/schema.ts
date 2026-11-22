@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Cause, Effect } from "effect";
 import {
   GraphQLError,
   GraphQLID,
@@ -36,6 +36,14 @@ export const makeSchema = ({ lookup }: typeof CatalogItems.Service) =>
                     }),
                   onSuccess: (item) => item,
                 }),
+                Effect.catchCauseIf(
+                  (cause) => !Cause.hasInterruptsOnly(cause),
+                  (cause) => Effect.logError(cause).pipe(
+                        Effect.as(new GraphQLError("Item lookup failed", {
+                          extensions: { code: "INTERNAL_SERVER_ERROR" },
+                        })),
+                      ),
+                ),
               ),
               { signal },
             ),
