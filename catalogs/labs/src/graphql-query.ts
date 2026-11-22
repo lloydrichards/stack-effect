@@ -10,7 +10,7 @@ export const graphqlQuery = defineModules(import.meta.url, [
     description:
       "Item shape and missing-item error for the GraphQL query example",
     visibility: "internal",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: domain }],
     dependencies: [],
     contributions: [
@@ -33,7 +33,7 @@ export const graphqlQuery = defineModules(import.meta.url, [
     title: "GraphQL Query Server",
     description:
       "Mount an item query backed by an injected Effect lookup service",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       {
