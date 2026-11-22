@@ -1082,6 +1082,39 @@ test("should keep the official catalog while a selected catalog requires it", as
     .toBeVisible();
 });
 
+test("should explain why retrying can fix a cached catalog mismatch", async () => {
+  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
+    message: "Selected catalogs do not compose.",
+    issues: [
+      { code: "missing-reference", message: "Required module is missing." },
+    ],
+    sources: [
+      {
+        name: "official",
+        sourceUrl: "https://example.test/official.json",
+        requires: [],
+        freshness: "cached",
+      },
+    ],
+  });
+
+  await renderRecipeBuilder();
+
+  await expect
+    .element(page.getByText("Required module is missing."))
+    .toBeVisible();
+  await expect
+    .element(
+      page.getByText(
+        "Used cached catalogs for official. Retry when the catalog sources are reachable.",
+      ),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Retry catalog" }))
+    .toBeEnabled();
+});
+
 test("should offer the official catalog when a selected catalog requires it", async () => {
   workerCalls.requiresOfficial = ["ext"];
   workerCalls.catalogFailure = new RecipeBuilderRpcFailure({

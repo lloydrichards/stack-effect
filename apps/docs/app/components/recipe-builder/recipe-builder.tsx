@@ -63,6 +63,9 @@ function RecipeNotices() {
   const catalogFailure = AsyncResult.isFailure(catalogResult)
     ? recipeBuilderRpcFailure(catalogResult.cause)
     : undefined;
+  const cachedFailureSources = catalogFailure?.sources
+    ?.filter((source) => source.freshness === "cached")
+    .map((source) => source.name);
   const catalogs = useSelector(
     form.store,
     (state) => state.values.config.catalogs,
@@ -170,6 +173,12 @@ function RecipeNotices() {
                   : "Could not load the recipe catalog."}
               </span>
             )}
+            {cachedFailureSources?.length ? (
+              <p className="w-full">
+                Used cached catalogs for {cachedFailureSources.join(", ")}.
+                Retry when the catalog sources are reachable.
+              </p>
+            ) : null}
             {missingOfficial ? (
               <Button
                 type="button"
