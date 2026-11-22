@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { SqliteLive } from "@repo/db";
+import { DatabaseConfig, SqliteLive } from "@repo/db";
 import { ReceiptApi, ReceiptStatus } from "@repo/domain/ReceiptApi";
 import { Receipt } from "@repo/workflow/Receipt";
 import { ClusterReceiptLive } from "@repo/workflow/ReceiptRuntime";
@@ -12,7 +12,17 @@ const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
   Layer.provide(
     ConfigProvider.layerAdd(
       Config.String("WORKFLOW_DATABASE_FILE").pipe(
-        Config.withDefault("data/receipt-workflow.sqlite"),
+        Config.option,
+        Config.mapEffect((override) =>
+          Option.match(override, {
+            onSome: Effect.succeed,
+            onNone: () =>
+              DatabaseConfig.pipe(
+                Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+                Effect.map(({ filename }) => filename.replace(/app\.sqlite$/, "receipt-workflow.sqlite")),
+              ),
+          }),
+        ),
         Config.map((filename) =>
           ConfigProvider.fromUnknown({ DATABASE_FILE: filename }),
         ),

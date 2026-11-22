@@ -1,15 +1,11 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
 import { Receipt, ReceiptId } from "@repo/workflow/Receipt";
-import { Console, Data, Effect, Option } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Argument, Command, Flag } from "effect/cli";
 import {
   DurableReceiptLive,
   MemoryReceiptLive,
 } from "../workflows/ReceiptRuntime";
-
-class ReceiptNotStarted extends Data.TaggedError("ReceiptNotStarted")<{
-  readonly message: string;
-}> {}
 
 export const workflow = Command.make(
   "workflow",
@@ -37,16 +33,6 @@ export const workflow = Command.make(
           yield* Console.log(`Confirmed ${id}`);
         }
         return;
-      }
-
-      if (mode === "resume") {
-        const executionId = yield* Receipt.executionId({ id });
-        const status = yield* Receipt.poll(executionId);
-        if (Option.isNone(status)) {
-          return yield* new ReceiptNotStarted({
-            message: `No suspended or completed receipt for ${id}. Run suspend first with the same DATABASE_FILE.`,
-          });
-        }
       }
 
       const confirmed = yield* Receipt.execute({ id });
