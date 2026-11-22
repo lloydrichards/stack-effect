@@ -1,3 +1,6 @@
+// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
+// Catalog contributors: apps/server-api#server-graphql-client:file
+
 // @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
 import {
   UpstreamItem,
@@ -19,7 +22,23 @@ export const makeItemLookup = Effect.gen(function* () {
   const client = yield* GraphQLClient.make(GraphQLGroup.make(FindItem));
 
   return Effect.fn("GraphQLItems.lookup")(function* (id: UpstreamItemId) {
-    const { item } = yield* client.FindItem({ id });
+    const { item } = yield* client.FindItem({ id }).pipe(
+      Effect.catchTag("GraphQLClientError", (error) =>
+        Effect.gen(function* () {
+          const { reason } = error;
+
+          if (
+            reason._tag === "ResponseError" &&
+            reason.errors.length === 1 &&
+            reason.errors[0].extensions?.["code"] === "ITEM_NOT_FOUND"
+          ) {
+            return yield* Effect.fail(UpstreamItemNotFound.make({ id }));
+          }
+
+          return yield* error;
+        }),
+      ),
+    );
 
     if (item === null) {
       return yield* Effect.fail(UpstreamItemNotFound.make({ id }));
