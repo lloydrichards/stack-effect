@@ -48,18 +48,20 @@ export const receiptApp = defineModules(import.meta.url, [
     supportedOn: [{ _tag: "identity", identity: domain }],
     dependencies: [],
     contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/ReceiptApi.ts",
-        contents: template("./domain-receipt-api/src/ReceiptApi.ts"),
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "exports",
-        name: "./ReceiptApi",
-        value: "./src/ReceiptApi.ts",
-      },
+      ...["Receipt", "ReceiptApi"].flatMap((file) => [
+        {
+          _tag: "file" as const,
+          path: `{{targetPath}}/src/${file}.ts`,
+          contents: template(`./domain-receipt-api/src/${file}.ts`),
+        },
+        {
+          _tag: "pkg-json-entry" as const,
+          path: "{{targetPath}}/package.json",
+          field: "exports" as const,
+          name: `./${file}`,
+          value: `./src/${file}.ts`,
+        },
+      ]),
     ],
   },
   {
@@ -95,6 +97,13 @@ export const receiptApp = defineModules(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/src/workflows/ReceiptRuntime.ts",
+        contents: template(
+          "./server-workflow-receipt/src/workflows/ReceiptRuntime.ts",
+        ),
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/RECEIPTS.md",
         contents: template("./server-workflow-receipt/RECEIPTS.md"),
       },
@@ -106,7 +115,7 @@ export const receiptApp = defineModules(import.meta.url, [
         functionName: "Layer.mergeAll",
         argument: "ReceiptRuntimeLive",
         import: {
-          moduleSpecifier: "./api/Receipt",
+          moduleSpecifier: "./workflows/ReceiptRuntime",
           namedImports: ["ReceiptRuntimeLive"],
         },
       },
