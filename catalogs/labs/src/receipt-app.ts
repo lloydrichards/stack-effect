@@ -80,6 +80,11 @@ export const receiptApp = defineModules(import.meta.url, [
       },
       {
         _tag: "required-module",
+        target: server,
+        moduleId: "server-sqlite-dev-permission",
+      },
+      {
+        _tag: "required-module",
         target: { kind: "package", name: "workflow" },
         moduleId: "package-receipt-workflow",
       },
