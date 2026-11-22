@@ -1,14 +1,17 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
+import { ReceiptWriteError } from "@repo/domain/Receipt";
 import { Effect, Layer } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { SqlClient } from "effect/sql";
-import { ReceiptLive, ReceiptWriteError, Receipts } from "./Receipt.js";
+import { ReceiptLive, Receipts } from "./Receipt.js";
 
 const SqlReceipts = Layer.effect(
   Receipts,
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
+
     yield* sql`CREATE TABLE IF NOT EXISTS workflow_receipts (id TEXT PRIMARY KEY)`;
+
     return {
       record: Effect.fn("SqlReceipts.record")((id: string) =>
         sql`INSERT INTO workflow_receipts (id) VALUES (${id}) ON CONFLICT (id) DO NOTHING`.pipe(

@@ -1,25 +1,22 @@
+import { ReceiptExecutionId, ReceiptId, ReceiptStatus } from "@repo/domain/Receipt";
 import { Schema } from "effect";
 
 export const ReceiptRow = Schema.Struct({
-  receiptId: Schema.String,
-  executionId: Schema.String,
-  status: Schema.Literals([
-    "Pending",
-    "Confirmed",
-    "Failed",
-    "Status unavailable",
-  ]),
+  receiptId: ReceiptId,
+  executionId: ReceiptExecutionId,
+  status: Schema.Union([ReceiptStatus.cases.Pending.fields._tag, ReceiptStatus.cases.Confirmed.fields._tag, ReceiptStatus.cases.Failed.fields._tag, Schema.Literal("Status unavailable")]),
 });
 export type ReceiptRow = typeof ReceiptRow.Type;
 const Rows = Schema.Array(ReceiptRow);
 const JsonRows = Schema.fromJsonString(Rows);
 const decode = Schema.decodeUnknownOption(JsonRows);
 const encode = Schema.encodeOption(JsonRows);
-export const receiptHistoryKey = "stack-effect-receipt-preview-history";
+export const receiptHistoryKey = "stack-effect:receipt-history";
+const legacyHistoryKey = "stack-effect-receipt-preview-history";
 
 export function loadReceipts(): readonly ReceiptRow[] {
   try {
-    const result = decode(localStorage.getItem(receiptHistoryKey) ?? "[]");
+    const result = decode(localStorage.getItem(receiptHistoryKey) ?? localStorage.getItem(legacyHistoryKey) ?? "[]");
     return result._tag === "Some" ? result.value : [];
   } catch {
     return [];

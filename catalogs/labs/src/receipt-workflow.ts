@@ -2,6 +2,11 @@ import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const workflow = { kind: "package", name: "workflow" };
+const domainDependency = {
+  _tag: "required-module",
+  target: { kind: "package", name: "domain" },
+  moduleId: "domain-receipt-api",
+} as const;
 
 export const receiptWorkflow = defineModules(import.meta.url, [
   {
@@ -12,8 +17,15 @@ export const receiptWorkflow = defineModules(import.meta.url, [
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: workflow }],
-    dependencies: [],
+    dependencies: [domainDependency],
     contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@repo/domain",
+        value: "{{workspaceDependency}}",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/src/Receipt.ts",
@@ -80,7 +92,7 @@ export const receiptWorkflow = defineModules(import.meta.url, [
           "./cli-workflow-receipt/src/workflows/ReceiptRuntime.ts",
         ),
       },
-      ...["@repo/db", "@repo/workflow"].map((name) => ({
+      ...["@repo/db", "@repo/domain", "@repo/workflow"].map((name) => ({
         _tag: "pkg-json-entry" as const,
         path: "{{targetPath}}/package.json",
         field: "dependencies" as const,

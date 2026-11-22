@@ -13,7 +13,7 @@ It prints `Recorded memory-demo`, waits five seconds, then prints `Confirmed mem
 Use a fresh SQLite file. Keep the same file and receipt ID for both commands.
 
 ```bash
-export DATABASE_FILE="$(mktemp -d)/workflow.sqlite"
+export RECEIPT_CLI_DATABASE_FILE="$(mktemp -d)/workflow.sqlite"
 {{#if runtime=bun}}bun src/index.ts{{/if}}{{#if runtime=node}}node --import tsx src/index.ts{{/if}}{{#if runtime=deno}}deno task workflow:run{{/if}} workflow durable-demo --mode suspend
 # Recorded durable-demo
 # Suspended durable-demo
@@ -25,13 +25,15 @@ sleep 6
 
 The first command exits after polling a persisted `Suspended` result. The wait becomes due while the CLI is stopped. The second command starts a new local runner and joins the same execution. It prints the confirmation without running `RecordReceipt` again. Run `resume` a second time to read the stored result.
 
-{{#if runtime=deno}}To use the compiled Deno CLI, run `deno task build` and substitute `./dist/{{packageName}}` for `deno task workflow:run`. Keep using an absolute `DATABASE_FILE` in durable mode.
+The CLI defaults to `.cache/receipt-cli.sqlite` relative to its working directory. `DATABASE_FILE` is a fallback for existing scripts when `RECEIPT_CLI_DATABASE_FILE` is unset.
+
+{{#if runtime=deno}}To use the compiled Deno CLI, run `deno task build` and substitute `./dist/{{packageName}}` for `deno task workflow:run`. Keep using an absolute `RECEIPT_CLI_DATABASE_FILE` in durable mode.
 
 ### Add the workflow to an existing Deno CLI
 
 If Stack Effect reports a manifest conflict, skip the override. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
 
-1. In this CLI's `package.json`, add `"@repo/db": "workspace:*"` and `"@repo/workflow": "workspace:*"` to the existing `dependencies`.
+1. In this CLI's `package.json`, add `@repo/db`, `@repo/domain`, and `@repo/workflow` with the range `workspace:*` to the existing `dependencies`.
 2. Add `"workflow:run": "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts"` to the existing `scripts`. For a compiled CLI, add `--allow-ffi` before the entry point in the existing `deno compile` command.
 3. Resolve any other conflicts reported by `stack-effect add`. Run `deno install` from the workspace root before trying the commands above.
 

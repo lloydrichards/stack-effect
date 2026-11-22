@@ -1,4 +1,4 @@
-import { ReceiptStatus } from "@repo/domain/ReceiptApi";
+import { ReceiptExecutionId, ReceiptId, ReceiptStatus } from "@repo/domain/Receipt";
 import { Effect, Match, Schema, Stream } from "effect";
 import { Command, Subscription } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
@@ -24,19 +24,19 @@ const InputChanged = message("InputChanged", { value: Schema.String });
 const Submitted = message("Submitted");
 const Started = message("Started", {
   receiptId: Schema.String,
-  executionId: Schema.String,
+  executionId: ReceiptExecutionId,
 });
 const StartFailed = message("StartFailed");
 const Finished = message("Finished", {
-  executionId: Schema.String,
+  executionId: ReceiptExecutionId,
   status: ReceiptStatus,
 });
-const PollFailed = message("PollFailed", { executionId: Schema.String });
+const PollFailed = message("PollFailed", { executionId: ReceiptExecutionId });
 const HistorySaved = message("HistorySaved");
 const HistoryChanged = message("HistoryChanged", {
   rows: Schema.Array(ReceiptRow),
 });
-const Retry = message("Retry", { executionId: Schema.String });
+const Retry = message("Retry", { executionId: ReceiptExecutionId });
 const Message = Schema.Union([
   InputChanged,
   Submitted,
@@ -52,7 +52,7 @@ type Message = typeof Message.Type;
 export const GotMessage = message("GotReceiptMessage", { message: Message });
 
 const Start = Command.define("StartReceipt", {
-  args: { receiptId: Schema.String },
+  args: { receiptId: ReceiptId },
   messages: [Started, StartFailed],
   execute: ({ receiptId }) =>
     startReceipt(receiptId).pipe(
@@ -62,7 +62,7 @@ const Start = Command.define("StartReceipt", {
 });
 
 const Wait = Command.define("AwaitReceipt", {
-  args: { executionId: Schema.String },
+  args: { executionId: ReceiptExecutionId },
   messages: [Finished, PollFailed],
   execute: ({ executionId }) =>
     awaitReceipt(executionId).pipe(
@@ -190,22 +190,19 @@ export const update = (model: Model, event: Message): Update =>
     }),
   );
 
-export const view = <ParentMessage>(
+const receiptForm = <ParentMessage>(
   model: Model,
   toParent: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
-  h.section(
-    [h.Class("rounded-lg border bg-card p-6 text-card-foreground")],
-    [
-      h.h2([h.Class("mb-4 font-semibold")], ["Receipt workflow"]),
+  h.div([h.Class("space-y-3")], [
       h.form(
         [h.Class("flex flex-col gap-3"), h.OnSubmit(toParent(Submitted()))],
         [
           h.label([h.For("receipt-id")], ["Receipt ID"]),
           h.input([
             h.Id("receipt-id"),
-            h.Class("rounded-md border bg-background p-2"),
+            h.Class("rounded-md border border-input bg-background p-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"),
             h.Value(model.receiptId),
             h.Required(true),
             h.OnInput((value) => toParent(InputChanged({ value }))),
@@ -214,7 +211,7 @@ export const view = <ParentMessage>(
             [
               h.Type("submit"),
               h.Class(
-                "rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50",
+                "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
               ),
               h.Disabled(model.starting || !model.receiptId.trim()),
             ],
@@ -225,93 +222,68 @@ export const view = <ParentMessage>(
       ...(model.error
         ? [h.p([h.Role("alert"), h.Class("mt-3")], [model.error])]
         : []),
-      h.h3([h.Class("mt-6 font-medium")], ["Receipt history"]),
-      h.p(
-        [h.Class("mb-2 text-sm text-muted-foreground")],
-        ["Submissions from this browser."],
+  ]);
+
+const receiptRow = <ParentMessage>(
+  row: ReceiptRow,
+  toParent: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
+): Html =>
+  h.tr([h.Class("border-t align-top")], [
+    h.th([h.Class("break-all py-2 pr-4 text-left font-medium")], [
+      row.receiptId,
+      h.code(
+        [h.Class("block break-all text-xs font-normal text-muted-foreground")],
+        [row.executionId],
       ),
-      model.rows.length === 0
-        ? h.p([h.Class("text-sm")], ["No receipts yet."])
-        : h.div(
+    ]),
+    h.td([h.Class("py-2"), h.Role("status")], [
+      row.status,
+      ...(row.status === "Status unavailable"
+        ? [h.button(
+            [h.Type("button"), h.Class("ml-2 rounded-sm underline focus-visible:ring-2 focus-visible:ring-ring"), h.OnClick(toParent(Retry({ executionId: row.executionId })))],
+            ["Retry"],
+          )]
+        : []),
+    ]),
+  ]);
+
+const receiptHistory = <ParentMessage>(
+  model: Model,
+  toParent: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
+): Html =>
+  h.div([], [
+    h.h3([h.Class("mt-6 font-medium")], ["Receipt history"]),
+    h.p([h.Class("mb-2 text-sm text-muted-foreground")], ["Submissions from this browser."]),
+    model.rows.length === 0
+      ? h.p([h.Class("text-sm")], ["No receipts yet."])
+      : h.div(
+          [h.Class("max-h-72 overflow-auto"), h.Tabindex(0), h.AriaLabel("Scrollable receipt history")],
+          [h.table(
+            [h.AriaLabel("Receipt history"), h.Class("w-full table-fixed text-sm")],
             [
-              h.Class("max-h-72 overflow-auto"),
-              h.Tabindex(0),
-              h.AriaLabel("Scrollable receipt history"),
+              h.thead([], [
+                h.tr([], [
+                  h.th([h.Class("w-2/3 text-left")], ["Receipt"]),
+                  h.th([h.Class("text-left")], ["Status"]),
+                ]),
+              ]),
+              h.tbody([], model.rows.map((row) => receiptRow(row, toParent, h))),
             ],
-            [
-              h.table(
-                [
-                  h.AriaLabel("Receipt history"),
-                  h.Class("w-full table-fixed text-sm"),
-                ],
-                [
-                  h.thead(
-                    [],
-                    [
-                      h.tr(
-                        [],
-                        [
-                          h.th([h.Class("w-2/3 text-left")], ["Receipt"]),
-                          h.th([h.Class("text-left")], ["Status"]),
-                        ],
-                      ),
-                    ],
-                  ),
-                  h.tbody(
-                    [],
-                    model.rows.map((row) =>
-                      h.tr(
-                        [h.Class("border-t align-top")],
-                        [
-                          h.th(
-                            [
-                              h.Class(
-                                "break-all py-2 pr-4 text-left font-medium",
-                              ),
-                            ],
-                            [
-                              row.receiptId,
-                              h.code(
-                                [
-                                  h.Class(
-                                    "block break-all text-xs font-normal text-muted-foreground",
-                                  ),
-                                ],
-                                [row.executionId],
-                              ),
-                            ],
-                          ),
-                          h.td(
-                            [h.Class("py-2"), h.Role("status")],
-                            [
-                              row.status,
-                              ...(row.status === "Status unavailable"
-                                ? [
-                                    h.button(
-                                      [
-                                        h.Type("button"),
-                                        h.Class("ml-2 underline"),
-                                        h.OnClick(
-                                          toParent(
-                                            Retry({
-                                              executionId: row.executionId,
-                                            }),
-                                          ),
-                                        ),
-                                      ],
-                                      ["Retry"],
-                                    ),
-                                  ]
-                                : []),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-    ],
-  );
+          )],
+        ),
+  ]);
+
+export const view = <ParentMessage>(
+  model: Model,
+  toParent: (message: Message) => ParentMessage,
+  h: HtmlBuilder<ParentMessage>,
+): Html =>
+  h.section([h.Class("rounded-lg border border-border bg-card text-card-foreground shadow-sm")], [
+    h.h2([h.Class("border-b border-border p-6 font-semibold leading-none tracking-tight")], ["Receipt workflow"]),
+    h.div([h.Class("p-6 pt-4")], [
+      receiptForm(model, toParent, h),
+      receiptHistory(model, toParent, h),
+    ]),
+  ]);

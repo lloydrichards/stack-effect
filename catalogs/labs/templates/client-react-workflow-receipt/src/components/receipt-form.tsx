@@ -1,3 +1,9 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
+// Catalog contributors: apps/client-react-receipts#client-react-workflow-receipt:file
+
 import { Effect } from "effect";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { awaitReceipt, startReceipt } from "../lib/receipt-client";
@@ -48,13 +54,14 @@ function ReceiptStatusRow({
       <td className="py-2" role="status">
         {row.status}
         {row.status === "Status unavailable" && (
-          <button
+          <Button
             type="button"
-            className="ml-2 underline"
+            variant="link"
+            size="sm"
             onClick={() => onUpdate({ ...row, status: "Pending" })}
           >
             Retry
-          </button>
+          </Button>
         )}
       </td>
     </tr>
@@ -100,24 +107,25 @@ export function ReceiptForm() {
   }
 
   return (
-    <section className="rounded-lg border bg-card p-6 text-card-foreground">
-      <h2 className="mb-4 font-semibold">Receipt workflow</h2>
+    <Card>
+      <CardHeader>
+        <CardTitle>Receipt workflow</CardTitle>
+      </CardHeader>
+      <CardContent>
       <form className="flex flex-col gap-3" onSubmit={submit}>
         <label htmlFor="receipt-id">Receipt ID</label>
-        <input
+        <Input
           id="receipt-id"
-          className="rounded-md border bg-background p-2"
           value={receiptId}
           onChange={(event) => setReceiptId(event.target.value)}
           required
         />
-        <button
-          className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50"
+        <Button
           type="submit"
           disabled={starting || !receiptId.trim()}
         >
           {starting ? "Starting…" : "Start receipt"}
-        </button>
+        </Button>
       </form>
       {error && (
         <p role="alert" className="mt-3">
@@ -162,6 +170,7 @@ export function ReceiptForm() {
           </table>
         </div>
       )}
-    </section>
+      </CardContent>
+    </Card>
   );
 }
