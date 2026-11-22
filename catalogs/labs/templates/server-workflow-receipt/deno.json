@@ -1,6 +1,0 @@
-{
-  "tasks": {
-    "dev": "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
-    "dev:watch": "deno run --watch --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts"
-  }
-}
