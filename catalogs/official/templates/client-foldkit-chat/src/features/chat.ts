@@ -11,7 +11,7 @@ import { Command, Subscription } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { taggedStruct as m } from "foldkit/schema";
 import { modifyFields as evo } from "foldkit/struct";
-import { ChatClient, ChatClientLayer } from "../services/chat-client";
+import { ChatClient } from "../services/chat-client";
 
 const ChatMessageSchema = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "system"]),
@@ -283,7 +283,7 @@ export const StartChat = Command.define("StartChat", {
       Effect.orElseSucceed(() =>
         FailedStartChat({ error: "Failed to start chat" }),
       ),
-      Effect.provide(ChatClientLayer),
+      Effect.provide(ChatClient.layer),
     ),
 });
 
@@ -337,7 +337,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
               Stream.catch(() =>
                 Stream.make(FailedChatStream({ error: "Chat stream failed" })),
               ),
-              Stream.provide(ChatClientLayer),
+              Stream.provide(ChatClient.layer),
             )
           : Stream.empty,
     },

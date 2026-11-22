@@ -1,7 +1,7 @@
 import { ChatRpc } from "@repo/domain/ChatRpc";
 import { Effect, Layer } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
-import { ChatRuntime, ChatRuntimeLayer } from "../runtime/ChatRuntime";
+import { ChatRuntime } from "../runtime/ChatRuntime";
 
 const ChatRpcHandlers = ChatRpc.toLayer(
   Effect.gen(function* () {
@@ -22,5 +22,5 @@ export const ChatRpcRoutes = RpcServer.layerHttp({
 }).pipe(
   Layer.provide(ChatRpcHandlers),
   Layer.provide(RpcSerialization.layerNdjson),
-  Layer.provide(ChatRuntimeLayer),
+  Layer.provide(ChatRuntime.layer),
 );

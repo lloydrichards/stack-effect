@@ -89,11 +89,11 @@ export const makeMcpPrompts: Effect.Effect<
 
 export class McpPrompts extends Context.Service<McpPrompts, McpPromptsShape>()(
   "McpPrompts",
-) {}
-
-export const McpPromptsLayer = Layer.effect(McpPrompts)(makeMcpPrompts).pipe(
-  Layer.provide(McpClientLayer),
-);
+) {
+  static readonly layer = Layer.effect(McpPrompts)(makeMcpPrompts).pipe(
+    Layer.provide(McpClientLayer),
+  );
+}
 
 export const readMcpPrompt = Effect.gen(function* () {
   const prompts = yield* McpPrompts;

@@ -185,10 +185,10 @@ export const chatMcpModules = defineModules(
                         ? "ChatRuntimeDependencies"
                         : "TerminalChatDependencies",
                     functionName: "Layer.mergeAll",
-                    argument: "McpPromptsLayer",
+                    argument: "McpPrompts.layer",
                     import: {
                       moduleSpecifier: `../mcp/McpPrompts`,
-                      namedImports: ["McpPromptsLayer"],
+                      namedImports: ["McpPrompts"],
                     },
                   },
                   {
@@ -222,10 +222,10 @@ export const chatMcpModules = defineModules(
                       path: "{{targetPath}}/src/chat/ChatCommandConfiguration.ts",
                       targetVariable: "ChatCommandDependencies",
                       functionName: "Layer.mergeAll",
-                      argument: "McpPromptsLayer",
+                      argument: "McpPrompts.layer",
                       import: {
                         moduleSpecifier: "../mcp/McpPrompts",
-                        namedImports: ["McpPromptsLayer"],
+                        namedImports: ["McpPrompts"],
                       },
                     },
                     {

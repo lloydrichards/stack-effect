@@ -22,7 +22,7 @@ export class RpcClient extends Context.Service<RpcClient>()("RpcClient", {
     } as const;
   }),
 }) {
-  static layer = Layer.effect(RpcClient)(RpcClient.make).pipe(
+  static readonly layer = Layer.effect(RpcClient)(RpcClient.make).pipe(
     Layer.provide(HttpProtocolLayer),
   );
 }

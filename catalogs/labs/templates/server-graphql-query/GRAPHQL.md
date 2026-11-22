@@ -12,4 +12,4 @@ The server returns `{"data":{"item":{"id":"demo","name":"Demo item"}}}`. Change 
 
 The domain defines `CatalogItemId`, `CatalogItem`, and `CatalogItemNotFound`. The `CatalogItems` service owns lookup behavior and its in-memory layer supplies the demo item. The resolver validates the ID, delegates the lookup to the service, and translates lookup failures into GraphQL field errors. The HTTP route reads the JSON request, runs GraphQL.js, and sends the result.
 
-To look up real items, replace `CatalogItemsMemory` in the server's `RouterDependencies` with a layer that implements the same service. The resolver and GraphQL schema can stay the same. Use the same seam to inject a fixture service in a test.
+To look up real items, replace `CatalogItems.layerMemory` in the server's `RouterDependencies` with a layer that implements the same service. The resolver and GraphQL schema can stay the same. Use the same seam to inject a fixture service in a test.

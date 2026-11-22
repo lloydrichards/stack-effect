@@ -12,14 +12,14 @@ export class CatalogItems extends Context.Service<
       id: CatalogItemId,
     ) => Effect.Effect<CatalogItem, CatalogItemNotFound>;
   }
->()("example/CatalogItems") {}
+>()("example/CatalogItems") {
+  static readonly layerMemory = Layer.succeed(CatalogItems, {
+    lookup: Effect.fn("CatalogItems.lookup")(function* (id: CatalogItemId) {
+      if (id !== "demo") {
+        return yield* Effect.fail(CatalogItemNotFound.make({ id }));
+      }
 
-export const CatalogItemsMemory = Layer.succeed(CatalogItems, {
-  lookup: Effect.fn("CatalogItems.lookup")(function* (id: CatalogItemId) {
-    if (id !== "demo") {
-      return yield* Effect.fail(CatalogItemNotFound.make({ id }));
-    }
-
-    return { id, name: "Demo item" };
-  }),
-});
+      return { id, name: "Demo item" };
+    }),
+  });
+}
