@@ -7,13 +7,16 @@ import { CatalogItems } from "../services/CatalogItems";
 
 const GraphQLRequest = Schema.Struct({
   query: Schema.NonEmptyString,
-  variables: Schema.optionalKey(Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown))),
+  variables: Schema.optionalKey(
+    Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
+  ),
   operationName: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 export const GraphQLRouteLive = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const schema = makeSchema(yield* CatalogItems);
+
     yield* router.add(
       "POST",
       "/graphql",
@@ -37,6 +40,7 @@ export const GraphQLRouteLive = HttpRouter.use((router) =>
                   contextValue: signal,
                 }),
               );
+
               return yield* HttpServerResponse.json(result, {
                 status: result.data === undefined ? 400 : 200,
               });
