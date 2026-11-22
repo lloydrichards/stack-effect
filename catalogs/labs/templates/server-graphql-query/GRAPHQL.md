@@ -1,6 +1,6 @@
 # Query an item through GraphQL
 
-From this server directory, run `{{#if runtime=bun}}bun run dev{{/if}}{{#if runtime=node}}pnpm run dev{{/if}}{{#if runtime=deno}}deno task dev{{/if}}`. With the default port, send a query with an ID variable.
+From this server directory, run `{{runCommand}} dev`. With the default port, send a query with an ID variable.
 
 ```bash
 curl http://localhost:9000/graphql \
