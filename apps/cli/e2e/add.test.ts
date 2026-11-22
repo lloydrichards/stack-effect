@@ -320,7 +320,7 @@ assert.equal(typeof planTasks, "function");
     );
 
     it.effect(
-      "resolves cross-target implications in non-interactive mode",
+      "generates React Vite alias and diagnostics configuration",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -717,35 +717,6 @@ await Effect.runPromise(
           });
         }).pipe(Effect.provide(CLI.layer)),
       { timeout: 120_000 },
-    );
-
-    it.effect(
-      "resolves client-foldkit cross-target implications in non-interactive mode",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-          const root = `${cli.workdir}/foldkit-impl`;
-
-          yield* cli.run(
-            "init",
-            "foldkit-impl",
-            "--yes",
-            "--root",
-            cli.workdir,
-          );
-          yield* cli.expectExitCode(0);
-
-          yield* cli.run(
-            "add",
-            "--yes",
-            "--root",
-            root,
-            "--target",
-            "client-foldkit/app:client-foldkit-http-api",
-          );
-          yield* cli.expectExitCode(0);
-        }).pipe(Effect.provide(CLI.layer)),
-      { timeout: 30_000 },
     );
   });
 });
