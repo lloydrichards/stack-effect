@@ -18,7 +18,16 @@ Enter a fresh receipt ID and submit the form. Refresh while it shows **Pending**
 
 The React and Foldkit forms use the same typed HTTP client helper. React polls from an effect, while Foldkit models submission and polling as commands. Browser code stays independent of SQLite and Cluster.
 
-{{#if runtime=deno}}When adding receipts to an existing Deno server, accept the generated `package.json` changes for `dev` and `dev:watch`. If you merge customized tasks by hand, add `--allow-ffi` to both.
+{{#if runtime=deno}}## Configure a compiled server
 
 A compiled Deno server requires `WORKFLOW_DATABASE_FILE` to point to an absolute writable path outside the executable. Set it before running the binary.
+
+## Add receipts to an existing Deno server
+
+If Stack Effect reports a manifest conflict, skip the override. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
+
+1. In this server's `package.json`, add `"@repo/db": "workspace:*"` and `"@repo/workflow": "workspace:*"` to the existing `dependencies`.
+2. Add `--allow-ffi` before the entry point in the existing `dev` and `dev:watch` commands. If the server's `deno compile` command lacks `--allow-ffi`, add it there too.
+3. If Stack Effect skipped the domain manifest, add `"./ReceiptApi": "./src/ReceiptApi.ts"` to `exports` in `packages/domain/package.json`.
+4. Resolve any other conflicts reported by `stack-effect add`. Run `deno install` from the workspace root before starting the server.
 {{/if}}

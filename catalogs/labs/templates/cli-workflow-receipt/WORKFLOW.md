@@ -25,7 +25,15 @@ sleep 6
 
 The first command exits after polling a persisted `Suspended` result. The wait becomes due while the CLI is stopped. The second command starts a new local runner and joins the same execution. It prints the confirmation without running `RecordReceipt` again. Run `resume` a second time to read the stored result.
 
-{{#if runtime=deno}}To use the compiled Deno CLI, run `deno task build` and substitute `./dist/{{packageName}}` for `deno task workflow:run`. Keep using an absolute `DATABASE_FILE` in durable mode. When adding the module to an existing Deno CLI, accept the generated `package.json` build change or add `--allow-ffi` to your `deno compile` command.
+{{#if runtime=deno}}To use the compiled Deno CLI, run `deno task build` and substitute `./dist/{{packageName}}` for `deno task workflow:run`. Keep using an absolute `DATABASE_FILE` in durable mode.
+
+### Add the workflow to an existing Deno CLI
+
+If Stack Effect reports a manifest conflict, skip the override. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
+
+1. In this CLI's `package.json`, add `"@repo/db": "workspace:*"` and `"@repo/workflow": "workspace:*"` to the existing `dependencies`.
+2. Add `"workflow:run": "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts"` to the existing `scripts`. For a compiled CLI, add `--allow-ffi` before the entry point in the existing `deno compile` command.
+3. Resolve any other conflicts reported by `stack-effect add`. Run `deno install` from the workspace root before trying the commands above.
 
 {{/if}}## Follow the wiring
 
