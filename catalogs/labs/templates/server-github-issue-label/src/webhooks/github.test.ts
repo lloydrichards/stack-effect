@@ -1,4 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off The fixture signs independently of the adapter.
+// @effect-diagnostics asyncFunction:off The Vitest fixture awaits the web handler and its cleanup.
 import { createHmac } from "node:crypto";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { HttpRouter } from "effect/http";

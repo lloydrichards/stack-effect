@@ -1,5 +1,4 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect Mac and HTTP responses.
-import { BunCrypto } from "@effect/platform-bun";
 import {
   Config,
   Effect,
@@ -9,7 +8,7 @@ import {
   Schema,
   String,
 } from "effect";
-import { Mac } from "effect/crypto";
+import { Mac, SecureRandom } from "effect/crypto";
 import { HttpRouter, HttpServerResponse } from "effect/http";
 import { chooseIssueLabel, GitHubLabels } from "./issue-label";
 
@@ -74,4 +73,8 @@ export const GitHubIssueWebhook = HttpRouter.use((router) =>
       }),
     );
   }),
-).pipe(Layer.provide(BunCrypto.layerMac));
+).pipe(
+  Layer.provide(
+    Mac.layerWebCrypto.pipe(Layer.provide(SecureRandom.layerWebCrypto)),
+  ),
+);

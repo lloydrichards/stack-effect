@@ -34,7 +34,7 @@ export const githubIssueWebhook = defineModules(import.meta.url, [
     title: "GitHub Issue Label Webhook",
     description:
       "Verify a signed issue delivery and apply one allowlisted label through an injected client",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [httpApi],
     contributions: [
