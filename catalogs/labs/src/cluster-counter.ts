@@ -15,7 +15,7 @@ export const clusterCounter = defineModules(import.meta.url, [
     title: "Counter API Contracts",
     description: "Shared counter ID, response, and HTTP endpoint",
     visibility: "internal",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: domain }],
     dependencies: [],
     contributions: [
@@ -50,7 +50,7 @@ export const clusterCounter = defineModules(import.meta.url, [
     title: "Cluster Counter",
     description:
       "Host counters keyed by ID on a local Cluster runner in the HTTP server",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       {
@@ -94,6 +94,14 @@ export const clusterCounter = defineModules(import.meta.url, [
         value: "{{workspaceDependency}}",
       },
       {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=deno}}counter:serve{{/if}}",
+        value:
+          "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
+      },
+      {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
@@ -117,14 +125,14 @@ export const clusterCounter = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "Start the Cluster counter with `bun {{targetPath}}/src/index.ts` and send `POST /counters/a/increment` to the server port (9000 by default). See `{{targetPath}}/CLUSTER.md` for the runner, state lifetime, and extension points.",
+      "Start the Cluster counter from `{{targetPath}}` with `{{#if runtime=deno}}deno task counter:serve{{/if}}{{#if runtime=bun}}bun run dev{{/if}}{{#if runtime=node}}{{runCommand}} dev{{/if}}` and send `POST /counters/a/increment` to the server port (9000 by default). See `{{targetPath}}/CLUSTER.md` for the runner, state lifetime, and extension points.",
     ],
   },
   {
     id: "cli-cluster-counter",
     title: "Cluster Counter Command",
     description: "Increment a counter by ID through the server's HTTP API",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
       counterContracts,
@@ -160,7 +168,7 @@ export const clusterCounter = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "Start the API server, then run `bun {{targetPath}}/src/index.ts counter a` twice and `bun {{targetPath}}/src/index.ts counter b` once. The counts are 1, 2, and 1 on a fresh server. Set `COUNTER_SERVER_URL` if the server uses a URL other than `http://localhost:9000`.",
+      "Start the API server, then run the CLI with `counter a` twice and `counter b` once. See the server's `CLUSTER.md` for the commands. The counts are 1, 2, and 1 on a fresh server. Set `COUNTER_SERVER_URL` if the server uses a URL other than `http://localhost:9000`.",
     ],
   },
 ]);
