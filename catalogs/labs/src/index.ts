@@ -1,5 +1,6 @@
 import { defineModules, templates, type CatalogInput } from "@repo/authoring";
 import { clusterCounter } from "./cluster-counter";
+import { counterClients } from "./cluster-counter-clients";
 import { experiments } from "./experiments";
 import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
@@ -88,7 +89,7 @@ const persistedQueue = defineModules(import.meta.url, [
 
 export const labsCatalog: CatalogInput = {
   targets: [],
-  modules: [persistedQueue, experiments, graphqlQuery, graphqlClient, clusterCounter],
+  modules: [persistedQueue, experiments, graphqlQuery, graphqlClient, clusterCounter, counterClients],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
 export const LABS_CATALOG_ID = "stack-effect-labs";
