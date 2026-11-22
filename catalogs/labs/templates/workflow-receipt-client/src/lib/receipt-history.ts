@@ -26,46 +26,49 @@ const encode = Schema.encodeOption(JsonRows);
 export const receiptHistoryKey = "stack-effect:receipt-history";
 const legacyHistoryKey = "stack-effect-receipt-preview-history";
 
-export function loadReceipts(): readonly ReceiptRow[] {
+export const loadReceipts = (): readonly ReceiptRow[] => {
+  let stored: string | null;
   try {
-    const result = decode(
+    stored =
       localStorage.getItem(receiptHistoryKey) ??
-        localStorage.getItem(legacyHistoryKey) ??
-        "[]",
-    );
-    return result._tag === "Some"
-      ? result.value.map((row): ReceiptRow => ({
-          ...row,
-          status: row.status === "Status unavailable" ? "Pending" : row.status,
-        }))
-      : [];
+      localStorage.getItem(legacyHistoryKey);
   } catch {
     return [];
   }
-}
 
-export function upsertReceipt(
+  const result = decode(stored ?? "[]");
+  return result._tag === "Some"
+    ? result.value.map((row): ReceiptRow => ({
+        ...row,
+        status: row.status === "Status unavailable" ? "Pending" : row.status,
+      }))
+    : [];
+};
+
+export const upsertReceipt = (
   rows: readonly ReceiptRow[],
   row: ReceiptRow,
-): readonly ReceiptRow[] {
+): readonly ReceiptRow[] => {
   const existing = rows.find((item) => item.executionId === row.executionId);
   if (!existing) return [row, ...rows];
   if (existing.status !== "Pending" || row.status === "Pending") return rows;
 
   return rows.map((item) => item.executionId === row.executionId ? row : item);
-}
+};
 
-export function saveReceipt(row: ReceiptRow): ReceiptRow {
-  try {
-    const stored = loadReceipts();
-    const updated = upsertReceipt(stored, row);
-    if (updated !== stored) {
-      const encoded = encode(updated);
-      if (encoded._tag === "Some") localStorage.setItem(receiptHistoryKey, encoded.value);
+export const saveReceipt = (row: ReceiptRow): ReceiptRow => {
+  const stored = loadReceipts();
+  const updated = upsertReceipt(stored, row);
+  if (updated !== stored) {
+    const encoded = encode(updated);
+    if (encoded._tag === "Some") {
+      try {
+        localStorage.setItem(receiptHistoryKey, encoded.value);
+      } catch {
+        return row;
+      }
     }
-
-    return updated.find((item) => item.executionId === row.executionId) ?? row;
-  } catch {
-    return row;
   }
-}
+
+  return updated.find((item) => item.executionId === row.executionId) ?? row;
+};

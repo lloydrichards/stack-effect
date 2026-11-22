@@ -96,11 +96,11 @@ export const view = <ParentMessage>(
     ],
   );
 
-function counterForm<ParentMessage>(
+const counterForm = <ParentMessage>(
   model: Model,
   toParent: (event: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
-): Html {
+): Html => {
   return h.form(
     [
       h.Class("flex shrink-0 flex-col gap-3"),
@@ -127,12 +127,12 @@ function counterForm<ParentMessage>(
       ),
     ],
   );
-}
+};
 
-function counterHistory<ParentMessage>(
+const counterHistory = <ParentMessage>(
   counters: typeof CounterHistory.Type,
   h: HtmlBuilder<ParentMessage>,
-): Html {
+): Html => {
   return h.div(
     [],
     [
@@ -182,4 +182,4 @@ function counterHistory<ParentMessage>(
           ),
     ],
   );
-}
+};

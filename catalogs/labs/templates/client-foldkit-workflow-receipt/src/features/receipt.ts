@@ -105,11 +105,11 @@ export const init = (): Update => {
   ];
 };
 
-function updateRow(
+const updateRow = (
   model: Model,
   executionId: string,
   change: (row: ReceiptRow) => ReceiptRow,
-): Update {
+): Update => {
   const existing = model.rows.find((row) => row.executionId === executionId);
   if (!existing) return [model, []];
   if (existing.status !== "Pending") return [model, []];
@@ -123,7 +123,7 @@ function updateRow(
     },
     [Remember({ row })],
   ];
-}
+};
 
 export const subscriptions = Subscription.make<Model, Message>()(() => ({
   receiptHistory: Subscription.persistentEntry(

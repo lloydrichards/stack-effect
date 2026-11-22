@@ -51,7 +51,7 @@ type ChatEntry = {
 
 const EMPTY_SEGMENTS: readonly MessageSegment[] = [];
 
-export function ChatBox() {
+export const ChatBox = () => {
   const [result, runChat] = useAtom(chatAtom);
   const [startResult, startChat] = useAtom(chatStartAtom);
   const [chatId, setChatId] = useState<ChatId | null>(null);
@@ -338,15 +338,15 @@ export function ChatBox() {
       </CardContent>
     </Card>
   );
-}
+};
 
-function StatusMarker({
+const StatusMarker = ({
   label,
   status,
 }: {
   label: string;
   status: "active" | "error" | "pending";
-}) {
+}) => {
   const Icon =
     status === "error"
       ? CircleAlertIcon
@@ -370,9 +370,9 @@ function StatusMarker({
       <MarkerContent>{label}</MarkerContent>
     </Marker>
   );
-}
+};
 
-function AssistantSegment({ segment }: { segment: MessageSegment }) {
+const AssistantSegment = ({ segment }: { segment: MessageSegment }) => {
   return segment._tag === "text" ? (
     <Bubble variant="ghost" className="max-w-full">
       <BubbleContent className="whitespace-pre-wrap">
@@ -395,7 +395,7 @@ function AssistantSegment({ segment }: { segment: MessageSegment }) {
       </BubbleContent>
     </Bubble>
   );
-}
+};
 
 const historyToMessages = (messages: ChatEntry[]) =>
   messages.map((msg) => {

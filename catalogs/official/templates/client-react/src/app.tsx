@@ -1,6 +1,6 @@
 import { ThemeToggle } from "./components/theme-toggle";
 
-function App() {
+const App = () => {
   return (
     <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center gap-8 p-4">
       <ThemeToggle />
@@ -15,6 +15,6 @@ function App() {
       </div>
     </div>
   );
-}
+};
 
 export default App;

@@ -10,7 +10,7 @@ import { Context, type Duration, Effect, Layer, Schema } from "effect";
 import { McpClient, type McpClientError } from "effect/ai";
 import { McpClientLayer } from "./McpClient";
 
-export interface McpPromptsShape {
+export type McpPromptsShape = {
   readonly list: (options?: {
     readonly timeout?: Duration.Input;
   }) => Effect.Effect<
@@ -26,7 +26,7 @@ export interface McpPromptsShape {
     | McpPromptSelectionError
     | UnsupportedMcpContentError
   >;
-}
+};
 
 export const makeMcpPrompts: Effect.Effect<
   McpPromptsShape,

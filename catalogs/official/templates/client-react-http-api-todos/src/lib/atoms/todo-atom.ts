@@ -1,6 +1,6 @@
 import type { TodoId } from "@repo/domain/Todo";
 import { TodoApi } from "@repo/domain/TodoApi";
-import { Effect } from "effect";
+import { Effect, Match } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { HttpApiClient } from "effect/http-api";
 import { runtime } from "../atom";
@@ -24,25 +24,22 @@ export const todoAtom = runtime.fn((command: TodoCommand) =>
       baseUrl: SERVER_URL,
     });
 
-    switch (command._tag) {
-      case "list":
-        break;
-      case "create":
-        yield* client.todos.create({ payload: { title: command.title } });
-        break;
-      case "update":
-        yield* client.todos.update({
-          params: { id: command.id },
-          payload: {
-            title: command.title,
-            completed: command.completed,
-          },
-        });
-        break;
-      case "delete":
-        yield* client.todos.delete({ params: { id: command.id } });
-        break;
-    }
+    yield* Match.value(command).pipe(
+      Match.tagsExhaustive({
+        list: () => Effect.void,
+        create: ({ title }) =>
+          Effect.asVoid(client.todos.create({ payload: { title } })),
+        update: ({ id, title, completed }) =>
+          Effect.asVoid(
+            client.todos.update({
+              params: { id },
+              payload: { title, completed },
+            }),
+          ),
+        delete: ({ id }) =>
+          Effect.asVoid(client.todos.delete({ params: { id } })),
+      }),
+    );
 
     return {
       command: command._tag,
