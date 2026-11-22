@@ -99,6 +99,7 @@ export class PlanAssessor extends Context.Service<PlanAssessor>()(
   "PlanAssessor",
   {
     make: Effect.succeed({
+      preserveDenoSqlitePermissions,
       toPlannedFileOutcome,
       assessPlanningPath,
       collectAncestorPaths,
@@ -106,6 +107,35 @@ export class PlanAssessor extends Context.Service<PlanAssessor>()(
   },
 ) {
   static readonly layer = Layer.effect(PlanAssessor)(PlanAssessor.make);
+}
+
+const generatedDenoTask =
+  /^deno (?:(?:run (?:--watch )?)|compile )--allow-env --allow-net --allow-read --allow-write(?: --output dist\/[\w.-]+)? src\/index\.ts$/;
+
+function preserveDenoSqlitePermissions(
+  planningPath: PlanningIntentPath,
+  snapshotPath: SnapshotPath,
+): PlanningIntentPath {
+  if (planningPath.scripts.length === 0 || snapshotPath?._tag !== "file") {
+    return planningPath;
+  }
+
+  const scripts = parseJsonRecord(snapshotPath.contents)?.["scripts"];
+  if (!isFlatStringRecord(scripts)) return planningPath;
+
+  // An incremental selection can omit the module that granted FFI. Preserve
+  // the exact generated variant so unrelated manifest entries can still merge.
+  return {
+    ...planningPath,
+    scripts: planningPath.scripts.map((entry) => {
+      const existing = scripts[entry.name];
+      return generatedDenoTask.test(entry.value) &&
+        existing ===
+          entry.value.replace("--allow-write", "--allow-write --allow-ffi")
+        ? { ...entry, value: existing }
+        : entry;
+    }),
+  };
 }
 
 function toPlannedFileOutcome({

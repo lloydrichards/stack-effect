@@ -140,20 +140,23 @@ export class PlanService extends Context.Service<
             }),
           );
 
-        const assessedPaths = yield* Effect.forEach(
-          planningPaths,
-          (planningPath) =>
-            Effect.gen(function* () {
-              yield* assertAncestorDirectories(planningPath.path);
+        const assessedPaths = yield* Effect.forEach(planningPaths, (intent) =>
+          Effect.gen(function* () {
+            yield* assertAncestorDirectories(intent.path);
+            const snapshotPath = snapshotPaths.get(intent.path);
+            const planningPath = assessor.preserveDenoSqlitePermissions(
+              intent,
+              snapshotPath,
+            );
 
-              return {
+            return {
+              planningPath,
+              assessment: assessor.assessPlanningPath({
                 planningPath,
-                assessment: assessor.assessPlanningPath({
-                  planningPath,
-                  snapshotPath: snapshotPaths.get(planningPath.path),
-                }),
-              } as const;
-            }),
+                snapshotPath,
+              }),
+            } as const;
+          }),
         );
 
         const plan = yield* Plan.makeEffect({
