@@ -7,8 +7,8 @@ import { CatalogItems } from "../services/CatalogItems";
 
 const GraphQLRequest = Schema.Struct({
   query: Schema.NonEmptyString,
-  variables: Schema.optionalKey(Schema.Record(Schema.String, Schema.Unknown)),
-  operationName: Schema.optionalKey(Schema.String),
+  variables: Schema.optionalKey(Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown))),
+  operationName: Schema.optionalKey(Schema.NullOr(Schema.String)),
 });
 
 export const GraphQLRouteLive = HttpRouter.use((router) =>
@@ -32,8 +32,8 @@ export const GraphQLRouteLive = HttpRouter.use((router) =>
                 graphql({
                   schema,
                   source: query,
-                  variableValues: variables,
-                  operationName,
+                  variableValues: variables ?? undefined,
+                  operationName: operationName ?? undefined,
                   contextValue: signal,
                 }),
               );
