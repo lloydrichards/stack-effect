@@ -1,40 +1,28 @@
 # Look up an item through GraphQL
 
-Run these in separate terminals from this server directory. The first runs a local upstream fixture on port 9010. The second starts the scaffolded HTTP server on port 9000.
-
-```bash
-{{runCommand}} fixture:graphql
-```
+Selecting GraphQL Client also adds GraphQL Query Server to the API target. Start the generated server from this directory.
 
 ```bash
 {{runCommand}} dev
 ```
 
-Try the lookup with `curl -i http://localhost:9000/upstream-items/demo`. The route sends the ID as a typed GraphQL variable and returns `{"id":"demo","name":"Demo item"}`. Replace `demo` with the IDs below to exercise the failure paths.
+```bash
+curl -i http://127.0.0.1:9000/upstream-items/demo
+curl -i http://127.0.0.1:9000/upstream-items/missing
+```
 
-| ID              | Fixture response                  | Server response      |
-| --------------- | --------------------------------- | -------------------- |
-| `missing`       | 200 with `item: null`             | 404 `ItemNotFound`   |
-| `http-error`    | 503 with a plain-text body        | 502 `TransportError` |
-| `graphql-error` | 200 with a GraphQL `errors` array | 502 `ResponseError`  |
-| `invalid-data`  | 200 with a numeric `name`         | 502 `DecodeError`    |
-
-The fixture requires a query string and chooses a response from the operation name and variables. It leaves execution and validation of the query to a real upstream. Effect classifies failures using the response body as well as the status. A non-2xx GraphQL error envelope can also produce a `ResponseError`.
+The first request returns `{"id":"demo","name":"Demo item"}`. The second returns HTTP 404 with `{"error":"ItemNotFound"}`.
 
 ## Follow the request
 
-1. At startup, `src/index.ts` adds `UpstreamItemsLive` to `AllRouters`. The route layer supplies `GraphQLProtocol.layerHttp` with `FetchHttpClient.layer` and builds the lookup client once.
-2. On each GET, `src/api/UpstreamItems.ts` reads the path ID and calls the lookup. `src/graphql/Items.ts` sends a GraphQL POST with the `FindItem` operation and the typed `id` variable. The client decodes the returned data using the operation's result schema.
-3. The lookup turns a null item into the domain's missing-item error. The route maps that error and the client's typed failures to the HTTP responses above.
+1. `src/api/UpstreamItems.ts` reads the path ID and calls the typed lookup in `src/graphql/Items.ts`.
+2. The lookup POSTs `FindItem` to `/graphql` on the same server. The GraphQL resolver calls the injected `CatalogItems` service. See [GRAPHQL.md](GRAPHQL.md) for the query and server layer.
+3. The lookup decodes the returned data. It maps an upstream `ITEM_NOT_FOUND` error or a null item to the domain's missing-item error. The route returns HTTP 502 for other GraphQL client errors.
 
-## Adapt the lookup
+## Use a different upstream
 
-Set `UPSTREAM_GRAPHQL_URL` to point to another endpoint. The example reuses the domain schema in the GraphQL result because both currently use `id` and `name`.
+By default the client uses `http://127.0.0.1:<PORT>/graphql`. The port defaults to 9000. Set `UPSTREAM_GRAPHQL_URL` for a different endpoint or if the server binds to an address other than loopback.
 
-To practice adapting the query, imagine the upstream renames `name` to `displayName`. Change the selection and give the query its own result schema with `displayName`. Map that field to the domain's `name` in the lookup so the REST response stays the same. Update both fixture payloads that return an item, then retry `demo` and `invalid-data`.
+If the upstream uses `displayName` instead of `name`, change the query selection and give the operation a result schema with `displayName`. Map it to the domain's `name` in the lookup to keep the REST response stable.
 
-For a second query, add its operation to `GraphQLGroup.make` and call its typed client method. To exercise the lookup in isolation, supply a fixture `GraphQLProtocol` layer to `makeItemLookup`.
-
-This example uses the experimental [Effect GraphQL client](https://effect.website/docs/v4/api/effect/graphql/GraphQLClient) at Effect 4.1.4.
-
-When adding this module to an older project, upgrade Effect and its platform packages to the catalog pin first. Stack Effect reports a dependency conflict if the server or domain package uses a different Effect pin.
+This example uses the experimental Effect GraphQL client at Effect 4.1.4. When adding it to an older project, upgrade Effect and its platform packages to the catalog pin first.

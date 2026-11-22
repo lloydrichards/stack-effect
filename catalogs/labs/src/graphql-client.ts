@@ -2,6 +2,7 @@ import { defineModules, templates } from "@repo/authoring";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
+const api = { kind: "server", name: "api" };
 
 export const graphqlClient = defineModules(import.meta.url, [
   {
@@ -37,15 +38,14 @@ export const graphqlClient = defineModules(import.meta.url, [
   {
     id: "server-graphql-client",
     title: "GraphQL Client",
-    description:
-      "Read one item from an upstream GraphQL endpoint with a local fixture",
+    description: "Read one item through the generated GraphQL query server",
     supportedRuntimes: ["bun", "node", "deno"],
-    supportedOn: [{ _tag: "kind", kind: "server" }],
+    supportedOn: [{ _tag: "identity", identity: api }],
     dependencies: [
       {
         _tag: "required-module",
-        target: { kind: "server", name: "api" },
-        moduleId: "server-http-api",
+        target: api,
+        moduleId: "server-graphql-query",
       },
       {
         _tag: "required-module",
@@ -77,19 +77,6 @@ export const graphqlClient = defineModules(import.meta.url, [
         contents: template("./server-graphql-client/src/api/UpstreamItems.ts"),
       },
       {
-        _tag: "file",
-        path: "{{targetPath}}/src/fixtures/graphql.ts",
-        contents: template("./server-graphql-client/src/fixtures/graphql.ts"),
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "fixture:graphql",
-        value:
-          "{{#if runtime=bun}}bun src/fixtures/graphql.ts{{/if}}{{#if runtime=node}}tsx src/fixtures/graphql.ts{{/if}}{{#if runtime=deno}}deno run --allow-net=127.0.0.1:9010 src/fixtures/graphql.ts{{/if}}",
-      },
-      {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
@@ -102,7 +89,7 @@ export const graphqlClient = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "GraphQL Client adds `GET /upstream-items/:id`. See `{{targetPath}}/GRAPHQL-CLIENT.md` for the local fixture and example responses.",
+      "GraphQL Client adds `GET /upstream-items/:id`. See `{{targetPath}}/GRAPHQL-CLIENT.md` to try the generated client and query endpoint together.",
     ],
   },
 ]);
