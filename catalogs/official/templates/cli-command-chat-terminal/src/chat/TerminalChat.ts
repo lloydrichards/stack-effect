@@ -23,6 +23,10 @@ import { Prompt } from "effect/cli";
 import { Ansi, Box, Cmd, Flex } from "effect-boxes";
 import type { TerminalChatDriver } from "./ChatDriver";
 
+const FALLBACK_WIDTH = 80;
+const ASSISTANT_RIGHT_MARGIN = 8;
+const USER_LEFT_MARGIN = 8;
+
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
 export const TerminalChatEvent = Schema.TaggedUnion({
@@ -60,10 +64,6 @@ type ActiveTurn = {
   readonly assistantText: string;
   readonly status: string | null;
 };
-
-const fallbackwidth = 80;
-const assistantRightMargin = 8;
-const userLeftMargin = 8;
 
 const clampCursor = (value: number, input: string) =>
   Number.clamp(value, { minimum: 0, maximum: input.length });
@@ -139,7 +139,7 @@ const ChatMessageRow = (message: ChatMessage, width: number) =>
     Match.when("user", () =>
       Flex.row(
         [
-          Flex.fixed(Box.emptyBox(1, userLeftMargin)),
+          Flex.fixed(Box.emptyBox(1, USER_LEFT_MARGIN)),
           Flex.fill((width) =>
             TextContent(message.content, Box.right, Math.max(16, width)).pipe(
               Box.alignHoriz(Box.right, width),
@@ -159,7 +159,7 @@ const ChatMessageRow = (message: ChatMessage, width: number) =>
               Box.annotate(Ansi.white),
             ),
           ),
-          Flex.fixed(Box.emptyBox(1, assistantRightMargin)),
+          Flex.fixed(Box.emptyBox(1, ASSISTANT_RIGHT_MARGIN)),
         ],
         width,
       ),
@@ -179,7 +179,7 @@ const AssistantDraft = (state: TerminalChatState, width: number) =>
               Math.max(16, width),
             ).pipe(Box.moveRight(1), Box.annotate(Ansi.white)),
           ),
-          Flex.fixed(Box.emptyBox(1, assistantRightMargin)),
+          Flex.fixed(Box.emptyBox(1, ASSISTANT_RIGHT_MARGIN)),
         ],
         width,
       );
@@ -531,7 +531,7 @@ export const TerminalChat = (
           const terminal = yield* Terminal.Terminal;
           const columns = yield* terminal.columns;
           const innerWidth =
-            Number.clamp(columns > 0 ? columns : fallbackwidth, {
+            Number.clamp(columns > 0 ? columns : FALLBACK_WIDTH, {
               minimum: 32,
               maximum: Number.Number.POSITIVE_INFINITY,
             }) - 2;

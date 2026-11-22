@@ -10,7 +10,7 @@ export const SummaryRequested = Schema.Struct({
   text: Schema.Trimmed.check(Schema.isNonEmpty()),
 });
 
-export interface SummaryResult {
+export type SummaryResult = {
   readonly jobId: SummaryJobId;
   readonly wordCount: number;
-}
+};

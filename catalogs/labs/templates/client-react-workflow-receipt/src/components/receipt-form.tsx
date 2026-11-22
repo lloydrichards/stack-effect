@@ -14,13 +14,13 @@ import {
   upsertReceipt,
 } from "../lib/receipt-history";
 
-function ReceiptStatusRow({
+const ReceiptStatusRow = ({
   row,
   onUpdate,
 }: {
   row: ReceiptRow;
   onUpdate: (row: ReceiptRow) => void;
-}) {
+}) => {
   const [pollFailed, setPollFailed] = useState(false);
   const [attempt, setAttempt] = useState(0);
   const { executionId, receiptId, status } = row;
@@ -76,9 +76,9 @@ function ReceiptStatusRow({
       </td>
     </tr>
   );
-}
+};
 
-export function ReceiptForm() {
+export const ReceiptForm = () => {
   const [receiptId, setReceiptId] = useState("");
   const [rows, setRows] = useState(loadReceipts);
   const [starting, setStarting] = useState(false);
@@ -100,7 +100,7 @@ export function ReceiptForm() {
     return () => window.removeEventListener("storage", sync);
   }, []);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const id = receiptId.trim();
     if (starting || !Schema.is(ReceiptId)(id)) return;
@@ -115,7 +115,7 @@ export function ReceiptForm() {
         () => setError("Could not start the receipt. Try again."),
       )
       .finally(() => setStarting(false));
-  }
+  };
 
   return (
     <Card>
@@ -181,4 +181,4 @@ export function ReceiptForm() {
       </CardContent>
     </Card>
   );
-}
+};

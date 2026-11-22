@@ -11,14 +11,14 @@ import {
   upsertCounter,
 } from "../lib/counter-history";
 
-export function CounterForm() {
+export const CounterForm = () => {
   const [id, setId] = useState("");
   const [pending, setPending] = useState(false);
   const [result, setResult] = useState<typeof CounterState.Type>();
   const [error, setError] = useState("");
   const [counters, setCounters] = useState(loadCounters);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  const submit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (pending || id === "") return;
 
@@ -40,7 +40,7 @@ export function CounterForm() {
         }),
       ),
     ).finally(() => setPending(false));
-  }
+  };
 
   return (
     <Card
@@ -79,13 +79,13 @@ export function CounterForm() {
       </CardContent>
     </Card>
   );
-}
+};
 
-function CounterHistoryTable({
+const CounterHistoryTable = ({
   counters,
 }: {
   counters: typeof CounterHistory.Type;
-}) {
+}) => {
   return (
     <>
       <h3 className="mt-6 shrink-0 font-medium">Counter history</h3>
@@ -125,4 +125,4 @@ function CounterHistoryTable({
       )}
     </>
   );
-}
+};

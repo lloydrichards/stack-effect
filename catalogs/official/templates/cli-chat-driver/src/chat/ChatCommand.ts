@@ -12,16 +12,16 @@ export type ChatCommandAction =
       readonly providesInput?: boolean;
     };
 
-export interface ChatCommandConfiguration<
+export type ChatCommandConfiguration<
   Config extends Command.Command.Config,
   R = never,
-> {
+> = {
   readonly flags: Config;
   readonly resolve: (
     options: Command.Command.Config.InferValue<Config>,
     mode: "ask" | "chat",
   ) => Effect.Effect<ChatCommandAction, Error, R>;
-}
+};
 
 export const defaultChatCommandConfiguration: ChatCommandConfiguration<{}> = {
   flags: {},

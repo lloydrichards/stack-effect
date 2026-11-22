@@ -24,13 +24,15 @@ import {
 import { ThinkToolkit, ThinkToolkitHandlers } from "../toolkits/ThinkToolkit";
 import { chatEvents } from "../workflow/MailboxEvents";
 
+const MAX_STEPS = 12;
+
 // NOTE: Catalog composition appends additional toolkits to this merge call.
 export const ChatToolkit = Toolkit.merge(ThinkToolkit);
 
 // NOTE: Catalog composition appends additional toolkit layers to this merge call.
 export const ChatToolkitHandlers = Layer.mergeAll(ThinkToolkitHandlers);
 
-export function chatPrompt(
+export const chatPrompt = (
   messages: ReadonlyArray<ChatMessage>,
   {
     resources = [],
@@ -41,7 +43,7 @@ export function chatPrompt(
     readonly prompt?: ReadonlyArray<ChatMessage>;
     readonly input?: ReadonlyArray<ChatMessage>;
   } = {},
-): Prompt.Prompt {
+): Prompt.Prompt => {
   const index =
     messages.at(-1)?.role === "user" ? messages.length - 1 : messages.length;
   return Prompt.fromMessages(
@@ -59,7 +61,7 @@ export function chatPrompt(
           }),
     ),
   );
-}
+};
 
 export const chatErrorPart = Effect.fn("chatErrorPart")(function* <E>(
   cause: Cause.Cause<E>,
@@ -88,7 +90,6 @@ const defaultPrompt = Prompt.fromMessages([
       "You are a helpful general assistant. Use tools when appropriate. Be concise and direct.",
   }),
 ]);
-const maxSteps = 12;
 
 const streamWithToolkit = <Tools extends Record<string, Tool.Any>>(
   input: Prompt.RawInput,
@@ -99,8 +100,8 @@ const streamWithToolkit = <Tools extends Record<string, Tool.Any>>(
       const session = yield* Chat.empty;
       const prompt = Prompt.concat(defaultPrompt, input);
       return chatEvents(
-        session.streamText({ prompt, toolkit, maxSteps }),
-        maxSteps,
+        session.streamText({ prompt, toolkit, maxSteps: MAX_STEPS }),
+        MAX_STEPS,
       );
     }),
   ).pipe(

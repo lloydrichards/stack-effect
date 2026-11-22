@@ -53,13 +53,15 @@ const buildClientListFromEvents = (
       case "user_left":
         clients.delete(event.clientId);
         break;
+      default:
+        event satisfies never;
     }
   }
 
   return { clients, myClientId };
 };
 
-export function PresencePanel({ className }: { className?: string }) {
+export const PresencePanel = ({ className }: { className?: string }) => {
   const [eventsResult, startSubscription] = useAtom(presenceSubscriptionAtom);
   const setStatus = useAtomSet(WebSocketClient.mutation("setStatus"));
 
@@ -97,6 +99,7 @@ export function PresencePanel({ className }: { className?: string }) {
       case "busy":
         return "bg-destructive";
       default:
+        status satisfies never;
         return "bg-muted-foreground";
     }
   };
@@ -198,4 +201,4 @@ export function PresencePanel({ className }: { className?: string }) {
       </CardContent>
     </Card>
   );
-}
+};

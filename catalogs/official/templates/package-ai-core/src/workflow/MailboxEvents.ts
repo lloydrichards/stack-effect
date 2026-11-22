@@ -7,6 +7,7 @@ import {
   Data,
   Effect,
   Inspectable,
+  Match,
   Schema,
   SchemaGetter,
   Stream,
@@ -61,70 +62,75 @@ export const chatEvents = <E, R>(
             sawToolCall = false;
             finishReason = undefined;
           }
-          switch (part.type) {
-            case "reasoning-delta":
-              return { _tag: "reasoning", delta: part.delta };
-            case "text-delta":
-              return {
-                _tag: "text",
-                delta: part.delta,
-              };
-            case "tool-call": {
-              pending.add(part.id);
-              sawToolCall = true;
-              const input =
-                part.params === undefined
-                  ? ""
-                  : (yield* displayValue(part.params)).trim();
-              return {
-                _tag: "tool-start",
-                id: part.id,
-                name: part.name,
-                ...(input ? { input } : {}),
-              };
-            }
-            case "tool-result": {
-              if (part.preliminary) return;
-              pending.delete(part.id);
-              const result = yield* displayValue(part.result);
-              return part.isFailure
-                ? {
-                    _tag: "tool-failure",
-                    id: part.id,
-                    name: part.name,
-                    error: result,
-                  }
-                : {
-                    _tag: "tool-success",
-                    id: part.id,
-                    name: part.name,
-                    output: result,
-                  };
-            }
-            case "error":
-              return yield* streamError(yield* displayValue(part.error));
-            case "tool-approval-request":
-              approval = part.toolCallId;
-              return;
-            case "finish": {
-              rounds++;
-              const input = part.usage.inputTokens.total;
-              const output = part.usage.outputTokens.total;
-              usage =
-                usage && input !== undefined && output !== undefined
-                  ? {
-                      promptTokens: usage.promptTokens + input,
-                      completionTokens: usage.completionTokens + output,
-                      totalTokens: usage.totalTokens + input + output,
-                    }
-                  : undefined;
+          return yield* Match.value(part).pipe(
+            Match.discriminators("type")({
+              "reasoning-delta": ({ delta }) =>
+                Effect.succeed({ _tag: "reasoning", delta } as const),
+              "text-delta": ({ delta }) =>
+                Effect.succeed({ _tag: "text", delta } as const),
+              "tool-call": (call) =>
+                Effect.gen(function* () {
+                  pending.add(call.id);
+                  sawToolCall = true;
+                  const input =
+                    call.params === undefined
+                      ? ""
+                      : (yield* displayValue(call.params)).trim();
 
-              finishReason = part.reason;
-              return;
-            }
-            default:
-              return;
-          }
+                  return {
+                    _tag: "tool-start",
+                    id: call.id,
+                    name: call.name,
+                    ...(input ? { input } : {}),
+                  } as const;
+                }),
+              "tool-result": (part) =>
+                Effect.gen(function* () {
+                  if (part.preliminary) return;
+
+                  pending.delete(part.id);
+                  const result = yield* displayValue(part.result);
+                  return part.isFailure
+                    ? ({
+                        _tag: "tool-failure",
+                        id: part.id,
+                        name: part.name,
+                        error: result,
+                      } as const)
+                    : ({
+                        _tag: "tool-success",
+                        id: part.id,
+                        name: part.name,
+                        output: result,
+                      } as const);
+                }),
+              error: ({ error }) =>
+                Effect.flatMap(displayValue(error), streamError),
+              "tool-approval-request": ({ toolCallId }) =>
+                Effect.sync(() => {
+                  approval = toolCallId;
+                  return undefined;
+                }),
+              finish: (part) =>
+                Effect.sync(() => {
+                  rounds++;
+                  const input = part.usage.inputTokens.total;
+                  const output = part.usage.outputTokens.total;
+                  usage =
+                    usage && input !== undefined && output !== undefined
+                      ? {
+                          promptTokens: usage.promptTokens + input,
+                          completionTokens: usage.completionTokens + output,
+                          totalTokens: usage.totalTokens + input + output,
+                        }
+                      : undefined;
+
+                  finishReason = part.reason;
+                  return undefined;
+                }),
+            }),
+            Match.orElse(() => Effect.undefined),
+          );
         }),
       ),
       Stream.filter((part) => part !== undefined),
