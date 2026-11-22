@@ -1,4 +1,5 @@
-import { Cause, Effect } from "effect";
+import { CatalogItemId } from "@repo/domain/CatalogItem";
+import { Cause, Effect, Schema } from "effect";
 import {
   GraphQLError,
   GraphQLID,
@@ -17,6 +18,44 @@ const Item = new GraphQLObjectType({
   },
 });
 
+const isCatalogItemId = Schema.is(CatalogItemId);
+
+const resolveItem = (
+  lookup: typeof CatalogItems.Service.lookup,
+  id: string,
+  signal: AbortSignal,
+) => {
+  if (!isCatalogItemId(id)) {
+    throw new GraphQLError("Expected a non-empty item ID", {
+      extensions: { code: "BAD_USER_INPUT" },
+    });
+  }
+
+  const result = lookup(id).pipe(
+    Effect.catchTag("CatalogItemNotFound", () =>
+      Effect.succeed(
+        // GraphQL treats an Error returned by a resolver as a field error.
+        new GraphQLError("Item not found", {
+          extensions: { code: "ITEM_NOT_FOUND" },
+        }),
+      ),
+    ),
+    Effect.catchCauseIf(
+      (cause) => !Cause.hasInterruptsOnly(cause),
+      (cause) =>
+        Effect.logError(cause).pipe(
+          Effect.as(
+            new GraphQLError("Item lookup failed", {
+              extensions: { code: "INTERNAL_SERVER_ERROR" },
+            }),
+          ),
+        ),
+    ),
+  );
+
+  return Effect.runPromise(result, { signal });
+};
+
 export const makeSchema = ({ lookup }: typeof CatalogItems.Service) =>
   new GraphQLSchema({
     query: new GraphQLObjectType<unknown, AbortSignal>({
@@ -26,27 +65,7 @@ export const makeSchema = ({ lookup }: typeof CatalogItems.Service) =>
           type: Item,
           args: { id: { type: new GraphQLNonNull(GraphQLID) } },
           resolve: (_source, { id }: { id: string }, signal) =>
-            Effect.runPromise(
-              lookup(id).pipe(
-                Effect.match({
-                  // GraphQL treats an Error returned by a resolver as a field error.
-                  onFailure: () =>
-                    new GraphQLError("Item not found", {
-                      extensions: { code: "ITEM_NOT_FOUND" },
-                    }),
-                  onSuccess: (item) => item,
-                }),
-                Effect.catchCauseIf(
-                  (cause) => !Cause.hasInterruptsOnly(cause),
-                  (cause) => Effect.logError(cause).pipe(
-                        Effect.as(new GraphQLError("Item lookup failed", {
-                          extensions: { code: "INTERNAL_SERVER_ERROR" },
-                        })),
-                      ),
-                ),
-              ),
-              { signal },
-            ),
+            resolveItem(lookup, id, signal),
         },
       },
     }),
