@@ -1,7 +1,7 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect Signature and HTTP responses.
-import { Config, Effect, Layer, Option, Schema } from "effect";
+import { ByteSize, Config, Effect, Layer, Option, Schema } from "effect";
 import { SecureRandom, Signature } from "effect/crypto";
-import { HttpRouter, HttpServerResponse } from "effect/http";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 const hex = Schema.decodeUnknownEffect(Schema.Uint8ArrayFromHex);
 const Ping = Schema.fromJsonString(Schema.Struct({ type: Schema.Literal(1) }));
@@ -27,7 +27,10 @@ export const DiscordInteractions = HttpRouter.use((router) =>
         ) {
           return HttpServerResponse.empty({ status: 401 });
         }
-        const raw = yield* request.arrayBuffer;
+        // Bound the raw read before authenticating the delivery.
+        const raw = yield* request.arrayBuffer.pipe(
+          Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.kibibytes(4)),
+        );
         const prefix = new TextEncoder().encode(timestamp);
         const data = new Uint8Array(prefix.length + raw.byteLength);
         data.set(prefix);
