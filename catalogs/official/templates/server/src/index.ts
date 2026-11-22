@@ -2,20 +2,12 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import -- NodeHttpServer.layerConfig requires the Node server factory.
 import { createServer } from "node:http";{{/if}}
 import { Api } from "@repo/domain/Api";
-import { Config, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
+import { ServerConfig } from "./ServerConfig";
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { HealthHandlers } from "./api/Health";
 import { HelloHandlers } from "./api/Hello";
-
-export const ServerConfig = Config.all({
-  port: Config.Number("PORT").pipe(Config.withDefault(9000)),
-  hostname: Config.String("HOST").pipe(Config.withDefault("0.0.0.0")),
-  idleTimeout: Config.Number("IDLE_TIMEOUT").pipe(Config.withDefault(120)),
-  allowedOrigins: Config.String("ALLOWED_ORIGINS").pipe(
-    Config.withDefault("http://localhost:3000"),
-  ),
-});
 
 // HTTP API Router
 const ApiRouter = HttpApiBuilder.layer(Api).pipe(

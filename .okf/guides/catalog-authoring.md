@@ -20,7 +20,11 @@ sources:
     resource: ../../catalogs/official/templates/domain-todo-contracts/src/Todo.ts
   - id: source-8
     resource: ../../catalogs/official/templates/domain-todo-http-contracts/src/TodoApi.ts
-generated: { by: codex, at: "2026-11-22T17:48:47+00:00" }
+  - id: source-9
+    resource: ../../.agents/TASTE.md
+  - id: source-10
+    resource: ../../catalogs/official/templates/server/src/ServerConfig.ts
+generated: { by: codex, at: "2026-11-22T18:47:37+00:00" }
 ---
 
 # Catalog authoring workflow
@@ -44,7 +48,8 @@ The Official Todo HTTP API with SQLite is the reference slice. Generate it with 
 - Resolve reusable service dependencies when constructing its Layer. Supply platform Layers in the app. Use `Layer.provide` for implementation dependencies and `Layer.provideMerge` when downstream consumers also need the dependency. Give standalone Layers PascalCase role names, such as `TodoHandlers` and `TodoRoutes`. Add `Layer` where the role needs clarification.
 - Use `Schema.Struct` with a derived type for ordinary records, branded schemas for IDs, and `Schema.Opaque` when the whole record requires a distinct construction boundary. Use tagged errors for expected failures. Translate infrastructure failures in the service and assign HTTP statuses in the HTTP contract.
 - Resolve shared services when building handler groups. Resolve request-specific services inside the handler. Keep the default HTTP 400 for schema rejection. Use typed validation middleware when clients need a stable error body.
-- Keep the main operation easy to read in order. Use collection operations when they make a transformation clearer. Keep short single-use logic close to its caller and extract a helper when it names a real operation or removes meaningful duplication.
+- Declare feature configuration at module scope and read it when building the feature Layer. Give shared settings one owner. The server entry point and upstream GraphQL route reuse the same port config, while the route owns its optional upstream URL.
+- Follow the coding taste guide for inline workflows, schema conversions, and exhaustive matching in generated examples.
 
 ## Tokens and conditional content
 

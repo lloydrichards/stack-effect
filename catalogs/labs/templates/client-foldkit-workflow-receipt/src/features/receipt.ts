@@ -16,12 +16,17 @@ import {
   upsertReceipt,
 } from "../lib/receipt-history";
 
+const Submission = Schema.TaggedUnion({
+  Idle: {},
+  Starting: {},
+  Failed: { message: Schema.NonEmptyString },
+});
+
 export const Model = Schema.Struct({
   receiptId: Schema.String,
   rows: Schema.Array(ReceiptRow),
   unavailable: Schema.Array(ReceiptExecutionId),
-  starting: Schema.Boolean,
-  error: Schema.String,
+  submission: Submission,
 });
 type Model = typeof Model.Type;
 
@@ -93,7 +98,7 @@ type Update = readonly [Model, ReadonlyArray<Command.Command<Message>>];
 export const init = (): Update => {
   const rows = loadReceipts();
   return [
-    { receiptId: "", rows, unavailable: [], starting: false, error: "" },
+    { receiptId: "", rows, unavailable: [], submission: { _tag: "Idle" } },
     rows
       .filter((row) => row.status === "Pending")
       .map(({ executionId }) => Wait({ executionId })),
@@ -151,15 +156,19 @@ export const update = (model: Model, event: Message): Update =>
       InputChanged: ({ value }) => [{ ...model, receiptId: value }, []],
       Submitted: () => {
         const receiptId = model.receiptId.trim();
-        return model.starting || !Schema.is(ReceiptId)(receiptId)
+        return model.submission._tag === "Starting" ||
+          !Schema.is(ReceiptId)(receiptId)
           ? [model, []]
-          : [{ ...model, starting: true, error: "" }, [Start({ receiptId })]];
+          : [
+              { ...model, submission: { _tag: "Starting" } },
+              [Start({ receiptId })],
+            ];
       },
       Started: ({ submittedId, row }) => {
         const next = {
           ...model,
           rows: upsertReceipt(model.rows, row),
-          starting: false,
+          submission: { _tag: "Idle" } as const,
           receiptId:
             model.receiptId.trim() === submittedId ? "" : model.receiptId,
         };
@@ -174,8 +183,10 @@ export const update = (model: Model, event: Message): Update =>
       StartFailed: () => [
         {
           ...model,
-          starting: false,
-          error: "Could not start the receipt. Try again.",
+          submission: {
+            _tag: "Failed",
+            message: "Could not start the receipt. Try again.",
+          },
         },
         [],
       ],
@@ -240,15 +251,27 @@ const receiptForm = <ParentMessage>(
               h.Class(
                 "inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
               ),
-              h.Disabled(model.starting || !model.receiptId.trim()),
+              h.Disabled(
+                model.submission._tag === "Starting" || !model.receiptId.trim(),
+              ),
             ],
-            [model.starting ? "Starting…" : "Start receipt"],
+            [
+              model.submission._tag === "Starting"
+                ? "Starting…"
+                : "Start receipt",
+            ],
           ),
         ],
       ),
-      ...(model.error
-        ? [h.p([h.Role("alert"), h.Class("mt-3")], [model.error])]
-        : []),
+      ...Match.value(model.submission).pipe(
+        Match.tagsExhaustive({
+          Idle: () => [],
+          Starting: () => [],
+          Failed: ({ message }) => [
+            h.p([h.Role("alert"), h.Class("mt-3")], [message]),
+          ],
+        }),
+      ),
     ],
   );
 

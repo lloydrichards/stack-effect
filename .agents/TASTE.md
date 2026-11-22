@@ -6,7 +6,8 @@ Use these preferences when writing or reviewing TypeScript. The Todo HTTP API wi
 
 - Let the main operation read in execution order. Use blank lines between dependency lookup, decoding, the operation, and result handling where those are distinct steps.
 - Use a short sequence of collection operations when it makes the transformation easy to follow. Use a loop when the order of steps or early exit is clearer that way.
-- Keep short, single-use logic next to its caller. Extract a helper when its name explains a domain operation or when it removes meaningful duplication.
+- Keep a workflow in one function unless a part needs to compose independently or has a real second caller. Use blank lines to mark stages. The GitHub webhook keeps signature parsing, the bounded body read, and verification together before decoding the event. See the [GitHub webhook](../catalogs/labs/templates/server-github-issue-label/src/webhooks/github.ts).
+- Use an `Effect.fn` transform when a policy applies to the whole operation. Keep step-specific error mapping or recovery next to the step it handles. See how the [Summary Queue](../catalogs/labs/templates/cli-persisted-queue/src/jobs/SummaryQueue.ts) provides its Layer for an entire operation.
 
 ## Services and Layers
 
@@ -20,6 +21,10 @@ export const TodoRepositoryLayer = TodoRepository.layer.pipe(
 );
 ```
 
+Expose the operations and observations that callers need. The [Presence service](../catalogs/official/templates/package-presence-service/src/services/PresenceService.ts) exposes a stream of events and owns the `PubSub` internally.
+
+Declare a named `Config.all` at module scope and read it when building the feature Layer. Give shared settings one owner. The [upstream GraphQL route](../catalogs/labs/templates/server-graphql-client/src/api/UpstreamItems.ts) owns its optional URL and uses the [server port config](../catalogs/official/templates/server/src/ServerConfig.ts).
+
 ## Schemas and handlers
 
 Use `Schema.Struct` with a derived type for ordinary records. Brand IDs where their types must stay distinct. Use `Schema.Opaque` when the whole record needs a distinct construction boundary. See the [Todo schemas](../catalogs/official/templates/domain-todo-contracts/src/Todo.ts).
@@ -30,4 +35,27 @@ Get shared services when building the handler Layer. Get request-specific servic
 return handlers
   .handle("list", () => todos.list)
   .handle("get", ({ params }) => todos.get(params.id));
+```
+
+Use the adapter schema for straightforward representation changes. Keep business decisions in the operation. The [Todo row codec](../catalogs/official/templates/package-db-todo-repository/src/TodoRepository.ts) reads SQLite's integer as a boolean. The create operation still decides that a new Todo starts incomplete.
+
+```ts
+const TodoRow = Todo.mapFields((fields) => ({
+  ...fields,
+  completed: Schema.BooleanFromBit,
+}));
+```
+
+Handle a local validation failure with a guard next to the failing operation. Use a response mapping when several distinct typed errors need different responses. The [upstream GraphQL route](../catalogs/labs/templates/server-graphql-client/src/api/UpstreamItems.ts) returns 400 at the path decoder and maps lookup failures separately.
+
+## Model phases and match them exhaustively
+
+Use a tagged union for mutually exclusive phases. Keep independent fields separate. Handle an absent value with a guard when it reads clearly, then use exhaustive matching for a tagged union so a new tag requires a decision. See the [receipt form](../catalogs/labs/templates/client-foldkit-workflow-receipt/src/features/receipt.ts) and [receipt status handler](../catalogs/labs/templates/server-workflow-receipt/src/api/Receipt.ts).
+
+```ts
+const Submission = Schema.TaggedUnion({
+  Idle: {},
+  Starting: {},
+  Failed: { message: Schema.NonEmptyString },
+});
 ```

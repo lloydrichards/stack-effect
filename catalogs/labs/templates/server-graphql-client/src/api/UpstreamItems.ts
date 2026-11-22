@@ -8,10 +8,11 @@ import { Config, Effect, Layer, Option, Schema } from "effect";
 import { GraphQLProtocol } from "effect/graphql";
 import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/http";
 import { makeItemLookup } from "../graphql/Items";
+import { ServerPort } from "../ServerConfig";
 
 const UpstreamGraphQLConfig = Config.all({
   url: Config.option(Config.String("UPSTREAM_GRAPHQL_URL")),
-  port: Config.Number("PORT").pipe(Config.withDefault(9000)),
+  port: ServerPort,
 });
 
 const ItemParams = Schema.Struct({ id: UpstreamItemId });
@@ -34,17 +35,20 @@ export const UpstreamItemsRoutes = HttpRouter.use((router) =>
       "GET",
       "/upstream-items/:id",
       Effect.gen(function* () {
-        const { id } = yield* HttpRouter.schemaPathParams(ItemParams);
+        const params = yield* HttpRouter.schemaPathParams(ItemParams).pipe(
+          Effect.option,
+        );
+        if (Option.isNone(params)) {
+          return yield* HttpServerResponse.json(
+            { error: "InvalidItemId" },
+            { status: 400 },
+          );
+        }
 
-        const item = yield* lookup(id);
+        const item = yield* lookup(params.value.id);
         return yield* HttpServerResponse.json(item);
       }).pipe(
         Effect.catchTags({
-          SchemaError: () =>
-            HttpServerResponse.json(
-              { error: "InvalidItemId" },
-              { status: 400 },
-            ),
           UpstreamItemNotFound: () =>
             HttpServerResponse.json({ error: "ItemNotFound" }, { status: 404 }),
           GraphQLClientError: ({ reason }) =>

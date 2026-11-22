@@ -2,7 +2,7 @@
 import { ReceiptExecutionId, type ReceiptStatus } from "@repo/domain/Receipt";
 import { ReceiptApi } from "@repo/domain/ReceiptApi";
 import { Receipt } from "@repo/workflow/Receipt";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer, Match, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { WorkflowEngine } from "effect/workflow";
 import { ReceiptRuntimeLayer } from "../workflows/ReceiptRuntime";
@@ -26,13 +26,19 @@ const ReceiptHandlers = HttpApiBuilder.group(
         .handle("status", ({ params }) =>
           Receipt.poll(params.executionId).pipe(
             Effect.map((result): ReceiptStatus => {
-              if (Option.isNone(result) || result.value._tag === "Suspended") {
+              if (Option.isNone(result)) {
                 return { _tag: "Pending" };
               }
-              const exit = result.value.exit;
-              return Exit.isSuccess(exit)
-                ? { _tag: "Confirmed", receiptId: exit.value }
-                : { _tag: "Failed" };
+
+              return Match.value(result.value).pipe(
+                Match.tagsExhaustive({
+                  Suspended: (): ReceiptStatus => ({ _tag: "Pending" }),
+                  Complete: ({ exit }): ReceiptStatus =>
+                    Exit.isSuccess(exit)
+                      ? { _tag: "Confirmed", receiptId: exit.value }
+                      : { _tag: "Failed" },
+                }),
+              );
             }),
             Effect.provideService(WorkflowEngine.WorkflowEngine, engine),
           ),
