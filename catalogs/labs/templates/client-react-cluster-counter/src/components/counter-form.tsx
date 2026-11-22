@@ -43,14 +43,18 @@ export function CounterForm() {
   }
 
   return (
-    <Card className="min-h-0 overflow-auto">
+    <Card
+      className="max-h-[32rem] min-h-0 overflow-auto"
+      tabIndex={0}
+      aria-label="Cluster counter"
+    >
       <CardHeader>
         <CardTitle>
           <h2>Cluster counter</h2>
         </CardTitle>
       </CardHeader>
 
-      <CardContent className="flex min-h-0 flex-1 flex-col">
+      <CardContent className="shrink-0">
         <form className="flex shrink-0 flex-col gap-3" onSubmit={submit}>
           <label htmlFor="counter-id">Counter ID</label>
           <Input
@@ -82,7 +86,7 @@ function CounterHistoryTable({
   counters: typeof CounterHistory.Type;
 }) {
   return (
-    <div className="flex min-h-0 flex-col">
+    <>
       <h3 className="mt-6 shrink-0 font-medium">Counter history</h3>
       <p className="mb-2 shrink-0 text-sm text-muted-foreground">
         Last values seen by this browser. A counter can change on the server.
@@ -90,7 +94,6 @@ function CounterHistoryTable({
       {counters.length === 0 ? (
         <p className="text-sm">No counters yet.</p>
       ) : (
-        <div className="min-h-0 overflow-auto" tabIndex={0} aria-label="Scrollable counter history">
         <table aria-label="Counter history" className="w-full text-sm">
           <thead>
             <tr>
@@ -118,8 +121,7 @@ function CounterHistoryTable({
             ))}
           </tbody>
         </table>
-        </div>
       )}
-    </div>
+    </>
   );
 }

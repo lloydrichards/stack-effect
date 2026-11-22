@@ -78,11 +78,20 @@ export const view = <ParentMessage>(
   h: HtmlBuilder<ParentMessage>,
 ): Html =>
   h.section(
-    [h.Class("flex min-h-0 flex-col overflow-auto rounded-lg border bg-card p-6 text-card-foreground")],
+    [
+      h.Class(
+        "max-h-[32rem] min-h-0 overflow-auto rounded-lg border bg-card p-6 text-card-foreground",
+      ),
+      h.Tabindex(0),
+      h.AriaLabel("Cluster counter"),
+    ],
     [
       h.h2([h.Class("mb-4 shrink-0 font-semibold")], ["Cluster counter"]),
       counterForm(model, toParent, h),
-      h.p([h.Class("mt-4 shrink-0 break-all"), h.Role("status")], [model.status]),
+      h.p(
+        [h.Class("mt-4 shrink-0 break-all"), h.Role("status")],
+        [model.status],
+      ),
       counterHistory(model.counters, h),
     ],
   );
@@ -93,7 +102,10 @@ function counterForm<ParentMessage>(
   h: HtmlBuilder<ParentMessage>,
 ): Html {
   return h.form(
-    [h.Class("flex shrink-0 flex-col gap-3"), h.OnSubmit(toParent(Submitted()))],
+    [
+      h.Class("flex shrink-0 flex-col gap-3"),
+      h.OnSubmit(toParent(Submitted())),
+    ],
     [
       h.label([h.For("counter-id")], ["Counter ID"]),
       h.input([
@@ -122,7 +134,7 @@ function counterHistory<ParentMessage>(
   h: HtmlBuilder<ParentMessage>,
 ): Html {
   return h.div(
-    [h.Class("flex min-h-0 flex-col")],
+    [],
     [
       h.h3([h.Class("mt-6 shrink-0 font-medium")], ["Counter history"]),
       h.p(
@@ -133,7 +145,7 @@ function counterHistory<ParentMessage>(
       ),
       counters.length === 0
         ? h.p([h.Class("text-sm")], ["No counters yet."])
-        : h.div([h.Class("min-h-0 overflow-auto"), h.Tabindex(0), h.AriaLabel("Scrollable counter history")], [h.table(
+        : h.table(
             [h.AriaLabel("Counter history"), h.Class("w-full text-sm")],
             [
               h.thead(
@@ -167,7 +179,7 @@ function counterHistory<ParentMessage>(
                 ),
               ),
             ],
-          )]),
+          ),
     ],
   );
 }
