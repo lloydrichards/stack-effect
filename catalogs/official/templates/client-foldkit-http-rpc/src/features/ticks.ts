@@ -4,7 +4,7 @@ import { Command, Subscription } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { taggedStruct as m } from "foldkit/schema";
 import { modifyFields as evo } from "foldkit/struct";
-import { RpcClient, RpcClientLayer } from "../services/rpc-client";
+import { RpcClient } from "../services/rpc-client";
 
 export const Model = Schema.Struct({
   ticksEnabled: Schema.Boolean,
@@ -89,7 +89,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                 Stream.map((event) => ReceivedTick({ event })),
                 Stream.orDie,
               );
-            }).pipe(Stream.unwrap, Stream.provide(RpcClientLayer))
+            }).pipe(Stream.unwrap, Stream.provide(RpcClient.layer))
           : Stream.empty,
     },
   ),

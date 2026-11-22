@@ -139,8 +139,8 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
       } as const;
     }),
   },
-) {}
-
-export const ChatManagedRuntimeLayer = Layer.effect(ChatManagedRuntime)(
-  ChatManagedRuntime.make,
-);
+) {
+  static readonly layer = Layer.effect(ChatManagedRuntime)(
+    ChatManagedRuntime.make,
+  );
+}

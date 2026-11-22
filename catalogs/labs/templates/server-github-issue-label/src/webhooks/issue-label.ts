@@ -17,10 +17,10 @@ export class GitHubLabels extends Context.Service<
       decision: IssueLabelDecision,
     ) => Effect.Effect<void, GitHubLabelError>;
   }
->()("example/GitHubLabels") {}
-
-export const GitHubLabelsDemo = Layer.succeed(GitHubLabels, {
-  add: Effect.fn("GitHubLabels.add")(({ repository, issueNumber, label }) =>
-    Console.log(`Would add ${label} to ${repository}#${issueNumber}`),
-  ),
-});
+>()("example/GitHubLabels") {
+  static readonly layerDemo = Layer.succeed(GitHubLabels, {
+    add: Effect.fn("GitHubLabels.add")(({ repository, issueNumber, label }) =>
+      Console.log(`Would add ${label} to ${repository}#${issueNumber}`),
+    ),
+  });
+}

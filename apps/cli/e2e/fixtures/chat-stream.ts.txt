@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Cause, Deferred, Effect, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
 import { LanguageModel, Tool, Toolkit, type Response } from "effect/ai";
-import { AiChatService, AiChatServiceLayer } from "@repo/ai";
+import { AiChatService } from "@repo/ai";
 import { FastModelLayer } from "./packages/ai/src/LanguageModel";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
@@ -68,7 +68,7 @@ const run = (round: (n: number) => ReadonlyArray<Response.StreamPartEncoded>) =>
       prompt: [{ role: "system", content: "Answer in French." }, { role: "user", content: [{ type: "text", text: "Hello" }] }],
       toolkit,
     }).pipe(Stream.runCollect);
-  }).pipe(Effect.provide(AiChatServiceLayer), Effect.provide(provider));
+  }).pipe(Effect.provide(AiChatService.layer), Effect.provide(provider));
 };
 
 await Effect.runPromise(Effect.gen(function* () {
@@ -112,10 +112,10 @@ await Effect.runPromise(Effect.gen(function* () {
     assert.deepEqual(yield* Queue.take(queue), { _tag: "text", delta: "first" });
     yield* Fiber.interrupt(owner);
     assert.deepEqual(yield* Queue.collect(queue), []);
-  }).pipe(Effect.provide(AiChatServiceLayer), Effect.provide(streamingProvider));
+  }).pipe(Effect.provide(AiChatService.layer), Effect.provide(streamingProvider));
 
   const capped = yield* AiChatService.use((ai) => ai.stream({ prompt: "continue" }).pipe(Stream.runCollect)).pipe(
-    Effect.provide(AiChatServiceLayer), Effect.provide(FastModelLayer),
+    Effect.provide(AiChatService.layer), Effect.provide(FastModelLayer),
   );
   assert.equal(capped.filter((part) => part._tag === "tool-success").length, 12);
   assert.deepEqual(capped.filter((part) => part._tag === "finish"), [

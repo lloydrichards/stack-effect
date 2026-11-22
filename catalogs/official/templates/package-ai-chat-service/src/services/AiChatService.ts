@@ -134,8 +134,8 @@ export class AiChatService extends Context.Service<AiChatService>()(
       return { stream, chat, toolkit: localToolkit } as const;
     }),
   },
-) {}
-
-export const AiChatServiceLayer = Layer.effect(AiChatService)(
-  AiChatService.make,
-).pipe(Layer.provide(ChatToolkitHandlers));
+) {
+  static readonly layer = Layer.effect(AiChatService)(
+    AiChatService.make,
+  ).pipe(Layer.provide(ChatToolkitHandlers));
+}

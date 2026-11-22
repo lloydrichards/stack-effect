@@ -1,6 +1,6 @@
 import { identity, Layer, pipe } from "effect";
 import { defaultChatCommandConfiguration } from "./ChatCommand";
-import { TerminalChatDriverLayer } from "./ChatDriver";
+import { TerminalChatDriver  } from "./ChatDriver";
 
 export const ChatCommandConfiguration = pipe(defaultChatCommandConfiguration, identity);
-export const ChatCommandDependencies = Layer.mergeAll(TerminalChatDriverLayer);
+export const ChatCommandDependencies = Layer.mergeAll(TerminalChatDriver.layer);

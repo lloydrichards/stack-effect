@@ -295,10 +295,10 @@ export const serverModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "RouterDependencies",
         functionName: "Layer.mergeAll",
-        argument: "ChatSessionsLayer",
+        argument: "ChatSessions.layer",
         import: {
           moduleSpecifier: "./runtime/ChatSessions",
-          namedImports: ["ChatSessionsLayer"],
+          namedImports: ["ChatSessions"],
         },
       },
     ],

@@ -81,10 +81,10 @@ export const graphqlQuery = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "RouterDependencies",
         functionName: "Layer.mergeAll",
-        argument: "CatalogItemsMemory",
+        argument: "CatalogItems.layerMemory",
         import: {
           moduleSpecifier: "./services/CatalogItems",
-          namedImports: ["CatalogItemsMemory"],
+          namedImports: ["CatalogItems"],
         },
       },
     ],

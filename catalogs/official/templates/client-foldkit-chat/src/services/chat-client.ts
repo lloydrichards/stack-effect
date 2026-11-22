@@ -13,9 +13,9 @@ type ChatRpcClient = EffectRpcClient.FromGroup<
 
 export class ChatClient extends Context.Service<ChatClient, ChatRpcClient>()(
   "ChatClient",
-) {}
-
-export const ChatClientLayer = Layer.effect(
-  ChatClient,
-  EffectRpcClient.make(ChatRpc),
-).pipe(Layer.provide(rpcProtocol("/chat-rpc")));
+) {
+  static readonly layer = Layer.effect(
+    ChatClient,
+    EffectRpcClient.make(ChatRpc),
+  ).pipe(Layer.provide(rpcProtocol("/chat-rpc")));
+}

@@ -1,4 +1,4 @@
-import { AiChatServiceLayer, AiChatService } from "@repo/ai";
+import { AiChatService } from "@repo/ai";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ChatId } from "@repo/domain/Chat";
 import {
@@ -16,7 +16,7 @@ import {
   type Scope,
 } from "effect";
 
-export const makeSessionAi = Layer.build(Layer.fresh(AiChatServiceLayer)).pipe(
+export const makeSessionAi = Layer.build(Layer.fresh(AiChatService.layer)).pipe(
   Effect.map(Context.get(AiChatService)),
 );
 
@@ -96,8 +96,8 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       } as const;
     }),
   },
-) {}
-
-export const ChatSessionsLayer = Layer.effect(ChatSessions)(
-  ChatSessions.make,
-).pipe(Layer.provide(PlatformCryptoLayer));
+) {
+  static readonly layer = Layer.effect(ChatSessions)(
+    ChatSessions.make,
+  ).pipe(Layer.provide(PlatformCryptoLayer));
+}

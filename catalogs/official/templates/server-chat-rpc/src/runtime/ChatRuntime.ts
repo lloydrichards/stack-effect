@@ -57,8 +57,8 @@ const makeChatRuntime = Effect.gen(function* () {
 
 export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
   make: makeChatRuntime,
-}) {}
-
-export const ChatRuntimeLayer = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(
-  Layer.provide(ChatRuntimeDependencies),
-);
+}) {
+  static readonly layer = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(
+    Layer.provide(ChatRuntimeDependencies),
+  );
+}

@@ -21,13 +21,14 @@ const serverLayer = (
   targetVariable: "AllRouters" | "RouterDependencies",
   argument: string,
   moduleSpecifier: string,
+  importName = argument,
 ) => ({
   _tag: "ts-call-arg" as const,
   path: "{{targetPath}}/src/index.ts",
   targetVariable,
   functionName: "Layer.mergeAll",
   argument,
-  import: { moduleSpecifier, namedImports: [argument] },
+  import: { moduleSpecifier, namedImports: [importName] },
 });
 
 export const githubIssueWebhook = defineModules(import.meta.url, [
@@ -83,8 +84,9 @@ export const githubIssueWebhook = defineModules(import.meta.url, [
       serverLayer("AllRouters", "GitHubIssueWebhook", "./webhooks/github"),
       serverLayer(
         "RouterDependencies",
-        "GitHubLabelsDemo",
+        "GitHubLabels.layerDemo",
         "./webhooks/issue-label",
+        "GitHubLabels",
       ),
     ],
     nextSteps: [

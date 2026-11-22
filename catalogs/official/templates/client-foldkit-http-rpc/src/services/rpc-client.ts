@@ -15,10 +15,6 @@ type EventRpcClient = EffectRpcClient.FromGroup<
   RpcClientError.RpcClientError
 >;
 
-export class RpcClient extends Context.Service<RpcClient, EventRpcClient>()(
-  "RpcClient",
-) {}
-
 export const rpcProtocol = (path: string) =>
   EffectRpcClient.layerProtocolHttp({
     url: `${SERVER_URL}${path}`,
@@ -29,7 +25,11 @@ export const rpcProtocol = (path: string) =>
 
 export const RpcProtocolLayer = rpcProtocol("/rpc");
 
-export const RpcClientLayer = Layer.effect(
-  RpcClient,
-  EffectRpcClient.make(EventRpc),
-).pipe(Layer.provide(RpcProtocolLayer));
+export class RpcClient extends Context.Service<RpcClient, EventRpcClient>()(
+  "RpcClient",
+) {
+  static readonly layer = Layer.effect(
+    RpcClient,
+    EffectRpcClient.make(EventRpc),
+  ).pipe(Layer.provide(RpcProtocolLayer));
+}

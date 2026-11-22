@@ -16,5 +16,5 @@ export class ClientGenerator extends Context.Service<ClientGenerator>()(
     }),
   },
 ) {
-  static layer = Layer.effect(ClientGenerator)(ClientGenerator.make);
+  static readonly layer = Layer.effect(ClientGenerator)(ClientGenerator.make);
 }

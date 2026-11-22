@@ -22,7 +22,7 @@ export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClie
     } as const;
   }),
 }) {
-  static layer = Layer.effect(ChatRpcClient)(ChatRpcClient.make).pipe(
+  static readonly layer = Layer.effect(ChatRpcClient)(ChatRpcClient.make).pipe(
     Layer.provide(HttpProtocolLayer),
   );
 }

@@ -14,10 +14,6 @@ type WsRpcClient = EffectRpcClient.FromGroup<
   RpcClientError.RpcClientError
 >;
 
-export class WsClient extends Context.Service<WsClient, WsRpcClient>()(
-  "WsClient",
-) {}
-
 const WsProtocolLayer = EffectRpcClient.layerProtocolSocket({
   retryTransientErrors: true,
 }).pipe(
@@ -25,7 +21,11 @@ const WsProtocolLayer = EffectRpcClient.layerProtocolSocket({
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
-export const WsClientLayer = Layer.effect(
-  WsClient,
-  EffectRpcClient.make(WebSocketRpc),
-).pipe(Layer.provide(WsProtocolLayer));
+export class WsClient extends Context.Service<WsClient, WsRpcClient>()(
+  "WsClient",
+) {
+  static readonly layer = Layer.effect(
+    WsClient,
+    EffectRpcClient.make(WebSocketRpc),
+  ).pipe(Layer.provide(WsProtocolLayer));
+}

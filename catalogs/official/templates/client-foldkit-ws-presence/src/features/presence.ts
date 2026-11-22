@@ -12,7 +12,7 @@ import { Command, Subscription } from "foldkit";
 import type { Html, HtmlBuilder } from "foldkit/html";
 import { taggedStruct as m } from "foldkit/schema";
 import { modifyFields as evo } from "foldkit/struct";
-import { WsClient, WsClientLayer } from "../services/ws-client";
+import { WsClient } from "../services/ws-client";
 
 const PresenceClient = Schema.Struct({
   clientId: Schema.String,
@@ -161,7 +161,7 @@ export const SetStatus = Command.define("SetStatus", {
       Effect.orElseSucceed(() =>
         FailedSetStatus({ error: "Failed to set status" }),
       ),
-      Effect.provide(WsClientLayer),
+      Effect.provide(WsClient.layer),
     ),
 });
 
@@ -178,7 +178,7 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
                 Stream.map((event) => ReceivedPresenceEvent({ event })),
                 Stream.orDie,
               );
-            }).pipe(Stream.unwrap, Stream.provide(WsClientLayer))
+            }).pipe(Stream.unwrap, Stream.provide(WsClient.layer))
           : Stream.empty,
     },
   ),
