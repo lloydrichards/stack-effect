@@ -69,7 +69,16 @@ export const discordInteractions = defineModules(import.meta.url, [
       ...files("server-discord-interactions", [
         "DISCORD.md",
         "src/webhooks/discord.ts",
+        "src/fixtures/discord-ping.ts",
       ]),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "fixture:discord",
+        value:
+          "{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}tsx{{/if}}{{#if runtime=deno}}deno run{{/if}} src/fixtures/discord-ping.ts",
+      },
       serverLayer("AllRouters", "DiscordInteractions", "./webhooks/discord"),
     ],
     nextSteps: [
