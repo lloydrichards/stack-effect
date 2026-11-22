@@ -12,6 +12,69 @@ import { CLI } from "./harness";
  */
 describe("add", () => {
   layer(CLI.layer)("layer", (it) => {
+    it.effect("runs the Task Planner scratchpad without shipping tests", () =>
+      Effect.gen(function* () {
+        const cli = yield* CLI;
+        const name = "task-plan-demo";
+        const testPath = "src/TaskPlan.test.ts";
+
+        yield* cli.run(
+          "create",
+          name,
+          ...labsCatalogArgs,
+          "--target",
+          "package/task-plan:package-task-plan",
+          "--runtime",
+          "bun",
+          "--root",
+          cli.workdir,
+          "--yes",
+          "--no-git",
+        );
+        yield* cli.expectExitCode(0);
+
+        const fs = yield* FileSystem.FileSystem;
+        const cases = yield* fs.readFileString(
+          new URL("./fixtures/task-plan.test.ts.txt", import.meta.url).pathname,
+        );
+        yield* cli.withinProject(
+          `${name}/packages/task-plan`,
+          function* (planner) {
+            yield* planner.expectFileNotExists(testPath);
+
+            yield* planner.expectCommandSucceeds(
+              "Task Planner scratchpad",
+              "bun",
+              "run",
+              "scratch",
+            );
+            yield* planner.writeFile(
+              "task-plan-export.ts",
+              `import assert from "node:assert/strict";
+import { planTasks } from "@repo/task-plan/TaskPlan";
+assert.equal(typeof planTasks, "function");
+`,
+            );
+            yield* planner.expectCommandSucceeds(
+              "Task Planner package export",
+              "bun",
+              "task-plan-export.ts",
+            );
+
+            yield* planner.writeFile(testPath, cases);
+            yield* planner.expectCommandSucceeds(
+              "generated Task Planner cases",
+              "bun",
+              "run",
+              "vitest",
+              "run",
+              testPath,
+            );
+          },
+        );
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("runs the offline GitHub issue demo without shipping tests", () =>
       Effect.gen(function* () {
         const cli = yield* CLI;

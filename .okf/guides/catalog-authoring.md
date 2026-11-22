@@ -26,7 +26,9 @@ sources:
     resource: ../../catalogs/official/templates/server/src/ServerConfig.ts
   - id: source-11
     resource: ../../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts
-generated: { by: codex, at: "2026-11-22T18:54:40+00:00" }
+  - id: source-12
+    resource: ../../catalogs/official/src/modules/init.ts
+generated: { by: codex, at: "2026-11-22T19:05:07+00:00" }
 ---
 
 # Catalog authoring workflow
@@ -52,6 +54,10 @@ The Official Todo HTTP API with SQLite is the reference slice. Generate it with 
 - Resolve shared services when building handler groups. Resolve request-specific services inside the handler. Keep the default HTTP 400 for schema rejection. Use typed validation middleware when clients need a stable error body.
 - Declare feature configuration at module scope and read it when building the feature Layer. Give shared settings one owner. The server entry point and upstream GraphQL route reuse the same port config, while the route owns its optional upstream URL.
 - Follow the coding taste guide for inline workflows, schema conversions, and exhaustive matching in generated examples. Managed chat is the example for scoped reservations and background fibers that outlive a request and stop with their owner Layer.
+
+## Test generated code
+
+Keep catalog regression tests in the repository and run them against generated projects. The Vitest workspace module provides configuration and the root runner. A generated package starts without a test script. Add `"test": "vitest run"` when the package has tests, so a registered task fails if it discovers zero tests.
 
 ## Tokens and conditional content
 

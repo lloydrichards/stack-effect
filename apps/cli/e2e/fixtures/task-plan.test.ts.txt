@@ -4,9 +4,9 @@ import {
   TaskCycle,
   TaskId,
 } from "@repo/domain/Task";
+import { planTasks } from "@repo/task-plan/TaskPlan";
 import { Effect } from "effect";
 import { expect, it } from "vitest";
-import { planTasks } from "./TaskPlan";
 
 const publish = TaskId.make("publish");
 const docs = TaskId.make("docs");
@@ -57,27 +57,25 @@ it("fails on duplicate task IDs", () => {
   expect(error).toMatchObject({ taskId: "build" });
 });
 
-it("fails with a cycle expressed as original task IDs", () => {
-  const error = Effect.runSync(
-    Effect.flip(
-      planTasks([
-        { id: build, prerequisites: [publish] },
-        { id: publish, prerequisites: [build] },
-      ]),
-    ),
-  );
+it.each([
+  {
+    name: "a two-task cycle",
+    tasks: [
+      { id: build, prerequisites: [publish] },
+      { id: publish, prerequisites: [build] },
+    ],
+    path: [build, publish, build],
+  },
+  {
+    name: "a self-cycle",
+    tasks: [{ id: build, prerequisites: [build] }],
+    path: [build, build],
+  },
+])("reports $name with the original task IDs", ({ tasks, path }) => {
+  const error = Effect.runSync(Effect.flip(planTasks(tasks)));
 
   expect(error).toBeInstanceOf(TaskCycle);
-  expect(error).toMatchObject({ path: ["build", "publish", "build"] });
-});
-
-it("fails with a self-cycle", () => {
-  const error = Effect.runSync(
-    Effect.flip(planTasks([{ id: build, prerequisites: [build] }])),
-  );
-
-  expect(error).toBeInstanceOf(TaskCycle);
-  expect(error).toMatchObject({ path: ["build", "build"] });
+  expect(error).toMatchObject({ path });
 });
 
 it("accepts a plan with no tasks", () => {

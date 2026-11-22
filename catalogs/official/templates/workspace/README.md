@@ -35,7 +35,7 @@ Run from the project root. Build and test commands run in workspaces that define
 {{/if}}
 {{#if lint}}- `{{runCommand}} lint` lints source files.
 {{/if}}{{#if format}}- `{{runCommand}} format` formats files.
-{{/if}}{{#if test}}Run the selected test framework through workspace test scripts.
+{{/if}}{{#if test}}When a package has tests, add a `"test": "vitest run"` script to its `package.json`. Run it from the package or use the workspace test command from the root.
 {{/if}}
 
 ## Initial scaffold recipe
