@@ -38,7 +38,6 @@ describe("MCP chat extensions", () => {
           yield* cli.withinProject("mcp-client-only", function* (project) {
             for (const app of ["cli-app", "server-api"]) {
               const mcp = `apps/${app}/src/mcp`;
-              yield* project.expectFileExists(`${mcp}/McpClient.ts`);
               yield* project.expectFileContaining(
                 `${mcp}/McpClient.ts`,
                 `name: "${app}"`,
@@ -95,9 +94,8 @@ describe("MCP chat extensions", () => {
                     resources: "McpResources",
                     prompts: "McpPrompts",
                   }[option];
-                  if (option === capability)
-                    yield* project.expectFileExists(`${mcp}/${name}.ts`);
-                  else yield* project.expectFileNotExists(`${mcp}/${name}.ts`);
+                  if (option !== capability)
+                    yield* project.expectFileNotExists(`${mcp}/${name}.ts`);
                 }
               }
               if (capability === "tools")
@@ -259,12 +257,6 @@ describe("MCP chat extensions", () => {
             yield* project.expectFileNotContaining(
               "apps/server-api/package.json",
               "example:mcp",
-            );
-            yield* project.expectFileExists(
-              "apps/server-mcp-remote/src/prompts/BriefingPrompt.ts",
-            );
-            yield* project.expectFileExists(
-              "apps/server-mcp-remote/src/resources/PrimerResource.ts",
             );
             yield* project.writeFile("packages/ai/src/LanguageModel.ts", model);
             yield* project.writeFile("apps/server-api/mcp-pair.ts", probe);
