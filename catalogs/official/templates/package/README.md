@@ -44,6 +44,6 @@ Then run from this directory:
 
 Add migrations under `src/migrations/`. Deploy them beside the database module in its `migrations` directory; the Postgres loader resolves this location relative to the module.
 {{/if}}{{#if module=package-db-todo-repository}}
-`TodoRepository` and `TodoRepositoryLive` implement todo persistence. Provide `DatabaseLive` to the repository layer in the consuming application.
+Use `TodoRepository.layer` for Todo persistence. The consuming app provides the database and secure random Layers.
 {{/if}}
 Run `{{runCommand}} type-check` from this directory to check TypeScript. This package has no separate development server.

@@ -156,6 +156,8 @@ for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25
     grep -q '"title":"Deno task"' todo-created.json
     curl -fsS "http://127.0.0.1:$PORT/todos" >todo-list.json
     grep -q '"title":"Deno task"' todo-list.json
+    invalid_status=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/todos" -H 'Content-Type: application/json' --data '{"title":42}')
+    test "$invalid_status" = 400
     exit 0
   fi
   sleep 0.25

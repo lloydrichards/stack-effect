@@ -29,7 +29,7 @@ const AllRouters = Layer.mergeAll(ApiRouter);
 // NOTE: Modules append additional server layers through Layer.mergeAll.
 const ServerLayers = Layer.mergeAll({{#if runtime=bun}}BunHttpServer.layerConfig(ServerConfig){{/if}}{{#if runtime=node}}NodeHttpServer.layerConfig(createServer, ServerConfig){{/if}}{{#if runtime=deno}}DenoHttpServer.layerConfig(ServerConfig){{/if}});
 
-const HttpLive = Effect.gen(function* () {
+const main = Effect.gen(function* () {
   const config = yield* ServerConfig;
   const allowedOrigins = config.allowedOrigins.split(",").map((o) => o.trim());
 
@@ -55,4 +55,4 @@ const HttpLive = Effect.gen(function* () {
   );
 }).pipe(Layer.unwrap, Layer.launch);
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(HttpLive);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(main);

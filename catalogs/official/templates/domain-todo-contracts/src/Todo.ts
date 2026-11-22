@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 
-export const TodoId = Schema.String.check(Schema.isUUID());
+export const TodoId = Schema.String.check(Schema.isUUID()).pipe(
+  Schema.brand("TodoId"),
+);
 export type TodoId = Schema.Schema.Type<typeof TodoId>;
 
 export const Todo = Schema.Struct({
