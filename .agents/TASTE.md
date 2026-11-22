@@ -59,3 +59,17 @@ const Submission = Schema.TaggedUnion({
   Failed: { message: Schema.NonEmptyString },
 });
 ```
+
+## Own shared state and background work
+
+Use `Ref` when shared state coordinates fibers. A private `Map` is fine for simple synchronous state. Keep a reservation's acquire and release operations together in the service. Let the caller choose the scope that owns the work. See [ChatSessions](../catalogs/official/templates/server-chat-rpc/src/runtime/ChatSessions.ts).
+
+Use an explicit owner scope for work that outlives a request. Use `FiberMap` when the owner needs keyed cancellation. The [managed chat runtime](../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts) registers generation fibers in its Layer scope, and ChatSessions rejects overlapping sends.
+
+In a shutdown test, wait for an explicit start signal before closing the owner scope. Verify cleanup and any released resources. See the [managed chat regression fixture](../apps/cli/e2e/fixtures/chat-owner-scope.ts.txt).
+
+```ts
+yield* Deferred.await(generationStarted);
+yield* Scope.close(ownerScope, Exit.void);
+assert.equal(yield* Deferred.isDone(generationStopped), true);
+```

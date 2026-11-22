@@ -45,10 +45,7 @@ const makeChatRuntime = Effect.gen(function* () {
     ) =>
       Stream.unwrap(
         Effect.gen(function* () {
-          const ai = yield* Effect.acquireRelease(
-            turn.sessions.reserve(chatId),
-            () => turn.sessions.release(chatId),
-          );
+          const ai = yield* turn.sessions.reserveScoped(chatId);
           return generate(messages, options, ai);
         }),
       ),

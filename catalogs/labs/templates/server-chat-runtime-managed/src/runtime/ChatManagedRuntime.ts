@@ -1,19 +1,17 @@
 import type { ChatId, ChatMessage } from "@repo/domain/Chat";
 import { ChatWatchEvent } from "@repo/domain/ChatManagedRpc";
-import type {
-  ChatNotFoundError,
-  GenerationInProgressError,
-} from "@repo/domain/ChatRpc";
 import type { ChatTurnOptions } from "@repo/domain/ChatTurnOptions";
 import {
   Context,
   Effect,
-  Fiber,
+  Exit,
+  FiberMap,
   HashMap,
   Layer,
   Option,
   PubSub,
   Ref,
+  Scope,
   Semaphore,
   Stream,
 } from "effect";
@@ -34,9 +32,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
       const messages = yield* Ref.make<
         HashMap.HashMap<ChatId, ReadonlyArray<ChatMessage>>
       >(HashMap.empty());
-      const activeFibers = yield* Ref.make<
-        HashMap.HashMap<ChatId, Fiber.Fiber<void, never>>
-      >(HashMap.empty());
+      const activeFibers = yield* FiberMap.make<ChatId, void>();
       const liveEvents = yield* PubSub.unbounded<LiveEvent>();
       const eventLock = yield* Semaphore.make(1);
 
@@ -51,56 +47,64 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
           yield* PubSub.publish(liveEvents, [chatId, event] as const);
         }).pipe(Effect.uninterruptible, eventLock.withPermit);
 
-      const removeActiveFiber = (chatId: ChatId) =>
-        Ref.update(activeFibers, HashMap.remove(chatId));
-
       return {
-        send: ({
-          chatId,
-          message,
-          options,
-        }: {
-          readonly chatId: ChatId;
-          readonly message: ChatMessage;
-          readonly options?: ChatTurnOptions;
-        }): Effect.Effect<
-          void,
-          ChatNotFoundError | GenerationInProgressError
-        > =>
-          Effect.gen(function* () {
-            const ai = yield* sessions.reserve(chatId);
+        send: Effect.fn("ChatManagedRuntime.send")(
+          function* ({
+            chatId,
+            message,
+            options,
+          }: {
+            readonly chatId: ChatId;
+            readonly message: ChatMessage;
+            readonly options?: ChatTurnOptions;
+          }) {
+            const reservation = yield* Scope.make();
 
-            const userEvent = ChatWatchEvent.cases["user-message"].make({
-              message,
-            });
-            yield* publish(chatId, userEvent);
+            yield* Effect.gen(function* () {
+              const ai = yield* sessions
+                .reserveScoped(chatId)
+                .pipe(Scope.provide(reservation));
 
-            const history = yield* Ref.modify(messages, (current) => {
-              const nextMessages = [
-                ...Option.getOrElse(HashMap.get(current, chatId), () => []),
+              const userEvent = ChatWatchEvent.cases["user-message"].make({
                 message,
-              ];
-              return [
-                nextMessages,
-                HashMap.set(current, chatId, nextMessages),
-              ] as const;
-            });
+              });
+              yield* publish(chatId, userEvent);
 
-            const fiber = yield* runtime.generate(history, options, ai).pipe(
-              Stream.tap((part) =>
-                publish(
-                  chatId,
-                  ChatWatchEvent.cases["assistant-part"].make({ part }),
+              const history = yield* Ref.modify(messages, (current) => {
+                const nextMessages = [
+                  ...Option.getOrElse(HashMap.get(current, chatId), () => []),
+                  message,
+                ];
+                return [
+                  nextMessages,
+                  HashMap.set(current, chatId, nextMessages),
+                ] as const;
+              });
+
+              // A successful fork takes ownership of closing the reservation.
+              yield* FiberMap.run(
+                activeFibers,
+                chatId,
+                runtime.generate(history, options, ai).pipe(
+                  Stream.tap((part) =>
+                    publish(
+                      chatId,
+                      ChatWatchEvent.cases["assistant-part"].make({ part }),
+                    ),
+                  ),
+                  Stream.runDrain,
+                  Effect.onExit((exit) => Scope.close(reservation, exit)),
                 ),
+              );
+            }).pipe(
+              Effect.onError((cause) =>
+                Scope.close(reservation, Exit.failCause(cause)),
               ),
-              Stream.runDrain,
-              Effect.ensuring(sessions.release(chatId)),
-              Effect.ensuring(removeActiveFiber(chatId)),
-              Effect.forkDetach,
             );
-
-            yield* Ref.update(activeFibers, HashMap.set(chatId, fiber));
-          }),
+          },
+          // Complete the reservation handoff even if the sending request is interrupted.
+          Effect.uninterruptible,
+        ),
         watch: (chatId: ChatId) =>
           Stream.unwrap(
             Effect.gen(function* () {
@@ -128,13 +132,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
         interrupt: (chatId: ChatId) =>
           Effect.gen(function* () {
             yield* sessions.ensure(chatId);
-            const fiber = yield* Ref.get(activeFibers).pipe(
-              Effect.map(HashMap.get(chatId)),
-            );
-            yield* Option.match(fiber, {
-              onNone: () => Effect.void,
-              onSome: Fiber.interrupt,
-            });
+            yield* FiberMap.remove(activeFibers, chatId);
           }),
       } as const;
     }),

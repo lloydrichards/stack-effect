@@ -37,14 +37,21 @@ layer(CLI.layer)("generated AI chat", (it) => {
           fs.readFileString(
             new URL(`./fixtures/${name}.ts.txt`, import.meta.url).pathname,
           );
-        const [stream, limitModel, sessionModel, sessions, watchReplay] =
-          yield* Effect.all([
-            fixture("chat-stream"),
-            fixture("step-limit-model"),
-            fixture("chat-session-model"),
-            fixture("chat-sessions"),
-            fixture("chat-watch-replay"),
-          ]);
+        const [
+          stream,
+          limitModel,
+          sessionModel,
+          sessions,
+          watchReplay,
+          ownerScope,
+        ] = yield* Effect.all([
+          fixture("chat-stream"),
+          fixture("step-limit-model"),
+          fixture("chat-session-model"),
+          fixture("chat-sessions"),
+          fixture("chat-watch-replay"),
+          fixture("chat-owner-scope"),
+        ]);
         yield* cli.withinProject("chat-stream", function* (project) {
           yield* project.expectTypeCheckPasses();
           const modelPath = "packages/ai/src/LanguageModel.ts";
@@ -75,6 +82,12 @@ layer(CLI.layer)("generated AI chat", (it) => {
             "managed chat watch replay",
             "bun",
             "chat-watch-replay.ts",
+          );
+          yield* project.writeFile("chat-owner-scope.ts", ownerScope);
+          yield* project.expectCommandSucceeds(
+            "managed chat owner scope cleanup",
+            "bun",
+            "chat-owner-scope.ts",
           );
           yield* project.writeFile("chat-sessions.ts", sessions);
           yield* project.expectCommandSucceeds(
