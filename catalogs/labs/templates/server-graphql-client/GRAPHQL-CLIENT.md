@@ -36,3 +36,5 @@ To practice adapting the query, imagine the upstream renames `name` to `displayN
 For a second query, add its operation to `GraphQLGroup.make` and call its typed client method. To exercise the lookup in isolation, supply a fixture `GraphQLProtocol` layer to `makeItemLookup`.
 
 This example uses the experimental [Effect GraphQL client](https://effect.website/docs/v4/api/effect/graphql/GraphQLClient) at Effect 4.1.4.
+
+When adding this module to an older project, upgrade Effect and its platform packages to the catalog pin first. Stack Effect reports a dependency conflict if the server or domain package uses a different Effect pin.
