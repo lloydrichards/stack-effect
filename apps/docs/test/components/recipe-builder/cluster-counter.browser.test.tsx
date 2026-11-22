@@ -48,7 +48,71 @@ test("shows the API target required by Cluster Counter Form (React)", async () =
     .element(page.getByRole("checkbox", { name: /^Cluster Counter\b/u }))
     .not.toBeInTheDocument();
 
+  await page.getByText("Effect DevTools Server", { exact: true }).click();
+  await page.getByText("Target settings", { exact: true }).click();
+  const targetName = page.getByLabelText("Target name");
+  await targetName.fill("renamed-api");
+  const renamedApi = page.getByRole("button", {
+    name: "Configure modules for renamed-api, server",
+  });
+  await expect.element(api).toBeVisible();
+  await expect.element(renamedApi).toHaveAttribute("aria-expanded", "true");
+  await expect.element(api).toHaveAttribute("aria-expanded", "false");
+  await api.click();
+  await expect.element(api).toHaveAttribute("aria-expanded", "true");
+  await expect.element(renamedApi).toHaveAttribute("aria-expanded", "false");
+  await expect.element(targetName).not.toBeInTheDocument();
+
   await web.click();
   await counter.click();
   await expect.element(api).not.toBeInTheDocument();
+  await expect.element(renamedApi).toBeVisible();
+});
+
+test("keeps the database provider under Project setup control", async () => {
+  await render(
+    <MemoryRouter initialEntries={["/builder"]}>
+      <RecipeBuilder />
+    </MemoryRouter>,
+  );
+
+  const chooseDatabase = async (name: string) => {
+    await page.getByRole("button", { name: /Project setup/u }).click();
+    const database = page.getByRole("button", { name: /^Database/u });
+    if (database.element().getAttribute("aria-expanded") === "false")
+      await database.click();
+    await page.getByRole("button", { name, exact: true }).click();
+    await page.getByRole("button", { name: /Targets & files/u }).click();
+    await page
+      .getByRole("button", { name: "Configure modules for db, package" })
+      .click();
+  };
+
+  await chooseDatabase("SQLite");
+  await expect
+    .element(page.getByText("SQLite Database", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("checkbox", { name: /^SQLite Database/u }))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("checkbox", { name: /^Postgres Database/u }))
+    .toBeDisabled();
+
+  await page
+    .getByRole("button", { name: "Configure modules for db, package" })
+    .click();
+  await chooseDatabase("Postgres");
+  await expect
+    .element(page.getByText("Postgres Database", { exact: true }))
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("checkbox", { name: /^Postgres Database/u }))
+    .not.toBeInTheDocument();
+  await expect
+    .element(page.getByRole("checkbox", { name: /^SQLite Database/u }))
+    .toBeDisabled();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeEnabled();
 });

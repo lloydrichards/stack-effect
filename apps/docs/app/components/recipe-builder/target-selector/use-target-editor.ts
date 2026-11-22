@@ -100,6 +100,14 @@ export function useTargetEditor() {
           ),
       )?.modules ?? [];
     const selected = activeTarget.modules.includes(module.id);
+    const target =
+      activeTargetIndex >= 0
+        ? activeTarget
+        : {
+            ...activeTarget,
+            id: `${activeTarget.kind}-${nextId()}`,
+            addedByDependency: undefined,
+          };
     batch(() => {
       form.setFieldValue("supportSelections", (current) =>
         selected
@@ -113,10 +121,8 @@ export function useTargetEditor() {
       );
       form.setFieldValue("targets", (current) =>
         toggleTargetModule(
-          current.some((target) => target.id === activeTarget.id)
-            ? current
-            : [...current, { ...activeTarget, addedByDependency: undefined }],
-          activeTarget,
+          target === activeTarget ? current : [...current, target],
+          target,
           module,
           activeModules,
           catalog,
@@ -124,6 +130,7 @@ export function useTargetEditor() {
         ),
       );
     });
+    if (target !== activeTarget) setActiveId(target.id);
   };
 
   const toggleSupportModule = (

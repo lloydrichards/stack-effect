@@ -95,8 +95,12 @@ function TargetConfiguration({
       .flatMap(({ modules }) => modules.map(({ id }) => id)),
   );
   const roots = publicRootModules(modules);
+  const isDatabaseTarget = ownerKey(target) === "package/db";
   const requiredModuleIds = new Set([
     ...presetModules,
+    ...(isDatabaseTarget && database !== "none"
+      ? [`package-db-${database}`]
+      : []),
     ...(requiredModules ?? []),
     ...(target.requirements?.map((requirement) => requirement.moduleId) ?? []),
     ...(catalog?.targets.find((definition) => definition.kind === target.kind)
@@ -107,6 +111,14 @@ function TargetConfiguration({
     name: target.name,
   };
   const getDisabledReason = (module: typeof CatalogModule.Type) => {
+    if (
+      isDatabaseTarget &&
+      (module.id === "package-db-sqlite" ||
+        module.id === "package-db-postgres") &&
+      module.id !== `package-db-${database}`
+    ) {
+      return "Choose the SQL provider in Project setup.";
+    }
     if (
       module.supportedRuntimes &&
       !module.supportedRuntimes.includes(runtime)
