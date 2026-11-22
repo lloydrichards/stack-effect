@@ -1,0 +1,47 @@
+import assert from "node:assert/strict";
+import { Deferred, Effect, Exit, Scope, Stream } from "effect";
+import type { ChatMessage } from "@repo/domain/Chat";
+import { ChatManagedRuntime } from "./apps/server-api/src/runtime/ChatManagedRuntime";
+import { ChatRuntime } from "./apps/server-api/src/runtime/ChatRuntime";
+import { ChatSessions } from "./apps/server-api/src/runtime/ChatSessions";
+
+await Effect.runPromise(
+  Effect.gen(function* () {
+    const sessions = yield* ChatSessions;
+    const { chatId } = yield* sessions.start;
+    const ownerScope = yield* Scope.fork(yield* Effect.scope);
+    const generationStarted = yield* Deferred.make<void>();
+    const generationStopped = yield* Deferred.make<void>();
+    const message: ChatMessage = { role: "user", content: "hello" };
+    const managed = yield* ChatManagedRuntime.make.pipe(
+      Scope.provide(ownerScope),
+      Effect.provideService(ChatRuntime, {
+        start: sessions.start,
+        ask: () => Stream.empty,
+        generate: () =>
+          Stream.fromEffect(
+            Deferred.succeed(generationStarted, undefined).pipe(
+              Effect.andThen(Effect.never),
+              Effect.ensuring(Deferred.succeed(generationStopped, undefined)),
+            ),
+          ),
+      }),
+    );
+
+    yield* managed.send({ chatId, message });
+    yield* Deferred.await(generationStarted);
+    const duplicate = yield* Effect.flip(managed.send({ chatId, message }));
+    assert.equal(duplicate._tag, "GenerationInProgressError");
+
+    yield* Scope.close(ownerScope, Exit.void);
+    assert.equal(yield* Deferred.isDone(generationStopped), true);
+    yield* sessions.reserveScoped(chatId).pipe(Effect.scoped);
+  }).pipe(
+    Effect.scoped,
+    Effect.provide(ChatSessions.layer),
+    Effect.timeoutOrElse({
+      duration: "3 seconds",
+      orElse: () => Effect.die("Managed generation did not start or clean up"),
+    }),
+  ),
+);

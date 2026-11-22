@@ -24,7 +24,9 @@ sources:
     resource: ../../.agents/TASTE.md
   - id: source-10
     resource: ../../catalogs/official/templates/server/src/ServerConfig.ts
-generated: { by: codex, at: "2026-11-22T18:47:37+00:00" }
+  - id: source-11
+    resource: ../../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts
+generated: { by: codex, at: "2026-11-22T18:54:40+00:00" }
 ---
 
 # Catalog authoring workflow
@@ -49,7 +51,7 @@ The Official Todo HTTP API with SQLite is the reference slice. Generate it with 
 - Use `Schema.Struct` with a derived type for ordinary records, branded schemas for IDs, and `Schema.Opaque` when the whole record requires a distinct construction boundary. Use tagged errors for expected failures. Translate infrastructure failures in the service and assign HTTP statuses in the HTTP contract.
 - Resolve shared services when building handler groups. Resolve request-specific services inside the handler. Keep the default HTTP 400 for schema rejection. Use typed validation middleware when clients need a stable error body.
 - Declare feature configuration at module scope and read it when building the feature Layer. Give shared settings one owner. The server entry point and upstream GraphQL route reuse the same port config, while the route owns its optional upstream URL.
-- Follow the coding taste guide for inline workflows, schema conversions, and exhaustive matching in generated examples.
+- Follow the coding taste guide for inline workflows, schema conversions, and exhaustive matching in generated examples. Managed chat is the example for scoped reservations and background fibers that outlive a request and stop with their owner Layer.
 
 ## Tokens and conditional content
 

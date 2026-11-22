@@ -35,6 +35,49 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
       const appContext = yield* Effect.context<Scope.Scope>();
       const crypto = yield* SecureRandom.SecureRandom;
 
+      const reserve = (chatId: ChatId) =>
+        Ref.modify(
+          sessions,
+          (
+            current,
+          ): readonly [
+            Effect.Effect<
+              typeof AiChatService.Service,
+              ChatNotFoundError | GenerationInProgressError
+            >,
+            HashMap.HashMap<ChatId, ChatSession>,
+          ] =>
+            Option.match(HashMap.get(current, chatId), {
+              onNone: () =>
+                [
+                  Effect.fail(new ChatNotFoundError({ chatId })),
+                  current,
+                ] as const,
+              onSome: (session) =>
+                session.active
+                  ? ([
+                      Effect.fail(new GenerationInProgressError({ chatId })),
+                      current,
+                    ] as const)
+                  : ([
+                      Effect.succeed(session.ai),
+                      HashMap.set(current, chatId, {
+                        ...session,
+                        active: true,
+                      }),
+                    ] as const),
+            }),
+        ).pipe(Effect.flatten);
+
+      const release = (chatId: ChatId) =>
+        Ref.update(sessions, (current) =>
+          Option.match(HashMap.get(current, chatId), {
+            onNone: () => current,
+            onSome: (session) =>
+              HashMap.set(current, chatId, { ...session, active: false }),
+          }),
+        );
+
       return {
         start: Effect.gen(function* () {
           const chatId = ChatId.make(yield* crypto.uuidV4().pipe(Effect.orDie));
@@ -52,52 +95,13 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
               }),
             ),
           ),
-        reserve: (chatId: ChatId) =>
-          Ref.modify(
-            sessions,
-            (
-              current,
-            ): readonly [
-              Effect.Effect<
-                typeof AiChatService.Service,
-                ChatNotFoundError | GenerationInProgressError
-              >,
-              HashMap.HashMap<ChatId, ChatSession>,
-            ] =>
-              Option.match(HashMap.get(current, chatId), {
-                onNone: () =>
-                  [
-                    Effect.fail(new ChatNotFoundError({ chatId })),
-                    current,
-                  ] as const,
-                onSome: (session) =>
-                  session.active
-                    ? ([
-                        Effect.fail(new GenerationInProgressError({ chatId })),
-                        current,
-                      ] as const)
-                    : ([
-                        Effect.succeed(session.ai),
-                        HashMap.set(current, chatId, {
-                          ...session,
-                          active: true,
-                        }),
-                      ] as const),
-              }),
-          ).pipe(Effect.flatten),
-        release: (chatId: ChatId) =>
-          Ref.update(sessions, (current) =>
-            Option.match(HashMap.get(current, chatId), {
-              onNone: () => current,
-              onSome: (session) =>
-                HashMap.set(current, chatId, { ...session, active: false }),
-            }),
-          ),
+        reserveScoped: (chatId: ChatId) =>
+          Effect.acquireRelease(reserve(chatId), () => release(chatId)),
       } as const;
     }),
   },
 ) {
-  static readonly layer = Layer.effect(ChatSessions)(
-    ChatSessions.make,
-  ).pipe(Layer.provide(PlatformCryptoLayer));
+  static readonly layer = Layer.effect(ChatSessions)(ChatSessions.make).pipe(
+    Layer.provide(PlatformCryptoLayer),
+  );
 }
