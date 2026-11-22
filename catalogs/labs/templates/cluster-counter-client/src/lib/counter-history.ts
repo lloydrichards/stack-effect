@@ -1,8 +1,8 @@
 import { CounterHistory, type CounterState } from "@repo/domain/Counter";
 import { Schema } from "effect";
+import { counterBaseUrl } from "./counter-client";
 
-const key = "stack-effect-cluster-counter-history";
-const previousKey = "stack-effect-counter-preview-history";
+const key = `stack-effect:cluster-counter-history:${encodeURIComponent(counterBaseUrl)}`;
 
 type Rows = typeof CounterHistory.Type;
 type Counter = typeof CounterState.Type;
@@ -14,7 +14,7 @@ const encode = Schema.encodeOption(JsonRows);
 export function loadCounters(): Rows {
   try {
     const result = decode(
-      localStorage.getItem(key) ?? localStorage.getItem(previousKey) ?? "[]",
+      localStorage.getItem(key) ?? "[]",
     );
     return result._tag === "Some" ? result.value : [];
   } catch {

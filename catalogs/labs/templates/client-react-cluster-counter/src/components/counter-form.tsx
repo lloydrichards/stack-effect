@@ -43,15 +43,15 @@ export function CounterForm() {
   }
 
   return (
-    <Card>
+    <Card className="min-h-0 overflow-auto">
       <CardHeader>
         <CardTitle>
           <h2>Cluster counter</h2>
         </CardTitle>
       </CardHeader>
 
-      <CardContent>
-        <form className="flex flex-col gap-3" onSubmit={submit}>
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <form className="flex shrink-0 flex-col gap-3" onSubmit={submit}>
           <label htmlFor="counter-id">Counter ID</label>
           <Input
             id="counter-id"
@@ -64,7 +64,7 @@ export function CounterForm() {
           </Button>
         </form>
 
-        <p className="mt-4 break-all" role="status">
+        <p className="mt-4 shrink-0 break-all" role="status">
           {pending
             ? "Incrementing…"
             : error || (result ? `${result.id}: ${result.count}` : "")}
@@ -82,14 +82,15 @@ function CounterHistoryTable({
   counters: typeof CounterHistory.Type;
 }) {
   return (
-    <>
-      <h3 className="mt-6 font-medium">Counter history</h3>
-      <p className="mb-2 text-sm text-muted-foreground">
+    <div className="flex min-h-0 flex-col">
+      <h3 className="mt-6 shrink-0 font-medium">Counter history</h3>
+      <p className="mb-2 shrink-0 text-sm text-muted-foreground">
         Last values seen by this browser. A counter can change on the server.
       </p>
       {counters.length === 0 ? (
         <p className="text-sm">No counters yet.</p>
       ) : (
+        <div className="min-h-0 overflow-auto" tabIndex={0} aria-label="Scrollable counter history">
         <table aria-label="Counter history" className="w-full text-sm">
           <thead>
             <tr>
@@ -117,7 +118,8 @@ function CounterHistoryTable({
             ))}
           </tbody>
         </table>
+        </div>
       )}
-    </>
+    </div>
   );
 }
