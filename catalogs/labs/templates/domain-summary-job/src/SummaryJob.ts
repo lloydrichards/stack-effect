@@ -1,11 +1,16 @@
 import { Schema } from "effect";
 
+export const SummaryJobId = Schema.Trimmed.check(Schema.isNonEmpty()).pipe(
+  Schema.brand("SummaryJobId"),
+);
+export type SummaryJobId = typeof SummaryJobId.Type;
+
 export const SummaryRequested = Schema.Struct({
-  jobId: Schema.Trimmed.check(Schema.isNonEmpty()),
+  jobId: SummaryJobId,
   text: Schema.Trimmed.check(Schema.isNonEmpty()),
 });
 
 export interface SummaryResult {
-  readonly jobId: string;
+  readonly jobId: SummaryJobId;
   readonly wordCount: number;
 }

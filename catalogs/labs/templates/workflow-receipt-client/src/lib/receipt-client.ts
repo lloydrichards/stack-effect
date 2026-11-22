@@ -1,3 +1,4 @@
+import type { ReceiptExecutionId, ReceiptId } from "@repo/domain/Receipt";
 import { ReceiptApi } from "@repo/domain/ReceiptApi";
 import { Effect, Schedule } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
@@ -11,7 +12,7 @@ const client = HttpApiClient.make(ReceiptApi, {
 );
 
 export const startReceipt = Effect.fn("ReceiptClient.start")(function* (
-  receiptId: string,
+  receiptId: ReceiptId,
 ) {
   const api = yield* client;
   const { executionId } = yield* api.receipts.start({ payload: { receiptId } });
@@ -19,7 +20,7 @@ export const startReceipt = Effect.fn("ReceiptClient.start")(function* (
 });
 
 export const awaitReceipt = Effect.fn("ReceiptClient.await")(function* (
-  executionId: string,
+  executionId: ReceiptExecutionId,
 ) {
   const api = yield* client;
   return yield* api.receipts.status({ params: { executionId } }).pipe(

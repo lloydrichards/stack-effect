@@ -1,7 +1,11 @@
 import { Schema } from "effect";
 
-export const ReceiptId = Schema.NonEmptyString;
-export const ReceiptExecutionId = Schema.NonEmptyString;
+export const ReceiptId = Schema.NonEmptyString.pipe(Schema.brand("ReceiptId"));
+export type ReceiptId = typeof ReceiptId.Type;
+export const ReceiptExecutionId = Schema.NonEmptyString.pipe(
+  Schema.brand("ReceiptExecutionId"),
+);
+export type ReceiptExecutionId = typeof ReceiptExecutionId.Type;
 
 export class ReceiptWriteError extends Schema.TaggedError<
   ReceiptWriteError,

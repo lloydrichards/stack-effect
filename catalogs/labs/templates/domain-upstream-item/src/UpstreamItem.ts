@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 
-export const UpstreamItemId = Schema.NonEmptyString;
+export const UpstreamItemId = Schema.NonEmptyString.pipe(
+  Schema.brand("UpstreamItemId"),
+);
 export type UpstreamItemId = typeof UpstreamItemId.Type;
 
 export const UpstreamItem = Schema.Struct({

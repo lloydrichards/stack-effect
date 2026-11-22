@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
-import { Effect } from "effect";
+import { ReceiptId } from "@repo/domain/Receipt";
+import { Effect, Schema } from "effect";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { awaitReceipt, startReceipt } from "../lib/receipt-client";
 import {
@@ -28,7 +29,9 @@ function ReceiptStatusRow({
     if (status !== "Pending") return;
     const controller = new AbortController();
 
-    void Effect.runPromise(awaitReceipt(executionId), { signal: controller.signal }).then(
+    void Effect.runPromise(awaitReceipt(executionId), {
+      signal: controller.signal,
+    }).then(
       (result) => {
         if (controller.signal.aborted) return;
         onUpdate({
@@ -100,7 +103,7 @@ export function ReceiptForm() {
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const id = receiptId.trim();
-    if (starting || !id) return;
+    if (starting || !Schema.is(ReceiptId)(id)) return;
     setError("");
     setStarting(true);
     void Effect.runPromise(startReceipt(id))

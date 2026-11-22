@@ -1,6 +1,8 @@
 import { Schema } from "effect";
 
-export const CatalogItemId = Schema.NonEmptyString;
+export const CatalogItemId = Schema.NonEmptyString.pipe(
+  Schema.brand("CatalogItemId"),
+);
 export type CatalogItemId = typeof CatalogItemId.Type;
 
 export const CatalogItem = Schema.Struct({
