@@ -47,6 +47,7 @@ it("answers signed PING and rejects tampered or malformed interactions", async (
     expect((await send(ping, ping, "1700000001")).status).toBe(401);
     expect((await send('{"type":2}')).status).toBe(400);
     expect((await send("{")).status).toBe(400);
+    expect((await send(ping + " ".repeat(4096))).status).toBe(413);
   } finally {
     await app.dispose();
   }
