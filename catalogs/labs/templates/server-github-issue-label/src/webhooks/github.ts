@@ -1,5 +1,6 @@
 // @effect-diagnostics unstableApiUsage:off This adapter uses Effect Mac and HTTP responses.
 import {
+  ByteSize,
   Config,
   Effect,
   Layer,
@@ -9,7 +10,7 @@ import {
   String,
 } from "effect";
 import { Mac, SecureRandom } from "effect/crypto";
-import { HttpRouter, HttpServerResponse } from "effect/http";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 import { chooseIssueLabel, GitHubLabels } from "./issue-label";
 
 const IssueEvent = Schema.fromJsonString(
@@ -41,7 +42,10 @@ export const GitHubIssueWebhook = HttpRouter.use((router) =>
         if (Option.isNone(signed))
           return HttpServerResponse.empty({ status: 401 });
 
-        const raw = yield* request.arrayBuffer;
+        // Bound the raw read before authenticating the delivery.
+        const raw = yield* request.arrayBuffer.pipe(
+          Effect.provideService(HttpServerRequest.MaxBodySize, ByteSize.kibibytes(256)),
+        );
         if (!(yield* mac.verify(key, signed.value, new Uint8Array(raw)))) {
           return HttpServerResponse.empty({ status: 401 });
         }

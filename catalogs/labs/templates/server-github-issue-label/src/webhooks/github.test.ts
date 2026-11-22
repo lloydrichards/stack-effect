@@ -55,6 +55,7 @@ it("adds the same allowlisted label on replay and ignores rejected deliveries", 
     expect((await send(opened, "push")).status).toBe(204);
     expect((await send(opened.replace("opened", "closed"))).status).toBe(204);
     expect((await send("{}")).status).toBe(400);
+    expect((await send(opened + " ".repeat(256 * 1024))).status).toBe(413);
     expect(calls).toEqual([expected]);
     expect((await send(opened)).status).toBe(204);
     expect(calls).toEqual([expected, expected]);
