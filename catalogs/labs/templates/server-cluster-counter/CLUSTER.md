@@ -12,6 +12,18 @@ The domain package defines the ID and count schemas in `Counter.ts` and the HTTP
 
 `src/cluster/Runner.ts` registers the entities and supplies a local `SingleRunner` inside the HTTP server. The runner needs SQLite and Digest for its message storage. The example uses transient RPC calls. The count lives in memory and starts from zero when an idle entity is recreated or the server restarts.
 
+## Try the browser clients
+
+Select `client-react-cluster-counter` or `client-foldkit-cluster-counter` to add a form to the corresponding client. Start the server from this directory with both client origins allowed.
+
+```bash
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5174 bun run dev
+```
+
+Run `bun run dev` from each selected client directory. Open React at port 3000 or Foldkit at port 5174. Enter an ID and click **Increment counter**. Use the same ID in either client to increment the same count. Enter a fresh ID to start at one.
+
+Both forms use the same typed HTTP client helper and decode input with the domain's `CounterId` schema. React runs the request from its submit handler. Foldkit sends an increment command and updates its model from the result. Set `VITE_SERVER_URL` on the client if the API uses a different address.
+
 ## Extend the example
 
 To read the current count, add a `Get` RPC to the entity and return `Ref.get(count)` from its handler. Add `GET /counters/:id` to the domain HTTP contract and forward it to that RPC from the server adapter.
