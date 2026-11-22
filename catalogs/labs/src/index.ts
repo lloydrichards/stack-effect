@@ -3,6 +3,7 @@ import { clusterCounter } from "./cluster-counter";
 import { counterClients } from "./cluster-counter-clients";
 import { discordInteractions } from "./discord-interactions";
 import { experiments } from "./experiments";
+import { githubIssueWebhook } from "./github-issue-webhook";
 import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
 import { receiptApp } from "./receipt-app";
@@ -101,6 +102,7 @@ export const labsCatalog: CatalogInput = {
     receiptWorkflow,
     receiptApp,
     discordInteractions,
+    githubIssueWebhook,
   ],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
