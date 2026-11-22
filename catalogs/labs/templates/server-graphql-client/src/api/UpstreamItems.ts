@@ -2,7 +2,12 @@
 // @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
 import { Config, Effect, Layer, Schema } from "effect";
 import { GraphQLProtocol } from "effect/graphql";
-import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/http";
+import {
+  FetchHttpClient,
+  type HttpBody,
+  HttpRouter,
+  HttpServerResponse,
+} from "effect/http";
 import { makeItemLookup } from "../graphql/Items";
 
 const ItemParams = Schema.Struct({ id: Schema.NonEmptyString });
@@ -16,7 +21,11 @@ const UpstreamGraphQLLive = Layer.unwrap(
   }),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 
-export const UpstreamItemsLive = HttpRouter.use((router) =>
+export const UpstreamItemsLive: Layer.Layer<
+  never,
+  Config.ConfigError,
+  HttpRouter.HttpRouter | HttpRouter.Request<"Error", HttpBody.HttpBodyError>
+> = HttpRouter.use((router) =>
   Effect.gen(function* () {
     const lookup = yield* makeItemLookup;
 

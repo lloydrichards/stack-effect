@@ -1,7 +1,13 @@
 // @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
 import { UpstreamItem, UpstreamItemNotFound } from "@repo/domain/UpstreamItem";
 import { Effect, Schema } from "effect";
-import { GraphQL, GraphQLClient, GraphQLGroup } from "effect/graphql";
+import {
+  GraphQL,
+  GraphQLClient,
+  GraphQLGroup,
+  type GraphQLClientError,
+  type GraphQLProtocol,
+} from "effect/graphql";
 
 const FindItem = GraphQL.query("FindItem", {
   document: `query FindItem($id: ID!) {
@@ -11,11 +17,22 @@ const FindItem = GraphQL.query("FindItem", {
   result: Schema.Struct({ item: Schema.NullOr(UpstreamItem) }),
 });
 
-export const makeItemLookup = Effect.gen(function* () {
+export const makeItemLookup: Effect.Effect<
+  (
+    id: string,
+  ) => Effect.Effect<
+    typeof UpstreamItem.Type,
+    typeof UpstreamItemNotFound.Type | GraphQLClientError.GraphQLClientError
+  >,
+  never,
+  GraphQLProtocol.GraphQLProtocol
+> = Effect.gen(function* () {
   const client = yield* GraphQLClient.make(GraphQLGroup.make(FindItem));
 
   return Effect.fn("GraphQLItems.lookup")(function* (id: string) {
     const { item } = yield* client.FindItem({ id });
-    return item === null ? yield* new UpstreamItemNotFound({ id }) : item;
+    if (item === null)
+      return yield* Effect.fail(UpstreamItemNotFound.make({ id }));
+    return item;
   });
 });

@@ -9,7 +9,7 @@ export const graphqlClient = defineModules(import.meta.url, [
     title: "Upstream Item",
     description: "Item schema and missing-item error for an upstream lookup",
     visibility: "internal",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: domain }],
     dependencies: [],
     contributions: [
@@ -32,7 +32,7 @@ export const graphqlClient = defineModules(import.meta.url, [
     title: "GraphQL Client",
     description:
       "Read one item from an upstream GraphQL endpoint with a local fixture",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       {
@@ -66,6 +66,14 @@ export const graphqlClient = defineModules(import.meta.url, [
         _tag: "file",
         path: "{{targetPath}}/src/fixtures/graphql.ts",
         contents: template("./server-graphql-client/src/fixtures/graphql.ts"),
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "fixture:graphql",
+        value:
+          "{{#if runtime=bun}}bun src/fixtures/graphql.ts{{/if}}{{#if runtime=node}}tsx src/fixtures/graphql.ts{{/if}}{{#if runtime=deno}}deno run --allow-net=127.0.0.1:9010 src/fixtures/graphql.ts{{/if}}",
       },
       {
         _tag: "ts-call-arg",

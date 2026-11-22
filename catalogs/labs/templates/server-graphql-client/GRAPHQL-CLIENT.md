@@ -3,11 +3,11 @@
 Run these in separate terminals from this server directory. The first runs a local upstream fixture on port 9010. The second starts the scaffolded HTTP server on port 9000.
 
 ```bash
-bun src/fixtures/graphql.ts
+{{#if runtime=bun}}bun run{{/if}}{{#if runtime=node}}pnpm run{{/if}}{{#if runtime=deno}}deno task{{/if}} fixture:graphql
 ```
 
 ```bash
-bun run dev
+{{#if runtime=bun}}bun run{{/if}}{{#if runtime=node}}pnpm run{{/if}}{{#if runtime=deno}}deno task{{/if}} dev
 ```
 
 Try the lookup with `curl -i http://localhost:9000/upstream-items/demo`. The route sends the ID as a typed GraphQL variable and returns `{"id":"demo","name":"Demo item"}`. Replace `demo` with the IDs below to exercise the failure paths.
