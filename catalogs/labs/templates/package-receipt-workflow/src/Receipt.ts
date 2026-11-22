@@ -5,7 +5,7 @@ import { Activity, DurableClock, Workflow } from "effect/workflow";
 
 export class Receipts extends Context.Service<
   Receipts,
-  { readonly record: (id: string) => Effect.Effect<void, ReceiptWriteError> }
+  { readonly record: (id: ReceiptId) => Effect.Effect<void, ReceiptWriteError> }
 >()("example/Receipts") {}
 
 export const Receipt = Workflow.make("Receipt", {

@@ -409,7 +409,7 @@ const HttpRpcRouter = Layer.empty;
               expect.objectContaining({
                 _tag: "ts-add-import",
                 moduleSpecifier: "./rpc/Chat",
-                namedImports: ["ChatRpcLive"],
+                namedImports: ["ChatRpcRoutes"],
               }),
             ]),
           );
@@ -423,7 +423,7 @@ const HttpRpcRouter = Layer.empty;
                 _tag: "ts-append-call-arg",
                 targetVariable: "AllRouters",
                 functionName: "Layer.mergeAll",
-                argument: "ChatRpcLive",
+                argument: "ChatRpcRoutes",
               }),
             ]),
           );
@@ -813,7 +813,7 @@ export * from "./toolkits/DateTimeToolkit";
                       _tag: "file" as const,
                       path,
                       contents:
-                        '// Custom index with named exports\nexport { FastModelLive } from "./LanguageModel";',
+                        '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
                     };
                   }
                   return { _tag: "missing" as const, path };

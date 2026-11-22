@@ -18,7 +18,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
       subscribe: Effect.fn(function* () {
         yield* Effect.logDebug("New presence subscription");
 
-        const clientId = yield* gen.generateClientId();
+        const clientId = yield* gen.generateClientId;
         const connectedAt = yield* DateTime.now;
         const clientInfo: ClientInfo = {
           clientId,

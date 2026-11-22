@@ -14,7 +14,13 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Chat, Prompt, Toolkit, type Tool } from "effect/ai";
+import {
+  Chat,
+  type LanguageModel,
+  Prompt,
+  Toolkit,
+  type Tool,
+} from "effect/ai";
 import { ThinkToolkit, ThinkToolkitHandlers } from "../toolkits/ThinkToolkit";
 import { chatEvents } from "../workflow/MailboxEvents";
 
@@ -102,40 +108,61 @@ const streamWithToolkit = <Tools extends Record<string, Tool.Any>>(
     Stream.catchCause((cause) => Stream.fromEffect(chatErrorPart(cause))),
   );
 
-export class AiChatService extends Context.Service<AiChatService>()(
-  "AiChatService",
+type ChatTools = Record<string, Tool.Any>;
+type ChatRequirements<Tools extends ChatTools> =
+  | LanguageModel.LanguageModel
+  | LanguageModel.ExtractServices<{
+      readonly toolkit: Toolkit.WithHandler<Tools>;
+    }>;
+
+export class AiChatService extends Context.Service<
+  AiChatService,
   {
-    make: Effect.gen(function* () {
-      const localToolkit = yield* ChatToolkit;
+    readonly stream: <Tools extends ChatTools = {}>(input: {
+      readonly prompt: Prompt.RawInput;
+      readonly toolkit?: Toolkit.WithHandler<Tools> | undefined;
+    }) => Stream.Stream<ChatStreamPart, never, ChatRequirements<Tools>>;
+    readonly chat: <Tools extends ChatTools = {}>(
+      prompt: Prompt.RawInput,
+      toolkit?: Toolkit.WithHandler<Tools>,
+    ) => Effect.Effect<
+      Queue.Queue<ChatStreamPart, Cause.Done>,
+      never,
+      ChatRequirements<Tools>
+    >;
+    readonly toolkit: Toolkit.WithHandler<typeof ChatToolkit.tools>;
+  }
+>()("AiChatService", {
+  make: Effect.gen(function* () {
+    const localToolkit = yield* ChatToolkit;
 
-      const stream = <Tools extends Record<string, Tool.Any> = {}>({
-        prompt,
-        toolkit,
-      }: {
-        readonly prompt: Prompt.RawInput;
-        readonly toolkit?: Toolkit.WithHandler<Tools> | undefined;
-      }) =>
-        toolkit === undefined
-          ? streamWithToolkit(prompt, localToolkit)
-          : streamWithToolkit(prompt, toolkit);
+    const stream = <Tools extends Record<string, Tool.Any> = {}>({
+      prompt,
+      toolkit,
+    }: {
+      readonly prompt: Prompt.RawInput;
+      readonly toolkit?: Toolkit.WithHandler<Tools> | undefined;
+    }) =>
+      toolkit === undefined
+        ? streamWithToolkit(prompt, localToolkit)
+        : streamWithToolkit(prompt, toolkit);
 
-      // Existing queue consumers retain ownership through their calling fiber.
-      const chat = Effect.fnUntraced(function* <
-        Tools extends Record<string, Tool.Any> = {},
-      >(prompt: Prompt.RawInput, toolkit?: Toolkit.WithHandler<Tools>) {
-        const queue = yield* Queue.bounded<ChatStreamPart, Cause.Done>(16);
-        yield* stream({ prompt, toolkit }).pipe(
-          Stream.runForEach((part) => Queue.offer(queue, part)),
-          Effect.ensuring(Queue.end(queue)),
-          Effect.forkChild({ startImmediately: true }),
-        );
-        return queue;
-      });
-      return { stream, chat, toolkit: localToolkit } as const;
-    }),
-  },
-) {
-  static readonly layer = Layer.effect(AiChatService)(
-    AiChatService.make,
-  ).pipe(Layer.provide(ChatToolkitHandlers));
+    // Existing queue consumers retain ownership through their calling fiber.
+    const chat = Effect.fnUntraced(function* <
+      Tools extends Record<string, Tool.Any> = {},
+    >(prompt: Prompt.RawInput, toolkit?: Toolkit.WithHandler<Tools>) {
+      const queue = yield* Queue.bounded<ChatStreamPart, Cause.Done>(16);
+      yield* stream({ prompt, toolkit }).pipe(
+        Stream.runForEach((part) => Queue.offer(queue, part)),
+        Effect.ensuring(Queue.end(queue)),
+        Effect.forkChild({ startImmediately: true }),
+      );
+      return queue;
+    });
+    return { stream, chat, toolkit: localToolkit } as const;
+  }),
+}) {
+  static readonly layer = Layer.effect(AiChatService)(AiChatService.make).pipe(
+    Layer.provide(ChatToolkitHandlers),
+  );
 }

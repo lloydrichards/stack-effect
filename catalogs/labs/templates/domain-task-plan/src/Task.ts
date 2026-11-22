@@ -1,6 +1,6 @@
 import { Data, Schema } from "effect";
 
-export const TaskId = Schema.NonEmptyString;
+export const TaskId = Schema.NonEmptyString.pipe(Schema.brand("TaskId"));
 
 export type TaskId = typeof TaskId.Type;
 

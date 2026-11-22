@@ -151,7 +151,7 @@ export const update = (model: Model, event: Message): Update =>
       InputChanged: ({ value }) => [{ ...model, receiptId: value }, []],
       Submitted: () => {
         const receiptId = model.receiptId.trim();
-        return model.starting || !receiptId
+        return model.starting || !Schema.is(ReceiptId)(receiptId)
           ? [model, []]
           : [{ ...model, starting: true, error: "" }, [Start({ receiptId })]];
       },
@@ -160,12 +160,14 @@ export const update = (model: Model, event: Message): Update =>
           ...model,
           rows: upsertReceipt(model.rows, row),
           starting: false,
-          receiptId: model.receiptId.trim() === submittedId ? "" : model.receiptId,
+          receiptId:
+            model.receiptId.trim() === submittedId ? "" : model.receiptId,
         };
-        const commands = row.status === "Pending" &&
+        const commands =
+          row.status === "Pending" &&
           !model.rows.some((item) => item.executionId === row.executionId)
-          ? [Wait({ executionId: row.executionId })]
-          : [];
+            ? [Wait({ executionId: row.executionId })]
+            : [];
 
         return [next, commands];
       },
@@ -185,18 +187,29 @@ export const update = (model: Model, event: Message): Update =>
         ),
       PollFailed: ({ executionId }) =>
         model.unavailable.includes(executionId) ||
-        !model.rows.some((row) => row.executionId === executionId && row.status === "Pending")
+        !model.rows.some(
+          (row) => row.executionId === executionId && row.status === "Pending",
+        )
           ? [model, []]
-          : [{ ...model, unavailable: [...model.unavailable, executionId] }, []],
+          : [
+              { ...model, unavailable: [...model.unavailable, executionId] },
+              [],
+            ],
       Retry: ({ executionId }) =>
         model.unavailable.includes(executionId) &&
-        model.rows.some((row) => row.executionId === executionId && row.status === "Pending")
+        model.rows.some(
+          (row) => row.executionId === executionId && row.status === "Pending",
+        )
           ? [
-              { ...model, unavailable: model.unavailable.filter((id) => id !== executionId) },
+              {
+                ...model,
+                unavailable: model.unavailable.filter(
+                  (id) => id !== executionId,
+                ),
+              },
               [Wait({ executionId })],
             ]
           : [model, []],
-
     }),
   );
 
@@ -329,7 +342,15 @@ const receiptHistory = <ParentMessage>(
                   ),
                   h.tbody(
                     [],
-                    model.rows.map((row) => receiptRow(row, row.status === "Pending" && model.unavailable.includes(row.executionId), toParent, h)),
+                    model.rows.map((row) =>
+                      receiptRow(
+                        row,
+                        row.status === "Pending" &&
+                          model.unavailable.includes(row.executionId),
+                        toParent,
+                        h,
+                      ),
+                    ),
                   ),
                 ],
               ),

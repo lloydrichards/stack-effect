@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { ReceiptStatus } from "@repo/domain/Receipt";
+import { ReceiptExecutionId, type ReceiptStatus } from "@repo/domain/Receipt";
 import { ReceiptApi } from "@repo/domain/ReceiptApi";
 import { Receipt } from "@repo/workflow/Receipt";
 import { Effect, Exit, Layer, Option } from "effect";
@@ -17,7 +17,9 @@ const ReceiptHandlers = HttpApiBuilder.group(
       return handlers
         .handle("start", ({ payload }) =>
           Receipt.execute({ id: payload.receiptId }, { discard: true }).pipe(
-            Effect.map((executionId) => ({ executionId })),
+            Effect.map((executionId) => ({
+              executionId: ReceiptExecutionId.make(executionId),
+            })),
             Effect.provideService(WorkflowEngine.WorkflowEngine, engine),
           ),
         )

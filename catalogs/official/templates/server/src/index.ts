@@ -51,7 +51,7 @@ const main = Effect.gen(function* () {
   return HttpRouter.serve(CorsRouters).pipe(
     HttpServer.withLogAddress,
     Layer.provide(RouterDependencies),
-    Layer.provideMerge(ServerLayers),
+    Layer.provide(ServerLayers),
   );
 }).pipe(Layer.unwrap, Layer.launch);
 
