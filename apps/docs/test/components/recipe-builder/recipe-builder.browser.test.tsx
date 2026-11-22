@@ -1110,9 +1110,9 @@ test("should explain why retrying can fix a cached catalog mismatch", async () =
       ),
     )
     .toBeVisible();
-  await expect
-    .element(page.getByRole("button", { name: "Retry catalog" }))
-    .toBeEnabled();
+  const retryButton = page.getByRole("button", { name: "Retry catalog" });
+  await expect.element(retryButton).toBeVisible();
+  await expect.element(retryButton).toBeEnabled();
 });
 
 test("should offer the official catalog when a selected catalog requires it", async () => {
