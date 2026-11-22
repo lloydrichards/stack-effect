@@ -82,6 +82,13 @@ export const clusterCounter = defineModules(import.meta.url, [
         contents: template("./server-cluster-counter/src/api/Counter.ts"),
       },
       {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
+        value: "4.1.4",
+      },
+      {
         _tag: "ts-call-arg",
         path: "{{targetPath}}/src/index.ts",
         targetVariable: "AllRouters",
