@@ -1,4 +1,4 @@
-import { Data, Schema } from "effect";
+import { Schema } from "effect";
 
 const RepositoryName = Schema.NonEmptyString;
 const IssueNumber = Schema.Int.check(Schema.isGreaterThan(0));
@@ -21,4 +21,5 @@ export const IssueLabelDecision = Schema.Struct({
 });
 export type IssueLabelDecision = typeof IssueLabelDecision.Type;
 
-export class GitHubLabelError extends Data.TaggedError("GitHubLabelError") {}
+export const GitHubLabelError = Schema.TaggedStruct("GitHubLabelError", {});
+export type GitHubLabelError = typeof GitHubLabelError.Type;
