@@ -6,6 +6,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/e2e-cli.yml"
       - "apps/cli/**"
       - "packages/catalog/**"
       - "packages/domain/**"
@@ -19,6 +20,7 @@ on:
     branches:
       - main
     paths:
+      - ".github/workflows/e2e-cli.yml"
       - "apps/cli/**"
       - "packages/catalog/**"
       - "packages/domain/**"
@@ -68,6 +70,13 @@ jobs:
             bun run test:e2e e2e/add.test.ts
             bun run test:e2e e2e/registry-project.test.ts
             bun run test:e2e e2e/deno.test.ts
+          '
+
+      - name: Run generated Husky and language-service tests
+        run: |
+          nix develop --command bash -lc '
+            cd apps/cli
+            bun run test:e2e --maxWorkers=1 e2e/husky.test.ts e2e/language-service.test.ts
           '
 
       - name: Run generated chat and MCP tests
