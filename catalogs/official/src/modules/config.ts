@@ -6,7 +6,7 @@ export const configModules = defineModules(import.meta.url, [
   {
     id: "config-typescript-vite",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Config TypeScript Vite",
+    title: "Vite TypeScript Preset",
     description: "Vite TypeScript preset for client applications",
     visibility: "internal",
     supportedOn: [

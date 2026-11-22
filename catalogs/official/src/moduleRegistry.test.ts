@@ -17,7 +17,7 @@ describe("moduleRegistry", () => {
         (module) => module.id === `${kind}-chat-mcp`,
       );
       expect(connection?.visibility ?? "public").toBe("public");
-      expect(connection?.title).toBe("MCP Client");
+      expect(connection?.title).toBe("MCP Connection for Chat");
       expect(connection?.dependencies).toEqual([
         { _tag: "required-module", target, moduleId: parent },
       ]);

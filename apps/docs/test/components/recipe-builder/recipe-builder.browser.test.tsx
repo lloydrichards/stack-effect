@@ -360,7 +360,7 @@ test.each([
 test("selects and clears CAFE as a shareable stack preset", async () => {
   await renderRecipeBuilder();
   await targetsStep();
-  const preset = page.getByRole("checkbox", { name: "CAFE starter" });
+  const preset = page.getByRole("checkbox", { name: "CAFE Starter" });
   const selectedTargets = () =>
     new URLSearchParams(
       page.getByLabelText("Recipe URL search").element().textContent ?? "",
@@ -418,13 +418,13 @@ test("adds a target before editing its modules in the inline overview", async ()
     name: "Dependencies of HTTP API Client",
   });
   await expect
-    .element(dependencies.getByText("Domain API", { exact: true }))
+    .element(dependencies.getByText("HTTP API Contracts", { exact: true }))
     .toBeVisible();
   await expect
     .element(page.getByText("package/domain", { exact: true }))
     .not.toBeInTheDocument();
   await dependencies
-    .getByRole("button", { name: "Details for Domain API" })
+    .getByRole("button", { name: "Details for HTTP API Contracts" })
     .click();
   await expect
     .element(
@@ -629,7 +629,7 @@ test("should require a database before selecting a database-backed module", asyn
   await renderRecipeBuilder();
 
   await openReactTarget();
-  const todoModule = page.getByRole("checkbox", { name: /Todo HTTP Client/u });
+  const todoModule = page.getByRole("checkbox", { name: /Todo List/u });
 
   await expect.element(todoModule).toBeDisabled();
   await expect
@@ -641,7 +641,7 @@ test("should require a database before selecting a database-backed module", asyn
   await page.getByRole("button", { name: "SQLite" }).click();
   await targetsStep();
   await expect.element(todoModule).toBeEnabled();
-  await page.getByText("Todo HTTP Client", { exact: true }).click();
+  await page.getByText("Todo List", { exact: true }).click();
 
   await setupStep();
   await page.getByRole("button", { name: /^Database/u }).click();
@@ -649,7 +649,7 @@ test("should require a database before selecting a database-backed module", asyn
     .element(page.getByRole("button", { name: "None" }))
     .toBeDisabled();
   await expect
-    .element(page.getByText("Remove Todo HTTP Client to choose None."))
+    .element(page.getByText("Remove Todo List to choose None."))
     .toBeVisible();
   const selectedTargets = () =>
     new URLSearchParams(
@@ -674,10 +674,10 @@ test("should name only the source module after restoring an implied database rec
   await page.getByRole("button", { name: /^Database/u }).click();
 
   await expect
-    .element(page.getByText("Remove Todo HTTP Client to choose None."))
+    .element(page.getByText("Remove Todo List to choose None."))
     .toBeVisible();
   await expect
-    .element(page.getByText(/Todo HTTP Client and Todo HTTP API/u))
+    .element(page.getByText(/Todo List and Todo Endpoints \(HTTP API\)/u))
     .not.toBeInTheDocument();
 });
 
@@ -761,7 +761,7 @@ test("should reconcile a rename after its delayed catalog request completes", as
     .element(page.getByText("HTTP API Client", { exact: true }))
     .toBeVisible();
   await expect
-    .element(page.getByText("Domain API", { exact: true }))
+    .element(page.getByText("HTTP API Contracts", { exact: true }))
     .toBeVisible();
   await expect
     .element(page.getByText("Loading options…"))

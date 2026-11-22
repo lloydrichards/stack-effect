@@ -33,7 +33,7 @@ export const cliModules = defineModules(import.meta.url, [
   {
     id: "cli-chat-driver",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Chat CLI Driver",
+    title: "Chat Driver",
     description: "Shared direct-AI chat plumbing for CLI chat commands",
     visibility: "internal",
     supportedOn: [{ _tag: "kind", kind: "cli" }],
@@ -132,7 +132,7 @@ export const cliModules = defineModules(import.meta.url, [
   {
     id: "cli-command-chat-terminal",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Terminal Chat Command",
+    title: "Chat Command",
     description: "Interactive terminal AI chat command for CLI applications",
     supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
@@ -182,7 +182,7 @@ export const cliModules = defineModules(import.meta.url, [
   {
     id: "cli-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Effect DevTools CLI",
+    title: "Effect DevTools",
     description: "Optional Effect DevTools tracer layer for CLI apps",
     supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [],

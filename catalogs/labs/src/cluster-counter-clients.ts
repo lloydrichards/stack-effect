@@ -44,7 +44,7 @@ const foldkitImport = {
 export const counterClients = defineModules(import.meta.url, [
   {
     id: "client-react-cluster-counter",
-    title: "Cluster Counter Form (React)",
+    title: "Cluster Counter Form",
     description: "Increment a server-side counter by ID from a React form",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "client-react" }],
@@ -72,7 +72,7 @@ export const counterClients = defineModules(import.meta.url, [
   },
   {
     id: "client-foldkit-cluster-counter",
-    title: "Cluster Counter Form (Foldkit)",
+    title: "Cluster Counter Form",
     description:
       "Increment a server-side counter by ID through a Foldkit command",
     supportedRuntimes: ["bun", "node", "deno"],

@@ -12,7 +12,7 @@ const counterContracts = {
 export const clusterCounter = defineModules(import.meta.url, [
   {
     id: "domain-counter-contracts",
-    title: "Counter API Contracts",
+    title: "Cluster Counter Contracts",
     description: "Shared counter data, HTTP endpoint, and entity RPC",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -59,7 +59,7 @@ export const clusterCounter = defineModules(import.meta.url, [
   },
   {
     id: "server-cluster-counter",
-    title: "Cluster Counter",
+    title: "Cluster Counter API",
     description:
       "Host counters keyed by ID on a local Cluster runner in the HTTP server",
     supportedRuntimes: ["bun", "node", "deno"],

@@ -6,7 +6,7 @@ const domain = { kind: "package", name: "domain" };
 export const graphqlQuery = defineModules(import.meta.url, [
   {
     id: "domain-graphql-item",
-    title: "GraphQL Item Domain",
+    title: "GraphQL Item Contracts",
     description:
       "Item shape and missing-item error for the GraphQL query example",
     visibility: "internal",
@@ -30,7 +30,7 @@ export const graphqlQuery = defineModules(import.meta.url, [
   },
   {
     id: "server-graphql-query",
-    title: "GraphQL Query Server",
+    title: "GraphQL Query Endpoint",
     description:
       "Mount an item query backed by an injected Effect lookup service",
     supportedRuntimes: ["bun", "node", "deno"],

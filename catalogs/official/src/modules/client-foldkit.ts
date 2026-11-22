@@ -57,7 +57,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
     provides: ["client-http-api"],
     conflictsWith: ["client-foldkit-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "HTTP API Client (Foldkit)",
+    title: "HTTP API Client",
     description: "REST API client with Command pattern for Foldkit",
     supportedOn: [{ _tag: "kind", kind: foldkitKind }],
     dependencies: [
@@ -149,7 +149,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
     id: "client-foldkit-http-rpc",
     conflictsWith: ["client-foldkit-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "HTTP RPC Client (Foldkit)",
+    title: "HTTP RPC Streaming",
     description: "RPC streaming client with Subscription pattern for Foldkit",
     supportedOn: [{ _tag: "kind", kind: foldkitKind }],
     dependencies: [
@@ -263,7 +263,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
     id: "client-foldkit-ws-presence",
     conflictsWith: ["client-foldkit-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "WebSocket Presence (Foldkit)",
+    title: "WebSocket Presence",
     description: "Real-time presence UI with WebSocket RPC for Foldkit",
     supportedOn: [{ _tag: "kind", kind: foldkitKind }],
     dependencies: [
@@ -379,7 +379,7 @@ export const clientFoldkitModules = defineModules(import.meta.url, [
     id: "client-foldkit-chat",
     conflictsWith: ["client-foldkit-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Chat Client (Foldkit)",
+    title: "AI Chat",
     description: "AI chat UI with streaming and tool calls for Foldkit",
     supportedOn: [{ _tag: "kind", kind: foldkitKind }],
     dependencies: [

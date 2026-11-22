@@ -5,7 +5,7 @@ import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
 
-test("shows the API target required by Cluster Counter Form (React)", async () => {
+test("shows the API target and dependencies required by Cluster Counter Form", async () => {
   const labs = new URL("/registry/v1/labs.json", window.location.origin);
   const params = new URLSearchParams([
     ["name", "counter-app"],
@@ -27,7 +27,7 @@ test("shows the API target required by Cluster Counter Form (React)", async () =
   const api = page.getByRole("button", {
     name: "Configure modules for api, server",
   });
-  const counter = page.getByText("Cluster Counter Form (React)", {
+  const counter = page.getByText("Cluster Counter Form", {
     exact: true,
   });
 
@@ -39,16 +39,30 @@ test("shows the API target required by Cluster Counter Form (React)", async () =
     .element(api)
     .toHaveAccessibleDescription("Included automatically");
 
+  const dependencies = page.getByRole("list", {
+    name: "Dependencies of Cluster Counter Form",
+  });
+  for (const title of [
+    "Cluster Counter API",
+    "HTTP API Endpoints",
+    "HTTP API Contracts",
+    "Cluster Counter Contracts",
+  ]) {
+    await expect
+      .element(dependencies.getByText(title, { exact: true }))
+      .toBeVisible();
+  }
+
   await api.click();
   await expect
-    .element(page.getByText("Cluster Counter", { exact: true }))
+    .element(page.getByText("Cluster Counter API", { exact: true }))
     .toBeVisible();
 
   await expect
     .element(page.getByRole("checkbox", { name: /^Cluster Counter\b/u }))
     .not.toBeInTheDocument();
 
-  await page.getByText("Effect DevTools Server", { exact: true }).click();
+  await page.getByText("Effect DevTools", { exact: true }).click();
   await page.getByText("Target settings", { exact: true }).click();
   const targetName = page.getByLabelText("Target name");
   await targetName.fill("renamed-api");

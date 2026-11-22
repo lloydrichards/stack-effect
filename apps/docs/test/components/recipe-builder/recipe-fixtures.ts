@@ -34,7 +34,7 @@ const queueModuleFixture = makeCatalogModule({
 
 const workerModuleFixture = makeCatalogModule({
   id: "client-react-web-worker",
-  title: "Browser Web Worker",
+  title: "Web Worker RPC",
   description: "Run an Effect RPC client in a worker",
   visibility: "public",
   source: "labs",
@@ -45,7 +45,7 @@ const workerModuleFixture = makeCatalogModule({
 
 const domainApiModuleFixture = makeCatalogModule({
   id: "domain-api-contracts",
-  title: "Domain API",
+  title: "HTTP API Contracts",
   description: "Shared domain schemas and HTTP API definitions",
   visibility: "internal",
   dependencies: [],
@@ -55,7 +55,7 @@ const domainApiModuleFixture = makeCatalogModule({
 
 const serverHttpModuleFixture = makeCatalogModule({
   id: "server-http-api",
-  title: "HTTP API Server",
+  title: "HTTP API Endpoints",
   description: "REST API endpoints with Effect HTTP",
   visibility: "public",
   dependencies: [
@@ -123,7 +123,7 @@ const postgresModuleFixture = makeCatalogModule({
 
 const serverTodoModuleFixture = makeCatalogModule({
   id: "server-http-api-todos",
-  title: "Todo HTTP API",
+  title: "Todo Endpoints (HTTP API)",
   description: "Persistent Todo CRUD endpoints over Effect HTTP API",
   visibility: "internal",
   dependencies: [
@@ -139,7 +139,7 @@ const serverTodoModuleFixture = makeCatalogModule({
 
 const clientTodoModuleFixture = makeCatalogModule({
   id: "client-react-http-api-todos",
-  title: "Todo HTTP Client",
+  title: "Todo List",
   description: "Persistent Todo CRUD card backed by the typed HTTP API",
   visibility: "public",
   dependencies: [],
@@ -241,7 +241,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
     presets: [
       {
         id: "workspace-alchemy-cafe",
-        title: "CAFE starter",
+        title: "CAFE Starter",
         description: "Foldkit Website and Effect API Worker",
         value: "workspace-alchemy-cafe",
         supportedRuntimes: ["bun", "node"],

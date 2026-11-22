@@ -34,7 +34,7 @@ const root = {
 export const alchemyModules = defineModules(import.meta.url, [
   {
     id: "alchemy-cloudflare",
-    title: "Alchemy Cloudflare",
+    title: "Alchemy Cloudflare Setup",
     description: "Editable root Stack and Cloudflare deployment commands",
     supportedOn: [{ _tag: "identity", identity: workspace }],
     supportedRuntimes: ["bun", "node"],
@@ -72,7 +72,7 @@ export const alchemyModules = defineModules(import.meta.url, [
   },
   {
     id: "workspace-alchemy-cafe",
-    title: "CAFE starter",
+    title: "CAFE Starter",
     description:
       "Connect a Foldkit Website and typed Effect API on Cloudflare with Alchemy",
     supportedOn: [{ _tag: "identity", identity: workspace }],
@@ -109,7 +109,7 @@ export const alchemyModules = defineModules(import.meta.url, [
   },
   {
     id: "alchemy-worker-deployment",
-    title: "Alchemy Worker deployment",
+    title: "Alchemy Worker Deployment",
     description: "Deploy the target's Effect HTTP API through Cloudflare",
     supportedOn: [{ _tag: "kind", kind: "cloudflare-worker" }],
     supportedRuntimes: ["bun", "node"],
@@ -121,7 +121,7 @@ export const alchemyModules = defineModules(import.meta.url, [
   },
   ...(["client-foldkit", "client-react"] as const).map((kind) => ({
     id: `alchemy-${kind}-website`,
-    title: `${kind === "client-foldkit" ? "Foldkit" : "React"} Alchemy Website`,
+    title: "Alchemy Website Deployment",
     description:
       "Cloudflare Website declaration with application environment inputs",
     supportedOn: [{ _tag: "kind" as const, kind }],

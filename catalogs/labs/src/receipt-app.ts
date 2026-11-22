@@ -41,7 +41,7 @@ const foldkitMain = "{{targetPath}}/src/main.ts";
 export const receiptApp = defineModules(import.meta.url, [
   {
     id: "domain-receipt-api",
-    title: "Receipt API Contract",
+    title: "Receipt Workflow Contracts",
     description: "Shared receipt submission and execution status schemas",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -131,7 +131,7 @@ export const receiptApp = defineModules(import.meta.url, [
   },
   {
     id: "client-react-workflow-receipt",
-    title: "Receipt Workflow Form (React)",
+    title: "Receipt Workflow Form",
     description:
       "Submit a receipt and recover its workflow status after refresh",
     supportedRuntimes: ["bun", "node", "deno"],
@@ -162,7 +162,7 @@ export const receiptApp = defineModules(import.meta.url, [
   },
   {
     id: "client-foldkit-workflow-receipt",
-    title: "Receipt Workflow Form (Foldkit)",
+    title: "Receipt Workflow Form",
     description: "Submit and follow a receipt workflow using Foldkit commands",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "client-foldkit" }],

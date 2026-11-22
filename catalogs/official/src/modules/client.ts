@@ -69,7 +69,7 @@ export const clientModules = defineModules(import.meta.url, [
     id: "client-react-http-api-todos",
     conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Todo HTTP Client",
+    title: "Todo List",
     description: "Persistent Todo CRUD card backed by the typed HTTP API",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
@@ -126,7 +126,7 @@ export const clientModules = defineModules(import.meta.url, [
     id: "client-react-http-rpc",
     conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "HTTP RPC Client",
+    title: "HTTP RPC Streaming",
     description: "RPC streaming client with tick atom and UI",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
@@ -185,7 +185,7 @@ export const clientModules = defineModules(import.meta.url, [
     id: "client-react-chat",
     conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Chat Client",
+    title: "AI Chat",
     description: "AI chat UI with streaming, tool calls, and state machine",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
@@ -261,7 +261,7 @@ export const clientModules = defineModules(import.meta.url, [
     id: "client-react-ws-presence",
     conflictsWith: ["client-react-http-api-worker"],
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "WebSocket Presence Client",
+    title: "WebSocket Presence",
     description: "Real-time presence UI with WebSocket RPC",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [
@@ -321,7 +321,7 @@ export const clientModules = defineModules(import.meta.url, [
   {
     id: "client-react-devtools",
     supportedRuntimes: ["bun", "node", "deno"],
-    title: "Effect DevTools React Client",
+    title: "Effect DevTools",
     description: "Optional Effect DevTools tracer layer for React atom runtime",
     supportedOn: [{ _tag: "kind", kind: clientReactKind }],
     dependencies: [],

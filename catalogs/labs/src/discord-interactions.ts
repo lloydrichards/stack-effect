@@ -33,7 +33,7 @@ const serverLayer = (
 export const discordInteractions = defineModules(import.meta.url, [
   {
     id: "domain-discord-interactions",
-    title: "Discord Interaction",
+    title: "Discord Interaction Contracts",
     description: "Discord PING and PONG contracts",
     visibility: "internal",
     supportedRuntimes: ["bun", "node", "deno"],
