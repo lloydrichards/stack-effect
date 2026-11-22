@@ -14,6 +14,7 @@ import {
   Option,
   PubSub,
   Ref,
+  Semaphore,
   Stream,
 } from "effect";
 import { ChatRuntime } from "./ChatRuntime";
@@ -37,6 +38,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
         HashMap.HashMap<ChatId, Fiber.Fiber<void, never>>
       >(HashMap.empty());
       const liveEvents = yield* PubSub.unbounded<LiveEvent>();
+      const eventLock = yield* Semaphore.make(1);
 
       const publish = (chatId: ChatId, event: ChatWatchEvent) =>
         Effect.gen(function* () {
@@ -47,7 +49,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
             ]),
           );
           yield* PubSub.publish(liveEvents, [chatId, event] as const);
-        });
+        }).pipe(Effect.uninterruptible, eventLock.withPermit);
 
       const removeActiveFiber = (chatId: ChatId) =>
         Ref.update(activeFibers, HashMap.remove(chatId));
@@ -103,12 +105,20 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
           Stream.unwrap(
             Effect.gen(function* () {
               yield* sessions.ensure(chatId);
-              const replay = yield* Ref.get(events).pipe(
-                Effect.map((current) =>
-                  Option.getOrElse(HashMap.get(current, chatId), () => []),
-                ),
+              // Capture history and subscribe under the same lock so each event
+              // is either in the snapshot or queued for live delivery.
+              const { replay, subscription } = yield* eventLock.withPermit(
+                Effect.gen(function* () {
+                  const current = yield* Ref.get(events);
+                  const replay = Option.getOrElse(
+                    HashMap.get(current, chatId),
+                    () => [],
+                  );
+                  const subscription = yield* PubSub.subscribe(liveEvents);
+                  return { replay, subscription };
+                }),
               );
-              const live = Stream.fromPubSub(liveEvents).pipe(
+              const live = Stream.fromSubscription(subscription).pipe(
                 Stream.filter(([eventChatId]) => eventChatId === chatId),
                 Stream.map(([, event]) => event),
               );

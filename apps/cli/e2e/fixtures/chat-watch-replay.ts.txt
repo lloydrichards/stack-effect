@@ -1,0 +1,84 @@
+import assert from "node:assert/strict";
+import { Deferred, Effect, Stream } from "effect";
+import type { ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
+import { ChatManagedRuntime } from "./apps/server-api/src/runtime/ChatManagedRuntime";
+import { ChatRuntime } from "./apps/server-api/src/runtime/ChatRuntime";
+import {
+  ChatSessions,
+  ChatSessionsLive,
+} from "./apps/server-api/src/runtime/ChatSessions";
+
+await Effect.runPromise(
+  Effect.gen(function* () {
+    const sessions = yield* ChatSessions;
+    const { chatId } = yield* sessions.start;
+    const replaying = yield* Deferred.make<void>();
+    const publishedDuringReplay = yield* Deferred.make<void>();
+    const receivedDuringReplay = yield* Deferred.make<void>();
+    const message: ChatMessage = { role: "user", content: "hello" };
+    const duringReplay: ReadonlyArray<ChatStreamPart> = [
+      { _tag: "text", delta: "first" },
+      { _tag: "text", delta: "second" },
+    ];
+    const livePart = {
+      _tag: "text",
+      delta: "after replay",
+    } satisfies ChatStreamPart;
+    const finishGeneration = Deferred.succeed(
+      publishedDuringReplay,
+      undefined,
+    ).pipe(
+      Effect.andThen(Deferred.await(receivedDuringReplay)),
+      Effect.as(livePart),
+    );
+    const managed = yield* ChatManagedRuntime.make.pipe(
+      Effect.provideService(ChatRuntime, {
+        start: sessions.start,
+        ask: () => Stream.empty,
+        generate: () =>
+          Stream.unwrap(
+            Effect.gen(function* () {
+              yield* Deferred.await(replaying);
+              return Stream.fromIterable(duringReplay).pipe(
+                Stream.concat(Stream.fromEffect(finishGeneration)),
+              );
+            }),
+          ),
+      }),
+    );
+    yield* managed.send({ chatId, message });
+
+    const observed = yield* managed.watch(chatId).pipe(
+      Stream.tap((event) => {
+        if (event._tag === "user-message") {
+          return Deferred.succeed(replaying, undefined).pipe(
+            Effect.andThen(Deferred.await(publishedDuringReplay)),
+          );
+        }
+        return event.part._tag === "text" && event.part.delta === "second"
+          ? Deferred.succeed(receivedDuringReplay, undefined)
+          : Effect.void;
+      }),
+      Stream.takeUntil(
+        (event) =>
+          event._tag === "assistant-part" &&
+          event.part._tag === "text" &&
+          event.part.delta === livePart.delta,
+      ),
+      Stream.runCollect,
+    );
+
+    assert.deepEqual(observed, [
+      { _tag: "user-message", message },
+      ...duringReplay.map((part) => ({ _tag: "assistant-part", part })),
+      { _tag: "assistant-part", part: livePart },
+    ]);
+  }).pipe(
+    Effect.provide(ChatSessionsLive),
+    Effect.timeoutOrElse({
+      duration: "3 seconds",
+      orElse: () =>
+        Effect.die("Watch did not deliver the replay and live events"),
+    }),
+  ),
+);
