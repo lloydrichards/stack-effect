@@ -28,6 +28,16 @@ For official catalog modules and templates, follow the [catalog-workspace skill]
 
 Read the [OKF index](.okf/index.md) to find the relevant contract or decision. Use the [canonical vocabulary](.okf/domain/ubiquitous-language.md) and [domain definitions](.okf/domain/index.md). When a durable rule or decision changes, use the [OKF skill](.agents/skills/okf/SKILL.md) to update its concept. Run `bun run okf:check` after bundle edits.
 
+## Choose the workflow
+
+| Task | Guidance |
+| --- | --- |
+| Add, review, or consolidate tests | [Test design](.agents/skills/stack-effect-testing/SKILL.md) |
+| Change a service interface, package export, or dependency boundary | [Package design](.agents/skills/stack-effect-design/SKILL.md) |
+| Change generated code or the catalog source that emits it | [Catalog workspace](.agents/skills/catalog-workspace/SKILL.md) |
+
+When writing or reviewing TypeScript, read the [coding taste guide](.agents/TASTE.md). It links to the generated Todo and SQLite examples for Effect services, Layers, schemas, and HTTP handlers.
+
 ## Engineering taste
 
 - Extend the existing owner first. Add a helper when it names a real concept or removes duplicated behavior. Add a service when a capability needs its own dependency or lifecycle boundary. Keep each PR focused on one outcome.
@@ -44,14 +54,12 @@ Read the [OKF index](.okf/index.md) to find the relevant contract or decision. U
 - Use named `Effect.fn("Service.operation")` for new service operations. Keep existing span names stable. Use `Effect.gen` for inline programs and layer construction, and `yield*` to compose effects. Use `Effect.fnUntraced` when a helper already runs inside a traced operation or would emit a span on every item in a loop.
 - Resolve service dependencies when constructing the layer. Wire platform layers and run the Effect at the entry point. Keep pure calculations as plain typed functions and keep expected failures in the Effect error channel. Recover where the caller or adapter has enough context to decide what to do.
 - Decode external inputs with Effect Schema and derive types from the schema. Fix type gaps in the model or use typed fixtures and stubs. Avoid `any` and `as unknown as` casts.
-- Check the nearest service and the installed Effect types before choosing an unfamiliar API. Use `.reference/effect/LLMS.md` when the local checkout matches the installed version. Otherwise, check the upstream [Effect 4.1.4 guide](https://github.com/Effect-TS/effect/blob/effect@4.1.4/LLMS.md) for the version currently pinned here. Use the Effect skill for the branch relevant to the task. For dependency updates, verify against upstream source for the target version.
+- Check nearby code before choosing an unfamiliar Effect API. Start with `node_modules/effect/AGENTS.md` and follow the links for the API you need. Read the installed source or declarations when the guide leaves a question open. Use a local checkout or upstream source only at the matching version. For a dependency update, check the target version.
 
 ## Verify changes
 
 - Use `bun install` to install dependencies. Run `bun format`, `bun lint`, and `bun run type-check` before completion. Use `bun format:check` to identify formatting drift without writing, and keep unrelated edits out of the change.
 - For behavior changes, run `bun run test --filter=<workspace>` for each impacted workspace that defines a test task. Use the package name from its manifest. Always use `bun run test` instead of `bun test` so Turbo task wiring applies.
-- Extend an existing test when it fits. Test a regression at the lowest layer that can reproduce it. Use a browser test for behavior that needs a real browser or worker. In Effect tests, use `TestClock` for time and await the relevant signal or result for concurrent work.
-- Use controlled HTTP fixtures for routine tests. Check deployed registry CORS, cache validators, and genuine 404 responses separately before releasing clients that depend on them.
 - For dead-code or complexity work, use the repo's [Fallow config](.fallowrc.json). Start with `bunx fallow dead-code -f json` or `bunx fallow health -f json`.
 
 ## Prepare a pull request
