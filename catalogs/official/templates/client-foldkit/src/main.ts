@@ -63,7 +63,7 @@ export const view = (model: Model, h: HtmlBuilder<Message>): Document => {
         h.div(
           [
             h.Class(
-              "grid w-full grid-cols-1 gap-6 auto-rows-[30rem] lg:auto-rows-[22rem] lg:grid-cols-2",
+              "grid w-full grid-cols-1 gap-6 auto-rows-[minmax(30rem,auto)] lg:auto-rows-[minmax(22rem,auto)] lg:grid-cols-2",
             ),
           ],
           Views.compose(),

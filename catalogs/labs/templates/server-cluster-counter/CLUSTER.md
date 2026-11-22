@@ -16,15 +16,13 @@ The domain package defines the ID and count schemas in `Counter.ts` and the HTTP
 
 `Increment` uses a transient RPC. Its count is application state held in the entity's `Ref` and resets when the server restarts or the entity idles out. Add a counter repository keyed by ID if the count needs to survive those events. Use a persisted RPC if a request also needs durable delivery.
 
-{{#if runtime=deno}}## Add the counter to an existing Deno server
+## Add the counter to an existing server
 
-If Stack Effect reports a manifest conflict, skip the override to preserve custom entries. Override replaces the entire `package.json` and `--yes` skips conflicted files.
+If Stack Effect reports a manifest conflict, skip the override to preserve custom entries. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
 
-1. Add `"@effect/sql-sqlite-node": "4.1.4"` to the existing server dependencies.
-2. Add `--allow-ffi` before the entry point in the server's `dev` and `dev:watch` tasks and in the build command if it calls `deno compile` without the flag.
-3. Resolve any other conflicts reported by `stack-effect add`, then run `deno install` from the workspace root.
-
-{{/if}}
+1. Add `"{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}": "4.1.4"` to the existing server dependencies.
+{{#if runtime=deno}}2. Add `--allow-ffi` before the entry point in `dev`, `dev:watch`, and any `deno compile` command that lacks it.
+{{/if}}3. Resolve any other conflicts reported by `stack-effect add`, then run the workspace's package install command.
 
 ## Try the CLI
 
@@ -39,6 +37,8 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5174 {{runCommand}} dev
 ```
 
 Run `{{runCommand}} dev` from each selected client directory. Open React at port 3000 or Foldkit at port 5174. Enter an ID and click **Increment counter**. Use the same ID in either client to increment the same count. Enter a fresh ID to start at one.
+
+The history table shows the last value this browser received for each ID. Reloading restores the table from browser storage. Increment an ID again to see its latest response from the server.
 
 Both forms use the same typed HTTP client helper and decode input with the domain's `CounterId` schema. React runs the request from its submit handler. Foldkit sends an increment command and updates its model from the result. Set `VITE_SERVER_URL` on the client if the API uses a different address.
 
