@@ -35,7 +35,9 @@ It is ignored by the parent repository and has its own internal git baseline.
 
 ## Workflow
 
-1. Reset the generated workspace:
+1. If the generated workspace already exists, check for tracked edits and untracked files. Save work you need outside `workspace/catalog-built` before running reset, which replaces the directory.
+
+   Reset the generated workspace:
 
    ```bash
    bun run catalog:reset-workspace
@@ -70,7 +72,7 @@ It is ignored by the parent repository and has its own internal git baseline.
    bun run catalog:diff-workspace
    ```
 
-   This diff is the concrete desired change. Use it as the source of truth for what to port back into the catalog.
+   Review the diff and run `git -C workspace/catalog-built status --short` to find new files omitted by the diff. Save the intended contents for each changed or new path outside the generated workspace. Record any expected deletions before resetting.
 
 6. Port the minimal change back to the catalog source.
 
@@ -82,14 +84,14 @@ It is ignored by the parent repository and has its own internal git baseline.
    catalogs/official/src/targetRegistry.ts
    ```
 
-7. Reset the workspace again and verify the diff disappears or matches the intended final generated output.
+7. Regenerate the workspace, compare the affected paths against the saved expectations, and validate the result.
 
    ```bash
    bun run catalog:reset-workspace
-   bun run catalog:diff-workspace
+   bun run catalog:validate-workspace
    ```
 
-   A clean diff means the catalog now reproduces the edited generated workspace. A non-empty diff means some part of the workspace change has not been ported back, or the catalog produces a different result than intended.
+   Reset creates a new Git baseline. Compare regenerated file contents, including new paths and expected deletions, to verify that the catalog reproduces the change.
 
 8. Run repo checks before finishing:
 
@@ -146,7 +148,7 @@ When porting back:
 - Edit template bytes exactly; they are embedded verbatim in the published catalog.
 - Store names that Git, Oxfmt, or Oxlint read in nested directories (`.gitignore`, `.gitattributes`, `.oxfmtrc.json(c)`, `.oxlintrc.json`, `.editorconfig`) with the dot replaced by an underscore, e.g. `_gitignore`; the contribution `path` keeps the real name.
 - Preserve catalog domain terms: Selection, Blueprint, Plan, Apply.
-- For Effect code, follow `effect-fp` project style: `Effect.gen`, `yield*`, declarative transforms, and Effect error channels.
+- For Effect code, follow the [root Effect instructions](../../../AGENTS.md#work-with-effect-in-this-repo).
 - Do not commit or stage `workspace/catalog-built`; it is a disposable generated workspace.
 
 ## Common Patterns

@@ -10,21 +10,41 @@ sources:
     resource: ../../packages/domain/src/Scaffold.ts
   - id: source-3
     resource: ../../package.json
-generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
+  - id: source-4
+    resource: ../../catalogs/official/templates/package-db-todo-repository/src/TodoRepository.ts
+  - id: source-5
+    resource: ../../catalogs/official/templates/server-todo-repository/src/Services/TodoRepository.ts
+  - id: source-6
+    resource: ../../catalogs/official/templates/server-http-api-todos/src/Api/Todo.ts
+  - id: source-7
+    resource: ../../catalogs/official/templates/domain-todo-contracts/src/Todo.ts
+  - id: source-8
+    resource: ../../catalogs/official/templates/domain-todo-http-contracts/src/TodoApi.ts
+generated: { by: codex, at: "2026-11-22T17:48:47+00:00" }
 ---
 
 # Catalog authoring workflow
 
 Generated file bodies live in `catalogs/official/templates/**` and `catalogs/labs/templates/**` as ordinary files, but tokens and `{{#if}}` blocks mean they are not checked in place. Follow the repository's catalog workspace skill at `.agents/skills/catalog-workspace/SKILL.md` before changing generated content. The definitions are built with the [catalog authoring package](../architecture/catalog-authoring-package.md "builds definitions with").
 
-1. Run `bun run catalog:reset-workspace`. This replaces the disposable `workspace/catalog-built` directory, runs Finalize, and creates its internal baseline. Save any experiments you need before resetting.
+1. Run `bun run catalog:reset-workspace`. This replaces the disposable `workspace/catalog-built` directory, runs Finalize, and creates its internal baseline. Check for tracked edits and untracked files first. Save any work you need outside the generated directory before resetting.
 2. Locate the generated file through source annotations or `.catalog-build-manifest.json`. Edit and check that real file first. For a new module or target, prototype its files in the generated workspace before adding the catalog definition.
-3. Run `bun run catalog:validate-workspace` and inspect `bun run catalog:diff-workspace`.
+3. Run `bun run catalog:validate-workspace` and inspect `bun run catalog:diff-workspace`. Check the generated workspace status for new files. Save the intended contents and expected deletions outside the generated directory.
 4. Port the smallest validated change to its owning contribution or template file. A composed file may belong to several contributors; do not copy the entire result into one base template.
-5. Reset again and confirm the catalog reproduces the intended output. Run validation on that freshly generated result.
+5. Reset again and compare the affected paths with the saved expectations. Reset creates a fresh baseline, so use the saved contents and expected deletions for the comparison. Run validation on the regenerated workspace.
 6. Run `bun format`, `bun lint`, and `bun run type-check`. For catalog behavior changes, also run `bun run test --filter=@repo/catalog-official` and `bun run test --filter=stack-effect`, plus the relevant generated-project checks.
 
 Reset can fail during dependency installation or a module finalizer. Resolve that failure before treating the workspace as a validated baseline. Do not commit `workspace/catalog-built` to the parent repository.
+
+## Effect patterns in generated code
+
+The Official Todo HTTP API with SQLite is the reference slice. Generate it with targets `server/api:server-http-api-todos` and `package/db:package-db-sqlite`. Read the generated Todo schema, repository, handlers, and server wiring together.
+
+- Use a named `Context.Service` class with a static `.layer`. Declare the interface for reusable services. Infer private service shapes where that keeps the code clearer. Qualify new service IDs by owning package and keep existing IDs stable.
+- Resolve reusable service dependencies when constructing its Layer. Supply platform Layers in the app. Use `Layer.provide` for implementation dependencies and `Layer.provideMerge` when downstream consumers also need the dependency. Give standalone Layers PascalCase role names, such as `TodoHandlers` and `TodoRoutes`. Add `Layer` where the role needs clarification.
+- Use `Schema.Struct` with a derived type for ordinary records, branded schemas for IDs, and `Schema.Opaque` when the whole record requires a distinct construction boundary. Use tagged errors for expected failures. Translate infrastructure failures in the service and assign HTTP statuses in the HTTP contract.
+- Resolve shared services when building handler groups. Resolve request-specific services inside the handler. Keep the default HTTP 400 for schema rejection. Use typed validation middleware when clients need a stable error body.
+- Keep the main operation easy to read in order. Use collection operations when they make a transformation clearer. Keep short single-use logic close to its caller and extract a helper when it names a real operation or removes meaningful duplication.
 
 ## Tokens and conditional content
 
