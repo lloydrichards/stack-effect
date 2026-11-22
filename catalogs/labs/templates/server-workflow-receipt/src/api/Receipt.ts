@@ -1,11 +1,11 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { BunCrypto } from "@effect/platform-bun";
 import { SqliteLive } from "@repo/db";
 import { ReceiptApi, ReceiptStatus } from "@repo/domain/ReceiptApi";
 import { Receipt } from "@repo/workflow/Receipt";
 import { ClusterReceiptLive } from "@repo/workflow/ReceiptRuntime";
 import { Config, ConfigProvider, Effect, Exit, Layer, Option } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
+import { Digest } from "effect/crypto";
 import { WorkflowEngine } from "effect/workflow";
 
 const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
@@ -23,7 +23,7 @@ const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
 );
 
 export const ReceiptRuntimeLive = ClusterReceiptLive.pipe(
-  Layer.provide([WorkflowSqliteLive, BunCrypto.layerDigest]),
+  Layer.provide([WorkflowSqliteLive, Digest.layerWebCrypto]),
 );
 
 const ReceiptGroupLive = HttpApiBuilder.group(

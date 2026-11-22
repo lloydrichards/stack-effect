@@ -10,7 +10,7 @@ export const receiptWorkflow = defineModules(import.meta.url, [
     description:
       "Typed receipt workflow with an injected store and a durable wait",
     visibility: "internal",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: workflow }],
     dependencies: [],
     contributions: [
@@ -33,14 +33,14 @@ export const receiptWorkflow = defineModules(import.meta.url, [
       })),
     ],
     nextSteps: [
-      "{{#if module=package-library}}Build the workflow package with `bun run --cwd {{targetPath}} build` before running the receipt CLI.{{/if}}",
+      "{{#if module=package-library}}Run `{{runCommand}} build` in `{{targetPath}}` before running the receipt CLI.{{/if}}",
     ],
   },
   {
     id: "cli-workflow-receipt",
     title: "Durable Receipt Workflow",
     description: "Run a receipt workflow in memory or resume it through SQLite",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "cli" }],
     dependencies: [
       {
@@ -55,6 +55,14 @@ export const receiptWorkflow = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=deno}}workflow:run{{/if}}",
+        value:
+          "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/WORKFLOW.md",
@@ -92,7 +100,7 @@ export const receiptWorkflow = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "Run `bun {{targetPath}}/src/index.ts workflow demo` for the in-memory workflow. See `{{targetPath}}/WORKFLOW.md` for the SQLite restart walkthrough.",
+      "See `{{targetPath}}/WORKFLOW.md` to run the in-memory workflow and resume it through SQLite.",
     ],
   },
 ]);
