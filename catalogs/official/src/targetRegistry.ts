@@ -407,16 +407,38 @@ export const targetGroup = defineTargets(import.meta.url, [
         value:
           "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --allow-ffi --output dist/{{packageName}} src/index.ts{{/if}}",
       },
-      ...denoFfiScript(
-        "server-cluster-counter",
-        "dev",
-        "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}{{#if runtime=deno}}deno run --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
-      ),
-      ...denoFfiScript(
-        "server-cluster-counter",
-        "dev:watch",
-        "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}{{#if runtime=deno}}deno run --watch --allow-env --allow-net --allow-read --allow-write src/index.ts{{/if}}",
-      ),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=bun}}dev{{/if}}{{#if runtime=node}}dev{{/if}}",
+        value:
+          "{{#if runtime=bun}}bun run src/index.ts{{/if}}{{#if runtime=node}}tsx src/index.ts{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=deno}}dev{{/if}}",
+        value:
+          "deno run --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-workflow-receipt}} --allow-ffi{{/if}} src/index.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=bun}}dev:watch{{/if}}{{#if runtime=node}}dev:watch{{/if}}",
+        value:
+          "{{#if runtime=bun}}bun --watch run src/index.ts{{/if}}{{#if runtime=node}}tsx watch src/index.ts{{/if}}",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=deno}}dev:watch{{/if}}",
+        value:
+          "deno run --watch --allow-env --allow-net --allow-read --allow-write{{#if module=server-cluster-counter}} --allow-ffi{{/if}}{{#if module=server-workflow-receipt}} --allow-ffi{{/if}} src/index.ts",
+      },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",

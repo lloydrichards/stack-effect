@@ -107,12 +107,6 @@ export const receiptApp = defineModules(import.meta.url, [
         path: "{{targetPath}}/RECEIPTS.md",
         contents: template("./server-workflow-receipt/RECEIPTS.md"),
       },
-      {
-        _tag: "file",
-        path: "{{#if runtime=deno}}{{targetPath}}/deno.json{{/if}}",
-        contents: template("./server-workflow-receipt/deno.json"),
-        conflictOnModify: true,
-      },
       ...["@repo/workflow", "@repo/db"].map(workspaceDependency),
       {
         _tag: "ts-call-arg",
