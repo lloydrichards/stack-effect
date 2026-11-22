@@ -588,14 +588,11 @@ export const targetGroup = defineTargets(import.meta.url, [
         name: "{{#if runtime=node}}tsx{{/if}}",
         value: "^4.23.15",
       },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "build",
-        value:
-          "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --output dist/{{packageName}} src/index.ts{{/if}}",
-      },
+      ...denoFfiScript(
+        "cli-workflow-receipt",
+        "build",
+        "{{#if runtime=bun}}bun build src/index.ts --outdir=dist --target=bun --minify{{/if}}{{#if runtime=node}}esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js{{/if}}{{#if runtime=deno}}deno compile --allow-env --allow-net --allow-read --allow-write --output dist/{{packageName}} src/index.ts{{/if}}",
+      ),
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",

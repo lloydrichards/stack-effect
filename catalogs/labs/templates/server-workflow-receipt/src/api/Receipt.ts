@@ -18,8 +18,22 @@ const WorkflowSqliteLive = Layer.fresh(SqliteLive).pipe(
             onSome: Effect.succeed,
             onNone: () =>
               DatabaseConfig.pipe(
-                Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
-                Effect.map(({ filename }) => filename.replace(/app\.sqlite$/, "receipt-workflow.sqlite")),
+                Effect.provide(
+                  ConfigProvider.layer(ConfigProvider.fromUnknown({})),
+                ),
+                Effect.map(({ filename }) =>
+                  filename.replace(/app\.sqlite$/, "receipt-workflow.sqlite"),
+                ),
+                Effect.mapError(
+                  (cause) =>
+                    new Config.ConfigError(
+                      new ConfigProvider.SourceError({
+                        message:
+                          "Cannot resolve the default receipt database. Set WORKFLOW_DATABASE_FILE to an absolute writable path.",
+                        cause,
+                      }),
+                    ),
+                ),
               ),
           }),
         ),
