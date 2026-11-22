@@ -14,6 +14,13 @@ export const graphqlClient = defineModules(import.meta.url, [
     dependencies: [],
     contributions: [
       {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect",
+        value: "4.1.4",
+      },
+      {
         _tag: "file",
         path: "{{targetPath}}/src/UpstreamItem.ts",
         contents: template("./domain-upstream-item/src/UpstreamItem.ts"),
@@ -47,6 +54,13 @@ export const graphqlClient = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect",
+        value: "4.1.4",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/GRAPHQL-CLIENT.md",
