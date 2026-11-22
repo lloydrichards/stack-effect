@@ -657,7 +657,7 @@ export const packageModules = defineModules(import.meta.url, [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
-        name: "{{#if runtime=deno}}@types/node{{/if}}",
+        name: "{{#if runtime=node}}@types/node{{/if}}{{#if runtime=deno}}@types/node{{/if}}",
         value: "^26.6.6",
       },
       {

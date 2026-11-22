@@ -39,7 +39,7 @@ export const receiptApp = defineModules(import.meta.url, [
     title: "Receipt API Contract",
     description: "Shared receipt submission and execution status schemas",
     visibility: "internal",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "identity", identity: domain }],
     dependencies: [],
     contributions: [
@@ -62,7 +62,7 @@ export const receiptApp = defineModules(import.meta.url, [
     title: "Receipt Workflow API",
     description:
       "Start and poll a receipt workflow through the existing HTTP server",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
     dependencies: [
       contracts,
@@ -83,6 +83,14 @@ export const receiptApp = defineModules(import.meta.url, [
       },
     ],
     contributions: [
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "{{#if runtime=deno}}workflow:serve{{/if}}",
+        value:
+          "deno run --allow-env --allow-net --allow-read --allow-write --allow-ffi src/index.ts",
+      },
       {
         _tag: "file",
         path: "{{targetPath}}/src/api/Receipt.ts",
@@ -126,7 +134,7 @@ export const receiptApp = defineModules(import.meta.url, [
     title: "Receipt Workflow Form (React)",
     description:
       "Submit a receipt and recover its workflow status after refresh",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "client-react" }],
     dependencies: [contracts, workflowServer],
     contributions: [
@@ -155,7 +163,7 @@ export const receiptApp = defineModules(import.meta.url, [
     id: "client-foldkit-workflow-receipt",
     title: "Receipt Workflow Form (Foldkit)",
     description: "Submit and follow a receipt workflow using Foldkit commands",
-    supportedRuntimes: ["bun"],
+    supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "client-foldkit" }],
     dependencies: [contracts, workflowServer],
     contributions: [
