@@ -10,7 +10,9 @@ sources:
     resource: ../../catalogs/official/src/modules/domain.ts
   - id: source-3
     resource: ../../catalogs/official/src/moduleRegistry.ts
-generated: { by: codex, at: "2026-11-22T19:27:00+01:00" }
+  - id: source-4
+    resource: ../../catalogs/labs/src/receipt-app.ts
+generated: { by: codex, at: "2026-11-22T19:45:52+01:00" }
 ---
 
 # Add a catalog module
@@ -80,6 +82,8 @@ dependencies: [
 ```
 
 A `required-module` already implies target existence, so normally omit the redundant `required-target` entry. A `required-capability` contains `target` and `capability`; selection must choose a concrete provider before Blueprint resolution. Providers declare `provides`, and incompatible alternatives may declare `conflictsWith`.
+
+For the browser Receipt Workflow, the API requires a database-owned module that in turn requires `db-sql`. Recipe Builder can then use its database selector for both browser clients. Keep provider-specific file contributions on `package/db` so `module=` conditions can see the selected provider. See source 4.
 
 An implication uses `{ targetKind, moduleId }` in `implies`. It connects selection across target kinds; recipe and CLI handling resolve the concrete target. A child uses `{ moduleId, requirement: "required" | "optional" }` in `children`. Children organize same-target selection and do not replace Blueprint dependencies.
 

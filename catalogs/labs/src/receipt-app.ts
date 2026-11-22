@@ -3,6 +3,7 @@ import { defineModules, templates } from "@repo/authoring";
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
 const server = { kind: "server", name: "api" };
+const database = { kind: "package", name: "db" };
 const contracts = {
   _tag: "required-module",
   target: domain,
@@ -65,6 +66,35 @@ export const receiptApp = defineModules(import.meta.url, [
     ],
   },
   {
+    id: "package-db-receipt-workflow",
+    title: "Receipt Workflow Database",
+    description: "SQL storage configuration for the receipt workflow",
+    visibility: "internal",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: database }],
+    dependencies: [
+      {
+        _tag: "required-capability",
+        target: database,
+        capability: "db-sql",
+      },
+    ],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/ReceiptDatabase.ts",
+        contents: template(
+          "./package-db-receipt-workflow/src/ReceiptDatabase.ts",
+        ),
+      },
+      {
+        _tag: "barrel-export",
+        barrelPath: "{{targetPath}}/src/index.ts",
+        exportPath: "./ReceiptDatabase",
+      },
+    ],
+  },
+  {
     id: "server-workflow-receipt",
     title: "Receipt Workflow API",
     description:
@@ -90,8 +120,8 @@ export const receiptApp = defineModules(import.meta.url, [
       },
       {
         _tag: "required-module",
-        target: { kind: "package", name: "db" },
-        moduleId: "package-db-sqlite",
+        target: database,
+        moduleId: "package-db-receipt-workflow",
       },
     ],
     contributions: [
