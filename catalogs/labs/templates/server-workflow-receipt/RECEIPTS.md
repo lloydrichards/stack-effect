@@ -8,7 +8,7 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5174 {{runCommand}} dev
 
 Start each selected client with `{{runCommand}} dev` from its app directory. React defaults to port 3000 and Foldkit to port 5174. To change a client port, include the new origin in `ALLOWED_ORIGINS`. Set `VITE_SERVER_URL` on a client if the API runs somewhere other than `http://localhost:9000`.
 
-Enter a fresh receipt ID and submit the form. Refresh while it shows **Pending**. The page uses the execution ID in the URL to pick up polling and shows the confirmation when the workflow finishes. Submit the same receipt ID again to get the same execution ID.
+Submit two fresh receipt IDs while the first is still **Pending**. Each row polls its own execution. Refresh to restore the browser history and resume polling any pending rows. Submitting the same receipt ID rejoins the same execution and keeps one row.
 
 ## Follow the request
 
