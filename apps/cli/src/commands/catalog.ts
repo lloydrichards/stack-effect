@@ -564,18 +564,21 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
     repoRoot: string;
   }) {
     const finalizeService = yield* FinalizeService;
-    const executables = yield* finalizeService.run(blueprint, {
+    const scripts = yield* finalizeService.scripts(blueprint, {
       config,
       repoRoot,
     });
 
     yield* Effect.forEach(
-      executables,
-      ({ execute, script }) =>
+      scripts,
+      (script) =>
         Effect.scoped(
           Effect.gen(function* () {
             yield* Console.log(`$ ${script.command}`);
-            const { output, result } = yield* execute();
+            const { output, result } = yield* finalizeService.executeScoped(
+              script,
+              repoRoot,
+            );
             yield* Stream.runForEach(output, Console.log);
             const scriptResult = yield* result;
 

@@ -8,7 +8,7 @@ sources:
     resource: effect-vfs-review.md
     title: VFS design research
   - id: preview
-    resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
+    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
     title: Current in-memory preview
   - id: vfs
     resource: https://github.com/lloydrichards/effect-virtual-fs/blob/e9df27fcb565d189bbc501500cc3267561b23533/packages/core/src/VirtualFileSystem.ts

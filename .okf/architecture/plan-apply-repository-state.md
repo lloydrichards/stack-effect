@@ -25,7 +25,7 @@ sources:
   - id: writing
     resource: ../../packages/scaffold/src/service/apply/WriteEngine.ts
     title: Host writes
-generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
+generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---
 
 # Repository state authority for Plan and Apply
@@ -36,7 +36,7 @@ Status: Implemented for Plan, preview, and Apply.
 
 Without a repository baseline, Apply could read newer contents when composing a file or overwrite a file that changed after planning. Preview could show a different host state from the one Plan classified. See the [scaffold lifecycle](scaffold-lifecycle.md "describes implemented behavior").
 
-`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryStateService` fingerprints existing text files and compares their current state with the baseline. `PlanService` checks the capture again before returning. Apply and both preview paths check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. File preview performs its publication step in a private memory filesystem after checking the source repository.
+`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryStateService` fingerprints existing text files and compares their current state with the baseline. `PlanService` checks the capture again before returning. Apply and preview check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. Preview runs the same Apply in a private memory filesystem after checking the source repository.
 
 ## Decision
 
@@ -57,7 +57,7 @@ Without a repository baseline, Apply could read newer contents when composing a 
 ### Reject drift before preview or publication
 
 - Planning rechecks its capture before returning a Plan. This detects a change observed during capture; it does not make the host filesystem transactional.
-- Ordinary dry-run, file preview, and Apply reject a stale Plan and require replanning. They must not silently recompose from changed host contents. A Plan is stale after its successful Apply changes the repository.
+- Dry run and Apply reject a stale Plan and require replanning. They must not silently recompose from changed host contents. A Plan is stale after its successful Apply changes the repository.
 - Before the first Apply write, compare every captured path with the current repository. Report every detected difference by path and change kind, without file contents. Detected preflight drift causes no Apply writes.
 - Recheck each path before its write. If a later check detects drift, stop remaining writes, preserve the changed file, and return a typed stale error with the partial Apply result. The CLI should state what was already written and tell the user to replan.
 

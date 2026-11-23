@@ -10,9 +10,6 @@ sources:
   - id: apply
     resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
     title: Apply preparation and execution
-  - id: preview
-    resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
-    title: Isolated Apply preview
   - id: workspace
     resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
     title: In-memory workspace creation and materialization
@@ -39,7 +36,7 @@ sources:
     resource: ../../packages/scaffold/src/service/plan/ContributionResolver.ts
   - id: readme-contract
     resource: ../../packages/scaffold/src/service/recipe/Readmes.test.ts
-generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
+generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---
 
 # Scaffold lifecycle
@@ -52,11 +49,11 @@ Plan reads relevant paths, ancestors, and the root through `RepoSnapshotService`
 
 Apply checks every baseline path before preparing composition or writing. For modified composed files, it re-reads contents after that check. Each write checks its target and ancestors again, then uses a temporary-file rename. A later stale check stops remaining writes and reports the partial result. Other execution failures are collected while later writes continue. This does not provide a repository-wide transaction.
 
-`ApplyWorkspaceService` creates a private `MemoryFileSystem`, optionally checks and seeds the paths recorded in a host Plan baseline, and checks that baseline again. A host Plan must match that seeded baseline, and materialization rechecks the host before using it. A Plan built inside the workspace can apply against the same private state. Materialization returns the Apply result and successful changed files read from that workspace. `ApplyPreviewService` delegates to this service. `RecipePreviewService` plans and applies in one workspace and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
+`ApplyWorkspaceService` creates a private `MemoryFileSystem`, optionally checks and seeds the paths recorded in a host Plan baseline, and checks that baseline again. A host Plan must match that seeded baseline, and materialization rechecks the host before using it. A Plan built inside the workspace can apply against the same private state. Materialization returns the Apply result and successful changed files read from that workspace. The CLI dry run previews a host Plan by creating a workspace from its baseline and materializing the Apply. `RecipePreviewService` plans and applies in one workspace and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
 
 Private previews use VFS `make` with an explicitly supplied Crypto service. Volume identities are not security credentials.
 
-Ordinary dry-run checks the baseline and prepares actions without the same virtual write execution. Finalize commands use a process spawner, and the CLI can proceed into Finalize handling after reporting failed Apply paths.
+The dry run reports the statuses that Apply observed in that workspace, with or without the file contents. Finalize commands use a process spawner, and the CLI can proceed into Finalize handling after reporting failed Apply paths.
 
 The [repository state decision](plan-apply-repository-state.md "defines the implemented handoff") records the freshness rule. The [staged workspace research](../research/staged-workspace.md "addresses consistency gaps") proposes a shared foundation. The [validation research](../research/virtual-validation.md "examines host execution") retains the external-tool boundary.
 
@@ -80,7 +77,7 @@ Official README contributions create missing files and classify differing existi
 
 ## Finalize ownership
 
-`FinalizeService.run` returns prepared scripts with execution functions. The caller executes them and collects results. Catalog scripts are deduplicated by source, workdir, and command. The source is part of the key, so a custom script can never stand in for an official one. Finalize-phase scripts precede config-derived install, lint, and format commands; post-finalize scripts follow them. Lint and format commands depend on configured tools, not only Biome.
+`FinalizeService.scripts` returns the ordered scripts as data, for both preview and execution. The caller selects scripts, runs each with `FinalizeService.executeScoped` in a scope it owns, and collects results. Catalog scripts are deduplicated by source, workdir, and command. The source is part of the key, so a custom script can never stand in for an official one. Finalize-phase scripts precede config-derived install, lint, and format commands; post-finalize scripts follow them. Lint and format commands depend on configured tools, not only Biome.
 
 The CLI owns trust decisions, as the [source selection decision](catalog-source-selection.md "gates Finalize scripts by source") defines them, as well as skipped-script handling, conflict reporting, and assembly of FinalizeReport. A report contains executed success/failure results, skipped scripts, unresolved conflicts, and next steps. Output streams are separate from those structured results.
 

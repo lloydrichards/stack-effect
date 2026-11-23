@@ -18,8 +18,7 @@ export {
 export {
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,
-  ApplyPreviewService,
-} from "./service/apply/ApplyPreviewService";
+} from "./RecipePreviewSchema";
 export {
   type ApplyWorkspace,
   ApplyWorkspaceService,

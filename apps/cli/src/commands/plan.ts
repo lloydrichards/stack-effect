@@ -145,7 +145,7 @@ export const plan = Command.make(
 
       const finalizeService = yield* FinalizeService;
       const scripts = yield* finalizeService
-        .preview(blueprint, { repoRoot, config })
+        .scripts(blueprint, { repoRoot, config })
         .pipe(
           Effect.orElseSucceed(
             () =>
