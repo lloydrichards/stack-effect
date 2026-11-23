@@ -6,7 +6,7 @@ import {
   PlanFailure,
   RepositoryPath,
 } from "@repo/domain/Plan";
-import { Array as Arr, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 export const ownershipFailure = (
   path: string,
@@ -37,51 +37,51 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
     ),
   );
 
-/** Reject owners whose names or directories would collide. */
-export const assertDistinctOwners = (owners: ReadonlyArray<PackageOwner>) =>
-  Effect.forEach(owners, (owner, index) =>
-    Effect.forEach(owners.slice(index + 1), (other) =>
-      owner.name.toLowerCase() === other.name.toLowerCase() ||
-      targetPathsOverlap(owner.path, other.path)
-        ? Effect.fail(
-            ownershipFailure(
-              owner.path,
-              `ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
-            ),
-          )
-        : Effect.void,
-    ),
-  );
+// Reject owners whose names or directories would collide.
+export const assertDistinctOwners = Effect.fnUntraced(function* (
+  owners: ReadonlyArray<PackageOwner>,
+) {
+  for (const [index, owner] of owners.entries()) {
+    for (const other of owners.slice(index + 1)) {
+      if (
+        owner.name.toLowerCase() === other.name.toLowerCase() ||
+        targetPathsOverlap(owner.path, other.path)
+      ) {
+        return yield* ownershipFailure(
+          owner.path,
+          `ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
+        );
+      }
+    }
+  }
+});
 
-export const validatePackageOwners = (
+export const validatePackageOwners = Effect.fnUntraced(function* (
   blueprint: Blueprint,
   existing: ReadonlyArray<PackageOwner>,
-) =>
-  Effect.gen(function* () {
-    const proposed = Arr.filter(blueprint.nodes, BlueprintNode.guards.target)
-      .filter((node) => node.identity.kind !== "workspace")
-      .map((node): PackageOwner => ({
-        path: RepositoryPath.make(node.identity.toPath()),
-        name: node.identity.toPackageName(),
-      }));
-    yield* assertDistinctOwners(proposed);
-    yield* Effect.forEach(proposed, (owner) =>
-      Effect.forEach(existing, (other) =>
-        owner.path === other.path &&
-        owner.name.toLowerCase() === other.name.toLowerCase()
-          ? Effect.void
-          : owner.name.toLowerCase() === other.name.toLowerCase() ||
-              targetPathsOverlap(owner.path, other.path)
-            ? Effect.fail(
-                ownershipFailure(
-                  owner.path,
-                  `package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
-                ),
-              )
-            : Effect.void,
-      ),
-    );
-  });
+) {
+  const proposed = blueprint.nodes
+    .filter(BlueprintNode.guards.target)
+    .filter((node) => node.identity.kind !== "workspace")
+    .map((node): PackageOwner => ({
+      path: RepositoryPath.make(node.identity.toPath()),
+      name: node.identity.toPackageName(),
+    }));
+  yield* assertDistinctOwners(proposed);
+
+  for (const owner of proposed) {
+    for (const other of existing) {
+      const sameName = owner.name.toLowerCase() === other.name.toLowerCase();
+      if (owner.path === other.path && sameName) continue;
+      if (sameName || targetPathsOverlap(owner.path, other.path)) {
+        return yield* ownershipFailure(
+          owner.path,
+          `package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
+        );
+      }
+    }
+  }
+});
 
 export const isRootManifest = (
   manifestPath: string,
@@ -105,44 +105,41 @@ export const isRootManifest = (
   );
 };
 
-/** Validate final root manifests together, before Apply can write any file. */
-export const prepareOwnerWrites = (
+// Validate final root manifests together, before Apply can write any file.
+export const prepareOwnerWrites = Effect.fnUntraced(function* (
   existing: ReadonlyArray<PackageOwner>,
   writes: ReadonlyArray<{ readonly path: string; readonly contents: string }>,
-) =>
-  Effect.gen(function* () {
-    const candidatePaths = [
-      ...existing.map((owner) => owner.path),
-      ...writes
-        .filter((write) =>
-          isRootManifest(
-            write.path,
-            existing.map((owner) => owner.path),
-          ),
-        )
-        .map((write) => write.path.slice(0, -"/package.json".length)),
-    ];
-    const ownerWrites = yield* Effect.forEach(
-      writes.filter((write) => isRootManifest(write.path, candidatePaths)),
-      (write) => parsePackageOwner(write.path, write.contents),
-    );
-    yield* Effect.forEach(ownerWrites, (owner) => {
-      const previous = existing.find((other) => other.path === owner.path);
-      return previous !== undefined && previous.name !== owner.name
-        ? Effect.fail(
-            ownershipFailure(
-              owner.path,
-              `cannot change owner ${previous.name} to ${owner.name}`,
-            ),
-          )
-        : Effect.void;
-    });
-    const finalOwners = [
-      ...existing.filter(
-        (owner) => !ownerWrites.some((write) => write.path === owner.path),
-      ),
-      ...ownerWrites,
-    ].sort(pathOrd);
-    yield* assertDistinctOwners(finalOwners);
-    return ownerWrites;
-  });
+) {
+  const candidatePaths = [
+    ...existing.map((owner) => owner.path),
+    ...writes
+      .filter((write) =>
+        isRootManifest(
+          write.path,
+          existing.map((owner) => owner.path),
+        ),
+      )
+      .map((write) => write.path.slice(0, -"/package.json".length)),
+  ];
+  const ownerWrites = yield* Effect.forEach(
+    writes.filter((write) => isRootManifest(write.path, candidatePaths)),
+    (write) => parsePackageOwner(write.path, write.contents),
+  );
+  for (const owner of ownerWrites) {
+    const previous = existing.find((other) => other.path === owner.path);
+    if (previous !== undefined && previous.name !== owner.name) {
+      return yield* ownershipFailure(
+        owner.path,
+        `cannot change owner ${previous.name} to ${owner.name}`,
+      );
+    }
+  }
+  const finalOwners = [
+    ...existing.filter(
+      (owner) => !ownerWrites.some((write) => write.path === owner.path),
+    ),
+    ...ownerWrites,
+  ].sort(pathOrd);
+  yield* assertDistinctOwners(finalOwners);
+  return ownerWrites;
+});

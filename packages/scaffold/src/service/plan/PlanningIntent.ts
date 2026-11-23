@@ -1,44 +1,8 @@
 import { Contribution } from "@repo/domain/Catalog";
 import { PlanFailure, RepositoryPath } from "@repo/domain/Plan";
 import type { NormalizedContributions } from "@repo/domain/Scaffold";
-import {
-  Array as Arr,
-  Effect,
-  Match,
-  Option,
-  pipe,
-  Record,
-  Schema,
-} from "effect";
+import { Array as Arr, Effect, Option, Schema } from "effect";
 import { PlanningIntentImport, PlanningIntentPath } from "./PlanAssessment";
-
-/** Groups normalized contributions by path into one planning intent per path. */
-export const compile = (
-  normalizedContributions: NormalizedContributions,
-): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
-  const entriesByPath = Arr.groupBy(
-    Arr.flatMap(
-      [
-        ...Arr.map(
-          normalizedContributions.targets,
-          (entry) => entry.contributions,
-        ),
-        ...Arr.map(
-          normalizedContributions.modules,
-          (entry) => entry.contributions,
-        ),
-      ],
-      toPlanningIntentEntries,
-    ),
-    (entry) => entry.path,
-  );
-
-  return Effect.all(
-    Record.collect(entriesByPath, (_, entries) =>
-      derivePlanningIntentPath({ path: entries[0].path, entries }),
-    ),
-  );
-};
 
 const PlanningIntentAuthoritativeEntry = Schema.TaggedStruct("authoritative", {
   path: RepositoryPath,
@@ -117,8 +81,7 @@ type PlanningIntentEntry = typeof PlanningIntentEntry.Type;
 const toPlanningIntentEntries = (
   contributions: ReadonlyArray<Contribution>,
 ): ReadonlyArray<PlanningIntentEntry> =>
-  Arr.flatMap(
-    contributions,
+  contributions.flatMap(
     Contribution.match({
       file: (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.authoritative.make({
@@ -210,148 +173,12 @@ const groupPlanningIntentEntries = (
   jsxSlot: entries.filter(PlanningIntentEntry.guards.jsxSlot),
 });
 
-const derivePlanningIntentPath = ({
-  path,
-  entries,
-}: {
-  path: RepositoryPath;
-  entries: ReadonlyArray<PlanningIntentEntry>;
-}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
-  Effect.gen(function* () {
-    const family = yield* derivePlanningIntentFamily({ entries, path });
-    const groups = groupPlanningIntentEntries(entries);
-
-    const resolveContents = () =>
-      requireSingleValue({
-        values: Arr.map(groups.authoritative, (entry) => entry.contents),
-        errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
-      });
-
-    const packageJson = (seed: string | undefined) =>
-      Effect.gen(function* () {
-        const exportEntries = groups.packageJson.filter(
-          (e): e is PlanningIntentPackageJsonEntry & { field: "exports" } =>
-            e.field === "exports",
-        );
-        const depEntries = groups.packageJson.filter(
-          (
-            e,
-          ): e is PlanningIntentPackageJsonEntry & {
-            field: "dependencies" | "devDependencies";
-          } => e.field === "dependencies" || e.field === "devDependencies",
-        );
-        const scriptEntries = groups.packageJson.filter(
-          (e): e is PlanningIntentPackageJsonEntry & { field: "scripts" } =>
-            e.field === "scripts",
-        );
-
-        const fields = yield* Effect.all({
-          exports: collectUniqueEntries({
-            entries: exportEntries,
-            keyOf: (entry) => entry.name,
-            valueOf: (entry) => entry.value,
-            toResult: (entry) => ({ name: entry.name, value: entry.value }),
-            errorMessage: `Conflicting package.json export outcomes for ${path}.`,
-          }),
-          dependencies: collectUniqueEntries({
-            entries: depEntries,
-            keyOf: (entry) => `${entry.field}:${entry.name}`,
-            valueOf: (entry) => entry.value,
-            toResult: (entry) => ({
-              section: entry.field,
-              name: entry.name,
-              value: entry.value,
-            }),
-            errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
-          }),
-          scripts: collectUniqueEntries({
-            entries: scriptEntries,
-            keyOf: (entry) => entry.name,
-            valueOf: (entry) => entry.value,
-            toResult: (entry) => ({ name: entry.name, value: entry.value }),
-            errorMessage: `Conflicting package.json script outcomes for ${path}.`,
-          }),
-        });
-
-        return PlanningIntentPath.cases.packageJson.make({
-          path,
-          seed,
-          ...fields,
-        });
-      });
-
-    const barrel = (seed: string | undefined) =>
-      collectUniqueEntries({
-        entries: groups.barrel,
-        keyOf: (entry) => entry.exportPath,
-        valueOf: (entry) => entry.exportPath,
-        toResult: (entry) => entry.exportPath,
-        errorMessage: `Conflicting barrel export outcomes for ${path}.`,
-      }).pipe(
-        Effect.map((exportPaths) =>
-          PlanningIntentPath.cases.barrel.make({ path, seed, exportPaths }),
-        ),
-      );
-
-    const tsComposition = (seed: string | undefined) =>
-      PlanningIntentPath.cases.tsComposition.make({
-        path,
-        seed,
-        compositions: Arr.map(groups.tsCallArg, (entry) => ({
-          targetVariable: entry.targetVariable,
-          functionName: entry.functionName,
-          argument: entry.argument,
-          import: entry.import,
-        })),
-        objectFields: Arr.map(groups.tsObjectField, (entry) => ({
-          targetVariable: entry.targetVariable,
-          functionName: entry.functionName,
-          field: entry.field,
-          value: entry.value,
-          import: entry.import,
-        })),
-      });
-
-    const jsxSlot = (seed: string | undefined) =>
-      PlanningIntentPath.cases.jsxSlot.make({
-        path,
-        seed,
-        jsxSlots: Arr.map(groups.jsxSlot, (entry) => ({
-          slotId: entry.slotId,
-          content: entry.content,
-          import: entry.import,
-        })),
-      });
-
-    return yield* Match.value(family).pipe(
-      Match.when("authoritative", () =>
-        Effect.gen(function* () {
-          const contents = yield* resolveContents();
-
-          return groups.authoritative.some((entry) => entry.conflictOnModify)
-            ? PlanningIntentPath.cases.conflictOnModify.make({ path, contents })
-            : PlanningIntentPath.cases.authoritative.make({ path, contents });
-        }),
-      ),
-      Match.when("packageJson", () => packageJson(undefined)),
-      Match.when("barrel", () => barrel(undefined)),
-      Match.when("tsCallArg", () => Effect.succeed(tsComposition(undefined))),
-      Match.when("jsxSlot", () => Effect.succeed(jsxSlot(undefined))),
-      Match.when("authoritativePackageJson", () =>
-        Effect.flatMap(resolveContents(), packageJson),
-      ),
-      Match.when("authoritativeTsCallArg", () =>
-        Effect.map(resolveContents(), tsComposition),
-      ),
-      Match.when("authoritativeBarrel", () =>
-        Effect.flatMap(resolveContents(), barrel),
-      ),
-      Match.when("authoritativeJsxSlot", () =>
-        Effect.map(resolveContents(), jsxSlot),
-      ),
-      Match.exhaustive,
-    );
-  });
+type PlanningIntentFamily =
+  | "authoritative"
+  | "packageJson"
+  | "barrel"
+  | "tsCallArg"
+  | "jsxSlot";
 
 type CompositePlanningIntentFamily =
   | "authoritativePackageJson"
@@ -372,53 +199,6 @@ const COMPOSITE_FAMILIES: ReadonlyArray<{
   { pair: ["authoritative", "jsxSlot"], result: "authoritativeJsxSlot" },
 ];
 
-const derivePlanningIntentFamily = ({
-  entries,
-  path,
-}: {
-  entries: ReadonlyArray<PlanningIntentEntry>;
-  path: string;
-}) => {
-  const families = new Set(Arr.map(entries, toPlanningIntentFamily));
-
-  if (families.size === 1) {
-    return pipe(
-      Arr.head(entries),
-      Option.match({
-        onNone: () =>
-          Effect.fail(
-            new PlanFailure({
-              message: `No planning intents found for ${path}.`,
-            }),
-          ),
-        onSome: (entry) => Effect.succeed(toPlanningIntentFamily(entry)),
-      }),
-    );
-  }
-
-  if (families.size === 2) {
-    const match = COMPOSITE_FAMILIES.find(
-      ({ pair }) => families.has(pair[0]) && families.has(pair[1]),
-    );
-    if (match) {
-      return Effect.succeed(match.result);
-    }
-  }
-
-  return Effect.fail(
-    new PlanFailure({
-      message: `Conflicting planning intents for ${path}.`,
-    }),
-  );
-};
-
-type PlanningIntentFamily =
-  | "authoritative"
-  | "packageJson"
-  | "barrel"
-  | "tsCallArg"
-  | "jsxSlot";
-
 const toPlanningIntentFamily = PlanningIntentEntry.match({
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
@@ -428,34 +208,47 @@ const toPlanningIntentFamily = PlanningIntentEntry.match({
   jsxSlot: () => "jsxSlot" as const,
 }) satisfies (entry: PlanningIntentEntry) => PlanningIntentFamily;
 
-const requireSingleValue = <Value>({
-  values,
-  errorMessage,
-}: {
-  values: ReadonlyArray<Value>;
-  errorMessage: string;
-}) =>
-  pipe(
-    Arr.head(values),
-    Option.match({
-      onNone: () =>
-        Effect.fail(
-          new PlanFailure({
-            message: errorMessage,
-          }),
-        ),
-      onSome: (firstValue) =>
-        Arr.every(values, (value) => value === firstValue)
-          ? Effect.succeed(firstValue)
-          : Effect.fail(
-              new PlanFailure({
-                message: errorMessage,
-              }),
-            ),
-    }),
-  );
+const derivePlanningIntentFamily = Effect.fnUntraced(function* (
+  entries: ReadonlyArray<PlanningIntentEntry>,
+  path: string,
+): Effect.fn.Return<
+  PlanningIntentFamily | CompositePlanningIntentFamily,
+  PlanFailure
+> {
+  const families = new Set(entries.map(toPlanningIntentFamily));
+  const [family] = families;
 
-const collectUniqueEntries = <Entry, Result>({
+  if (families.size === 1 && family !== undefined) {
+    return family;
+  }
+
+  if (families.size === 2) {
+    const match = COMPOSITE_FAMILIES.find(
+      ({ pair }) => families.has(pair[0]) && families.has(pair[1]),
+    );
+    if (match) {
+      return match.result;
+    }
+  }
+
+  return yield* new PlanFailure({
+    message: `Conflicting planning intents for ${path}.`,
+  });
+});
+
+const requireSingleValue = Effect.fnUntraced(function* <Value>(
+  values: ReadonlyArray<Value>,
+  errorMessage: string,
+) {
+  const first = Arr.head(values);
+  if (Option.isNone(first) || !values.every((value) => value === first.value)) {
+    return yield* new PlanFailure({ message: errorMessage });
+  }
+  return first.value;
+});
+
+// Keeps the first entry for each key and fails when entries with one key disagree on their value.
+const collectUniqueEntries = Effect.fnUntraced(function* <Entry, Result>({
   entries,
   keyOf,
   valueOf,
@@ -467,24 +260,169 @@ const collectUniqueEntries = <Entry, Result>({
   valueOf: (entry: Entry) => string;
   toResult: (entry: Entry) => Result;
   errorMessage: string;
-}) =>
-  Effect.all(
-    Record.collect(Arr.groupBy(entries, keyOf), (_, groupedEntries) =>
-      pipe(
-        Arr.head(groupedEntries),
-        Option.match({
-          onNone: () =>
-            Effect.fail(
-              new PlanFailure({
-                message: errorMessage,
-              }),
-            ),
-          onSome: (firstEntry) =>
-            requireSingleValue({
-              values: Arr.map(groupedEntries, valueOf),
-              errorMessage,
-            }).pipe(Effect.as(toResult(firstEntry))),
-        }),
-      ),
-    ),
-  );
+}) {
+  const firstByKey = new Map<string, Entry>();
+  for (const entry of entries) {
+    const key = keyOf(entry);
+    const first = firstByKey.get(key);
+    if (first === undefined) {
+      firstByKey.set(key, entry);
+      continue;
+    }
+    if (valueOf(entry) !== valueOf(first)) {
+      return yield* new PlanFailure({ message: errorMessage });
+    }
+  }
+  return [...firstByKey.values()].map(toResult);
+});
+
+const derivePlanningIntentPath = Effect.fnUntraced(function* (
+  path: RepositoryPath,
+  entries: ReadonlyArray<PlanningIntentEntry>,
+): Effect.fn.Return<PlanningIntentPath, PlanFailure> {
+  const family = yield* derivePlanningIntentFamily(entries, path);
+  const groups = groupPlanningIntentEntries(entries);
+
+  const resolveContents = () =>
+    requireSingleValue(
+      groups.authoritative.map((entry) => entry.contents),
+      `Conflicting authoritative file outcomes for ${path}.`,
+    );
+
+  const packageJson = Effect.fnUntraced(function* (seed: string | undefined) {
+    const exportEntries = groups.packageJson.filter(
+      (e): e is PlanningIntentPackageJsonEntry & { field: "exports" } =>
+        e.field === "exports",
+    );
+    const depEntries = groups.packageJson.filter(
+      (
+        e,
+      ): e is PlanningIntentPackageJsonEntry & {
+        field: "dependencies" | "devDependencies";
+      } => e.field === "dependencies" || e.field === "devDependencies",
+    );
+    const scriptEntries = groups.packageJson.filter(
+      (e): e is PlanningIntentPackageJsonEntry & { field: "scripts" } =>
+        e.field === "scripts",
+    );
+
+    const exports = yield* collectUniqueEntries({
+      entries: exportEntries,
+      keyOf: (entry) => entry.name,
+      valueOf: (entry) => entry.value,
+      toResult: (entry) => ({ name: entry.name, value: entry.value }),
+      errorMessage: `Conflicting package.json export outcomes for ${path}.`,
+    });
+    const dependencies = yield* collectUniqueEntries({
+      entries: depEntries,
+      keyOf: (entry) => `${entry.field}:${entry.name}`,
+      valueOf: (entry) => entry.value,
+      toResult: (entry) => ({
+        section: entry.field,
+        name: entry.name,
+        value: entry.value,
+      }),
+      errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
+    });
+    const scripts = yield* collectUniqueEntries({
+      entries: scriptEntries,
+      keyOf: (entry) => entry.name,
+      valueOf: (entry) => entry.value,
+      toResult: (entry) => ({ name: entry.name, value: entry.value }),
+      errorMessage: `Conflicting package.json script outcomes for ${path}.`,
+    });
+
+    return PlanningIntentPath.cases.packageJson.make({
+      path,
+      seed,
+      exports,
+      dependencies,
+      scripts,
+    });
+  });
+
+  const barrel = Effect.fnUntraced(function* (seed: string | undefined) {
+    const exportPaths = yield* collectUniqueEntries({
+      entries: groups.barrel,
+      keyOf: (entry) => entry.exportPath,
+      valueOf: (entry) => entry.exportPath,
+      toResult: (entry) => entry.exportPath,
+      errorMessage: `Conflicting barrel export outcomes for ${path}.`,
+    });
+    return PlanningIntentPath.cases.barrel.make({ path, seed, exportPaths });
+  });
+
+  const tsComposition = (seed: string | undefined) =>
+    PlanningIntentPath.cases.tsComposition.make({
+      path,
+      seed,
+      compositions: groups.tsCallArg.map((entry) => ({
+        targetVariable: entry.targetVariable,
+        functionName: entry.functionName,
+        argument: entry.argument,
+        import: entry.import,
+      })),
+      objectFields: groups.tsObjectField.map((entry) => ({
+        targetVariable: entry.targetVariable,
+        functionName: entry.functionName,
+        field: entry.field,
+        value: entry.value,
+        import: entry.import,
+      })),
+    });
+
+  const jsxSlot = (seed: string | undefined) =>
+    PlanningIntentPath.cases.jsxSlot.make({
+      path,
+      seed,
+      jsxSlots: groups.jsxSlot.map((entry) => ({
+        slotId: entry.slotId,
+        content: entry.content,
+        import: entry.import,
+      })),
+    });
+
+  switch (family) {
+    case "authoritative": {
+      const contents = yield* resolveContents();
+      return groups.authoritative.some((entry) => entry.conflictOnModify)
+        ? PlanningIntentPath.cases.conflictOnModify.make({ path, contents })
+        : PlanningIntentPath.cases.authoritative.make({ path, contents });
+    }
+    case "packageJson":
+      return yield* packageJson(undefined);
+    case "barrel":
+      return yield* barrel(undefined);
+    case "tsCallArg":
+      return tsComposition(undefined);
+    case "jsxSlot":
+      return jsxSlot(undefined);
+    case "authoritativePackageJson":
+      return yield* packageJson(yield* resolveContents());
+    case "authoritativeTsCallArg":
+      return tsComposition(yield* resolveContents());
+    case "authoritativeBarrel":
+      return yield* barrel(yield* resolveContents());
+    case "authoritativeJsxSlot":
+      return jsxSlot(yield* resolveContents());
+  }
+});
+
+// Groups normalized contributions by path into one planning intent per path.
+export const compile = Effect.fnUntraced(function* (
+  normalizedContributions: NormalizedContributions,
+): Effect.fn.Return<ReadonlyArray<PlanningIntentPath>, PlanFailure> {
+  const entries = [
+    ...normalizedContributions.targets,
+    ...normalizedContributions.modules,
+  ].flatMap((entry) => toPlanningIntentEntries(entry.contributions));
+
+  const planningPaths: Array<PlanningIntentPath> = [];
+  for (const [path, pathEntries] of Map.groupBy(
+    entries,
+    (entry) => entry.path,
+  )) {
+    planningPaths.push(yield* derivePlanningIntentPath(path, pathEntries));
+  }
+  return planningPaths;
+});

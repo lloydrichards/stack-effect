@@ -69,14 +69,14 @@ export class ParsedPlanInput extends Context.Service<
 
 export const parsePlanInput = (root: Option.Option<string>) =>
   Effect.gen(function* () {
-    const repoRoot = Option.getOrElse(root, () => process.cwd());
+    const repositoryRoot = Option.getOrElse(root, () => process.cwd());
     const stdio = yield* Stdio;
     const stdin = yield* stdio.stdin.pipe(Stream.decodeText(), Stream.mkString);
     const input = yield* Schema.decodeEffect(
       Schema.fromJsonString(PlanRequest),
     )(stdin);
     const configure = yield* ConfigureService;
-    const saved = yield* configure.readConfig(repoRoot).pipe(
+    const saved = yield* configure.readConfig(repositoryRoot).pipe(
       Effect.asSome,
       Effect.catchTag("MissingConfigError", () => Effect.succeedNone),
     );
@@ -113,7 +113,7 @@ export const plan = Command.make(
   (flags) =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
+      const repositoryRoot = Option.getOrElse(flags.root, () => process.cwd());
       const format = Option.getOrElse(flags.format, () => "llm" as const);
 
       const { input, config } = yield* ParsedPlanInput;
@@ -139,13 +139,13 @@ export const plan = Command.make(
       const planService = yield* PlanService;
       const planResult = yield* planService.build({
         blueprint,
-        repoRoot,
+        repositoryRoot,
         config,
       });
 
       const finalizeService = yield* FinalizeService;
       const scripts = yield* finalizeService
-        .scripts(blueprint, { repoRoot, config })
+        .scripts(blueprint, { repositoryRoot, config })
         .pipe(
           Effect.orElseSucceed(
             () =>

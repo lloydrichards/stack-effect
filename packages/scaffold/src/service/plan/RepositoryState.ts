@@ -11,7 +11,6 @@ import {
   repositoryRootPath,
 } from "@repo/domain/Plan";
 import {
-  Array as Arr,
   Context,
   Effect,
   FileSystem,
@@ -79,10 +78,27 @@ export const compare = (
   ];
 };
 
-export class RepositoryState extends Context.Service<RepositoryState>()(
-  "@repo/scaffold/RepositoryState",
+export class RepositoryState extends Context.Service<
+  RepositoryState,
   {
-    make: Effect.gen(function* () {
+    readonly capture: (input: {
+      readonly repositoryRoot: string;
+      readonly paths: ReadonlyArray<RepositoryPath>;
+    }) => Effect.Effect<RepositoryCapture, PlanFailure>;
+    readonly verify: (input: {
+      readonly baseline: PlanBaseline;
+      readonly repositoryRoot: string;
+      readonly paths?: ReadonlyArray<RepositoryPath> | undefined;
+    }) => Effect.Effect<ReadonlyArray<StalePlanChange>>;
+    // Discovers roots through grouping directories; package contents are not owners.
+    readonly discoverOwners: (
+      repositoryRoot: string,
+    ) => Effect.Effect<ReadonlyArray<PackageOwner>, PlanFailure>;
+  }
+>()("@repo/scaffold/RepositoryState") {
+  static readonly layer = Layer.effect(
+    RepositoryState,
+    Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const crypto = yield* Digest.Digest;
@@ -107,8 +123,10 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
         );
 
       // Resolve through the nearest existing ancestor so a root that does not exist yet keeps its identity.
-      const canonicalRoot = Effect.fnUntraced(function* (repoRoot: string) {
-        const absoluteRoot = path.resolve(repoRoot);
+      const canonicalRoot = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+      ) {
+        const absoluteRoot = path.resolve(repositoryRoot);
         let current = absoluteRoot;
         const suffix: Array<string> = [];
 
@@ -141,10 +159,10 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
       });
 
       const readEntry = Effect.fnUntraced(function* (
-        repoRoot: string,
+        repositoryRoot: string,
         snapshotPath: RepositoryPath,
       ) {
-        const absolutePath = path.join(repoRoot, snapshotPath);
+        const absolutePath = path.join(repositoryRoot, snapshotPath);
         const symbolicLink = new PlanFailure({
           message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
         });
@@ -224,67 +242,61 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
       });
 
       const readSnapshot = Effect.fnUntraced(function* (
-        repoRoot: string,
+        repositoryRoot: string,
         paths: ReadonlyArray<RepositoryPath>,
       ) {
-        const snapshotPaths = Arr.fromIterable(new Set(paths)).sort(
-          Order.String,
-        );
+        const snapshotPaths = [...new Set(paths)].sort(Order.String);
         const entries = yield* Effect.forEach(snapshotPaths, (snapshotPath) =>
-          readEntry(repoRoot, snapshotPath),
+          readEntry(repositoryRoot, snapshotPath),
         );
         return { paths: entries } satisfies RepoSnapshot;
       });
 
-      const fingerprint = (snapshot: RepoSnapshot) =>
-        Effect.forEach(snapshot.paths, (entry) =>
-          entry._tag === "file"
-            ? crypto
-                .digestHex(
-                  Digest.sha256,
-                  new TextEncoder().encode(entry.contents),
-                )
-                .pipe(
-                  Effect.map((sha256): PlanBaselinePath => ({
-                    _tag: "file",
-                    path: entry.path,
-                    sha256,
-                  })),
-                )
-            : Effect.succeed(entry satisfies PlanBaselinePath),
-        );
+      const fingerprint = Effect.fnUntraced(function* (snapshot: RepoSnapshot) {
+        const paths: Array<PlanBaselinePath> = [];
+        for (const entry of snapshot.paths) {
+          if (entry._tag !== "file") {
+            paths.push(entry);
+            continue;
+          }
+          const sha256 = yield* crypto.digestHex(
+            Digest.sha256,
+            new TextEncoder().encode(entry.contents),
+          );
+          paths.push({ _tag: "file", path: entry.path, sha256 });
+        }
+        return paths;
+      });
 
-      /** Discover roots through grouping directories; package contents are not owners. */
       const discoverOwners = Effect.fn("RepositoryState.discoverOwners")(
-        function* (repoRoot: string) {
-          const inspect = (relative: string) =>
-            Effect.gen(function* () {
-              const entry = yield* lstatOption(
-                path.join(repoRoot, relative),
-              ).pipe(
-                Effect.mapError((cause) =>
-                  ownershipFailure(relative, "could not stat entry", cause),
-                ),
+        function* (repositoryRoot: string) {
+          const inspect = Effect.fnUntraced(function* (relative: string) {
+            const entry = yield* lstatOption(
+              path.join(repositoryRoot, relative),
+            ).pipe(
+              Effect.mapError((cause) =>
+                ownershipFailure(relative, "could not stat entry", cause),
+              ),
+            );
+            if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
+              return yield* ownershipFailure(
+                relative,
+                "symbolic links are unsupported",
               );
-              if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
-                return yield* ownershipFailure(
-                  relative,
-                  "symbolic links are unsupported",
-                );
-              }
-              return entry;
-            });
+            }
+            return entry;
+          });
 
-          const visit = (
+          const visit: (
             relative: string,
-          ): Effect.Effect<ReadonlyArray<PackageOwner>, PlanFailure> =>
-            Effect.gen(function* () {
+          ) => Effect.Effect<ReadonlyArray<PackageOwner>, PlanFailure> =
+            Effect.fnUntraced(function* (relative: string) {
               const entry = yield* inspect(relative);
               if (Option.isNone(entry)) return [];
               if (entry.value.type !== "Directory")
                 return yield* ownershipFailure(relative, "expected directory");
               const names = yield* fileSystem
-                .readDirectory(path.join(repoRoot, relative))
+                .readDirectory(path.join(repositoryRoot, relative))
                 .pipe(
                   Effect.mapError((cause) =>
                     ownershipFailure(
@@ -313,7 +325,7 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
                     "expected regular file",
                   );
                 const contents = yield* fileSystem
-                  .readFileString(path.join(repoRoot, manifestPath))
+                  .readFileString(path.join(repositoryRoot, manifestPath))
                   .pipe(
                     Effect.mapError((cause) =>
                       ownershipFailure(
@@ -332,17 +344,18 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
                     name.toLowerCase() !== "node_modules",
                 )
                 .sort();
-              const children = yield* Effect.forEach(candidates, (name) =>
-                Effect.gen(function* () {
-                  const child = `${relative}/${name}`;
-                  const childEntry = yield* inspect(child);
-                  return Option.isSome(childEntry) &&
-                    childEntry.value.type === "Directory"
-                    ? yield* visit(child)
-                    : [];
-                }),
-              );
-              return children.flat();
+              const owners: Array<PackageOwner> = [];
+              for (const name of candidates) {
+                const child = `${relative}/${name}`;
+                const childEntry = yield* inspect(child);
+                if (
+                  Option.isSome(childEntry) &&
+                  childEntry.value.type === "Directory"
+                ) {
+                  owners.push(...(yield* visit(child)));
+                }
+              }
+              return owners;
             });
 
           const owners = (yield* Effect.forEach(["apps", "packages"], visit))
@@ -354,31 +367,41 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
       );
 
       const capture = Effect.fn("RepositoryState.capture")(function* ({
-        repoRoot,
+        repositoryRoot,
         paths,
       }: {
-        readonly repoRoot: string;
+        readonly repositoryRoot: string;
         readonly paths: ReadonlyArray<RepositoryPath>;
       }) {
-        const snapshot = yield* readSnapshot(repoRoot, paths);
+        const snapshot = yield* readSnapshot(repositoryRoot, paths);
         const baseline = {
-          root: yield* canonicalRoot(repoRoot),
+          root: yield* canonicalRoot(repositoryRoot),
           paths: yield* fingerprint(snapshot),
-          packageOwners: yield* discoverOwners(repoRoot),
+          packageOwners: yield* discoverOwners(repositoryRoot),
         } satisfies PlanBaseline;
         return { baseline, snapshot } satisfies RepositoryCapture;
       });
 
+      const verifyEntry = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        root: string,
+        entry: PlanBaselinePath,
+      ) {
+        const snapshot = yield* readSnapshot(repositoryRoot, [entry.path]);
+        const actual = yield* fingerprint(snapshot);
+        return compare({ root, paths: [entry] }, { root, paths: actual });
+      });
+
       const verify = Effect.fn("RepositoryState.verify")(function* ({
         baseline,
-        repoRoot,
+        repositoryRoot,
         paths,
       }: {
         readonly baseline: PlanBaseline;
-        readonly repoRoot: string;
+        readonly repositoryRoot: string;
         readonly paths?: ReadonlyArray<RepositoryPath> | undefined;
       }) {
-        const currentRoot = yield* canonicalRoot(repoRoot).pipe(
+        const currentRoot = yield* canonicalRoot(repositoryRoot).pipe(
           Effect.orElseSucceed(() => ""),
         );
         const selected =
@@ -386,27 +409,21 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
             ? baseline.paths
             : baseline.paths.filter((entry) => paths.includes(entry.path));
         const changes = yield* Effect.forEach(selected, (entry) =>
-          readSnapshot(repoRoot, [entry.path]).pipe(
-            Effect.flatMap(fingerprint),
-            Effect.map((actual) =>
-              compare(
-                { root: baseline.root, paths: [entry] },
-                { root: baseline.root, paths: actual },
-              ),
-            ),
+          verifyEntry(repositoryRoot, baseline.root, entry).pipe(
             Effect.orElseSucceed(() => [
               { path: entry.path, kind: "typeChanged" as const },
             ]),
           ),
         );
+
         const expectedOwners = baseline.packageOwners;
         const ownershipChanged =
-          expectedOwners === undefined
-            ? false
-            : yield* discoverOwners(repoRoot).pipe(
-                Effect.map((owners) => !sameOwners(expectedOwners, owners)),
-                Effect.orElseSucceed(() => true),
-              );
+          expectedOwners !== undefined &&
+          (yield* discoverOwners(repositoryRoot).pipe(
+            Effect.map((owners) => !sameOwners(expectedOwners, owners)),
+            Effect.orElseSucceed(() => true),
+          ));
+
         return [
           ...(ownershipChanged
             ? [{ path: repositoryRootPath, kind: "modified" as const }]
@@ -418,9 +435,7 @@ export class RepositoryState extends Context.Service<RepositoryState>()(
         ] satisfies ReadonlyArray<StalePlanChange>;
       });
 
-      return { capture, verify, discoverOwners } as const;
+      return RepositoryState.of({ capture, verify, discoverOwners });
     }),
-  },
-) {
-  static readonly layer = Layer.effect(RepositoryState)(RepositoryState.make);
+  );
 }

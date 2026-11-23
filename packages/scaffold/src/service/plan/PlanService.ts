@@ -7,7 +7,7 @@ import {
   repositoryRootPath,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, SchemaIssue } from "effect";
+import { Context, Effect, Layer, SchemaIssue } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { validatePackageOwners } from "./PackageOwnership";
 import * as PlanAssessment from "./PlanAssessment";
@@ -21,32 +21,87 @@ import {
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
-export type PlanServiceBuildInput = {
-  readonly blueprint: Blueprint;
-  readonly repoRoot: string;
-  readonly config: StackConfig;
-};
+const projectPlan = Effect.fnUntraced(function* ({
+  planningPaths,
+  repositorySnapshot,
+  baseline,
+}: {
+  planningPaths: ReadonlyArray<PlanningIntentPath>;
+  repositorySnapshot: RepoSnapshot;
+  baseline: Plan["baseline"];
+}) {
+  const snapshotPaths = new Map(
+    repositorySnapshot.paths.map(
+      (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
+    ),
+  );
 
-export type PlanServiceShape = {
-  readonly build: (
-    input: PlanServiceBuildInput,
-  ) => Effect.Effect<Plan, PlanFailure | CatalogNotFound, never>;
-};
+  const assessedPaths = [];
+  for (const intent of planningPaths) {
+    const snapshotPath = snapshotPaths.get(intent.path);
+    const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
+      intent,
+      snapshotPath,
+    );
+    const assessment = yield* PlanAssessment.assess({
+      planningPath,
+      snapshotPath,
+    });
+    assessedPaths.push({ planningPath, assessment });
+  }
+
+  const outcomes = yield* registerWorkspaceMembers(
+    assessedPaths.map(({ planningPath, assessment }) =>
+      PlanAssessment.toPlannedFileOutcome({
+        planningPath,
+        classification: assessment.classification,
+      }),
+    ),
+    repositorySnapshot,
+    (baseline.packageOwners ?? []).map((owner) => owner.path),
+  );
+  const plan = yield* Plan.makeEffect({
+    baseline,
+    outcomes,
+    conflicts: assessedPaths.flatMap(({ assessment }) => assessment.conflicts),
+  }).pipe(
+    Effect.mapError(
+      (cause) =>
+        new PlanFailure({
+          message: `Invalid projected Plan: ${formatSchemaIssue(cause)}`,
+          cause,
+        }),
+    ),
+  );
+
+  return plan.toSorted();
+});
 
 export class PlanService extends Context.Service<
   PlanService,
-  PlanServiceShape
->()("PlanService", {
-  make: Effect.gen(function* () {
+  {
+    readonly build: (input: {
+      readonly blueprint: Blueprint;
+      readonly repositoryRoot: string;
+      readonly config: StackConfig;
+    }) => Effect.Effect<Plan, PlanFailure | CatalogNotFound>;
+  }
+>()("@repo/scaffold/PlanService") {
+  // Tests substitute RepositoryState through this; inline it into `layer` once they run the real owner.
+  static readonly make = Effect.gen(function* () {
     const contribute = yield* ContributionResolver;
     const repositoryState = yield* RepositoryState.RepositoryState;
 
     const build = Effect.fn("PlanService.build")(function* ({
       blueprint,
-      repoRoot,
+      repositoryRoot,
       config,
-    }: PlanServiceBuildInput) {
-      const owners = yield* repositoryState.discoverOwners(repoRoot);
+    }: {
+      readonly blueprint: Blueprint;
+      readonly repositoryRoot: string;
+      readonly config: StackConfig;
+    }) {
+      const owners = yield* repositoryState.discoverOwners(repositoryRoot);
       yield* validatePackageOwners(blueprint, owners);
       const normalizedContributions = yield* contribute.resolve(
         blueprint,
@@ -57,27 +112,28 @@ export class PlanService extends Context.Service<
       );
 
       const captured = yield* repositoryState.capture({
-        repoRoot,
-        paths: Arr.fromIterable(
-          new Set([
+        repositoryRoot,
+        paths: [
+          ...new Set([
             repositoryRootPath,
             ...workspaceManifestPaths,
-            ...Arr.flatMap(planningPaths, (planningPath) => [
+            ...planningPaths.flatMap((planningPath) => [
               planningPath.path,
               ...PlanAssessment.collectAncestorPaths(planningPath.path),
             ]),
           ]),
-        ),
+        ],
       });
       // Keep the owners validated above so drift since validation fails the recheck below.
       const baseline = { ...captured.baseline, packageOwners: owners };
       const plan = yield* projectPlan({
         planningPaths,
-        repoSnapshot: captured.snapshot,
+        repositorySnapshot: captured.snapshot,
         baseline,
       });
+
       const current = yield* repositoryState.capture({
-        repoRoot,
+        repositoryRoot,
         paths: baseline.paths.map((entry) => entry.path),
       });
       const changes = RepositoryState.compare(baseline, current.baseline);
@@ -89,74 +145,10 @@ export class PlanService extends Context.Service<
       return plan;
     });
 
-    const projectPlan = ({
-      planningPaths,
-      repoSnapshot,
-      baseline,
-    }: {
-      planningPaths: ReadonlyArray<PlanningIntentPath>;
-      repoSnapshot: RepoSnapshot;
-      baseline: Plan["baseline"];
-    }) =>
-      Effect.gen(function* () {
-        const snapshotPaths = new Map(
-          Arr.map(
-            repoSnapshot.paths,
-            (snapshotPath) => [snapshotPath.path, snapshotPath] as const,
-          ),
-        );
+    return PlanService.of({ build });
+  });
 
-        const assessedPaths = yield* Effect.forEach(planningPaths, (intent) =>
-          Effect.gen(function* () {
-            const snapshotPath = snapshotPaths.get(intent.path);
-            const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
-              intent,
-              snapshotPath,
-            );
-
-            return {
-              planningPath,
-              assessment: yield* PlanAssessment.assess({
-                planningPath,
-                snapshotPath,
-              }),
-            } as const;
-          }),
-        );
-
-        const plan = yield* Plan.makeEffect({
-          baseline,
-          outcomes: yield* registerWorkspaceMembers(
-            Arr.map(assessedPaths, ({ planningPath, assessment }) =>
-              PlanAssessment.toPlannedFileOutcome({
-                planningPath,
-                classification: assessment.classification,
-              }),
-            ),
-            repoSnapshot,
-            (baseline.packageOwners ?? []).map((owner) => owner.path),
-          ),
-          conflicts: Arr.flatMap(
-            assessedPaths,
-            ({ assessment }) => assessment.conflicts,
-          ),
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new PlanFailure({
-                message: `Invalid projected Plan: ${formatSchemaIssue(cause)}`,
-                cause,
-              }),
-          ),
-        );
-
-        return plan.toSorted();
-      });
-
-    return { build } satisfies PlanServiceShape;
-  }),
-}) {
-  static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
+  static readonly layer = Layer.effect(PlanService, PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(RepositoryState.RepositoryState.layer),
   );

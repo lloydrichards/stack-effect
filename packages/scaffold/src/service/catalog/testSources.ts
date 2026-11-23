@@ -94,7 +94,7 @@ export const routedLayer = (routes: Record<string, () => Route>) => {
           HttpClient.HttpClient,
           HttpClient.make((request) => Effect.sync(() => respond(request))),
         ),
-        CatalogCache.memory,
+        CatalogCache.layerMemory,
         BrowserCrypto.layer,
       ),
     ),

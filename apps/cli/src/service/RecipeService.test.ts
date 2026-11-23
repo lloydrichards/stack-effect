@@ -579,6 +579,43 @@ describe("RecipeService", () => {
         }).pipe(Effect.provide(TestLayer)),
     );
 
+    it.effect(
+      "should keep the first identity when recipe targets share a key",
+      () =>
+        Effect.gen(function* () {
+          const service = yield* RecipeService;
+          const selection = yield* service.resolve(
+            {
+              targets: [
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("server"),
+                    name: "Api",
+                  }),
+                  modules: [ModuleId.make("server-http-api")],
+                },
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("server"),
+                    name: "api",
+                  }),
+                  modules: [ModuleId.make("server-http-rpc")],
+                },
+              ],
+            },
+            {
+              config: testConfig,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          const server = selection.targets.find(
+            (target) => target.identity.toKey() === "apps/server-api",
+          );
+          assert.strictEqual(server?.identity.name, "Api");
+        }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect("should leave module validation for Blueprint resolution", () =>
       Effect.gen(function* () {
         const service = yield* RecipeService;

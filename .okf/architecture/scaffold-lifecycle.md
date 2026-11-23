@@ -11,13 +11,13 @@ sources:
     resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
     title: Apply preparation and execution
   - id: workspace
-    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
+    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaces.ts
     title: In-memory workspace creation and materialization
   - id: recipe
-    resource: ../../packages/scaffold/src/service/recipe/RecipePreviewService.ts
+    resource: ../../packages/scaffold/src/service/recipe/RecipePreviewer.ts
     title: Recipe preview
   - id: write
-    resource: ../../packages/scaffold/src/service/apply/WriteEngine.ts
+    resource: ../../packages/scaffold/src/service/apply/AtomicWriter.ts
     title: Host write behavior
   - id: pipeline
     resource: ../../apps/cli/src/service/ScaffoldPipeline.ts
@@ -49,7 +49,7 @@ Plan captures relevant paths, ancestors, and the root through `RepositoryState`.
 
 Apply checks every baseline path before preparing composition or writing. For modified composed files, it re-reads contents after that check. Each write checks its target and ancestors again, then uses a temporary-file rename. A later stale check stops remaining writes and reports the partial result. Other execution failures are collected while later writes continue. This does not provide a repository-wide transaction.
 
-`ApplyWorkspaceService` creates a private `MemoryFileSystem`. `empty` starts it without repository files; `fromRepository` checks and seeds the paths recorded in a host Plan baseline, then checks that baseline again. A host Plan must match that seeded baseline, and materialization rechecks the host before using it. A Plan built inside the workspace can apply against the same private state. Materialization returns the Apply result and successful changed files read from that workspace. The CLI dry run previews a host Plan by creating a workspace from its baseline and materializing the Apply. `RecipePreviewService` plans and applies in one workspace and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
+`ApplyWorkspaces` creates a private `MemoryFileSystem`. `empty` starts it without repository files; `fromRepository` checks and seeds the paths recorded in a host Plan baseline, then checks that baseline again. A host Plan must match that seeded baseline, and materialization rechecks the host before using it. A Plan built inside the workspace can apply against the same private state. Materialization returns the Apply result and successful changed files read from that workspace. The CLI dry run previews a host Plan by creating a workspace from its baseline and materializing the Apply. `RecipePreviewer` plans and applies in one workspace and appends configuration to its result separately. Neither changed-file list claims to contain a complete repository.
 
 Private previews use VFS `make` with an explicitly supplied Crypto service. Volume identities are not security credentials.
 
@@ -65,9 +65,9 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 The CLI rejects required dependency conflicts before Apply in interactive and automatic modes. Other conflicted paths retain explicit override or skip decisions. This policy stays in `ScaffoldPipeline`; Plan remains policy-free.
 
-`ApplyService` prepares skip, authoritative-write, or composed-write actions. The pure `Composition` module routes JSON and TypeScript operations to `JsonComposition` and `TypeScriptComposition`. `WriteEngine` enforces create, modify, or override expectations at each path. These internals should not become caller-owned policy.
+`ApplyService` prepares skip, authoritative-write, or composed-write actions. The pure `Composition` module routes JSON and TypeScript operations to `JsonComposition` and `TypeScriptComposition`. `AtomicWriter` enforces create, modify, or override expectations at each path. These internals should not become caller-owned policy.
 
-The CLI renders Blueprint and Plan itself; `@repo/scaffold` returns data only. RecipeService resolves recipe inputs; RecipePreviewService produces the builder preview. Consult the package exports for the current public service boundary.
+The CLI renders Blueprint and Plan itself; `@repo/scaffold` returns data only. RecipeService resolves recipe inputs; RecipePreviewer produces the builder preview. Consult the package exports for the current public service boundary.
 
 ## Generated READMEs
 

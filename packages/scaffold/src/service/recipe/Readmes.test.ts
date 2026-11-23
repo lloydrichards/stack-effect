@@ -12,7 +12,7 @@ import { Effect, FileSystem, Layer, Path } from "effect";
 import { ApplyService } from "../apply/ApplyService";
 import { BlueprintService } from "../blueprint/BlueprintService";
 import { PlanService } from "../plan/PlanService";
-import { RecipePreviewService } from "./RecipePreviewService";
+import { RecipePreviewer } from "./RecipePreviewer";
 import { RecipeService } from "./RecipeService";
 
 const config = new StackConfig({
@@ -30,7 +30,7 @@ const target = (kind: string, name: string, ...modules: string[]) => ({
   modules: modules.map((id) => ModuleId.make(id)),
 });
 
-const previewLayer = RecipePreviewService.layer.pipe(
+const previewLayer = RecipePreviewer.layer.pipe(
   Layer.provide(OfficialCatalogLayer),
 );
 
@@ -51,7 +51,7 @@ describe("generated READMEs", () => {
     "links catalog extension workspaces without assuming they provide a README",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config,
           recipe: { targets: [target("widget", "demo")] },
@@ -66,7 +66,7 @@ describe("generated READMEs", () => {
         );
       }).pipe(
         Effect.provide(
-          RecipePreviewService.layer.pipe(
+          RecipePreviewer.layer.pipe(
             Layer.provide(
               officialCatalogLayerWith([
                 {
@@ -98,7 +98,7 @@ describe("generated READMEs", () => {
     "introduces an empty workspace with its initial recipe and docs",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config,
           recipe: { targets: [] },
@@ -118,7 +118,7 @@ describe("generated READMEs", () => {
     "links implied full-stack targets and explains their selected database",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config,
           recipe: {
@@ -160,7 +160,7 @@ describe("generated READMEs", () => {
     "keeps publishing guidance and root links for a nested library",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config: new StackConfig({
             ...config,
@@ -184,7 +184,7 @@ describe("generated READMEs", () => {
     "uses Deno tasks and only documents the selected Postgres database",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config: new StackConfig({
             name: config.name,
@@ -219,11 +219,11 @@ describe("generated READMEs", () => {
         const first = yield* plans.build({
           blueprint: initialBlueprint,
           config,
-          repoRoot: "/repo",
+          repositoryRoot: "/repo",
         });
         yield* applies.apply({
           apply: new Apply({ plan: first, decisions: [] }),
-          repoRoot: "/repo",
+          repositoryRoot: "/repo",
         });
         const originalRoot = yield* fs.readFileString("/repo/README.md");
         const edits = [
@@ -253,7 +253,7 @@ describe("generated READMEs", () => {
         const plan = yield* plans.build({
           blueprint,
           config,
-          repoRoot: "/repo",
+          repositoryRoot: "/repo",
         });
         for (const [path] of edits) {
           assert.isTrue(
@@ -266,7 +266,7 @@ describe("generated READMEs", () => {
         ].map((path) => ({ path, value: "skip" as const }));
         yield* applies.apply({
           apply: new Apply({ plan, decisions }),
-          repoRoot: "/repo",
+          repositoryRoot: "/repo",
         });
         for (const [path, contents] of edits) {
           assert.strictEqual(

@@ -7,7 +7,7 @@ import type {
   TsObjectFieldOp,
   TypeScriptCompositionOperation,
 } from "@repo/domain/Plan";
-import { Array as Arr, Effect, Match, Option, pipe } from "effect";
+import { Effect, Match, Option, pipe } from "effect";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import {
   IndentationText,
@@ -19,7 +19,6 @@ import {
 } from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
-/** Applies TypeScript composition operations to the given source text. */
 export const composeTypeScript: (
   contents: string,
   operations: ReadonlyArray<TypeScriptCompositionOperation>,
@@ -44,63 +43,53 @@ export const composeTypeScript: (
 
     const previousJsxSlotContents = new Map<string, string>();
 
-    yield* Effect.forEach(
-      operations,
-      (op) =>
-        Match.value(op).pipe(
-          Match.tag("ts-add-import", (importOp) =>
-            Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
-          ),
-          Match.tag("ts-add-reexport", (reexportOp) =>
-            Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
-          ),
-          Match.tag("ts-append-call-arg", (appendOp) =>
-            applyTsAppendCallArg(sourceFile, appendOp),
-          ),
-          Match.tag("ts-object-field", (fieldOp) =>
-            applyTsObjectField(sourceFile, fieldOp),
-          ),
-          Match.tag("ts-jsx-slot", (slotOp) =>
-            applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
-          ),
-          Match.exhaustive,
-        ),
-      { discard: true },
-    );
+    for (const op of operations) {
+      yield* Match.valueTags(op, {
+        "ts-add-import": (importOp) => {
+          applyTsAddImport(sourceFile, importOp);
+          return Effect.void;
+        },
+        "ts-add-reexport": (reexportOp) => {
+          applyTsAddReexport(sourceFile, reexportOp);
+          return Effect.void;
+        },
+        "ts-append-call-arg": (appendOp) =>
+          applyTsAppendCallArg(sourceFile, appendOp),
+        "ts-object-field": (fieldOp) => applyTsObjectField(sourceFile, fieldOp),
+        "ts-jsx-slot": (slotOp) =>
+          applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
+      });
+    }
 
     return sourceFile.getFullText();
   },
 );
 
-const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) =>
-  pipe(
-    Option.fromNullishOr(
-      sourceFile.getImportDeclaration(
-        (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
-      ),
-    ),
-    Option.match({
-      onNone: () => {
-        sourceFile.addImportDeclaration({
-          moduleSpecifier: op.moduleSpecifier,
-          isTypeOnly: op.typeOnly ?? false,
-          ...(op.namedImports && { namedImports: [...op.namedImports] }),
-          ...(op.defaultImport && { defaultImport: op.defaultImport }),
-          ...(op.namespaceImport && { namespaceImport: op.namespaceImport }),
-        });
-      },
-      onSome: (decl) => {
-        if (op.namedImports)
-          Arr.forEach(
-            Arr.difference(
-              op.namedImports,
-              decl.getNamedImports().map((ni) => ni.getName()),
-            ),
-            (name) => decl.addNamedImport(name),
-          );
-      },
-    }),
+const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
+  const existingImport = sourceFile.getImportDeclaration(
+    (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
   );
+
+  if (existingImport === undefined) {
+    sourceFile.addImportDeclaration({
+      moduleSpecifier: op.moduleSpecifier,
+      isTypeOnly: op.typeOnly ?? false,
+      ...(op.namedImports && { namedImports: [...op.namedImports] }),
+      ...(op.defaultImport && { defaultImport: op.defaultImport }),
+      ...(op.namespaceImport && { namespaceImport: op.namespaceImport }),
+    });
+    return;
+  }
+
+  if (op.namedImports) {
+    const existingNames = new Set(
+      existingImport.getNamedImports().map((ni) => ni.getName()),
+    );
+    for (const name of op.namedImports) {
+      if (!existingNames.has(name)) existingImport.addNamedImport(name);
+    }
+  }
+};
 
 const applyTsAddReexport = (
   sourceFile: SourceFile,
@@ -113,14 +102,13 @@ const applyTsAddReexport = (
   if (existingExport) {
     if (op.namedExports) {
       const existingNamedExports = existingExport.getNamedExports();
-      Arr.forEach(
-        Arr.filter(
-          op.namedExports,
-          (namedExport) =>
-            !existingNamedExports.some((ne) => ne.getName() === namedExport),
-        ),
-        (namedExport) => existingExport.addNamedExport(namedExport),
+      const missingExports = op.namedExports.filter(
+        (namedExport) =>
+          !existingNamedExports.some((ne) => ne.getName() === namedExport),
       );
+      for (const namedExport of missingExports) {
+        existingExport.addNamedExport(namedExport);
+      }
     }
     return;
   }
@@ -223,7 +211,7 @@ const toOuterCurriedCall = (call: CallExpression): CallExpression => {
   return call;
 };
 
-const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
+const applyTsAppendCallArg = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
   op: TsAppendCallArgOp,
 ) {
@@ -301,7 +289,7 @@ const objectFieldValue = (
   return undefined;
 };
 
-const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
+const applyTsObjectField = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
   op: TsObjectFieldOp,
 ) {
@@ -349,61 +337,57 @@ const missingTarget = (targetVariable: string, functionName: string) =>
     }),
   );
 
-const applyTsJsxSlot = (
+const applyTsJsxSlot = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
   op: TsJsxSlotOp,
   previousContents: Map<string, string>,
-) =>
-  Effect.suspend(() => {
-    const text = sourceFile.getFullText();
-    const marker = findJsxSlotMarker(sourceFile, op.slotId);
+) {
+  const text = sourceFile.getFullText();
+  const marker = findJsxSlotMarker(sourceFile, op.slotId);
 
-    if (!marker) {
-      return Effect.fail(
-        new ApplyFailure({
-          message: `Could not find JSX slot ${jsxSlotMarker(op.slotId)} during TypeScript composition.`,
-        }),
-      );
-    }
+  if (!marker) {
+    return yield* new ApplyFailure({
+      message: `Could not find JSX slot ${jsxSlotMarker(op.slotId)} during TypeScript composition.`,
+    });
+  }
 
-    const markerEnd = marker.getEnd();
-    const parent = marker.getParent();
-    const children =
-      parent.getKind() === SyntaxKind.JsxElement
-        ? parent.asKindOrThrow(SyntaxKind.JsxElement).getJsxChildren()
-        : parent.getKind() === SyntaxKind.JsxFragment
-          ? parent.asKindOrThrow(SyntaxKind.JsxFragment).getJsxChildren()
-          : [];
-    const markerIndex = children.findIndex((child) => child === marker);
-    const slotChildren = children.slice(markerIndex + 1);
-    const nextMarkerIndex = slotChildren.findIndex(
-      (child) =>
-        child.getKind() === SyntaxKind.JsxExpression &&
-        isJsxSlotMarker(child.asKindOrThrow(SyntaxKind.JsxExpression)),
-    );
-    const boundedSlotChildren =
-      nextMarkerIndex === -1
-        ? slotChildren
-        : slotChildren.slice(0, nextMarkerIndex);
-    const existingChild = boundedSlotChildren.find(
-      (child) => child.getText().trim() === op.content.trim(),
-    );
+  const markerEnd = marker.getEnd();
+  const parent = marker.getParent();
+  const children =
+    parent.getKind() === SyntaxKind.JsxElement
+      ? parent.asKindOrThrow(SyntaxKind.JsxElement).getJsxChildren()
+      : parent.getKind() === SyntaxKind.JsxFragment
+        ? parent.asKindOrThrow(SyntaxKind.JsxFragment).getJsxChildren()
+        : [];
+  const markerIndex = children.findIndex((child) => child === marker);
+  const slotChildren = children.slice(markerIndex + 1);
+  const nextMarkerIndex = slotChildren.findIndex(
+    (child) =>
+      child.getKind() === SyntaxKind.JsxExpression &&
+      isJsxSlotMarker(child.asKindOrThrow(SyntaxKind.JsxExpression)),
+  );
+  const boundedSlotChildren =
+    nextMarkerIndex === -1
+      ? slotChildren
+      : slotChildren.slice(0, nextMarkerIndex);
+  const existingChild = boundedSlotChildren.find(
+    (child) => child.getText().trim() === op.content.trim(),
+  );
 
-    if (existingChild !== undefined) {
-      previousContents.set(op.slotId, op.content);
-      return Effect.void;
-    }
-
-    const previousContent = previousContents.get(op.slotId);
-    const previousChild = boundedSlotChildren.find(
-      (child) => child.getText().trim() === previousContent?.trim(),
-    );
-    const insertPos =
-      previousContent !== undefined && previousChild !== undefined
-        ? previousChild.getEnd()
-        : markerEnd;
-    const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
-    sourceFile.replaceWithText(newText);
+  if (existingChild !== undefined) {
     previousContents.set(op.slotId, op.content);
-    return Effect.void;
-  });
+    return;
+  }
+
+  const previousContent = previousContents.get(op.slotId);
+  const previousChild = boundedSlotChildren.find(
+    (child) => child.getText().trim() === previousContent?.trim(),
+  );
+  const insertPos =
+    previousContent !== undefined && previousChild !== undefined
+      ? previousChild.getEnd()
+      : markerEnd;
+  const newText = `${text.slice(0, insertPos)}\n        ${op.content}${text.slice(insertPos)}`;
+  sourceFile.replaceWithText(newText);
+  previousContents.set(op.slotId, op.content);
+});

@@ -5,10 +5,10 @@ description: Limits of filesystem injection for generated-project checks and ext
 status: draft
 sources:
   - id: preview
-    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
+    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaces.ts
     title: Current in-memory preview
   - id: recipe
-    resource: ../../packages/scaffold/src/service/recipe/RecipePreviewService.ts
+    resource: ../../packages/scaffold/src/service/recipe/RecipePreviewer.ts
     title: Current recipe preview
   - id: runtime
     resource: ../../packages/scaffold/src/service/finalize/FinalizeService.ts

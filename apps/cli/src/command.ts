@@ -38,8 +38,8 @@ const targetProjectConfig = (
   Option.isNone(name)
     ? Effect.succeedNone
     : Effect.gen(function* () {
-        const { repoRoot } = yield* resolveNameAndRoot(name.value, root);
-        return yield* projectConfig(Option.some(repoRoot));
+        const { repositoryRoot } = yield* resolveNameAndRoot(name.value, root);
+        return yield* projectConfig(Option.some(repositoryRoot));
       });
 
 const inspectProjectConfig = (
@@ -50,8 +50,8 @@ const inspectProjectConfig = (
     ? Effect.void
     : Effect.gen(function* () {
         const configure = yield* ConfigureService;
-        const { repoRoot } = yield* resolveNameAndRoot(name.value, root);
-        yield* configure.readConfig(repoRoot).pipe(
+        const { repositoryRoot } = yield* resolveNameAndRoot(name.value, root);
+        yield* configure.readConfig(repositoryRoot).pipe(
           Effect.asVoid,
           Effect.catchTag("MissingConfigError", () => Effect.void),
         );

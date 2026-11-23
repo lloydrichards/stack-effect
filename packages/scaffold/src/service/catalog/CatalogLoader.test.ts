@@ -51,7 +51,7 @@ type Handler = (
 /** A loader over a synchronous request handler, or over a whole HTTP client. */
 const testLayer = (
   http: Handler | HttpClient.HttpClient,
-  cache = CatalogCache.memory,
+  cache = CatalogCache.layerMemory,
 ) =>
   CatalogLoader.layer.pipe(
     Layer.provide(

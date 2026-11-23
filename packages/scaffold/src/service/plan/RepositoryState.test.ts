@@ -5,7 +5,7 @@ import { RepositoryPath } from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path, PlatformError, Ref } from "effect";
 import { RepositoryState } from "./RepositoryState";
 
-const repoRoot = "/repo";
+const repositoryRoot = "/repo";
 
 /** Seed a memory repository and return its capture, optionally failing one method for one path. */
 const prepareCapture = ({
@@ -22,20 +22,20 @@ const prepareCapture = ({
 }) =>
   Effect.gen(function* () {
     const base = yield* MemoryFileSystem.make;
-    yield* base.makeDirectory(repoRoot, { recursive: true });
+    yield* base.makeDirectory(repositoryRoot, { recursive: true });
     yield* Effect.forEach(
       Object.entries(files),
       ([path, contents]) =>
         base
           .makeDirectory(
-            `${repoRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
+            `${repositoryRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
             {
               recursive: true,
             },
           )
           .pipe(
             Effect.andThen(
-              base.writeFileString(`${repoRoot}/${path}`, contents),
+              base.writeFileString(`${repositoryRoot}/${path}`, contents),
             ),
           ),
       { discard: true },
@@ -46,7 +46,7 @@ const prepareCapture = ({
       Effect.fnUntraced(function* () {
         const fired = yield* Ref.make(false);
         const inject = (method: string) => (path: string) =>
-          fault?.method === method && path === `${repoRoot}/${fault.path}`
+          fault?.method === method && path === `${repositoryRoot}/${fault.path}`
             ? Ref.set(fired, true).pipe(
                 Effect.andThen(
                   Effect.fail(
@@ -71,7 +71,7 @@ const prepareCapture = ({
     const capture = Effect.gen(function* () {
       const state = yield* RepositoryState;
       return yield* state.capture({
-        repoRoot,
+        repositoryRoot,
         paths: paths.map((path) => RepositoryPath.make(path)),
       });
     }).pipe(
@@ -114,7 +114,7 @@ describe("RepositoryState.capture", () => {
           baseline.paths.map((entry) => entry._tag),
           ["directory", "file", "missing"],
         );
-        assert.strictEqual(baseline.root, repoRoot);
+        assert.strictEqual(baseline.root, repositoryRoot);
       }),
   );
 

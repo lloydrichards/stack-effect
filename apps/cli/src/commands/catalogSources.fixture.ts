@@ -225,7 +225,7 @@ export const cliLayer = (
   CatalogProvider.official.pipe(
     Layer.provideMerge(
       CatalogLoader.layer.pipe(
-        Layer.provideMerge(CatalogCache.memory),
+        Layer.provideMerge(CatalogCache.layerMemory),
         Layer.provideMerge(Layer.succeed(HttpClient.HttpClient, client)),
       ),
     ),

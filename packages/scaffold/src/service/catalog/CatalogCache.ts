@@ -17,16 +17,6 @@ export class CatalogCacheFailure extends Schema.TaggedError<CatalogCacheFailure>
   },
 ) {}
 
-export type CatalogCacheShape = {
-  readonly read: (
-    sourceUrl: string,
-  ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheFailure>;
-  /** Adapters must publish the complete entry atomically. */
-  readonly write: (
-    entry: CatalogCacheEntry,
-  ) => Effect.Effect<void, CatalogCacheFailure>;
-};
-
 const copyEntry = (entry: CatalogCacheEntry): CatalogCacheEntry => ({
   ...entry,
   bytes: new Uint8Array(entry.bytes),
@@ -34,14 +24,23 @@ const copyEntry = (entry: CatalogCacheEntry): CatalogCacheEntry => ({
 
 export class CatalogCache extends Context.Service<
   CatalogCache,
-  CatalogCacheShape
->()("CatalogCache") {
-  /** A deterministic, runtime-neutral cache for tests and controlled fixtures. */
-  static readonly memory = Layer.effect(
-    this,
+  {
+    readonly read: (
+      sourceUrl: string,
+    ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheFailure>;
+    // Adapters must publish the complete entry atomically.
+    readonly write: (
+      entry: CatalogCacheEntry,
+    ) => Effect.Effect<void, CatalogCacheFailure>;
+  }
+>()("@repo/scaffold/CatalogCache") {
+  // A deterministic, runtime-neutral cache for tests and controlled fixtures.
+  static readonly layerMemory = Layer.effect(
+    CatalogCache,
     Effect.gen(function* () {
       const entries = yield* Ref.make(new Map<string, CatalogCacheEntry>());
-      return {
+
+      return CatalogCache.of({
         read: (sourceUrl) =>
           Ref.get(entries).pipe(
             Effect.map((items) => {
@@ -53,7 +52,7 @@ export class CatalogCache extends Context.Service<
           Ref.update(entries, (items) =>
             new Map(items).set(entry.sourceUrl, copyEntry(entry)),
           ),
-      } satisfies CatalogCacheShape;
+      });
     }),
   );
 }

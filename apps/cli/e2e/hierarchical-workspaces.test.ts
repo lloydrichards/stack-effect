@@ -11,7 +11,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { ApplyWorkspaceService, BlueprintService } from "@repo/scaffold";
+import { ApplyWorkspaces, BlueprintService } from "@repo/scaffold";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -103,7 +103,7 @@ for (const mode of modes) {
     });
     const services = Layer.mergeAll(
       BlueprintService.layer,
-      ApplyWorkspaceService.layer,
+      ApplyWorkspaces.layer,
     ).pipe(
       Layer.provideMerge(officialCatalogLayerWith([{ targets: [], modules }])),
       Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
@@ -116,7 +116,7 @@ for (const mode of modes) {
           const path = yield* Path.Path;
           const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
           const resolver = yield* BlueprintService;
-          const workspaces = yield* ApplyWorkspaceService;
+          const workspaces = yield* ApplyWorkspaces;
           const blueprint = yield* resolver.resolve(
             {
               targets: [
@@ -141,7 +141,7 @@ for (const mode of modes) {
             },
             config,
           );
-          const workspace = yield* workspaces.empty();
+          const workspace = yield* workspaces.empty;
           const plan = yield* workspace.plan({ blueprint, config });
           const materialized = yield* workspace.materialize(
             new Apply({ plan, decisions: [] }),

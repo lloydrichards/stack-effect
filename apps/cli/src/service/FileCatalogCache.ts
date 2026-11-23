@@ -3,7 +3,6 @@ import {
   CatalogCache,
   CatalogCacheFailure,
   type CatalogCacheEntry,
-  type CatalogCacheShape,
 } from "@repo/scaffold";
 import {
   Config,
@@ -124,6 +123,6 @@ export const fileCatalogCacheLayer = (directory?: string) =>
         );
       });
 
-      return { read, write } satisfies CatalogCacheShape;
+      return CatalogCache.of({ read, write });
     }),
   );

@@ -873,9 +873,9 @@ export const add = Command.make(
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeService;
 
-      const repoRoot = Option.getOrElse(flags.root, () => process.cwd());
+      const repositoryRoot = Option.getOrElse(flags.root, () => process.cwd());
 
-      const config = yield* configure.requireConfig(repoRoot);
+      const config = yield* configure.requireConfig(repositoryRoot);
 
       const collected = Option.isSome(flags.target)
         ? yield* collectTargetsFromSpecs(flags.target.value)
@@ -900,7 +900,7 @@ export const add = Command.make(
 
       yield* pipeline.run({
         selection,
-        repoRoot,
+        repositoryRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,

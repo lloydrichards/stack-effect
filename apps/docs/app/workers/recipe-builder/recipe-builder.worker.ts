@@ -14,7 +14,7 @@ import {
 } from "@repo/domain/CatalogSource";
 import {
   CatalogLoader,
-  RecipePreviewService,
+  RecipePreviewer,
   toWorkspaceToolValue,
 } from "@repo/scaffold/browser";
 import type {
@@ -174,11 +174,11 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
         function* ({ sessionId, ...input }) {
           const { catalog } = yield* currentSession(sessionId);
           return yield* Effect.gen(function* () {
-            const previews = yield* RecipePreviewService;
+            const previews = yield* RecipePreviewer;
             return yield* previews.preview(input);
           }).pipe(
             Effect.provide(
-              RecipePreviewService.layer.pipe(
+              RecipePreviewer.layer.pipe(
                 Layer.provide(Layer.succeed(CatalogService, catalog)),
               ),
             ),
