@@ -1,67 +1,51 @@
 import { ApplyFailure } from "@repo/domain/Apply";
 import type { JsonCompositionOperation } from "@repo/domain/Plan";
-import { Array as Arr, Context, Effect, Layer, Match, Schema } from "effect";
+import { Array as Arr, Effect, Match, Schema } from "effect";
 
 const PackageJson = Schema.Record(Schema.String, Schema.Json);
 const PackageJsonFromString = Schema.fromJsonString(PackageJson, { space: 2 });
 
-export type JsonComposerShape = {
-  readonly compose: (
-    contents: string,
-    operations: ReadonlyArray<JsonCompositionOperation>,
-  ) => Effect.Effect<string, ApplyFailure, never>;
-};
+/** Applies package.json composition operations to the given JSON contents. */
+export const composeJson: (
+  contents: string,
+  operations: ReadonlyArray<JsonCompositionOperation>,
+) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+  function* (contents, operations) {
+    const pkg = yield* Schema.decodeEffect(PackageJsonFromString)(
+      contents,
+    ).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyFailure({
+            message: `Could not parse package.json during apply: ${error.message}`,
+            cause: error,
+          }),
+      ),
+    );
 
-export class JsonComposer extends Context.Service<
-  JsonComposer,
-  JsonComposerShape
->()("JsonComposer", {
-  make: Effect.succeed({
-    compose: (
-      contents: string,
-      operations: ReadonlyArray<JsonCompositionOperation>,
-    ) =>
-      Effect.gen(function* () {
-        const pkg = yield* Schema.decodeEffect(PackageJsonFromString)(
-          contents,
-        ).pipe(
-          Effect.mapError(
-            (error) =>
-              new ApplyFailure({
-                message: `Could not parse package.json during apply: ${error.message}`,
-                cause: error,
-              }),
-          ),
-        );
+    const mutablePkg = { ...pkg } as Record<string, unknown>;
 
-        const mutablePkg = { ...pkg } as Record<string, unknown>;
+    yield* Effect.forEach(
+      operations,
+      (op) => applyJsonOperation(mutablePkg, op),
+      { discard: true },
+    );
 
-        yield* Effect.forEach(
-          operations,
-          (op) => applyJsonOperation(mutablePkg, op),
-          { discard: true },
-        );
+    const encoded = yield* Schema.encodeUnknownEffect(PackageJsonFromString)(
+      mutablePkg,
+    ).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyFailure({
+            message: `Could not encode package.json during apply: ${error.message}`,
+            cause: error,
+          }),
+      ),
+    );
 
-        const encoded = yield* Schema.encodeUnknownEffect(
-          PackageJsonFromString,
-        )(mutablePkg).pipe(
-          Effect.mapError(
-            (error) =>
-              new ApplyFailure({
-                message: `Could not encode package.json during apply: ${error.message}`,
-                cause: error,
-              }),
-          ),
-        );
-
-        return `${encoded}\n`;
-      }),
-  } satisfies JsonComposerShape),
-}) {
-  static readonly layer = Layer.effect(JsonComposer)(JsonComposer.make).pipe(
-    Layer.satisfiesServicesType<never>(),
-  );
-}
+    return `${encoded}\n`;
+  },
+);
 
 const applyJsonOperation = (
   pkg: Record<string, unknown>,

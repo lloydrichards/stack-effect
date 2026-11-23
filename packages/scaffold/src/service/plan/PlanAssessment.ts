@@ -9,9 +9,6 @@ import {
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
-  Context,
-  Effect,
-  Layer,
   Match,
   Option,
   Predicate,
@@ -98,7 +95,7 @@ type FlatStringRecordAssessment<Conflict> = {
 const generatedDenoTask =
   /^deno (?:(?:run (?:--watch )?)|compile )--allow-env --allow-net --allow-read --allow-write(?: --output dist\/[\w.-]+)? src\/index\.ts$/;
 
-const preserveDenoSqlitePermissions = (
+export const preserveDenoSqlitePermissions = (
   planningPath: PlanningIntentPath,
   snapshotPath: SnapshotPath,
 ): PlanningIntentPath => {
@@ -124,7 +121,7 @@ const preserveDenoSqlitePermissions = (
   };
 };
 
-const toPlannedFileOutcome = ({
+export const toPlannedFileOutcome = ({
   planningPath,
   classification,
 }: {
@@ -274,7 +271,7 @@ const toCompositionOperations = (
   return operations;
 };
 
-const assessPlanningPath = ({
+export const assess = ({
   planningPath,
   snapshotPath,
 }: {
@@ -851,17 +848,3 @@ const getExistingFileContents = (
 
   return snapshotPath.contents;
 };
-
-export class PlanAssessor extends Context.Service<PlanAssessor>()(
-  "PlanAssessor",
-  {
-    make: Effect.succeed({
-      preserveDenoSqlitePermissions,
-      toPlannedFileOutcome,
-      assessPlanningPath,
-      collectAncestorPaths,
-    }),
-  },
-) {
-  static readonly layer = Layer.effect(PlanAssessor)(PlanAssessor.make);
-}

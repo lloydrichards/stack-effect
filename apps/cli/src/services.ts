@@ -12,7 +12,6 @@ import {
   FinalizeService,
   PlanService,
   RecipeService,
-  ScaffoldFormatter,
   StackConfigDefaults,
 } from "@repo/scaffold";
 import { Effect, Layer, type Option } from "effect";
@@ -28,7 +27,6 @@ export const StackEffectServicesLayer = Layer.mergeAll(
   ContributionResolver.layer,
   FinalizeService.layer,
   PlanService.layer,
-  ScaffoldFormatter.layer,
   ConfigureService.layer,
   RecipeService.layer,
   ScaffoldPipeline.layer,

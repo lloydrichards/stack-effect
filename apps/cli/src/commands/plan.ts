@@ -5,8 +5,6 @@ import {
   FinalizeService,
   PlanService,
   RecipeService,
-  renderPlanForLlm,
-  ScaffoldFormatter,
 } from "@repo/scaffold";
 import {
   Array as Arr,
@@ -22,7 +20,9 @@ import {
 import { Box } from "effect-boxes";
 import { Command, Flag } from "effect/cli";
 import { Stdio } from "effect/Stdio";
+import * as ScaffoldTree from "../components/ScaffoldTree";
 import { catalogFlag, rootFlag } from "../flags";
+import * as LlmPlan from "../lib/LlmPlan";
 import { CatalogSelection, trustNotes } from "../service/CatalogSelection";
 import { ConfigureService } from "../service/ConfigureService";
 
@@ -164,8 +164,7 @@ export const plan = Command.make(
       };
       const finalizeWithCreateCommand = [createFinalizeCommand, ...finalize];
 
-      const formatter = yield* ScaffoldFormatter;
-      const formattedPlan = yield* formatter.formatPlan(planResult);
+      const formattedPlan = ScaffoldTree.formatPlan(planResult);
       const tree = Box.renderPlainSync(formattedPlan.tree);
 
       const summary = Arr.reduce(
@@ -198,7 +197,7 @@ export const plan = Command.make(
           Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
             sources,
             notes,
-            ...renderPlanForLlm({
+            ...LlmPlan.render({
               outcomes: planResult.outcomes,
               conflicts: planResult.conflicts,
               finalize: finalizeWithCreateCommand,

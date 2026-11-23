@@ -14,14 +14,14 @@ import { Array, Match, pipe } from "effect";
  * For brownfield repos, `instructions` describe atomic edits the LLM should
  * make to an existing file rather than overwriting it entirely.
  */
-export type LlmFileOutcome = {
+type LlmFileOutcome = {
   readonly path: string;
   readonly classification: string;
   readonly contents: string | undefined;
   readonly instructions: ReadonlyArray<string>;
 };
 
-export type LlmPlanSummary = {
+type LlmPlanSummary = {
   readonly total: number;
   readonly create: number;
   readonly modify: number;
@@ -29,7 +29,7 @@ export type LlmPlanSummary = {
   readonly conflict: number;
 };
 
-export type LlmPlanOutput = {
+type LlmPlanOutput = {
   readonly summary: LlmPlanSummary;
   readonly tree: string;
   readonly files: ReadonlyArray<LlmFileOutcome>;
@@ -155,7 +155,7 @@ const renderConflict = (
  * `contents`, while composed outcomes apply their instructions to the current
  * file. Conflicts always require an explicit resolution.
  */
-export const renderPlanForLlm = (plan: {
+export const render = (plan: {
   outcomes: ReadonlyArray<typeof PlanOutcome.Type>;
   conflicts: ReadonlyArray<typeof PlanConflict.Type>;
   finalize?: ReadonlyArray<{ label: string; command: string }>;

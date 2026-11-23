@@ -7,15 +7,7 @@ import type {
   TsObjectFieldOp,
   TypeScriptCompositionOperation,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Match,
-  Option,
-  pipe,
-} from "effect";
+import { Array as Arr, Effect, Match, Option, pipe } from "effect";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import {
   IndentationText,
@@ -27,73 +19,58 @@ import {
 } from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
-export type TypeScriptComposerShape = {
-  readonly compose: (
-    contents: string,
-    operations: ReadonlyArray<TypeScriptCompositionOperation>,
-  ) => Effect.Effect<string, ApplyFailure, never>;
-};
+/** Applies TypeScript composition operations to the given source text. */
+export const composeTypeScript: (
+  contents: string,
+  operations: ReadonlyArray<TypeScriptCompositionOperation>,
+) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+  function* (contents, operations) {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      skipAddingFilesFromTsConfig: true,
+      manipulationSettings: {
+        indentationText: IndentationText.TwoSpaces,
+        newLineKind: NewLineKind.LineFeed,
+        quoteKind: QuoteKind.Double,
+      },
+    });
 
-export class TypeScriptComposer extends Context.Service<
-  TypeScriptComposer,
-  TypeScriptComposerShape
->()("TypeScriptComposer", {
-  make: Effect.succeed({
-    compose: Effect.fn(function* (
-      contents: string,
-      operations: ReadonlyArray<TypeScriptCompositionOperation>,
-    ) {
-      const project = new Project({
-        useInMemoryFileSystem: true,
-        skipAddingFilesFromTsConfig: true,
-        manipulationSettings: {
-          indentationText: IndentationText.TwoSpaces,
-          newLineKind: NewLineKind.LineFeed,
-          quoteKind: QuoteKind.Double,
-        },
-      });
+    const sourceFile = project.createSourceFile(
+      operations.some((operation) => operation._tag === "ts-jsx-slot")
+        ? "temp.tsx"
+        : "temp.ts",
+      contents,
+    );
 
-      const sourceFile = project.createSourceFile(
-        operations.some((operation) => operation._tag === "ts-jsx-slot")
-          ? "temp.tsx"
-          : "temp.ts",
-        contents,
-      );
+    const previousJsxSlotContents = new Map<string, string>();
 
-      const previousJsxSlotContents = new Map<string, string>();
-
-      yield* Effect.forEach(
-        operations,
-        (op) =>
-          Match.value(op).pipe(
-            Match.tag("ts-add-import", (importOp) =>
-              Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
-            ),
-            Match.tag("ts-add-reexport", (reexportOp) =>
-              Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
-            ),
-            Match.tag("ts-append-call-arg", (appendOp) =>
-              applyTsAppendCallArg(sourceFile, appendOp),
-            ),
-            Match.tag("ts-object-field", (fieldOp) =>
-              applyTsObjectField(sourceFile, fieldOp),
-            ),
-            Match.tag("ts-jsx-slot", (slotOp) =>
-              applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
-            ),
-            Match.exhaustive,
+    yield* Effect.forEach(
+      operations,
+      (op) =>
+        Match.value(op).pipe(
+          Match.tag("ts-add-import", (importOp) =>
+            Effect.sync(() => applyTsAddImport(sourceFile, importOp)),
           ),
-        { discard: true },
-      );
+          Match.tag("ts-add-reexport", (reexportOp) =>
+            Effect.sync(() => applyTsAddReexport(sourceFile, reexportOp)),
+          ),
+          Match.tag("ts-append-call-arg", (appendOp) =>
+            applyTsAppendCallArg(sourceFile, appendOp),
+          ),
+          Match.tag("ts-object-field", (fieldOp) =>
+            applyTsObjectField(sourceFile, fieldOp),
+          ),
+          Match.tag("ts-jsx-slot", (slotOp) =>
+            applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
+          ),
+          Match.exhaustive,
+        ),
+      { discard: true },
+    );
 
-      return sourceFile.getFullText();
-    }),
-  } satisfies TypeScriptComposerShape),
-}) {
-  static readonly layer = Layer.effect(TypeScriptComposer)(
-    TypeScriptComposer.make,
-  ).pipe(Layer.satisfiesServicesType<never>());
-}
+    return sourceFile.getFullText();
+  },
+);
 
 const applyTsAddImport = (
   sourceFile: SourceFile,

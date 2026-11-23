@@ -11,7 +11,6 @@ import {
   BlueprintService,
   FinalizeService,
   PlanService,
-  ScaffoldFormatter,
 } from "@repo/scaffold";
 import type { ConfirmOptions } from "@repo/tui";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
@@ -104,17 +103,6 @@ const layerWithServices = ({
 }) =>
   Layer.mergeAll(
     ScaffoldPipeline.layer,
-    Layer.succeed(ScaffoldFormatter, {
-      formatBlueprint: () =>
-        Effect.succeed({ title: "Blueprint", content: Box.text("empty") }),
-      formatPlan: () =>
-        Effect.succeed({
-          title: "Plan",
-          summary: "empty",
-          tree: Box.text("empty"),
-          legend: Box.text("empty"),
-        }),
-    }),
     Layer.succeed(BlueprintService, {
       resolve: () => Effect.succeed(blueprint),
     }),

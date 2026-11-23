@@ -21,7 +21,6 @@
     "@repo/catalog": "workspace:*",
     "@repo/domain": "workspace:*",
     "effect": "4.1.4",
-    "effect-boxes": "^0.18.1",
     "ts-morph": "^28.0.0",
     "yaml": "^2.9.1"
   },

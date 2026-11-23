@@ -11,7 +11,6 @@ import {
   type FinalizeConfig,
   FinalizeService,
   PlanService,
-  ScaffoldFormatter,
   scriptKey,
 } from "@repo/scaffold";
 import { Confirm, type ConfirmOptions, MultiSelect } from "@repo/tui";
@@ -28,6 +27,7 @@ import {
 import { Ansi, Box } from "effect-boxes";
 import { DryRunPreview } from "../components/DryRunPreview";
 import { NextStepsPreview } from "../components/NextStepsPreview";
+import * as ScaffoldTree from "../components/ScaffoldTree";
 import {
   CatalogSelection,
   customSourcesOf,
@@ -153,7 +153,6 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         createCommand?: string;
       }) =>
         Effect.gen(function* () {
-          const formatter = yield* ScaffoldFormatter;
           const blueprintService = yield* BlueprintService;
           const planService = yield* PlanService;
           const finalizeService = yield* FinalizeService;
@@ -162,8 +161,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           const blueprint = yield* blueprintService.resolve(selection, config);
 
-          const formattedBlueprint =
-            yield* formatter.formatBlueprint(blueprint);
+          const formattedBlueprint = ScaffoldTree.formatBlueprint(blueprint);
           const blueprintBox = Box.vsep(
             [
               Box.text(formattedBlueprint.title).pipe(
@@ -196,7 +194,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             repoRoot,
             config,
           });
-          const pl = yield* formatter.formatPlan(plan);
+          const pl = ScaffoldTree.formatPlan(plan);
 
           const planBox = Box.vsep(
             [

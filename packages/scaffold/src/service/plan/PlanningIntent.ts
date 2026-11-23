@@ -3,26 +3,19 @@ import { PlanFailure } from "@repo/domain/Plan";
 import type { NormalizedContributions } from "@repo/domain/Scaffold";
 import {
   Array as Arr,
-  Context,
   Effect,
-  Layer,
   Match,
   Option,
   pipe,
   Record,
   Schema,
 } from "effect";
-import type { PlanningIntentPath } from "./PlanAssessor";
+import type { PlanningIntentPath } from "./PlanAssessment";
 
-export type PlanningIntentCompilerShape = {
-  readonly compile: (
-    normalizedContributions: typeof NormalizedContributions.Type,
-  ) => Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure, never>;
-};
-
-const compile = (
+/** Groups normalized contributions by path into one planning intent per path. */
+export const compile = (
   normalizedContributions: typeof NormalizedContributions.Type,
-) => {
+): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(
       [
@@ -616,17 +609,3 @@ const collectUniqueEntries = <Entry, Result>({
       ),
     ),
   );
-
-export class PlanningIntentCompiler extends Context.Service<
-  PlanningIntentCompiler,
-  PlanningIntentCompilerShape
->()("PlanningIntentCompiler", {
-  make: Effect.succeed({
-    compile,
-  } satisfies PlanningIntentCompilerShape),
-}) {
-  static readonly layer = Layer.effect(
-    PlanningIntentCompiler,
-    PlanningIntentCompiler.make,
-  ).pipe(Layer.satisfiesServicesType<never>());
-}

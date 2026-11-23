@@ -1,16 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
-import type { TypeScriptCompositionOperation } from "@repo/domain/Plan";
 import { Effect } from "effect";
-import { TypeScriptComposer } from "./TypeScriptComposer";
-
-const compose = (
-  contents: string,
-  operations: ReadonlyArray<TypeScriptCompositionOperation>,
-) =>
-  Effect.gen(function* () {
-    const composer = yield* TypeScriptComposer;
-    return yield* composer.compose(contents, operations);
-  }).pipe(Effect.provide(TypeScriptComposer.layer));
+import { composeTypeScript as compose } from "./TypeScriptComposition";
 
 const jsxSlot = (slotId: string, content: string) =>
   ({
@@ -20,7 +10,7 @@ const jsxSlot = (slotId: string, content: string) =>
     content,
   }) as const;
 
-describe("TypeScriptComposer JSX slots", () => {
+describe("TypeScriptComposition JSX slots", () => {
   it.effect("fails when the requested marker is absent", () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
@@ -115,7 +105,7 @@ describe("TypeScriptComposer JSX slots", () => {
   );
 });
 
-describe("TypeScriptComposer object fields", () => {
+describe("TypeScriptComposition object fields", () => {
   const operation = (value: string) =>
     ({
       _tag: "ts-object-field",
