@@ -20,7 +20,7 @@ import { ProjectFields } from "./stack-configurator";
 import { TargetWorkspace } from "./target-selector/target-workspace";
 import { useTargetEditor } from "./target-selector/use-target-editor";
 
-function ToolSettings() {
+const ToolSettings = () => {
   const form = useRecipeBuilderFormContext();
   const config = useSelector(form.store, (state) => state.values.config);
   const gitEnabled = useSelector(
@@ -75,9 +75,9 @@ function ToolSettings() {
       <CatalogSourcesPanel />
     </div>
   );
-}
+};
 
-function StackPresets() {
+const StackPresets = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog } = useRecipeBuilderCatalog();
   const runtime = useSelector(
@@ -159,7 +159,7 @@ function StackPresets() {
       })}
     </fieldset>
   );
-}
+};
 
 const steps = [
   ["project", "Project setup"],
@@ -167,7 +167,7 @@ const steps = [
 ] as const;
 type Step = (typeof steps)[number][0];
 
-export function BuilderWorkspace() {
+export const BuilderWorkspace = () => {
   const form = useRecipeBuilderFormContext();
   const config = useSelector(form.store, (state) => state.values.config);
   const [step, setStep] = useState<Step>(() =>
@@ -265,4 +265,4 @@ export function BuilderWorkspace() {
       {working && <RecipeCommand />}
     </div>
   );
-}
+};

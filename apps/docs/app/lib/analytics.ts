@@ -13,9 +13,9 @@ declare global {
   }
 }
 
-export function trackEvent(
+export const trackEvent = (
   eventName: string,
   eventData?: Record<string, string | number | boolean>,
-) {
+) => {
   window.umami?.track(eventName, eventData);
-}
+};

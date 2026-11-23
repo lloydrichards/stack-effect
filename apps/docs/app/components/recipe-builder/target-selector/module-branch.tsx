@@ -28,7 +28,7 @@ type ModuleBranchProps = {
   readonly supportSelections: ReadonlyArray<SupportSelection>;
 };
 
-export function ModuleBranch({
+export const ModuleBranch = ({
   module,
   modules,
   selected,
@@ -39,7 +39,7 @@ export function ModuleBranch({
   onToggleSupportModule,
   requirement,
   supportSelections,
-}: ModuleBranchProps) {
+}: ModuleBranchProps) => {
   const parentSelected = selected.includes(module.id);
   const required = requirement === "required";
   const checked = required || parentSelected;
@@ -101,4 +101,4 @@ export function ModuleBranch({
       )}
     </>
   );
-}
+};

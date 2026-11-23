@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-export function ThemeToggle() {
+export const ThemeToggle = () => {
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [mounted, setMounted] = useState(false);
 
@@ -77,4 +77,4 @@ export function ThemeToggle() {
       )}
     </button>
   );
-}
+};

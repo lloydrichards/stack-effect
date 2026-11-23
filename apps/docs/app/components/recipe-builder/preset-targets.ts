@@ -8,7 +8,7 @@ import {
   useRecipeBuilderPreview,
 } from "./recipe-builder-context";
 
-export function usePresetTargets() {
+export const usePresetTargets = () => {
   const form = useRecipeBuilderFormContext();
   const selected = useSelector(
     form.store,
@@ -65,4 +65,4 @@ export function usePresetTargets() {
       });
       return { preset, targets };
     });
-}
+};

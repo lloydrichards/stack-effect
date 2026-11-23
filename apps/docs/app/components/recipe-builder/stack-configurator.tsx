@@ -42,7 +42,11 @@ const toolDescriptions: Record<ToolField, string> = {
 
 const huskyModuleId = "workspace-devenv-husky";
 
-export function ProjectFields({ section }: { section: "project" | "tools" }) {
+export const ProjectFields = ({
+  section,
+}: {
+  section: "project" | "tools";
+}) => {
   const form = useRecipeBuilderFormContext();
   const { catalog } = useRecipeBuilderCatalog();
   const config = useSelector(form.store, (state) => state.values.config);
@@ -276,7 +280,7 @@ export function ProjectFields({ section }: { section: "project" | "tools" }) {
       )}
     </FieldGroup>
   );
-}
+};
 
 type ConfigurationSelectProps = {
   readonly id: string;
@@ -292,7 +296,7 @@ type ConfigurationSelectProps = {
   readonly onChange: (value: string) => void;
 };
 
-function ConfigurationSelect({
+const ConfigurationSelect = ({
   id,
   label,
   description,
@@ -300,7 +304,7 @@ function ConfigurationSelect({
   options,
   disabled = false,
   onChange,
-}: ConfigurationSelectProps) {
+}: ConfigurationSelectProps) => {
   const selectedOption = options.find((option) => option.value === value);
   const unavailable =
     !disabled &&
@@ -363,7 +367,7 @@ function ConfigurationSelect({
       )}
     </Field>
   );
-}
+};
 
 type ConfigurationToggleProps = {
   readonly id: string;
@@ -374,14 +378,14 @@ type ConfigurationToggleProps = {
   readonly onCheckedChange: (checked: boolean) => void;
 };
 
-function ConfigurationToggle({
+const ConfigurationToggle = ({
   id,
   title,
   description,
   checked,
   disabled = false,
   onCheckedChange,
-}: ConfigurationToggleProps) {
+}: ConfigurationToggleProps) => {
   return (
     <Toggle
       id={id}
@@ -396,4 +400,4 @@ function ConfigurationToggle({
       <span className="sr-only">{description}</span>
     </Toggle>
   );
-}
+};

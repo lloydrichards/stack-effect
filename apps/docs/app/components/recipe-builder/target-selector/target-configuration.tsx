@@ -57,7 +57,7 @@ type TargetConfigurationProps = {
   readonly targets: ReadonlyArray<TargetInstance>;
 };
 
-function TargetConfiguration({
+const TargetConfiguration = ({
   catalog,
   catalogFailed,
   presetName,
@@ -70,7 +70,7 @@ function TargetConfiguration({
   target,
   targetIndex,
   targets,
-}: TargetConfigurationProps) {
+}: TargetConfigurationProps) => {
   const form = useRecipeBuilderFormContext();
   const runtime = useSelector(
     form.store,
@@ -274,13 +274,13 @@ function TargetConfiguration({
       )}
     </section>
   );
-}
+};
 
-export function ActiveTargetConfiguration({
+export const ActiveTargetConfiguration = ({
   editor,
 }: {
   editor: ReturnType<typeof useTargetEditor>;
-}) {
+}) => {
   const target = editor.activeTarget;
   if (!target) return null;
   return (
@@ -300,4 +300,4 @@ export function ActiveTargetConfiguration({
       targets={editor.targets}
     />
   );
-}
+};

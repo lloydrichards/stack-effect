@@ -16,7 +16,7 @@ type CommandDockProps = {
   readonly onShareSuccess?: () => void;
 };
 
-export function CommandDock({
+export const CommandDock = ({
   command,
   summary,
   disabled = false,
@@ -24,7 +24,7 @@ export function CommandDock({
   sticky = true,
   onCopySuccess,
   onShareSuccess,
-}: CommandDockProps) {
+}: CommandDockProps) => {
   const { status, copy, reset } = useCopyToClipboard();
   const {
     status: shareStatus,
@@ -162,4 +162,4 @@ export function CommandDock({
       </div>
     </aside>
   );
-}
+};

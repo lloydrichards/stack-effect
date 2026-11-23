@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export type CopyStatus = "idle" | "copied" | "error";
 
-export function useCopyToClipboard(resetAfter = 2400) {
+export const useCopyToClipboard = (resetAfter = 2400) => {
   const [status, setStatus] = useState<CopyStatus>("idle");
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>(null);
 
@@ -35,4 +35,4 @@ export function useCopyToClipboard(resetAfter = 2400) {
   );
 
   return { status, copy, reset };
-}
+};

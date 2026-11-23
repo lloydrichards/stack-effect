@@ -1,11 +1,11 @@
 import { Loader2 } from "lucide-react";
 import { cn } from "~/lib/utils";
 
-function Spinner({
+const Spinner = ({
   className,
   "aria-label": ariaLabel,
   ...props
-}: React.ComponentProps<"svg">) {
+}: React.ComponentProps<"svg">) => {
   return (
     <Loader2
       data-slot="spinner"
@@ -16,6 +16,6 @@ function Spinner({
       {...props}
     />
   );
-}
+};
 
 export { Spinner };

@@ -34,7 +34,7 @@ const lastValidated = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
-export function CatalogSourcesPanel() {
+export const CatalogSourcesPanel = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogResult } = useRecipeBuilderCatalog();
   const { setCatalogs, unconfirmedCatalogs } = useRecipeBuilderUrl();
@@ -243,18 +243,18 @@ export function CatalogSourcesPanel() {
       </div>
     </DisclosurePanel>
   );
-}
+};
 
 /** Names the supplying catalog once more than one catalog is selected. */
-export function CatalogSourceBadge({
+export const CatalogSourceBadge = ({
   source,
 }: {
   readonly source: string | undefined;
-}) {
+}) => {
   const { catalog } = useRecipeBuilderCatalog();
   return source === undefined || (catalog?.sources.length ?? 0) < 2 ? null : (
     <Badge variant="outline" className="font-mono">
       {source}
     </Badge>
   );
-}
+};

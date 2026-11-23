@@ -7,7 +7,7 @@ type HighlightedRequest = {
   readonly highlighted: HighlightedSource;
 };
 
-export function useHighlightedSource(path: string, source: string) {
+export const useHighlightedSource = (path: string, source: string) => {
   const [result, setResult] = useState<HighlightedRequest>(() => ({
     path,
     source,
@@ -30,7 +30,7 @@ export function useHighlightedSource(path: string, source: string) {
   return result.path === path && result.source === source
     ? result.highlighted
     : plainSource(source);
-}
+};
 
 const plainSource = (source: string): HighlightedSource =>
   source.split("\n").map((line) => [

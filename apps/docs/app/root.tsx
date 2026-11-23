@@ -84,7 +84,7 @@ const themeScript = `
 
 const umamiWebsiteId = import.meta.env.VITE_UMAMI_WEBSITE_ID;
 
-export function Layout({ children }: { children: React.ReactNode }) {
+export const Layout = ({ children }: { children: React.ReactNode }) => {
   const { pathname } = useLocation();
   const isLandingPage = pathname === "/";
   const isBuilderPage = isBuilderPath(pathname);
@@ -138,7 +138,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       </body>
     </html>
   );
-}
+};
 
 export default function App() {
   const { pathname } = useLocation();
@@ -180,7 +180,7 @@ export default function App() {
   );
 }
 
-export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+export const ErrorBoundary = ({ error }: Route.ErrorBoundaryProps) => {
   let message = "Oops!";
   let details = "An unexpected error occurred.";
   let stack: string | undefined;
@@ -207,9 +207,9 @@ export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
       )}
     </main>
   );
-}
+};
 
-function SiteHeader() {
+const SiteHeader = () => {
   const { state, isMobile } = useSidebar();
   const sidebarVisible = state === "expanded" && !isMobile;
 
@@ -237,9 +237,9 @@ function SiteHeader() {
       <ThemeToggle />
     </header>
   );
-}
+};
 
-function LandingHeader() {
+const LandingHeader = () => {
   return (
     <header className="sticky top-0 z-10 border-b bg-background/90 backdrop-blur-sm">
       <div className="mx-auto flex h-14 w-full max-w-[90rem] items-center gap-4 px-5 sm:px-8 lg:px-12">
@@ -265,9 +265,9 @@ function LandingHeader() {
       </div>
     </header>
   );
-}
+};
 
-function PrimaryNavigation({ className }: { className?: string }) {
+const PrimaryNavigation = ({ className }: { className?: string }) => {
   const { pathname } = useLocation();
 
   return (
@@ -294,4 +294,4 @@ function PrimaryNavigation({ className }: { className?: string }) {
       </NavigationMenuList>
     </NavigationMenu>
   );
-}
+};

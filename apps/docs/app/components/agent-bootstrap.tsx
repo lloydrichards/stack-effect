@@ -3,7 +3,7 @@ import { Button } from "~/components/ui/button";
 import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
 import { agentBootstrapPrompt } from "~/lib/docs-manifest";
 
-export function AgentBootstrap() {
+export const AgentBootstrap = () => {
   const { status, copy } = useCopyToClipboard();
   return (
     <section
@@ -51,4 +51,4 @@ export function AgentBootstrap() {
       </span>
     </section>
   );
-}
+};

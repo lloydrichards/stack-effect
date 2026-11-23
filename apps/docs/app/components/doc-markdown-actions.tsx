@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button, buttonVariants } from "~/components/ui/button";
 import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
 
-export function DocMarkdownActions({ href }: { readonly href: string }) {
+export const DocMarkdownActions = ({ href }: { readonly href: string }) => {
   const { status, copy } = useCopyToClipboard();
   const [requestStatus, setRequestStatus] = useState<
     "idle" | "loading" | "error"
@@ -78,4 +78,4 @@ export function DocMarkdownActions({ href }: { readonly href: string }) {
       </span>
     </div>
   );
-}
+};

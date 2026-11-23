@@ -17,12 +17,12 @@ type RelationshipBranchProps = {
   readonly supportSelections: ReadonlyArray<SupportSelection>;
 };
 
-export function RelationshipBranch({
+export const RelationshipBranch = ({
   disabled: parentDisabled = false,
   node,
   onToggleSupportModule,
   supportSelections,
-}: RelationshipBranchProps) {
+}: RelationshipBranchProps) => {
   const required = node.requirement === "required";
   const configuration = node.configuration;
   const selected = configuration
@@ -74,4 +74,4 @@ export function RelationshipBranch({
       )}
     </li>
   );
-}
+};

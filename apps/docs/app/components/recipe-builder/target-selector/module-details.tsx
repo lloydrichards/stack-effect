@@ -1,7 +1,7 @@
 import { Popover } from "@base-ui/react/popover";
 import { Info } from "lucide-react";
 
-export function ModuleDetails({
+export const ModuleDetails = ({
   title,
   description,
   target,
@@ -11,7 +11,7 @@ export function ModuleDetails({
   description: string;
   target?: string;
   requirement?: "required" | "optional";
-}) {
+}) => {
   return (
     <Popover.Root>
       <Popover.Trigger
@@ -46,4 +46,4 @@ export function ModuleDetails({
       </Popover.Portal>
     </Popover.Root>
   );
-}
+};

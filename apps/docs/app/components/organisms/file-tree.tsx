@@ -20,12 +20,12 @@ type FileTreeProps = {
   readonly onSelect: (path: string) => void;
 };
 
-export function FileTree({
+export const FileTree = ({
   activeFolder,
   nodes,
   selectedPath,
   onSelect,
-}: FileTreeProps) {
+}: FileTreeProps) => {
   const [openByKey, setOpenByKey] = useState<ReadonlyMap<string, boolean>>(
     () => new Map(),
   );
@@ -147,7 +147,7 @@ export function FileTree({
       ))}
     </div>
   );
-}
+};
 
 export type VisibleFileTreeNode = {
   readonly key: string;
@@ -157,12 +157,12 @@ export type VisibleFileTreeNode = {
   readonly open?: boolean;
 };
 
-function flattenVisibleNodes(
+const flattenVisibleNodes = (
   nodes: ReadonlyArray<FileTreeNodeData>,
   openByKey: ReadonlyMap<string, boolean>,
   parentKey?: string,
   depth = 0,
-): ReadonlyArray<VisibleFileTreeNode> {
+): ReadonlyArray<VisibleFileTreeNode> => {
   return nodes.flatMap((node) => {
     const key = node.path ?? [parentKey, node.name].filter(Boolean).join("/");
     const open = node.children
@@ -182,4 +182,4 @@ function flattenVisibleNodes(
         : []),
     ];
   });
-}
+};

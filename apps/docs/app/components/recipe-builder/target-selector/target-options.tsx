@@ -14,12 +14,12 @@ type TargetOptionsProps = {
   readonly catalogFailed: boolean;
 };
 
-export function AddTargetPicker({
+export const AddTargetPicker = ({
   targets,
   instances,
   onAddTarget,
   catalogFailed,
-}: TargetOptionsProps) {
+}: TargetOptionsProps) => {
   const [kind, setKind] = useState("");
   const choice = targets?.find((target) => target.kind === kind);
   if (catalogFailed) return null;
@@ -96,4 +96,4 @@ export function AddTargetPicker({
       </div>
     </form>
   );
-}
+};

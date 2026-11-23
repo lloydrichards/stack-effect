@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
  * Tracks which heading is currently active using IntersectionObserver.
  * Returns the `id` of the heading currently in view.
  */
-export function useActiveHeading(ids: string[]): string {
+export const useActiveHeading = (ids: string[]): string => {
   const [activeId, setActiveId] = useState("");
 
   useEffect(() => {
@@ -35,4 +35,4 @@ export function useActiveHeading(ids: string[]): string {
   }, [ids]);
 
   return activeId;
-}
+};

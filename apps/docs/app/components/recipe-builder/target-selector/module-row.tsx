@@ -3,7 +3,7 @@ import { useId, type ReactNode } from "react";
 import { Checkbox } from "~/components/ui/checkbox";
 import { cn } from "~/lib/utils";
 
-export function ModuleRow({
+export const ModuleRow = ({
   required,
   checked,
   disabled,
@@ -19,7 +19,7 @@ export function ModuleRow({
   children: ReactNode;
   details?: ReactNode;
   reason?: string | undefined;
-}) {
+}) => {
   const id = useId();
   return (
     <>
@@ -68,4 +68,4 @@ export function ModuleRow({
       )}
     </>
   );
-}
+};

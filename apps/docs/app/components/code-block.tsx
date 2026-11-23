@@ -8,7 +8,11 @@ type CodeBlockProps = {
   children: React.ReactNode;
 } & React.HTMLAttributes<HTMLPreElement>;
 
-export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
+export const CodeBlock = ({
+  className,
+  children,
+  ...props
+}: CodeBlockProps) => {
   const preRef = useRef<HTMLPreElement>(null);
 
   const getValue = useCallback(() => {
@@ -34,4 +38,4 @@ export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
       />
     </div>
   );
-}
+};

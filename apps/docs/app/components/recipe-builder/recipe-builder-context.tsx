@@ -46,11 +46,11 @@ const RecipeBuilderUrlContext = createContext<
   RecipeBuilderUrlModel | undefined
 >(undefined);
 
-export function RecipeBuilderProvider({
+export const RecipeBuilderProvider = ({
   children,
 }: {
   readonly children: ReactNode;
-}) {
+}) => {
   const urlState = useRecipeBuilderUrlState();
   const worker = useRecipeBuilderWorker(urlState.form, urlState.workerEnabled);
   const catalog = useMemo<RecipeBuilderCatalogModel>(
@@ -106,9 +106,9 @@ export function RecipeBuilderProvider({
       </RecipeBuilderCatalogContext>
     </RecipeBuilderFormContext>
   );
-}
+};
 
-export function useRecipeBuilderFormContext() {
+export const useRecipeBuilderFormContext = () => {
   const form = use(RecipeBuilderFormContext);
   if (form === undefined) {
     throw new Error(
@@ -116,9 +116,9 @@ export function useRecipeBuilderFormContext() {
     );
   }
   return form;
-}
+};
 
-export function useRecipeBuilderCatalog() {
+export const useRecipeBuilderCatalog = () => {
   const catalog = use(RecipeBuilderCatalogContext);
   if (catalog === undefined) {
     throw new Error(
@@ -126,9 +126,9 @@ export function useRecipeBuilderCatalog() {
     );
   }
   return catalog;
-}
+};
 
-export function useRecipeBuilderPreview() {
+export const useRecipeBuilderPreview = () => {
   const preview = use(RecipeBuilderPreviewContext);
   if (preview === undefined) {
     throw new Error(
@@ -136,9 +136,9 @@ export function useRecipeBuilderPreview() {
     );
   }
   return preview;
-}
+};
 
-export function useRecipeBuilderUrl() {
+export const useRecipeBuilderUrl = () => {
   const url = use(RecipeBuilderUrlContext);
   if (url === undefined) {
     throw new Error(
@@ -146,4 +146,4 @@ export function useRecipeBuilderUrl() {
     );
   }
   return url;
-}
+};

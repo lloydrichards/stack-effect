@@ -5,7 +5,8 @@
     "eslint/require-yield": "off",
     "effecttsgo/unnecessary-typeof-type": "off",
     "typescript/consistent-type-definitions": ["error", "type"],
-    "oxc/no-barrel-file": "error"
+    "oxc/no-barrel-file": "error",
+    "func-style": ["error", "expression"]
   },
   "overrides": [
     {

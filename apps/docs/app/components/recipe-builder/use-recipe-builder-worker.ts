@@ -99,10 +99,10 @@ const compatibilityMessage = ({
         ]),
   ].join(" ") || undefined;
 
-export function useRecipeBuilderWorker(
+export const useRecipeBuilderWorker = (
   form: RecipeBuilderFormApi,
   enabled = true,
-) {
+) => {
   const values = useSelector(form.store, (state) => state.values);
   const formValid = useSelector(form.store, (state) => state.isValid);
   const [catalogRequestResult, requestCatalog] = useAtom(catalogAtom);
@@ -274,7 +274,7 @@ export function useRecipeBuilderWorker(
     previewResult,
     retryCatalog,
   };
-}
+};
 
 export type RecipeBuilderWorkerModel = ReturnType<
   typeof useRecipeBuilderWorker
