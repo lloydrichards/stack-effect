@@ -1,11 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { StackConfig } from "@repo/domain/Scaffold";
-import {
-  BlueprintService,
-  RecipeService,
-  RecipeTargetString,
-} from "@repo/scaffold";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { RecipeService } from "@repo/scaffold/RecipeService";
+import { RecipeTargetString } from "@repo/scaffold/RecipeTargets";
 import { Effect, Layer, Option, Schema } from "effect";
 import { buildWorkspaceSelection } from "./catalog";
 

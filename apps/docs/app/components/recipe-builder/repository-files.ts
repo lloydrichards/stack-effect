@@ -1,4 +1,4 @@
-import type { RecipePreview } from "@repo/scaffold/recipe-preview";
+import type { RecipePreview } from "@repo/domain/RecipePreview";
 import type { FileTreeNodeData } from "~/components/organisms/file-tree";
 
 export type Files = NonNullable<RecipePreview["files"]>;

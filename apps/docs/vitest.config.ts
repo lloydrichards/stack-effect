@@ -13,7 +13,10 @@ export default defineConfig({
     include: [
       "@base-ui/react/popover",
       "@effect/platform-browser/BrowserWorkerRunner",
-      "@repo/scaffold/browser",
+      "@effect-vfs/memory",
+      "@repo/scaffold/CatalogLoader",
+      "@repo/scaffold/RecipePreviewer",
+      "@repo/scaffold/WorkspaceModules",
       "shiki/langs/dockerfile.mjs",
       "shiki/langs/dotenv.mjs",
       "shiki/langs/javascript.mjs",

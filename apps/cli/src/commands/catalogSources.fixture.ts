@@ -7,7 +7,8 @@ import {
   type TargetDefinition,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { CatalogCache, CatalogLoader } from "@repo/scaffold";
+import { CatalogCache } from "@repo/scaffold/CatalogCache";
+import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
 import {
   Console,
   Effect,

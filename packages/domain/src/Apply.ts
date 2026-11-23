@@ -101,3 +101,33 @@ export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(
     partialResult: ApplyResult,
   },
 ) {}
+
+/**
+ * A file an Apply created or modified, read back with its final contents.
+ *
+ * **When to use**
+ *
+ * Present the result of an Apply that ran in a staged workspace.
+ */
+export const MaterializedFile = Schema.Struct({
+  path: RepositoryPath,
+  status: Schema.Literals(["created", "modified"]),
+  contents: Schema.String,
+});
+
+export type MaterializedFile = typeof MaterializedFile.Type;
+
+/**
+ * The result of an Apply in a staged workspace, with the files it wrote.
+ *
+ * **When to use**
+ *
+ * Present or copy out what a staged Apply produced, without reading the
+ * workspace filesystem.
+ */
+export const MaterializedApply = Schema.Struct({
+  apply: ApplyResult,
+  files: Schema.Array(MaterializedFile),
+});
+
+export type MaterializedApply = typeof MaterializedApply.Type;

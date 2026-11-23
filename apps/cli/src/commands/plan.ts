@@ -1,11 +1,9 @@
 import { PlanRequest } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import {
-  BlueprintService,
-  FinalizeService,
-  PlanService,
-  RecipeService,
-} from "@repo/scaffold";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { FinalizeService } from "@repo/scaffold/FinalizeService";
+import { PlanService } from "@repo/scaffold/PlanService";
+import { RecipeService } from "@repo/scaffold/RecipeService";
 import {
   Array as Arr,
   Console,

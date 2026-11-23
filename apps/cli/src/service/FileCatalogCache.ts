@@ -1,9 +1,9 @@
 import { homedir } from "node:os";
 import {
-  CatalogCache,
-  CatalogCacheFailure,
   type CatalogCacheEntry,
-} from "@repo/scaffold";
+  CatalogCacheFailure,
+} from "@repo/domain/CatalogSource";
+import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import {
   Config,
   Effect,

@@ -11,7 +11,8 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { ApplyWorkspaces, BlueprintService } from "@repo/scaffold";
+import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 

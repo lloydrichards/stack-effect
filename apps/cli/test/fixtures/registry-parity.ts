@@ -14,13 +14,11 @@ import { join, relative } from "node:path";
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
-import {
-  BlueprintService,
-  CatalogCache,
-  CatalogLoader,
-  RecipeService,
-} from "@repo/scaffold";
-import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
+import { RecipePreviewInput } from "@repo/domain/RecipePreview";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { CatalogCache } from "@repo/scaffold/CatalogCache";
+import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
+import { RecipeService } from "@repo/scaffold/RecipeService";
 import { Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 

@@ -1,8 +1,8 @@
 import {
-  CatalogCache,
-  CatalogCacheFailure,
   type CatalogCacheEntry,
-} from "@repo/scaffold/browser";
+  CatalogCacheFailure,
+} from "@repo/domain/CatalogSource";
+import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { Effect, Layer } from "effect";
 
 const databaseName = "stack-effect-catalog";

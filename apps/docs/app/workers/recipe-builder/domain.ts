@@ -6,10 +6,7 @@ import {
   TargetIdentity,
 } from "@repo/domain/Catalog";
 import { CatalogSources } from "@repo/domain/CatalogSource";
-import {
-  RecipePreview,
-  RecipePreviewInput,
-} from "@repo/scaffold/recipe-preview";
+import { RecipePreview, RecipePreviewInput } from "@repo/domain/RecipePreview";
 import { Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 

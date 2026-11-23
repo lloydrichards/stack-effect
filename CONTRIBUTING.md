@@ -108,16 +108,9 @@ bun run type-check
 
 ### Fixing Bugs in Scaffold Logic
 
-Services in `packages/scaffold/src/service/` are organized by pipeline phase:
+Each public module in `packages/scaffold/src/` is one pipeline service, such as `BlueprintService.ts`, `PlanService.ts`, `ApplyService.ts`, and `FinalizeService.ts`. Import it through its package subpath, such as `@repo/scaffold/PlanService`. Deep implementations live in `src/internal/`, which the package does not export.
 
-| Directory    | Phase                                                  |
-| ------------ | ------------------------------------------------------ |
-| `blueprint/` | Resolving selections into dependency-closed blueprints |
-| `plan/`      | Building repo-aware file operations from blueprints    |
-| `apply/`     | Executing file writes with conflict handling           |
-| `finalize/`  | Running post-apply scripts                             |
-
-Tests are co-located (e.g., `BlueprintService.test.ts` next to `BlueprintService.ts`) and use `@effect/vitest`:
+Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/BlueprintService.test.ts`), and use `@effect/vitest`:
 
 ```typescript
 import { describe, layer } from "@effect/vitest";

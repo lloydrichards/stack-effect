@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { CatalogIssue } from "./Catalog";
 
 /** Reserved source name whose URL the application supplies. */
 export const OFFICIAL_CATALOG_SOURCE = "official";
@@ -116,3 +117,221 @@ export const selectsOfficialCatalog = (sources: ReadonlyArray<CatalogSource>) =>
 /** A named source other than the official one; its scripts need explicit trust. */
 export const isCustomCatalogSource = (name: string | undefined) =>
   name !== undefined && name !== OFFICIAL_CATALOG_SOURCE;
+
+/**
+ * One validated catalog document as a cache stores it.
+ *
+ * **When to use**
+ *
+ * Implement a `CatalogCache` adapter, such as a file or IndexedDB store.
+ *
+ * **Gotchas**
+ *
+ * Adapters must publish the complete entry atomically and return a copy of
+ * `bytes`, so a caller cannot mutate the stored document.
+ */
+export const CatalogCacheEntry = Schema.Struct({
+  sourceUrl: Schema.String,
+  bytes: Schema.Uint8Array,
+  digest: Schema.String,
+  etag: Schema.optional(Schema.String),
+  lastModified: Schema.optional(Schema.String),
+  validatedAt: Schema.Number,
+});
+export type CatalogCacheEntry = typeof CatalogCacheEntry.Type;
+
+/**
+ * A cache adapter could not read or write an entry.
+ *
+ * **When to use**
+ *
+ * Fail a `CatalogCache` operation with it. Catalog loading treats it as a
+ * cache miss or a persistence warning, never as a load failure.
+ */
+export class CatalogCacheFailure extends Schema.TaggedError<CatalogCacheFailure>()(
+  "CatalogCacheFailure",
+  {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
+
+/** The source cannot be fetched as given, such as a URL that is not `http:` or `https:`. */
+export class CatalogSourceInvalid extends Schema.TaggedError<CatalogSourceInvalid>()(
+  "CatalogSourceInvalid",
+  {},
+) {}
+
+/** A transient fetch failure; a cached document may stand in for it. */
+export class CatalogUnavailable extends Schema.TaggedError<CatalogUnavailable>()(
+  "CatalogUnavailable",
+  {
+    /** The retryable HTTP status the server answered with, if any. */
+    status: Schema.optional(Schema.Int),
+  },
+) {}
+
+/** The catalog request did not finish within the load timeout. */
+export class CatalogTimedOut extends Schema.TaggedError<CatalogTimedOut>()(
+  "CatalogTimedOut",
+  { timeoutMillis: Schema.Int },
+) {}
+
+/** The server answered with a status that retrying will not fix. */
+export class CatalogHttpStatusRejected extends Schema.TaggedError<CatalogHttpStatusRejected>()(
+  "CatalogHttpStatusRejected",
+  { status: Schema.Int },
+) {}
+
+/** The response is not served as JSON. */
+export class CatalogContentTypeInvalid extends Schema.TaggedError<CatalogContentTypeInvalid>()(
+  "CatalogContentTypeInvalid",
+  { contentType: Schema.String },
+) {}
+
+/** The response is not UTF-8 JSON. */
+export class CatalogJsonInvalid extends Schema.TaggedError<CatalogJsonInvalid>()(
+  "CatalogJsonInvalid",
+  {},
+) {}
+
+/** The JSON is not a valid catalog document. */
+export class CatalogDocumentInvalid extends Schema.TaggedError<CatalogDocumentInvalid>()(
+  "CatalogDocumentInvalid",
+  {},
+) {}
+
+/** The document declares a format version this build cannot read. */
+export class CatalogFormatUnsupported extends Schema.TaggedError<CatalogFormatUnsupported>()(
+  "CatalogFormatUnsupported",
+  {},
+) {}
+
+/** The document requires a capability this build does not support. */
+export class CatalogCapabilityUnsupported extends Schema.TaggedError<CatalogCapabilityUnsupported>()(
+  "CatalogCapabilityUnsupported",
+  {},
+) {}
+
+/** The response exceeds the maximum catalog size. */
+export class CatalogContentTooLarge extends Schema.TaggedError<CatalogContentTooLarge>()(
+  "CatalogContentTooLarge",
+  { maxBytes: Schema.Int },
+) {}
+
+/**
+ * Why one catalog source could not be loaded.
+ *
+ * **When to use**
+ *
+ * Match on `CatalogLoadFailure.reason._tag` to choose a message or a retry.
+ * Only `CatalogUnavailable` and `CatalogTimedOut` are transient.
+ */
+export const CatalogLoadReason = Schema.Union([
+  CatalogSourceInvalid,
+  CatalogUnavailable,
+  CatalogTimedOut,
+  CatalogHttpStatusRejected,
+  CatalogContentTypeInvalid,
+  CatalogJsonInvalid,
+  CatalogDocumentInvalid,
+  CatalogFormatUnsupported,
+  CatalogCapabilityUnsupported,
+  CatalogContentTooLarge,
+]);
+export type CatalogLoadReason = typeof CatalogLoadReason.Type;
+
+/**
+ * A selected catalog source had no usable document.
+ *
+ * **When to use**
+ *
+ * Handle it wherever catalog sources are loaded; `message` already names the
+ * source URL, and `reason` says what went wrong.
+ */
+export class CatalogLoadFailure extends Schema.TaggedError<CatalogLoadFailure>()(
+  "CatalogLoadFailure",
+  {
+    reason: CatalogLoadReason,
+    sourceUrl: Schema.String,
+    message: Schema.String,
+    /** Selected source name, when the failure came from `loadSources`. */
+    sourceName: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
+
+/**
+ * A catalog loaded, but from a stale cache or without being cached.
+ *
+ * **When to use**
+ *
+ * Show it next to the result so the user knows the catalog may be outdated.
+ */
+export const CatalogLoadWarning = Schema.Struct({
+  kind: Schema.Literals(["stale", "persistence"]),
+  sourceUrl: Schema.String,
+  lastValidatedAt: Schema.Number,
+  message: Schema.String,
+});
+export type CatalogLoadWarning = typeof CatalogLoadWarning.Type;
+
+/**
+ * One selected source as it was loaded for this operation.
+ *
+ * **When to use**
+ *
+ * Report which catalogs an operation used, or persist and compare a selection.
+ */
+export const LoadedCatalogSource = Schema.Struct({
+  name: Schema.String,
+  sourceUrl: Schema.String,
+  /** Sources this document declares it depends on, such as `official`. */
+  requires: Schema.Array(Schema.Literal("official")),
+  digest: Schema.String,
+  freshness: Schema.Literals(["current", "cached"]),
+  warning: Schema.optional(CatalogLoadWarning),
+});
+export type LoadedCatalogSource = typeof LoadedCatalogSource.Type;
+
+const describeSource = (source: LoadedCatalogSource) =>
+  `${source.name} (${source.sourceUrl}, ${
+    source.warning?.kind === "stale"
+      ? `cached, last validated at ${source.warning.lastValidatedAt} ms since epoch`
+      : source.freshness
+  })`;
+
+/**
+ * Every selected source loaded, but their definitions do not form one catalog.
+ *
+ * **When to use**
+ *
+ * Handle it next to `CatalogLoadFailure` when loading several sources.
+ *
+ * **Gotchas**
+ *
+ * When any source came from cache, the message suggests retrying once the
+ * sources are reachable, because they may compose after a refresh.
+ */
+export class CatalogCompositionFailure extends Schema.TaggedError<CatalogCompositionFailure>()(
+  "CatalogCompositionFailure",
+  {
+    issues: Schema.Array(CatalogIssue),
+    sources: Schema.Array(LoadedCatalogSource),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
+  override get message(): string {
+    const refreshHint = this.sources.some(
+      (source) => source.freshness === "cached",
+    )
+      ? " Retry when the catalog sources are reachable so they can be refreshed together."
+      : "";
+
+    return `Selected catalogs do not compose: ${this.issues
+      .map((issue) => issue.message)
+      .join(
+        "; ",
+      )}. Sources: ${this.sources.map(describeSource).join(", ")}.${refreshHint}`;
+  }
+}

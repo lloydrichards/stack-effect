@@ -4,15 +4,15 @@ import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import { ApplyService } from "@repo/scaffold/ApplyService";
+import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import {
-  ApplyService,
-  ApplyWorkspaces,
-  BlueprintService,
   type FinalizeConfig,
   FinalizeService,
-  PlanService,
   scriptKey,
-} from "@repo/scaffold";
+} from "@repo/scaffold/FinalizeService";
+import { PlanService } from "@repo/scaffold/PlanService";
 import { Confirm, type ConfirmOptions, MultiSelect } from "@repo/tui";
 import {
   Array as Arr,

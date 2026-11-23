@@ -4,8 +4,11 @@ import {
   OFFICIAL_CATALOG_SOURCE,
 } from "@repo/domain/CatalogSource";
 import { makeRuntime, runtimeForPackageManager } from "@repo/domain/Scaffold";
-import { encodeRecipeTargetSpecs, RecipeTargetString } from "@repo/scaffold";
-import { defaultsForRuntime } from "@repo/scaffold/browser";
+import {
+  encodeRecipeTargetSpecs,
+  RecipeTargetString,
+} from "@repo/scaffold/RecipeTargets";
+import { defaultsForRuntime } from "@repo/scaffold/StackConfigDefaults";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,

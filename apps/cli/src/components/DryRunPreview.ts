@@ -1,5 +1,5 @@
 import type { ApplyResult } from "@repo/domain/Apply";
-import type { ApplyPreviewFile } from "@repo/scaffold";
+import type { ApplyPreviewFile } from "@repo/domain/RecipePreview";
 import { Breakpoint, Panel } from "@repo/tui";
 import { Array as Arr, String as Str } from "effect";
 import { Ansi, Box, Container, Flex } from "effect-boxes";

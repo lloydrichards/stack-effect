@@ -3,7 +3,7 @@ import {
   defaultCatalogSources,
   isCustomCatalogSource,
 } from "@repo/domain/CatalogSource";
-import type { LoadedCatalogSource } from "@repo/scaffold";
+import type { LoadedCatalogSource } from "@repo/domain/CatalogSource";
 import { Array as Arr, Context, Option } from "effect";
 
 /** The catalog sources a command resolved and loaded before any other work. */

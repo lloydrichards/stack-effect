@@ -15,6 +15,7 @@
     "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",
     "docs:generate": "bun run --cwd apps/cli docs:generate",
     "lint": "oxlint .",
+    "lint:dead": "bunx fallow dead-code --production --include-entry-exports",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch --typescript --oxlint",

@@ -7,13 +7,13 @@ import {
 } from "@repo/domain/Catalog";
 import { selectsOfficialCatalog } from "@repo/domain/CatalogSource";
 import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { RecipeService } from "@repo/scaffold/RecipeService";
 import {
-  BlueprintService,
   defaultsForRuntime,
-  RecipeService,
   StackConfigDefaults,
-  toWorkspaceToolValue,
-} from "@repo/scaffold";
+} from "@repo/scaffold/StackConfigDefaults";
+import { toWorkspaceToolValue } from "@repo/scaffold/WorkspaceModules";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option } from "effect";
 import { Ansi, Box } from "effect-boxes";

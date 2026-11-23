@@ -4,12 +4,21 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts",
-    "./browser": "./src/browser.ts",
-    "./recipe-preview": "./src/RecipePreviewSchema.ts"
+    "./ApplyService": "./src/ApplyService.ts",
+    "./ApplyWorkspaces": "./src/ApplyWorkspaces.ts",
+    "./BlueprintService": "./src/BlueprintService.ts",
+    "./CatalogCache": "./src/CatalogCache.ts",
+    "./CatalogLoader": "./src/CatalogLoader.ts",
+    "./ContributionResolver": "./src/ContributionResolver.ts",
+    "./FinalizeService": "./src/FinalizeService.ts",
+    "./PlanService": "./src/PlanService.ts",
+    "./RecipePreviewer": "./src/RecipePreviewer.ts",
+    "./RecipeService": "./src/RecipeService.ts",
+    "./RecipeTargets": "./src/RecipeTargets.ts",
+    "./StackConfigDefaults": "./src/StackConfigDefaults.ts",
+    "./WorkspaceModules": "./src/WorkspaceModules.ts",
+    "./internal/*": null
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
     "test": "vitest run",
@@ -17,7 +26,6 @@
   },
   "dependencies": {
     "@effect-vfs/memory": "^0.11.0",
-    "@effect/platform-browser": "4.1.4",
     "@repo/catalog": "workspace:*",
     "@repo/domain": "workspace:*",
     "effect": "4.1.4",
@@ -25,10 +33,11 @@
     "yaml": "^2.9.1"
   },
   "devDependencies": {
+    "@effect/platform-browser": "4.1.4",
     "@effect/vitest": "4.1.4",
-    "@types/node": "^26.6.6",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
+    "@types/node": "^26.6.6",
     "vitest": "^5.1.0"
   }
 }

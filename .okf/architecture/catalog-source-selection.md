@@ -15,13 +15,13 @@ sources:
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader
-    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/CatalogLoader.ts
   - id: selection
     resource: ../../apps/cli/src/service/CatalogSelection.ts
   - id: cli-sources
     resource: ../../apps/cli/src/lib/catalogSources.ts
   - id: finalize
-    resource: ../../packages/scaffold/src/service/finalize/FinalizeService.ts
+    resource: ../../packages/scaffold/src/FinalizeService.ts
   - id: graph
     resource: ../../apps/cli/src/commands/graph.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }

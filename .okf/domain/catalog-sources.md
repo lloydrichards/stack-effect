@@ -13,7 +13,7 @@ sources:
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader
-    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/CatalogLoader.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
@@ -157,6 +157,6 @@ Connected terms:
 
 In code:
 
-- `LoadedCatalogSource`, `CatalogCacheEntry` in `@repo/scaffold`
+- `LoadedCatalogSource`, `CatalogCacheEntry`, and the catalog load errors in `@repo/domain/CatalogSource`
 
 See [catalog loading](../architecture/catalog-loading.md "implements these contracts") and the [source selection decision](../architecture/catalog-source-selection.md "sets the policy for these contracts").
