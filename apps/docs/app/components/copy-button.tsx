@@ -4,10 +4,10 @@ import { useCallback } from "react";
 import { useCopyToClipboard } from "~/hooks/use-copy-to-clipboard";
 import { cn } from "~/lib/utils";
 
-interface CopyButtonProps {
+type CopyButtonProps = {
   getValue: () => string;
   className?: string;
-}
+};
 
 export function CopyButton({ getValue, className }: CopyButtonProps) {
   const { status, copy } = useCopyToClipboard();

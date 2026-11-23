@@ -9,15 +9,15 @@ import { Panel, PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-export interface ConfirmOptions extends Prompt.ConfirmOptions {
+export type ConfirmOptions = {
   /** An optional Box to render between the message and the buttons. */
   readonly children?: Box.Box<AnsiStyle>;
-}
+} & Prompt.ConfirmOptions;
 
-interface ConfirmState {
+type ConfirmState = {
   readonly cursor: number;
   readonly viewport: Viewport.State;
-}
+};
 
 /** Rows reserved for prompt chrome (margin, message, gaps, buttons, hint). */
 const CHROME_ROWS = 10;

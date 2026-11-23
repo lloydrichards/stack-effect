@@ -8,20 +8,20 @@ import { Panel, PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-interface TextAreaOptions extends Prompt.TextOptions {
+type TextAreaOptions = {
   readonly minRows?: number;
   readonly maxRows?: number;
   readonly placeholder?: string;
-}
+} & Prompt.TextOptions;
 
-interface TextAreaState {
+type TextAreaState = {
   readonly lines: ReadonlyArray<string>;
   readonly row: number;
   readonly col: number;
   readonly stickyCol: number;
   readonly viewport: Viewport.State;
   readonly error: Option.Option<string>;
-}
+};
 
 const splitLines = (value: string) => {
   const lines = value.split("\n");

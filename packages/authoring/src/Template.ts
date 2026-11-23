@@ -1,10 +1,10 @@
 import { Predicate } from "effect";
 
 /** A generated-file body kept in an ordinary file and embedded at build time. */
-export interface TemplateRef {
+export type TemplateRef = {
   readonly _tag: "TemplateRef";
   readonly url: string;
-}
+};
 
 export const isTemplateRef = (value: unknown): value is TemplateRef =>
   Predicate.isTagged(value, "TemplateRef") &&

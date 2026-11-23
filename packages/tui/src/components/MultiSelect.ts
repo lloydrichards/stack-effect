@@ -7,10 +7,10 @@ import { PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-interface MultiSelectState {
+type MultiSelectState = {
   readonly cursor: number;
   readonly selected: ReadonlySet<number>;
-}
+};
 
 const MultiSelectKeys = {
   Down: new KeyBinding({
@@ -48,18 +48,18 @@ const MultiSelectHintKeys = {
   Submit: MultiSelectKeys.Submit,
 };
 
-export interface GroupedSelectChoice<A> extends Prompt.SelectChoice<A> {
+export type GroupedSelectChoice<A> = {
   readonly group?: string;
-}
+} & Prompt.SelectChoice<A>;
 
-export interface GroupedSelectOptions<A> extends Prompt.MultiSelectOptions {
+export type GroupedSelectOptions<A> = {
   readonly message: string;
   readonly choices: ReadonlyArray<GroupedSelectChoice<A>>;
   readonly groups?: ReadonlyArray<{
     readonly key: string;
     readonly label: string;
   }>;
-}
+} & Prompt.MultiSelectOptions;
 
 export const MultiSelect = <A>(
   options: GroupedSelectOptions<A>,

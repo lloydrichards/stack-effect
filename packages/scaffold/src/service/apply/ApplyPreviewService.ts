@@ -13,12 +13,12 @@ export type { ApplyPreviewFile };
 export { ApplyPreviewFileSchema };
 export type ApplyPreview = MaterializedApply;
 
-export interface ApplyPreviewServiceShape {
+export type ApplyPreviewServiceShape = {
   readonly preview: (input: {
     readonly apply: Apply;
     readonly repoRoot: string;
   }) => Effect.Effect<ApplyPreview, ApplyFailure | StalePlanFailure, never>;
-}
+};
 
 export class ApplyPreviewService extends Context.Service<
   ApplyPreviewService,

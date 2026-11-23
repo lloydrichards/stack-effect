@@ -16,10 +16,10 @@ import type { AnsiStyle } from "effect-boxes/Ansi";
 
 // ─── State ───────────────────────────────────────────────────────────────────
 
-export interface State {
+export type State = {
   readonly row: number;
   readonly col: number;
-}
+};
 
 export const initial: State = { row: 0, col: 0 };
 
@@ -29,21 +29,21 @@ export type ScrollAction = "up" | "down" | "left" | "right";
 
 // ─── Bounds ──────────────────────────────────────────────────────────────────
 
-export interface Bounds {
+export type Bounds = {
   readonly contentHeight: number;
   readonly visibleHeight: number;
-}
+};
 
 // ─── Metadata ────────────────────────────────────────────────────────────────
 
-export interface ViewportMeta {
+export type ViewportMeta = {
   readonly hasAbove: boolean;
   readonly hasBelow: boolean;
   readonly hasLeft: boolean;
   readonly hasRight: boolean;
   readonly offset: State;
   readonly contentHeight: number;
-}
+};
 
 // ─── Active mode: consume scroll actions ─────────────────────────────────────
 
@@ -99,10 +99,10 @@ export const scrollToReveal = (
 
 // ─── Render ──────────────────────────────────────────────────────────────────
 
-export interface RenderResult {
+export type RenderResult = {
   readonly items: ReadonlyArray<Box.Box<AnsiStyle>>;
   readonly meta: ViewportMeta;
-}
+};
 
 /**
  * Slice the items array through the viewport window, returning the visible

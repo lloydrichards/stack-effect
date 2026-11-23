@@ -30,11 +30,11 @@ export type RecipePreviewError =
   | ApplyFailure
   | StalePlanFailure;
 
-export interface RecipePreviewServiceShape {
+export type RecipePreviewServiceShape = {
   readonly preview: (
     input: RecipePreviewInput,
   ) => Effect.Effect<RecipePreview, RecipePreviewError, never>;
-}
+};
 
 export class RecipePreviewService extends Context.Service<
   RecipePreviewService,

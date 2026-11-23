@@ -34,11 +34,11 @@ export type PlanServiceBuildInput = {
   readonly config: typeof StackConfig.Type;
 };
 
-export interface PlanServiceShape {
+export type PlanServiceShape = {
   readonly build: (
     input: PlanServiceBuildInput,
   ) => Effect.Effect<typeof Plan.Type, PlanFailure | CatalogNotFound, never>;
-}
+};
 
 export class PlanService extends Context.Service<
   PlanService,

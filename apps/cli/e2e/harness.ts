@@ -37,11 +37,11 @@ import {
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
-export interface CommandResult {
+export type CommandResult = {
   readonly exitCode: number;
   readonly stdout: string;
   readonly stderr: string;
-}
+};
 
 /** Run a shell command in `cwd`, with temporary files kept under `tempDir`. */
 export const spawnCommand = (
@@ -106,7 +106,7 @@ class WorkspaceContainer extends Context.Service<WorkspaceContainer>()(
   ).pipe(Layer.provide(NodeServices.layer));
 }
 
-interface ProjectContext {
+type ProjectContext = {
   readonly dir: string;
   readonly install: () => Effect.Effect<CommandResult>;
   readonly expectInstallSucceeds: () => Effect.Effect<void>;
@@ -148,7 +148,7 @@ interface ProjectContext {
     relativePath: string,
     entries: ReadonlyArray<string>,
   ) => Effect.Effect<void>;
-}
+};
 
 const makeProjectContext = (
   projectDir: string,

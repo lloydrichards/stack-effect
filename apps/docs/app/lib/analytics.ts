@@ -6,6 +6,8 @@ type Umami = {
 };
 
 declare global {
+  // Augmenting the global Window requires declaration merging.
+  // oxlint-disable-next-line typescript/consistent-type-definitions
   interface Window {
     umami?: Umami;
   }

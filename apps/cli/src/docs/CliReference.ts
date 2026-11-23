@@ -1,29 +1,29 @@
 import { Array as Arr, Console, Effect, Option, pipe, Record } from "effect";
 import { CliOutput, Command, type HelpDoc } from "effect/cli";
 
-export interface CliReferenceFlag {
+export type CliReferenceFlag = {
   readonly name: string;
   readonly aliases: ReadonlyArray<string>;
   readonly type: string;
   readonly description: string | null;
   readonly required: boolean;
-}
+};
 
-export interface CliReferenceArgument {
+export type CliReferenceArgument = {
   readonly name: string;
   readonly type: string;
   readonly description: string | null;
   readonly required: boolean;
   readonly variadic: boolean;
-}
+};
 
-interface CliReferenceSubcommand {
+type CliReferenceSubcommand = {
   readonly name: string;
   readonly shortDescription: string | null;
   readonly description: string;
-}
+};
 
-export interface CliReferenceCommand {
+export type CliReferenceCommand = {
   readonly path: ReadonlyArray<string>;
   readonly description: string;
   readonly usage: string;
@@ -35,13 +35,13 @@ export interface CliReferenceCommand {
     readonly command: string;
     readonly description: string | null;
   }>;
-}
+};
 
-export interface CliReference {
+export type CliReference = {
   readonly name: string;
   readonly version: string;
   readonly commands: ReadonlyArray<CliReferenceCommand>;
-}
+};
 
 const longOptions = (command: string): ReadonlyArray<string> =>
   Array.from(command.matchAll(/--[a-z0-9-]+/g), ([option]) => option.slice(2));

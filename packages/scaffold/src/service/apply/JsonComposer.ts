@@ -5,12 +5,12 @@ import { Array as Arr, Context, Effect, Layer, Match, Schema } from "effect";
 const PackageJson = Schema.Record(Schema.String, Schema.Json);
 const PackageJsonFromString = Schema.fromJsonString(PackageJson, { space: 2 });
 
-export interface JsonComposerShape {
+export type JsonComposerShape = {
   readonly compose: (
     contents: string,
     operations: ReadonlyArray<JsonCompositionOperation>,
   ) => Effect.Effect<string, ApplyFailure, never>;
-}
+};
 
 export class JsonComposer extends Context.Service<
   JsonComposer,

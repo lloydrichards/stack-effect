@@ -66,11 +66,11 @@ const testLayer = (
 
 const encode = Schema.encodeSync(Schema.fromJsonString(CatalogDocument));
 
-interface RejectionCase {
+type RejectionCase = {
   readonly reason: CatalogLoadReason;
   readonly condition: string;
   readonly respond: Handler;
-}
+};
 
 const rejections: ReadonlyArray<RejectionCase> = [
   {

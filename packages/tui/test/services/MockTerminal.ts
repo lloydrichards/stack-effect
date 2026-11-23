@@ -13,20 +13,20 @@ import * as Terminal from "effect/Terminal";
 // Models
 // =============================================================================
 
-export interface MockTerminal extends Terminal.Terminal {
+export type MockTerminal = {
   readonly inputText: (text: string) => Effect.Effect<void>;
   readonly inputKey: (
     key: string,
     modifiers?: Partial<MockTerminal.Modifiers>,
   ) => Effect.Effect<void>;
-}
+} & Terminal.Terminal;
 
 export declare namespace MockTerminal {
-  export interface Modifiers {
+  export type Modifiers = {
     readonly ctrl: boolean;
     readonly meta: boolean;
     readonly shift: boolean;
-  }
+  };
 }
 
 // =============================================================================

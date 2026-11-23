@@ -6,12 +6,12 @@ import {
 } from "effect/http";
 
 /** One observable property of a deployed registry asset. */
-interface RegistryCheck {
+type RegistryCheck = {
   readonly path: string;
   readonly check: string;
   readonly ok: boolean;
   readonly detail: string;
-}
+};
 
 const MISSING_ASSET_PATH = "/registry/v1/missing.json";
 

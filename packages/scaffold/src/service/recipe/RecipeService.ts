@@ -23,7 +23,7 @@ export {
   UnresolvedRecipeTarget,
 } from "./RecipeErrors";
 
-interface RecipeServiceShape {
+type RecipeServiceShape = {
   readonly resolve: (
     spec: RecipeSpec,
     options: RecipeResolveOptions,
@@ -32,7 +32,7 @@ interface RecipeServiceShape {
     readonly config: typeof StackConfig.Type;
     readonly selection: typeof Selection.Type;
   }) => string;
-}
+};
 
 type CollectedRecipeTarget = {
   readonly identity: TargetIdentity;

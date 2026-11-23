@@ -1,19 +1,19 @@
 import { Context, Data, Effect, Layer, Ref } from "effect";
 
-export interface CatalogCacheEntry {
+export type CatalogCacheEntry = {
   readonly sourceUrl: string;
   readonly bytes: Uint8Array;
   readonly digest: string;
   readonly etag?: string;
   readonly lastModified?: string;
   readonly validatedAt: number;
-}
+};
 
 export class CatalogCacheFailure extends Data.TaggedError(
   "CatalogCacheFailure",
 )<{ readonly message: string }> {}
 
-export interface CatalogCacheShape {
+export type CatalogCacheShape = {
   readonly read: (
     sourceUrl: string,
   ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheFailure>;
@@ -21,7 +21,7 @@ export interface CatalogCacheShape {
   readonly write: (
     entry: CatalogCacheEntry,
   ) => Effect.Effect<void, CatalogCacheFailure>;
-}
+};
 
 const copyEntry = (entry: CatalogCacheEntry): CatalogCacheEntry => ({
   ...entry,

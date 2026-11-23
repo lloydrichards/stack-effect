@@ -33,7 +33,7 @@ export type MaterializedApply = {
   readonly files: ReadonlyArray<MaterializedFile>;
 };
 
-export interface ApplyWorkspace {
+export type ApplyWorkspace = {
   readonly plan: (input: {
     readonly blueprint: typeof Blueprint.Type;
     readonly config: typeof StackConfig.Type;
@@ -41,14 +41,14 @@ export interface ApplyWorkspace {
   readonly materialize: (
     apply: Apply,
   ) => Effect.Effect<MaterializedApply, ApplyFailure | StalePlanFailure>;
-}
+};
 
-export interface ApplyWorkspaceServiceShape {
+export type ApplyWorkspaceServiceShape = {
   readonly create: (input?: {
     readonly repoRoot: string;
     readonly baseline: typeof PlanBaseline.Type;
   }) => Effect.Effect<ApplyWorkspace, ApplyFailure | StalePlanFailure>;
-}
+};
 
 export class ApplyWorkspaceService extends Context.Service<
   ApplyWorkspaceService,

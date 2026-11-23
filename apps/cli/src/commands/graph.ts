@@ -48,13 +48,13 @@ const splitByTag = (nodes: ReadonlyArray<IndexedNode>) => ({
 const labelsOf = (nodes: ReadonlyArray<IndexedNode>) =>
   Arr.map(nodes, ([, n]) => nodeLabel(n)).join(", ");
 
-interface RowData {
+type RowData = {
   readonly node: typeof CatalogNode.Type;
   readonly supportedOn: ReadonlyArray<string>;
   readonly requires: ReadonlyArray<string>;
   readonly implies: ReadonlyArray<string>;
   readonly childOf: ReadonlyArray<string>;
-}
+};
 
 const classifyEdge = Match.type<typeof CatalogEdge.Type>().pipe(
   Match.when("supportedOn", () => "supportedOn" as const),

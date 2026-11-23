@@ -26,13 +26,13 @@ type InspectedPath =
   | { readonly _tag: "directory" }
   | { readonly _tag: "file"; readonly contents: string };
 
-export interface WriteEngineShape {
+export type WriteEngineShape = {
   readonly write: (input: {
     readonly repoRoot: string;
     readonly write: ApplyWriteRequest;
     readonly onParentDirectoryReady?: Effect.Effect<void>;
   }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
-}
+};
 
 export class WriteEngine extends Context.Service<
   WriteEngine,

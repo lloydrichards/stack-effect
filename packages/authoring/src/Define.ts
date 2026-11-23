@@ -25,15 +25,15 @@ export type TargetInput = Omit<
 > & { readonly contributions: ReadonlyArray<ContributionInput> };
 
 /** Definitions declared in one source file, which errors and provenance name. */
-export interface DefinitionGroup<A> {
+export type DefinitionGroup<A> = {
   readonly source: string;
   readonly definitions: ReadonlyArray<A>;
-}
+};
 
-export interface CatalogInput {
+export type CatalogInput = {
   readonly targets: ReadonlyArray<DefinitionGroup<TargetInput>>;
   readonly modules: ReadonlyArray<DefinitionGroup<ModuleInput>>;
-}
+};
 
 /** Group modules under their source file; pass `import.meta.url`. */
 export const defineModules = (

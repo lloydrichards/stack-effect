@@ -3,9 +3,16 @@
   "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
   "rules": {
     "eslint/require-yield": "off",
-    "effecttsgo/unnecessary-typeof-type": "off"
+    "effecttsgo/unnecessary-typeof-type": "off",
+    "typescript/consistent-type-definitions": ["error", "type"]
   },
   "overrides": [
+    {
+      "files": ["**/*.d.ts"],
+      "rules": {
+        "typescript/consistent-type-definitions": "off"
+      }
+    },
     {
       "files": ["**/*.test.ts", "**/*.test.tsx"],
       "rules": {

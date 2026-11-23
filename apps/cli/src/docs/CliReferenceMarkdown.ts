@@ -5,10 +5,10 @@ import type {
   CliReferenceFlag,
 } from "./CliReference";
 
-interface CliReferencePage {
+type CliReferencePage = {
   readonly slug: string;
   readonly content: string;
-}
+};
 
 const generatedNotice =
   "{/* Generated from the Stack Effect CLI command tree. Do not edit directly. */}";

@@ -27,12 +27,12 @@ import {
 } from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "../JsxSlot";
 
-export interface TypeScriptComposerShape {
+export type TypeScriptComposerShape = {
   readonly compose: (
     contents: string,
     operations: ReadonlyArray<TypeScriptCompositionOperation>,
   ) => Effect.Effect<string, ApplyFailure, never>;
-}
+};
 
 export class TypeScriptComposer extends Context.Service<
   TypeScriptComposer,
