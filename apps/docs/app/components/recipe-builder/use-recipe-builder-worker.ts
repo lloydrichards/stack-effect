@@ -27,7 +27,7 @@ import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import {
   ownerKey,
   type RecipeBuilderFormApi,
-  TargetInstance,
+  type TargetInstance,
   toRecipePreviewInput,
 } from "./form";
 import { retainCatalogSupportSelections } from "./target-selector/state";
