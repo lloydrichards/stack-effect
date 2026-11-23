@@ -549,7 +549,9 @@ describe("ApplyWorkspaceService", () => {
       const failure = yield* Effect.flip(workspace.materialize(second));
       expect(failure._tag).toBe("ApplyFailure");
       if (failure._tag === "ApplyFailure") {
-        expect(failure.reason).toBe("invalidApplyIntent");
+        expect(failure.message).toContain(
+          "Apply baseline differs from the seeded workspace",
+        );
       }
       expect(yield* hostFileSystem.exists(`${repoRoot}/foo.txt`)).toBe(false);
     }).pipe(Effect.provide(WorkspaceTestLayer)),

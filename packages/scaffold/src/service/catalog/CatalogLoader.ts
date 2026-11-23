@@ -2,23 +2,14 @@ import { CatalogService, decodeCatalogDocument } from "@repo/catalog";
 import {
   CatalogCapabilityError,
   type CatalogDocument,
-  type CatalogIssue,
+  CatalogIssue,
   type CatalogValidationError,
 } from "@repo/domain/Catalog";
 import {
   type CatalogSources,
   selectsOfficialCatalog,
 } from "@repo/domain/CatalogSource";
-import {
-  Clock,
-  Context,
-  Data,
-  Effect,
-  Layer,
-  Result,
-  Schema,
-  Stream,
-} from "effect";
+import { Clock, Context, Effect, Layer, Result, Schema, Stream } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { CatalogCache, type CatalogCacheEntry } from "./CatalogCache";
@@ -26,33 +17,93 @@ import { CatalogCache, type CatalogCacheEntry } from "./CatalogCache";
 const maxBytes = 8 * 1024 * 1024;
 const timeoutMillis = 15_000;
 
-export type CatalogLoadReason =
-  | "invalidSource"
-  | "unavailable"
-  | "timeout"
-  | "httpStatus"
-  | "invalidContentType"
-  | "invalidJson"
-  | "invalidCatalog"
-  | "unsupportedFormat"
-  | "unsupportedCapability"
-  | "contentTooLarge";
+export class CatalogSourceInvalid extends Schema.TaggedError<CatalogSourceInvalid>()(
+  "CatalogSourceInvalid",
+  {},
+) {}
 
-export class CatalogLoadFailure extends Data.TaggedError("CatalogLoadFailure")<{
-  readonly reason: CatalogLoadReason;
-  readonly sourceUrl: string;
-  readonly message: string;
-  readonly status?: number;
-  /** Selected source name, when the failure came from `loadSources`. */
-  readonly sourceName?: string;
-}> {}
+/** A transient fetch failure; a cached document may stand in for it. */
+export class CatalogUnavailable extends Schema.TaggedError<CatalogUnavailable>()(
+  "CatalogUnavailable",
+  {
+    /** The retryable HTTP status the server answered with, if any. */
+    status: Schema.optional(Schema.Int),
+  },
+) {}
 
-export type CatalogLoadWarning = {
-  readonly kind: "stale" | "persistence";
-  readonly sourceUrl: string;
-  readonly lastValidatedAt: number;
-  readonly message: string;
-};
+export class CatalogTimedOut extends Schema.TaggedError<CatalogTimedOut>()(
+  "CatalogTimedOut",
+  { timeoutMillis: Schema.Int },
+) {}
+
+export class CatalogHttpStatusRejected extends Schema.TaggedError<CatalogHttpStatusRejected>()(
+  "CatalogHttpStatusRejected",
+  { status: Schema.Int },
+) {}
+
+export class CatalogContentTypeInvalid extends Schema.TaggedError<CatalogContentTypeInvalid>()(
+  "CatalogContentTypeInvalid",
+  { contentType: Schema.String },
+) {}
+
+export class CatalogJsonInvalid extends Schema.TaggedError<CatalogJsonInvalid>()(
+  "CatalogJsonInvalid",
+  {},
+) {}
+
+export class CatalogDocumentInvalid extends Schema.TaggedError<CatalogDocumentInvalid>()(
+  "CatalogDocumentInvalid",
+  {},
+) {}
+
+export class CatalogFormatUnsupported extends Schema.TaggedError<CatalogFormatUnsupported>()(
+  "CatalogFormatUnsupported",
+  {},
+) {}
+
+export class CatalogCapabilityUnsupported extends Schema.TaggedError<CatalogCapabilityUnsupported>()(
+  "CatalogCapabilityUnsupported",
+  {},
+) {}
+
+export class CatalogContentTooLarge extends Schema.TaggedError<CatalogContentTooLarge>()(
+  "CatalogContentTooLarge",
+  { maxBytes: Schema.Int },
+) {}
+
+export const CatalogLoadReason = Schema.Union([
+  CatalogSourceInvalid,
+  CatalogUnavailable,
+  CatalogTimedOut,
+  CatalogHttpStatusRejected,
+  CatalogContentTypeInvalid,
+  CatalogJsonInvalid,
+  CatalogDocumentInvalid,
+  CatalogFormatUnsupported,
+  CatalogCapabilityUnsupported,
+  CatalogContentTooLarge,
+]);
+export type CatalogLoadReason = typeof CatalogLoadReason.Type;
+
+export class CatalogLoadFailure extends Schema.TaggedError<CatalogLoadFailure>()(
+  "CatalogLoadFailure",
+  {
+    reason: CatalogLoadReason,
+    sourceUrl: Schema.String,
+    message: Schema.String,
+    /** Selected source name, when the failure came from `loadSources`. */
+    sourceName: Schema.optional(Schema.String),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
+
+export const CatalogLoadWarning = Schema.Struct({
+  kind: Schema.Literals(["stale", "persistence"]),
+  sourceUrl: Schema.String,
+  lastValidatedAt: Schema.Number,
+  message: Schema.String,
+});
+export type CatalogLoadWarning = typeof CatalogLoadWarning.Type;
 
 type LoadedDocument<A> = {
   readonly value: A;
@@ -73,15 +124,16 @@ export type LoadedCatalog = {
 };
 
 /** One selected source as it was loaded for this operation. */
-export type LoadedCatalogSource = {
-  readonly name: string;
-  readonly sourceUrl: string;
+export const LoadedCatalogSource = Schema.Struct({
+  name: Schema.String,
+  sourceUrl: Schema.String,
   /** Sources this document declares it depends on, such as `official`. */
-  readonly requires: ReadonlyArray<"official">;
-  readonly digest: string;
-  readonly freshness: "current" | "cached";
-  readonly warning?: CatalogLoadWarning;
-};
+  requires: Schema.Array(Schema.Literal("official")),
+  digest: Schema.String,
+  freshness: Schema.Literals(["current", "cached"]),
+  warning: Schema.optional(CatalogLoadWarning),
+});
+export type LoadedCatalogSource = typeof LoadedCatalogSource.Type;
 
 export type LoadedCatalogSet = {
   readonly catalog: typeof CatalogService.Service;
@@ -96,12 +148,14 @@ const describeSource = (source: LoadedCatalogSource) =>
   })`;
 
 /** Every selected source loaded, but their definitions do not form one catalog. */
-export class CatalogCompositionFailure extends Data.TaggedError(
+export class CatalogCompositionFailure extends Schema.TaggedError<CatalogCompositionFailure>()(
   "CatalogCompositionFailure",
-)<{
-  readonly issues: ReadonlyArray<CatalogIssue>;
-  readonly sources: ReadonlyArray<LoadedCatalogSource>;
-}> {
+  {
+    issues: Schema.Array(CatalogIssue),
+    sources: Schema.Array(LoadedCatalogSource),
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {
   override get message(): string {
     const refreshHint = this.sources.some(
       (source) => source.freshness === "cached",
@@ -141,26 +195,29 @@ const failure = (
   reason: CatalogLoadReason,
   sourceUrl: string,
   message: string,
-  status?: number,
-) =>
-  new CatalogLoadFailure({
-    reason,
-    sourceUrl,
-    message,
-    ...(status === undefined ? {} : { status }),
-  });
+  cause?: unknown,
+) => new CatalogLoadFailure({ reason, sourceUrl, message, cause });
 
 const normalizedUrl = (sourceUrl: string) =>
-  Effect.try({
-    try: () => {
-      const url = new URL(sourceUrl);
-      if (url.protocol !== "http:" && url.protocol !== "https:")
-        throw new Error("Catalog sources must use HTTP or HTTPS.");
-      url.hash = "";
-      return url.toString();
-    },
-    catch: () =>
-      failure("invalidSource", sourceUrl, `Invalid catalog URL: ${sourceUrl}`),
+  Effect.gen(function* () {
+    const url = yield* Effect.try({
+      try: () => new URL(sourceUrl),
+      catch: (cause) =>
+        failure(
+          new CatalogSourceInvalid(),
+          sourceUrl,
+          `Invalid catalog URL: ${sourceUrl}`,
+          cause,
+        ),
+    });
+    if (url.protocol !== "http:" && url.protocol !== "https:")
+      return yield* failure(
+        new CatalogSourceInvalid(),
+        sourceUrl,
+        `Invalid catalog URL: ${sourceUrl}`,
+      );
+    url.hash = "";
+    return url.toString();
   });
 
 const persistenceWarningFor = (
@@ -174,7 +231,8 @@ const persistenceWarningFor = (
 });
 
 const isTransient = (error: CatalogLoadFailure) =>
-  error.reason === "unavailable" || error.reason === "timeout";
+  error.reason._tag === "CatalogUnavailable" ||
+  error.reason._tag === "CatalogTimedOut";
 
 export class CatalogLoader extends Context.Service<
   CatalogLoader,
@@ -201,21 +259,23 @@ export class CatalogLoader extends Context.Service<
       const digest = yield* digestBytes(bytes);
       const text = yield* Effect.try({
         try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-        catch: () =>
+        catch: (cause) =>
           failure(
-            "invalidJson",
+            new CatalogJsonInvalid(),
             sourceUrl,
             `Catalog from ${sourceUrl} is not UTF-8.`,
+            cause,
           ),
       });
       const json = yield* Schema.decodeEffect(
         Schema.fromJsonString(Schema.Unknown),
       )(text).pipe(
-        Effect.mapError(() =>
+        Effect.mapError((cause) =>
           failure(
-            "invalidJson",
+            new CatalogJsonInvalid(),
             sourceUrl,
             `Catalog from ${sourceUrl} is not valid JSON.`,
+            cause,
           ),
         ),
       );
@@ -226,18 +286,24 @@ export class CatalogLoader extends Context.Service<
         json.formatVersion !== 1
       )
         return yield* failure(
-          "unsupportedFormat",
+          new CatalogFormatUnsupported(),
           sourceUrl,
           `Catalog from ${sourceUrl} uses an unsupported formatVersion.`,
         );
       const document = yield* decodeCatalogDocument(json).pipe(
         Effect.mapError((error) =>
           error instanceof CatalogCapabilityError
-            ? failure("unsupportedCapability", sourceUrl, error.message)
+            ? failure(
+                new CatalogCapabilityUnsupported(),
+                sourceUrl,
+                error.message,
+                error,
+              )
             : failure(
-                "invalidCatalog",
+                new CatalogDocumentInvalid(),
                 sourceUrl,
                 `Invalid catalog from ${sourceUrl}: ${error.message}`,
+                error,
               ),
         ),
       );
@@ -257,7 +323,7 @@ export class CatalogLoader extends Context.Service<
             size += chunk.byteLength;
             if (size > maxBytes)
               return yield* failure(
-                "contentTooLarge",
+                new CatalogContentTooLarge({ maxBytes }),
                 sourceUrl,
                 `Catalog from ${sourceUrl} exceeds 8 MiB.`,
               );
@@ -268,9 +334,10 @@ export class CatalogLoader extends Context.Service<
           error instanceof CatalogLoadFailure
             ? error
             : failure(
-                "unavailable",
+                new CatalogUnavailable(),
                 sourceUrl,
                 `Could not read catalog response from ${sourceUrl}.`,
+                error,
               ),
         ),
       );
@@ -351,11 +418,12 @@ export class CatalogLoader extends Context.Service<
               // Trace headers are not CORS-safelisted, so a browser would
               // preflight every catalog fetch, and hosts need not allow them.
               Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-              Effect.mapError(() =>
+              Effect.mapError((cause) =>
                 failure(
-                  "unavailable",
+                  new CatalogUnavailable(),
                   sourceUrl,
                   `Could not fetch catalog from ${sourceUrl}.`,
+                  cause,
                 ),
               ),
             );
@@ -378,7 +446,7 @@ export class CatalogLoader extends Context.Service<
               }
               if (attempt === 0) continue;
               return yield* failure(
-                "unavailable",
+                new CatalogUnavailable(),
                 sourceUrl,
                 `Catalog server returned 304 without usable cached data at ${sourceUrl}.`,
               );
@@ -389,17 +457,15 @@ export class CatalogLoader extends Context.Service<
               (response.status >= 500 && response.status < 600)
             )
               return yield* failure(
-                "unavailable",
+                new CatalogUnavailable({ status: response.status }),
                 sourceUrl,
                 `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
-                response.status,
               );
             if (response.status !== 200)
               return yield* failure(
-                "httpStatus",
+                new CatalogHttpStatusRejected({ status: response.status }),
                 sourceUrl,
                 `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
-                response.status,
               );
             const contentType = response.headers["content-type"] ?? "";
             if (
@@ -408,7 +474,7 @@ export class CatalogLoader extends Context.Service<
               )
             )
               return yield* failure(
-                "invalidContentType",
+                new CatalogContentTypeInvalid({ contentType }),
                 sourceUrl,
                 `Catalog response from ${sourceUrl} is not JSON.`,
               );
@@ -437,7 +503,7 @@ export class CatalogLoader extends Context.Service<
             };
           }
           return yield* failure(
-            "unavailable",
+            new CatalogUnavailable(),
             sourceUrl,
             `Catalog server returned no usable document at ${sourceUrl}.`,
           );
@@ -450,7 +516,7 @@ export class CatalogLoader extends Context.Service<
         remaining <= 0
           ? Effect.fail(
               failure(
-                "timeout",
+                new CatalogTimedOut({ timeoutMillis }),
                 sourceUrl,
                 `Catalog load timed out after 15 seconds at ${sourceUrl}.`,
               ),
@@ -460,9 +526,10 @@ export class CatalogLoader extends Context.Service<
               Effect.mapError((error) =>
                 error._tag === "TimeoutError"
                   ? failure(
-                      "timeout",
+                      new CatalogTimedOut({ timeoutMillis }),
                       sourceUrl,
                       `Catalog load timed out after 15 seconds at ${sourceUrl}.`,
+                      error,
                     )
                   : error,
               ),
@@ -506,7 +573,12 @@ export class CatalogLoader extends Context.Service<
             ),
           ),
           Effect.mapError((error: CatalogValidationError) =>
-            failure("invalidCatalog", sourceUrl, error.message),
+            failure(
+              new CatalogDocumentInvalid(),
+              sourceUrl,
+              error.message,
+              error,
+            ),
           ),
         ),
       );
@@ -524,7 +596,7 @@ export class CatalogLoader extends Context.Service<
         : undefined;
       if (officialAlias !== undefined)
         return yield* new CatalogLoadFailure({
-          reason: "invalidSource",
+          reason: new CatalogSourceInvalid(),
           sourceUrl: officialUrl,
           sourceName: officialAlias.name,
           message: `Catalog source ${officialAlias.name} repeats the official catalog URL; select it once as official.`,
@@ -553,9 +625,7 @@ export class CatalogLoader extends Context.Service<
                   sourceUrl: error.sourceUrl,
                   sourceName: source.name,
                   message: `Catalog source ${source.name}: ${error.message}`,
-                  ...(error.status === undefined
-                    ? {}
-                    : { status: error.status }),
+                  cause: error.cause,
                 }),
             ),
             Effect.result,
@@ -587,6 +657,7 @@ export class CatalogLoader extends Context.Service<
             new CatalogCompositionFailure({
               issues: error.details,
               sources: composedSources,
+              cause: error,
             }),
         ),
       );

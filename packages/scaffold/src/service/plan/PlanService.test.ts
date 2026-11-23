@@ -281,7 +281,9 @@ describe("PlanService", () => {
 
         const failure = squashFailure(exit);
         expect(failure).toBeInstanceOf(PlanFailure);
-        expect(failure).toMatchObject({ reason: "invalidPlanIntent" });
+        expect(failure).toMatchObject({
+          message: expect.stringContaining("Invalid projected Plan"),
+        });
       }),
   );
 
@@ -863,7 +865,6 @@ export * from "./toolkits/DateTimeToolkit";
           assert(Exit.isFailure(exit));
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "PlanFailure",
-            reason: "repoRootNotEmpty",
             message: "Expected packages to be a directory during planning.",
           });
         }),

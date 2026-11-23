@@ -516,7 +516,6 @@ const derivePlanningIntentFamily = ({
         onNone: () =>
           Effect.fail(
             new PlanFailure({
-              reason: "invalidPlanIntent",
               message: `No planning intents found for ${path}.`,
             }),
           ),
@@ -536,7 +535,6 @@ const derivePlanningIntentFamily = ({
 
   return Effect.fail(
     new PlanFailure({
-      reason: "invalidPlanIntent",
       message: `Conflicting planning intents for ${path}.`,
     }),
   );
@@ -571,7 +569,6 @@ const requireSingleValue = <Value>({
       onNone: () =>
         Effect.fail(
           new PlanFailure({
-            reason: "invalidPlanIntent",
             message: errorMessage,
           }),
         ),
@@ -580,7 +577,6 @@ const requireSingleValue = <Value>({
           ? Effect.succeed(firstValue)
           : Effect.fail(
               new PlanFailure({
-                reason: "invalidPlanIntent",
                 message: errorMessage,
               }),
             ),
@@ -608,7 +604,6 @@ const collectUniqueEntries = <Entry, Result>({
           onNone: () =>
             Effect.fail(
               new PlanFailure({
-                reason: "invalidPlanIntent",
                 message: errorMessage,
               }),
             ),

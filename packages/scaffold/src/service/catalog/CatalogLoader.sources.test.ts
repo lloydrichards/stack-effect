@@ -43,7 +43,7 @@ const kinds = (catalog: {
 }) => catalog.toCatalogTree.targets.map((entry) => entry.kind);
 
 type SourceFailureCase = {
-  readonly reason: CatalogLoadReason;
+  readonly reason: CatalogLoadReason["_tag"];
   readonly sourceName: keyof typeof urls;
   readonly condition: string;
   readonly routes: Record<string, () => Route>;
@@ -53,14 +53,14 @@ type SourceFailureCase = {
 
 const sourceFailures: ReadonlyArray<SourceFailureCase> = [
   {
-    reason: "invalidJson",
+    reason: "CatalogJsonInvalid",
     sourceName: "acme",
     condition: "a selected source returns malformed JSON",
     routes: { [officialUrl]: () => official, [urls.acme]: () => "{" },
     selection: select("official", "acme"),
   },
   {
-    reason: "invalidCatalog",
+    reason: "CatalogDocumentInvalid",
     sourceName: "beta",
     condition: "a document requires a source other than official",
     routes: {
@@ -73,7 +73,7 @@ const sourceFailures: ReadonlyArray<SourceFailureCase> = [
     selection: select("beta"),
   },
   {
-    reason: "unavailable",
+    reason: "CatalogUnavailable",
     sourceName: "beta",
     condition: "one source has no usable data",
     routes: { [urls.acme]: () => acme, [urls.beta]: () => 503 },
@@ -81,7 +81,7 @@ const sourceFailures: ReadonlyArray<SourceFailureCase> = [
     status: 503,
   },
   {
-    reason: "httpStatus",
+    reason: "CatalogHttpStatusRejected",
     sourceName: "acme",
     condition: "a source answers with a permanent HTTP status",
     routes: { [urls.acme]: () => 410 },
@@ -238,10 +238,10 @@ describe("loadSources", () => {
         assert.instanceOf(error, CatalogLoadFailure);
         assert.deepStrictEqual(
           {
-            reason: error.reason,
+            reason: error.reason._tag,
             sourceName: error.sourceName,
             sourceUrl: error.sourceUrl,
-            status: error.status,
+            status: "status" in error.reason ? error.reason.status : undefined,
           },
           { reason, sourceName, sourceUrl: urls[sourceName], status },
         );

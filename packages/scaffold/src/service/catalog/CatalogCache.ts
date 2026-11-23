@@ -1,4 +1,4 @@
-import { Context, Data, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 export type CatalogCacheEntry = {
   readonly sourceUrl: string;
@@ -9,9 +9,13 @@ export type CatalogCacheEntry = {
   readonly validatedAt: number;
 };
 
-export class CatalogCacheFailure extends Data.TaggedError(
+export class CatalogCacheFailure extends Schema.TaggedError<CatalogCacheFailure>()(
   "CatalogCacheFailure",
-)<{ readonly message: string }> {}
+  {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
 
 export type CatalogCacheShape = {
   readonly read: (

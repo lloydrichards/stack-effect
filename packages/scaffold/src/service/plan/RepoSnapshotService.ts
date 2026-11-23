@@ -41,8 +41,8 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 Effect.mapError(
                   (err) =>
                     new PlanFailure({
-                      reason: "repoRootNotEmpty",
                       message: `Could not inspect ${snapshotPath} during planning: ${err.message}`,
+                      cause: err,
                     }),
                 ),
               );
@@ -54,7 +54,6 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 );
                 if (link) {
                   return yield* new PlanFailure({
-                    reason: "repoStateUnsupported",
                     message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
                   });
                 }
@@ -72,7 +71,6 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 ));
               if (isLink) {
                 return yield* new PlanFailure({
-                  reason: "repoStateUnsupported",
                   message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
                 });
               }
@@ -86,7 +84,6 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
 
               if (pathStat.type !== "File") {
                 return yield* new PlanFailure({
-                  reason: "repoStateUnsupported",
                   message: `Unsupported repository entry at ${snapshotPath}: ${pathStat.type}.`,
                 });
               }
@@ -95,24 +92,28 @@ export class RepoSnapshotService extends Context.Service<RepoSnapshotService>()(
                 Effect.mapError(
                   (err) =>
                     new PlanFailure({
-                      reason: "repoRootNotEmpty",
                       message: `Could not read ${snapshotPath} during planning: ${err.message}`,
+                      cause: err,
                     }),
                 ),
               );
 
+              if (bytes.includes(0)) {
+                return yield* new PlanFailure({
+                  message: `Non-text repository file at ${snapshotPath} is unsupported.`,
+                });
+              }
+
               const contents = yield* Effect.try({
-                try: () => {
-                  if (bytes.includes(0)) throw new Error("NUL byte");
-                  return new TextDecoder("utf-8", {
+                try: () =>
+                  new TextDecoder("utf-8", {
                     fatal: true,
                     ignoreBOM: true,
-                  }).decode(bytes);
-                },
-                catch: () =>
+                  }).decode(bytes),
+                catch: (cause) =>
                   new PlanFailure({
-                    reason: "repoStateUnsupported",
                     message: `Non-text repository file at ${snapshotPath} is unsupported.`,
+                    cause,
                   }),
               });
 

@@ -347,7 +347,6 @@ describe("Plan and Apply repository state", () => {
             service.apply({ apply, repoRoot }),
           );
           assert(failure._tag === "ApplyFailure");
-          expect(failure.reason).toBe("invalidApplyIntent");
           expect(failure.message).toContain("@repo/shared");
           yield* Effect.forEach(destinations, (path) =>
             Effect.gen(function* () {
@@ -542,7 +541,6 @@ describe("Plan and Apply repository state", () => {
       yield* files.writeFile(absolute, Uint8Array.of(0xff, 0x00));
       const failure = yield* Effect.flip(build);
       assert(failure._tag === "PlanFailure");
-      expect(failure.reason).toBe("repoStateUnsupported");
       expect(failure.message).toContain(planned.path);
     }).pipe(Effect.provide(TestLayer)),
   );
@@ -565,7 +563,6 @@ describe("Plan and Apply repository state", () => {
       yield* files.symlink("/external.ts", absolute);
       const failure = yield* Effect.flip(build);
       assert(failure._tag === "PlanFailure");
-      expect(failure.reason).toBe("repoStateUnsupported");
       expect(failure.message).toContain(planned.path);
     }).pipe(Effect.provide(TestLayer)),
   );

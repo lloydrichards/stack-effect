@@ -31,7 +31,6 @@ describe("TypeScriptComposer JSX slots", () => {
 
       expect(failure).toMatchObject({
         _tag: "ApplyFailure",
-        reason: "repoRootInvalid",
         message:
           "Could not find JSX slot {/* @slot:components */} during TypeScript composition.",
       });

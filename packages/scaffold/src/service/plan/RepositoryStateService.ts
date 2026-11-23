@@ -44,10 +44,10 @@ export class RepositoryStateService extends Context.Service<RepositoryStateServi
                   : Effect.fail(error),
               ),
               Effect.mapError(
-                () =>
+                (cause) =>
                   new PlanFailure({
-                    reason: "repoStateUnsupported",
                     message: "Could not resolve the repository root.",
+                    cause,
                   }),
               ),
             );

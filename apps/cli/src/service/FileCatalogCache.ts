@@ -69,7 +69,8 @@ export const fileCatalogCacheLayer = (directory?: string) =>
         return path.join(root, `${hash}.json`);
       });
 
-      const fail = (message: string) => new CatalogCacheFailure({ message });
+      const fail = (message: string, cause: unknown) =>
+        new CatalogCacheFailure({ message, cause });
 
       const read = Effect.fn("FileCatalogCache.read")(function* (
         sourceUrl: string,
@@ -80,13 +81,15 @@ export const fileCatalogCacheLayer = (directory?: string) =>
             (error) => error.reason._tag === "NotFound",
             () => Effect.as(Effect.void, undefined),
           ),
-          Effect.mapError(() =>
-            fail(`Could not read catalog cache at ${location}.`),
+          Effect.mapError((cause) =>
+            fail(`Could not read catalog cache at ${location}.`, cause),
           ),
         );
         if (json === undefined) return undefined;
         const stored = yield* Schema.decodeEffect(StoredJson)(json).pipe(
-          Effect.mapError(() => fail(`Invalid catalog cache at ${location}.`)),
+          Effect.mapError((cause) =>
+            fail(`Invalid catalog cache at ${location}.`, cause),
+          ),
         );
         return {
           sourceUrl: stored.sourceUrl,
@@ -110,15 +113,17 @@ export const fileCatalogCacheLayer = (directory?: string) =>
           ...entry,
           bytes: Buffer.from(entry.bytes).toString("base64"),
         }).pipe(
-          Effect.mapError(() => fail("Could not encode catalog cache entry.")),
+          Effect.mapError((cause) =>
+            fail("Could not encode catalog cache entry.", cause),
+          ),
         );
         yield* Effect.gen(function* () {
           yield* fs.makeDirectory(root, { recursive: true });
           yield* fs.writeFileString(temporary, json);
           yield* fs.rename(temporary, location);
         }).pipe(
-          Effect.mapError(() =>
-            fail(`Could not write catalog cache at ${location}.`),
+          Effect.mapError((cause) =>
+            fail(`Could not write catalog cache at ${location}.`, cause),
           ),
           Effect.onExit(() => fs.remove(temporary).pipe(Effect.ignore)),
         );

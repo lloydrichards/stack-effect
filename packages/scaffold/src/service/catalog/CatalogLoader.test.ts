@@ -11,7 +11,11 @@ import {
   CatalogCacheFailure,
   type CatalogCacheEntry,
 } from "./CatalogCache";
-import { CatalogLoader, type CatalogLoadReason } from "./CatalogLoader";
+import {
+  CatalogHttpStatusRejected,
+  CatalogLoader,
+  type CatalogLoadReason,
+} from "./CatalogLoader";
 
 const sourceUrl = "https://catalog.example.test/catalog.json";
 const document = Schema.encodeSync(Schema.fromJsonString(CatalogDocument))({
@@ -67,24 +71,24 @@ const testLayer = (
 const encode = Schema.encodeSync(Schema.fromJsonString(CatalogDocument));
 
 type RejectionCase = {
-  readonly reason: CatalogLoadReason;
+  readonly reason: CatalogLoadReason["_tag"];
   readonly condition: string;
   readonly respond: Handler;
 };
 
 const rejections: ReadonlyArray<RejectionCase> = [
   {
-    reason: "invalidJson",
+    reason: "CatalogJsonInvalid",
     condition: "is not valid JSON",
     respond: (request) => response(request, 200, "{"),
   },
   {
-    reason: "unsupportedFormat",
+    reason: "CatalogFormatUnsupported",
     condition: "declares an unsupported format version",
     respond: (request) => response(request, 200, '{"formatVersion":2}'),
   },
   {
-    reason: "unsupportedCapability",
+    reason: "CatalogCapabilityUnsupported",
     condition: "requires a capability the v1 interpreter cannot execute",
     respond: (request) =>
       response(
@@ -100,7 +104,7 @@ const rejections: ReadonlyArray<RejectionCase> = [
       ),
   },
   {
-    reason: "invalidCatalog",
+    reason: "CatalogDocumentInvalid",
     condition: "is structurally valid but has unresolved references",
     respond: (request) =>
       response(
@@ -127,7 +131,7 @@ const rejections: ReadonlyArray<RejectionCase> = [
       ),
   },
   {
-    reason: "invalidContentType",
+    reason: "CatalogContentTypeInvalid",
     condition: "is not labeled JSON",
     respond: (request) =>
       response(request, 200, document, { "content-type": "text/html" }),
@@ -271,8 +275,8 @@ it.effect(
       const loader = yield* CatalogLoader;
       yield* loader.load({ sourceUrl });
       const error = yield* Effect.flip(loader.load({ sourceUrl }));
-      assert.strictEqual(error.reason, "httpStatus");
-      assert.strictEqual(error.status, 404);
+      assert.instanceOf(error.reason, CatalogHttpStatusRejected);
+      assert.strictEqual(error.reason.status, 404);
     }).pipe(Effect.provide(layer));
   },
 );
@@ -369,12 +373,12 @@ it.effect.each(rejections)(
       const error = yield* Effect.flip(
         (yield* CatalogLoader).load({ sourceUrl }),
       );
-      assert.strictEqual(error.reason, reason);
+      assert.strictEqual(error.reason._tag, reason);
     }).pipe(Effect.provide(testLayer(respond))),
 );
 
 it.effect(
-  "should fail with contentTooLarge and release the stream when the body exceeds 8 MiB",
+  "should fail with CatalogContentTooLarge and release the stream when the body exceeds 8 MiB",
   () => {
     let canceled = false;
     const body = new ReadableStream<Uint8Array>({
@@ -389,7 +393,7 @@ it.effect(
       const error = yield* Effect.flip(
         (yield* CatalogLoader).load({ sourceUrl }),
       );
-      assert.strictEqual(error.reason, "contentTooLarge");
+      assert.strictEqual(error.reason._tag, "CatalogContentTooLarge");
       assert.isTrue(canceled);
     }).pipe(
       Effect.provide(
@@ -408,7 +412,7 @@ it.effect(
 );
 
 it.effect(
-  "should fail with timeout and stop the request when it hangs past 15 seconds",
+  "should fail with CatalogTimedOut and stop the request when it hangs past 15 seconds",
   () => {
     let started = false;
     let stopped = false;
@@ -431,7 +435,7 @@ it.effect(
       const fiber = yield* Effect.forkChild(loader.load({ sourceUrl }));
       yield* TestClock.adjust("15 seconds");
       const error = yield* Effect.flip(Fiber.join(fiber));
-      assert.strictEqual(error.reason, "timeout");
+      assert.strictEqual(error.reason._tag, "CatalogTimedOut");
       assert.isTrue(started);
       assert.isTrue(stopped);
     }).pipe(Effect.provide(layer));

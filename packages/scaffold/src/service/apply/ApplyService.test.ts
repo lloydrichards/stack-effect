@@ -465,7 +465,6 @@ describe("ApplyService", () => {
           expect(composeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "invalidApplyIntent",
             message:
               "Missing apply decision for conflicted path packages/domain/src/Api.ts.",
           });
@@ -512,7 +511,6 @@ describe("ApplyService", () => {
           expect(writeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "invalidApplyIntent",
             message:
               "Unexpected apply decision for non-conflicted path packages/domain/src/Api.ts.",
           });
@@ -563,7 +561,6 @@ describe("ApplyService", () => {
           expect(writeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "invalidApplyIntent",
             message: "Duplicate apply decision for packages/domain/src/Api.ts.",
           });
         }),
@@ -734,7 +731,6 @@ describe("ApplyService", () => {
           expect(writeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "repoRootInvalid",
             message:
               "Expected /repo/packages/domain/src/index.ts to be a file during apply.",
           });
@@ -794,7 +790,6 @@ describe("ApplyService", () => {
           expect(writeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "repoRootInvalid",
             message:
               "Could not read /repo/packages/domain/src/index.ts during apply: Unknown: FileSystem.readFileString (/repo/packages/domain/src/index.ts): read exploded",
           });
@@ -857,7 +852,6 @@ describe("ApplyService", () => {
         expect(writeCalls).toHaveLength(0);
         expect(Cause.squash(exit.cause)).toMatchObject({
           _tag: "ApplyFailure",
-          reason: "repoRootInvalid",
           message:
             "Could not find Command.withSubcommands on program during TypeScript composition.",
         });
@@ -923,7 +917,6 @@ describe("ApplyService", () => {
           expect(writeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
-            reason: "repoRootInvalid",
             message:
               'Expected package.json field "scripts" to be an object during apply.',
           });
@@ -989,7 +982,6 @@ describe("ApplyService", () => {
                 if (write.path === "packages/domain/src/Api.ts") {
                   return Effect.fail(
                     new ApplyFailure({
-                      reason: "executionFailure",
                       message: "disk full",
                     }),
                   );
@@ -1092,7 +1084,6 @@ describe("ApplyService", () => {
                   default:
                     return Effect.fail(
                       new ApplyFailure({
-                        reason: "executionFailure",
                         message: `Unexpected write path ${write.path}`,
                       }),
                     );

@@ -161,7 +161,6 @@ const toPlannedFileOutcome = ({
     })),
     Match.when({ hasContents: false, hasOperations: false }, () => {
       throw new PlanFailure({
-        reason: "invalidPlanIntent",
         message: `No planned outcome could be derived for ${planningPath.path}.`,
       });
     }),
@@ -328,7 +327,6 @@ const assessPlanningPath = ({
     ),
     Match.orElse(() => {
       throw new PlanFailure({
-        reason: "invalidPlanIntent",
         message: `No planning intent defined for ${planningPath.path}.`,
       });
     }),
@@ -847,7 +845,6 @@ const getExistingFileContents = (
 
   if (snapshotPath._tag !== "file") {
     throw new PlanFailure({
-      reason: "repoRootNotEmpty",
       message: `Expected ${path} to be a file during planning.`,
     });
   }

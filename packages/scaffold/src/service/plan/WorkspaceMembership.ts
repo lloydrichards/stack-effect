@@ -61,18 +61,18 @@ export const registerWorkspaceMembers = Effect.fn(
         const document = parseDocument(contents);
         if (document.errors.length > 0)
           return yield* new PlanFailure({
-            reason: "repoStateUnsupported",
             message: `Invalid pnpm-workspace.yaml: ${document.errors.map((error) => error.message).join("; ")}`,
+            cause: document.errors,
           });
         const sequence = document.get("packages", true);
         const entries = yield* Schema.decodeUnknownEffect(
           Schema.Array(Schema.String),
         )(isSeq(sequence) ? sequence.toJSON() : undefined).pipe(
           Effect.mapError(
-            () =>
+            (cause) =>
               new PlanFailure({
-                reason: "repoStateUnsupported",
                 message: "Expected a packages sequence in pnpm-workspace.yaml.",
+                cause,
               }),
           ),
         );
@@ -93,8 +93,8 @@ export const registerWorkspaceMembers = Effect.fn(
         Effect.mapError(
           (cause) =>
             new PlanFailure({
-              reason: "repoStateUnsupported",
               message: `Could not read workspace membership in ${path}: ${cause.message}`,
+              cause,
             }),
         ),
       );
@@ -105,16 +105,16 @@ export const registerWorkspaceMembers = Effect.fn(
         Schema.Array(Schema.String),
       )(object[field]).pipe(
         Effect.mapError(
-          () =>
+          (cause) =>
             new PlanFailure({
-              reason: "repoStateUnsupported",
               message: `Expected ${field} to be an array of paths in ${path}.`,
+              cause,
             }),
         ),
       );
       const paths = mergeMembers(entries, members);
       if (outcome?._tag === "complete") {
-        const updated = `${yield* Schema.encodeEffect(jsonObject)({ ...object, [field]: paths }).pipe(Effect.mapError((cause) => new PlanFailure({ reason: "invalidPlanIntent", message: cause.message })))}\n`;
+        const updated = `${yield* Schema.encodeEffect(jsonObject)({ ...object, [field]: paths }).pipe(Effect.mapError((cause) => new PlanFailure({ message: cause.message, cause })))}\n`;
         return {
           ...outcome,
           contents: updated,

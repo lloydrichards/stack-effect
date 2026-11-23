@@ -87,8 +87,8 @@ export class ApplyWorkspaceService extends Context.Service<
         Effect.mapError(
           (error) =>
             new ApplyFailure({
-              reason: "executionFailure",
               message: `Could not initialize the workspace: ${error.message}`,
+              cause: error,
             }),
         ),
       );
@@ -108,8 +108,8 @@ export class ApplyWorkspaceService extends Context.Service<
                     Effect.mapError(
                       (error) =>
                         new ApplyFailure({
-                          reason: "executionFailure",
                           message: `Could not seed ${entry.path}: ${error.message}`,
+                          cause: error,
                         }),
                     ),
                   );
@@ -119,8 +119,8 @@ export class ApplyWorkspaceService extends Context.Service<
                 Effect.mapError(
                   (error) =>
                     new ApplyFailure({
-                      reason: "repoRootInvalid",
                       message: `Could not read ${sourcePath}: ${error.message}`,
+                      cause: error,
                     }),
                 ),
               );
@@ -133,8 +133,8 @@ export class ApplyWorkspaceService extends Context.Service<
                   Effect.mapError(
                     (error) =>
                       new ApplyFailure({
-                        reason: "executionFailure",
                         message: `Could not seed ${entry.path}: ${error.message}`,
+                        cause: error,
                       }),
                   ),
                 );
@@ -189,7 +189,6 @@ export class ApplyWorkspaceService extends Context.Service<
               .length > 0
           ) {
             return yield* new ApplyFailure({
-              reason: "invalidApplyIntent",
               message:
                 "Apply baseline differs from the seeded workspace. Create a new workspace for this Plan.",
             });
@@ -248,8 +247,8 @@ export class ApplyWorkspaceService extends Context.Service<
                 Effect.mapError(
                   (error) =>
                     new ApplyFailure({
-                      reason: "executionFailure",
                       message: `Could not read ${path} after Apply: ${error.message}`,
+                      cause: error,
                     }),
                 ),
               ),

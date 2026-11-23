@@ -9,7 +9,7 @@ import {
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Cause, Effect, Exit, Layer, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { BlueprintService } from "./BlueprintService";
 
 const domainIdentity = new TargetIdentity({
@@ -31,12 +31,6 @@ const getNode = (blueprint: typeof Blueprint.Type, id: string) => {
   return node;
 };
 
-const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
-  expect(Exit.isFailure(exit)).toBe(true);
-  assert(Exit.isFailure(exit), "Expected effect to fail");
-  return Cause.squash(exit.cause);
-};
-
 const denoConfig = new StackConfig({
   name: Schema.NonEmptyString.make("deno-project"),
   runtime: { _tag: "deno" },
@@ -53,7 +47,7 @@ describe("BlueprintService", () => {
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const exit = yield* Effect.exit(
+          const error = yield* Effect.flip(
             blueprintService.resolve({
               targets: [
                 {
@@ -73,7 +67,6 @@ describe("BlueprintService", () => {
               ],
             }),
           );
-          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
@@ -85,7 +78,7 @@ describe("BlueprintService", () => {
       it.effect("should fail when the same module is selected twice", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const exit = yield* Effect.exit(
+          const error = yield* Effect.flip(
             blueprintService.resolve({
               targets: [
                 {
@@ -101,7 +94,6 @@ describe("BlueprintService", () => {
               ],
             }),
           );
-          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(BlueprintFailure);
           expect(error).toMatchObject({
@@ -116,7 +108,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const exit = yield* Effect.exit(
+            const error = yield* Effect.flip(
               blueprintService.resolve({
                 targets: [
                   {
@@ -129,7 +121,6 @@ describe("BlueprintService", () => {
                 ],
               }),
             );
-            const error = squashFailure(exit);
 
             expect(error).toBeInstanceOf(BlueprintFailure);
             expect(error).toMatchObject({
@@ -142,7 +133,7 @@ describe("BlueprintService", () => {
       it.effect("should propagate a missing module catalog lookup", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
-          const exit = yield* Effect.exit(
+          const error = yield* Effect.flip(
             blueprintService.resolve({
               targets: [
                 {
@@ -157,7 +148,6 @@ describe("BlueprintService", () => {
               ],
             }),
           );
-          const error = squashFailure(exit);
 
           expect(error).toBeInstanceOf(CatalogNotFound);
           expect(error).toMatchObject({
@@ -173,7 +163,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const exit = yield* Effect.exit(
+            const error = yield* Effect.flip(
               blueprintService.resolve({
                 targets: [
                   {
@@ -189,7 +179,6 @@ describe("BlueprintService", () => {
                 ],
               }),
             );
-            const error = squashFailure(exit);
 
             expect(error).toBeInstanceOf(BlueprintFailure);
             expect(error).toMatchObject({
@@ -304,7 +293,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const exit = yield* Effect.exit(
+            const error = yield* Effect.flip(
               blueprintService.resolve({
                 targets: [
                   {
@@ -317,7 +306,7 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(squashFailure(exit)).toMatchObject({
+            expect(error).toMatchObject({
               message: expect.stringContaining(
                 "Select exactly one provider module explicitly",
               ),
@@ -330,7 +319,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const exit = yield* Effect.exit(
+            const error = yield* Effect.flip(
               blueprintService.resolve({
                 targets: [
                   {
@@ -345,7 +334,7 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(squashFailure(exit)).toMatchObject({
+            expect(error).toMatchObject({
               message: expect.stringContaining(
                 "Select exactly one provider module explicitly",
               ),
@@ -358,7 +347,7 @@ describe("BlueprintService", () => {
         () =>
           Effect.gen(function* () {
             const blueprintService = yield* BlueprintService;
-            const exit = yield* Effect.exit(
+            const error = yield* Effect.flip(
               blueprintService.resolve({
                 targets: [
                   {
@@ -372,7 +361,7 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(squashFailure(exit)).toMatchObject({
+            expect(error).toMatchObject({
               message: expect.stringContaining(
                 "Multiple providers selected for capability db-sql",
               ),

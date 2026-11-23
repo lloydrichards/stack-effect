@@ -4,10 +4,10 @@ import { pathOrd } from "@repo/domain/Order";
 import { type PackageOwner, PlanFailure } from "@repo/domain/Plan";
 import { Array as Arr, Effect, FileSystem, Path, Schema } from "effect";
 
-const unsupported = (path: string, detail: string) =>
+const unsupported = (path: string, detail: string, cause?: unknown) =>
   new PlanFailure({
-    reason: "repoStateUnsupported",
     message: `Cannot inspect package ownership at ${path}: ${detail}`,
+    cause,
   });
 
 const ManifestName = Schema.fromJsonString(
@@ -20,8 +20,8 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
       path: manifestPath.slice(0, -"/package.json".length),
       name,
     })),
-    Effect.mapError(() =>
-      unsupported(manifestPath, "invalid package JSON or missing name"),
+    Effect.mapError((cause) =>
+      unsupported(manifestPath, "invalid package JSON or missing name", cause),
     ),
   );
 
@@ -60,7 +60,9 @@ export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
               ? Effect.succeed(null)
               : Effect.fail(error),
           ),
-          Effect.mapError(() => unsupported(relative, "could not stat entry")),
+          Effect.mapError((cause) =>
+            unsupported(relative, "could not stat entry", cause),
+          ),
         );
       });
 
@@ -79,8 +81,8 @@ export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
         const names = yield* fs
           .readDirectory(paths.join(repoRoot, relative))
           .pipe(
-            Effect.mapError(() =>
-              unsupported(relative, "could not list directory"),
+            Effect.mapError((cause) =>
+              unsupported(relative, "could not list directory", cause),
             ),
           );
         const alias = names.find(
@@ -100,8 +102,8 @@ export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
           const contents = yield* fs
             .readFileString(paths.join(repoRoot, manifestPath))
             .pipe(
-              Effect.mapError(() =>
-                unsupported(manifestPath, "could not read manifest"),
+              Effect.mapError((cause) =>
+                unsupported(manifestPath, "could not read manifest", cause),
               ),
             );
           return [yield* parsePackageOwner(manifestPath, contents)];

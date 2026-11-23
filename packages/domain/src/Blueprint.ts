@@ -1,4 +1,4 @@
-import { Array as Arr, Data, Order, Schema } from "effect";
+import { Array as Arr, Order, Schema } from "effect";
 import {
   CatalogNotFound,
   ModuleId,
@@ -9,10 +9,13 @@ import { idOrd } from "./Order";
 
 export { CatalogNotFound };
 
-export class BlueprintFailure extends Data.TaggedError("BlueprintFailure")<{
-  message: string;
-  cause?: unknown;
-}> {}
+export class BlueprintFailure extends Schema.TaggedError<BlueprintFailure>()(
+  "BlueprintFailure",
+  {
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
 
 /**
  * Represents a resolved target workspace in the blueprint graph.

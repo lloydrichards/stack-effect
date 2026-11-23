@@ -28,8 +28,8 @@ export class JsonComposer extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "repoRootInvalid",
                 message: `Could not parse package.json during apply: ${error.message}`,
+                cause: error,
               }),
           ),
         );
@@ -48,8 +48,8 @@ export class JsonComposer extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "repoRootInvalid",
                 message: `Could not encode package.json during apply: ${error.message}`,
+                cause: error,
               }),
           ),
         );
@@ -88,7 +88,6 @@ const assignPackageJsonEntries = (
     const existingSection = pkg[sectionName];
     if (existingSection !== undefined && !isPlainObject(existingSection)) {
       return yield* new ApplyFailure({
-        reason: "repoRootInvalid",
         message: `Expected package.json field "${sectionName}" to be an object during apply.`,
       });
     }
