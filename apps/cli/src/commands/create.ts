@@ -10,12 +10,12 @@ import {
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
 } from "@repo/domain/Scaffold";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { RecipeService } from "@repo/scaffold/RecipeService";
 import {
-  BlueprintService,
   defaultsForRuntime,
-  RecipeService,
   StackConfigDefaults,
-} from "@repo/scaffold";
+} from "@repo/scaffold/StackConfigDefaults";
 import { Array as Arr, Console, Effect, Option } from "effect";
 import { Command } from "effect/cli";
 import {

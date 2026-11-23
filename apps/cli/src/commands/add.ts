@@ -8,7 +8,8 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import type { RecipeTargetSpec } from "@repo/domain/Recipe";
-import { parseRecipeTargetSpecs, RecipeService } from "@repo/scaffold";
+import { RecipeService } from "@repo/scaffold/RecipeService";
+import { parseRecipeTargetSpecs } from "@repo/scaffold/RecipeTargets";
 import {
   HorizontalSelect,
   type NestedModuleChild,

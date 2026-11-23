@@ -64,3 +64,28 @@ export class FinalizeReport extends Schema.Class<FinalizeReport>(
     return this.results.length - this.succeeded;
   }
 }
+
+/**
+ * One shell command to run after Apply, resolved for a target's directory.
+ *
+ * **When to use**
+ *
+ * List, confirm, or run the scripts a Blueprint needs once its files exist.
+ *
+ * **Gotchas**
+ *
+ * `workdir` is relative to the repository root, and `"."` means the root.
+ * Scripts from a custom catalog carry `source`, so callers can ask before
+ * running them.
+ */
+export const FinalizeScript = Schema.Struct({
+  label: Schema.String,
+  command: Schema.String,
+  workdir: Schema.String,
+  phase: Schema.Literals(["finalize", "config", "post-finalize"]),
+  origin: Schema.String,
+  /** Selected catalog source that contributed the script, when sources are named. */
+  source: Schema.optionalKey(Schema.String),
+});
+
+export type FinalizeScript = typeof FinalizeScript.Type;

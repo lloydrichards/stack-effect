@@ -19,7 +19,7 @@ sources:
   - id: official-service
     resource: ../../catalogs/official/src/service.ts
   - id: loader
-    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/CatalogLoader.ts
   - id: preset-discovery
     resource: ../../apps/docs/app/workers/recipe-builder/recipe-builder.worker.ts
   - id: preset-projection

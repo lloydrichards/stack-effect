@@ -19,7 +19,7 @@ sources:
   - id: composition
     resource: https://github.com/lloydrichards/stack-effect/issues/249
   - id: loader-code
-    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/CatalogLoader.ts
   - id: labs
     resource: ../../catalogs/labs/src/service.ts
   - id: qualification

@@ -5,37 +5,37 @@ description: Current domain boundaries and filesystem ownership in Stack Effect.
 status: stable
 sources:
   - id: plan
-    resource: ../../packages/scaffold/src/service/plan/PlanService.ts
+    resource: ../../packages/scaffold/src/PlanService.ts
     title: Plan construction
   - id: apply
-    resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
+    resource: ../../packages/scaffold/src/ApplyService.ts
     title: Apply preparation and execution
   - id: workspace
-    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaces.ts
+    resource: ../../packages/scaffold/src/ApplyWorkspaces.ts
     title: In-memory workspace creation and materialization
   - id: recipe
-    resource: ../../packages/scaffold/src/service/recipe/RecipePreviewer.ts
+    resource: ../../packages/scaffold/src/RecipePreviewer.ts
     title: Recipe preview
   - id: write
-    resource: ../../packages/scaffold/src/service/apply/AtomicWriter.ts
+    resource: ../../packages/scaffold/src/internal/atomicWriter.ts
     title: Host write behavior
   - id: pipeline
     resource: ../../apps/cli/src/service/ScaffoldPipeline.ts
     title: CLI lifecycle
   - id: exports
-    resource: ../../packages/scaffold/src/index.ts
+    resource: ../../packages/scaffold/package.json
   - id: finalize
-    resource: ../../packages/scaffold/src/service/finalize/FinalizeService.ts
+    resource: ../../packages/scaffold/src/FinalizeService.ts
   - id: loader
-    resource: ../../packages/scaffold/src/service/catalog/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/CatalogLoader.ts
     title: Catalog loading and composition
   - id: services
     resource: ../../apps/cli/src/services.ts
     title: CLI command service layer
   - id: contribution-resolver
-    resource: ../../packages/scaffold/src/service/plan/ContributionResolver.ts
+    resource: ../../packages/scaffold/src/ContributionResolver.ts
   - id: readme-contract
-    resource: ../../packages/scaffold/src/service/recipe/Readmes.test.ts
+    resource: ../../packages/scaffold/test/RecipePreviewer.readmes.test.ts
 generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---
 

@@ -6,6 +6,9 @@
     "catalogs/**/templates/**",
     "apps/docs/app/content/reference/cli/**"
   ],
+  "production": {
+    "ignore": ["**/test/**", "**/e2e/**"]
+  },
   "publicPackages": ["@stack-effect/author", "@repo/authoring"],
   "ignoreExports": [
     {

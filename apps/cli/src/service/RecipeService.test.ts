@@ -6,19 +6,15 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { RecipeSpec } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
-import type { Selection } from "@repo/domain/Selection";
 import {
-  AmbiguousRecipeProvider,
-  InvalidRecipeSpec,
-  MissingRecipeProvider,
   RecipeProviderStrategy,
   RecipeResolveOptions,
-  RecipeService,
-  StackConfigDefaults,
-  UnresolvedRecipeTarget,
-} from "@repo/scaffold";
+  RecipeSpec,
+} from "@repo/domain/Recipe";
+import { StackConfig } from "@repo/domain/Scaffold";
+import type { Selection } from "@repo/domain/Selection";
+import { RecipeService } from "@repo/scaffold/RecipeService";
+import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
 import { Effect, Layer, Schema } from "effect";
 
 const testConfigFields = {
@@ -1042,56 +1038,5 @@ describe("RecipeService", () => {
         );
       }).pipe(Effect.provide(TestLayer)),
     );
-  });
-
-  describe("errors", () => {
-    it("should expose recoverable error tags when recipe resolution fails", () => {
-      const invalid = new InvalidRecipeSpec({
-        issues: [{ path: ["targets", 0], message: "Unknown target kind." }],
-      });
-      const missing = new MissingRecipeProvider({
-        requestingModuleId: ModuleId.make("chat-persistence-db"),
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "db",
-        }),
-        capability: ModuleCapability.make("db-sql"),
-      });
-      const ambiguous = new AmbiguousRecipeProvider({
-        requestingModuleId: ModuleId.make("chat-persistence-db"),
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "db",
-        }),
-        capability: ModuleCapability.make("db-sql"),
-        providers: [
-          {
-            moduleId: ModuleId.make("package-db-postgres"),
-            title: "Postgres Database",
-            description: "Reusable Effect SQL Postgres package with migrations",
-          },
-        ],
-      });
-      const unresolved = new UnresolvedRecipeTarget({
-        requestingModuleId: ModuleId.make("chat-persistence-db"),
-        targetKind: TargetKind.make("package"),
-        reason: "ambiguous",
-        candidates: [
-          new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "db",
-          }),
-          new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "storage",
-          }),
-        ],
-      });
-
-      assert.strictEqual(invalid._tag, "InvalidRecipeSpec");
-      assert.strictEqual(missing._tag, "MissingRecipeProvider");
-      assert.strictEqual(ambiguous._tag, "AmbiguousRecipeProvider");
-      assert.strictEqual(unresolved._tag, "UnresolvedRecipeTarget");
-    });
   });
 });

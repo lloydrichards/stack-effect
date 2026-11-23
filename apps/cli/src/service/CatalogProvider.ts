@@ -7,12 +7,14 @@ import {
 } from "@repo/domain/CatalogSource";
 import {
   type CatalogCompositionFailure,
-  CatalogLoader,
   CatalogLoadFailure,
   CatalogSourceInvalid,
-  type LoadedCatalogSet,
   type LoadedCatalogSource,
-} from "@repo/scaffold";
+} from "@repo/domain/CatalogSource";
+import {
+  CatalogLoader,
+  type LoadedCatalogSet,
+} from "@repo/scaffold/CatalogLoader";
 import { Console, Context, DateTime, Effect, Layer } from "effect";
 
 export { OFFICIAL_CATALOG_URL };

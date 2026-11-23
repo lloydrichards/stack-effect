@@ -1,0 +1,163 @@
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
+// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
+import { composeTypeScript as compose } from "../src/internal/typeScriptComposition";
+
+const jsxSlot = (slotId: string, content: string) =>
+  ({
+    _tag: "ts-jsx-slot",
+    fileType: "typescript",
+    slotId,
+    content,
+  }) as const;
+
+describe("TypeScriptComposition JSX slots", () => {
+  it.effect("fails when the requested marker is absent", () =>
+    Effect.gen(function* () {
+      const failure = yield* Effect.flip(
+        compose("export const App = () => <main />;", [
+          jsxSlot("components", "<Card />"),
+        ]),
+      );
+
+      expect(failure).toMatchObject({
+        _tag: "ApplyFailure",
+        message:
+          "Could not find JSX slot {/* @slot:components */} during TypeScript composition.",
+      });
+    }),
+  );
+
+  it.effect("preserves contribution order and is idempotent", () =>
+    Effect.gen(function* () {
+      const input = `export const App = () => (\n  <main>\n    {/* @slot:components */}\n  </main>\n);\n`;
+      const operations = [
+        jsxSlot("components", "<Alpha />"),
+        {
+          _tag: "ts-add-import",
+          fileType: "typescript",
+          moduleSpecifier: "./cards",
+          namedImports: ["Alpha", "Beta"],
+        } as const,
+        jsxSlot("components", "<Beta />"),
+      ];
+
+      const once = yield* compose(input, operations);
+      const twice = yield* compose(once, operations);
+
+      expect(once.indexOf("<Alpha />")).toBeLessThan(once.indexOf("<Beta />"));
+      expect(twice).toBe(once);
+      expect(twice.match(/<Alpha \/>/g)).toHaveLength(1);
+      expect(twice.match(/<Beta \/>/g)).toHaveLength(1);
+      expect(twice.match(/from "\.\/cards"/g)).toHaveLength(1);
+    }),
+  );
+
+  it.effect(
+    "does not treat matching content outside the slot as inserted",
+    () =>
+      Effect.gen(function* () {
+        const input = `export const App = () => (\n  <>\n    <main>\n      {/* @slot:components */}\n    </main>\n    <aside><Card /></aside>\n  </>\n);\n`;
+
+        const output = yield* compose(input, [
+          jsxSlot("components", "<Card />"),
+        ]);
+
+        expect(output.match(/<Card \/>/g)).toHaveLength(2);
+      }),
+  );
+
+  it.effect("bounds duplicate detection at the next sibling slot", () =>
+    Effect.gen(function* () {
+      const input = `export const App = () => (
+  <main>
+    {/* @slot:first */}
+    {/* @slot:second */}
+    <Card />
+  </main>
+);
+`;
+
+      const output = yield* compose(input, [jsxSlot("first", "<Card />")]);
+
+      expect(output.match(/<Card \/>/g)).toHaveLength(2);
+      expect(output.indexOf("<Card />")).toBeLessThan(
+        output.indexOf("{/* @slot:second */}"),
+      );
+    }),
+  );
+
+  it.effect("is idempotent when the slot belongs to a JSX fragment", () =>
+    Effect.gen(function* () {
+      const input = `export const App = () => (
+  <>
+    {/* @slot:components */}
+  </>
+);
+`;
+      const operations = [jsxSlot("components", "<Card />")];
+
+      const once = yield* compose(input, operations);
+      const twice = yield* compose(once, operations);
+
+      expect(twice).toBe(once);
+      expect(twice.match(/<Card \/>/g)).toHaveLength(1);
+    }),
+  );
+});
+
+describe("TypeScriptComposition object fields", () => {
+  const operation = (value: string) =>
+    ({
+      _tag: "ts-object-field",
+      fileType: "typescript",
+      targetVariable: "Options",
+      functionName: "Schema.Struct",
+      field: "input",
+      value,
+    }) as const;
+
+  for (const key of ['"input"', '["input"]']) {
+    it.effect(
+      `should report a conflict when ${key} already has a different value`,
+      () =>
+        Effect.gen(function* () {
+          const failure = yield* Effect.flip(
+            compose(
+              `const Options = Schema.Struct({ ${key}: Schema.String });`,
+              [operation("Schema.Number")],
+            ),
+          );
+          expect(failure.message).toContain(
+            "Conflicting value for Options.input",
+          );
+        }),
+    );
+  }
+
+  it.effect(
+    "repeats deeply nested values and rejects changes within them",
+    () =>
+      Effect.gen(function* () {
+        const nested = (leaf: string): string =>
+          Array.from({ length: 12 }).reduce<string>(
+            (value) => `Schema.Struct({ child: ${value} })`,
+            leaf,
+          );
+        const operations = [operation(nested("Schema.String"))];
+        const once = yield* compose(
+          "const Options = Schema.Struct({});",
+          operations,
+        );
+        const repeated = yield* compose(once, operations);
+
+        expect(repeated).toBe(once);
+        const failure = yield* Effect.flip(
+          compose(once, [operation(nested("Schema.Number"))]),
+        );
+        expect(failure.message).toContain(
+          "Conflicting value for Options.input",
+        );
+      }),
+  );
+});

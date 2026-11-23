@@ -6,11 +6,11 @@ import {
   CatalogSources,
   defaultCatalogSources,
 } from "@repo/domain/CatalogSource";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyPreviewFile,
   RecipePreviewInput,
-} from "@repo/scaffold/recipe-preview";
+} from "@repo/domain/RecipePreview";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { AtomRegistry } from "effect/reactivity";

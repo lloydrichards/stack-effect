@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 
+import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
 import { CatalogService } from "@repo/catalog";
@@ -9,21 +10,27 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  type CatalogCompositionFailure,
+  type CatalogLoadFailure,
   type CatalogSources,
   formatCatalogSource,
+  type LoadedCatalogSource,
 } from "@repo/domain/CatalogSource";
 import {
   CatalogLoader,
-  RecipePreviewer,
-  toWorkspaceToolValue,
-} from "@repo/scaffold/browser";
-import type {
-  CatalogCompositionFailure,
-  CatalogLoadFailure,
-  LoadedCatalogSet,
-  LoadedCatalogSource,
-} from "@repo/scaffold/browser";
-import { Data, Effect, Fiber, Layer, Option, SynchronizedRef } from "effect";
+  type LoadedCatalogSet,
+} from "@repo/scaffold/CatalogLoader";
+import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
+import { toWorkspaceToolValue } from "@repo/scaffold/WorkspaceModules";
+import {
+  Data,
+  Effect,
+  Fiber,
+  Layer,
+  Option,
+  Path,
+  SynchronizedRef,
+} from "effect";
 import { FetchHttpClient } from "effect/http";
 import { RpcServer } from "effect/rpc";
 import {
@@ -32,6 +39,12 @@ import {
   RecipeBuilderRpcFailure,
 } from "./domain";
 import { IndexedDbCatalogCache } from "./IndexedDbCatalogCache";
+
+// The browser has no host repository: each preview gets its own in-memory one.
+const PreviewPlatformLive = Layer.merge(
+  Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+  Path.layer,
+);
 
 type CatalogSession = {
   readonly id: number;
@@ -180,6 +193,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
             Effect.provide(
               RecipePreviewer.layer.pipe(
                 Layer.provide(Layer.succeed(CatalogService, catalog)),
+                Layer.provide(PreviewPlatformLive),
               ),
             ),
           );

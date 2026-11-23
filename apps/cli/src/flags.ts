@@ -1,4 +1,4 @@
-import { RecipeTargetString } from "@repo/scaffold";
+import { RecipeTargetString } from "@repo/scaffold/RecipeTargets";
 import { Effect, Schema } from "effect";
 import { Argument, Flag } from "effect/cli";
 

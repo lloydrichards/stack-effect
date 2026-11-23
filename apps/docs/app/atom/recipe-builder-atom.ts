@@ -1,7 +1,7 @@
 import * as BrowserWorker from "@effect/platform-browser/BrowserWorker";
 import type { TargetIdentity } from "@repo/domain/Catalog";
 import type { CatalogSources } from "@repo/domain/CatalogSource";
-import { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
+import { RecipePreviewInput } from "@repo/domain/RecipePreview";
 import { Cause, Effect, Layer, Option } from "effect";
 import { AtomRpc } from "effect/reactivity";
 import { RpcClient } from "effect/rpc";

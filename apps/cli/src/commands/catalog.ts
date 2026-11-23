@@ -10,19 +10,21 @@ import {
 } from "@repo/domain/Catalog";
 import type { RecipeTargetSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
+import { ApplyService } from "@repo/scaffold/ApplyService";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { ContributionResolver } from "@repo/scaffold/ContributionResolver";
+import { FinalizeService } from "@repo/scaffold/FinalizeService";
+import { PlanService } from "@repo/scaffold/PlanService";
+import { RecipeService } from "@repo/scaffold/RecipeService";
+import { parseRecipeTargetSpecs } from "@repo/scaffold/RecipeTargets";
 import {
-  ApplyService,
-  BlueprintService,
-  ContributionResolver,
   defaultsForRuntime,
-  FinalizeService,
-  PlanService,
-  parseRecipeTargetSpecs,
-  RecipeService,
   StackConfigDefaults,
+} from "@repo/scaffold/StackConfigDefaults";
+import {
   toTypeScriptModuleId,
   toWorkspaceModuleId,
-} from "@repo/scaffold";
+} from "@repo/scaffold/WorkspaceModules";
 import {
   Array as Arr,
   Console,

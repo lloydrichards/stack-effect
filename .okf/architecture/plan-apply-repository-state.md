@@ -11,16 +11,16 @@ sources:
     resource: ../../packages/domain/src/Apply.ts
     title: Apply contract
   - id: baseline
-    resource: ../../packages/scaffold/src/service/plan/RepositoryState.ts
+    resource: ../../packages/scaffold/src/internal/repositoryState.ts
     title: Repository capture, baseline, and freshness checks
   - id: planning
-    resource: ../../packages/scaffold/src/service/plan/PlanService.ts
+    resource: ../../packages/scaffold/src/PlanService.ts
     title: Plan construction
   - id: execution
-    resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
+    resource: ../../packages/scaffold/src/ApplyService.ts
     title: Apply behavior
   - id: writing
-    resource: ../../packages/scaffold/src/service/apply/AtomicWriter.ts
+    resource: ../../packages/scaffold/src/internal/atomicWriter.ts
     title: Host writes
 generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---

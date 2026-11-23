@@ -8,13 +8,13 @@ import {
   CatalogSources,
   selectsOfficialCatalog,
 } from "@repo/domain/CatalogSource";
+import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
 import {
   Runtime,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
 } from "@repo/domain/Scaffold";
-import { StackConfigDefaults } from "@repo/scaffold/browser";
-import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
+import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
 

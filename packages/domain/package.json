@@ -14,6 +14,7 @@
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",
     "./Recipe": "./src/Recipe.ts",
+    "./RecipePreview": "./src/RecipePreview.ts",
     "./Rpc": "./src/Rpc.ts",
     "./Scaffold": "./src/Scaffold.ts",
     "./Finalize": "./src/Finalize.ts",

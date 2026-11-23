@@ -2,17 +2,15 @@ import assert from "node:assert/strict";
 import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { type Apply, ApplyResult } from "@repo/domain/Apply";
+import type { MaterializedApply } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import {
-  ApplyService,
-  ApplyWorkspaces,
-  BlueprintService,
-  FinalizeService,
-  type MaterializedApply,
-  PlanService,
-} from "@repo/scaffold";
+import { ApplyService } from "@repo/scaffold/ApplyService";
+import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { FinalizeService } from "@repo/scaffold/FinalizeService";
+import { PlanService } from "@repo/scaffold/PlanService";
 import type { ConfirmOptions } from "@repo/tui";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
 import { Box } from "effect-boxes";
