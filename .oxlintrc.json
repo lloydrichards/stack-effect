@@ -4,7 +4,8 @@
   "rules": {
     "eslint/require-yield": "off",
     "effecttsgo/unnecessary-typeof-type": "off",
-    "typescript/consistent-type-definitions": ["error", "type"]
+    "typescript/consistent-type-definitions": ["error", "type"],
+    "oxc/no-barrel-file": "error"
   },
   "overrides": [
     {
@@ -80,9 +81,26 @@
         "no-restricted-imports": "off",
         "no-restricted-globals": "off"
       }
+    },
+    {
+      "files": ["**/test/**/*.ts", "**/*.test.ts", "**/*.test.tsx"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/internal/*"],
+                "message": "Tests import public modules only."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "ignorePatterns": [
+    ".claude/worktrees/**",
     "packages/authoring/test/fixtures/**/templates/**",
     "catalogs/**/templates/**"
   ]
