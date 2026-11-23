@@ -1,265 +1,100 @@
 // This test intentionally constructs a Windows Path service from Node's win32 implementation.
 // @effect-diagnostics nodeBuiltinImport:off
 
-import { createHash } from "node:crypto";
 import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
-import { describe, expect, it } from "@effect/vitest";
-import { OfficialCatalogLayer } from "@repo/catalog-official/service";
-import { Apply, type ApplyDecision } from "@repo/domain/Apply";
-import { Blueprint } from "@repo/domain/Blueprint";
-import {
-  type CompositionOperation,
-  Plan,
-  type PlanOutcome,
-  RepositoryPath,
-} from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { assert, describe, it } from "@effect/vitest";
+import { Apply } from "@repo/domain/Apply";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
+import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { PlanService } from "@repo/scaffold/PlanService";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import { RepositoryState } from "../src/internal/repositoryState";
-
-const repositoryRoot = "/repo";
-const JsonFromJsonString = Schema.fromJsonString(Schema.Json);
-const decodeJson = Schema.decodeUnknownSync(JsonFromJsonString);
-const encodeJson = Schema.encodeSync(JsonFromJsonString);
-
-const complete = (
-  path: string,
-  classification: "create" | "modify" | "unchanged" | "conflict",
-  contents: string,
-): PlanOutcome => ({
-  _tag: "complete",
-  path: RepositoryPath.make(path),
-  classification,
-  contents,
-});
-
-const composed = (
-  path: string,
-  classification: "create" | "modify" | "unchanged" | "conflict",
-  operations: ReadonlyArray<CompositionOperation>,
-): PlanOutcome => ({
-  _tag: "composed",
-  path: RepositoryPath.make(path),
-  classification,
-  operations,
-});
-
-const makeApply = (
-  outcomes: ReadonlyArray<PlanOutcome>,
-  decisions: ReadonlyArray<ApplyDecision> = [],
-  root = repositoryRoot,
-  existingContents: Readonly<Record<string, string>> = {},
-) =>
-  new Apply({
-    plan: new Plan({
-      baseline: {
-        root,
-        paths: outcomes.map((outcome) => {
-          const contents = existingContents[outcome.path];
-          return contents === undefined
-            ? { _tag: "missing" as const, path: outcome.path }
-            : {
-                _tag: "file" as const,
-                path: outcome.path,
-                sha256: createHash("sha256").update(contents).digest("hex"),
-              };
-        }),
-      },
-      outcomes: [...outcomes],
-      conflicts: outcomes
-        .filter((outcome) => outcome.classification === "conflict")
-        .map((outcome) => ({
-          _tag: "completeFile" as const,
-          path: outcome.path,
-        })),
-    }),
-    decisions: [...decisions],
-  });
-
-/** Previews an Apply the way the CLI dry run does: seed from its baseline, then materialize. */
-const preview = ({
-  apply,
+import {
+  app,
+  config,
+  decideAll,
+  exists,
+  paths,
+  plan,
+  preview,
+  readFile,
   repositoryRoot,
-}: {
-  apply: Apply;
-  repositoryRoot: string;
-}) =>
-  Effect.gen(function* () {
-    const workspaces = yield* ApplyWorkspaces;
-    const workspace = yield* workspaces.fromRepository({
-      repositoryRoot,
-      baseline: apply.plan.baseline,
-    });
-    return yield* workspace.materialize(apply);
-  });
+  selected,
+  selection,
+  TestCatalogLayer,
+  writeFiles,
+  testPipeline,
+} from "./fixtures/scaffold";
 
-const WorkspaceTestLayer = Layer.provideMerge(
-  ApplyWorkspaces.layer,
-  Layer.mergeAll(
-    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-    Path.layer,
-    OfficialCatalogLayer,
-  ),
-);
-describe("ApplyWorkspaces preview", () => {
-  it.effect("should return contents when creating a file", () =>
-    Effect.gen(function* () {
-      const result = yield* preview({
-        apply: makeApply([
-          complete("src/index.ts", "create", 'export const value = "ok";\n'),
-        ]),
-        repositoryRoot,
-      });
+const decodeJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json));
 
-      expect(result.apply.created).toEqual(["src/index.ts"]);
-      expect(result.files).toEqual([
-        {
-          path: "src/index.ts",
-          status: "created",
-          contents: 'export const value = "ok";\n',
-        },
-      ]);
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
+const manifest = "packages/app/package.json";
+const tsconfig = "packages/app/tsconfig.json";
 
-  it.effect("should isolate writes when host Apply is live", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-
-      const result = yield* preview({
-        apply: makeApply([
-          complete("src/index.ts", "create", "export const ok = true;\n"),
-        ]),
-        repositoryRoot,
-      });
-
-      expect(result.apply.failed).toEqual([]);
-      expect(result.files.map((file) => file.path)).toEqual(["src/index.ts"]);
-      expect(yield* hostFileSystem.exists("/workspace/src/index.ts")).toBe(
-        false,
-      );
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
-
-  it.effect("should preserve BOM-prefixed baseline bytes in file preview", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const original = "\uFEFFuser code";
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      yield* hostFileSystem.writeFileString(
-        `${repositoryRoot}/existing.ts`,
-        original,
-      );
-
-      const result = yield* preview({
-        apply: makeApply(
-          [
-            complete("existing.ts", "unchanged", "user code"),
-            complete("created.ts", "create", "generated code"),
-          ],
-          [],
-          repositoryRoot,
-          { "existing.ts": original },
-        ),
-        repositoryRoot,
-      });
-
-      expect(result.apply.created).toEqual(["created.ts"]);
-      expect(result.files).toEqual([
-        { path: "created.ts", status: "created", contents: "generated code" },
-      ]);
-      expect(
-        yield* hostFileSystem.readFile(`${repositoryRoot}/existing.ts`),
-      ).toEqual(new TextEncoder().encode(original));
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
-
+describe("ApplyWorkspaces", () => {
   it.effect(
-    "should preserve unchanged baseline files while previewing writes",
+    "should preview an incremental Apply without touching the host repository",
     () =>
       Effect.gen(function* () {
-        const hostFileSystem = yield* FileSystem.FileSystem;
-        yield* hostFileSystem.makeDirectory(repositoryRoot, {
-          recursive: true,
+        const original = '{"name":"@repo/app","private":true}';
+        yield* writeFiles({
+          [manifest]: original,
+          [tsconfig]: "{}\n",
+          "packages/app/notes.txt": "user notes",
         });
-        yield* hostFileSystem.writeFileString(
-          `${repositoryRoot}/existing.ts`,
-          "user code",
+        const planned = yield* plan(app("scripts", "tsconfig", "pair"));
+
+        const result = yield* preview(planned, decideAll(planned, "skip"));
+
+        assert.deepStrictEqual(
+          result.apply.created,
+          paths("packages/app/src/a.txt", "packages/app/src/b.txt"),
         );
-
-        const result = yield* preview({
-          apply: makeApply(
-            [
-              complete("existing.ts", "unchanged", "user code"),
-              complete("created.ts", "create", "generated code"),
-            ],
-            [],
-            repositoryRoot,
-            { "existing.ts": "user code" },
-          ),
-          repositoryRoot,
+        assert.deepStrictEqual(result.apply.modified, paths(manifest));
+        assert.deepStrictEqual(result.apply.skipped, paths(tsconfig));
+        assert.deepStrictEqual(result.apply.failed, []);
+        assert.deepStrictEqual(
+          result.files.map((file) => [file.path, file.status]),
+          [
+            [manifest, "modified"],
+            ["packages/app/src/a.txt", "created"],
+            ["packages/app/src/b.txt", "created"],
+          ],
+        );
+        assert.deepStrictEqual(decodeJson(result.files[0]?.contents), {
+          name: "@repo/app",
+          private: true,
+          scripts: { dev: "vite" },
         });
-
-        expect(result.apply.created).toEqual(["created.ts"]);
-        expect(result.apply.skipped).toEqual(["existing.ts"]);
-        expect(result.files).toEqual([
-          { path: "created.ts", status: "created", contents: "generated code" },
-        ]);
-        expect(
-          yield* hostFileSystem.readFileString(`${repositoryRoot}/existing.ts`),
-        ).toBe("user code");
-        expect(
-          yield* hostFileSystem.exists(`${repositoryRoot}/created.ts`),
-        ).toBe(false);
-      }).pipe(Effect.provide(WorkspaceTestLayer)),
+        assert.strictEqual(yield* readFile(manifest), original);
+        assert.strictEqual(yield* readFile(tsconfig), "{}\n");
+        assert.strictEqual(
+          yield* readFile("packages/app/notes.txt"),
+          "user notes",
+        );
+        assert.isFalse(yield* exists("packages/app/src"));
+      }).pipe(Effect.provide(testPipeline)),
   );
 
-  it.effect("should preserve the host file when composing", () =>
+  it.effect("should seed byte-order-marked files with their exact bytes", () =>
     Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const original = encodeJson({ name: "app", private: true });
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      yield* hostFileSystem.writeFileString(
-        `${repositoryRoot}/package.json`,
-        original,
+      const original = "\uFEFFA\n";
+      yield* writeFiles({ "packages/app/src/a.txt": original });
+      const planned = yield* plan(app("pair"));
+
+      const result = yield* preview(planned, decideAll(planned, "skip"));
+
+      assert.deepStrictEqual(
+        result.apply.created,
+        paths("packages/app/src/b.txt"),
       );
-
-      const result = yield* preview({
-        apply: makeApply(
-          [
-            composed("package.json", "modify", [
-              {
-                _tag: "json-pkg-scripts",
-                fileType: "json",
-                entries: [{ name: "dev", value: "vite" }],
-              },
-            ]),
-          ],
-          [],
-          repositoryRoot,
-          { "package.json": original },
-        ),
-        repositoryRoot,
-      });
-
-      expect(result.apply.failed).toEqual([]);
-      expect(result.apply.modified).toEqual(["package.json"]);
-      expect(result.files[0]?.contents).toBe(`{
-  "name": "app",
-  "private": true,
-  "scripts": {
-    "dev": "vite"
-  }
-}
-`);
-      expect(
-        yield* hostFileSystem.readFileString(`${repositoryRoot}/package.json`),
-      ).toBe(original);
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
+      const files = yield* FileSystem.FileSystem;
+      assert.deepStrictEqual(
+        yield* files.readFile(`${repositoryRoot}/packages/app/src/a.txt`),
+        new TextEncoder().encode(original),
+      );
+    }).pipe(Effect.provide(testPipeline)),
   );
 
   it.effect("should use POSIX paths when the host uses Windows", () =>
@@ -287,345 +122,130 @@ describe("ApplyWorkspaces preview", () => {
         Layer.succeed(FileSystem.FileSystem, hostFileSystem),
         Layer.succeed(Path.Path, windowsPath),
         BrowserCrypto.layer,
+        TestCatalogLayer,
       );
-      const previewLayer = ApplyWorkspaces.layer.pipe(
-        Layer.provide(hostLayer),
-        Layer.provide(OfficialCatalogLayer),
-      );
-      const windowsRepositoryRoot = "C:\\repo";
-      const packageJsonPath = nodePath.win32.join(
-        windowsRepositoryRoot,
-        "package.json",
-      );
-      const original = encodeJson({ name: "windows-app" });
-      yield* hostFileSystem.writeFileString(packageJsonPath, original);
-      const windowsBaseline = yield* Effect.gen(function* () {
-        const state = yield* RepositoryState;
-        const captured = yield* state.capture({
-          repositoryRoot: windowsRepositoryRoot,
-          paths: [RepositoryPath.make("package.json")],
-        });
-        return captured.baseline;
-      }).pipe(
-        Effect.provide(RepositoryState.layer.pipe(Layer.provide(hostLayer))),
-      );
+      const windowsRoot = "C:\\repo";
+      // Root files only: the memory host cannot create Windows directories.
+      const original = '{"name":"windows-app"}';
+      const hostManifest = nodePath.win32.join(windowsRoot, "package.json");
+      yield* hostFileSystem.writeFileString(hostManifest, original);
 
       const result = yield* Effect.gen(function* () {
-        return yield* preview({
-          apply: makeApply(
-            [
-              composed("package.json", "modify", [
-                {
-                  _tag: "json-pkg-scripts",
-                  fileType: "json",
-                  entries: [{ name: "dev", value: "vite" }],
-                },
-              ]),
-            ],
-            [],
-            windowsBaseline.root,
-            { "package.json": original },
+        const planned = yield* plan(
+          selection(selected("workspace", "windows-app", "root-scripts")),
+          {
+            repositoryRoot: windowsRoot,
+          },
+        );
+        return yield* preview(planned, [], windowsRoot);
+      }).pipe(
+        Effect.provide(
+          Layer.provideMerge(
+            Layer.mergeAll(
+              BlueprintService.layer,
+              PlanService.layer,
+              ApplyWorkspaces.layer,
+            ),
+            hostLayer,
           ),
-          repositoryRoot: windowsRepositoryRoot,
-        });
-      }).pipe(Effect.provide(previewLayer));
+        ),
+      );
 
-      expect(result.apply.failed).toEqual([]);
-      expect(result.apply.modified).toEqual(["package.json"]);
-      expect(decodeJson(result.files[0]?.contents ?? "")).toEqual({
-        name: "windows-app",
-        scripts: { dev: "vite" },
-      });
-      expect(yield* hostFileSystem.readFileString(packageJsonPath)).toBe(
+      assert.deepStrictEqual(result.apply.failed, []);
+      assert.deepStrictEqual(result.apply.modified, paths("package.json"));
+      assert.deepStrictEqual(
+        decodeJson(
+          result.files.find((file) => file.path === "package.json")?.contents,
+        ),
+        {
+          name: "windows-app",
+          scripts: { dev: "vite" },
+        },
+      );
+      assert.strictEqual(
+        yield* hostFileSystem.readFileString(hostManifest),
         original,
       );
     }),
   );
 
-  it.effect("should omit contents when a conflict is skipped", () =>
+  it.effect("should recheck the host repository before materializing", () =>
     Effect.gen(function* () {
-      const result = yield* preview({
-        apply: makeApply(
-          [complete("existing.ts", "conflict", "replacement")],
-          [{ path: RepositoryPath.make("existing.ts"), value: "skip" }],
-        ),
+      yield* writeFiles({});
+      const planned = yield* plan(app("pair"));
+      const workspaces = yield* ApplyWorkspaces;
+      const workspace = yield* workspaces.fromRepository({
         repositoryRoot,
+        baseline: planned.baseline,
       });
+      yield* writeFiles({ "packages/app/src/a.txt": "user content" });
 
-      expect(result.apply.skipped).toEqual(["existing.ts"]);
-      expect(result.files).toEqual([]);
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
+      const failure = yield* Effect.flip(
+        workspace.materialize(new Apply({ plan: planned, decisions: [] })),
+      );
+
+      assert(failure._tag === "StalePlanFailure");
+      assert.deepInclude(failure.changes, {
+        path: "packages/app/src/a.txt",
+        kind: "created",
+      });
+      assert.strictEqual(
+        yield* readFile("packages/app/src/a.txt"),
+        "user content",
+      );
+    }).pipe(Effect.provide(testPipeline)),
   );
 
-  it.effect("should sort files when returning a preview", () =>
-    Effect.gen(function* () {
-      const result = yield* preview({
-        apply: makeApply([
-          complete("z.ts", "create", "z"),
-          complete("a.ts", "create", "a"),
-        ]),
-        repositoryRoot,
-      });
-
-      expect(result.files.map((file) => file.path)).toEqual(["a.ts", "z.ts"]);
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
-});
-
-describe("ApplyWorkspaces", () => {
   it.effect(
-    "materializes an incremental Apply from one seeded repository state",
+    "should reject a host Plan with a different baseline even when it is current",
     () =>
       Effect.gen(function* () {
-        const hostFileSystem = yield* FileSystem.FileSystem;
+        yield* writeFiles({});
+        const seeded = yield* plan(app("pair"));
+        const other = yield* plan(app("tsconfig"));
         const workspaces = yield* ApplyWorkspaces;
-        const originalPackage = encodeJson({ name: "app", private: true });
-        yield* hostFileSystem.makeDirectory(repositoryRoot, {
-          recursive: true,
-        });
-        yield* hostFileSystem.writeFileString(
-          `${repositoryRoot}/package.json`,
-          originalPackage,
-        );
-        yield* hostFileSystem.writeFileString(
-          `${repositoryRoot}/notes.txt`,
-          "user notes",
-        );
-        yield* hostFileSystem.writeFileString(
-          `${repositoryRoot}/keep.ts`,
-          "user code",
-        );
-
-        const apply = makeApply(
-          [
-            composed("package.json", "modify", [
-              {
-                _tag: "json-pkg-scripts",
-                fileType: "json",
-                entries: [{ name: "dev", value: "vite" }],
-              },
-            ]),
-            complete("keep.ts", "conflict", "generated code"),
-            complete("src/new.ts", "create", "new code"),
-          ],
-          [{ path: RepositoryPath.make("keep.ts"), value: "skip" }],
-          repositoryRoot,
-          { "package.json": originalPackage, "keep.ts": "user code" },
-        );
         const workspace = yield* workspaces.fromRepository({
           repositoryRoot,
-          baseline: apply.plan.baseline,
+          baseline: seeded.baseline,
         });
-        const result = yield* workspace.materialize(apply);
 
-        expect(result.apply.created).toEqual(["src/new.ts"]);
-        expect(result.apply.modified).toEqual(["package.json"]);
-        expect(result.apply.skipped).toEqual(["keep.ts"]);
-        expect(result.apply.failed).toEqual([]);
-        expect(result.files.map((file) => [file.path, file.status])).toEqual([
-          ["package.json", "modified"],
-          ["src/new.ts", "created"],
-        ]);
-        expect(decodeJson(result.files[0]?.contents ?? "")).toEqual({
-          name: "app",
-          private: true,
-          scripts: { dev: "vite" },
-        });
-        expect(result.files[1]?.contents).toBe("new code");
-        expect(
-          yield* hostFileSystem.readFileString(
-            `${repositoryRoot}/package.json`,
-          ),
-        ).toBe(originalPackage);
-        expect(
-          yield* hostFileSystem.readFileString(`${repositoryRoot}/keep.ts`),
-        ).toBe("user code");
-        expect(
-          yield* hostFileSystem.readFileString(`${repositoryRoot}/notes.txt`),
-        ).toBe("user notes");
-        expect(
-          yield* hostFileSystem.exists(`${repositoryRoot}/src/new.ts`),
-        ).toBe(false);
-      }).pipe(
-        Effect.provide(
-          Layer.provideMerge(
-            ApplyWorkspaces.layer.pipe(Layer.provide(OfficialCatalogLayer)),
-            Layer.merge(
-              Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-              Path.layer,
-            ),
-          ),
-        ),
-      ),
-  );
-
-  it.effect("rejects an obstructing ancestor before materialization", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaces;
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      yield* hostFileSystem.writeFileString(
-        `${repositoryRoot}/src`,
-        "user file",
-      );
-      const apply = new Apply({
-        plan: new Plan({
-          baseline: {
-            root: repositoryRoot,
-            paths: [
-              { _tag: "directory", path: RepositoryPath.make(".") },
-              {
-                _tag: "file",
-                path: RepositoryPath.make("src"),
-                sha256: createHash("sha256").update("user file").digest("hex"),
-              },
-              { _tag: "missing", path: RepositoryPath.make("src/new.ts") },
-            ],
-          },
-          outcomes: [complete("src/new.ts", "create", "generated")],
-          conflicts: [],
-        }),
-        decisions: [],
-      });
-      const failure = yield* Effect.flip(
-        workspaces.fromRepository({
-          repositoryRoot,
-          baseline: apply.plan.baseline,
-        }),
-      );
-      expect(failure._tag).toBe("StalePlanFailure");
-      if (failure._tag === "StalePlanFailure") {
-        expect(failure.changes).toContainEqual({
-          path: "src/new.ts",
-          kind: "typeChanged",
-        });
-      }
-      expect(
-        yield* hostFileSystem.readFileString(`${repositoryRoot}/src`),
-      ).toBe("user file");
-    }).pipe(
-      Effect.provide(
-        Layer.provideMerge(
-          ApplyWorkspaces.layer.pipe(Layer.provide(OfficialCatalogLayer)),
-          Layer.merge(
-            Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-            Path.layer,
-          ),
-        ),
-      ),
-    ),
-  );
-
-  it.effect("rejects a host Plan that changed after workspace creation", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaces;
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      const first = makeApply([complete("bar.txt", "create", "A")]);
-      const second = makeApply([complete("foo.txt", "create", "B")]);
-      const workspace = yield* workspaces.fromRepository({
-        repositoryRoot,
-        baseline: first.plan.baseline,
-      });
-      yield* hostFileSystem.writeFileString(
-        `${repositoryRoot}/foo.txt`,
-        "user content",
-      );
-
-      const failure = yield* Effect.flip(workspace.materialize(second));
-      expect(failure._tag).toBe("StalePlanFailure");
-      if (failure._tag === "StalePlanFailure") {
-        expect(failure.changes).toContainEqual({
-          path: "foo.txt",
-          kind: "created",
-        });
-      }
-      expect(
-        yield* hostFileSystem.readFileString(`${repositoryRoot}/foo.txt`),
-      ).toBe("user content");
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
-
-  it.effect("rejects a different host baseline even when it is current", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaces;
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      const first = makeApply([complete("bar.txt", "create", "A")]);
-      const second = makeApply([complete("foo.txt", "create", "B")]);
-      const workspace = yield* workspaces.fromRepository({
-        repositoryRoot,
-        baseline: first.plan.baseline,
-      });
-
-      const failure = yield* Effect.flip(workspace.materialize(second));
-      expect(failure._tag).toBe("ApplyFailure");
-      if (failure._tag === "ApplyFailure") {
-        expect(failure.message).toContain(
-          "Apply baseline differs from the seeded workspace",
+        const failure = yield* Effect.flip(
+          workspace.materialize(new Apply({ plan: other, decisions: [] })),
         );
-      }
-      expect(yield* hostFileSystem.exists(`${repositoryRoot}/foo.txt`)).toBe(
-        false,
-      );
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
+
+        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.isFalse(yield* exists(tsconfig));
+      }).pipe(Effect.provide(testPipeline)),
   );
 
-  it.effect("rechecks the seeded host Plan before materializing", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaces;
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      const apply = makeApply([complete("foo.txt", "create", "generated")]);
-      const workspace = yield* workspaces.fromRepository({
-        repositoryRoot,
-        baseline: apply.plan.baseline,
-      });
-      yield* hostFileSystem.writeFileString(
-        `${repositoryRoot}/foo.txt`,
-        "user content",
-      );
-
-      const failure = yield* Effect.flip(workspace.materialize(apply));
-      expect(failure._tag).toBe("StalePlanFailure");
-      if (failure._tag === "StalePlanFailure") {
-        expect(failure.changes).toContainEqual({
-          path: "foo.txt",
-          kind: "created",
+  it.effect(
+    "should materialize a Plan built in a seeded workspace without writing to the host",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({});
+        const seeded = yield* plan(app("pair"));
+        const workspaces = yield* ApplyWorkspaces;
+        const blueprints = yield* BlueprintService;
+        const workspace = yield* workspaces.fromRepository({
+          repositoryRoot,
+          baseline: seeded.baseline,
         });
-      }
-      expect(
-        yield* hostFileSystem.readFileString(`${repositoryRoot}/foo.txt`),
-      ).toBe("user content");
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
-  );
 
-  it.effect("materializes a Plan built in a seeded workspace", () =>
-    Effect.gen(function* () {
-      const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaces;
-      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
-      const workspace = yield* workspaces.fromRepository({
-        repositoryRoot,
-        baseline: {
-          root: repositoryRoot,
-          paths: [{ _tag: "directory", path: RepositoryPath.make(".") }],
-        },
-      });
-      const plan = yield* workspace.plan({
-        blueprint: new Blueprint({ nodes: [], edges: [] }),
-        config: new StackConfig({
-          name: Schema.NonEmptyString.make("app"),
-          runtime: { _tag: "bun" },
-        }),
-      });
-      const result = yield* workspace.materialize(
-        new Apply({ plan, decisions: [] }),
-      );
+        const planned = yield* workspace.plan({
+          blueprint: yield* blueprints.resolve(app("pair"), config),
+          config,
+        });
+        const result = yield* workspace.materialize(
+          new Apply({ plan: planned, decisions: [] }),
+        );
 
-      expect(plan.baseline.root).toBe("/workspace");
-      expect(result.apply.failed).toEqual([]);
-      expect(result.files).toEqual([]);
-    }).pipe(Effect.provide(WorkspaceTestLayer)),
+        assert.notStrictEqual(planned.baseline.root, repositoryRoot);
+        assert.deepStrictEqual(result.apply.failed, []);
+        assert.deepStrictEqual(
+          result.files.map((file) => file.contents),
+          ["A\n", "B\n"],
+        );
+        assert.isFalse(yield* exists("packages/app"));
+      }).pipe(Effect.provide(testPipeline)),
   );
 });

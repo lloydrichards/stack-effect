@@ -99,6 +99,36 @@
           }
         ]
       }
+    },
+    {
+      "files": ["packages/scaffold/test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "vitest",
+                "message": "Import test helpers from @effect/vitest."
+              },
+              {
+                "name": "node:assert",
+                "message": "Use assert from @effect/vitest."
+              },
+              {
+                "name": "node:assert/strict",
+                "message": "Use assert from @effect/vitest."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["**/internal/*"],
+                "message": "Tests import public modules only."
+              }
+            ]
+          }
+        ]
+      }
     }
   ],
   "ignorePatterns": [

@@ -1,5 +1,3 @@
-import { MemoryFileSystem } from "@effect-vfs/memory";
-import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it } from "@effect/vitest";
 import {
   OfficialCatalogLayer,
@@ -13,8 +11,8 @@ import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { PlanService } from "@repo/scaffold/PlanService";
 import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
 import { RecipeService } from "@repo/scaffold/RecipeService";
-import { Effect, FileSystem, Layer, Path } from "effect";
-import { previewPlatform } from "./fixtures/previewPlatform";
+import { Effect, FileSystem, Layer } from "effect";
+import { pipelineLayer, platform } from "./fixtures/scaffold";
 
 const config = new StackConfig({
   name: "readme-example",
@@ -32,7 +30,7 @@ const target = (kind: string, name: string, ...modules: string[]) => ({
 });
 
 const previewLayer = RecipePreviewer.layer.pipe(
-  Layer.provide(previewPlatform),
+  Layer.provide(platform),
 
   Layer.provide(OfficialCatalogLayer),
 );
@@ -70,7 +68,7 @@ describe("generated READMEs", () => {
       }).pipe(
         Effect.provide(
           RecipePreviewer.layer.pipe(
-            Layer.provide(previewPlatform),
+            Layer.provide(platform),
 
             Layer.provide(
               officialCatalogLayerWith([
@@ -286,17 +284,8 @@ describe("generated READMEs", () => {
       }).pipe(
         Effect.provide(
           Layer.provideMerge(
-            Layer.mergeAll(
-              RecipeService.layer,
-              BlueprintService.layer,
-              PlanService.layer,
-              ApplyService.layer,
-            ),
-            Layer.mergeAll(
-              Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-              Path.layer,
-              OfficialCatalogLayer,
-            ),
+            RecipeService.layer,
+            pipelineLayer(OfficialCatalogLayer),
           ),
         ),
       ),
