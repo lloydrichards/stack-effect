@@ -285,6 +285,8 @@ it.effect(
   "should fail with cross-source-conflict when a module conflicts with a module from another source",
   () =>
     Effect.gen(function* () {
+      const [conflictingModule] = testCatalog.modules;
+      assert.isDefined(conflictingModule);
       const failure = yield* Effect.flip(
         composeCatalog(
           [
@@ -294,7 +296,7 @@ it.effect(
               modules: [
                 {
                   ...extraModule,
-                  conflictsWith: [testCatalog.modules[0]!.id],
+                  conflictsWith: [conflictingModule.id],
                 },
               ],
             },

@@ -108,7 +108,8 @@ const layerWithServices = ({
       apply: () => Effect.succeed(applyResult),
     }),
     Layer.succeed(ApplyWorkspaceService, {
-      create: () =>
+      empty: () => Effect.die(new Error("dry run should seed the workspace")),
+      fromRepository: () =>
         Effect.succeed({
           plan: () => Effect.die(new Error("dry run should not replan")),
           materialize,

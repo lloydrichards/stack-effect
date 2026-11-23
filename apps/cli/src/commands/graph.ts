@@ -125,29 +125,34 @@ const computeClusters = (g: CatalogGraph): Array<Array<IndexedNode>> => {
   const allNodes = collectNodes(g);
   const allEdges = collectEdges(g);
 
+  const nodesByIndex = new Map(allNodes);
   const adj = new Map<number, Set<number>>();
-  for (const [idx] of allNodes) adj.set(idx, new Set());
+  const link = (from: number, to: number) =>
+    adj.set(from, (adj.get(from) ?? new Set()).add(to));
   for (const [, edge] of allEdges) {
-    adj.get(edge.source)!.add(edge.target);
-    adj.get(edge.target)!.add(edge.source);
+    link(edge.source, edge.target);
+    link(edge.target, edge.source);
   }
 
   const visited = new Set<number>();
-  return Arr.filterMap(allNodes, ([startIdx]) => {
-    if (visited.has(startIdx)) return Result.fail(undefined);
+  return Arr.filterMap(allNodes, (start) => {
+    if (visited.has(start[0])) return Result.fail(undefined);
 
     const cluster: Array<IndexedNode> = [];
-    const queue = [startIdx];
-    visited.add(startIdx);
+    const queue = [start];
+    visited.add(start[0]);
 
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-      const entry = allNodes.find(([i]) => i === current)!;
+    for (
+      let entry = queue.shift();
+      entry !== undefined;
+      entry = queue.shift()
+    ) {
       cluster.push(entry);
-      for (const neighbor of adj.get(current) ?? []) {
-        if (!visited.has(neighbor)) {
+      for (const neighbor of adj.get(entry[0]) ?? []) {
+        const node = nodesByIndex.get(neighbor);
+        if (node !== undefined && !visited.has(neighbor)) {
           visited.add(neighbor);
-          queue.push(neighbor);
+          queue.push([neighbor, node]);
         }
       }
     }

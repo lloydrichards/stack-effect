@@ -2,15 +2,7 @@ import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Option,
-  pipe,
-  SchemaIssue,
-} from "effect";
+import { Array as Arr, Context, Effect, Layer, SchemaIssue } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { validatePackageOwners } from "./PackageOwnership";
 import * as PlanAssessment from "./PlanAssessment";
@@ -109,27 +101,8 @@ export class PlanService extends Context.Service<
           ),
         );
 
-        const assertAncestorDirectories = (path: string) =>
-          pipe(
-            Arr.findFirst(
-              PlanAssessment.collectAncestorPaths(path),
-              (ancestorPath) =>
-                snapshotPaths.get(ancestorPath)?._tag === "file",
-            ),
-            Option.match({
-              onNone: () => Effect.void,
-              onSome: (blockedAncestorPath) =>
-                Effect.fail(
-                  new PlanFailure({
-                    message: `Expected ${blockedAncestorPath} to be a directory during planning.`,
-                  }),
-                ),
-            }),
-          );
-
         const assessedPaths = yield* Effect.forEach(planningPaths, (intent) =>
           Effect.gen(function* () {
-            yield* assertAncestorDirectories(intent.path);
             const snapshotPath = snapshotPaths.get(intent.path);
             const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
               intent,
@@ -138,7 +111,7 @@ export class PlanService extends Context.Service<
 
             return {
               planningPath,
-              assessment: PlanAssessment.assess({
+              assessment: yield* PlanAssessment.assess({
                 planningPath,
                 snapshotPath,
               }),

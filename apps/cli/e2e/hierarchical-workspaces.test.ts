@@ -141,7 +141,7 @@ for (const mode of modes) {
             },
             config,
           );
-          const workspace = yield* workspaces.create();
+          const workspace = yield* workspaces.empty();
           const plan = yield* workspace.plan({ blueprint, config });
           const materialized = yield* workspace.materialize(
             new Apply({ plan, decisions: [] }),

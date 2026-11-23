@@ -174,9 +174,13 @@ export const HorizontalSelect = <A extends string>(
           }
           return Action.Beep();
         }),
-        whenBinding(HorizontalSelectKeys.Cancel, () =>
-          Action.Submit({ value: choices[0]!.value }),
-        ),
+        whenBinding(HorizontalSelectKeys.Cancel, () => {
+          const [first] = choices;
+          if (first) {
+            return Action.Submit({ value: first.value });
+          }
+          return Action.Beep();
+        }),
         Match.orElse(() => Action.NextFrame({ state: cursor })),
       );
     }),

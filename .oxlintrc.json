@@ -6,7 +6,8 @@
     "effecttsgo/unnecessary-typeof-type": "off",
     "typescript/consistent-type-definitions": ["error", "type"],
     "oxc/no-barrel-file": "error",
-    "func-style": ["error", "expression"]
+    "func-style": ["error", "expression"],
+    "typescript/no-non-null-assertion": "error"
   },
   "overrides": [
     {

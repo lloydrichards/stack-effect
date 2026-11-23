@@ -123,7 +123,8 @@ export const view = <Component value={1} />;
         const index = assets["/llms.txt"];
         const markdownLinks = Array.from(
           index.matchAll(/\]\((https:\/\/[^)]+\.md)\)/g),
-          ([, url]) => new URL(url!).pathname,
+        ).flatMap(([, url]) =>
+          url === undefined ? [] : [new URL(url).pathname],
         );
         expect(markdownLinks).toEqual(paths);
         expect(markdownLinks[0]).toBe("/use-with-coding-agents.md");

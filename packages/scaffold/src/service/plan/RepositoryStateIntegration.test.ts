@@ -76,7 +76,7 @@ const intent = (plan: Plan) => new Apply({ plan, decisions: [] });
 const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
   Effect.gen(function* () {
     const workspaces = yield* ApplyWorkspaceService;
-    const workspace = yield* workspaces.create({
+    const workspace = yield* workspaces.fromRepository({
       repoRoot,
       baseline: apply.plan.baseline,
     });
@@ -481,7 +481,10 @@ describe("Plan and Apply repository state", () => {
           repoRoot,
           paths: ["."],
         });
-        const workspace = yield* workspaces.create({ repoRoot, baseline });
+        const workspace = yield* workspaces.fromRepository({
+          repoRoot,
+          baseline,
+        });
         const plan = yield* workspace.plan({ blueprint, config });
         const result = yield* workspace.materialize(intent(plan));
 

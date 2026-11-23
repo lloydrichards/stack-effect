@@ -82,7 +82,7 @@ const makeApply = (
 const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
   Effect.gen(function* () {
     const workspaces = yield* ApplyWorkspaceService;
-    const workspace = yield* workspaces.create({
+    const workspace = yield* workspaces.fromRepository({
       repoRoot,
       baseline: apply.plan.baseline,
     });
@@ -400,7 +400,7 @@ describe("ApplyWorkspaceService", () => {
           repoRoot,
           { "package.json": originalPackage, "keep.ts": "user code" },
         );
-        const workspace = yield* workspaces.create({
+        const workspace = yield* workspaces.fromRepository({
           repoRoot,
           baseline: apply.plan.baseline,
         });
@@ -473,7 +473,7 @@ describe("ApplyWorkspaceService", () => {
         decisions: [],
       });
       const failure = yield* Effect.flip(
-        workspaces.create({ repoRoot, baseline: apply.plan.baseline }),
+        workspaces.fromRepository({ repoRoot, baseline: apply.plan.baseline }),
       );
       expect(failure._tag).toBe("StalePlanFailure");
       if (failure._tag === "StalePlanFailure") {
@@ -505,7 +505,7 @@ describe("ApplyWorkspaceService", () => {
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       const first = makeApply([complete("bar.txt", "create", "A")]);
       const second = makeApply([complete("foo.txt", "create", "B")]);
-      const workspace = yield* workspaces.create({
+      const workspace = yield* workspaces.fromRepository({
         repoRoot,
         baseline: first.plan.baseline,
       });
@@ -535,7 +535,7 @@ describe("ApplyWorkspaceService", () => {
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       const first = makeApply([complete("bar.txt", "create", "A")]);
       const second = makeApply([complete("foo.txt", "create", "B")]);
-      const workspace = yield* workspaces.create({
+      const workspace = yield* workspaces.fromRepository({
         repoRoot,
         baseline: first.plan.baseline,
       });
@@ -557,7 +557,7 @@ describe("ApplyWorkspaceService", () => {
       const workspaces = yield* ApplyWorkspaceService;
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       const apply = makeApply([complete("foo.txt", "create", "generated")]);
-      const workspace = yield* workspaces.create({
+      const workspace = yield* workspaces.fromRepository({
         repoRoot,
         baseline: apply.plan.baseline,
       });
@@ -585,7 +585,7 @@ describe("ApplyWorkspaceService", () => {
       const hostFileSystem = yield* FileSystem.FileSystem;
       const workspaces = yield* ApplyWorkspaceService;
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
-      const workspace = yield* workspaces.create({
+      const workspace = yield* workspaces.fromRepository({
         repoRoot,
         baseline: { root: repoRoot, paths: [{ _tag: "directory", path: "." }] },
       });
