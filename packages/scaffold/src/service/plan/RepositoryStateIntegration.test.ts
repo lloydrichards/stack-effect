@@ -13,7 +13,6 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, PlatformError, Schema } from "effect";
-import { ApplyPreviewService } from "../apply/ApplyPreviewService";
 import { ApplyService } from "../apply/ApplyService";
 import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
 import { PlanService } from "./PlanService";
@@ -54,7 +53,6 @@ const TestLayer = Layer.provideMerge(
   Layer.mergeAll(
     PlanService.layer,
     ApplyService.layer,
-    ApplyPreviewService.layer,
     ApplyWorkspaceService.layer,
     RepositoryStateService.layer,
   ),
@@ -73,6 +71,17 @@ const buildAt = (root: string) =>
 const build = buildAt(repoRoot);
 
 const intent = (plan: Plan) => new Apply({ plan, decisions: [] });
+
+/** Previews an Apply the way the CLI dry run does: seed from its baseline, then materialize. */
+const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
+  Effect.gen(function* () {
+    const workspaces = yield* ApplyWorkspaceService;
+    const workspace = yield* workspaces.create({
+      repoRoot,
+      baseline: apply.plan.baseline,
+    });
+    return yield* workspace.materialize(apply);
+  });
 
 const writeManifest = (directory: string, contents: string) =>
   Effect.gen(function* () {
@@ -493,12 +502,11 @@ describe("Plan and Apply repository state", () => {
       const root = "/future/repo";
       const plan = yield* buildAt(root);
       expect(plan.baseline.root).toBe(root);
-      const previews = yield* ApplyPreviewService;
-      const preview = yield* previews.preview({
+      const previewed = yield* preview({
         apply: intent(plan),
         repoRoot: root,
       });
-      expect(preview.files.length).toBeGreaterThan(0);
+      expect(previewed.files.length).toBeGreaterThan(0);
       expect(yield* files.exists(root)).toBe(false);
       const service = yield* ApplyService;
       const result = yield* service.apply({
@@ -518,12 +526,11 @@ describe("Plan and Apply repository state", () => {
         yield* files.makeDirectory(repoRoot, { recursive: true });
         yield* files.symlink(repoRoot, "/alias");
         const plan = yield* build;
-        const service = yield* ApplyService;
-        const result = yield* service.preview({
+        const result = yield* preview({
           apply: intent(plan),
           repoRoot: "/alias",
         });
-        expect(result.failed).toEqual([]);
+        expect(result.apply.failed).toEqual([]);
       }).pipe(Effect.provide(TestLayer)),
   );
 
@@ -584,17 +591,18 @@ describe("Plan and Apply repository state", () => {
         );
         yield* files.writeFileString(absolute, "private new content");
 
-        const service = yield* ApplyService;
-        const preview = yield* Effect.flip(
-          service.preview({ apply: intent(plan), repoRoot }),
+        const previewFailure = yield* Effect.flip(
+          preview({ apply: intent(plan), repoRoot }),
         );
-        expect(preview).toBeInstanceOf(StalePlanFailure);
-        assert(preview._tag === "StalePlanFailure");
-        expect(preview.changes).toContainEqual({
+        expect(previewFailure).toBeInstanceOf(StalePlanFailure);
+        assert(previewFailure._tag === "StalePlanFailure");
+        expect(previewFailure.changes).toContainEqual({
           path: planned.path,
           kind: "created",
         });
-        expect(preview.message).not.toContain("private new content");
+        expect(previewFailure.message).not.toContain("private new content");
+
+        const service = yield* ApplyService;
 
         const apply = yield* Effect.flip(
           service.apply({ apply: intent(plan), repoRoot }),
@@ -605,12 +613,6 @@ describe("Plan and Apply repository state", () => {
         expect(yield* files.readFileString(absolute)).toBe(
           "private new content",
         );
-
-        const previews = yield* ApplyPreviewService;
-        const filesPreview = yield* Effect.flip(
-          previews.preview({ apply: intent(plan), repoRoot }),
-        );
-        expect(filesPreview).toBeInstanceOf(StalePlanFailure);
       }).pipe(Effect.provide(TestLayer)),
   );
 
@@ -622,9 +624,8 @@ describe("Plan and Apply repository state", () => {
         yield* files.makeDirectory(repoRoot, { recursive: true });
         yield* files.makeDirectory("/other", { recursive: true });
         const plan = yield* build;
-        const service = yield* ApplyService;
         const failure = yield* Effect.flip(
-          service.preview({ apply: intent(plan), repoRoot: "/other" }),
+          preview({ apply: intent(plan), repoRoot: "/other" }),
         );
         expect(failure).toBeInstanceOf(StalePlanFailure);
         assert(failure._tag === "StalePlanFailure");
@@ -672,7 +673,7 @@ describe("Plan and Apply repository state", () => {
         yield* files.writeFileString(absolute, "private changed contents");
 
         const failure = yield* Effect.flip(
-          service.preview({ apply: intent(plan), repoRoot }),
+          preview({ apply: intent(plan), repoRoot }),
         );
         assert(failure._tag === "StalePlanFailure");
         expect(failure.changes).toContainEqual({
@@ -682,11 +683,11 @@ describe("Plan and Apply repository state", () => {
         expect(failure.message).not.toContain("private changed contents");
         yield* files.writeFileString(absolute, original);
 
-        const result = yield* service.preview({
+        const result = yield* preview({
           apply: intent(plan),
           repoRoot,
         });
-        expect(result.failed).toEqual([]);
+        expect(result.apply.failed).toEqual([]);
       }).pipe(Effect.provide(TestLayer)),
   );
 
@@ -705,7 +706,7 @@ describe("Plan and Apply repository state", () => {
       yield* files.remove(`${repoRoot}/${existing.path}`);
 
       const failure = yield* Effect.flip(
-        service.preview({ apply: intent(plan), repoRoot }),
+        preview({ apply: intent(plan), repoRoot }),
       );
       assert(failure._tag === "StalePlanFailure");
       expect(failure.changes).toContainEqual({
@@ -730,7 +731,7 @@ describe("Plan and Apply repository state", () => {
       const original = yield* files.readFileString(absolute);
       yield* files.writeFileString(absolute, `\uFEFF${original}`);
       const failure = yield* Effect.flip(
-        service.preview({ apply: intent(plan), repoRoot }),
+        preview({ apply: intent(plan), repoRoot }),
       );
       assert(failure._tag === "StalePlanFailure");
       expect(failure.changes).toContainEqual({

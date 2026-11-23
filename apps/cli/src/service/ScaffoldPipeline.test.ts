@@ -6,10 +6,11 @@ import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
-  ApplyPreviewService,
   ApplyService,
+  ApplyWorkspaceService,
   BlueprintService,
   FinalizeService,
+  type MaterializedApply,
   PlanService,
 } from "@repo/scaffold";
 import type { ConfirmOptions } from "@repo/tui";
@@ -71,35 +72,29 @@ const runInput = {
   config,
 };
 
-const executable = {
-  script: { ...script, workdir: "." },
-  execute: () =>
-    Effect.succeed({
-      output: Stream.empty,
-      result: Effect.succeed(
-        Result.fail({
-          label: script.label,
-          command: script.command,
-          error: "Process exited with code 1",
-        }),
-      ),
-    }),
-};
+const failingExecution = () =>
+  Effect.succeed({
+    output: Stream.empty,
+    result: Effect.succeed(
+      Result.fail({
+        label: script.label,
+        command: script.command,
+        error: "Process exited with code 1",
+      }),
+    ),
+  });
+
+const runFinalizeScriptsInDryRun = () =>
+  Effect.die(new Error("dry-run should not run finalize scripts"));
 
 const layerWithServices = ({
   plan: planned = plan,
-  preview = () => Effect.succeed(applyResult),
-  previewFiles = () =>
-    Effect.die(new Error("memory preview should not be requested")),
-  run,
+  materialize = () => Effect.succeed({ apply: applyResult, files: [] }),
+  executeScoped,
 }: {
   plan?: Plan;
-  preview?: (input: {
-    readonly apply: typeof Apply.Type;
-    readonly repoRoot: string;
-  }) => Effect.Effect<ApplyResult, never, never>;
-  previewFiles?: (typeof ApplyPreviewService.Service)["preview"];
-  run: (typeof FinalizeService.Service)["run"];
+  materialize?: (apply: Apply) => Effect.Effect<MaterializedApply>;
+  executeScoped: (typeof FinalizeService.Service)["executeScoped"];
 }) =>
   Layer.mergeAll(
     ScaffoldPipeline.layer,
@@ -111,14 +106,17 @@ const layerWithServices = ({
     }),
     Layer.succeed(ApplyService, {
       apply: () => Effect.succeed(applyResult),
-      preview,
     }),
-    Layer.succeed(ApplyPreviewService, {
-      preview: previewFiles,
+    Layer.succeed(ApplyWorkspaceService, {
+      create: () =>
+        Effect.succeed({
+          plan: () => Effect.die(new Error("dry run should not replan")),
+          materialize,
+        }),
     }),
     Layer.succeed(FinalizeService, {
-      preview: () => Effect.succeed([script]),
-      run,
+      scripts: () => Effect.succeed([script]),
+      executeScoped,
       collectNextSteps: () => Effect.succeed([]),
     }),
     NodeServices.layer,
@@ -217,9 +215,7 @@ describe("ScaffoldPipeline", () => {
         failed: 1,
       });
     }).pipe(
-      Effect.provide(
-        layerWithServices({ run: () => Effect.succeed([executable]) }),
-      ),
+      Effect.provide(layerWithServices({ executeScoped: failingExecution })),
     ),
   );
 
@@ -234,8 +230,7 @@ describe("ScaffoldPipeline", () => {
     }).pipe(
       Effect.provide(
         layerWithServices({
-          run: () =>
-            Effect.die(new Error("dry-run should not run finalize scripts")),
+          executeScoped: runFinalizeScriptsInDryRun,
         }),
       ),
     ),
@@ -253,11 +248,7 @@ describe("ScaffoldPipeline", () => {
         }).pipe(
           Effect.provide(
             layerWithServices({
-              preview: () =>
-                Effect.die(
-                  new Error("ordinary preview should not be requested"),
-                ),
-              previewFiles: () =>
+              materialize: () =>
                 Effect.succeed({
                   apply: applyResult,
                   files: [
@@ -268,10 +259,7 @@ describe("ScaffoldPipeline", () => {
                     },
                   ],
                 }),
-              run: () =>
-                Effect.die(
-                  new Error("dry-run should not run finalize scripts"),
-                ),
+              executeScoped: runFinalizeScriptsInDryRun,
             }),
           ),
         );
@@ -294,14 +282,13 @@ describe("ScaffoldPipeline", () => {
         Effect.provide(
           layerWithServices({
             plan: conflictPlan,
-            preview: ({ apply }) => {
+            materialize: (apply) => {
               expect(apply.decisions).toEqual([
                 { path: "package.json", value: "skip" },
               ]);
-              return Effect.succeed(applyResult);
+              return Effect.succeed({ apply: applyResult, files: [] });
             },
-            run: () =>
-              Effect.die(new Error("dry-run should not run finalize scripts")),
+            executeScoped: runFinalizeScriptsInDryRun,
           }),
         ),
       ),

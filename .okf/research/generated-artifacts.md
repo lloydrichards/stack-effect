@@ -5,7 +5,7 @@ description: Open completeness and compatibility requirements for portable gener
 status: draft
 sources:
   - id: preview
-    resource: ../../packages/scaffold/src/service/apply/ApplyPreviewService.ts
+    resource: ../../packages/scaffold/src/service/apply/ApplyWorkspaceService.ts
     title: Current changed-file result
 generated: { by: codex, at: "2026-09-22T19:00:00+02:00" }
 ---

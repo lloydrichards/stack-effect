@@ -22,7 +22,7 @@ export type FinalizeConfig = {
   readonly repoRoot: string;
 };
 
-type ResolvedScript = {
+export type FinalizeScript = {
   readonly label: string;
   readonly command: string;
   readonly workdir: string;
@@ -48,6 +48,24 @@ const sourceField = (source: Option.Option<string>) =>
     onSome: (name) => ({ source: name }),
   });
 
+/**
+ * Pairs each attached module with its owning target. A validated Blueprint has
+ * exactly one target per module, so the pairing never needs a missing case.
+ */
+const attachedModules = (blueprint: typeof Blueprint.Type) => {
+  const targetNodes = Arr.filter(blueprint.nodes, BlueprintNode.guards.target);
+  const moduleNodes = Arr.filter(
+    blueprint.nodes,
+    BlueprintNode.guards["attached-module"],
+  );
+  const modules = Arr.flatMap(moduleNodes, (moduleNode) =>
+    Arr.filter(targetNodes, (target) => target.id === moduleNode.targetId).map(
+      (targetNode) => ({ moduleNode, targetNode }),
+    ),
+  );
+  return { targetNodes, modules };
+};
+
 export class FinalizeService extends Context.Service<FinalizeService>()(
   "FinalizeService",
   {
@@ -58,14 +76,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       const collectResolvedScripts = Effect.fn(
         "FinalizeService.collectScripts",
       )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-        const moduleNodes = Arr.filter(
-          blueprint.nodes,
-          BlueprintNode.guards["attached-module"],
-        );
-        const targetNodes = Arr.filter(
-          blueprint.nodes,
-          BlueprintNode.guards.target,
-        );
+        const { targetNodes, modules } = attachedModules(blueprint);
 
         const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
           Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
@@ -83,42 +94,33 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
           }),
         ).pipe(Effect.map(Arr.flatten));
 
-        const moduleScripts = yield* Effect.forEach(moduleNodes, (moduleNode) =>
-          Effect.gen(function* () {
-            const targetNode = yield* Option.match(
-              Arr.findFirst(targetNodes, (t) => t.id === moduleNode.targetId),
-              {
-                onNone: () =>
-                  Effect.die(
-                    new Error(
-                      `Validated Blueprint is missing target ${moduleNode.targetId}`,
-                    ),
-                  ),
-                onSome: Effect.succeed,
-              },
-            );
-
-            const definition = yield* catalog.getModule(moduleNode.moduleId);
-            const context = createTokenContext(config, targetNode);
-            return Arr.map(definition.scripts ?? [], (s) => ({
-              label: s.label,
-              command: context.resolve(s.command),
-              workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-              phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
-              origin: `module: ${moduleNode.moduleId}`,
-              ...sourceField(
-                catalog.getSource({ _tag: "module", id: moduleNode.moduleId }),
-              ),
-            }));
-          }),
+        const moduleScripts = yield* Effect.forEach(
+          modules,
+          ({ moduleNode, targetNode }) =>
+            Effect.map(catalog.getModule(moduleNode.moduleId), (definition) => {
+              const context = createTokenContext(config, targetNode);
+              return Arr.map(definition.scripts ?? [], (s) => ({
+                label: s.label,
+                command: context.resolve(s.command),
+                workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
+                phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+                origin: `module: ${moduleNode.moduleId}`,
+                ...sourceField(
+                  catalog.getSource({
+                    _tag: "module",
+                    id: moduleNode.moduleId,
+                  }),
+                ),
+              }));
+            }),
         ).pipe(Effect.map(Arr.flatten));
 
         return [...targetScripts, ...moduleScripts];
       });
 
       const deduplicateScripts = (
-        scripts: ReadonlyArray<ResolvedScript>,
-      ): ResolvedScript[] => {
+        scripts: ReadonlyArray<FinalizeScript>,
+      ): FinalizeScript[] => {
         const seen = new Set<string>();
         return scripts.filter((s) => {
           const key = scriptKey(s);
@@ -128,51 +130,22 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         });
       };
 
-      const run = Effect.fn("FinalizeService.run")(function* (
+      const scripts = Effect.fn("FinalizeService.scripts")(function* (
         blueprint: typeof Blueprint.Type,
         config: FinalizeConfig,
       ) {
-        const scripts = yield* collectResolvedScripts(blueprint, config);
+        const resolved = yield* collectResolvedScripts(blueprint, config);
         const configScripts = buildConfigDerivedScripts(config);
-        const allScripts = orderScripts(
-          deduplicateScripts(scripts),
-          configScripts,
-        );
-
-        return allScripts.map((script) => ({
-          script,
-          execute: () => executeScript(spawner, script, config.repoRoot),
-        }));
+        return orderScripts(deduplicateScripts(resolved), configScripts);
       });
 
-      const preview = Effect.fn("FinalizeService.preview")(function* (
-        blueprint: typeof Blueprint.Type,
-        config: FinalizeConfig,
-      ) {
-        const scripts = yield* collectResolvedScripts(blueprint, config);
-        const configScripts = buildConfigDerivedScripts(config);
-        return orderScripts(deduplicateScripts(scripts), configScripts).map(
-          ({ label, command, workdir, phase, origin, source }) => ({
-            label,
-            command,
-            workdir,
-            phase,
-            origin,
-            ...(source === undefined ? {} : { source }),
-          }),
-        );
-      });
+      // The caller owns the Scope so it can drain output before the process is released.
+      const executeScoped = (script: FinalizeScript, repoRoot: string) =>
+        executeScript(spawner, script, repoRoot);
 
       const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
         function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
-          const moduleNodes = Arr.filter(
-            blueprint.nodes,
-            BlueprintNode.guards["attached-module"],
-          );
-          const targetNodes = Arr.filter(
-            blueprint.nodes,
-            BlueprintNode.guards.target,
-          );
+          const { targetNodes, modules } = attachedModules(blueprint);
 
           const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
             Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
@@ -183,27 +156,15 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
             ),
           ).pipe(Effect.map(Arr.flatten));
 
-          const moduleSteps = yield* Effect.forEach(moduleNodes, (moduleNode) =>
-            Effect.gen(function* () {
-              const targetNode = yield* Option.match(
-                Arr.findFirst(targetNodes, (t) => t.id === moduleNode.targetId),
-                {
-                  onNone: () =>
-                    Effect.die(
-                      new Error(
-                        `Validated Blueprint is missing target ${moduleNode.targetId}`,
-                      ),
-                    ),
-                  onSome: Effect.succeed,
-                },
-              );
-
-              const definition = yield* catalog.getModule(moduleNode.moduleId);
-              return resolveNextSteps(
-                definition.nextSteps,
-                createTokenContext(config, targetNode),
-              );
-            }),
+          const moduleSteps = yield* Effect.forEach(
+            modules,
+            ({ moduleNode, targetNode }) =>
+              Effect.map(catalog.getModule(moduleNode.moduleId), (definition) =>
+                resolveNextSteps(
+                  definition.nextSteps,
+                  createTokenContext(config, targetNode),
+                ),
+              ),
           ).pipe(Effect.map(Arr.flatten));
 
           // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
@@ -211,7 +172,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         },
       );
 
-      return { run, preview, collectNextSteps };
+      return { scripts, executeScoped, collectNextSteps };
     }),
   },
 ) {
@@ -239,8 +200,8 @@ const resolveNextSteps = (
  * scripts (e.g. git init).
  */
 const orderScripts = (
-  resolvedScripts: ResolvedScript[],
-  configScripts: ResolvedScript[],
+  resolvedScripts: FinalizeScript[],
+  configScripts: FinalizeScript[],
 ) => {
   const finalize = resolvedScripts.filter((s) => s.phase === "finalize");
   const postFinalize = resolvedScripts.filter(
@@ -251,7 +212,7 @@ const orderScripts = (
 
 const buildConfigDerivedScripts = (
   config: FinalizeConfig,
-): ResolvedScript[] => {
+): FinalizeScript[] => {
   const { packageManagerName: pm, lint, format } = config.config;
   const runTask = (task: string) =>
     pm === "deno" ? `deno task ${task}` : `${pm} run ${task}`;
@@ -270,7 +231,7 @@ const buildConfigDerivedScripts = (
         command: runTask("format"),
       },
     ],
-    (entry): Result.Result<ResolvedScript, void> =>
+    (entry): Result.Result<FinalizeScript, void> =>
       entry.when
         ? Result.succeed({
             label: entry.label,
@@ -285,7 +246,7 @@ const buildConfigDerivedScripts = (
 
 const executeScript = (
   spawner: typeof ChildProcessSpawner.Service,
-  script: ResolvedScript,
+  script: FinalizeScript,
   repoRoot: string,
 ) => {
   const workdir =

@@ -5,8 +5,8 @@ import type { Plan } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
-  ApplyPreviewService,
   ApplyService,
+  ApplyWorkspaceService,
   BlueprintService,
   type FinalizeConfig,
   FinalizeService,
@@ -157,7 +157,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const planService = yield* PlanService;
           const finalizeService = yield* FinalizeService;
           const applyService = yield* ApplyService;
-          const applyPreviewService = yield* ApplyPreviewService;
+          const workspaces = yield* ApplyWorkspaceService;
 
           const blueprint = yield* blueprintService.resolve(selection, config);
 
@@ -214,21 +214,17 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               plan,
               decisions: skipConflictDecisions(plan),
             });
-            const applyPreview = showFiles
-              ? yield* applyPreviewService.preview({ apply, repoRoot })
-              : undefined;
-            const result =
-              applyPreview?.apply ??
-              (yield* applyService.preview({
-                apply,
-                repoRoot,
-              }));
+            const workspace = yield* workspaces.create({
+              repoRoot,
+              baseline: plan.baseline,
+            });
+            const preview = yield* workspace.materialize(apply);
 
             const finalizeConfig: FinalizeConfig = {
               config,
               repoRoot,
             };
-            const previewScripts = yield* finalizeService.preview(
+            const previewScripts = yield* finalizeService.scripts(
               blueprint,
               finalizeConfig,
             );
@@ -239,10 +235,10 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 DryRunPreview({
                   blueprint: formattedBlueprint.content,
                   plan: pl,
-                  apply: result,
+                  apply: preview.apply,
                   scripts: previewScripts,
                   createCommand,
-                  generatedFiles: applyPreview?.files,
+                  generatedFiles: showFiles ? preview.files : undefined,
                 }),
               ),
             );
@@ -289,7 +285,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             config,
             repoRoot,
           };
-          const previewScripts = yield* finalizeService.preview(
+          const previewScripts = yield* finalizeService.scripts(
             blueprint,
             finalizeConfig,
           );
@@ -361,25 +357,23 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               yield* Console.log("\nNo finalize scripts selected. Skipping.");
             } else {
               yield* Console.log("\nRunning finalize scripts...");
-              const executables = yield* finalizeService.run(
-                blueprint,
-                finalizeConfig,
-              );
-
               const selectedKeys = selectedScriptKeys(selectedScripts);
-              const filteredExecutables = executables.filter((e) =>
-                selectedKeys.has(scriptKey(e.script)),
+              const scriptsToRun = previewScripts.filter((script) =>
+                selectedKeys.has(scriptKey(script)),
               );
 
               const results = yield* Effect.forEach(
-                filteredExecutables,
-                ({ script, execute }) =>
+                scriptsToRun,
+                (script) =>
                   Effect.scoped(
                     Effect.gen(function* () {
                       yield* Console.log(
                         `  [>] ${script.label}: ${script.command}`,
                       );
-                      const execution = yield* execute();
+                      const execution = yield* finalizeService.executeScoped(
+                        script,
+                        repoRoot,
+                      );
 
                       yield* execution.output.pipe(
                         Stream.tap((line) => Console.log(`      ${line}`)),

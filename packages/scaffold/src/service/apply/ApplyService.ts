@@ -80,10 +80,6 @@ export type ApplyServiceShape = {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
   }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
-  readonly preview: (input: {
-    readonly apply: typeof Apply.Type;
-    readonly repoRoot: string;
-  }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
 };
 
 export class ApplyService extends Context.Service<
@@ -647,35 +643,8 @@ export class ApplyService extends Context.Service<
       });
     });
 
-    const preview = Effect.fn("ApplyService.preview")(function* ({
-      apply: applyIntent,
-      repoRoot,
-    }: {
-      apply: typeof Apply.Type;
-      repoRoot: string;
-    }) {
-      const actions = yield* materializeFrom(applyIntent);
-      yield* validateBaseline({ applyIntent, repoRoot });
-      const actionProjection = yield* prepareWrites({ actions, repoRoot });
-      yield* validateBaseline({ applyIntent, repoRoot });
-      yield* validateOwnerWrites(
-        applyIntent,
-        repoRoot,
-        actionProjection.writeRequests,
-      );
-
-      return toApplyResult({
-        skippedPaths: actionProjection.skippedPaths,
-        writeAttempts: Arr.map(actionProjection.writeRequests, (request) => ({
-          path: request.path,
-          status: request.writeMode === "create" ? "created" : "modified",
-        })),
-      });
-    });
-
     return {
       apply,
-      preview,
     } satisfies ApplyServiceShape;
   }),
 }) {

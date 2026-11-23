@@ -17,11 +17,9 @@ export {
   type LoadedCatalogSource,
 } from "./service/catalog/CatalogLoader";
 export {
-  type ApplyPreview,
   type ApplyPreviewFile,
   ApplyPreviewFileSchema,
-  ApplyPreviewService,
-} from "./service/apply/ApplyPreviewService";
+} from "./RecipePreviewSchema";
 export { ApplyService } from "./service/apply/ApplyService";
 export {
   type ApplyWorkspace,

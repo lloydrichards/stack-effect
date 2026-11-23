@@ -116,7 +116,7 @@ Connected terms:
 
 In code:
 
-- `CatalogService.getSource`, the `source` field on scripts from `FinalizeService.preview`
+- `CatalogService.getSource`, the `source` field on scripts from `FinalizeService.scripts`
 
 ## CatalogIssueCode
 

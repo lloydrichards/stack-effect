@@ -205,13 +205,13 @@ const runToReport = (
   config: FinalizeConfig,
 ) =>
   Effect.gen(function* () {
-    const executables = yield* svc.run(blueprint, config);
+    const scripts = yield* svc.scripts(blueprint, config);
     const results = yield* Effect.forEach(
-      executables,
-      ({ execute }) =>
+      scripts,
+      (script) =>
         Effect.scoped(
           Effect.gen(function* () {
-            const execution = yield* execute();
+            const execution = yield* svc.executeScoped(script, config.repoRoot);
             yield* execution.output.pipe(Stream.runDrain);
             return yield* execution.result;
           }),
@@ -222,7 +222,7 @@ const runToReport = (
   });
 
 describe("FinalizeService", () => {
-  describe("preview", () => {
+  describe("scripts", () => {
     it.effect(
       "should return only config-derived scripts when the blueprint has no Finalize scripts",
       () => {
@@ -230,7 +230,7 @@ describe("FinalizeService", () => {
         return Effect.gen(function* () {
           const svc = yield* FinalizeService;
 
-          const scripts = yield* svc.preview(
+          const scripts = yield* svc.scripts(
             emptyBlueprint,
             makeConfig(bunConfig),
           );
@@ -254,7 +254,7 @@ describe("FinalizeService", () => {
             format: "biome",
           });
 
-          const scripts = yield* svc.preview(
+          const scripts = yield* svc.scripts(
             emptyBlueprint,
             makeConfig(config),
           );
@@ -273,7 +273,7 @@ describe("FinalizeService", () => {
         Effect.gen(function* () {
           const svc = yield* FinalizeService;
 
-          const scripts = yield* svc.preview(
+          const scripts = yield* svc.scripts(
             emptyBlueprint,
             makeConfig(nodeConfig),
           );
@@ -291,7 +291,7 @@ describe("FinalizeService", () => {
             name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "deno" },
           });
-          const scripts = yield* svc.preview(
+          const scripts = yield* svc.scripts(
             emptyBlueprint,
             makeConfig(config),
           );
@@ -310,7 +310,7 @@ describe("FinalizeService", () => {
           const svc = yield* FinalizeService;
           const blueprint = singleTargetBlueprint(serverIdentity);
 
-          const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.scripts(blueprint, makeConfig());
 
           expect(scripts.map((s) => s.label)).toEqual([
             "Generate prisma client",
@@ -342,7 +342,7 @@ describe("FinalizeService", () => {
           const moduleId = ModuleId.make("shadcn-init");
           const blueprint = targetWithModule(clientIdentity, moduleId);
 
-          const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.scripts(blueprint, makeConfig());
 
           expect(scripts.map((s) => s.label)).toEqual([
             "Initialize shadcn",
@@ -373,7 +373,7 @@ describe("FinalizeService", () => {
           const svc = yield* FinalizeService;
           const blueprint = singleTargetBlueprint(serverIdentity);
 
-          const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.scripts(blueprint, makeConfig());
 
           expect(scripts[0]?.command).toBe(
             "bun run build --cwd apps/sdk/server-api",
@@ -411,7 +411,7 @@ describe("FinalizeService", () => {
             edges: [],
           });
 
-          const scripts = yield* svc.preview(blueprint, makeConfig());
+          const scripts = yield* svc.scripts(blueprint, makeConfig());
 
           expect(
             scripts
@@ -450,7 +450,7 @@ describe("FinalizeService", () => {
     );
   });
 
-  describe("run", () => {
+  describe("executeScoped", () => {
     it.effect(
       "should execute scripts and report success when every command exits cleanly",
       () => {
@@ -622,7 +622,7 @@ describe("FinalizeService", () => {
             lint: "biome",
           });
 
-          const scripts = yield* svc.preview(blueprint, makeConfig(config));
+          const scripts = yield* svc.scripts(blueprint, makeConfig(config));
 
           expect(scripts.map((s) => s.label)).toEqual([
             "Install dependencies",

@@ -17,7 +17,6 @@ import {
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { RepositoryStateService } from "../plan/RepositoryStateService";
-import { ApplyPreviewService } from "./ApplyPreviewService";
 import { ApplyWorkspaceService } from "./ApplyWorkspaceService";
 
 const repoRoot = "/repo";
@@ -79,14 +78,17 @@ const makeApply = (
     decisions: [...decisions],
   });
 
-const TestLayer = Layer.provideMerge(
-  ApplyPreviewService.layer,
-  Layer.mergeAll(
-    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-    Path.layer,
-    OfficialCatalogLayer,
-  ),
-);
+/** Previews an Apply the way the CLI dry run does: seed from its baseline, then materialize. */
+const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
+  Effect.gen(function* () {
+    const workspaces = yield* ApplyWorkspaceService;
+    const workspace = yield* workspaces.create({
+      repoRoot,
+      baseline: apply.plan.baseline,
+    });
+    return yield* workspace.materialize(apply);
+  });
+
 const WorkspaceTestLayer = Layer.provideMerge(
   ApplyWorkspaceService.layer,
   Layer.mergeAll(
@@ -95,11 +97,10 @@ const WorkspaceTestLayer = Layer.provideMerge(
     OfficialCatalogLayer,
   ),
 );
-describe("ApplyPreviewService", () => {
+describe("ApplyWorkspaceService preview", () => {
   it.effect("should return contents when creating a file", () =>
     Effect.gen(function* () {
-      const service = yield* ApplyPreviewService;
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply([
           complete("src/index.ts", "create", 'export const value = "ok";\n'),
         ]),
@@ -114,15 +115,14 @@ describe("ApplyPreviewService", () => {
           contents: 'export const value = "ok";\n',
         },
       ]);
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("should isolate writes when host Apply is live", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
 
-      const service = yield* ApplyPreviewService;
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply([
           complete("src/index.ts", "create", "export const ok = true;\n"),
         ]),
@@ -134,13 +134,12 @@ describe("ApplyPreviewService", () => {
       expect(yield* hostFileSystem.exists("/workspace/src/index.ts")).toBe(
         false,
       );
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("should preserve BOM-prefixed baseline bytes in file preview", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const service = yield* ApplyPreviewService;
       const original = "\uFEFFuser code";
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       yield* hostFileSystem.writeFileString(
@@ -148,7 +147,7 @@ describe("ApplyPreviewService", () => {
         original,
       );
 
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply(
           [
             complete("existing.ts", "unchanged", "user code"),
@@ -168,7 +167,7 @@ describe("ApplyPreviewService", () => {
       expect(yield* hostFileSystem.readFile(`${repoRoot}/existing.ts`)).toEqual(
         new TextEncoder().encode(original),
       );
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect(
@@ -176,14 +175,13 @@ describe("ApplyPreviewService", () => {
     () =>
       Effect.gen(function* () {
         const hostFileSystem = yield* FileSystem.FileSystem;
-        const service = yield* ApplyPreviewService;
         yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
         yield* hostFileSystem.writeFileString(
           `${repoRoot}/existing.ts`,
           "user code",
         );
 
-        const result = yield* service.preview({
+        const result = yield* preview({
           apply: makeApply(
             [
               complete("existing.ts", "unchanged", "user code"),
@@ -207,13 +205,12 @@ describe("ApplyPreviewService", () => {
         expect(yield* hostFileSystem.exists(`${repoRoot}/created.ts`)).toBe(
           false,
         );
-      }).pipe(Effect.provide(TestLayer)),
+      }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("should preserve the host file when composing", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const service = yield* ApplyPreviewService;
       const original = encodeJson({ name: "app", private: true });
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       yield* hostFileSystem.writeFileString(
@@ -221,7 +218,7 @@ describe("ApplyPreviewService", () => {
         original,
       );
 
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply(
           [
             composed("package.json", "modify", [
@@ -252,7 +249,7 @@ describe("ApplyPreviewService", () => {
       expect(
         yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
       ).toBe(original);
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("should use POSIX paths when the host uses Windows", () =>
@@ -280,7 +277,7 @@ describe("ApplyPreviewService", () => {
         Layer.succeed(FileSystem.FileSystem, hostFileSystem),
         Layer.succeed(Path.Path, windowsPath),
       );
-      const previewLayer = ApplyPreviewService.layer.pipe(
+      const previewLayer = ApplyWorkspaceService.layer.pipe(
         Layer.provide(hostLayer),
         Layer.provide(OfficialCatalogLayer),
       );
@@ -304,8 +301,7 @@ describe("ApplyPreviewService", () => {
       );
 
       const result = yield* Effect.gen(function* () {
-        const service = yield* ApplyPreviewService;
-        return yield* service.preview({
+        return yield* preview({
           apply: makeApply(
             [
               composed("package.json", "modify", [
@@ -338,8 +334,7 @@ describe("ApplyPreviewService", () => {
 
   it.effect("should omit contents when a conflict is skipped", () =>
     Effect.gen(function* () {
-      const service = yield* ApplyPreviewService;
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply(
           [complete("existing.ts", "conflict", "replacement")],
           [{ path: "existing.ts", value: "skip" }],
@@ -349,13 +344,12 @@ describe("ApplyPreviewService", () => {
 
       expect(result.apply.skipped).toEqual(["existing.ts"]);
       expect(result.files).toEqual([]);
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("should sort files when returning a preview", () =>
     Effect.gen(function* () {
-      const service = yield* ApplyPreviewService;
-      const result = yield* service.preview({
+      const result = yield* preview({
         apply: makeApply([
           complete("z.ts", "create", "z"),
           complete("a.ts", "create", "a"),
@@ -364,7 +358,7 @@ describe("ApplyPreviewService", () => {
       });
 
       expect(result.files.map((file) => file.path)).toEqual(["a.ts", "z.ts"]);
-    }).pipe(Effect.provide(TestLayer)),
+    }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 });
 
