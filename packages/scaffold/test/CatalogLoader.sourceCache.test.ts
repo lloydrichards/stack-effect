@@ -13,7 +13,7 @@ import {
   select,
   target,
   urls,
-} from "./fixtures/testSources";
+} from "./fixtures/scaffold";
 
 const official = json("official", {
   targets: [target("workspace"), target("server")],

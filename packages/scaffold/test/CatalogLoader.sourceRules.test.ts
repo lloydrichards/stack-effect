@@ -11,7 +11,7 @@ import {
   select,
   target,
   urls,
-} from "./fixtures/testSources";
+} from "./fixtures/scaffold";
 
 /** Contributes to the official server target and declares that dependency. */
 const ext = json("ext", {

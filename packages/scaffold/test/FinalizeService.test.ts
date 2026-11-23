@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { officialCatalogLayerWith } from "@repo/catalog-official/service";
 import {
@@ -195,7 +195,7 @@ it.effect(
         targetWithModule(serverIdentity, moduleId),
         makeConfig(),
       );
-      expect(steps).toContain("Read apps/sdk/server-api/extra.txt");
+      assert.include(steps, "Read apps/sdk/server-api/extra.txt");
     }).pipe(Effect.provide(serviceLayer));
   },
 );
@@ -239,9 +239,12 @@ describe("FinalizeService", () => {
             makeConfig(bunConfig),
           );
 
-          expect(scripts.map((s) => s.label)).toEqual(["Install dependencies"]);
-          expect(scripts[0]?.command).toBe("bun install");
-          expect(executed).toEqual([]);
+          assert.deepStrictEqual(
+            scripts.map((s) => s.label),
+            ["Install dependencies"],
+          );
+          assert.strictEqual(scripts[0]?.command, "bun install");
+          assert.deepStrictEqual(executed, []);
         }).pipe(Effect.provide(makeFinalizeLayer(executed)));
       },
     );
@@ -263,11 +266,10 @@ describe("FinalizeService", () => {
             makeConfig(config),
           );
 
-          expect(scripts.map((s) => s.label)).toEqual([
-            "Install dependencies",
-            "Run biome lint",
-            "Run biome format",
-          ]);
+          assert.deepStrictEqual(
+            scripts.map((s) => s.label),
+            ["Install dependencies", "Run biome lint", "Run biome format"],
+          );
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
@@ -282,7 +284,7 @@ describe("FinalizeService", () => {
             makeConfig(nodeConfig),
           );
 
-          expect(scripts[0]?.command).toBe("pnpm install");
+          assert.strictEqual(scripts[0]?.command, "pnpm install");
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
@@ -300,10 +302,10 @@ describe("FinalizeService", () => {
             makeConfig(config),
           );
 
-          expect(scripts.map((script) => script.command)).toEqual([
-            "deno install",
-            "deno task --if-present prepare",
-          ]);
+          assert.deepStrictEqual(
+            scripts.map((script) => script.command),
+            ["deno install", "deno task --if-present prepare"],
+          );
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
@@ -316,10 +318,10 @@ describe("FinalizeService", () => {
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
 
-          expect(scripts.map((s) => s.label)).toEqual([
-            "Generate prisma client",
-            "Install dependencies",
-          ]);
+          assert.deepStrictEqual(
+            scripts.map((s) => s.label),
+            ["Generate prisma client", "Install dependencies"],
+          );
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -348,10 +350,10 @@ describe("FinalizeService", () => {
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
 
-          expect(scripts.map((s) => s.label)).toEqual([
-            "Initialize shadcn",
-            "Install dependencies",
-          ]);
+          assert.deepStrictEqual(
+            scripts.map((s) => s.label),
+            ["Initialize shadcn", "Install dependencies"],
+          );
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -379,7 +381,8 @@ describe("FinalizeService", () => {
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
 
-          expect(scripts[0]?.command).toBe(
+          assert.strictEqual(
+            scripts[0]?.command,
             "bun run build --cwd apps/sdk/server-api",
           );
         }).pipe(
@@ -417,7 +420,7 @@ describe("FinalizeService", () => {
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
 
-          expect(
+          assert.deepStrictEqual(
             scripts
               .filter((script) => script.phase === "finalize")
               .map(({ command, workdir, source }) => ({
@@ -425,10 +428,11 @@ describe("FinalizeService", () => {
                 workdir,
                 source,
               })),
-          ).toEqual([
-            { command: "bun run codegen", workdir: ".", source: "acme" },
-            { command: "bun run codegen", workdir: ".", source: "beta" },
-          ]);
+            [
+              { command: "bun run codegen", workdir: ".", source: "acme" },
+              { command: "bun run codegen", workdir: ".", source: "beta" },
+            ],
+          );
         }).pipe(
           Effect.provide(
             FinalizeService.layer.pipe(
@@ -464,10 +468,10 @@ describe("FinalizeService", () => {
 
           const report = yield* runToReport(svc, emptyBlueprint, makeConfig());
 
-          expect(report.succeeded).toBe(1);
-          expect(report.failed).toBe(0);
-          expect(report.results[0]?._tag).toBe("Success");
-          expect(executed.length).toBeGreaterThan(0);
+          assert.strictEqual(report.succeeded, 1);
+          assert.strictEqual(report.failed, 0);
+          assert.strictEqual(report.results[0]?._tag, "Success");
+          assert.isAbove(executed.length, 0);
         }).pipe(Effect.provide(makeFinalizeLayer(executed)));
       },
     );
@@ -490,9 +494,9 @@ describe("FinalizeService", () => {
           );
 
           // NOTE: Finalize reports failures after attempting every configured script.
-          expect(report.results).toHaveLength(2);
-          expect(report.results[0]?._tag).toBe("Failure");
-          expect(report.results[1]?._tag).toBe("Success");
+          assert.lengthOf(report.results, 2);
+          assert.strictEqual(report.results[0]?._tag, "Failure");
+          assert.strictEqual(report.results[1]?._tag, "Success");
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -515,7 +519,10 @@ describe("FinalizeService", () => {
           const labels = report.results.map((r) =>
             Result.isSuccess(r) ? r.success.label : r.failure.label,
           );
-          expect(labels).toEqual(["Init shadcn", "Install dependencies"]);
+          assert.deepStrictEqual(labels, [
+            "Init shadcn",
+            "Install dependencies",
+          ]);
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -547,7 +554,7 @@ describe("FinalizeService", () => {
           const labels = report.results.map((r) =>
             Result.isSuccess(r) ? r.success.label : r.failure.label,
           );
-          expect(labels).toEqual([
+          assert.deepStrictEqual(labels, [
             "Target setup",
             "Module setup",
             "Install dependencies",
@@ -593,7 +600,7 @@ describe("FinalizeService", () => {
           const labels = report.results.map((r) =>
             Result.isSuccess(r) ? r.success.label : r.failure.label,
           );
-          expect(labels).toEqual(["Install dependencies", "Git init"]);
+          assert.deepStrictEqual(labels, ["Install dependencies", "Git init"]);
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -628,11 +635,10 @@ describe("FinalizeService", () => {
 
           const scripts = yield* svc.scripts(blueprint, makeConfig(config));
 
-          expect(scripts.map((s) => s.label)).toEqual([
-            "Install dependencies",
-            "Run biome lint",
-            "Git init",
-          ]);
+          assert.deepStrictEqual(
+            scripts.map((s) => s.label),
+            ["Install dependencies", "Run biome lint", "Git init"],
+          );
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {

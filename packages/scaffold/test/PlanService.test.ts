@@ -1,746 +1,479 @@
-import assert from "node:assert/strict";
-import { MemoryFileSystem } from "@effect-vfs/memory";
-import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import { type Plan, type PlanOutcome, RepositoryPath } from "@repo/domain/Plan";
+import { Effect } from "effect";
 import {
-  Blueprint,
-  makeBlueprintEdge,
-  toAttachedModuleNodeId,
-} from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import {
-  type Plan,
-  PlanFailure,
-  type PlanOutcome,
-  repositoryRootPath,
-} from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
-import { ContributionResolver } from "@repo/scaffold/ContributionResolver";
-import { PlanService } from "@repo/scaffold/PlanService";
-import { Cause, Effect, Exit, FileSystem, Layer, Path } from "effect";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import { make as makePlanService } from "../src/internal/planService";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import { RepositoryState } from "../src/internal/repositoryState";
+  app,
+  apply,
+  pipelineLayer,
+  plan,
+  readFile,
+  repositoryRoot,
+  selected,
+  selection,
+  withFault,
+  writeFiles,
+  testPipeline,
+} from "./fixtures/scaffold";
 
-const testRepositoryRoot = "/repo";
-const domainIdentity = new TargetIdentity({
-  kind: TargetKind.make("package"),
-  name: "domain",
-});
-const serverApiIdentity = new TargetIdentity({
-  kind: TargetKind.make("server"),
-  name: "api",
-});
+const officialLayer = pipelineLayer(OfficialCatalogLayer);
 
-const makeDomainBlueprint = () =>
-  new Blueprint({
-    nodes: [
-      {
-        _tag: "target",
-        id: domainIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
-      },
-      {
-        _tag: "attached-module",
-        id: toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-        targetId: domainIdentity.toKey(),
-        moduleId: ModuleId.make("domain-api-contracts"),
-      },
-    ],
-    edges: [
-      makeBlueprintEdge(
-        "owns-module",
-        domainIdentity.toKey(),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-      ),
-    ],
-  }).toSorted();
-
-const makeServerApiBlueprint = () =>
-  new Blueprint({
-    nodes: [
-      {
-        _tag: "target",
-        id: serverApiIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("server"),
-          name: "api",
-        }),
-      },
-      {
-        _tag: "attached-module",
-        id: toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-        targetId: serverApiIdentity.toKey(),
-        moduleId: ModuleId.make("server-http-api"),
-      },
-      {
-        _tag: "target",
-        id: domainIdentity.toKey(),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "domain",
-        }),
-      },
-      {
-        _tag: "attached-module",
-        id: toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-        targetId: domainIdentity.toKey(),
-        moduleId: ModuleId.make("domain-api-contracts"),
-      },
-    ],
-    edges: [
-      makeBlueprintEdge(
-        "owns-module",
-        serverApiIdentity.toKey(),
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-      ),
-      makeBlueprintEdge(
-        "owns-module",
-        domainIdentity.toKey(),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-      ),
-      makeBlueprintEdge(
-        "required-target",
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-        domainIdentity.toKey(),
-      ),
-      makeBlueprintEdge(
-        "required-module",
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-      ),
-    ],
-  }).toSorted();
-
-const getOutcome = (plan: Plan, path: string): PlanOutcome => {
-  const outcome = plan.outcomes.find((candidate) => candidate.path === path);
-  expect(outcome).toBeDefined();
-  assert(
-    outcome !== undefined,
-    `Expected planned file outcome ${path} to exist`,
-  );
+const outcomeAt = (planned: Plan, path: string): PlanOutcome => {
+  const outcome = planned.outcomes.find((candidate) => candidate.path === path);
+  assert.isDefined(outcome, `Expected a planned outcome for ${path}`);
   return outcome;
 };
 
-const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
-  expect(Exit.isFailure(exit)).toBe(true);
-  assert(Exit.isFailure(exit), "Expected effect to fail");
-  return Cause.squash(exit.cause);
+const conflictsAt = (planned: Plan, path: string): ReadonlyArray<object> =>
+  planned.conflicts.filter((conflict) => conflict.path === path);
+
+const operationsAt = (planned: Plan, path: string) => {
+  const outcome = outcomeAt(planned, path);
+  assert(outcome._tag === "composed", `Expected ${path} to be composed`);
+  return outcome.operations;
 };
 
-const PlanTestLayer = Layer.provideMerge(
-  PlanService.layer,
-  Layer.mergeAll(
-    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
-    Path.layer,
-    OfficialCatalogLayer,
-  ),
-);
-
-/** Plan against a memory repository holding `files`, relative to the repository root. */
-const buildPlan = ({
-  blueprint,
-  files = {},
-}: {
-  blueprint: Blueprint;
-  files?: Readonly<Record<string, string>>;
-}) =>
-  Effect.gen(function* () {
-    const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.makeDirectory(testRepositoryRoot, { recursive: true });
-    yield* Effect.forEach(
-      Object.entries(files),
-      ([path, contents]) =>
-        fileSystem
-          .makeDirectory(
-            `${testRepositoryRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
-            { recursive: true },
-          )
-          .pipe(
-            Effect.andThen(
-              fileSystem.writeFileString(
-                `${testRepositoryRoot}/${path}`,
-                contents,
-              ),
-            ),
-          ),
-      { discard: true },
-    );
-
-    const planService = yield* PlanService;
-    return yield* planService.build({
-      blueprint,
-      repositoryRoot: testRepositoryRoot,
-      config: new StackConfig({
-        name: "test-project",
-        runtime: { _tag: "bun" },
-      }),
-    });
-  }).pipe(Effect.provide(PlanTestLayer));
+const domain = selection(selected("package", "domain", "domain-api-contracts"));
 
 describe("PlanService", () => {
-  it.effect(
-    "should return PlanFailure when projection violates Plan invariants",
-    () =>
-      Effect.gen(function* () {
-        // Capture deduplicates paths on a real filesystem, so only a substituted
-        // capture can yield a baseline that the Plan schema rejects.
-        const duplicated = {
-          paths: [
-            { _tag: "missing" as const, path: repositoryRootPath },
-            { _tag: "missing" as const, path: repositoryRootPath },
-          ],
-        };
-        const repositoryState = RepositoryState.of({
-          capture: () =>
-            Effect.succeed({
-              baseline: {
-                root: testRepositoryRoot,
-                packageOwners: [],
-                ...duplicated,
-              },
-              snapshot: duplicated,
-            }),
-          verify: () => Effect.succeed([]),
-          discoverOwners: () => Effect.succeed([]),
-        });
-        const exit = yield* Effect.exit(
-          Effect.gen(function* () {
-            const planService = yield* PlanService;
-            return yield* planService.build({
-              blueprint: makeDomainBlueprint(),
-              repositoryRoot: testRepositoryRoot,
-              config: new StackConfig({
-                name: "test-project",
-                runtime: { _tag: "bun" },
-              }),
-            });
-          }).pipe(
-            Effect.provide(
-              Layer.effect(PlanService)(makePlanService).pipe(
-                Layer.provide(ContributionResolver.layer),
-                Layer.provide(Layer.succeed(RepositoryState, repositoryState)),
-                Layer.provide(OfficialCatalogLayer),
-              ),
+  describe("with the official catalog", () => {
+    it.effect(
+      "should create target and dependency files that are missing",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({});
+          const planned = yield* plan(
+            selection(selected("server", "api", "server-http-api")),
+          );
+
+          for (const path of [
+            "apps/server-api/src/index.ts",
+            "apps/server-api/src/api/Health.ts",
+            "packages/domain/src/Api.ts",
+          ]) {
+            assert.strictEqual(
+              outcomeAt(planned, path).classification,
+              "create",
+            );
+          }
+        }).pipe(Effect.provide(officialLayer)),
+    );
+
+    it.effect(
+      "should plan scaffold-owned files completely and shared files as compositions",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({});
+          const planned = yield* plan(domain);
+
+          for (const path of [
+            "packages/domain/src/Api.ts",
+            "packages/domain/tsconfig.json",
+          ]) {
+            const outcome = outcomeAt(planned, path);
+            assert.strictEqual(outcome._tag, "complete");
+            assert.strictEqual(outcome.classification, "create");
+          }
+          const manifest = operationsAt(
+            planned,
+            "packages/domain/package.json",
+          );
+          assert.deepInclude(
+            manifest.flatMap((operation) =>
+              operation._tag === "json-pkg-exports" ? operation.entries : [],
             ),
-          ),
+            { name: "./Api", value: "./src/Api.ts" },
+          );
+          assert.deepInclude(
+            manifest.flatMap((operation) =>
+              operation._tag === "json-pkg-scripts" ? operation.entries : [],
+            ),
+            { name: "type-check", value: "tsc --noEmit" },
+          );
+          const barrel = operationsAt(planned, "packages/domain/src/index.ts");
+          assert.deepStrictEqual(
+            barrel.map((operation) => operation._tag),
+            ["ts-add-reexport"],
+          );
+        }).pipe(Effect.provide(officialLayer)),
+    );
+
+    it.effect("should plan imports and call arguments a module composes", () =>
+      Effect.gen(function* () {
+        yield* writeFiles({
+          "apps/server-api/src/index.ts":
+            'import { Layer } from "effect";\nconst HttpRpcRouter = Layer.empty;\n',
+        });
+        const planned = yield* plan(
+          selection(selected("server", "api", "server-chat-rpc")),
         );
 
-        const failure = squashFailure(exit);
-        expect(failure).toBeInstanceOf(PlanFailure);
-        expect(failure).toMatchObject({
-          message: expect.stringContaining("Invalid projected Plan"),
-        });
-      }),
-  );
-
-  describe("when building target plans", () => {
-    it.effect(
-      "should classify projected target and module files as create when they are missing",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeServerApiBlueprint(),
-          });
-
-          expect(
-            getOutcome(plan, "apps/server-api/src/index.ts").classification,
-          ).toBe("create");
-          expect(
-            getOutcome(plan, "apps/server-api/src/api/Health.ts")
-              .classification,
-          ).toBe("create");
-          expect(
-            getOutcome(plan, "packages/domain/src/Api.ts").classification,
-          ).toBe("create");
-        }),
-    );
-
-    it.effect(
-      "should emit authoritative outcomes for scaffold-owned files including tsconfig",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeDomainBlueprint(),
-          });
-
-          expect(getOutcome(plan, "packages/domain/src/Api.ts")).toMatchObject({
-            _tag: "complete",
-            classification: "create",
-          });
-          expect(
-            getOutcome(plan, "packages/domain/tsconfig.json"),
-          ).toMatchObject({
-            _tag: "complete",
-            classification: "create",
-          });
-        }),
-    );
-  });
-
-  describe("when planning compositions", () => {
-    // NOTE: This fixture isolates server-chat-rpc so composition operations are the only behavior under test.
-    const makeChatServerOnlyBlueprint = () =>
-      new Blueprint({
-        nodes: [
-          {
-            _tag: "target",
-            id: serverApiIdentity.toKey(),
-            identity: serverApiIdentity,
-          },
-          {
-            _tag: "attached-module",
-            id: toAttachedModuleNodeId(
-              serverApiIdentity.toKey(),
-              ModuleId.make("server-chat-rpc"),
-            ),
-            targetId: serverApiIdentity.toKey(),
-            moduleId: ModuleId.make("server-chat-rpc"),
-          },
-        ],
-        edges: [
-          makeBlueprintEdge(
-            "owns-module",
-            serverApiIdentity.toKey(),
-            toAttachedModuleNodeId(
-              serverApiIdentity.toKey(),
-              ModuleId.make("server-chat-rpc"),
-            ),
+        const operations = operationsAt(
+          planned,
+          "apps/server-api/src/index.ts",
+        );
+        assert.isTrue(
+          operations.some(
+            (operation) =>
+              operation._tag === "ts-add-import" &&
+              operation.moduleSpecifier === "./rpc/Chat" &&
+              operation.namedImports?.includes("ChatRpcRoutes") === true,
           ),
-        ],
-      }).toSorted();
-
-    it.effect(
-      "should emit composition operations when module declares compositions",
-      () =>
-        Effect.gen(function* () {
-          const serverIndexContents = `import { Layer } from "effect";
-const HttpRpcRouter = Layer.empty;
-`;
-          const plan = yield* buildPlan({
-            blueprint: makeChatServerOnlyBlueprint(),
-            files: { "apps/server-api/src/index.ts": serverIndexContents },
-          });
-
-          const serverOutcome = getOutcome(
-            plan,
-            "apps/server-api/src/index.ts",
-          );
-          expect(serverOutcome._tag).toBe("composed");
-          assert(serverOutcome._tag === "composed");
-
-          const importOps = serverOutcome.operations.filter(
-            (op) => op._tag === "ts-add-import",
-          );
-          expect(importOps).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "ts-add-import",
-                moduleSpecifier: "./rpc/Chat",
-                namedImports: ["ChatRpcRoutes"],
-              }),
-            ]),
-          );
-
-          const appendOps = serverOutcome.operations.filter(
-            (op) => op._tag === "ts-append-call-arg",
-          );
-          expect(appendOps).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "ts-append-call-arg",
-                targetVariable: "AllRouters",
-                functionName: "Layer.mergeAll",
-                argument: "ChatRpcRoutes",
-              }),
-            ]),
-          );
-        }),
+        );
+        assert.isTrue(
+          operations.some(
+            (operation) =>
+              operation._tag === "ts-append-call-arg" &&
+              operation.targetVariable === "AllRouters" &&
+              operation.functionName === "Layer.mergeAll" &&
+              operation.argument === "ChatRpcRoutes",
+          ),
+        );
+      }).pipe(Effect.provide(officialLayer)),
     );
 
     it.effect(
-      "should report conflict when composition target file is missing and not created by target",
+      "should compose into a target file that another selected target creates",
       () =>
         Effect.gen(function* () {
-          const presenceIdentity = new TargetIdentity({
-            kind: TargetKind.make("package"),
-            name: "presence",
-          });
-          const blueprint = new Blueprint({
-            nodes: [
-              {
-                _tag: "target",
-                id: serverApiIdentity.toKey(),
-                identity: serverApiIdentity,
-              },
-              {
-                _tag: "attached-module",
-                id: toAttachedModuleNodeId(
-                  serverApiIdentity.toKey(),
-                  ModuleId.make("server-ws-presence"),
-                ),
-                targetId: serverApiIdentity.toKey(),
-                moduleId: ModuleId.make("server-ws-presence"),
-              },
-              {
-                _tag: "target",
-                id: domainIdentity.toKey(),
-                identity: domainIdentity,
-              },
-              {
-                _tag: "attached-module",
-                id: toAttachedModuleNodeId(
-                  domainIdentity.toKey(),
-                  ModuleId.make("domain-ws-contracts"),
-                ),
-                targetId: domainIdentity.toKey(),
-                moduleId: ModuleId.make("domain-ws-contracts"),
-              },
-              {
-                _tag: "target",
-                id: presenceIdentity.toKey(),
-                identity: presenceIdentity,
-              },
-              {
-                _tag: "attached-module",
-                id: toAttachedModuleNodeId(
-                  presenceIdentity.toKey(),
-                  ModuleId.make("package-presence-service"),
-                ),
-                targetId: presenceIdentity.toKey(),
-                moduleId: ModuleId.make("package-presence-service"),
-              },
-            ],
-            edges: [
-              makeBlueprintEdge(
-                "owns-module",
-                serverApiIdentity.toKey(),
-                toAttachedModuleNodeId(
-                  serverApiIdentity.toKey(),
-                  ModuleId.make("server-ws-presence"),
-                ),
-              ),
-              makeBlueprintEdge(
-                "owns-module",
-                domainIdentity.toKey(),
-                toAttachedModuleNodeId(
-                  domainIdentity.toKey(),
-                  ModuleId.make("domain-ws-contracts"),
-                ),
-              ),
-              makeBlueprintEdge(
-                "owns-module",
-                presenceIdentity.toKey(),
-                toAttachedModuleNodeId(
-                  presenceIdentity.toKey(),
-                  ModuleId.make("package-presence-service"),
-                ),
-              ),
-            ],
-          }).toSorted();
-
-          const plan = yield* buildPlan({
-            blueprint,
-          });
-
-          const serverOutcome = getOutcome(
-            plan,
-            "apps/server-api/src/index.ts",
+          yield* writeFiles({});
+          const planned = yield* plan(
+            selection(
+              selected("server", "api", "server-ws-presence"),
+              selected("package", "domain", "domain-ws-contracts"),
+              selected("package", "presence", "package-presence-service"),
+            ),
           );
-          expect(serverOutcome._tag).toBe("composed");
-        }),
-    );
-  });
 
-  describe("when planning merges", () => {
-    it.effect(
-      "should emit structural outcomes with required structure for package files",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeDomainBlueprint(),
-          });
-
-          expect(
-            getOutcome(plan, "packages/domain/package.json"),
-          ).toMatchObject({
-            _tag: "composed",
-            classification: "create",
-            operations: expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "json-pkg-exports",
-                entries: [
-                  {
-                    name: "./Api",
-                    value: "./src/Api.ts",
-                  },
-                ],
-              }),
-              expect.objectContaining({
-                _tag: "json-pkg-scripts",
-                entries: expect.arrayContaining([
-                  expect.objectContaining({
-                    name: "type-check",
-                    value: "tsc --noEmit",
-                  }),
-                ]),
-              }),
-            ]),
-          });
-          expect(
-            getOutcome(plan, "packages/domain/src/index.ts"),
-          ).toMatchObject({
-            _tag: "composed",
-            classification: "create",
-            operations: [{ _tag: "ts-add-reexport", moduleSpecifier: "./Api" }],
-          });
-        }),
-    );
-
-    it.effect(
-      "should require a package.json merge strategy when existing exports conflict",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeDomainBlueprint(),
-            files: {
-              "packages/domain/package.json": JSON.stringify({
-                name: "@repo/domain",
-                exports: { "./Api": "./src/Other.ts" },
-              }),
-            },
-          });
-
-          expect(
-            getOutcome(plan, "packages/domain/package.json").classification,
-          ).toBe("conflict");
-          expect(plan.conflicts).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "exports",
-                path: "packages/domain/package.json",
-                name: "./Api",
-              }),
-            ]),
+          assert.strictEqual(
+            outcomeAt(planned, "apps/server-api/src/index.ts")._tag,
+            "composed",
           );
-        }),
+        }).pipe(Effect.provide(officialLayer)),
     );
 
+    for (const { name, path, contents, conflict } of [
+      {
+        name: "existing manifest exports differ",
+        path: "packages/domain/package.json",
+        contents:
+          '{"name":"@repo/domain","exports":{"./Api":"./src/Other.ts"}}',
+        conflict: { _tag: "exports", name: "./Api" },
+      },
+      {
+        name: "the barrel cannot be parsed",
+        path: "packages/domain/src/index.ts",
+        contents: 'export { Api } from "./Api";',
+        conflict: { _tag: "barrelExport", exportPath: "./Api" },
+      },
+    ]) {
+      it.effect(`should report a conflict when ${name}`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles({ [path]: contents });
+          const planned = yield* plan(domain);
+
+          assert.strictEqual(
+            outcomeAt(planned, path).classification,
+            "conflict",
+          );
+          assert.deepInclude(conflictsAt(planned, path), { ...conflict, path });
+        }).pipe(Effect.provide(officialLayer)),
+      );
+    }
+
+    const ai = selection(
+      selected(
+        "package",
+        "ai",
+        "package-ai-core",
+        "package-ai-toolkit-datetime",
+      ),
+    );
+    const aiIndex = "packages/ai/src/index.ts";
+
     it.effect(
-      "should require a barrel merge strategy when the barrel cannot be parsed",
+      "should compose a module's barrel export into a file another module writes",
       () =>
         Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeDomainBlueprint(),
-            files: {
-              "packages/domain/src/index.ts": 'export { Api } from "./Api";',
-            },
-          });
+          yield* writeFiles({});
+          const planned = yield* plan(ai);
 
-          expect(
-            getOutcome(plan, "packages/domain/src/index.ts").classification,
-          ).toBe("conflict");
-          expect(plan.conflicts).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
+          assert.strictEqual(
+            outcomeAt(planned, aiIndex).classification,
+            "create",
+          );
+          assert.isTrue(
+            operationsAt(planned, aiIndex).some(
+              (operation) =>
+                operation._tag === "ts-add-reexport" &&
+                operation.moduleSpecifier === "./toolkits/DateTimeToolkit",
+            ),
+          );
+        }).pipe(Effect.provide(officialLayer)),
+    );
+
+    for (const { existing, classification } of [
+      {
+        existing:
+          'export * from "./LanguageModel";\nexport * from "./toolkits/DateTimeToolkit";\n',
+        classification: "unchanged",
+      },
+      {
+        existing: 'export * from "./LanguageModel";\n',
+        classification: "modify",
+      },
+      {
+        existing:
+          '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
+        classification: "conflict",
+      },
+    ] as const) {
+      it.effect(
+        `should classify a written barrel as ${classification} from its existing exports`,
+        () =>
+          Effect.gen(function* () {
+            yield* writeFiles({ [aiIndex]: existing });
+            const planned = yield* plan(ai);
+
+            assert.strictEqual(
+              outcomeAt(planned, aiIndex).classification,
+              classification,
+            );
+            if (classification === "conflict") {
+              assert.deepInclude(conflictsAt(planned, aiIndex), {
                 _tag: "barrelExport",
-                path: "packages/domain/src/index.ts",
-                exportPath: "./Api",
-              }),
-            ]),
-          );
-        }),
-    );
-  });
-
-  describe("when planning authoritative + barrel combinations", () => {
-    const aiIdentity = new TargetIdentity({
-      kind: TargetKind.make("package"),
-      name: "ai",
-    });
-
-    const makeAiBlueprint = () =>
-      new Blueprint({
-        nodes: [
-          {
-            _tag: "target",
-            id: aiIdentity.toKey(),
-            identity: aiIdentity,
-          },
-          {
-            _tag: "attached-module",
-            id: toAttachedModuleNodeId(
-              aiIdentity.toKey(),
-              ModuleId.make("package-ai-core"),
-            ),
-            targetId: aiIdentity.toKey(),
-            moduleId: ModuleId.make("package-ai-core"),
-          },
-          {
-            _tag: "attached-module",
-            id: toAttachedModuleNodeId(
-              aiIdentity.toKey(),
-              ModuleId.make("package-ai-toolkit-datetime"),
-            ),
-            targetId: aiIdentity.toKey(),
-            moduleId: ModuleId.make("package-ai-toolkit-datetime"),
-          },
-        ],
-        edges: [
-          makeBlueprintEdge(
-            "owns-module",
-            aiIdentity.toKey(),
-            toAttachedModuleNodeId(
-              aiIdentity.toKey(),
-              ModuleId.make("package-ai-core"),
-            ),
-          ),
-          makeBlueprintEdge(
-            "owns-module",
-            aiIdentity.toKey(),
-            toAttachedModuleNodeId(
-              aiIdentity.toKey(),
-              ModuleId.make("package-ai-toolkit-datetime"),
-            ),
-          ),
-        ],
-      }).toSorted();
-
-    it.effect(
-      "should combine authoritative content with barrel exports in a single composed outcome",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeAiBlueprint(),
-          });
-
-          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
-
-          expect(indexOutcome._tag).toBe("composed");
-          expect(indexOutcome.classification).toBe("create");
-
-          expect(indexOutcome).toMatchObject({
-            operations: expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "ts-add-reexport",
-                moduleSpecifier: "./toolkits/DateTimeToolkit",
-              }),
-            ]),
-          });
-        }),
-    );
-
-    it.effect(
-      "should detect unchanged when authoritative + barrel already present",
-      () =>
-        Effect.gen(function* () {
-          const existingContents = `export * from "./LanguageModel";
-export * from "./toolkits/DateTimeToolkit";
-`;
-
-          const plan = yield* buildPlan({
-            blueprint: makeAiBlueprint(),
-            files: { "packages/ai/src/index.ts": existingContents },
-          });
-
-          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
-          expect(indexOutcome.classification).toBe("unchanged");
-        }),
-    );
-
-    it.effect(
-      "should detect modify when authoritative present but barrel export missing",
-      () =>
-        Effect.gen(function* () {
-          const existingContents = `export * from "./LanguageModel";
-`;
-
-          const plan = yield* buildPlan({
-            blueprint: makeAiBlueprint(),
-            files: { "packages/ai/src/index.ts": existingContents },
-          });
-
-          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
-          expect(indexOutcome.classification).toBe("modify");
-        }),
-    );
-
-    it.effect(
-      "should conflict when existing file cannot be parsed as barrel",
-      () =>
-        Effect.gen(function* () {
-          const plan = yield* buildPlan({
-            blueprint: makeAiBlueprint(),
-            files: {
-              "packages/ai/src/index.ts":
-                '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
-            },
-          });
-
-          const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
-          expect(indexOutcome.classification).toBe("conflict");
-          expect(plan.conflicts).toEqual(
-            expect.arrayContaining([
-              expect.objectContaining({
-                _tag: "barrelExport",
-                path: "packages/ai/src/index.ts",
+                path: aiIndex,
                 exportPath: "./toolkits/DateTimeToolkit",
-              }),
-            ]),
-          );
-        }),
+              });
+            }
+          }).pipe(Effect.provide(officialLayer)),
+      );
+    }
+
+    it.effect("should fail when an ancestor path is a file", () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ "packages/domain": "not a directory" });
+
+        const failure = yield* Effect.flip(plan(domain));
+
+        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.include(failure.message, "packages/domain/");
+      }).pipe(Effect.provide(officialLayer)),
     );
   });
 
-  describe("when planning against an invalid repo snapshot", () => {
+  describe("with the test catalog", () => {
     it.effect(
-      "should fail when an ancestor path is a file instead of a directory",
+      "should record missing, directory, and file paths in the baseline",
       () =>
         Effect.gen(function* () {
-          const failure = yield* Effect.flip(
-            buildPlan({
-              blueprint: makeDomainBlueprint(),
-              files: { "packages/domain": "not a directory" },
-            }),
+          yield* writeFiles({ "packages/app/src/a.txt": "A\n" });
+          const planned = yield* plan(app("pair"));
+          const tags = new Map<string, string>(
+            planned.baseline.paths.map((entry) => [entry.path, entry._tag]),
           );
 
-          expect(failure._tag).toBe("PlanFailure");
-          expect(failure.message).toMatch(
-            /^Could not inspect packages\/domain\/\S+ during planning/,
+          assert.strictEqual(planned.baseline.root, repositoryRoot);
+          assert.strictEqual(tags.get("packages/app/src"), "directory");
+          assert.strictEqual(tags.get("packages/app/src/a.txt"), "file");
+          assert.strictEqual(tags.get("packages/app/src/b.txt"), "missing");
+          assert.strictEqual(
+            outcomeAt(planned, "packages/app/src/a.txt").classification,
+            "unchanged",
           );
-        }),
+        }).pipe(Effect.provide(testPipeline)),
     );
+
+    for (const method of ["lstat", "readFile"] as const) {
+      it.effect(`should fail when ${method} fails for a planned path`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles({ "packages/app/src/a.txt": "A\n" });
+          const fault = yield* withFault({
+            method,
+            path: `${repositoryRoot}/packages/app/src/a.txt`,
+          });
+
+          const failure = yield* Effect.flip(fault.provide(plan(app("pair"))));
+
+          assert.isTrue(yield* fault.fired);
+          assert.strictEqual(failure._tag, "PlanFailure");
+          assert.include(failure.message, "packages/app/src/a.txt");
+        }).pipe(Effect.provide(testPipeline)),
+      );
+    }
+
+    it.effect("should fail when a planned file path is a directory", () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ "packages/app/tsconfig.json/keep": "" });
+
+        const failure = yield* Effect.flip(plan(app("tsconfig")));
+
+        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.include(failure.message, "packages/app/tsconfig.json");
+      }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should report a conflict instead of modifying a protected file",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({ "packages/app/tsconfig.json": "{}\n" });
+          const planned = yield* plan(app("tsconfig"));
+
+          assert.deepStrictEqual(planned.conflicts, [
+            {
+              _tag: "tsconfig",
+              path: RepositoryPath.make("packages/app/tsconfig.json"),
+            },
+          ]);
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    const appFile = "packages/app/src/App.tsx";
+    const slotted =
+      "export const App = () => <>\n{/* @slot:components */}\n</>;\n";
+    const missingSlot = [
+      { _tag: "jsxSlotTargetNotFound", path: appFile, slotId: "components" },
+    ];
+    for (const { name, modules, existing, classification, conflicts } of [
+      {
+        name: "slot content into an existing marker",
+        modules: ["card-slot"],
+        existing: slotted,
+        classification: "modify",
+        conflicts: [],
+      },
+      {
+        name: "slot content into a missing file",
+        modules: ["card-slot"],
+        existing: undefined,
+        classification: "conflict",
+        conflicts: missingSlot,
+      },
+      {
+        name: "slot content into a file without the marker",
+        modules: ["card-slot"],
+        existing: "export const App = () => <></>;\n",
+        classification: "conflict",
+        conflicts: missingSlot,
+      },
+      {
+        name: "slot content beside marker text outside JSX",
+        modules: ["card-slot"],
+        existing:
+          'const misleading = "{/* @slot:components */}";\nexport const App = () => <main />;\n',
+        classification: "conflict",
+        conflicts: missingSlot,
+      },
+      {
+        name: "a written file with its slot content",
+        modules: ["app-shell", "card-slot"],
+        existing: undefined,
+        classification: "create",
+        conflicts: [],
+      },
+      {
+        name: "a written file over one without the marker",
+        modules: ["app-shell", "card-slot"],
+        existing: "export const App = () => <></>;\n",
+        classification: "conflict",
+        conflicts: missingSlot,
+      },
+    ] as const) {
+      it.effect(`should plan ${name} as ${classification}`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles(
+            existing === undefined ? {} : { [appFile]: existing },
+          );
+          const planned = yield* plan(app(...modules));
+
+          assert.strictEqual(
+            outcomeAt(planned, appFile).classification,
+            classification,
+          );
+          assert.deepStrictEqual(conflictsAt(planned, appFile), conflicts);
+        }).pipe(Effect.provide(testPipeline)),
+      );
+    }
+
+    const manifest = "packages/app/package.json";
+    const generatedDev =
+      "deno run --allow-env --allow-net --allow-read --allow-write src/index.ts";
+
+    it.effect(
+      "should keep a generated Deno FFI grant while merging an unrelated dependency",
+      () =>
+        Effect.gen(function* () {
+          const withFfi = generatedDev.replace(
+            "--allow-write",
+            "--allow-write --allow-ffi",
+          );
+          yield* writeFiles({
+            [manifest]: JSON.stringify({
+              name: "@repo/app",
+              scripts: { dev: withFfi },
+            }),
+          });
+          const planned = yield* plan(app("deno-dev", "db-dependency"));
+
+          assert.strictEqual(
+            outcomeAt(planned, manifest).classification,
+            "modify",
+          );
+          assert.deepStrictEqual(planned.conflicts, []);
+          yield* apply(planned);
+          const written = yield* readFile(manifest);
+          assert.include(written, withFfi);
+          assert.include(written, '"@repo/db": "workspace:*"');
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should report a conflict for a custom script with the same name",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [manifest]: JSON.stringify({
+              name: "@repo/app",
+              scripts: { dev: "deno run --allow-ffi custom.ts" },
+            }),
+          });
+          const planned = yield* plan(app("deno-dev", "db-dependency"));
+
+          assert.deepStrictEqual(planned.conflicts, [
+            {
+              _tag: "scripts",
+              path: RepositoryPath.make(manifest),
+              name: "dev",
+            },
+          ]);
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    for (const [path, previous] of [
+      ["deno.json", '{"workspace":[],"custom":"old"}'],
+      ["pnpm-workspace.yaml", "packages: []\nsetting: old\n"],
+    ] as const) {
+      it.effect(
+        `should register members in the proposed ${path} when it conflicts`,
+        () =>
+          Effect.gen(function* () {
+            yield* writeFiles({ [path]: previous });
+            const planned = yield* plan(
+              selection(
+                selected("workspace", "test-project"),
+                selected("package", "app", "manifest"),
+              ),
+            );
+
+            const outcome = outcomeAt(planned, path);
+            assert(outcome._tag === "complete");
+            assert.strictEqual(outcome.classification, "conflict");
+            assert.include(outcome.contents, "packages/app");
+            assert.include(outcome.contents, "new");
+            assert.notInclude(outcome.contents, "old");
+          }).pipe(Effect.provide(testPipeline)),
+      );
+    }
   });
 });

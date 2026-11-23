@@ -4,7 +4,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
 import { Effect, Layer, Schema } from "effect";
-import { previewPlatform } from "./fixtures/previewPlatform";
+import { platform } from "./fixtures/scaffold";
 
 const preview = (kind: string, modules: ReadonlyArray<string>) =>
   Effect.gen(function* () {
@@ -29,7 +29,7 @@ const preview = (kind: string, modules: ReadonlyArray<string>) =>
   }).pipe(
     Effect.provide(
       RecipePreviewer.layer.pipe(
-        Layer.provide(previewPlatform),
+        Layer.provide(platform),
         Layer.provide(OfficialCatalogLayer),
       ),
     ),

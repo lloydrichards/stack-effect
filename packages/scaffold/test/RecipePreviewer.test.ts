@@ -12,7 +12,7 @@ import {
 import { StackConfig } from "@repo/domain/Scaffold";
 import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
 import { Effect, Layer, Schema } from "effect";
-import { previewPlatform } from "./fixtures/previewPlatform";
+import { platform } from "./fixtures/scaffold";
 
 const PackageJsonFromJsonString = Schema.fromJsonString(
   Schema.Struct({
@@ -26,7 +26,7 @@ const UnknownFromJsonString = Schema.decodeUnknownSync(
 const decodePackageJson = Schema.decodeUnknownSync(PackageJsonFromJsonString);
 
 const TestLayer = RecipePreviewer.layer.pipe(
-  Layer.provide(previewPlatform),
+  Layer.provide(platform),
 
   Layer.provide(OfficialCatalogLayer),
 );
@@ -90,7 +90,7 @@ it.effect(
     }).pipe(
       Effect.provide(
         RecipePreviewer.layer.pipe(
-          Layer.provide(previewPlatform),
+          Layer.provide(platform),
           Layer.provide(catalogLayer),
         ),
       ),

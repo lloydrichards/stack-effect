@@ -1,10 +1,7 @@
-import assert from "node:assert/strict";
-import { describe, expect, layer } from "@effect/vitest";
+import { assert, describe, layer } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import {
   type Blueprint,
-  BlueprintFailure,
-  CatalogNotFound,
   makeBlueprintEdge,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
@@ -28,7 +25,16 @@ const dbIdentity = new TargetIdentity({
 
 const getNode = (blueprint: Blueprint, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
-  assert(node !== undefined, `Expected blueprint node ${id} to exist`);
+  assert.isDefined(node, `Expected blueprint node ${id} to exist`);
+  return node;
+};
+
+const getAttachedModule = (blueprint: Blueprint, id: string) => {
+  const node = getNode(blueprint, id);
+  assert(
+    node._tag === "attached-module",
+    `Expected blueprint node ${id} to be an attached module`,
+  );
   return node;
 };
 
@@ -45,6 +51,32 @@ const TestLayer = BlueprintService.layer.pipe(
 describe("BlueprintService", () => {
   layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {
+      for (const names of [
+        ["sdk", "sdk/client"],
+        ["sdk-client", "sdk/client"],
+      ]) {
+        it.effect(
+          `should reject overlapping packages when ${names.join(" and ")} are selected`,
+          () =>
+            Effect.gen(function* () {
+              const blueprintService = yield* BlueprintService;
+              const error = yield* Effect.flip(
+                blueprintService.resolve({
+                  targets: names.map((name) => ({
+                    identity: new TargetIdentity({
+                      kind: TargetKind.make("package"),
+                      name,
+                    }),
+                    modules: [],
+                  })),
+                }),
+              );
+
+              assert.strictEqual(error._tag, "BlueprintFailure");
+            }),
+        );
+      }
+
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {
           const blueprintService = yield* BlueprintService;
@@ -69,10 +101,9 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(BlueprintFailure);
-          expect(error).toMatchObject({
-            message: "Duplicate target selection: apps/server-api",
-          });
+          assert.strictEqual(error._tag, "BlueprintFailure");
+          assert.include(error.message, "Duplicate target selection");
+          assert.include(error.message, "apps/server-api");
         }),
       );
 
@@ -96,11 +127,10 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(BlueprintFailure);
-          expect(error).toMatchObject({
-            message:
-              "Duplicate module selection: apps/server-api requires module server-http-api",
-          });
+          assert.strictEqual(error._tag, "BlueprintFailure");
+          assert.include(error.message, "Duplicate module selection");
+          assert.include(error.message, "apps/server-api");
+          assert.include(error.message, "server-http-api");
         }),
       );
 
@@ -123,11 +153,13 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(error).toBeInstanceOf(BlueprintFailure);
-            expect(error).toMatchObject({
-              message:
-                "Unsupported target-module combination: packages/domain requires module server-http-api",
-            });
+            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.include(
+              error.message,
+              "Unsupported target-module combination",
+            );
+            assert.include(error.message, "packages/domain");
+            assert.include(error.message, "server-http-api");
           }),
       );
 
@@ -150,12 +182,10 @@ describe("BlueprintService", () => {
             }),
           );
 
-          expect(error).toBeInstanceOf(CatalogNotFound);
-          expect(error).toMatchObject({
-            catalog: "module",
-            entity: "module",
-            id: "missing-target-module",
-          });
+          assert(error._tag === "CatalogNotFound");
+          assert.strictEqual(error.catalog, "module");
+          assert.strictEqual(error.entity, "module");
+          assert.strictEqual(error.id, "missing-target-module");
         }),
       );
 
@@ -181,11 +211,10 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(error).toBeInstanceOf(BlueprintFailure);
-            expect(error).toMatchObject({
-              message:
-                "Incompatible modules on .: workspace-quality-biome-format conflicts with workspace-quality-oxfmt",
-            });
+            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.include(error.message, "Incompatible modules");
+            assert.include(error.message, "workspace-quality-biome-format");
+            assert.include(error.message, "workspace-quality-oxfmt");
           }),
       );
 
@@ -209,21 +238,15 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(
-              blueprint.nodes.filter(
-                (node) =>
-                  node._tag === "attached-module" && node.targetId === ".",
-              ),
-            ).toEqual(
-              expect.arrayContaining([
-                expect.objectContaining({
-                  moduleId: "workspace-devenv-nix-flake",
-                }),
-                expect.objectContaining({
-                  moduleId: "workspace-devenv-devcontainer",
-                }),
-              ]),
+            const rootModuleIds = blueprint.nodes.flatMap((node) =>
+              node._tag === "attached-module" && node.targetId === "."
+                ? [node.moduleId]
+                : [],
             );
+            assert.includeMembers(rootModuleIds, [
+              "workspace-devenv-nix-flake",
+              "workspace-devenv-devcontainer",
+            ]);
           }),
       );
     });
@@ -246,15 +269,16 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(
-              getNode(
+            assert.strictEqual(
+              getAttachedModule(
                 blueprint,
                 toAttachedModuleNodeId(
                   dbIdentity.toKey(),
                   ModuleId.make("package-db-sqlite"),
                 ),
-              ),
-            ).toMatchObject({ moduleId: "package-db-sqlite" });
+              ).moduleId,
+              "package-db-sqlite",
+            );
           }),
       );
 
@@ -279,13 +303,13 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(
+            assert.isFalse(
               blueprint.nodes.some(
                 (node) =>
                   node._tag === "attached-module" &&
                   node.moduleId === "domain-todo-rpc-contracts",
               ),
-            ).toBe(false);
+            );
           }),
       );
 
@@ -307,11 +331,11 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(error).toMatchObject({
-              message: expect.stringContaining(
-                "Select exactly one provider module explicitly",
-              ),
-            });
+            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.include(
+              error.message,
+              "Select exactly one provider module explicitly",
+            );
           }),
       );
 
@@ -335,11 +359,11 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(error).toMatchObject({
-              message: expect.stringContaining(
-                "Select exactly one provider module explicitly",
-              ),
-            });
+            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.include(
+              error.message,
+              "Select exactly one provider module explicitly",
+            );
           }),
       );
 
@@ -362,11 +386,11 @@ describe("BlueprintService", () => {
               }),
             );
 
-            expect(error).toMatchObject({
-              message: expect.stringContaining(
-                "Multiple providers selected for capability db-sql",
-              ),
-            });
+            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.include(
+              error.message,
+              "Multiple providers selected for capability db-sql",
+            );
           }),
       );
 
@@ -387,40 +411,38 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(getNode(blueprint, "apps/server-api")).toMatchObject({
-              _tag: "target",
-              id: "apps/server-api",
-            });
-            expect(getNode(blueprint, "packages/domain")).toMatchObject({
-              _tag: "target",
-              id: "packages/domain",
-            });
-            expect(
-              getNode(
-                blueprint,
-                toAttachedModuleNodeId(
-                  serverApiIdentity.toKey(),
-                  ModuleId.make("server-http-api"),
-                ),
+            assert.strictEqual(
+              getNode(blueprint, "apps/server-api")._tag,
+              "target",
+            );
+            assert.strictEqual(
+              getNode(blueprint, "packages/domain")._tag,
+              "target",
+            );
+            const serverHttpApiNode = getAttachedModule(
+              blueprint,
+              toAttachedModuleNodeId(
+                serverApiIdentity.toKey(),
+                ModuleId.make("server-http-api"),
               ),
-            ).toMatchObject({
-              _tag: "attached-module",
-              targetId: "apps/server-api",
-              moduleId: "server-http-api",
-            });
-            expect(
-              getNode(
-                blueprint,
-                toAttachedModuleNodeId(
-                  domainIdentity.toKey(),
-                  ModuleId.make("domain-api-contracts"),
-                ),
+            );
+            assert.strictEqual(serverHttpApiNode.targetId, "apps/server-api");
+            assert.strictEqual(serverHttpApiNode.moduleId, "server-http-api");
+            const domainApiContractsNode = getAttachedModule(
+              blueprint,
+              toAttachedModuleNodeId(
+                domainIdentity.toKey(),
+                ModuleId.make("domain-api-contracts"),
               ),
-            ).toMatchObject({
-              _tag: "attached-module",
-              targetId: "packages/domain",
-              moduleId: "domain-api-contracts",
-            });
+            );
+            assert.strictEqual(
+              domainApiContractsNode.targetId,
+              "packages/domain",
+            );
+            assert.strictEqual(
+              domainApiContractsNode.moduleId,
+              "domain-api-contracts",
+            );
             const serverHttpApi = toAttachedModuleNodeId(
               serverApiIdentity.toKey(),
               ModuleId.make("server-http-api"),
@@ -429,8 +451,9 @@ describe("BlueprintService", () => {
               domainIdentity.toKey(),
               ModuleId.make("domain-api-contracts"),
             );
-            expect(blueprint.edges).toEqual(
-              expect.arrayContaining([
+            assert.includeDeepMembers(
+              [...blueprint.edges],
+              [
                 makeBlueprintEdge(
                   "owns-module",
                   serverApiIdentity.toKey(),
@@ -451,7 +474,7 @@ describe("BlueprintService", () => {
                   serverHttpApi,
                   domainApiContracts,
                 ),
-              ]),
+              ],
             );
           }),
       );
@@ -474,26 +497,25 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(getNode(blueprint, "apps/sdk/cli-custom")).toMatchObject({
-              _tag: "target",
-              id: "apps/sdk/cli-custom",
-            });
-            expect(
+            assert.strictEqual(
+              getNode(blueprint, "apps/sdk/cli-custom")._tag,
+              "target",
+            );
+            assert.isFalse(
               blueprint.nodes.some((node) => node.id === "apps/cli-app"),
-            ).toBe(false);
-            expect(
-              getNode(
-                blueprint,
-                toAttachedModuleNodeId(
-                  cliCustomIdentity.toKey(),
-                  ModuleId.make("cli-chat-driver"),
-                ),
+            );
+            const cliChatDriverNode = getAttachedModule(
+              blueprint,
+              toAttachedModuleNodeId(
+                cliCustomIdentity.toKey(),
+                ModuleId.make("cli-chat-driver"),
               ),
-            ).toMatchObject({
-              _tag: "attached-module",
-              targetId: "apps/sdk/cli-custom",
-              moduleId: "cli-chat-driver",
-            });
+            );
+            assert.strictEqual(
+              cliChatDriverNode.targetId,
+              "apps/sdk/cli-custom",
+            );
+            assert.strictEqual(cliChatDriverNode.moduleId, "cli-chat-driver");
           }),
       );
 
@@ -522,15 +544,12 @@ describe("BlueprintService", () => {
             });
 
             // NOTE: This fixture checks the transitive module requirement chain.
-            expect(
+            assert.deepStrictEqual(
               blueprint.nodes
                 .filter((node) => node._tag === "target")
                 .map((node) => node.id),
-            ).toEqual([
-              "apps/client-react-api",
-              "apps/server-api",
-              "packages/domain",
-            ]);
+              ["apps/client-react-api", "apps/server-api", "packages/domain"],
+            );
           }),
       );
 
@@ -551,22 +570,24 @@ describe("BlueprintService", () => {
               ],
             });
 
-            expect(
-              getNode(
-                blueprint,
-                toAttachedModuleNodeId(
-                  new TargetIdentity({
-                    kind: TargetKind.make("client-react"),
-                    name: "app",
-                  }).toKey(),
-                  ModuleId.make("config-typescript-vite"),
-                ),
+            const configTypescriptViteNode = getAttachedModule(
+              blueprint,
+              toAttachedModuleNodeId(
+                new TargetIdentity({
+                  kind: TargetKind.make("client-react"),
+                  name: "app",
+                }).toKey(),
+                ModuleId.make("config-typescript-vite"),
               ),
-            ).toMatchObject({
-              _tag: "attached-module",
-              targetId: "apps/client-react-app",
-              moduleId: "config-typescript-vite",
-            });
+            );
+            assert.strictEqual(
+              configTypescriptViteNode.targetId,
+              "apps/client-react-app",
+            );
+            assert.strictEqual(
+              configTypescriptViteNode.moduleId,
+              "config-typescript-vite",
+            );
           }),
       );
 
@@ -583,19 +604,21 @@ describe("BlueprintService", () => {
               targets: [{ identity, modules: [] }],
             });
 
-            expect(
-              getNode(
-                blueprint,
-                toAttachedModuleNodeId(
-                  identity.toKey(),
-                  ModuleId.make("config-typescript-vite"),
-                ),
+            const configTypescriptViteNode = getAttachedModule(
+              blueprint,
+              toAttachedModuleNodeId(
+                identity.toKey(),
+                ModuleId.make("config-typescript-vite"),
               ),
-            ).toMatchObject({
-              _tag: "attached-module",
-              targetId: "apps/client-react-required",
-              moduleId: "config-typescript-vite",
-            });
+            );
+            assert.strictEqual(
+              configTypescriptViteNode.targetId,
+              "apps/client-react-required",
+            );
+            assert.strictEqual(
+              configTypescriptViteNode.moduleId,
+              "config-typescript-vite",
+            );
           }),
       );
 
@@ -616,15 +639,16 @@ describe("BlueprintService", () => {
               denoConfig,
             );
 
-            expect(
-              getNode(
+            assert.strictEqual(
+              getAttachedModule(
                 blueprint,
                 toAttachedModuleNodeId(
                   domainIdentity.toKey(),
                   ModuleId.make("domain-api-contracts"),
                 ),
-              ),
-            ).toMatchObject({ moduleId: "domain-api-contracts" });
+              ).moduleId,
+              "domain-api-contracts",
+            );
           }),
       );
 
@@ -640,15 +664,16 @@ describe("BlueprintService", () => {
             denoConfig,
           );
 
-          expect(
-            getNode(
+          assert.strictEqual(
+            getAttachedModule(
               blueprint,
               toAttachedModuleNodeId(
                 client.toKey(),
                 ModuleId.make("config-typescript-vite"),
               ),
-            ),
-          ).toMatchObject({ moduleId: "config-typescript-vite" });
+            ).moduleId,
+            "config-typescript-vite",
+          );
         }),
       );
 
@@ -674,10 +699,9 @@ describe("BlueprintService", () => {
             ),
           );
 
-          expect(failure).toMatchObject({
-            message:
-              "Runtime deno does not support module workspace-monorepo-turbo.",
-          });
+          assert.strictEqual(failure._tag, "BlueprintFailure");
+          assert.include(failure.message, "deno");
+          assert.include(failure.message, "workspace-monorepo-turbo");
         }),
       );
     });

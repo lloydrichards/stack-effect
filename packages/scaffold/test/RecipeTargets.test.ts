@@ -1,23 +1,25 @@
-import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { assert, describe, it } from "@effect/vitest";
+import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
   parseRecipeTargetSpecs,
   RecipeTargetString,
 } from "@repo/scaffold/RecipeTargets";
 import { Effect, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 describe("recipe target syntax", () => {
   it.each(["server/sdk/api:server-http-api", "package/sdk/client"])(
     "should retain nested names when parsing %s",
     (value) => {
       const spec = Schema.decodeSync(RecipeTargetString)(value);
-      expect(spec.target.kind).toBe(
+      assert.strictEqual(
+        spec.target.kind,
         value.startsWith("server") ? "server" : "package",
       );
-      expect(spec.target.name).toBe(
+      assert.strictEqual(
+        spec.target.name,
         value.startsWith("server") ? "sdk/api" : "sdk/client",
       );
-      expect(Schema.encodeSync(RecipeTargetString)(spec)).toBe(value);
+      assert.strictEqual(Schema.encodeSync(RecipeTargetString)(spec), value);
     },
   );
   it.each([
@@ -27,7 +29,7 @@ describe("recipe target syntax", () => {
     "server/api:",
     "server/api: , ",
   ])("should reject target syntax when parsing malformed %s", (value) => {
-    expect(() => Schema.decodeSync(RecipeTargetString)(value)).toThrow();
+    assert.throws(() => Schema.decodeSync(RecipeTargetString)(value));
   });
 });
 
@@ -41,13 +43,16 @@ describe("parseRecipeTargetSpecs", () => {
       ]),
     );
 
-    expect(targets).toEqual([
+    assert.deepStrictEqual(targets, [
       {
         target: new TargetIdentity({
           kind: TargetKind.make("server"),
           name: "api",
         }),
-        modules: ["server-http-api", "server-http-rpc"],
+        modules: [
+          ModuleId.make("server-http-api"),
+          ModuleId.make("server-http-rpc"),
+        ],
       },
     ]);
   });

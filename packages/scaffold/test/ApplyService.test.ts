@@ -1,1060 +1,381 @@
-import assert from "node:assert/strict";
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
+import { RepositoryPath } from "@repo/domain/Plan";
+import { Effect } from "effect";
 import {
-  type ApplyDecision,
-  ApplyFailure,
-  Apply as ApplyIntent,
-} from "@repo/domain/Apply";
-import {
-  CompositionOperation,
-  Plan,
-  type PlanEntryClassification,
-  type PlanOutcome,
-  RepositoryPath,
-} from "@repo/domain/Plan";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import {
-  ByteSize,
-  Cause,
-  Effect,
-  Exit,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  PlatformError,
-  Schema,
-} from "effect";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import { make as makeApplyService } from "../src/internal/applyService";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import {
-  type ApplyWriteOutcome,
-  type ApplyWriteRequest,
-  AtomicWriter,
-} from "../src/internal/atomicWriter";
-// oxlint-disable-next-line no-restricted-imports -- TODO: exercise through public modules once tests stop stubbing internals.
-import { RepositoryState } from "../src/internal/repositoryState";
-
-const testRepositoryRoot = "/repo";
-const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
-
-type MockPathEntry =
-  | { readonly _tag: "missing" }
-  | { readonly _tag: "directory" }
-  | { readonly _tag: "file"; readonly contents: string }
-  | { readonly _tag: "statError"; readonly error: PlatformError.PlatformError }
-  | { readonly _tag: "readError"; readonly error: PlatformError.PlatformError };
-
-const makeNotFoundError = (method: string, absolutePath: string) =>
-  PlatformError.systemError({
-    _tag: "NotFound",
-    module: "FileSystem",
-    method,
-    description: "No such file or directory",
-    pathOrDescriptor: absolutePath,
-  });
-
-const makeFileInfo = (type: FileSystem.File.Type): FileSystem.File.Info => ({
-  type,
-  mtime: Option.none(),
-  atime: Option.none(),
-  birthtime: Option.none(),
-  dev: 0n,
-  ino: Option.none(),
-  mode: 0,
-  nlink: Option.none(),
-  uid: Option.none(),
-  gid: Option.none(),
-  rdev: Option.none(),
-  size: ByteSize.zero,
-  blksize: Option.none(),
-  blocks: Option.none(),
-});
-
-const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
-  const getEntry = (absolutePath: string) =>
-    entries[absolutePath] ?? { _tag: "missing" };
-
-  return FileSystem.layerNoop({
-    stat: (absolutePath: string) => {
-      const entry = getEntry(absolutePath);
-      switch (entry._tag) {
-        case "missing":
-          return Effect.fail(makeNotFoundError("stat", absolutePath));
-        case "statError":
-          return Effect.fail(entry.error);
-        case "directory":
-          return Effect.succeed(makeFileInfo("Directory"));
-        case "file":
-        case "readError":
-          return Effect.succeed(makeFileInfo("File"));
-      }
-    },
-    readFileString: (absolutePath: string) => {
-      const entry = getEntry(absolutePath);
-      switch (entry._tag) {
-        case "missing":
-          return Effect.fail(makeNotFoundError("readFileString", absolutePath));
-        case "readError":
-          return Effect.fail(entry.error);
-        case "file":
-          return Effect.succeed(entry.contents);
-        case "directory":
-          return Effect.fail(
-            PlatformError.systemError({
-              _tag: "BadResource",
-              module: "FileSystem",
-              method: "readFileString",
-              description: `Expected file at ${absolutePath}`,
-              pathOrDescriptor: absolutePath,
-            }),
-          );
-        case "statError":
-          return Effect.fail(
-            PlatformError.systemError({
-              _tag: "Unknown",
-              module: "FileSystem",
-              method: "readFileString",
-              description: `Expected stat success at ${absolutePath}`,
-              pathOrDescriptor: absolutePath,
-            }),
-          );
-      }
-    },
-  });
-};
-
-const mockRepositoryStateLayer = Layer.succeed(RepositoryState, {
-  verify: () => Effect.succeed([]),
-  discoverOwners: () => Effect.succeed([]),
-} as never);
-
-const makeApplyServiceLayer = ({
-  write,
-  entries = {},
-}: {
-  write: (args: {
-    readonly repositoryRoot: string;
-    readonly write: ApplyWriteRequest;
-  }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
-  entries?: Record<string, MockPathEntry>;
-}) =>
-  Layer.effect(ApplyService)(makeApplyService).pipe(
-    Layer.provide(
-      Layer.mergeAll(
-        Layer.succeed(
-          AtomicWriter,
-          AtomicWriter.of({
-            write: Effect.fn("MockAtomicWriter.write")(write),
-          }),
-        ),
-        makeFileSystemLayer(entries),
-        Path.layer,
-        mockRepositoryStateLayer,
-      ),
-    ),
-  );
-
-const makeApply = ({
-  outcomes,
-  decisions = [],
-}: {
-  outcomes: ReadonlyArray<PlanOutcome>;
-  decisions?: ReadonlyArray<ApplyDecision>;
-}) =>
-  new ApplyIntent({
-    plan: new Plan({
-      baseline: {
-        root: testRepositoryRoot,
-        paths: outcomes.map((outcome) => ({
-          _tag: "missing" as const,
-          path: outcome.path,
-        })),
-      },
-      outcomes: [...outcomes],
-      conflicts: outcomes
-        .filter((outcome) => outcome.classification === "conflict")
-        .map((outcome) => ({
-          _tag: "completeFile" as const,
-          path: outcome.path,
-        })),
-    }),
-    decisions: [...decisions],
-  });
-
-const runApply = ({
+  app,
   apply,
-  layer,
-}: {
-  apply: ApplyIntent;
-  layer: Layer.Layer<ApplyService>;
-}) =>
+  decideAll,
+  exists,
+  paths,
+  plan,
+  readFile,
+  repositoryRoot,
+  withFault,
+  writeFiles,
+  testPipeline,
+} from "./fixtures/scaffold";
+
+const tsconfig = "packages/app/tsconfig.json";
+const barrel = "packages/app/src/index.ts";
+const manifest = "packages/app/package.json";
+const appFile = "packages/app/src/App.tsx";
+const optionsFile = "packages/app/src/Options.ts";
+
+/** Plans and applies a selection, failing on any conflict or failed write. */
+const planAndApply = (...modules: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const applyService = yield* ApplyService;
-    return yield* applyService.apply({
-      apply,
-      repositoryRoot: testRepositoryRoot,
-    });
-  }).pipe(Effect.provide(layer));
+    const planned = yield* plan(app(...modules));
+    assert.deepStrictEqual(planned.conflicts, []);
+    const result = yield* apply(planned);
+    assert.deepStrictEqual(result.failed, []);
+    return result;
+  });
 
-const completeOutcome = ({
-  path,
-  classification,
-  contents,
-}: {
-  path: string;
-  classification: PlanEntryClassification;
-  contents: string;
-}): PlanOutcome => ({
-  _tag: "complete",
-  path: RepositoryPath.make(path),
-  classification,
-  contents,
-});
-
-const partialOutcome = ({
-  path,
-  classification,
-  operations,
-}: {
-  path: string;
-  classification: PlanEntryClassification;
-  operations: ReadonlyArray<CompositionOperation>;
-}): PlanOutcome => ({
-  _tag: "composed",
-  path: RepositoryPath.make(path),
-  classification,
-  operations,
-});
+const count = (contents: string, pattern: RegExp) =>
+  contents.match(pattern)?.length ?? 0;
 
 describe("ApplyService", () => {
-  describe("when applying outcomes", () => {
-    it.effect("should skip unchanged outcomes and then avoid writes", () =>
+  it.effect("should write every created file and report its path", () =>
+    Effect.gen(function* () {
+      yield* writeFiles({});
+      const result = yield* apply(yield* plan(app("api", "pair")));
+
+      assert.deepStrictEqual(
+        result.created,
+        paths(
+          "packages/app/src/Api.ts",
+          "packages/app/src/a.txt",
+          "packages/app/src/b.txt",
+          barrel,
+        ),
+      );
+      assert.deepStrictEqual(result.failed, []);
+      assert.strictEqual(yield* readFile("packages/app/src/b.txt"), "B\n");
+    }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect("should skip every path when the repository already matches", () =>
+    Effect.gen(function* () {
+      yield* writeFiles({});
+      yield* apply(yield* plan(app("api")));
+
+      const result = yield* apply(yield* plan(app("api")));
+
+      assert.deepStrictEqual(result.created, []);
+      assert.deepStrictEqual(result.modified, []);
+      assert.deepStrictEqual(
+        result.skipped,
+        paths("packages/app/src/Api.ts", barrel),
+      );
+    }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should report sorted skipped paths when a modified file is written unchanged",
+    () =>
       Effect.gen(function* () {
-        const writeCalls: Array<ApplyWriteRequest> = [];
-
-        const result = yield* runApply({
-          apply: makeApply({
-            outcomes: [
-              completeOutcome({
-                path: "packages/domain/src/Api.ts",
-                classification: "unchanged",
-                contents: "export const Api = {};\n",
-              }),
-            ],
-          }),
-          layer: makeApplyServiceLayer({
-            write: ({ write }) => {
-              writeCalls.push(write);
-              return Effect.succeed({
-                path: write.path,
-                status: "created" as const,
-              });
-            },
-          }),
+        const formatted =
+          '{\n  "name": "@repo/app",\n  "scripts": {\n    "dev": "vite"\n  }\n}\n';
+        yield* writeFiles({
+          [manifest]: formatted,
+          "packages/app/src/a.txt": "A\n",
+          "packages/app/src/b.txt": "B\n",
         });
+        const planned = yield* plan(app("manifest", "pair"));
+        assert.strictEqual(
+          planned.outcomes.find((outcome) => outcome.path === manifest)
+            ?.classification,
+          "modify",
+        );
 
-        expect(writeCalls).toHaveLength(0);
-        expect(result).toMatchObject({
-          created: [],
-          modified: [],
-          skipped: ["packages/domain/src/Api.ts"],
-          failed: [],
-        });
-      }),
-    );
+        const result = yield* apply(planned);
 
-    it.effect(
-      "should write authoritative create outcomes and then report created paths",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
+        assert.deepStrictEqual(result.modified, []);
+        assert.deepStrictEqual(
+          result.skipped,
+          paths(manifest, "packages/app/src/a.txt", "packages/app/src/b.txt"),
+        );
+        assert.strictEqual(yield* readFile(manifest), formatted);
+      }).pipe(Effect.provide(testPipeline)),
+  );
 
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                completeOutcome({
-                  path: "packages/domain/src/Api.ts",
-                  classification: "create",
-                  contents: "export const Api = {};\n",
-                }),
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              write: ({ write }) => {
-                writeCalls.push(write);
-                return Effect.succeed({
-                  path: write.path,
-                  status: "created" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toEqual([
-            {
-              path: "packages/domain/src/Api.ts",
-              contents: "export const Api = {};\n",
-              writeMode: "create",
-            },
-          ]);
-          expect(result).toMatchObject({
-            created: ["packages/domain/src/Api.ts"],
-            modified: [],
-            skipped: [],
-            failed: [],
-          });
-        }),
-    );
-
-    it.effect(
-      "should skip conflicted authoritative outcomes when decision is skip",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                completeOutcome({
-                  path: "packages/domain/src/Api.ts",
-                  classification: "conflict",
-                  contents: "export const Api = {};\n",
-                }),
-              ],
-              decisions: [
-                {
-                  path: RepositoryPath.make("packages/domain/src/Api.ts"),
-                  value: "skip",
-                },
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              write: ({ write }) => {
-                writeCalls.push(write);
-                return Effect.succeed({
-                  path: write.path,
-                  status: "modified" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toHaveLength(0);
-          expect(result).toMatchObject({
-            created: [],
-            modified: [],
-            skipped: ["packages/domain/src/Api.ts"],
-            failed: [],
-          });
-        }),
-    );
-
-    it.effect(
-      "should override conflicted authoritative outcomes when decision is override",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                completeOutcome({
-                  path: "packages/domain/src/Api.ts",
-                  classification: "conflict",
-                  contents: "export const Api = {};\n",
-                }),
-              ],
-              decisions: [
-                {
-                  path: RepositoryPath.make("packages/domain/src/Api.ts"),
-                  value: "override",
-                },
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              write: ({ write }) => {
-                writeCalls.push(write);
-                return Effect.succeed({
-                  path: write.path,
-                  status: "modified" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toEqual([
-            {
-              path: "packages/domain/src/Api.ts",
-              contents: "export const Api = {};\n",
-              writeMode: "override",
-            },
-          ]);
-          expect(result).toMatchObject({
-            created: [],
-            modified: ["packages/domain/src/Api.ts"],
-            skipped: [],
-            failed: [],
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail before repo access when a conflicted path is missing a decision",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  completeOutcome({
-                    path: "packages/domain/src/Api.ts",
-                    classification: "conflict",
-                    contents: "export const Api = {};\n",
-                  }),
-                ],
-              }),
-              layer: makeApplyServiceLayer({
-                write: ({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "modified" as const,
-                  });
-                },
-              }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message:
-              "Missing apply decision for conflicted path packages/domain/src/Api.ts.",
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail before repo access when a decision targets a non-conflicted path",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  completeOutcome({
-                    path: "packages/domain/src/Api.ts",
-                    classification: "create",
-                    contents: "export const Api = {};\n",
-                  }),
-                ],
-                decisions: [
-                  {
-                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
-                    value: "override",
-                  },
-                ],
-              }),
-              layer: makeApplyServiceLayer({
-                write: ({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "created" as const,
-                  });
-                },
-              }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message:
-              "Unexpected apply decision for non-conflicted path packages/domain/src/Api.ts.",
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail before repo access when decisions contain duplicate paths",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  completeOutcome({
-                    path: "packages/domain/src/Api.ts",
-                    classification: "conflict",
-                    contents: "export const Api = {};\n",
-                  }),
-                ],
-                decisions: [
-                  {
-                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
-                    value: "override",
-                  },
-                  {
-                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
-                    value: "skip",
-                  },
-                ],
-              }),
-              layer: makeApplyServiceLayer({
-                write: ({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "modified" as const,
-                  });
-                },
-              }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message: "Duplicate apply decision for packages/domain/src/Api.ts.",
-          });
-        }),
-    );
-
-    it.effect(
-      "should merge structural create outcomes with missing contents and then write merged output",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                partialOutcome({
-                  path: "packages/domain/src/index.ts",
-                  classification: "create",
-                  operations: [
-                    {
-                      _tag: "ts-add-reexport",
-                      fileType: "typescript",
-                      moduleSpecifier: "./Api",
-                    },
-                  ],
-                }),
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              entries: {
-                "/repo/packages/domain/src/index.ts": { _tag: "missing" },
-              },
-              write: ({ write }) => {
-                writeCalls.push(write);
-                return Effect.succeed({
-                  path: write.path,
-                  status: "created" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toEqual([
-            {
-              path: "packages/domain/src/index.ts",
-              contents: 'export * from "./Api";\n',
-              writeMode: "create",
-            },
-          ]);
-          expect(result).toMatchObject({
-            created: ["packages/domain/src/index.ts"],
-            modified: [],
-            skipped: [],
-            failed: [],
-          });
-        }),
-    );
-
-    it.effect(
-      "should merge structural modify outcomes with existing file contents",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                partialOutcome({
-                  path: "packages/domain/src/index.ts",
-                  classification: "modify",
-                  operations: [
-                    {
-                      _tag: "ts-add-reexport",
-                      fileType: "typescript",
-                      moduleSpecifier: "./Api",
-                    },
-                  ],
-                }),
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              entries: {
-                "/repo/packages/domain/src/index.ts": {
-                  _tag: "file",
-                  contents: 'export * from "./Existing";\n',
-                },
-              },
-              write: ({ write }) => {
-                writeCalls.push(write);
-                return Effect.succeed({
-                  path: write.path,
-                  status: "modified" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toEqual([
-            {
-              path: "packages/domain/src/index.ts",
-              contents: 'export * from "./Existing";\nexport * from "./Api";\n',
-              writeMode: "modify",
-            },
-          ]);
-          expect(result).toMatchObject({
-            created: [],
-            modified: ["packages/domain/src/index.ts"],
-            skipped: [],
-            failed: [],
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail when structural inputs resolve to a directory and then stop applying",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  partialOutcome({
-                    path: "packages/domain/src/index.ts",
-                    classification: "modify",
-                    operations: [
-                      {
-                        _tag: "ts-add-reexport",
-                        fileType: "typescript",
-                        moduleSpecifier: "./Api",
-                      },
-                    ],
-                  }),
-                ],
-              }),
-              layer: makeApplyServiceLayer({
-                entries: {
-                  "/repo/packages/domain/src/index.ts": {
-                    _tag: "directory",
-                  },
-                },
-                write: ({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "modified" as const,
-                  });
-                },
-              }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message:
-              "Expected /repo/packages/domain/src/index.ts to be a file during apply.",
-          });
-        }),
-    );
-
-    it.effect(
-      "should fail when structural file reads fail and then stop applying",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  partialOutcome({
-                    path: "packages/domain/src/index.ts",
-                    classification: "modify",
-                    operations: [
-                      {
-                        _tag: "ts-add-reexport",
-                        fileType: "typescript",
-                        moduleSpecifier: "./Api",
-                      },
-                    ],
-                  }),
-                ],
-              }),
-              layer: makeApplyServiceLayer({
-                entries: {
-                  "/repo/packages/domain/src/index.ts": {
-                    _tag: "readError",
-                    error: PlatformError.systemError({
-                      _tag: "Unknown",
-                      module: "FileSystem",
-                      method: "readFileString",
-                      description: "read exploded",
-                      pathOrDescriptor: "/repo/packages/domain/src/index.ts",
-                    }),
-                  },
-                },
-                write: ({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "modified" as const,
-                  });
-                },
-              }),
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message:
-              "Could not read /repo/packages/domain/src/index.ts during apply: Unknown: FileSystem.readFileString (/repo/packages/domain/src/index.ts): read exploded",
-          });
-        }),
-    );
-
-    it.effect("should fail when composition fails and then avoid writes", () =>
+  for (const { decision, contents, status } of [
+    { decision: "skip", contents: "{}\n", status: "skipped" },
+    {
+      decision: "override",
+      contents: '{ "extends": "../../tsconfig.base.json" }\n',
+      status: "modified",
+    },
+  ] as const) {
+    it.effect(`should honor a ${decision} decision for a conflict`, () =>
       Effect.gen(function* () {
-        const writeCalls: Array<ApplyWriteRequest> = [];
+        yield* writeFiles({ [tsconfig]: "{}\n" });
+        const planned = yield* plan(app("tsconfig"));
 
-        const layer = Layer.effect(ApplyService)(makeApplyService).pipe(
-          Layer.provide(
-            Layer.mergeAll(
-              Layer.succeed(
-                AtomicWriter,
-                AtomicWriter.of({
-                  write: Effect.fn("MockAtomicWriter.write")(({ write }) => {
-                    writeCalls.push(write);
-                    return Effect.succeed({
-                      path: write.path,
-                      status: "created" as const,
-                    });
-                  }),
-                }),
-              ),
-              makeFileSystemLayer({
-                "/repo/packages/domain/src/index.ts": {
-                  _tag: "missing",
-                },
-              }),
-              Path.layer,
-              mockRepositoryStateLayer,
-            ),
+        const result = yield* apply(planned, decideAll(planned, decision));
+
+        assert.deepStrictEqual(result[status], paths(tsconfig));
+        assert.strictEqual(yield* readFile(tsconfig), contents);
+      }).pipe(Effect.provide(testPipeline)),
+    );
+  }
+
+  for (const { name, path, decisions } of [
+    { name: "a conflict has no decision", path: tsconfig, decisions: [] },
+    {
+      name: "decisions repeat a path",
+      path: tsconfig,
+      decisions: ["override", "skip"],
+    },
+    {
+      name: "a decision names a path without a conflict",
+      path: "packages/app/src/a.txt",
+      decisions: ["override"],
+    },
+  ] as const) {
+    it.effect(`should reject the Apply before writing when ${name}`, () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ [tsconfig]: "{}\n" });
+        const planned = yield* plan(app("tsconfig", "pair"));
+
+        const failure = yield* Effect.flip(
+          apply(
+            planned,
+            decisions.map((value) => ({
+              path: RepositoryPath.make(path),
+              value,
+            })),
           ),
         );
 
-        const exit = yield* Effect.exit(
-          runApply({
-            apply: makeApply({
-              outcomes: [
-                partialOutcome({
-                  path: "packages/domain/src/index.ts",
-                  classification: "create",
-                  operations: [
-                    {
-                      _tag: "ts-append-call-arg",
-                      fileType: "typescript",
-                      targetVariable: "program",
-                      functionName: "Command.withSubcommands",
-                      argument: "apiCommand",
-                    },
-                  ],
-                }),
-              ],
-            }),
-            layer,
-          }),
+        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.include(failure.message, path);
+        assert.strictEqual(yield* readFile(tsconfig), "{}\n");
+        assert.isFalse(yield* exists("packages/app/src/a.txt"));
+      }).pipe(Effect.provide(testPipeline)),
+    );
+  }
+
+  for (const { name, existing, expected } of [
+    {
+      name: "create a missing barrel",
+      existing: undefined,
+      expected: 'export * from "./Api";\n',
+    },
+    {
+      name: "extend an existing barrel",
+      existing: 'export * from "./Existing";\n',
+      expected: 'export * from "./Existing";\nexport * from "./Api";\n',
+    },
+  ]) {
+    it.effect(`should compose re-exports to ${name}`, () =>
+      Effect.gen(function* () {
+        yield* writeFiles(existing === undefined ? {} : { [barrel]: existing });
+
+        const result = yield* apply(yield* plan(app("api")));
+
+        assert.deepStrictEqual(result.failed, []);
+        assert.strictEqual(yield* readFile(barrel), expected);
+      }).pipe(Effect.provide(testPipeline)),
+    );
+  }
+
+  for (const { name, modules, path, contents, identifier } of [
+    {
+      name: "a call target is missing",
+      modules: ["command", "pair"],
+      path: "packages/app/src/main.ts",
+      contents: "export const x = 1;\n",
+      identifier: "Command.withSubcommands",
+    },
+    {
+      name: "a JSX slot marker is missing",
+      modules: ["card-slot", "pair"],
+      path: appFile,
+      contents: "export const App = () => <main />;\n",
+      identifier: "@slot:components",
+    },
+    ...['"input"', '["input"]'].map((key) => ({
+      name: `object field ${key} already has a different value`,
+      modules: ["options-field", "pair"],
+      path: optionsFile,
+      contents: `const Options = Schema.Struct({ ${key}: Schema.String });\n`,
+      identifier: "Options.input",
+    })),
+    {
+      name: "a manifest section is not an object",
+      modules: ["scripts", "pair"],
+      path: manifest,
+      contents: '{"name":"@repo/app","scripts":"vite dev"}',
+      identifier: '"scripts"',
+    },
+  ]) {
+    it.effect(`should fail before writing when ${name}`, () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ [path]: contents });
+        const planned = yield* plan(app(...modules));
+
+        const failure = yield* Effect.flip(
+          apply(planned, decideAll(planned, "override")),
         );
 
-        expect(Exit.isFailure(exit)).toBe(true);
-        assert(Exit.isFailure(exit));
-        expect(writeCalls).toHaveLength(0);
-        expect(Cause.squash(exit.cause)).toMatchObject({
-          _tag: "ApplyFailure",
-          message:
-            "Could not find Command.withSubcommands on program during TypeScript composition.",
-        });
-      }),
+        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.include(failure.message, identifier);
+        assert.strictEqual(yield* readFile(path), contents);
+        assert.isFalse(yield* exists("packages/app/src/a.txt"));
+      }).pipe(Effect.provide(testPipeline)),
     );
+  }
 
+  it.effect(
+    "should fail before writing when a file to compose cannot be read",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ [barrel]: 'export * from "./Existing";\n' });
+        const planned = yield* plan(app("api"));
+        // The first read checks the barrel against the Plan baseline.
+        const fault = yield* withFault({
+          method: "readFile",
+          path: `${repositoryRoot}/${barrel}`,
+          skip: 1,
+        });
+
+        const failure = yield* Effect.flip(fault.provide(apply(planned)));
+
+        assert.isTrue(yield* fault.fired);
+        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.include(failure.message, barrel);
+        assert.isFalse(yield* exists("packages/app/src/Api.ts"));
+        assert.strictEqual(
+          yield* readFile(barrel),
+          'export * from "./Existing";\n',
+        );
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should record a failed write and continue below a newly created directory",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({});
+        const planned = yield* plan(app("pair"));
+        const fault = yield* withFault({
+          method: "rename",
+          path: `${repositoryRoot}/packages/app/src/a.txt`,
+        });
+
+        const result = yield* fault.provide(apply(planned));
+
+        assert.isTrue(yield* fault.fired);
+        assert.deepStrictEqual(result.created, paths("packages/app/src/b.txt"));
+        assert.deepStrictEqual(
+          result.failed.map((entry) => entry.path),
+          ["packages/app/src/a.txt"],
+        );
+        assert.isFalse(yield* exists("packages/app/src/a.txt"));
+        assert.strictEqual(yield* readFile("packages/app/src/b.txt"), "B\n");
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  describe("when composing TypeScript", () => {
     it.effect(
-      "should fail when package.json composition finds a non-object section and then avoid writes",
+      "should keep slot contributions in order and apply them once",
       () =>
         Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
+          yield* writeFiles({
+            [appFile]:
+              "export const App = () => (\n  <main>\n    {/* @slot:components */}\n  </main>\n);\n",
+          });
+          yield* planAndApply("alpha-slot", "beta-slot");
+          const once = yield* readFile(appFile);
 
-          const layer = Layer.effect(ApplyService)(makeApplyService).pipe(
-            Layer.provide(
-              Layer.mergeAll(
-                Layer.succeed(
-                  AtomicWriter,
-                  AtomicWriter.of({
-                    write: Effect.fn("MockAtomicWriter.write")(({ write }) => {
-                      writeCalls.push(write);
-                      return Effect.succeed({
-                        path: write.path,
-                        status: "modified" as const,
-                      });
-                    }),
-                  }),
-                ),
-                makeFileSystemLayer({
-                  "/repo/package.json": {
-                    _tag: "file",
-                    contents: encodeJson({
-                      scripts: "vite dev",
-                    }),
-                  },
-                }),
-                Path.layer,
-                mockRepositoryStateLayer,
-              ),
+          const repeated = yield* planAndApply("alpha-slot", "beta-slot");
+
+          assert.isBelow(once.indexOf("<Alpha />"), once.indexOf("<Beta />"));
+          assert.deepStrictEqual(repeated.skipped, paths(appFile));
+          const twice = yield* readFile(appFile);
+          assert.strictEqual(twice, once);
+          assert.strictEqual(count(twice, /<Alpha \/>/g), 1);
+          assert.strictEqual(count(twice, /<Beta \/>/g), 1);
+          assert.strictEqual(count(twice, /from "\.\/cards"/g), 1);
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect("should apply slot content in a JSX fragment once", () =>
+      Effect.gen(function* () {
+        yield* writeFiles({
+          [appFile]:
+            "export const App = () => (\n  <>\n    {/* @slot:components */}\n  </>\n);\n",
+        });
+        yield* planAndApply("card-slot");
+        const once = yield* readFile(appFile);
+
+        yield* planAndApply("card-slot");
+
+        assert.strictEqual(yield* readFile(appFile), once);
+        assert.strictEqual(count(once, /<Card \/>/g), 1);
+      }).pipe(Effect.provide(testPipeline)),
+    );
+
+    for (const { name, module, existing } of [
+      {
+        name: "outside the slot",
+        module: "card-slot",
+        existing:
+          "export const App = () => (\n  <>\n    <main>\n      {/* @slot:components */}\n    </main>\n    <aside><Card /></aside>\n  </>\n);\n",
+      },
+      {
+        name: "after the next sibling slot",
+        module: "first-card-slot",
+        existing:
+          "export const App = () => (\n  <main>\n    {/* @slot:first */}\n    {/* @slot:second */}\n    <Card />\n  </main>\n);\n",
+      },
+    ]) {
+      it.effect(
+        `should insert slot content when matching content is ${name}`,
+        () =>
+          Effect.gen(function* () {
+            yield* writeFiles({ [appFile]: existing });
+            yield* planAndApply(module);
+
+            const written = yield* readFile(appFile);
+            assert.strictEqual(count(written, /<Card \/>/g), 2);
+            assert.isBelow(
+              written.indexOf("<Card />"),
+              written.lastIndexOf("<Card />"),
+            );
+            if (module === "first-card-slot") {
+              assert.isBelow(
+                written.indexOf("<Card />"),
+                written.indexOf("{/* @slot:second */}"),
+              );
+            }
+          }).pipe(Effect.provide(testPipeline)),
+      );
+    }
+
+    it.effect(
+      "should repeat a deeply nested object field and reject a change within it",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [optionsFile]: "const Options = Schema.Struct({});\n",
+          });
+          yield* planAndApply("nested-string-field");
+          const once = yield* readFile(optionsFile);
+
+          const repeated = yield* planAndApply("nested-string-field");
+          const changed = yield* Effect.flip(
+            Effect.flatMap(plan(app("nested-number-field")), (planned) =>
+              apply(planned),
             ),
           );
 
-          const exit = yield* Effect.exit(
-            runApply({
-              apply: makeApply({
-                outcomes: [
-                  partialOutcome({
-                    path: "package.json",
-                    classification: "modify",
-                    operations: [
-                      {
-                        _tag: "json-pkg-scripts",
-                        fileType: "json",
-                        entries: [{ name: "dev", value: "vite dev" }],
-                      },
-                    ],
-                  }),
-                ],
-              }),
-              layer,
-            }),
-          );
-
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(writeCalls).toHaveLength(0);
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "ApplyFailure",
-            message:
-              'Expected package.json field "scripts" to be an object during apply.',
-          });
-        }),
-    );
-
-    it.effect("should map unchanged write outcomes into skipped paths", () =>
-      Effect.gen(function* () {
-        const result = yield* runApply({
-          apply: makeApply({
-            outcomes: [
-              completeOutcome({
-                path: "packages/domain/src/Api.ts",
-                classification: "modify",
-                contents: "export const Api = {};\n",
-              }),
-            ],
-          }),
-          layer: makeApplyServiceLayer({
-            write: ({ write }) =>
-              Effect.succeed({
-                path: write.path,
-                status: "unchanged" as const,
-              }),
-          }),
-        });
-
-        expect(result).toMatchObject({
-          created: [],
-          modified: [],
-          skipped: ["packages/domain/src/Api.ts"],
-          failed: [],
-        });
-      }),
-    );
-
-    it.effect(
-      "should collect write failures and then continue applying remaining writes",
-      () =>
-        Effect.gen(function* () {
-          const writeCalls: Array<ApplyWriteRequest> = [];
-
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                completeOutcome({
-                  path: "packages/domain/src/Api.ts",
-                  classification: "create",
-                  contents: "api",
-                }),
-                completeOutcome({
-                  path: "packages/domain/src/index.ts",
-                  classification: "create",
-                  contents: "index",
-                }),
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              write: ({ write }) => {
-                writeCalls.push(write);
-
-                if (write.path === "packages/domain/src/Api.ts") {
-                  return Effect.fail(
-                    new ApplyFailure({
-                      message: "disk full",
-                    }),
-                  );
-                }
-
-                return Effect.succeed({
-                  path: write.path,
-                  status: "created" as const,
-                });
-              },
-            }),
-          });
-
-          expect(writeCalls).toHaveLength(2);
-          expect(result).toMatchObject({
-            created: ["packages/domain/src/index.ts"],
-            modified: [],
-            skipped: [],
-            failed: [
-              {
-                path: "packages/domain/src/Api.ts",
-                reason: "disk full",
-              },
-            ],
-          });
-        }),
-    );
-
-    it.effect(
-      "should return sorted apply result collections after mixed outcomes",
-      () =>
-        Effect.gen(function* () {
-          const result = yield* runApply({
-            apply: makeApply({
-              outcomes: [
-                completeOutcome({
-                  path: "z.ts",
-                  classification: "create",
-                  contents: "z",
-                }),
-                completeOutcome({
-                  path: "b.ts",
-                  classification: "create",
-                  contents: "b",
-                }),
-                completeOutcome({
-                  path: "y.ts",
-                  classification: "modify",
-                  contents: "y",
-                }),
-                completeOutcome({
-                  path: "a.ts",
-                  classification: "modify",
-                  contents: "a",
-                }),
-                completeOutcome({
-                  path: "x.ts",
-                  classification: "unchanged",
-                  contents: "x",
-                }),
-                completeOutcome({
-                  path: "c.ts",
-                  classification: "modify",
-                  contents: "c",
-                }),
-                completeOutcome({
-                  path: "d.ts",
-                  classification: "conflict",
-                  contents: "d",
-                }),
-              ],
-              decisions: [
-                {
-                  path: RepositoryPath.make("d.ts"),
-                  value: "skip",
-                },
-              ],
-            }),
-            layer: makeApplyServiceLayer({
-              write: ({ write }) => {
-                switch (write.path) {
-                  case "z.ts":
-                  case "b.ts":
-                    return Effect.succeed({
-                      path: write.path,
-                      status: "created" as const,
-                    });
-                  case "y.ts":
-                  case "a.ts":
-                    return Effect.succeed({
-                      path: write.path,
-                      status: "modified" as const,
-                    });
-                  case "c.ts":
-                    return Effect.succeed({
-                      path: write.path,
-                      status: "unchanged" as const,
-                    });
-                  default:
-                    return Effect.fail(
-                      new ApplyFailure({
-                        message: `Unexpected write path ${write.path}`,
-                      }),
-                    );
-                }
-              },
-            }),
-          });
-
-          expect(result).toMatchObject({
-            created: ["b.ts", "z.ts"],
-            modified: ["a.ts", "y.ts"],
-            skipped: ["c.ts", "d.ts", "x.ts"],
-            failed: [],
-          });
-        }),
+          assert.deepStrictEqual(repeated.skipped, paths(optionsFile));
+          assert.strictEqual(changed._tag, "ApplyFailure");
+          assert.include(changed.message, "Options.input");
+          assert.strictEqual(yield* readFile(optionsFile), once);
+        }).pipe(Effect.provide(testPipeline)),
     );
   });
 });
