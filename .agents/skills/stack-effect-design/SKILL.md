@@ -14,7 +14,7 @@ description: Design or review Stack Effect package exports, Effect service inter
 | Change | What to inspect |
 | --- | --- |
 | Shared schemas or persisted data | [Domain instructions](../../../packages/domain/AGENTS.md), schema readers and writers, and existing stored documents. |
-| Shared scaffold behavior or exports | The [scaffold manifest](../../../packages/scaffold/package.json), CLI consumers, and the Recipe Builder worker. Keep the browser entry point free of server-only dependencies. |
+| Shared scaffold behavior or exports | The [scaffold manifest](../../../packages/scaffold/package.json), CLI consumers, and the Recipe Builder worker. Expose one subpath per public module, and keep the modules Recipe Builder imports free of server-only dependencies. |
 | Authoring API | The [authoring instructions](../../../packages/authoring/AGENTS.md) and the published `@stack-effect/author` wrapper. Run `bun run --cwd packages/author verify:package` for public API or packaging changes. |
 | Published CLI library entry point | The [CLI manifest](../../../apps/cli/package.json). Run `bun run --cwd apps/cli verify:library` for changes to the library exports or their packaging. |
 
