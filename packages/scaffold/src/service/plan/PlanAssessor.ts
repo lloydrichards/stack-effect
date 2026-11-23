@@ -95,27 +95,13 @@ type FlatStringRecordAssessment<Conflict> = {
   readonly hasAdditions: boolean;
 };
 
-export class PlanAssessor extends Context.Service<PlanAssessor>()(
-  "PlanAssessor",
-  {
-    make: Effect.succeed({
-      preserveDenoSqlitePermissions,
-      toPlannedFileOutcome,
-      assessPlanningPath,
-      collectAncestorPaths,
-    }),
-  },
-) {
-  static readonly layer = Layer.effect(PlanAssessor)(PlanAssessor.make);
-}
-
 const generatedDenoTask =
   /^deno (?:(?:run (?:--watch )?)|compile )--allow-env --allow-net --allow-read --allow-write(?: --output dist\/[\w.-]+)? src\/index\.ts$/;
 
-function preserveDenoSqlitePermissions(
+const preserveDenoSqlitePermissions = (
   planningPath: PlanningIntentPath,
   snapshotPath: SnapshotPath,
-): PlanningIntentPath {
+): PlanningIntentPath => {
   if (planningPath.scripts.length === 0 || snapshotPath?._tag !== "file") {
     return planningPath;
   }
@@ -136,15 +122,15 @@ function preserveDenoSqlitePermissions(
         : entry;
     }),
   };
-}
+};
 
-function toPlannedFileOutcome({
+const toPlannedFileOutcome = ({
   planningPath,
   classification,
 }: {
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
-}): typeof PlanOutcome.Type {
+}): typeof PlanOutcome.Type => {
   const operations = toCompositionOperations(planningPath);
   const hasOperations = operations.length > 0;
   const contents =
@@ -181,11 +167,11 @@ function toPlannedFileOutcome({
     }),
     Match.exhaustive,
   );
-}
+};
 
-function toCompositionOperations(
+const toCompositionOperations = (
   planningPath: PlanningIntentPath,
-): Array<typeof CompositionOperation.Type> {
+): Array<typeof CompositionOperation.Type> => {
   const operations: Array<typeof CompositionOperation.Type> = [];
 
   if (planningPath.exports.length > 0) {
@@ -287,15 +273,15 @@ function toCompositionOperations(
   }
 
   return operations;
-}
+};
 
-function assessPlanningPath({
+const assessPlanningPath = ({
   planningPath,
   snapshotPath,
 }: {
   planningPath: PlanningIntentPath;
   snapshotPath: typeof RepoSnapshot.fields.paths.value.Type | undefined;
-}): PathAssessment {
+}): PathAssessment => {
   const hasContents = planningPath.contents !== undefined;
   const hasPackageJsonFields =
     planningPath.exports.length > 0 ||
@@ -347,14 +333,14 @@ function assessPlanningPath({
       });
     }),
   );
-}
+};
 
-export function collectAncestorPaths(path: string): ReadonlyArray<string> {
+export const collectAncestorPaths = (path: string): ReadonlyArray<string> => {
   const parts = Str.split(path, "/");
   return Arr.map(Arr.take(parts, parts.length - 1), (_, index) =>
     Arr.join(Arr.take(parts, index + 1), "/"),
   );
-}
+};
 
 type SnapshotPath = typeof RepoSnapshot.fields.paths.value.Type | undefined;
 
@@ -868,3 +854,17 @@ const getExistingFileContents = (
 
   return snapshotPath.contents;
 };
+
+export class PlanAssessor extends Context.Service<PlanAssessor>()(
+  "PlanAssessor",
+  {
+    make: Effect.succeed({
+      preserveDenoSqlitePermissions,
+      toPlannedFileOutcome,
+      assessPlanningPath,
+      collectAncestorPaths,
+    }),
+  },
+) {
+  static readonly layer = Layer.effect(PlanAssessor)(PlanAssessor.make);
+}

@@ -140,7 +140,7 @@ const requiredProviderArgs = (moduleIds: ReadonlyArray<string>) =>
  * For identity-based supportedOn, uses the identity's name.
  * For kind-based supportedOn, uses the default name.
  */
-function groupModulesByTarget(
+const groupModulesByTarget = (
   modules: ReadonlyArray<{
     id: string;
     supportedOn: ReadonlyArray<
@@ -149,7 +149,7 @@ function groupModulesByTarget(
     >;
     implies?: ReadonlyArray<{ targetKind: string; moduleId: string }>;
   }>,
-): Map<string, ReadonlyArray<string>> {
+): Map<string, ReadonlyArray<string>> => {
   const groups = new Map<string, Array<string>>();
 
   for (const mod of modules) {
@@ -165,7 +165,7 @@ function groupModulesByTarget(
   }
 
   return groups;
-}
+};
 
 const providedCapabilities = (moduleId: string) =>
   catalogModulesById.get(ModuleId.make(moduleId))?.provides ?? [];
@@ -267,22 +267,22 @@ const generatedModuleExpectations: Readonly<
   ),
 };
 
-function getModuleTarget(mod: {
+const getModuleTarget = (mod: {
   supportedOn: ReadonlyArray<
     | { _tag: "kind"; kind: string }
     | { _tag: "identity"; identity: { kind: string; name: string } }
   >;
-}) {
+}) => {
   const s = mod.supportedOn[0];
   if (!s) return "unknown/unknown";
   return s._tag === "identity"
     ? `${s.identity.kind}/${s.identity.name}`
     : `${s.kind}/${defaultTargetNames.get(s.kind) ?? s.kind}`;
-}
+};
 
-function identityToTarget(identity: { kind: string; name: string }) {
+const identityToTarget = (identity: { kind: string; name: string }) => {
   return `${identity.kind}/${identity.name}`;
-}
+};
 
 const buildChildrenMatrix = Effect.gen(function* () {
   const catalog = yield* CatalogService;
