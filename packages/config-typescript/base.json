@@ -28,7 +28,7 @@
     "removeComments": false,
     "sourceMap": true,
     "allowImportingTsExtensions": false,
-    "verbatimModuleSyntax": false,
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "plugins": [
       {
