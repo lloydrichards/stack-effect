@@ -6,6 +6,7 @@ import {
   FileSystem,
   Layer,
   Match,
+  Option,
   Path,
   Random,
 } from "effect";
@@ -86,25 +87,28 @@ export class WriteEngine extends Context.Service<
 
     const inspect = Effect.fn("WriteEngine.inspect")(function* (path: string) {
       const pathStat = yield* fileSystem.stat(path).pipe(
-        Effect.catch((error) =>
-          error.reason._tag === "NotFound"
-            ? Effect.succeed(null)
-            : Effect.fail(
-                new ApplyFailure({
-                  message: `Could not inspect ${path} during apply: ${error.message}`,
-                  cause: error,
-                }),
-              ),
+        Effect.asSome,
+        Effect.catchReason(
+          "PlatformError",
+          "NotFound",
+          () => Effect.succeedNone,
+        ),
+        Effect.mapError(
+          (error) =>
+            new ApplyFailure({
+              message: `Could not inspect ${path} during apply: ${error.message}`,
+              cause: error,
+            }),
         ),
       );
 
-      if (pathStat === null) {
+      if (Option.isNone(pathStat)) {
         return {
           _tag: "missing" as const,
         };
       }
 
-      if (pathStat.type === "Directory") {
+      if (pathStat.value.type === "Directory") {
         return {
           _tag: "directory" as const,
         };

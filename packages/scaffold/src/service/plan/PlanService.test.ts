@@ -1,20 +1,16 @@
 import assert from "node:assert/strict";
+import { MemoryFileSystem } from "@effect-vfs/memory";
+import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import {
-  type Plan,
-  PlanFailure,
-  type PlanOutcome,
-  type RepoSnapshot,
-} from "@repo/domain/Plan";
+import { type Plan, PlanFailure, type PlanOutcome } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { Cause, Effect, Exit, Layer } from "effect";
+import { Cause, Effect, Exit, FileSystem, Layer, Path } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { PlanService } from "./PlanService";
-import { RepositoryStateService } from "./RepositoryStateService";
-import { RepoSnapshotService } from "./RepoSnapshotService";
+import { RepositoryState } from "./RepositoryState";
 
 const testRepoRoot = "/repo";
 const domainIdentity = new TargetIdentity({
@@ -25,54 +21,6 @@ const serverApiIdentity = new TargetIdentity({
   kind: TargetKind.make("server"),
   name: "api",
 });
-
-const makeRepoSnapshotServiceLayer = (
-  load: (args: {
-    readonly paths: ReadonlyArray<string>;
-    readonly repoRoot: string;
-  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
-) =>
-  Layer.succeed(RepoSnapshotService, {
-    load: Effect.fn("MockRepoSnapshotService.load")(load),
-  } as never);
-
-const makeRepositoryStateServiceLayer = (
-  load: (args: {
-    readonly paths: ReadonlyArray<string>;
-    readonly repoRoot: string;
-  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
-) => {
-  const fromSnapshot = ({
-    repoRoot,
-    repoSnapshot,
-  }: {
-    readonly repoRoot: string;
-    readonly repoSnapshot: typeof RepoSnapshot.Type;
-  }) =>
-    Effect.succeed({
-      root: repoRoot,
-      paths: repoSnapshot.paths.map((entry) =>
-        entry._tag === "file"
-          ? { _tag: "file" as const, path: entry.path, sha256: entry.contents }
-          : entry,
-      ),
-    });
-  return Layer.succeed(RepositoryStateService, {
-    discoverOwners: () => Effect.succeed([]),
-    fromSnapshot,
-    capture: ({
-      repoRoot,
-      paths,
-    }: {
-      readonly repoRoot: string;
-      readonly paths: ReadonlyArray<string>;
-    }) =>
-      Effect.flatMap(load({ repoRoot, paths }), (repoSnapshot) =>
-        fromSnapshot({ repoRoot, repoSnapshot }),
-      ),
-    compare: () => [],
-  } as never);
-};
 
 const makeDomainBlueprint = () =>
   new Blueprint({
@@ -208,30 +156,42 @@ const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
   return Cause.squash(exit.cause);
 };
 
-const makePlanServiceLayer = (
-  load: (args: {
-    readonly paths: ReadonlyArray<string>;
-    readonly repoRoot: string;
-  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
-) =>
-  Layer.effect(PlanService)(PlanService.make).pipe(
-    Layer.provide(ContributionResolver.layer),
-    Layer.provide(makeRepoSnapshotServiceLayer(load)),
-    Layer.provide(makeRepositoryStateServiceLayer(load)),
-    Layer.provide(OfficialCatalogLayer),
-  );
+const PlanTestLayer = Layer.provideMerge(
+  PlanService.layer,
+  Layer.mergeAll(
+    Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
+    Path.layer,
+    OfficialCatalogLayer,
+  ),
+);
 
+/** Plan against a memory repository holding `files`, relative to the repository root. */
 const buildPlan = ({
   blueprint,
-  load,
+  files = {},
 }: {
   blueprint: typeof Blueprint.Type;
-  load: (args: {
-    readonly paths: ReadonlyArray<string>;
-    readonly repoRoot: string;
-  }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>;
+  files?: Readonly<Record<string, string>>;
 }) =>
   Effect.gen(function* () {
+    const fileSystem = yield* FileSystem.FileSystem;
+    yield* fileSystem.makeDirectory(testRepoRoot, { recursive: true });
+    yield* Effect.forEach(
+      Object.entries(files),
+      ([path, contents]) =>
+        fileSystem
+          .makeDirectory(
+            `${testRepoRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
+            { recursive: true },
+          )
+          .pipe(
+            Effect.andThen(
+              fileSystem.writeFileString(`${testRepoRoot}/${path}`, contents),
+            ),
+          ),
+      { discard: true },
+    );
+
     const planService = yield* PlanService;
     return yield* planService.build({
       blueprint,
@@ -241,26 +201,54 @@ const buildPlan = ({
         runtime: { _tag: "bun" },
       }),
     });
-  }).pipe(Effect.provide(makePlanServiceLayer(load)));
+  }).pipe(Effect.provide(PlanTestLayer));
 
 describe("PlanService", () => {
   it.effect(
     "should return PlanFailure when projection violates Plan invariants",
     () =>
       Effect.gen(function* () {
+        // Capture deduplicates paths on a real filesystem, so only a substituted
+        // capture can yield a baseline that the Plan schema rejects.
+        const duplicated = {
+          paths: [
+            { _tag: "missing" as const, path: "." },
+            { _tag: "missing" as const, path: "." },
+          ],
+        };
+        const repositoryState = RepositoryState.of({
+          capture: () =>
+            Effect.succeed({
+              baseline: {
+                root: testRepoRoot,
+                packageOwners: [],
+                ...duplicated,
+              },
+              snapshot: duplicated,
+            }),
+          verify: () => Effect.succeed([]),
+          discoverOwners: () => Effect.succeed([]),
+        });
         const exit = yield* Effect.exit(
-          buildPlan({
-            blueprint: makeDomainBlueprint(),
-            // A repository read that reports one path twice yields a baseline
-            // the Plan schema rejects.
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: [...paths, ...paths.slice(0, 1)].map((path) => ({
-                  _tag: "missing",
-                  path,
-                })),
+          Effect.gen(function* () {
+            const planService = yield* PlanService;
+            return yield* planService.build({
+              blueprint: makeDomainBlueprint(),
+              repoRoot: testRepoRoot,
+              config: new StackConfig({
+                name: "test-project",
+                runtime: { _tag: "bun" },
               }),
-          }),
+            });
+          }).pipe(
+            Effect.provide(
+              Layer.effect(PlanService)(PlanService.make).pipe(
+                Layer.provide(ContributionResolver.layer),
+                Layer.provide(Layer.succeed(RepositoryState, repositoryState)),
+                Layer.provide(OfficialCatalogLayer),
+              ),
+            ),
+          ),
         );
 
         const failure = squashFailure(exit);
@@ -278,10 +266,6 @@ describe("PlanService", () => {
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeServerApiBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              }),
           });
 
           expect(
@@ -303,10 +287,6 @@ describe("PlanService", () => {
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeDomainBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              }),
           });
 
           expect(getOutcome(plan, "packages/domain/src/Api.ts")).toMatchObject({
@@ -365,19 +345,7 @@ const HttpRpcRouter = Layer.empty;
 `;
           const plan = yield* buildPlan({
             blueprint: makeChatServerOnlyBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "apps/server-api/src/index.ts") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: serverIndexContents,
-                    };
-                  }
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
+            files: { "apps/server-api/src/index.ts": serverIndexContents },
           });
 
           const serverOutcome = getOutcome(
@@ -502,10 +470,6 @@ const HttpRpcRouter = Layer.empty;
 
           const plan = yield* buildPlan({
             blueprint,
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              }),
           });
 
           const serverOutcome = getOutcome(
@@ -524,10 +488,6 @@ const HttpRpcRouter = Layer.empty;
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeDomainBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              }),
           });
 
           expect(
@@ -572,22 +532,12 @@ const HttpRpcRouter = Layer.empty;
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeDomainBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/domain/package.json") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: JSON.stringify({
-                        exports: { "./Api": "./src/Other.ts" },
-                      }),
-                    };
-                  }
-
-                  return { _tag: "missing" as const, path };
-                }),
+            files: {
+              "packages/domain/package.json": JSON.stringify({
+                name: "@repo/domain",
+                exports: { "./Api": "./src/Other.ts" },
               }),
+            },
           });
 
           expect(
@@ -611,20 +561,9 @@ const HttpRpcRouter = Layer.empty;
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeDomainBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/domain/src/index.ts") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: 'export { Api } from "./Api";',
-                    };
-                  }
-
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
+            files: {
+              "packages/domain/src/index.ts": 'export { Api } from "./Api";',
+            },
           });
 
           expect(
@@ -704,10 +643,6 @@ const HttpRpcRouter = Layer.empty;
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeAiBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
-              }),
           });
 
           const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
@@ -736,19 +671,7 @@ export * from "./toolkits/DateTimeToolkit";
 
           const plan = yield* buildPlan({
             blueprint: makeAiBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/ai/src/index.ts") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: existingContents,
-                    };
-                  }
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
+            files: { "packages/ai/src/index.ts": existingContents },
           });
 
           const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
@@ -765,19 +688,7 @@ export * from "./toolkits/DateTimeToolkit";
 
           const plan = yield* buildPlan({
             blueprint: makeAiBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/ai/src/index.ts") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents: existingContents,
-                    };
-                  }
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
+            files: { "packages/ai/src/index.ts": existingContents },
           });
 
           const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
@@ -791,20 +702,10 @@ export * from "./toolkits/DateTimeToolkit";
         Effect.gen(function* () {
           const plan = yield* buildPlan({
             blueprint: makeAiBlueprint(),
-            load: ({ paths }) =>
-              Effect.succeed({
-                paths: paths.map((path) => {
-                  if (path === "packages/ai/src/index.ts") {
-                    return {
-                      _tag: "file" as const,
-                      path,
-                      contents:
-                        '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
-                    };
-                  }
-                  return { _tag: "missing" as const, path };
-                }),
-              }),
+            files: {
+              "packages/ai/src/index.ts":
+                '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
+            },
           });
 
           const indexOutcome = getOutcome(plan, "packages/ai/src/index.ts");
@@ -827,30 +728,17 @@ export * from "./toolkits/DateTimeToolkit";
       "should fail when an ancestor path is a file instead of a directory",
       () =>
         Effect.gen(function* () {
-          const exit = yield* Effect.exit(
+          const failure = yield* Effect.flip(
             buildPlan({
               blueprint: makeDomainBlueprint(),
-              load: ({ paths }) =>
-                Effect.succeed({
-                  paths: paths.map((path) =>
-                    path === "packages"
-                      ? {
-                          _tag: "file" as const,
-                          path,
-                          contents: "not a directory",
-                        }
-                      : { _tag: "missing" as const, path },
-                  ),
-                }),
+              files: { "packages/domain": "not a directory" },
             }),
           );
 
-          expect(Exit.isFailure(exit)).toBe(true);
-          assert(Exit.isFailure(exit));
-          expect(Cause.squash(exit.cause)).toMatchObject({
-            _tag: "PlanFailure",
-            message: "Expected packages to be a directory during planning.",
-          });
+          expect(failure._tag).toBe("PlanFailure");
+          expect(failure.message).toMatch(
+            /^Could not inspect packages\/domain\/\S+ during planning/,
+          );
         }),
     );
   });

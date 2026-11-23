@@ -10,12 +10,9 @@ sources:
   - id: apply
     resource: ../../packages/domain/src/Apply.ts
     title: Apply contract
-  - id: capture
-    resource: ../../packages/scaffold/src/service/plan/RepoSnapshotService.ts
-    title: Repository text capture
   - id: baseline
-    resource: ../../packages/scaffold/src/service/plan/RepositoryStateService.ts
-    title: Repository baseline and freshness checks
+    resource: ../../packages/scaffold/src/service/plan/RepositoryState.ts
+    title: Repository capture, baseline, and freshness checks
   - id: planning
     resource: ../../packages/scaffold/src/service/plan/PlanService.ts
     title: Plan construction
@@ -36,7 +33,7 @@ Status: Implemented for Plan, preview, and Apply.
 
 Without a repository baseline, Apply could read newer contents when composing a file or overwrite a file that changed after planning. Preview could show a different host state from the one Plan classified. See the [scaffold lifecycle](scaffold-lifecycle.md "describes implemented behavior").
 
-`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryStateService` fingerprints existing text files and compares their current state with the baseline. `PlanService` checks the capture again before returning. Apply and preview check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. Preview runs the same Apply in a private memory filesystem after checking the source repository.
+`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryState` captures the relevant paths as text, fingerprints existing text files, and verifies their current state against the baseline. `PlanService` checks the capture again before returning. Apply and preview check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. Preview runs the same Apply in a private memory filesystem after checking the source repository.
 
 ## Decision
 

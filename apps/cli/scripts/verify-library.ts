@@ -1,5 +1,5 @@
 // Qualify the local catalog's library tarball in consumers outside this repository.
-import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeRuntime, NodeServices } from "@effect/platform-node";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Apply } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
@@ -268,7 +268,10 @@ const Services = Layer.mergeAll(
   BlueprintService.layer,
   PlanService.layer,
   ApplyService.layer,
-).pipe(Layer.provide(OfficialCatalogLayer), Layer.provide(NodeServices.layer));
+).pipe(
+  Layer.provide(OfficialCatalogLayer),
+  Layer.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
+);
 
 NodeRuntime.runMain(
   Effect.gen(function* () {

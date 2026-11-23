@@ -16,7 +16,7 @@ import {
 } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-import { RepositoryStateService } from "../plan/RepositoryStateService";
+import { RepositoryState } from "../plan/RepositoryState";
 import { ApplyWorkspaceService } from "./ApplyWorkspaceService";
 
 const repoRoot = "/repo";
@@ -276,6 +276,7 @@ describe("ApplyWorkspaceService preview", () => {
       const hostLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, hostFileSystem),
         Layer.succeed(Path.Path, windowsPath),
+        BrowserCrypto.layer,
       );
       const previewLayer = ApplyWorkspaceService.layer.pipe(
         Layer.provide(hostLayer),
@@ -289,15 +290,14 @@ describe("ApplyWorkspaceService preview", () => {
       const original = encodeJson({ name: "windows-app" });
       yield* hostFileSystem.writeFileString(packageJsonPath, original);
       const windowsBaseline = yield* Effect.gen(function* () {
-        const state = yield* RepositoryStateService;
-        return yield* state.capture({
+        const state = yield* RepositoryState;
+        const captured = yield* state.capture({
           repoRoot: windowsRepoRoot,
           paths: ["package.json"],
         });
+        return captured.baseline;
       }).pipe(
-        Effect.provide(
-          RepositoryStateService.layer.pipe(Layer.provide(hostLayer)),
-        ),
+        Effect.provide(RepositoryState.layer.pipe(Layer.provide(hostLayer))),
       );
 
       const result = yield* Effect.gen(function* () {

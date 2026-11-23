@@ -1,5 +1,4 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
-import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { CatalogService } from "@repo/catalog";
 import {
   Apply,
@@ -13,11 +12,10 @@ import { pathOrd } from "@repo/domain/Order";
 import { Plan, type PlanBaseline, type PlanFailure } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
+import * as Digest from "effect/crypto/Digest";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { PlanService } from "../plan/PlanService";
-import {
-  RepositoryStateService,
-  type RepositoryChange,
-} from "../plan/RepositoryStateService";
+import * as RepositoryState from "../plan/RepositoryState";
 import { ApplyService } from "./ApplyService";
 
 const workspaceRoot = "/workspace";
@@ -58,13 +56,17 @@ export class ApplyWorkspaceService extends Context.Service<
     const hostFileSystem = yield* FileSystem.FileSystem;
     const hostPath = yield* Path.Path;
     const virtualPath = yield* Path.Path.pipe(Effect.provide(Path.layer));
-    const repositoryState = yield* RepositoryStateService;
+    const repositoryState = yield* RepositoryState.RepositoryState;
+    const digest = yield* Digest.Digest;
+    const secureRandom = yield* SecureRandom.SecureRandom;
     const catalog = yield* CatalogService;
 
     const create: ApplyWorkspaceServiceShape["create"] = Effect.fn(
       "ApplyWorkspaceService.create",
     )(function* (input) {
-      const stale = (changes: ReadonlyArray<RepositoryChange>) =>
+      const stale = (
+        changes: ReadonlyArray<RepositoryState.RepositoryChange>,
+      ) =>
         new StalePlanFailure({
           changes,
           partialResult: new ApplyResult({
@@ -81,7 +83,8 @@ export class ApplyWorkspaceService extends Context.Service<
       }
 
       const fileSystem = yield* MemoryFileSystem.make.pipe(
-        Effect.provide(BrowserCrypto.layer),
+        Effect.provideService(Digest.Digest, digest),
+        Effect.provideService(SecureRandom.SecureRandom, secureRandom),
       );
       yield* fileSystem.makeDirectory(workspaceRoot, { recursive: true }).pipe(
         Effect.mapError(
@@ -148,6 +151,7 @@ export class ApplyWorkspaceService extends Context.Service<
       const fileSystemLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, fileSystem),
         Layer.succeed(Path.Path, virtualPath),
+        Layer.succeed(Digest.Digest, digest),
       );
       // The host and private roots can have the same path; retain the origin of Plans built here.
       const workspacePlans = new WeakSet<Plan>();
@@ -185,7 +189,7 @@ export class ApplyWorkspaceService extends Context.Service<
           if (changes.length > 0) return yield* stale(changes);
           if (
             input.baseline.paths.length !== apply.plan.baseline.paths.length ||
-            repositoryState.compare(input.baseline, apply.plan.baseline)
+            RepositoryState.compare(input.baseline, apply.plan.baseline)
               .length > 0
           ) {
             return yield* new ApplyFailure({
@@ -273,6 +277,6 @@ export class ApplyWorkspaceService extends Context.Service<
   });
 
   static readonly layer = Layer.effect(this, this.make).pipe(
-    Layer.provide(RepositoryStateService.layer),
+    Layer.provide(RepositoryState.RepositoryState.layer),
   );
 }

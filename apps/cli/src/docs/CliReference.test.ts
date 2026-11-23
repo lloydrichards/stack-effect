@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Effect, Layer } from "effect";
@@ -12,7 +12,7 @@ import { renderCliReferencePages } from "./CliReferenceMarkdown";
 const TestLayer = StackEffectServicesLayer.pipe(
   Layer.provideMerge(CatalogProvider.authoring),
   Layer.provideMerge(OfficialCatalogLayer),
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
 );
 
 describe("CLI reference", () => {
