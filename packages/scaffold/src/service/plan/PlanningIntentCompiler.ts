@@ -20,21 +20,9 @@ export type PlanningIntentCompilerShape = {
   ) => Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure, never>;
 };
 
-export class PlanningIntentCompiler extends Context.Service<
-  PlanningIntentCompiler,
-  PlanningIntentCompilerShape
->()("PlanningIntentCompiler", {
-  make: Effect.succeed({
-    compile,
-  } satisfies PlanningIntentCompilerShape),
-}) {
-  static readonly layer = Layer.effect(
-    PlanningIntentCompiler,
-    PlanningIntentCompiler.make,
-  ).pipe(Layer.satisfiesServicesType<never>());
-}
-
-function compile(normalizedContributions: typeof NormalizedContributions.Type) {
+const compile = (
+  normalizedContributions: typeof NormalizedContributions.Type,
+) => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(
       [
@@ -57,7 +45,7 @@ function compile(normalizedContributions: typeof NormalizedContributions.Type) {
       derivePlanningIntentPath({ path, entries }),
     ),
   );
-}
+};
 
 const PlanningIntentEntry = Schema.TaggedUnion({
   authoritative: {
@@ -633,3 +621,17 @@ const collectUniqueEntries = <Entry, Result>({
       ),
     ),
   );
+
+export class PlanningIntentCompiler extends Context.Service<
+  PlanningIntentCompiler,
+  PlanningIntentCompilerShape
+>()("PlanningIntentCompiler", {
+  make: Effect.succeed({
+    compile,
+  } satisfies PlanningIntentCompilerShape),
+}) {
+  static readonly layer = Layer.effect(
+    PlanningIntentCompiler,
+    PlanningIntentCompiler.make,
+  ).pipe(Layer.satisfiesServicesType<never>());
+}
