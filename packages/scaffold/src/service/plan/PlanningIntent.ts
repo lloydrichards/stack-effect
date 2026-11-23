@@ -1,5 +1,5 @@
 import { Contribution } from "@repo/domain/Catalog";
-import { PlanFailure } from "@repo/domain/Plan";
+import { PlanFailure, RepositoryPath } from "@repo/domain/Plan";
 import type { NormalizedContributions } from "@repo/domain/Scaffold";
 import {
   Array as Arr,
@@ -14,7 +14,7 @@ import { PlanningIntentImport, PlanningIntentPath } from "./PlanAssessment";
 
 /** Groups normalized contributions by path into one planning intent per path. */
 export const compile = (
-  normalizedContributions: typeof NormalizedContributions.Type,
+  normalizedContributions: NormalizedContributions,
 ): Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure> => {
   const entriesByPath = Arr.groupBy(
     Arr.flatMap(
@@ -34,86 +34,116 @@ export const compile = (
   );
 
   return Effect.all(
-    Record.collect(entriesByPath, (path, entries) =>
-      derivePlanningIntentPath({ path, entries }),
+    Record.collect(entriesByPath, (_, entries) =>
+      derivePlanningIntentPath({ path: entries[0].path, entries }),
     ),
   );
 };
 
-const PlanningIntentEntry = Schema.TaggedUnion({
-  authoritative: {
-    path: Schema.String,
-    contents: Schema.String,
-    conflictOnModify: Schema.Boolean,
-  },
-  packageJsonEntry: {
-    path: Schema.String,
-    field: Schema.Literals([
-      "exports",
-      "dependencies",
-      "devDependencies",
-      "scripts",
-    ]),
-    name: Schema.String,
-    value: Schema.String,
-  },
-  barrelExport: {
-    path: Schema.String,
-    exportPath: Schema.String,
-  },
-  tsCallArg: {
-    path: Schema.String,
-    targetVariable: Schema.String,
-    functionName: Schema.String,
-    argument: Schema.String,
-    import: PlanningIntentImport,
-  },
-  tsObjectField: {
-    path: Schema.String,
-    targetVariable: Schema.String,
-    functionName: Schema.String,
-    field: Schema.String,
-    value: Schema.String,
-    import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
-  },
-  jsxSlot: {
-    path: Schema.String,
-    slotId: Schema.String,
-    content: Schema.String,
-    import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
-  },
+const PlanningIntentAuthoritativeEntry = Schema.TaggedStruct("authoritative", {
+  path: RepositoryPath,
+  contents: Schema.String,
+  conflictOnModify: Schema.Boolean,
 });
 
+type PlanningIntentAuthoritativeEntry =
+  typeof PlanningIntentAuthoritativeEntry.Type;
+
+const PlanningIntentPackageJsonEntry = Schema.TaggedStruct("packageJsonEntry", {
+  path: RepositoryPath,
+  field: Schema.Literals([
+    "exports",
+    "dependencies",
+    "devDependencies",
+    "scripts",
+  ]),
+  name: Schema.String,
+  value: Schema.String,
+});
+
+type PlanningIntentPackageJsonEntry =
+  typeof PlanningIntentPackageJsonEntry.Type;
+
+const PlanningIntentBarrelExportEntry = Schema.TaggedStruct("barrelExport", {
+  path: RepositoryPath,
+  exportPath: Schema.String,
+});
+
+type PlanningIntentBarrelExportEntry =
+  typeof PlanningIntentBarrelExportEntry.Type;
+
+const PlanningIntentTsCallArgEntry = Schema.TaggedStruct("tsCallArg", {
+  path: RepositoryPath,
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  argument: Schema.String,
+  import: PlanningIntentImport,
+});
+
+type PlanningIntentTsCallArgEntry = typeof PlanningIntentTsCallArgEntry.Type;
+
+const PlanningIntentTsObjectFieldEntry = Schema.TaggedStruct("tsObjectField", {
+  path: RepositoryPath,
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  field: Schema.String,
+  value: Schema.String,
+  import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
+});
+
+type PlanningIntentTsObjectFieldEntry =
+  typeof PlanningIntentTsObjectFieldEntry.Type;
+
+const PlanningIntentJsxSlotEntry = Schema.TaggedStruct("jsxSlot", {
+  path: RepositoryPath,
+  slotId: Schema.String,
+  content: Schema.String,
+  import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
+});
+
+type PlanningIntentJsxSlotEntry = typeof PlanningIntentJsxSlotEntry.Type;
+
+const PlanningIntentEntry = Schema.Union([
+  PlanningIntentAuthoritativeEntry,
+  PlanningIntentPackageJsonEntry,
+  PlanningIntentBarrelExportEntry,
+  PlanningIntentTsCallArgEntry,
+  PlanningIntentTsObjectFieldEntry,
+  PlanningIntentJsxSlotEntry,
+]).pipe(Schema.toTaggedUnion("_tag"));
+
+type PlanningIntentEntry = typeof PlanningIntentEntry.Type;
+
 const toPlanningIntentEntries = (
-  contributions: ReadonlyArray<typeof Contribution.Type>,
-): ReadonlyArray<typeof PlanningIntentEntry.Type> =>
+  contributions: ReadonlyArray<Contribution>,
+): ReadonlyArray<PlanningIntentEntry> =>
   Arr.flatMap(
     contributions,
     Contribution.match({
-      file: (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      file: (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.authoritative.make({
-          path: c.path,
+          path: RepositoryPath.make(c.path),
           contents: c.contents,
           conflictOnModify: c.conflictOnModify ?? false,
         }),
       ],
-      "pkg-json-entry": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      "pkg-json-entry": (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.packageJsonEntry.make({
-          path: c.path,
+          path: RepositoryPath.make(c.path),
           field: c.field,
           name: c.name,
           value: c.value,
         }),
       ],
-      "barrel-export": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      "barrel-export": (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.barrelExport.make({
-          path: c.barrelPath,
+          path: RepositoryPath.make(c.barrelPath),
           exportPath: c.exportPath,
         }),
       ],
-      "ts-call-arg": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      "ts-call-arg": (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.tsCallArg.make({
-          path: c.path,
+          path: RepositoryPath.make(c.path),
           targetVariable: c.targetVariable,
           functionName: c.functionName,
           argument: c.argument,
@@ -125,11 +155,9 @@ const toPlanningIntentEntries = (
           },
         }),
       ],
-      "ts-object-field": (
-        c,
-      ): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      "ts-object-field": (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.tsObjectField.make({
-          path: c.path,
+          path: RepositoryPath.make(c.path),
           targetVariable: c.targetVariable,
           functionName: c.functionName,
           field: c.field,
@@ -144,9 +172,9 @@ const toPlanningIntentEntries = (
             : undefined,
         }),
       ],
-      "jsx-slot": (c): ReadonlyArray<typeof PlanningIntentEntry.Type> => [
+      "jsx-slot": (c): ReadonlyArray<PlanningIntentEntry> => [
         PlanningIntentEntry.cases.jsxSlot.make({
-          path: c.path,
+          path: RepositoryPath.make(c.path),
           slotId: c.slotId,
           content: c.content,
           import: c.import
@@ -163,28 +191,16 @@ const toPlanningIntentEntries = (
   );
 
 type PlanningIntentEntryGroups = {
-  readonly authoritative: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.authoritative.Type
-  >;
-  readonly packageJson: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.packageJsonEntry.Type
-  >;
-  readonly barrel: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.barrelExport.Type
-  >;
-  readonly tsCallArg: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.tsCallArg.Type
-  >;
-  readonly tsObjectField: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.tsObjectField.Type
-  >;
-  readonly jsxSlot: ReadonlyArray<
-    typeof PlanningIntentEntry.cases.jsxSlot.Type
-  >;
+  readonly authoritative: ReadonlyArray<PlanningIntentAuthoritativeEntry>;
+  readonly packageJson: ReadonlyArray<PlanningIntentPackageJsonEntry>;
+  readonly barrel: ReadonlyArray<PlanningIntentBarrelExportEntry>;
+  readonly tsCallArg: ReadonlyArray<PlanningIntentTsCallArgEntry>;
+  readonly tsObjectField: ReadonlyArray<PlanningIntentTsObjectFieldEntry>;
+  readonly jsxSlot: ReadonlyArray<PlanningIntentJsxSlotEntry>;
 };
 
 const groupPlanningIntentEntries = (
-  entries: ReadonlyArray<typeof PlanningIntentEntry.Type>,
+  entries: ReadonlyArray<PlanningIntentEntry>,
 ): PlanningIntentEntryGroups => ({
   authoritative: entries.filter(PlanningIntentEntry.guards.authoritative),
   packageJson: entries.filter(PlanningIntentEntry.guards.packageJsonEntry),
@@ -198,8 +214,8 @@ const derivePlanningIntentPath = ({
   path,
   entries,
 }: {
-  path: string;
-  entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
+  path: RepositoryPath;
+  entries: ReadonlyArray<PlanningIntentEntry>;
 }): Effect.Effect<PlanningIntentPath, PlanFailure> =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ entries, path });
@@ -213,22 +229,19 @@ const derivePlanningIntentPath = ({
 
     const packageJson = (seed: string | undefined) =>
       Effect.gen(function* () {
-        type PackageJsonCase =
-          typeof PlanningIntentEntry.cases.packageJsonEntry.Type;
-
         const exportEntries = groups.packageJson.filter(
-          (e): e is PackageJsonCase & { field: "exports" } =>
+          (e): e is PlanningIntentPackageJsonEntry & { field: "exports" } =>
             e.field === "exports",
         );
         const depEntries = groups.packageJson.filter(
           (
             e,
-          ): e is PackageJsonCase & {
+          ): e is PlanningIntentPackageJsonEntry & {
             field: "dependencies" | "devDependencies";
           } => e.field === "dependencies" || e.field === "devDependencies",
         );
         const scriptEntries = groups.packageJson.filter(
-          (e): e is PackageJsonCase & { field: "scripts" } =>
+          (e): e is PlanningIntentPackageJsonEntry & { field: "scripts" } =>
             e.field === "scripts",
         );
 
@@ -363,7 +376,7 @@ const derivePlanningIntentFamily = ({
   entries,
   path,
 }: {
-  entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
+  entries: ReadonlyArray<PlanningIntentEntry>;
   path: string;
 }) => {
   const families = new Set(Arr.map(entries, toPlanningIntentFamily));
@@ -413,7 +426,7 @@ const toPlanningIntentFamily = PlanningIntentEntry.match({
   tsCallArg: () => "tsCallArg" as const,
   tsObjectField: () => "tsCallArg" as const,
   jsxSlot: () => "jsxSlot" as const,
-}) satisfies (entry: typeof PlanningIntentEntry.Type) => PlanningIntentFamily;
+}) satisfies (entry: PlanningIntentEntry) => PlanningIntentFamily;
 
 const requireSingleValue = <Value>({
   values,

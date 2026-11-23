@@ -40,12 +40,12 @@ import {
 import type { useTargetEditor } from "./use-target-editor";
 
 type TargetConfigurationProps = {
-  readonly catalog: typeof RecipeBuilderCatalog.Type | undefined;
+  readonly catalog: RecipeBuilderCatalog | undefined;
   readonly catalogFailed: boolean;
   readonly presetName: string | undefined;
   readonly catalogOwner: TargetIdentity | undefined;
   readonly onRemoveTarget: (id: string) => void;
-  readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
+  readonly onToggleModule: (module: CatalogModule) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
     moduleId: string,
@@ -110,7 +110,7 @@ const TargetConfiguration = ({
     kind: target.kind,
     name: target.name,
   };
-  const getDisabledReason = (module: typeof CatalogModule.Type) => {
+  const getDisabledReason = (module: CatalogModule) => {
     if (
       isDatabaseTarget &&
       (module.id === "package-db-sqlite" ||

@@ -13,6 +13,7 @@ import {
   type CompositionOperation,
   Plan,
   type PlanOutcome,
+  RepositoryPath,
 } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
@@ -28,9 +29,9 @@ const complete = (
   path: string,
   classification: "create" | "modify" | "unchanged" | "conflict",
   contents: string,
-): typeof PlanOutcome.Type => ({
+): PlanOutcome => ({
   _tag: "complete",
-  path,
+  path: RepositoryPath.make(path),
   classification,
   contents,
 });
@@ -38,17 +39,17 @@ const complete = (
 const composed = (
   path: string,
   classification: "create" | "modify" | "unchanged" | "conflict",
-  operations: ReadonlyArray<typeof CompositionOperation.Type>,
-): typeof PlanOutcome.Type => ({
+  operations: ReadonlyArray<CompositionOperation>,
+): PlanOutcome => ({
   _tag: "composed",
-  path,
+  path: RepositoryPath.make(path),
   classification,
   operations,
 });
 
 const makeApply = (
-  outcomes: ReadonlyArray<typeof PlanOutcome.Type>,
-  decisions: ReadonlyArray<typeof ApplyDecision.Type> = [],
+  outcomes: ReadonlyArray<PlanOutcome>,
+  decisions: ReadonlyArray<ApplyDecision> = [],
   root = repoRoot,
   existingContents: Readonly<Record<string, string>> = {},
 ) =>
@@ -293,7 +294,7 @@ describe("ApplyWorkspaceService preview", () => {
         const state = yield* RepositoryState;
         const captured = yield* state.capture({
           repoRoot: windowsRepoRoot,
-          paths: ["package.json"],
+          paths: [RepositoryPath.make("package.json")],
         });
         return captured.baseline;
       }).pipe(
@@ -337,7 +338,7 @@ describe("ApplyWorkspaceService preview", () => {
       const result = yield* preview({
         apply: makeApply(
           [complete("existing.ts", "conflict", "replacement")],
-          [{ path: "existing.ts", value: "skip" }],
+          [{ path: RepositoryPath.make("existing.ts"), value: "skip" }],
         ),
         repoRoot,
       });
@@ -396,7 +397,7 @@ describe("ApplyWorkspaceService", () => {
             complete("keep.ts", "conflict", "generated code"),
             complete("src/new.ts", "create", "new code"),
           ],
-          [{ path: "keep.ts", value: "skip" }],
+          [{ path: RepositoryPath.make("keep.ts"), value: "skip" }],
           repoRoot,
           { "package.json": originalPackage, "keep.ts": "user code" },
         );
@@ -458,13 +459,13 @@ describe("ApplyWorkspaceService", () => {
           baseline: {
             root: repoRoot,
             paths: [
-              { _tag: "directory", path: "." },
+              { _tag: "directory", path: RepositoryPath.make(".") },
               {
                 _tag: "file",
-                path: "src",
+                path: RepositoryPath.make("src"),
                 sha256: createHash("sha256").update("user file").digest("hex"),
               },
-              { _tag: "missing", path: "src/new.ts" },
+              { _tag: "missing", path: RepositoryPath.make("src/new.ts") },
             ],
           },
           outcomes: [complete("src/new.ts", "create", "generated")],
@@ -587,7 +588,10 @@ describe("ApplyWorkspaceService", () => {
       yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
       const workspace = yield* workspaces.fromRepository({
         repoRoot,
-        baseline: { root: repoRoot, paths: [{ _tag: "directory", path: "." }] },
+        baseline: {
+          root: repoRoot,
+          paths: [{ _tag: "directory", path: RepositoryPath.make(".") }],
+        },
       });
       const plan = yield* workspace.plan({
         blueprint: new Blueprint({ nodes: [], edges: [] }),

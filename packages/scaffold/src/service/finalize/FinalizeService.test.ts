@@ -1,7 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { officialCatalogLayerWith } from "@repo/catalog-official/service";
-import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import {
+  Blueprint,
+  makeBlueprintEdge,
+  toAttachedModuleNodeId,
+} from "@repo/domain/Blueprint";
 import {
   type ModuleDefinition,
   ModuleId,
@@ -35,7 +39,7 @@ const nodeConfig = new StackConfig({
   runtime: { _tag: "node", packageManager: "pnpm" },
 });
 
-const makeConfig = (config: typeof StackConfig.Type = bunConfig) => ({
+const makeConfig = (config: StackConfig = bunConfig) => ({
   config,
   repoRoot: "/repo",
 });
@@ -48,10 +52,7 @@ const singleTargetBlueprint = (identity: TargetIdentity) =>
     edges: [],
   });
 
-const targetWithModule = (
-  identity: TargetIdentity,
-  moduleId: typeof ModuleId.Type,
-) =>
+const targetWithModule = (identity: TargetIdentity, moduleId: ModuleId) =>
   new Blueprint({
     nodes: [
       { _tag: "target", id: identity.toKey(), identity },
@@ -63,17 +64,16 @@ const targetWithModule = (
       },
     ],
     edges: [
-      {
-        id: `owns-module=>${identity.toPath()}=>${toAttachedModuleNodeId(identity.toKey(), moduleId)}`,
-        from: identity.toKey(),
-        to: toAttachedModuleNodeId(identity.toKey(), moduleId),
-        reason: "owns-module" as const,
-      },
+      makeBlueprintEdge(
+        "owns-module",
+        identity.toKey(),
+        toAttachedModuleNodeId(identity.toKey(), moduleId),
+      ),
     ],
   });
 
-type TargetOverrides = Record<string, Partial<typeof TargetDefinition.Type>>;
-type ModuleOverrides = Record<string, Partial<typeof ModuleDefinition.Type>>;
+type TargetOverrides = Record<string, Partial<TargetDefinition>>;
+type ModuleOverrides = Record<string, Partial<ModuleDefinition>>;
 
 /** One catalog fragment with the server and client-react targets plus overrides. */
 const fragmentWith = (
@@ -84,24 +84,22 @@ const fragmentWith = (
     server: {},
     "client-react": {},
     ...targets,
-  }).map(([kind, overrides]): typeof TargetDefinition.Type => ({
+  }).map(([kind, overrides]): TargetDefinition => ({
     kind: TargetKind.make(kind),
     title: kind,
     description: `The ${kind} target`,
     contributions: [],
     ...overrides,
   })),
-  modules: Object.entries(modules).map(
-    ([id, overrides]): typeof ModuleDefinition.Type => ({
-      id: ModuleId.make(id),
-      title: id,
-      description: `The ${id} module`,
-      supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-      dependencies: [],
-      contributions: [],
-      ...overrides,
-    }),
-  ),
+  modules: Object.entries(modules).map(([id, overrides]): ModuleDefinition => ({
+    id: ModuleId.make(id),
+    title: id,
+    description: `The ${id} module`,
+    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+    dependencies: [],
+    contributions: [],
+    ...overrides,
+  })),
 });
 
 /** A real, composed catalog whose fragment may declare Finalize scripts. */
@@ -114,7 +112,7 @@ const catalogLayerWith = (
   });
 
 /** A target whose only Finalize script runs `bun run codegen` at the repository root. */
-const codegenTarget = (kind: string): typeof TargetDefinition.Type => ({
+const codegenTarget = (kind: string): TargetDefinition => ({
   kind: TargetKind.make(kind),
   title: kind,
   description: `The ${kind} target`,
@@ -154,8 +152,8 @@ const makeSpawnerLayer = (
 const makeFinalizeLayer = (
   executed: string[],
   opts: {
-    targets?: Record<string, Partial<typeof TargetDefinition.Type>>;
-    modules?: Record<string, Partial<typeof ModuleDefinition.Type>>;
+    targets?: Record<string, Partial<TargetDefinition>>;
+    modules?: Record<string, Partial<ModuleDefinition>>;
     failures?: Set<string>;
   } = {},
 ) =>
@@ -201,7 +199,7 @@ it.effect(
 
 const runToReport = (
   svc: typeof FinalizeService.Service,
-  blueprint: typeof Blueprint.Type,
+  blueprint: Blueprint,
   config: FinalizeConfig,
 ) =>
   Effect.gen(function* () {

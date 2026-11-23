@@ -37,9 +37,7 @@ const customOnlyDefaults = (defaults: StackConfig) =>
   new StackConfig({
     name: defaults.name,
     runtime: defaults.runtime,
-    ...(defaults.typescript === undefined
-      ? {}
-      : { typescript: defaults.typescript }),
+    typescript: defaults.typescript,
   });
 
 /**

@@ -16,10 +16,7 @@ export {
   type LoadedCatalogSet,
   type LoadedCatalogSource,
 } from "./service/catalog/CatalogLoader";
-export {
-  type ApplyPreviewFile,
-  ApplyPreviewFileSchema,
-} from "./RecipePreviewSchema";
+export { ApplyPreviewFile } from "./RecipePreviewSchema";
 export { ApplyService } from "./service/apply/ApplyService";
 export {
   type ApplyWorkspace,
@@ -36,11 +33,9 @@ export {
 export { ContributionResolver } from "./service/plan/ContributionResolver";
 export { PlanService } from "./service/plan/PlanService";
 export {
-  type RecipePreview,
+  RecipePreview,
   type RecipePreviewError,
-  type RecipePreviewInput,
-  RecipePreviewInputSchema,
-  RecipePreviewSchema,
+  RecipePreviewInput,
   RecipePreviewService,
 } from "./service/recipe/RecipePreviewService";
 export {

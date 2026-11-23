@@ -1,6 +1,7 @@
 import { FileSystemTesting, MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it } from "@effect/vitest";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path, PlatformError, Ref } from "effect";
 import { RepositoryState } from "./RepositoryState";
 
@@ -69,7 +70,10 @@ const prepareCapture = ({
 
     const capture = Effect.gen(function* () {
       const state = yield* RepositoryState;
-      return yield* state.capture({ repoRoot, paths });
+      return yield* state.capture({
+        repoRoot,
+        paths: paths.map((path) => RepositoryPath.make(path)),
+      });
     }).pipe(
       Effect.provide(
         RepositoryState.layer.pipe(
@@ -98,9 +102,13 @@ describe("RepositoryState.capture", () => {
         const { baseline, snapshot } = yield* capture;
 
         assert.deepStrictEqual(snapshot.paths, [
-          { _tag: "directory", path: "apps" },
-          { _tag: "file", path: "apps/server.ts", contents: "server" },
-          { _tag: "missing", path: "missing.ts" },
+          { _tag: "directory", path: RepositoryPath.make("apps") },
+          {
+            _tag: "file",
+            path: RepositoryPath.make("apps/server.ts"),
+            contents: "server",
+          },
+          { _tag: "missing", path: RepositoryPath.make("missing.ts") },
         ]);
         assert.deepStrictEqual(
           baseline.paths.map((entry) => entry._tag),

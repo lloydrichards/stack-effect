@@ -28,6 +28,24 @@ export const BlueprintTargetNode = Schema.TaggedStruct("target", {
   identity: TargetIdentity,
 });
 
+export type BlueprintTargetNode = typeof BlueprintTargetNode.Type;
+
+/**
+ * Identifies a module attached to a target. `toAttachedModuleNodeId` owns the
+ * `<target>#<module>` format.
+ *
+ * @category Blueprint
+ * @since 1.0.0
+ */
+export const BlueprintAttachedModuleNodeId = Schema.TemplateLiteral([
+  TargetKey,
+  "#",
+  ModuleId,
+]).pipe(Schema.brand("BlueprintAttachedModuleNodeId"));
+
+export type BlueprintAttachedModuleNodeId =
+  typeof BlueprintAttachedModuleNodeId.Type;
+
 /**
  * Represents a module attached to a specific target in the blueprint graph.
  * The composite ID encodes both the owning target and the module identity.
@@ -38,24 +56,78 @@ export const BlueprintTargetNode = Schema.TaggedStruct("target", {
 export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
   "attached-module",
   {
-    id: Schema.TemplateLiteral([TargetKey, "#", ModuleId]),
+    id: BlueprintAttachedModuleNodeId,
     targetId: TargetKey,
     moduleId: ModuleId,
   },
 );
+
+export type BlueprintAttachedModuleNode =
+  typeof BlueprintAttachedModuleNode.Type;
 
 export const BlueprintNode = Schema.Union([
   BlueprintTargetNode,
   BlueprintAttachedModuleNode,
 ]).pipe(Schema.toTaggedUnion("_tag"));
 
+export type BlueprintNode = typeof BlueprintNode.Type;
+
+/** Identifies a Blueprint graph node: a target key or an attached-module ID. */
+export const BlueprintNodeId = Schema.Union([
+  TargetKey,
+  BlueprintAttachedModuleNodeId,
+]).check(Schema.isNonEmpty());
+
+export type BlueprintNodeId = typeof BlueprintNodeId.Type;
+
 export const blueprintNodeOrd = Order.mapInput(
-  Order.combineAll<typeof BlueprintNode.Type>([
+  Order.combineAll<BlueprintNode>([
     Order.mapInput(Order.String, (node) => node._tag),
     Order.mapInput(Order.String, (node) => node.id),
   ]),
-  (node: typeof BlueprintNode.Type) => node,
+  (node: BlueprintNode) => node,
 );
+
+export const BlueprintEdgeReason = Schema.Literals([
+  "owns-module",
+  "required-target",
+  "required-module",
+]);
+
+export type BlueprintEdgeReason = typeof BlueprintEdgeReason.Type;
+
+/**
+ * Identifies a Blueprint edge. `makeBlueprintEdge` owns the
+ * `<reason>=><from>=><to>` format.
+ *
+ * @category Blueprint
+ * @since 1.0.0
+ */
+export const BlueprintEdgeId = Schema.NonEmptyString.pipe(
+  Schema.brand("BlueprintEdgeId"),
+);
+
+export type BlueprintEdgeId = typeof BlueprintEdgeId.Type;
+
+export const BlueprintEdge = Schema.Struct({
+  id: BlueprintEdgeId,
+  from: BlueprintNodeId,
+  to: BlueprintNodeId,
+  reason: BlueprintEdgeReason,
+});
+
+export type BlueprintEdge = typeof BlueprintEdge.Type;
+
+export const makeBlueprintEdge = (
+  reason: BlueprintEdgeReason,
+  from: BlueprintNodeId,
+  to: BlueprintNodeId,
+): BlueprintEdge => ({
+  id: BlueprintEdgeId.make(`${reason}=>${from}=>${to}`),
+  from,
+  to,
+  reason,
+});
 
 const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
   Arr.map(
@@ -68,18 +140,7 @@ const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
 
 const BlueprintFields = Schema.Struct({
   nodes: Schema.Array(BlueprintNode),
-  edges: Schema.Array(
-    Schema.Struct({
-      id: Schema.NonEmptyString,
-      from: Schema.NonEmptyString,
-      to: Schema.NonEmptyString,
-      reason: Schema.Literals([
-        "owns-module",
-        "required-target",
-        "required-module",
-      ]),
-    }),
-  ),
+  edges: Schema.Array(BlueprintEdge),
 }).check(
   Schema.makeFilter((blueprint) => {
     const duplicateNodeIds = Arr.map(
@@ -180,21 +241,21 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
 
   hasTarget(targetId: string): boolean {
     return this.nodes.some(
-      (node): node is typeof BlueprintTargetNode.Type =>
+      (node): node is BlueprintTargetNode =>
         BlueprintNode.guards.target(node) && node.id === targetId,
     );
   }
 
-  getTarget(targetId: string): typeof BlueprintTargetNode.Type | undefined {
+  getTarget(targetId: string): BlueprintTargetNode | undefined {
     return this.nodes.find(
-      (node): node is typeof BlueprintTargetNode.Type =>
+      (node): node is BlueprintTargetNode =>
         BlueprintNode.guards.target(node) && node.id === targetId,
     );
   }
 }
 
 export const toAttachedModuleNodeId = (
-  targetId: typeof TargetKey.Type,
-  moduleId: typeof ModuleId.Type,
-): typeof BlueprintAttachedModuleNode.fields.id.Type =>
-  `${targetId}#${moduleId}`;
+  targetId: TargetKey,
+  moduleId: ModuleId,
+): BlueprintAttachedModuleNodeId =>
+  BlueprintAttachedModuleNodeId.make(`${targetId}#${moduleId}`);

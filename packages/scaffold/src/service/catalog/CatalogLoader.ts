@@ -108,11 +108,11 @@ export type CatalogLoadWarning = typeof CatalogLoadWarning.Type;
 type LoadedDocument<A> = {
   readonly value: A;
   /** Entry to cache once the caller has finished validating the document. */
-  readonly pending?: CatalogCacheEntry;
+  readonly pending?: CatalogCacheEntry | undefined;
   readonly sourceUrl: string;
   readonly digest: string;
   readonly freshness: "current" | "cached";
-  readonly warning?: CatalogLoadWarning;
+  readonly warning?: CatalogLoadWarning | undefined;
 };
 
 export type LoadedCatalog = {
@@ -120,7 +120,7 @@ export type LoadedCatalog = {
   readonly sourceUrl: string;
   readonly digest: string;
   readonly freshness: "current" | "cached";
-  readonly warning?: CatalogLoadWarning;
+  readonly warning?: CatalogLoadWarning | undefined;
 };
 
 /** One selected source as it was loaded for this operation. */
@@ -439,9 +439,9 @@ export class CatalogLoader extends Context.Service<
                   sourceUrl,
                   digest: cached.digest,
                   freshness: "current" as const,
-                  ...(written
-                    ? {}
-                    : { warning: persistenceWarning(validatedAt) }),
+                  warning: written
+                    ? undefined
+                    : persistenceWarning(validatedAt),
                 };
               }
               if (attempt === 0) continue;
@@ -499,7 +499,7 @@ export class CatalogLoader extends Context.Service<
               sourceUrl,
               digest: decoded.digest,
               freshness: "current" as const,
-              ...(written ? {} : { warning: persistenceWarning(validatedAt) }),
+              warning: written ? undefined : persistenceWarning(validatedAt),
             };
           }
           return yield* failure(
@@ -555,7 +555,7 @@ export class CatalogLoader extends Context.Service<
             );
       const result: LoadedDocument<A> = {
         ...loaded,
-        ...(deferred.entry === undefined ? {} : { pending: deferred.entry }),
+        pending: deferred.entry,
       };
       return result;
     });

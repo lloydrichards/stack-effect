@@ -16,11 +16,7 @@ const StackConfigFromJsonString = Schema.fromJsonString(StackConfig, {
   space: 2,
 });
 
-export type { RecipePreview, RecipePreviewInput };
-export {
-  RecipePreview as RecipePreviewSchema,
-  RecipePreviewInput as RecipePreviewInputSchema,
-};
+export { RecipePreview, RecipePreviewInput };
 
 export type RecipePreviewError =
   | RecipeError

@@ -10,8 +10,7 @@ import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
   ownerKey,
-  RecipeBuilderFormSchema,
-  type RecipeBuilderFormValues,
+  RecipeBuilderFormValues,
   type TargetInstance,
   toRecipePreviewInput,
   usesOfficialCatalog,
@@ -19,7 +18,7 @@ import {
 
 const defaults = initialRecipeBuilderValues.config;
 
-const RecipeUrlSchema = Schema.Struct({
+const RecipeUrl = Schema.Struct({
   name: Schema.optional(Schema.String),
   target: Schema.Array(RecipeTargetString),
   dependencies: Schema.Array(
@@ -59,6 +58,8 @@ const RecipeUrlSchema = Schema.Struct({
   ),
 );
 
+type RecipeUrl = typeof RecipeUrl.Type;
+
 const scalarRecipeParameters = [
   "name",
   "runtime",
@@ -78,7 +79,7 @@ const knownRecipeParameters = new Set([
   "dependency",
 ]);
 
-const decodeUrl = Schema.decodeUnknownOption(RecipeUrlSchema);
+const decodeUrl = Schema.decodeUnknownOption(RecipeUrl);
 
 const invalidRecipeUrl = {
   issue:
@@ -97,7 +98,7 @@ type InvalidRecipeUrl = {
 
 export type DecodedRecipeUrl = ValidRecipeUrl | InvalidRecipeUrl;
 
-const mergeTargets = (targets: ReadonlyArray<typeof RecipeTargetString.Type>) =>
+const mergeTargets = (targets: ReadonlyArray<RecipeTargetString>) =>
   Arr.fromIterable(
     targets
       .reduce((merged, spec) => {
@@ -108,7 +109,7 @@ const mergeTargets = (targets: ReadonlyArray<typeof RecipeTargetString.Type>) =>
           modules: Arr.dedupe([...(existing?.modules ?? []), ...spec.modules]),
         });
         return merged;
-      }, new Map<string, typeof RecipeTargetString.Type>())
+      }, new Map<string, RecipeTargetString>())
       .values(),
   );
 
@@ -147,7 +148,7 @@ const decodeCatalogParameters = (
 };
 
 const toInitialValues = (
-  recipe: typeof RecipeUrlSchema.Type,
+  recipe: RecipeUrl,
   catalogs: CatalogSources | undefined,
 ): RecipeBuilderFormValues | undefined => {
   const packageManager = recipe.packageManager ?? "bun";
@@ -162,7 +163,7 @@ const toInitialValues = (
     lint: recipe.lint ?? runtimeDefaults.lint,
     format: recipe.format ?? runtimeDefaults.format,
     test: recipe.test ?? runtimeDefaults.test,
-    ...(catalogs === undefined ? {} : { catalogs }),
+    catalogs,
   };
   const targets = mergeTargets(recipe.target);
   const workspaceTargets = targets.filter(
@@ -248,7 +249,7 @@ const toInitialValues = (
       ],
     });
   }
-  const decoded = Schema.decodeOption(RecipeBuilderFormSchema)({
+  const decoded = Schema.decodeOption(RecipeBuilderFormValues)({
     config,
     database,
     gitEnabled: !recipe.noGit,
@@ -262,9 +263,7 @@ const toInitialValues = (
   return Option.getOrUndefined(decoded);
 };
 
-const hasDuplicateModules = (
-  targets: ReadonlyArray<typeof RecipeTargetString.Type>,
-) =>
+const hasDuplicateModules = (targets: ReadonlyArray<RecipeTargetString>) =>
   targets.some(
     (target) =>
       new Set(target.modules.map(String)).size !== target.modules.length,

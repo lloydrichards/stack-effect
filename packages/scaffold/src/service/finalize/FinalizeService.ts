@@ -1,5 +1,9 @@
 import { CatalogService } from "@repo/catalog";
-import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
+import {
+  type Blueprint,
+  BlueprintNode,
+  type BlueprintTargetNode,
+} from "@repo/domain/Blueprint";
 import { type ScriptResult } from "@repo/domain/Finalize";
 import {
   ContributionTokenContext,
@@ -18,7 +22,7 @@ import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
 export type FinalizeConfig = {
-  readonly config: typeof StackConfig.Type;
+  readonly config: StackConfig;
   readonly repoRoot: string;
 };
 
@@ -52,7 +56,7 @@ const sourceField = (source: Option.Option<string>) =>
  * Pairs each attached module with its owning target. A validated Blueprint has
  * exactly one target per module, so the pairing never needs a missing case.
  */
-const attachedModules = (blueprint: typeof Blueprint.Type) => {
+const attachedModules = (blueprint: Blueprint) => {
   const targetNodes = Arr.filter(blueprint.nodes, BlueprintNode.guards.target);
   const moduleNodes = Arr.filter(
     blueprint.nodes,
@@ -75,7 +79,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
       const collectResolvedScripts = Effect.fn(
         "FinalizeService.collectScripts",
-      )(function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
+      )(function* (blueprint: Blueprint, config: FinalizeConfig) {
         const { targetNodes, modules } = attachedModules(blueprint);
 
         const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
@@ -131,7 +135,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
       };
 
       const scripts = Effect.fn("FinalizeService.scripts")(function* (
-        blueprint: typeof Blueprint.Type,
+        blueprint: Blueprint,
         config: FinalizeConfig,
       ) {
         const resolved = yield* collectResolvedScripts(blueprint, config);
@@ -144,7 +148,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
         executeScript(spawner, script, repoRoot);
 
       const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
-        function* (blueprint: typeof Blueprint.Type, config: FinalizeConfig) {
+        function* (blueprint: Blueprint, config: FinalizeConfig) {
           const { targetNodes, modules } = attachedModules(blueprint);
 
           const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
@@ -181,7 +185,7 @@ export class FinalizeService extends Context.Service<FinalizeService>()(
 
 const createTokenContext = (
   config: FinalizeConfig,
-  target: typeof BlueprintNode.cases.target.Type,
+  target: BlueprintTargetNode,
 ) =>
   new ContributionTokenContext({
     targetKey: target.id,

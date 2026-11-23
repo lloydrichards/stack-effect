@@ -8,7 +8,7 @@ import {
 } from "@repo/domain/CatalogSource";
 import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import {
-  ApplyPreviewFileSchema,
+  ApplyPreviewFile,
   RecipePreviewInput,
 } from "@repo/scaffold/recipe-preview";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
@@ -29,7 +29,7 @@ import { registryParityCases } from "../fixtures/registry-parity";
 const CliParityResult = Schema.Struct({
   // The parity fixture resolves this in-process; only the files come from the CLI.
   expectedBlueprint: Blueprint,
-  files: Schema.Array(ApplyPreviewFileSchema),
+  files: Schema.Array(ApplyPreviewFile),
 });
 
 const catalogSource = () =>
@@ -107,7 +107,7 @@ const cliParity = (
           addTarget: Schema.optional(Schema.String),
         }),
       ),
-    )({ input, command, ...(addTarget === undefined ? {} : { addTarget }) });
+    )({ input, command, addTarget });
     const response = yield* client.execute(
       HttpClientRequest.post(
         `${window.location.origin}/registry-test/cli-parity`,

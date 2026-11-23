@@ -3,7 +3,7 @@ import { NodeServices } from "@effect/platform-node";
 import { describe, expect, it } from "@effect/vitest";
 import { type Apply, ApplyResult } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
-import { Plan } from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyService,
@@ -28,19 +28,23 @@ const plan = new Plan({ baseline, outcomes: [], conflicts: [] });
 const conflictPlan = new Plan({
   baseline: {
     root: "/tmp/pipeline-app",
-    paths: [{ _tag: "missing", path: "package.json" }],
+    paths: [{ _tag: "missing", path: RepositoryPath.make("package.json") }],
   },
   outcomes: [
     {
       _tag: "complete",
-      path: "package.json",
+      path: RepositoryPath.make("package.json"),
       classification: "conflict",
       contents: "{}",
     },
   ],
   conflicts: [
-    { _tag: "completeFile", path: "package.json" },
-    { _tag: "scripts", path: "package.json", name: "test" },
+    { _tag: "completeFile", path: RepositoryPath.make("package.json") },
+    {
+      _tag: "scripts",
+      path: RepositoryPath.make("package.json"),
+      name: "test",
+    },
   ],
 });
 const applyResult = new ApplyResult({
@@ -181,7 +185,7 @@ describe("ScaffoldPipeline", () => {
                 conflicts: [
                   {
                     _tag: "dependencies",
-                    path: "package.json",
+                    path: RepositoryPath.make("package.json"),
                     section: "dependencies",
                     name: "foldkit",
                   },
@@ -254,7 +258,7 @@ describe("ScaffoldPipeline", () => {
                   apply: applyResult,
                   files: [
                     {
-                      path: "package.json",
+                      path: RepositoryPath.make("package.json"),
                       status: "created",
                       contents: "{}\n",
                     },

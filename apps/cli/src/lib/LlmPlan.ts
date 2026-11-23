@@ -44,10 +44,7 @@ type LlmPlanOutput = {
   }>;
 };
 
-const renderOperation = (
-  path: string,
-  op: typeof CompositionOperation.Type,
-): string =>
+const renderOperation = (path: string, op: CompositionOperation): string =>
   Match.value(op).pipe(
     Match.tag("json-pkg-exports", (o) => {
       const entries = o.entries
@@ -98,7 +95,7 @@ const renderOperation = (
   );
 
 const renderConflict = (
-  conflict: typeof PlanConflict.Type,
+  conflict: PlanConflict,
 ): { path: string; kind: string; description: string } =>
   Match.value(conflict).pipe(
     Match.tag("exports", (c) => ({
@@ -156,8 +153,8 @@ const renderConflict = (
  * file. Conflicts always require an explicit resolution.
  */
 export const render = (plan: {
-  outcomes: ReadonlyArray<typeof PlanOutcome.Type>;
-  conflicts: ReadonlyArray<typeof PlanConflict.Type>;
+  outcomes: ReadonlyArray<PlanOutcome>;
+  conflicts: ReadonlyArray<PlanConflict>;
   finalize?: ReadonlyArray<{ label: string; command: string }>;
   summary: LlmPlanSummary;
   tree: string;

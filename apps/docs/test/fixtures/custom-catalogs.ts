@@ -1,15 +1,12 @@
 import { V1_INTERPRETER_CAPABILITIES } from "@repo/catalog";
 import {
   CatalogDocument,
-  ModuleDefinition as ModuleDefinitionSchema,
+  type ModuleDefinition,
   ModuleId,
-  TargetDefinition as TargetDefinitionSchema,
+  type TargetDefinition,
   TargetKind,
 } from "@repo/domain/Catalog";
 import { Schema } from "effect";
-
-type TargetDefinition = typeof TargetDefinitionSchema.Type;
-type ModuleDefinition = typeof ModuleDefinitionSchema.Type;
 
 const file = (path: string, contents: string) => ({
   _tag: "file" as const,

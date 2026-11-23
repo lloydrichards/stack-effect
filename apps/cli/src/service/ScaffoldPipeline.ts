@@ -143,13 +143,13 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         config,
         createCommand,
       }: {
-        selection: typeof Selection.Type;
+        selection: Selection;
         repoRoot: string;
         yes: boolean;
         dryRun: boolean;
         showFiles: boolean;
         trust: boolean;
-        config: typeof StackConfig.Type;
+        config: StackConfig;
         createCommand?: string;
       }) =>
         Effect.gen(function* () {

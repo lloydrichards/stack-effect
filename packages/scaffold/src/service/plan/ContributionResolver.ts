@@ -19,8 +19,8 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
       const recipes = yield* RecipeService;
 
       const resolve = Effect.fn("ContributionResolver.resolve")(function* (
-        blueprint: typeof Blueprint.Type,
-        config: typeof StackConfig.Type,
+        blueprint: Blueprint,
+        config: StackConfig,
       ) {
         const targets = Arr.filter(
           blueprint.nodes,
@@ -116,7 +116,7 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
         return {
           targets: Arr.map(targetResults, (r) => r.contribution),
           modules: moduleContributions,
-        } satisfies typeof NormalizedContributions.Type;
+        } satisfies NormalizedContributions;
       });
 
       return { resolve };
@@ -129,15 +129,15 @@ export class ContributionResolver extends Context.Service<ContributionResolver>(
 }
 
 const resolveContributionTokens = (
-  contributions: ReadonlyArray<typeof Contribution.Type>,
+  contributions: ReadonlyArray<Contribution>,
   context: ContributionTokenContext,
-): ReadonlyArray<typeof Contribution.Type> => {
+): ReadonlyArray<Contribution> => {
   const resolveString = (value: string) => context.resolve(value);
 
   return Arr.flatMap(
     contributions,
     Contribution.match({
-      file: (c): ReadonlyArray<typeof Contribution.Type> => {
+      file: (c): ReadonlyArray<Contribution> => {
         const path = resolveString(c.path).trim();
         if (path.length === 0) return [];
 
@@ -149,7 +149,7 @@ const resolveContributionTokens = (
           }),
         ];
       },
-      "pkg-json-entry": (c): ReadonlyArray<typeof Contribution.Type> => {
+      "pkg-json-entry": (c): ReadonlyArray<Contribution> => {
         const name = resolveString(c.name).trim();
         if (name.length === 0) return [];
 
@@ -162,13 +162,13 @@ const resolveContributionTokens = (
           }),
         ];
       },
-      "barrel-export": (c): ReadonlyArray<typeof Contribution.Type> => [
+      "barrel-export": (c): ReadonlyArray<Contribution> => [
         Contribution.cases["barrel-export"].make({
           barrelPath: resolveString(c.barrelPath),
           exportPath: c.exportPath,
         }),
       ],
-      "ts-call-arg": (c): ReadonlyArray<typeof Contribution.Type> => [
+      "ts-call-arg": (c): ReadonlyArray<Contribution> => [
         Contribution.cases["ts-call-arg"].make({
           path: resolveString(c.path),
           targetVariable: c.targetVariable,
@@ -177,7 +177,7 @@ const resolveContributionTokens = (
           import: c.import,
         }),
       ],
-      "ts-object-field": (c): ReadonlyArray<typeof Contribution.Type> => [
+      "ts-object-field": (c): ReadonlyArray<Contribution> => [
         Contribution.cases["ts-object-field"].make({
           path: resolveString(c.path),
           targetVariable: c.targetVariable,
@@ -187,7 +187,7 @@ const resolveContributionTokens = (
           import: c.import,
         }),
       ],
-      "jsx-slot": (c): ReadonlyArray<typeof Contribution.Type> => [
+      "jsx-slot": (c): ReadonlyArray<Contribution> => [
         Contribution.cases["jsx-slot"].make({
           path: resolveString(c.path),
           slotId: c.slotId,

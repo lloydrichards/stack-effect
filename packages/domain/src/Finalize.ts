@@ -1,4 +1,5 @@
 import { Effect, Result, Schema } from "effect";
+import { RepositoryPath } from "./Plan";
 
 export const ScriptSuccess = Schema.Struct({
   label: Schema.String,
@@ -11,20 +12,21 @@ export const ScriptFailure = Schema.Struct({
   error: Schema.String,
 });
 
-export type ScriptResult = Result.Result<
-  typeof ScriptSuccess.Type,
-  typeof ScriptFailure.Type
->;
+export type ScriptSuccess = typeof ScriptSuccess.Type;
+
+export type ScriptFailure = typeof ScriptFailure.Type;
+
+export type ScriptResult = Result.Result<ScriptSuccess, ScriptFailure>;
 
 export const SkippedScript = Schema.Struct({
   label: Schema.String,
   command: Schema.String,
-  workdir: Schema.String,
+  workdir: RepositoryPath,
 });
 
 export const ConflictedFile = Schema.Struct({
-  path: Schema.String,
-  patchPath: Schema.String,
+  path: RepositoryPath,
+  patchPath: RepositoryPath,
 });
 
 /**

@@ -23,3 +23,5 @@ export const Selection = Schema.Struct({
     }),
   ),
 });
+
+export type Selection = typeof Selection.Type;

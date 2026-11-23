@@ -1,4 +1,5 @@
 import { assert, it } from "@effect/vitest";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { Effect } from "effect";
 import { registerWorkspaceMembers } from "./WorkspaceMembership";
 
@@ -22,13 +23,21 @@ for (const [path, previous, proposed] of [
           [
             {
               _tag: "complete",
-              path,
+              path: RepositoryPath.make(path),
               contents: proposed,
               classification: "conflict",
             },
           ],
-          { paths: [{ _tag: "file", path, contents: previous }] },
-          ["packages/sdk/client"],
+          {
+            paths: [
+              {
+                _tag: "file",
+                path: RepositoryPath.make(path),
+                contents: previous,
+              },
+            ],
+          },
+          [RepositoryPath.make("packages/sdk/client")],
         );
         assert(outcome?._tag === "complete");
         assert.strictEqual(outcome.classification, "conflict");

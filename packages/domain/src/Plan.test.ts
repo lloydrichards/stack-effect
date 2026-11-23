@@ -1,4 +1,8 @@
-import { Plan, PlanEntryClassification } from "@repo/domain/Plan";
+import {
+  Plan,
+  PlanEntryClassification,
+  RepositoryPath,
+} from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -40,32 +44,32 @@ describe("@repo/domain Plan", () => {
       baseline: {
         root: "/workspace",
         paths: [
-          { _tag: "missing", path: "z.txt" },
-          { _tag: "file", path: "a.txt", sha256: "abc" },
+          { _tag: "missing", path: RepositoryPath.make("z.txt") },
+          { _tag: "file", path: RepositoryPath.make("a.txt"), sha256: "abc" },
         ],
       },
       outcomes: [
         {
           _tag: "complete",
-          path: "packages/domain/src/Api.ts",
+          path: RepositoryPath.make("packages/domain/src/Api.ts"),
           classification: "create",
           contents: 'export const Api = "Api";\n',
         },
         {
           _tag: "complete",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           classification: "conflict",
           contents: "export const App = () => null;\n",
         },
         {
           _tag: "complete",
-          path: "packages/domain/tsconfig.json",
+          path: RepositoryPath.make("packages/domain/tsconfig.json"),
           classification: "conflict",
           contents: "{}\n",
         },
         {
           _tag: "complete",
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           classification: "conflict",
           contents: "export {};\n",
         },
@@ -73,21 +77,21 @@ describe("@repo/domain Plan", () => {
       conflicts: [
         {
           _tag: "jsxSlotTargetNotFound",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           slotId: "footer",
         },
         {
           _tag: "jsxSlotTargetNotFound",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           slotId: "components",
         },
         {
           _tag: "tsconfig",
-          path: "packages/domain/tsconfig.json",
+          path: RepositoryPath.make("packages/domain/tsconfig.json"),
         },
         {
           _tag: "barrelExport",
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           exportPath: "./Api",
         },
       ],
@@ -134,8 +138,8 @@ describe("@repo/domain Plan", () => {
           baseline: {
             root: "/workspace",
             paths: [
-              { _tag: "missing", path: "README.md" },
-              { _tag: "directory", path: "README.md" },
+              { _tag: "missing", path: RepositoryPath.make("README.md") },
+              { _tag: "directory", path: RepositoryPath.make("README.md") },
             ],
           },
           outcomes: [],
@@ -150,13 +154,13 @@ describe("@repo/domain Plan", () => {
           outcomes: [
             {
               _tag: "complete",
-              path: "README.md",
+              path: RepositoryPath.make("README.md"),
               classification: "create",
               contents: "# Repo\n",
             },
             {
               _tag: "complete",
-              path: "README.md",
+              path: RepositoryPath.make("README.md"),
               classification: "modify",
               contents: "# Updated\n",
             },
@@ -172,14 +176,22 @@ describe("@repo/domain Plan", () => {
           outcomes: [
             {
               _tag: "complete",
-              path: "package.json",
+              path: RepositoryPath.make("package.json"),
               classification: "conflict",
               contents: "{}\n",
             },
           ],
           conflicts: [
-            { _tag: "scripts", path: "package.json", name: "test" },
-            { _tag: "scripts", path: "package.json", name: "test" },
+            {
+              _tag: "scripts",
+              path: RepositoryPath.make("package.json"),
+              name: "test",
+            },
+            {
+              _tag: "scripts",
+              path: RepositoryPath.make("package.json"),
+              name: "test",
+            },
           ],
         }),
     },
@@ -189,7 +201,9 @@ describe("@repo/domain Plan", () => {
         new Plan({
           baseline,
           outcomes: [],
-          conflicts: [{ _tag: "completeFile", path: "README.md" }],
+          conflicts: [
+            { _tag: "completeFile", path: RepositoryPath.make("README.md") },
+          ],
         }),
     },
     {
@@ -200,7 +214,7 @@ describe("@repo/domain Plan", () => {
           outcomes: [
             {
               _tag: "complete",
-              path: "README.md",
+              path: RepositoryPath.make("README.md"),
               classification: "conflict",
               contents: "# Repo\n",
             },

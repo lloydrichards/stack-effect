@@ -1,4 +1,9 @@
-import { PlanFailure, PlanOutcome, type RepoSnapshot } from "@repo/domain/Plan";
+import {
+  PlanFailure,
+  PlanOutcome,
+  type RepoSnapshot,
+  RepositoryPath,
+} from "@repo/domain/Plan";
 import { Effect, Schema } from "effect";
 import { isSeq, parseDocument } from "yaml";
 import { isRootManifest } from "./PackageOwnership";
@@ -7,7 +12,7 @@ export const workspaceManifestPaths = [
   "package.json",
   "deno.json",
   "pnpm-workspace.yaml",
-];
+].map((path) => RepositoryPath.make(path));
 const jsonObject = Schema.fromJsonString(
   Schema.Record(Schema.String, Schema.Json),
   { space: 2 },
@@ -23,16 +28,18 @@ const generatedGlobs = new Set([
 export const registerWorkspaceMembers = Effect.fn(
   "WorkspaceMembership.register",
 )(function* (
-  outcomes: ReadonlyArray<typeof PlanOutcome.Type>,
-  snapshot: typeof RepoSnapshot.Type,
-  existingOwners: ReadonlyArray<string>,
+  outcomes: ReadonlyArray<PlanOutcome>,
+  snapshot: RepoSnapshot,
+  existingOwners: ReadonlyArray<RepositoryPath>,
 ) {
   const candidates = [
     ...existingOwners,
     ...outcomes
       .map((outcome) => outcome.path)
       .filter((path) => path.endsWith("/package.json"))
-      .map((path) => path.slice(0, -"/package.json".length)),
+      .map((path) =>
+        RepositoryPath.make(path.slice(0, -"/package.json".length)),
+      ),
   ];
   const members = [
     ...new Set(
@@ -178,7 +185,7 @@ const sameMembers = (
 const membershipClassification = (
   existing: string | undefined,
   updated: string,
-  classification?: (typeof PlanOutcome.Type)["classification"],
+  classification?: PlanOutcome["classification"],
 ) =>
   classification === "conflict"
     ? ("conflict" as const)

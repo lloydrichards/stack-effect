@@ -105,7 +105,7 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
         sources === undefined || fragment === undefined
           ? message
           : `Source ${sourceLabel(fragment)}: ${message}`,
-      ...(fragment === undefined ? {} : { fragment }),
+      fragment,
     });
   };
   /** Whether a definition from `owner` may reference one from `referenced`. */
@@ -388,10 +388,10 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
   return {
     targets,
     modules,
-    ...(sources === undefined
-      ? {}
-      : {
-          origins: {
+    origins:
+      sources === undefined
+        ? undefined
+        : {
             targets: new Map(
               [...targetFragment].map(([kind, index]) => [
                 kind,
@@ -405,6 +405,5 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
               ]),
             ),
           },
-        }),
   } as const;
 });

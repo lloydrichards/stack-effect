@@ -16,32 +16,51 @@ export const PlanRequest = Schema.Struct({
 
 export type PlanRequest = typeof PlanRequest.Type;
 
+/**
+ * A path relative to the repository root, such as `packages/domain/package.json`.
+ * Absolute paths, such as a Plan's baseline root, stay plain strings.
+ */
+export const RepositoryPath = Schema.String.pipe(
+  Schema.brand("RepositoryPath"),
+);
+
+export type RepositoryPath = typeof RepositoryPath.Type;
+
+/** The repository root itself, as a repository path. */
+export const repositoryRootPath = RepositoryPath.make(".");
+
 export const RepoSnapshotPath = Schema.TaggedUnion({
   missing: {
-    path: Schema.String,
+    path: RepositoryPath,
   },
   directory: {
-    path: Schema.String,
+    path: RepositoryPath,
   },
   file: {
-    path: Schema.String,
+    path: RepositoryPath,
     contents: Schema.String,
   },
 });
+
+export type RepoSnapshotPath = typeof RepoSnapshotPath.Type;
 
 export const RepoSnapshot = Schema.Struct({
   paths: Schema.Array(RepoSnapshotPath),
 });
 
+export type RepoSnapshot = typeof RepoSnapshot.Type;
+
 /** The repository state against which a Plan was computed. */
 export const PlanBaselinePath = Schema.TaggedUnion({
-  missing: { path: Schema.String },
-  directory: { path: Schema.String },
-  file: { path: Schema.String, sha256: Schema.String },
+  missing: { path: RepositoryPath },
+  directory: { path: RepositoryPath },
+  file: { path: RepositoryPath, sha256: Schema.String },
 });
 
+export type PlanBaselinePath = typeof PlanBaselinePath.Type;
+
 export const PackageOwner = Schema.Struct({
-  path: Schema.String,
+  path: RepositoryPath,
   name: Schema.NonEmptyString,
 });
 
@@ -53,6 +72,8 @@ export const PlanBaseline = Schema.Struct({
   /** Discovered package ownership, retained for stale-Plan verification. */
   packageOwners: Schema.optional(Schema.Array(PackageOwner)),
 });
+
+export type PlanBaseline = typeof PlanBaseline.Type;
 
 export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
   "PlanFailure",
@@ -105,6 +126,8 @@ export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
   typeOnly: Schema.optional(Schema.Boolean),
 });
 
+export type TsAddImportOp = typeof TsAddImportOp.Type;
+
 export const TsAddReexportOp = Schema.TaggedStruct("ts-add-reexport", {
   fileType: Schema.tag("typescript"),
   moduleSpecifier: Schema.String,
@@ -112,12 +135,16 @@ export const TsAddReexportOp = Schema.TaggedStruct("ts-add-reexport", {
   typeOnly: Schema.optional(Schema.Boolean),
 });
 
+export type TsAddReexportOp = typeof TsAddReexportOp.Type;
+
 export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
   fileType: Schema.tag("typescript"),
   targetVariable: Schema.String,
   functionName: Schema.String,
   argument: Schema.String,
 });
+
+export type TsAppendCallArgOp = typeof TsAppendCallArgOp.Type;
 
 export const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
   fileType: Schema.tag("typescript"),
@@ -127,11 +154,15 @@ export const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
   value: Schema.String,
 });
 
+export type TsObjectFieldOp = typeof TsObjectFieldOp.Type;
+
 export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
   fileType: Schema.tag("typescript"),
   slotId: Schema.String,
   content: Schema.String,
 });
+
+export type TsJsxSlotOp = typeof TsJsxSlotOp.Type;
 
 export const JsonWorkspaceMembersOp = Schema.TaggedStruct(
   "json-workspace-members",
@@ -142,14 +173,14 @@ export const JsonWorkspaceMembersOp = Schema.TaggedStruct(
   },
 );
 
-const JsonCompositionOperationSchema = Schema.Union([
+export const JsonCompositionOperation = Schema.Union([
   JsonWorkspaceMembersOp,
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
 ]);
 
-const TypeScriptCompositionOperationSchema = Schema.Union([
+export const TypeScriptCompositionOperation = Schema.Union([
   TsAddImportOp,
   TsAddReexportOp,
   TsAppendCallArgOp,
@@ -157,18 +188,17 @@ const TypeScriptCompositionOperationSchema = Schema.Union([
   TsJsxSlotOp,
 ]);
 
-export type JsonCompositionOperation = Schema.Schema.Type<
-  typeof JsonCompositionOperationSchema
->;
+export type JsonCompositionOperation = typeof JsonCompositionOperation.Type;
 
-export type TypeScriptCompositionOperation = Schema.Schema.Type<
-  typeof TypeScriptCompositionOperationSchema
->;
+export type TypeScriptCompositionOperation =
+  typeof TypeScriptCompositionOperation.Type;
 
 export const CompositionOperation = Schema.Union([
-  JsonCompositionOperationSchema,
-  TypeScriptCompositionOperationSchema,
+  JsonCompositionOperation,
+  TypeScriptCompositionOperation,
 ]);
+
+export type CompositionOperation = typeof CompositionOperation.Type;
 
 export const PlanEntryClassification = Schema.Literals([
   "create",
@@ -177,56 +207,62 @@ export const PlanEntryClassification = Schema.Literals([
   "conflict",
 ]);
 
+export type PlanEntryClassification = typeof PlanEntryClassification.Type;
+
 export const PlanOutcome = Schema.TaggedUnion({
   complete: {
-    path: Schema.String,
+    path: RepositoryPath,
     classification: PlanEntryClassification,
     contents: Schema.String,
   },
   composed: {
-    path: Schema.String,
+    path: RepositoryPath,
     classification: PlanEntryClassification,
     seedContents: Schema.optional(Schema.String),
     operations: Schema.Array(CompositionOperation),
   },
 });
 
+export type PlanOutcome = typeof PlanOutcome.Type;
+
 export const PlanConflict = Schema.TaggedUnion({
   exports: {
-    path: Schema.String,
+    path: RepositoryPath,
     name: Schema.String,
   },
   dependencies: {
-    path: Schema.String,
+    path: RepositoryPath,
     section: Schema.String,
     name: Schema.String,
   },
   scripts: {
-    path: Schema.String,
+    path: RepositoryPath,
     name: Schema.String,
   },
   barrelExport: {
-    path: Schema.String,
+    path: RepositoryPath,
     exportPath: Schema.String,
   },
   tsconfig: {
-    path: Schema.String,
+    path: RepositoryPath,
   },
   completeFile: {
-    path: Schema.String,
+    path: RepositoryPath,
   },
   compositionTargetNotFound: {
-    path: Schema.String,
+    path: RepositoryPath,
     targetVariable: Schema.String,
     functionName: Schema.String,
   },
   jsxSlotTargetNotFound: {
-    path: Schema.String,
+    path: RepositoryPath,
     slotId: Schema.String,
   },
 });
 
-const planConflictKey = (conflict: typeof PlanConflict.Type): string =>
+export type PlanConflict = typeof PlanConflict.Type;
+
+const planConflictKey = (conflict: PlanConflict): string =>
   PlanConflict.match(conflict, {
     exports: (c) => JSON.stringify([c._tag, c.path, c.name]),
     dependencies: (c) => JSON.stringify([c._tag, c.path, c.section, c.name]),
@@ -310,9 +346,10 @@ export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
     return new Plan({
       baseline: {
         root: this.baseline.root,
-        ...(this.baseline.packageOwners === undefined
-          ? {}
-          : { packageOwners: [...this.baseline.packageOwners].sort(pathOrd) }),
+        packageOwners:
+          this.baseline.packageOwners === undefined
+            ? undefined
+            : [...this.baseline.packageOwners].sort(pathOrd),
         paths: [...this.baseline.paths].sort(pathOrd),
       },
       outcomes: [...this.outcomes].sort(pathOrd),

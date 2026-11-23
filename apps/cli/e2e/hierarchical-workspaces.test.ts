@@ -29,7 +29,7 @@ const modes = [
 ] as const;
 const identity = (kind: string, name: string) =>
   new TargetIdentity({ kind: TargetKind.make(kind), name });
-const file = (path: string, contents: string): typeof Contribution.Type => ({
+const file = (path: string, contents: string): Contribution => ({
   _tag: "file",
   path,
   contents,
@@ -38,7 +38,7 @@ const entry = (
   field: "exports" | "dependencies" | "scripts",
   name: string,
   value: string,
-): typeof Contribution.Type => ({
+): Contribution => ({
   _tag: "pkg-json-entry",
   path: "{{targetPath}}/package.json",
   field,
@@ -57,7 +57,7 @@ for (const mode of modes) {
         : mode.runtime._tag === "bun"
           ? "bun src/build.ts"
           : "node src/build.ts";
-    const modules: ReadonlyArray<typeof ModuleDefinition.Type> = [
+    const modules: ReadonlyArray<ModuleDefinition> = [
       {
         id: ModuleId.make("client-probe"),
         title: "Client probe",

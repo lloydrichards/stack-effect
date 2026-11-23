@@ -11,15 +11,15 @@ import { RelationshipBranch } from "./relationship-branch";
 import type { ModuleRelationshipNode } from "./state";
 
 type ModuleBranchProps = {
-  readonly module: typeof CatalogModule.Type;
-  readonly modules: ReadonlyArray<typeof CatalogModule.Type>;
+  readonly module: CatalogModule;
+  readonly modules: ReadonlyArray<CatalogModule>;
   readonly selected: ReadonlyArray<string>;
   readonly relationships?: ReadonlyArray<ModuleRelationshipNode>;
   readonly disabled?: boolean;
   readonly getDisabledReason?:
-    | ((module: typeof CatalogModule.Type) => string | undefined)
+    | ((module: CatalogModule) => string | undefined)
     | undefined;
-  readonly onToggleModule: (module: typeof CatalogModule.Type) => void;
+  readonly onToggleModule: (module: CatalogModule) => void;
   readonly onToggleSupportModule: (
     configuration: SupportConfiguration,
     moduleId: string,

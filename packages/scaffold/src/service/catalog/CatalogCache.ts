@@ -4,8 +4,8 @@ export type CatalogCacheEntry = {
   readonly sourceUrl: string;
   readonly bytes: Uint8Array;
   readonly digest: string;
-  readonly etag?: string;
-  readonly lastModified?: string;
+  readonly etag?: string | undefined;
+  readonly lastModified?: string | undefined;
   readonly validatedAt: number;
 };
 

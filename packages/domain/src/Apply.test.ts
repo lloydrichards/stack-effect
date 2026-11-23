@@ -5,7 +5,7 @@ import {
   ApplyResult,
   StalePlanFailure,
 } from "@repo/domain/Apply";
-import { Plan } from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -55,11 +55,11 @@ describe("@repo/domain Apply", () => {
       }),
       decisions: [
         {
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           value: "skip",
         },
         {
-          path: "README.md",
+          path: RepositoryPath.make("README.md"),
           value: "override",
         },
       ],
@@ -73,19 +73,25 @@ describe("@repo/domain Apply", () => {
 
   it("sorts apply result paths deterministically", () => {
     const result = new ApplyResult({
-      created: ["packages/domain/src/Api.ts", "README.md"],
-      modified: [
-        "packages/domain/package.json",
-        "apps/server-api/package.json",
+      created: [
+        RepositoryPath.make("packages/domain/src/Api.ts"),
+        RepositoryPath.make("README.md"),
       ],
-      skipped: ["packages/domain/src/index.ts", "package.json"],
+      modified: [
+        RepositoryPath.make("packages/domain/package.json"),
+        RepositoryPath.make("apps/server-api/package.json"),
+      ],
+      skipped: [
+        RepositoryPath.make("packages/domain/src/index.ts"),
+        RepositoryPath.make("package.json"),
+      ],
       failed: [
         {
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           reason: "could not write file",
         },
         {
-          path: "README.md",
+          path: RepositoryPath.make("README.md"),
           reason: "permission denied",
         },
       ],

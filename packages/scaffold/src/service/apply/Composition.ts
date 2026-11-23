@@ -15,7 +15,7 @@ import { composeTypeScript } from "./TypeScriptComposition";
 export const compose: (
   path: string,
   contents: string,
-  operations: ReadonlyArray<typeof CompositionOperation.Type>,
+  operations: ReadonlyArray<CompositionOperation>,
 ) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
   function* (path, contents, operations) {
     if (operations.length === 0) {
@@ -35,12 +35,11 @@ export const compose: (
   },
 );
 
-const isJsonOp = (
-  op: typeof CompositionOperation.Type,
-): op is JsonCompositionOperation => op.fileType === "json";
+const isJsonOp = (op: CompositionOperation): op is JsonCompositionOperation =>
+  op.fileType === "json";
 
 const isTypeScriptOp = (
-  op: typeof CompositionOperation.Type,
+  op: CompositionOperation,
 ): op is TypeScriptCompositionOperation => op.fileType === "typescript";
 
 const isJsonFile = (path: string) => path.endsWith(".json");

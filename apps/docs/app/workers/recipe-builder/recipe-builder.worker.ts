@@ -57,7 +57,7 @@ const toRpcSource = ({
   sourceUrl,
   requires,
   freshness,
-  ...(warning === undefined ? {} : { warning }),
+  warning,
 });
 
 // A browser fetch that fails may be a CORS refusal or a transport failure;

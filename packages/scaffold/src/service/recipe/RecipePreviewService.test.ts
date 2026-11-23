@@ -38,7 +38,7 @@ const fileAt =
 it.effect(
   "should plan and preview a module when it is supplied outside the built-in registry",
   () => {
-    const extra: typeof ModuleDefinition.Type = {
+    const extra: ModuleDefinition = {
       id: ModuleId.make("package-extra-example"),
       title: "Extra example",
       description: "A contributed file",

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import {
+  Blueprint,
+  makeBlueprintEdge,
+  toAttachedModuleNodeId,
+} from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { Plan } from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { String } from "effect";
 import { Box } from "effect-boxes";
 import * as ScaffoldTree from "./ScaffoldTree";
@@ -48,45 +52,41 @@ const makeUnsortedBlueprint = () =>
       },
     ],
     edges: [
-      {
-        id: "z-edge",
-        from: toAttachedModuleNodeId(
+      makeBlueprintEdge(
+        "required-module",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: toAttachedModuleNodeId(
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "required-module",
-      },
-      {
-        id: "m-edge",
-        from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "owns-module",
+        domainIdentity.toKey(),
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: "n-edge",
-        from: serverApiIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "owns-module",
+        serverApiIdentity.toKey(),
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: "a-edge",
-        from: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "required-target",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: domainIdentity.toKey(),
-        reason: "required-target",
-      },
+        domainIdentity.toKey(),
+      ),
     ],
   });
 
@@ -141,18 +141,21 @@ describe("ScaffoldTree", () => {
           "packages/domain/tsconfig.json",
           "README.md",
           "package.json",
-        ].map((path) => ({ _tag: "missing" as const, path })),
+        ].map((path) => ({
+          _tag: "missing" as const,
+          path: RepositoryPath.make(path),
+        })),
       },
       outcomes: [
         {
           _tag: "complete",
-          path: "packages/domain/src/Api.ts",
+          path: RepositoryPath.make("packages/domain/src/Api.ts"),
           classification: "create",
           contents: 'export const Api = "Api";\n',
         },
         {
           _tag: "composed",
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           classification: "conflict",
           seedContents: "",
           operations: [
@@ -165,19 +168,19 @@ describe("ScaffoldTree", () => {
         },
         {
           _tag: "complete",
-          path: "packages/domain/tsconfig.json",
+          path: RepositoryPath.make("packages/domain/tsconfig.json"),
           classification: "conflict",
           contents: '{"extends":"../../packages/config-typescript/base.json"}',
         },
         {
           _tag: "complete",
-          path: "README.md",
+          path: RepositoryPath.make("README.md"),
           classification: "modify",
           contents: "# Repo\n",
         },
         {
           _tag: "composed",
-          path: "package.json",
+          path: RepositoryPath.make("package.json"),
           classification: "unchanged",
           seedContents: "{}",
           operations: [
@@ -192,17 +195,17 @@ describe("ScaffoldTree", () => {
       conflicts: [
         {
           _tag: "barrelExport",
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           exportPath: "./Api",
         },
         {
           _tag: "barrelExport",
-          path: "packages/domain/src/index.ts",
+          path: RepositoryPath.make("packages/domain/src/index.ts"),
           exportPath: "./Health",
         },
         {
           _tag: "tsconfig",
-          path: "packages/domain/tsconfig.json",
+          path: RepositoryPath.make("packages/domain/tsconfig.json"),
         },
       ],
     }).toSorted();
@@ -239,12 +242,17 @@ describe("ScaffoldTree", () => {
     const plan = new Plan({
       baseline: {
         root: "/repo",
-        paths: [{ _tag: "missing", path: "apps/web/src/App.tsx" }],
+        paths: [
+          {
+            _tag: "missing",
+            path: RepositoryPath.make("apps/web/src/App.tsx"),
+          },
+        ],
       },
       outcomes: [
         {
           _tag: "composed",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           classification: "conflict",
           operations: [
             {
@@ -259,7 +267,7 @@ describe("ScaffoldTree", () => {
       conflicts: [
         {
           _tag: "jsxSlotTargetNotFound",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           slotId: "components",
         },
       ],

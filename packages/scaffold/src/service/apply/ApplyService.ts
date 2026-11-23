@@ -3,10 +3,15 @@ import {
   type ApplyFailedPath,
   ApplyFailure,
   ApplyResult,
+  type StalePlanChange,
   StalePlanFailure,
 } from "@repo/domain/Apply";
 import { pathOrd } from "@repo/domain/Order";
-import { CompositionOperation, type PackageOwner } from "@repo/domain/Plan";
+import {
+  CompositionOperation,
+  type PackageOwner,
+  RepositoryPath,
+} from "@repo/domain/Plan";
 import {
   Array as Arr,
   Context,
@@ -25,59 +30,64 @@ import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
 const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
   skip: {
-    path: Schema.String,
+    path: RepositoryPath,
     reason: Schema.Literals(["unchanged", "decision"]),
   },
   "write-authoritative": {
-    path: Schema.String,
+    path: RepositoryPath,
     contents: Schema.String,
     writeMode: Schema.Literals(["create", "modify", "override"]),
   },
   "write-composed": {
-    path: Schema.String,
+    path: RepositoryPath,
     seedContents: Schema.Union([Schema.String, Schema.Undefined]),
     operations: Schema.Array(CompositionOperation),
     writeMode: Schema.Literals(["create", "modify", "override"]),
   },
 });
 
+type MaterializedPlannedOutcomeAction =
+  typeof MaterializedPlannedOutcomeAction.Type;
+
 type WriteComposedAction = Extract<
-  typeof MaterializedPlannedOutcomeAction.Type,
+  MaterializedPlannedOutcomeAction,
   { readonly _tag: "write-composed" }
 >;
 
 const PreparedApplyAction = Schema.TaggedUnion({
   skip: {
-    path: Schema.String,
+    path: RepositoryPath,
   },
   write: {
     request: Schema.Struct({
-      path: Schema.String,
+      path: RepositoryPath,
       contents: Schema.String,
       writeMode: Schema.Literals(["create", "modify", "override"]),
     }),
   },
 });
 
+type PreparedApplyAction = typeof PreparedApplyAction.Type;
+
 type ActionProjection = {
-  readonly skippedPaths: Set<string>;
+  readonly skippedPaths: Set<RepositoryPath>;
   readonly writeRequests: Array<ApplyWriteRequest>;
 };
 
 type WriteAttempt =
   | {
-      readonly path: string;
+      readonly path: RepositoryPath;
       readonly status: "created" | "modified" | "unchanged";
     }
   | {
-      readonly path: string;
+      readonly path: RepositoryPath;
       readonly status: "failure";
       readonly reason: string;
     };
 
 export type ApplyServiceShape = {
   readonly apply: (input: {
-    readonly apply: typeof Apply.Type;
+    readonly apply: Apply;
     readonly repoRoot: string;
   }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
 };
@@ -93,7 +103,7 @@ export class ApplyService extends Context.Service<
     const repositoryState = yield* RepositoryState;
 
     const validateApplyIntent = Effect.fn("ApplyService.validateApplyIntent")(
-      function* (apply: typeof Apply.Type) {
+      function* (apply: Apply) {
         const baselinePaths = new Set(
           apply.plan.baseline.paths.map((entry) => entry.path),
         );
@@ -156,7 +166,7 @@ export class ApplyService extends Context.Service<
     );
 
     const materializeFrom = Effect.fn("ApplyService.materializeFrom")(
-      function* (apply: typeof Apply.Type) {
+      function* (apply: Apply) {
         yield* validateApplyIntent(apply);
 
         const decisionsByPath = new Map(
@@ -166,11 +176,9 @@ export class ApplyService extends Context.Service<
         );
         return Arr.map(
           apply.plan.outcomes,
-          (outcome): typeof MaterializedPlannedOutcomeAction.Type =>
+          (outcome): MaterializedPlannedOutcomeAction =>
             Match.value(outcome).pipe(
-              Match.withReturnType<
-                typeof MaterializedPlannedOutcomeAction.Type
-              >(),
+              Match.withReturnType<MaterializedPlannedOutcomeAction>(),
               Match.when({ classification: "unchanged" }, (o) =>
                 MaterializedPlannedOutcomeAction.cases.skip.make({
                   path: o.path,
@@ -309,7 +317,7 @@ export class ApplyService extends Context.Service<
       action,
       repoRoot,
     }: {
-      action: typeof MaterializedPlannedOutcomeAction.Type;
+      action: MaterializedPlannedOutcomeAction;
       repoRoot: string;
     }) {
       switch (action._tag) {
@@ -352,7 +360,7 @@ export class ApplyService extends Context.Service<
       actions,
       repoRoot,
     }: {
-      actions: ReadonlyArray<typeof MaterializedPlannedOutcomeAction.Type>;
+      actions: ReadonlyArray<MaterializedPlannedOutcomeAction>;
       repoRoot: string;
     }) {
       const preparedActions = yield* Effect.all(
@@ -367,10 +375,10 @@ export class ApplyService extends Context.Service<
         },
       );
 
-      return Arr.reduce<typeof PreparedApplyAction.Type, ActionProjection>(
+      return Arr.reduce<PreparedApplyAction, ActionProjection>(
         preparedActions,
         {
-          skippedPaths: new Set<string>(),
+          skippedPaths: new Set<RepositoryPath>(),
           writeRequests: [],
         },
         (projectionBuilder, preparedAction) => {
@@ -396,8 +404,8 @@ export class ApplyService extends Context.Service<
       ownerWrites: ReadonlyArray<PackageOwner>;
       repoRoot: string;
       writeRequests: ReadonlyArray<ApplyWriteRequest>;
-      applyIntent: typeof Apply.Type;
-      skippedPaths: ReadonlySet<string>;
+      applyIntent: Apply;
+      skippedPaths: ReadonlySet<RepositoryPath>;
     }) {
       const attempts: Array<WriteAttempt> = [];
       const createdDirectories = new Set<string>();
@@ -433,9 +441,7 @@ export class ApplyService extends Context.Service<
             const changes = yield* repositoryState.verify({
               baseline: {
                 root: applyIntent.plan.baseline.root,
-                ...(expectedOwners === undefined
-                  ? {}
-                  : { packageOwners: expectedOwners }),
+                packageOwners: expectedOwners,
                 paths: applyIntent.plan.baseline.paths.map((entry) =>
                   createdDirectories.has(entry.path)
                     ? { _tag: "directory" as const, path: entry.path }
@@ -498,7 +504,7 @@ export class ApplyService extends Context.Service<
     });
 
     const stalePlanMessage = (
-      changes: ReadonlyArray<{ readonly path: string; readonly kind: string }>,
+      changes: ReadonlyArray<StalePlanChange>,
       partialResult: ApplyResult,
     ) => {
       const written = [...partialResult.created, ...partialResult.modified];
@@ -510,7 +516,7 @@ export class ApplyService extends Context.Service<
         applyIntent,
         repoRoot,
       }: {
-        applyIntent: typeof Apply.Type;
+        applyIntent: Apply;
         repoRoot: string;
       }) {
         const changes = yield* repositoryState.verify({
@@ -537,16 +543,16 @@ export class ApplyService extends Context.Service<
       skippedPaths,
       writeAttempts,
     }: {
-      skippedPaths: ReadonlySet<string>;
+      skippedPaths: ReadonlySet<RepositoryPath>;
       writeAttempts: ReadonlyArray<WriteAttempt>;
     }) => {
       const resultBuilder = Arr.reduce<
         WriteAttempt,
         {
-          created: Array<string>;
-          modified: Array<string>;
-          skippedPaths: Set<string>;
-          failed: Array<typeof ApplyFailedPath.Type>;
+          created: Array<RepositoryPath>;
+          modified: Array<RepositoryPath>;
+          skippedPaths: Set<RepositoryPath>;
+          failed: Array<ApplyFailedPath>;
         }
       >(
         writeAttempts,
@@ -587,7 +593,7 @@ export class ApplyService extends Context.Service<
 
     const validateOwnerWrites = Effect.fn("ApplyService.validateOwnerWrites")(
       function* (
-        applyIntent: typeof Apply.Type,
+        applyIntent: Apply,
         repoRoot: string,
         writes: ReadonlyArray<ApplyWriteRequest>,
       ) {
@@ -618,7 +624,7 @@ export class ApplyService extends Context.Service<
       apply: applyIntent,
       repoRoot,
     }: {
-      apply: typeof Apply.Type;
+      apply: Apply;
       repoRoot: string;
     }) {
       const actions = yield* materializeFrom(applyIntent);

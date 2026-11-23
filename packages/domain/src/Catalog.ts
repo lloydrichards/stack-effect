@@ -19,9 +19,13 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
+export type ModuleId = typeof ModuleId.Type;
+
 export const ModuleCapability = Schema.String.pipe(
   Schema.brand("ModuleCapability"),
 );
+
+export type ModuleCapability = typeof ModuleCapability.Type;
 
 const isSafeTargetSegment = (segment: string): boolean => {
   const trimmed = segment.trim();
@@ -55,7 +59,11 @@ export const TargetKind = Schema.String.check(
   ),
 ).pipe(Schema.brand("TargetKind"));
 
+export type TargetKind = typeof TargetKind.Type;
+
 export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
+
+export type TargetPath = typeof TargetPath.Type;
 
 /** Directory ownership overlaps only at complete segment boundaries. */
 export const targetPathsOverlap = (left: string, right: string): boolean => {
@@ -64,6 +72,8 @@ export const targetPathsOverlap = (left: string, right: string): boolean => {
   return a === b || a.startsWith(`${b}/`) || b.startsWith(`${a}/`);
 };
 export const TargetKey = Schema.String.pipe(Schema.brand("TargetKey"));
+
+export type TargetKey = typeof TargetKey.Type;
 
 export class TargetIdentity extends Schema.Class<TargetIdentity>(
   "TargetIdentity",
@@ -84,11 +94,11 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     return targetNameSlug(this).length > 0;
   }
 
-  toPath(): typeof TargetPath.Type {
+  toPath(): TargetPath {
     return TargetPath.make(toTargetPathString(this));
   }
 
-  toKey(): typeof TargetKey.Type {
+  toKey(): TargetKey {
     return TargetKey.make(toTargetPathString(this));
   }
 
@@ -111,7 +121,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     }
   }
 
-  matches(supportedOn: typeof SupportedOn.Type): boolean {
+  matches(supportedOn: SupportedOn): boolean {
     return SupportedOn.match(supportedOn, {
       identity: (s) => s.identity.toKey() === this.toKey(),
       kind: (s) => s.kind === this.kind,
@@ -159,6 +169,8 @@ export const SupportedOn = Schema.TaggedUnion({
   },
 });
 
+export type SupportedOn = typeof SupportedOn.Type;
+
 export const ScriptPhase = Schema.Literals(["finalize", "post-finalize"]);
 
 export const ScriptDefinition = Schema.Struct({
@@ -178,6 +190,8 @@ export const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
   moduleId: ModuleId,
 });
+
+export type ModuleImplication = typeof ModuleImplication.Type;
 
 /**
  * A Contribution declares a single unit of desired repository state.
@@ -287,6 +301,8 @@ export const Contribution = Schema.TaggedUnion({
   },
 });
 
+export type Contribution = typeof Contribution.Type;
+
 /**
  * A ModuleDependency declares a requirement that must be satisfied before
  * a module can be attached.
@@ -329,7 +345,11 @@ export const ModuleDependency = Schema.TaggedUnion({
   },
 });
 
+export type ModuleDependency = typeof ModuleDependency.Type;
+
 export const Visibility = Schema.Literals(["public", "internal"]);
+
+export type Visibility = typeof Visibility.Type;
 
 /**
  * Freeform tag for grouping modules into selectable categories.
@@ -338,6 +358,8 @@ export const Visibility = Schema.Literals(["public", "internal"]);
 export const ModuleCategory = Schema.String.pipe(
   Schema.brand("ModuleCategory"),
 );
+
+export type ModuleCategory = typeof ModuleCategory.Type;
 
 /**
  * Declares a parent-child relationship between modules on the same target.
@@ -353,7 +375,11 @@ export const ModuleChild = Schema.Struct({
   requirement: Schema.Literals(["required", "optional"]),
 });
 
+export type ModuleChild = typeof ModuleChild.Type;
+
 export const SupportedRuntime = Schema.Literals(["bun", "node", "deno"]);
+
+export type SupportedRuntime = typeof SupportedRuntime.Type;
 
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
@@ -401,6 +427,8 @@ export const ModuleDefinition = Schema.Struct({
   ),
 });
 
+export type ModuleDefinition = typeof ModuleDefinition.Type;
+
 export const TargetDefinition = Schema.Struct({
   kind: TargetKind,
   title: Schema.String,
@@ -442,6 +470,16 @@ export const TargetDefinition = Schema.Struct({
       "Default target names must be valid for their target kind",
   ),
 );
+
+export type TargetDefinition = typeof TargetDefinition.Type;
+
+/** A target or module definition from a Catalog. */
+export const CatalogDefinition = Schema.Union([
+  TargetDefinition,
+  ModuleDefinition,
+]);
+
+export type CatalogDefinition = typeof CatalogDefinition.Type;
 
 export const CatalogFragment = Schema.Struct({
   targets: Schema.Array(TargetDefinition),
@@ -504,7 +542,7 @@ export const CatalogIssue = Schema.Struct({
   subject: CatalogIssueSubject,
   code: CatalogIssueCode,
   message: Schema.String,
-  fragment: Schema.optionalKey(Schema.Int),
+  fragment: Schema.optional(Schema.Int),
 });
 export type CatalogIssue = typeof CatalogIssue.Type;
 
@@ -548,6 +586,8 @@ export const CatalogNode = Schema.TaggedUnion({
   },
 });
 
+export type CatalogNode = typeof CatalogNode.Type;
+
 export const CatalogEdge = Schema.Literals([
   "supportedOn",
   "requiredModule",
@@ -555,10 +595,9 @@ export const CatalogEdge = Schema.Literals([
   "childOf",
 ]);
 
-export type CatalogGraph = Graph.DirectedGraph<
-  typeof CatalogNode.Type,
-  typeof CatalogEdge.Type
->;
+export type CatalogEdge = typeof CatalogEdge.Type;
+
+export type CatalogGraph = Graph.DirectedGraph<CatalogNode, CatalogEdge>;
 
 /**
  * A module entry within the catalog tree, showing what it requires and implies
@@ -608,3 +647,5 @@ export const CatalogTreeTarget = Schema.Struct({
 export const CatalogTree = Schema.Struct({
   targets: Schema.Array(CatalogTreeTarget),
 });
+
+export type CatalogTree = typeof CatalogTree.Type;

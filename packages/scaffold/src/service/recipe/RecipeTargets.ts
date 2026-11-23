@@ -75,6 +75,8 @@ export const RecipeTargetString = Schema.String.check(
   }),
 );
 
+export type RecipeTargetString = typeof RecipeTargetString.Type;
+
 const encodeRecipeTargetSpec = Schema.encodeSync(RecipeTargetString);
 
 export const decodeRecipeTargetSpecsEffect = (
@@ -100,7 +102,7 @@ export const renderRecipeTargetSpec = (spec: RecipeTargetSpecType): string =>
   )}`;
 
 const recipeTargetSpecToCollected = Effect.fn("recipeTargetSpecToCollected")(
-  function* (spec: typeof RecipeTargetSpec.Type) {
+  function* (spec: RecipeTargetSpec) {
     const rawSpec = renderRecipeTargetSpec(spec);
     const duplicateModules = duplicatedValues(spec.modules);
 
@@ -116,11 +118,11 @@ const recipeTargetSpecToCollected = Effect.fn("recipeTargetSpecToCollected")(
 
 export type ParsedRecipeTarget = {
   readonly target: TargetIdentity;
-  readonly modules: ReadonlyArray<typeof ModuleId.Type>;
+  readonly modules: ReadonlyArray<ModuleId>;
 };
 
 export const parseRecipeTargetSpecs = Effect.fn("parseRecipeTargetSpecs")(
-  function* (specs: ReadonlyArray<typeof RecipeTargetSpec.Type>) {
+  function* (specs: ReadonlyArray<RecipeTargetSpec>) {
     const targets = yield* Effect.forEach(specs, recipeTargetSpecToCollected);
     return mergeRecipeTargets(targets);
   },
@@ -131,7 +133,7 @@ const mergeRecipeTargets = (
 ): ReadonlyArray<ParsedRecipeTarget> => {
   const merged = new Map<
     string,
-    { target: TargetIdentity; modules: Array<typeof ModuleId.Type> }
+    { target: TargetIdentity; modules: Array<ModuleId> }
   >();
 
   for (const target of targets) {

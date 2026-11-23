@@ -16,10 +16,10 @@ const moduleKey = (owner: Owner, moduleId: string) =>
   `${ownerKey(owner)}#${moduleId}`;
 
 export const moduleRequiresCapability = (
-  root: typeof CatalogModule.Type,
+  root: CatalogModule,
   rootOwner: Owner,
   capability: string,
-  catalog: typeof RecipeBuilderCatalog.Type | undefined,
+  catalog: RecipeBuilderCatalog | undefined,
 ): boolean => {
   if (catalog === undefined) return false;
   const modulesByOwner = new Map(
@@ -29,7 +29,7 @@ export const moduleRequiresCapability = (
     ]),
   );
   const visited = new Set<string>();
-  const visit = (module: typeof CatalogModule.Type, owner: Owner): boolean => {
+  const visit = (module: CatalogModule, owner: Owner): boolean => {
     const key = moduleKey(owner, module.id);
     if (visited.has(key)) return false;
     visited.add(key);
@@ -92,17 +92,17 @@ export const moduleRequiresCapability = (
 
 export type ModuleRelationshipNode = {
   readonly owner: Owner;
-  readonly module: typeof CatalogModule.Type;
+  readonly module: CatalogModule;
   readonly requirement: "required" | "optional";
   readonly children: ReadonlyArray<ModuleRelationshipNode>;
   readonly configuration?: SupportConfiguration;
 };
 
 const descendantIds = (
-  module: typeof CatalogModule.Type,
-  modules: ReadonlyArray<typeof CatalogModule.Type>,
+  module: CatalogModule,
+  modules: ReadonlyArray<CatalogModule>,
 ): ReadonlySet<string> => {
-  const modulesById = new Map<string, typeof CatalogModule.Type>(
+  const modulesById = new Map<string, CatalogModule>(
     modules.map((candidate) => [candidate.id, candidate]),
   );
   const descendants = new Set<string>();
@@ -118,9 +118,9 @@ const descendantIds = (
 };
 
 export const buildModuleRelationshipNodes = (
-  root: typeof CatalogModule.Type,
+  root: CatalogModule,
   rootOwner: Owner,
-  catalog: typeof RecipeBuilderCatalog.Type | undefined,
+  catalog: RecipeBuilderCatalog | undefined,
 ): ReadonlyArray<ModuleRelationshipNode> => {
   if (catalog === undefined) return [];
   const visited = new Set([moduleKey(rootOwner, root.id)]);
@@ -129,7 +129,7 @@ export const buildModuleRelationshipNodes = (
       ownerKey(owner),
       {
         modules,
-        modulesById: new Map<string, typeof CatalogModule.Type>(
+        modulesById: new Map<string, CatalogModule>(
           modules.map((module) => [module.id, module]),
         ),
       },
@@ -138,7 +138,7 @@ export const buildModuleRelationshipNodes = (
   const resolve = (owner: Owner, moduleId: string) =>
     modulesByOwner.get(ownerKey(owner))?.modulesById.get(moduleId);
   const childrenFor = (
-    module: typeof CatalogModule.Type,
+    module: CatalogModule,
     owner: Owner,
     includeModuleChildren = true,
   ): ReadonlyArray<ModuleRelationshipNode> => {
@@ -210,8 +210,8 @@ export const buildModuleRelationshipNodes = (
 const addModuleImplications = (
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
-  sourceModule: typeof CatalogModule.Type,
-  catalog: typeof RecipeBuilderCatalog.Type,
+  sourceModule: CatalogModule,
+  catalog: RecipeBuilderCatalog,
   nextId: () => number,
 ): ReadonlyArray<TargetInstance> => {
   return sourceModule.implies.reduce((current, implication) => {
@@ -334,8 +334,8 @@ export const removeTargetAndDependencies = (
 export const removeModuleSupportSelections = (
   selections: ReadonlyArray<SupportSelection>,
   target: Pick<TargetInstance, "kind" | "name">,
-  module: typeof CatalogModule.Type,
-  modules: ReadonlyArray<typeof CatalogModule.Type>,
+  module: CatalogModule,
+  modules: ReadonlyArray<CatalogModule>,
 ): ReadonlyArray<SupportSelection> => {
   const targetOwnerKey = ownerKey(target);
   const removedParentIds = new Set([
@@ -365,7 +365,7 @@ export const removeTargetSupportSelections = (
  */
 export const retainCatalogSupportSelections = (
   selections: ReadonlyArray<SupportSelection>,
-  catalog: Pick<typeof RecipeBuilderCatalog.Type, "targetModules">,
+  catalog: Pick<RecipeBuilderCatalog, "targetModules">,
 ): {
   readonly selections: ReadonlyArray<SupportSelection>;
   readonly removedModules: ReadonlyArray<string>;
@@ -406,7 +406,7 @@ export const retainCatalogSupportSelections = (
 };
 
 export const publicRootModules = <
-  T extends Pick<typeof CatalogModule.Type, "id" | "visibility" | "children">,
+  T extends Pick<CatalogModule, "id" | "visibility" | "children">,
 >(
   modules: ReadonlyArray<T>,
 ) => {
@@ -439,7 +439,7 @@ export const nextTargetName = (
 
 export const makeTargetInstance = (
   id: string,
-  definition: (typeof RecipeBuilderCatalog.Type)["targets"][number],
+  definition: RecipeBuilderCatalog["targets"][number],
   targets: ReadonlyArray<TargetInstance>,
 ): TargetInstance => {
   const baseName = definition.defaultName ?? definition.kind;
@@ -454,9 +454,9 @@ export const makeTargetInstance = (
 export const toggleTargetModule = (
   targets: ReadonlyArray<TargetInstance>,
   target: TargetInstance,
-  module: typeof CatalogModule.Type,
-  modules: ReadonlyArray<typeof CatalogModule.Type>,
-  catalog: typeof RecipeBuilderCatalog.Type,
+  module: CatalogModule,
+  modules: ReadonlyArray<CatalogModule>,
+  catalog: RecipeBuilderCatalog,
   nextId: () => number,
 ): ReadonlyArray<TargetInstance> => {
   const selected = target.modules.includes(module.id);

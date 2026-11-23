@@ -270,9 +270,7 @@ describe("StackConfig Deno runtime", () => {
 });
 
 describe("ContributionTokenContext.resolve", () => {
-  const makeContext = (
-    configOverrides: Partial<typeof StackConfig.Type> = {},
-  ) =>
+  const makeContext = (configOverrides: Partial<StackConfig> = {}) =>
     new ContributionTokenContext({
       targetKey: TargetKey.make("apps/server-api"),
       identity: new TargetIdentity({
@@ -280,7 +278,7 @@ describe("ContributionTokenContext.resolve", () => {
         name: "api",
       }),
       config: new StackConfig({
-        name: "my-project" as typeof Schema.NonEmptyString.Type,
+        name: "my-project",
         runtime: { _tag: "bun" },
         ...configOverrides,
       }),
@@ -478,7 +476,7 @@ describe("ContributionTokenContext.resolve", () => {
           name: "api",
         }),
         config: new StackConfig({
-          name: "my-project" as typeof Schema.NonEmptyString.Type,
+          name: "my-project",
           runtime: { _tag: "node", packageManager: "pnpm" },
         }),
       });

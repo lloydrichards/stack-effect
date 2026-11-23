@@ -365,15 +365,15 @@ const HighlightedSourceCode = ({
 };
 
 type ShikiTokenStyle = CSSProperties & {
-  "--shiki-light"?: string;
-  "--shiki-dark"?: string;
+  "--shiki-light"?: string | undefined;
+  "--shiki-dark"?: string | undefined;
 };
 
 const tokenStyle = (token: SyntaxToken): ShikiTokenStyle => {
   const fontStyle = token.fontStyle ?? 0;
   return {
-    ...(token.light === undefined ? {} : { "--shiki-light": token.light }),
-    ...(token.dark === undefined ? {} : { "--shiki-dark": token.dark }),
+    "--shiki-light": token.light,
+    "--shiki-dark": token.dark,
     ...(fontStyle & 1 ? { fontStyle: "italic" } : {}),
     ...(fontStyle & 2 ? { fontWeight: "bold" } : {}),
     ...(fontStyle & 4 ? { textDecoration: "underline" } : {}),

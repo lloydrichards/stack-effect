@@ -1,7 +1,11 @@
 import { Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { targetPathsOverlap } from "@repo/domain/Catalog";
 import { pathOrd } from "@repo/domain/Order";
-import { type PackageOwner, PlanFailure } from "@repo/domain/Plan";
+import {
+  type PackageOwner,
+  PlanFailure,
+  RepositoryPath,
+} from "@repo/domain/Plan";
 import { Array as Arr, Effect, Schema } from "effect";
 
 export const ownershipFailure = (
@@ -21,7 +25,7 @@ const ManifestName = Schema.fromJsonString(
 export const parsePackageOwner = (manifestPath: string, contents: string) =>
   Schema.decodeEffect(ManifestName)(contents).pipe(
     Effect.map(({ name }): PackageOwner => ({
-      path: manifestPath.slice(0, -"/package.json".length),
+      path: RepositoryPath.make(manifestPath.slice(0, -"/package.json".length)),
       name,
     })),
     Effect.mapError((cause) =>
@@ -50,14 +54,14 @@ export const assertDistinctOwners = (owners: ReadonlyArray<PackageOwner>) =>
   );
 
 export const validatePackageOwners = (
-  blueprint: typeof Blueprint.Type,
+  blueprint: Blueprint,
   existing: ReadonlyArray<PackageOwner>,
 ) =>
   Effect.gen(function* () {
     const proposed = Arr.filter(blueprint.nodes, BlueprintNode.guards.target)
       .filter((node) => node.identity.kind !== "workspace")
       .map((node): PackageOwner => ({
-        path: node.identity.toPath(),
+        path: RepositoryPath.make(node.identity.toPath()),
         name: node.identity.toPackageName(),
       }));
     yield* assertDistinctOwners(proposed);

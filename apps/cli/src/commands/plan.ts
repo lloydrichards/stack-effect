@@ -62,8 +62,8 @@ const outputFlag = Flag.String("output").pipe(
 export class ParsedPlanInput extends Context.Service<
   ParsedPlanInput,
   {
-    readonly input: typeof PlanRequest.Type;
-    readonly config: typeof StackConfig.Type;
+    readonly input: PlanRequest;
+    readonly config: StackConfig;
   }
 >()("ParsedPlanInput") {}
 

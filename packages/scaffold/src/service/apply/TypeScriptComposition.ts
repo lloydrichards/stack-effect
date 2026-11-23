@@ -72,10 +72,7 @@ export const composeTypeScript: (
   },
 );
 
-const applyTsAddImport = (
-  sourceFile: SourceFile,
-  op: typeof TsAddImportOp.Type,
-) =>
+const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) =>
   pipe(
     Option.fromNullishOr(
       sourceFile.getImportDeclaration(
@@ -107,7 +104,7 @@ const applyTsAddImport = (
 
 const applyTsAddReexport = (
   sourceFile: SourceFile,
-  op: typeof TsAddReexportOp.Type,
+  op: TsAddReexportOp,
 ): void => {
   const existingExport = sourceFile.getExportDeclaration(
     (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
@@ -228,7 +225,7 @@ const toOuterCurriedCall = (call: CallExpression): CallExpression => {
 
 const applyTsAppendCallArg = Effect.fn("applyTsAppendCallArg")(function* (
   sourceFile: SourceFile,
-  op: typeof TsAppendCallArgOp.Type,
+  op: TsAppendCallArgOp,
 ) {
   const initializer = getTargetInitializer(sourceFile, op.targetVariable);
   if (Option.isNone(initializer)) {
@@ -306,7 +303,7 @@ const objectFieldValue = (
 
 const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
   sourceFile: SourceFile,
-  op: typeof TsObjectFieldOp.Type,
+  op: TsObjectFieldOp,
 ) {
   const initializer = getTargetInitializer(sourceFile, op.targetVariable);
   if (Option.isNone(initializer)) {
@@ -354,7 +351,7 @@ const missingTarget = (targetVariable: string, functionName: string) =>
 
 const applyTsJsxSlot = (
   sourceFile: SourceFile,
-  op: typeof TsJsxSlotOp.Type,
+  op: TsJsxSlotOp,
   previousContents: Map<string, string>,
 ) =>
   Effect.suspend(() => {

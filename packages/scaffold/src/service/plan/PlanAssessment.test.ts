@@ -1,11 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { Effect } from "effect";
 import * as PlanAssessment from "./PlanAssessment";
 import { PlanningIntentPath } from "./PlanAssessment";
 
 const makeJsxSlotPath = (seed?: string) =>
   PlanningIntentPath.cases.jsxSlot.make({
-    path: "apps/web/src/App.tsx",
+    path: RepositoryPath.make("apps/web/src/App.tsx"),
     seed,
     jsxSlots: [
       {
@@ -23,7 +24,7 @@ describe("PlanAssessment JSX slots", () => {
         planningPath: makeJsxSlotPath(),
         snapshotPath: {
           _tag: "file",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           contents:
             "export const App = () => <>\n{/* @slot:components */}\n</>;\n",
         },
@@ -42,7 +43,7 @@ describe("PlanAssessment JSX slots", () => {
         planningPath: makeJsxSlotPath(),
         snapshotPath: {
           _tag: "missing",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
         },
       });
 
@@ -65,7 +66,7 @@ describe("PlanAssessment JSX slots", () => {
         planningPath: makeJsxSlotPath(),
         snapshotPath: {
           _tag: "file",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           contents: "export const App = () => <></>;\n",
         },
       });
@@ -86,7 +87,7 @@ describe("PlanAssessment JSX slots", () => {
         planningPath: makeJsxSlotPath(),
         snapshotPath: {
           _tag: "file",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           contents: `const misleading = "{/* @slot:components */}";
 export const App = () => <main />;
 `,
@@ -114,7 +115,7 @@ export const App = () => <main />;
         ),
         snapshotPath: {
           _tag: "missing",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
         },
       });
 
@@ -135,7 +136,7 @@ export const App = () => <main />;
           ),
           snapshotPath: {
             _tag: "file",
-            path: "apps/web/src/App.tsx",
+            path: RepositoryPath.make("apps/web/src/App.tsx"),
             contents: "export const App = () => <></>;\n",
           },
         });
@@ -151,7 +152,7 @@ describe("PlanAssessment package scripts", () => {
     "keeps generated Deno FFI grants while merging an unrelated dependency",
     () =>
       Effect.gen(function* () {
-        const path = "apps/server-api/package.json";
+        const path = RepositoryPath.make("apps/server-api/package.json");
         const scripts = [
           {
             name: "dev",
@@ -177,7 +178,7 @@ describe("PlanAssessment package scripts", () => {
           ),
         }));
         const intent = PlanningIntentPath.cases.packageJson.make({
-          path,
+          path: path,
           seed: undefined,
           exports: [],
           dependencies: [
@@ -250,14 +251,14 @@ describe("PlanAssessment package scripts", () => {
 });
 
 describe("PlanAssessment authoritative contents", () => {
-  const path = "packages/domain/tsconfig.json";
+  const path = RepositoryPath.make("packages/domain/tsconfig.json");
   const snapshotPath = { _tag: "file" as const, path, contents: "{}\n" };
 
   it.effect("conflicts instead of modifying a conflict-on-modify file", () =>
     Effect.gen(function* () {
       const assessment = yield* PlanAssessment.assess({
         planningPath: PlanningIntentPath.cases.conflictOnModify.make({
-          path,
+          path: path,
           contents: '{ "extends": "../../tsconfig.base.json" }\n',
         }),
         snapshotPath,
@@ -275,10 +276,10 @@ describe("PlanAssessment authoritative contents", () => {
       const failure = yield* Effect.flip(
         PlanAssessment.assess({
           planningPath: PlanningIntentPath.cases.authoritative.make({
-            path,
+            path: path,
             contents: "{}\n",
           }),
-          snapshotPath: { _tag: "directory", path },
+          snapshotPath: { _tag: "directory", path: path },
         }),
       );
 
