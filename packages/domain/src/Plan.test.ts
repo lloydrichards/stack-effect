@@ -90,9 +90,8 @@ describe("@repo/domain Plan", () => {
           path: RepositoryPath.make("packages/domain/tsconfig.json"),
         },
         {
-          _tag: "barrelExport",
+          _tag: "completeFile",
           path: RepositoryPath.make("packages/domain/src/index.ts"),
-          exportPath: "./Api",
         },
       ],
     }).toSorted();

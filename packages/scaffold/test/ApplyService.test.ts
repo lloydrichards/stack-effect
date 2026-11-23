@@ -16,7 +16,6 @@ import {
 } from "./fixtures/scaffold";
 
 const tsconfig = "packages/app/tsconfig.json";
-const barrel = "packages/app/src/index.ts";
 const manifest = "packages/app/package.json";
 const appFile = "packages/app/src/App.tsx";
 const optionsFile = "packages/app/src/Options.ts";
@@ -46,7 +45,6 @@ describe("ApplyService", () => {
           "packages/app/src/Api.ts",
           "packages/app/src/a.txt",
           "packages/app/src/b.txt",
-          barrel,
         ),
       );
       assert.deepStrictEqual(result.failed, []);
@@ -75,10 +73,7 @@ describe("ApplyService", () => {
 
       assert.deepStrictEqual(result.created, []);
       assert.deepStrictEqual(result.modified, []);
-      assert.deepStrictEqual(
-        result.skipped,
-        paths("packages/app/src/Api.ts", barrel),
-      );
+      assert.deepStrictEqual(result.skipped, paths("packages/app/src/Api.ts"));
     }).pipe(Effect.provide(testPipeline)),
   );
 
@@ -168,30 +163,6 @@ describe("ApplyService", () => {
     );
   }
 
-  for (const { name, existing, expected } of [
-    {
-      name: "create a missing barrel",
-      existing: undefined,
-      expected: 'export * from "./Api";\n',
-    },
-    {
-      name: "extend an existing barrel",
-      existing: 'export * from "./Existing";\n',
-      expected: 'export * from "./Existing";\nexport * from "./Api";\n',
-    },
-  ]) {
-    it.effect(`should compose re-exports to ${name}`, () =>
-      Effect.gen(function* () {
-        yield* writeFiles(existing === undefined ? {} : { [barrel]: existing });
-
-        const result = yield* apply(yield* plan(app("api")));
-
-        assert.deepStrictEqual(result.failed, []);
-        assert.strictEqual(yield* readFile(barrel), expected);
-      }).pipe(Effect.provide(testPipeline)),
-    );
-  }
-
   for (const { name, modules, path, contents, identifier } of [
     {
       name: "a call target is missing",
@@ -243,12 +214,14 @@ describe("ApplyService", () => {
     "should fail before writing when a file to compose cannot be read",
     () =>
       Effect.gen(function* () {
-        yield* writeFiles({ [barrel]: 'export * from "./Existing";\n' });
-        const planned = yield* plan(app("api"));
-        // The first read checks the barrel against the Plan baseline.
+        const existing =
+          "export const App = () => <>\n{/* @slot:components */}\n</>;\n";
+        yield* writeFiles({ [appFile]: existing });
+        const planned = yield* plan(app("api", "card-slot"));
+        // The first read checks the slot file against the Plan baseline.
         const fault = yield* withFault({
           method: "readFile",
-          path: `${repositoryRoot}/${barrel}`,
+          path: `${repositoryRoot}/${appFile}`,
           skip: 1,
         });
 
@@ -256,12 +229,9 @@ describe("ApplyService", () => {
 
         assert.isTrue(yield* fault.fired);
         assert.strictEqual(failure._tag, "ApplyFailure");
-        assert.include(failure.message, barrel);
+        assert.include(failure.message, appFile);
         assert.isFalse(yield* exists("packages/app/src/Api.ts"));
-        assert.strictEqual(
-          yield* readFile(barrel),
-          'export * from "./Existing";\n',
-        );
+        assert.strictEqual(yield* readFile(appFile), existing);
       }).pipe(Effect.provide(testPipeline)),
   );
 

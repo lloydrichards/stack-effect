@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off This Labs example demonstrates Effect Workflow.
-import { SqliteLayer } from "@repo/db";
+import { SqliteLayer } from "@repo/db/Database";
 import { ReceiptLayer, Receipts } from "@repo/workflow/Receipt";
 import { ClusterReceiptLayer } from "@repo/workflow/ReceiptRuntime";
 import { Config, ConfigProvider, Effect, Layer, Option } from "effect";

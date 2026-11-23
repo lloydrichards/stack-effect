@@ -28,14 +28,6 @@ const PlanningIntentPackageJsonEntry = Schema.TaggedStruct("packageJsonEntry", {
 type PlanningIntentPackageJsonEntry =
   typeof PlanningIntentPackageJsonEntry.Type;
 
-const PlanningIntentBarrelExportEntry = Schema.TaggedStruct("barrelExport", {
-  path: RepositoryPath,
-  exportPath: Schema.String,
-});
-
-type PlanningIntentBarrelExportEntry =
-  typeof PlanningIntentBarrelExportEntry.Type;
-
 const PlanningIntentTsCallArgEntry = Schema.TaggedStruct("tsCallArg", {
   path: RepositoryPath,
   targetVariable: Schema.String,
@@ -70,7 +62,6 @@ type PlanningIntentJsxSlotEntry = typeof PlanningIntentJsxSlotEntry.Type;
 const PlanningIntentEntry = Schema.Union([
   PlanningIntentAuthoritativeEntry,
   PlanningIntentPackageJsonEntry,
-  PlanningIntentBarrelExportEntry,
   PlanningIntentTsCallArgEntry,
   PlanningIntentTsObjectFieldEntry,
   PlanningIntentJsxSlotEntry,
@@ -96,12 +87,6 @@ const toPlanningIntentEntries = (
           field: c.field,
           name: c.name,
           value: c.value,
-        }),
-      ],
-      "barrel-export": (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.barrelExport.make({
-          path: RepositoryPath.make(c.barrelPath),
-          exportPath: c.exportPath,
         }),
       ],
       "ts-call-arg": (c): ReadonlyArray<PlanningIntentEntry> => [
@@ -156,7 +141,6 @@ const toPlanningIntentEntries = (
 type PlanningIntentEntryGroups = {
   readonly authoritative: ReadonlyArray<PlanningIntentAuthoritativeEntry>;
   readonly packageJson: ReadonlyArray<PlanningIntentPackageJsonEntry>;
-  readonly barrel: ReadonlyArray<PlanningIntentBarrelExportEntry>;
   readonly tsCallArg: ReadonlyArray<PlanningIntentTsCallArgEntry>;
   readonly tsObjectField: ReadonlyArray<PlanningIntentTsObjectFieldEntry>;
   readonly jsxSlot: ReadonlyArray<PlanningIntentJsxSlotEntry>;
@@ -167,7 +151,6 @@ const groupPlanningIntentEntries = (
 ): PlanningIntentEntryGroups => ({
   authoritative: entries.filter(PlanningIntentEntry.guards.authoritative),
   packageJson: entries.filter(PlanningIntentEntry.guards.packageJsonEntry),
-  barrel: entries.filter(PlanningIntentEntry.guards.barrelExport),
   tsCallArg: entries.filter(PlanningIntentEntry.guards.tsCallArg),
   tsObjectField: entries.filter(PlanningIntentEntry.guards.tsObjectField),
   jsxSlot: entries.filter(PlanningIntentEntry.guards.jsxSlot),
@@ -176,14 +159,12 @@ const groupPlanningIntentEntries = (
 type PlanningIntentFamily =
   | "authoritative"
   | "packageJson"
-  | "barrel"
   | "tsCallArg"
   | "jsxSlot";
 
 type CompositePlanningIntentFamily =
   | "authoritativePackageJson"
   | "authoritativeTsCallArg"
-  | "authoritativeBarrel"
   | "authoritativeJsxSlot";
 
 const COMPOSITE_FAMILIES: ReadonlyArray<{
@@ -195,14 +176,12 @@ const COMPOSITE_FAMILIES: ReadonlyArray<{
     result: "authoritativePackageJson",
   },
   { pair: ["authoritative", "tsCallArg"], result: "authoritativeTsCallArg" },
-  { pair: ["authoritative", "barrel"], result: "authoritativeBarrel" },
   { pair: ["authoritative", "jsxSlot"], result: "authoritativeJsxSlot" },
 ];
 
 const toPlanningIntentFamily = PlanningIntentEntry.match({
   authoritative: () => "authoritative" as const,
   packageJsonEntry: () => "packageJson" as const,
-  barrelExport: () => "barrel" as const,
   tsCallArg: () => "tsCallArg" as const,
   tsObjectField: () => "tsCallArg" as const,
   jsxSlot: () => "jsxSlot" as const,
@@ -341,17 +320,6 @@ const derivePlanningIntentPath = Effect.fnUntraced(function* (
     });
   });
 
-  const barrel = Effect.fnUntraced(function* (seed: string | undefined) {
-    const exportPaths = yield* collectUniqueEntries({
-      entries: groups.barrel,
-      keyOf: (entry) => entry.exportPath,
-      valueOf: (entry) => entry.exportPath,
-      toResult: (entry) => entry.exportPath,
-      errorMessage: `Conflicting barrel export outcomes for ${path}.`,
-    });
-    return PlanningIntentPath.cases.barrel.make({ path, seed, exportPaths });
-  });
-
   const tsComposition = (seed: string | undefined) =>
     PlanningIntentPath.cases.tsComposition.make({
       path,
@@ -391,8 +359,6 @@ const derivePlanningIntentPath = Effect.fnUntraced(function* (
     }
     case "packageJson":
       return yield* packageJson(undefined);
-    case "barrel":
-      return yield* barrel(undefined);
     case "tsCallArg":
       return tsComposition(undefined);
     case "jsxSlot":
@@ -401,8 +367,6 @@ const derivePlanningIntentPath = Effect.fnUntraced(function* (
       return yield* packageJson(yield* resolveContents());
     case "authoritativeTsCallArg":
       return tsComposition(yield* resolveContents());
-    case "authoritativeBarrel":
-      return yield* barrel(yield* resolveContents());
     case "authoritativeJsxSlot":
       return jsxSlot(yield* resolveContents());
   }

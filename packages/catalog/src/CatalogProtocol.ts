@@ -11,7 +11,6 @@ import { Array as Arr, Effect, Schema } from "effect";
 const contributionTags = [
   "file",
   "pkg-json-entry",
-  "barrel-export",
   "ts-call-arg",
   "ts-object-field",
   "jsx-slot",

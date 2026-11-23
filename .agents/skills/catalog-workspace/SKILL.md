@@ -136,7 +136,7 @@ Use this to decide where to port a change:
 - `origin: "module"` usually points to a module in `catalogs/official/src/modules/*.ts` and a template under `catalogs/official/templates/<module-id>/`.
 - `origin: "target"` usually points to target base files in `catalogs/official/src/targetRegistry.ts` and templates under `catalogs/official/templates/<target-kind>/`.
 - `contributionTag: "file"` means the generated file came from an authoritative template file. Follow the `template("./...")` call in the owning definition to find it: a template shared by several modules (for example the Biome `.vscode/settings.json` or the SQLite files reused by Postgres) lives under its first owner, and runtime variants carry a suffix such as `.lintstagedrc.deno.json`.
-- `contributionTag: "ts-call-arg"`, `"ts-object-field"`, `"jsx-slot"`, `"barrel-export"`, or `"pkg-json-entry"` means the final file is composed from an operation in a module/target contribution. Port the operation, not just the final generated text.
+- `contributionTag: "ts-call-arg"`, `"ts-object-field"`, `"jsx-slot"`, or `"pkg-json-entry"` means the final file is composed from an operation in a module/target contribution. Port the operation, not just the final generated text.
 
 ## Editing Guidance
 
@@ -165,8 +165,7 @@ If the generated file includes target content plus module operations, inspect th
 - a module `ts-call-arg` contribution,
 - a module `ts-object-field` contribution,
 - a JSX slot contribution,
-- a package JSON entry,
-- or a barrel export contribution.
+- or a package JSON entry.
 
 Do not blindly paste the whole composed file back into a base template file if the change really belongs to a module contribution.
 

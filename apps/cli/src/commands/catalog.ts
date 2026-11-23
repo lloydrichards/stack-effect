@@ -2,7 +2,7 @@ import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import {
-  Contribution,
+  type Contribution,
   ModuleId,
   SupportedOn,
   TargetIdentity,
@@ -127,11 +127,6 @@ const targetIdentityFrom = (supportedOn: SupportedOn, moduleId: string) =>
             ? moduleId.replace(/^package-/, "")
             : (defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind),
       });
-
-const contributionPath = (contribution: Contribution) =>
-  contribution._tag === "barrel-export"
-    ? contribution.barrelPath
-    : contribution.path;
 
 export { buildWorkspaceSelection };
 
@@ -300,7 +295,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
 
   for (const target of normalized.targets) {
     for (const contribution of target.contributions) {
-      appendContributor(contributionPath(contribution), {
+      appendContributor(contribution.path, {
         origin: "target",
         targetKey: target.targetKey,
         contributionTag: contribution._tag,
@@ -310,7 +305,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
 
   for (const module of normalized.modules) {
     for (const contribution of module.contributions) {
-      appendContributor(contributionPath(contribution), {
+      appendContributor(contribution.path, {
         origin: "module",
         targetKey: module.targetKey,
         moduleId: module.moduleId,

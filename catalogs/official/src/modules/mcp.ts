@@ -57,7 +57,7 @@ export const mcpModules = defineModules(import.meta.url, [
         argument:
           "McpServer.toolkit(DateTimeToolkit).pipe(Layer.provide(DateTimeToolkitHandlers))",
         import: {
-          moduleSpecifier: "@repo/ai",
+          moduleSpecifier: "@repo/ai/DateTimeToolkit",
           namedImports: ["DateTimeToolkit", "DateTimeToolkitHandlers"],
         },
       },
@@ -92,7 +92,7 @@ export const mcpModules = defineModules(import.meta.url, [
         argument:
           "McpServer.toolkit(MathToolkit).pipe(Layer.provide(MathToolkitHandlers))",
         import: {
-          moduleSpecifier: "@repo/ai",
+          moduleSpecifier: "@repo/ai/MathToolkit",
           namedImports: ["MathToolkit", "MathToolkitHandlers"],
         },
       },

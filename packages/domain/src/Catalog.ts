@@ -199,7 +199,6 @@ export type ModuleImplication = typeof ModuleImplication.Type;
  * Tagged union of contribution types:
  * - `file`: Authoritative file content (replaces entire file)
  * - `pkg-json-entry`: Entry in package.json (exports, dependencies, scripts)
- * - `barrel-export`: Re-export statement in a TypeScript barrel file
  * - `ts-call-arg`: Argument appended to a TypeScript function call
  */
 export const Contribution = Schema.TaggedUnion({
@@ -228,14 +227,6 @@ export const Contribution = Schema.TaggedUnion({
     ]),
     name: Schema.String,
     value: Schema.String,
-  },
-
-  /**
-   * Barrel file re-export - adds `export * from "..."` to a barrel file.
-   */
-  "barrel-export": {
-    barrelPath: Schema.String,
-    exportPath: Schema.String,
   },
 
   /**

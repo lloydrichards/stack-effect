@@ -348,7 +348,6 @@ const formatConflictLine = (conflict: PlanConflict) =>
     Match.value(conflict).pipe(
       Match.tags({
         completeFile: () => "merge: complete file",
-        barrelExport: (c) => `merge: export ${c.exportPath}`,
         dependencies: (c) => `merge: ${c.section}.${c.name}`,
         exports: (c) => `merge: exports ${c.name}`,
         scripts: (c) => `merge: scripts ${c.name}`,

@@ -1,4 +1,4 @@
-import { TodoRepository } from "@repo/db";
+import { TodoRepository } from "@repo/db/TodoRepository";
 import { TodoRpc } from "@repo/domain/TodoRpc";
 import { Effect } from "effect";
 

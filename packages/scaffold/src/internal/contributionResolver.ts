@@ -45,12 +45,6 @@ const resolveContributionTokens = (
           }),
         ];
       },
-      "barrel-export": (c): ReadonlyArray<Contribution> => [
-        Contribution.cases["barrel-export"].make({
-          barrelPath: resolveString(c.barrelPath),
-          exportPath: c.exportPath,
-        }),
-      ],
       "ts-call-arg": (c): ReadonlyArray<Contribution> => [
         Contribution.cases["ts-call-arg"].make({
           path: resolveString(c.path),

@@ -71,6 +71,7 @@ type RejectionCase = {
   readonly reason: CatalogLoadReason["_tag"];
   readonly condition: string;
   readonly respond: Handler;
+  readonly detail?: string;
 };
 
 const rejections: ReadonlyArray<RejectionCase> = [
@@ -122,6 +123,54 @@ const rejections: ReadonlyArray<RejectionCase> = [
               ],
               dependencies: [],
               contributions: [],
+            },
+          ],
+        }),
+      ),
+  },
+  {
+    reason: "CatalogCapabilityUnsupported",
+    condition: "requires the retired barrel-export contribution",
+    respond: (request) =>
+      response(
+        request,
+        200,
+        encode({
+          formatVersion: 1,
+          catalogId: Schema.NonEmptyString.make("legacy"),
+          requiredCapabilities: ["contribution:barrel-export"],
+          targets: [],
+          modules: [],
+        }),
+      ),
+  },
+  {
+    reason: "CatalogDocumentInvalid",
+    condition: "contains a retired barrel-export contribution",
+    detail: `["modules"][0]["contributions"][0]`,
+    respond: (request) =>
+      response(
+        request,
+        200,
+        JSON.stringify({
+          formatVersion: 1,
+          catalogId: "legacy",
+          requiredCapabilities: ["contribution:barrel-export"],
+          targets: [],
+          modules: [
+            {
+              id: "legacy-barrel",
+              title: "Legacy barrel",
+              description: "Re-exports a module from src/index.ts",
+              supportedOn: [{ _tag: "kind", kind: "package" }],
+              dependencies: [],
+              contributions: [
+                {
+                  _tag: "barrel-export",
+                  barrelPath: "{{targetPath}}/src/index.ts",
+                  exportPath: "./Api",
+                },
+              ],
             },
           ],
         }),
@@ -359,12 +408,13 @@ it.effect(
 
 it.effect.each(rejections)(
   "should fail with $reason when the response $condition",
-  ({ reason, respond }) =>
+  ({ reason, respond, detail }) =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
         (yield* CatalogLoader).load({ sourceUrl }),
       );
       assert.strictEqual(error.reason._tag, reason);
+      if (detail !== undefined) assert.include(error.message, detail);
     }).pipe(Effect.provide(testLayer(respond))),
 );
 

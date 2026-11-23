@@ -6,7 +6,7 @@ import { strict as assert } from "node:assert";
 import { ConfigProvider, Deferred, Effect, Exit, Fiber, Layer, Option, Queue, Schema, Stream, Terminal } from "effect";
 import { LanguageModel, McpProtocol, McpServer, Prompt, Tool, Toolkit } from "effect/ai";
 import { FetchHttpClient, HttpRouter } from "effect/http";
-import { AiChatService } from "@repo/ai";
+import { AiChatService } from "@repo/ai/AiChatService";
 import type { ChatStreamPart } from "@repo/domain/Chat";
 import { FastModelLayer, requests, resetModel } from "../../packages/ai/src/LanguageModel";
 import { TerminalChatDriver } from "./src/chat/ChatDriver";

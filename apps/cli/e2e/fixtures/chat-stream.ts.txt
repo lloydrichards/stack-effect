@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { Cause, Deferred, Effect, Fiber, Layer, Option, Queue, Schema, Stream } from "effect";
 import { LanguageModel, Tool, Toolkit, type Response } from "effect/ai";
-import { AiChatService } from "@repo/ai";
+import { AiChatService } from "@repo/ai/AiChatService";
 import { FastModelLayer } from "./packages/ai/src/LanguageModel";
 import { FetchHttpClient, HttpRouter } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";

@@ -1,4 +1,4 @@
-import { AiChatService } from "@repo/ai";
+import { AiChatService } from "@repo/ai/AiChatService";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ChatId } from "@repo/domain/Chat";
 import {
