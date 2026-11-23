@@ -14,22 +14,22 @@ import { Array, Match, pipe } from "effect";
  * For brownfield repos, `instructions` describe atomic edits the LLM should
  * make to an existing file rather than overwriting it entirely.
  */
-export interface LlmFileOutcome {
+export type LlmFileOutcome = {
   readonly path: string;
   readonly classification: string;
   readonly contents: string | undefined;
   readonly instructions: ReadonlyArray<string>;
-}
+};
 
-export interface LlmPlanSummary {
+export type LlmPlanSummary = {
   readonly total: number;
   readonly create: number;
   readonly modify: number;
   readonly unchanged: number;
   readonly conflict: number;
-}
+};
 
-export interface LlmPlanOutput {
+export type LlmPlanOutput = {
   readonly summary: LlmPlanSummary;
   readonly tree: string;
   readonly files: ReadonlyArray<LlmFileOutcome>;
@@ -42,7 +42,7 @@ export interface LlmPlanOutput {
     readonly label: string;
     readonly command: string;
   }>;
-}
+};
 
 const renderOperation = (
   path: string,

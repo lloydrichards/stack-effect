@@ -62,9 +62,7 @@ const TargetModuleRequirementSchema = Schema.Struct({
   addedModule: Schema.Boolean,
 });
 
-export interface TargetModuleRequirement extends Schema.Schema.Type<
-  typeof TargetModuleRequirementSchema
-> {}
+export type TargetModuleRequirement = typeof TargetModuleRequirementSchema.Type;
 
 const TargetInstanceSchema = Schema.Struct({
   id: Schema.String,
@@ -75,9 +73,7 @@ const TargetInstanceSchema = Schema.Struct({
   addedByDependency: Schema.optional(Schema.Boolean),
 });
 
-export interface TargetInstance extends Schema.Schema.Type<
-  typeof TargetInstanceSchema
-> {}
+export type TargetInstance = typeof TargetInstanceSchema.Type;
 
 export const ownerKey = (owner: {
   readonly kind: string;
@@ -95,9 +91,7 @@ const SupportSelectionSchema = Schema.Struct({
   selected: Schema.Array(Schema.String),
 });
 
-export interface SupportSelection extends Schema.Schema.Type<
-  typeof SupportSelectionSchema
-> {}
+export type SupportSelection = typeof SupportSelectionSchema.Type;
 
 const RecipeBuilderFormFields = Schema.Struct({
   config: StackConfigurationSchema,
@@ -128,9 +122,7 @@ export const RecipeBuilderFormSchema = RecipeBuilderFormFields.check(
   ),
 );
 
-export interface RecipeBuilderFormValues extends Schema.Schema.Type<
-  typeof RecipeBuilderFormSchema
-> {}
+export type RecipeBuilderFormValues = typeof RecipeBuilderFormSchema.Type;
 
 const recipeBuilderFormValidator = Schema.toStandardSchemaV1(
   Schema.toType(RecipeBuilderFormSchema),

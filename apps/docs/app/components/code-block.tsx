@@ -4,9 +4,9 @@ import { useCallback, useRef } from "react";
 import { CopyButton } from "~/components/copy-button";
 import { cn } from "~/lib/utils";
 
-interface CodeBlockProps extends React.HTMLAttributes<HTMLPreElement> {
+type CodeBlockProps = {
   children: React.ReactNode;
-}
+} & React.HTMLAttributes<HTMLPreElement>;
 
 export function CodeBlock({ className, children, ...props }: CodeBlockProps) {
   const preRef = useRef<HTMLPreElement>(null);

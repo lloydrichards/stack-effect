@@ -47,14 +47,14 @@ export class CatalogLoadFailure extends Data.TaggedError("CatalogLoadFailure")<{
   readonly sourceName?: string;
 }> {}
 
-export interface CatalogLoadWarning {
+export type CatalogLoadWarning = {
   readonly kind: "stale" | "persistence";
   readonly sourceUrl: string;
   readonly lastValidatedAt: number;
   readonly message: string;
-}
+};
 
-interface LoadedDocument<A> {
+type LoadedDocument<A> = {
   readonly value: A;
   /** Entry to cache once the caller has finished validating the document. */
   readonly pending?: CatalogCacheEntry;
@@ -62,18 +62,18 @@ interface LoadedDocument<A> {
   readonly digest: string;
   readonly freshness: "current" | "cached";
   readonly warning?: CatalogLoadWarning;
-}
+};
 
-export interface LoadedCatalog {
+export type LoadedCatalog = {
   readonly catalog: typeof CatalogService.Service;
   readonly sourceUrl: string;
   readonly digest: string;
   readonly freshness: "current" | "cached";
   readonly warning?: CatalogLoadWarning;
-}
+};
 
 /** One selected source as it was loaded for this operation. */
-export interface LoadedCatalogSource {
+export type LoadedCatalogSource = {
   readonly name: string;
   readonly sourceUrl: string;
   /** Sources this document declares it depends on, such as `official`. */
@@ -81,12 +81,12 @@ export interface LoadedCatalogSource {
   readonly digest: string;
   readonly freshness: "current" | "cached";
   readonly warning?: CatalogLoadWarning;
-}
+};
 
-export interface LoadedCatalogSet {
+export type LoadedCatalogSet = {
   readonly catalog: typeof CatalogService.Service;
   readonly sources: ReadonlyArray<LoadedCatalogSource>;
-}
+};
 
 const describeSource = (source: LoadedCatalogSource) =>
   `${source.name} (${source.sourceUrl}, ${
@@ -117,7 +117,7 @@ export class CatalogCompositionFailure extends Data.TaggedError(
   }
 }
 
-export interface CatalogLoaderShape {
+export type CatalogLoaderShape = {
   readonly load: (input: {
     readonly sourceUrl: string;
     /** Application-owned authority. Never inferred from a downloaded catalogId. */
@@ -135,7 +135,7 @@ export interface CatalogLoaderShape {
     LoadedCatalogSet,
     CatalogLoadFailure | CatalogCompositionFailure
   >;
-}
+};
 
 const failure = (
   reason: CatalogLoadReason,

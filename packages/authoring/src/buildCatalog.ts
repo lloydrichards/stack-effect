@@ -84,7 +84,7 @@ export const DefinitionProvenance = Schema.Struct({
 });
 export type DefinitionProvenance = typeof DefinitionProvenance.Type;
 
-export interface BuildCatalogOptions {
+export type BuildCatalogOptions = {
   readonly catalogId: string;
   /**
    * Directory, as a file URL or absolute path, that every source and template
@@ -103,34 +103,34 @@ export interface BuildCatalogOptions {
   readonly requires?: ReadonlyArray<"official">;
   /** The official catalog document, used for validation and never embedded. */
   readonly official?: CatalogDocument;
-}
+};
 
-export interface BuildCatalogResult {
+export type BuildCatalogResult = {
   readonly json: string;
   readonly document: CatalogDocument;
   readonly provenance: ReadonlyArray<DefinitionProvenance>;
-}
+};
 
 /** One authored definition; `input` is unknown until the strict decode. */
-interface Entry {
+type Entry = {
   readonly kind: "target" | "module";
   readonly subject: CatalogIssueSubject;
   readonly source: string;
   readonly input: unknown;
-}
+};
 
-interface TemplateField {
+type TemplateField = {
   readonly entry: Entry;
   readonly entryIndex: number;
   readonly contribution: number;
   readonly field: string;
   readonly ref: TemplateRef;
-}
+};
 
-interface ResolvedTemplate extends TemplateField {
+type ResolvedTemplate = {
   readonly template: string;
   readonly text: string;
-}
+} & TemplateField;
 
 type Decoded =
   | { readonly _tag: "target"; readonly target: typeof TargetDefinition.Type }

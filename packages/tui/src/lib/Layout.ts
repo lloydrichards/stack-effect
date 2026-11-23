@@ -3,12 +3,12 @@ import { Box } from "effect-boxes";
 
 // ─── Breakpoint ──────────────────────────────────────────────────────────────
 
-export interface BreakpointEntry<A = never> {
+export type BreakpointEntry<A = never> = {
   /** Minimum container width for this layout to apply */
   readonly minWidth: number;
   /** Builder that produces the layout for this breakpoint */
   readonly render: () => Box.Box<A>;
-}
+};
 
 /**
  * Select a layout based on container width (largest matching breakpoint wins).

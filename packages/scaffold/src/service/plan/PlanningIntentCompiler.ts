@@ -14,11 +14,11 @@ import {
 } from "effect";
 import type { PlanningIntentPath } from "./PlanAssessor";
 
-export interface PlanningIntentCompilerShape {
+export type PlanningIntentCompilerShape = {
   readonly compile: (
     normalizedContributions: typeof NormalizedContributions.Type,
   ) => Effect.Effect<ReadonlyArray<PlanningIntentPath>, PlanFailure, never>;
-}
+};
 
 export class PlanningIntentCompiler extends Context.Service<
   PlanningIntentCompiler,

@@ -45,14 +45,14 @@ export const generateCatalogRegistryAssets = Effect.fn(
 });
 
 /** A catalog the site hosts, with the workspace whose build it publishes. */
-export interface PublishedCatalog {
+export type PublishedCatalog = {
   readonly asset:
     | typeof CATALOG_ASSET_PATH
     | typeof AUTHOR_CATALOG_ASSET_PATH
     | typeof LABS_CATALOG_ASSET_PATH;
   readonly workspace: string;
   readonly build: URL;
-}
+};
 
 export const publishedCatalogs: ReadonlyArray<PublishedCatalog> = [
   {

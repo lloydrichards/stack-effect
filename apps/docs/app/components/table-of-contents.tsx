@@ -9,11 +9,11 @@ import { useActiveHeading } from "~/hooks/use-active-heading";
 import type { TOCItem } from "~/lib/remark-toc-export";
 import { cn } from "~/lib/utils";
 
-interface TableOfContentsProps {
+type TableOfContentsProps = {
   toc: TOCItem[];
   /** Render only the desktop right-rail variant */
   desktopOnly?: boolean;
-}
+};
 
 export function TableOfContents({ toc, desktopOnly }: TableOfContentsProps) {
   const ids = useMemo(() => toc.map((item) => item.id), [toc]);
@@ -58,10 +58,10 @@ function MobileTOC({ toc, activeId }: { toc: TOCItem[]; activeId: string }) {
   );
 }
 
-interface TOCNode {
+type TOCNode = {
   item: TOCItem;
   children: TOCNode[];
-}
+};
 
 /** Convert flat TOC array into a nested tree */
 function buildTree(items: TOCItem[]): TOCNode[] {

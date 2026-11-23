@@ -7,12 +7,12 @@ import type { LoadedCatalogSource } from "@repo/scaffold";
 import { Array as Arr, Context, Option } from "effect";
 
 /** The catalog sources a command resolved and loaded before any other work. */
-interface CatalogSelectionShape {
+type CatalogSelectionShape = {
   /** Sources init and create save: --catalog, or init's existing saved set. */
   readonly explicit: Option.Option<CatalogSources>;
   readonly sources: CatalogSources;
   readonly loaded: ReadonlyArray<LoadedCatalogSource>;
-}
+};
 
 export const CatalogSelection = Context.Reference<CatalogSelectionShape>(
   "stack-effect/CatalogSelection",

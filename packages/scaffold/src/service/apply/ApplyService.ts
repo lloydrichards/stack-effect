@@ -75,7 +75,7 @@ type WriteAttempt =
       readonly reason: string;
     };
 
-export interface ApplyServiceShape {
+export type ApplyServiceShape = {
   readonly apply: (input: {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
@@ -84,7 +84,7 @@ export interface ApplyServiceShape {
     readonly apply: typeof Apply.Type;
     readonly repoRoot: string;
   }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure, never>;
-}
+};
 
 export class ApplyService extends Context.Service<
   ApplyService,

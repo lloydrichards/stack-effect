@@ -22,11 +22,11 @@ const vscodePalette = {
   "--ansi-bright-white": "#e5e5e5",
 } as React.CSSProperties;
 
-export interface AnsiTerminalProps {
+export type AnsiTerminalProps = {
   input: string;
   title?: string;
   className?: string;
-}
+};
 
 export const AnsiTerminal = ({
   input,

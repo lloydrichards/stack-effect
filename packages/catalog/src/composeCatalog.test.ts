@@ -188,7 +188,7 @@ const [workspaceTarget] = testCatalog.targets.filter(
   (target) => target.kind === "workspace",
 );
 
-interface ScriptedSubject {
+type ScriptedSubject = {
   readonly subject: CatalogIssueSubject;
   readonly label: string;
   /** The scripted fragment first, then a fragment that completes the catalog. */
@@ -196,7 +196,7 @@ interface ScriptedSubject {
   readonly scriptCount: (
     catalog: Effect.Success<ReturnType<typeof composeCatalog>>,
   ) => number | undefined;
-}
+};
 
 const scriptedModule: ScriptedSubject = {
   subject: { _tag: "module", id: extraModule.id },

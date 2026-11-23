@@ -7,11 +7,11 @@ import { PromptChrome } from "./atom/Panel.js";
 
 const Action = Data.taggedEnum<Prompt.ActionDefinition>();
 
-interface TextState {
+type TextState = {
   readonly value: string;
   readonly cursor: number;
   readonly error: Option.Option<string>;
-}
+};
 
 const TextInputKeys = {
   Type: new KeyBinding({

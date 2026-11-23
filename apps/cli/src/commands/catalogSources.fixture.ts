@@ -179,10 +179,10 @@ export const captureConsole = () => {
   };
 };
 
-export interface ExecutedCommand {
+export type ExecutedCommand = {
   readonly command: string;
   readonly cwd: string | undefined;
-}
+};
 
 const describeCommand = (command: ChildProcess.Command): ExecutedCommand =>
   ChildProcess.isStandardCommand(command)
@@ -242,17 +242,17 @@ export const stdinLayer = (value: unknown) =>
   });
 
 /** What one CLI run printed, requested, and executed. */
-export interface RunCapture {
+export type RunCapture = {
   readonly stdout: ReadonlyArray<string>;
   readonly stderr: ReadonlyArray<string>;
   readonly requested: ReadonlyArray<string>;
   readonly executed: ReadonlyArray<ExecutedCommand>;
-}
+};
 
-export interface RunOptions {
+export type RunOptions = {
   /** JSON value piped to stdin, for `plan`. */
   readonly stdin?: unknown;
-}
+};
 
 const decodeJsonRecord = Schema.decodeEffect(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),

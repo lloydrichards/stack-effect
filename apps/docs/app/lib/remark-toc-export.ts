@@ -1,11 +1,11 @@
 import { toString } from "mdast-util-to-string";
 import { visit } from "unist-util-visit";
 
-export interface TOCItem {
+export type TOCItem = {
   id: string;
   value: string;
   depth: number;
-}
+};
 
 /**
  * Remark plugin that extracts h2-h4 headings from MDX content

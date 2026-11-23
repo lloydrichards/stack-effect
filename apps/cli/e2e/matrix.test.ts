@@ -10,30 +10,30 @@ import { CLI } from "./harness";
  * Modules that use identity-based supportedOn dictate the target name.
  * For kind-based modules (server, client), we use a conventional name.
  */
-interface MatrixEntry {
+type MatrixEntry = {
   readonly target: string;
   readonly modules: ReadonlyArray<string>;
   readonly label: string;
-}
+};
 
-interface ProviderSelection {
+type ProviderSelection = {
   readonly target: string;
   readonly moduleId: string;
-}
+};
 
-interface GeneratedModuleExpectation {
+type GeneratedModuleExpectation = {
   readonly files: ReadonlyArray<string>;
   readonly contents?: ReadonlyArray<{
     readonly path: string;
     readonly pattern: string | RegExp;
   }>;
-}
+};
 
 /**
  * Entry for testing modules with their optional children.
  * Tracks parent module and all optional children to add separately.
  */
-interface ChildrenMatrixEntry {
+type ChildrenMatrixEntry = {
   readonly target: string;
   readonly parentModule: string;
   readonly optionalChildren: ReadonlyArray<{
@@ -41,20 +41,20 @@ interface ChildrenMatrixEntry {
     readonly childTarget: string;
   }>;
   readonly label: string;
-}
+};
 
 /**
  * Entry for testing a module that requires a catalog capability with a concrete
  * provider module selected from the current catalog.
  */
-interface CapabilityMatrixEntry {
+type CapabilityMatrixEntry = {
   readonly requiringTarget: string;
   readonly requiringModule: string;
   readonly providerTarget: string;
   readonly providerModule: string;
   readonly capability: string;
   readonly label: string;
-}
+};
 
 /**
  * Canonical target names per kind. Identity-based modules override this

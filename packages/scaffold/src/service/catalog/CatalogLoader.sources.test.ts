@@ -42,14 +42,14 @@ const kinds = (catalog: {
   readonly toCatalogTree: { readonly targets: ReadonlyArray<{ kind: string }> };
 }) => catalog.toCatalogTree.targets.map((entry) => entry.kind);
 
-interface SourceFailureCase {
+type SourceFailureCase = {
   readonly reason: CatalogLoadReason;
   readonly sourceName: keyof typeof urls;
   readonly condition: string;
   readonly routes: Record<string, () => Route>;
   readonly selection: CatalogSources;
   readonly status?: number;
-}
+};
 
 const sourceFailures: ReadonlyArray<SourceFailureCase> = [
   {

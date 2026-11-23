@@ -16,13 +16,13 @@ const isTypeScriptOp = (
   op: typeof CompositionOperation.Type,
 ): op is TypeScriptCompositionOperation => op.fileType === "typescript";
 
-export interface CompositionEngineShape {
+export type CompositionEngineShape = {
   readonly compose: (
     path: string,
     contents: string,
     operations: ReadonlyArray<typeof CompositionOperation.Type>,
   ) => Effect.Effect<string, ApplyFailure, never>;
-}
+};
 
 export class CompositionEngine extends Context.Service<
   CompositionEngine,
