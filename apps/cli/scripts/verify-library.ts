@@ -101,7 +101,7 @@ const verify = (runtime: "bun" | "node") =>
     const plan = yield* planService.build({
       blueprint,
       config,
-      repoRoot: project,
+      repositoryRoot: project,
     });
     yield* requireThat(
       plan.conflicts.length === 0,
@@ -109,7 +109,7 @@ const verify = (runtime: "bun" | "node") =>
     );
     const applied = yield* applyService.apply({
       apply: new Apply({ plan, decisions: [] }),
-      repoRoot: project,
+      repositoryRoot: project,
     });
     yield* requireThat(applied.failed.length === 0, "Library Apply failed");
     yield* run(project, runtime === "bun" ? "bun" : "npm", [

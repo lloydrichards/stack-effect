@@ -29,11 +29,10 @@ import { ApplyService } from "./ApplyService";
 import {
   type ApplyWriteOutcome,
   type ApplyWriteRequest,
-  WriteEngine,
-  type WriteEngineShape,
-} from "./WriteEngine";
+  AtomicWriter,
+} from "./AtomicWriter";
 
-const testRepoRoot = "/repo";
+const testRepositoryRoot = "/repo";
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Json));
 
 type MockPathEntry =
@@ -132,7 +131,7 @@ const makeApplyServiceLayer = ({
   entries = {},
 }: {
   write: (args: {
-    readonly repoRoot: string;
+    readonly repositoryRoot: string;
     readonly write: ApplyWriteRequest;
   }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
   entries?: Record<string, MockPathEntry>;
@@ -140,9 +139,12 @@ const makeApplyServiceLayer = ({
   Layer.effect(ApplyService)(ApplyService.make).pipe(
     Layer.provide(
       Layer.mergeAll(
-        Layer.succeed(WriteEngine, {
-          write: Effect.fn("MockWriteEngine.write")(write),
-        } satisfies WriteEngineShape),
+        Layer.succeed(
+          AtomicWriter,
+          AtomicWriter.of({
+            write: Effect.fn("MockAtomicWriter.write")(write),
+          }),
+        ),
         makeFileSystemLayer(entries),
         Path.layer,
         mockRepositoryStateLayer,
@@ -160,7 +162,7 @@ const makeApply = ({
   new ApplyIntent({
     plan: new Plan({
       baseline: {
-        root: testRepoRoot,
+        root: testRepositoryRoot,
         paths: outcomes.map((outcome) => ({
           _tag: "missing" as const,
           path: outcome.path,
@@ -186,7 +188,10 @@ const runApply = ({
 }) =>
   Effect.gen(function* () {
     const applyService = yield* ApplyService;
-    return yield* applyService.apply({ apply, repoRoot: testRepoRoot });
+    return yield* applyService.apply({
+      apply,
+      repositoryRoot: testRepositoryRoot,
+    });
   }).pipe(Effect.provide(layer));
 
 const completeOutcome = ({
@@ -748,15 +753,18 @@ describe("ApplyService", () => {
         const layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
           Layer.provide(
             Layer.mergeAll(
-              Layer.succeed(WriteEngine, {
-                write: Effect.fn("MockWriteEngine.write")(({ write }) => {
-                  writeCalls.push(write);
-                  return Effect.succeed({
-                    path: write.path,
-                    status: "created" as const,
-                  });
+              Layer.succeed(
+                AtomicWriter,
+                AtomicWriter.of({
+                  write: Effect.fn("MockAtomicWriter.write")(({ write }) => {
+                    writeCalls.push(write);
+                    return Effect.succeed({
+                      path: write.path,
+                      status: "created" as const,
+                    });
+                  }),
                 }),
-              } satisfies WriteEngineShape),
+              ),
               makeFileSystemLayer({
                 "/repo/packages/domain/src/index.ts": {
                   _tag: "missing",
@@ -811,15 +819,18 @@ describe("ApplyService", () => {
           const layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
             Layer.provide(
               Layer.mergeAll(
-                Layer.succeed(WriteEngine, {
-                  write: Effect.fn("MockWriteEngine.write")(({ write }) => {
-                    writeCalls.push(write);
-                    return Effect.succeed({
-                      path: write.path,
-                      status: "modified" as const,
-                    });
+                Layer.succeed(
+                  AtomicWriter,
+                  AtomicWriter.of({
+                    write: Effect.fn("MockAtomicWriter.write")(({ write }) => {
+                      writeCalls.push(write);
+                      return Effect.succeed({
+                        path: write.path,
+                        status: "modified" as const,
+                      });
+                    }),
                   }),
-                } satisfies WriteEngineShape),
+                ),
                 makeFileSystemLayer({
                   "/repo/package.json": {
                     _tag: "file",

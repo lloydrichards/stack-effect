@@ -55,7 +55,7 @@ const client = Layer.effect(
   ),
 ).pipe(Layer.provide(FetchHttpClient.layer));
 const loaderLayer = CatalogLoader.layer.pipe(
-  Layer.provideMerge(CatalogCache.memory),
+  Layer.provideMerge(CatalogCache.layerMemory),
   Layer.provideMerge(client),
   Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
 );

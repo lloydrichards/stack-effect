@@ -41,7 +41,7 @@ const nodeConfig = new StackConfig({
 
 const makeConfig = (config: StackConfig = bunConfig) => ({
   config,
-  repoRoot: "/repo",
+  repositoryRoot: "/repo",
 });
 
 const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
@@ -157,7 +157,7 @@ const makeFinalizeLayer = (
     failures?: Set<string>;
   } = {},
 ) =>
-  Layer.effect(FinalizeService)(FinalizeService.make).pipe(
+  FinalizeService.layer.pipe(
     Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
     Layer.provide(makeSpawnerLayer(executed, opts.failures)),
   );
@@ -209,7 +209,10 @@ const runToReport = (
       (script) =>
         Effect.scoped(
           Effect.gen(function* () {
-            const execution = yield* svc.executeScoped(script, config.repoRoot);
+            const execution = yield* svc.executeScoped(
+              script,
+              config.repositoryRoot,
+            );
             yield* execution.output.pipe(Stream.runDrain);
             return yield* execution.result;
           }),

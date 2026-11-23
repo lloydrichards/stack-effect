@@ -2,7 +2,6 @@ import {
   CatalogCache,
   CatalogCacheFailure,
   type CatalogCacheEntry,
-  type CatalogCacheShape,
 } from "@repo/scaffold/browser";
 import { Effect, Layer } from "effect";
 
@@ -119,7 +118,7 @@ const write = (entry: CatalogCacheEntry) =>
     }),
   );
 
-export const IndexedDbCatalogCache = Layer.succeed(CatalogCache, {
-  read,
-  write,
-} satisfies CatalogCacheShape);
+export const IndexedDbCatalogCache = Layer.succeed(
+  CatalogCache,
+  CatalogCache.of({ read, write }),
+);

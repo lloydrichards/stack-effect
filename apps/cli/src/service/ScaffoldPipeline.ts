@@ -6,7 +6,7 @@ import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import {
   ApplyService,
-  ApplyWorkspaceService,
+  ApplyWorkspaces,
   BlueprintService,
   type FinalizeConfig,
   FinalizeService,
@@ -135,7 +135,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
     make: Effect.gen(function* () {
       const run = ({
         selection,
-        repoRoot,
+        repositoryRoot,
         yes,
         dryRun,
         showFiles,
@@ -144,7 +144,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         createCommand,
       }: {
         selection: Selection;
-        repoRoot: string;
+        repositoryRoot: string;
         yes: boolean;
         dryRun: boolean;
         showFiles: boolean;
@@ -157,7 +157,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
           const planService = yield* PlanService;
           const finalizeService = yield* FinalizeService;
           const applyService = yield* ApplyService;
-          const workspaces = yield* ApplyWorkspaceService;
+          const workspaces = yield* ApplyWorkspaces;
 
           const blueprint = yield* blueprintService.resolve(selection, config);
 
@@ -191,7 +191,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           const plan = yield* planService.build({
             blueprint,
-            repoRoot,
+            repositoryRoot,
             config,
           });
           const pl = ScaffoldTree.formatPlan(plan);
@@ -215,14 +215,14 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               decisions: skipConflictDecisions(plan),
             });
             const workspace = yield* workspaces.fromRepository({
-              repoRoot,
+              repositoryRoot,
               baseline: plan.baseline,
             });
             const preview = yield* workspace.materialize(apply);
 
             const finalizeConfig: FinalizeConfig = {
               config,
-              repoRoot,
+              repositoryRoot,
             };
             const previewScripts = yield* finalizeService.scripts(
               blueprint,
@@ -271,7 +271,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           const result = yield* applyService.apply({
             apply: new Apply({ plan, decisions }),
-            repoRoot,
+            repositoryRoot,
           });
 
           yield* Console.log(`\nCreated: ${result.created.length} files`);
@@ -283,7 +283,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
 
           const finalizeConfig: FinalizeConfig = {
             config,
-            repoRoot,
+            repositoryRoot,
           };
           const previewScripts = yield* finalizeService.scripts(
             blueprint,
@@ -372,7 +372,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                       );
                       const execution = yield* finalizeService.executeScoped(
                         script,
-                        repoRoot,
+                        repositoryRoot,
                       );
 
                       yield* execution.output.pipe(

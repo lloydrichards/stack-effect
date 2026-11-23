@@ -144,19 +144,19 @@ export const init = Command.make(
                 : Effect.fail("Name cannot be empty"),
           });
 
-      const { projectName, repoRoot } = yield* resolveNameAndRoot(
+      const { projectName, repositoryRoot } = yield* resolveNameAndRoot(
         nameInput,
         flags.root,
       );
 
-      const existing = yield* configure.readConfig(repoRoot).pipe(
+      const existing = yield* configure.readConfig(repositoryRoot).pipe(
         Effect.asSome,
         Effect.catchTag("MissingConfigError", () => Effect.succeedNone),
       );
 
       if (Option.isSome(existing)) {
         yield* Console.log(
-          `Project '${existing.value.name}' already initialized in ${repoRoot}`,
+          `Project '${existing.value.name}' already initialized in ${repositoryRoot}`,
         );
         const reinit = flags.yes
           ? false
@@ -316,7 +316,7 @@ export const init = Command.make(
               Box.vcat(
                 [
                   Box.text(config.name),
-                  Box.text(repoRoot),
+                  Box.text(repositoryRoot),
                   Box.text(config.runtimeName),
                   Box.text(config.packageManagerName),
                   Box.text(config.typescriptVersion),
@@ -326,7 +326,7 @@ export const init = Command.make(
                   Box.text(config.test ?? "none"),
                   Box.text(git === false ? "no" : "yes"),
                   Box.text(dxExtrasDisplay),
-                  Box.text(configure.configPath(repoRoot)),
+                  Box.text(configure.configPath(repositoryRoot)),
                 ],
                 Box.left,
               ),
@@ -382,13 +382,13 @@ export const init = Command.make(
       yield* blueprints.resolve(selection, config);
 
       if (!flags.dryRun) {
-        yield* configure.writeConfig(repoRoot, config);
+        yield* configure.writeConfig(repositoryRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
       yield* pipeline.run({
         selection,
-        repoRoot,
+        repositoryRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,

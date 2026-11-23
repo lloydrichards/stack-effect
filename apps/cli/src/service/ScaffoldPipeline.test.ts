@@ -7,7 +7,7 @@ import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyService,
-  ApplyWorkspaceService,
+  ApplyWorkspaces,
   BlueprintService,
   FinalizeService,
   type MaterializedApply,
@@ -68,7 +68,7 @@ const script = {
 
 const runInput = {
   selection,
-  repoRoot: "/tmp/pipeline-app",
+  repositoryRoot: "/tmp/pipeline-app",
   yes: true,
   dryRun: false,
   showFiles: false,
@@ -111,8 +111,8 @@ const layerWithServices = ({
     Layer.succeed(ApplyService, {
       apply: () => Effect.succeed(applyResult),
     }),
-    Layer.succeed(ApplyWorkspaceService, {
-      empty: () => Effect.die(new Error("dry run should seed the workspace")),
+    Layer.succeed(ApplyWorkspaces, {
+      empty: Effect.die(new Error("dry run should seed the workspace")),
       fromRepository: () =>
         Effect.succeed({
           plan: () => Effect.die(new Error("dry run should not replan")),

@@ -15,11 +15,11 @@ import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, PlatformError, Schema } from "effect";
 import { ApplyService } from "../apply/ApplyService";
-import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
+import { ApplyWorkspaces } from "../apply/ApplyWorkspaces";
 import { PlanService } from "./PlanService";
 import { RepositoryState } from "./RepositoryState";
 
-const repoRoot = "/repo";
+const repositoryRoot = "/repo";
 const target = new TargetIdentity({
   kind: TargetKind.make("package"),
   name: "domain",
@@ -47,7 +47,7 @@ const TestLayer = Layer.provideMerge(
   Layer.mergeAll(
     PlanService.layer,
     ApplyService.layer,
-    ApplyWorkspaceService.layer,
+    ApplyWorkspaces.layer,
     RepositoryState.layer,
   ),
   Layer.mergeAll(
@@ -60,18 +60,24 @@ const TestLayer = Layer.provideMerge(
 const buildAt = (root: string) =>
   Effect.gen(function* () {
     const plans = yield* PlanService;
-    return yield* plans.build({ blueprint, repoRoot: root, config });
+    return yield* plans.build({ blueprint, repositoryRoot: root, config });
   });
-const build = buildAt(repoRoot);
+const build = buildAt(repositoryRoot);
 
 const intent = (plan: Plan) => new Apply({ plan, decisions: [] });
 
 /** Previews an Apply the way the CLI dry run does: seed from its baseline, then materialize. */
-const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
+const preview = ({
+  apply,
+  repositoryRoot,
+}: {
+  apply: Apply;
+  repositoryRoot: string;
+}) =>
   Effect.gen(function* () {
-    const workspaces = yield* ApplyWorkspaceService;
+    const workspaces = yield* ApplyWorkspaces;
     const workspace = yield* workspaces.fromRepository({
-      repoRoot,
+      repositoryRoot,
       baseline: apply.plan.baseline,
     });
     return yield* workspace.materialize(apply);
@@ -80,7 +86,7 @@ const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
 const writeManifest = (directory: string, contents: string) =>
   Effect.gen(function* () {
     const files = yield* FileSystem.FileSystem;
-    const absolute = `${repoRoot}/${directory}`;
+    const absolute = `${repositoryRoot}/${directory}`;
     yield* files.makeDirectory(absolute, { recursive: true });
     yield* files.writeFileString(`${absolute}/package.json`, contents);
   });
@@ -102,7 +108,7 @@ const targetBlueprint = (nodes: ReadonlyArray<BlueprintTargetNode>) =>
 const buildProposed = (proposed: Blueprint) =>
   Effect.gen(function* () {
     const plans = yield* PlanService;
-    return yield* plans.build({ blueprint: proposed, repoRoot, config });
+    return yield* plans.build({ blueprint: proposed, repositoryRoot, config });
   });
 
 describe("Plan and Apply repository state", () => {
@@ -118,15 +124,15 @@ describe("Plan and Apply repository state", () => {
           yield* ownerManifest("packages/helper", "@repo/helper");
           yield* writeManifest("packages/helper/templates/workspace", "{}");
           yield* files.writeFileString(
-            `${repoRoot}/package.json`,
+            `${repositoryRoot}/package.json`,
             '{"name":"project","workspaces":["apps/**","packages/**","tools/*"],"scripts":{"custom":"echo custom"}}',
           );
           yield* files.writeFileString(
-            `${repoRoot}/deno.json`,
+            `${repositoryRoot}/deno.json`,
             '{"workspace":["apps/**","packages/**"],"tasks":{"custom":"echo custom"}}',
           );
           yield* files.writeFileString(
-            `${repoRoot}/pnpm-workspace.yaml`,
+            `${repositoryRoot}/pnpm-workspace.yaml`,
             'packages:\n  - "apps/**"\n  - "packages/**"\n\nallowBuilds:\n  esbuild: true\n',
           );
           const apply = yield* ApplyService;
@@ -144,7 +150,7 @@ describe("Plan and Apply repository state", () => {
           const planAt = (name: string) =>
             plans.build({
               blueprint: proposed(name),
-              repoRoot,
+              repositoryRoot,
               config: configuration,
             });
           for (const name of ["sdk/client", "sdk/codecs"]) {
@@ -159,7 +165,7 @@ describe("Plan and Apply repository state", () => {
             expect(
               (yield* apply.apply({
                 apply: new Apply({ plan, decisions }),
-                repoRoot,
+                repositoryRoot,
               })).failed,
             ).toEqual([]);
           }
@@ -171,7 +177,7 @@ describe("Plan and Apply repository state", () => {
           ];
           const readJson = (name: string) =>
             files
-              .readFileString(`${repoRoot}/${name}`)
+              .readFileString(`${repositoryRoot}/${name}`)
               .pipe(
                 Effect.flatMap(
                   Schema.decodeEffect(
@@ -190,7 +196,7 @@ describe("Plan and Apply repository state", () => {
             tasks: { custom: "echo custom" },
           });
           const pnpm = yield* files.readFileString(
-            `${repoRoot}/pnpm-workspace.yaml`,
+            `${repositoryRoot}/pnpm-workspace.yaml`,
           );
           expect(pnpm).toBe(
             `packages:\n${members.map((member) => `  - ${member}\n`).join("")}\nallowBuilds:\n  esbuild: true\n`,
@@ -205,14 +211,16 @@ describe("Plan and Apply repository state", () => {
                   value: "skip" as const,
                 })),
               }),
-              repoRoot,
+              repositoryRoot,
             })).failed,
           ).toEqual([]);
           expect(
-            yield* files.readFileString(`${repoRoot}/pnpm-workspace.yaml`),
+            yield* files.readFileString(
+              `${repositoryRoot}/pnpm-workspace.yaml`,
+            ),
           ).toBe(pnpm);
           expect(
-            yield* files.readFileString(`${repoRoot}/deno.json`),
+            yield* files.readFileString(`${repositoryRoot}/deno.json`),
           ).toContain('"custom": "echo custom"');
           expect(
             repeated.outcomes
@@ -244,7 +252,7 @@ describe("Plan and Apply repository state", () => {
           expect(failure.message).toContain(directory);
           const files = yield* FileSystem.FileSystem;
           expect(
-            yield* files.exists(`${repoRoot}/packages/domain/src/Api.ts`),
+            yield* files.exists(`${repositoryRoot}/packages/domain/src/Api.ts`),
           ).toBe(false);
         }).pipe(Effect.provide(TestLayer)),
     );
@@ -271,10 +279,13 @@ describe("Plan and Apply repository state", () => {
         Effect.gen(function* () {
           const files = yield* FileSystem.FileSystem;
           if (symbolic) {
-            yield* files.makeDirectory(`${repoRoot}/packages`, {
+            yield* files.makeDirectory(`${repositoryRoot}/packages`, {
               recursive: true,
             });
-            yield* files.symlink("/missing-group", `${repoRoot}/packages/sdk`);
+            yield* files.symlink(
+              "/missing-group",
+              `${repositoryRoot}/packages/sdk`,
+            );
           } else yield* writeManifest("packages/sdk", "invalid json");
           expect((yield* Effect.flip(build))._tag).toBe("PlanFailure");
         }).pipe(Effect.provide(TestLayer)),
@@ -292,8 +303,8 @@ describe("Plan and Apply repository state", () => {
           const service = yield* ApplyService;
           const initialNode = packageNode(existingName);
           const initial = yield* buildProposed(targetBlueprint([initialNode]));
-          yield* service.apply({ apply: intent(initial), repoRoot });
-          const manifestPath = `${repoRoot}/${initialNode.identity.toPath()}/package.json`;
+          yield* service.apply({ apply: intent(initial), repositoryRoot });
+          const manifestPath = `${repositoryRoot}/${initialNode.identity.toPath()}/package.json`;
           const original = yield* files.readFileString(manifestPath);
           const proposed = targetBlueprint([packageNode(proposedName)]);
           const failure = yield* Effect.flip(buildProposed(proposed));
@@ -301,7 +312,7 @@ describe("Plan and Apply repository state", () => {
           expect(yield* files.readFileString(manifestPath)).toBe(original);
           expect(
             yield* files.exists(
-              `${repoRoot}/${packageNode(proposedName).identity.toPath()}/src/index.ts`,
+              `${repositoryRoot}/${packageNode(proposedName).identity.toPath()}/src/index.ts`,
             ),
           ).toBe(false);
         }).pipe(Effect.provide(TestLayer)),
@@ -316,7 +327,7 @@ describe("Plan and Apply repository state", () => {
       () =>
         Effect.gen(function* () {
           const files = yield* FileSystem.FileSystem;
-          yield* files.makeDirectory(repoRoot, { recursive: true });
+          yield* files.makeDirectory(repositoryRoot, { recursive: true });
           if (existingOwner)
             yield* ownerManifest("packages/existing", "@repo/shared");
           const destinations = existingOwner
@@ -324,7 +335,7 @@ describe("Plan and Apply repository state", () => {
             : ["packages/new-a", "packages/new-b"];
           const state = yield* RepositoryState;
           const { baseline } = yield* state.capture({
-            repoRoot,
+            repositoryRoot,
             paths: [
               RepositoryPath.make("."),
               RepositoryPath.make("packages"),
@@ -349,19 +360,21 @@ describe("Plan and Apply repository state", () => {
           });
           const service = yield* ApplyService;
           const failure = yield* Effect.flip(
-            service.apply({ apply, repoRoot }),
+            service.apply({ apply, repositoryRoot }),
           );
           assert(failure._tag === "ApplyFailure");
           expect(failure.message).toContain("@repo/shared");
           yield* Effect.forEach(destinations, (path) =>
             Effect.gen(function* () {
-              expect(yield* files.exists(`${repoRoot}/${path}`)).toBe(false);
+              expect(yield* files.exists(`${repositoryRoot}/${path}`)).toBe(
+                false,
+              );
             }),
           );
           if (existingOwner)
             expect(
               yield* files.readFileString(
-                `${repoRoot}/packages/existing/package.json`,
+                `${repositoryRoot}/packages/existing/package.json`,
               ),
             ).toBe('{"name":"@repo/shared"}');
         }).pipe(Effect.provide(TestLayer)),
@@ -373,7 +386,7 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const contents = [
           ["packages/sdk/package.json", '{"name":"@repo/sdk"}'],
           ["packages/sdk/templates/package.json", "{}"],
@@ -381,7 +394,7 @@ describe("Plan and Apply repository state", () => {
         ] as const;
         const state = yield* RepositoryState;
         const { baseline } = yield* state.capture({
-          repoRoot,
+          repositoryRoot,
           paths: [
             RepositoryPath.make("."),
             RepositoryPath.make("packages"),
@@ -403,10 +416,13 @@ describe("Plan and Apply repository state", () => {
         });
         const service = yield* ApplyService;
         expect(
-          (yield* service.apply({ apply: intent(plan), repoRoot })).failed,
+          (yield* service.apply({ apply: intent(plan), repositoryRoot }))
+            .failed,
         ).toEqual([]);
         expect(
-          yield* files.readFileString(`${repoRoot}/packages/sdk/src/index.ts`),
+          yield* files.readFileString(
+            `${repositoryRoot}/packages/sdk/src/index.ts`,
+          ),
         ).toBe("export {};");
       }).pipe(Effect.provide(TestLayer)),
   );
@@ -421,14 +437,17 @@ describe("Plan and Apply repository state", () => {
         yield* writeManifest("packages/helper/tests/fixtures", "{}");
         yield* files.symlink(
           "/missing-source",
-          `${repoRoot}/packages/helper/source-link`,
+          `${repositoryRoot}/packages/helper/source-link`,
         );
         const plan = yield* build;
         expect(plan.baseline.packageOwners).toEqual([
           { path: "packages/helper", name: "@repo/helper" },
         ]);
         const service = yield* ApplyService;
-        const result = yield* service.apply({ apply: intent(plan), repoRoot });
+        const result = yield* service.apply({
+          apply: intent(plan),
+          repositoryRoot,
+        });
         expect(result.failed).toEqual([]);
         expect(result.created).toContain("packages/domain/package.json");
       }).pipe(Effect.provide(TestLayer)),
@@ -449,7 +468,7 @@ describe("Plan and Apply repository state", () => {
         const plan = yield* build;
         const mutation =
           change === "removed"
-            ? files.remove(`${repoRoot}/packages/helper/package.json`)
+            ? files.remove(`${repositoryRoot}/packages/helper/package.json`)
             : ownerManifest(
                 "packages/helper",
                 discovered ? "@repo/helper" : "@repo/changed",
@@ -457,7 +476,7 @@ describe("Plan and Apply repository state", () => {
         yield* mutation;
         const service = yield* ApplyService;
         const failure = yield* Effect.flip(
-          service.apply({ apply: intent(plan), repoRoot }),
+          service.apply({ apply: intent(plan), repositoryRoot }),
         );
         expect(failure).toBeInstanceOf(StalePlanFailure);
         assert(failure._tag === "StalePlanFailure");
@@ -470,15 +489,15 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const repositoryState = yield* RepositoryState;
-        const workspaces = yield* ApplyWorkspaceService;
+        const workspaces = yield* ApplyWorkspaces;
         const { baseline } = yield* repositoryState.capture({
-          repoRoot,
+          repositoryRoot,
           paths: [RepositoryPath.make(".")],
         });
         const workspace = yield* workspaces.fromRepository({
-          repoRoot,
+          repositoryRoot,
           baseline,
         });
         const plan = yield* workspace.plan({ blueprint, config });
@@ -490,7 +509,7 @@ describe("Plan and Apply repository state", () => {
           result.apply.created,
         );
         expect(
-          yield* files.exists(`${repoRoot}/${result.apply.created[0]}`),
+          yield* files.exists(`${repositoryRoot}/${result.apply.created[0]}`),
         ).toBe(false);
       }).pipe(Effect.provide(TestLayer)),
   );
@@ -503,14 +522,14 @@ describe("Plan and Apply repository state", () => {
       expect(plan.baseline.root).toBe(root);
       const previewed = yield* preview({
         apply: intent(plan),
-        repoRoot: root,
+        repositoryRoot: root,
       });
       expect(previewed.files.length).toBeGreaterThan(0);
       expect(yield* files.exists(root)).toBe(false);
       const service = yield* ApplyService;
       const result = yield* service.apply({
         apply: intent(plan),
-        repoRoot: root,
+        repositoryRoot: root,
       });
       expect(result.created.length).toBeGreaterThan(0);
       expect(yield* files.exists(root)).toBe(true);
@@ -522,12 +541,12 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
-        yield* files.symlink(repoRoot, "/alias");
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
+        yield* files.symlink(repositoryRoot, "/alias");
         const plan = yield* build;
         const result = yield* preview({
           apply: intent(plan),
-          repoRoot: "/alias",
+          repositoryRoot: "/alias",
         });
         expect(result.apply.failed).toEqual([]);
       }).pipe(Effect.provide(TestLayer)),
@@ -536,11 +555,11 @@ describe("Plan and Apply repository state", () => {
   it.effect("rejects non-text contents at a planned path", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const plan = yield* build;
       const planned = plan.outcomes.find((entry) => entry.path.endsWith(".ts"));
       assert(planned, "Expected planned TypeScript file");
-      const absolute = `${repoRoot}/${planned.path}`;
+      const absolute = `${repositoryRoot}/${planned.path}`;
       yield* files.makeDirectory(absolute.slice(0, absolute.lastIndexOf("/")), {
         recursive: true,
       });
@@ -554,11 +573,11 @@ describe("Plan and Apply repository state", () => {
   it.effect("rejects a symbolic link at a planned path", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const plan = yield* build;
       const planned = plan.outcomes.find((entry) => entry.path.endsWith(".ts"));
       assert(planned, "Expected planned TypeScript file");
-      const absolute = `${repoRoot}/${planned.path}`;
+      const absolute = `${repositoryRoot}/${planned.path}`;
       yield* files.makeDirectory(absolute.slice(0, absolute.lastIndexOf("/")), {
         recursive: true,
       });
@@ -577,13 +596,13 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const plan = yield* build;
         const planned = plan.baseline.paths.find(
           (entry) => entry._tag === "missing" && entry.path.endsWith(".ts"),
         );
         assert(planned, "Expected a missing planned TypeScript path");
-        const absolute = `${repoRoot}/${planned.path}`;
+        const absolute = `${repositoryRoot}/${planned.path}`;
         yield* files.makeDirectory(
           absolute.slice(0, absolute.lastIndexOf("/")),
           { recursive: true },
@@ -591,7 +610,7 @@ describe("Plan and Apply repository state", () => {
         yield* files.writeFileString(absolute, "private new content");
 
         const previewFailure = yield* Effect.flip(
-          preview({ apply: intent(plan), repoRoot }),
+          preview({ apply: intent(plan), repositoryRoot }),
         );
         expect(previewFailure).toBeInstanceOf(StalePlanFailure);
         assert(previewFailure._tag === "StalePlanFailure");
@@ -604,7 +623,7 @@ describe("Plan and Apply repository state", () => {
         const service = yield* ApplyService;
 
         const apply = yield* Effect.flip(
-          service.apply({ apply: intent(plan), repoRoot }),
+          service.apply({ apply: intent(plan), repositoryRoot }),
         );
         expect(apply).toBeInstanceOf(StalePlanFailure);
         assert(apply._tag === "StalePlanFailure");
@@ -620,11 +639,11 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         yield* files.makeDirectory("/other", { recursive: true });
         const plan = yield* build;
         const failure = yield* Effect.flip(
-          preview({ apply: intent(plan), repoRoot: "/other" }),
+          preview({ apply: intent(plan), repositoryRoot: "/other" }),
         );
         expect(failure).toBeInstanceOf(StalePlanFailure);
         assert(failure._tag === "StalePlanFailure");
@@ -638,13 +657,16 @@ describe("Plan and Apply repository state", () => {
   it.effect("makes a Plan stale after its first successful Apply", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const plan = yield* build;
       const service = yield* ApplyService;
-      const result = yield* service.apply({ apply: intent(plan), repoRoot });
+      const result = yield* service.apply({
+        apply: intent(plan),
+        repositoryRoot,
+      });
       expect(result.created.length).toBeGreaterThan(0);
       const second = yield* Effect.flip(
-        service.apply({ apply: intent(plan), repoRoot }),
+        service.apply({ apply: intent(plan), repositoryRoot }),
       );
       expect(second).toBeInstanceOf(StalePlanFailure);
       assert(second._tag === "StalePlanFailure");
@@ -657,22 +679,22 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const service = yield* ApplyService;
         const firstPlan = yield* build;
-        yield* service.apply({ apply: intent(firstPlan), repoRoot });
+        yield* service.apply({ apply: intent(firstPlan), repositoryRoot });
 
         const plan = yield* build;
         const unchanged = plan.outcomes.find(
           (entry) => entry.classification === "unchanged",
         );
         assert(unchanged, "Expected an unchanged planned path");
-        const absolute = `${repoRoot}/${unchanged.path}`;
+        const absolute = `${repositoryRoot}/${unchanged.path}`;
         const original = yield* files.readFileString(absolute);
         yield* files.writeFileString(absolute, "private changed contents");
 
         const failure = yield* Effect.flip(
-          preview({ apply: intent(plan), repoRoot }),
+          preview({ apply: intent(plan), repositoryRoot }),
         );
         assert(failure._tag === "StalePlanFailure");
         expect(failure.changes).toContainEqual({
@@ -684,7 +706,7 @@ describe("Plan and Apply repository state", () => {
 
         const result = yield* preview({
           apply: intent(plan),
-          repoRoot,
+          repositoryRoot,
         });
         expect(result.apply.failed).toEqual([]);
       }).pipe(Effect.provide(TestLayer)),
@@ -693,19 +715,19 @@ describe("Plan and Apply repository state", () => {
   it.effect("rejects deletion of an existing planned file", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const service = yield* ApplyService;
-      yield* service.apply({ apply: intent(yield* build), repoRoot });
+      yield* service.apply({ apply: intent(yield* build), repositoryRoot });
 
       const plan = yield* build;
       const existing = plan.baseline.paths.find(
         (entry) => entry._tag === "file",
       );
       assert(existing, "Expected a file in the Plan baseline");
-      yield* files.remove(`${repoRoot}/${existing.path}`);
+      yield* files.remove(`${repositoryRoot}/${existing.path}`);
 
       const failure = yield* Effect.flip(
-        preview({ apply: intent(plan), repoRoot }),
+        preview({ apply: intent(plan), repositoryRoot }),
       );
       assert(failure._tag === "StalePlanFailure");
       expect(failure.changes).toContainEqual({
@@ -718,19 +740,19 @@ describe("Plan and Apply repository state", () => {
   it.effect("detects a UTF-8 byte order mark added after planning", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const service = yield* ApplyService;
-      yield* service.apply({ apply: intent(yield* build), repoRoot });
+      yield* service.apply({ apply: intent(yield* build), repositoryRoot });
       const plan = yield* build;
       const existing = plan.baseline.paths.find(
         (entry) => entry._tag === "file",
       );
       assert(existing, "Expected a file in the Plan baseline");
-      const absolute = `${repoRoot}/${existing.path}`;
+      const absolute = `${repositoryRoot}/${existing.path}`;
       const original = yield* files.readFileString(absolute);
       yield* files.writeFileString(absolute, `\uFEFF${original}`);
       const failure = yield* Effect.flip(
-        preview({ apply: intent(plan), repoRoot }),
+        preview({ apply: intent(plan), repositoryRoot }),
       );
       assert(failure._tag === "StalePlanFailure");
       expect(failure.changes).toContainEqual({
@@ -745,7 +767,7 @@ describe("Plan and Apply repository state", () => {
     () =>
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const plan = yield* build;
         const planned = plan.outcomes.find(
           (entry) =>
@@ -758,7 +780,7 @@ describe("Plan and Apply repository state", () => {
             planned.path.startsWith(`${entry.path}/`),
         );
         assert(ancestor, "Expected a missing planned ancestor");
-        const absolute = `${repoRoot}/${planned.path}`;
+        const absolute = `${repositoryRoot}/${planned.path}`;
         yield* files.makeDirectory(
           absolute.slice(0, absolute.lastIndexOf("/")),
           { recursive: true },
@@ -767,7 +789,7 @@ describe("Plan and Apply repository state", () => {
 
         const service = yield* ApplyService;
         const failure = yield* Effect.flip(
-          service.apply({ apply: intent(plan), repoRoot }),
+          service.apply({ apply: intent(plan), repositoryRoot }),
         );
         assert(failure._tag === "StalePlanFailure");
         expect(failure.changes).toContainEqual({
@@ -786,7 +808,7 @@ describe("Plan and Apply repository state", () => {
             entry.classification === "create" && entry.path !== planned.path,
         );
         assert(untouched, "Expected another planned write");
-        expect(yield* files.exists(`${repoRoot}/${untouched.path}`)).toBe(
+        expect(yield* files.exists(`${repositoryRoot}/${untouched.path}`)).toBe(
           false,
         );
       }).pipe(Effect.provide(TestLayer)),
@@ -795,16 +817,16 @@ describe("Plan and Apply repository state", () => {
   it.effect("treats a changed skipped conflict as a stale Plan", () =>
     Effect.gen(function* () {
       const files = yield* FileSystem.FileSystem;
-      yield* files.makeDirectory(repoRoot, { recursive: true });
+      yield* files.makeDirectory(repositoryRoot, { recursive: true });
       const firstPlan = yield* build;
       const service = yield* ApplyService;
-      yield* service.apply({ apply: intent(firstPlan), repoRoot });
+      yield* service.apply({ apply: intent(firstPlan), repositoryRoot });
       const candidate = firstPlan.outcomes.find(
         (entry) =>
           entry._tag === "composed" && entry.path.endsWith("package.json"),
       );
       assert(candidate, "Expected a planned package.json merge");
-      const absolute = `${repoRoot}/${candidate.path}`;
+      const absolute = `${repositoryRoot}/${candidate.path}`;
       yield* files.writeFileString(
         absolute,
         '{"name":"@repo/domain","exports":{"./Api":"./local.ts"}}',
@@ -825,7 +847,10 @@ describe("Plan and Apply repository state", () => {
       );
 
       const failure = yield* Effect.flip(
-        service.apply({ apply: new Apply({ plan, decisions }), repoRoot }),
+        service.apply({
+          apply: new Apply({ plan, decisions }),
+          repositoryRoot,
+        }),
       );
       assert(failure._tag === "StalePlanFailure");
       expect(failure.changes).toContainEqual({
@@ -846,8 +871,8 @@ describe("Plan and Apply repository state", () => {
         const files = yield* MemoryFileSystem.make.pipe(
           Effect.provide(BrowserCrypto.layer),
         );
-        yield* files.makeDirectory(repoRoot, { recursive: true });
-        const foreign = `${repoRoot}/packages/foreign/package.json`;
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
+        const foreign = `${repositoryRoot}/packages/foreign/package.json`;
         const trigger = { first: "" };
         const wrapped = {
           ...files,
@@ -880,10 +905,10 @@ describe("Plan and Apply repository state", () => {
             (entry) => entry.classification === "create",
           );
           assert(first);
-          trigger.first = `${repoRoot}/${first.path}`;
+          trigger.first = `${repositoryRoot}/${first.path}`;
           const service = yield* ApplyService;
           return yield* Effect.flip(
-            service.apply({ apply: intent(plan), repoRoot }),
+            service.apply({ apply: intent(plan), repositoryRoot }),
           );
         }).pipe(Effect.provide(layer));
         assert(failure._tag === "StalePlanFailure");
@@ -892,7 +917,7 @@ describe("Plan and Apply repository state", () => {
           kind: "modified",
         });
         expect(failure.partialResult.created).toContain(
-          trigger.first.slice(`${repoRoot}/`.length),
+          trigger.first.slice(`${repositoryRoot}/`.length),
         );
         expect(yield* files.readFileString(foreign)).toBe(
           '{"name":"@repo/foreign"}',
@@ -907,7 +932,7 @@ describe("Plan and Apply repository state", () => {
         const files = yield* MemoryFileSystem.make.pipe(
           Effect.provide(BrowserCrypto.layer),
         );
-        yield* files.makeDirectory(repoRoot, { recursive: true });
+        yield* files.makeDirectory(repositoryRoot, { recursive: true });
         const trigger = { first: "", later: "" };
         const wrapped = {
           ...files,
@@ -960,24 +985,24 @@ describe("Plan and Apply repository state", () => {
             (entry) => entry.path === "packages/domain/src/Api.ts",
           );
           assert(first && later);
-          trigger.first = `${repoRoot}/${first.path}`;
-          trigger.later = `${repoRoot}/${later.path}`;
+          trigger.first = `${repositoryRoot}/${first.path}`;
+          trigger.later = `${repositoryRoot}/${later.path}`;
           const service = yield* ApplyService;
           return yield* Effect.flip(
-            service.apply({ apply: intent(plan), repoRoot }),
+            service.apply({ apply: intent(plan), repositoryRoot }),
           );
         }).pipe(Effect.provide(layer));
 
         assert(result._tag === "StalePlanFailure");
         expect(result.changes).toContainEqual({
-          path: trigger.later.slice(`${repoRoot}/`.length),
+          path: trigger.later.slice(`${repositoryRoot}/`.length),
           kind: "created",
         });
         expect(result.partialResult.created).toContain(
-          trigger.first.slice(`${repoRoot}/`.length),
+          trigger.first.slice(`${repositoryRoot}/`.length),
         );
         expect(result.partialResult.created).not.toContain(
-          trigger.later.slice(`${repoRoot}/`.length),
+          trigger.later.slice(`${repositoryRoot}/`.length),
         );
         expect(yield* files.readFileString(trigger.later)).toBe(
           "external late drift",
@@ -992,7 +1017,7 @@ describe("Plan and Apply repository state", () => {
         const rawFileSystem = yield* MemoryFileSystem.make.pipe(
           Effect.provide(BrowserCrypto.layer),
         );
-        yield* rawFileSystem.makeDirectory(repoRoot, { recursive: true });
+        yield* rawFileSystem.makeDirectory(repositoryRoot, { recursive: true });
         const rawLayer = Layer.mergeAll(
           Layer.succeed(FileSystem.FileSystem, rawFileSystem),
           Path.layer,
@@ -1001,7 +1026,7 @@ describe("Plan and Apply repository state", () => {
         const baseline = yield* Effect.gen(function* () {
           const state = yield* RepositoryState;
           const captured = yield* state.capture({
-            repoRoot,
+            repositoryRoot,
             paths: [
               RepositoryPath.make("."),
               RepositoryPath.make("src"),
@@ -1063,7 +1088,7 @@ describe("Plan and Apply repository state", () => {
         });
         const result = yield* Effect.gen(function* () {
           const service = yield* ApplyService;
-          return yield* service.apply({ apply, repoRoot });
+          return yield* service.apply({ apply, repositoryRoot });
         }).pipe(
           Effect.provide(
             ApplyService.layer.pipe(
@@ -1082,7 +1107,7 @@ describe("Plan and Apply repository state", () => {
         expect(result.created).toEqual(["src/b.txt"]);
         expect(result.failed.map((entry) => entry.path)).toEqual(["src/a.txt"]);
         expect(
-          yield* rawFileSystem.readFileString(`${repoRoot}/src/b.txt`),
+          yield* rawFileSystem.readFileString(`${repositoryRoot}/src/b.txt`),
         ).toBe("B");
       }),
   );

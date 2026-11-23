@@ -377,10 +377,10 @@ const annotationFor = (file: ManifestFile) => {
 };
 
 const annotateWorkspace = Effect.fn("catalog.workspace.annotate")(function* ({
-  repoRoot,
+  repositoryRoot,
   manifest,
 }: {
-  repoRoot: string;
+  repositoryRoot: string;
   manifest: CatalogWorkspaceManifest;
 }) {
   const fs = yield* FileSystem.FileSystem;
@@ -393,7 +393,7 @@ const annotateWorkspace = Effect.fn("catalog.workspace.annotate")(function* ({
         const annotation = annotationFor(file);
         if (Option.isNone(annotation)) return;
 
-        const filePath = path.join(repoRoot, file.path);
+        const filePath = path.join(repositoryRoot, file.path);
         const contents = yield* fs.readFileString(filePath).pipe(Effect.option);
         if (
           Option.isNone(contents) ||
@@ -500,14 +500,14 @@ const runCommandCapture = (
 const runValidationCommand = Effect.fn(
   "catalog.workspace.runValidationCommand",
 )(function* (
-  repoRoot: string,
+  repositoryRoot: string,
   commandName: string,
   args: ReadonlyArray<string>,
 ) {
   const commandText = `${commandName} ${args.join(" ")}`;
   yield* Console.log(`$ ${commandText}`);
   const { exitCode, stdout, stderr } = yield* runCommandCapture(
-    repoRoot,
+    repositoryRoot,
     commandName,
     args,
   );
@@ -522,14 +522,14 @@ const runValidationCommand = Effect.fn(
 });
 
 const linkWorkspacePackages = Effect.fn("catalog.workspace.linkPackages")(
-  function* (repoRoot: string) {
+  function* (repositoryRoot: string) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const packagesRoot = path.join(repoRoot, "packages");
+    const packagesRoot = path.join(repositoryRoot, "packages");
     const packageNames = yield* fs
       .readDirectory(packagesRoot)
       .pipe(Effect.orElseSucceed(() => [] as Array<string>));
-    const scopeRoot = path.join(repoRoot, "node_modules", "@repo");
+    const scopeRoot = path.join(repositoryRoot, "node_modules", "@repo");
 
     yield* fs.makeDirectory(scopeRoot, { recursive: true });
     yield* Effect.forEach(
@@ -559,16 +559,16 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
   function* ({
     blueprint,
     config,
-    repoRoot,
+    repositoryRoot,
   }: {
     blueprint: Blueprint;
     config: StackConfig;
-    repoRoot: string;
+    repositoryRoot: string;
   }) {
     const finalizeService = yield* FinalizeService;
     const scripts = yield* finalizeService.scripts(blueprint, {
       config,
-      repoRoot,
+      repositoryRoot,
     });
 
     yield* Effect.forEach(
@@ -579,7 +579,7 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
             yield* Console.log(`$ ${script.command}`);
             const { output, result } = yield* finalizeService.executeScoped(
               script,
-              repoRoot,
+              repositoryRoot,
             );
             yield* Stream.runForEach(output, Console.log);
             const scriptResult = yield* result;
@@ -619,17 +619,17 @@ const reset = Command.make(
         () => defaults.runtimeName,
       );
       const runtimeDefaults = defaultsForRuntime(defaults, runtime);
-      const repoRoot = path.resolve(
+      const repositoryRoot = path.resolve(
         Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
       );
 
-      yield* fs.remove(repoRoot, { recursive: true }).pipe(
+      yield* fs.remove(repositoryRoot, { recursive: true }).pipe(
         Effect.catchIf(
           (error) => error.reason._tag === "NotFound",
           () => Effect.void,
         ),
       );
-      yield* fs.makeDirectory(repoRoot, { recursive: true });
+      yield* fs.makeDirectory(repositoryRoot, { recursive: true });
 
       const config = new StackConfig({
         name: "catalog-built",
@@ -654,31 +654,35 @@ const reset = Command.make(
       const blueprintService = yield* BlueprintService;
       const blueprint = yield* blueprintService.resolve(selection, config);
       const planService = yield* PlanService;
-      const plan = yield* planService.build({ blueprint, repoRoot, config });
+      const plan = yield* planService.build({
+        blueprint,
+        repositoryRoot,
+        config,
+      });
       const applyService = yield* ApplyService;
       const result = yield* applyService.apply({
         apply: new Apply({ plan, decisions: [] }),
-        repoRoot,
+        repositoryRoot,
       });
 
       const manifest = yield* buildManifest({ blueprint, config });
-      yield* annotateWorkspace({ repoRoot, manifest });
+      yield* annotateWorkspace({ repositoryRoot, manifest });
       const encodedManifest = yield* Schema.encodeEffect(
         CatalogWorkspaceManifestFromJsonString,
       )(manifest);
       yield* fs.writeFileString(
-        path.join(repoRoot, ".catalog-build-manifest.json"),
+        path.join(repositoryRoot, ".catalog-build-manifest.json"),
         `${encodedManifest}\n`,
       );
 
-      yield* runGit(repoRoot, ["init", "--initial-branch=main"]);
-      yield* runFinalizeScripts({ blueprint, config, repoRoot });
+      yield* runGit(repositoryRoot, ["init", "--initial-branch=main"]);
+      yield* runFinalizeScripts({ blueprint, config, repositoryRoot });
       yield* Console.log(
         "Finalize complete; run catalog workspace validate for post-format format/lint/type-check results.",
       );
 
-      yield* runGit(repoRoot, ["add", "."]);
-      yield* runGit(repoRoot, [
+      yield* runGit(repositoryRoot, ["add", "."]);
+      yield* runGit(repositoryRoot, [
         "-c",
         "user.name=stack-effect",
         "-c",
@@ -687,9 +691,9 @@ const reset = Command.make(
         "-m",
         "catalog workspace baseline",
       ]);
-      yield* linkWorkspacePackages(repoRoot);
+      yield* linkWorkspacePackages(repositoryRoot);
 
-      yield* Console.log(`Catalog workspace reset at ${repoRoot}`);
+      yield* Console.log(`Catalog workspace reset at ${repositoryRoot}`);
       yield* Console.log(`Created: ${result.created.length}`);
       yield* Console.log(`Modified: ${result.modified.length}`);
       if (result.failed.length > 0) {
@@ -709,10 +713,10 @@ const reset = Command.make(
 const diff = Command.make("diff", { root: rootFlag }, (flags) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const repoRoot = path.resolve(
+    const repositoryRoot = path.resolve(
       Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
     );
-    const output = yield* gitOutput(repoRoot, ["diff"]);
+    const output = yield* gitOutput(repositoryRoot, ["diff"]);
     yield* Console.log(output.trimEnd());
   }),
 ).pipe(
@@ -725,17 +729,17 @@ const diff = Command.make("diff", { root: rootFlag }, (flags) =>
 const validate = Command.make("validate", { root: rootFlag }, (flags) =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    const repoRoot = path.resolve(
+    const repositoryRoot = path.resolve(
       Option.getOrElse(flags.root, () => defaultWorkspaceRoot),
     );
     const fs = yield* FileSystem.FileSystem;
     const denoWorkspace = yield* fs
-      .exists(path.join(repoRoot, "deno.json"))
+      .exists(path.join(repositoryRoot, "deno.json"))
       .pipe(Effect.orElseSucceed(() => false));
     if (denoWorkspace) {
       yield* Effect.forEach(
         ["type-check:all", "test:all", "build:all"],
-        (task) => runValidationCommand(repoRoot, "deno", ["task", task]),
+        (task) => runValidationCommand(repositoryRoot, "deno", ["task", task]),
         { concurrency: 1 },
       );
       return;
@@ -746,7 +750,7 @@ const validate = Command.make("validate", { root: rootFlag }, (flags) =>
         ["run", "lint"],
         ["run", "type-check"],
       ] as const,
-      (args) => runValidationCommand(repoRoot, "bun", args),
+      (args) => runValidationCommand(repositoryRoot, "bun", args),
       { concurrency: 1 },
     );
   }),

@@ -11,7 +11,7 @@ import {
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, Layer, Schema } from "effect";
-import { RecipePreviewService } from "./RecipePreviewService";
+import { RecipePreviewer } from "./RecipePreviewer";
 
 const PackageJsonFromJsonString = Schema.fromJsonString(
   Schema.Struct({
@@ -24,7 +24,7 @@ const UnknownFromJsonString = Schema.decodeUnknownSync(
 );
 const decodePackageJson = Schema.decodeUnknownSync(PackageJsonFromJsonString);
 
-const TestLayer = RecipePreviewService.layer.pipe(
+const TestLayer = RecipePreviewer.layer.pipe(
   Layer.provide(OfficialCatalogLayer),
 );
 
@@ -56,7 +56,7 @@ it.effect(
       { targets: [], modules: [extra] },
     ]);
     return Effect.gen(function* () {
-      const previews = yield* RecipePreviewService;
+      const previews = yield* RecipePreviewer;
       const preview = yield* previews.preview({
         config: new StackConfig({
           name: Schema.NonEmptyString.make("extra-project"),
@@ -85,9 +85,7 @@ it.effect(
         "from fragment\n",
       );
     }).pipe(
-      Effect.provide(
-        RecipePreviewService.layer.pipe(Layer.provide(catalogLayer)),
-      ),
+      Effect.provide(RecipePreviewer.layer.pipe(Layer.provide(catalogLayer))),
     );
   },
 );
@@ -97,7 +95,7 @@ const previewQualityConfig = (
   format: "dprint" | "oxfmt",
 ) =>
   Effect.gen(function* () {
-    const previews = yield* RecipePreviewService;
+    const previews = yield* RecipePreviewer;
     return yield* previews.preview({
       config: new StackConfig({
         name: Schema.NonEmptyString.make("quality-app"),
@@ -111,12 +109,12 @@ const previewQualityConfig = (
     });
   });
 
-layer(TestLayer)("RecipePreviewService with the official catalog", (it) => {
+layer(TestLayer)("RecipePreviewer with the official catalog", (it) => {
   it.effect(
     "should preview SQLite database files when the Deno runtime is selected",
     () =>
       Effect.gen(function* () {
-        const previews = yield* RecipePreviewService;
+        const previews = yield* RecipePreviewer;
         const preview = yield* previews.preview({
           config: new StackConfig({
             name: Schema.NonEmptyString.make("deno-preview"),
@@ -279,7 +277,7 @@ layer(TestLayer)("RecipePreviewService with the official catalog", (it) => {
 
   it.effect("should generate standalone Oxlint when monorepo is omitted", () =>
     Effect.gen(function* () {
-      const previews = yield* RecipePreviewService;
+      const previews = yield* RecipePreviewer;
       const preview = yield* previews.preview({
         config: new StackConfig({
           name: Schema.NonEmptyString.make("quality-app"),

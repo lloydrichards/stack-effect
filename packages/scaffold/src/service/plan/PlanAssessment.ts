@@ -7,16 +7,7 @@ import {
   type RepoSnapshotPath,
   RepositoryPath,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Effect,
-  Match,
-  Option,
-  Predicate,
-  pipe,
-  Schema,
-  String as Str,
-} from "effect";
+import { Effect, Match, Option, Predicate, Schema } from "effect";
 import { findJsxSlotMarker, makeJsxSourceFile } from "../JsxSlot";
 
 export const PlanningIntentImport = Schema.Struct({
@@ -201,7 +192,7 @@ export const toPlannedFileOutcome = ({
     barrel: (intent) =>
       composed(
         intent,
-        Arr.map(intent.exportPaths, (moduleSpecifier) => ({
+        intent.exportPaths.map((moduleSpecifier) => ({
           _tag: "ts-add-reexport" as const,
           fileType: "typescript" as const,
           moduleSpecifier,
@@ -209,7 +200,7 @@ export const toPlannedFileOutcome = ({
       ),
     tsComposition: (intent) =>
       composed(intent, [
-        ...Arr.flatMap(intent.compositions, (composition) => [
+        ...intent.compositions.flatMap((composition) => [
           importOperation(composition.import),
           {
             _tag: "ts-append-call-arg" as const,
@@ -219,7 +210,7 @@ export const toPlannedFileOutcome = ({
             argument: composition.argument,
           },
         ]),
-        ...Arr.flatMap(intent.objectFields, (objectField) => [
+        ...intent.objectFields.flatMap((objectField) => [
           ...optionalImportOperation(objectField.import),
           {
             _tag: "ts-object-field" as const,
@@ -234,7 +225,7 @@ export const toPlannedFileOutcome = ({
     jsxSlot: (intent) =>
       composed(
         intent,
-        Arr.flatMap(intent.jsxSlots, (jsxSlot) => [
+        intent.jsxSlots.flatMap((jsxSlot) => [
           ...optionalImportOperation(jsxSlot.import),
           {
             _tag: "ts-jsx-slot" as const,
@@ -260,12 +251,12 @@ const packageJsonOperations = (
     });
   }
 
-  const depsBySection = Arr.groupBy(intent.dependencies, (d) => d.section);
-  for (const [section, deps] of Object.entries(depsBySection)) {
+  const depsBySection = Map.groupBy(intent.dependencies, (d) => d.section);
+  for (const [section, deps] of depsBySection) {
     operations.push({
       _tag: "json-pkg-deps",
       fileType: "json",
-      section: section as "dependencies" | "devDependencies",
+      section,
       entries: deps.map(({ name, value }) => ({ name, value })),
     });
   }
@@ -325,7 +316,7 @@ export const assess = Effect.fnUntraced(function* ({
       assessTypeScriptTarget({
         intent,
         jsxSlots: [],
-        missingTargetConflicts: Arr.map(intent.compositions, (composition) =>
+        missingTargetConflicts: intent.compositions.map((composition) =>
           planConflict.compositionTargetNotFound(
             intent.path,
             composition.targetVariable,
@@ -351,10 +342,12 @@ export const assess = Effect.fnUntraced(function* ({
 export const collectAncestorPaths = (
   path: RepositoryPath,
 ): ReadonlyArray<RepositoryPath> => {
-  const parts = Str.split(path, "/");
-  return Arr.map(Arr.take(parts, parts.length - 1), (_, index) =>
-    RepositoryPath.make(Arr.join(Arr.take(parts, index + 1), "/")),
-  );
+  const parts = path.split("/");
+  return parts
+    .slice(0, -1)
+    .map((_, index) =>
+      RepositoryPath.make(parts.slice(0, index + 1).join("/")),
+    );
 };
 
 const createPathAssessment = ({
@@ -365,7 +358,7 @@ const createPathAssessment = ({
   conflicts?: ReadonlyArray<PlanConflict>;
 }): PathAssessment => ({
   classification,
-  conflicts: Arr.fromIterable(conflicts),
+  conflicts: [...conflicts],
 });
 
 const assessContents = (
@@ -441,15 +434,14 @@ const assessBarrel = (
   if (existingExports === undefined) {
     return createPathAssessment({
       classification: "conflict",
-      conflicts: Arr.map(intent.exportPaths, (exportPath) =>
+      conflicts: intent.exportPaths.map((exportPath) =>
         planConflict.barrelExport(intent.path, exportPath),
       ),
     });
   }
 
   const existingExportsSet = new Set(existingExports);
-  const hasAdditions = Arr.some(
-    intent.exportPaths,
+  const hasAdditions = intent.exportPaths.some(
     (exportPath) => !existingExportsSet.has(exportPath),
   );
   const seedExportPath = intent.seed?.match(simpleBarrelExportPattern)?.[1];
@@ -509,7 +501,7 @@ const collectMissingJsxSlotConflicts = (
   const sourceFile =
     contents === undefined ? undefined : makeJsxSourceFile(contents);
 
-  return Arr.flatMap(jsxSlots, ({ slotId }) =>
+  return jsxSlots.flatMap(({ slotId }) =>
     sourceFile !== undefined &&
     findJsxSlotMarker(sourceFile, slotId) !== undefined
       ? []
@@ -518,12 +510,12 @@ const collectMissingJsxSlotConflicts = (
 };
 
 const parseSimpleBarrelExports = (contents: string) => {
-  const parsedExports = Arr.map(
-    Arr.filter(Str.split(contents, /\r?\n/u), (line) => Str.trim(line) !== ""),
-    (line) => line.match(simpleBarrelExportPattern)?.[1],
-  );
+  const parsedExports = contents
+    .split(/\r?\n/u)
+    .filter((line) => line.trim() !== "")
+    .map((line) => line.match(simpleBarrelExportPattern)?.[1]);
 
-  return Arr.every(parsedExports, Predicate.isNotUndefined)
+  return parsedExports.every(Predicate.isNotUndefined)
     ? parsedExports
     : undefined;
 };
@@ -572,9 +564,9 @@ const collectInvalidPackageJsonConflicts = (
     scripts: requiredScripts,
   } = intent;
   return [
-    ...Arr.map(requiredExports, (e) => planConflict.exports(path, e.name)),
-    ...Arr.map(requiredDependencies, (d) => planConflict.dependencies(path, d)),
-    ...Arr.map(requiredScripts, (s) => planConflict.scripts(path, s.name)),
+    ...requiredExports.map((e) => planConflict.exports(path, e.name)),
+    ...requiredDependencies.map((d) => planConflict.dependencies(path, d)),
+    ...requiredScripts.map((s) => planConflict.scripts(path, s.name)),
   ];
 };
 
@@ -586,7 +578,7 @@ const assessPackageJsonEntries = ({
   intent: PlanningIntentPackageJsonPath;
 }): FlatStringRecordAssessment<PlanConflict> => {
   const { path } = intent;
-  const dependenciesBySection = Arr.groupBy(
+  const dependenciesBySection = Map.groupBy(
     intent.dependencies,
     (plannedDependency) => plannedDependency.section,
   );
@@ -598,24 +590,23 @@ const assessPackageJsonEntries = ({
     toConflict: (plannedExport) =>
       planConflict.exports(path, plannedExport.name),
   });
-  const dependencyAssessments = pipe(
-    ["dependencies", "devDependencies"] as const,
-    Arr.flatMap((section) => {
-      const sectionDependencies = dependenciesBySection[section];
-      return sectionDependencies === undefined
-        ? []
-        : [
-            assessFlatStringRecordEntries({
-              existingValue: packageJson[section],
-              requiredEntries: sectionDependencies,
-              keyOf: (plannedDependency) => plannedDependency.name,
-              valueOf: (plannedDependency) => plannedDependency.value,
-              toConflict: (plannedDependency) =>
-                planConflict.dependencies(path, plannedDependency),
-            }),
-          ];
-    }),
-  );
+  const dependencyAssessments = (
+    ["dependencies", "devDependencies"] as const
+  ).flatMap((section) => {
+    const sectionDependencies = dependenciesBySection.get(section);
+    return sectionDependencies === undefined
+      ? []
+      : [
+          assessFlatStringRecordEntries({
+            existingValue: packageJson[section],
+            requiredEntries: sectionDependencies,
+            keyOf: (plannedDependency) => plannedDependency.name,
+            valueOf: (plannedDependency) => plannedDependency.value,
+            toConflict: (plannedDependency) =>
+              planConflict.dependencies(path, plannedDependency),
+          }),
+        ];
+  });
   const scriptAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["scripts"],
     requiredEntries: intent.scripts,
@@ -627,18 +618,12 @@ const assessPackageJsonEntries = ({
   return {
     conflicts: [
       ...exportAssessment.conflicts,
-      ...Arr.flatMap(
-        dependencyAssessments,
-        (assessment) => assessment.conflicts,
-      ),
+      ...dependencyAssessments.flatMap((assessment) => assessment.conflicts),
       ...scriptAssessment.conflicts,
     ],
     hasAdditions:
       exportAssessment.hasAdditions ||
-      Arr.some(
-        dependencyAssessments,
-        (assessment) => assessment.hasAdditions,
-      ) ||
+      dependencyAssessments.some((assessment) => assessment.hasAdditions) ||
       scriptAssessment.hasAdditions,
   };
 };
@@ -658,13 +643,13 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 }): FlatStringRecordAssessment<Conflict> => {
   if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
     return {
-      conflicts: Arr.map(requiredEntries, toConflict),
+      conflicts: requiredEntries.map(toConflict),
       hasAdditions: false,
     };
   }
 
   const existingEntries = existingValue ?? {};
-  const conflicts = Arr.flatMap(requiredEntries, (entry) => {
+  const conflicts = requiredEntries.flatMap((entry) => {
     const existingEntry = existingEntries[keyOf(entry)];
 
     return existingEntry === undefined || existingEntry === valueOf(entry)
@@ -674,8 +659,7 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 
   return {
     conflicts,
-    hasAdditions: Arr.some(
-      requiredEntries,
+    hasAdditions: requiredEntries.some(
       (entry) => existingEntries[keyOf(entry)] === undefined,
     ),
   };
@@ -683,16 +667,15 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
 
 const isFlatStringRecord = (value: unknown): value is Record<string, string> =>
   Predicate.isReadonlyObject(value) &&
-  Arr.every(Object.values(value), (entry) => typeof entry === "string");
+  Object.values(value).every((entry) => typeof entry === "string");
 
 const parseJsonRecord = (
   contents: string,
 ): Record<string, unknown> | undefined =>
-  pipe(
+  Option.getOrUndefined(
     Schema.decodeOption(
       Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
     )(contents),
-    Option.getOrUndefined,
   );
 
 const getExistingFileContents = (

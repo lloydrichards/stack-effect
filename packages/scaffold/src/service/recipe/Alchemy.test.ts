@@ -2,12 +2,12 @@ import { assert, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/Scaffold";
-import { RecipePreviewService } from "@repo/scaffold";
+import { RecipePreviewer } from "@repo/scaffold";
 import { Effect, Layer, Schema } from "effect";
 
 const preview = (kind: string, modules: ReadonlyArray<string>) =>
   Effect.gen(function* () {
-    const service = yield* RecipePreviewService;
+    const service = yield* RecipePreviewer;
     return yield* service.preview({
       config: new StackConfig({
         name: Schema.NonEmptyString.make("deployment"),
@@ -27,7 +27,7 @@ const preview = (kind: string, modules: ReadonlyArray<string>) =>
     });
   }).pipe(
     Effect.provide(
-      RecipePreviewService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
+      RecipePreviewer.layer.pipe(Layer.provide(OfficialCatalogLayer)),
     ),
   );
 

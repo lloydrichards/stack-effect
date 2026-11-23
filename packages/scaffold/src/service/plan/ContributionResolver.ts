@@ -1,6 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import { Contribution } from "@repo/domain/Catalog";
+import { type CatalogNotFound, Contribution } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   ModuleContribution,
@@ -8,125 +8,8 @@ import {
   type StackConfig,
   TargetContribution,
 } from "@repo/domain/Scaffold";
-import { Array as Arr, Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer } from "effect";
 import { RecipeService } from "../recipe/RecipeService";
-
-export class ContributionResolver extends Context.Service<ContributionResolver>()(
-  "ContributionResolver",
-  {
-    make: Effect.gen(function* () {
-      const catalog = yield* CatalogService;
-      const recipes = yield* RecipeService;
-
-      const resolve = Effect.fn("ContributionResolver.resolve")(function* (
-        blueprint: Blueprint,
-        config: StackConfig,
-      ) {
-        const targets = Arr.filter(
-          blueprint.nodes,
-          BlueprintNode.guards.target,
-        );
-        const modules = Arr.filter(
-          blueprint.nodes,
-          BlueprintNode.guards["attached-module"],
-        );
-        const definitions = yield* Effect.forEach(targets, (node) =>
-          Effect.map(catalog.getTarget(node.identity.kind), (definition) => ({
-            node,
-            definition,
-          })),
-        );
-        const projectTargets = Arr.map(definitions, ({ node, definition }) => ({
-          identity: node.identity,
-          description: definition.description,
-        }));
-        // Explicit resolved targets preserve the initial provider choices in the recipe.
-        const scaffoldRecipe = recipes.renderCreateCommand({
-          config,
-          selection: {
-            targets: targets.map((node) => ({
-              identity: node.identity,
-              modules: modules
-                .filter((module) => module.targetId === node.id)
-                .map((module) => ({ id: module.moduleId })),
-            })),
-          },
-        });
-        const targetResults = yield* Effect.forEach(
-          definitions,
-          ({ node, definition }) =>
-            Effect.gen(function* () {
-              const context = new ContributionTokenContext({
-                targetKey: node.id,
-                identity: node.identity,
-                config,
-                projectTargets,
-                scaffoldRecipe,
-                moduleIds: modules
-                  .filter((module) => module.targetId === node.id)
-                  .map((module) => module.moduleId),
-              });
-
-              return {
-                context,
-                contribution: TargetContribution.make({
-                  targetKey: node.id,
-                  contributions: resolveContributionTokens(
-                    definition.contributions,
-                    context,
-                  ),
-                }),
-              } as const;
-            }),
-        );
-
-        const targetContexts = new Map(
-          Arr.map(targetResults, (r) => [r.contribution.targetKey, r.context]),
-        );
-
-        const moduleContributions = yield* Effect.forEach(
-          Arr.filter(blueprint.nodes, BlueprintNode.guards["attached-module"]),
-          (node) =>
-            Effect.gen(function* () {
-              const context = yield* Option.match(
-                Option.fromNullishOr(targetContexts.get(node.targetId)),
-                {
-                  onNone: () =>
-                    Effect.die(
-                      new Error(
-                        `Validated Blueprint is missing target context ${node.targetId}`,
-                      ),
-                    ),
-                  onSome: Effect.succeed,
-                },
-              );
-              const moduleDefinition = yield* catalog.getModule(node.moduleId);
-
-              return ModuleContribution.make({
-                targetKey: node.targetId,
-                moduleId: node.moduleId,
-                contributions: resolveContributionTokens(
-                  moduleDefinition.contributions,
-                  context,
-                ),
-              });
-            }),
-        );
-
-        return {
-          targets: Arr.map(targetResults, (r) => r.contribution),
-          modules: moduleContributions,
-        } satisfies NormalizedContributions;
-      });
-
-      return { resolve };
-    }),
-  },
-) {
-  static readonly layer = Layer.effect(ContributionResolver)(
-    ContributionResolver.make,
-  ).pipe(Layer.provide(RecipeService.layer));
-}
 
 const resolveContributionTokens = (
   contributions: ReadonlyArray<Contribution>,
@@ -134,8 +17,7 @@ const resolveContributionTokens = (
 ): ReadonlyArray<Contribution> => {
   const resolveString = (value: string) => context.resolve(value);
 
-  return Arr.flatMap(
-    contributions,
+  return contributions.flatMap(
     Contribution.match({
       file: (c): ReadonlyArray<Contribution> => {
         const path = resolveString(c.path).trim();
@@ -198,3 +80,107 @@ const resolveContributionTokens = (
     }),
   );
 };
+
+export class ContributionResolver extends Context.Service<
+  ContributionResolver,
+  {
+    readonly resolve: (
+      blueprint: Blueprint,
+      config: StackConfig,
+    ) => Effect.Effect<NormalizedContributions, CatalogNotFound>;
+  }
+>()("@repo/scaffold/ContributionResolver") {
+  static readonly layer = Layer.effect(
+    ContributionResolver,
+    Effect.gen(function* () {
+      const catalog = yield* CatalogService;
+      const recipes = yield* RecipeService;
+
+      const resolve = Effect.fn("ContributionResolver.resolve")(function* (
+        blueprint: Blueprint,
+        config: StackConfig,
+      ) {
+        const targets = blueprint.nodes.filter(BlueprintNode.guards.target);
+        const modules = blueprint.nodes.filter(
+          BlueprintNode.guards["attached-module"],
+        );
+        const definitions = yield* Effect.forEach(targets, (node) =>
+          Effect.map(catalog.getTarget(node.identity.kind), (definition) => ({
+            node,
+            definition,
+          })),
+        );
+        const projectTargets = definitions.map(({ node, definition }) => ({
+          identity: node.identity,
+          description: definition.description,
+        }));
+        // Explicit resolved targets preserve the initial provider choices in the recipe.
+        const scaffoldRecipe = recipes.renderCreateCommand({
+          config,
+          selection: {
+            targets: targets.map((node) => ({
+              identity: node.identity,
+              modules: modules
+                .filter((module) => module.targetId === node.id)
+                .map((module) => ({ id: module.moduleId })),
+            })),
+          },
+        });
+
+        const targetContexts = new Map<string, ContributionTokenContext>();
+        const targetContributions = definitions.map(({ node, definition }) => {
+          const context = new ContributionTokenContext({
+            targetKey: node.id,
+            identity: node.identity,
+            config,
+            projectTargets,
+            scaffoldRecipe,
+            moduleIds: modules
+              .filter((module) => module.targetId === node.id)
+              .map((module) => module.moduleId),
+          });
+          targetContexts.set(node.id, context);
+
+          return TargetContribution.make({
+            targetKey: node.id,
+            contributions: resolveContributionTokens(
+              definition.contributions,
+              context,
+            ),
+          });
+        });
+
+        const moduleContributions = [];
+        for (const node of modules) {
+          const context = targetContexts.get(node.targetId);
+          if (context === undefined) {
+            return yield* Effect.die(
+              new Error(
+                `Validated Blueprint is missing target context ${node.targetId}`,
+              ),
+            );
+          }
+          const moduleDefinition = yield* catalog.getModule(node.moduleId);
+
+          moduleContributions.push(
+            ModuleContribution.make({
+              targetKey: node.targetId,
+              moduleId: node.moduleId,
+              contributions: resolveContributionTokens(
+                moduleDefinition.contributions,
+                context,
+              ),
+            }),
+          );
+        }
+
+        return {
+          targets: targetContributions,
+          modules: moduleContributions,
+        } satisfies NormalizedContributions;
+      });
+
+      return ContributionResolver.of({ resolve });
+    }),
+  ).pipe(Layer.provide(RecipeService.layer));
+}

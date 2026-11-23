@@ -46,7 +46,7 @@ const FixtureHttpClient = Layer.effect(
 const FixtureLayer = CatalogProvider.official.pipe(
   Layer.provideMerge(
     CatalogLoader.layer.pipe(
-      Layer.provideMerge(CatalogCache.memory),
+      Layer.provideMerge(CatalogCache.layerMemory),
       Layer.provideMerge(FixtureHttpClient),
     ),
   ),

@@ -9,11 +9,11 @@ export const resolveNameAndRoot = Effect.fn("resolveNameAndRoot")(function* (
 
   if (nameInput === ".") {
     const resolved = path.resolve(base);
-    return { projectName: path.basename(resolved), repoRoot: resolved };
+    return { projectName: path.basename(resolved), repositoryRoot: resolved };
   }
 
   return {
     projectName: nameInput,
-    repoRoot: path.resolve(base, nameInput),
+    repositoryRoot: path.resolve(base, nameInput),
   };
 });

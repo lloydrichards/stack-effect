@@ -6,7 +6,7 @@ import {
 import { StackConfig } from "@repo/domain/Scaffold";
 import {
   ApplyService,
-  ApplyWorkspaceService,
+  ApplyWorkspaces,
   BlueprintService,
   ContributionResolver,
   FinalizeService,
@@ -22,7 +22,7 @@ import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
 export const StackEffectServicesLayer = Layer.mergeAll(
   ApplyService.layer,
-  ApplyWorkspaceService.layer,
+  ApplyWorkspaces.layer,
   BlueprintService.layer,
   ContributionResolver.layer,
   FinalizeService.layer,

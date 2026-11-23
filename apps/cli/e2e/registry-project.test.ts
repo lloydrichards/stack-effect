@@ -18,7 +18,7 @@ import { CLI, type CommandResult, spawnCommand } from "./harness";
  * so the test exercises this commit rather than the last release.
  */
 
-const repoRoot = new URL("../../../", import.meta.url).pathname;
+const repositoryRoot = new URL("../../../", import.meta.url).pathname;
 const registry = "reg/apps/catalog-registry";
 const catalogFile = `${registry}/dist/registry/v1/catalog.json`;
 
@@ -74,7 +74,7 @@ describe("registry project", () => {
             /** Build a workspace package and pack it outside the checkout. */
             const pack = (workspace: string) =>
               Effect.gen(function* () {
-                const cwd = path.join(repoRoot, workspace);
+                const cwd = path.join(repositoryRoot, workspace);
                 const exec = (...args: ReadonlyArray<string>) =>
                   spawnCommand(spawner, args, cwd, tarballs).pipe(
                     Effect.flatMap(

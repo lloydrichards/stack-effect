@@ -213,7 +213,7 @@ export const create = Command.make(
         );
       }
 
-      const { projectName, repoRoot } = yield* resolveNameAndRoot(
+      const { projectName, repositoryRoot } = yield* resolveNameAndRoot(
         flags.name.value,
         flags.root,
       );
@@ -242,7 +242,7 @@ export const create = Command.make(
       yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
-      const existing = yield* configure.readConfig(repoRoot).pipe(
+      const existing = yield* configure.readConfig(repositoryRoot).pipe(
         Effect.asSome,
         Effect.catchTag("MissingConfigError", () => Effect.succeedNone),
       );
@@ -250,7 +250,7 @@ export const create = Command.make(
       if (Option.isSome(existing)) {
         return yield* Effect.fail(
           `${CONFIG_FILENAME} already exists at ${configure.configPath(
-            repoRoot,
+            repositoryRoot,
           )}. This looks like an existing stack-effect project; use 'stack-effect init' and 'stack-effect add' for existing or incremental workflows.`,
         );
       }
@@ -260,13 +260,13 @@ export const create = Command.make(
       }
 
       if (!flags.dryRun) {
-        yield* configure.writeConfig(repoRoot, config);
+        yield* configure.writeConfig(repositoryRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
       yield* pipeline.run({
         selection,
-        repoRoot,
+        repositoryRoot,
         yes: flags.yes,
         dryRun: flags.dryRun,
         showFiles: flags.showFiles,

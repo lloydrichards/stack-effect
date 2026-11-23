@@ -3,7 +3,6 @@ export {
   CatalogCache,
   CatalogCacheFailure,
   type CatalogCacheEntry,
-  type CatalogCacheShape,
 } from "./service/catalog/CatalogCache";
 export {
   CatalogCompositionFailure,
@@ -18,18 +17,18 @@ export {
 export { ApplyPreviewFile } from "./RecipePreviewSchema";
 export {
   type ApplyWorkspace,
-  ApplyWorkspaceService,
+  ApplyWorkspaces,
   type MaterializedApply,
   type MaterializedFile,
-} from "./service/apply/ApplyWorkspaceService";
+} from "./service/apply/ApplyWorkspaces";
 export { BlueprintService } from "./service/blueprint/BlueprintService";
 export { PlanService } from "./service/plan/PlanService";
 export {
   RecipePreview,
   type RecipePreviewError,
   RecipePreviewInput,
-  RecipePreviewService,
-} from "./service/recipe/RecipePreviewService";
+  RecipePreviewer,
+} from "./service/recipe/RecipePreviewer";
 export { RecipeService } from "./service/recipe/RecipeService";
 export {
   defaultsForRuntime,

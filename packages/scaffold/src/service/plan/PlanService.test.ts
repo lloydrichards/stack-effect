@@ -21,7 +21,7 @@ import { ContributionResolver } from "./ContributionResolver";
 import { PlanService } from "./PlanService";
 import { RepositoryState } from "./RepositoryState";
 
-const testRepoRoot = "/repo";
+const testRepositoryRoot = "/repo";
 const domainIdentity = new TargetIdentity({
   kind: TargetKind.make("package"),
   name: "domain",
@@ -176,18 +176,21 @@ const buildPlan = ({
 }) =>
   Effect.gen(function* () {
     const fileSystem = yield* FileSystem.FileSystem;
-    yield* fileSystem.makeDirectory(testRepoRoot, { recursive: true });
+    yield* fileSystem.makeDirectory(testRepositoryRoot, { recursive: true });
     yield* Effect.forEach(
       Object.entries(files),
       ([path, contents]) =>
         fileSystem
           .makeDirectory(
-            `${testRepoRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
+            `${testRepositoryRoot}/${path.slice(0, path.lastIndexOf("/"))}`,
             { recursive: true },
           )
           .pipe(
             Effect.andThen(
-              fileSystem.writeFileString(`${testRepoRoot}/${path}`, contents),
+              fileSystem.writeFileString(
+                `${testRepositoryRoot}/${path}`,
+                contents,
+              ),
             ),
           ),
       { discard: true },
@@ -196,7 +199,7 @@ const buildPlan = ({
     const planService = yield* PlanService;
     return yield* planService.build({
       blueprint,
-      repoRoot: testRepoRoot,
+      repositoryRoot: testRepositoryRoot,
       config: new StackConfig({
         name: "test-project",
         runtime: { _tag: "bun" },
@@ -221,7 +224,7 @@ describe("PlanService", () => {
           capture: () =>
             Effect.succeed({
               baseline: {
-                root: testRepoRoot,
+                root: testRepositoryRoot,
                 packageOwners: [],
                 ...duplicated,
               },
@@ -235,7 +238,7 @@ describe("PlanService", () => {
             const planService = yield* PlanService;
             return yield* planService.build({
               blueprint: makeDomainBlueprint(),
-              repoRoot: testRepoRoot,
+              repositoryRoot: testRepositoryRoot,
               config: new StackConfig({
                 name: "test-project",
                 runtime: { _tag: "bun" },

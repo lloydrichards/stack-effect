@@ -64,7 +64,7 @@ Cache entries are written only after the selection composes, so an entry is neve
 
 ## Cache adapters
 
-`CatalogCache` is the runtime-neutral port: `read(sourceUrl)` and an atomic `write(entry)`. An entry holds the URL, bytes, digest, validators, and validation time. `CatalogCache.memory` serves tests.
+`CatalogCache` is the runtime-neutral port: `read(sourceUrl)` and an atomic `write(entry)`. An entry holds the URL, bytes, digest, validators, and validation time. `CatalogCache.layerMemory` serves tests.
 
 - The CLI's `fileCatalogCacheLayer` stores one JSON file per source, named by the SHA-256 hash of its URL, and writes through a temporary file and a rename. Its root is `stack-effect/registry` under `$XDG_CACHE_HOME`, else `~/Library/Caches` on macOS or `~/.cache` elsewhere. On Windows it uses `%LOCALAPPDATA%`.
 - The Recipe Builder worker stores entries in the IndexedDB database `stack-effect-catalog`. The worker supplies the same-origin registry URL as the official URL. It keeps one load per session and source set. Script trust comes from source names, never from the worker.

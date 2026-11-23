@@ -20,7 +20,7 @@ sources:
     resource: ../../packages/scaffold/src/service/apply/ApplyService.ts
     title: Apply behavior
   - id: writing
-    resource: ../../packages/scaffold/src/service/apply/WriteEngine.ts
+    resource: ../../packages/scaffold/src/service/apply/AtomicWriter.ts
     title: Host writes
 generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---

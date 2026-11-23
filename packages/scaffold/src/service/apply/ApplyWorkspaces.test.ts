@@ -18,9 +18,9 @@ import {
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { RepositoryState } from "../plan/RepositoryState";
-import { ApplyWorkspaceService } from "./ApplyWorkspaceService";
+import { ApplyWorkspaces } from "./ApplyWorkspaces";
 
-const repoRoot = "/repo";
+const repositoryRoot = "/repo";
 const JsonFromJsonString = Schema.fromJsonString(Schema.Json);
 const decodeJson = Schema.decodeUnknownSync(JsonFromJsonString);
 const encodeJson = Schema.encodeSync(JsonFromJsonString);
@@ -50,7 +50,7 @@ const composed = (
 const makeApply = (
   outcomes: ReadonlyArray<PlanOutcome>,
   decisions: ReadonlyArray<ApplyDecision> = [],
-  root = repoRoot,
+  root = repositoryRoot,
   existingContents: Readonly<Record<string, string>> = {},
 ) =>
   new Apply({
@@ -80,32 +80,38 @@ const makeApply = (
   });
 
 /** Previews an Apply the way the CLI dry run does: seed from its baseline, then materialize. */
-const preview = ({ apply, repoRoot }: { apply: Apply; repoRoot: string }) =>
+const preview = ({
+  apply,
+  repositoryRoot,
+}: {
+  apply: Apply;
+  repositoryRoot: string;
+}) =>
   Effect.gen(function* () {
-    const workspaces = yield* ApplyWorkspaceService;
+    const workspaces = yield* ApplyWorkspaces;
     const workspace = yield* workspaces.fromRepository({
-      repoRoot,
+      repositoryRoot,
       baseline: apply.plan.baseline,
     });
     return yield* workspace.materialize(apply);
   });
 
 const WorkspaceTestLayer = Layer.provideMerge(
-  ApplyWorkspaceService.layer,
+  ApplyWorkspaces.layer,
   Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
     Path.layer,
     OfficialCatalogLayer,
   ),
 );
-describe("ApplyWorkspaceService preview", () => {
+describe("ApplyWorkspaces preview", () => {
   it.effect("should return contents when creating a file", () =>
     Effect.gen(function* () {
       const result = yield* preview({
         apply: makeApply([
           complete("src/index.ts", "create", 'export const value = "ok";\n'),
         ]),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.apply.created).toEqual(["src/index.ts"]);
@@ -127,7 +133,7 @@ describe("ApplyWorkspaceService preview", () => {
         apply: makeApply([
           complete("src/index.ts", "create", "export const ok = true;\n"),
         ]),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.apply.failed).toEqual([]);
@@ -142,9 +148,9 @@ describe("ApplyWorkspaceService preview", () => {
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
       const original = "\uFEFFuser code";
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       yield* hostFileSystem.writeFileString(
-        `${repoRoot}/existing.ts`,
+        `${repositoryRoot}/existing.ts`,
         original,
       );
 
@@ -155,19 +161,19 @@ describe("ApplyWorkspaceService preview", () => {
             complete("created.ts", "create", "generated code"),
           ],
           [],
-          repoRoot,
+          repositoryRoot,
           { "existing.ts": original },
         ),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.apply.created).toEqual(["created.ts"]);
       expect(result.files).toEqual([
         { path: "created.ts", status: "created", contents: "generated code" },
       ]);
-      expect(yield* hostFileSystem.readFile(`${repoRoot}/existing.ts`)).toEqual(
-        new TextEncoder().encode(original),
-      );
+      expect(
+        yield* hostFileSystem.readFile(`${repositoryRoot}/existing.ts`),
+      ).toEqual(new TextEncoder().encode(original));
     }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
@@ -176,9 +182,11 @@ describe("ApplyWorkspaceService preview", () => {
     () =>
       Effect.gen(function* () {
         const hostFileSystem = yield* FileSystem.FileSystem;
-        yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+        yield* hostFileSystem.makeDirectory(repositoryRoot, {
+          recursive: true,
+        });
         yield* hostFileSystem.writeFileString(
-          `${repoRoot}/existing.ts`,
+          `${repositoryRoot}/existing.ts`,
           "user code",
         );
 
@@ -189,10 +197,10 @@ describe("ApplyWorkspaceService preview", () => {
               complete("created.ts", "create", "generated code"),
             ],
             [],
-            repoRoot,
+            repositoryRoot,
             { "existing.ts": "user code" },
           ),
-          repoRoot,
+          repositoryRoot,
         });
 
         expect(result.apply.created).toEqual(["created.ts"]);
@@ -201,11 +209,11 @@ describe("ApplyWorkspaceService preview", () => {
           { path: "created.ts", status: "created", contents: "generated code" },
         ]);
         expect(
-          yield* hostFileSystem.readFileString(`${repoRoot}/existing.ts`),
+          yield* hostFileSystem.readFileString(`${repositoryRoot}/existing.ts`),
         ).toBe("user code");
-        expect(yield* hostFileSystem.exists(`${repoRoot}/created.ts`)).toBe(
-          false,
-        );
+        expect(
+          yield* hostFileSystem.exists(`${repositoryRoot}/created.ts`),
+        ).toBe(false);
       }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
@@ -213,9 +221,9 @@ describe("ApplyWorkspaceService preview", () => {
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
       const original = encodeJson({ name: "app", private: true });
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       yield* hostFileSystem.writeFileString(
-        `${repoRoot}/package.json`,
+        `${repositoryRoot}/package.json`,
         original,
       );
 
@@ -231,10 +239,10 @@ describe("ApplyWorkspaceService preview", () => {
             ]),
           ],
           [],
-          repoRoot,
+          repositoryRoot,
           { "package.json": original },
         ),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.apply.failed).toEqual([]);
@@ -248,7 +256,7 @@ describe("ApplyWorkspaceService preview", () => {
 }
 `);
       expect(
-        yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
+        yield* hostFileSystem.readFileString(`${repositoryRoot}/package.json`),
       ).toBe(original);
     }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
@@ -279,13 +287,13 @@ describe("ApplyWorkspaceService preview", () => {
         Layer.succeed(Path.Path, windowsPath),
         BrowserCrypto.layer,
       );
-      const previewLayer = ApplyWorkspaceService.layer.pipe(
+      const previewLayer = ApplyWorkspaces.layer.pipe(
         Layer.provide(hostLayer),
         Layer.provide(OfficialCatalogLayer),
       );
-      const windowsRepoRoot = "C:\\repo";
+      const windowsRepositoryRoot = "C:\\repo";
       const packageJsonPath = nodePath.win32.join(
-        windowsRepoRoot,
+        windowsRepositoryRoot,
         "package.json",
       );
       const original = encodeJson({ name: "windows-app" });
@@ -293,7 +301,7 @@ describe("ApplyWorkspaceService preview", () => {
       const windowsBaseline = yield* Effect.gen(function* () {
         const state = yield* RepositoryState;
         const captured = yield* state.capture({
-          repoRoot: windowsRepoRoot,
+          repositoryRoot: windowsRepositoryRoot,
           paths: [RepositoryPath.make("package.json")],
         });
         return captured.baseline;
@@ -317,7 +325,7 @@ describe("ApplyWorkspaceService preview", () => {
             windowsBaseline.root,
             { "package.json": original },
           ),
-          repoRoot: windowsRepoRoot,
+          repositoryRoot: windowsRepositoryRoot,
         });
       }).pipe(Effect.provide(previewLayer));
 
@@ -340,7 +348,7 @@ describe("ApplyWorkspaceService preview", () => {
           [complete("existing.ts", "conflict", "replacement")],
           [{ path: RepositoryPath.make("existing.ts"), value: "skip" }],
         ),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.apply.skipped).toEqual(["existing.ts"]);
@@ -355,7 +363,7 @@ describe("ApplyWorkspaceService preview", () => {
           complete("z.ts", "create", "z"),
           complete("a.ts", "create", "a"),
         ]),
-        repoRoot,
+        repositoryRoot,
       });
 
       expect(result.files.map((file) => file.path)).toEqual(["a.ts", "z.ts"]);
@@ -363,25 +371,27 @@ describe("ApplyWorkspaceService preview", () => {
   );
 });
 
-describe("ApplyWorkspaceService", () => {
+describe("ApplyWorkspaces", () => {
   it.effect(
     "materializes an incremental Apply from one seeded repository state",
     () =>
       Effect.gen(function* () {
         const hostFileSystem = yield* FileSystem.FileSystem;
-        const workspaces = yield* ApplyWorkspaceService;
+        const workspaces = yield* ApplyWorkspaces;
         const originalPackage = encodeJson({ name: "app", private: true });
-        yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+        yield* hostFileSystem.makeDirectory(repositoryRoot, {
+          recursive: true,
+        });
         yield* hostFileSystem.writeFileString(
-          `${repoRoot}/package.json`,
+          `${repositoryRoot}/package.json`,
           originalPackage,
         );
         yield* hostFileSystem.writeFileString(
-          `${repoRoot}/notes.txt`,
+          `${repositoryRoot}/notes.txt`,
           "user notes",
         );
         yield* hostFileSystem.writeFileString(
-          `${repoRoot}/keep.ts`,
+          `${repositoryRoot}/keep.ts`,
           "user code",
         );
 
@@ -398,11 +408,11 @@ describe("ApplyWorkspaceService", () => {
             complete("src/new.ts", "create", "new code"),
           ],
           [{ path: RepositoryPath.make("keep.ts"), value: "skip" }],
-          repoRoot,
+          repositoryRoot,
           { "package.json": originalPackage, "keep.ts": "user code" },
         );
         const workspace = yield* workspaces.fromRepository({
-          repoRoot,
+          repositoryRoot,
           baseline: apply.plan.baseline,
         });
         const result = yield* workspace.materialize(apply);
@@ -422,23 +432,23 @@ describe("ApplyWorkspaceService", () => {
         });
         expect(result.files[1]?.contents).toBe("new code");
         expect(
-          yield* hostFileSystem.readFileString(`${repoRoot}/package.json`),
+          yield* hostFileSystem.readFileString(
+            `${repositoryRoot}/package.json`,
+          ),
         ).toBe(originalPackage);
         expect(
-          yield* hostFileSystem.readFileString(`${repoRoot}/keep.ts`),
+          yield* hostFileSystem.readFileString(`${repositoryRoot}/keep.ts`),
         ).toBe("user code");
         expect(
-          yield* hostFileSystem.readFileString(`${repoRoot}/notes.txt`),
+          yield* hostFileSystem.readFileString(`${repositoryRoot}/notes.txt`),
         ).toBe("user notes");
-        expect(yield* hostFileSystem.exists(`${repoRoot}/src/new.ts`)).toBe(
-          false,
-        );
+        expect(
+          yield* hostFileSystem.exists(`${repositoryRoot}/src/new.ts`),
+        ).toBe(false);
       }).pipe(
         Effect.provide(
           Layer.provideMerge(
-            ApplyWorkspaceService.layer.pipe(
-              Layer.provide(OfficialCatalogLayer),
-            ),
+            ApplyWorkspaces.layer.pipe(Layer.provide(OfficialCatalogLayer)),
             Layer.merge(
               Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
               Path.layer,
@@ -451,13 +461,16 @@ describe("ApplyWorkspaceService", () => {
   it.effect("rejects an obstructing ancestor before materialization", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaceService;
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
-      yield* hostFileSystem.writeFileString(`${repoRoot}/src`, "user file");
+      const workspaces = yield* ApplyWorkspaces;
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
+      yield* hostFileSystem.writeFileString(
+        `${repositoryRoot}/src`,
+        "user file",
+      );
       const apply = new Apply({
         plan: new Plan({
           baseline: {
-            root: repoRoot,
+            root: repositoryRoot,
             paths: [
               { _tag: "directory", path: RepositoryPath.make(".") },
               {
@@ -474,7 +487,10 @@ describe("ApplyWorkspaceService", () => {
         decisions: [],
       });
       const failure = yield* Effect.flip(
-        workspaces.fromRepository({ repoRoot, baseline: apply.plan.baseline }),
+        workspaces.fromRepository({
+          repositoryRoot,
+          baseline: apply.plan.baseline,
+        }),
       );
       expect(failure._tag).toBe("StalePlanFailure");
       if (failure._tag === "StalePlanFailure") {
@@ -483,13 +499,13 @@ describe("ApplyWorkspaceService", () => {
           kind: "typeChanged",
         });
       }
-      expect(yield* hostFileSystem.readFileString(`${repoRoot}/src`)).toBe(
-        "user file",
-      );
+      expect(
+        yield* hostFileSystem.readFileString(`${repositoryRoot}/src`),
+      ).toBe("user file");
     }).pipe(
       Effect.provide(
         Layer.provideMerge(
-          ApplyWorkspaceService.layer.pipe(Layer.provide(OfficialCatalogLayer)),
+          ApplyWorkspaces.layer.pipe(Layer.provide(OfficialCatalogLayer)),
           Layer.merge(
             Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
             Path.layer,
@@ -502,16 +518,16 @@ describe("ApplyWorkspaceService", () => {
   it.effect("rejects a host Plan that changed after workspace creation", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaceService;
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const workspaces = yield* ApplyWorkspaces;
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       const first = makeApply([complete("bar.txt", "create", "A")]);
       const second = makeApply([complete("foo.txt", "create", "B")]);
       const workspace = yield* workspaces.fromRepository({
-        repoRoot,
+        repositoryRoot,
         baseline: first.plan.baseline,
       });
       yield* hostFileSystem.writeFileString(
-        `${repoRoot}/foo.txt`,
+        `${repositoryRoot}/foo.txt`,
         "user content",
       );
 
@@ -523,21 +539,21 @@ describe("ApplyWorkspaceService", () => {
           kind: "created",
         });
       }
-      expect(yield* hostFileSystem.readFileString(`${repoRoot}/foo.txt`)).toBe(
-        "user content",
-      );
+      expect(
+        yield* hostFileSystem.readFileString(`${repositoryRoot}/foo.txt`),
+      ).toBe("user content");
     }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("rejects a different host baseline even when it is current", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaceService;
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const workspaces = yield* ApplyWorkspaces;
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       const first = makeApply([complete("bar.txt", "create", "A")]);
       const second = makeApply([complete("foo.txt", "create", "B")]);
       const workspace = yield* workspaces.fromRepository({
-        repoRoot,
+        repositoryRoot,
         baseline: first.plan.baseline,
       });
 
@@ -548,22 +564,24 @@ describe("ApplyWorkspaceService", () => {
           "Apply baseline differs from the seeded workspace",
         );
       }
-      expect(yield* hostFileSystem.exists(`${repoRoot}/foo.txt`)).toBe(false);
+      expect(yield* hostFileSystem.exists(`${repositoryRoot}/foo.txt`)).toBe(
+        false,
+      );
     }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("rechecks the seeded host Plan before materializing", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaceService;
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const workspaces = yield* ApplyWorkspaces;
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       const apply = makeApply([complete("foo.txt", "create", "generated")]);
       const workspace = yield* workspaces.fromRepository({
-        repoRoot,
+        repositoryRoot,
         baseline: apply.plan.baseline,
       });
       yield* hostFileSystem.writeFileString(
-        `${repoRoot}/foo.txt`,
+        `${repositoryRoot}/foo.txt`,
         "user content",
       );
 
@@ -575,21 +593,21 @@ describe("ApplyWorkspaceService", () => {
           kind: "created",
         });
       }
-      expect(yield* hostFileSystem.readFileString(`${repoRoot}/foo.txt`)).toBe(
-        "user content",
-      );
+      expect(
+        yield* hostFileSystem.readFileString(`${repositoryRoot}/foo.txt`),
+      ).toBe("user content");
     }).pipe(Effect.provide(WorkspaceTestLayer)),
   );
 
   it.effect("materializes a Plan built in a seeded workspace", () =>
     Effect.gen(function* () {
       const hostFileSystem = yield* FileSystem.FileSystem;
-      const workspaces = yield* ApplyWorkspaceService;
-      yield* hostFileSystem.makeDirectory(repoRoot, { recursive: true });
+      const workspaces = yield* ApplyWorkspaces;
+      yield* hostFileSystem.makeDirectory(repositoryRoot, { recursive: true });
       const workspace = yield* workspaces.fromRepository({
-        repoRoot,
+        repositoryRoot,
         baseline: {
-          root: repoRoot,
+          root: repositoryRoot,
           paths: [{ _tag: "directory", path: RepositoryPath.make(".") }],
         },
       });

@@ -37,11 +37,12 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
     make: Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
 
-      const configPath = (repoRoot: string) => `${repoRoot}/${CONFIG_FILENAME}`;
+      const configPath = (repositoryRoot: string) =>
+        `${repositoryRoot}/${CONFIG_FILENAME}`;
 
-      const readConfig = (repoRoot: string) =>
+      const readConfig = (repositoryRoot: string) =>
         Effect.gen(function* () {
-          const location = configPath(repoRoot);
+          const location = configPath(repositoryRoot);
           const raw = yield* fs.readFileString(location).pipe(
             Effect.mapError((error) =>
               error.reason._tag === "NotFound"
@@ -65,13 +66,13 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
           );
         });
 
-      const writeConfig = (repoRoot: string, config: StackConfig) =>
+      const writeConfig = (repositoryRoot: string, config: StackConfig) =>
         Effect.gen(function* () {
           const json = yield* Schema.encodeEffect(
             Schema.fromJsonString(StackConfig, { space: 2 }),
           )(config);
-          yield* fs.makeDirectory(repoRoot, { recursive: true });
-          yield* fs.writeFileString(configPath(repoRoot), `${json}\n`);
+          yield* fs.makeDirectory(repositoryRoot, { recursive: true });
+          yield* fs.writeFileString(configPath(repositoryRoot), `${json}\n`);
         });
 
       const requireConfig = readConfig;
