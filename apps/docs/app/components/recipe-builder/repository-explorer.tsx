@@ -32,11 +32,11 @@ import {
 import { useHighlightedSource } from "./use-highlighted-source";
 import type { RecipeBuilderWorkerModel } from "./use-recipe-builder-worker";
 
-export function RepositoryExplorer({
+export const RepositoryExplorer = ({
   activeFolder,
 }: {
   activeFolder?: string | undefined;
-}) {
+}) => {
   const { canPreview, previewResult } = useRecipeBuilderPreview();
   const preview = Option.getOrUndefined(AsyncResult.value(previewResult));
   const files = preview?.files;
@@ -104,15 +104,15 @@ export function RepositoryExplorer({
       )}
     </DisclosurePanel>
   );
-}
+};
 
-function LatestFileChanges({
+const LatestFileChanges = ({
   changes,
   onSelect,
 }: {
   changes: FileChange[];
   onSelect?: (path: string) => void;
-}) {
+}) => {
   if (!changes.length) return null;
   return (
     <details className="group border-b bg-background">
@@ -160,9 +160,9 @@ function LatestFileChanges({
       </ul>
     </details>
   );
-}
+};
 
-function RepositoryWorkspace({
+const RepositoryWorkspace = ({
   activeFolder,
   files,
   changes,
@@ -170,7 +170,7 @@ function RepositoryWorkspace({
   readonly files: Files;
   activeFolder?: string | undefined;
   readonly changes: FileChange[];
-}) {
+}) => {
   const [mobilePane, setMobilePane] = useState("files");
   const [selectedFile, setSelectedFile] = useState("");
   const activeFile = files.some((file) => file.path === selectedFile)
@@ -260,14 +260,14 @@ function RepositoryWorkspace({
       </Tabs>
     </>
   );
-}
+};
 
 type SourceEditorProps = {
   readonly activeFile: string;
   readonly highlightedSource: HighlightedSource;
 };
 
-function SourceEditor({ activeFile, highlightedSource }: SourceEditorProps) {
+const SourceEditor = ({ activeFile, highlightedSource }: SourceEditorProps) => {
   const editorLabelId = useId();
   return (
     <div className="flex h-full min-w-0 flex-col bg-code-block">
@@ -292,7 +292,7 @@ function SourceEditor({ activeFile, highlightedSource }: SourceEditorProps) {
       </pre>
     </div>
   );
-}
+};
 
 type RepositoryFileTreeProps = {
   activeFolder?: string | undefined;
@@ -302,13 +302,13 @@ type RepositoryFileTreeProps = {
   readonly showHeading?: boolean;
 };
 
-function RepositoryFileTree({
+const RepositoryFileTree = ({
   activeFolder,
   activeFile,
   nodes,
   onSelect,
   showHeading = false,
-}: RepositoryFileTreeProps) {
+}: RepositoryFileTreeProps) => {
   return (
     <div className="flex h-full min-h-0 flex-col">
       {showHeading ? (
@@ -326,12 +326,12 @@ function RepositoryFileTree({
       </ScrollArea>
     </div>
   );
-}
+};
 
-function previewStatusMessage(
+const previewStatusMessage = (
   result: RecipeBuilderWorkerModel["previewResult"],
   canPreview: boolean,
-) {
+) => {
   if (!canPreview)
     return "Complete the Selection to generate the repository preview.";
 
@@ -342,13 +342,13 @@ function previewStatusMessage(
         "The repository preview is unavailable. Review the error above and try again.",
     )
     .orElse(() => "Generating the repository preview…");
-}
+};
 
-function HighlightedSourceCode({
+const HighlightedSourceCode = ({
   source,
 }: {
   readonly source: HighlightedSource;
-}) {
+}) => {
   return source.map((line, lineIndex) => (
     <span key={lineIndex} className="block min-h-6">
       {line.map((token, tokenIndex) => (
@@ -362,14 +362,14 @@ function HighlightedSourceCode({
       ))}
     </span>
   ));
-}
+};
 
 type ShikiTokenStyle = CSSProperties & {
   "--shiki-light"?: string;
   "--shiki-dark"?: string;
 };
 
-function tokenStyle(token: SyntaxToken): ShikiTokenStyle {
+const tokenStyle = (token: SyntaxToken): ShikiTokenStyle => {
   const fontStyle = token.fontStyle ?? 0;
   return {
     ...(token.light === undefined ? {} : { "--shiki-light": token.light }),
@@ -378,4 +378,4 @@ function tokenStyle(token: SyntaxToken): ShikiTokenStyle {
     ...(fontStyle & 2 ? { fontWeight: "bold" } : {}),
     ...(fontStyle & 4 ? { textDecoration: "underline" } : {}),
   };
-}
+};

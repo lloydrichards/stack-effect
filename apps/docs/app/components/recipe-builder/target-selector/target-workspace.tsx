@@ -7,14 +7,14 @@ import { ActiveTargetConfiguration } from "./target-configuration";
 import { AddTargetPicker } from "./target-options";
 import { type useTargetEditor } from "./use-target-editor";
 
-function targetOrigin(
+const targetOrigin = (
   target: TargetInstance,
   {
     targets,
     catalog,
     catalogOwnersByTargetId,
   }: ReturnType<typeof useTargetEditor>,
-) {
+) => {
   const sources = targets.flatMap((source) => {
     if (source.id === target.id) return [];
     const modules = catalog?.targetModules.find(
@@ -44,13 +44,13 @@ function targetOrigin(
   return sources.length
     ? `${target.addedByDependency ? "Included by" : "Used by"} ${sources.join(", ")}`
     : undefined;
-}
+};
 
-export function TargetWorkspace({
+export const TargetWorkspace = ({
   editor,
 }: {
   editor: ReturnType<typeof useTargetEditor>;
-}) {
+}) => {
   const { targets, catalog, activeTarget, selectTarget } = editor;
   const [adding, setAdding] = useState(false);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -199,4 +199,4 @@ export function TargetWorkspace({
       </div>
     </section>
   );
-}
+};

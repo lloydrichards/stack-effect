@@ -20,7 +20,7 @@ import {
   useRecipeBuilderUrl,
 } from "./recipe-builder-context";
 
-export function RecipeBuilder() {
+export const RecipeBuilder = () => {
   return (
     <RecipeBuilderProvider>
       <article className="mx-auto flex w-full max-w-384 flex-col gap-5 pb-24 md:gap-6 md:pb-32">
@@ -35,14 +35,14 @@ export function RecipeBuilder() {
       </article>
     </RecipeBuilderProvider>
   );
-}
+};
 
 const validatedAtFormat = new Intl.DateTimeFormat(undefined, {
   dateStyle: "medium",
   timeStyle: "short",
 });
 
-function RecipeNotices() {
+const RecipeNotices = () => {
   const form = useRecipeBuilderFormContext();
   const {
     catalog,
@@ -272,4 +272,4 @@ function RecipeNotices() {
       ) : null}
     </>
   );
-}
+};

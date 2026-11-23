@@ -15,12 +15,12 @@ type Owner = SupportConfiguration["owner"];
 const moduleKey = (owner: Owner, moduleId: string) =>
   `${ownerKey(owner)}#${moduleId}`;
 
-export function moduleRequiresCapability(
+export const moduleRequiresCapability = (
   root: typeof CatalogModule.Type,
   rootOwner: Owner,
   capability: string,
   catalog: typeof RecipeBuilderCatalog.Type | undefined,
-): boolean {
+): boolean => {
   if (catalog === undefined) return false;
   const modulesByOwner = new Map(
     catalog.targetModules.map(({ owner, modules }) => [
@@ -88,7 +88,7 @@ export function moduleRequiresCapability(
     );
   };
   return visit(root, rootOwner);
-}
+};
 
 export type ModuleRelationshipNode = {
   readonly owner: Owner;
@@ -98,10 +98,10 @@ export type ModuleRelationshipNode = {
   readonly configuration?: SupportConfiguration;
 };
 
-function descendantIds(
+const descendantIds = (
   module: typeof CatalogModule.Type,
   modules: ReadonlyArray<typeof CatalogModule.Type>,
-): ReadonlySet<string> {
+): ReadonlySet<string> => {
   const modulesById = new Map<string, typeof CatalogModule.Type>(
     modules.map((candidate) => [candidate.id, candidate]),
   );
@@ -115,13 +115,13 @@ function descendantIds(
   };
   module.children.forEach((child) => visit(child.moduleId));
   return descendants;
-}
+};
 
-export function buildModuleRelationshipNodes(
+export const buildModuleRelationshipNodes = (
   root: typeof CatalogModule.Type,
   rootOwner: Owner,
   catalog: typeof RecipeBuilderCatalog.Type | undefined,
-): ReadonlyArray<ModuleRelationshipNode> {
+): ReadonlyArray<ModuleRelationshipNode> => {
   if (catalog === undefined) return [];
   const visited = new Set([moduleKey(rootOwner, root.id)]);
   const modulesByOwner = new Map(
@@ -205,15 +205,15 @@ export function buildModuleRelationshipNodes(
     });
   };
   return childrenFor(root, rootOwner, false);
-}
+};
 
-function addModuleImplications(
+const addModuleImplications = (
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
   sourceModule: typeof CatalogModule.Type,
   catalog: typeof RecipeBuilderCatalog.Type,
   nextId: () => number,
-): ReadonlyArray<TargetInstance> {
+): ReadonlyArray<TargetInstance> => {
   return sourceModule.implies.reduce((current, implication) => {
     const definition = catalog.targets.find(
       (candidate) => candidate.kind === implication.targetKind,
@@ -264,13 +264,13 @@ function addModuleImplications(
       },
     ];
   }, targets);
-}
+};
 
-function removeModuleImplications(
+const removeModuleImplications = (
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
   sourceModuleId: string,
-): ReadonlyArray<TargetInstance> {
+): ReadonlyArray<TargetInstance> => {
   return targets.flatMap((target) => {
     const comesFromSource = (requirement: TargetModuleRequirement) =>
       requirement.sourceTargetId === sourceTargetId &&
@@ -299,12 +299,12 @@ function removeModuleImplications(
       ? [{ ...target, modules, requirements, addedByDependency: undefined }]
       : [{ ...target, modules, requirements }];
   });
-}
+};
 
-export function removeTargetAndDependencies(
+export const removeTargetAndDependencies = (
   targets: ReadonlyArray<TargetInstance>,
   id: string,
-): ReadonlyArray<TargetInstance> {
+): ReadonlyArray<TargetInstance> => {
   const removed = targets.find((target) => target.id === id);
   const afterDownstreamCleanup = (removed?.modules ?? []).reduce(
     (current, moduleId) => removeModuleImplications(current, id, moduleId),
@@ -329,14 +329,14 @@ export function removeTargetAndDependencies(
     afterDownstreamCleanup,
   );
   return afterUpstreamCleanup.filter((target) => target.id !== id);
-}
+};
 
-export function removeModuleSupportSelections(
+export const removeModuleSupportSelections = (
   selections: ReadonlyArray<SupportSelection>,
   target: Pick<TargetInstance, "kind" | "name">,
   module: typeof CatalogModule.Type,
   modules: ReadonlyArray<typeof CatalogModule.Type>,
-): ReadonlyArray<SupportSelection> {
+): ReadonlyArray<SupportSelection> => {
   const targetOwnerKey = ownerKey(target);
   const removedParentIds = new Set([
     module.id,
@@ -347,29 +347,29 @@ export function removeModuleSupportSelections(
       ownerKey(selection.owner) !== targetOwnerKey ||
       !removedParentIds.has(selection.parentId),
   );
-}
+};
 
-export function removeTargetSupportSelections(
+export const removeTargetSupportSelections = (
   selections: ReadonlyArray<SupportSelection>,
   removedTargets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
-): ReadonlyArray<SupportSelection> {
+): ReadonlyArray<SupportSelection> => {
   const removedOwners = new Set(removedTargets.map(ownerKey));
   return selections.filter(
     (selection) => !removedOwners.has(ownerKey(selection.owner)),
   );
-}
+};
 
 /**
  * Keep the support selections the current catalog still resolves. Removing a
  * catalog source can drop a support target or module that a selection names.
  */
-export function retainCatalogSupportSelections(
+export const retainCatalogSupportSelections = (
   selections: ReadonlyArray<SupportSelection>,
   catalog: Pick<typeof RecipeBuilderCatalog.Type, "targetModules">,
 ): {
   readonly selections: ReadonlyArray<SupportSelection>;
   readonly removedModules: ReadonlyArray<string>;
-} {
+} => {
   const modulesByOwner = new Map(
     catalog.targetModules.map(({ owner, modules }) => [
       ownerKey(owner),
@@ -403,24 +403,26 @@ export function retainCatalogSupportSelections(
         : retained,
     removedModules: reconciled.flatMap(({ removed }) => removed),
   };
-}
+};
 
-export function publicRootModules<
+export const publicRootModules = <
   T extends Pick<typeof CatalogModule.Type, "id" | "visibility" | "children">,
->(modules: ReadonlyArray<T>) {
+>(
+  modules: ReadonlyArray<T>,
+) => {
   const childIds = new Set(
     modules.flatMap((module) => module.children.map((child) => child.moduleId)),
   );
   return modules.filter(
     (module) => module.visibility === "public" && !childIds.has(module.id),
   );
-}
+};
 
-export function nextTargetName(
+export const nextTargetName = (
   baseName: string,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
   kind: string,
-): string {
+): string => {
   const usedNames = new Set(
     targets
       .filter((target) => target.kind === kind)
@@ -433,13 +435,13 @@ export function nextTargetName(
       .find((candidate) => !usedNames.has(candidate)) ??
     `${baseName}-${usedNames.size + 2}`
   );
-}
+};
 
-export function makeTargetInstance(
+export const makeTargetInstance = (
   id: string,
   definition: (typeof RecipeBuilderCatalog.Type)["targets"][number],
   targets: ReadonlyArray<TargetInstance>,
-): TargetInstance {
+): TargetInstance => {
   const baseName = definition.defaultName ?? definition.kind;
   return {
     id,
@@ -447,16 +449,16 @@ export function makeTargetInstance(
     name: nextTargetName(baseName, targets, definition.kind),
     modules: definition.requiredModules,
   };
-}
+};
 
-export function toggleTargetModule(
+export const toggleTargetModule = (
   targets: ReadonlyArray<TargetInstance>,
   target: TargetInstance,
   module: typeof CatalogModule.Type,
   modules: ReadonlyArray<typeof CatalogModule.Type>,
   catalog: typeof RecipeBuilderCatalog.Type,
   nextId: () => number,
-): ReadonlyArray<TargetInstance> {
+): ReadonlyArray<TargetInstance> => {
   const selected = target.modules.includes(module.id);
   if (!selected) {
     const updated = targets.map((candidate) =>
@@ -479,13 +481,13 @@ export function toggleTargetModule(
       : candidate,
   );
   return removeModuleImplications(updated, target.id, module.id);
-}
+};
 
-export function toggleSupportSelection(
+export const toggleSupportSelection = (
   selections: ReadonlyArray<SupportSelection>,
   configuration: SupportConfiguration,
   moduleId: string,
-): ReadonlyArray<SupportSelection> {
+): ReadonlyArray<SupportSelection> => {
   const key = supportConfigurationKey(configuration);
   const existing = selections.find(
     (selection) => supportConfigurationKey(selection) === key,
@@ -500,12 +502,12 @@ export function toggleSupportSelection(
     ),
     { ...configuration, selected: nextSelected },
   ];
-}
+};
 
-export function dependencySourceNames(
+export const dependencySourceNames = (
   target: TargetInstance,
   targets: ReadonlyArray<TargetInstance>,
-): ReadonlyArray<string> {
+): ReadonlyArray<string> => {
   return Array.from(
     new Set(
       (target.requirements ?? []).flatMap((requirement) => {
@@ -516,10 +518,10 @@ export function dependencySourceNames(
       }),
     ),
   );
-}
+};
 
-export function supportConfigurationKey(
+export const supportConfigurationKey = (
   configuration: SupportConfiguration,
-): string {
+): string => {
   return `${ownerKey(configuration.owner)}#${configuration.parentId}`;
-}
+};

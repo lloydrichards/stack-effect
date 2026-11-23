@@ -4,7 +4,10 @@ import { Label } from "~/components/ui/label";
 import { Separator } from "~/components/ui/separator";
 import { cn } from "~/lib/utils";
 
-function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
+const FieldSet = ({
+  className,
+  ...props
+}: React.ComponentProps<"fieldset">) => {
   return (
     <fieldset
       data-slot="field-set"
@@ -15,13 +18,13 @@ function FieldSet({ className, ...props }: React.ComponentProps<"fieldset">) {
       {...props}
     />
   );
-}
+};
 
-function FieldLegend({
+const FieldLegend = ({
   className,
   variant = "legend",
   ...props
-}: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }) {
+}: React.ComponentProps<"legend"> & { variant?: "legend" | "label" }) => {
   return (
     <legend
       data-slot="field-legend"
@@ -33,7 +36,7 @@ function FieldLegend({
       {...props}
     />
   );
-}
+};
 
 const fieldGroupVariants = cva(
   "group/field-group @container/field-group flex w-full flex-col gap-5 data-[slot=checkbox-group]:gap-3 *:data-[slot=field-group]:gap-4",
@@ -51,11 +54,11 @@ const fieldGroupVariants = cva(
   },
 );
 
-function FieldGroup({
+const FieldGroup = ({
   className,
   variant = "default",
   ...props
-}: React.ComponentProps<"div"> & VariantProps<typeof fieldGroupVariants>) {
+}: React.ComponentProps<"div"> & VariantProps<typeof fieldGroupVariants>) => {
   return (
     <div
       data-slot="field-group"
@@ -64,7 +67,7 @@ function FieldGroup({
       {...props}
     />
   );
-}
+};
 
 const fieldVariants = cva(
   "group/field flex w-full gap-2 data-[invalid=true]:text-destructive",
@@ -121,13 +124,13 @@ type FieldProps = React.ComponentProps<"div"> &
       }
   );
 
-function Field({
+const Field = ({
   className,
   orientation = "vertical",
   variant = "default",
   density,
   ...props
-}: FieldProps) {
+}: FieldProps) => {
   const resolvedDensity = density ?? "default";
   return (
     <div
@@ -143,9 +146,9 @@ function Field({
       {...props}
     />
   );
-}
+};
 
-function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
+const FieldContent = ({ className, ...props }: React.ComponentProps<"div">) => {
   return (
     <div
       data-slot="field-content"
@@ -156,12 +159,12 @@ function FieldContent({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     />
   );
-}
+};
 
-function FieldLabel({
+const FieldLabel = ({
   className,
   ...props
-}: React.ComponentProps<typeof Label>) {
+}: React.ComponentProps<typeof Label>) => {
   return (
     <Label
       data-slot="field-label"
@@ -172,9 +175,9 @@ function FieldLabel({
       {...props}
     />
   );
-}
+};
 
-function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
+const FieldTitle = ({ className, ...props }: React.ComponentProps<"div">) => {
   return (
     <div
       data-slot="field-label"
@@ -185,9 +188,12 @@ function FieldTitle({ className, ...props }: React.ComponentProps<"div">) {
       {...props}
     />
   );
-}
+};
 
-function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
+const FieldDescription = ({
+  className,
+  ...props
+}: React.ComponentProps<"p">) => {
   return (
     <p
       data-slot="field-description"
@@ -200,15 +206,15 @@ function FieldDescription({ className, ...props }: React.ComponentProps<"p">) {
       {...props}
     />
   );
-}
+};
 
-function FieldSeparator({
+const FieldSeparator = ({
   children,
   className,
   ...props
 }: React.ComponentProps<"div"> & {
   children?: React.ReactNode;
-}) {
+}) => {
   return (
     <div
       data-slot="field-separator"
@@ -230,16 +236,16 @@ function FieldSeparator({
       )}
     </div>
   );
-}
+};
 
-function FieldError({
+const FieldError = ({
   className,
   children,
   errors,
   ...props
 }: React.ComponentProps<"div"> & {
   errors?: Array<{ message?: string } | undefined>;
-}) {
+}) => {
   const content = useMemo(() => {
     if (children) {
       return children;
@@ -281,7 +287,7 @@ function FieldError({
       {content}
     </div>
   );
-}
+};
 
 export {
   Field,

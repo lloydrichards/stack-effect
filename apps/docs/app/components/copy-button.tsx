@@ -9,7 +9,7 @@ type CopyButtonProps = {
   className?: string;
 };
 
-export function CopyButton({ getValue, className }: CopyButtonProps) {
+export const CopyButton = ({ getValue, className }: CopyButtonProps) => {
   const { status, copy } = useCopyToClipboard();
 
   const handleCopy = useCallback(async () => {
@@ -74,4 +74,4 @@ export function CopyButton({ getValue, className }: CopyButtonProps) {
       ) : null}
     </button>
   );
-}
+};

@@ -10,7 +10,7 @@ import {
   useRecipeBuilderPreview,
 } from "./recipe-builder-context";
 
-export function RecipeCommand() {
+export const RecipeCommand = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog } = useRecipeBuilderCatalog();
   const { canPreview, previewResult } = useRecipeBuilderPreview();
@@ -76,4 +76,4 @@ export function RecipeCommand() {
       onShareSuccess={trackRecipeShare}
     />
   );
-}
+};

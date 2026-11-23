@@ -19,7 +19,7 @@ type DisclosurePanelProps = {
   readonly headingLevel?: "h2" | "h3" | "h4";
 };
 
-export function DisclosurePanel({
+export const DisclosurePanel = ({
   title,
   description,
   meta,
@@ -28,7 +28,7 @@ export function DisclosurePanel({
   keepMounted = false,
   children,
   headingLevel: Heading = "h2",
-}: DisclosurePanelProps) {
+}: DisclosurePanelProps) => {
   const titleId = useId();
 
   return (
@@ -68,4 +68,4 @@ export function DisclosurePanel({
       </Collapsible>
     </section>
   );
-}
+};

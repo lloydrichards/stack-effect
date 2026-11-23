@@ -11,12 +11,12 @@ const CONTENT_BASE = "blob/main/apps/docs/app/content";
 /** Flattened nav items in reading order */
 const flatNav = navigation.flatMap((section) => section.items);
 
-function getContentPath(pathname: string): string {
+const getContentPath = (pathname: string): string => {
   if (pathname === "/") return "index.mdx";
   return `${pathname.slice(1)}.mdx`;
-}
+};
 
-export function DocFooter() {
+export const DocFooter = () => {
   const { pathname } = useLocation();
 
   if (pathname === "/") {
@@ -72,9 +72,9 @@ export function DocFooter() {
       </div>
     </footer>
   );
-}
+};
 
-function LandingFooter() {
+const LandingFooter = () => {
   return (
     <footer className="mt-20 flex flex-wrap items-center justify-between gap-x-6 border-t border-border/50 pt-5 text-xs text-muted-foreground">
       <p className="flex min-h-11 items-center lg:min-h-0">
@@ -123,9 +123,9 @@ function LandingFooter() {
       </nav>
     </footer>
   );
-}
+};
 
-function AgentLinks() {
+const AgentLinks = () => {
   return (
     <nav
       aria-label="Agent documentation"
@@ -145,4 +145,4 @@ function AgentLinks() {
       </a>
     </nav>
   );
-}
+};

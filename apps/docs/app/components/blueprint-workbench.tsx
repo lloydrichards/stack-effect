@@ -216,7 +216,7 @@ ${bold}- packages/domain (package)${reset}
 
 const defaultRecipe = recipes[0];
 
-export function BlueprintWorkbench() {
+export const BlueprintWorkbench = () => {
   const [recipeId, setRecipeId] = useState(defaultRecipe.id);
   const [stepIndex, setStepIndex] = useState(0);
   const {
@@ -366,9 +366,9 @@ export function BlueprintWorkbench() {
       </div>
     </section>
   );
-}
+};
 
-function AnimatedHeight({ children }: { children: React.ReactNode }) {
+const AnimatedHeight = ({ children }: { children: React.ReactNode }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const [height, setHeight] = useState<number>();
 
@@ -392,9 +392,9 @@ function AnimatedHeight({ children }: { children: React.ReactNode }) {
       <div ref={contentRef}>{children}</div>
     </div>
   );
-}
+};
 
-function StepContent({
+const StepContent = ({
   recipe,
   step,
   command,
@@ -406,7 +406,7 @@ function StepContent({
   command: string;
   copyStatus: CopyStatusValue;
   onCopy: (value: string) => void;
-}) {
+}) => {
   switch (step) {
     case "Selection":
       return (
@@ -453,9 +453,9 @@ function StepContent({
         />
       );
   }
-}
+};
 
-function SelectionStep({
+const SelectionStep = ({
   recipe,
   command,
   copyStatus,
@@ -465,7 +465,7 @@ function SelectionStep({
   command: string;
   copyStatus: CopyStatusValue;
   onCopy: (value: string) => void;
-}) {
+}) => {
   return (
     <div>
       <StepHeading
@@ -492,9 +492,9 @@ ${dim}# Selection: --target ${bold}${recipe.target}${reset}`}
       <CopyStatus status={copyStatus} />
     </div>
   );
-}
+};
 
-function TerminalStep({
+const TerminalStep = ({
   eyebrow,
   title,
   detail,
@@ -512,7 +512,7 @@ function TerminalStep({
     value: string;
     onCopy: (value: string) => void;
   };
-}) {
+}) => {
   return (
     <div>
       <StepHeading eyebrow={eyebrow} title={title} detail={detail} />
@@ -534,9 +534,9 @@ function TerminalStep({
       {copy ? <CopyStatus status={copy.status} /> : null}
     </div>
   );
-}
+};
 
-function CopyCommandButton({
+const CopyCommandButton = ({
   copiedLabel,
   idleLabel,
   status,
@@ -546,7 +546,7 @@ function CopyCommandButton({
   idleLabel: string;
   status: CopyStatusValue;
   onClick: () => void;
-}) {
+}) => {
   return (
     <Button
       size="icon-sm"
@@ -562,9 +562,9 @@ function CopyCommandButton({
       )}
     </Button>
   );
-}
+};
 
-function CopyStatus({ status }: { status: CopyStatusValue }) {
+const CopyStatus = ({ status }: { status: CopyStatusValue }) => {
   return (
     <p
       role="status"
@@ -580,9 +580,9 @@ function CopyStatus({ status }: { status: CopyStatusValue }) {
           : null}
     </p>
   );
-}
+};
 
-function StepHeading({
+const StepHeading = ({
   eyebrow,
   title,
   detail,
@@ -590,7 +590,7 @@ function StepHeading({
   eyebrow: string;
   title: string;
   detail: string;
-}) {
+}) => {
   return (
     <div>
       <p className="font-mono text-xs font-semibold uppercase tracking-[0.06em] text-primary">
@@ -604,4 +604,4 @@ function StepHeading({
       </p>
     </div>
   );
-}
+};

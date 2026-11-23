@@ -16,7 +16,7 @@ import {
   encodeRecipeBuilderUrl,
 } from "./recipe-builder-url";
 
-export function useRecipeBuilderUrlState() {
+export const useRecipeBuilderUrlState = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const search = searchParams.toString();
   const labsCatalog = useMemo(
@@ -188,4 +188,4 @@ export function useRecipeBuilderUrlState() {
       unconfirmedCatalogs.length === 0 &&
       labsMigration === undefined,
   };
-}
+};

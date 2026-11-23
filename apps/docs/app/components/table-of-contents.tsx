@@ -15,7 +15,7 @@ type TableOfContentsProps = {
   desktopOnly?: boolean;
 };
 
-export function TableOfContents({ toc, desktopOnly }: TableOfContentsProps) {
+export const TableOfContents = ({ toc, desktopOnly }: TableOfContentsProps) => {
   const ids = useMemo(() => toc.map((item) => item.id), [toc]);
   const activeId = useActiveHeading(ids);
 
@@ -34,9 +34,9 @@ export function TableOfContents({ toc, desktopOnly }: TableOfContentsProps) {
 
   // Mobile-only: collapsible above content
   return <MobileTOC toc={toc} activeId={activeId} />;
-}
+};
 
-function MobileTOC({ toc, activeId }: { toc: TOCItem[]; activeId: string }) {
+const MobileTOC = ({ toc, activeId }: { toc: TOCItem[]; activeId: string }) => {
   const [open, setOpen] = useState(false);
 
   return (
@@ -56,7 +56,7 @@ function MobileTOC({ toc, activeId }: { toc: TOCItem[]; activeId: string }) {
       </CollapsibleContent>
     </Collapsible>
   );
-}
+};
 
 type TOCNode = {
   item: TOCItem;
@@ -64,7 +64,7 @@ type TOCNode = {
 };
 
 /** Convert flat TOC array into a nested tree */
-function buildTree(items: TOCItem[]): TOCNode[] {
+const buildTree = (items: TOCItem[]): TOCNode[] => {
   const root: TOCNode[] = [];
   const stack: TOCNode[] = [];
 
@@ -89,9 +89,9 @@ function buildTree(items: TOCItem[]): TOCNode[] {
   }
 
   return root;
-}
+};
 
-function TOCList({
+const TOCList = ({
   toc,
   activeId,
   onClick,
@@ -99,7 +99,7 @@ function TOCList({
   toc: TOCItem[];
   activeId: string;
   onClick?: () => void;
-}) {
+}) => {
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
       e.preventDefault();
@@ -127,9 +127,9 @@ function TOCList({
       ))}
     </ul>
   );
-}
+};
 
-function TOCNodeItem({
+const TOCNodeItem = ({
   node,
   activeId,
   onClickLink,
@@ -137,7 +137,7 @@ function TOCNodeItem({
   node: TOCNode;
   activeId: string;
   onClickLink: (e: React.MouseEvent<HTMLAnchorElement>, id: string) => void;
-}) {
+}) => {
   const { item, children } = node;
   const isActive = item.id === activeId;
 
@@ -167,4 +167,4 @@ function TOCNodeItem({
       )}
     </li>
   );
-}
+};

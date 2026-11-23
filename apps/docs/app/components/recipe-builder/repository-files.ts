@@ -7,7 +7,7 @@ export type FileChange = {
   status: "Added" | "Changed" | "Removed";
 };
 
-export function compareFiles(before: Files, after: Files): FileChange[] {
+export const compareFiles = (before: Files, after: Files): FileChange[] => {
   const previous = new Map(before.map((file) => [file.path, file.contents]));
   const changes: FileChange[] = [];
   for (const file of after) {
@@ -19,12 +19,12 @@ export function compareFiles(before: Files, after: Files): FileChange[] {
   }
   for (const path of previous.keys()) changes.push({ path, status: "Removed" });
   return changes;
-}
+};
 
-export function fileTree(
+export const fileTree = (
   paths: ReadonlyArray<string>,
   changes: ReadonlyArray<FileChange>,
-): ReadonlyArray<FileTreeNodeData> {
+): ReadonlyArray<FileTreeNodeData> => {
   type MutableNode = {
     name: string;
     path?: string;
@@ -86,4 +86,4 @@ export function fileTree(
           : {}),
       }));
   return serialize(root);
-}
+};

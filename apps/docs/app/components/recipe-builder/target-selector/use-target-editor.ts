@@ -22,7 +22,7 @@ import {
   toggleTargetModule,
 } from "./state";
 
-export function useTargetEditor() {
+export const useTargetEditor = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogFailed, catalogOwnersByTargetId } =
     useRecipeBuilderCatalog();
@@ -202,4 +202,4 @@ export function useTargetEditor() {
     toggleModule,
     toggleSupportModule,
   };
-}
+};

@@ -15,7 +15,7 @@ import {
 } from "~/components/ui/sidebar";
 import { navigation } from "~/nav.config";
 
-export function AppSidebar() {
+export const AppSidebar = () => {
   const location = useLocation();
 
   return (
@@ -93,4 +93,4 @@ export function AppSidebar() {
       </SidebarFooter>
     </Sidebar>
   );
-}
+};

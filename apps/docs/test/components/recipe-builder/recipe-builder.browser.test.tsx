@@ -236,7 +236,7 @@ const currentCatalogCount = () =>
 const lastRequestedSources = () =>
   workerCalls.catalogRequests.at(-1)?.sources.map((source) => source.name);
 
-function RecipeBuilderLocationProbe() {
+const RecipeBuilderLocationProbe = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -254,7 +254,7 @@ function RecipeBuilderLocationProbe() {
       <output aria-label="Recipe URL search">{location.search}</output>
     </>
   );
-}
+};
 
 const targetsStep = () =>
   page.getByRole("button", { name: /Targets & files/u }).click();

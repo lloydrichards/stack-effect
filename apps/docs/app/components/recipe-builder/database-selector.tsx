@@ -22,7 +22,7 @@ const moduleTitleList = new Intl.ListFormat("en", {
   type: "conjunction",
 });
 
-export function DatabaseSelector() {
+export const DatabaseSelector = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogOwnersByTargetId } = useRecipeBuilderCatalog();
   const database = useSelector(form.store, (state) => state.values.database);
@@ -125,4 +125,4 @@ export function DatabaseSelector() {
       </div>
     </DisclosurePanel>
   );
-}
+};

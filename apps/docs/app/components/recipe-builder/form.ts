@@ -147,14 +147,14 @@ export const initialRecipeBuilderValues: RecipeBuilderFormValues = {
   supportSelections: [],
 };
 
-export function useRecipeBuilderForm(
+export const useRecipeBuilderForm = (
   initialValues: RecipeBuilderFormValues = initialRecipeBuilderValues,
-) {
+) => {
   return useForm({
     defaultValues: initialValues,
     validators: { onChange: recipeBuilderFormValidator },
   });
-}
+};
 
 export type RecipeBuilderFormApi = ReturnType<typeof useRecipeBuilderForm>;
 
@@ -181,9 +181,9 @@ const withoutOfficialChoices = (
   };
 };
 
-export function toRecipePreviewInput(
+export const toRecipePreviewInput = (
   formValues: RecipeBuilderFormValues,
-): RecipePreviewInput {
+): RecipePreviewInput => {
   const values = usesOfficialCatalog(formValues.config.catalogs)
     ? formValues
     : withoutOfficialChoices(formValues);
@@ -265,4 +265,4 @@ export function toRecipePreviewInput(
       ],
     },
   };
-}
+};

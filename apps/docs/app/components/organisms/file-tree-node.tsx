@@ -23,7 +23,7 @@ type FileTreeNodeProps = {
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 };
 
-export function FileTreeNode({
+export const FileTreeNode = ({
   item,
   selected,
   focused,
@@ -32,7 +32,7 @@ export function FileTreeNode({
   onFocus,
   onActivate,
   onKeyDown,
-}: FileTreeNodeProps) {
+}: FileTreeNodeProps) => {
   const folder = item.node.children !== undefined;
   const counts = item.open ? undefined : item.node.folderChanges;
   const summary =
@@ -122,4 +122,4 @@ export function FileTreeNode({
       )}
     </Button>
   );
-}
+};

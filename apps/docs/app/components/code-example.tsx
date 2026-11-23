@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
 
-export function CodeExample({
+export const CodeExample = ({
   children,
   layout = "stacked",
 }: {
   children: ReactNode;
   layout?: "stacked" | "side-by-side";
-}) {
+}) => {
   return (
     <div
       className={
@@ -18,4 +18,4 @@ export function CodeExample({
       {children}
     </div>
   );
-}
+};
