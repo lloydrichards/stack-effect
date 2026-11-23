@@ -54,7 +54,7 @@ export class RecipePreviewService extends Context.Service<
       });
       const blueprint = yield* blueprints.resolve(selection, config);
 
-      const workspace = yield* workspaces.create();
+      const workspace = yield* workspaces.empty();
       const plan = yield* workspace.plan({ blueprint, config });
       const apply = new Apply({ plan, decisions: [] });
       const applied = yield* workspace.materialize(apply);

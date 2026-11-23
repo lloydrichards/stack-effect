@@ -367,17 +367,16 @@ export class CatalogService extends Context.Service<CatalogService>()(
         }
 
         const moduleNodes = new Map<string, number>();
-        for (const mod of moduleRegistry) {
+        const indexedModules = Arr.map(moduleRegistry, (mod) => {
           const idx = Graph.addNode(g, {
             _tag: "module" as const,
             definition: mod,
           });
           moduleNodes.set(mod.id, idx);
-        }
+          return [mod, idx] as const;
+        });
 
-        for (const mod of moduleRegistry) {
-          const modIdx = moduleNodes.get(mod.id)!;
-
+        for (const [mod, modIdx] of indexedModules) {
           for (const supported of mod.supportedOn) {
             const targetIdx = targetNodes.get(supportedOnTargetKind(supported));
             if (targetIdx !== undefined) {

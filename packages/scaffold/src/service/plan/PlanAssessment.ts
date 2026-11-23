@@ -9,6 +9,7 @@ import {
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
+  Effect,
   Match,
   Option,
   Predicate,
@@ -18,69 +19,87 @@ import {
 } from "effect";
 import { findJsxSlotMarker, makeJsxSourceFile } from "../JsxSlot";
 
-type PlanningIntentPackageJsonDependency = {
-  readonly section: "dependencies" | "devDependencies";
-  readonly name: string;
-  readonly value: string;
-};
+export const PlanningIntentImport = Schema.Struct({
+  moduleSpecifier: Schema.String,
+  namedImports: Schema.Union([Schema.Array(Schema.String), Schema.Undefined]),
+  defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
+  namespaceImport: Schema.Union([Schema.String, Schema.Undefined]),
+});
 
-export type PlanningIntentComposition = {
-  readonly targetVariable: string;
-  readonly functionName: string;
-  readonly argument: string;
-  readonly import: {
-    readonly moduleSpecifier: string;
-    readonly namedImports: ReadonlyArray<string> | undefined;
-    readonly defaultImport: string | undefined;
-    readonly namespaceImport: string | undefined;
-  };
-};
+const PlanningIntentComposition = Schema.Struct({
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  argument: Schema.String,
+  import: PlanningIntentImport,
+});
 
-export type PlanningIntentObjectField = {
-  readonly targetVariable: string;
-  readonly functionName: string;
-  readonly field: string;
-  readonly value: string;
-  readonly import:
-    | {
-        readonly moduleSpecifier: string;
-        readonly namedImports: ReadonlyArray<string> | undefined;
-        readonly defaultImport: string | undefined;
-        readonly namespaceImport: string | undefined;
-      }
-    | undefined;
-};
+const PlanningIntentObjectField = Schema.Struct({
+  targetVariable: Schema.String,
+  functionName: Schema.String,
+  field: Schema.String,
+  value: Schema.String,
+  import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
+});
 
-export type PlanningIntentJsxSlot = {
-  readonly slotId: string;
-  readonly content: string;
-  readonly import:
-    | {
-        readonly moduleSpecifier: string;
-        readonly namedImports: ReadonlyArray<string> | undefined;
-        readonly defaultImport: string | undefined;
-        readonly namespaceImport: string | undefined;
-      }
-    | undefined;
-};
+const PlanningIntentJsxSlot = Schema.Struct({
+  slotId: Schema.String,
+  content: Schema.String,
+  import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
+});
 
-export type PlanningIntentPath = {
-  readonly path: string;
-  readonly contents: string | undefined;
-  readonly exports: ReadonlyArray<{ name: string; value: string }>;
-  readonly dependencies: ReadonlyArray<PlanningIntentPackageJsonDependency>;
-  readonly scripts: ReadonlyArray<{ name: string; value: string }>;
-  readonly barrelExports: ReadonlyArray<{ exportPath: string }>;
-  readonly compositions: ReadonlyArray<PlanningIntentComposition>;
-  readonly objectFields: ReadonlyArray<PlanningIntentObjectField>;
-  readonly jsxSlots: ReadonlyArray<PlanningIntentJsxSlot>;
-  readonly tsconfig:
-    | {
-        path: string;
-        contents: string;
-      }
-    | undefined;
-};
+const PlanningIntentNamedValue = Schema.Struct({
+  name: Schema.String,
+  value: Schema.String,
+});
+
+const PlanningIntentPackageJsonDependency = Schema.Struct({
+  section: Schema.Literals(["dependencies", "devDependencies"]),
+  name: Schema.String,
+  value: Schema.String,
+});
+
+/** Authoritative contents that a merge case writes before its operations when the path is missing. */
+const PlanningIntentSeed = Schema.Union([Schema.String, Schema.Undefined]);
+
+/** The planning intent for one path, decided once from the contributions that target it. */
+export const PlanningIntentPath = Schema.TaggedUnion({
+  authoritative: {
+    path: Schema.String,
+    contents: Schema.String,
+  },
+  /** Authoritative contents that must not replace a different existing file. */
+  conflictOnModify: {
+    path: Schema.String,
+    contents: Schema.String,
+  },
+  packageJson: {
+    path: Schema.String,
+    seed: PlanningIntentSeed,
+    exports: Schema.Array(PlanningIntentNamedValue),
+    dependencies: Schema.Array(PlanningIntentPackageJsonDependency),
+    scripts: Schema.Array(PlanningIntentNamedValue),
+  },
+  barrel: {
+    path: Schema.String,
+    seed: PlanningIntentSeed,
+    exportPaths: Schema.Array(Schema.String),
+  },
+  tsComposition: {
+    path: Schema.String,
+    seed: PlanningIntentSeed,
+    compositions: Schema.Array(PlanningIntentComposition),
+    objectFields: Schema.Array(PlanningIntentObjectField),
+  },
+  jsxSlot: {
+    path: Schema.String,
+    seed: PlanningIntentSeed,
+    jsxSlots: Schema.Array(PlanningIntentJsxSlot),
+  },
+});
+
+export type PlanningIntentPath = typeof PlanningIntentPath.Type;
+
+type PackageJsonIntent = typeof PlanningIntentPath.cases.packageJson.Type;
 
 type PathAssessment = {
   readonly classification: typeof PlanEntryClassification.Type;
@@ -92,6 +111,8 @@ type FlatStringRecordAssessment<Conflict> = {
   readonly hasAdditions: boolean;
 };
 
+type SnapshotPath = typeof RepoSnapshot.fields.paths.value.Type | undefined;
+
 const generatedDenoTask =
   /^deno (?:(?:run (?:--watch )?)|compile )--allow-env --allow-net --allow-read --allow-write(?: --output dist\/[\w.-]+)? src\/index\.ts$/;
 
@@ -99,7 +120,11 @@ export const preserveDenoSqlitePermissions = (
   planningPath: PlanningIntentPath,
   snapshotPath: SnapshotPath,
 ): PlanningIntentPath => {
-  if (planningPath.scripts.length === 0 || snapshotPath?._tag !== "file") {
+  if (
+    planningPath._tag !== "packageJson" ||
+    planningPath.scripts.length === 0 ||
+    snapshotPath?._tag !== "file"
+  ) {
     return planningPath;
   }
 
@@ -128,60 +153,89 @@ export const toPlannedFileOutcome = ({
   planningPath: PlanningIntentPath;
   classification: typeof PlanEntryClassification.Type;
 }): typeof PlanOutcome.Type => {
-  const operations = toCompositionOperations(planningPath);
-  const hasOperations = operations.length > 0;
-  const contents =
-    planningPath.contents ?? planningPath.tsconfig?.contents ?? undefined;
+  const complete = ({ path, contents }: { path: string; contents: string }) =>
+    ({ _tag: "complete", path, classification, contents }) as const;
+  const composed = (
+    { path, seed }: { path: string; seed: string | undefined },
+    operations: ReadonlyArray<typeof CompositionOperation.Type>,
+  ) =>
+    seed === undefined
+      ? ({ _tag: "composed", path, classification, operations } as const)
+      : ({
+          _tag: "composed",
+          path,
+          classification,
+          seedContents: seed,
+          operations,
+        } as const);
 
-  return Match.value({
-    hasContents: contents !== undefined,
-    hasOperations,
-  }).pipe(
-    Match.when({ hasContents: true, hasOperations: true }, () => ({
-      _tag: "composed" as const,
-      path: planningPath.path,
-      classification,
-      seedContents: contents!,
-      operations,
-    })),
-    Match.when({ hasContents: true, hasOperations: false }, () => ({
-      _tag: "complete" as const,
-      path: planningPath.path,
-      classification,
-      contents: contents!,
-    })),
-    Match.when({ hasContents: false, hasOperations: true }, () => ({
-      _tag: "composed" as const,
-      path: planningPath.path,
-      classification,
-      operations,
-    })),
-    Match.when({ hasContents: false, hasOperations: false }, () => {
-      throw new PlanFailure({
-        message: `No planned outcome could be derived for ${planningPath.path}.`,
-      });
-    }),
-    Match.exhaustive,
-  );
+  return Match.valueTags(planningPath, {
+    authoritative: complete,
+    conflictOnModify: complete,
+    packageJson: (intent) => composed(intent, packageJsonOperations(intent)),
+    barrel: (intent) =>
+      composed(
+        intent,
+        Arr.map(intent.exportPaths, (moduleSpecifier) => ({
+          _tag: "ts-add-reexport" as const,
+          fileType: "typescript" as const,
+          moduleSpecifier,
+        })),
+      ),
+    tsComposition: (intent) =>
+      composed(intent, [
+        ...Arr.flatMap(intent.compositions, (composition) => [
+          importOperation(composition.import),
+          {
+            _tag: "ts-append-call-arg" as const,
+            fileType: "typescript" as const,
+            targetVariable: composition.targetVariable,
+            functionName: composition.functionName,
+            argument: composition.argument,
+          },
+        ]),
+        ...Arr.flatMap(intent.objectFields, (objectField) => [
+          ...optionalImportOperation(objectField.import),
+          {
+            _tag: "ts-object-field" as const,
+            fileType: "typescript" as const,
+            targetVariable: objectField.targetVariable,
+            functionName: objectField.functionName,
+            field: objectField.field,
+            value: objectField.value,
+          },
+        ]),
+      ]),
+    jsxSlot: (intent) =>
+      composed(
+        intent,
+        Arr.flatMap(intent.jsxSlots, (jsxSlot) => [
+          ...optionalImportOperation(jsxSlot.import),
+          {
+            _tag: "ts-jsx-slot" as const,
+            fileType: "typescript" as const,
+            slotId: jsxSlot.slotId,
+            content: jsxSlot.content,
+          },
+        ]),
+      ),
+  });
 };
 
-const toCompositionOperations = (
-  planningPath: PlanningIntentPath,
+const packageJsonOperations = (
+  intent: PackageJsonIntent,
 ): Array<typeof CompositionOperation.Type> => {
   const operations: Array<typeof CompositionOperation.Type> = [];
 
-  if (planningPath.exports.length > 0) {
+  if (intent.exports.length > 0) {
     operations.push({
       _tag: "json-pkg-exports",
       fileType: "json",
-      entries: planningPath.exports.map(({ name, value }) => ({ name, value })),
+      entries: intent.exports.map(({ name, value }) => ({ name, value })),
     });
   }
 
-  const depsBySection = Arr.groupBy(
-    planningPath.dependencies,
-    (d) => d.section,
-  );
+  const depsBySection = Arr.groupBy(intent.dependencies, (d) => d.section);
   for (const [section, deps] of Object.entries(depsBySection)) {
     operations.push({
       _tag: "json-pkg-deps",
@@ -191,144 +245,83 @@ const toCompositionOperations = (
     });
   }
 
-  if (planningPath.scripts.length > 0) {
+  if (intent.scripts.length > 0) {
     operations.push({
       _tag: "json-pkg-scripts",
       fileType: "json",
-      entries: planningPath.scripts,
-    });
-  }
-
-  for (const { exportPath } of planningPath.barrelExports) {
-    operations.push({
-      _tag: "ts-add-reexport",
-      fileType: "typescript",
-      moduleSpecifier: exportPath,
-    });
-  }
-
-  for (const composition of planningPath.compositions) {
-    operations.push({
-      _tag: "ts-add-import",
-      fileType: "typescript",
-      moduleSpecifier: composition.import.moduleSpecifier,
-      namedImports: composition.import.namedImports,
-      defaultImport: composition.import.defaultImport,
-      namespaceImport: composition.import.namespaceImport,
-    });
-
-    operations.push({
-      _tag: "ts-append-call-arg",
-      fileType: "typescript",
-      targetVariable: composition.targetVariable,
-      functionName: composition.functionName,
-      argument: composition.argument,
-    });
-  }
-
-  for (const objectField of planningPath.objectFields) {
-    if (objectField.import) {
-      operations.push({
-        _tag: "ts-add-import",
-        fileType: "typescript",
-        moduleSpecifier: objectField.import.moduleSpecifier,
-        namedImports: objectField.import.namedImports,
-        defaultImport: objectField.import.defaultImport,
-        namespaceImport: objectField.import.namespaceImport,
-      });
-    }
-
-    operations.push({
-      _tag: "ts-object-field",
-      fileType: "typescript",
-      targetVariable: objectField.targetVariable,
-      functionName: objectField.functionName,
-      field: objectField.field,
-      value: objectField.value,
-    });
-  }
-
-  for (const jsxSlot of planningPath.jsxSlots) {
-    if (jsxSlot.import) {
-      operations.push({
-        _tag: "ts-add-import",
-        fileType: "typescript",
-        moduleSpecifier: jsxSlot.import.moduleSpecifier,
-        namedImports: jsxSlot.import.namedImports,
-        defaultImport: jsxSlot.import.defaultImport,
-        namespaceImport: jsxSlot.import.namespaceImport,
-      });
-    }
-
-    operations.push({
-      _tag: "ts-jsx-slot",
-      fileType: "typescript",
-      slotId: jsxSlot.slotId,
-      content: jsxSlot.content,
+      entries: intent.scripts,
     });
   }
 
   return operations;
 };
 
-export const assess = ({
+const importOperation = (
+  planningImport: typeof PlanningIntentImport.Type,
+): typeof CompositionOperation.Type => ({
+  _tag: "ts-add-import",
+  fileType: "typescript",
+  moduleSpecifier: planningImport.moduleSpecifier,
+  namedImports: planningImport.namedImports,
+  defaultImport: planningImport.defaultImport,
+  namespaceImport: planningImport.namespaceImport,
+});
+
+const optionalImportOperation = (
+  planningImport: typeof PlanningIntentImport.Type | undefined,
+) => (planningImport === undefined ? [] : [importOperation(planningImport)]);
+
+export const assess = Effect.fnUntraced(function* ({
   planningPath,
   snapshotPath,
 }: {
   planningPath: PlanningIntentPath;
-  snapshotPath: typeof RepoSnapshot.fields.paths.value.Type | undefined;
-}): PathAssessment => {
-  const hasContents = planningPath.contents !== undefined;
-  const hasPackageJsonFields =
-    planningPath.exports.length > 0 ||
-    planningPath.dependencies.length > 0 ||
-    planningPath.scripts.length > 0;
-  const hasBarrelExports = planningPath.barrelExports.length > 0;
-  const hasTsconfig = planningPath.tsconfig !== undefined;
-  const hasCompositions =
-    planningPath.compositions.length > 0 ||
-    planningPath.objectFields.length > 0 ||
-    planningPath.jsxSlots.length > 0;
-
-  return Match.value({
-    hasContents,
-    hasPackageJsonFields,
-    hasBarrelExports,
-    hasTsconfig,
-    hasCompositions,
-  }).pipe(
-    // NOTE: Authoritative content paired with merge operations is planned before pure merge families.
-    Match.when({ hasContents: true, hasBarrelExports: true }, () =>
-      assessBarrelMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasContents: true, hasCompositions: true }, () =>
-      assessCompositionMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasContents: true, hasPackageJsonFields: true }, () =>
-      assessPackageJsonMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasContents: true }, () =>
-      assessAuthoritativeContents(planningPath, snapshotPath),
-    ),
-    Match.when({ hasPackageJsonFields: true }, () =>
-      planPackageJsonMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasBarrelExports: true }, () =>
-      planBarrelMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasTsconfig: true }, () =>
-      planTsconfigMerge(planningPath, snapshotPath),
-    ),
-    Match.when({ hasCompositions: true }, () =>
-      planCompositionMerge(planningPath, snapshotPath),
-    ),
-    Match.orElse(() => {
-      throw new PlanFailure({
-        message: `No planning intent defined for ${planningPath.path}.`,
-      });
-    }),
+  snapshotPath: SnapshotPath;
+}) {
+  const existingContents = yield* getExistingFileContents(
+    planningPath.path,
+    snapshotPath,
   );
-};
+
+  return Match.valueTags(planningPath, {
+    authoritative: (intent) => assessContents(intent, existingContents),
+    conflictOnModify: (intent) => {
+      const assessment = assessContents(intent, existingContents);
+      return assessment.classification === "modify"
+        ? createPathAssessment({
+            classification: "conflict",
+            conflicts: [planConflict.tsconfig(intent.path)],
+          })
+        : assessment;
+    },
+    packageJson: (intent) => assessPackageJson(intent, existingContents),
+    barrel: (intent) => assessBarrel(intent, existingContents),
+    tsComposition: (intent) =>
+      assessTypeScriptTarget({
+        intent,
+        jsxSlots: [],
+        missingTargetConflicts: Arr.map(intent.compositions, (composition) =>
+          planConflict.compositionTargetNotFound(
+            intent.path,
+            composition.targetVariable,
+            composition.functionName,
+          ),
+        ),
+        existingContents,
+      }),
+    jsxSlot: (intent) =>
+      assessTypeScriptTarget({
+        intent,
+        jsxSlots: intent.jsxSlots,
+        missingTargetConflicts: collectMissingJsxSlotConflicts(
+          intent.path,
+          intent.jsxSlots,
+          undefined,
+        ),
+        existingContents,
+      }),
+  });
+});
 
 export const collectAncestorPaths = (path: string): ReadonlyArray<string> => {
   const parts = Str.split(path, "/");
@@ -336,8 +329,6 @@ export const collectAncestorPaths = (path: string): ReadonlyArray<string> => {
     Arr.join(Arr.take(parts, index + 1), "/"),
   );
 };
-
-type SnapshotPath = typeof RepoSnapshot.fields.paths.value.Type | undefined;
 
 const createPathAssessment = ({
   classification,
@@ -350,57 +341,29 @@ const createPathAssessment = ({
   conflicts: Arr.fromIterable(conflicts),
 });
 
-const assessAuthoritativeContents = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
+const assessContents = (
+  { contents }: { contents: string },
+  existingContents: string | undefined,
 ) => {
-  const existingContents = getExistingFileContents(
-    planningPath.path,
-    snapshotPath,
-  );
-  const requiredContents = planningPath.contents!;
-
   if (existingContents === undefined) {
     return createPathAssessment({ classification: "create" });
   }
 
-  if (existingContents === requiredContents) {
+  if (existingContents === contents) {
     return createPathAssessment({ classification: "unchanged" });
   }
 
   return createPathAssessment({ classification: "modify" });
 };
 
-const planTsconfigMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-) => {
-  const tsconfigPath = {
-    ...planningPath,
-    contents: planningPath.tsconfig!.contents,
-  };
-  const authoritativeAssessment = assessAuthoritativeContents(
-    tsconfigPath,
-    snapshotPath,
-  );
-
-  if (authoritativeAssessment.classification !== "modify") {
-    return authoritativeAssessment;
-  }
-
-  return createPathAssessment({
-    classification: "conflict",
-    conflicts: [planConflict.tsconfig(planningPath.path)],
-  });
-};
-
-const planPackageJsonMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-) => {
-  const { path } = planningPath;
-  const existingContents = getExistingFileContents(path, snapshotPath);
-
+/**
+ * Detects conflicts when the existing package.json has conflicting entries.
+ * A seeded path is unchanged only when the existing file also matches its seed.
+ */
+const assessPackageJson = (
+  intent: PackageJsonIntent,
+  existingContents: string | undefined,
+): PathAssessment => {
   if (existingContents === undefined) {
     return createPathAssessment({ classification: "create" });
   }
@@ -410,13 +373,13 @@ const planPackageJsonMerge = (
   if (packageJson === undefined) {
     return createPathAssessment({
       classification: "conflict",
-      conflicts: collectInvalidPackageJsonConflicts(planningPath),
+      conflicts: collectInvalidPackageJsonConflicts(intent),
     });
   }
 
   const { conflicts, hasAdditions } = assessPackageJsonEntries({
     packageJson,
-    planningPath,
+    intent,
   });
 
   if (conflicts.length > 0) {
@@ -426,18 +389,22 @@ const planPackageJsonMerge = (
     });
   }
 
+  const matchesSeed =
+    intent.seed === undefined || existingContents === intent.seed;
+
   return createPathAssessment({
-    classification: hasAdditions ? "modify" : "unchanged",
+    classification: matchesSeed && !hasAdditions ? "unchanged" : "modify",
   });
 };
 
-const planBarrelMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-) => {
-  const { path, barrelExports: requiredReExports } = planningPath;
-  const existingContents = getExistingFileContents(path, snapshotPath);
-
+/**
+ * Appends re-exports to a simple barrel. A seeded path is unchanged only when
+ * the existing barrel already re-exports its seed's single export.
+ */
+const assessBarrel = (
+  intent: typeof PlanningIntentPath.cases.barrel.Type,
+  existingContents: string | undefined,
+): PathAssessment => {
   if (existingContents === undefined) {
     return createPathAssessment({ classification: "create" });
   }
@@ -445,144 +412,55 @@ const planBarrelMerge = (
   const existingExports = parseSimpleBarrelExports(existingContents);
 
   if (existingExports === undefined) {
-    const conflicts = Arr.map(requiredReExports, (plannedReExport) =>
-      planConflict.barrelExport(path, plannedReExport.exportPath),
-    );
-
     return createPathAssessment({
       classification: "conflict",
-      conflicts,
+      conflicts: Arr.map(intent.exportPaths, (exportPath) =>
+        planConflict.barrelExport(intent.path, exportPath),
+      ),
     });
   }
 
   const existingExportsSet = new Set(existingExports);
   const hasAdditions = Arr.some(
-    requiredReExports,
-    (plannedReExport) => !existingExportsSet.has(plannedReExport.exportPath),
+    intent.exportPaths,
+    (exportPath) => !existingExportsSet.has(exportPath),
   );
+  const seedExportPath = intent.seed?.match(simpleBarrelExportPattern)?.[1];
+  const hasSeedExport =
+    seedExportPath === undefined || existingExportsSet.has(seedExportPath);
 
   return createPathAssessment({
-    classification: hasAdditions ? "modify" : "unchanged",
+    classification: hasSeedExport && !hasAdditions ? "unchanged" : "modify",
   });
 };
 
 /**
- * Plan composition merge for TypeScript files with composition points.
- * Compositions always target existing files - if file doesn't exist, it's a conflict.
- * The actual composition target validation happens at apply time via ts-morph.
+ * Compositions target an existing file unless a seed creates it. Apply
+ * validates the concrete TypeScript composition target with ts-morph.
  */
-const planCompositionMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-): PathAssessment => {
-  const existingContents = getExistingFileContents(
-    planningPath.path,
-    snapshotPath,
-  );
-
+const assessTypeScriptTarget = ({
+  intent,
+  jsxSlots,
+  missingTargetConflicts,
+  existingContents,
+}: {
+  intent: { path: string; seed: string | undefined };
+  jsxSlots: ReadonlyArray<typeof PlanningIntentJsxSlot.Type>;
+  missingTargetConflicts: typeof Plan.fields.conflicts.Type;
+  existingContents: string | undefined;
+}): PathAssessment => {
   if (existingContents === undefined) {
-    return createPathAssessment({
-      classification: "conflict",
-      conflicts: [
-        ...Arr.map(planningPath.compositions, (composition) =>
-          planConflict.compositionTargetNotFound(
-            planningPath.path,
-            composition.targetVariable,
-            composition.functionName,
-          ),
-        ),
-        ...collectMissingJsxSlotConflicts(planningPath, existingContents),
-      ],
-    });
+    return intent.seed === undefined
+      ? createPathAssessment({
+          classification: "conflict",
+          conflicts: missingTargetConflicts,
+        })
+      : createPathAssessment({ classification: "create" });
   }
 
   const jsxSlotConflicts = collectMissingJsxSlotConflicts(
-    planningPath,
-    existingContents,
-  );
-
-  if (jsxSlotConflicts.length > 0) {
-    return createPathAssessment({
-      classification: "conflict",
-      conflicts: jsxSlotConflicts,
-    });
-  }
-
-  // NOTE: Apply validates the concrete TypeScript composition target with ts-morph.
-  return createPathAssessment({ classification: "modify" });
-};
-
-/**
- * Plan authoritative barrel merge: seed content + barrel exports.
- * Creates file with authoritative content, then appends barrel exports.
- */
-const assessBarrelMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-): PathAssessment => {
-  const existingContents = getExistingFileContents(
-    planningPath.path,
-    snapshotPath,
-  );
-  const requiredContents = planningPath.contents!;
-
-  if (existingContents === undefined) {
-    return createPathAssessment({ classification: "create" });
-  }
-
-  const existingExports = parseSimpleBarrelExports(existingContents);
-
-  if (existingExports !== undefined) {
-    const existingExportsSet = new Set(existingExports);
-    const hasBarrelAdditions = Arr.some(
-      planningPath.barrelExports,
-      (plannedReExport) => !existingExportsSet.has(plannedReExport.exportPath),
-    );
-
-    const authoritativeExportMatch = requiredContents.match(
-      simpleBarrelExportPattern,
-    );
-    const authoritativeExportPath = authoritativeExportMatch?.[1];
-    const hasAuthoritativeExport =
-      authoritativeExportPath === undefined ||
-      existingExportsSet.has(authoritativeExportPath);
-
-    if (hasAuthoritativeExport && !hasBarrelAdditions) {
-      return createPathAssessment({ classification: "unchanged" });
-    }
-
-    return createPathAssessment({ classification: "modify" });
-  }
-
-  const conflicts = Arr.map(planningPath.barrelExports, (plannedReExport) =>
-    planConflict.barrelExport(planningPath.path, plannedReExport.exportPath),
-  );
-
-  return createPathAssessment({
-    classification: "conflict",
-    conflicts,
-  });
-};
-
-/**
- * Plan authoritative composition merge: seed content + compositions.
- * Creates file with authoritative content, then applies composition operations.
- */
-const assessCompositionMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-): PathAssessment => {
-  const existingContents = getExistingFileContents(
-    planningPath.path,
-    snapshotPath,
-  );
-
-  if (existingContents === undefined) {
-    return createPathAssessment({ classification: "create" });
-  }
-
-  const jsxSlotConflicts = collectMissingJsxSlotConflicts(
-    planningPath,
+    intent.path,
+    jsxSlots,
     existingContents,
   );
 
@@ -597,65 +475,19 @@ const assessCompositionMerge = (
 };
 
 const collectMissingJsxSlotConflicts = (
-  planningPath: PlanningIntentPath,
+  path: string,
+  jsxSlots: ReadonlyArray<typeof PlanningIntentJsxSlot.Type>,
   contents: string | undefined,
 ) => {
   const sourceFile =
     contents === undefined ? undefined : makeJsxSourceFile(contents);
 
-  return Arr.flatMap(planningPath.jsxSlots, ({ slotId }) =>
+  return Arr.flatMap(jsxSlots, ({ slotId }) =>
     sourceFile !== undefined &&
     findJsxSlotMarker(sourceFile, slotId) !== undefined
       ? []
-      : [planConflict.jsxSlotTargetNotFound(planningPath.path, slotId)],
+      : [planConflict.jsxSlotTargetNotFound(path, slotId)],
   );
-};
-
-/**
- * Plan authoritative package.json merge: seed content + package.json fields.
- * Creates file with authoritative content, then applies package.json field operations.
- * Detects conflicts when existing package.json has conflicting entries.
- */
-const assessPackageJsonMerge = (
-  planningPath: PlanningIntentPath,
-  snapshotPath: SnapshotPath,
-): PathAssessment => {
-  const { path } = planningPath;
-  const existingContents = getExistingFileContents(path, snapshotPath);
-
-  if (existingContents === undefined) {
-    return createPathAssessment({ classification: "create" });
-  }
-
-  const packageJson = parseJsonRecord(existingContents);
-
-  if (packageJson === undefined) {
-    return createPathAssessment({
-      classification: "conflict",
-      conflicts: collectInvalidPackageJsonConflicts(planningPath),
-    });
-  }
-
-  const { conflicts, hasAdditions } = assessPackageJsonEntries({
-    packageJson,
-    planningPath,
-  });
-
-  if (conflicts.length > 0) {
-    return createPathAssessment({
-      classification: "conflict",
-      conflicts,
-    });
-  }
-
-  const requiredContents = planningPath.contents!;
-  const authoritativeContentMatches = existingContents === requiredContents;
-
-  if (authoritativeContentMatches && !hasAdditions) {
-    return createPathAssessment({ classification: "unchanged" });
-  }
-
-  return createPathAssessment({ classification: "modify" });
 };
 
 const parseSimpleBarrelExports = (contents: string) => {
@@ -679,7 +511,10 @@ const planConflict = {
     PlanConflict.cases.exports.make({ path, name }),
   scripts: (path: string, name: string) =>
     PlanConflict.cases.scripts.make({ path, name }),
-  dependencies: (path: string, dep: PlanningIntentPackageJsonDependency) =>
+  dependencies: (
+    path: string,
+    dep: typeof PlanningIntentPackageJsonDependency.Type,
+  ) =>
     PlanConflict.cases.dependencies.make({
       path,
       section: dep.section,
@@ -699,15 +534,13 @@ const planConflict = {
     PlanConflict.cases.jsxSlotTargetNotFound.make({ path, slotId }),
 } as const;
 
-const collectInvalidPackageJsonConflicts = (
-  planningPath: PlanningIntentPath,
-) => {
+const collectInvalidPackageJsonConflicts = (intent: PackageJsonIntent) => {
   const {
     path,
     exports: requiredExports,
     dependencies: requiredDependencies,
     scripts: requiredScripts,
-  } = planningPath;
+  } = intent;
   return [
     ...Arr.map(requiredExports, (e) => planConflict.exports(path, e.name)),
     ...Arr.map(requiredDependencies, (d) => planConflict.dependencies(path, d)),
@@ -717,19 +550,19 @@ const collectInvalidPackageJsonConflicts = (
 
 const assessPackageJsonEntries = ({
   packageJson,
-  planningPath,
+  intent,
 }: {
   packageJson: Record<string, unknown>;
-  planningPath: PlanningIntentPath;
+  intent: PackageJsonIntent;
 }): FlatStringRecordAssessment<typeof PlanConflict.Type> => {
-  const { path } = planningPath;
+  const { path } = intent;
   const dependenciesBySection = Arr.groupBy(
-    planningPath.dependencies,
+    intent.dependencies,
     (plannedDependency) => plannedDependency.section,
   );
   const exportAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["exports"],
-    requiredEntries: planningPath.exports,
+    requiredEntries: intent.exports,
     keyOf: (plannedExport) => plannedExport.name,
     valueOf: (plannedExport) => plannedExport.value,
     toConflict: (plannedExport) =>
@@ -755,7 +588,7 @@ const assessPackageJsonEntries = ({
   );
   const scriptAssessment = assessFlatStringRecordEntries({
     existingValue: packageJson["scripts"],
-    requiredEntries: planningPath.scripts,
+    requiredEntries: intent.scripts,
     keyOf: (script) => script.name,
     valueOf: (script) => script.value,
     toConflict: (script) => planConflict.scripts(path, script.name),
@@ -832,19 +665,16 @@ const parseJsonRecord = (
     Option.getOrUndefined,
   );
 
-const getExistingFileContents = (
-  path: string,
-  snapshotPath: SnapshotPath,
-): string | undefined => {
-  if (snapshotPath === undefined || snapshotPath._tag === "missing") {
-    return undefined;
-  }
-
-  if (snapshotPath._tag !== "file") {
-    throw new PlanFailure({
-      message: `Expected ${path} to be a file during planning.`,
-    });
-  }
-
-  return snapshotPath.contents;
-};
+const getExistingFileContents = (path: string, snapshotPath: SnapshotPath) =>
+  snapshotPath === undefined
+    ? Effect.undefined
+    : Match.valueTags(snapshotPath, {
+        missing: () => Effect.undefined,
+        file: ({ contents }) => Effect.succeed(contents),
+        directory: () =>
+          Effect.fail(
+            new PlanFailure({
+              message: `Expected ${path} to be a file during planning.`,
+            }),
+          ),
+      });

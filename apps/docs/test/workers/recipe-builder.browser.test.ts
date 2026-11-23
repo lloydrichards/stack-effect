@@ -356,15 +356,14 @@ it.live(
           ?.contents ?? "",
         STACK_CONFIG_SCHEMA_URL,
       );
-      assert.include(paths, "apps/sdk/client-react-web/package.json");
+      const sdkPackage = preview.preview.files.find(
+        (file) => file.path === "apps/sdk/client-react-web/package.json",
+      );
+      assert.isDefined(sdkPackage);
       assert.equal(
         (yield* Schema.decodeEffect(
           Schema.fromJsonString(Schema.Struct({ name: Schema.String })),
-        )(
-          preview.preview.files.find(
-            (file) => file.path === "apps/sdk/client-react-web/package.json",
-          )!.contents,
-        )).name,
+        )(sdkPackage.contents)).name,
         "client-react-sdk-web",
       );
       assert.include(paths, "apps/server-api/package.json");

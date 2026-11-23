@@ -159,8 +159,7 @@ const groupModulesByTarget = (
           ? `${s.identity.kind}/${s.identity.name}`
           : `${s.kind}/${defaultTargetNames.get(s.kind) ?? s.kind}`;
 
-      if (!groups.has(target)) groups.set(target, []);
-      groups.get(target)!.push(mod.id);
+      groups.set(target, [...(groups.get(target) ?? []), mod.id]);
     }
   }
 

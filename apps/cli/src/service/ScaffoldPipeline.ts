@@ -214,7 +214,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               plan,
               decisions: skipConflictDecisions(plan),
             });
-            const workspace = yield* workspaces.create({
+            const workspace = yield* workspaces.fromRepository({
               repoRoot,
               baseline: plan.baseline,
             });

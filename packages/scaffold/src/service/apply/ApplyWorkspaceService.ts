@@ -42,7 +42,10 @@ export type ApplyWorkspace = {
 };
 
 export type ApplyWorkspaceServiceShape = {
-  readonly create: (input?: {
+  /** Opens a workspace with no repository files, for plans built inside it. */
+  readonly empty: () => Effect.Effect<ApplyWorkspace, ApplyFailure>;
+  /** Opens a workspace seeded with the repository paths a host Plan captured. */
+  readonly fromRepository: (input: {
     readonly repoRoot: string;
     readonly baseline: typeof PlanBaseline.Type;
   }) => Effect.Effect<ApplyWorkspace, ApplyFailure | StalePlanFailure>;
@@ -61,27 +64,27 @@ export class ApplyWorkspaceService extends Context.Service<
     const secureRandom = yield* SecureRandom.SecureRandom;
     const catalog = yield* CatalogService;
 
-    const create: ApplyWorkspaceServiceShape["create"] = Effect.fn(
-      "ApplyWorkspaceService.create",
-    )(function* (input) {
-      const stale = (
-        changes: ReadonlyArray<RepositoryState.RepositoryChange>,
-      ) =>
-        new StalePlanFailure({
-          changes,
-          partialResult: new ApplyResult({
-            created: [],
-            modified: [],
-            skipped: [],
-            failed: [],
-          }),
-          message: `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
-        });
-      if (input !== undefined) {
-        const changes = yield* repositoryState.verify(input);
-        if (changes.length > 0) return yield* stale(changes);
-      }
+    const stale = (changes: ReadonlyArray<RepositoryState.RepositoryChange>) =>
+      new StalePlanFailure({
+        changes,
+        partialResult: new ApplyResult({
+          created: [],
+          modified: [],
+          skipped: [],
+          failed: [],
+        }),
+        message: `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+      });
 
+    const verify = Effect.fnUntraced(function* (input: {
+      readonly repoRoot: string;
+      readonly baseline: typeof PlanBaseline.Type;
+    }) {
+      const changes = yield* repositoryState.verify(input);
+      if (changes.length > 0) return yield* stale(changes);
+    });
+
+    const makeFileSystem = Effect.fnUntraced(function* () {
       const fileSystem = yield* MemoryFileSystem.make.pipe(
         Effect.provideService(Digest.Digest, digest),
         Effect.provideService(SecureRandom.SecureRandom, secureRandom),
@@ -95,59 +98,20 @@ export class ApplyWorkspaceService extends Context.Service<
             }),
         ),
       );
+      return fileSystem;
+    });
 
-      if (input !== undefined) {
-        yield* Effect.forEach(
-          input.baseline.paths,
-          (entry) =>
-            Effect.gen(function* () {
-              if (entry._tag === "missing") return;
-              const sourcePath = hostPath.join(input.repoRoot, entry.path);
-              const targetPath = virtualPath.join(workspaceRoot, entry.path);
-              if (entry._tag === "directory") {
-                yield* fileSystem
-                  .makeDirectory(targetPath, { recursive: true })
-                  .pipe(
-                    Effect.mapError(
-                      (error) =>
-                        new ApplyFailure({
-                          message: `Could not seed ${entry.path}: ${error.message}`,
-                          cause: error,
-                        }),
-                    ),
-                  );
-                return;
-              }
-              const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
-                Effect.mapError(
-                  (error) =>
-                    new ApplyFailure({
-                      message: `Could not read ${sourcePath}: ${error.message}`,
-                      cause: error,
-                    }),
-                ),
-              );
-              yield* fileSystem
-                .makeDirectory(virtualPath.dirname(targetPath), {
-                  recursive: true,
-                })
-                .pipe(
-                  Effect.andThen(fileSystem.writeFile(targetPath, contents)),
-                  Effect.mapError(
-                    (error) =>
-                      new ApplyFailure({
-                        message: `Could not seed ${entry.path}: ${error.message}`,
-                        cause: error,
-                      }),
-                  ),
-                );
-            }),
-          { concurrency: 1, discard: true },
-        );
-        const changes = yield* repositoryState.verify(input);
-        if (changes.length > 0) return yield* stale(changes);
-      }
-
+    /**
+     * Builds the workspace over `fileSystem`. `admit` decides which Apply runs
+     * for a Plan, given whether this workspace built it.
+     */
+    const makeWorkspace = (
+      fileSystem: FileSystem.FileSystem,
+      admit: (
+        apply: Apply,
+        builtHere: boolean,
+      ) => Effect.Effect<Apply, ApplyFailure | StalePlanFailure>,
+    ): ApplyWorkspace => {
       const fileSystemLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, fileSystem),
         Layer.succeed(Path.Path, virtualPath),
@@ -172,49 +136,10 @@ export class ApplyWorkspaceService extends Context.Service<
       const materialize: ApplyWorkspace["materialize"] = Effect.fn(
         "ApplyWorkspace.materialize",
       )(function* (apply) {
-        const workspacePlan =
-          apply.plan.baseline.root === workspaceRoot &&
-          (input === undefined || workspacePlans.has(apply.plan));
-        if (!workspacePlan) {
-          if (
-            input === undefined ||
-            apply.plan.baseline.root !== input.baseline.root
-          ) {
-            return yield* stale([{ path: ".", kind: "rootChanged" }]);
-          }
-          const changes = yield* repositoryState.verify({
-            baseline: apply.plan.baseline,
-            repoRoot: input.repoRoot,
-          });
-          if (changes.length > 0) return yield* stale(changes);
-          if (
-            input.baseline.paths.length !== apply.plan.baseline.paths.length ||
-            RepositoryState.compare(input.baseline, apply.plan.baseline)
-              .length > 0
-          ) {
-            return yield* new ApplyFailure({
-              message:
-                "Apply baseline differs from the seeded workspace. Create a new workspace for this Plan.",
-            });
-          }
-        }
-        const workspaceApply = workspacePlan
-          ? apply
-          : new Apply({
-              plan: new Plan({
-                baseline: {
-                  root: workspaceRoot,
-                  paths: Arr.map(apply.plan.baseline.paths, (entry) =>
-                    entry.path === "." && entry._tag === "missing"
-                      ? { _tag: "directory" as const, path: entry.path }
-                      : entry,
-                  ),
-                },
-                outcomes: [...apply.plan.outcomes],
-                conflicts: [...apply.plan.conflicts],
-              }),
-              decisions: [...apply.decisions],
-            });
+        const workspaceApply = yield* admit(
+          apply,
+          workspacePlans.has(apply.plan),
+        );
         const result = yield* Effect.gen(function* () {
           const service = yield* ApplyService;
           return yield* service.apply({
@@ -272,8 +197,118 @@ export class ApplyWorkspaceService extends Context.Service<
           ),
         materialize,
       } satisfies ApplyWorkspace;
+    };
+
+    const empty: ApplyWorkspaceServiceShape["empty"] = Effect.fn(
+      "ApplyWorkspaceService.empty",
+    )(function* () {
+      const fileSystem = yield* makeFileSystem();
+
+      return makeWorkspace(fileSystem, (apply) =>
+        apply.plan.baseline.root === workspaceRoot
+          ? Effect.succeed(apply)
+          : Effect.fail(stale([{ path: ".", kind: "rootChanged" }])),
+      );
     });
-    return { create } satisfies ApplyWorkspaceServiceShape;
+
+    const fromRepository: ApplyWorkspaceServiceShape["fromRepository"] =
+      Effect.fn("ApplyWorkspaceService.fromRepository")(function* (input) {
+        yield* verify(input);
+        const fileSystem = yield* makeFileSystem();
+
+        yield* Effect.forEach(
+          input.baseline.paths,
+          (entry) =>
+            Effect.gen(function* () {
+              if (entry._tag === "missing") return;
+              const sourcePath = hostPath.join(input.repoRoot, entry.path);
+              const targetPath = virtualPath.join(workspaceRoot, entry.path);
+              if (entry._tag === "directory") {
+                yield* fileSystem
+                  .makeDirectory(targetPath, { recursive: true })
+                  .pipe(
+                    Effect.mapError(
+                      (error) =>
+                        new ApplyFailure({
+                          message: `Could not seed ${entry.path}: ${error.message}`,
+                          cause: error,
+                        }),
+                    ),
+                  );
+                return;
+              }
+              const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
+                Effect.mapError(
+                  (error) =>
+                    new ApplyFailure({
+                      message: `Could not read ${sourcePath}: ${error.message}`,
+                      cause: error,
+                    }),
+                ),
+              );
+              yield* fileSystem
+                .makeDirectory(virtualPath.dirname(targetPath), {
+                  recursive: true,
+                })
+                .pipe(
+                  Effect.andThen(fileSystem.writeFile(targetPath, contents)),
+                  Effect.mapError(
+                    (error) =>
+                      new ApplyFailure({
+                        message: `Could not seed ${entry.path}: ${error.message}`,
+                        cause: error,
+                      }),
+                  ),
+                );
+            }),
+          { concurrency: 1, discard: true },
+        );
+        yield* verify(input);
+
+        return makeWorkspace(
+          fileSystem,
+          Effect.fnUntraced(function* (apply, builtHere) {
+            if (builtHere && apply.plan.baseline.root === workspaceRoot) {
+              return apply;
+            }
+            if (apply.plan.baseline.root !== input.baseline.root) {
+              return yield* stale([{ path: ".", kind: "rootChanged" }]);
+            }
+            yield* verify({
+              baseline: apply.plan.baseline,
+              repoRoot: input.repoRoot,
+            });
+            if (
+              input.baseline.paths.length !==
+                apply.plan.baseline.paths.length ||
+              RepositoryState.compare(input.baseline, apply.plan.baseline)
+                .length > 0
+            ) {
+              return yield* new ApplyFailure({
+                message:
+                  "Apply baseline differs from the seeded workspace. Create a new workspace for this Plan.",
+              });
+            }
+            return new Apply({
+              plan: new Plan({
+                baseline: {
+                  root: workspaceRoot,
+                  paths: Arr.map(apply.plan.baseline.paths, (entry) =>
+                    entry.path === "." && entry._tag === "missing"
+                      ? { _tag: "directory" as const, path: entry.path }
+                      : entry,
+                  ),
+                },
+                outcomes: [...apply.plan.outcomes],
+                conflicts: [...apply.plan.conflicts],
+              }),
+              decisions: [...apply.decisions],
+            });
+          }),
+        );
+      });
+
+    return { empty, fromRepository } satisfies ApplyWorkspaceServiceShape;
   });
 
   static readonly layer = Layer.effect(this, this.make).pipe(

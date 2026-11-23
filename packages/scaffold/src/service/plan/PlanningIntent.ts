@@ -10,7 +10,7 @@ import {
   Record,
   Schema,
 } from "effect";
-import type { PlanningIntentPath } from "./PlanAssessment";
+import { PlanningIntentImport, PlanningIntentPath } from "./PlanAssessment";
 
 /** Groups normalized contributions by path into one planning intent per path. */
 export const compile = (
@@ -66,15 +66,7 @@ const PlanningIntentEntry = Schema.TaggedUnion({
     targetVariable: Schema.String,
     functionName: Schema.String,
     argument: Schema.String,
-    import: Schema.Struct({
-      moduleSpecifier: Schema.String,
-      namedImports: Schema.Union([
-        Schema.Array(Schema.String),
-        Schema.Undefined,
-      ]),
-      defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
-      namespaceImport: Schema.Union([Schema.String, Schema.Undefined]),
-    }),
+    import: PlanningIntentImport,
   },
   tsObjectField: {
     path: Schema.String,
@@ -82,35 +74,13 @@ const PlanningIntentEntry = Schema.TaggedUnion({
     functionName: Schema.String,
     field: Schema.String,
     value: Schema.String,
-    import: Schema.Union([
-      Schema.Struct({
-        moduleSpecifier: Schema.String,
-        namedImports: Schema.Union([
-          Schema.Array(Schema.String),
-          Schema.Undefined,
-        ]),
-        defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
-        namespaceImport: Schema.Union([Schema.String, Schema.Undefined]),
-      }),
-      Schema.Undefined,
-    ]),
+    import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
   },
   jsxSlot: {
     path: Schema.String,
     slotId: Schema.String,
     content: Schema.String,
-    import: Schema.Union([
-      Schema.Struct({
-        moduleSpecifier: Schema.String,
-        namedImports: Schema.Union([
-          Schema.Array(Schema.String),
-          Schema.Undefined,
-        ]),
-        defaultImport: Schema.Union([Schema.String, Schema.Undefined]),
-        namespaceImport: Schema.Union([Schema.String, Schema.Undefined]),
-      }),
-      Schema.Undefined,
-    ]),
+    import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
   },
 });
 
@@ -224,58 +194,13 @@ const groupPlanningIntentEntries = (
   jsxSlot: entries.filter(PlanningIntentEntry.guards.jsxSlot),
 });
 
-const emptyPackageJsonFields = {
-  exports: [],
-  dependencies: [],
-  scripts: [],
-};
-
-const emptyCompositionFields = {
-  barrelExports: [],
-  compositions: [],
-  objectFields: [],
-  jsxSlots: [],
-};
-
-const makePlanningIntentPath = ({
-  path,
-  contents,
-  packageJsonFields = emptyPackageJsonFields,
-  barrelExports = [],
-  compositions = [],
-  objectFields = [],
-  jsxSlots = [],
-  tsconfig,
-}: {
-  readonly path: string;
-  readonly contents: string | undefined;
-  readonly packageJsonFields?: Pick<
-    PlanningIntentPath,
-    "exports" | "dependencies" | "scripts"
-  >;
-  readonly barrelExports?: PlanningIntentPath["barrelExports"];
-  readonly compositions?: PlanningIntentPath["compositions"];
-  readonly objectFields?: PlanningIntentPath["objectFields"];
-  readonly jsxSlots?: PlanningIntentPath["jsxSlots"];
-  readonly tsconfig: PlanningIntentPath["tsconfig"];
-}): PlanningIntentPath => ({
-  path,
-  contents,
-  ...packageJsonFields,
-  barrelExports,
-  compositions,
-  objectFields,
-  jsxSlots,
-  tsconfig,
-});
-
 const derivePlanningIntentPath = ({
   path,
   entries,
 }: {
   path: string;
   entries: ReadonlyArray<typeof PlanningIntentEntry.Type>;
-}) =>
+}): Effect.Effect<PlanningIntentPath, PlanFailure> =>
   Effect.gen(function* () {
     const family = yield* derivePlanningIntentFamily({ entries, path });
     const groups = groupPlanningIntentEntries(entries);
@@ -286,189 +211,130 @@ const derivePlanningIntentPath = ({
         errorMessage: `Conflicting authoritative file outcomes for ${path}.`,
       });
 
-    const resolveConflictOnModify = () =>
-      groups.authoritative.length > 0 &&
-      groups.authoritative.some((e) => e.conflictOnModify);
+    const packageJson = (seed: string | undefined) =>
+      Effect.gen(function* () {
+        type PackageJsonCase =
+          typeof PlanningIntentEntry.cases.packageJsonEntry.Type;
 
-    const resolvePackageJsonFields = () => {
-      type PackageJsonCase =
-        typeof PlanningIntentEntry.cases.packageJsonEntry.Type;
+        const exportEntries = groups.packageJson.filter(
+          (e): e is PackageJsonCase & { field: "exports" } =>
+            e.field === "exports",
+        );
+        const depEntries = groups.packageJson.filter(
+          (
+            e,
+          ): e is PackageJsonCase & {
+            field: "dependencies" | "devDependencies";
+          } => e.field === "dependencies" || e.field === "devDependencies",
+        );
+        const scriptEntries = groups.packageJson.filter(
+          (e): e is PackageJsonCase & { field: "scripts" } =>
+            e.field === "scripts",
+        );
 
-      const exportEntries = groups.packageJson.filter(
-        (e): e is PackageJsonCase & { field: "exports" } =>
-          e.field === "exports",
-      );
-      const depEntries = groups.packageJson.filter(
-        (
-          e,
-        ): e is PackageJsonCase & {
-          field: "dependencies" | "devDependencies";
-        } => e.field === "dependencies" || e.field === "devDependencies",
-      );
-      const scriptEntries = groups.packageJson.filter(
-        (e): e is PackageJsonCase & { field: "scripts" } =>
-          e.field === "scripts",
-      );
-
-      return Effect.all({
-        exports: collectUniqueEntries({
-          entries: exportEntries,
-          keyOf: (entry) => entry.name,
-          valueOf: (entry) => entry.value,
-          toResult: (entry) => ({ name: entry.name, value: entry.value }),
-          errorMessage: `Conflicting package.json export outcomes for ${path}.`,
-        }),
-        dependencies: collectUniqueEntries({
-          entries: depEntries,
-          keyOf: (entry) => `${entry.field}:${entry.name}`,
-          valueOf: (entry) => entry.value,
-          toResult: (entry) => ({
-            section: entry.field,
-            name: entry.name,
-            value: entry.value,
+        const fields = yield* Effect.all({
+          exports: collectUniqueEntries({
+            entries: exportEntries,
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+            toResult: (entry) => ({ name: entry.name, value: entry.value }),
+            errorMessage: `Conflicting package.json export outcomes for ${path}.`,
           }),
-          errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
-        }),
-        scripts: collectUniqueEntries({
-          entries: scriptEntries,
-          keyOf: (entry) => entry.name,
-          valueOf: (entry) => entry.value,
-          toResult: (entry) => ({ name: entry.name, value: entry.value }),
-          errorMessage: `Conflicting package.json script outcomes for ${path}.`,
-        }),
-      });
-    };
+          dependencies: collectUniqueEntries({
+            entries: depEntries,
+            keyOf: (entry) => `${entry.field}:${entry.name}`,
+            valueOf: (entry) => entry.value,
+            toResult: (entry) => ({
+              section: entry.field,
+              name: entry.name,
+              value: entry.value,
+            }),
+            errorMessage: `Conflicting package.json dependency outcomes for ${path}.`,
+          }),
+          scripts: collectUniqueEntries({
+            entries: scriptEntries,
+            keyOf: (entry) => entry.name,
+            valueOf: (entry) => entry.value,
+            toResult: (entry) => ({ name: entry.name, value: entry.value }),
+            errorMessage: `Conflicting package.json script outcomes for ${path}.`,
+          }),
+        });
 
-    const collectBarrelExports = () =>
+        return PlanningIntentPath.cases.packageJson.make({
+          path,
+          seed,
+          ...fields,
+        });
+      });
+
+    const barrel = (seed: string | undefined) =>
       collectUniqueEntries({
         entries: groups.barrel,
         keyOf: (entry) => entry.exportPath,
         valueOf: (entry) => entry.exportPath,
-        toResult: (entry) => ({ exportPath: entry.exportPath }),
+        toResult: (entry) => entry.exportPath,
         errorMessage: `Conflicting barrel export outcomes for ${path}.`,
+      }).pipe(
+        Effect.map((exportPaths) =>
+          PlanningIntentPath.cases.barrel.make({ path, seed, exportPaths }),
+        ),
+      );
+
+    const tsComposition = (seed: string | undefined) =>
+      PlanningIntentPath.cases.tsComposition.make({
+        path,
+        seed,
+        compositions: Arr.map(groups.tsCallArg, (entry) => ({
+          targetVariable: entry.targetVariable,
+          functionName: entry.functionName,
+          argument: entry.argument,
+          import: entry.import,
+        })),
+        objectFields: Arr.map(groups.tsObjectField, (entry) => ({
+          targetVariable: entry.targetVariable,
+          functionName: entry.functionName,
+          field: entry.field,
+          value: entry.value,
+          import: entry.import,
+        })),
       });
 
-    const toCompositions = () =>
-      Arr.map(groups.tsCallArg, (entry) => ({
-        targetVariable: entry.targetVariable,
-        functionName: entry.functionName,
-        argument: entry.argument,
-        import: entry.import,
-      }));
-
-    const toObjectFields = () =>
-      Arr.map(groups.tsObjectField, (entry) => ({
-        targetVariable: entry.targetVariable,
-        functionName: entry.functionName,
-        field: entry.field,
-        value: entry.value,
-        import: entry.import,
-      }));
-
-    const toJsxSlots = () =>
-      Arr.map(groups.jsxSlot, (entry) => ({
-        slotId: entry.slotId,
-        content: entry.content,
-        import: entry.import,
-      }));
+    const jsxSlot = (seed: string | undefined) =>
+      PlanningIntentPath.cases.jsxSlot.make({
+        path,
+        seed,
+        jsxSlots: Arr.map(groups.jsxSlot, (entry) => ({
+          slotId: entry.slotId,
+          content: entry.content,
+          import: entry.import,
+        })),
+      });
 
     return yield* Match.value(family).pipe(
       Match.when("authoritative", () =>
         Effect.gen(function* () {
           const contents = yield* resolveContents();
-          const isConflictOnModify = resolveConflictOnModify();
 
-          return makePlanningIntentPath({
-            path,
-            contents: isConflictOnModify ? undefined : contents,
-            ...emptyCompositionFields,
-            tsconfig: isConflictOnModify ? { path, contents } : undefined,
-          });
+          return groups.authoritative.some((entry) => entry.conflictOnModify)
+            ? PlanningIntentPath.cases.conflictOnModify.make({ path, contents })
+            : PlanningIntentPath.cases.authoritative.make({ path, contents });
         }),
       ),
-      Match.when("packageJson", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: undefined,
-            packageJsonFields: yield* resolvePackageJsonFields(),
-            ...emptyCompositionFields,
-            tsconfig: undefined,
-          });
-        }),
-      ),
-      Match.when("barrel", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: undefined,
-            barrelExports: yield* collectBarrelExports(),
-            tsconfig: undefined,
-          });
-        }),
-      ),
-      Match.when("tsCallArg", () =>
-        Effect.succeed(
-          makePlanningIntentPath({
-            path,
-            contents: undefined,
-            compositions: toCompositions(),
-            objectFields: toObjectFields(),
-            tsconfig: undefined,
-          }),
-        ),
-      ),
-      Match.when("jsxSlot", () =>
-        Effect.succeed(
-          makePlanningIntentPath({
-            path,
-            contents: undefined,
-            jsxSlots: toJsxSlots(),
-            tsconfig: undefined,
-          }),
-        ),
-      ),
+      Match.when("packageJson", () => packageJson(undefined)),
+      Match.when("barrel", () => barrel(undefined)),
+      Match.when("tsCallArg", () => Effect.succeed(tsComposition(undefined))),
+      Match.when("jsxSlot", () => Effect.succeed(jsxSlot(undefined))),
       Match.when("authoritativePackageJson", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: yield* resolveContents(),
-            packageJsonFields: yield* resolvePackageJsonFields(),
-            ...emptyCompositionFields,
-            tsconfig: undefined,
-          });
-        }),
+        Effect.flatMap(resolveContents(), packageJson),
       ),
       Match.when("authoritativeTsCallArg", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: yield* resolveContents(),
-            compositions: toCompositions(),
-            objectFields: toObjectFields(),
-            tsconfig: undefined,
-          });
-        }),
+        Effect.map(resolveContents(), tsComposition),
       ),
       Match.when("authoritativeBarrel", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: yield* resolveContents(),
-            barrelExports: yield* collectBarrelExports(),
-            tsconfig: undefined,
-          });
-        }),
+        Effect.flatMap(resolveContents(), barrel),
       ),
       Match.when("authoritativeJsxSlot", () =>
-        Effect.gen(function* () {
-          return makePlanningIntentPath({
-            path,
-            contents: yield* resolveContents(),
-            jsxSlots: toJsxSlots(),
-            tsconfig: undefined,
-          });
-        }),
+        Effect.map(resolveContents(), jsxSlot),
       ),
       Match.exhaustive,
     );
