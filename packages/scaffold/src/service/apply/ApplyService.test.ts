@@ -23,7 +23,7 @@ import {
   PlatformError,
   Schema,
 } from "effect";
-import { RepositoryStateService } from "../plan/RepositoryStateService";
+import { RepositoryState } from "../plan/RepositoryState";
 import { ApplyService } from "./ApplyService";
 import {
   type ApplyWriteOutcome,
@@ -121,7 +121,7 @@ const makeFileSystemLayer = (entries: Record<string, MockPathEntry>) => {
   });
 };
 
-const mockRepositoryStateLayer = Layer.succeed(RepositoryStateService, {
+const mockRepositoryStateLayer = Layer.succeed(RepositoryState, {
   verify: () => Effect.succeed([]),
   discoverOwners: () => Effect.succeed([]),
 } as never);

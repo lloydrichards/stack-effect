@@ -2,9 +2,13 @@ import { Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { targetPathsOverlap } from "@repo/domain/Catalog";
 import { pathOrd } from "@repo/domain/Order";
 import { type PackageOwner, PlanFailure } from "@repo/domain/Plan";
-import { Array as Arr, Effect, FileSystem, Path, Schema } from "effect";
+import { Array as Arr, Effect, Schema } from "effect";
 
-const unsupported = (path: string, detail: string, cause?: unknown) =>
+export const ownershipFailure = (
+  path: string,
+  detail: string,
+  cause?: unknown,
+) =>
   new PlanFailure({
     message: `Cannot inspect package ownership at ${path}: ${detail}`,
     cause,
@@ -21,17 +25,22 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
       name,
     })),
     Effect.mapError((cause) =>
-      unsupported(manifestPath, "invalid package JSON or missing name", cause),
+      ownershipFailure(
+        manifestPath,
+        "invalid package JSON or missing name",
+        cause,
+      ),
     ),
   );
 
-const validateOwners = (owners: ReadonlyArray<PackageOwner>) =>
+/** Reject owners whose names or directories would collide. */
+export const assertDistinctOwners = (owners: ReadonlyArray<PackageOwner>) =>
   Effect.forEach(owners, (owner, index) =>
     Effect.forEach(owners.slice(index + 1), (other) =>
       owner.name.toLowerCase() === other.name.toLowerCase() ||
       targetPathsOverlap(owner.path, other.path)
         ? Effect.fail(
-            unsupported(
+            ownershipFailure(
               owner.path,
               `ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
             ),
@@ -39,97 +48,6 @@ const validateOwners = (owners: ReadonlyArray<PackageOwner>) =>
         : Effect.void,
     ),
   );
-
-/** Discover roots through grouping directories; package contents are not owners. */
-export const discoverPackageOwners = Effect.fn("PackageOwnership.discover")(
-  function* (repoRoot: string) {
-    const fs = yield* FileSystem.FileSystem;
-    const paths = yield* Path.Path;
-    const inspect = (relative: string) =>
-      Effect.gen(function* () {
-        const absolute = paths.join(repoRoot, relative);
-        const link = yield* fs.readLink(absolute).pipe(
-          Effect.map(() => true),
-          Effect.orElseSucceed(() => false),
-        );
-        if (link)
-          return yield* unsupported(relative, "symbolic links are unsupported");
-        return yield* fs.stat(absolute).pipe(
-          Effect.catchTag("PlatformError", (error) =>
-            error.reason._tag === "NotFound"
-              ? Effect.succeed(null)
-              : Effect.fail(error),
-          ),
-          Effect.mapError((cause) =>
-            unsupported(relative, "could not stat entry", cause),
-          ),
-        );
-      });
-
-    const visit = (
-      relative: string,
-    ): Effect.Effect<
-      ReadonlyArray<PackageOwner>,
-      PlanFailure,
-      FileSystem.FileSystem | Path.Path
-    > =>
-      Effect.gen(function* () {
-        const stat = yield* inspect(relative);
-        if (stat === null) return [];
-        if (stat.type !== "Directory")
-          return yield* unsupported(relative, "expected directory");
-        const names = yield* fs
-          .readDirectory(paths.join(repoRoot, relative))
-          .pipe(
-            Effect.mapError((cause) =>
-              unsupported(relative, "could not list directory", cause),
-            ),
-          );
-        const alias = names.find(
-          (name) =>
-            name.toLowerCase() === "package.json" && name !== "package.json",
-        );
-        if (alias !== undefined)
-          return yield* unsupported(
-            `${relative}/${alias}`,
-            "package manifests must use the canonical package.json filename",
-          );
-        if (names.includes("package.json")) {
-          const manifestPath = `${relative}/package.json`;
-          const fileStat = yield* inspect(manifestPath);
-          if (fileStat?.type !== "File")
-            return yield* unsupported(manifestPath, "expected regular file");
-          const contents = yield* fs
-            .readFileString(paths.join(repoRoot, manifestPath))
-            .pipe(
-              Effect.mapError((cause) =>
-                unsupported(manifestPath, "could not read manifest", cause),
-              ),
-            );
-          return [yield* parsePackageOwner(manifestPath, contents)];
-        }
-        const candidates = names
-          .filter(
-            (name) =>
-              !name.startsWith(".") && name.toLowerCase() !== "node_modules",
-          )
-          .sort();
-        const children = yield* Effect.forEach(candidates, (name) =>
-          Effect.gen(function* () {
-            const child = `${relative}/${name}`;
-            const entry = yield* inspect(child);
-            return entry?.type === "Directory" ? yield* visit(child) : [];
-          }),
-        );
-        return children.flat();
-      });
-    const owners = (yield* Effect.forEach(["apps", "packages"], visit))
-      .flat()
-      .sort(pathOrd);
-    yield* validateOwners(owners);
-    return owners;
-  },
-);
 
 export const validatePackageOwners = (
   blueprint: typeof Blueprint.Type,
@@ -142,7 +60,7 @@ export const validatePackageOwners = (
         path: node.identity.toPath(),
         name: node.identity.toPackageName(),
       }));
-    yield* validateOwners(proposed);
+    yield* assertDistinctOwners(proposed);
     yield* Effect.forEach(proposed, (owner) =>
       Effect.forEach(existing, (other) =>
         owner.path === other.path &&
@@ -151,7 +69,7 @@ export const validatePackageOwners = (
           : owner.name.toLowerCase() === other.name.toLowerCase() ||
               targetPathsOverlap(owner.path, other.path)
             ? Effect.fail(
-                unsupported(
+                ownershipFailure(
                   owner.path,
                   `package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
                 ),
@@ -208,7 +126,7 @@ export const prepareOwnerWrites = (
       const previous = existing.find((other) => other.path === owner.path);
       return previous !== undefined && previous.name !== owner.name
         ? Effect.fail(
-            unsupported(
+            ownershipFailure(
               owner.path,
               `cannot change owner ${previous.name} to ${owner.name}`,
             ),
@@ -221,6 +139,6 @@ export const prepareOwnerWrites = (
       ),
       ...ownerWrites,
     ].sort(pathOrd);
-    yield* validateOwners(finalOwners);
+    yield* assertDistinctOwners(finalOwners);
     return ownerWrites;
   });

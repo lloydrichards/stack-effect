@@ -16,7 +16,7 @@ import { Effect, FileSystem, Layer, Path, PlatformError, Schema } from "effect";
 import { ApplyService } from "../apply/ApplyService";
 import { ApplyWorkspaceService } from "../apply/ApplyWorkspaceService";
 import { PlanService } from "./PlanService";
-import { RepositoryStateService } from "./RepositoryStateService";
+import { RepositoryState } from "./RepositoryState";
 
 const repoRoot = "/repo";
 const target = new TargetIdentity({
@@ -54,7 +54,7 @@ const TestLayer = Layer.provideMerge(
     PlanService.layer,
     ApplyService.layer,
     ApplyWorkspaceService.layer,
-    RepositoryStateService.layer,
+    RepositoryState.layer,
   ),
   Layer.mergeAll(
     Layer.provideMerge(MemoryFileSystem.layer, BrowserCrypto.layer),
@@ -329,8 +329,8 @@ describe("Plan and Apply repository state", () => {
           const destinations = existingOwner
             ? ["packages/new"]
             : ["packages/new-a", "packages/new-b"];
-          const state = yield* RepositoryStateService;
-          const baseline = yield* state.capture({
+          const state = yield* RepositoryState;
+          const { baseline } = yield* state.capture({
             repoRoot,
             paths: [
               ".",
@@ -383,8 +383,8 @@ describe("Plan and Apply repository state", () => {
           ["packages/sdk/templates/package.json", "{}"],
           ["packages/sdk/src/index.ts", "export {};"],
         ] as const;
-        const state = yield* RepositoryStateService;
-        const baseline = yield* state.capture({
+        const state = yield* RepositoryState;
+        const { baseline } = yield* state.capture({
           repoRoot,
           paths: [
             ".",
@@ -475,9 +475,9 @@ describe("Plan and Apply repository state", () => {
       Effect.gen(function* () {
         const files = yield* FileSystem.FileSystem;
         yield* files.makeDirectory(repoRoot, { recursive: true });
-        const repositoryState = yield* RepositoryStateService;
+        const repositoryState = yield* RepositoryState;
         const workspaces = yield* ApplyWorkspaceService;
-        const baseline = yield* repositoryState.capture({
+        const { baseline } = yield* repositoryState.capture({
           repoRoot,
           paths: ["."],
         });
@@ -869,9 +869,10 @@ describe("Plan and Apply repository state", () => {
           Layer.merge(PlanService.layer, ApplyService.layer).pipe(
             Layer.provide(OfficialCatalogLayer),
           ),
-          Layer.merge(
+          Layer.mergeAll(
             Layer.succeed(FileSystem.FileSystem, wrapped),
             Path.layer,
+            BrowserCrypto.layer,
           ),
         );
         const failure = yield* Effect.gen(function* () {
@@ -941,9 +942,10 @@ describe("Plan and Apply repository state", () => {
           Layer.merge(PlanService.layer, ApplyService.layer).pipe(
             Layer.provide(OfficialCatalogLayer),
           ),
-          Layer.merge(
+          Layer.mergeAll(
             Layer.succeed(FileSystem.FileSystem, wrapped),
             Path.layer,
+            BrowserCrypto.layer,
           ),
         );
         const result = yield* Effect.gen(function* () {
@@ -995,17 +997,17 @@ describe("Plan and Apply repository state", () => {
         const rawLayer = Layer.mergeAll(
           Layer.succeed(FileSystem.FileSystem, rawFileSystem),
           Path.layer,
+          BrowserCrypto.layer,
         );
         const baseline = yield* Effect.gen(function* () {
-          const state = yield* RepositoryStateService;
-          return yield* state.capture({
+          const state = yield* RepositoryState;
+          const captured = yield* state.capture({
             repoRoot,
             paths: [".", "src", "src/a.txt", "src/b.txt"],
           });
+          return captured.baseline;
         }).pipe(
-          Effect.provide(
-            RepositoryStateService.layer.pipe(Layer.provide(rawLayer)),
-          ),
+          Effect.provide(RepositoryState.layer.pipe(Layer.provide(rawLayer))),
         );
         let failedFirstWrite = false;
         const failingFileSystem = new Proxy(rawFileSystem, {
@@ -1065,6 +1067,7 @@ describe("Plan and Apply repository state", () => {
                 Layer.mergeAll(
                   Layer.succeed(FileSystem.FileSystem, failingFileSystem),
                   Path.layer,
+                  BrowserCrypto.layer,
                 ),
               ),
             ),

@@ -1,5 +1,5 @@
 import { pathToFileURL } from "node:url";
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { officialCatalogLayerWith } from "@repo/catalog-official/service";
 import { Apply } from "@repo/domain/Apply";
@@ -106,7 +106,7 @@ for (const mode of modes) {
       ApplyWorkspaceService.layer,
     ).pipe(
       Layer.provideMerge(officialCatalogLayerWith([{ targets: [], modules }])),
-      Layer.provideMerge(NodeServices.layer),
+      Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),
     );
     it.live(
       `should build and resolve workspace peers when ${mode.label} uses a ${layout} layout`,

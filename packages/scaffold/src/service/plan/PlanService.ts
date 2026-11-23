@@ -16,8 +16,7 @@ import { validatePackageOwners } from "./PackageOwnership";
 import * as PlanAssessment from "./PlanAssessment";
 import type { PlanningIntentPath } from "./PlanAssessment";
 import * as PlanningIntent from "./PlanningIntent";
-import { RepositoryStateService } from "./RepositoryStateService";
-import { RepoSnapshotService } from "./RepoSnapshotService";
+import * as RepositoryState from "./RepositoryState";
 import {
   registerWorkspaceMembers,
   workspaceManifestPaths,
@@ -43,8 +42,7 @@ export class PlanService extends Context.Service<
 >()("PlanService", {
   make: Effect.gen(function* () {
     const contribute = yield* ContributionResolver;
-    const snapshot = yield* RepoSnapshotService;
-    const repositoryState = yield* RepositoryStateService;
+    const repositoryState = yield* RepositoryState.RepositoryState;
 
     const build = Effect.fn("PlanService.build")(function* ({
       blueprint,
@@ -61,7 +59,8 @@ export class PlanService extends Context.Service<
         normalizedContributions,
       );
 
-      const repoSnapshot = yield* snapshot.load({
+      const captured = yield* repositoryState.capture({
+        repoRoot,
         paths: Arr.fromIterable(
           new Set([
             ".",
@@ -72,26 +71,19 @@ export class PlanService extends Context.Service<
             ]),
           ]),
         ),
-        repoRoot,
       });
-      const baseline = {
-        ...(yield* repositoryState.fromSnapshot({
-          repoRoot,
-          repoSnapshot,
-          includeOwnership: false,
-        })),
-        packageOwners: owners,
-      };
+      // Keep the owners validated above so drift since validation fails the recheck below.
+      const baseline = { ...captured.baseline, packageOwners: owners };
       const plan = yield* projectPlan({
         planningPaths,
-        repoSnapshot,
+        repoSnapshot: captured.snapshot,
         baseline,
       });
       const current = yield* repositoryState.capture({
         repoRoot,
         paths: baseline.paths.map((entry) => entry.path),
       });
-      const changes = repositoryState.compare(baseline, current);
+      const changes = RepositoryState.compare(baseline, current.baseline);
       if (changes.length > 0) {
         return yield* new PlanFailure({
           message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
@@ -188,7 +180,6 @@ export class PlanService extends Context.Service<
 }) {
   static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
-    Layer.provide(RepoSnapshotService.layer),
-    Layer.provide(RepositoryStateService.layer),
+    Layer.provide(RepositoryState.RepositoryState.layer),
   );
 }

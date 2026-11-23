@@ -45,7 +45,7 @@ Selection records user intent. Blueprint resolves dependencies. Plan describes r
 
 The catalog is loaded before Selection. A CLI command resolves its catalog sources, loads and composes them, and only then builds the services that resolve Selection, Blueprint, Plan, Apply, and Finalize. Every stage reads that one `CatalogService`, as the [distribution decision](catalog-distribution.md "keeps one catalog per operation") requires. [Catalog loading](catalog-loading.md "loads the catalog first") describes the loader and caches.
 
-Plan reads relevant paths, ancestors, and the root through `RepoSnapshotService`. This is a selective text view, not a complete VFS snapshot. Plan retains outcomes and a serializable baseline with the canonical root, path types, and SHA-256 fingerprints of existing text files. It does not retain existing file contents.
+Plan captures relevant paths, ancestors, and the root through `RepositoryState`. This is a selective text view, not a complete VFS snapshot. Plan retains outcomes and a serializable baseline with the canonical root, path types, and SHA-256 fingerprints of existing text files. It does not retain existing file contents.
 
 Apply checks every baseline path before preparing composition or writing. For modified composed files, it re-reads contents after that check. Each write checks its target and ancestors again, then uses a temporary-file rename. A later stale check stops remaining writes and reports the partial result. Other execution failures are collected while later writes continue. This does not provide a repository-wide transaction.
 

@@ -19,7 +19,7 @@ import {
   Schema,
 } from "effect";
 import { prepareOwnerWrites } from "../plan/PackageOwnership";
-import { RepositoryStateService } from "../plan/RepositoryStateService";
+import { RepositoryState } from "../plan/RepositoryState";
 import * as Composition from "./Composition";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
@@ -90,7 +90,7 @@ export class ApplyService extends Context.Service<
     const writeEngine = yield* WriteEngine;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const repositoryState = yield* RepositoryStateService;
+    const repositoryState = yield* RepositoryState;
 
     const validateApplyIntent = Effect.fn("ApplyService.validateApplyIntent")(
       function* (apply: typeof Apply.Type) {
@@ -237,23 +237,26 @@ export class ApplyService extends Context.Service<
     const loadFileContents = Effect.fn("ApplyService.loadFileContents")(
       function* (filePath: string) {
         const pathStat = yield* fileSystem.stat(filePath).pipe(
-          Effect.catch((error) =>
-            error.reason._tag === "NotFound"
-              ? Effect.succeed(null)
-              : Effect.fail(
-                  new ApplyFailure({
-                    message: `Could not inspect ${filePath} during apply: ${error.message}`,
-                    cause: error,
-                  }),
-                ),
+          Effect.asSome,
+          Effect.catchReason(
+            "PlatformError",
+            "NotFound",
+            () => Effect.succeedNone,
+          ),
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                message: `Could not inspect ${filePath} during apply: ${error.message}`,
+                cause: error,
+              }),
           ),
         );
 
-        if (pathStat === null) {
+        if (Option.isNone(pathStat)) {
           return Option.none<string>();
         }
 
-        if (pathStat.type === "Directory") {
+        if (pathStat.value.type === "Directory") {
           return yield* new ApplyFailure({
             message: `Expected ${filePath} to be a file during apply.`,
           });
@@ -650,6 +653,6 @@ export class ApplyService extends Context.Service<
 }) {
   static readonly layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
     Layer.provide(WriteEngine.layer),
-    Layer.provide(RepositoryStateService.layer),
+    Layer.provide(RepositoryState.layer),
   );
 }
