@@ -20,7 +20,7 @@ import {
 } from "effect";
 import { prepareOwnerWrites } from "../plan/PackageOwnership";
 import { RepositoryStateService } from "../plan/RepositoryStateService";
-import { CompositionEngine } from "./CompositionEngine";
+import * as Composition from "./Composition";
 import { type ApplyWriteRequest, WriteEngine } from "./WriteEngine";
 
 const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
@@ -92,7 +92,6 @@ export class ApplyService extends Context.Service<
 >()("ApplyService", {
   make: Effect.gen(function* () {
     const writeEngine = yield* WriteEngine;
-    const compositionEngine = yield* CompositionEngine;
     const fileSystem = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const repositoryState = yield* RepositoryStateService;
@@ -333,7 +332,7 @@ export class ApplyService extends Context.Service<
             action,
             repoRoot,
           });
-          const composedContents = yield* compositionEngine.compose(
+          const composedContents = yield* Composition.compose(
             action.path,
             baseContents,
             action.operations,
@@ -682,7 +681,6 @@ export class ApplyService extends Context.Service<
 }) {
   static readonly layer = Layer.effect(ApplyService)(ApplyService.make).pipe(
     Layer.provide(WriteEngine.layer),
-    Layer.provide(CompositionEngine.layer),
     Layer.provide(RepositoryStateService.layer),
   );
 }

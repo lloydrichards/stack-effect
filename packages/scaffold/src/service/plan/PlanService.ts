@@ -13,12 +13,9 @@ import {
 } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
 import { validatePackageOwners } from "./PackageOwnership";
-import {
-  collectAncestorPaths,
-  PlanAssessor,
-  type PlanningIntentPath,
-} from "./PlanAssessor";
-import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
+import * as PlanAssessment from "./PlanAssessment";
+import type { PlanningIntentPath } from "./PlanAssessment";
+import * as PlanningIntent from "./PlanningIntent";
 import { RepositoryStateService } from "./RepositoryStateService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
 import {
@@ -46,10 +43,8 @@ export class PlanService extends Context.Service<
 >()("PlanService", {
   make: Effect.gen(function* () {
     const contribute = yield* ContributionResolver;
-    const compiler = yield* PlanningIntentCompiler;
     const snapshot = yield* RepoSnapshotService;
     const repositoryState = yield* RepositoryStateService;
-    const assessor = yield* PlanAssessor;
 
     const build = Effect.fn("PlanService.build")(function* ({
       blueprint,
@@ -62,7 +57,9 @@ export class PlanService extends Context.Service<
         blueprint,
         config,
       );
-      const planningPaths = yield* compiler.compile(normalizedContributions);
+      const planningPaths = yield* PlanningIntent.compile(
+        normalizedContributions,
+      );
 
       const repoSnapshot = yield* snapshot.load({
         paths: Arr.fromIterable(
@@ -71,7 +68,7 @@ export class PlanService extends Context.Service<
             ...workspaceManifestPaths,
             ...Arr.flatMap(planningPaths, (planningPath) => [
               planningPath.path,
-              ...collectAncestorPaths(planningPath.path),
+              ...PlanAssessment.collectAncestorPaths(planningPath.path),
             ]),
           ]),
         ),
@@ -123,7 +120,7 @@ export class PlanService extends Context.Service<
         const assertAncestorDirectories = (path: string) =>
           pipe(
             Arr.findFirst(
-              collectAncestorPaths(path),
+              PlanAssessment.collectAncestorPaths(path),
               (ancestorPath) =>
                 snapshotPaths.get(ancestorPath)?._tag === "file",
             ),
@@ -142,14 +139,14 @@ export class PlanService extends Context.Service<
           Effect.gen(function* () {
             yield* assertAncestorDirectories(intent.path);
             const snapshotPath = snapshotPaths.get(intent.path);
-            const planningPath = assessor.preserveDenoSqlitePermissions(
+            const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
               intent,
               snapshotPath,
             );
 
             return {
               planningPath,
-              assessment: assessor.assessPlanningPath({
+              assessment: PlanAssessment.assess({
                 planningPath,
                 snapshotPath,
               }),
@@ -161,7 +158,7 @@ export class PlanService extends Context.Service<
           baseline,
           outcomes: yield* registerWorkspaceMembers(
             Arr.map(assessedPaths, ({ planningPath, assessment }) =>
-              assessor.toPlannedFileOutcome({
+              PlanAssessment.toPlannedFileOutcome({
                 planningPath,
                 classification: assessment.classification,
               }),
@@ -191,9 +188,7 @@ export class PlanService extends Context.Service<
 }) {
   static readonly layer = Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
-    Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(RepoSnapshotService.layer),
     Layer.provide(RepositoryStateService.layer),
-    Layer.provide(PlanAssessor.layer),
   );
 }

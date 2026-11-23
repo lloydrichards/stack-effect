@@ -64,13 +64,13 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 `BlueprintService` validates Selection and resolves target/module dependency closure through CatalogService. Blueprint contains identities and dependency edges, not file contributions.
 
-`PlanService` resolves contributions, compiles planning intent by path, loads relevant repository state, and asks `PlanAssessor` to classify outcomes. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
+`PlanService` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
 
 The CLI rejects required dependency conflicts before Apply in interactive and automatic modes. Other conflicted paths retain explicit override or skip decisions. This policy stays in `ScaffoldPipeline`; Plan remains policy-free.
 
-`ApplyService` prepares skip, authoritative-write, or composed-write actions. `CompositionEngine` dispatches JSON and TypeScript operations to their composers. `WriteEngine` enforces create, modify, or override expectations at each path. These internal services should not become caller-owned policy.
+`ApplyService` prepares skip, authoritative-write, or composed-write actions. The pure `Composition` module routes JSON and TypeScript operations to `JsonComposition` and `TypeScriptComposition`. `WriteEngine` enforces create, modify, or override expectations at each path. These internals should not become caller-owned policy.
 
-`ScaffoldFormatter` renders Blueprint and Plan for the CLI. RecipeService resolves recipe inputs; RecipePreviewService produces the builder preview. Consult the package exports for the current public service boundary.
+The CLI renders Blueprint and Plan itself; `@repo/scaffold` returns data only. RecipeService resolves recipe inputs; RecipePreviewService produces the builder preview. Consult the package exports for the current public service boundary.
 
 ## Generated READMEs
 

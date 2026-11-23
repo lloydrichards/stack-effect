@@ -26,10 +26,6 @@ import {
 import { RepositoryStateService } from "../plan/RepositoryStateService";
 import { ApplyService } from "./ApplyService";
 import {
-  CompositionEngine,
-  type CompositionEngineShape,
-} from "./CompositionEngine";
-import {
   type ApplyWriteOutcome,
   type ApplyWriteRequest,
   WriteEngine,
@@ -45,12 +41,6 @@ type MockPathEntry =
   | { readonly _tag: "file"; readonly contents: string }
   | { readonly _tag: "statError"; readonly error: PlatformError.PlatformError }
   | { readonly _tag: "readError"; readonly error: PlatformError.PlatformError };
-
-type CompositionInput = {
-  readonly path: string;
-  readonly contents: string;
-  readonly operations: ReadonlyArray<typeof CompositionOperation.Type>;
-};
 
 const makeNotFoundError = (method: string, absolutePath: string) =>
   PlatformError.systemError({
@@ -138,16 +128,12 @@ const mockRepositoryStateLayer = Layer.succeed(RepositoryStateService, {
 
 const makeApplyServiceLayer = ({
   write,
-  compose,
   entries = {},
 }: {
   write: (args: {
     readonly repoRoot: string;
     readonly write: ApplyWriteRequest;
   }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure, never>;
-  compose?: (
-    input: CompositionInput,
-  ) => Effect.Effect<string, ApplyFailure, never>;
   entries?: Record<string, MockPathEntry>;
 }) =>
   Layer.effect(ApplyService)(ApplyService.make).pipe(
@@ -156,18 +142,6 @@ const makeApplyServiceLayer = ({
         Layer.succeed(WriteEngine, {
           write: Effect.fn("MockWriteEngine.write")(write),
         } satisfies WriteEngineShape),
-        Layer.succeed(CompositionEngine, {
-          compose: Effect.fn("MockCompositionEngine.compose")(
-            (
-              path: string,
-              contents: string,
-              operations: ReadonlyArray<typeof CompositionOperation.Type>,
-            ) =>
-              compose
-                ? compose({ path, contents, operations })
-                : Effect.succeed(contents),
-          ),
-        } satisfies CompositionEngineShape),
         makeFileSystemLayer(entries),
         Path.layer,
         mockRepositoryStateLayer,
@@ -249,7 +223,6 @@ describe("ApplyService", () => {
     it.effect("should skip unchanged outcomes and then avoid writes", () =>
       Effect.gen(function* () {
         const writeCalls: Array<ApplyWriteRequest> = [];
-        const composeCalls: Array<CompositionInput> = [];
 
         const result = yield* runApply({
           apply: makeApply({
@@ -269,15 +242,10 @@ describe("ApplyService", () => {
                 status: "created" as const,
               });
             },
-            compose: (input) => {
-              composeCalls.push(input);
-              return Effect.succeed("unused");
-            },
           }),
         });
 
         expect(writeCalls).toHaveLength(0);
-        expect(composeCalls).toHaveLength(0);
         expect(result).toMatchObject({
           created: [],
           modified: [],
@@ -311,7 +279,6 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -361,7 +328,6 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -405,7 +371,6 @@ describe("ApplyService", () => {
                   status: "modified" as const,
                 });
               },
-              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -430,8 +395,6 @@ describe("ApplyService", () => {
       () =>
         Effect.gen(function* () {
           const writeCalls: Array<ApplyWriteRequest> = [];
-          const composeCalls: Array<CompositionInput> = [];
-
           const exit = yield* Effect.exit(
             runApply({
               apply: makeApply({
@@ -451,10 +414,6 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                compose: (input) => {
-                  composeCalls.push(input);
-                  return Effect.succeed("unused");
-                },
               }),
             }),
           );
@@ -462,7 +421,6 @@ describe("ApplyService", () => {
           expect(Exit.isFailure(exit)).toBe(true);
           assert(Exit.isFailure(exit));
           expect(writeCalls).toHaveLength(0);
-          expect(composeCalls).toHaveLength(0);
           expect(Cause.squash(exit.cause)).toMatchObject({
             _tag: "ApplyFailure",
             message:
@@ -571,7 +529,6 @@ describe("ApplyService", () => {
       () =>
         Effect.gen(function* () {
           const writeCalls: Array<ApplyWriteRequest> = [];
-          const composeCalls: Array<CompositionInput> = [];
 
           const result = yield* runApply({
             apply: makeApply({
@@ -600,19 +557,9 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              compose: (input) => {
-                composeCalls.push(input);
-                return Effect.succeed('export * from "./Api";\n');
-              },
             }),
           });
 
-          expect(composeCalls).toHaveLength(1);
-          const firstComposeCall = composeCalls[0];
-          assert(firstComposeCall !== undefined);
-          expect(firstComposeCall).toMatchObject({
-            path: "packages/domain/src/index.ts",
-          });
           expect(writeCalls).toEqual([
             {
               path: "packages/domain/src/index.ts",
@@ -633,7 +580,7 @@ describe("ApplyService", () => {
       "should merge structural modify outcomes with existing file contents",
       () =>
         Effect.gen(function* () {
-          const composeCalls: Array<CompositionInput> = [];
+          const writeCalls: Array<ApplyWriteRequest> = [];
 
           const result = yield* runApply({
             apply: makeApply({
@@ -658,24 +605,23 @@ describe("ApplyService", () => {
                   contents: 'export * from "./Existing";\n',
                 },
               },
-              write: ({ write }) =>
-                Effect.succeed({
+              write: ({ write }) => {
+                writeCalls.push(write);
+                return Effect.succeed({
                   path: write.path,
                   status: "modified" as const,
-                }),
-              compose: (input) => {
-                composeCalls.push(input);
-                return Effect.succeed('export * from "./Api";\n');
+                });
               },
             }),
           });
 
-          expect(composeCalls).toHaveLength(1);
-          const firstComposeCall = composeCalls[0];
-          assert(firstComposeCall !== undefined);
-          expect(firstComposeCall.contents).toBe(
-            'export * from "./Existing";\n',
-          );
+          expect(writeCalls).toEqual([
+            {
+              path: "packages/domain/src/index.ts",
+              contents: 'export * from "./Existing";\nexport * from "./Api";\n',
+              writeMode: "modify",
+            },
+          ]);
           expect(result).toMatchObject({
             created: [],
             modified: ["packages/domain/src/index.ts"],
@@ -721,7 +667,6 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                compose: () => Effect.succeed("unused"),
               }),
             }),
           );
@@ -780,7 +725,6 @@ describe("ApplyService", () => {
                     status: "modified" as const,
                   });
                 },
-                compose: () => Effect.succeed("unused"),
               }),
             }),
           );
@@ -812,7 +756,6 @@ describe("ApplyService", () => {
                   });
                 }),
               } satisfies WriteEngineShape),
-              CompositionEngine.layer,
               makeFileSystemLayer({
                 "/repo/packages/domain/src/index.ts": {
                   _tag: "missing",
@@ -876,7 +819,6 @@ describe("ApplyService", () => {
                     });
                   }),
                 } satisfies WriteEngineShape),
-                CompositionEngine.layer,
                 makeFileSystemLayer({
                   "/repo/package.json": {
                     _tag: "file",
@@ -941,7 +883,6 @@ describe("ApplyService", () => {
                 path: write.path,
                 status: "unchanged" as const,
               }),
-            compose: () => Effect.succeed("unused"),
           }),
         });
 
@@ -992,7 +933,6 @@ describe("ApplyService", () => {
                   status: "created" as const,
                 });
               },
-              compose: () => Effect.succeed("unused"),
             }),
           });
 
@@ -1089,7 +1029,6 @@ describe("ApplyService", () => {
                     );
                 }
               },
-              compose: () => Effect.succeed("unused"),
             }),
           });
 

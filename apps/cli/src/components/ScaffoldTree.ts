@@ -11,15 +11,7 @@ import type {
   PlanEntryClassification,
   PlanOutcome,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Layer,
-  Match,
-  pipe,
-  String,
-} from "effect";
+import { Array as Arr, Match, pipe, String } from "effect";
 import { Ansi, Box } from "effect-boxes";
 
 const planLegendBox = [
@@ -44,6 +36,11 @@ const planLegendBox = [
     Box.left,
   ),
 ];
+
+type FormattedBlueprint = {
+  readonly title: string;
+  readonly content: Box.Box<Ansi.AnsiStyle>;
+};
 
 type FormattedPlan = {
   readonly title: string;
@@ -108,180 +105,154 @@ const renderTreeNodes = <A>(
   );
 };
 
-export class ScaffoldFormatter extends Context.Service<ScaffoldFormatter>()(
-  "ScaffoldFormatter",
-  {
-    make: Effect.gen(function* () {
-      const formatBlueprint = Effect.fn("ScaffoldFormatter.formatBlueprint")(
-        function* (blueprint: typeof Blueprint.Type) {
-          if (blueprint.nodes.length === 0) {
-            return {
-              title: "Blueprint",
-              content: Box.text("(empty)").pipe(Box.annotate(Ansi.dim)),
-            };
-          }
+/** Renders a Blueprint as targets with their attached modules and dependency edges. */
+export const formatBlueprint = (
+  blueprint: typeof Blueprint.Type,
+): FormattedBlueprint => {
+  if (blueprint.nodes.length === 0) {
+    return {
+      title: "Blueprint",
+      content: Box.text("(empty)").pipe(Box.annotate(Ansi.dim)),
+    };
+  }
 
-          const attachedModulesByTarget = pipe(
-            blueprint.nodes,
-            Arr.filter(BlueprintNode.guards["attached-module"]),
-            Arr.reduce(
-              new Map<
-                string,
-                ReadonlyArray<typeof BlueprintAttachedModuleNode.Type>
-              >(),
-              (groups, node) =>
-                groups.set(
-                  node.targetId,
-                  Arr.append(groups.get(node.targetId) ?? [], node),
-                ),
-            ),
-          );
+  const attachedModulesByTarget = pipe(
+    blueprint.nodes,
+    Arr.filter(BlueprintNode.guards["attached-module"]),
+    Arr.reduce(
+      new Map<string, ReadonlyArray<typeof BlueprintAttachedModuleNode.Type>>(),
+      (groups, node) =>
+        groups.set(
+          node.targetId,
+          Arr.append(groups.get(node.targetId) ?? [], node),
+        ),
+    ),
+  );
 
-          const outgoingEdgesByNode = Arr.reduce(
-            blueprint.edges,
-            new Map<
-              string,
-              ReadonlyArray<(typeof Blueprint.fields.edges.Type)[0]>
-            >(),
-            (groups, edge) =>
-              groups.set(
-                edge.from,
-                Arr.append(groups.get(edge.from) ?? [], edge),
-              ),
-          );
+  const outgoingEdgesByNode = Arr.reduce(
+    blueprint.edges,
+    new Map<string, ReadonlyArray<(typeof Blueprint.fields.edges.Type)[0]>>(),
+    (groups, edge) =>
+      groups.set(edge.from, Arr.append(groups.get(edge.from) ?? [], edge)),
+  );
 
-          const targetBoxes = Arr.map(
-            blueprint.nodes.filter(BlueprintNode.guards.target),
-            (targetNode) => {
-              const attachedModules = Arr.sort(
-                Arr.fromIterable(
-                  attachedModulesByTarget.get(targetNode.id) ?? [],
-                ),
-                blueprintNodeOrd,
-              );
-
-              const targetHeader = Box.hcat(
-                [
-                  Box.text("- "),
-                  Box.text(targetNode.id).pipe(Box.annotate(Ansi.bold)),
-                  Box.text(` (${targetNode.identity.kind})`).pipe(
-                    Box.annotate(Ansi.dim),
-                  ),
-                ],
-                Box.top,
-              );
-
-              const moduleNodes: ReadonlyArray<TreeNode<Ansi.AnsiStyle>> =
-                Arr.map(attachedModules, (attachedModule) => ({
-                  label: Box.text(attachedModule.id),
-                  connector: "dashed" as const,
-                  children: Arr.map(
-                    Arr.sort(
-                      Arr.filter(
-                        Arr.fromIterable(
-                          outgoingEdgesByNode.get(attachedModule.id) ?? [],
-                        ),
-                        (edge) =>
-                          edge.reason !== "owns-module" &&
-                          !(
-                            edge.reason === "required-target" &&
-                            edge.to === attachedModule.targetId
-                          ),
-                      ),
-                      idOrd,
-                    ),
-                    (edge) => ({
-                      label: Box.hsep(
-                        [
-                          Box.text(edge.to),
-                          Box.text(`[${edge.reason}]`).pipe(
-                            Box.annotate(Ansi.dim),
-                          ),
-                        ],
-                        1,
-                        Box.left,
-                      ),
-                      connector: "solid" as const,
-                      children: [],
-                    }),
-                  ),
-                }));
-
-              const moduleLines = renderTreeNodes(moduleNodes, "  ");
-
-              return Box.vcat([targetHeader, moduleLines], Box.left);
-            },
-          );
-
-          return {
-            title: "Blueprint",
-            content: Box.vsep(targetBoxes, 1, Box.left),
-          };
-        },
+  const targetBoxes = Arr.map(
+    blueprint.nodes.filter(BlueprintNode.guards.target),
+    (targetNode) => {
+      const attachedModules = Arr.sort(
+        Arr.fromIterable(attachedModulesByTarget.get(targetNode.id) ?? []),
+        blueprintNodeOrd,
       );
 
-      const formatPlan = Effect.fn("ScaffoldFormatter.formatPlan")(function* (
-        plan: typeof Plan.Type,
-      ): Generator<never, FormattedPlan> {
-        const summary = Arr.reduce(
-          plan.outcomes,
-          {
-            create: 0,
-            modify: 0,
-            unchanged: 0,
-            conflict: 0,
-          } satisfies Record<typeof PlanEntryClassification.Type, number>,
-          (summary, outcome) => ({
-            ...summary,
-            [outcome.classification]: summary[outcome.classification] + 1,
-          }),
-        );
+      const targetHeader = Box.hcat(
+        [
+          Box.text("- "),
+          Box.text(targetNode.id).pipe(Box.annotate(Ansi.bold)),
+          Box.text(` (${targetNode.identity.kind})`).pipe(
+            Box.annotate(Ansi.dim),
+          ),
+        ],
+        Box.top,
+      );
 
-        const conflictsByPath = Arr.reduce(
-          plan.conflicts,
-          new Map<string, ReadonlyArray<typeof PlanConflict.Type>>(),
-          (groups, conflict) =>
-            groups.set(
-              conflict.path,
-              Arr.append(groups.get(conflict.path) ?? [], conflict),
+      const moduleNodes: ReadonlyArray<TreeNode<Ansi.AnsiStyle>> = Arr.map(
+        attachedModules,
+        (attachedModule) => ({
+          label: Box.text(attachedModule.id),
+          connector: "dashed" as const,
+          children: Arr.map(
+            Arr.sort(
+              Arr.filter(
+                Arr.fromIterable(
+                  outgoingEdgesByNode.get(attachedModule.id) ?? [],
+                ),
+                (edge) =>
+                  edge.reason !== "owns-module" &&
+                  !(
+                    edge.reason === "required-target" &&
+                    edge.to === attachedModule.targetId
+                  ),
+              ),
+              idOrd,
             ),
-        );
+            (edge) => ({
+              label: Box.hsep(
+                [
+                  Box.text(edge.to),
+                  Box.text(`[${edge.reason}]`).pipe(Box.annotate(Ansi.dim)),
+                ],
+                1,
+                Box.left,
+              ),
+              connector: "solid" as const,
+              children: [],
+            }),
+          ),
+        }),
+      );
 
-        const treeNodes = buildNodes(
-          Arr.map(Arr.sort(plan.outcomes, pathOrd), (outcome) => ({
-            segments: String.split(
-              outcome.path.startsWith("./")
-                ? outcome.path.slice(2)
-                : outcome.path,
-              "/",
-            ),
-            outcome,
-          })),
-          0,
-          conflictsByPath,
-        );
+      const moduleLines = renderTreeNodes(moduleNodes, "  ");
 
-        const treeBox = Box.vcat(
-          [Box.text("."), renderTreeNodes(treeNodes)],
-          Box.left,
-        );
-
-        return {
-          title: "Plan",
-          legend: Box.hsep(planLegendBox, 2, Box.left),
-          summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.conflict} merge`,
-          tree: treeBox,
-        };
-      });
-
-      return { formatBlueprint, formatPlan } as const;
-    }),
-  },
-) {
-  static readonly layer = Layer.effect(ScaffoldFormatter)(
-    ScaffoldFormatter.make,
+      return Box.vcat([targetHeader, moduleLines], Box.left);
+    },
   );
-}
+
+  return {
+    title: "Blueprint",
+    content: Box.vsep(targetBoxes, 1, Box.left),
+  };
+};
+
+/** Renders a Plan as a file tree with classification badges and conflicts. */
+export const formatPlan = (plan: typeof Plan.Type): FormattedPlan => {
+  const summary = Arr.reduce(
+    plan.outcomes,
+    {
+      create: 0,
+      modify: 0,
+      unchanged: 0,
+      conflict: 0,
+    } satisfies Record<typeof PlanEntryClassification.Type, number>,
+    (summary, outcome) => ({
+      ...summary,
+      [outcome.classification]: summary[outcome.classification] + 1,
+    }),
+  );
+
+  const conflictsByPath = Arr.reduce(
+    plan.conflicts,
+    new Map<string, ReadonlyArray<typeof PlanConflict.Type>>(),
+    (groups, conflict) =>
+      groups.set(
+        conflict.path,
+        Arr.append(groups.get(conflict.path) ?? [], conflict),
+      ),
+  );
+
+  const treeNodes = buildNodes(
+    Arr.map(Arr.sort(plan.outcomes, pathOrd), (outcome) => ({
+      segments: String.split(
+        outcome.path.startsWith("./") ? outcome.path.slice(2) : outcome.path,
+        "/",
+      ),
+      outcome,
+    })),
+    0,
+    conflictsByPath,
+  );
+
+  const treeBox = Box.vcat(
+    [Box.text("."), renderTreeNodes(treeNodes)],
+    Box.left,
+  );
+
+  return {
+    title: "Plan",
+    legend: Box.hsep(planLegendBox, 2, Box.left),
+    summary: `${summary.create} create  ${summary.modify} modify  ${summary.unchanged} unchanged  ${summary.conflict} merge`,
+    tree: treeBox,
+  };
+};
 
 const buildNodes = (
   entries: ReadonlyArray<{

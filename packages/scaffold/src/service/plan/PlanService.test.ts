@@ -12,8 +12,6 @@ import {
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Layer } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
-import { PlanAssessor } from "./PlanAssessor";
-import { PlanningIntentCompiler } from "./PlanningIntentCompiler";
 import { PlanService } from "./PlanService";
 import { RepositoryStateService } from "./RepositoryStateService";
 import { RepoSnapshotService } from "./RepoSnapshotService";
@@ -215,28 +213,23 @@ const makePlanServiceLayer = (
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
   }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>,
-  assessorLayer = PlanAssessor.layer,
 ) =>
   Layer.effect(PlanService)(PlanService.make).pipe(
     Layer.provide(ContributionResolver.layer),
-    Layer.provide(PlanningIntentCompiler.layer),
     Layer.provide(makeRepoSnapshotServiceLayer(load)),
     Layer.provide(makeRepositoryStateServiceLayer(load)),
-    Layer.provide(assessorLayer),
     Layer.provide(OfficialCatalogLayer),
   );
 
 const buildPlan = ({
   blueprint,
   load,
-  assessorLayer,
 }: {
   blueprint: typeof Blueprint.Type;
   load: (args: {
     readonly paths: ReadonlyArray<string>;
     readonly repoRoot: string;
   }) => Effect.Effect<typeof RepoSnapshot.Type, PlanFailure, never>;
-  assessorLayer?: Layer.Layer<PlanAssessor>;
 }) =>
   Effect.gen(function* () {
     const planService = yield* PlanService;
@@ -248,34 +241,25 @@ const buildPlan = ({
         runtime: { _tag: "bun" },
       }),
     });
-  }).pipe(Effect.provide(makePlanServiceLayer(load, assessorLayer)));
+  }).pipe(Effect.provide(makePlanServiceLayer(load)));
 
 describe("PlanService", () => {
   it.effect(
     "should return PlanFailure when projection violates Plan invariants",
     () =>
       Effect.gen(function* () {
-        const invalidAssessorLayer = Layer.effect(PlanAssessor)(
-          PlanAssessor.make.pipe(
-            Effect.map((assessor) => ({
-              ...assessor,
-              assessPlanningPath: (input) => ({
-                ...assessor.assessPlanningPath(input),
-                classification: "conflict" as const,
-                conflicts: [],
-              }),
-            })),
-          ),
-        );
-
         const exit = yield* Effect.exit(
           buildPlan({
             blueprint: makeDomainBlueprint(),
+            // A repository read that reports one path twice yields a baseline
+            // the Plan schema rejects.
             load: ({ paths }) =>
               Effect.succeed({
-                paths: paths.map((path) => ({ _tag: "missing", path })),
+                paths: [...paths, ...paths.slice(0, 1)].map((path) => ({
+                  _tag: "missing",
+                  path,
+                })),
               }),
-            assessorLayer: invalidAssessorLayer,
           }),
         );
 

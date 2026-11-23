@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { renderPlanForLlm } from "./PlanRenderer";
+import * as LlmPlan from "./LlmPlan";
 
-describe("renderPlanForLlm", () => {
+describe("LlmPlan.render", () => {
   it("renders a missing JSX slot with its path and slot id", () => {
-    const rendered = renderPlanForLlm({
+    const rendered = LlmPlan.render({
       outcomes: [],
       conflicts: [
         {
