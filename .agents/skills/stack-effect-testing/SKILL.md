@@ -10,6 +10,16 @@ description: Design, review, or consolidate tests in Stack Effect. Use to choose
 - Use runtime tests for runtime behavior. Add a compile-time assertion for a deliberate inference, assignability, or rejection guarantee that ordinary type-checking would miss.
 - During an audit, record the behavior, the entry point, and any overlap. During cleanup, identify the retained check that would catch each removed case's failure or explain why the behavior no longer needs coverage. Keep unique failure, resource cleanup, and concurrency cases. Use named table rows when only the inputs and expected values differ. Keep cases separate when they need different assertions.
 
+## Write the test
+
+- Keep tests out of `src/`, in the package's `test/` directory, as Effect and `@effect-vfs` do. Name each file after the public module it exercises, `test/X.test.ts`. Split off `test/X.<scenario>.test.ts` only when there is a strong reason, such as a scenario large enough to bury the module's other cases. Keep fixtures in `test/fixtures/`. Do not test third-party libraries. Type-level tests will go in `typetest/X.tst.ts`, but that runner is not set up yet.
+- Test through public modules only. Lint rejects imports from `internal/` in test files.
+- Run the real owner over the memory filesystem and assert on results and written files. Do not stub the owner's collaborators or assert on recorded calls.
+- Build test inputs through the public pipeline, starting from the smallest input a user gives, such as a selection against a test catalog. Hand-build a phase value only to test that it is rejected. Keep shared test catalogs and inputs in one fixture module per package, named so lint and Fallow treat it as test code. Do not copy a production module's internal format into a test.
+- Inject faults by wrapping a platform service under the real owner, using the package's shared fault helper. Trigger on the method and an observable path or call count, not on names the implementation invents. Assert that the fault fired, then assert the typed failure and the observable aftermath.
+- Import `assert`, `describe`, and `it` from `@effect/vitest`, and assert with `assert`.
+- Check an expected failure with `Effect.flip`, then assert its `_tag` and identifying values such as a path or id. Pin full message text only when the text is the contract. Use `Effect.exit` only to assert a defect or interruption. Do not use `Cause.squash` to assert a typed failure.
+
 ## Choose the test location
 
 | Behavior | Where to check it |
@@ -31,5 +41,5 @@ description: Design, review, or consolidate tests in Stack Effect. Use to choose
 - Default to `it.effect` from `@effect/vitest` in repository Effect suites. Small, synchronous generated-project fixtures may use `Effect.runSync`. Keep the owner under test real and replace the nearest dependency needed to reproduce the failure. Use the existing memory filesystem for repository state. Use a temporary project with a real filesystem when the behavior depends on the platform.
 - Use `TestClock` from `effect/testing` for Effect time. For concurrent work, await the signal that proves readiness or completion, such as a Deferred, a fiber result, or an observed state change.
 - Use controlled HTTP fixtures for routine tests. Check deployed registry CORS, cache validators, and genuine 404 responses separately before releasing clients that depend on them.
-- For examples, see [CatalogLoader tests](../../../packages/scaffold/src/service/catalog/CatalogLoader.test.ts) for controlled HTTP and time, and [repository state integration tests](../../../packages/scaffold/src/service/plan/RepositoryStateIntegration.test.ts) for Plan and Apply against a memory filesystem.
+- For examples, see [CatalogLoader tests](../../../packages/scaffold/test/CatalogLoader.test.ts) for controlled HTTP and time, and [repository state integration tests](../../../packages/scaffold/test/ApplyService.repositoryState.test.ts) for Plan and Apply against a memory filesystem.
 - Run `bun run test --filter=<workspace>` from the repository root for each affected workspace that defines a test task. Follow the workspace instructions for CLI E2E and browser checks.
