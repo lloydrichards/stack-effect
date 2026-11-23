@@ -46,13 +46,13 @@ import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 export type CollectedTarget = {
-  kind: typeof TargetKind.Type;
+  kind: TargetKind;
   name: string;
-  modules: Array<typeof ModuleId.Type>;
+  modules: Array<ModuleId>;
   confirmed: boolean;
 };
 
-const validateTargetName = (kind: typeof TargetKind.Type) => (value: string) =>
+const validateTargetName = (kind: TargetKind) => (value: string) =>
   Schema.decodeEffect(TargetIdentity)({ kind, name: value }).pipe(
     Effect.map((identity) => identity.name),
     Effect.mapError(() =>
@@ -109,9 +109,7 @@ const formatTargetSummary = (
  * children are shown for visibility, but Selection construction routes each
  * chosen module back to its owning target.
  */
-const buildModuleTree = (
-  modules: ReadonlyArray<typeof ModuleDefinition.Type>,
-) =>
+const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
 
@@ -122,14 +120,10 @@ const buildModuleTree = (
     );
 
     const buildNode = (
-      mod: typeof ModuleDefinition.Type,
+      mod: ModuleDefinition,
       requirement: "root" | "required" | "optional",
       visitedRef: Ref.Ref<Set<string>>,
-    ): Effect.Effect<
-      NestedModuleChild<typeof ModuleId.Type>,
-      never,
-      CatalogService
-    > =>
+    ): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogService> =>
       Effect.gen(function* () {
         const visited = yield* Ref.get(visitedRef);
 
@@ -434,7 +428,7 @@ const findTarget = (
 const ensureTargetModule = (
   targets: Array<CollectedTarget>,
   identity: TargetIdentity,
-  moduleId: typeof ModuleId.Type,
+  moduleId: ModuleId,
   confirmed: boolean,
 ) => {
   const existing = findTarget(targets, identity);
@@ -460,7 +454,7 @@ const ensureTargetModule = (
 
 const supportedModulesForTarget = (
   identity: TargetIdentity,
-  moduleIds: ReadonlyArray<typeof ModuleId.Type>,
+  moduleIds: ReadonlyArray<ModuleId>,
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;
@@ -472,7 +466,7 @@ const supportedModulesForTarget = (
 
 type ReachableModule = {
   readonly target: TargetIdentity;
-  readonly moduleId: typeof ModuleId.Type;
+  readonly moduleId: ModuleId;
 };
 
 /**
@@ -490,7 +484,7 @@ const collectRequiredModuleClosure = (
 
     const visit = (
       target: TargetIdentity,
-      moduleId: typeof ModuleId.Type,
+      moduleId: ModuleId,
     ): Effect.Effect<void, CatalogNotFound> =>
       Effect.gen(function* () {
         const key = `${target.toKey()}:${moduleId}`;
@@ -510,7 +504,7 @@ const collectRequiredModuleClosure = (
             (
               dependency,
             ): dependency is Extract<
-              typeof ModuleDependency.Type,
+              ModuleDependency,
               { _tag: "required-module" }
             > => dependency._tag === "required-module",
           ),
@@ -542,14 +536,11 @@ export const resolveCapabilities = <E, R>(
   targets: Array<CollectedTarget>,
   confirmed: boolean,
   selectProvider: (options: {
-    definition: typeof ModuleDefinition.Type;
-    dependency: Extract<
-      typeof ModuleDependency.Type,
-      { _tag: "required-capability" }
-    >;
+    definition: ModuleDefinition;
+    dependency: Extract<ModuleDependency, { _tag: "required-capability" }>;
     requiredTarget: TargetIdentity;
-    providers: ReadonlyArray<typeof ModuleDefinition.Type>;
-  }) => Effect.Effect<typeof ModuleDefinition.Type, E, R>,
+    providers: ReadonlyArray<ModuleDefinition>;
+  }) => Effect.Effect<ModuleDefinition, E, R>,
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogService;

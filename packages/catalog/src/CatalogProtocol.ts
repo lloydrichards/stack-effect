@@ -3,8 +3,7 @@ import {
   CatalogCapabilityError,
   CatalogDocument,
   type CatalogFragment,
-  type ModuleDefinition,
-  type TargetDefinition,
+  type CatalogDefinition,
   type CatalogIssueSubject,
 } from "@repo/domain/Catalog";
 import { Array as Arr, Effect, Schema } from "effect";
@@ -108,10 +107,8 @@ export const templateCapabilities = (text: string): ReadonlyArray<string> => {
   ];
 };
 
-type Definition = typeof TargetDefinition.Type | typeof ModuleDefinition.Type;
-
 const definitionHierarchicalNameCapabilities = (
-  definition: Definition,
+  definition: CatalogDefinition,
 ): ReadonlyArray<string> => {
   const names =
     "supportedOn" in definition
@@ -141,7 +138,9 @@ export const hierarchicalNameCapabilities = (
     ),
   );
 
-const definitionCapabilities = (definition: Definition): ReadonlySet<string> =>
+const definitionCapabilities = (
+  definition: CatalogDefinition,
+): ReadonlySet<string> =>
   new Set([
     ...definition.contributions.map(
       (contribution) => `contribution:${contribution._tag}`,

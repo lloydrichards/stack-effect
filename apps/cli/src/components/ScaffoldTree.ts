@@ -1,6 +1,7 @@
 import {
   type Blueprint,
   type BlueprintAttachedModuleNode,
+  type BlueprintEdge,
   BlueprintNode,
   blueprintNodeOrd,
 } from "@repo/domain/Blueprint";
@@ -106,9 +107,7 @@ const renderTreeNodes = <A>(
 };
 
 /** Renders a Blueprint as targets with their attached modules and dependency edges. */
-export const formatBlueprint = (
-  blueprint: typeof Blueprint.Type,
-): FormattedBlueprint => {
+export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
   if (blueprint.nodes.length === 0) {
     return {
       title: "Blueprint",
@@ -120,7 +119,7 @@ export const formatBlueprint = (
     blueprint.nodes,
     Arr.filter(BlueprintNode.guards["attached-module"]),
     Arr.reduce(
-      new Map<string, ReadonlyArray<typeof BlueprintAttachedModuleNode.Type>>(),
+      new Map<string, ReadonlyArray<BlueprintAttachedModuleNode>>(),
       (groups, node) =>
         groups.set(
           node.targetId,
@@ -131,7 +130,7 @@ export const formatBlueprint = (
 
   const outgoingEdgesByNode = Arr.reduce(
     blueprint.edges,
-    new Map<string, ReadonlyArray<(typeof Blueprint.fields.edges.Type)[0]>>(),
+    new Map<string, ReadonlyArray<BlueprintEdge>>(),
     (groups, edge) =>
       groups.set(edge.from, Arr.append(groups.get(edge.from) ?? [], edge)),
   );
@@ -204,7 +203,7 @@ export const formatBlueprint = (
 };
 
 /** Renders a Plan as a file tree with classification badges and conflicts. */
-export const formatPlan = (plan: typeof Plan.Type): FormattedPlan => {
+export const formatPlan = (plan: Plan): FormattedPlan => {
   const summary = Arr.reduce(
     plan.outcomes,
     {
@@ -212,7 +211,7 @@ export const formatPlan = (plan: typeof Plan.Type): FormattedPlan => {
       modify: 0,
       unchanged: 0,
       conflict: 0,
-    } satisfies Record<typeof PlanEntryClassification.Type, number>,
+    } satisfies Record<PlanEntryClassification, number>,
     (summary, outcome) => ({
       ...summary,
       [outcome.classification]: summary[outcome.classification] + 1,
@@ -221,7 +220,7 @@ export const formatPlan = (plan: typeof Plan.Type): FormattedPlan => {
 
   const conflictsByPath = Arr.reduce(
     plan.conflicts,
-    new Map<string, ReadonlyArray<typeof PlanConflict.Type>>(),
+    new Map<string, ReadonlyArray<PlanConflict>>(),
     (groups, conflict) =>
       groups.set(
         conflict.path,
@@ -257,10 +256,10 @@ export const formatPlan = (plan: typeof Plan.Type): FormattedPlan => {
 const buildNodes = (
   entries: ReadonlyArray<{
     readonly segments: ReadonlyArray<string>;
-    readonly outcome: typeof PlanOutcome.Type;
+    readonly outcome: PlanOutcome;
   }>,
   depth: number,
-  conflictsByPath: ReadonlyMap<string, ReadonlyArray<typeof PlanConflict.Type>>,
+  conflictsByPath: ReadonlyMap<string, ReadonlyArray<PlanConflict>>,
 ): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
   if (entries.length === 0) return [];
 
@@ -332,7 +331,7 @@ const buildNodes = (
 };
 
 const formatPlanClassificationBadge = (
-  classification: typeof PlanEntryClassification.Type,
+  classification: PlanEntryClassification,
 ) => {
   const [text, style] = Match.value(classification).pipe(
     Match.when("create", () => ["[+]", Ansi.green] as const),
@@ -344,7 +343,7 @@ const formatPlanClassificationBadge = (
   return Box.text(text).pipe(Box.annotate(style));
 };
 
-const formatConflictLine = (conflict: typeof PlanConflict.Type) =>
+const formatConflictLine = (conflict: PlanConflict) =>
   Box.text(
     Match.value(conflict).pipe(
       Match.tags({

@@ -22,6 +22,8 @@ export const NormalizedContributions = Schema.Struct({
   modules: Schema.Array(ModuleContribution),
 });
 
+export type NormalizedContributions = typeof NormalizedContributions.Type;
+
 export const Runtime = Schema.TaggedUnion({
   bun: {},
   deno: {},
@@ -30,7 +32,9 @@ export const Runtime = Schema.TaggedUnion({
   },
 });
 
-export type RuntimeName = (typeof Runtime.Type)["_tag"];
+export type Runtime = typeof Runtime.Type;
+
+export type RuntimeName = Runtime["_tag"];
 export type PackageManagerName = "bun" | "deno" | "pnpm" | "npm";
 
 const packageManagerRuntimes: Record<PackageManagerName, RuntimeName> = {
@@ -47,7 +51,7 @@ export const runtimeForPackageManager = (
 export const makeRuntime = (
   runtime: RuntimeName,
   packageManager: PackageManagerName,
-): typeof Runtime.Type =>
+): Runtime =>
   Match.value(runtime).pipe(
     Match.when("bun", () => ({ _tag: "bun" as const })),
     Match.when("deno", () => ({ _tag: "deno" as const })),
@@ -60,6 +64,8 @@ export const makeRuntime = (
   );
 
 export const TypeScriptVersion = Schema.Literals(["6", "7"]);
+
+export type TypeScriptVersion = typeof TypeScriptVersion.Type;
 
 export const STACK_CONFIG_SCHEMA_URL =
   "https://stack-effect.lloydrichards.dev/schemas/v1/stack.effect.schema.json";
@@ -102,7 +108,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
     );
   }
 
-  get typescriptVersion(): typeof TypeScriptVersion.Type {
+  get typescriptVersion(): TypeScriptVersion {
     return this.typescript ?? "6";
   }
 

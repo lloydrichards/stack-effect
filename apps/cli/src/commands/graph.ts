@@ -26,9 +26,9 @@ const formatFlag = Flag.Literals("format", ["table", "mermaid", "dot"]).pipe(
   Flag.withDescription("Output format: table (default), mermaid, or dot"),
 );
 
-type IndexedNode = readonly [idx: number, node: typeof CatalogNode.Type];
+type IndexedNode = readonly [idx: number, node: CatalogNode];
 
-const nodeLabel = Match.type<typeof CatalogNode.Type>().pipe(
+const nodeLabel = Match.type<CatalogNode>().pipe(
   Match.tag("target", (n) => n.definition.kind),
   Match.tag("module", (n) => n.definition.id),
   Match.exhaustive,
@@ -49,14 +49,14 @@ const labelsOf = (nodes: ReadonlyArray<IndexedNode>) =>
   Arr.map(nodes, ([, n]) => nodeLabel(n)).join(", ");
 
 type RowData = {
-  readonly node: typeof CatalogNode.Type;
+  readonly node: CatalogNode;
   readonly supportedOn: ReadonlyArray<string>;
   readonly requires: ReadonlyArray<string>;
   readonly implies: ReadonlyArray<string>;
   readonly childOf: ReadonlyArray<string>;
 };
 
-const classifyEdge = Match.type<typeof CatalogEdge.Type>().pipe(
+const classifyEdge = Match.type<CatalogEdge>().pipe(
   Match.when("supportedOn", () => "supportedOn" as const),
   Match.when("requiredModule", () => "requires" as const),
   Match.when("implies", () => "implies" as const),
@@ -237,7 +237,7 @@ const countEdges = (g: CatalogGraph) => {
 
 const renderTable = (
   g: CatalogGraph,
-  sourceOf: Option.Option<(node: typeof CatalogNode.Type) => string>,
+  sourceOf: Option.Option<(node: CatalogNode) => string>,
 ) => {
   const nodeCount = Graph.nodeCount(g);
   const edgeCount = Graph.edgeCount(g);
@@ -337,7 +337,7 @@ export const graph = Command.make(
       const sourceOf = selection.sources.some((source) =>
         isCustomCatalogSource(source.name),
       )
-        ? Option.some((node: typeof CatalogNode.Type) =>
+        ? Option.some((node: CatalogNode) =>
             Option.getOrElse(
               catalog.getSource(
                 node._tag === "target"
@@ -352,7 +352,7 @@ export const graph = Command.make(
       const fmt = Option.getOrElse(flags.format, () => "table" as const);
       const labelWithSource = Option.match(sourceOf, {
         onNone: () => nodeLabel,
-        onSome: (source) => (node: typeof CatalogNode.Type) =>
+        onSome: (source) => (node: CatalogNode) =>
           `${nodeLabel(node)} (${source(node)})`,
       });
 

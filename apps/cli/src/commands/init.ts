@@ -15,7 +15,7 @@ import {
   toWorkspaceToolValue,
 } from "@repo/scaffold";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
-import { Console, Effect, Option, Schema } from "effect";
+import { Console, Effect, Option } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Command } from "effect/cli";
 import {
@@ -57,7 +57,7 @@ const optionalSelect = <A extends string>(
 
 const workspaceChoices = (
   catalog: typeof CatalogService.Service,
-  category: typeof ModuleCategory.Type,
+  category: ModuleCategory,
 ) =>
   catalog.getModules({ category }).map((m) => ({
     title: m.title,
@@ -67,7 +67,7 @@ const workspaceChoices = (
 
 const moduleChoices = (
   catalog: typeof CatalogService.Service,
-  category: typeof ModuleCategory.Type,
+  category: ModuleCategory,
 ) =>
   catalog.getModules({ category }).map((m) => ({
     title: m.title,
@@ -262,7 +262,7 @@ export const init = Command.make(
 
       const config = new StackConfig({
         $schema: STACK_CONFIG_SCHEMA_URL,
-        name: projectName as typeof Schema.NonEmptyString.Type,
+        name: projectName,
         runtime,
         typescript,
         ...Option.match(lint, {

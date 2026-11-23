@@ -3,12 +3,12 @@ import { Option, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import {
   initialRecipeBuilderValues,
-  RecipeBuilderFormSchema,
+  RecipeBuilderFormValues,
   toRecipePreviewInput,
 } from "../../../app/components/recipe-builder/form";
 import { fullStackRecipeFixture } from "./recipe-fixtures";
 
-const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormSchema);
+const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormValues);
 
 describe("recipe builder form", () => {
   it.each(["Invalid Name", "sdk//web", "../web", "sdk/con"])(

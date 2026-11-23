@@ -1,3 +1,4 @@
+import { RepositoryPath } from "@repo/domain/Plan";
 import { describe, expect, it } from "vitest";
 import * as LlmPlan from "./LlmPlan";
 
@@ -8,7 +9,7 @@ describe("LlmPlan.render", () => {
       conflicts: [
         {
           _tag: "jsxSlotTargetNotFound",
-          path: "apps/web/src/App.tsx",
+          path: RepositoryPath.make("apps/web/src/App.tsx"),
           slotId: "components",
         },
       ],

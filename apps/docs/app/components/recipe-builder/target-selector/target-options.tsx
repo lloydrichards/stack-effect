@@ -10,7 +10,7 @@ import { nextTargetName } from "./state";
 type TargetOptionsProps = {
   readonly instances: ReadonlyArray<TargetInstance>;
   readonly onAddTarget: (kind: string) => void;
-  readonly targets: (typeof RecipeBuilderCatalog.Type)["targets"] | undefined;
+  readonly targets: RecipeBuilderCatalog["targets"] | undefined;
   readonly catalogFailed: boolean;
 };
 

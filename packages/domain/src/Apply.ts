@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { pathOrd, pathStrOrd } from "./Order";
-import { Plan } from "./Plan";
+import { Plan, RepositoryPath } from "./Plan";
 
 /**
  * A user's resolution for a conflicted path: override existing content or
@@ -10,9 +10,11 @@ import { Plan } from "./Plan";
  * @since 1.0.0
  */
 export const ApplyDecision = Schema.Struct({
-  path: Schema.String,
+  path: RepositoryPath,
   value: Schema.Literals(["override", "skip"]),
 });
+
+export type ApplyDecision = typeof ApplyDecision.Type;
 
 /**
  * Combines a Plan with user decisions for all conflicted paths, forming the
@@ -45,9 +47,11 @@ export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
 ) {}
 
 export const ApplyFailedPath = Schema.Struct({
-  path: Schema.String,
+  path: RepositoryPath,
   reason: Schema.String,
 });
+
+export type ApplyFailedPath = typeof ApplyFailedPath.Type;
 
 /**
  * The outcome of executing an Apply against the filesystem.
@@ -60,9 +64,9 @@ export const ApplyFailedPath = Schema.Struct({
  * @since 1.0.0
  */
 export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
-  created: Schema.Array(Schema.String),
-  modified: Schema.Array(Schema.String),
-  skipped: Schema.Array(Schema.String),
+  created: Schema.Array(RepositoryPath),
+  modified: Schema.Array(RepositoryPath),
+  skipped: Schema.Array(RepositoryPath),
   failed: Schema.Array(ApplyFailedPath),
 }) {
   toSorted(): ApplyResult {
@@ -76,7 +80,7 @@ export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
 }
 
 export const StalePlanChange = Schema.Struct({
-  path: Schema.String,
+  path: RepositoryPath,
   kind: Schema.Literals([
     "created",
     "deleted",
@@ -85,6 +89,8 @@ export const StalePlanChange = Schema.Struct({
     "rootChanged",
   ]),
 });
+
+export type StalePlanChange = typeof StalePlanChange.Type;
 
 /** A Plan no longer describes the repository being previewed or written. */
 export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(

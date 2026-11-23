@@ -34,6 +34,8 @@ export const CatalogModule = Schema.Struct({
   source: Schema.optional(Schema.String),
 });
 
+export type CatalogModule = typeof CatalogModule.Type;
+
 /** One selected source as the session loaded it. */
 const RecipeBuilderCatalogSource = Schema.Struct({
   name: Schema.String,
@@ -81,6 +83,8 @@ export const RecipeBuilderCatalog = Schema.Struct({
     presets: Schema.Array(CatalogChoice),
   }),
 });
+
+export type RecipeBuilderCatalog = typeof RecipeBuilderCatalog.Type;
 
 export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpcFailure>()(
   "RecipeBuilderRpcFailure",

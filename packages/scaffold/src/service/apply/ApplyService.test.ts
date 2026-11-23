@@ -10,6 +10,7 @@ import {
   Plan,
   type PlanEntryClassification,
   type PlanOutcome,
+  RepositoryPath,
 } from "@repo/domain/Plan";
 import {
   ByteSize,
@@ -153,8 +154,8 @@ const makeApply = ({
   outcomes,
   decisions = [],
 }: {
-  outcomes: typeof Plan.fields.outcomes.Type;
-  decisions?: ReadonlyArray<typeof ApplyDecision.Type>;
+  outcomes: ReadonlyArray<PlanOutcome>;
+  decisions?: ReadonlyArray<ApplyDecision>;
 }) =>
   new ApplyIntent({
     plan: new Plan({
@@ -194,11 +195,11 @@ const completeOutcome = ({
   contents,
 }: {
   path: string;
-  classification: typeof PlanEntryClassification.Type;
+  classification: PlanEntryClassification;
   contents: string;
-}): typeof PlanOutcome.Type => ({
+}): PlanOutcome => ({
   _tag: "complete",
-  path,
+  path: RepositoryPath.make(path),
   classification,
   contents,
 });
@@ -209,11 +210,11 @@ const partialOutcome = ({
   operations,
 }: {
   path: string;
-  classification: typeof PlanEntryClassification.Type;
-  operations: ReadonlyArray<typeof CompositionOperation.Type>;
-}): typeof PlanOutcome.Type => ({
+  classification: PlanEntryClassification;
+  operations: ReadonlyArray<CompositionOperation>;
+}): PlanOutcome => ({
   _tag: "composed",
-  path,
+  path: RepositoryPath.make(path),
   classification,
   operations,
 });
@@ -315,7 +316,7 @@ describe("ApplyService", () => {
               ],
               decisions: [
                 {
-                  path: "packages/domain/src/Api.ts",
+                  path: RepositoryPath.make("packages/domain/src/Api.ts"),
                   value: "skip",
                 },
               ],
@@ -358,7 +359,7 @@ describe("ApplyService", () => {
               ],
               decisions: [
                 {
-                  path: "packages/domain/src/Api.ts",
+                  path: RepositoryPath.make("packages/domain/src/Api.ts"),
                   value: "override",
                 },
               ],
@@ -447,7 +448,7 @@ describe("ApplyService", () => {
                 ],
                 decisions: [
                   {
-                    path: "packages/domain/src/Api.ts",
+                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
                     value: "override",
                   },
                 ],
@@ -493,11 +494,11 @@ describe("ApplyService", () => {
                 ],
                 decisions: [
                   {
-                    path: "packages/domain/src/Api.ts",
+                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
                     value: "override",
                   },
                   {
-                    path: "packages/domain/src/Api.ts",
+                    path: RepositoryPath.make("packages/domain/src/Api.ts"),
                     value: "skip",
                   },
                 ],
@@ -996,7 +997,7 @@ describe("ApplyService", () => {
               ],
               decisions: [
                 {
-                  path: "d.ts",
+                  path: RepositoryPath.make("d.ts"),
                   value: "skip",
                 },
               ],

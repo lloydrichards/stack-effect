@@ -30,7 +30,7 @@ export const DryRunPreview = ({
     tree: Box.Box<Ansi.AnsiStyle>;
     legend: Box.Box<Ansi.AnsiStyle>;
   };
-  apply: typeof ApplyResult.Type;
+  apply: ApplyResult;
   scripts: ReadonlyArray<{
     label: string;
     command: string;

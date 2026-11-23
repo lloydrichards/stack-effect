@@ -5,11 +5,18 @@ import {
   ApplyFailure,
   ApplyResult,
   StalePlanFailure,
+  type StalePlanChange,
 } from "@repo/domain/Apply";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import { pathOrd } from "@repo/domain/Order";
-import { Plan, type PlanBaseline, type PlanFailure } from "@repo/domain/Plan";
+import {
+  Plan,
+  type PlanBaseline,
+  type PlanFailure,
+  type RepositoryPath,
+  repositoryRootPath,
+} from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Path } from "effect";
 import * as Digest from "effect/crypto/Digest";
@@ -21,7 +28,7 @@ import { ApplyService } from "./ApplyService";
 const workspaceRoot = "/workspace";
 
 export type MaterializedFile = {
-  readonly path: string;
+  readonly path: RepositoryPath;
   readonly status: "created" | "modified";
   readonly contents: string;
 };
@@ -33,9 +40,9 @@ export type MaterializedApply = {
 
 export type ApplyWorkspace = {
   readonly plan: (input: {
-    readonly blueprint: typeof Blueprint.Type;
-    readonly config: typeof StackConfig.Type;
-  }) => Effect.Effect<typeof Plan.Type, PlanFailure | CatalogNotFound>;
+    readonly blueprint: Blueprint;
+    readonly config: StackConfig;
+  }) => Effect.Effect<Plan, PlanFailure | CatalogNotFound>;
   readonly materialize: (
     apply: Apply,
   ) => Effect.Effect<MaterializedApply, ApplyFailure | StalePlanFailure>;
@@ -47,7 +54,7 @@ export type ApplyWorkspaceServiceShape = {
   /** Opens a workspace seeded with the repository paths a host Plan captured. */
   readonly fromRepository: (input: {
     readonly repoRoot: string;
-    readonly baseline: typeof PlanBaseline.Type;
+    readonly baseline: PlanBaseline;
   }) => Effect.Effect<ApplyWorkspace, ApplyFailure | StalePlanFailure>;
 };
 
@@ -64,7 +71,7 @@ export class ApplyWorkspaceService extends Context.Service<
     const secureRandom = yield* SecureRandom.SecureRandom;
     const catalog = yield* CatalogService;
 
-    const stale = (changes: ReadonlyArray<RepositoryState.RepositoryChange>) =>
+    const stale = (changes: ReadonlyArray<StalePlanChange>) =>
       new StalePlanFailure({
         changes,
         partialResult: new ApplyResult({
@@ -78,7 +85,7 @@ export class ApplyWorkspaceService extends Context.Service<
 
     const verify = Effect.fnUntraced(function* (input: {
       readonly repoRoot: string;
-      readonly baseline: typeof PlanBaseline.Type;
+      readonly baseline: PlanBaseline;
     }) {
       const changes = yield* repositoryState.verify(input);
       if (changes.length > 0) return yield* stale(changes);
@@ -207,7 +214,9 @@ export class ApplyWorkspaceService extends Context.Service<
       return makeWorkspace(fileSystem, (apply) =>
         apply.plan.baseline.root === workspaceRoot
           ? Effect.succeed(apply)
-          : Effect.fail(stale([{ path: ".", kind: "rootChanged" }])),
+          : Effect.fail(
+              stale([{ path: repositoryRootPath, kind: "rootChanged" }]),
+            ),
       );
     });
 
@@ -272,7 +281,9 @@ export class ApplyWorkspaceService extends Context.Service<
               return apply;
             }
             if (apply.plan.baseline.root !== input.baseline.root) {
-              return yield* stale([{ path: ".", kind: "rootChanged" }]);
+              return yield* stale([
+                { path: repositoryRootPath, kind: "rootChanged" },
+              ]);
             }
             yield* verify({
               baseline: apply.plan.baseline,

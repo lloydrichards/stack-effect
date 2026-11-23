@@ -3,9 +3,18 @@ import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { describe, expect, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
-import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import {
+  Blueprint,
+  makeBlueprintEdge,
+  toAttachedModuleNodeId,
+} from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { type Plan, PlanFailure, type PlanOutcome } from "@repo/domain/Plan";
+import {
+  type Plan,
+  PlanFailure,
+  type PlanOutcome,
+  repositoryRootPath,
+} from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, FileSystem, Layer, Path } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
@@ -44,15 +53,14 @@ const makeDomainBlueprint = () =>
       },
     ],
     edges: [
-      {
-        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
-        from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      makeBlueprintEdge(
+        "owns-module",
+        domainIdentity.toKey(),
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "owns-module",
-      },
+      ),
     ],
   }).toSorted();
 
@@ -95,52 +103,45 @@ const makeServerApiBlueprint = () =>
       },
     ],
     edges: [
-      {
-        id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}`,
-        from: serverApiIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      makeBlueprintEdge(
+        "owns-module",
+        serverApiIdentity.toKey(),
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
-        from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "owns-module",
+        domainIdentity.toKey(),
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>packages/domain`,
-        from: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "required-target",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: domainIdentity.toKey(),
-        reason: "required-target",
-      },
-      {
-        id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
-        from: toAttachedModuleNodeId(
+        domainIdentity.toKey(),
+      ),
+      makeBlueprintEdge(
+        "required-module",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: toAttachedModuleNodeId(
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "required-module",
-      },
+      ),
     ],
   }).toSorted();
 
-const getOutcome = (
-  plan: typeof Plan.Type,
-  path: string,
-): typeof PlanOutcome.Type => {
+const getOutcome = (plan: Plan, path: string): PlanOutcome => {
   const outcome = plan.outcomes.find((candidate) => candidate.path === path);
   expect(outcome).toBeDefined();
   assert(
@@ -170,7 +171,7 @@ const buildPlan = ({
   blueprint,
   files = {},
 }: {
-  blueprint: typeof Blueprint.Type;
+  blueprint: Blueprint;
   files?: Readonly<Record<string, string>>;
 }) =>
   Effect.gen(function* () {
@@ -212,8 +213,8 @@ describe("PlanService", () => {
         // capture can yield a baseline that the Plan schema rejects.
         const duplicated = {
           paths: [
-            { _tag: "missing" as const, path: "." },
-            { _tag: "missing" as const, path: "." },
+            { _tag: "missing" as const, path: repositoryRootPath },
+            { _tag: "missing" as const, path: repositoryRootPath },
           ],
         };
         const repositoryState = RepositoryState.of({
@@ -324,15 +325,14 @@ describe("PlanService", () => {
           },
         ],
         edges: [
-          {
-            id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-chat-rpc"))}`,
-            from: serverApiIdentity.toKey(),
-            to: toAttachedModuleNodeId(
+          makeBlueprintEdge(
+            "owns-module",
+            serverApiIdentity.toKey(),
+            toAttachedModuleNodeId(
               serverApiIdentity.toKey(),
               ModuleId.make("server-chat-rpc"),
             ),
-            reason: "owns-module",
-          },
+          ),
         ],
       }).toSorted();
 
@@ -438,33 +438,30 @@ const HttpRpcRouter = Layer.empty;
               },
             ],
             edges: [
-              {
-                id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-ws-presence"))}`,
-                from: serverApiIdentity.toKey(),
-                to: toAttachedModuleNodeId(
+              makeBlueprintEdge(
+                "owns-module",
+                serverApiIdentity.toKey(),
+                toAttachedModuleNodeId(
                   serverApiIdentity.toKey(),
                   ModuleId.make("server-ws-presence"),
                 ),
-                reason: "owns-module",
-              },
-              {
-                id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-ws-contracts"))}`,
-                from: domainIdentity.toKey(),
-                to: toAttachedModuleNodeId(
+              ),
+              makeBlueprintEdge(
+                "owns-module",
+                domainIdentity.toKey(),
+                toAttachedModuleNodeId(
                   domainIdentity.toKey(),
                   ModuleId.make("domain-ws-contracts"),
                 ),
-                reason: "owns-module",
-              },
-              {
-                id: `owns-module=>packages/presence=>${toAttachedModuleNodeId(presenceIdentity.toKey(), ModuleId.make("package-presence-service"))}`,
-                from: presenceIdentity.toKey(),
-                to: toAttachedModuleNodeId(
+              ),
+              makeBlueprintEdge(
+                "owns-module",
+                presenceIdentity.toKey(),
+                toAttachedModuleNodeId(
                   presenceIdentity.toKey(),
                   ModuleId.make("package-presence-service"),
                 ),
-                reason: "owns-module",
-              },
+              ),
             ],
           }).toSorted();
 
@@ -616,24 +613,22 @@ const HttpRpcRouter = Layer.empty;
           },
         ],
         edges: [
-          {
-            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("package-ai-core"))}`,
-            from: aiIdentity.toKey(),
-            to: toAttachedModuleNodeId(
+          makeBlueprintEdge(
+            "owns-module",
+            aiIdentity.toKey(),
+            toAttachedModuleNodeId(
               aiIdentity.toKey(),
               ModuleId.make("package-ai-core"),
             ),
-            reason: "owns-module",
-          },
-          {
-            id: `owns-module=>packages/ai=>${toAttachedModuleNodeId(aiIdentity.toKey(), ModuleId.make("package-ai-toolkit-datetime"))}`,
-            from: aiIdentity.toKey(),
-            to: toAttachedModuleNodeId(
+          ),
+          makeBlueprintEdge(
+            "owns-module",
+            aiIdentity.toKey(),
+            toAttachedModuleNodeId(
               aiIdentity.toKey(),
               ModuleId.make("package-ai-toolkit-datetime"),
             ),
-            reason: "owns-module",
-          },
+          ),
         ],
       }).toSorted();
 

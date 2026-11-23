@@ -5,6 +5,7 @@ import {
   type Blueprint,
   BlueprintFailure,
   CatalogNotFound,
+  makeBlueprintEdge,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
@@ -25,7 +26,7 @@ const dbIdentity = new TargetIdentity({
   name: "db",
 });
 
-const getNode = (blueprint: typeof Blueprint.Type, id: string) => {
+const getNode = (blueprint: Blueprint, id: string) => {
   const node = blueprint.nodes.find((candidate) => candidate.id === id);
   assert(node !== undefined, `Expected blueprint node ${id} to exist`);
   return node;
@@ -420,24 +421,36 @@ describe("BlueprintService", () => {
               targetId: "packages/domain",
               moduleId: "domain-api-contracts",
             });
+            const serverHttpApi = toAttachedModuleNodeId(
+              serverApiIdentity.toKey(),
+              ModuleId.make("server-http-api"),
+            );
+            const domainApiContracts = toAttachedModuleNodeId(
+              domainIdentity.toKey(),
+              ModuleId.make("domain-api-contracts"),
+            );
             expect(blueprint.edges).toEqual(
               expect.arrayContaining([
-                expect.objectContaining({
-                  id: `owns-module=>apps/server-api=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}`,
-                  reason: "owns-module",
-                }),
-                expect.objectContaining({
-                  id: `owns-module=>packages/domain=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
-                  reason: "owns-module",
-                }),
-                expect.objectContaining({
-                  id: `required-target=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>packages/domain`,
-                  reason: "required-target",
-                }),
-                expect.objectContaining({
-                  id: `required-module=>${toAttachedModuleNodeId(serverApiIdentity.toKey(), ModuleId.make("server-http-api"))}=>${toAttachedModuleNodeId(domainIdentity.toKey(), ModuleId.make("domain-api-contracts"))}`,
-                  reason: "required-module",
-                }),
+                makeBlueprintEdge(
+                  "owns-module",
+                  serverApiIdentity.toKey(),
+                  serverHttpApi,
+                ),
+                makeBlueprintEdge(
+                  "owns-module",
+                  domainIdentity.toKey(),
+                  domainApiContracts,
+                ),
+                makeBlueprintEdge(
+                  "required-target",
+                  serverHttpApi,
+                  domainIdentity.toKey(),
+                ),
+                makeBlueprintEdge(
+                  "required-module",
+                  serverHttpApi,
+                  domainApiContracts,
+                ),
               ]),
             );
           }),

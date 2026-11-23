@@ -8,27 +8,23 @@ import {
   CatalogSources,
   selectsOfficialCatalog,
 } from "@repo/domain/CatalogSource";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
+import {
+  Runtime,
+  STACK_CONFIG_SCHEMA_URL,
+  StackConfig,
+} from "@repo/domain/Scaffold";
 import { StackConfigDefaults } from "@repo/scaffold/browser";
 import type { RecipePreviewInput } from "@repo/scaffold/recipe-preview";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
 
-const RuntimeSchema = Schema.TaggedUnion({
-  bun: {},
-  deno: {},
-  node: {
-    packageManager: Schema.Literals(["pnpm", "npm"]),
-  },
-});
-
-const ProjectNameSchema = Schema.String.check(
+const ProjectName = Schema.String.check(
   Schema.makeFilter((name) =>
     name.trim().length > 0 ? undefined : "Enter a project name.",
   ),
 );
 
-const TargetNameSchema = TargetName.check(
+const KebabTargetName = TargetName.check(
   Schema.isPattern(
     /^(?:[a-z0-9]+(?:-[a-z0-9]+)*(?:\/[a-z0-9]+(?:-[a-z0-9]+)*)*)?$/,
     {
@@ -43,9 +39,9 @@ export const usesOfficialCatalog = (
   catalogs: CatalogSources | undefined,
 ): boolean => catalogs === undefined || selectsOfficialCatalog(catalogs);
 
-const StackConfigurationSchema = Schema.Struct({
-  name: ProjectNameSchema,
-  runtime: RuntimeSchema,
+const StackConfiguration = Schema.Struct({
+  name: ProjectName,
+  runtime: Runtime,
   typescript: Schema.optional(Schema.Literals(["6", "7"])),
   lint: Schema.optional(Schema.String),
   format: Schema.optional(Schema.String),
@@ -55,25 +51,25 @@ const StackConfigurationSchema = Schema.Struct({
   catalogs: Schema.optional(CatalogSources),
 });
 
-const TargetModuleRequirementSchema = Schema.Struct({
+const TargetModuleRequirement = Schema.Struct({
   sourceTargetId: Schema.String,
   sourceModuleId: Schema.String,
   moduleId: Schema.String,
   addedModule: Schema.Boolean,
 });
 
-export type TargetModuleRequirement = typeof TargetModuleRequirementSchema.Type;
+export type TargetModuleRequirement = typeof TargetModuleRequirement.Type;
 
-const TargetInstanceSchema = Schema.Struct({
+const TargetInstance = Schema.Struct({
   id: Schema.String,
   kind: Schema.String,
-  name: TargetNameSchema,
+  name: KebabTargetName,
   modules: Schema.Array(Schema.String),
-  requirements: Schema.optional(Schema.Array(TargetModuleRequirementSchema)),
+  requirements: Schema.optional(Schema.Array(TargetModuleRequirement)),
   addedByDependency: Schema.optional(Schema.Boolean),
 });
 
-export type TargetInstance = typeof TargetInstanceSchema.Type;
+export type TargetInstance = typeof TargetInstance.Type;
 
 export const ownerKey = (owner: {
   readonly kind: string;
@@ -85,24 +81,24 @@ export type SupportConfiguration = {
   readonly parentId: string;
 };
 
-const SupportSelectionSchema = Schema.Struct({
+const SupportSelection = Schema.Struct({
   owner: Schema.Struct({ kind: Schema.String, name: Schema.String }),
   parentId: Schema.String,
   selected: Schema.Array(Schema.String),
 });
 
-export type SupportSelection = typeof SupportSelectionSchema.Type;
+export type SupportSelection = typeof SupportSelection.Type;
 
 const RecipeBuilderFormFields = Schema.Struct({
-  config: StackConfigurationSchema,
+  config: StackConfiguration,
   database: Schema.Literals(["none", "sqlite", "postgres"]),
   gitEnabled: Schema.Boolean,
   developerExperienceModules: Schema.Array(Schema.String),
-  targets: Schema.Array(TargetInstanceSchema),
-  supportSelections: Schema.Array(SupportSelectionSchema),
+  targets: Schema.Array(TargetInstance),
+  supportSelections: Schema.Array(SupportSelection),
 });
 
-export const RecipeBuilderFormSchema = RecipeBuilderFormFields.check(
+export const RecipeBuilderFormValues = RecipeBuilderFormFields.check(
   Schema.makeFilter(({ targets }) =>
     targets.flatMap((target, index) =>
       targets.some(
@@ -122,10 +118,10 @@ export const RecipeBuilderFormSchema = RecipeBuilderFormFields.check(
   ),
 );
 
-export type RecipeBuilderFormValues = typeof RecipeBuilderFormSchema.Type;
+export type RecipeBuilderFormValues = typeof RecipeBuilderFormValues.Type;
 
 const recipeBuilderFormValidator = Schema.toStandardSchemaV1(
-  Schema.toType(RecipeBuilderFormSchema),
+  Schema.toType(RecipeBuilderFormValues),
 );
 
 const stackConfigDefaults = Context.get(Context.empty(), StackConfigDefaults);

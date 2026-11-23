@@ -89,7 +89,7 @@ export const useTargetEditor = () => {
     (target) => target.id === activeId,
   );
 
-  const toggleModule = (module: typeof CatalogModule.Type) => {
+  const toggleModule = (module: CatalogModule) => {
     if (activeTarget === undefined || catalog === undefined) return;
     const activeModules =
       catalog.targetModules.find(

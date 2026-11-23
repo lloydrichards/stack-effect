@@ -11,7 +11,7 @@ import { Effect, Result } from "effect";
 import { composeCatalog } from "./composeCatalog";
 import { testCatalog } from "./testCatalog";
 
-const extraModule: typeof ModuleDefinition.Type = {
+const extraModule: ModuleDefinition = {
   id: ModuleId.make("workspace-extra-example"),
   title: "Extra example",
   description: "A contributed file",
@@ -100,7 +100,7 @@ it.effect(
         kind: TargetKind.make("workspace"),
         name: "root",
       });
-      const invalid: typeof ModuleDefinition.Type = {
+      const invalid: ModuleDefinition = {
         ...extraModule,
         dependencies: [
           {
@@ -146,7 +146,7 @@ it.effect(
   "should fail with unsupported-target and asymmetric-conflict when a module references the wrong target and conflicts one-sidedly",
   () =>
     Effect.gen(function* () {
-      const invalid: typeof ModuleDefinition.Type = {
+      const invalid: ModuleDefinition = {
         ...extraModule,
         dependencies: [
           {

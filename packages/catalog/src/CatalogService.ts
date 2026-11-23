@@ -5,9 +5,11 @@ import type {
   ModuleCapability,
   ModuleCategory,
   ModuleChild,
+  ModuleDefinition,
   ModuleDependency,
   ModuleId,
   ModuleImplication,
+  SupportedOn,
   SupportedRuntime,
   TargetKind,
   Visibility,
@@ -26,23 +28,23 @@ import {
 import { type ComposeCatalogOptions, composeCatalog } from "./composeCatalog";
 
 export type BuilderCatalogTarget = {
-  readonly kind: typeof TargetKind.Type;
+  readonly kind: TargetKind;
   readonly title: string;
   readonly description: string;
-  readonly defaultName?: string;
-  readonly requiredModules: ReadonlyArray<typeof ModuleId.Type>;
+  readonly defaultName?: string | undefined;
+  readonly requiredModules: ReadonlyArray<ModuleId>;
 };
 
 export type BuilderCatalogModule = {
-  readonly supportedRuntimes?: ReadonlyArray<typeof SupportedRuntime.Type>;
-  readonly id: typeof ModuleId.Type;
+  readonly supportedRuntimes?: ReadonlyArray<SupportedRuntime> | undefined;
+  readonly id: ModuleId;
   readonly title: string;
   readonly description: string;
-  readonly visibility: typeof Visibility.Type;
-  readonly dependencies: ReadonlyArray<typeof ModuleDependency.Type>;
-  readonly implies: ReadonlyArray<typeof ModuleImplication.Type>;
-  readonly children: ReadonlyArray<typeof ModuleChild.Type>;
-  readonly conflictsWith: ReadonlyArray<typeof ModuleId.Type>;
+  readonly visibility: Visibility;
+  readonly dependencies: ReadonlyArray<ModuleDependency>;
+  readonly implies: ReadonlyArray<ModuleImplication>;
+  readonly children: ReadonlyArray<ModuleChild>;
+  readonly conflictsWith: ReadonlyArray<ModuleId>;
 };
 
 export type BuilderCatalogTargetModules = {
@@ -55,33 +57,26 @@ export type BuilderCatalog = {
   readonly targetModules: ReadonlyArray<BuilderCatalogTargetModules>;
 };
 
-const supportedOnTargetKind = Match.type<
-  typeof import("@repo/domain/Catalog").SupportedOn.Type
->().pipe(
+const supportedOnTargetKind = Match.type<SupportedOn>().pipe(
   Match.tag("kind", (s) => s.kind),
   Match.tag("identity", (s) => s.identity.kind),
   Match.exhaustive,
 );
 
 const hasVisibility = (
-  definition: { readonly visibility?: typeof Visibility.Type },
-  visibility: typeof Visibility.Type | undefined,
+  definition: { readonly visibility?: Visibility },
+  visibility: Visibility | undefined,
 ) =>
   visibility === undefined ||
   (definition.visibility ?? "public") === visibility;
 
-const moduleSupportsTargetKind = (
-  mod: typeof import("@repo/domain/Catalog").ModuleDefinition.Type,
-  kind: typeof TargetKind.Type,
-) =>
+const moduleSupportsTargetKind = (mod: ModuleDefinition, kind: TargetKind) =>
   Arr.some(
     mod.supportedOn,
     (supportedOn) => supportedOnTargetKind(supportedOn) === kind,
   );
 
-const requiredModuleDependency = Match.type<
-  typeof import("@repo/domain/Catalog").ModuleDependency.Type
->().pipe(
+const requiredModuleDependency = Match.type<ModuleDependency>().pipe(
   Match.tag("required-module", (dep) =>
     Result.succeed({
       targetKind: dep.target.kind,
@@ -92,9 +87,7 @@ const requiredModuleDependency = Match.type<
   Match.orElse(() => Result.fail("skip" as const)),
 );
 
-const requiredCapabilityDependency = Match.type<
-  typeof import("@repo/domain/Catalog").ModuleDependency.Type
->().pipe(
+const requiredCapabilityDependency = Match.type<ModuleDependency>().pipe(
   Match.tag("required-capability", (dep) =>
     Result.succeed({
       targetKind: dep.target.kind,
@@ -112,7 +105,7 @@ type CatalogOrigins = {
 };
 
 const CatalogDefinitions = Context.Service<
-  CatalogFragment & { readonly origins?: CatalogOrigins }
+  CatalogFragment & { readonly origins?: CatalogOrigins | undefined }
 >("@repo/catalog/CatalogDefinitions");
 
 export class CatalogService extends Context.Service<CatalogService>()(
@@ -146,7 +139,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
       );
 
       const getTarget = Effect.fn("CatalogService.getTarget")(function* (
-        kind: typeof TargetKind.Type,
+        kind: TargetKind,
       ) {
         return yield* Effect.fromNullishOr(targetIndex.get(kind)).pipe(
           Effect.mapError(
@@ -161,7 +154,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
       });
 
       const getModule = Effect.fn("CatalogService.getModule")(function* (
-        moduleId: typeof ModuleId.Type,
+        moduleId: ModuleId,
       ) {
         return yield* Effect.fromNullishOr(moduleIndex.get(moduleId)).pipe(
           Effect.mapError(
@@ -176,7 +169,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
       });
 
       const isSupportedOn = Effect.fn("CatalogService.isSupportedOn")(
-        function* (moduleId: typeof ModuleId.Type, target: TargetIdentity) {
+        function* (moduleId: ModuleId, target: TargetIdentity) {
           const definition = yield* getModule(moduleId);
           return Arr.some(definition.supportedOn, (supportedOn) =>
             target.matches(supportedOn),
@@ -185,20 +178,17 @@ export class CatalogService extends Context.Service<CatalogService>()(
       );
 
       const isImpliedByAny = Effect.fn("CatalogService.isImpliedByAny")(
-        function* (
-          moduleId: typeof ModuleId.Type,
-          targetKind: typeof TargetKind.Type,
-        ) {
+        function* (moduleId: ModuleId, targetKind: TargetKind) {
           return Arr.some(
             allImplications,
-            (imp: typeof ModuleImplication.Type) =>
+            (imp: ModuleImplication) =>
               imp.moduleId === moduleId && imp.targetKind === targetKind,
           );
         },
       );
 
       const getImplications = Effect.fn("CatalogService.getImplications")(
-        function* (moduleIds: ReadonlyArray<typeof ModuleId.Type>) {
+        function* (moduleIds: ReadonlyArray<ModuleId>) {
           const definitions = yield* Effect.forEach(moduleIds, getModule);
           return new Set(
             Arr.flatMap(definitions, (def) =>
@@ -212,8 +202,8 @@ export class CatalogService extends Context.Service<CatalogService>()(
       );
 
       const getTargetKinds = (options?: {
-        visibility?: typeof Visibility.Type;
-      }): ReadonlyArray<typeof TargetKind.Type> => {
+        visibility?: Visibility;
+      }): ReadonlyArray<TargetKind> => {
         return Arr.map(
           Arr.filter(Arr.fromIterable(targetIndex.values()), (target) =>
             hasVisibility(target, options?.visibility),
@@ -224,10 +214,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
 
       const getSupportedModules = Effect.fn(
         "CatalogService.getSupportedModules",
-      )(function* (
-        kind: typeof TargetKind.Type,
-        options?: { visibility?: typeof Visibility.Type },
-      ) {
+      )(function* (kind: TargetKind, options?: { visibility?: Visibility }) {
         yield* getTarget(kind);
         return Arr.filter(
           Arr.fromIterable(moduleIndex.values()),
@@ -238,9 +225,9 @@ export class CatalogService extends Context.Service<CatalogService>()(
       });
 
       const getCapabilityProviders = (options: {
-        capability: typeof ModuleCapability.Type;
+        capability: ModuleCapability;
         target: TargetIdentity;
-        visibility?: typeof Visibility.Type;
+        visibility?: Visibility;
       }) =>
         Arr.filter(
           capabilityProviderIndex.get(options.capability) ?? [],
@@ -313,9 +300,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
               title: module.title,
               description: module.description,
               visibility: module.visibility ?? "public",
-              ...(module.supportedRuntimes === undefined
-                ? {}
-                : { supportedRuntimes: module.supportedRuntimes }),
+              supportedRuntimes: module.supportedRuntimes,
               dependencies: module.dependencies,
               implies: module.implies ?? [],
               conflictsWith: module.conflictsWith ?? [],
@@ -342,9 +327,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
                 kind: target.kind,
                 title: target.title,
                 description: target.description,
-                ...(target.defaultName === undefined
-                  ? {}
-                  : { defaultName: target.defaultName }),
+                defaultName: target.defaultName,
                 requiredModules: target.requiredModules ?? [],
               }),
             ),
@@ -411,11 +394,9 @@ export class CatalogService extends Context.Service<CatalogService>()(
       });
 
       const getModules = (options?: {
-        category?: typeof ModuleCategory.Type;
-        visibility?: typeof Visibility.Type;
-      }): ReadonlyArray<
-        typeof import("@repo/domain/Catalog").ModuleDefinition.Type
-      > =>
+        category?: ModuleCategory;
+        visibility?: Visibility;
+      }): ReadonlyArray<ModuleDefinition> =>
         Arr.filter(
           Arr.fromIterable(moduleIndex.values()),
           (mod) =>
@@ -424,7 +405,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
             hasVisibility(mod, options?.visibility),
         );
 
-      const toCatalogTree: typeof CatalogTree.Type = {
+      const toCatalogTree: CatalogTree = {
         targets: Arr.map(Arr.fromIterable(targetIndex.values()), (target) => ({
           kind: target.kind,
           title: target.title,

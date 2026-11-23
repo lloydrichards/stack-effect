@@ -1,4 +1,5 @@
 import { ApplyFailure } from "@repo/domain/Apply";
+import type { RepositoryPath } from "@repo/domain/Plan";
 import {
   Clock,
   Context,
@@ -12,13 +13,13 @@ import {
 } from "effect";
 
 export type ApplyWriteRequest = {
-  readonly path: string;
+  readonly path: RepositoryPath;
   readonly contents: string;
   readonly writeMode: "create" | "modify" | "override";
 };
 
 export type ApplyWriteOutcome = {
-  readonly path: string;
+  readonly path: RepositoryPath;
   readonly status: "created" | "modified" | "unchanged";
 };
 

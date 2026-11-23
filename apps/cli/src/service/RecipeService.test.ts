@@ -8,6 +8,7 @@ import {
 } from "@repo/domain/Catalog";
 import { RecipeSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
+import type { Selection } from "@repo/domain/Selection";
 import {
   AmbiguousRecipeProvider,
   InvalidRecipeSpec,
@@ -21,7 +22,7 @@ import {
 import { Effect, Layer, Schema } from "effect";
 
 const testConfigFields = {
-  name: "recipe-app" as typeof Schema.NonEmptyString.Type,
+  name: "recipe-app",
   runtime: { _tag: "bun" },
   typescript: "7",
   monorepo: "vite-plus",
@@ -40,18 +41,15 @@ const makeTestLayer = (defaults: StackConfig) =>
 
 const TestLayer = makeTestLayer(testConfig);
 
-const modulesForTarget = (
-  targets: (typeof import("@repo/domain/Selection").Selection.Type)["targets"],
-  targetKey: string,
-) =>
+const modulesForTarget = (targets: Selection["targets"], targetKey: string) =>
   targets
     .find((target) => target.identity.toKey() === targetKey)
     ?.modules.map((module) => module.id);
 
 const assertTargetModules = (
-  selection: typeof import("@repo/domain/Selection").Selection.Type,
+  selection: Selection,
   targetKey: string,
-  moduleIds: ReadonlyArray<typeof ModuleId.Type>,
+  moduleIds: ReadonlyArray<ModuleId>,
 ) => {
   assert.deepStrictEqual(
     modulesForTarget(selection.targets, targetKey),
@@ -829,7 +827,7 @@ describe("RecipeService", () => {
       "should omit values supplied by an injected default StackConfig",
       () => {
         const injectedDefaults = new StackConfig({
-          name: "injected-defaults" as typeof Schema.NonEmptyString.Type,
+          name: "injected-defaults",
           runtime: { _tag: "bun" },
           typescript: "6",
           monorepo: "turbo",
@@ -946,7 +944,7 @@ describe("RecipeService", () => {
       Effect.gen(function* () {
         const service = yield* RecipeService;
         const config = new StackConfig({
-          name: "node app" as typeof Schema.NonEmptyString.Type,
+          name: "node app",
           runtime: { _tag: "node", packageManager: "pnpm" },
           monorepo: "turbo",
           lint: "eslint",

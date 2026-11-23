@@ -16,7 +16,7 @@ import {
   RecipeService,
   StackConfigDefaults,
 } from "@repo/scaffold";
-import { Array as Arr, Console, Effect, Option, Schema } from "effect";
+import { Array as Arr, Console, Effect, Option } from "effect";
 import { Command } from "effect/cli";
 import {
   catalogFlag,
@@ -107,7 +107,7 @@ const buildConfig = ({
   readonly test: Option.Option<string>;
   readonly defaults: StackConfig;
   readonly catalogs: Option.Option<CatalogSources>;
-}): typeof StackConfig.Type => {
+}): StackConfig => {
   const packageManagerName = Option.getOrElse(
     packageManager,
     () => defaults.packageManagerName,
@@ -120,7 +120,7 @@ const buildConfig = ({
 
   return new StackConfig({
     $schema: STACK_CONFIG_SCHEMA_URL,
-    name: projectName as typeof Schema.NonEmptyString.Type,
+    name: projectName,
     runtime: runtimeConfig,
     typescript: Option.getOrElse(typescript, () => runtimeDefaults.typescript),
     monorepo: Option.getOrElse(monorepo, () => runtimeDefaults.monorepo),

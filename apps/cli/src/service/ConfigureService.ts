@@ -65,7 +65,7 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
           );
         });
 
-      const writeConfig = (repoRoot: string, config: typeof StackConfig.Type) =>
+      const writeConfig = (repoRoot: string, config: StackConfig) =>
         Effect.gen(function* () {
           const json = yield* Schema.encodeEffect(
             Schema.fromJsonString(StackConfig, { space: 2 }),

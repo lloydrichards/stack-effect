@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { ApplyResult } from "@repo/domain/Apply";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { Box } from "effect-boxes";
 import { DryRunPreview } from "./DryRunPreview";
 
@@ -11,9 +12,9 @@ const input = {
     legend: Box.text("legend"),
   },
   apply: new ApplyResult({
-    created: ["apps/api.ts"],
-    modified: ["package.json"],
-    skipped: ["README.md"],
+    created: [RepositoryPath.make("apps/api.ts")],
+    modified: [RepositoryPath.make("package.json")],
+    skipped: [RepositoryPath.make("README.md")],
     failed: [],
   }),
   scripts: [],

@@ -27,16 +27,16 @@ type RecipeServiceShape = {
   readonly resolve: (
     spec: RecipeSpec,
     options: RecipeResolveOptions,
-  ) => Effect.Effect<typeof Selection.Type, RecipeError, never>;
+  ) => Effect.Effect<Selection, RecipeError, never>;
   readonly renderCreateCommand: (options: {
-    readonly config: typeof StackConfig.Type;
-    readonly selection: typeof Selection.Type;
+    readonly config: StackConfig;
+    readonly selection: Selection;
   }) => string;
 };
 
 type CollectedRecipeTarget = {
   readonly identity: TargetIdentity;
-  readonly modules: ReadonlyArray<typeof ModuleId.Type>;
+  readonly modules: ReadonlyArray<ModuleId>;
 };
 
 const quoteShellArg = (value: string) =>
@@ -45,11 +45,11 @@ const quoteShellArg = (value: string) =>
     : `'${value.replaceAll("'", "'\\''")}'`;
 
 const configPackageManager = (
-  runtime: (typeof StackConfig.Type)["runtime"],
+  runtime: StackConfig["runtime"],
 ): "bun" | "deno" | "pnpm" | "npm" =>
   runtime._tag === "node" ? runtime.packageManager : runtime._tag;
 
-const customWorkspaceModules = (config: typeof StackConfig.Type) =>
+const customWorkspaceModules = (config: StackConfig) =>
   Arr.dedupe(
     [
       ["tool", config.monorepo],
@@ -68,16 +68,14 @@ const customWorkspaceModules = (config: typeof StackConfig.Type) =>
   );
 
 /** Without the official source, only tools the user named become modules. */
-const configWorkspaceModules = (
-  config: typeof StackConfig.Type,
-): ReadonlyArray<typeof ModuleId.Type> =>
+const configWorkspaceModules = (config: StackConfig): ReadonlyArray<ModuleId> =>
   config.usesOfficialCatalog
     ? officialWorkspaceModules(config)
     : customWorkspaceModules(config);
 
 const officialWorkspaceModules = (
-  config: typeof StackConfig.Type,
-): ReadonlyArray<typeof ModuleId.Type> =>
+  config: StackConfig,
+): ReadonlyArray<ModuleId> =>
   Arr.dedupe(
     [
       toWorkspaceModuleId(
@@ -103,7 +101,7 @@ const officialWorkspaceModules = (
 
 const resolveTargetIdentity = (
   catalog: typeof CatalogService.Service,
-  config: typeof StackConfig.Type,
+  config: StackConfig,
   identity: TargetIdentity,
 ) =>
   Effect.gen(function* () {
@@ -179,7 +177,7 @@ const mergeTargets = (
 
 const toSelection = (
   targets: ReadonlyArray<CollectedRecipeTarget>,
-): typeof Selection.Type => ({
+): Selection => ({
   targets: Arr.map(targets, (target) => ({
     identity: target.identity,
     modules: Arr.map(target.modules, (id) => ({ id })),
@@ -187,14 +185,14 @@ const toSelection = (
 });
 
 const selectionTargetToRecipeTargetSpec = (
-  target: (typeof Selection.Type)["targets"][number],
+  target: Selection["targets"][number],
 ): RecipeTargetSpec => ({
   target: target.identity,
   modules: Arr.map(target.modules, (moduleSelection) => moduleSelection.id),
 });
 
 const selectionIncludesWorkspaceModule = (
-  selection: typeof Selection.Type,
+  selection: Selection,
   moduleId: string,
 ) =>
   Arr.some(
@@ -226,7 +224,7 @@ export class RecipeService extends Context.Service<
 
     const requireCustomWorkspace = Effect.fn(
       "RecipeService.requireCustomWorkspace",
-    )(function* (config: typeof StackConfig.Type) {
+    )(function* (config: StackConfig) {
       if (config.usesOfficialCatalog) return;
       const hasWorkspace = yield* catalog
         .getTarget(TargetKind.make("workspace"))

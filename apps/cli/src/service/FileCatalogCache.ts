@@ -91,15 +91,10 @@ export const fileCatalogCacheLayer = (directory?: string) =>
             fail(`Invalid catalog cache at ${location}.`, cause),
           ),
         );
+        const { bytes, ...metadata } = stored;
         return {
-          sourceUrl: stored.sourceUrl,
-          bytes: Uint8Array.from(Buffer.from(stored.bytes, "base64")),
-          digest: stored.digest,
-          validatedAt: stored.validatedAt,
-          ...(stored.etag === undefined ? {} : { etag: stored.etag }),
-          ...(stored.lastModified === undefined
-            ? {}
-            : { lastModified: stored.lastModified }),
+          ...metadata,
+          bytes: Uint8Array.from(Buffer.from(bytes, "base64")),
         } satisfies CatalogCacheEntry;
       });
 

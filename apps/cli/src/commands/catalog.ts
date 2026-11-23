@@ -1,5 +1,6 @@
 import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
+import type { Blueprint } from "@repo/domain/Blueprint";
 import {
   Contribution,
   ModuleId,
@@ -62,17 +63,21 @@ const defaultTargetNames = new Map<string, string>([
   ["package", "domain"],
 ]);
 
-const ManifestContribution = Schema.Struct({
+const ManifestContributor = Schema.Struct({
   origin: Schema.Literals(["target", "module"]),
   targetKey: Schema.String,
   moduleId: Schema.optional(Schema.String),
   contributionTag: Schema.String,
 });
 
+type ManifestContributor = typeof ManifestContributor.Type;
+
 const ManifestFile = Schema.Struct({
   path: Schema.String,
-  contributors: Schema.Array(ManifestContribution),
+  contributors: Schema.Array(ManifestContributor),
 });
+
+type ManifestFile = typeof ManifestFile.Type;
 
 const CatalogWorkspaceManifest = Schema.Struct({
   generatedAt: Schema.String,
@@ -80,12 +85,12 @@ const CatalogWorkspaceManifest = Schema.Struct({
   files: Schema.Array(ManifestFile),
 });
 
+type CatalogWorkspaceManifest = typeof CatalogWorkspaceManifest.Type;
+
 const CatalogWorkspaceManifestFromJsonString = Schema.fromJsonString(
   CatalogWorkspaceManifest,
   { space: 2 },
 );
-
-type ManifestContributor = typeof ManifestContribution.Type;
 
 export class WorkspaceCommandFailed extends Data.TaggedError(
   "WorkspaceCommandFailed",
@@ -109,10 +114,7 @@ export class WorkspaceValidationFailed extends Data.TaggedError(
   }
 }
 
-const targetIdentityFrom = (
-  supportedOn: typeof SupportedOn.Type,
-  moduleId: string,
-) =>
+const targetIdentityFrom = (supportedOn: SupportedOn, moduleId: string) =>
   supportedOn._tag === "identity"
     ? supportedOn.identity
     : new TargetIdentity({
@@ -124,7 +126,7 @@ const targetIdentityFrom = (
             : (defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind),
       });
 
-const contributionPath = (contribution: typeof Contribution.Type) =>
+const contributionPath = (contribution: Contribution) =>
   contribution._tag === "barrel-export"
     ? contribution.barrelPath
     : contribution.path;
@@ -133,7 +135,7 @@ export { buildWorkspaceSelection };
 
 const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
   function* (
-    config: typeof StackConfig.Type,
+    config: StackConfig,
     targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
   ) {
     const catalog = yield* CatalogService;
@@ -159,7 +161,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       string,
       {
         identity: TargetIdentity;
-        modules: Set<typeof ModuleId.Type>;
+        modules: Set<ModuleId>;
         capabilities: Set<string>;
       }
     >();
@@ -170,7 +172,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       if (current) return current;
       const next = {
         identity,
-        modules: new Set<typeof ModuleId.Type>(),
+        modules: new Set<ModuleId>(),
         capabilities: new Set<string>(),
       };
       targets.set(key, next);
@@ -277,8 +279,8 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
   blueprint,
   config,
 }: {
-  blueprint: typeof import("@repo/domain/Blueprint").Blueprint.Type;
-  config: typeof StackConfig.Type;
+  blueprint: Blueprint;
+  config: StackConfig;
 }) {
   const resolver = yield* ContributionResolver;
   const normalized = yield* resolver.resolve(blueprint, config);
@@ -315,7 +317,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
     }
   }
 
-  const manifestFiles: Array<typeof ManifestFile.Type> = Array.from(
+  const manifestFiles: Array<ManifestFile> = Array.from(
     contributorsByPath.entries(),
   )
     .map(([path, contributors]) =>
@@ -335,7 +337,7 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
   });
 });
 
-const annotationFor = (file: typeof ManifestFile.Type) => {
+const annotationFor = (file: ManifestFile) => {
   const sourceLines = pipe(
     file.contributors,
     Arr.map((contributor) =>
@@ -379,7 +381,7 @@ const annotateWorkspace = Effect.fn("catalog.workspace.annotate")(function* ({
   manifest,
 }: {
   repoRoot: string;
-  manifest: typeof CatalogWorkspaceManifest.Type;
+  manifest: CatalogWorkspaceManifest;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -559,8 +561,8 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
     config,
     repoRoot,
   }: {
-    blueprint: typeof import("@repo/domain/Blueprint").Blueprint.Type;
-    config: typeof StackConfig.Type;
+    blueprint: Blueprint;
+    config: StackConfig;
     repoRoot: string;
   }) {
     const finalizeService = yield* FinalizeService;
@@ -630,7 +632,7 @@ const reset = Command.make(
       yield* fs.makeDirectory(repoRoot, { recursive: true });
 
       const config = new StackConfig({
-        name: "catalog-built" as typeof Schema.NonEmptyString.Type,
+        name: "catalog-built",
         runtime:
           runtime === "node"
             ? { _tag: "node", packageManager: "pnpm" }

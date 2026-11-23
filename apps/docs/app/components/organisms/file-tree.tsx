@@ -154,7 +154,7 @@ export type VisibleFileTreeNode = {
   readonly node: FileTreeNodeData;
   readonly depth: number;
   readonly parentKey?: string;
-  readonly open?: boolean;
+  readonly open?: boolean | undefined;
 };
 
 const flattenVisibleNodes = (
@@ -173,7 +173,7 @@ const flattenVisibleNodes = (
       node,
       depth,
       ...(parentKey ? { parentKey } : {}),
-      ...(open === undefined ? {} : { open }),
+      open,
     };
     return [
       item,

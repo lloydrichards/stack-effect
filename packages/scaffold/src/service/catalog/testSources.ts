@@ -26,7 +26,7 @@ export const urls = {
   beta: "https://beta.test/v1.json",
 } as const;
 
-export const target = (kind: string): typeof TargetDefinition.Type => ({
+export const target = (kind: string): TargetDefinition => ({
   kind: TargetKind.make(kind),
   title: kind,
   description: `The ${kind} target`,
@@ -36,8 +36,8 @@ export const target = (kind: string): typeof TargetDefinition.Type => ({
 export const module = (
   id: string,
   kind: string,
-  extra: Partial<typeof ModuleDefinition.Type> = {},
-): typeof ModuleDefinition.Type => ({
+  extra: Partial<ModuleDefinition> = {},
+): ModuleDefinition => ({
   id: ModuleId.make(id),
   title: id,
   description: `The ${id} module`,
@@ -51,8 +51,8 @@ export const module = (
 export const json = (
   catalogId: string,
   fragment: {
-    readonly targets?: ReadonlyArray<typeof TargetDefinition.Type>;
-    readonly modules?: ReadonlyArray<typeof ModuleDefinition.Type>;
+    readonly targets?: ReadonlyArray<TargetDefinition>;
+    readonly modules?: ReadonlyArray<ModuleDefinition>;
     readonly requires?: ReadonlyArray<"official">;
   },
 ) =>

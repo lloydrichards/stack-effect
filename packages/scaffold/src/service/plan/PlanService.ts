@@ -1,6 +1,11 @@
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
-import { Plan, PlanFailure, type RepoSnapshot } from "@repo/domain/Plan";
+import {
+  Plan,
+  PlanFailure,
+  type RepoSnapshot,
+  repositoryRootPath,
+} from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/Scaffold";
 import { Array as Arr, Context, Effect, Layer, SchemaIssue } from "effect";
 import { ContributionResolver } from "./ContributionResolver";
@@ -17,15 +22,15 @@ import {
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
 export type PlanServiceBuildInput = {
-  readonly blueprint: typeof Blueprint.Type;
+  readonly blueprint: Blueprint;
   readonly repoRoot: string;
-  readonly config: typeof StackConfig.Type;
+  readonly config: StackConfig;
 };
 
 export type PlanServiceShape = {
   readonly build: (
     input: PlanServiceBuildInput,
-  ) => Effect.Effect<typeof Plan.Type, PlanFailure | CatalogNotFound, never>;
+  ) => Effect.Effect<Plan, PlanFailure | CatalogNotFound, never>;
 };
 
 export class PlanService extends Context.Service<
@@ -55,7 +60,7 @@ export class PlanService extends Context.Service<
         repoRoot,
         paths: Arr.fromIterable(
           new Set([
-            ".",
+            repositoryRootPath,
             ...workspaceManifestPaths,
             ...Arr.flatMap(planningPaths, (planningPath) => [
               planningPath.path,
@@ -90,8 +95,8 @@ export class PlanService extends Context.Service<
       baseline,
     }: {
       planningPaths: ReadonlyArray<PlanningIntentPath>;
-      repoSnapshot: typeof RepoSnapshot.Type;
-      baseline: (typeof Plan.Type)["baseline"];
+      repoSnapshot: RepoSnapshot;
+      baseline: Plan["baseline"];
     }) =>
       Effect.gen(function* () {
         const snapshotPaths = new Map(

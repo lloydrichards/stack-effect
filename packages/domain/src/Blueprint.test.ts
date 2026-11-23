@@ -1,4 +1,8 @@
-import { Blueprint, toAttachedModuleNodeId } from "@repo/domain/Blueprint";
+import {
+  Blueprint,
+  makeBlueprintEdge,
+  toAttachedModuleNodeId,
+} from "@repo/domain/Blueprint";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
@@ -45,45 +49,41 @@ const makeUnsortedBlueprint = () =>
       },
     ],
     edges: [
-      {
-        id: "z-edge",
-        from: toAttachedModuleNodeId(
+      makeBlueprintEdge(
+        "required-module",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: toAttachedModuleNodeId(
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "required-module",
-      },
-      {
-        id: "m-edge",
-        from: domainIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "owns-module",
+        domainIdentity.toKey(),
+        toAttachedModuleNodeId(
           domainIdentity.toKey(),
           ModuleId.make("domain-api-contracts"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: "n-edge",
-        from: serverApiIdentity.toKey(),
-        to: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "owns-module",
+        serverApiIdentity.toKey(),
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        reason: "owns-module",
-      },
-      {
-        id: "a-edge",
-        from: toAttachedModuleNodeId(
+      ),
+      makeBlueprintEdge(
+        "required-target",
+        toAttachedModuleNodeId(
           serverApiIdentity.toKey(),
           ModuleId.make("server-http-api"),
         ),
-        to: domainIdentity.toKey(),
-        reason: "required-target",
-      },
+        domainIdentity.toKey(),
+      ),
     ],
   });
 
@@ -146,10 +146,10 @@ describe("@repo/domain Blueprint", () => {
       "packages/domain",
     ]);
     expect(blueprint.edges.map((edge) => edge.id)).toEqual([
-      "a-edge",
-      "m-edge",
-      "n-edge",
-      "z-edge",
+      "owns-module=>apps/server-api=>apps/server-api#server-http-api",
+      "owns-module=>packages/domain=>packages/domain#domain-api-contracts",
+      "required-module=>apps/server-api#server-http-api=>packages/domain#domain-api-contracts",
+      "required-target=>apps/server-api#server-http-api=>packages/domain",
     ]);
   });
 
@@ -186,12 +186,14 @@ describe("@repo/domain Blueprint", () => {
         nodes: blueprint.nodes,
         edges: [
           ...blueprint.edges,
-          {
-            id: "z-edge",
-            from: domainIdentity.toKey(),
-            to: serverApiIdentity.toKey(),
-            reason: "required-target" as const,
-          },
+          makeBlueprintEdge(
+            "required-target",
+            toAttachedModuleNodeId(
+              serverApiIdentity.toKey(),
+              ModuleId.make("server-http-api"),
+            ),
+            domainIdentity.toKey(),
+          ),
         ],
       }),
       message: "Blueprint edge id must be unique",
@@ -242,7 +244,13 @@ describe("@repo/domain Blueprint", () => {
       name: "a missing ownership edge",
       mutate: (blueprint: Blueprint) => ({
         nodes: blueprint.nodes,
-        edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
+        edges: blueprint.edges.filter(
+          (edge) =>
+            !(
+              edge.reason === "owns-module" &&
+              edge.from === domainIdentity.toKey()
+            ),
+        ),
       }),
       message: "must have exactly one owns-module edge",
     },
@@ -252,15 +260,14 @@ describe("@repo/domain Blueprint", () => {
         nodes: blueprint.nodes,
         edges: [
           ...blueprint.edges,
-          {
-            id: "x-edge",
-            from: domainIdentity.toKey(),
-            to: toAttachedModuleNodeId(
+          makeBlueprintEdge(
+            "owns-module",
+            domainIdentity.toKey(),
+            toAttachedModuleNodeId(
               domainIdentity.toKey(),
               ModuleId.make("domain-api-contracts"),
             ),
-            reason: "owns-module" as const,
-          },
+          ),
         ],
       }),
       message: "must have exactly one owns-module edge",
@@ -271,15 +278,14 @@ describe("@repo/domain Blueprint", () => {
         nodes: blueprint.nodes,
         edges: [
           ...blueprint.edges,
-          {
-            id: "contradictory-edge",
-            from: serverApiIdentity.toKey(),
-            to: toAttachedModuleNodeId(
+          makeBlueprintEdge(
+            "owns-module",
+            serverApiIdentity.toKey(),
+            toAttachedModuleNodeId(
               domainIdentity.toKey(),
               ModuleId.make("domain-api-contracts"),
             ),
-            reason: "owns-module" as const,
-          },
+          ),
         ],
       }),
       message: "does not match an attached module ownership relationship",
@@ -299,7 +305,13 @@ describe("@repo/domain Blueprint", () => {
     const blueprint = makeUnsortedBlueprint();
     const invalid = {
       nodes: blueprint.nodes,
-      edges: blueprint.edges.filter((edge) => edge.id !== "m-edge"),
+      edges: blueprint.edges.filter(
+        (edge) =>
+          !(
+            edge.reason === "owns-module" &&
+            edge.from === domainIdentity.toKey()
+          ),
+      ),
     };
 
     return expect(Schema.decodePromise(Blueprint)(invalid)).rejects.toThrow(

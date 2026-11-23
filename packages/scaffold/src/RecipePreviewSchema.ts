@@ -4,13 +4,13 @@ import { StackConfig } from "@repo/domain/Scaffold";
 import { Selection } from "@repo/domain/Selection";
 import { Schema } from "effect";
 
-export const ApplyPreviewFileSchema = Schema.Struct({
+export const ApplyPreviewFile = Schema.Struct({
   path: Schema.String,
   status: Schema.Literals(["created", "modified"]),
   contents: Schema.String,
 });
 
-export type ApplyPreviewFile = typeof ApplyPreviewFileSchema.Type;
+export type ApplyPreviewFile = typeof ApplyPreviewFile.Type;
 
 export const RecipePreviewInput = Schema.Struct({
   recipe: RecipeSpec,
@@ -23,7 +23,7 @@ export const RecipePreview = Schema.Struct({
   command: Schema.String,
   selection: Selection,
   blueprint: Blueprint,
-  files: Schema.Array(ApplyPreviewFileSchema),
+  files: Schema.Array(ApplyPreviewFile),
 });
 
 export type RecipePreview = typeof RecipePreview.Type;

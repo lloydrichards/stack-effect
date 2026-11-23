@@ -38,7 +38,7 @@ const newCatalogSessionId = () => ++nextCatalogSessionId;
 
 const reconcileTargetsWithCatalog = (
   targets: ReadonlyArray<TargetInstance>,
-  catalog: typeof RecipeBuilderCatalog.Type,
+  catalog: RecipeBuilderCatalog,
 ) => {
   const supportedModulesByOwner = new Map(
     catalog.targetModules.map(({ owner, modules }) => [
@@ -122,7 +122,7 @@ export const useRecipeBuilderWorker = (
   const [catalogSnapshot, setCatalogSnapshot] = useState<
     | {
         readonly request: CatalogAtomRequest;
-        readonly catalog: typeof RecipeBuilderCatalog.Type;
+        readonly catalog: RecipeBuilderCatalog;
       }
     | undefined
   >(undefined);

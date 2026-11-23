@@ -460,7 +460,7 @@ describe("recipe builder state", () => {
 
 describe("retainCatalogSupportSelections", () => {
   const owner = { kind: "package", name: "support" };
-  const catalogWith = (modules: ReadonlyArray<typeof CatalogModule.Type>) => ({
+  const catalogWith = (modules: ReadonlyArray<CatalogModule>) => ({
     targetModules: [
       {
         owner: new TargetIdentity({

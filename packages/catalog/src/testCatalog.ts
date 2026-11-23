@@ -1,6 +1,7 @@
 import {
   CatalogDocument,
   type CatalogFragment,
+  type Contribution,
   ModuleId,
   TargetIdentity,
   TargetKind,
@@ -116,18 +117,14 @@ export const decodedTestCatalog = Effect.gen(function* () {
   );
 });
 
-type TestDocument = typeof CatalogDocument.Type;
-type TestContribution =
-  TestDocument["modules"][number]["contributions"][number];
-
 /**
  * Moves the document's first module to the end with extra contributions, so a
  * capability check sees the added content on a known module.
  */
 export const withModuleContribution = (
-  document: TestDocument,
-  contributions: ReadonlyArray<TestContribution>,
-): TestDocument => {
+  document: CatalogDocument,
+  contributions: ReadonlyArray<Contribution>,
+): CatalogDocument => {
   const [first, ...rest] = document.modules;
   return first === undefined
     ? document

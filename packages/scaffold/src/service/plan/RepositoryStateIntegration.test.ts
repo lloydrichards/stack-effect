@@ -7,10 +7,11 @@ import { Apply, StalePlanFailure } from "@repo/domain/Apply";
 import {
   Blueprint,
   BlueprintTargetNode,
+  makeBlueprintEdge,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { Plan } from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { Effect, FileSystem, Layer, Path, PlatformError, Schema } from "effect";
 import { ApplyService } from "../apply/ApplyService";
@@ -35,14 +36,7 @@ const blueprint = new Blueprint({
       moduleId,
     },
   ],
-  edges: [
-    {
-      id: `owns-module=>${target.toKey()}=>${moduleNodeId}`,
-      from: target.toKey(),
-      to: moduleNodeId,
-      reason: "owns-module",
-    },
-  ],
+  edges: [makeBlueprintEdge("owns-module", target.toKey(), moduleNodeId)],
 }).toSorted();
 const config = new StackConfig({
   name: "test-project",
@@ -92,7 +86,7 @@ const writeManifest = (directory: string, contents: string) =>
   });
 const ownerManifest = (directory: string, name: string) =>
   writeManifest(directory, JSON.stringify({ name }));
-const packageNode = (name: string): typeof BlueprintTargetNode.Type => {
+const packageNode = (name: string): BlueprintTargetNode => {
   const identity = new TargetIdentity({
     kind: TargetKind.make("package"),
     name,
@@ -103,9 +97,8 @@ const packageNode = (name: string): typeof BlueprintTargetNode.Type => {
     identity,
   };
 };
-const targetBlueprint = (
-  nodes: ReadonlyArray<typeof BlueprintTargetNode.Type>,
-) => new Blueprint({ nodes, edges: [] }).toSorted();
+const targetBlueprint = (nodes: ReadonlyArray<BlueprintTargetNode>) =>
+  new Blueprint({ nodes, edges: [] }).toSorted();
 const buildProposed = (proposed: Blueprint) =>
   Effect.gen(function* () {
     const plans = yield* PlanService;
@@ -333,9 +326,12 @@ describe("Plan and Apply repository state", () => {
           const { baseline } = yield* state.capture({
             repoRoot,
             paths: [
-              ".",
-              "packages",
-              ...destinations.flatMap((path) => [path, `${path}/package.json`]),
+              RepositoryPath.make("."),
+              RepositoryPath.make("packages"),
+              ...destinations.flatMap((path) => [
+                RepositoryPath.make(path),
+                RepositoryPath.make(`${path}/package.json`),
+              ]),
             ],
           });
           const apply = new Apply({
@@ -343,7 +339,7 @@ describe("Plan and Apply repository state", () => {
               baseline,
               outcomes: destinations.map((path) => ({
                 _tag: "complete" as const,
-                path: `${path}/package.json`,
+                path: RepositoryPath.make(`${path}/package.json`),
                 classification: "create" as const,
                 contents: '{"name":"@repo/shared"}',
               })),
@@ -387,19 +383,19 @@ describe("Plan and Apply repository state", () => {
         const { baseline } = yield* state.capture({
           repoRoot,
           paths: [
-            ".",
-            "packages",
-            "packages/sdk",
-            "packages/sdk/templates",
-            "packages/sdk/src",
-            ...contents.map(([path]) => path),
+            RepositoryPath.make("."),
+            RepositoryPath.make("packages"),
+            RepositoryPath.make("packages/sdk"),
+            RepositoryPath.make("packages/sdk/templates"),
+            RepositoryPath.make("packages/sdk/src"),
+            ...contents.map(([path]) => RepositoryPath.make(path)),
           ],
         });
         const plan = new Plan({
           baseline,
           outcomes: contents.map(([path, contents]) => ({
             _tag: "complete",
-            path,
+            path: RepositoryPath.make(path),
             contents,
             classification: "create",
           })),
@@ -479,7 +475,7 @@ describe("Plan and Apply repository state", () => {
         const workspaces = yield* ApplyWorkspaceService;
         const { baseline } = yield* repositoryState.capture({
           repoRoot,
-          paths: ["."],
+          paths: [RepositoryPath.make(".")],
         });
         const workspace = yield* workspaces.fromRepository({
           repoRoot,
@@ -1006,7 +1002,12 @@ describe("Plan and Apply repository state", () => {
           const state = yield* RepositoryState;
           const captured = yield* state.capture({
             repoRoot,
-            paths: [".", "src", "src/a.txt", "src/b.txt"],
+            paths: [
+              RepositoryPath.make("."),
+              RepositoryPath.make("src"),
+              RepositoryPath.make("src/a.txt"),
+              RepositoryPath.make("src/b.txt"),
+            ],
           });
           return captured.baseline;
         }).pipe(
@@ -1045,13 +1046,13 @@ describe("Plan and Apply repository state", () => {
             outcomes: [
               {
                 _tag: "complete",
-                path: "src/a.txt",
+                path: RepositoryPath.make("src/a.txt"),
                 classification: "create",
                 contents: "A",
               },
               {
                 _tag: "complete",
-                path: "src/b.txt",
+                path: RepositoryPath.make("src/b.txt"),
                 classification: "create",
                 contents: "B",
               },

@@ -110,15 +110,10 @@ export const useRecipeBuilderUrlState = () => {
               targets.map((target) => ({
                 ...target,
                 modules: target.modules.filter((id) => !isMovedToLabs(id)),
-                ...(target.requirements === undefined
-                  ? {}
-                  : {
-                      requirements: target.requirements.filter(
-                        ({ sourceModuleId, moduleId }) =>
-                          !isMovedToLabs(sourceModuleId) &&
-                          !isMovedToLabs(moduleId),
-                      ),
-                    }),
+                requirements: target.requirements?.filter(
+                  ({ sourceModuleId, moduleId }) =>
+                    !isMovedToLabs(sourceModuleId) && !isMovedToLabs(moduleId),
+                ),
               })),
             ),
         }
