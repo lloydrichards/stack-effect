@@ -128,15 +128,6 @@ export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
 
 export type TsAddImportOp = typeof TsAddImportOp.Type;
 
-export const TsAddReexportOp = Schema.TaggedStruct("ts-add-reexport", {
-  fileType: Schema.tag("typescript"),
-  moduleSpecifier: Schema.String,
-  namedExports: Schema.optional(Schema.Array(Schema.String)),
-  typeOnly: Schema.optional(Schema.Boolean),
-});
-
-export type TsAddReexportOp = typeof TsAddReexportOp.Type;
-
 export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
   fileType: Schema.tag("typescript"),
   targetVariable: Schema.String,
@@ -182,7 +173,6 @@ export const JsonCompositionOperation = Schema.Union([
 
 export const TypeScriptCompositionOperation = Schema.Union([
   TsAddImportOp,
-  TsAddReexportOp,
   TsAppendCallArgOp,
   TsObjectFieldOp,
   TsJsxSlotOp,
@@ -239,10 +229,6 @@ export const PlanConflict = Schema.TaggedUnion({
     path: RepositoryPath,
     name: Schema.String,
   },
-  barrelExport: {
-    path: RepositoryPath,
-    exportPath: Schema.String,
-  },
   tsconfig: {
     path: RepositoryPath,
   },
@@ -267,7 +253,6 @@ const planConflictKey = (conflict: PlanConflict): string =>
     exports: (c) => JSON.stringify([c._tag, c.path, c.name]),
     dependencies: (c) => JSON.stringify([c._tag, c.path, c.section, c.name]),
     scripts: (c) => JSON.stringify([c._tag, c.path, c.name]),
-    barrelExport: (c) => JSON.stringify([c._tag, c.path, c.exportPath]),
     tsconfig: (c) => JSON.stringify([c._tag, c.path]),
     completeFile: (c) => JSON.stringify([c._tag, c.path]),
     compositionTargetNotFound: (c) =>

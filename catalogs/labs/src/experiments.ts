@@ -143,9 +143,11 @@ export const experiments = defineModules(import.meta.url, [
         ),
       },
       {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./toolkits/WebFetchToolkit",
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./WebFetchToolkit",
+        value: "./src/toolkits/WebFetchToolkit.ts",
       },
       {
         _tag: "ts-call-arg",

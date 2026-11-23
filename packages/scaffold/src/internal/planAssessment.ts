@@ -85,14 +85,6 @@ const PlanningIntentPackageJsonPath = Schema.TaggedStruct("packageJson", {
 
 type PlanningIntentPackageJsonPath = typeof PlanningIntentPackageJsonPath.Type;
 
-const PlanningIntentBarrelPath = Schema.TaggedStruct("barrel", {
-  path: RepositoryPath,
-  seed: PlanningIntentSeed,
-  exportPaths: Schema.Array(Schema.String),
-});
-
-type PlanningIntentBarrelPath = typeof PlanningIntentBarrelPath.Type;
-
 const PlanningIntentTsCompositionPath = Schema.TaggedStruct("tsComposition", {
   path: RepositoryPath,
   seed: PlanningIntentSeed,
@@ -115,7 +107,6 @@ export const PlanningIntentPath = Schema.Union([
   PlanningIntentAuthoritativePath,
   PlanningIntentConflictOnModifyPath,
   PlanningIntentPackageJsonPath,
-  PlanningIntentBarrelPath,
   PlanningIntentTsCompositionPath,
   PlanningIntentJsxSlotPath,
 ]).pipe(Schema.toTaggedUnion("_tag"));
@@ -198,15 +189,6 @@ export const toPlannedFileOutcome = ({
     authoritative: complete,
     conflictOnModify: complete,
     packageJson: (intent) => composed(intent, packageJsonOperations(intent)),
-    barrel: (intent) =>
-      composed(
-        intent,
-        intent.exportPaths.map((moduleSpecifier) => ({
-          _tag: "ts-add-reexport" as const,
-          fileType: "typescript" as const,
-          moduleSpecifier,
-        })),
-      ),
     tsComposition: (intent) =>
       composed(intent, [
         ...intent.compositions.flatMap((composition) => [
@@ -322,7 +304,6 @@ export const assess = Effect.fnUntraced(function* ({
         : assessment;
     },
     packageJson: (intent) => assessPackageJson(intent, existingContents),
-    barrel: (intent) => assessBarrel(intent, existingContents),
     tsComposition: (intent) =>
       assessTypeScriptTarget({
         intent,
@@ -430,42 +411,6 @@ const assessPackageJson = (
 };
 
 /**
- * Appends re-exports to a simple barrel. A seeded path is unchanged only when
- * the existing barrel already re-exports its seed's single export.
- */
-const assessBarrel = (
-  intent: PlanningIntentBarrelPath,
-  existingContents: string | undefined,
-): PathAssessment => {
-  if (existingContents === undefined) {
-    return createPathAssessment({ classification: "create" });
-  }
-
-  const existingExports = parseSimpleBarrelExports(existingContents);
-
-  if (existingExports === undefined) {
-    return createPathAssessment({
-      classification: "conflict",
-      conflicts: intent.exportPaths.map((exportPath) =>
-        planConflict.barrelExport(intent.path, exportPath),
-      ),
-    });
-  }
-
-  const existingExportsSet = new Set(existingExports);
-  const hasAdditions = intent.exportPaths.some(
-    (exportPath) => !existingExportsSet.has(exportPath),
-  );
-  const seedExportPath = intent.seed?.match(simpleBarrelExportPattern)?.[1];
-  const hasSeedExport =
-    seedExportPath === undefined || existingExportsSet.has(seedExportPath);
-
-  return createPathAssessment({
-    classification: hasSeedExport && !hasAdditions ? "unchanged" : "modify",
-  });
-};
-
-/**
  * Compositions target an existing file unless a seed creates it. Apply
  * validates the concrete TypeScript composition target with ts-morph.
  */
@@ -521,24 +466,9 @@ const collectMissingJsxSlotConflicts = (
   );
 };
 
-const parseSimpleBarrelExports = (contents: string) => {
-  const parsedExports = contents
-    .split(/\r?\n/u)
-    .filter((line) => line.trim() !== "")
-    .map((line) => line.match(simpleBarrelExportPattern)?.[1]);
-
-  return parsedExports.every(Predicate.isNotUndefined)
-    ? parsedExports
-    : undefined;
-};
-
-const simpleBarrelExportPattern = /^export \* from "(\.[^"]*)";$/;
-
 const planConflict = {
   tsconfig: (path: RepositoryPath) =>
     PlanConflict.cases.tsconfig.make({ path }),
-  barrelExport: (path: RepositoryPath, exportPath: string) =>
-    PlanConflict.cases.barrelExport.make({ path, exportPath }),
   exports: (path: RepositoryPath, name: string) =>
     PlanConflict.cases.exports.make({ path, name }),
   scripts: (path: RepositoryPath, name: string) =>

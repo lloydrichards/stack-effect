@@ -12,7 +12,7 @@ sources:
     resource: ../../catalogs/official/src/moduleRegistry.ts
   - id: source-4
     resource: ../../catalogs/labs/src/receipt-app.ts
-generated: { by: codex, at: "2026-11-22T19:45:52+01:00" }
+generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 ---
 
 # Add a catalog module
@@ -32,7 +32,7 @@ Write a short noun phrase that names what the module adds. Lead with the feature
 
 Prototype generated files first. Then add the definition to the relevant `catalogs/official/src/modules/*.ts` group and ensure `moduleRegistry.ts` includes that group. Use an existing sibling definition as the template.
 
-Definitions are plain JSON-shaped data grouped by `defineModules(import.meta.url, [...])` from `@repo/authoring`, which records the source file for build errors. Keep each generated file body in `catalogs/official/templates/<module-id>/<path>` and reference it with `template(...)`; the build embeds its exact bytes. This example shows the required fields for a server-owned module:
+Definitions are plain JSON-shaped data grouped by `defineModules(import.meta.url, [...])` from `@repo/authoring`, which records the source file for build errors. Keep each generated file body in `catalogs/official/templates/<module-id>/<path>` and reference it with `template(...)`; the build embeds its exact bytes. This example shows the required fields for a package-owned module:
 
 ```typescript
 import { defineModules, templates } from "@repo/authoring";
@@ -41,21 +41,25 @@ const template = templates(new URL("../../templates/", import.meta.url));
 
 export const healthModules = defineModules(import.meta.url, [
   {
-    id: "server-health",
-    title: "Health Endpoint",
-    description: "HTTP health endpoint for the server",
-    supportedOn: [{ _tag: "kind", kind: "server" }],
+    id: "domain-health-contracts",
+    title: "Health Contracts",
+    description: "Shared health check schemas",
+    supportedOn: [
+      { _tag: "identity", identity: { kind: "package", name: "domain" } },
+    ],
     dependencies: [],
     contributions: [
       {
         _tag: "file",
         path: "{{targetPath}}/src/Health.ts",
-        contents: template("./server-health/src/Health.ts"),
+        contents: template("./domain-health-contracts/src/Health.ts"),
       },
       {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./Health",
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./Health",
+        value: "./src/Health.ts",
       },
     ],
   },
@@ -89,7 +93,7 @@ An implication uses `{ targetKind, moduleId }` in `implies`. It connects selecti
 
 ## Choose contribution operations
 
-Use `file` for authoritative content; `pkg-json-entry` for an export, dependency, devDependency, or script; `barrel-export` for a re-export; and `ts-call-arg`, `ts-object-field`, or `jsx-slot` for composition into existing code. A file contribution can set `conflictOnModify` when replacing existing content should require a decision.
+Use `file` for authoritative content; `pkg-json-entry` for an export, dependency, devDependency, or script; and `ts-call-arg`, `ts-object-field`, or `jsx-slot` for composition into existing code. Give each public module of a package its own `exports` subpath named after the module, and import it through that subpath from other targets. Do not add a root `src/index.ts` of re-exports; see the [contribution contract](../domain/contributions.md "defines package entry points"). A file contribution can set `conflictOnModify` when replacing existing content should require a decision.
 
 A package dependency entry has this shape:
 

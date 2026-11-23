@@ -30,11 +30,6 @@ export const domainModules = defineModules(import.meta.url, [
         name: "./McpClient",
         value: "./src/McpClient.ts",
       },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./McpClient",
-      },
     ],
   },
   {
@@ -59,11 +54,6 @@ export const domainModules = defineModules(import.meta.url, [
         field: "exports",
         name: "./McpServerPrompt",
         value: "./src/McpServerPrompt.ts",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./McpServerPrompt",
       },
     ],
   },
@@ -94,11 +84,6 @@ export const domainModules = defineModules(import.meta.url, [
         name: "./McpResource",
         value: "./src/McpResource.ts",
       },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./McpResource",
-      },
     ],
   },
   {
@@ -128,11 +113,6 @@ export const domainModules = defineModules(import.meta.url, [
         field: "exports",
         name: "./McpPrompt",
         value: "./src/McpPrompt.ts",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./McpPrompt",
       },
     ],
   },
@@ -226,11 +206,6 @@ export const domainModules = defineModules(import.meta.url, [
         name: "./Api",
         value: "./src/Api.ts",
       },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./Api",
-      },
     ],
   },
   {
@@ -259,11 +234,6 @@ export const domainModules = defineModules(import.meta.url, [
         name: "./Rpc",
         value: "./src/Rpc.ts",
       },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./Rpc",
-      },
     ],
   },
   {
@@ -285,20 +255,13 @@ export const domainModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/Todo.ts",
         contents: template("./domain-todo-contracts/src/Todo.ts"),
       },
-      ...["Todo"].flatMap((name) => [
-        {
-          _tag: "pkg-json-entry" as const,
-          path: "{{targetPath}}/package.json",
-          field: "exports" as const,
-          name: `./${name}`,
-          value: `./src/${name}.ts`,
-        },
-        {
-          _tag: "barrel-export" as const,
-          barrelPath: "{{targetPath}}/src/index.ts",
-          exportPath: `./${name}`,
-        },
-      ]),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./Todo",
+        value: "./src/Todo.ts",
+      },
     ],
   },
   {
@@ -332,11 +295,6 @@ export const domainModules = defineModules(import.meta.url, [
         field: "exports",
         name: "./TodoApi",
         value: "./src/TodoApi.ts",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./TodoApi",
       },
     ],
   },
@@ -376,20 +334,13 @@ export const domainModules = defineModules(import.meta.url, [
           namedImports: ["TodoRpc"],
         },
       },
-      ...["TodoRpc"].flatMap((name) => [
-        {
-          _tag: "pkg-json-entry" as const,
-          path: "{{targetPath}}/package.json",
-          field: "exports" as const,
-          name: `./${name}`,
-          value: `./src/${name}.ts`,
-        },
-        {
-          _tag: "barrel-export" as const,
-          barrelPath: "{{targetPath}}/src/index.ts",
-          exportPath: `./${name}`,
-        },
-      ]),
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./TodoRpc",
+        value: "./src/TodoRpc.ts",
+      },
     ],
   },
   {
@@ -420,11 +371,6 @@ export const domainModules = defineModules(import.meta.url, [
         value: "./src/ChatTurnOptions.ts",
       },
       {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./ChatTurnOptions",
-      },
-      {
         _tag: "file",
         path: "{{targetPath}}/src/Chat.ts",
         contents: template("./domain-chat-contracts/src/Chat.ts"),
@@ -447,16 +393,6 @@ export const domainModules = defineModules(import.meta.url, [
         field: "exports",
         name: "./ChatRpc",
         value: "./src/ChatRpc.ts",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./Chat",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./ChatRpc",
       },
     ],
   },
@@ -494,11 +430,6 @@ export const domainModules = defineModules(import.meta.url, [
         name: "./ChatManagedRpc",
         value: "./src/ChatManagedRpc.ts",
       },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./ChatManagedRpc",
-      },
     ],
   },
   {
@@ -526,11 +457,6 @@ export const domainModules = defineModules(import.meta.url, [
         field: "exports",
         name: "./WebSocket",
         value: "./src/WebSocket.ts",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./WebSocket",
       },
     ],
   },

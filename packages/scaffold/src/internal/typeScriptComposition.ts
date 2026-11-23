@@ -1,7 +1,6 @@
 import { ApplyFailure } from "@repo/domain/Apply";
 import type {
   TsAddImportOp,
-  TsAddReexportOp,
   TsAppendCallArgOp,
   TsJsxSlotOp,
   TsObjectFieldOp,
@@ -50,10 +49,6 @@ export const composeTypeScript: (
           applyTsAddImport(sourceFile, importOp);
           return Effect.void;
         },
-        "ts-add-reexport": (reexportOp) => {
-          applyTsAddReexport(sourceFile, reexportOp);
-          return Effect.void;
-        },
         "ts-append-call-arg": (appendOp) =>
           applyTsAppendCallArg(sourceFile, appendOp),
         "ts-object-field": (fieldOp) => applyTsObjectField(sourceFile, fieldOp),
@@ -89,42 +84,6 @@ const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
     for (const name of op.namedImports) {
       if (!existingNames.has(name)) existingImport.addNamedImport(name);
     }
-  }
-};
-
-const applyTsAddReexport = (
-  sourceFile: SourceFile,
-  op: TsAddReexportOp,
-): void => {
-  const existingExport = sourceFile.getExportDeclaration(
-    (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
-  );
-
-  if (existingExport) {
-    if (op.namedExports) {
-      const existingNamedExports = existingExport.getNamedExports();
-      const missingExports = op.namedExports.filter(
-        (namedExport) =>
-          !existingNamedExports.some((ne) => ne.getName() === namedExport),
-      );
-      for (const namedExport of missingExports) {
-        existingExport.addNamedExport(namedExport);
-      }
-    }
-    return;
-  }
-
-  if (op.namedExports && op.namedExports.length > 0) {
-    sourceFile.addExportDeclaration({
-      moduleSpecifier: op.moduleSpecifier,
-      namedExports: [...op.namedExports],
-      isTypeOnly: op.typeOnly ?? false,
-    });
-  } else {
-    sourceFile.addExportDeclaration({
-      moduleSpecifier: op.moduleSpecifier,
-      isTypeOnly: op.typeOnly ?? false,
-    });
   }
 };
 

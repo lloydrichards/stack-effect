@@ -26,7 +26,7 @@ sources:
     resource: ../../apps/docs/app/components/recipe-builder/preset-targets.ts
   - id: preset-editor
     resource: ../../apps/docs/app/components/recipe-builder/target-selector/use-target-editor.ts
-generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }
+generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 ---
 
 # Catalog architecture
@@ -71,6 +71,6 @@ Children organize same-target selection UI. Required children are selected by th
 
 ## Contributions
 
-Definitions contain arrays of tagged `Contribution` values. Full files, package JSON entries, barrel exports, call arguments, object fields, and JSX slots remain semantic inputs to planning and composition. Token resolution uses `ContributionTokenContext` and `StackConfig`.
+Definitions contain arrays of tagged `Contribution` values. Full files, package JSON entries, call arguments, object fields, and JSX slots remain semantic inputs to planning and composition. A package module publishes its entry points as `package.json` `exports` subpaths, not as re-exports in a composed `src/index.ts`; the v1 protocol rejects the retired `barrel-export` kind. See the [contribution contract](../domain/contributions.md "defines package entry points") for the rule and how existing projects are treated. Token resolution uses `ContributionTokenContext` and `StackConfig`.
 
 See [contribution contracts](../domain/contributions.md "defines payloads"), [ID naming](catalog-id-semantics.md "guides identifiers"), and [compiled catalog research](../research/compiled-catalog-profiles.md "explores optional snapshots").

@@ -1,6 +1,6 @@
 // The Labs pilot pins Effect because PersistedQueue is still unstable.
 // @effect-diagnostics unstableApiUsage:off
-import { SqliteLayer } from "@repo/db";
+import { SqliteLayer } from "@repo/db/Database";
 import { SummaryRequested, type SummaryResult } from "@repo/domain/SummaryJob";
 import { Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/persistence";

@@ -8,7 +8,13 @@ sources:
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
     resource: ../../packages/domain/src/Scaffold.ts
-generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
+  - id: protocol
+    resource: ../../packages/catalog/src/CatalogProtocol.ts
+  - id: package-shape
+    resource: ../../.agents/TASTE.md
+  - id: loader-tests
+    resource: ../../packages/scaffold/test/CatalogLoader.test.ts
+generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 ---
 
 # Contributions and configuration
@@ -20,8 +26,11 @@ Declarative desired repository state from targets/modules.
 
 Invariants:
 
-- `Contribution` is a tagged union of `file`, `pkg-json-entry`, `barrel-export`, `ts-call-arg`, `ts-object-field`, and `jsx-slot`. `NormalizedContributions` groups resolved target and module contributions.
+- `Contribution` is a tagged union of `file`, `pkg-json-entry`, `ts-call-arg`, `ts-object-field`, and `jsx-slot`. `NormalizedContributions` groups resolved target and module contributions.
 - Values are declarative intent, not direct apply results.
+- A generated package exposes each public module as its own `package.json` `exports` subpath, contributed as a `pkg-json-entry` with field `exports`, such as `./Api` mapped to `./src/Api.ts`. Consumers import the subpath, such as `@repo/db/TodoRepository`. Modules do not compose a root `src/index.ts` of re-exports. This follows the package shape rule in the coding taste guide (source `package-shape`, "Package shape").
+- The protocol no longer has a `barrel-export` contribution. A registry document that still contains one fails to decode with `CatalogDocumentInvalid`, and one that only declares `contribution:barrel-export` fails with `CatalogCapabilityUnsupported` (sources `protocol` and `loader-tests`). The kind was removed outright because no third-party catalogs depended on it.
+- Existing projects keep any `src/index.ts` that an earlier scaffold composed. Plan no longer targets that path, so `add` neither updates nor deletes it, and no migration runs. Its re-exports keep working until the owner removes them.
 
 Connected terms:
 

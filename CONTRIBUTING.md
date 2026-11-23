@@ -84,7 +84,7 @@ Each module definition specifies:
 - `implies` — modules auto-added to other targets when this one is selected
 - `contributions` — files and package.json entries this module produces
 
-Contribution types: `file`, `pkg-json-entry`, `barrel-export`, `ts-call-arg`. Follow existing modules as reference.
+Contribution types: `file`, `pkg-json-entry`, `ts-call-arg`, `ts-object-field`, `jsx-slot`. Expose a package's public modules as `package.json` `exports` subpaths with `pkg-json-entry`. Follow existing modules as reference.
 
 ```bash
 bun run test --filter=@repo/catalog

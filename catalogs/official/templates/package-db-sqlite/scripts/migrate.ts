@@ -1,6 +1,6 @@
 {{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoRuntime } from "@effect/platform-deno";{{/if}}
 import { Console, Effect } from "effect";
-import { MigratedDatabaseLayer } from "../src";
+import { MigratedDatabaseLayer } from "../src/Migrations";
 
 const program = Console.log("Database migrations completed").pipe(
   Effect.provide(MigratedDatabaseLayer),

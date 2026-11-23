@@ -1,6 +1,7 @@
 {{#if runtime=bun}}import { BunRuntime } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeRuntime } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoRuntime } from "@effect/platform-deno";{{/if}}
 import { Console, Effect } from "effect";
-import { checkDatabaseHealth, DatabaseLayer } from "../src";
+import { checkDatabaseHealth } from "../src/HealthCheck";
+import { DatabaseLayer } from "../src/Migrations";
 
 const program = Effect.gen(function* () {
   const healthy = yield* checkDatabaseHealth;

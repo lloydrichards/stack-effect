@@ -90,10 +90,10 @@ describe("PlanService", () => {
             ),
             { name: "type-check", value: "tsc --noEmit" },
           );
-          const barrel = operationsAt(planned, "packages/domain/src/index.ts");
-          assert.deepStrictEqual(
-            barrel.map((operation) => operation._tag),
-            ["ts-add-reexport"],
+          assert.isFalse(
+            planned.outcomes.some(
+              (outcome) => outcome.path === "packages/domain/src/index.ts",
+            ),
           );
         }).pipe(Effect.provide(officialLayer)),
     );
@@ -160,12 +160,6 @@ describe("PlanService", () => {
           '{"name":"@repo/domain","exports":{"./Api":"./src/Other.ts"}}',
         conflict: { _tag: "exports", name: "./Api" },
       },
-      {
-        name: "the barrel cannot be parsed",
-        path: "packages/domain/src/index.ts",
-        contents: 'export { Api } from "./Api";',
-        conflict: { _tag: "barrelExport", exportPath: "./Api" },
-      },
     ]) {
       it.effect(`should report a conflict when ${name}`, () =>
         Effect.gen(function* () {
@@ -192,63 +186,45 @@ describe("PlanService", () => {
     const aiIndex = "packages/ai/src/index.ts";
 
     it.effect(
-      "should compose a module's barrel export into a file another module writes",
+      "should expose a module's public entry point as a package.json exports subpath",
       () =>
         Effect.gen(function* () {
           yield* writeFiles({});
           const planned = yield* plan(ai);
 
-          assert.strictEqual(
-            outcomeAt(planned, aiIndex).classification,
-            "create",
-          );
-          assert.isTrue(
-            operationsAt(planned, aiIndex).some(
+          assert.deepInclude(
+            operationsAt(planned, "packages/ai/package.json").flatMap(
               (operation) =>
-                operation._tag === "ts-add-reexport" &&
-                operation.moduleSpecifier === "./toolkits/DateTimeToolkit",
+                operation._tag === "json-pkg-exports" ? operation.entries : [],
             ),
+            {
+              name: "./DateTimeToolkit",
+              value: "./src/toolkits/DateTimeToolkit.ts",
+            },
+          );
+          assert.isFalse(
+            planned.outcomes.some((outcome) => outcome.path === aiIndex),
           );
         }).pipe(Effect.provide(officialLayer)),
     );
 
-    for (const { existing, classification } of [
-      {
-        existing:
-          'export * from "./LanguageModel";\nexport * from "./toolkits/DateTimeToolkit";\n',
-        classification: "unchanged",
-      },
-      {
-        existing: 'export * from "./LanguageModel";\n',
-        classification: "modify",
-      },
-      {
-        existing:
-          '// Custom index with named exports\nexport { FastModelLayer } from "./LanguageModel";',
-        classification: "conflict",
-      },
-    ] as const) {
-      it.effect(
-        `should classify a written barrel as ${classification} from its existing exports`,
-        () =>
-          Effect.gen(function* () {
-            yield* writeFiles({ [aiIndex]: existing });
-            const planned = yield* plan(ai);
+    it.effect(
+      "should leave a composed src/index.ts from an earlier scaffold untouched",
+      () =>
+        Effect.gen(function* () {
+          const existing =
+            'export * from "./LanguageModel";\nexport * from "./toolkits/DateTimeToolkit";\n';
+          yield* writeFiles({ [aiIndex]: existing });
+          const planned = yield* plan(ai);
 
-            assert.strictEqual(
-              outcomeAt(planned, aiIndex).classification,
-              classification,
-            );
-            if (classification === "conflict") {
-              assert.deepInclude(conflictsAt(planned, aiIndex), {
-                _tag: "barrelExport",
-                path: aiIndex,
-                exportPath: "./toolkits/DateTimeToolkit",
-              });
-            }
-          }).pipe(Effect.provide(officialLayer)),
-      );
-    }
+          assert.isFalse(
+            planned.outcomes.some((outcome) => outcome.path === aiIndex),
+          );
+          assert.deepStrictEqual(conflictsAt(planned, aiIndex), []);
+          yield* apply(planned);
+          assert.strictEqual(yield* readFile(aiIndex), existing);
+        }).pipe(Effect.provide(officialLayer)),
+    );
 
     it.effect("should fail when an ancestor path is a file", () =>
       Effect.gen(function* () {

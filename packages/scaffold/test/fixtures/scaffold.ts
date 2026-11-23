@@ -157,19 +157,11 @@ export const testCatalog = {
       contents: '{ "extends": "../../tsconfig.base.json" }\n',
       conflictOnModify: true,
     }),
-    packageModule(
-      "api",
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/Api.ts",
-        contents: "export const Api = {};\n",
-      },
-      {
-        _tag: "barrel-export",
-        barrelPath: "{{targetPath}}/src/index.ts",
-        exportPath: "./Api",
-      },
-    ),
+    packageModule("api", {
+      _tag: "file",
+      path: "{{targetPath}}/src/Api.ts",
+      contents: "export const Api = {};\n",
+    }),
     // Adds a script to an existing manifest; plan it beside a named package.json.
     packageModule("scripts", {
       _tag: "pkg-json-entry",

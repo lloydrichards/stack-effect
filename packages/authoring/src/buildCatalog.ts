@@ -654,10 +654,7 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
                 {
                   contribution: item.contribution,
                   field: item.field,
-                  contributionPath:
-                    contribution._tag === "barrel-export"
-                      ? contribution.barrelPath
-                      : contribution.path,
+                  contributionPath: contribution.path,
                   template: item.template,
                 },
               ],

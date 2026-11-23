@@ -137,7 +137,7 @@ describe("ScaffoldTree", () => {
         root: "/repo",
         paths: [
           "packages/domain/src/Api.ts",
-          "packages/domain/src/index.ts",
+          "packages/domain/package.json",
           "packages/domain/tsconfig.json",
           "README.md",
           "package.json",
@@ -155,14 +155,17 @@ describe("ScaffoldTree", () => {
         },
         {
           _tag: "composed",
-          path: RepositoryPath.make("packages/domain/src/index.ts"),
+          path: RepositoryPath.make("packages/domain/package.json"),
           classification: "conflict",
-          seedContents: "",
+          seedContents: "{}",
           operations: [
             {
-              _tag: "ts-add-reexport",
-              fileType: "typescript",
-              moduleSpecifier: "./Api",
+              _tag: "json-pkg-exports",
+              fileType: "json",
+              entries: [
+                { name: "./Api", value: "./src/Api.ts" },
+                { name: "./Health", value: "./src/Health.ts" },
+              ],
             },
           ],
         },
@@ -194,14 +197,14 @@ describe("ScaffoldTree", () => {
       ],
       conflicts: [
         {
-          _tag: "barrelExport",
-          path: RepositoryPath.make("packages/domain/src/index.ts"),
-          exportPath: "./Api",
+          _tag: "exports",
+          path: RepositoryPath.make("packages/domain/package.json"),
+          name: "./Api",
         },
         {
-          _tag: "barrelExport",
-          path: RepositoryPath.make("packages/domain/src/index.ts"),
-          exportPath: "./Health",
+          _tag: "exports",
+          path: RepositoryPath.make("packages/domain/package.json"),
+          name: "./Health",
         },
         {
           _tag: "tsconfig",
@@ -227,10 +230,10 @@ describe("ScaffoldTree", () => {
               |├── packages
               |│   ╰── domain
               |│       ├── src
-              |│       │   ├── [+] Api.ts
-              |│       │   ╰── [!] index.ts
-              |│       │       ├── merge: export ./Api
-              |│       │       ╰── merge: export ./Health
+              |│       │   ╰── [+] Api.ts
+              |│       ├── [!] package.json
+              |│       │   ├── merge: exports ./Api
+              |│       │   ╰── merge: exports ./Health
               |│       ╰── [!] tsconfig.json
               |│           ╰── merge: tsconfig
               |├── [=] package.json

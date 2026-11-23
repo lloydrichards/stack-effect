@@ -1,8 +1,8 @@
 import {
   AiChatService,
   chatPrompt,
-  chatErrorPart,
-  FastModelLayer } from "@repo/ai";
+  chatErrorPart } from "@repo/ai/AiChatService";
+import { FastModelLayer } from "@repo/ai/LanguageModel";
 import { type ChatMessage, type ChatStreamPart } from "@repo/domain/Chat";
 import {
   type ChatTurnOptions,

@@ -4,7 +4,8 @@ import {
   type WebSocketEvent,
   WebSocketRpc,
 } from "@repo/domain/WebSocket";
-import { ClientGenerator, PresenceService } from "@repo/presence";
+import { ClientGenerator } from "@repo/presence/ClientGenerator";
+import { PresenceService } from "@repo/presence/PresenceService";
 import { DateTime, Effect, Layer, Queue, Stream } from "effect";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 

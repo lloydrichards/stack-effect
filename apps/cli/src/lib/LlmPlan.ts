@@ -75,13 +75,6 @@ const renderOperation = (path: string, op: CompositionOperation): string =>
       const typePrefix = o.typeOnly ? "type " : "";
       return `In \`${path}\`, add import: \`import ${typePrefix}${specifiers} from "${o.moduleSpecifier}"\``;
     }),
-    Match.tag("ts-add-reexport", (o) => {
-      const specifiers = o.namedExports
-        ? `{ ${o.namedExports.join(", ")} }`
-        : "*";
-      const typePrefix = o.typeOnly ? "type " : "";
-      return `In \`${path}\`, add re-export: \`export ${typePrefix}${specifiers} from "${o.moduleSpecifier}"\``;
-    }),
     Match.tag("ts-append-call-arg", (o) => {
       return `In \`${path}\`, find \`const ${o.targetVariable} = ${o.functionName}(...)\` and append \`${o.argument}\` as an additional argument`;
     }),
@@ -112,11 +105,6 @@ const renderConflict = (
       path: c.path,
       kind: "scripts",
       description: `Script "${c.name}" already exists in ${c.path}`,
-    })),
-    Match.tag("barrelExport", (c) => ({
-      path: c.path,
-      kind: "barrel-export",
-      description: `Re-export of "${c.exportPath}" already exists in ${c.path}`,
     })),
     Match.tag("tsconfig", (c) => ({
       path: c.path,

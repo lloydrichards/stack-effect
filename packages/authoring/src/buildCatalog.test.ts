@@ -671,34 +671,6 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
   );
 
   it.effect(
-    "should record provenance when a barrel export path comes from a template",
-    () =>
-      Effect.gen(function* () {
-        const { provenance } = yield* buildCatalog(
-          withModule({
-            ...standaloneModule,
-            contributions: [
-              {
-                _tag: "barrel-export",
-                barrelPath: "{{targetPath}}/src/index.ts",
-                exportPath: template("./templates/barrel-export.txt"),
-              },
-            ],
-          }),
-          { catalogId: "acme", root: packageRoot },
-        );
-        assert.deepStrictEqual(provenance.at(-1)?.templates, [
-          {
-            contribution: 0,
-            field: "exportPath",
-            contributionPath: "{{targetPath}}/src/index.ts",
-            template: "test/fixtures/templates/barrel-export.txt",
-          },
-        ]);
-      }),
-  );
-
-  it.effect(
     "should reject a template when a symlink resolves it outside the root",
     () =>
       Effect.gen(function* () {

@@ -1,4 +1,4 @@
-import { TodoRepository } from "@repo/db";
+import { TodoRepository } from "@repo/db/TodoRepository";
 import { TodoApi } from "@repo/domain/TodoApi";
 import { Effect, Layer } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
