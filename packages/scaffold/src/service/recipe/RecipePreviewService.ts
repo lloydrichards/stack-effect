@@ -64,8 +64,8 @@ export class RecipePreviewService extends Context.Service<
         Effect.mapError(
           (error) =>
             new ApplyFailure({
-              reason: "executionFailure",
               message: `Could not serialize the preview configuration: ${error.message}`,
+              cause: error,
             }),
         ),
       );

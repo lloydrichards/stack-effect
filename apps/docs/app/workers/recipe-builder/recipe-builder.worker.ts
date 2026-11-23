@@ -75,7 +75,8 @@ const catalogFailure = (
     ? new RecipeBuilderRpcFailure({
         // loadSources already prefixes the source name; its messages name the URL.
         message: `${error.message}${
-          error.reason === "unavailable" && error.status === undefined
+          error.reason._tag === "CatalogUnavailable" &&
+          error.reason.status === undefined
             ? unreachableHint
             : ""
         }`,

@@ -357,7 +357,6 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
       return;
     }
     return yield* new ApplyFailure({
-      reason: "repoRootInvalid",
       message: `Conflicting value for ${op.targetVariable}.${op.field} during TypeScript composition.`,
     });
   }
@@ -372,7 +371,6 @@ const applyTsObjectField = Effect.fn("applyTsObjectField")(function* (
 const missingTarget = (targetVariable: string, functionName: string) =>
   Effect.fail(
     new ApplyFailure({
-      reason: "repoRootInvalid",
       message: `Could not find ${functionName} on ${targetVariable} during TypeScript composition.`,
     }),
   );
@@ -389,7 +387,6 @@ const applyTsJsxSlot = (
     if (!marker) {
       return Effect.fail(
         new ApplyFailure({
-          reason: "repoRootInvalid",
           message: `Could not find JSX slot ${jsxSlotMarker(op.slotId)} during TypeScript composition.`,
         }),
       );

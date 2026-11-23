@@ -57,13 +57,8 @@ export const PlanBaseline = Schema.Struct({
 export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
   "PlanFailure",
   {
-    reason: Schema.Literals([
-      "repoRootNotEmpty",
-      "invalidPlanIntent",
-      "repoStateUnsupported",
-      "repoStateChanged",
-    ]),
     message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {}
 

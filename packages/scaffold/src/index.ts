@@ -9,6 +9,7 @@ export {
   CatalogCompositionFailure,
   CatalogLoader,
   CatalogLoadFailure,
+  CatalogSourceInvalid,
   type CatalogLoadWarning,
   type CatalogLoadReason,
   type LoadedCatalog,

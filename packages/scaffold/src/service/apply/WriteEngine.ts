@@ -62,8 +62,8 @@ export class WriteEngine extends Context.Service<
             Effect.mapError(
               (error) =>
                 new ApplyFailure({
-                  reason: "executionFailure",
                   message: `Could not write temporary file ${tempPath} during apply: ${error.message}`,
+                  cause: error,
                 }),
             ),
           );
@@ -72,8 +72,8 @@ export class WriteEngine extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "executionFailure",
                 message: `Could not rename ${tempPath} to ${path} during apply: ${error.message}`,
+                cause: error,
               }),
           ),
         );
@@ -91,8 +91,8 @@ export class WriteEngine extends Context.Service<
             ? Effect.succeed(null)
             : Effect.fail(
                 new ApplyFailure({
-                  reason: "repoRootInvalid",
                   message: `Could not inspect ${path} during apply: ${error.message}`,
+                  cause: error,
                 }),
               ),
         ),
@@ -114,8 +114,8 @@ export class WriteEngine extends Context.Service<
         Effect.mapError(
           (error) =>
             new ApplyFailure({
-              reason: "repoRootInvalid",
               message: `Could not read ${path} during apply: ${error.message}`,
+              cause: error,
             }),
         ),
       );
@@ -134,7 +134,6 @@ export class WriteEngine extends Context.Service<
               ? Effect.void
               : Effect.fail(
                   new ApplyFailure({
-                    reason: "repoRootInvalid",
                     message: `Expected ${write.path} to be missing for create apply mode.`,
                   }),
                 ),
@@ -144,7 +143,6 @@ export class WriteEngine extends Context.Service<
               ? Effect.void
               : Effect.fail(
                   new ApplyFailure({
-                    reason: "repoRootInvalid",
                     message: `Expected ${write.path} to be an existing file for ${write.writeMode} apply mode.`,
                   }),
                 ),
@@ -187,8 +185,8 @@ export class WriteEngine extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "executionFailure",
                 message: `Could not create directory ${path.dirname(absolutePath)} during apply: ${error.message}`,
+                cause: error,
               }),
           ),
         );

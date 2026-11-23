@@ -9,6 +9,7 @@ import {
   type CatalogCompositionFailure,
   CatalogLoader,
   CatalogLoadFailure,
+  CatalogSourceInvalid,
   type LoadedCatalogSet,
   type LoadedCatalogSource,
 } from "@repo/scaffold";
@@ -77,7 +78,7 @@ export class CatalogProvider extends Context.Service<
               })
             : Effect.fail(
                 new CatalogLoadFailure({
-                  reason: "invalidSource",
+                  reason: new CatalogSourceInvalid(),
                   sourceUrl: "local:authoring",
                   message:
                     "The authoring entrypoint only provides its bundled local catalog definitions.",

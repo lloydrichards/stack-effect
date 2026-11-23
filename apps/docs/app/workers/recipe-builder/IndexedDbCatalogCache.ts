@@ -8,7 +8,8 @@ import { Effect, Layer } from "effect";
 
 const databaseName = "stack-effect-catalog";
 const storeName = "documents";
-const failure = (message: string) => new CatalogCacheFailure({ message });
+const failure = (message: string, cause: unknown) =>
+  new CatalogCacheFailure({ message, cause });
 
 const openDatabase = Effect.callback<IDBDatabase, CatalogCacheFailure>(
   (resume) => {
@@ -19,10 +20,14 @@ const openDatabase = Effect.callback<IDBDatabase, CatalogCacheFailure>(
       request.onsuccess = () => resume(Effect.succeed(request.result));
       request.onerror = () =>
         resume(
-          Effect.fail(failure("Could not open the browser catalog cache.")),
+          Effect.fail(
+            failure("Could not open the browser catalog cache.", request.error),
+          ),
         );
-    } catch {
-      resume(Effect.fail(failure("Browser catalog storage is unavailable.")));
+    } catch (cause) {
+      resume(
+        Effect.fail(failure("Browser catalog storage is unavailable.", cause)),
+      );
     }
   },
 );
@@ -47,15 +52,27 @@ const read = (sourceUrl: string) =>
             );
           request.onerror = () =>
             resume(
-              Effect.fail(failure("Could not read the browser catalog cache.")),
+              Effect.fail(
+                failure(
+                  "Could not read the browser catalog cache.",
+                  request.error,
+                ),
+              ),
             );
           transaction.onabort = () =>
             resume(
-              Effect.fail(failure("Browser catalog cache read was aborted.")),
+              Effect.fail(
+                failure(
+                  "Browser catalog cache read was aborted.",
+                  transaction.error,
+                ),
+              ),
             );
-        } catch {
+        } catch (cause) {
           resume(
-            Effect.fail(failure("Could not read the browser catalog cache.")),
+            Effect.fail(
+              failure("Could not read the browser catalog cache.", cause),
+            ),
           );
         }
       },
@@ -76,15 +93,27 @@ const write = (entry: CatalogCacheEntry) =>
         transaction.oncomplete = () => resume(Effect.void);
         transaction.onerror = () =>
           resume(
-            Effect.fail(failure("Could not write the browser catalog cache.")),
+            Effect.fail(
+              failure(
+                "Could not write the browser catalog cache.",
+                transaction.error,
+              ),
+            ),
           );
         transaction.onabort = () =>
           resume(
-            Effect.fail(failure("Browser catalog cache write was aborted.")),
+            Effect.fail(
+              failure(
+                "Browser catalog cache write was aborted.",
+                transaction.error,
+              ),
+            ),
           );
-      } catch {
+      } catch (cause) {
         resume(
-          Effect.fail(failure("Could not write the browser catalog cache.")),
+          Effect.fail(
+            failure("Could not write the browser catalog cache.", cause),
+          ),
         );
       }
     }),

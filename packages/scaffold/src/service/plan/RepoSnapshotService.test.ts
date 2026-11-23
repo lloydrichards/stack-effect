@@ -120,7 +120,6 @@ describe("RepoSnapshotService", () => {
         );
 
         expect(error._tag).toBe("PlanFailure");
-        expect(error.reason).toBe("repoRootNotEmpty");
         expect(error.message).toBe(
           "Could not inspect apps/server.ts during planning: stat exploded",
         );
@@ -142,7 +141,6 @@ describe("RepoSnapshotService", () => {
         );
 
         expect(error._tag).toBe("PlanFailure");
-        expect(error.reason).toBe("repoRootNotEmpty");
         expect(error.message).toBe(
           "Could not read apps/server.ts during planning: read exploded",
         );

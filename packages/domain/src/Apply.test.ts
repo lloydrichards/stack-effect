@@ -109,11 +109,13 @@ describe("@repo/domain Apply", () => {
   it("decodes apply failures", () => {
     const error = Schema.decodeSync(ApplyFailure)({
       _tag: "ApplyFailure",
-      reason: "invalidApplyIntent",
       message: "Missing decision for packages/domain/package.json",
     });
 
-    expect(error.reason).toBe("invalidApplyIntent");
+    expect(error._tag).toBe("ApplyFailure");
+    expect(error.message).toBe(
+      "Missing decision for packages/domain/package.json",
+    );
   });
 
   it("decodes stale Plan failures with a partial result and no file contents", () => {

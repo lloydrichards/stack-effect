@@ -131,7 +131,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
       const targetKey = target.identity.toKey();
 
       if (selectedTargetKeys.has(targetKey)) {
-        throw new BlueprintFailure({
+        return yield* new BlueprintFailure({
           message: `Duplicate target selection: ${targetKey}`,
         });
       }
@@ -143,7 +143,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
 
       for (const moduleSelection of target.modules) {
         if (selectedModuleIds.has(moduleSelection.id)) {
-          throw new BlueprintFailure({
+          return yield* new BlueprintFailure({
             message: `Duplicate module selection: ${targetKey} requires module ${moduleSelection.id}`,
           });
         }
@@ -165,7 +165,7 @@ const validateSelection = Effect.fn("BlueprintService.validateSelection")(
         );
 
         if (!isSupported) {
-          throw new BlueprintFailure({
+          return yield* new BlueprintFailure({
             message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
           });
         }
@@ -219,7 +219,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
       const isSupported = yield* catalog.isSupportedOn(moduleId, target);
 
       if (!isSupported) {
-        throw new BlueprintFailure({
+        return yield* new BlueprintFailure({
           message: `Unsupported target-module combination: ${target.toKey()} requires module ${moduleId}`,
         });
       }
@@ -270,7 +270,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
         );
 
         if (Option.isSome(sharedProvider)) {
-          throw new BlueprintFailure({
+          return yield* new BlueprintFailure({
             message: `Multiple providers selected for capability ${sharedProvider.value} on ${targetState.id}: ${attached.moduleId}, ${moduleId}. Select exactly one provider module.`,
           });
         }
@@ -280,7 +280,7 @@ const resolveSelection = Effect.fn("BlueprintService.resolveSelection")(
           (attachedDefinition.conflictsWith ?? []).includes(moduleId);
 
         if (isIncompatible) {
-          throw new BlueprintFailure({
+          return yield* new BlueprintFailure({
             message: `Incompatible modules on ${targetState.id}: ${attached.moduleId} conflicts with ${moduleId}`,
           });
         }

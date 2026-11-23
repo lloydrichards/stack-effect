@@ -39,12 +39,8 @@ export class Apply extends Schema.Class<Apply>("Apply")({
 export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
   "ApplyFailure",
   {
-    reason: Schema.Literals([
-      "invalidApplyIntent",
-      "repoRootInvalid",
-      "executionFailure",
-    ]),
     message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {}
 

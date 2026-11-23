@@ -56,7 +56,7 @@ describe("loadSources cache and aliases", () => {
           loadSources(select("official", { name: "mirror", url: officialUrl })),
         );
         assert.instanceOf(error, CatalogLoadFailure);
-        assert.strictEqual(error.reason, "invalidSource");
+        assert.strictEqual(error.reason._tag, "CatalogSourceInvalid");
         assert.strictEqual(error.sourceName, "mirror");
         assert.strictEqual(error.sourceUrl, officialUrl);
         assert.deepStrictEqual(requested, []);

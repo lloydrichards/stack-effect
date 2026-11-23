@@ -97,7 +97,6 @@ export class PlanService extends Context.Service<
       const changes = repositoryState.compare(baseline, current);
       if (changes.length > 0) {
         return yield* new PlanFailure({
-          reason: "repoStateChanged",
           message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
         });
       }
@@ -133,7 +132,6 @@ export class PlanService extends Context.Service<
               onSome: (blockedAncestorPath) =>
                 Effect.fail(
                   new PlanFailure({
-                    reason: "repoRootNotEmpty",
                     message: `Expected ${blockedAncestorPath} to be a directory during planning.`,
                   }),
                 ),
@@ -179,8 +177,8 @@ export class PlanService extends Context.Service<
           Effect.mapError(
             (cause) =>
               new PlanFailure({
-                reason: "invalidPlanIntent",
                 message: `Invalid projected Plan: ${formatSchemaIssue(cause)}`,
+                cause,
               }),
           ),
         );

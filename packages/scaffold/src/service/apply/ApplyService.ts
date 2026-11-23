@@ -108,7 +108,6 @@ export class ApplyService extends Context.Service<
         );
         if (Option.isSome(uncoveredOutcome)) {
           return yield* new ApplyFailure({
-            reason: "invalidApplyIntent",
             message: `Plan baseline does not cover ${uncoveredOutcome.value.path}.`,
           });
         }
@@ -132,7 +131,6 @@ export class ApplyService extends Context.Service<
         });
         if (Option.isSome(duplicateDecision)) {
           return yield* new ApplyFailure({
-            reason: "invalidApplyIntent",
             message: `Duplicate apply decision for ${duplicateDecision.value.path}.`,
           });
         }
@@ -143,7 +141,6 @@ export class ApplyService extends Context.Service<
         );
         if (Option.isSome(extraDecision)) {
           return yield* new ApplyFailure({
-            reason: "invalidApplyIntent",
             message: `Unexpected apply decision for non-conflicted path ${extraDecision.value.path}.`,
           });
         }
@@ -157,7 +154,6 @@ export class ApplyService extends Context.Service<
         );
         if (Option.isSome(missingDecisionPath)) {
           return yield* new ApplyFailure({
-            reason: "invalidApplyIntent",
             message: `Missing apply decision for conflicted path ${missingDecisionPath.value}.`,
           });
         }
@@ -251,8 +247,8 @@ export class ApplyService extends Context.Service<
               ? Effect.succeed(null)
               : Effect.fail(
                   new ApplyFailure({
-                    reason: "repoRootInvalid",
                     message: `Could not inspect ${filePath} during apply: ${error.message}`,
+                    cause: error,
                   }),
                 ),
           ),
@@ -264,7 +260,6 @@ export class ApplyService extends Context.Service<
 
         if (pathStat.type === "Directory") {
           return yield* new ApplyFailure({
-            reason: "repoRootInvalid",
             message: `Expected ${filePath} to be a file during apply.`,
           });
         }
@@ -273,8 +268,8 @@ export class ApplyService extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "repoRootInvalid",
                 message: `Could not read ${filePath} during apply: ${error.message}`,
+                cause: error,
               }),
           ),
         );
@@ -604,8 +599,8 @@ export class ApplyService extends Context.Service<
             Effect.mapError(
               (error) =>
                 new ApplyFailure({
-                  reason: "invalidApplyIntent",
                   message: error.message,
+                  cause: error,
                 }),
             ),
           ));
@@ -613,8 +608,8 @@ export class ApplyService extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                reason: "invalidApplyIntent",
                 message: error.message,
+                cause: error,
               }),
           ),
         );
