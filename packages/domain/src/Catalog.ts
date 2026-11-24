@@ -94,6 +94,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     return targetNameSlug(this).length > 0;
   }
 
+  // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve and packageOwnership
   toPath(): TargetPath {
     return TargetPath.make(toTargetPathString(this));
   }
@@ -108,6 +109,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
    * - Apps use flat names: `<kind>` or `<kind>-<name>`
    * Hierarchical name segments are joined with hyphens for npm names.
    */
+  // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve and packageOwnership
   toPackageName(): string {
     const slug = targetNameSlug(this);
     const resolvedName = slug || this.kind;
