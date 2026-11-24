@@ -276,6 +276,98 @@ describe("@repo/domain Plan", () => {
       assert.throws(decode, message);
     },
   );
+
+  it("should keep a directory's paths together when another name extends it with a hyphen", () => {
+    const sibling = RepositoryPath.make("packages/sdk-other/package.json");
+    const nested = RepositoryPath.make("packages/sdk/package.json");
+    const plan = new Plan({
+      baseline: {
+        root: "/workspace",
+        paths: [sibling, nested].map((path) => ({ _tag: "missing", path })),
+        packageOwners: [
+          { path: sibling, name: "@repo/sdk-other" },
+          { path: nested, name: "@repo/sdk" },
+        ],
+      },
+      outcomes: [],
+      conflicts: [],
+    }).toSorted();
+
+    assert.deepStrictEqual(
+      plan.baseline.paths.map((entry) => entry.path),
+      [nested, sibling],
+    );
+    assert.deepStrictEqual(
+      plan.baseline.packageOwners?.map((owner) => owner.path),
+      [nested, sibling],
+    );
+  });
+
+  it("should sort conflicts on one path identically when they arrive in another order", () => {
+    const manifest = RepositoryPath.make("package.json");
+    const index = RepositoryPath.make("src/index.ts");
+    const conflicts = [
+      { _tag: "exports", path: manifest, name: "./b" },
+      { _tag: "exports", path: manifest, name: "./a" },
+      {
+        _tag: "dependencies",
+        path: manifest,
+        section: "dependencies",
+        name: "effect",
+      },
+      {
+        _tag: "dependencies",
+        path: manifest,
+        section: "devDependencies",
+        name: "effect",
+      },
+      {
+        _tag: "dependencies",
+        path: manifest,
+        section: "dependencies",
+        name: "alpha",
+      },
+      { _tag: "scripts", path: manifest, name: "test" },
+      { _tag: "scripts", path: manifest, name: "build" },
+      {
+        _tag: "compositionTargetNotFound",
+        path: index,
+        targetVariable: "layer",
+        functionName: "pipe",
+      },
+      {
+        _tag: "compositionTargetNotFound",
+        path: index,
+        targetVariable: "app",
+        functionName: "pipe",
+      },
+    ] as const;
+    const sortedFrom = (
+      order: typeof conflicts | ReadonlyArray<(typeof conflicts)[number]>,
+    ) =>
+      new Plan({
+        baseline: {
+          root: "/workspace",
+          paths: [manifest, index].map((path) => ({
+            _tag: "file",
+            path,
+            sha256: "abc",
+          })),
+        },
+        outcomes: [manifest, index].map((path) => ({
+          _tag: "complete",
+          path,
+          classification: "conflict",
+          contents: "",
+        })),
+        conflicts: order,
+      }).toSorted().conflicts;
+
+    assert.deepStrictEqual(
+      sortedFrom([...conflicts].reverse()),
+      sortedFrom(conflicts),
+    );
+  });
 });
 
 describe("ContributionTokenContext.resolve", () => {
@@ -336,6 +428,142 @@ describe("ContributionTokenContext.resolve", () => {
 
   const node = (packageManager: "pnpm" | "npm") =>
     ({ runtime: { _tag: "node", packageManager } }) as const;
+
+  it.each([
+    {
+      label: "the target is named",
+      name: "api",
+      expected: "server api my-project",
+    },
+    {
+      label: "the target is unnamed",
+      name: "",
+      expected: "server server my-project",
+    },
+  ])(
+    "should resolve the target kind, target name, and project name when $label",
+    ({ name, expected }) => {
+      const identity = new TargetIdentity({
+        kind: TargetKind.make("server"),
+        name,
+      });
+      const context = new ContributionTokenContext({
+        targetKey: identity.toKey(),
+        identity,
+        config: new StackConfig({
+          name: "my-project",
+          runtime: { _tag: "bun" },
+        }),
+      });
+
+      assert.strictEqual(
+        context.resolve("{{targetKind}} {{targetName}} {{projectName}}"),
+        expected,
+      );
+    },
+  );
+
+  it.each([
+    {
+      label: "Bun",
+      config: {},
+      runtime: "bun",
+      packageManager: "bun",
+      runCommand: "bun run",
+    },
+    {
+      label: "Deno",
+      config: { runtime: { _tag: "deno" } },
+      runtime: "deno",
+      packageManager: "deno",
+      runCommand: "deno task",
+    },
+    {
+      label: "Node with pnpm",
+      config: node("pnpm"),
+      runtime: "node",
+      packageManager: "pnpm",
+      runCommand: "pnpm run",
+    },
+    {
+      label: "Node with npm",
+      config: node("npm"),
+      runtime: "node",
+      packageManager: "npm",
+      runCommand: "npm run",
+    },
+  ] as const)(
+    "should resolve the runtime, package manager, and run command when the project uses $label",
+    ({ config, runtime, packageManager, runCommand }) => {
+      const ctx = makeContext(config);
+
+      assert.strictEqual(
+        ctx.resolve("{{runtime}}|{{packageManager}}|{{runCommand}}"),
+        `${runtime}|${packageManager}|${runCommand}`,
+      );
+      assert.match(
+        ctx.resolve("{{packageManagerSpec}}"),
+        new RegExp(`^${packageManager}@\\d+\\.\\d+\\.\\d+$`),
+      );
+    },
+  );
+
+  it("should resolve paths relative to the repository root when the target is the workspace", () => {
+    const workspace = new TargetIdentity({
+      kind: TargetKind.make("workspace"),
+      name: "",
+    });
+    const context = new ContributionTokenContext({
+      targetKey: workspace.toKey(),
+      identity: workspace,
+      config: new StackConfig({ name: "my-project", runtime: { _tag: "bun" } }),
+    });
+
+    assert.strictEqual(
+      context.resolve(
+        "{{targetPath}}/biome.json {{projectRoot}}/README.md [{{targetDir}}]",
+      ),
+      "biome.json ./README.md []",
+    );
+  });
+
+  it("should list each application in a table when project targets are provided", () => {
+    const api = new TargetIdentity({
+      kind: TargetKind.make("server"),
+      name: "api",
+    });
+    const context = new ContributionTokenContext({
+      targetKey: api.toKey(),
+      identity: api,
+      config: new StackConfig({ name: "my-project", runtime: { _tag: "bun" } }),
+      projectTargets: [
+        {
+          identity: new TargetIdentity({
+            kind: TargetKind.make("workspace"),
+            name: "",
+          }),
+          description: "Root",
+        },
+        { identity: api, description: "Serves | the API\nover HTTP" },
+      ],
+    });
+
+    assert.deepStrictEqual(
+      context.resolve("{{workspaceTargets}}").split("\n"),
+      [
+        "| Workspace | Responsibility |",
+        "| --- | --- |",
+        "| [apps/server-api](apps/server-api) | Serves \\| the API over HTTP |",
+      ],
+    );
+  });
+
+  it("should point to `stack-effect add` instead of a table when the workspace has no applications", () => {
+    const rendered = makeContext().resolve("{{workspaceTargets}}");
+
+    assert.notInclude(rendered, "| Workspace |");
+    assert.include(rendered, "stack-effect add");
+  });
 
   it.each([
     {
@@ -560,6 +788,11 @@ describe("ContributionTokenContext.resolve", () => {
       label: "TypeScript 7 uses another linter",
       config: { typescript: "7", lint: "biome" },
       expected: "///typescript",
+    },
+    {
+      label: "TypeScript 6 uses another linter",
+      config: { typescript: "6", lint: "biome" },
+      expected: "///",
     },
   ] as const)(
     "should derive the Oxlint and diagnostics flags '$expected' when $label",

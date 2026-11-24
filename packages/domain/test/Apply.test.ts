@@ -6,23 +6,51 @@ import { Schema } from "effect";
 describe("@repo/domain Apply", () => {
   const decodeApply = Schema.decodeUnknownSync(Apply);
   const conflictedPaths = ["packages/domain/package.json", "package.json"];
+  const created = {
+    _tag: "complete",
+    path: "README.md",
+    classification: "create",
+    contents: "# Repo\n",
+  };
   const conflictedPlan = {
     baseline: {
       root: "/workspace",
-      paths: conflictedPaths.map((path) => ({
-        _tag: "file",
-        path,
-        sha256: "",
-      })),
+      paths: [
+        ...conflictedPaths.map((path) => ({
+          _tag: "file",
+          path,
+          sha256: "",
+        })),
+        { _tag: "missing", path: "README.md" },
+      ],
     },
-    outcomes: conflictedPaths.map((path) => ({
-      _tag: "complete",
-      path,
-      classification: "conflict",
-      contents: "{}",
-    })),
+    outcomes: [
+      ...conflictedPaths.map((path) => ({
+        _tag: "complete",
+        path,
+        classification: "conflict",
+        contents: "{}",
+      })),
+      created,
+    ],
     conflicts: conflictedPaths.map((path) => ({ _tag: "completeFile", path })),
   };
+
+  it("should need no decisions when no planned outcome is conflicted", () => {
+    const apply = decodeApply({
+      plan: {
+        baseline: {
+          root: "/workspace",
+          paths: [{ _tag: "missing", path: "README.md" }],
+        },
+        outcomes: [created],
+        conflicts: [],
+      },
+      decisions: [],
+    });
+
+    assert.deepStrictEqual(apply.decisions, []);
+  });
 
   it("should keep each decision when every conflicted path has exactly one supported decision", () => {
     const apply = decodeApply({
