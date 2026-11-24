@@ -3,7 +3,7 @@
  * service-free pieces, target spec syntax and stack configuration defaults, live
  * in `@repo/domain/Recipe` and `@repo/domain/StackConfig`.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import type {
   RecipeResolveError,
   RecipeResolveOptions,
@@ -51,6 +51,6 @@ export class RecipeResolver extends Context.Service<
     }) => string;
   }
 >()("@repo/scaffold/RecipeResolver") {
-  static readonly layer: Layer.Layer<RecipeResolver, never, CatalogService> =
+  static readonly layer: Layer.Layer<RecipeResolver, never, CatalogReader> =
     Layer.effect(RecipeResolver, internal.make);
 }

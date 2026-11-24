@@ -8,29 +8,12 @@ import {
   catalogIssueLabel,
 } from "@repo/domain/Catalog";
 import { Array as Arr, Effect, Schema } from "effect";
+import type { ComposeOptions } from "../Catalog";
 
-/** A selected source that supplied one fragment, and the sources it may reference. */
-type CatalogFragmentSource = {
-  readonly name: string;
-  readonly requires: ReadonlyArray<string>;
-};
-
-export type ComposeCatalogOptions = {
-  /** Allow Finalize scripts in this fragment only. */
-  readonly trustedFragmentIndex?: number;
-  /** Allow Finalize scripts in every fragment; consent happens when they run. */
-  readonly allowFinalizeScripts?: boolean;
-  /**
-   * One entry per fragment. When present, a reference into another fragment
-   * must name that fragment's source in `requires`.
-   */
-  readonly sources?: ReadonlyArray<CatalogFragmentSource>;
-};
-
-/** Validate fragments separately, then resolve references against their union. */
-export const composeCatalog = Effect.fn("Catalog.compose")(function* (
+/** @internal */
+export const compose = Effect.fn("Catalog.compose")(function* (
   fragments: ReadonlyArray<unknown>,
-  options: ComposeCatalogOptions = {},
+  options: ComposeOptions = {},
 ) {
   const decoded = yield* Effect.forEach(fragments, (fragment, index) =>
     Schema.decodeUnknownEffect(

@@ -7,7 +7,7 @@ sources:
   - id: definitions
     resource: ../../packages/domain/src/Catalog.ts
   - id: service
-    resource: ../../packages/catalog/src/CatalogService.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: config
     resource: ../../packages/domain/src/StackConfig.ts
   - id: schema-export

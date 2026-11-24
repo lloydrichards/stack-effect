@@ -1,4 +1,4 @@
-import { V1_INTERPRETER_CAPABILITIES } from "@repo/catalog";
+import { V1_INTERPRETER_CAPABILITIES } from "@repo/catalog/Protocol";
 import {
   CatalogDocument,
   type ModuleDefinition,

@@ -43,7 +43,7 @@ generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 
 Selection records user intent. Blueprint resolves dependencies. Plan describes repository-aware outcomes and conflicts. Apply adds explicit decisions only for conflicted paths. VFS state does not replace these domain values.
 
-The catalog is loaded before Selection. A CLI command resolves its catalog sources, loads and composes them, and only then builds the services that resolve Selection, Blueprint, Plan, Apply, and Finalize. Every stage reads that one `CatalogService`, as the [distribution decision](catalog-distribution.md "keeps one catalog per operation") requires. [Catalog loading](catalog-loading.md "loads the catalog first") describes the loader and caches.
+The catalog is loaded before Selection. A CLI command resolves its catalog sources, loads and composes them, and only then builds the services that resolve Selection, Blueprint, Plan, Apply, and Finalize. Every stage reads that one `CatalogReader`, as the [distribution decision](catalog-distribution.md "keeps one catalog per operation") requires. [Catalog loading](catalog-loading.md "loads the catalog first") describes the loader and caches.
 
 Plan captures relevant paths, ancestors, and the root through `RepositoryState`. This is a selective text view, not a complete VFS snapshot. Plan retains outcomes and a serializable baseline with the canonical root, path types, and SHA-256 fingerprints of existing text files. It does not retain existing file contents.
 
@@ -59,7 +59,7 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 ## Service ownership
 
-`BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogService. Blueprint contains identities and dependency edges, not file contributions.
+`BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogReader. Blueprint contains identities and dependency edges, not file contributions.
 
 `Planner` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
 

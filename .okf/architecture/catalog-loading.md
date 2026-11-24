@@ -1,7 +1,7 @@
 ---
 type: Architecture
 title: Catalog loading
-description: How the CLI and Recipe Builder resolve catalog sources, fetch and cache each document, and provide one composed CatalogService per operation.
+description: How the CLI and Recipe Builder resolve catalog sources, fetch and cache each document, and provide one composed CatalogReader per operation.
 status: stable
 sources:
   - id: loader
@@ -29,13 +29,13 @@ generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 
 # Catalog loading
 
-Each CLI command and Recipe Builder session loads its selected catalog sources, composes them once, and uses that one `CatalogService` for every stage. `@repo/catalog` composes and looks up definitions; the loader and its caches live in `@repo/scaffold` and the applications.
+Each CLI command and Recipe Builder session loads its selected catalog sources, composes them once, and uses that one `CatalogReader` for every stage. `@repo/catalog` composes and looks up definitions; the loader and its caches live in `@repo/scaffold` and the applications.
 
 ## Resolve the source set first
 
 The CLI resolves a `CatalogSelection` before it loads anything. `apps/cli/src/lib/catalogSources.ts` parses `--catalog` flags and reads the saved `catalogs` from `stack.effect.json`. `init` and `create` take the flags as the exact set. Other commands use the saved set and fail when a differing `--catalog` set is passed.
 
-`commandServicesLayer` then asks `CatalogProvider` to load that set. Only after the load succeeds does it build the command's services, with the composed `CatalogService`, the `CatalogSelection` (explicit sources, selected sources, and loaded sources), and the `StackConfigDefaults` that fit the set. A custom-only set gets no official tool defaults.
+`commandServicesLayer` then asks `CatalogProvider` to load that set. Only after the load succeeds does it build the command's services, with the composed `CatalogReader`, the `CatalogSelection` (explicit sources, selected sources, and loaded sources), and the `StackConfigDefaults` that fit the set. A custom-only set gets no official tool defaults.
 
 `CatalogProvider.official` loads through `CatalogLoader` with the production official URL and prints one stderr line per source warning. `CatalogProvider.authoring`, used by the repository's authoring entrypoint, serves the local official definitions and rejects custom sources.
 
@@ -60,7 +60,7 @@ Other HTTP statuses, a non-JSON content type, invalid JSON, an invalid document,
 
 After every source loads, `loadSources` composes all documents once with Finalize scripts allowed and each source's `requires`. Consent to run scripts is a Finalize decision, not a loading one. If composition fails, `CatalogCompositionFailure` names every source with its URL and freshness.
 
-Cache entries are written only after the selection composes, so an entry is never replaced by a document that failed. A failed write adds a `persistence` warning and does not fail the operation. The result is a `LoadedCatalogSet`: the composed `CatalogService` and one `LoadedCatalogSource` per source.
+Cache entries are written only after the selection composes, so an entry is never replaced by a document that failed. A failed write adds a `persistence` warning and does not fail the operation. The result is a `LoadedCatalogSet`: the composed `CatalogReader` and one `LoadedCatalogSource` per source.
 
 ## Cache adapters
 

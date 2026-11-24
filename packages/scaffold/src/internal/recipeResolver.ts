@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type ModuleCapability,
   type ModuleDefinition,
@@ -98,7 +98,7 @@ const configWorkspaceModules = (config: StackConfig): ReadonlyArray<ModuleId> =>
     : customWorkspaceModules(config);
 
 const resolveTargetIdentity = Effect.fnUntraced(function* (
-  catalog: CatalogService["Service"],
+  catalog: CatalogReader["Service"],
   config: StackConfig,
   identity: TargetIdentity,
 ) {
@@ -248,7 +248,7 @@ const renderChangedFlag = (
 
 /** @internal */
 export const make = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const defaults = yield* StackConfigDefaults;
 
   const requireCustomWorkspace = Effect.fnUntraced(function* (

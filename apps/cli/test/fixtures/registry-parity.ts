@@ -12,8 +12,8 @@ import {
 import { tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
-import { CatalogService } from "@repo/catalog";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { RecipePreviewInput } from "@repo/domain/Recipe";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
@@ -79,7 +79,7 @@ const expectedBlueprint = await Effect.runPromise(
     }).pipe(
       Effect.provide(
         Layer.merge(RecipeResolver.layer, BlueprintResolver.layer).pipe(
-          Layer.provideMerge(Layer.succeed(CatalogService, catalog)),
+          Layer.provideMerge(Layer.succeed(CatalogReader, catalog)),
         ),
       ),
     );

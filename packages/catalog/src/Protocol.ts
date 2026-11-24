@@ -1,3 +1,7 @@
+/**
+ * The v1 catalog wire format: decode a catalog document and check the
+ * interpreter capabilities its definitions use.
+ */
 import {
   CatalogCapabilityIssue,
   CatalogCapabilityError,
@@ -156,52 +160,54 @@ const capabilitiesUsedBy = (document: CatalogDocument): ReadonlyArray<string> =>
   );
 
 /** Reject unsupported operations and undeclared capabilities used by definitions. */
-export const validateCatalogCapabilities = Effect.fn(
-  "Catalog.validateCapabilities",
-)(function* (
-  document: CatalogDocument,
-  interpreterCapabilities: ReadonlyArray<string> = V1_INTERPRETER_CAPABILITIES,
-) {
-  const supported = new Set(interpreterCapabilities);
-  const declared = new Set(document.requiredCapabilities);
-  const documentSubject: CatalogIssueSubject = { _tag: "document" };
-  const users: ReadonlyArray<{
-    readonly subject: CatalogIssueSubject;
-    readonly capabilities: ReadonlySet<string>;
-  }> = [
-    ...document.targets.map((target) => ({
-      subject: { _tag: "target", kind: target.kind } as const,
-      capabilities: definitionCapabilities(target),
-    })),
-    ...document.modules.map((module) => ({
-      subject: { _tag: "module", id: module.id } as const,
-      capabilities: definitionCapabilities(module),
-    })),
-  ];
-  const details = [
-    ...document.requiredCapabilities
-      .filter((capability) => !supported.has(capability))
-      .map((capability) =>
-        CatalogCapabilityIssue.make({ subject: documentSubject, capability }),
-      ),
-    ...capabilitiesUsedBy(document)
-      .filter(
-        (capability) => !supported.has(capability) || !declared.has(capability),
-      )
-      .flatMap((capability) =>
-        users
-          .filter((user) => user.capabilities.has(capability))
-          .map(({ subject }) =>
-            CatalogCapabilityIssue.make({ subject, capability }),
-          ),
-      ),
-  ];
-  if (details.length > 0) return yield* new CatalogCapabilityError({ details });
-  return document;
-});
+export const validateCapabilities = Effect.fn("Catalog.validateCapabilities")(
+  function* (
+    document: CatalogDocument,
+    interpreterCapabilities: ReadonlyArray<string> = V1_INTERPRETER_CAPABILITIES,
+  ) {
+    const supported = new Set(interpreterCapabilities);
+    const declared = new Set(document.requiredCapabilities);
+    const documentSubject: CatalogIssueSubject = { _tag: "document" };
+    const users: ReadonlyArray<{
+      readonly subject: CatalogIssueSubject;
+      readonly capabilities: ReadonlySet<string>;
+    }> = [
+      ...document.targets.map((target) => ({
+        subject: { _tag: "target", kind: target.kind } as const,
+        capabilities: definitionCapabilities(target),
+      })),
+      ...document.modules.map((module) => ({
+        subject: { _tag: "module", id: module.id } as const,
+        capabilities: definitionCapabilities(module),
+      })),
+    ];
+    const details = [
+      ...document.requiredCapabilities
+        .filter((capability) => !supported.has(capability))
+        .map((capability) =>
+          CatalogCapabilityIssue.make({ subject: documentSubject, capability }),
+        ),
+      ...capabilitiesUsedBy(document)
+        .filter(
+          (capability) =>
+            !supported.has(capability) || !declared.has(capability),
+        )
+        .flatMap((capability) =>
+          users
+            .filter((user) => user.capabilities.has(capability))
+            .map(({ subject }) =>
+              CatalogCapabilityIssue.make({ subject, capability }),
+            ),
+        ),
+    ];
+    if (details.length > 0)
+      return yield* new CatalogCapabilityError({ details });
+    return document;
+  },
+);
 
 /** Validate one source without requiring its references to resolve yet. */
-export const decodeCatalogDocument = (input: unknown) =>
+export const decodeDocument = (input: unknown) =>
   Schema.decodeUnknownEffect(CatalogDocument)(input, {
     onExcessProperty: "error",
-  }).pipe(Effect.flatMap(validateCatalogCapabilities));
+  }).pipe(Effect.flatMap(validateCapabilities));

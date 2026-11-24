@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { buildCatalog } from "@repo/authoring";
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { OFFICIAL_CATALOG_ID } from "@repo/domain/Catalog";
 import { Effect, Layer } from "effect";
 import { officialCatalog, officialCatalogRoot } from "./index";
@@ -21,14 +21,14 @@ export const exportOfficialCatalog = buildOfficialCatalog.pipe(
 );
 
 /**
- * A CatalogService over the local official definitions plus extra fragments,
+ * A CatalogReader over the local official definitions plus extra fragments,
  * with only the official document trusted for Finalize.
  */
 export const officialCatalogLayerWith = (fragments: ReadonlyArray<unknown>) =>
   Layer.unwrap(
     buildOfficialCatalog.pipe(
       Effect.map(({ document }) =>
-        CatalogService.fromFragments([document, ...fragments], {
+        CatalogReader.fromFragments([document, ...fragments], {
           trustedFragmentIndex: 0,
         }),
       ),

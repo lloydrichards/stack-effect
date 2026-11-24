@@ -2,7 +2,7 @@
  * Planning: collects each Blueprint node's contributions and assesses them
  * against the repository to produce a Plan of per-path outcomes.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type {
@@ -49,7 +49,7 @@ export class ContributionResolver extends Context.Service<
   static readonly layer: Layer.Layer<
     ContributionResolver,
     never,
-    CatalogService
+    CatalogReader
   > = Layer.effect(
     ContributionResolver,
     contributionResolver.makeContributionResolver,
@@ -83,7 +83,7 @@ export class Planner extends Context.Service<
   static readonly layer: Layer.Layer<
     Planner,
     never,
-    CatalogService | FileSystem.FileSystem | Path.Path | Digest.Digest
+    CatalogReader | FileSystem.FileSystem | Path.Path | Digest.Digest
   > = Layer.effect(Planner, ContributionResolver.use(planner.makePlanner)).pipe(
     Layer.provide(ContributionResolver.layer),
     Layer.provide(RepositoryState.layer),

@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   CatalogNotFound,
   ModuleDefinition,
@@ -115,7 +115,7 @@ const formatTargetSummary = (
  */
 const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
 
     const childModuleIds = new Set(
       Arr.flatMap(modules, (mod) =>
@@ -127,7 +127,7 @@ const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) =>
       mod: ModuleDefinition,
       requirement: "root" | "required" | "optional",
       visitedRef: Ref.Ref<Set<string>>,
-    ): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogService> =>
+    ): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogReader> =>
       Effect.gen(function* () {
         const visited = yield* Ref.get(visitedRef);
 
@@ -272,7 +272,7 @@ const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) =>
  */
 const resolveImplications = (targets: Array<CollectedTarget>) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     let changed = false;
 
     yield* Effect.forEach(targets, (target) =>
@@ -359,7 +359,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
  */
 const getActiveImplications = (targets: ReadonlyArray<CollectedTarget>) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     const allModuleIds = Arr.flatMap(targets, (t) => t.modules);
     return yield* catalog.getImplications(allModuleIds);
   });
@@ -374,7 +374,7 @@ const removeOrphanedImplications = (
   pinned: ReadonlySet<string> = new Set(),
 ) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     const activeImplications = yield* getActiveImplications(targets);
     let changed = false;
 
@@ -461,7 +461,7 @@ const supportedModulesForTarget = (
   moduleIds: ReadonlyArray<ModuleId>,
 ) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
 
     return yield* Effect.filter(moduleIds, (moduleId) =>
       catalog.isSupportedOn(moduleId, identity),
@@ -482,7 +482,7 @@ const collectRequiredModuleClosure = (
   targets: ReadonlyArray<CollectedTarget>,
 ) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     const visitedRef = yield* Ref.make(new Set<string>());
     const reachableRef = yield* Ref.make<Array<ReachableModule>>([]);
 
@@ -547,7 +547,7 @@ const resolveCapabilities = <E, R>(
   }) => Effect.Effect<ModuleDefinition, E, R>,
 ) =>
   Effect.gen(function* () {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     const reachableModules = yield* collectRequiredModuleClosure(targets);
     let changed = false;
 
@@ -635,7 +635,7 @@ const resolveCapabilitiesInteractive = (targets: Array<CollectedTarget>) =>
     false,
     ({ definition, dependency, requiredTarget, providers }) =>
       Effect.gen(function* () {
-        const catalog = yield* CatalogService;
+        const catalog = yield* CatalogReader;
         return yield* HorizontalSelect({
           message: `Module "${definition.title}" requires ${dependency.capability}. Which provider should be added to ${requiredTarget.toKey()}?`,
           choices: Arr.map(providers, (candidate) => ({
@@ -672,7 +672,7 @@ const isScaffoldAborted = (
   Predicate.isTagged("ScaffoldAborted")(err);
 
 const collectTargetsInteractive = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const terminal = yield* Terminal.Terminal;
 
   const targetChoices = yield* pipe(

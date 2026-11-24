@@ -1,4 +1,5 @@
-import { composeCatalog, V1_INTERPRETER_CAPABILITIES } from "@repo/catalog";
+import { compose } from "@repo/catalog/Catalog";
+import { V1_INTERPRETER_CAPABILITIES } from "@repo/catalog/Protocol";
 import {
   CatalogDocument,
   type CatalogFragment,
@@ -100,7 +101,7 @@ export const testCatalog = {
 
 /** The test catalog encoded like a published v1 document. */
 export const exportTestCatalog = Effect.fn("Catalog.exportTest")(function* () {
-  const definitions = yield* composeCatalog([testCatalog]);
+  const definitions = yield* compose([testCatalog]);
   return yield* Schema.encodeEffect(Schema.fromJsonString(CatalogDocument))({
     formatVersion: 1,
     catalogId: Schema.NonEmptyString.make("test-catalog"),

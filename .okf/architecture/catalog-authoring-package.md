@@ -34,7 +34,7 @@ generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 
 ## Build a document
 
-`buildCatalog(catalog, options)` decodes every definition strictly, resolves templates, composes the result with `composeCatalog`, and checks v1 capabilities. It fails with a `CatalogBuildError` whose issues name their source files and templates.
+`buildCatalog(catalog, options)` decodes every definition strictly, resolves templates, composes the result with `Catalog.compose`, and checks v1 capabilities. It fails with a `CatalogBuildError` whose issues name their source files and templates.
 
 - `catalogId` names the document, and `root` bounds every source and template path. Reported paths are relative to `root`, so builds are portable.
 - `finalizeScripts` defaults to `"reject"`. `"allow"` publishes Finalize scripts; consumers still decide whether to run them.

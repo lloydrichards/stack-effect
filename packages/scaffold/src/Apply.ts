@@ -2,7 +2,7 @@
  * Apply: executes a decided Plan against a repository, stages Plans in
  * isolated workspaces, and previews a recipe's files in memory.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Apply,
   ApplyFailure,
@@ -128,7 +128,7 @@ export class ApplyWorkspaces extends Context.Service<
     | Path.Path
     | Digest.Digest
     | SecureRandom.SecureRandom
-    | CatalogService
+    | CatalogReader
   > = Layer.effect(
     ApplyWorkspaces,
     applyWorkspaces.makeApplyWorkspaces(Applier),
@@ -173,7 +173,7 @@ export class RecipePreviewer extends Context.Service<
   static readonly layer: Layer.Layer<
     RecipePreviewer,
     never,
-    | CatalogService
+    | CatalogReader
     | FileSystem.FileSystem
     | Path.Path
     | Digest.Digest

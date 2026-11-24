@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   ModuleCategory,
   ModuleId,
@@ -58,7 +58,7 @@ const optionalSelect = <A extends string>(
   });
 
 const workspaceChoices = (
-  catalog: typeof CatalogService.Service,
+  catalog: typeof CatalogReader.Service,
   category: ModuleCategory,
 ) =>
   catalog.getModules({ category }).map((m) => ({
@@ -68,7 +68,7 @@ const workspaceChoices = (
   }));
 
 const moduleChoices = (
-  catalog: typeof CatalogService.Service,
+  catalog: typeof CatalogReader.Service,
   category: ModuleCategory,
 ) =>
   catalog.getModules({ category }).map((m) => ({
@@ -105,7 +105,7 @@ export const init = Command.make(
     Effect.gen(function* () {
       yield* validateShowFiles(flags);
       const configure = yield* ConfigureService;
-      const catalog = yield* CatalogService;
+      const catalog = yield* CatalogReader;
       const defaults = yield* StackConfigDefaults;
       const catalogSelection = yield* CatalogSelection;
 

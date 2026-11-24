@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { Apply } from "@repo/domain/Apply";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import {
@@ -133,7 +133,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
     config: StackConfig,
     targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
   ) {
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
     const recipes = yield* RecipeResolver;
 
     if (Option.isSome(targetSpecs)) {

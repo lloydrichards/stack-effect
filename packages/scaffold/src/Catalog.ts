@@ -1,8 +1,8 @@
 /**
  * Catalog loading: fetches, verifies, caches, and composes registry catalogs
- * into the CatalogService the other stages use.
+ * into the CatalogReader the other stages use.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import type {
   CatalogCacheEntry,
   CatalogCacheFailure,
@@ -71,14 +71,14 @@ export class CatalogCache extends Context.Service<
 }
 
 /**
- * One catalog document loaded as a `CatalogService`, with where it came from.
+ * One catalog document loaded as a `CatalogReader`, with where it came from.
  *
  * **When to use**
  *
  * Read it from `CatalogLoader.load` when one URL is the whole catalog.
  */
 export type LoadedCatalog = {
-  readonly catalog: CatalogService["Service"];
+  readonly catalog: CatalogReader["Service"];
   readonly sourceUrl: string;
   readonly digest: string;
   readonly freshness: "current" | "cached";
@@ -94,7 +94,7 @@ export type LoadedCatalog = {
  * operation, and report `sources` to the user.
  */
 export type LoadedCatalogSet = {
-  readonly catalog: CatalogService["Service"];
+  readonly catalog: CatalogReader["Service"];
   readonly sources: ReadonlyArray<LoadedCatalogSource>;
 };
 
@@ -104,7 +104,7 @@ export type LoadedCatalogSet = {
  * **When to use**
  *
  * Production CLI commands and Recipe Builder sessions load catalogs through
- * it, then provide the resulting `CatalogService` to the scaffold services.
+ * it, then provide the resulting `CatalogReader` to the scaffold services.
  *
  * **Gotchas**
  *

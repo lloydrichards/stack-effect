@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type CatalogSources,
   selectsOfficialCatalog,
@@ -57,7 +57,7 @@ export const commandServicesLayer = <E, R>(
       return StackEffectServicesLayer.pipe(
         Layer.provideMerge(
           Layer.mergeAll(
-            Layer.succeed(CatalogService, loaded.catalog),
+            Layer.succeed(CatalogReader, loaded.catalog),
             Layer.succeed(CatalogSelection, {
               explicit,
               sources,

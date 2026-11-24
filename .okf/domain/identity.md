@@ -118,7 +118,7 @@ Invariants:
 
 Connected terms:
 
-- `TargetDefinition`, `ModuleDefinition`, `CatalogService`
+- `TargetDefinition`, `ModuleDefinition`, `CatalogReader`
 
 In code:
 

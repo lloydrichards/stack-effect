@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { PlanRequest } from "@repo/domain/Plan";
 import { Console, Effect, Schema } from "effect";
 import { Command } from "effect/cli";
@@ -16,7 +16,7 @@ export const schema = Command.make(
   { catalog: catalogFlag, root: rootFlag },
   () =>
     Effect.gen(function* () {
-      const catalog = yield* CatalogService;
+      const catalog = yield* CatalogReader;
 
       const planInput = Schema.toStandardJSONSchemaV1(PlanRequest)[
         "~standard"

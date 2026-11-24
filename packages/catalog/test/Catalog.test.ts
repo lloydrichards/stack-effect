@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { composeCatalog } from "@repo/catalog";
+import { compose } from "@repo/catalog/Catalog";
 import {
   type CatalogIssueSubject,
   ModuleCapability,
@@ -24,7 +24,7 @@ it.effect(
   "should compose a module against another fragment's target when the fragments are independent",
   () =>
     Effect.gen(function* () {
-      const catalog = yield* composeCatalog(
+      const catalog = yield* compose(
         [testCatalog, { targets: [], modules: [extraModule] }],
         { trustedFragmentIndex: 0 },
       );
@@ -38,7 +38,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        composeCatalog(
+        compose(
           [testCatalog, { targets: [], modules: [testCatalog.modules[0]] }],
           {
             trustedFragmentIndex: 0,
@@ -63,7 +63,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        composeCatalog([{ targets: [], modules: [extraModule] }]),
+        compose([{ targets: [], modules: [extraModule] }]),
       );
       assert.match(failure.message, /missing target workspace/);
       assert.deepStrictEqual(failure.details[0]?.subject, {
@@ -79,7 +79,7 @@ it.effect(
   () =>
     Effect.gen(function* () {
       const failure = yield* Effect.flip(
-        composeCatalog(
+        compose(
           [testCatalog, { targets: [testCatalog.targets[0]], modules: [] }],
           { trustedFragmentIndex: 0 },
         ),
@@ -126,7 +126,7 @@ it.effect(
         conflictsWith: [ModuleId.make("missing-conflict")],
       };
       const failure = yield* Effect.flip(
-        composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
+        compose([testCatalog, { targets: [], modules: [invalid] }], {
           trustedFragmentIndex: 0,
         }),
       );
@@ -161,7 +161,7 @@ it.effect(
         conflictsWith: [ModuleId.make("workspace-quality-oxlint")],
       };
       const failure = yield* Effect.flip(
-        composeCatalog([testCatalog, { targets: [], modules: [invalid] }], {
+        compose([testCatalog, { targets: [], modules: [invalid] }], {
           trustedFragmentIndex: 0,
         }),
       );
@@ -194,7 +194,7 @@ type ScriptedSubject = {
   /** The scripted fragment first, then a fragment that completes the catalog. */
   readonly fragments: readonly [unknown, unknown];
   readonly scriptCount: (
-    catalog: Effect.Success<ReturnType<typeof composeCatalog>>,
+    catalog: Effect.Success<ReturnType<typeof compose>>,
   ) => number | undefined;
 };
 
@@ -250,9 +250,7 @@ it.effect.each(trustCases)(
   "should $outcome Finalize scripts on a $kind when its fragment is $trust",
   ({ scripted, outcome, options }) =>
     Effect.gen(function* () {
-      const result = yield* Effect.result(
-        composeCatalog(scripted.fragments, options),
-      );
+      const result = yield* Effect.result(compose(scripted.fragments, options));
       assert.deepStrictEqual(
         Result.match(result, {
           onSuccess: (catalog) => ({ scripts: scripted.scriptCount(catalog) }),
@@ -288,7 +286,7 @@ it.effect(
       const [conflictingModule] = testCatalog.modules;
       assert.isDefined(conflictingModule);
       const failure = yield* Effect.flip(
-        composeCatalog(
+        compose(
           [
             { targets: testCatalog.targets, modules: testCatalog.modules },
             {
