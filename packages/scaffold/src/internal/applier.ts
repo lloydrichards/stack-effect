@@ -1,6 +1,5 @@
 import {
   type Apply,
-  type ApplyFailedPath,
   ApplyFailure,
   ApplyResult,
   type StalePlanChange,
@@ -9,15 +8,23 @@ import {
 import {
   CompositionOperation,
   type PackageOwner,
+  type PlanBaseline,
+  type PlanBaselinePath,
   RepositoryPath,
   byPath,
 } from "@repo/domain/Plan";
-import { Effect, FileSystem, Match, Option, Path, Schema } from "effect";
+import { Array as Arr, Data, Effect, Match, Option, Schema } from "effect";
 import type { Applier } from "../Apply";
-import { type ApplyWriteRequest, AtomicWriter } from "./atomicWriter";
+import {
+  AtomicWriter,
+  type RepositoryFiles,
+  WriteAttempt,
+  WriteMode,
+  WriteRequest,
+} from "./atomicWriter";
 import * as Composition from "./composition";
 import { prepareOwnerWrites } from "./packageOwnership";
-import { RepositoryState } from "./repositoryState";
+import { type Repository, RepositoryState } from "./repositoryState";
 
 const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
   skip: {
@@ -27,13 +34,13 @@ const MaterializedPlannedOutcomeAction = Schema.TaggedUnion({
   "write-authoritative": {
     path: RepositoryPath,
     contents: Schema.String,
-    writeMode: Schema.Literals(["create", "modify", "override"]),
+    writeMode: WriteMode,
   },
   "write-composed": {
     path: RepositoryPath,
     seedContents: Schema.Union([Schema.String, Schema.Undefined]),
     operations: Schema.Array(CompositionOperation),
-    writeMode: Schema.Literals(["create", "modify", "override"]),
+    writeMode: WriteMode,
   },
 });
 
@@ -45,31 +52,39 @@ type WriteComposedAction = Extract<
   { readonly _tag: "write-composed" }
 >;
 
-const PreparedApplyAction = Schema.TaggedUnion({
-  skip: {
-    path: RepositoryPath,
-  },
-  write: {
-    request: Schema.Struct({
-      path: RepositoryPath,
-      contents: Schema.String,
-      writeMode: Schema.Literals(["create", "modify", "override"]),
-    }),
-  },
+type PreparedApplyAction = Data.TaggedEnum<{
+  skip: { path: RepositoryPath };
+  write: { request: WriteRequest };
+}>;
+
+const PreparedApplyAction = Data.taggedEnum<PreparedApplyAction>();
+
+// Writes in execution order: owner manifests first, so package boundaries exist before
+// files inside them are published.
+type WriteBatch = {
+  baseline: PlanBaseline;
+  writes: ReadonlyArray<WriteRequest>;
+  skipped: ReadonlyArray<RepositoryPath>;
+  owners: ReadonlyArray<PackageOwner>;
+};
+
+const emptyResult = new ApplyResult({
+  created: [],
+  modified: [],
+  skipped: [],
+  failed: [],
 });
 
-type PreparedApplyAction = typeof PreparedApplyAction.Type;
+const manifestPathOf = (owner: PackageOwner) => `${owner.path}/package.json`;
 
-type WriteAttempt =
-  | {
-      readonly path: RepositoryPath;
-      readonly status: "created" | "modified" | "unchanged";
-    }
-  | {
-      readonly path: RepositoryPath;
-      readonly status: "failure";
-      readonly reason: string;
-    };
+const toWriteRequest = (
+  writeMode: WriteMode,
+  path: RepositoryPath,
+  contents: string,
+) =>
+  writeMode === "create"
+    ? WriteRequest.create({ path, contents })
+    : WriteRequest.replace({ path, contents, reason: writeMode });
 
 const stalePlanMessage = (
   changes: ReadonlyArray<StalePlanChange>,
@@ -79,41 +94,77 @@ const stalePlanMessage = (
   return `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. ${written.length > 0 ? `Already written: ${written.join(", ")}. ` : ""}Replan and try again.`;
 };
 
-const toApplyResult = ({
-  skippedPaths,
-  writeAttempts,
-}: {
-  skippedPaths: ReadonlySet<RepositoryPath>;
-  writeAttempts: ReadonlyArray<WriteAttempt>;
-}) => {
-  const created: Array<RepositoryPath> = [];
-  const modified: Array<RepositoryPath> = [];
-  const skipped = new Set(skippedPaths);
-  const failed: Array<ApplyFailedPath> = [];
-  for (const writeAttempt of writeAttempts) {
-    switch (writeAttempt.status) {
-      case "created":
-        created.push(writeAttempt.path);
-        break;
-      case "modified":
-        modified.push(writeAttempt.path);
-        break;
-      case "unchanged":
-        skipped.add(writeAttempt.path);
-        break;
-      case "failure":
-        failed.push({ path: writeAttempt.path, reason: writeAttempt.reason });
-        break;
-    }
-  }
-
-  return new ApplyResult({
-    created,
-    modified,
-    skipped: [...skipped],
-    failed,
-  }).toSorted();
+const makeWriteBatch = (
+  baseline: PlanBaseline,
+  prepared: ReadonlyArray<PreparedApplyAction>,
+  owners: ReadonlyArray<PackageOwner>,
+): WriteBatch => {
+  const writes = prepared
+    .filter(PreparedApplyAction.$is("write"))
+    .map(({ request }) => request);
+  const ownerManifestPaths = new Set(owners.map(manifestPathOf));
+  return {
+    baseline,
+    writes: [
+      ...writes.filter((write) => ownerManifestPaths.has(write.path)),
+      ...writes.filter((write) => !ownerManifestPaths.has(write.path)),
+    ],
+    skipped: prepared
+      .filter(PreparedApplyAction.$is("skip"))
+      .map(({ path }) => path),
+    owners,
+  };
 };
+
+const pathsOf = (attempts: ReadonlyArray<{ readonly path: RepositoryPath }>) =>
+  attempts.map(({ path }) => path);
+
+const toApplyResult = (
+  batch: WriteBatch,
+  attempts: ReadonlyArray<WriteAttempt>,
+) =>
+  new ApplyResult({
+    created: pathsOf(attempts.filter(WriteAttempt.$is("created"))),
+    modified: pathsOf(attempts.filter(WriteAttempt.$is("modified"))),
+    skipped: Arr.dedupe([
+      ...batch.skipped,
+      ...pathsOf(attempts.filter(WriteAttempt.$is("unchanged"))),
+    ]),
+    failed: attempts
+      .filter(WriteAttempt.$is("failed"))
+      .map(({ path, reason }) => ({ path, reason })),
+  }).toSorted();
+
+const relevantBaseline = (
+  baseline: PlanBaseline,
+  filePath: RepositoryPath,
+  createdDirectories: ReadonlySet<RepositoryPath>,
+  expectedOwners: PlanBaseline["packageOwners"],
+): PlanBaseline => ({
+  root: baseline.root,
+  packageOwners: expectedOwners,
+  paths: baseline.paths
+    .filter(
+      (entry) =>
+        entry.path === "." ||
+        entry.path === filePath ||
+        filePath.startsWith(`${entry.path}/`),
+    )
+    .map((entry): PlanBaselinePath =>
+      createdDirectories.has(entry.path)
+        ? { _tag: "directory", path: entry.path }
+        : entry,
+    ),
+});
+
+const missingAncestors = (baseline: PlanBaseline, filePath: RepositoryPath) =>
+  baseline.paths
+    .filter(
+      (entry) =>
+        entry._tag === "missing" &&
+        (entry.path === "." || filePath.startsWith(`${entry.path}/`)),
+    )
+    .map((entry) => entry.path);
 
 const materializeFrom = (apply: Apply) => {
   const decisionsByPath = new Map(
@@ -181,54 +232,15 @@ const materializeFrom = (apply: Apply) => {
 /** @internal */
 export const makeApplier = Effect.gen(function* () {
   const atomicWriter = yield* AtomicWriter;
-  const fileSystem = yield* FileSystem.FileSystem;
-  const path = yield* Path.Path;
   const repositoryState = yield* RepositoryState;
-
-  const loadFileContents = Effect.fnUntraced(function* (filePath: string) {
-    const pathStat = yield* fileSystem.stat(filePath).pipe(
-      Effect.asSome,
-      Effect.catchReason("PlatformError", "NotFound", () => Effect.succeedNone),
-      Effect.mapError(
-        (error) =>
-          new ApplyFailure({
-            message: `Could not inspect ${filePath} during apply: ${error.message}`,
-            cause: error,
-          }),
-      ),
-    );
-
-    if (Option.isNone(pathStat)) {
-      return Option.none<string>();
-    }
-
-    if (pathStat.value.type === "Directory") {
-      return yield* new ApplyFailure({
-        message: `Expected ${filePath} to be a file during apply.`,
-      });
-    }
-
-    const contents = yield* fileSystem.readFileString(filePath).pipe(
-      Effect.mapError(
-        (error) =>
-          new ApplyFailure({
-            message: `Could not read ${filePath} during apply: ${error.message}`,
-            cause: error,
-          }),
-      ),
-    );
-
-    return Option.some(contents);
-  });
 
   const loadComposedBaseContents = Effect.fnUntraced(function* (
     action: WriteComposedAction,
-    repositoryRoot: string,
+    files: RepositoryFiles,
   ) {
-    const fullPath = path.join(repositoryRoot, action.path);
     const existingContents =
       action.writeMode === "modify"
-        ? yield* loadFileContents(fullPath)
+        ? yield* files.read(action.path)
         : Option.none<string>();
 
     if (Option.isSome(existingContents)) {
@@ -239,7 +251,7 @@ export const makeApplier = Effect.gen(function* () {
       return action.seedContents;
     }
 
-    const fallbackContents = yield* loadFileContents(fullPath);
+    const fallbackContents = yield* files.read(action.path);
     return Option.getOrElse(fallbackContents, () =>
       action.path.endsWith(".json") ? "{}" : "",
     );
@@ -247,199 +259,58 @@ export const makeApplier = Effect.gen(function* () {
 
   const prepareComposedWrite = Effect.fnUntraced(function* (
     action: WriteComposedAction,
-    repositoryRoot: string,
+    files: RepositoryFiles,
   ) {
     // NOTE: Modify composes from disk first so repeat applies preserve unrelated fields.
-    const baseContents = yield* loadComposedBaseContents(
-      action,
-      repositoryRoot,
-    );
+    const baseContents = yield* loadComposedBaseContents(action, files);
     const composedContents = yield* Composition.compose(
       action.path,
       baseContents,
       action.operations,
     );
 
-    return PreparedApplyAction.cases.write.make({
-      request: {
-        path: action.path,
-        contents: composedContents,
-        writeMode: action.writeMode,
-      },
+    return PreparedApplyAction.write({
+      request: toWriteRequest(action.writeMode, action.path, composedContents),
     });
   });
 
   const prepare = (
     action: MaterializedPlannedOutcomeAction,
-    repositoryRoot: string,
+    files: RepositoryFiles,
   ): Effect.Effect<PreparedApplyAction, ApplyFailure> =>
     Match.valueTags(action, {
-      skip: ({ path }) =>
-        Effect.succeed(PreparedApplyAction.cases.skip.make({ path })),
+      skip: ({ path }) => Effect.succeed(PreparedApplyAction.skip({ path })),
       "write-authoritative": ({ path, contents, writeMode }) =>
         Effect.succeed(
-          PreparedApplyAction.cases.write.make({
-            request: { path, contents, writeMode },
+          PreparedApplyAction.write({
+            request: toWriteRequest(writeMode, path, contents),
           }),
         ),
-      "write-composed": (composed) =>
-        prepareComposedWrite(composed, repositoryRoot),
+      "write-composed": (composed) => prepareComposedWrite(composed, files),
     });
 
-  const prepareWrites = Effect.fnUntraced(function* (
-    actions: ReadonlyArray<MaterializedPlannedOutcomeAction>,
-    repositoryRoot: string,
+  const verifyBaseline = Effect.fnUntraced(function* (
+    repository: Repository,
+    baseline: PlanBaseline,
   ) {
-    const preparedActions = yield* Effect.forEach(actions, (action) =>
-      prepare(action, repositoryRoot),
-    );
-
-    const skippedPaths = new Set<RepositoryPath>();
-    const writeRequests: Array<ApplyWriteRequest> = [];
-    for (const preparedAction of preparedActions) {
-      Match.valueTags(preparedAction, {
-        skip: ({ path }) => skippedPaths.add(path),
-        write: ({ request }) => writeRequests.push(request),
-      });
-    }
-    return { skippedPaths, writeRequests };
-  });
-
-  const executeWrites = Effect.fnUntraced(function* ({
-    repositoryRoot,
-    writeRequests,
-    applyIntent,
-    skippedPaths,
-    ownerWrites,
-  }: {
-    ownerWrites: ReadonlyArray<PackageOwner>;
-    repositoryRoot: string;
-    writeRequests: ReadonlyArray<ApplyWriteRequest>;
-    applyIntent: Apply;
-    skippedPaths: ReadonlySet<RepositoryPath>;
-  }) {
-    const attempts: Array<WriteAttempt> = [];
-    const createdDirectories = new Set<string>();
-    let expectedOwners = applyIntent.plan.baseline.packageOwners;
-    const recordCreatedDirectories = (filePath: string) =>
-      applyIntent.plan.baseline.paths
-        .filter(
-          (entry) =>
-            entry._tag === "missing" &&
-            (entry.path === "." || filePath.startsWith(`${entry.path}/`)),
-        )
-        .forEach((entry) => createdDirectories.add(entry.path));
-    const ownerManifestPaths = new Set(
-      ownerWrites.map((owner) => `${owner.path}/package.json`),
-    );
-    // Establish package boundaries before publishing fixture manifests inside them.
-    const orderedWrites = [
-      ...writeRequests.filter((write) => ownerManifestPaths.has(write.path)),
-      ...writeRequests.filter((write) => !ownerManifestPaths.has(write.path)),
-    ];
-
-    for (const writeRequest of orderedWrites) {
-      const relevantPaths = applyIntent.plan.baseline.paths
-        .filter(
-          (entry) =>
-            entry.path === "." ||
-            entry.path === writeRequest.path ||
-            writeRequest.path.startsWith(`${entry.path}/`),
-        )
-        .map((entry) => entry.path);
-      const changes = yield* repositoryState.verify({
-        baseline: {
-          root: applyIntent.plan.baseline.root,
-          packageOwners: expectedOwners,
-          paths: applyIntent.plan.baseline.paths.map((entry) =>
-            createdDirectories.has(entry.path)
-              ? { _tag: "directory" as const, path: entry.path }
-              : entry,
-          ),
-        },
-        repositoryRoot,
-        paths: relevantPaths,
-      });
-      if (changes.length > 0) {
-        const partialResult = toApplyResult({
-          skippedPaths,
-          writeAttempts: attempts,
-        });
-        return yield* new StalePlanFailure({
-          changes,
-          partialResult,
-          message: stalePlanMessage(changes, partialResult),
-        });
-      }
-
-      const attempt = yield* atomicWriter
-        .write({
-          repositoryRoot,
-          write: writeRequest,
-          onParentDirectoryReady: Effect.sync(() =>
-            recordCreatedDirectories(writeRequest.path),
-          ),
-        })
-        .pipe(
-          Effect.catch((error) =>
-            Effect.succeed({
-              path: writeRequest.path,
-              status: "failure" as const,
-              reason: error.message,
-            }),
-          ),
-        );
-      attempts.push(attempt);
-
-      if (attempt.status === "created" || attempt.status === "modified") {
-        recordCreatedDirectories(writeRequest.path);
-        const owner = ownerWrites.find(
-          (candidate) => `${candidate.path}/package.json` === writeRequest.path,
-        );
-        if (expectedOwners !== undefined && owner !== undefined) {
-          expectedOwners = [
-            ...expectedOwners.filter(
-              (existing) => existing.path !== owner.path,
-            ),
-            owner,
-          ].sort(byPath);
-        }
-      }
-    }
-    return attempts;
-  });
-
-  const validateBaseline = Effect.fnUntraced(function* (
-    applyIntent: Apply,
-    repositoryRoot: string,
-  ) {
-    const changes = yield* repositoryState.verify({
-      baseline: applyIntent.plan.baseline,
-      repositoryRoot,
-    });
+    const changes = yield* repository.verify(baseline);
     if (changes.length > 0) {
-      const partialResult = new ApplyResult({
-        created: [],
-        modified: [],
-        skipped: [],
-        failed: [],
-      });
       return yield* new StalePlanFailure({
         changes,
-        partialResult,
-        message: stalePlanMessage(changes, partialResult),
+        partialResult: emptyResult,
+        message: stalePlanMessage(changes, emptyResult),
       });
     }
   });
 
   const validateOwnerWrites = Effect.fnUntraced(function* (
-    applyIntent: Apply,
-    repositoryRoot: string,
-    writes: ReadonlyArray<ApplyWriteRequest>,
+    repository: Repository,
+    baseline: PlanBaseline,
+    prepared: ReadonlyArray<PreparedApplyAction>,
   ) {
     const existing =
-      applyIntent.plan.baseline.packageOwners ??
-      (yield* repositoryState.discoverOwners(repositoryRoot).pipe(
+      baseline.packageOwners ??
+      (yield* repository.discoverOwners.pipe(
         Effect.mapError(
           (error) =>
             new ApplyFailure({
@@ -448,7 +319,12 @@ export const makeApplier = Effect.gen(function* () {
             }),
         ),
       ));
-    return yield* prepareOwnerWrites(existing, writes).pipe(
+    return yield* prepareOwnerWrites(
+      existing,
+      prepared
+        .filter(PreparedApplyAction.$is("write"))
+        .map(({ request }) => request),
+    ).pipe(
       Effect.mapError(
         (error) =>
           new ApplyFailure({
@@ -459,6 +335,73 @@ export const makeApplier = Effect.gen(function* () {
     );
   });
 
+  const executeWrites = Effect.fnUntraced(function* (
+    batch: WriteBatch,
+    repository: Repository,
+    files: RepositoryFiles,
+  ) {
+    const attempts: Array<WriteAttempt> = [];
+    const createdDirectories = new Set<RepositoryPath>();
+    let expectedOwners = batch.baseline.packageOwners;
+
+    // Each write rechecks only its own baseline entries, against the owners and
+    // directories that earlier writes in this batch produced.
+    for (const request of batch.writes) {
+      const changes = yield* repository.verify(
+        relevantBaseline(
+          batch.baseline,
+          request.path,
+          createdDirectories,
+          expectedOwners,
+        ),
+      );
+      if (changes.length > 0) {
+        const partialResult = toApplyResult(batch, attempts);
+        return yield* new StalePlanFailure({
+          changes,
+          partialResult,
+          message: stalePlanMessage(changes, partialResult),
+        });
+      }
+
+      const attempt = yield* files
+        .write(
+          request,
+          Effect.sync(() =>
+            missingAncestors(batch.baseline, request.path).forEach((path) =>
+              createdDirectories.add(path),
+            ),
+          ),
+        )
+        .pipe(
+          Effect.catch((error) =>
+            Effect.succeed(
+              WriteAttempt.failed({
+                path: request.path,
+                reason: error.message,
+              }),
+            ),
+          ),
+        );
+      attempts.push(attempt);
+
+      const owner = batch.owners.find(
+        (candidate) => manifestPathOf(candidate) === request.path,
+      );
+      if (
+        expectedOwners !== undefined &&
+        owner !== undefined &&
+        (attempt._tag === "created" || attempt._tag === "modified")
+      ) {
+        expectedOwners = [
+          ...expectedOwners.filter((existing) => existing.path !== owner.path),
+          owner,
+        ].sort(byPath);
+      }
+    }
+    return attempts;
+  });
+
   const apply = Effect.fn("Applier.apply")(function* ({
     apply: applyIntent,
     repositoryRoot,
@@ -466,29 +409,23 @@ export const makeApplier = Effect.gen(function* () {
     apply: Apply;
     repositoryRoot: string;
   }) {
+    const repository = repositoryState.at(repositoryRoot);
+    const files = atomicWriter.at(repositoryRoot);
+    const { baseline } = applyIntent.plan;
+
     const actions = materializeFrom(applyIntent);
-    yield* validateBaseline(applyIntent, repositoryRoot);
+    yield* verifyBaseline(repository, baseline);
 
-    const { skippedPaths, writeRequests } = yield* prepareWrites(
-      actions,
-      repositoryRoot,
+    const prepared = yield* Effect.forEach(actions, (action) =>
+      prepare(action, files),
     );
-    yield* validateBaseline(applyIntent, repositoryRoot);
+    yield* verifyBaseline(repository, baseline);
 
-    const ownerWrites = yield* validateOwnerWrites(
-      applyIntent,
-      repositoryRoot,
-      writeRequests,
-    );
-    const writeAttempts = yield* executeWrites({
-      ownerWrites,
-      repositoryRoot,
-      writeRequests,
-      applyIntent,
-      skippedPaths,
-    });
+    const owners = yield* validateOwnerWrites(repository, baseline, prepared);
+    const batch = makeWriteBatch(baseline, prepared, owners);
+    const attempts = yield* executeWrites(batch, repository, files);
 
-    return toApplyResult({ skippedPaths, writeAttempts });
+    return toApplyResult(batch, attempts);
   });
 
   return { apply } satisfies Applier["Service"];

@@ -8,11 +8,18 @@ import {
   ApplyFailure,
   type ApplyResult,
   type MaterializedApply,
+  MaterializedFile,
   type StalePlanFailure,
 } from "@repo/domain/Apply";
 import type { Blueprint, BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
-import type { Plan, PlanBaseline, PlanFailure } from "@repo/domain/Plan";
+import {
+  type Plan,
+  type PlanBaseline,
+  type PlanFailure,
+  RepositoryPath,
+  byPath,
+} from "@repo/domain/Plan";
 import {
   RecipePreview,
   type RecipePreviewInput,
@@ -135,6 +142,8 @@ export class ApplyWorkspaces extends Context.Service<
   ).pipe(Layer.provide(RepositoryState.layer));
 }
 
+const stackConfigPath = RepositoryPath.make("stack.effect.json");
+
 const StackConfigFromJsonString = Schema.fromJsonString(StackConfig, {
   space: 2,
 });
@@ -222,12 +231,12 @@ export class RecipePreviewer extends Context.Service<
           blueprint,
           files: [
             ...applied.files,
-            {
-              path: "stack.effect.json",
-              status: "created" as const,
+            MaterializedFile.make({
+              path: stackConfigPath,
+              status: "created",
               contents: configContents,
-            },
-          ].sort((left, right) => left.path.localeCompare(right.path)),
+            }),
+          ].sort(byPath),
         });
       });
 

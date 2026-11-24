@@ -1,4 +1,4 @@
-import type { StalePlanChange } from "@repo/domain/Apply";
+import { StalePlanChange } from "@repo/domain/Apply";
 import {
   type PackageOwner,
   type PlanBaseline,
@@ -11,8 +11,10 @@ import {
   byPath,
 } from "@repo/domain/Plan";
 import {
+  Array as Arr,
   Context,
   Effect,
+  Equivalence,
   FileSystem,
   Layer,
   Option,
@@ -21,8 +23,8 @@ import {
 } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import {
+  CaseInsensitive,
   assertDistinctOwners,
-  ownershipFailure,
   parsePackageOwner,
 } from "./packageOwnership";
 
@@ -36,15 +38,12 @@ export type RepositoryCapture = {
   readonly snapshot: RepoSnapshot;
 };
 
-const sameOwners = (
-  expected: ReadonlyArray<PackageOwner>,
-  actual: ReadonlyArray<PackageOwner>,
-) =>
-  expected.length === actual.length &&
-  expected.every(
-    (owner, index) =>
-      owner.path === actual[index]?.path && owner.name === actual[index]?.name,
-  );
+const sameOwners = Arr.makeEquivalence(
+  Equivalence.Struct({
+    path: Equivalence.String,
+    name: Equivalence.String,
+  }),
+);
 
 /**
  * List how `actual` differs from `expected`, by path and change kind.
@@ -61,12 +60,17 @@ export const compare = (
   return [
     ...(expected.root === actual.root
       ? []
-      : [{ path: repositoryRootPath, kind: "rootChanged" as const }]),
+      : [
+          StalePlanChange.make({
+            path: repositoryRootPath,
+            kind: "rootChanged",
+          }),
+        ]),
     ...(expected.packageOwners === undefined ||
     (actual.packageOwners !== undefined &&
       sameOwners(expected.packageOwners, actual.packageOwners))
       ? []
-      : [{ path: repositoryRootPath, kind: "modified" as const }]),
+      : [StalePlanChange.make({ path: repositoryRootPath, kind: "modified" })]),
     ...expected.paths.flatMap((entry): ReadonlyArray<StalePlanChange> => {
       const current = actualByPath.get(entry.path);
       if (current === undefined) return [{ path: entry.path, kind: "deleted" }];
@@ -86,23 +90,31 @@ export const compare = (
   ];
 };
 
+/**
+ * Repository state operations bound to one repository root.
+ *
+ * @internal
+ */
+export type Repository = {
+  readonly capture: (
+    paths: ReadonlyArray<RepositoryPath>,
+  ) => Effect.Effect<RepositoryCapture, PlanFailure>;
+  // Checks every path in `baseline`; narrow `baseline.paths` to check fewer.
+  readonly verify: (
+    baseline: PlanBaseline,
+  ) => Effect.Effect<ReadonlyArray<StalePlanChange>>;
+  // Discovers roots through grouping directories; package contents are not owners.
+  readonly discoverOwners: Effect.Effect<
+    ReadonlyArray<PackageOwner>,
+    PlanFailure
+  >;
+};
+
 /** @internal */
 export class RepositoryState extends Context.Service<
   RepositoryState,
   {
-    readonly capture: (input: {
-      readonly repositoryRoot: string;
-      readonly paths: ReadonlyArray<RepositoryPath>;
-    }) => Effect.Effect<RepositoryCapture, PlanFailure>;
-    readonly verify: (input: {
-      readonly baseline: PlanBaseline;
-      readonly repositoryRoot: string;
-      readonly paths?: ReadonlyArray<RepositoryPath> | undefined;
-    }) => Effect.Effect<ReadonlyArray<StalePlanChange>>;
-    // Discovers roots through grouping directories; package contents are not owners.
-    readonly discoverOwners: (
-      repositoryRoot: string,
-    ) => Effect.Effect<ReadonlyArray<PackageOwner>, PlanFailure>;
+    readonly at: (repositoryRoot: string) => Repository;
   }
 >()("@repo/scaffold/RepositoryState") {
   static readonly layer = Layer.effect(
@@ -170,25 +182,23 @@ export class RepositoryState extends Context.Service<
       const readEntry = Effect.fnUntraced(function* (
         repositoryRoot: string,
         snapshotPath: RepositoryPath,
-      ) {
+      ): Effect.fn.Return<RepoSnapshotPath, PlanFailure> {
         const absolutePath = path.join(repositoryRoot, snapshotPath);
         const symbolicLink = new PlanFailure({
           message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
         });
-        const inspectFailure = (cause: { readonly message: string }) =>
-          new PlanFailure({
-            message: `Could not inspect ${snapshotPath} during planning: ${cause.message}`,
-            cause,
-          });
 
         const entry = yield* lstatOption(absolutePath).pipe(
-          Effect.mapError(inspectFailure),
+          Effect.mapError(
+            (cause) =>
+              new PlanFailure({
+                message: `Could not inspect ${snapshotPath} during planning: ${cause.message}`,
+                cause,
+              }),
+          ),
         );
         if (Option.isNone(entry)) {
-          return {
-            _tag: "missing",
-            path: snapshotPath,
-          } satisfies RepoSnapshotPath;
+          return { _tag: "missing", path: snapshotPath };
         }
 
         let info = entry.value;
@@ -196,17 +206,20 @@ export class RepositoryState extends Context.Service<
           // A link may only alias the repository root itself, and it must resolve.
           if (snapshotPath !== ".") return yield* symbolicLink;
           const target = yield* statOption(absolutePath).pipe(
-            Effect.mapError(inspectFailure),
+            Effect.mapError(
+              (cause) =>
+                new PlanFailure({
+                  message: `Could not inspect ${snapshotPath} during planning: ${cause.message}`,
+                  cause,
+                }),
+            ),
           );
           if (Option.isNone(target)) return yield* symbolicLink;
           info = target.value;
         }
 
         if (info.type === "Directory") {
-          return {
-            _tag: "directory",
-            path: snapshotPath,
-          } satisfies RepoSnapshotPath;
+          return { _tag: "directory", path: snapshotPath };
         }
 
         if (info.type !== "File") {
@@ -243,11 +256,7 @@ export class RepositoryState extends Context.Service<
             }),
         });
 
-        return {
-          _tag: "file",
-          path: snapshotPath,
-          contents,
-        } satisfies RepoSnapshotPath;
+        return { _tag: "file", path: snapshotPath, contents };
       });
 
       const readSnapshot = Effect.fnUntraced(function* (
@@ -258,116 +267,141 @@ export class RepositoryState extends Context.Service<
         const entries = yield* Effect.forEach(snapshotPaths, (snapshotPath) =>
           readEntry(repositoryRoot, snapshotPath),
         );
-        return { paths: entries } satisfies RepoSnapshot;
+        return { paths: entries };
       });
 
-      const fingerprint = Effect.fnUntraced(function* (snapshot: RepoSnapshot) {
-        const paths: Array<PlanBaselinePath> = [];
-        for (const entry of snapshot.paths) {
-          if (entry._tag !== "file") {
-            paths.push(entry);
-            continue;
-          }
-          const sha256 = yield* crypto.digestHex(
-            Digest.sha256,
-            new TextEncoder().encode(entry.contents),
-          );
-          paths.push({ _tag: "file", path: entry.path, sha256 });
+      const fingerprintEntry = (
+        entry: RepoSnapshotPath,
+      ): Effect.Effect<PlanBaselinePath> =>
+        entry._tag === "file"
+          ? crypto
+              .digestHex(
+                Digest.sha256,
+                new TextEncoder().encode(entry.contents),
+              )
+              .pipe(
+                Effect.map((sha256) => ({
+                  _tag: "file",
+                  path: entry.path,
+                  sha256,
+                })),
+              )
+          : Effect.succeed(entry);
+
+      const fingerprint = (snapshot: RepoSnapshot) =>
+        Effect.forEach(snapshot.paths, fingerprintEntry);
+
+      const inspectOwnerEntry = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        relative: string,
+      ) {
+        const entry = yield* lstatOption(
+          path.join(repositoryRoot, relative),
+        ).pipe(
+          Effect.mapError(
+            (cause) =>
+              new PlanFailure({
+                message: `Cannot inspect package ownership at ${relative}: could not stat entry`,
+                cause,
+              }),
+          ),
+        );
+        if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
+          return yield* new PlanFailure({
+            message: `Cannot inspect package ownership at ${relative}: symbolic links are unsupported`,
+          });
         }
-        return paths;
+        return entry;
+      });
+
+      const readOwnerManifest = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        manifestPath: string,
+      ) {
+        const manifest = yield* inspectOwnerEntry(repositoryRoot, manifestPath);
+        if (Option.isNone(manifest) || manifest.value.type !== "File")
+          return yield* new PlanFailure({
+            message: `Cannot inspect package ownership at ${manifestPath}: expected regular file`,
+          });
+        const contents = yield* fileSystem
+          .readFileString(path.join(repositoryRoot, manifestPath))
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new PlanFailure({
+                  message: `Cannot inspect package ownership at ${manifestPath}: could not read manifest`,
+                  cause,
+                }),
+            ),
+          );
+        return yield* parsePackageOwner(manifestPath, contents);
+      });
+
+      const visitOwners = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        relative: string,
+      ): Effect.fn.Return<ReadonlyArray<PackageOwner>, PlanFailure> {
+        const entry = yield* inspectOwnerEntry(repositoryRoot, relative);
+        if (Option.isNone(entry)) return [];
+        if (entry.value.type !== "Directory")
+          return yield* new PlanFailure({
+            message: `Cannot inspect package ownership at ${relative}: expected directory`,
+          });
+        const names = yield* fileSystem
+          .readDirectory(path.join(repositoryRoot, relative))
+          .pipe(
+            Effect.mapError(
+              (cause) =>
+                new PlanFailure({
+                  message: `Cannot inspect package ownership at ${relative}: could not list directory`,
+                  cause,
+                }),
+            ),
+          );
+        const alias = names.find(
+          (name) =>
+            CaseInsensitive(name, "package.json") && name !== "package.json",
+        );
+        if (alias !== undefined)
+          return yield* new PlanFailure({
+            message: `Cannot inspect package ownership at ${relative}/${alias}: package manifests must use the canonical package.json filename`,
+          });
+        if (names.includes("package.json")) {
+          return [
+            yield* readOwnerManifest(
+              repositoryRoot,
+              `${relative}/package.json`,
+            ),
+          ];
+        }
+        const candidates = names
+          .filter(
+            (name) =>
+              !name.startsWith(".") && !CaseInsensitive(name, "node_modules"),
+          )
+          .sort(Order.String);
+        const owners = yield* Effect.forEach(candidates, (name) =>
+          visitChildOwners(repositoryRoot, `${relative}/${name}`),
+        );
+        return owners.flat();
+      });
+
+      const visitChildOwners = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        child: string,
+      ) {
+        const entry = yield* inspectOwnerEntry(repositoryRoot, child);
+        if (Option.isSome(entry) && entry.value.type === "Directory") {
+          return yield* visitOwners(repositoryRoot, child);
+        }
+        return [];
       });
 
       const discoverOwners = Effect.fn("RepositoryState.discoverOwners")(
         function* (repositoryRoot: string) {
-          const inspect = Effect.fnUntraced(function* (relative: string) {
-            const entry = yield* lstatOption(
-              path.join(repositoryRoot, relative),
-            ).pipe(
-              Effect.mapError((cause) =>
-                ownershipFailure(relative, "could not stat entry", cause),
-              ),
-            );
-            if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
-              return yield* ownershipFailure(
-                relative,
-                "symbolic links are unsupported",
-              );
-            }
-            return entry;
-          });
-
-          const visit: (
-            relative: string,
-          ) => Effect.Effect<ReadonlyArray<PackageOwner>, PlanFailure> =
-            Effect.fnUntraced(function* (relative: string) {
-              const entry = yield* inspect(relative);
-              if (Option.isNone(entry)) return [];
-              if (entry.value.type !== "Directory")
-                return yield* ownershipFailure(relative, "expected directory");
-              const names = yield* fileSystem
-                .readDirectory(path.join(repositoryRoot, relative))
-                .pipe(
-                  Effect.mapError((cause) =>
-                    ownershipFailure(
-                      relative,
-                      "could not list directory",
-                      cause,
-                    ),
-                  ),
-                );
-              const alias = names.find(
-                (name) =>
-                  name.toLowerCase() === "package.json" &&
-                  name !== "package.json",
-              );
-              if (alias !== undefined)
-                return yield* ownershipFailure(
-                  `${relative}/${alias}`,
-                  "package manifests must use the canonical package.json filename",
-                );
-              if (names.includes("package.json")) {
-                const manifestPath = `${relative}/package.json`;
-                const manifest = yield* inspect(manifestPath);
-                if (Option.isNone(manifest) || manifest.value.type !== "File")
-                  return yield* ownershipFailure(
-                    manifestPath,
-                    "expected regular file",
-                  );
-                const contents = yield* fileSystem
-                  .readFileString(path.join(repositoryRoot, manifestPath))
-                  .pipe(
-                    Effect.mapError((cause) =>
-                      ownershipFailure(
-                        manifestPath,
-                        "could not read manifest",
-                        cause,
-                      ),
-                    ),
-                  );
-                return [yield* parsePackageOwner(manifestPath, contents)];
-              }
-              const candidates = names
-                .filter(
-                  (name) =>
-                    !name.startsWith(".") &&
-                    name.toLowerCase() !== "node_modules",
-                )
-                .sort();
-              const owners: Array<PackageOwner> = [];
-              for (const name of candidates) {
-                const child = `${relative}/${name}`;
-                const childEntry = yield* inspect(child);
-                if (
-                  Option.isSome(childEntry) &&
-                  childEntry.value.type === "Directory"
-                ) {
-                  owners.push(...(yield* visit(child)));
-                }
-              }
-              return owners;
-            });
-
-          const owners = (yield* Effect.forEach(["apps", "packages"], visit))
+          const owners = (yield* Effect.forEach(["apps", "packages"], (group) =>
+            visitOwners(repositoryRoot, group),
+          ))
             .flat()
             .sort(byPath);
           yield* assertDistinctOwners(owners);
@@ -375,20 +409,17 @@ export class RepositoryState extends Context.Service<
         },
       );
 
-      const capture = Effect.fn("RepositoryState.capture")(function* ({
-        repositoryRoot,
-        paths,
-      }: {
-        readonly repositoryRoot: string;
-        readonly paths: ReadonlyArray<RepositoryPath>;
-      }) {
+      const capture = Effect.fn("RepositoryState.capture")(function* (
+        repositoryRoot: string,
+        paths: ReadonlyArray<RepositoryPath>,
+      ) {
         const snapshot = yield* readSnapshot(repositoryRoot, paths);
         const baseline = {
           root: yield* canonicalRoot(repositoryRoot),
           paths: yield* fingerprint(snapshot),
           packageOwners: yield* discoverOwners(repositoryRoot),
-        } satisfies PlanBaseline;
-        return { baseline, snapshot } satisfies RepositoryCapture;
+        };
+        return { baseline, snapshot };
       });
 
       const verifyEntry = Effect.fnUntraced(function* (
@@ -401,26 +432,17 @@ export class RepositoryState extends Context.Service<
         return compare({ root, paths: [entry] }, { root, paths: actual });
       });
 
-      const verify = Effect.fn("RepositoryState.verify")(function* ({
-        baseline,
-        repositoryRoot,
-        paths,
-      }: {
-        readonly baseline: PlanBaseline;
-        readonly repositoryRoot: string;
-        readonly paths?: ReadonlyArray<RepositoryPath> | undefined;
-      }) {
+      const verify = Effect.fn("RepositoryState.verify")(function* (
+        repositoryRoot: string,
+        baseline: PlanBaseline,
+      ): Effect.fn.Return<ReadonlyArray<StalePlanChange>> {
         const currentRoot = yield* canonicalRoot(repositoryRoot).pipe(
           Effect.orElseSucceed(() => ""),
         );
-        const selected =
-          paths === undefined
-            ? baseline.paths
-            : baseline.paths.filter((entry) => paths.includes(entry.path));
-        const changes = yield* Effect.forEach(selected, (entry) =>
+        const changes = yield* Effect.forEach(baseline.paths, (entry) =>
           verifyEntry(repositoryRoot, baseline.root, entry).pipe(
             Effect.orElseSucceed(() => [
-              { path: entry.path, kind: "typeChanged" as const },
+              StalePlanChange.make({ path: entry.path, kind: "typeChanged" }),
             ]),
           ),
         );
@@ -435,16 +457,32 @@ export class RepositoryState extends Context.Service<
 
         return [
           ...(ownershipChanged
-            ? [{ path: repositoryRootPath, kind: "modified" as const }]
+            ? [
+                StalePlanChange.make({
+                  path: repositoryRootPath,
+                  kind: "modified",
+                }),
+              ]
             : []),
           ...(currentRoot === baseline.root
             ? []
-            : [{ path: repositoryRootPath, kind: "rootChanged" as const }]),
+            : [
+                StalePlanChange.make({
+                  path: repositoryRootPath,
+                  kind: "rootChanged",
+                }),
+              ]),
           ...changes.flat(),
-        ] satisfies ReadonlyArray<StalePlanChange>;
+        ];
       });
 
-      return RepositoryState.of({ capture, verify, discoverOwners });
+      return RepositoryState.of({
+        at: (repositoryRoot) => ({
+          capture: (paths) => capture(repositoryRoot, paths),
+          verify: (baseline) => verify(repositoryRoot, baseline),
+          discoverOwners: discoverOwners(repositoryRoot),
+        }),
+      });
     }),
   );
 }
