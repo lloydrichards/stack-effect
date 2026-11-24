@@ -558,6 +558,53 @@ describe("ContributionTokenContext.resolve", () => {
     );
   });
 
+  it.each([
+    {
+      label: "the context has no project targets",
+      kinds: undefined,
+      expected: "",
+    },
+    { label: "the project target list is empty", kinds: [], expected: "" },
+    {
+      label: "the project has only the workspace and packages",
+      kinds: ["workspace", "package"],
+      expected: "",
+    },
+    {
+      label: "the project has an application",
+      kinds: ["package", "server"],
+      expected: "apps",
+    },
+  ])(
+    "should resolve {{#if hasApps}} to '$expected' when $label",
+    ({ kinds, expected }) => {
+      const api = new TargetIdentity({
+        kind: TargetKind.make("server"),
+        name: "api",
+      });
+      const context = new ContributionTokenContext({
+        targetKey: api.toKey(),
+        identity: api,
+        config: new StackConfig({
+          name: "my-project",
+          runtime: { _tag: "bun" },
+        }),
+        projectTargets: kinds?.map((kind) => ({
+          identity: new TargetIdentity({
+            kind: TargetKind.make(kind),
+            name: kind === "workspace" ? "" : "core",
+          }),
+          description: kind,
+        })),
+      });
+
+      assert.strictEqual(
+        context.resolve("{{#if hasApps}}apps{{/if}}"),
+        expected,
+      );
+    },
+  );
+
   it("should point to `stack-effect add` instead of a table when the workspace has no applications", () => {
     const rendered = makeContext().resolve("{{workspaceTargets}}");
 
@@ -597,6 +644,12 @@ describe("ContributionTokenContext.resolve", () => {
       expected: "7",
     },
     { label: "lint is unset", config: {}, token: "{{lint}}", expected: "" },
+    {
+      label: "no scaffold recipe is given",
+      config: {},
+      token: "{{scaffoldRecipe}}",
+      expected: "",
+    },
     { label: "format is unset", config: {}, token: "{{format}}", expected: "" },
     { label: "test is unset", config: {}, token: "{{test}}", expected: "" },
     {
@@ -647,6 +700,18 @@ describe("ContributionTokenContext.resolve", () => {
       label: "the field is unset",
       config: {},
       template: "{{#if lint}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "format is unset",
+      config: {},
+      template: "{{#if format}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "test is unset",
+      config: {},
+      template: "{{#if test}}yes{{/if}}",
       expected: "",
     },
     {

@@ -1,6 +1,11 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
   CatalogSources,
+  formatCatalogSources,
+  isCustomCatalogSource,
+  sameCatalogSources,
+  selectsOfficialCatalog,
+  TargetDefinition,
   TargetIdentity,
   TargetKind,
   targetPathsOverlap,
@@ -74,6 +79,148 @@ describe("CatalogSources", () => {
     ["a repeated official entry", [{ name: "official" }, { name: "official" }]],
   ])("should reject the selection when it contains %s", (_, input) => {
     assert.strictEqual(Result.isFailure(decode(input)), true);
+  });
+});
+
+describe("catalog source selections", () => {
+  const sources = (input: unknown) =>
+    Schema.decodeUnknownSync(CatalogSources)(input);
+  const official = { name: "official" };
+  const mirror = { name: "acme", url: "https://mirror.acme.dev/v1.json" };
+
+  it.each([
+    {
+      label: "they list the same sources in another order",
+      a: [official, acme],
+      b: [acme, official],
+      same: true,
+    },
+    {
+      label: "one source points at another url",
+      a: [official, acme],
+      b: [official, mirror],
+      same: false,
+    },
+    {
+      label: "one selection adds a source",
+      a: [official],
+      b: [official, acme],
+      same: false,
+    },
+    {
+      label: "one selection drops a source",
+      a: [official, acme],
+      b: [acme],
+      same: false,
+    },
+  ])(
+    "should report the selections as same: $same when $label",
+    ({ a, b, same }) => {
+      assert.strictEqual(sameCatalogSources(sources(a), sources(b)), same);
+    },
+  );
+
+  it("should spell each source as the --catalog flag does when listing a selection", () => {
+    assert.strictEqual(
+      formatCatalogSources(sources([official, acme])),
+      "official, acme=https://catalog.acme.dev/v1.json",
+    );
+  });
+
+  it.each([
+    {
+      label: "the official source is listed",
+      input: [official, acme],
+      selected: true,
+    },
+    { label: "only custom sources are listed", input: [acme], selected: false },
+  ])(
+    "should report official as selected: $selected when $label",
+    ({ input, selected }) => {
+      assert.strictEqual(selectsOfficialCatalog(sources(input)), selected);
+    },
+  );
+
+  it.each([
+    { name: "acme", custom: true },
+    { name: "official", custom: false },
+    { name: undefined, custom: false },
+  ])("should treat source $name as custom: $custom", ({ name, custom }) => {
+    assert.strictEqual(isCustomCatalogSource(name), custom);
+  });
+});
+
+describe("TargetDefinition", () => {
+  const definition = (kind: string, defaultName: string | undefined) => ({
+    kind,
+    title: "Target",
+    description: "A target",
+    defaultName,
+    contributions: [],
+  });
+
+  it.each([
+    {
+      label: "a package has no default name",
+      kind: "package",
+      defaultName: undefined,
+      valid: true,
+    },
+    {
+      label: "an app default name is empty",
+      kind: "server",
+      defaultName: "",
+      valid: true,
+    },
+    {
+      label: "a package default name is set",
+      kind: "package",
+      defaultName: "core",
+      valid: true,
+    },
+    {
+      label: "a package default name is empty",
+      kind: "package",
+      defaultName: "",
+      valid: false,
+    },
+  ])(
+    "should accept the definition: $valid when $label",
+    ({ kind, defaultName, valid }) => {
+      assert.strictEqual(
+        Result.isSuccess(
+          Schema.decodeUnknownResult(TargetDefinition)(
+            definition(kind, defaultName),
+          ),
+        ),
+        valid,
+      );
+    },
+  );
+
+  it("should drop the default finalize phase but keep any other phase when a definition is encoded again", () => {
+    const codec = Schema.decodeUnknownSync(TargetDefinition);
+    const decoded = codec({
+      kind: "server",
+      title: "Target",
+      description: "A target",
+      contributions: [],
+      scripts: [
+        { label: "install", command: "bun install" },
+        { label: "format", command: "bun run format", phase: "post-finalize" },
+      ],
+    });
+
+    assert.deepStrictEqual(
+      decoded.scripts?.map((script) => script.phase),
+      ["finalize", "post-finalize"],
+    );
+    assert.deepStrictEqual(
+      Schema.encodeSync(TargetDefinition)(decoded).scripts?.map(
+        (script) => script.phase,
+      ),
+      [undefined, "post-finalize"],
+    );
   });
 });
 
