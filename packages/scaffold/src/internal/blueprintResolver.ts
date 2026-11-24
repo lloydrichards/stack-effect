@@ -4,6 +4,7 @@ import {
   type BlueprintAttachedModuleNode,
   type BlueprintEdge,
   BlueprintFailure,
+  BlueprintNode,
   type BlueprintTargetNode,
   type CatalogNotFound,
   makeBlueprintEdge,
@@ -14,6 +15,7 @@ import {
   ModuleDependency,
   targetPathsOverlap,
   type ModuleId,
+  type TargetDefinition,
   type TargetIdentity,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
@@ -26,18 +28,18 @@ import {
   Ref,
   SchemaIssue,
 } from "effect";
-import type { BlueprintResolver } from "../Blueprint";
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
 type ResolutionState = {
-  readonly targets: HashMap.HashMap<string, BlueprintTargetNode>;
-  readonly attachedModules: HashMap.HashMap<
-    string,
-    BlueprintAttachedModuleNode
-  >;
-  readonly edges: HashMap.HashMap<string, BlueprintEdge>;
+  targets: HashMap.HashMap<string, BlueprintTargetNode>;
+  attachedModules: HashMap.HashMap<string, BlueprintAttachedModuleNode>;
+  edges: HashMap.HashMap<string, BlueprintEdge>;
 };
+
+type SelectedTarget = Selection["targets"][number];
+
+const DEFAULT_SUPPORTED_RUNTIMES = ["bun", "node"];
 
 const appendEdge = (stateRef: Ref.Ref<ResolutionState>, edge: BlueprintEdge) =>
   Ref.update(stateRef, (s) =>
@@ -46,54 +48,91 @@ const appendEdge = (stateRef: Ref.Ref<ResolutionState>, edge: BlueprintEdge) =>
       : { ...s, edges: HashMap.set(s.edges, edge.id, edge) },
   );
 
+// Selected modules first, then the target's required modules, without repeats.
+const moduleIdsOf = (target: SelectedTarget, definition: TargetDefinition) =>
+  Arr.dedupe([
+    ...target.modules.map((moduleSelection) => moduleSelection.id),
+    ...(definition.requiredModules ?? []),
+  ]);
+
+const ensureModuleSupportedOn = Effect.fnUntraced(function* (
+  catalog: CatalogReader["Service"],
+  target: TargetIdentity,
+  moduleId: ModuleId,
+) {
+  const isSupported = yield* catalog.isSupportedOn(moduleId, target);
+  if (!isSupported)
+    return yield* new BlueprintFailure({
+      message: `Unsupported target-module combination: ${target.toKey()} requires module ${moduleId}`,
+    });
+});
+
+const validateTarget = Effect.fnUntraced(function* (
+  catalog: CatalogReader["Service"],
+  target: SelectedTarget,
+) {
+  const definition = yield* catalog.getTarget(target.identity.kind);
+  const duplicate = target.modules.find((moduleSelection, index) =>
+    target.modules
+      .slice(0, index)
+      .some((earlier) => earlier.id === moduleSelection.id),
+  );
+  if (duplicate !== undefined)
+    return yield* new BlueprintFailure({
+      message: `Duplicate module selection: ${target.identity.toKey()} requires module ${duplicate.id}`,
+    });
+
+  yield* Effect.forEach(
+    moduleIdsOf(target, definition),
+    (moduleId) => ensureModuleSupportedOn(catalog, target.identity, moduleId),
+    { discard: true },
+  );
+});
+
 const validateSelection = Effect.fnUntraced(function* (
   selection: Selection,
   catalog: CatalogReader["Service"],
 ) {
   const selectedTargetKeys = new Set<string>();
-
   for (const target of selection.targets) {
     const targetKey = target.identity.toKey();
-
-    if (selectedTargetKeys.has(targetKey)) {
+    if (selectedTargetKeys.has(targetKey))
       return yield* new BlueprintFailure({
         message: `Duplicate target selection: ${targetKey}`,
       });
-    }
-
     selectedTargetKeys.add(targetKey);
-    const targetDefinition = yield* catalog.getTarget(target.identity.kind);
-
-    const selectedModuleIds = new Set<ModuleId>();
-
-    for (const moduleSelection of target.modules) {
-      if (selectedModuleIds.has(moduleSelection.id)) {
-        return yield* new BlueprintFailure({
-          message: `Duplicate module selection: ${targetKey} requires module ${moduleSelection.id}`,
-        });
-      }
-
-      selectedModuleIds.add(moduleSelection.id);
-    }
-
-    const moduleIds = new Set([
-      ...target.modules.map((moduleSelection) => moduleSelection.id),
-      ...(targetDefinition.requiredModules ?? []),
-    ]);
-
-    for (const moduleId of moduleIds) {
-      const isSupported = yield* catalog.isSupportedOn(
-        moduleId,
-        target.identity,
-      );
-
-      if (!isSupported) {
-        return yield* new BlueprintFailure({
-          message: `Unsupported target-module combination: ${targetKey} requires module ${moduleId}`,
-        });
-      }
-    }
+    yield* validateTarget(catalog, target);
   }
+});
+
+const providesCapability = (
+  catalog: CatalogReader["Service"],
+  moduleId: ModuleId,
+  capability: ModuleCapability,
+) =>
+  catalog
+    .getModule(moduleId)
+    .pipe(
+      Effect.map((definition) =>
+        (definition.provides ?? []).includes(capability),
+      ),
+    );
+
+const ensureRuntimeSupported = Effect.fnUntraced(function* (
+  catalog: CatalogReader["Service"],
+  config: StackConfig,
+  node: BlueprintNode,
+) {
+  const definition =
+    node._tag === "target"
+      ? yield* catalog.getTarget(node.identity.kind)
+      : yield* catalog.getModule(node.moduleId);
+  const supportedRuntimes =
+    definition.supportedRuntimes ?? DEFAULT_SUPPORTED_RUNTIMES;
+  if (!supportedRuntimes.includes(config.runtimeName))
+    return yield* new BlueprintFailure({
+      message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
+    });
 });
 
 const resolveSelection = Effect.fnUntraced(function* (
@@ -117,11 +156,10 @@ const resolveSelection = Effect.fnUntraced(function* (
 
     yield* catalog.getTarget(identity.kind);
 
-    const next: BlueprintTargetNode = {
-      _tag: "target",
+    const next = BlueprintNode.cases.target.make({
       id: identity.toKey(),
       identity,
-    };
+    });
 
     yield* Ref.update(stateRef, (s) => ({
       ...s,
@@ -131,19 +169,6 @@ const resolveSelection = Effect.fnUntraced(function* (
     return next;
   });
 
-  const ensureModuleSupportedOn = Effect.fnUntraced(function* (
-    target: TargetIdentity,
-    moduleId: ModuleId,
-  ) {
-    const isSupported = yield* catalog.isSupportedOn(moduleId, target);
-
-    if (!isSupported) {
-      return yield* new BlueprintFailure({
-        message: `Unsupported target-module combination: ${target.toKey()} requires module ${moduleId}`,
-      });
-    }
-  });
-
   const ensureAttachedModule: (
     target: TargetIdentity,
     moduleId: ModuleId,
@@ -151,7 +176,7 @@ const resolveSelection = Effect.fnUntraced(function* (
     BlueprintAttachedModuleNode,
     BlueprintFailure | CatalogNotFound
   > = Effect.fnUntraced(function* (target: TargetIdentity, moduleId: ModuleId) {
-    yield* ensureModuleSupportedOn(target, moduleId);
+    yield* ensureModuleSupportedOn(catalog, target, moduleId);
 
     const targetState = yield* ensureTarget(target);
     const attachedModuleNodeId = toAttachedModuleNodeId(
@@ -197,12 +222,11 @@ const resolveSelection = Effect.fnUntraced(function* (
       }
     }
 
-    const next: BlueprintAttachedModuleNode = {
-      _tag: "attached-module",
+    const next = BlueprintNode.cases["attached-module"].make({
       id: attachedModuleNodeId,
       targetId: targetState.id,
       moduleId,
-    };
+    });
 
     yield* Ref.update(stateRef, (s) => ({
       ...s,
@@ -271,13 +295,7 @@ const resolveSelection = Effect.fnUntraced(function* (
       );
       const providers = Option.isSome(selectedTarget)
         ? yield* Effect.filter(selectedTarget.value.modules, (selectedModule) =>
-            catalog
-              .getModule(selectedModule.id)
-              .pipe(
-                Effect.map((definition) =>
-                  (definition.provides ?? []).includes(capability),
-                ),
-              ),
+            providesCapability(catalog, selectedModule.id, capability),
           )
         : [];
 
@@ -291,32 +309,36 @@ const resolveSelection = Effect.fnUntraced(function* (
       yield* requireModule(dependencyTarget, providerDefinition.id);
     });
 
-    for (const dependency of definition.dependencies) {
-      yield* ModuleDependency.match(dependency, {
+    yield* Effect.forEach(
+      definition.dependencies,
+      ModuleDependency.match({
         "required-target": (dep) => requireTarget(dep.identity),
         "required-module": (dep) =>
           requireModule(dependencyTargetOf(dep.target), dep.moduleId),
         "required-capability": (dep) =>
           requireCapability(dependencyTargetOf(dep.target), dep.capability),
-      });
-    }
+      }),
+      { discard: true },
+    );
 
     return next;
   });
 
-  for (const target of selection.targets) {
+  const attachSelectedTarget = Effect.fnUntraced(function* (
+    target: SelectedTarget,
+  ) {
     yield* ensureTarget(target.identity);
+    const definition = yield* catalog.getTarget(target.identity.kind);
+    yield* Effect.forEach(
+      moduleIdsOf(target, definition),
+      (moduleId) => ensureAttachedModule(target.identity, moduleId),
+      { discard: true },
+    );
+  });
 
-    const targetDefinition = yield* catalog.getTarget(target.identity.kind);
-    const moduleIds = new Set([
-      ...target.modules.map((moduleSelection) => moduleSelection.id),
-      ...(targetDefinition.requiredModules ?? []),
-    ]);
-
-    for (const moduleId of moduleIds) {
-      yield* ensureAttachedModule(target.identity, moduleId);
-    }
-  }
+  yield* Effect.forEach(selection.targets, attachSelectedTarget, {
+    discard: true,
+  });
 
   return yield* Ref.get(stateRef);
 });
@@ -368,26 +390,15 @@ export const make = Effect.gen(function* () {
       ),
     );
 
-    if (config !== undefined) {
-      for (const node of blueprint.nodes) {
-        const definition =
-          node._tag === "target"
-            ? yield* catalog.getTarget(node.identity.kind)
-            : yield* catalog.getModule(node.moduleId);
-        const supportedRuntimes = definition.supportedRuntimes ?? [
-          "bun",
-          "node",
-        ];
-        if (!supportedRuntimes.includes(config.runtimeName)) {
-          return yield* new BlueprintFailure({
-            message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
-          });
-        }
-      }
-    }
+    if (config !== undefined)
+      yield* Effect.forEach(
+        blueprint.nodes,
+        (node) => ensureRuntimeSupported(catalog, config, node),
+        { discard: true },
+      );
 
     return blueprint.toSorted();
   });
 
-  return { resolve } satisfies BlueprintResolver["Service"];
+  return { resolve };
 });

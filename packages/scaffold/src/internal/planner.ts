@@ -3,11 +3,12 @@ import {
   Plan,
   PlanFailure,
   type RepoSnapshot,
+  type RepoSnapshotPath,
   repositoryRootPath,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
-import { Effect, SchemaIssue } from "effect";
-import type { ContributionResolver, Planner } from "../Plan";
+import { Array as Arr, Effect, SchemaIssue } from "effect";
+import type { ContributionResolver } from "../Plan";
 import { validatePackageOwners } from "./packageOwnership";
 import * as PlanAssessment from "./planAssessment";
 import type { PlanningIntentPath } from "./planAssessment";
@@ -19,6 +20,22 @@ import {
 } from "./workspaceMembership";
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
+
+const assessPlanningPath = Effect.fnUntraced(function* (
+  snapshotPaths: ReadonlyMap<string, RepoSnapshotPath>,
+  intent: PlanningIntentPath,
+) {
+  const snapshotPath = snapshotPaths.get(intent.path);
+  const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
+    intent,
+    snapshotPath,
+  );
+  const assessment = yield* PlanAssessment.assess({
+    planningPath,
+    snapshotPath,
+  });
+  return { planningPath, assessment };
+});
 
 const projectPlan = Effect.fnUntraced(function* ({
   planningPaths,
@@ -35,19 +52,9 @@ const projectPlan = Effect.fnUntraced(function* ({
     ),
   );
 
-  const assessedPaths = [];
-  for (const intent of planningPaths) {
-    const snapshotPath = snapshotPaths.get(intent.path);
-    const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
-      intent,
-      snapshotPath,
-    );
-    const assessment = yield* PlanAssessment.assess({
-      planningPath,
-      snapshotPath,
-    });
-    assessedPaths.push({ planningPath, assessment });
-  }
+  const assessedPaths = yield* Effect.forEach(planningPaths, (intent) =>
+    assessPlanningPath(snapshotPaths, intent),
+  );
 
   const outcomes = yield* registerWorkspaceMembers(
     assessedPaths.map(({ planningPath, assessment }) =>
@@ -86,9 +93,9 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
       repositoryRoot,
       config,
     }: {
-      readonly blueprint: Blueprint;
-      readonly repositoryRoot: string;
-      readonly config: StackConfig;
+      blueprint: Blueprint;
+      repositoryRoot: string;
+      config: StackConfig;
     }) {
       const repository = repositoryState.at(repositoryRoot);
       const owners = yield* repository.discoverOwners;
@@ -101,8 +108,8 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
         normalizedContributions,
       );
 
-      const captured = yield* repository.capture([
-        ...new Set([
+      const captured = yield* repository.capture(
+        Arr.dedupe([
           repositoryRootPath,
           ...workspaceManifestPaths,
           ...planningPaths.flatMap((planningPath) => [
@@ -110,7 +117,7 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
             ...PlanAssessment.collectAncestorPaths(planningPath.path),
           ]),
         ]),
-      ]);
+      );
       // Keep the owners validated above so drift since validation fails the recheck below.
       const baseline = { ...captured.baseline, packageOwners: owners };
       const plan = yield* projectPlan({
@@ -131,5 +138,5 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
       return plan;
     });
 
-    return { build } satisfies Planner["Service"];
+    return { build };
   });

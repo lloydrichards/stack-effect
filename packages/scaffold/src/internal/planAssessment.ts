@@ -1,9 +1,9 @@
 import {
-  CompositionOperation,
+  type CompositionOperation,
   PlanConflict,
   type PlanEntryClassification,
   PlanFailure,
-  type PlanOutcome,
+  PlanOutcome,
   type RepoSnapshotPath,
   RepositoryPath,
 } from "@repo/domain/Plan";
@@ -28,6 +28,8 @@ const PlanningIntentComposition = Schema.Struct({
   import: PlanningIntentImport,
 });
 
+type PlanningIntentComposition = typeof PlanningIntentComposition.Type;
+
 const PlanningIntentObjectField = Schema.Struct({
   targetVariable: Schema.String,
   functionName: Schema.String,
@@ -35,6 +37,8 @@ const PlanningIntentObjectField = Schema.Struct({
   value: Schema.String,
   import: Schema.Union([PlanningIntentImport, Schema.Undefined]),
 });
+
+type PlanningIntentObjectField = typeof PlanningIntentObjectField.Type;
 
 const PlanningIntentJsxSlot = Schema.Struct({
   slotId: Schema.String,
@@ -115,14 +119,16 @@ export const PlanningIntentPath = Schema.Union([
 export type PlanningIntentPath = typeof PlanningIntentPath.Type;
 
 type PathAssessment = {
-  readonly classification: PlanEntryClassification;
-  readonly conflicts: ReadonlyArray<PlanConflict>;
+  classification: PlanEntryClassification;
+  conflicts: ReadonlyArray<PlanConflict>;
 };
 
-type FlatStringRecordAssessment<Conflict> = {
-  readonly conflicts: ReadonlyArray<Conflict>;
-  readonly hasAdditions: boolean;
+type FlatStringRecordAssessment = {
+  conflicts: ReadonlyArray<PlanConflict>;
+  hasAdditions: boolean;
 };
+
+const DEPENDENCY_SECTIONS = ["dependencies", "devDependencies"] as const;
 
 const generatedDenoTask =
   /^deno (?:(?:run (?:--watch )?)|compile )--allow-env --allow-net --allow-read --allow-write(?: --output dist\/[\w.-]+)? src\/index\.ts$/;
@@ -158,112 +164,6 @@ export const preserveDenoSqlitePermissions = (
   };
 };
 
-/** @internal */
-export const toPlannedFileOutcome = ({
-  planningPath,
-  classification,
-}: {
-  planningPath: PlanningIntentPath;
-  classification: PlanEntryClassification;
-}): PlanOutcome => {
-  const complete = ({
-    path,
-    contents,
-  }: {
-    path: RepositoryPath;
-    contents: string;
-  }) => ({ _tag: "complete", path, classification, contents }) as const;
-  const composed = (
-    { path, seed }: { path: RepositoryPath; seed: string | undefined },
-    operations: ReadonlyArray<CompositionOperation>,
-  ) =>
-    ({
-      _tag: "composed",
-      path,
-      classification,
-      seedContents: seed,
-      operations,
-    }) as const;
-
-  return Match.valueTags(planningPath, {
-    authoritative: complete,
-    conflictOnModify: complete,
-    packageJson: (intent) => composed(intent, packageJsonOperations(intent)),
-    tsComposition: (intent) =>
-      composed(intent, [
-        ...intent.compositions.flatMap((composition) => [
-          importOperation(composition.import),
-          {
-            _tag: "ts-append-call-arg" as const,
-            fileType: "typescript" as const,
-            targetVariable: composition.targetVariable,
-            functionName: composition.functionName,
-            argument: composition.argument,
-          },
-        ]),
-        ...intent.objectFields.flatMap((objectField) => [
-          ...optionalImportOperation(objectField.import),
-          {
-            _tag: "ts-object-field" as const,
-            fileType: "typescript" as const,
-            targetVariable: objectField.targetVariable,
-            functionName: objectField.functionName,
-            field: objectField.field,
-            value: objectField.value,
-          },
-        ]),
-      ]),
-    jsxSlot: (intent) =>
-      composed(
-        intent,
-        intent.jsxSlots.flatMap((jsxSlot) => [
-          ...optionalImportOperation(jsxSlot.import),
-          {
-            _tag: "ts-jsx-slot" as const,
-            fileType: "typescript" as const,
-            slotId: jsxSlot.slotId,
-            content: jsxSlot.content,
-          },
-        ]),
-      ),
-  });
-};
-
-const packageJsonOperations = (
-  intent: PlanningIntentPackageJsonPath,
-): Array<CompositionOperation> => {
-  const operations: Array<CompositionOperation> = [];
-
-  if (intent.exports.length > 0) {
-    operations.push({
-      _tag: "json-pkg-exports",
-      fileType: "json",
-      entries: intent.exports.map(({ name, value }) => ({ name, value })),
-    });
-  }
-
-  for (const section of ["dependencies", "devDependencies"] as const) {
-    const deps = intent.dependencies.filter((d) => d.section === section);
-    if (deps.length === 0) continue;
-    operations.push({
-      _tag: "json-pkg-deps",
-      fileType: "json",
-      section,
-      entries: deps.map(({ name, value }) => ({ name, value })),
-    });
-  }
-
-  if (intent.scripts.length > 0) {
-    operations.push({
-      _tag: "json-pkg-scripts",
-      fileType: "json",
-      entries: intent.scripts,
-    });
-  }
-
-  return operations;
-};
-
 const importOperation = (
   planningImport: PlanningIntentImport,
 ): CompositionOperation => ({
@@ -278,6 +178,115 @@ const importOperation = (
 const optionalImportOperation = (
   planningImport: PlanningIntentImport | undefined,
 ) => (planningImport === undefined ? [] : [importOperation(planningImport)]);
+
+const appendCallArgOperation = (
+  composition: PlanningIntentComposition,
+): CompositionOperation => ({
+  _tag: "ts-append-call-arg",
+  fileType: "typescript",
+  targetVariable: composition.targetVariable,
+  functionName: composition.functionName,
+  argument: composition.argument,
+});
+
+const objectFieldOperation = (
+  objectField: PlanningIntentObjectField,
+): CompositionOperation => ({
+  _tag: "ts-object-field",
+  fileType: "typescript",
+  targetVariable: objectField.targetVariable,
+  functionName: objectField.functionName,
+  field: objectField.field,
+  value: objectField.value,
+});
+
+const jsxSlotOperation = (
+  jsxSlot: PlanningIntentJsxSlot,
+): CompositionOperation => ({
+  _tag: "ts-jsx-slot",
+  fileType: "typescript",
+  slotId: jsxSlot.slotId,
+  content: jsxSlot.content,
+});
+
+const nonEmptyOperation = (
+  operation: CompositionOperation & { entries: ReadonlyArray<unknown> },
+) => (operation.entries.length === 0 ? [] : [operation]);
+
+const packageJsonOperations = (intent: PlanningIntentPackageJsonPath) => [
+  ...nonEmptyOperation({
+    _tag: "json-pkg-exports",
+    fileType: "json",
+    entries: intent.exports.map(({ name, value }) => ({ name, value })),
+  }),
+  ...DEPENDENCY_SECTIONS.flatMap((section) =>
+    nonEmptyOperation({
+      _tag: "json-pkg-deps",
+      fileType: "json",
+      section,
+      entries: intent.dependencies
+        .filter((dependency) => dependency.section === section)
+        .map(({ name, value }) => ({ name, value })),
+    }),
+  ),
+  ...nonEmptyOperation({
+    _tag: "json-pkg-scripts",
+    fileType: "json",
+    entries: intent.scripts,
+  }),
+];
+
+/** @internal */
+export const toPlannedFileOutcome = ({
+  planningPath,
+  classification,
+}: {
+  planningPath: PlanningIntentPath;
+  classification: PlanEntryClassification;
+}): PlanOutcome => {
+  const complete = ({
+    path,
+    contents,
+  }: {
+    path: RepositoryPath;
+    contents: string;
+  }) => PlanOutcome.cases.complete.make({ path, classification, contents });
+  const composed = (
+    { path, seed }: { path: RepositoryPath; seed: string | undefined },
+    operations: ReadonlyArray<CompositionOperation>,
+  ) =>
+    PlanOutcome.cases.composed.make({
+      path,
+      classification,
+      seedContents: seed,
+      operations,
+    });
+
+  return Match.valueTags(planningPath, {
+    authoritative: complete,
+    conflictOnModify: complete,
+    packageJson: (intent) => composed(intent, packageJsonOperations(intent)),
+    tsComposition: (intent) =>
+      composed(intent, [
+        ...intent.compositions.flatMap((composition) => [
+          importOperation(composition.import),
+          appendCallArgOperation(composition),
+        ]),
+        ...intent.objectFields.flatMap((objectField) => [
+          ...optionalImportOperation(objectField.import),
+          objectFieldOperation(objectField),
+        ]),
+      ]),
+    jsxSlot: (intent) =>
+      composed(
+        intent,
+        intent.jsxSlots.flatMap((jsxSlot) => [
+          ...optionalImportOperation(jsxSlot.import),
+          jsxSlotOperation(jsxSlot),
+        ]),
+      ),
+  });
+};
 
 /** @internal */
 export const assess = Effect.fnUntraced(function* ({
@@ -494,7 +503,7 @@ const planConflict = {
     }),
   jsxSlotTargetNotFound: (path: RepositoryPath, slotId: string) =>
     PlanConflict.cases.jsxSlotTargetNotFound.make({ path, slotId }),
-} as const;
+};
 
 const collectInvalidPackageJsonConflicts = (
   intent: PlanningIntentPackageJsonPath,
@@ -518,44 +527,35 @@ const assessPackageJsonEntries = ({
 }: {
   packageJson: Record<string, unknown>;
   intent: PlanningIntentPackageJsonPath;
-}): FlatStringRecordAssessment<PlanConflict> => {
+}): FlatStringRecordAssessment => {
   const { path } = intent;
   const dependenciesBySection = Arr.groupBy(
     intent.dependencies,
     (plannedDependency) => plannedDependency.section,
   );
-  const exportAssessment = assessFlatStringRecordEntries({
-    existingValue: packageJson["exports"],
-    requiredEntries: intent.exports,
-    keyOf: (plannedExport) => plannedExport.name,
-    valueOf: (plannedExport) => plannedExport.value,
-    toConflict: (plannedExport) =>
-      planConflict.exports(path, plannedExport.name),
-  });
-  const dependencyAssessments = (
-    ["dependencies", "devDependencies"] as const
-  ).flatMap((section) => {
+  const exportAssessment = assessFlatStringRecordEntries(
+    packageJson["exports"],
+    intent.exports,
+    (plannedExport) => planConflict.exports(path, plannedExport.name),
+  );
+  const dependencyAssessments = DEPENDENCY_SECTIONS.flatMap((section) => {
     const sectionDependencies = dependenciesBySection[section];
     return sectionDependencies === undefined
       ? []
       : [
-          assessFlatStringRecordEntries({
-            existingValue: packageJson[section],
-            requiredEntries: sectionDependencies,
-            keyOf: (plannedDependency) => plannedDependency.name,
-            valueOf: (plannedDependency) => plannedDependency.value,
-            toConflict: (plannedDependency) =>
+          assessFlatStringRecordEntries(
+            packageJson[section],
+            sectionDependencies,
+            (plannedDependency) =>
               planConflict.dependencies(path, plannedDependency),
-          }),
+          ),
         ];
   });
-  const scriptAssessment = assessFlatStringRecordEntries({
-    existingValue: packageJson["scripts"],
-    requiredEntries: intent.scripts,
-    keyOf: (script) => script.name,
-    valueOf: (script) => script.value,
-    toConflict: (script) => planConflict.scripts(path, script.name),
-  });
+  const scriptAssessment = assessFlatStringRecordEntries(
+    packageJson["scripts"],
+    intent.scripts,
+    (script) => planConflict.scripts(path, script.name),
+  );
 
   return {
     conflicts: [
@@ -570,19 +570,13 @@ const assessPackageJsonEntries = ({
   };
 };
 
-const assessFlatStringRecordEntries = <Entry, Conflict>({
-  existingValue,
-  requiredEntries,
-  keyOf,
-  valueOf,
-  toConflict,
-}: {
-  existingValue: unknown;
-  requiredEntries: ReadonlyArray<Entry>;
-  keyOf: (entry: Entry) => string;
-  valueOf: (entry: Entry) => string;
-  toConflict: (entry: Entry) => Conflict;
-}): FlatStringRecordAssessment<Conflict> => {
+const assessFlatStringRecordEntries = <
+  Entry extends { name: string; value: string },
+>(
+  existingValue: unknown,
+  requiredEntries: ReadonlyArray<Entry>,
+  toConflict: (entry: Entry) => PlanConflict,
+): FlatStringRecordAssessment => {
   if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
     return {
       conflicts: requiredEntries.map(toConflict),
@@ -594,13 +588,13 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
   // Read own keys only, so an entry named after an Object.prototype member
   // such as `__proto__` counts as absent.
   const existingEntryOf = (entry: Entry) =>
-    Object.hasOwn(existingEntries, keyOf(entry))
-      ? existingEntries[keyOf(entry)]
+    Object.hasOwn(existingEntries, entry.name)
+      ? existingEntries[entry.name]
       : undefined;
   const conflicts = requiredEntries.flatMap((entry) => {
     const existingEntry = existingEntryOf(entry);
 
-    return existingEntry === undefined || existingEntry === valueOf(entry)
+    return existingEntry === undefined || existingEntry === entry.value
       ? []
       : [toConflict(entry)];
   });
