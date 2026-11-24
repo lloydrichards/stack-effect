@@ -12,7 +12,7 @@ import { render } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";
 import type { CatalogAtomRequest } from "../../../app/atom/recipe-builder-atom";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
-import { RecipeBuilderRpcFailure } from "../../../app/workers/recipe-builder/domain";
+import { RecipeBuilderRpcError } from "../../../app/workers/recipe-builder/domain";
 
 /** The request the preview atom receives. */
 type PreviewAtomRequest = {
@@ -25,7 +25,7 @@ const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,
   failCatalogOnce: false,
   /** A worker failure every catalog request returns until the test clears it. */
-  catalogFailure: undefined as RecipeBuilderRpcFailure | undefined,
+  catalogFailure: undefined as RecipeBuilderRpcError | undefined,
   catalogWarning: undefined as "stale" | "persistence" | undefined,
   /** Custom sources whose documents declare `requires: ["official"]`. */
   requiresOfficial: [] as Array<string>,
@@ -126,7 +126,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
   return {
     recipeBuilderRpcErrorMessage: () =>
       "The preview worker stopped unexpectedly.",
-    recipeBuilderRpcFailure: original.recipeBuilderRpcFailure,
+    recipeBuilderRpcError: original.recipeBuilderRpcError,
     catalogAtom: Atom.fn((request: CatalogAtomRequest) =>
       Effect.suspend(() => {
         workerCalls.catalogRequests.push(request);
@@ -329,7 +329,7 @@ test("preserves a moved selection until the visitor adds Labs", async () => {
 });
 
 test("allows an explicit fallback when the default Labs catalog fails", async () => {
-  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
+  workerCalls.catalogFailure = new RecipeBuilderRpcError({
     message: "Labs unavailable",
     failedSource: {
       name: "labs",
@@ -1112,7 +1112,7 @@ test("should keep the official catalog while a selected catalog requires it", as
 });
 
 test("should explain why retrying can fix a cached catalog mismatch", async () => {
-  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
+  workerCalls.catalogFailure = new RecipeBuilderRpcError({
     message: "Selected catalogs do not compose.",
     issues: [
       { code: "missing-reference", message: "Required module is missing." },
@@ -1146,7 +1146,7 @@ test("should explain why retrying can fix a cached catalog mismatch", async () =
 
 test("should offer the official catalog when a selected catalog requires it", async () => {
   workerCalls.requiresOfficial = ["ext"];
-  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
+  workerCalls.catalogFailure = new RecipeBuilderRpcError({
     message: "Selected catalogs do not compose.",
     issues: [
       {
@@ -1223,9 +1223,10 @@ test("should reject an invalid catalog entry without changing the selection", as
 });
 
 test("should name the catalog that failed to load when a custom catalog is unavailable", async () => {
-  workerCalls.catalogFailure = new RecipeBuilderRpcFailure({
-    message: `Catalog source ext: Could not fetch catalog from ${extUrl}.`,
+  workerCalls.catalogFailure = new RecipeBuilderRpcError({
+    message: "Could not load catalog source ext.",
     failedSource: { name: "ext", sourceUrl: extUrl },
+    causes: [`Could not fetch catalog from ${extUrl}.`],
   });
   await renderRecipeBuilder(sharedExtLink);
   await page.getByRole("button", { name: "Load these catalogs" }).click();

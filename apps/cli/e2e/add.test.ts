@@ -214,6 +214,27 @@ assert.equal(typeof planTasks, "function");
     );
 
     it.effect(
+      "prints why a --catalog selection is invalid under its message",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+
+          yield* cli.run(
+            "create",
+            "insecure-catalog",
+            "--yes",
+            "--catalog",
+            "mine=http://example.com/v1.json",
+          );
+          yield* cli.expectExitCode(1);
+          yield* cli.expectErrorContaining(
+            "Invalid --catalog selection\n  Caused by: Catalog URL must use https unless it targets a loopback host: http://example.com/v1.json",
+          );
+        }).pipe(Effect.provide(CLI.layer)),
+      { timeout: 30_000 },
+    );
+
+    it.effect(
       "adds a domain-api-contracts module to a package target",
       () =>
         Effect.gen(function* () {
