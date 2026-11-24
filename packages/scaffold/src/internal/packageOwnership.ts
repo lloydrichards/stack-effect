@@ -44,13 +44,13 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
 export const assertDistinctOwners = Effect.fnUntraced(function* (
   owners: ReadonlyArray<PackageOwner>,
 ) {
-  const collision = Arr.findFirst(
-    owners.flatMap((owner, index) =>
-      owners.slice(index + 1).map((other) => ({ owner, other })),
-    ),
-    ({ owner, other }) =>
-      CaseInsensitive(owner.name, other.name) ||
-      targetPathsOverlap(owner.path, other.path),
+  const collision = Arr.findFirst(owners, (owner, index) =>
+    Arr.findFirst(
+      owners.slice(index + 1),
+      (other) =>
+        CaseInsensitive(owner.name, other.name) ||
+        targetPathsOverlap(owner.path, other.path),
+    ).pipe(Option.map((other) => ({ owner, other }))),
   );
   if (Option.isSome(collision)) {
     const { owner, other } = collision.value;
@@ -74,13 +74,12 @@ export const validatePackageOwners = Effect.fnUntraced(function* (
     }));
   yield* assertDistinctOwners(proposed);
 
-  const relocation = Arr.findFirst(
-    proposed.flatMap((owner) => existing.map((other) => ({ owner, other }))),
-    ({ owner, other }) => {
+  const relocation = Arr.findFirst(proposed, (owner) =>
+    Arr.findFirst(existing, (other) => {
       const sameName = CaseInsensitive(owner.name, other.name);
       if (owner.path === other.path && sameName) return false;
       return sameName || targetPathsOverlap(owner.path, other.path);
-    },
+    }).pipe(Option.map((other) => ({ owner, other }))),
   );
   if (Option.isSome(relocation)) {
     const { owner, other } = relocation.value;

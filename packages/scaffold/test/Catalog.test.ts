@@ -378,6 +378,36 @@ describe("CatalogLoader", () => {
     },
   );
 
+  it.effect(
+    "should warn about persistence when caching validated content stalls",
+    () =>
+      Effect.gen(function* () {
+        const writing = yield* Deferred.make<void>();
+        const cache = Layer.succeed(CatalogCache, {
+          read: () => Effect.as(Effect.void, undefined),
+          write: (_entry: CatalogCacheEntry) =>
+            Deferred.succeed(writing, undefined).pipe(
+              Effect.andThen(Effect.never),
+            ),
+        });
+        const fiber = yield* Effect.forkChild(
+          CatalogLoader.pipe(
+            Effect.flatMap((loader) => loader.load({ sourceUrl })),
+            Effect.provide(
+              testLayer((request) => response(request, 200, document), cache),
+            ),
+          ),
+        );
+        // The response body is read in real time, so move the test clock
+        // only once the fetch is done and the cache write has started.
+        yield* Deferred.await(writing);
+        yield* TestClock.adjust("15 seconds");
+        const loaded = yield* Fiber.join(fiber);
+        assert.strictEqual(loaded.freshness, "current");
+        assert.strictEqual(loaded.warning?.kind, "persistence");
+      }),
+  );
+
   it.effect("should fetch current data when the cache cannot be read", () => {
     const cache = Layer.succeed(CatalogCache, {
       read: () =>
