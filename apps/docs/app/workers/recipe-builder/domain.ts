@@ -50,6 +50,8 @@ const RecipeBuilderCatalogSource = Schema.Struct({
   ),
 });
 
+export type RecipeBuilderCatalogSource = typeof RecipeBuilderCatalogSource.Type;
+
 export const RecipeBuilderCatalog = Schema.Struct({
   sources: Schema.Array(RecipeBuilderCatalogSource),
   targets: Schema.Array(

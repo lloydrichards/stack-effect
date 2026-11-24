@@ -153,6 +153,91 @@ const decodeCatalogParameters = (
   };
 };
 
+const DATABASE_BY_MODULE = {
+  "package-db-sqlite": "sqlite",
+  "package-db-postgres": "postgres",
+} satisfies Record<string, RecipeBuilderFormValues["database"]>;
+
+const isDatabaseModule = (
+  module: string,
+): module is keyof typeof DATABASE_BY_MODULE =>
+  Object.hasOwn(DATABASE_BY_MODULE, module);
+
+const isDatabaseTarget = ({ target }: RecipeTargetString) =>
+  target.kind === "package" && target.name === "db";
+
+// The database the `package/db` target selects, or undefined when it selects several.
+const selectedDatabase = (
+  targets: ReadonlyArray<RecipeTargetString>,
+): RecipeBuilderFormValues["database"] | undefined => {
+  const databaseModules = Arr.dedupe(
+    targets
+      .filter(isDatabaseTarget)
+      .flatMap((target) => target.modules.map(String))
+      .filter(isDatabaseModule),
+  );
+  if (databaseModules.length > 1) return undefined;
+  const [module] = databaseModules;
+  return module === undefined ? "none" : DATABASE_BY_MODULE[module];
+};
+
+// Non-workspace targets without database modules, which the form selects separately.
+const toFormTargets = (
+  targets: ReadonlyArray<RecipeTargetString>,
+): ReadonlyArray<TargetInstance> =>
+  targets
+    .filter((target) => target.target.kind !== "workspace")
+    .flatMap((target, index) => {
+      const modules = target.modules
+        .map(String)
+        .filter((module) => !isDatabaseModule(module));
+      return modules.length === 0 && isDatabaseTarget(target)
+        ? []
+        : [
+            {
+              id: `url-${target.target.kind}-${target.target.name || "default"}-${index + 1}`,
+              kind: target.target.kind,
+              name: target.target.name,
+              modules,
+            },
+          ];
+    });
+
+// Attach each dependency edge to the target it requires, or undefined when an
+// edge names a module its targets do not select.
+const withDependencies = (
+  targets: ReadonlyArray<TargetInstance>,
+  dependencies: RecipeUrl["dependencies"],
+) => {
+  const targetsByOwner = new Map(
+    targets.map((target) => [ownerKey(target), target]),
+  );
+  for (const edge of dependencies) {
+    const source = targetsByOwner.get(edge.from);
+    const destination = targetsByOwner.get(edge.to);
+    if (
+      !source?.modules.includes(edge.module) ||
+      !destination?.modules.includes(edge.requires) ||
+      (source.id === destination.id && edge.module === edge.requires)
+    )
+      return undefined;
+    targetsByOwner.set(edge.to, {
+      ...destination,
+      addedByDependency: edge.addedTarget,
+      requirements: [
+        ...(destination.requirements ?? []),
+        {
+          sourceTargetId: source.id,
+          sourceModuleId: edge.module,
+          moduleId: edge.requires,
+          addedModule: edge.addedModule,
+        },
+      ],
+    });
+  }
+  return [...targetsByOwner.values()];
+};
+
 const toInitialValues = (
   recipe: RecipeUrl,
   catalogs: CatalogSources | undefined,
@@ -181,25 +266,8 @@ const toInitialValues = (
   const workspaceModules = Arr.dedupe(
     workspaceTargets.flatMap((target) => target.modules.map(String)),
   );
-  const databaseModules = Arr.dedupe(
-    targets
-      .filter(
-        (target) =>
-          target.target.kind === "package" && target.target.name === "db",
-      )
-      .flatMap((target) => target.modules.map(String))
-      .filter(
-        (module) =>
-          module === "package-db-sqlite" || module === "package-db-postgres",
-      ),
-  );
-  if (databaseModules.length > 1) return undefined;
-  const database =
-    databaseModules[0] === "package-db-sqlite"
-      ? ("sqlite" as const)
-      : databaseModules[0] === "package-db-postgres"
-        ? ("postgres" as const)
-        : ("none" as const);
+  const database = selectedDatabase(targets);
+  if (database === undefined) return undefined;
   if (
     recipe.noGit &&
     (workspaceModules.includes("workspace-devenv-git") ||
@@ -207,54 +275,11 @@ const toInitialValues = (
   ) {
     return undefined;
   }
-  const formTargets: ReadonlyArray<TargetInstance> = targets
-    .filter((target) => target.target.kind !== "workspace")
-    .flatMap((target, index) => {
-      const modules = target.modules
-        .map(String)
-        .filter(
-          (module) =>
-            module !== "package-db-sqlite" && module !== "package-db-postgres",
-        );
-      return modules.length === 0 &&
-        target.target.kind === "package" &&
-        target.target.name === "db"
-        ? []
-        : [
-            {
-              id: `url-${target.target.kind}-${target.target.name || "default"}-${index + 1}`,
-              kind: target.target.kind,
-              name: target.target.name,
-              modules,
-            },
-          ];
-    });
-  const targetsByOwner = new Map(
-    formTargets.map((target) => [ownerKey(target), target]),
+  const formTargets = withDependencies(
+    toFormTargets(targets),
+    recipe.dependencies,
   );
-  for (const edge of recipe.dependencies) {
-    const source = targetsByOwner.get(edge.from);
-    const destination = targetsByOwner.get(edge.to);
-    if (
-      !source?.modules.includes(edge.module) ||
-      !destination?.modules.includes(edge.requires) ||
-      (source.id === destination.id && edge.module === edge.requires)
-    )
-      return undefined;
-    targetsByOwner.set(edge.to, {
-      ...destination,
-      addedByDependency: edge.addedTarget,
-      requirements: [
-        ...(destination.requirements ?? []),
-        {
-          sourceTargetId: source.id,
-          sourceModuleId: edge.module,
-          moduleId: edge.requires,
-          addedModule: edge.addedModule,
-        },
-      ],
-    });
-  }
+  if (formTargets === undefined) return undefined;
   const decoded = Schema.decodeOption(RecipeBuilderFormValues)({
     config,
     database,
@@ -262,7 +287,7 @@ const toInitialValues = (
     developerExperienceModules: workspaceModules.filter(
       (module) => module !== "workspace-devenv-git",
     ),
-    targets: [...targetsByOwner.values()],
+    targets: formTargets,
     supportSelections: [],
   });
 

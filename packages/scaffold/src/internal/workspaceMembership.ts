@@ -48,51 +48,56 @@ const membershipClassification = (
   return existing === updated ? "unchanged" : "modify";
 };
 
-const registerManifest = Effect.fnUntraced(function* (
-  path: RepositoryPath,
-  outcome: PlanOutcome | undefined,
-  existing: string | undefined,
+// A workspace manifest whose membership list is being updated.
+type Manifest = {
+  path: RepositoryPath;
+  outcome: PlanOutcome | undefined;
+  existing: string | undefined;
+  contents: string;
+};
+
+const registerPnpmWorkspace = Effect.fnUntraced(function* (
+  manifest: Manifest,
   members: ReadonlyArray<string>,
 ) {
-  const seed =
-    outcome?._tag === "complete" ? outcome.contents : outcome?.seedContents;
-  const contents =
-    outcome?._tag === "complete" && outcome.classification === "conflict"
-      ? seed
-      : (existing ?? seed);
-  if (contents === undefined) return outcome;
-  if (path === "pnpm-workspace.yaml") {
-    const document = parseDocument(contents);
-    if (document.errors.length > 0)
-      return yield* new PlanError({
-        message: `Invalid pnpm-workspace.yaml: ${document.errors.map((error) => error.message).join("; ")}`,
-        cause: document.errors,
-      });
-    const sequence = document.get("packages", true);
-    const entries = yield* Schema.decodeUnknownEffect(
-      Schema.Array(Schema.String),
-    )(isSeq(sequence) ? sequence.toJSON() : undefined).pipe(
-      Effect.mapError(
-        (cause) =>
-          new PlanError({
-            message: "Expected a packages sequence in pnpm-workspace.yaml.",
-            cause,
-          }),
-      ),
-    );
-    const paths = mergeMembers(entries, members);
-    if (!sameMembers(entries, paths)) document.set("packages", paths);
-    const updated = document.toString();
-    return PlanOutcome.cases.complete.make({
-      path,
-      contents: updated,
-      classification: membershipClassification(
-        existing,
-        updated,
-        outcome?.classification,
-      ),
+  const { path, outcome, existing, contents } = manifest;
+  const document = parseDocument(contents);
+  if (document.errors.length > 0)
+    return yield* new PlanError({
+      message: `Invalid pnpm-workspace.yaml: ${document.errors.map((error) => error.message).join("; ")}`,
+      cause: document.errors,
     });
-  }
+  const sequence = document.get("packages", true);
+  const entries = yield* Schema.decodeUnknownEffect(
+    Schema.Array(Schema.String),
+  )(isSeq(sequence) ? sequence.toJSON() : undefined).pipe(
+    Effect.mapError(
+      (cause) =>
+        new PlanError({
+          message: "Expected a packages sequence in pnpm-workspace.yaml.",
+          cause,
+        }),
+    ),
+  );
+  const paths = mergeMembers(entries, members);
+  if (!sameMembers(entries, paths)) document.set("packages", paths);
+  const updated = document.toString();
+  return PlanOutcome.cases.complete.make({
+    path,
+    contents: updated,
+    classification: membershipClassification(
+      existing,
+      updated,
+      outcome?.classification,
+    ),
+  });
+});
+
+const registerJsonWorkspaces = Effect.fnUntraced(function* (
+  manifest: Manifest,
+  members: ReadonlyArray<string>,
+) {
+  const { path, outcome, existing, contents } = manifest;
   const object = yield* Schema.decodeEffect(jsonObject)(contents).pipe(
     Effect.mapError(
       (cause) =>
@@ -117,19 +122,27 @@ const registerManifest = Effect.fnUntraced(function* (
   );
   const paths = mergeMembers(entries, members);
   if (outcome?._tag === "complete") {
-    const updated = `${yield* Schema.encodeEffect(jsonObject)({ ...object, [field]: paths }).pipe(Effect.mapError((cause) => new PlanError({ message: `Could not encode ${path}`, cause })))}\n`;
+    const encoded = yield* Schema.encodeEffect(jsonObject)({
+      ...object,
+      [field]: paths,
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new PlanError({ message: `Could not encode ${path}`, cause }),
+      ),
+    );
+    const updated = `${encoded}\n`;
     return {
       ...outcome,
       contents: updated,
       classification: membershipClassification(
         existing,
         updated,
-        outcome?.classification,
+        outcome.classification,
       ),
     };
   }
-  const changed = !sameMembers(entries, paths);
-  if (!changed) return outcome;
+  if (sameMembers(entries, paths)) return outcome;
   const membershipChange = existing === undefined ? "create" : "modify";
   return PlanOutcome.cases.composed.make({
     path,
@@ -146,6 +159,25 @@ const registerManifest = Effect.fnUntraced(function* (
     classification:
       outcome?.classification === "conflict" ? "conflict" : membershipChange,
   });
+});
+
+const registerManifest = Effect.fnUntraced(function* (
+  path: RepositoryPath,
+  outcome: PlanOutcome | undefined,
+  existing: string | undefined,
+  members: ReadonlyArray<string>,
+) {
+  const seed =
+    outcome?._tag === "complete" ? outcome.contents : outcome?.seedContents;
+  const contents =
+    outcome?._tag === "complete" && outcome.classification === "conflict"
+      ? seed
+      : (existing ?? seed);
+  if (contents === undefined) return outcome;
+  const manifest = { path, outcome, existing, contents };
+  return path === "pnpm-workspace.yaml"
+    ? yield* registerPnpmWorkspace(manifest, members)
+    : yield* registerJsonWorkspaces(manifest, members);
 });
 
 // Register package roots using the same stop-at-owner boundary as repository discovery.
