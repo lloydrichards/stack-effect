@@ -5,7 +5,7 @@ import { HttpServer, HttpServerResponse } from "effect/http";
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import { catalog, catalogId, root } from "../catalog/index.ts";
-import { LoopbackServer, runMain, Services } from "./platform.ts";
+import { LoopbackServer, reportError, runMain, Services } from "./platform.ts";
 
 class PreviewError extends Data.TaggedError("PreviewError")<{
   readonly message: string;
@@ -85,7 +85,7 @@ const program = Effect.gen(function* () {
 runMain(
   program.pipe(
     Effect.scoped,
-    Effect.tapError((error) => Console.error(error.message)),
+    Effect.tapError(reportError),
     Effect.provide(Layer.merge(LoopbackServer, Services)),
   ),
   { disableErrorReporting: true },

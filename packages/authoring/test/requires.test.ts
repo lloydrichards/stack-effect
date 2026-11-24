@@ -6,7 +6,10 @@ import {
   defineModules,
   type ModuleInput,
 } from "@repo/authoring/Define";
-import { loadOfficialCatalog } from "@repo/authoring/Official";
+import {
+  OfficialCatalogUnavailable,
+  loadOfficialCatalog,
+} from "@repo/authoring/Official";
 import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
@@ -257,6 +260,16 @@ describe("loadOfficialCatalog", () => {
         assert.include(error.message, "https://official.test/v1.json");
       }).pipe(Effect.provide(serving(() => new Response("", { status: 503 })))),
   );
+
+  it("should construct the unavailable error from a URL and message alone", () => {
+    const error = new OfficialCatalogUnavailable({
+      url: "https://official.test/v1.json",
+      message: "offline",
+    });
+
+    assert.strictEqual(error.message, "offline");
+    assert.isUndefined(error.cause);
+  });
 
   it.effect(
     "should fail as unavailable when the official catalog serves an invalid document",

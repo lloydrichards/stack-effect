@@ -1,7 +1,7 @@
 import { buildCatalog } from "@stack-effect/author/Build";
 import { Console, Effect, FileSystem, Path } from "effect";
 import { catalog, catalogId, root } from "../catalog/index.ts";
-import { runMain, Services } from "./platform.ts";
+import { reportError, runMain, Services } from "./platform.ts";
 
 // Upload `dist` as is; consumers select <host>/registry/v1/catalog.json.
 const output = new URL("../dist/registry/v1/catalog.json", import.meta.url);
@@ -18,7 +18,7 @@ const program = Effect.gen(function* () {
 
 runMain(
   program.pipe(
-    Effect.tapError((error) => Console.error(error.message)),
+    Effect.tapError(reportError),
     Effect.provide(Services),
   ),
   { disableErrorReporting: true },

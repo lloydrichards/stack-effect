@@ -451,7 +451,7 @@ import { loadOfficialCatalog } from "@stack-effect/author/Official";
 import { Console, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { catalog, catalogId, root } from "../catalog/index.ts";
-import { runMain, Services } from "./platform.ts";
+import { reportError, runMain, Services } from "./platform.ts";
 
 const program = Effect.gen(function* () {
   const official = yield* loadOfficialCatalog();
@@ -468,7 +468,7 @@ const program = Effect.gen(function* () {
 
 runMain(
   program.pipe(
-    Effect.tapError((error) => Console.error(error.message)),
+    Effect.tapError(reportError),
     Effect.provide(Layer.mergeAll(Services, FetchHttpClient.layer)),
   ),
   { disableErrorReporting: true },
@@ -513,7 +513,7 @@ Catalog build failed:
   catalog/starter.ts: Module ext-greeting references missing target server
 ```
 
-Validation also rejects an ID that the official catalog already uses, for example `Duplicate module ID mcp-tools in sources official and ext`. The build output declares `"requires":["official"]` and never embeds official definitions. Because the build fetches the official document, it fails with `OfficialCatalogUnavailable` when the official registry is unreachable. When official definitions change, the same definitions can also validate differently.
+Validation also rejects an ID that the official catalog already uses, for example `Duplicate module ID mcp-tools in sources official and ext`. The build output declares `"requires":["official"]` and never embeds official definitions. Because the build fetches the official document, it fails with `OfficialCatalogUnavailable` when the official registry is unreachable, and `reportError` prints the HTTP status or decode problem on a `Caused by:` line under it. When official definitions change, the same definitions can also validate differently.
 
 Templates that land in official targets pass through the consumer's official lint and format steps at Finalize. For example, the official oxlint rules reject `console.log` in Effect code, so a template that uses it makes the lint script fail in the consumer's project. Run the preview's generated files through the same checks before you publish.
 
