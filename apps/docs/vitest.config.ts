@@ -12,6 +12,7 @@ export default defineConfig({
   optimizeDeps: {
     include: [
       "@base-ui/react/popover",
+      "@effect/platform-browser/BrowserCrypto",
       "@effect/platform-browser/BrowserWorkerRunner",
       "@effect-vfs/memory",
       "@repo/scaffold/CatalogLoader",
