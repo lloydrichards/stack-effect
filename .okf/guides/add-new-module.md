@@ -32,10 +32,11 @@ Write a short noun phrase that names what the module adds. Lead with the feature
 
 Prototype generated files first. Then add the definition to the relevant `catalogs/official/src/modules/*.ts` group and ensure `moduleRegistry.ts` includes that group. Use an existing sibling definition as the template.
 
-Definitions are plain JSON-shaped data grouped by `defineModules(import.meta.url, [...])` from `@repo/authoring`, which records the source file for build errors. Keep each generated file body in `catalogs/official/templates/<module-id>/<path>` and reference it with `template(...)`; the build embeds its exact bytes. This example shows the required fields for a package-owned module:
+Definitions are plain JSON-shaped data grouped by `defineModules(import.meta.url, [...])` from `@repo/authoring/Define`, which records the source file for build errors. Keep each generated file body in `catalogs/official/templates/<module-id>/<path>` and reference it with `template(...)`; the build embeds its exact bytes. This example shows the required fields for a package-owned module:
 
 ```typescript
-import { defineModules, templates } from "@repo/authoring";
+import { defineModules } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 

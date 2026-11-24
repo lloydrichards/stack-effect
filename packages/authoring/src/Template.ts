@@ -1,3 +1,7 @@
+/**
+ * Template references: point a contribution field at an ordinary file whose
+ * bytes the build embeds.
+ */
 import { Predicate } from "effect";
 
 /** A generated-file body kept in an ordinary file and embedded at build time. */

@@ -1,8 +1,5 @@
-import {
-  type ContributionInput,
-  defineModules,
-  templates,
-} from "@repo/authoring";
+import { type ContributionInput, defineModules } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(
   new URL("../../templates/alchemy/", import.meta.url),

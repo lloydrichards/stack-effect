@@ -16,8 +16,10 @@ validation errors and provenance.
   `Path`, which callers provide with their platform layer. Oxlint enforces
   this. This workspace package ships raw TypeScript for repository consumers;
   `packages/author` bundles it, with `@repo/catalog` and `@repo/domain`, into
-  the published `@stack-effect/author`. Anything exported from `src/index.ts`
-  becomes public API there.
+  the published `@stack-effect/author`. Every public module (`Build`,
+  `Define`, `Official`, `Template`) is a published subpath and part of the
+  root entry there, so anything it exports is public npm API. Adding a module
+  means adding it to `exports`, the tsdown entries, and the author root.
 - Every definition source and template must be a file URL or absolute path
   inside the build `root`, so reported paths and provenance are the same on
   every machine.
@@ -34,7 +36,7 @@ validation errors and provenance.
 ## Fixture
 
 `test/fixtures/standalone` is the external-author proof. It may import only
-`@repo/authoring`, `effect` and `@effect/platform-*`, which
+the `@repo/authoring` subpaths, `effect` and `@effect/platform-*`, which
 `test/fixtureBoundary.test.ts` checks. Its templates and golden JSON are
 excluded from formatting and line-ending conversion because their bytes are
 embedded verbatim; regenerate the golden file only for intended output changes.

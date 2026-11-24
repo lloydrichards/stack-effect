@@ -1,4 +1,5 @@
-import { defineModules, defineTargets, templates } from "@stack-effect/author";
+import { defineModules, defineTargets } from "@stack-effect/author/Define";
+import { templates } from "@stack-effect/author/Template";
 import { packageName, targetPath } from "./tokens.ts";
 
 // Template paths resolve against this directory. Each file is embedded in the

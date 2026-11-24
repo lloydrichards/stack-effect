@@ -1,4 +1,5 @@
-import { defineModules, templates } from "@repo/authoring";
+import { defineModules } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 import { chatMcpChildren } from "./chat-mcp";
 
 const template = templates(new URL("../../templates/", import.meta.url));

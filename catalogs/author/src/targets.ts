@@ -1,4 +1,5 @@
-import { defineTargets, templates } from "@repo/authoring";
+import { defineTargets } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(new URL("../templates/", import.meta.url));
 

@@ -1,5 +1,5 @@
 // @effect-diagnostics unstableApiUsage:off The preview serves the catalog over loopback and spawns the CLI.
-import { buildCatalog } from "@stack-effect/author";
+import { buildCatalog } from "@stack-effect/author/Build";
 import { Console, Data, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { HttpServer, HttpServerResponse } from "effect/http";
 import { ChildProcess } from "effect/process";

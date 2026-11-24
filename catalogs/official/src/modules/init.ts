@@ -1,4 +1,5 @@
-import { defineModules, type ModuleInput, templates } from "@repo/authoring";
+import { defineModules, type ModuleInput } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 

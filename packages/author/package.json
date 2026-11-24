@@ -9,6 +9,22 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./Build": {
+      "types": "./dist/Build.d.ts",
+      "import": "./dist/Build.js"
+    },
+    "./Define": {
+      "types": "./dist/Define.d.ts",
+      "import": "./dist/Define.js"
+    },
+    "./Official": {
+      "types": "./dist/Official.d.ts",
+      "import": "./dist/Official.js"
+    },
+    "./Template": {
+      "types": "./dist/Template.d.ts",
+      "import": "./dist/Template.js"
+    },
     "./package.json": "./package.json"
   },
   "types": "./dist/index.d.ts",

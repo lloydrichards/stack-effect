@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { buildCatalog } from "@repo/authoring";
+import { buildCatalog } from "@repo/authoring/Build";
 import { buildOfficialCatalog } from "@repo/catalog-official/service";
 import { Effect } from "effect";
 import { LABS_CATALOG_ID, labsCatalog, labsCatalogRoot } from "./index";

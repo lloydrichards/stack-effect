@@ -1,12 +1,12 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
+import { buildCatalog } from "@repo/authoring/Build";
 import {
-  buildCatalog,
   type CatalogInput,
   defineModules,
-  loadOfficialCatalog,
   type ModuleInput,
-} from "@repo/authoring";
+} from "@repo/authoring/Define";
+import { loadOfficialCatalog } from "@repo/authoring/Official";
 import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { Effect, Layer, Schema } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";

@@ -1,3 +1,7 @@
+/**
+ * The official catalog: fetch it so a catalog that requires it can be
+ * validated against it.
+ */
 import { decodeDocument } from "@repo/catalog/Protocol";
 import {
   type CatalogDocument,

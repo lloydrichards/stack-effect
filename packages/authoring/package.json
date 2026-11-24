@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    "./Build": "./src/Build.ts",
+    "./Define": "./src/Define.ts",
+    "./Official": "./src/Official.ts",
+    "./Template": "./src/Template.ts",
+    "./internal/*": null
   },
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
     "test": "vitest run",

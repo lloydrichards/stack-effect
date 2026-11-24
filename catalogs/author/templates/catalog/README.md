@@ -77,7 +77,7 @@ To add modules to official targets rather than publish a standalone catalog:
 
 1. Remove the `workspace` target from `catalog/starter.ts`.
 2. Load the official document with `loadOfficialCatalog` from
-   `@stack-effect/author`, and pass `requires: ["official"]` and
+   `@stack-effect/author/Official`, and pass `requires: ["official"]` and
    `official` to `buildCatalog` in each script.
 3. Add `--catalog=official` to the command in `scripts/preview.ts`.
 4. Consumers then select both: `--catalog official --catalog mine=<url>`.

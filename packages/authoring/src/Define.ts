@@ -1,3 +1,7 @@
+/**
+ * Catalog definitions: group targets and modules in their JSON shape and
+ * record the file that authored them.
+ */
 import type {
   Contribution,
   ModuleDefinition,

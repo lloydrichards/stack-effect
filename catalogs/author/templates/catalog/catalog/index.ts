@@ -3,7 +3,7 @@ import type {
   DefinitionGroup,
   ModuleInput,
   TargetInput,
-} from "@stack-effect/author";
+} from "@stack-effect/author/Define";
 
 /** The ID diagnostics name this catalog by. */
 export const catalogId = "{{projectName}}";
