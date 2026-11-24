@@ -35,7 +35,7 @@ validation errors and provenance.
 
 `test/fixtures/standalone` is the external-author proof. It may import only
 `@repo/authoring`, `effect` and `@effect/platform-*`, which
-`src/fixtureBoundary.test.ts` checks. Its templates and golden JSON are
+`test/fixtureBoundary.test.ts` checks. Its templates and golden JSON are
 excluded from formatting and line-ending conversion because their bytes are
 embedded verbatim; regenerate the golden file only for intended output changes.
 
