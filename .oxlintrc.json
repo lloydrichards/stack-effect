@@ -71,7 +71,12 @@
       }
     },
     {
-      "files": ["packages/domain/src/**", "packages/scaffold/src/**"],
+      "files": [
+        "packages/domain/src/**",
+        "packages/scaffold/src/**",
+        "packages/catalog/src/**",
+        "apps/cli/src/**"
+      ],
       "rules": {
         "effecttsgo/global-json": "error",
         "no-nested-ternary": "error",
