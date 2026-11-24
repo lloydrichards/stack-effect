@@ -1,6 +1,6 @@
 ---
 name: stack-effect-testing
-description: Design, review, or consolidate tests in Stack Effect. Use to choose what a test should prove, where it belongs, and which cases to keep.
+description: Design, review, or consolidate tests in Stack Effect, including test file placement, naming, and fixtures. Use to choose what a test should prove, where it belongs, which file it goes in, and which cases to keep.
 ---
 
 # Test design
@@ -41,6 +41,13 @@ description: Design, review, or consolidate tests in Stack Effect. Use to choose
 
 - Default to `it.effect` from `@effect/vitest` in repository Effect suites. Small, synchronous generated-project fixtures may use `Effect.runSync`. Keep the owner under test real and replace the nearest dependency needed to reproduce the failure. Use the existing memory filesystem for repository state. Use a temporary project with a real filesystem when the behavior depends on the platform.
 - Use `TestClock` from `effect/testing` for Effect time. For concurrent work, await the signal that proves readiness or completion, such as a Deferred, a fiber result, or an observed state change.
+- In a shutdown test, wait for an explicit start signal before closing the owner scope. Verify cleanup and any released resources. See the [managed chat regression fixture](../../../apps/cli/e2e/fixtures/chat-owner-scope.ts.txt).
+
+  ```ts
+  yield* Deferred.await(generationStarted);
+  yield* Scope.close(ownerScope, Exit.void);
+  assert.equal(yield* Deferred.isDone(generationStopped), true);
+  ```
 - Use controlled HTTP fixtures for routine tests. Check deployed registry CORS, cache validators, and genuine 404 responses separately before releasing clients that depend on them.
 - For examples, see [Catalog tests](../../../packages/scaffold/test/Catalog.test.ts) for controlled HTTP and time, and [Apply repository state tests](../../../packages/scaffold/test/Apply.test.ts) for Plan and Apply against a memory filesystem.
 - Run `bun run test --filter=<workspace>` from the repository root for each affected workspace that defines a test task. Follow the workspace instructions for CLI E2E and browser checks.

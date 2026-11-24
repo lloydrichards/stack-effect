@@ -10,8 +10,8 @@ sources:
     resource: ../../packages/domain/src/Plan.ts
   - id: protocol
     resource: ../../packages/catalog/src/CatalogProtocol.ts
-  - id: package-shape
-    resource: ../../.agents/TASTE.md
+  - id: package-layout
+    resource: ../../.agents/skills/stack-effect-design/SKILL.md
   - id: loader-tests
     resource: ../../packages/scaffold/test/Catalog.test.ts
 generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
@@ -28,7 +28,7 @@ Invariants:
 
 - `Contribution` is a tagged union of `file`, `pkg-json-entry`, `ts-call-arg`, `ts-object-field`, and `jsx-slot`. `NormalizedContributions` groups resolved target and module contributions.
 - Values are declarative intent, not direct apply results.
-- A generated package exposes each public module as its own `package.json` `exports` subpath, contributed as a `pkg-json-entry` with field `exports`, such as `./Api` mapped to `./src/Api.ts`. Consumers import the subpath, such as `@repo/db/TodoRepository`. Modules do not compose a root `src/index.ts` of re-exports. This follows the package shape rule in the coding taste guide (source `package-shape`, "Package shape").
+- A generated package exposes each public module as its own `package.json` `exports` subpath, contributed as a `pkg-json-entry` with field `exports`, such as `./Api` mapped to `./src/Api.ts`. Consumers import the subpath, such as `@repo/db/TodoRepository`. Modules do not compose a root `src/index.ts` of re-exports. This follows the layout rule in the package design skill (source `package-layout`, "Lay out a package").
 - The protocol no longer has a `barrel-export` contribution. A registry document that still contains one fails to decode with `CatalogDocumentInvalid`, and one that only declares `contribution:barrel-export` fails with `CatalogCapabilityUnsupported` (sources `protocol` and `loader-tests`). The kind was removed outright because no third-party catalogs depended on it.
 - Existing projects keep any `src/index.ts` that an earlier scaffold composed. Plan no longer targets that path, so `add` neither updates nor deletes it, and no migration runs. Its re-exports keep working until the owner removes them.
 
