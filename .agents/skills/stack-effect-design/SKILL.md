@@ -38,6 +38,8 @@ When Fallow cannot see a class member that production code calls through an infe
 | `no-restricted-imports` | `.oxlintrc.json`, test override | A test importing `**/internal/**` |
 | Fallow dead code | [`.fallowrc.json`](../../../.fallowrc.json) | Unused exports, duplicate exports, and circular dependencies |
 
+The [coding taste guide](../../TASTE.md#lint-that-enforces-taste) lists the lint rules that enforce how code reads.
+
 ## Check the consumers
 
 | Change | What to inspect |
