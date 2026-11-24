@@ -1,16 +1,20 @@
 import { assert, describe, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
+import type { Contribution } from "@repo/domain/Catalog";
 import { type Plan, type PlanOutcome, RepositoryPath } from "@repo/domain/Plan";
-import { Effect } from "effect";
+import { Effect, FileSystem, Schema } from "effect";
 import {
   app,
   apply,
+  module,
   pipelineLayer,
   plan,
   readFile,
   repositoryRoot,
   selected,
   selection,
+  target,
   testPipeline,
   withFault,
   writeFiles,
@@ -137,7 +141,7 @@ describe("Planner", () => {
     );
 
     it.effect(
-      "should compose into a target file that another selected target creates",
+      "should add the selected presence route to a new server entry point",
       () =>
         Effect.gen(function* () {
           yield* writeFiles({});
@@ -149,9 +153,21 @@ describe("Planner", () => {
             ),
           );
 
+          const entryPoint = "apps/server-api/src/index.ts";
           assert.strictEqual(
-            outcomeAt(planned, "apps/server-api/src/index.ts")._tag,
-            "composed",
+            outcomeAt(planned, entryPoint).classification,
+            "create",
+          );
+
+          yield* apply(planned);
+          const written = yield* readFile(entryPoint);
+          assert.match(
+            written,
+            /import\s*\{[^}]*\bPresenceRpcRoutes\b[^}]*\}\s*from ["']\.\/rpc\/Presence["']/,
+          );
+          assert.match(
+            written,
+            /AllRouters\s*=\s*Layer\.mergeAll\([^)]*\bPresenceRpcRoutes\b/,
           );
         }).pipe(Effect.provide(officialLayer)),
     );
@@ -245,6 +261,242 @@ describe("Planner", () => {
     );
   });
 
+  describe("when contributions share a path", () => {
+    const manifest = "packages/app/package.json";
+    const artifact = "packages/app/src/main.ts";
+    const manifestEntry = (
+      field: "exports" | "dependencies" | "devDependencies" | "scripts",
+      name: string,
+      value: string,
+    ): Contribution => ({
+      _tag: "pkg-json-entry",
+      path: manifest,
+      field,
+      name,
+      value,
+    });
+    const file = (
+      contents: string,
+      conflictOnModify = false,
+    ): Contribution => ({
+      _tag: "file",
+      path: artifact,
+      contents,
+      conflictOnModify,
+    });
+    const call: Contribution = {
+      _tag: "ts-call-arg",
+      path: artifact,
+      targetVariable: "program",
+      functionName: "Command.withSubcommands",
+      argument: "apiCommand",
+      import: { moduleSpecifier: "./api", namedImports: ["apiCommand"] },
+    };
+    const slot: Contribution = {
+      _tag: "jsx-slot",
+      path: artifact,
+      slotId: "commands",
+      content: "<Command />",
+    };
+    const layerFor = (
+      base: ReadonlyArray<Contribution>,
+      extra: ReadonlyArray<Contribution>,
+    ) =>
+      pipelineLayer(
+        CatalogReader.fromFragments([
+          {
+            targets: [target("package")],
+            modules: [
+              module("base", "package", { contributions: base }),
+              module("extra", "package", { contributions: extra }),
+            ],
+          },
+        ]),
+      );
+
+    for (const { name, base, extra } of [
+      {
+        name: "authoritative contents differ",
+        base: [file("export const program = 1;\n")],
+        extra: [file("export const program = 2;\n")],
+      },
+      {
+        name: "two scripts disagree on one manifest key",
+        base: [
+          manifestEntry("scripts", "dev", "vite"),
+          manifestEntry("scripts", "test", "vitest"),
+        ],
+        extra: [manifestEntry("scripts", "dev", "node dev.js")],
+      },
+      {
+        name: "two development dependencies disagree on one manifest key",
+        base: [manifestEntry("devDependencies", "vitest", "^4.0.0")],
+        extra: [manifestEntry("devDependencies", "vitest", "^5.0.0")],
+      },
+      {
+        name: "two exports disagree on one manifest key",
+        base: [manifestEntry("exports", "./api", "./src/api.ts")],
+        extra: [manifestEntry("exports", "./api", "./src/other.ts")],
+      },
+      {
+        name: "call and slot contributions have no common composition",
+        base: [call],
+        extra: [slot],
+      },
+      {
+        name: "a seeded call composition also receives a slot",
+        base: [file("const program = Command.withSubcommands([]);\n"), call],
+        extra: [slot],
+      },
+    ]) {
+      it.effect(`should reject contributed intents when ${name}`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles({});
+          yield* plan(app("base"));
+          const failure = yield* Effect.flip(plan(app("base", "extra")));
+
+          assert.strictEqual(failure._tag, "PlanError");
+        }).pipe(Effect.provide(layerFor(base, extra))),
+      );
+    }
+
+    it.effect(
+      "should retain protection when identical file contributions are combined",
+      () =>
+        Effect.gen(function* () {
+          const existing = "export const program = makeUserProgram();\n";
+          yield* writeFiles({ [artifact]: existing });
+
+          const unprotected = yield* plan(app("base"));
+          const protectedPlan = yield* plan(app("base", "extra"));
+
+          assert.strictEqual(
+            outcomeAt(unprotected, artifact).classification,
+            "modify",
+          );
+          assert.strictEqual(
+            outcomeAt(protectedPlan, artifact).classification,
+            "conflict",
+          );
+          assert.lengthOf(conflictsAt(protectedPlan, artifact), 1);
+          assert.strictEqual(yield* readFile(artifact), existing);
+        }).pipe(
+          Effect.provide(
+            layerFor(
+              [file("export const program = makeProgram();\n")],
+              [file("export const program = makeProgram();\n", true)],
+            ),
+          ),
+        ),
+    );
+
+    const entries = [
+      manifestEntry("exports", "./api", "./src/api.ts"),
+      manifestEntry("dependencies", "effect", "^4.0.0"),
+      manifestEntry("devDependencies", "vitest", "^5.0.0"),
+      manifestEntry("scripts", "test", "vitest run"),
+    ];
+
+    it.effect(
+      "should merge each manifest entry into its own section and preserve user fields",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [manifest]: JSON.stringify({
+              name: "@repo/app",
+              private: true,
+              dependencies: { existing: "^1.0.0" },
+              exports: { "./existing": "./src/existing.ts" },
+            }),
+          });
+          const planned = yield* plan(app("base"));
+          assert.strictEqual(
+            outcomeAt(planned, manifest).classification,
+            "modify",
+          );
+          assert.deepEqual(conflictsAt(planned, manifest), []);
+
+          yield* apply(planned);
+          const written = yield* Schema.decodeEffect(
+            Schema.fromJsonString(Schema.Record(Schema.String, Schema.Unknown)),
+          )(yield* readFile(manifest));
+          assert.deepEqual(written, {
+            name: "@repo/app",
+            private: true,
+            exports: {
+              "./api": "./src/api.ts",
+              "./existing": "./src/existing.ts",
+            },
+            dependencies: { effect: "^4.0.0", existing: "^1.0.0" },
+            devDependencies: { vitest: "^5.0.0" },
+            scripts: { test: "vitest run" },
+          });
+
+          const repeated = yield* plan(app("base"));
+          assert.strictEqual(
+            outcomeAt(repeated, manifest).classification,
+            "unchanged",
+          );
+        }).pipe(Effect.provide(layerFor(entries, []))),
+    );
+
+    for (const { name, existing, conflicts, nested } of [
+      {
+        name: "the file is invalid JSON",
+        existing: "{",
+        nested: true,
+        conflicts: [
+          { _tag: "exports", name: "./api" },
+          { _tag: "dependencies", section: "dependencies", name: "effect" },
+          { _tag: "dependencies", section: "devDependencies", name: "vitest" },
+          { _tag: "scripts", name: "test" },
+        ],
+      },
+      {
+        name: "one dependency differs",
+        existing: '{"name":"@repo/app","devDependencies":{"vitest":"^4.0.0"}}',
+        conflicts: [
+          { _tag: "dependencies", section: "devDependencies", name: "vitest" },
+        ],
+      },
+      {
+        name: "an export section contains a non-string sibling",
+        existing:
+          '{"name":"@repo/app","exports":{"./api":"./src/api.ts","./invalid":7}}',
+        conflicts: [{ _tag: "exports", name: "./api" }],
+      },
+    ]) {
+      const path = nested ? "packages/app/config/package.json" : manifest;
+
+      it.effect(`should identify manifest conflicts when ${name}`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [manifest]: '{"name":"@repo/app"}',
+            [path]: existing,
+          });
+          const planned = yield* plan(app("base"));
+
+          assert.strictEqual(
+            outcomeAt(planned, path).classification,
+            "conflict",
+          );
+          assert.sameDeepMembers(
+            [...conflictsAt(planned, path)],
+            conflicts.map((conflict) => ({ ...conflict, path })),
+          );
+          assert.strictEqual(yield* readFile(path), existing);
+        }).pipe(
+          Effect.provide(
+            layerFor(
+              entries.map((entry) => ({ ...entry, path })),
+              [],
+            ),
+          ),
+        ),
+      );
+    }
+  });
+
   describe("with the test catalog", () => {
     it.effect(
       "should record missing, directory, and file paths in the baseline",
@@ -284,6 +536,27 @@ describe("Planner", () => {
         }).pipe(Effect.provide(testPipeline)),
       );
     }
+
+    it.effect("should fail when a planned file changes during planning", () =>
+      Effect.gen(function* () {
+        const path = "packages/app/src/a.txt";
+        yield* writeFiles({ [path]: "A\n" });
+        yield* plan(app("pair"));
+
+        const fileSystem = yield* FileSystem.FileSystem;
+        const absolute = `${repositoryRoot}/${path}`;
+        const change = yield* withFault({
+          method: "readFile",
+          path: absolute,
+          before: fileSystem.writeFileString(absolute, "User edit\n"),
+          skip: 1,
+        });
+        const failure = yield* Effect.flip(change.provide(plan(app("pair"))));
+
+        assert.strictEqual(failure._tag, "PlanError");
+        assert.strictEqual(yield* readFile(path), "User edit\n");
+      }).pipe(Effect.provide(testPipeline)),
+    );
 
     it.effect("should fail when a planned file path is a directory", () =>
       Effect.gen(function* () {
