@@ -26,6 +26,12 @@ sources:
     resource: ../../apps/docs/app/components/recipe-builder/preset-targets.ts
   - id: preset-editor
     resource: ../../apps/docs/app/components/recipe-builder/target-selector/use-target-editor.ts
+  - id: provider-resolution
+    resource: ../../packages/scaffold/src/internal/recipeService.ts
+    title: Recipe capability provider resolution
+  - id: recipe-errors
+    resource: ../../packages/domain/src/Recipe.ts
+    title: Provider strategy and provider errors
 generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 ---
 
@@ -66,6 +72,18 @@ Graph nodes are target and module definitions. Edge kinds are `supportedOn`, `re
 A module contributes only to its owning target. Cross-target effects use tagged dependencies or implications. A client API module can require domain contracts and imply a server counterpart; it cannot directly write into the server target.
 
 `required-target` requires a target identity. `required-module` requires a module attachment and its target. `required-capability` asks for a provider on a target; recipe or selection handling must resolve that provider before Blueprint resolution. `provides`, `conflictsWith`, and categories describe selectable alternatives.
+
+## Capability provider resolution
+
+`RecipeService.resolve` resolves providers before it returns the Selection. It walks every module the Blueprint would attach: selected modules, target required modules, `required-module` dependencies, and providers it adds, until nothing changes. A requirement is met when the Selection already has a module on the dependency target that provides the capability. A non-package dependency on the requester's own kind means the requester's target, as in Blueprint.
+
+For an unmet requirement, the candidates are the catalog's `getCapabilityProviders` for that target, in catalog order, that support the configured runtime. The `providerStrategy` decides:
+
+- `fail-on-ambiguous` adds the only candidate and fails with `AmbiguousRecipeProvider`, listing every candidate, when there are several. `init`, `add`, `create`, `catalog workspace reset --target`, and Recipe Builder previews use it.
+- `first-provider` adds the first candidate. The catalog workspace uses it when it selects every module.
+- `explicit` adds the provider it names for that target and capability, and otherwise behaves like `fail-on-ambiguous`.
+
+Every strategy fails with `MissingRecipeProvider` when there is no candidate. The provider joins the dependency target, and an absent target joins the Selection under the dependency's identity so Blueprint finds it. When the Selection already holds several providers, recipe resolution leaves them for Blueprint to reject. Identical recipes and catalogs give identical Selections, because the walk follows recipe and catalog order.
 
 Children organize same-target selection UI. Required children are selected by that UI; they are not a substitute for dependency declarations. Visibility controls presentation, not authorization.
 

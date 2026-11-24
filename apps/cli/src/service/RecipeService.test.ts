@@ -782,7 +782,7 @@ describe("RecipeService", () => {
     );
 
     it.effect(
-      "should leave implied modules and capability providers for Blueprint/catalog resolution",
+      "should leave implied modules for Blueprint/catalog resolution",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeService;

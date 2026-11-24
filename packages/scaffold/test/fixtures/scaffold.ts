@@ -6,6 +6,7 @@ import {
   CatalogDocument,
   type CatalogFragment,
   type Contribution,
+  ModuleCapability,
   type ModuleDefinition,
   ModuleId,
   type TargetDefinition,
@@ -262,6 +263,68 @@ export const testCatalog = {
 } satisfies CatalogFragment;
 
 export const TestCatalogLayer = CatalogService.fromFragments([testCatalog]);
+
+const requiresCapability = (
+  name: string,
+  capability: string,
+): ModuleDefinition["dependencies"][number] => ({
+  _tag: "required-capability",
+  target: new TargetIdentity({ kind: TargetKind.make("package"), name }),
+  capability: ModuleCapability.make(capability),
+});
+
+/**
+ * Capability providers on package targets, in catalog order: two `db-sql`
+ * providers, one `cache` provider that itself needs `secrets`, and a
+ * `telemetry` provider that supports only Deno.
+ */
+export const providerCatalog = {
+  targets: [target("workspace"), target("package"), target("server")],
+  modules: [
+    module("sql-sqlite", "package", {
+      provides: [ModuleCapability.make("db-sql")],
+    }),
+    module("sql-postgres", "package", {
+      provides: [ModuleCapability.make("db-sql")],
+    }),
+    module("todo-repository", "package", {
+      dependencies: [requiresCapability("db", "db-sql")],
+    }),
+    module("cache-redis", "package", {
+      provides: [ModuleCapability.make("cache")],
+      dependencies: [requiresCapability("secrets", "secrets")],
+    }),
+    module("secrets-env", "package", {
+      provides: [ModuleCapability.make("secrets")],
+    }),
+    module("session-store", "package", {
+      dependencies: [requiresCapability("cache", "cache")],
+    }),
+    module("server-sessions", "server", {
+      dependencies: [
+        {
+          _tag: "required-module",
+          target: new TargetIdentity({
+            kind: TargetKind.make("package"),
+            name: "sessions",
+          }),
+          moduleId: ModuleId.make("session-store"),
+        },
+      ],
+    }),
+    module("telemetry-deno", "package", {
+      provides: [ModuleCapability.make("telemetry")],
+      supportedRuntimes: ["deno"],
+    }),
+    module("metrics", "package", {
+      dependencies: [requiresCapability("telemetry", "telemetry")],
+    }),
+  ],
+} satisfies CatalogFragment;
+
+export const ProviderCatalogLayer = CatalogService.fromFragments([
+  providerCatalog,
+]);
 
 // Selections
 

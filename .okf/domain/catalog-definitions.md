@@ -38,7 +38,7 @@ Invariants:
 
 - Identity is `id: ModuleId`.
 - Compatibility is declared via `SupportedOn` rules.
-- Dependencies are tagged as `required-target`, `required-module`, or `required-capability`. A required module also requires its owning target. Provider selection must resolve a required capability before Blueprint resolution.
+- Dependencies are tagged as `required-target`, `required-module`, or `required-capability`. A required module also requires its owning target. Provider selection must resolve a required capability before Blueprint resolution; recipe resolution does this by [provider strategy](../architecture/catalog.md#capability-provider-resolution "defines provider resolution").
 - Children declare same-target parent-child relationships for nested selection UI.
 - Modules contribute only to their owning targets; target paths derive from the identity name, including slash-separated group segments.
 - A catalog document containing a hierarchical default name, exact owner identity, or dependency identity requires the `target:hierarchical-name` interpreter capability. Ordinary contribution strings do not require it; flat catalog capability sets remain unchanged.
