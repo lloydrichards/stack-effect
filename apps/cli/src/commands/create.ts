@@ -12,11 +12,11 @@ import {
 } from "@repo/domain/Recipe";
 import {
   defaultsForRuntime,
-  makeRuntime,
-  runtimeForPackageManager,
+  type Runtime,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
   StackConfigDefaults,
+  type TypeScriptVersion,
 } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { RecipeResolver } from "@repo/scaffold/Recipe";
@@ -34,104 +34,47 @@ import {
   recipeTargetFlag,
   rootFlag,
   runtimeFlag,
+  runtimeFromFlags,
   showFilesFlag,
   testFlag,
   trustFlag,
   typescriptFlag,
-  validateShowFiles,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
+import { decodeRunFlags } from "../lib/runMode";
 import { CatalogSelection } from "../service/CatalogSelection";
 import { CONFIG_FILENAME, ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-const validateRuntimeOptions = Effect.fn("create.validateRuntimeOptions")(
-  function* ({
-    runtime,
-    packageManager,
-  }: {
-    readonly runtime: Option.Option<"bun" | "deno" | "node">;
-    readonly packageManager: Option.Option<"bun" | "deno" | "pnpm" | "npm">;
-  }) {
-    if (
-      Option.isSome(runtime) &&
-      runtime.value === "bun" &&
-      Option.isSome(packageManager) &&
-      packageManager.value !== "bun"
-    ) {
-      return yield* Effect.fail(
-        `Invalid create options: --runtime bun conflicts with --package-manager ${packageManager.value}.`,
-      );
-    }
-
-    if (
-      Option.isSome(runtime) &&
-      runtime.value === "deno" &&
-      Option.isSome(packageManager) &&
-      packageManager.value !== "deno"
-    ) {
-      return yield* Effect.fail(
-        `Invalid create options: --runtime deno conflicts with --package-manager ${packageManager.value}.`,
-      );
-    }
-
-    if (
-      Option.isSome(runtime) &&
-      runtime.value === "node" &&
-      Option.isSome(packageManager) &&
-      (packageManager.value === "bun" || packageManager.value === "deno")
-    ) {
-      return yield* Effect.fail(
-        `Invalid create options: --runtime node conflicts with --package-manager ${packageManager.value}.`,
-      );
-    }
+const buildConfig = (
+  projectName: string,
+  runtime: Runtime,
+  tools: {
+    typescript: Option.Option<TypeScriptVersion>;
+    monorepo: Option.Option<string>;
+    lint: Option.Option<string>;
+    format: Option.Option<string>;
+    test: Option.Option<string>;
+    catalogs: Option.Option<CatalogSources>;
   },
-);
-
-const buildConfig = ({
-  projectName,
-  runtime,
-  packageManager,
-  typescript,
-  monorepo,
-  lint,
-  format,
-  test,
-  defaults,
-  catalogs,
-}: {
-  readonly projectName: string;
-  readonly runtime: Option.Option<"bun" | "deno" | "node">;
-  readonly packageManager: Option.Option<"bun" | "deno" | "pnpm" | "npm">;
-  readonly typescript: Option.Option<"6" | "7">;
-  readonly monorepo: Option.Option<string>;
-  readonly lint: Option.Option<string>;
-  readonly format: Option.Option<string>;
-  readonly test: Option.Option<string>;
-  readonly defaults: StackConfig;
-  readonly catalogs: Option.Option<CatalogSources>;
-}): StackConfig => {
-  const packageManagerName = Option.getOrElse(
-    packageManager,
-    () => defaults.packageManagerName,
-  );
-  const runtimeName = Option.getOrElse(runtime, () =>
-    runtimeForPackageManager(packageManagerName),
-  );
-  const runtimeConfig = makeRuntime(runtimeName, packageManagerName);
-  const runtimeDefaults = defaultsForRuntime(defaults, runtimeName);
+  defaults: StackConfig,
+): StackConfig => {
+  const runtimeDefaults = defaultsForRuntime(defaults, runtime._tag);
 
   return new StackConfig({
     $schema: STACK_CONFIG_SCHEMA_URL,
     name: projectName,
-    runtime: runtimeConfig,
-    typescript: Option.getOrElse(typescript, () => runtimeDefaults.typescript),
-    monorepo: Option.getOrElse(monorepo, () => runtimeDefaults.monorepo),
-    lint: Option.getOrElse(lint, () => runtimeDefaults.lint),
-    format: Option.getOrElse(format, () => runtimeDefaults.format),
-    test: Option.getOrElse(test, () => runtimeDefaults.test),
-    ...Option.match(catalogs, {
+    runtime,
+    typescript: Option.getOrElse(
+      tools.typescript,
+      () => runtimeDefaults.typescript,
+    ),
+    monorepo: Option.getOrElse(tools.monorepo, () => runtimeDefaults.monorepo),
+    lint: Option.getOrElse(tools.lint, () => runtimeDefaults.lint),
+    format: Option.getOrElse(tools.format, () => runtimeDefaults.format),
+    test: Option.getOrElse(tools.test, () => runtimeDefaults.test),
+    ...Option.match(tools.catalogs, {
       onNone: () => ({}),
       onSome: (sources) => ({ catalogs: sources }),
     }),
@@ -181,7 +124,7 @@ export const create = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
-      yield* validateShowFiles(flags);
+      const { mode } = yield* decodeRunFlags(flags);
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
       const recipes = yield* RecipeResolver;
@@ -200,10 +143,11 @@ export const create = Command.make(
         );
       }
 
-      yield* validateRuntimeOptions({
-        runtime: flags.runtime,
-        packageManager: flags.packageManager,
-      });
+      const runtime = yield* runtimeFromFlags(
+        flags.runtime,
+        flags.packageManager,
+        defaults.runtime,
+      );
       if (
         flags.noGit &&
         Arr.some(flags.target.value, (target) =>
@@ -222,18 +166,12 @@ export const create = Command.make(
         flags.name.value,
         flags.root,
       );
-      const config = buildConfig({
+      const config = buildConfig(
         projectName,
-        runtime: flags.runtime,
-        packageManager: flags.packageManager,
-        typescript: flags.typescript,
-        monorepo: flags.monorepo,
-        lint: flags.lint,
-        format: flags.format,
-        test: flags.test,
+        runtime,
+        { ...flags, catalogs: catalogSelection.explicit },
         defaults,
-        catalogs: catalogSelection.explicit,
-      });
+      );
       // workspace-devenv-git is an official module; custom-only sets bring their own.
       const recipeSpec = buildRecipeSpec(
         flags.target.value,
@@ -263,25 +201,16 @@ export const create = Command.make(
         );
       }
 
-      if (!flags.dryRun) {
+      if (mode._tag === "write") {
         yield* Console.log(`Create command: ${createCommand}`);
-      }
-
-      if (!flags.dryRun) {
         yield* configure.writeConfig(repositoryRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
-      yield* pipeline.run({
-        selection,
-        repositoryRoot,
-        yes: flags.yes,
-        dryRun: flags.dryRun,
-        showFiles: flags.showFiles,
-        trust: flags.trust,
-        config,
-        createCommand,
-      });
+      yield* pipeline.run(
+        { selection, repositoryRoot, config, createCommand },
+        mode,
+      );
     }),
 ).pipe(
   Command.withDescription(

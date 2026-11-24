@@ -8,9 +8,9 @@ import {
   noGitFlag,
   showFilesFlag,
   trustFlag,
-  validateShowFiles,
   yesFlag,
 } from "../src/flags";
+import { decodeRunFlags } from "../src/lib/runMode";
 
 const helpLayer = Layer.mergeAll(
   NodeServices.layer,
@@ -35,7 +35,12 @@ describe("show-files flag", () => {
   it.effect("rejects show-files without dry-run", () =>
     Effect.gen(function* () {
       const error = yield* Effect.flip(
-        validateShowFiles({ dryRun: false, showFiles: true }),
+        decodeRunFlags({
+          dryRun: false,
+          showFiles: true,
+          yes: false,
+          trust: false,
+        }),
       );
 
       expect(error).toBe("--show-files requires --dry-run.");
@@ -43,7 +48,41 @@ describe("show-files flag", () => {
   );
 
   it.effect("accepts show-files with dry-run", () =>
-    validateShowFiles({ dryRun: true, showFiles: true }),
+    Effect.gen(function* () {
+      const { mode } = yield* decodeRunFlags({
+        dryRun: true,
+        showFiles: true,
+        yes: false,
+        trust: false,
+      });
+
+      expect(mode).toEqual({ _tag: "preview", showFiles: true });
+    }),
+  );
+
+  it.effect("derives the finalize script policy from --yes and --trust", () =>
+    Effect.gen(function* () {
+      const policies = yield* Effect.forEach(
+        [
+          { yes: false, trust: false },
+          { yes: true, trust: false },
+          { yes: false, trust: true },
+          { yes: true, trust: true },
+        ],
+        (switches) =>
+          Effect.map(
+            decodeRunFlags({ dryRun: false, showFiles: false, ...switches }),
+            ({ mode }) => mode,
+          ),
+      );
+
+      expect(policies).toEqual([
+        { _tag: "write", confirm: "ask", scripts: "prompt" },
+        { _tag: "write", confirm: "assume-yes", scripts: "official-only" },
+        { _tag: "write", confirm: "ask", scripts: "all" },
+        { _tag: "write", confirm: "assume-yes", scripts: "all" },
+      ]);
+    }),
   );
 });
 

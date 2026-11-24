@@ -3,7 +3,7 @@ import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 export { StackConfig };
 
-export const CONFIG_FILENAME = "stack.effect.json" as const;
+export const CONFIG_FILENAME = "stack.effect.json";
 
 class MissingConfigError extends Schema.TaggedError<MissingConfigError>()(
   "MissingConfigError",

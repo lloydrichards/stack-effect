@@ -2,7 +2,6 @@ import { CatalogReader } from "@repo/catalog/Catalog";
 import { Apply } from "@repo/domain/Apply";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import {
-  type Contribution,
   ModuleId,
   type SupportedOn,
   TargetIdentity,
@@ -32,6 +31,7 @@ import {
   Effect,
   FileSystem,
   Option,
+  Order,
   Path,
   pipe,
   Result,
@@ -110,6 +110,16 @@ class WorkspaceValidationFailed extends Schema.TaggedError<WorkspaceValidationFa
     return `Workspace validation failed: ${this.command} exited with code ${this.exitCode}.`;
   }
 }
+
+const byTargetKey = Order.mapInput(
+  Order.String,
+  (target: { identity: TargetIdentity }) => target.identity.toKey(),
+);
+
+const byManifestPath = Order.mapInput(
+  Order.String,
+  (file: ManifestFile) => file.path,
+);
 
 const targetIdentityFrom = (supportedOn: SupportedOn, moduleId: string) =>
   supportedOn._tag === "identity"
@@ -213,49 +223,43 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       initTarget.modules.add(moduleId);
     }
 
-    for (const moduleDefinition of catalog
+    const placements = catalog
       .getModules()
       .filter(
         (module) =>
           module.supportedRuntimes === undefined ||
           module.supportedRuntimes.includes(config.runtime._tag),
-      )) {
-      for (const supportedOn of moduleDefinition.supportedOn) {
-        if (supportedOn._tag === "kind" && supportedOn.kind === "workspace") {
-          continue;
-        }
-        const target = ensureTarget(
-          targetIdentityFrom(supportedOn, moduleDefinition.id),
-        );
-        const provides = moduleDefinition.provides ?? [];
-        const hasExistingProvider = provides.some((capability) =>
-          target.capabilities.has(capability),
-        );
+      )
+      .flatMap((module) =>
+        module.supportedOn
+          .filter(
+            (supportedOn) =>
+              supportedOn._tag !== "kind" || supportedOn.kind !== "workspace",
+          )
+          .map((supportedOn) => ({ module, supportedOn })),
+      );
 
-        if (!hasExistingProvider) {
-          target.modules.add(moduleDefinition.id);
-          for (const capability of provides) {
-            target.capabilities.add(capability);
-          }
-        }
+    // The first module to provide a capability on a target wins it.
+    for (const { module, supportedOn } of placements) {
+      const target = ensureTarget(targetIdentityFrom(supportedOn, module.id));
+      const provides = module.provides ?? [];
+      if (provides.some((capability) => target.capabilities.has(capability))) {
+        continue;
+      }
+      target.modules.add(module.id);
+      for (const capability of provides) {
+        target.capabilities.add(capability);
       }
     }
 
-    const selectedTargets = Array.from(targets.values())
-      .map((target) => ({
-        identity: target.identity,
-        modules: Array.from(target.modules)
-          .sort((a, b) => a.localeCompare(b))
-          .map((id) => ({ id })),
-      }))
-      .sort((a, b) => a.identity.toKey().localeCompare(b.identity.toKey()));
-
     return yield* recipes.resolve(
       {
-        targets: Arr.map(selectedTargets, (target) => ({
-          target: target.identity,
-          modules: Arr.map(target.modules, (module) => module.id),
-        })),
+        targets: Array.from(targets.values())
+          .sort(byTargetKey)
+          .map((target) => ({
+            target: target.identity,
+            modules: Array.from(target.modules).sort(Order.String),
+          })),
       },
       RecipeResolveOptions.make({
         config,
@@ -274,49 +278,38 @@ const buildManifest = Effect.fn("catalog.workspace.buildManifest")(function* ({
 }) {
   const resolver = yield* ContributionResolver;
   const normalized = yield* resolver.resolve(blueprint, config);
-  const contributorsByPath = new Map<string, Array<ManifestContributor>>();
+  const contributions = [
+    ...normalized.targets.flatMap((target) =>
+      target.contributions.map((contribution) => ({
+        path: contribution.path,
+        contributor: ManifestContributor.make({
+          origin: "target",
+          targetKey: target.targetKey,
+          contributionTag: contribution._tag,
+        }),
+      })),
+    ),
+    ...normalized.modules.flatMap((module) =>
+      module.contributions.map((contribution) => ({
+        path: contribution.path,
+        contributor: ManifestContributor.make({
+          origin: "module",
+          targetKey: module.targetKey,
+          moduleId: module.moduleId,
+          contributionTag: contribution._tag,
+        }),
+      })),
+    ),
+  ];
 
-  const appendContributor = (
-    path: string,
-    contributor: ManifestContributor,
-  ) => {
-    contributorsByPath.set(path, [
-      ...(contributorsByPath.get(path) ?? []),
-      contributor,
-    ]);
-  };
-
-  for (const target of normalized.targets) {
-    for (const contribution of target.contributions) {
-      appendContributor(contribution.path, {
-        origin: "target",
-        targetKey: target.targetKey,
-        contributionTag: contribution._tag,
-      });
-    }
-  }
-
-  for (const module of normalized.modules) {
-    for (const contribution of module.contributions) {
-      appendContributor(contribution.path, {
-        origin: "module",
-        targetKey: module.targetKey,
-        moduleId: module.moduleId,
-        contributionTag: contribution._tag,
-      });
-    }
-  }
-
-  const manifestFiles: Array<ManifestFile> = Array.from(
-    contributorsByPath.entries(),
-  )
-    .map(([path, contributors]) =>
+  const manifestFiles = Array.from(
+    Map.groupBy(contributions, ({ path }) => path),
+    ([path, entries]) =>
       ManifestFile.make({
         path,
-        contributors,
+        contributors: entries.map(({ contributor }) => contributor),
       }),
-    )
-    .sort((a, b) => a.path.localeCompare(b.path));
+  ).sort(byManifestPath);
 
   const now = yield* DateTime.now;
 

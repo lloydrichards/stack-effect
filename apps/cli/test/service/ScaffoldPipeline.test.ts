@@ -12,6 +12,7 @@ import { Planner } from "@repo/scaffold/Plan";
 import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
 import { TestConsole } from "effect/testing";
+import { RunMode } from "../../src/lib/runMode";
 import { ScaffoldPipeline } from "../../src/service/ScaffoldPipeline";
 
 const blueprint = new Blueprint({ nodes: [], edges: [] });
@@ -58,15 +59,17 @@ const script = {
   origin: "test",
 };
 
-const runInput = {
+const request = {
   selection,
   repositoryRoot: "/tmp/pipeline-app",
-  yes: true,
-  dryRun: false,
-  showFiles: false,
-  trust: true,
   config,
 };
+const assumeYes = RunMode.cases.write.make({
+  confirm: "assume-yes",
+  scripts: "all",
+});
+const ask = RunMode.cases.write.make({ confirm: "ask", scripts: "all" });
+const preview = RunMode.cases.preview.make({ showFiles: false });
 
 const failingExecution = () =>
   Effect.succeed({
@@ -134,7 +137,7 @@ describe("ScaffoldPipeline", () => {
         const decisions: Array<Apply["decisions"]> = [];
         yield* Effect.gen(function* () {
           const pipeline = yield* ScaffoldPipeline;
-          return yield* Effect.exit(pipeline.run(runInput));
+          return yield* Effect.exit(pipeline.run(request, assumeYes));
         }).pipe(
           Effect.provide(
             layerWithServices({
@@ -164,7 +167,7 @@ describe("ScaffoldPipeline", () => {
           yield* MockTerminal.inputKey("enter"); // Conflict at package.json: keep default skip
           yield* MockTerminal.inputKey("enter"); // Apply changes
           const pipeline = yield* ScaffoldPipeline;
-          return yield* Effect.exit(pipeline.run({ ...runInput, yes: false }));
+          return yield* Effect.exit(pipeline.run(request, ask));
         }).pipe(
           Effect.provide(
             Layer.merge(
@@ -204,7 +207,9 @@ describe("ScaffoldPipeline", () => {
           // Interactive mode confirms the Plan, then fails without asking to override.
           if (!yes) yield* MockTerminal.inputKey("enter");
           const pipeline = yield* ScaffoldPipeline;
-          const exit = yield* Effect.exit(pipeline.run({ ...runInput, yes }));
+          const exit = yield* Effect.exit(
+            pipeline.run(request, yes ? assumeYes : ask),
+          );
 
           assert.containSubset(squashFailure(exit), {
             _tag: "DependencyConflict",
@@ -240,7 +245,7 @@ describe("ScaffoldPipeline", () => {
   it.effect("should fail when a non-dry-run finalize script fails", () =>
     Effect.gen(function* () {
       const pipeline = yield* ScaffoldPipeline;
-      const exit = yield* Effect.exit(pipeline.run(runInput));
+      const exit = yield* Effect.exit(pipeline.run(request, assumeYes));
       const error = squashFailure(exit);
 
       assert.containSubset(error, {
@@ -256,9 +261,7 @@ describe("ScaffoldPipeline", () => {
   it.effect("should not execute finalize scripts when running a dry run", () =>
     Effect.gen(function* () {
       const pipeline = yield* ScaffoldPipeline;
-      const exit = yield* Effect.exit(
-        pipeline.run({ ...runInput, dryRun: true }),
-      );
+      const exit = yield* Effect.exit(pipeline.run(request, preview));
 
       assert.strictEqual(Exit.isSuccess(exit), true);
     }).pipe(
@@ -277,7 +280,10 @@ describe("ScaffoldPipeline", () => {
         const exit = yield* Effect.gen(function* () {
           const pipeline = yield* ScaffoldPipeline;
           return yield* Effect.exit(
-            pipeline.run({ ...runInput, dryRun: true, showFiles: true }),
+            pipeline.run(
+              request,
+              RunMode.cases.preview.make({ showFiles: true }),
+            ),
           );
         }).pipe(
           Effect.provide(
@@ -307,9 +313,7 @@ describe("ScaffoldPipeline", () => {
     () =>
       Effect.gen(function* () {
         const pipeline = yield* ScaffoldPipeline;
-        const exit = yield* Effect.exit(
-          pipeline.run({ ...runInput, dryRun: true }),
-        );
+        const exit = yield* Effect.exit(pipeline.run(request, preview));
 
         assert.strictEqual(Exit.isSuccess(exit), true);
       }).pipe(
@@ -334,9 +338,7 @@ describe("ScaffoldPipeline", () => {
       Effect.gen(function* () {
         const exit = yield* Effect.gen(function* () {
           const pipeline = yield* ScaffoldPipeline;
-          return yield* Effect.exit(
-            pipeline.run({ ...runInput, dryRun: true }),
-          );
+          return yield* Effect.exit(pipeline.run(request, preview));
         }).pipe(
           Effect.provide(
             layerWithServices({

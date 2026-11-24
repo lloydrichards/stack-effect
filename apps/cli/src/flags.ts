@@ -1,5 +1,10 @@
 import { RecipeTargetString } from "@repo/domain/Recipe";
-import { Effect, Schema } from "effect";
+import {
+  type PackageManagerName,
+  Runtime,
+  type RuntimeName,
+} from "@repo/domain/StackConfig";
+import { Effect, Option, Schema } from "effect";
 import { Argument, Flag } from "effect/cli";
 
 const TrimNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
@@ -44,17 +49,6 @@ export const showFilesFlag = Flag.Boolean("show-files").pipe(
   Flag.withDefault(false),
   Flag.withDescription("Include generated file contents in a dry-run preview"),
 );
-
-export const validateShowFiles = ({
-  dryRun,
-  showFiles,
-}: {
-  readonly dryRun: boolean;
-  readonly showFiles: boolean;
-}) =>
-  showFiles && !dryRun
-    ? Effect.fail("--show-files requires --dry-run.")
-    : Effect.void;
 
 export const yesFlag = Flag.Boolean("yes").pipe(
   Flag.withDefault(false),
@@ -118,3 +112,35 @@ export const testFlag = Flag.String("test").pipe(
   Flag.optional,
   Flag.withDescription("Override the default test framework"),
 );
+
+/** The runtime each --package-manager value implies. */
+export const RUNTIME_BY_PACKAGE_MANAGER = {
+  bun: Runtime.cases.bun.make({}),
+  deno: Runtime.cases.deno.make({}),
+  pnpm: Runtime.cases.node.make({ packageManager: "pnpm" }),
+  npm: Runtime.cases.node.make({ packageManager: "npm" }),
+} satisfies Record<PackageManagerName, Runtime>;
+
+/** Decodes --runtime and --package-manager into one Runtime, falling back to `defaults`. */
+export const runtimeFromFlags = Effect.fnUntraced(function* (
+  runtime: Option.Option<RuntimeName>,
+  packageManager: Option.Option<PackageManagerName>,
+  defaults: Runtime,
+) {
+  if (Option.isSome(packageManager)) {
+    const implied = RUNTIME_BY_PACKAGE_MANAGER[packageManager.value];
+    if (Option.isSome(runtime) && runtime.value !== implied._tag) {
+      return yield* Effect.fail(
+        `Invalid create options: --runtime ${runtime.value} conflicts with --package-manager ${packageManager.value}.`,
+      );
+    }
+    return implied;
+  }
+  if (Option.isNone(runtime) || runtime.value === defaults._tag) {
+    return defaults;
+  }
+  // A runtime without a package manager takes that runtime's own, or pnpm for node.
+  return RUNTIME_BY_PACKAGE_MANAGER[
+    runtime.value === "node" ? "pnpm" : runtime.value
+  ];
+});

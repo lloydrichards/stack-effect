@@ -6,8 +6,8 @@ import type {
 } from "./CliReference";
 
 type CliReferencePage = {
-  readonly slug: string;
-  readonly content: string;
+  slug: string;
+  content: string;
 };
 
 const generatedNotice =

@@ -15,32 +15,32 @@ import { Array, Match, pipe } from "effect";
  * make to an existing file rather than overwriting it entirely.
  */
 type LlmFileOutcome = {
-  readonly path: string;
-  readonly classification: string;
-  readonly contents: string | undefined;
-  readonly instructions: ReadonlyArray<string>;
+  path: string;
+  classification: string;
+  contents: string | undefined;
+  instructions: ReadonlyArray<string>;
 };
 
 type LlmPlanSummary = {
-  readonly total: number;
-  readonly create: number;
-  readonly modify: number;
-  readonly unchanged: number;
-  readonly conflict: number;
+  total: number;
+  create: number;
+  modify: number;
+  unchanged: number;
+  conflict: number;
 };
 
 type LlmPlanOutput = {
-  readonly summary: LlmPlanSummary;
-  readonly tree: string;
-  readonly files: ReadonlyArray<LlmFileOutcome>;
-  readonly conflicts: ReadonlyArray<{
-    readonly path: string;
-    readonly kind: string;
-    readonly description: string;
+  summary: LlmPlanSummary;
+  tree: string;
+  files: ReadonlyArray<LlmFileOutcome>;
+  conflicts: ReadonlyArray<{
+    path: string;
+    kind: string;
+    description: string;
   }>;
-  readonly finalize: ReadonlyArray<{
-    readonly label: string;
-    readonly command: string;
+  finalize: ReadonlyArray<{
+    label: string;
+    command: string;
   }>;
 };
 

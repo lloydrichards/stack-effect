@@ -9,7 +9,7 @@ import {
 import { RecipeResolveOptions } from "@repo/domain/Recipe";
 import {
   defaultsForRuntime,
-  makeRuntime,
+  Runtime,
   STACK_CONFIG_SCHEMA_URL,
   StackConfigDefaults,
   toWorkspaceToolValue,
@@ -26,14 +26,15 @@ import {
   noGitFlag,
   projectNameArg,
   rootFlag,
+  RUNTIME_BY_PACKAGE_MANAGER,
   runtimeFlag,
   showFilesFlag,
   trustFlag,
   typescriptFlag,
-  validateShowFiles,
   yesFlag,
 } from "../flags";
 import { resolveNameAndRoot } from "../lib/project";
+import { askOr, type Confirmation, decodeRunFlags } from "../lib/runMode";
 import { CatalogSelection } from "../service/CatalogSelection";
 import {
   CONFIG_FILENAME,
@@ -42,20 +43,17 @@ import {
 } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-/**
- * Prompt for an optional tool choice, returning Option.none for "none".
- */
 const optionalSelect = <A extends string>(
   message: string,
   choices: ReadonlyArray<{ title: string; value: A }>,
 ) =>
-  Effect.gen(function* () {
-    const v = yield* Select({
+  Effect.map(
+    Select({
       message,
       choices: [...choices, { title: "< skip >", value: "none" as A }],
-    });
-    return v === "none" ? Option.none<A>() : Option.some(v);
-  });
+    }),
+    (value) => (value === "none" ? Option.none<A>() : Option.some(value)),
+  );
 
 const workspaceChoices = (
   catalog: typeof CatalogReader.Service,
@@ -77,15 +75,23 @@ const moduleChoices = (
     value: m.id,
   }));
 
-const chooseOptionalTool = <A extends string>(
-  yes: boolean,
+const chooseTool = Effect.fnUntraced(function* (
+  confirm: Confirmation,
+  category: string,
   message: string,
-  choices: ReadonlyArray<{ title: string; value: A }>,
-  fallback: A | undefined,
-) =>
-  yes
-    ? Effect.succeed(Option.fromUndefinedOr(fallback))
-    : optionalSelect(message, choices);
+  fallback: string | undefined,
+) {
+  const catalog = yield* CatalogReader;
+  const choice = yield* askOr(
+    confirm,
+    optionalSelect(
+      message,
+      workspaceChoices(catalog, ModuleCategory.make(category)),
+    ),
+    Option.fromUndefinedOr(fallback),
+  );
+  return Option.getOrUndefined(choice);
+});
 
 export const init = Command.make(
   "init",
@@ -103,34 +109,18 @@ export const init = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
-      yield* validateShowFiles(flags);
+      const { confirm, mode } = yield* decodeRunFlags(flags);
       const configure = yield* ConfigureService;
       const catalog = yield* CatalogReader;
       const defaults = yield* StackConfigDefaults;
       const catalogSelection = yield* CatalogSelection;
 
-      const monorepoChoices = workspaceChoices(
-        catalog,
-        ModuleCategory.make("monorepo"),
-      );
-      const lintChoices = workspaceChoices(
-        catalog,
-        ModuleCategory.make("lint"),
-      );
-      const formatChoices = workspaceChoices(
-        catalog,
-        ModuleCategory.make("format"),
-      );
-      const testChoices = workspaceChoices(
-        catalog,
-        ModuleCategory.make("test"),
-      );
       const devenvChoices = moduleChoices(
         catalog,
         ModuleCategory.make("devenv"),
       );
 
-      if (flags.yes && Option.isNone(flags.name)) {
+      if (confirm === "assume-yes" && Option.isNone(flags.name)) {
         return yield* Effect.fail(
           "When using --yes with init, provide a project name as the positional argument.",
         );
@@ -160,16 +150,18 @@ export const init = Command.make(
         yield* Console.log(
           `Project '${existing.value.name}' already initialized in ${repositoryRoot}`,
         );
-        const reinit = flags.yes
-          ? false
-          : yield* Confirm({
-              message: "Re-initialize? This will overwrite stack.effect.json.",
-              initial: false,
-              label: {
-                confirm: "Re-initialize",
-                deny: "Cancel",
-              },
-            });
+        const reinit = yield* askOr(
+          confirm,
+          Confirm({
+            message: "Re-initialize? This will overwrite stack.effect.json.",
+            initial: false,
+            label: {
+              confirm: "Re-initialize",
+              deny: "Cancel",
+            },
+          }),
+          false,
+        );
         if (!reinit) {
           yield* Console.log("Aborted.");
           return;
@@ -178,64 +170,73 @@ export const init = Command.make(
 
       const runtimeChoice = Option.isSome(flags.runtime)
         ? flags.runtime.value
-        : flags.yes
-          ? ("bun" as const)
-          : yield* Select({
+        : yield* askOr(
+            confirm,
+            Select<Runtime["_tag"]>({
               message: "What runtime will you use?",
               choices: [
-                { title: "bun", value: "bun" as const },
-                { title: "deno", value: "deno" as const },
-                { title: "node", value: "node" as const },
+                { title: "bun", value: "bun" },
+                { title: "deno", value: "deno" },
+                { title: "node", value: "node" },
               ],
-            });
+            }),
+            "bun",
+          );
       const runtimeDefaults = defaultsForRuntime(defaults, runtimeChoice);
 
       const typescript = Option.isSome(flags.typescript)
         ? flags.typescript.value
-        : flags.yes
-          ? runtimeDefaults.typescript
-          : yield* Select({
+        : yield* askOr(
+            confirm,
+            Select<"6" | "7">({
               message: "What TypeScript version will you use?",
               choices: [
-                { title: "TypeScript 6", value: "6" as const },
-                { title: "TypeScript 7", value: "7" as const },
+                { title: "TypeScript 6", value: "6" },
+                { title: "TypeScript 7", value: "7" },
               ],
-            });
+            }),
+            runtimeDefaults.typescript,
+          );
 
-      const nodePackageManager =
-        runtimeChoice === "node" && !flags.yes
-          ? yield* Select({
-              message: "What package manager will you use?",
-              choices: [
-                { title: "pnpm", value: "pnpm" as const },
-                { title: "npm", value: "npm" as const },
-              ],
+      const runtime =
+        runtimeChoice === "node"
+          ? Runtime.cases.node.make({
+              packageManager: yield* askOr(
+                confirm,
+                Select<"pnpm" | "npm">({
+                  message: "What package manager will you use?",
+                  choices: [
+                    { title: "pnpm", value: "pnpm" },
+                    { title: "npm", value: "npm" },
+                  ],
+                }),
+                "pnpm",
+              ),
             })
-          : ("pnpm" as const);
-      const runtime = makeRuntime(runtimeChoice, nodePackageManager);
+          : RUNTIME_BY_PACKAGE_MANAGER[runtimeChoice];
 
-      const monorepo = yield* chooseOptionalTool(
-        flags.yes,
+      const monorepo = yield* chooseTool(
+        confirm,
+        "monorepo",
         "What monorepo tool will you use?",
-        monorepoChoices,
         runtimeDefaults.monorepo,
       );
-      const lint = yield* chooseOptionalTool(
-        flags.yes,
+      const lint = yield* chooseTool(
+        confirm,
+        "lint",
         "What will you use for linting?",
-        lintChoices,
         runtimeDefaults.lint,
       );
-      const format_ = yield* chooseOptionalTool(
-        flags.yes,
+      const format = yield* chooseTool(
+        confirm,
+        "format",
         "What will you use for formatting?",
-        formatChoices,
         runtimeDefaults.format,
       );
-      const test = yield* chooseOptionalTool(
-        flags.yes,
+      const test = yield* chooseTool(
+        confirm,
+        "test",
         "What test framework will you use?",
-        testChoices,
         runtimeDefaults.test,
       );
 
@@ -243,46 +244,41 @@ export const init = Command.make(
       const git =
         flags.noGit || !selectsOfficialCatalog(catalogSelection.sources)
           ? false
-          : flags.yes
-            ? true
-            : yield* Confirm({
+          : yield* askOr(
+              confirm,
+              Confirm({
                 message: "Initialize a git repository?",
                 initial: true,
-              });
+              }),
+              true,
+            );
 
       const dxExtras =
-        devenvChoices.length === 0 || flags.yes
+        devenvChoices.length === 0
           ? []
-          : yield* MultiSelect({
-              message: "Developer experience extras (optional)",
-              choices: devenvChoices
-                .filter(
-                  (choice) => git || choice.value !== "workspace-devenv-husky",
-                )
-                .map((choice) => ({ ...choice, selected: false })),
-            });
+          : yield* askOr(
+              confirm,
+              MultiSelect({
+                message: "Developer experience extras (optional)",
+                choices: devenvChoices
+                  .filter(
+                    (choice) =>
+                      git || choice.value !== "workspace-devenv-husky",
+                  )
+                  .map((choice) => ({ ...choice, selected: false })),
+              }),
+              [],
+            );
 
       const config = new StackConfig({
         $schema: STACK_CONFIG_SCHEMA_URL,
         name: projectName,
         runtime,
         typescript,
-        ...Option.match(lint, {
-          onNone: () => ({}),
-          onSome: (v) => ({ lint: v }),
-        }),
-        ...Option.match(format_, {
-          onNone: () => ({}),
-          onSome: (v) => ({ format: v }),
-        }),
-        ...Option.match(test, {
-          onNone: () => ({}),
-          onSome: (v) => ({ test: v }),
-        }),
-        ...Option.match(monorepo, {
-          onNone: () => ({}),
-          onSome: (v) => ({ monorepo: v }),
-        }),
+        lint,
+        format,
+        test,
+        monorepo,
         ...Option.match(catalogSelection.explicit, {
           onNone: () => ({}),
           onSome: (sources) => ({ catalogs: sources }),
@@ -341,12 +337,16 @@ export const init = Command.make(
         Box.left,
       );
 
-      if (!flags.yes && !flags.dryRun) {
-        const proceed = yield* Confirm({
-          message: "Create project?",
-          children: configBox,
-          initial: true,
-        });
+      if (mode._tag === "write") {
+        const proceed = yield* askOr(
+          confirm,
+          Confirm({
+            message: "Create project?",
+            children: configBox,
+            initial: true,
+          }),
+          true,
+        );
         if (!proceed) {
           yield* Console.log("Aborted.");
           return;
@@ -383,20 +383,12 @@ export const init = Command.make(
       const blueprints = yield* BlueprintResolver;
       yield* blueprints.resolve(selection, config);
 
-      if (!flags.dryRun) {
+      if (mode._tag === "write") {
         yield* configure.writeConfig(repositoryRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
-      yield* pipeline.run({
-        selection,
-        repositoryRoot,
-        yes: flags.yes,
-        dryRun: flags.dryRun,
-        showFiles: flags.showFiles,
-        trust: flags.trust,
-        config,
-      });
+      yield* pipeline.run({ selection, repositoryRoot, config }, mode);
     }),
 ).pipe(
   Command.withDescription(

@@ -1,12 +1,14 @@
 import { CatalogReader } from "@repo/catalog/Catalog";
-import {
+import type {
   CatalogNotFound,
+  ModuleCapability,
+  ModuleChild,
   ModuleDefinition,
-  type ModuleDependency,
   ModuleId,
-  TargetIdentity,
+  ModuleImplication,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { ModuleDependency, TargetIdentity } from "@repo/domain/Catalog";
 import {
   parseRecipeTargetSpecs,
   RecipeResolveOptions,
@@ -26,10 +28,7 @@ import {
   Effect,
   Match,
   Option,
-  Predicate,
-  pipe,
   Ref,
-  Result,
   Schedule,
   Schema,
   Terminal,
@@ -43,11 +42,11 @@ import {
   rootFlag,
   showFilesFlag,
   trustFlag,
-  validateShowFiles,
   yesFlag,
 } from "../flags";
+import { decodeRunFlags } from "../lib/runMode";
 import { ConfigureService } from "../service/ConfigureService";
-import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
+import { ScaffoldAborted, ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
 type CollectedTarget = {
   kind: TargetKind;
@@ -108,315 +107,212 @@ const formatTargetSummary = (
   );
 };
 
+type ChildRef = Pick<ModuleChild, "moduleId" | "requirement">;
+
+const requiredChild = (moduleId: ModuleId): ChildRef => ({
+  moduleId,
+  requirement: "required",
+});
+
+// Required modules and implications show as required children of the module that pulls them in.
+const childRefsOf = (mod: ModuleDefinition) => [
+  ...mod.dependencies
+    .filter(ModuleDependency.guards["required-module"])
+    .map((dependency) => requiredChild(dependency.moduleId)),
+  ...(mod.implies ?? []).map((implication) =>
+    requiredChild(implication.moduleId),
+  ),
+  ...(mod.children ?? []),
+];
+
+const buildNode = (
+  mod: ModuleDefinition,
+  requirement: ChildRef["requirement"],
+  visitedRef: Ref.Ref<ReadonlySet<string>>,
+): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogReader> =>
+  Effect.gen(function* () {
+    const node = {
+      id: mod.id,
+      title: mod.title,
+      description: mod.description,
+      value: mod.id,
+    };
+    if ((yield* Ref.get(visitedRef)).has(mod.id)) return { node, requirement };
+
+    yield* Ref.update(visitedRef, (visited) => new Set([...visited, mod.id]));
+    const children = Arr.getSomes(
+      yield* Effect.forEach(childRefsOf(mod), (ref) =>
+        buildChild(ref, visitedRef),
+      ),
+    );
+
+    return {
+      node: Arr.isArrayNonEmpty(children) ? { ...node, children } : node,
+      requirement,
+    };
+  });
+
+const buildChild = Effect.fnUntraced(function* (
+  ref: ChildRef,
+  visitedRef: Ref.Ref<ReadonlySet<string>>,
+) {
+  const catalog = yield* CatalogReader;
+  const child = yield* Effect.option(catalog.getModule(ref.moduleId));
+  if (
+    Option.isNone(child) ||
+    (yield* Ref.get(visitedRef)).has(child.value.id)
+  ) {
+    return Option.none();
+  }
+  return Option.some(
+    yield* buildNode(child.value, ref.requirement, visitedRef),
+  );
+});
+
+const buildRoot = Effect.fnUntraced(function* (mod: ModuleDefinition) {
+  const visitedRef = yield* Ref.make<ReadonlySet<string>>(new Set());
+  return (yield* buildNode(mod, "required", visitedRef)).node;
+});
+
 /**
  * Build the nested module picker from catalog dependency metadata. Cross-target
  * children are shown for visibility, but Selection construction routes each
  * chosen module back to its owning target.
  */
-const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
+const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) => {
+  const childModuleIds = new Set(
+    modules.flatMap((mod) =>
+      (mod.children ?? []).map((child) => child.moduleId),
+    ),
+  );
+  return Effect.forEach(
+    modules.filter((mod) => !childModuleIds.has(mod.id)),
+    buildRoot,
+  );
+};
 
-    const childModuleIds = new Set(
-      Arr.flatMap(modules, (mod) =>
-        Arr.map(mod.children ?? [], (child) => child.moduleId),
-      ),
-    );
+const placeImplication = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+  definition: ModuleDefinition,
+  implication: ModuleImplication,
+) {
+  const candidates = targets.filter(
+    (target) => target.kind === implication.targetKind,
+  );
 
-    const buildNode = (
-      mod: ModuleDefinition,
-      requirement: "root" | "required" | "optional",
-      visitedRef: Ref.Ref<Set<string>>,
-    ): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogReader> =>
-      Effect.gen(function* () {
-        const visited = yield* Ref.get(visitedRef);
+  if (!Arr.isArrayNonEmpty(candidates)) {
+    const name = yield* TextInput({
+      message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
+      validate: validateTargetName(implication.targetKind),
+    });
+    targets.push({
+      kind: implication.targetKind,
+      name,
+      modules: [implication.moduleId],
+      confirmed: false,
+    });
+    return true;
+  }
 
-        if (visited.has(mod.id)) {
-          return {
-            node: {
-              id: mod.id,
-              title: mod.title,
-              description: mod.description,
-              value: mod.id,
-            },
-            requirement: requirement === "root" ? "required" : requirement,
-          };
-        }
+  if (
+    candidates.some((candidate) =>
+      candidate.modules.includes(implication.moduleId),
+    )
+  ) {
+    return false;
+  }
 
-        yield* Ref.update(visitedRef, (s) => new Set([...s, mod.id]));
+  const receiver =
+    candidates.length === 1
+      ? candidates[0]
+      : yield* Select({
+          message: `Module "${definition.title}" implies "${implication.moduleId}". Which ${implication.targetKind} target should receive it?`,
+          choices: candidates.map((candidate) => ({
+            title: `${candidate.kind}/${candidate.name}`,
+            value: candidate,
+          })),
+        });
+  receiver.modules.push(implication.moduleId);
+  receiver.confirmed = false;
+  return true;
+});
 
-        const depChildren = yield* pipe(
-          mod.dependencies,
-          Arr.filter(
-            (dep): dep is typeof dep & { _tag: "required-module" } =>
-              dep._tag === "required-module",
-          ),
-          Effect.forEach((dep) =>
-            Effect.gen(function* () {
-              const depMod = yield* catalog
-                .getModule(dep.moduleId)
-                .pipe(Effect.orElseSucceed(() => null));
+// An implied module may live on another target kind; place it there, adding the target if needed.
+const resolveImplications = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+) {
+  const catalog = yield* CatalogReader;
+  const definitions = yield* Effect.forEach(
+    targets.flatMap((target) => target.modules),
+    catalog.getModule,
+  );
 
-              const currentVisited = yield* Ref.get(visitedRef);
-              if (!depMod || currentVisited.has(depMod.id)) {
-                return Result.failVoid;
-              }
+  // NOTE: BlueprintResolver resolves required-module deps; this prompt only places implied modules.
+  const placed = yield* Effect.forEach(
+    definitions.flatMap((definition) =>
+      (definition.implies ?? []).map((implication) => ({
+        definition,
+        implication,
+      })),
+    ),
+    ({ definition, implication }) =>
+      placeImplication(targets, definition, implication),
+  );
+  return placed.some(Boolean);
+});
 
-              const childNode = yield* buildNode(
-                depMod,
-                "required",
-                visitedRef,
-              );
-              return Result.succeed({
-                node: {
-                  ...childNode.node,
-                  title: childNode.node.title,
-                  description: childNode.node.description ?? "",
-                },
-                requirement: "required" as const,
-              });
-            }),
-          ),
-          Effect.map(Arr.filterMap((x) => x)),
-        );
+const resolveImplicationsInteractive = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+) {
+  let changed = true;
+  while (changed) {
+    changed = yield* resolveImplications(targets);
+  }
+});
 
-        const impChildren = yield* pipe(
-          mod.implies ?? [],
-          Effect.forEach((imp) =>
-            Effect.gen(function* () {
-              const impMod = yield* catalog
-                .getModule(imp.moduleId)
-                .pipe(Effect.orElseSucceed(() => null));
-
-              const currentVisited = yield* Ref.get(visitedRef);
-              if (!impMod || currentVisited.has(impMod.id)) {
-                return Result.failVoid;
-              }
-
-              const childNode = yield* buildNode(
-                impMod,
-                "required",
-                visitedRef,
-              );
-              return Result.succeed({
-                node: {
-                  ...childNode.node,
-                  title: childNode.node.title,
-                  description: childNode.node.description ?? "",
-                },
-                requirement: "required" as const,
-              });
-            }),
-          ),
-          Effect.map(Arr.filterMap((x) => x)),
-        );
-
-        const subChildren = yield* pipe(
-          mod.children ?? [],
-          Effect.forEach((child) =>
-            Effect.gen(function* () {
-              const childMod = yield* catalog
-                .getModule(child.moduleId)
-                .pipe(Effect.orElseSucceed(() => null));
-
-              const currentVisited = yield* Ref.get(visitedRef);
-              if (!childMod || currentVisited.has(childMod.id)) {
-                return Result.failVoid;
-              }
-
-              const childNode = yield* buildNode(
-                childMod,
-                child.requirement,
-                visitedRef,
-              );
-              return Result.succeed({
-                node: childNode.node,
-                requirement: child.requirement,
-              });
-            }),
-          ),
-          Effect.map(Arr.filterMap((x) => x)),
-        );
-
-        const children = [...depChildren, ...impChildren, ...subChildren];
-        const base = {
-          id: mod.id,
-          title: mod.title,
-          description: mod.description,
-          value: mod.id,
-        };
-
-        return {
-          node: Arr.isArrayNonEmpty(children) ? { ...base, children } : base,
-          requirement: requirement === "root" ? "required" : requirement,
-        };
-      });
-
-    const topLevelModules = Arr.filter(
-      modules,
-      (mod) => !childModuleIds.has(mod.id),
-    );
-    return yield* Effect.forEach(topLevelModules, (mod) =>
-      Effect.gen(function* () {
-        const visitedRef = yield* Ref.make(new Set<string>());
-        const result = yield* buildNode(mod, "root", visitedRef);
-        return result.node;
-      }),
-    );
-  });
-
-/**
- * Resolve module implications: when a module implies another module on a
- * different target kind, ensure that target+module exists in the collection.
- * Returns true if any new implications were added.
- */
-const resolveImplications = (targets: Array<CollectedTarget>) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
-    let changed = false;
-
-    yield* Effect.forEach(targets, (target) =>
-      Effect.forEach(target.modules, (moduleId) =>
-        Effect.gen(function* () {
-          const definition = yield* catalog.getModule(moduleId);
-
-          // NOTE: BlueprintResolver resolves required-module deps; this prompt only places implied modules.
-          yield* Effect.forEach(definition.implies ?? [], (implication) =>
-            Effect.gen(function* () {
-              const candidates = Arr.filter(
-                targets,
-                (t) => t.kind === implication.targetKind,
-              );
-
-              yield* pipe(
-                Match.value(candidates.length),
-                Match.when(0, () =>
-                  Effect.gen(function* () {
-                    const name = yield* TextInput({
-                      message: `Module "${definition.title}" requires a ${implication.targetKind} target. What should it be called?`,
-                      validate: validateTargetName(implication.targetKind),
-                    });
-                    targets.push({
-                      kind: implication.targetKind,
-                      name,
-                      modules: [implication.moduleId],
-                      confirmed: false,
-                    });
-                    changed = true;
-                  }),
-                ),
-                Match.when(1, () =>
-                  Effect.gen(function* () {
-                    const candidate = candidates[0];
-                    if (
-                      candidate &&
-                      !Arr.contains(candidate.modules, implication.moduleId)
-                    ) {
-                      candidate.modules.push(implication.moduleId);
-                      candidate.confirmed = false;
-                      changed = true;
-                    }
-                  }),
-                ),
-                Match.orElse(() =>
-                  Effect.gen(function* () {
-                    const alreadyPresent = Arr.some(candidates, (c) =>
-                      Arr.contains(c.modules, implication.moduleId),
-                    );
-                    if (!alreadyPresent) {
-                      const chosen = yield* Select({
-                        message: `Module "${definition.title}" implies "${implication.moduleId}". Which ${implication.targetKind} target should receive it?`,
-                        choices: Arr.map(candidates, (c) => ({
-                          title: `${c.kind}/${c.name}`,
-                          value: c.name,
-                        })),
-                      });
-                      const found = Arr.findFirst(
-                        candidates,
-                        (c) => c.name === chosen,
-                      );
-                      if (Option.isSome(found)) {
-                        found.value.modules.push(implication.moduleId);
-                        found.value.confirmed = false;
-                        changed = true;
-                      }
-                    }
-                  }),
-                ),
-              );
-            }),
-          );
-        }),
-      ),
-    );
-
-    return changed;
-  });
-
-/**
- * Build a set of all module IDs that are currently implied by modules in the
- * collection, keyed as "targetKind:moduleId".
- */
-const getActiveImplications = (targets: ReadonlyArray<CollectedTarget>) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
-    const allModuleIds = Arr.flatMap(targets, (t) => t.modules);
-    return yield* catalog.getImplications(allModuleIds);
-  });
+const implicationKey = (kind: TargetKind, moduleId: ModuleId) =>
+  `${kind}:${moduleId}`;
 
 /**
  * Remove implications that are no longer needed after a user edits modules.
  * Modules in `pinned` were explicitly selected by the user and must not be
  * removed even if they are no longer actively implied.
  */
-const removeOrphanedImplications = (
+const removeOrphanedImplications = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
-  pinned: ReadonlySet<string> = new Set(),
-) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
-    const activeImplications = yield* getActiveImplications(targets);
-    let changed = false;
+  pinned: ReadonlySet<string>,
+) {
+  const catalog = yield* CatalogReader;
+  const active = yield* catalog.getImplications(
+    targets.flatMap((target) => target.modules),
+  );
 
-    yield* Effect.forEach(targets, (target) =>
-      Effect.gen(function* () {
-        const toRemove = yield* pipe(
-          target.modules,
-          Effect.filter((moduleId) =>
-            Effect.gen(function* () {
-              if (pinned.has(`${target.kind}:${moduleId}`)) return false;
-              const isImplied = yield* catalog.isImpliedByAny(
-                moduleId,
-                target.kind,
-              );
-              return (
-                isImplied &&
-                !activeImplications.has(`${target.kind}:${moduleId}`)
-              );
-            }),
-          ),
-        );
+  const unpinnedInactive = targets.flatMap(({ kind, modules }) =>
+    modules
+      .filter((moduleId) => {
+        const key = implicationKey(kind, moduleId);
+        return !pinned.has(key) && !active.has(key);
+      })
+      .map((moduleId) => ({ kind, moduleId })),
+  );
+  const orphans = yield* Effect.filter(unpinnedInactive, ({ kind, moduleId }) =>
+    catalog.isImpliedByAny(moduleId, kind),
+  );
+  const orphanKeys = new Set(
+    orphans.map(({ kind, moduleId }) => implicationKey(kind, moduleId)),
+  );
 
-        if (Arr.isArrayNonEmpty(toRemove)) {
-          target.modules = Arr.filter(
-            target.modules,
-            (m) => !Arr.contains(toRemove, m),
-          );
-          changed = true;
-        }
-      }),
+  for (const target of targets) {
+    target.modules = target.modules.filter(
+      (moduleId) => !orphanKeys.has(implicationKey(target.kind, moduleId)),
     );
-
-    const before = targets.length;
-    const remaining = Arr.filter(targets, (t) =>
-      Arr.isArrayNonEmpty(t.modules),
-    );
-    targets.length = 0;
-    targets.push(...remaining);
-    if (targets.length !== before) changed = true;
-
-    return changed;
-  });
+  }
+  targets.splice(
+    0,
+    targets.length,
+    ...targets.filter((target) => Arr.isArrayNonEmpty(target.modules)),
+  );
+});
 
 const findTarget = (
   targets: ReadonlyArray<CollectedTarget>,
@@ -433,27 +329,22 @@ const ensureTargetModule = (
   targets: Array<CollectedTarget>,
   identity: TargetIdentity,
   moduleId: ModuleId,
-  confirmed: boolean,
 ) => {
   const existing = findTarget(targets, identity);
 
-  return Option.match(existing, {
-    onNone: () => {
-      targets.push({
-        kind: identity.kind,
-        name: identity.name,
-        modules: [moduleId],
-        confirmed,
-      });
-      return true;
-    },
-    onSome: (target) => {
-      if (Arr.contains(target.modules, moduleId)) return false;
-      target.modules.push(moduleId);
-      target.confirmed = confirmed;
-      return true;
-    },
-  });
+  if (Option.isNone(existing)) {
+    targets.push({
+      kind: identity.kind,
+      name: identity.name,
+      modules: [moduleId],
+      confirmed: false,
+    });
+    return true;
+  }
+  if (existing.value.modules.includes(moduleId)) return false;
+  existing.value.modules.push(moduleId);
+  existing.value.confirmed = false;
+  return true;
 };
 
 const supportedModulesForTarget = (
@@ -468,10 +359,14 @@ const supportedModulesForTarget = (
     );
   });
 
-type ReachableModule = {
-  readonly target: TargetIdentity;
-  readonly moduleId: ModuleId;
-};
+// A dependency on the same non-package kind stays on the dependent's own target.
+const dependencyTargetFor = (
+  dependent: TargetIdentity,
+  dependency: TargetIdentity,
+) =>
+  dependency.kind !== "package" && dependency.kind === dependent.kind
+    ? dependent
+    : dependency;
 
 /**
  * Follow required-module dependencies without adding them to Selection.
@@ -483,8 +378,10 @@ const collectRequiredModuleClosure = (
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogReader;
-    const visitedRef = yield* Ref.make(new Set<string>());
-    const reachableRef = yield* Ref.make<Array<ReachableModule>>([]);
+    const visitedRef = yield* Ref.make<ReadonlySet<string>>(new Set());
+    const reachableRef = yield* Ref.make<
+      ReadonlyArray<{ target: TargetIdentity; moduleId: ModuleId }>
+    >([]);
 
     const visit = (
       target: TargetIdentity,
@@ -502,157 +399,117 @@ const collectRequiredModuleClosure = (
         ]);
 
         const definition = yield* catalog.getModule(moduleId);
-        yield* pipe(
-          definition.dependencies,
-          Arr.filter(
-            (
-              dependency,
-            ): dependency is Extract<
-              ModuleDependency,
-              { _tag: "required-module" }
-            > => dependency._tag === "required-module",
+        yield* Effect.forEach(
+          definition.dependencies.filter(
+            ModuleDependency.guards["required-module"],
           ),
-          Effect.forEach((dependency) => {
-            const dependencyTarget =
-              dependency.target.kind !== "package" &&
-              dependency.target.kind === target.kind
-                ? target
-                : dependency.target;
-            return visit(dependencyTarget, dependency.moduleId);
-          }),
+          (dependency) =>
+            visit(
+              dependencyTargetFor(target, dependency.target),
+              dependency.moduleId,
+            ),
         );
       });
 
-    yield* Effect.forEach(targets, (target) => {
-      const identity = new TargetIdentity({
-        kind: target.kind,
-        name: target.name,
-      });
-      return Effect.forEach(target.modules, (moduleId) =>
-        visit(identity, moduleId),
-      );
-    });
+    yield* Effect.forEach(
+      targets.flatMap((target) => {
+        const identity = new TargetIdentity({
+          kind: target.kind,
+          name: target.name,
+        });
+        return target.modules.map((moduleId) => ({ identity, moduleId }));
+      }),
+      ({ identity, moduleId }) => visit(identity, moduleId),
+    );
 
     return yield* Ref.get(reachableRef);
   });
 
-const resolveCapabilities = <E, R>(
+const isProvidedBy = Effect.fnUntraced(function* (
+  target: Option.Option<CollectedTarget>,
+  capability: ModuleCapability,
+) {
+  if (Option.isNone(target)) return false;
+  const catalog = yield* CatalogReader;
+  const definitions = yield* Effect.forEach(
+    target.value.modules,
+    catalog.getModule,
+  );
+  return definitions.some((definition) =>
+    (definition.provides ?? []).includes(capability),
+  );
+});
+
+type CapabilityNeed = {
+  definition: ModuleDefinition;
+  target: TargetIdentity;
+  dependency: Extract<ModuleDependency, { _tag: "required-capability" }>;
+};
+
+const provideCapability = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
-  confirmed: boolean,
-  selectProvider: (options: {
-    definition: ModuleDefinition;
-    dependency: Extract<ModuleDependency, { _tag: "required-capability" }>;
-    requiredTarget: TargetIdentity;
-    providers: ReadonlyArray<ModuleDefinition>;
-  }) => Effect.Effect<ModuleDefinition, E, R>,
-) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
-    const reachableModules = yield* collectRequiredModuleClosure(targets);
-    let changed = false;
+  { definition, target, dependency }: CapabilityNeed,
+) {
+  const catalog = yield* CatalogReader;
+  const requiredTarget = dependencyTargetFor(target, dependency.target);
 
-    yield* Effect.forEach(reachableModules, ({ target, moduleId }) =>
-      Effect.gen(function* () {
-        const definition = yield* catalog.getModule(moduleId);
+  if (
+    yield* isProvidedBy(
+      findTarget(targets, requiredTarget),
+      dependency.capability,
+    )
+  ) {
+    return false;
+  }
 
-        yield* Effect.forEach(definition.dependencies, (dependency) =>
-          Effect.gen(function* () {
-            if (dependency._tag !== "required-capability") return;
-
-            const requiredTarget =
-              dependency.target.kind !== "package" &&
-              dependency.target.kind === target.kind
-                ? target
-                : dependency.target;
-            const currentTarget = findTarget(targets, requiredTarget);
-            const providedByCurrentSelection = yield* Option.match(
-              currentTarget,
-              {
-                onNone: () => Effect.succeed(false),
-                onSome: (selectedTarget) =>
-                  Effect.gen(function* () {
-                    const providedBy = yield* Effect.filter(
-                      selectedTarget.modules,
-                      (selectedModuleId) =>
-                        Effect.gen(function* () {
-                          const selectedModule =
-                            yield* catalog.getModule(selectedModuleId);
-                          return Arr.contains(
-                            selectedModule.provides ?? [],
-                            dependency.capability,
-                          );
-                        }),
-                    );
-
-                    return Arr.isArrayNonEmpty(providedBy);
-                  }),
-              },
-            );
-
-            if (providedByCurrentSelection) return;
-
-            const providers = catalog.getCapabilityProviders({
-              capability: dependency.capability,
-              target: requiredTarget,
-            });
-
-            if (providers.length === 0) {
-              return yield* Effect.fail(
-                `Module "${definition.id}" requires capability "${dependency.capability}" on ${requiredTarget.toKey()}, but no compatible provider module exists.`,
-              );
-            }
-
-            const provider =
-              providers.length === 1
-                ? providers[0]
-                : yield* selectProvider({
-                    definition,
-                    dependency,
-                    requiredTarget,
-                    providers,
-                  });
-
-            if (!provider) return;
-
-            changed =
-              ensureTargetModule(
-                targets,
-                requiredTarget,
-                provider.id,
-                confirmed,
-              ) || changed;
-          }),
-        );
-      }),
-    );
-
-    return changed;
+  const providers = catalog.getCapabilityProviders({
+    capability: dependency.capability,
+    target: requiredTarget,
   });
+  if (!Arr.isReadonlyArrayNonEmpty(providers)) {
+    return yield* Effect.fail(
+      `Module "${definition.id}" requires capability "${dependency.capability}" on ${requiredTarget.toKey()}, but no compatible provider module exists.`,
+    );
+  }
 
-const resolveCapabilitiesInteractive = (targets: Array<CollectedTarget>) =>
-  resolveCapabilities(
-    targets,
-    false,
-    ({ definition, dependency, requiredTarget, providers }) =>
-      Effect.gen(function* () {
-        const catalog = yield* CatalogReader;
-        return yield* HorizontalSelect({
+  const providerId =
+    providers.length === 1
+      ? providers[0].id
+      : yield* HorizontalSelect({
           message: `Module "${definition.title}" requires ${dependency.capability}. Which provider should be added to ${requiredTarget.toKey()}?`,
-          choices: Arr.map(providers, (candidate) => ({
+          choices: providers.map((candidate) => ({
             title: candidate.title,
             value: candidate.id,
           })),
-        }).pipe(Effect.flatMap((selectedId) => catalog.getModule(selectedId)));
-      }),
+        });
+
+  return ensureTargetModule(targets, requiredTarget, providerId);
+});
+
+const resolveCapabilities = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+) {
+  const catalog = yield* CatalogReader;
+  const reachable = yield* Effect.forEach(
+    yield* collectRequiredModuleClosure(targets),
+    ({ target, moduleId }) =>
+      Effect.map(catalog.getModule(moduleId), (definition) => ({
+        target,
+        definition,
+      })),
   );
 
-const resolveImplicationsInteractive = (targets: Array<CollectedTarget>) =>
-  Effect.gen(function* () {
-    let changed = true;
-    while (changed) {
-      changed = yield* resolveImplications(targets);
-    }
-  });
+  const needs = reachable.flatMap(({ target, definition }) =>
+    definition.dependencies
+      .filter(ModuleDependency.guards["required-capability"])
+      .map((dependency) => ({ definition, target, dependency })),
+  );
+
+  const provided = yield* Effect.forEach(needs, (need) =>
+    provideCapability(targets, need),
+  );
+  return provided.some(Boolean);
+});
 
 const collectTargetsFromSpecs = (
   targetSpecs: ReadonlyArray<RecipeTargetSpec>,
@@ -666,98 +523,150 @@ const collectTargetsFromSpecs = (
     })),
   );
 
-const isScaffoldAborted = (
-  err: unknown,
-): err is { _tag: "ScaffoldAborted"; retry?: boolean } =>
-  Predicate.isTagged("ScaffoldAborted")(err);
+const isScaffoldAborted = Schema.is(ScaffoldAborted);
+
+const addTarget = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+  targetChoices: ReadonlyArray<{ title: string; value: TargetKind }>,
+) {
+  const catalog = yield* CatalogReader;
+  const kind = yield* HorizontalSelect({
+    message: "What kind of target do you want to add?",
+    choices: targetChoices,
+  });
+
+  const name = yield* TextInput({
+    message: `What should this ${kind} target be called?`,
+    validate: validateTargetName(kind),
+  });
+
+  const availableModules = yield* catalog.getSupportedModules(kind, {
+    visibility: "public",
+  });
+
+  const moduleTree = yield* buildModuleTree(availableModules);
+
+  const modules = Arr.isReadonlyArrayNonEmpty(moduleTree)
+    ? yield* NestedMultiSelect({
+        message: `Which modules do you want to add to "${kind}/${name}"?`,
+        choices: moduleTree,
+      })
+    : [];
+  const supportedModules = yield* supportedModulesForTarget(
+    new TargetIdentity({ kind, name }),
+    modules,
+  );
+
+  targets.push({
+    kind,
+    name,
+    modules: [...supportedModules],
+    confirmed: false,
+  });
+});
+
+const editTarget = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+) {
+  const catalog = yield* CatalogReader;
+  const index = yield* Select({
+    message: "Which target do you want to edit?",
+    choices: targets.map((target, i) => ({
+      title: `${target.kind}/${target.name}  [${target.modules.join(", ")}]`,
+      value: i,
+    })),
+  });
+  const target = targets[index];
+  if (target === undefined) return;
+
+  const availableModules = yield* catalog.getSupportedModules(target.kind, {
+    visibility: "public",
+  });
+  if (!Arr.isReadonlyArrayNonEmpty(availableModules)) {
+    target.confirmed = true;
+    return;
+  }
+
+  const moduleTree = yield* buildModuleTree(availableModules);
+  const newModules = yield* NestedMultiSelect({
+    message: `Select modules for "${target.kind}/${target.name}":`,
+    choices: moduleTree,
+    initialSelected: target.modules,
+  });
+  const supportedModules = yield* supportedModulesForTarget(
+    new TargetIdentity({ kind: target.kind, name: target.name }),
+    newModules,
+  );
+  target.modules = [...supportedModules];
+  target.confirmed = true;
+
+  // NOTE: Prune implied modules that were invalidated by explicit edits before resolving again.
+  yield* removeOrphanedImplications(
+    targets,
+    new Set(
+      supportedModules.map((moduleId) => implicationKey(target.kind, moduleId)),
+    ),
+  );
+  yield* resolveImplicationsInteractive(targets);
+});
+
+const confirmAll = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+) {
+  if (yield* resolveCapabilities(targets)) return false;
+  for (const target of targets) {
+    target.confirmed = true;
+  }
+  return true;
+});
+
+const renderTargetPanel = (
+  targets: ReadonlyArray<CollectedTarget>,
+  terminalWidth: number,
+) => {
+  const panelContentWidth = Math.max(20, terminalWidth - 4);
+  return Box.renderPrettySync(
+    Box.vsep(
+      [
+        Box.text("Current targets and modules:").pipe(Box.annotate(Ansi.bold)),
+        formatTargetSummary(targets, panelContentWidth),
+      ],
+      1,
+      Box.left,
+    ).pipe(
+      Box.maxWidth(panelContentWidth),
+      Box.pad(0, 1),
+      Box.border("rounded", { annotation: Ansi.dim }),
+    ),
+  );
+};
 
 const collectTargetsInteractive = Effect.gen(function* () {
   const catalog = yield* CatalogReader;
   const terminal = yield* Terminal.Terminal;
 
-  const targetChoices = yield* pipe(
+  const targetChoices = yield* Effect.forEach(
     catalog.getTargetKinds({ visibility: "public" }),
-    Effect.forEach((kind) =>
-      Effect.gen(function* () {
-        const target = yield* catalog.getTarget(kind);
-        return { title: target.title, value: kind };
-      }),
-    ),
+    (kind) =>
+      Effect.map(catalog.getTarget(kind), (target) => ({
+        title: target.title,
+        value: kind,
+      })),
   );
 
   const targets: Array<CollectedTarget> = [];
+  yield* addTarget(targets, targetChoices);
 
-  const addTarget = Effect.gen(function* () {
-    const kind = yield* HorizontalSelect({
-      message: "What kind of target do you want to add?",
-      choices: targetChoices,
-    });
-
-    const name = yield* TextInput({
-      message: `What should this ${kind} target be called?`,
-      validate: validateTargetName(kind),
-    });
-
-    const availableModules = yield* catalog.getSupportedModules(kind, {
-      visibility: "public",
-    });
-
-    const moduleTree = yield* buildModuleTree(availableModules);
-
-    const modules = Arr.isReadonlyArrayNonEmpty(moduleTree)
-      ? yield* NestedMultiSelect({
-          message: `Which modules do you want to add to "${kind}/${name}"?`,
-          choices: moduleTree,
-        })
-      : [];
-    const supportedModules = yield* supportedModulesForTarget(
-      new TargetIdentity({ kind, name }),
-      modules,
-    );
-
-    targets.push({
-      kind,
-      name,
-      modules: [...supportedModules],
-      confirmed: false,
-    });
-  });
-
-  yield* addTarget;
-
-  pipe(
-    Option.fromNullishOr(targets[0]),
-    Option.filter((t) => Arr.isArrayNonEmpty(t.modules)),
-    Option.map((t) => {
-      t.confirmed = true;
-    }),
-  );
+  const [first] = targets;
+  if (first !== undefined && Arr.isArrayNonEmpty(first.modules)) {
+    first.confirmed = true;
+  }
 
   yield* resolveImplicationsInteractive(targets);
 
   let allConfirmed = false;
   while (!allConfirmed) {
-    const terminalWidth = yield* terminal.columns;
-    const panelContentWidth = Math.max(20, terminalWidth - 4);
-
-    yield* Console.log(
-      Box.renderPrettySync(
-        Box.vsep(
-          [
-            Box.text("Current targets and modules:").pipe(
-              Box.annotate(Ansi.bold),
-            ),
-            formatTargetSummary(targets, panelContentWidth),
-          ],
-          1,
-          Box.left,
-        ).pipe(
-          Box.maxWidth(panelContentWidth),
-          Box.pad(0, 1),
-          Box.border("rounded", { annotation: Ansi.dim }),
-        ),
-      ),
-    );
+    yield* Console.log(renderTargetPanel(targets, yield* terminal.columns));
 
     const action = yield* HorizontalSelect<"confirm-all" | "edit" | "add">({
       message: "What would you like to do?",
@@ -768,79 +677,14 @@ const collectTargetsInteractive = Effect.gen(function* () {
       ],
     });
 
-    yield* pipe(
-      Match.value(action),
-      Match.when("confirm-all", () =>
-        Effect.gen(function* () {
-          const capabilitiesChanged =
-            yield* resolveCapabilitiesInteractive(targets);
-
-          if (!capabilitiesChanged) {
-            yield* Effect.sync(() => {
-              Arr.forEach(targets, (t) => {
-                t.confirmed = true;
-              });
-              allConfirmed = true;
-            });
-          }
-        }),
-      ),
-      Match.when("edit", () =>
-        Effect.gen(function* () {
-          const targetToEdit = yield* Select({
-            message: "Which target do you want to edit?",
-            choices: Arr.map(targets, (t, i) => ({
-              title: `${t.kind}/${t.name}  [${Arr.join(t.modules, ", ")}]`,
-              value: i,
-            })),
-          });
-
-          yield* pipe(
-            Option.fromNullishOr(targets[targetToEdit]),
-            Option.match({
-              onNone: () => Effect.void,
-              onSome: (t) =>
-                Effect.gen(function* () {
-                  const availableModules = yield* catalog.getSupportedModules(
-                    t.kind,
-                    { visibility: "public" },
-                  );
-
-                  if (Arr.isReadonlyArrayNonEmpty(availableModules)) {
-                    const moduleTree = yield* buildModuleTree(availableModules);
-
-                    const newModules = yield* NestedMultiSelect({
-                      message: `Select modules for "${t.kind}/${t.name}":`,
-                      choices: moduleTree,
-                      initialSelected: t.modules,
-                    });
-                    const supportedModules = yield* supportedModulesForTarget(
-                      new TargetIdentity({ kind: t.kind, name: t.name }),
-                      newModules,
-                    );
-                    t.modules = [...supportedModules];
-                    t.confirmed = true;
-
-                    // NOTE: Prune implied modules that were invalidated by explicit edits before resolving again.
-                    const pinned = new Set(
-                      Arr.map(supportedModules, (m) => `${t.kind}:${m}`),
-                    );
-                    yield* removeOrphanedImplications(targets, pinned);
-                    yield* resolveImplicationsInteractive(targets);
-                  } else {
-                    t.confirmed = true;
-                  }
-                }),
-            }),
-          );
-        }),
-      ),
+    allConfirmed = yield* Match.value(action).pipe(
+      Match.when("confirm-all", () => confirmAll(targets)),
+      Match.when("edit", () => Effect.as(editTarget(targets), false)),
       Match.when("add", () =>
-        Effect.gen(function* () {
-          yield* addTarget;
-
-          yield* resolveImplicationsInteractive(targets);
-        }),
+        addTarget(targets, targetChoices).pipe(
+          Effect.andThen(resolveImplicationsInteractive(targets)),
+          Effect.as(false),
+        ),
       ),
       Match.exhaustive,
     );
@@ -862,9 +706,9 @@ export const add = Command.make(
   },
   (flags) =>
     Effect.gen(function* () {
-      yield* validateShowFiles(flags);
+      const { confirm, mode } = yield* decodeRunFlags(flags);
       if (
-        flags.yes &&
+        confirm === "assume-yes" &&
         Option.isNone(flags.target) &&
         wasTargetFlagProvided(process.argv)
       ) {
@@ -902,16 +746,10 @@ export const add = Command.make(
       );
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
-      yield* pipeline.run({
-        selection,
-        repositoryRoot,
-        yes: flags.yes,
-        dryRun: flags.dryRun,
-        showFiles: flags.showFiles,
-        trust: flags.trust,
-        config,
-        createCommand,
-      });
+      yield* pipeline.run(
+        { selection, repositoryRoot, config, createCommand },
+        mode,
+      );
     }).pipe(
       Effect.retry({
         while: (err) => isScaffoldAborted(err) && err.retry === true,

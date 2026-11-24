@@ -42,8 +42,8 @@ const customOnlyDefaults = (defaults: StackConfig) =>
 export const commandServicesLayer = <E, R>(
   selection: Effect.Effect<
     {
-      readonly explicit: Option.Option<CatalogSources>;
-      readonly sources: CatalogSources;
+      explicit: Option.Option<CatalogSources>;
+      sources: CatalogSources;
     },
     E,
     R
