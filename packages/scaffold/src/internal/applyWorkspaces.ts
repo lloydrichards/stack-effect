@@ -171,6 +171,38 @@ export const make = Effect.gen(function* () {
     );
   }).pipe(Effect.withSpan("ApplyWorkspaces.empty"));
 
+  const seedFailure = (path: string) => (error: { readonly message: string }) =>
+    new ApplyFailure({
+      message: `Could not seed ${path}: ${error.message}`,
+      cause: error,
+    });
+
+  const seedFile = Effect.fnUntraced(function* (
+    fileSystem: FileSystem.FileSystem,
+    repositoryRoot: string,
+    path: string,
+  ) {
+    const sourcePath = hostPath.join(repositoryRoot, path);
+    const targetPath = virtualPath.join(workspaceRoot, path);
+    const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
+      Effect.mapError(
+        (error) =>
+          new ApplyFailure({
+            message: `Could not read ${sourcePath}: ${error.message}`,
+            cause: error,
+          }),
+      ),
+    );
+    yield* fileSystem
+      .makeDirectory(virtualPath.dirname(targetPath), {
+        recursive: true,
+      })
+      .pipe(
+        Effect.andThen(fileSystem.writeFile(targetPath, contents)),
+        Effect.mapError(seedFailure(path)),
+      );
+  });
+
   const seedFileSystem = Effect.fnUntraced(function* (
     fileSystem: FileSystem.FileSystem,
     repositoryRoot: string,
@@ -179,38 +211,37 @@ export const make = Effect.gen(function* () {
     for (const entry of baseline.paths) {
       if (entry._tag === "missing") continue;
 
-      const targetPath = virtualPath.join(workspaceRoot, entry.path);
-      const seedFailure = (error: { readonly message: string }) =>
-        new ApplyFailure({
-          message: `Could not seed ${entry.path}: ${error.message}`,
-          cause: error,
-        });
-
       if (entry._tag === "directory") {
         yield* fileSystem
-          .makeDirectory(targetPath, { recursive: true })
-          .pipe(Effect.mapError(seedFailure));
+          .makeDirectory(virtualPath.join(workspaceRoot, entry.path), {
+            recursive: true,
+          })
+          .pipe(Effect.mapError(seedFailure(entry.path)));
         continue;
       }
 
-      const sourcePath = hostPath.join(repositoryRoot, entry.path);
-      const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
-        Effect.mapError(
-          (error) =>
-            new ApplyFailure({
-              message: `Could not read ${sourcePath}: ${error.message}`,
-              cause: error,
-            }),
-        ),
-      );
-      yield* fileSystem
-        .makeDirectory(virtualPath.dirname(targetPath), {
-          recursive: true,
-        })
+      yield* seedFile(fileSystem, repositoryRoot, entry.path);
+    }
+
+    // Apply checks package ownership across the whole repository, so seed every
+    // owner manifest the baseline paths left out.
+    const owners =
+      baseline.packageOwners ??
+      (yield* repositoryState
+        .discoverOwners(repositoryRoot)
         .pipe(
-          Effect.andThen(fileSystem.writeFile(targetPath, contents)),
-          Effect.mapError(seedFailure),
-        );
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({ message: error.message, cause: error }),
+          ),
+        ));
+    const seededPaths = new Set<string>(
+      baseline.paths.map((entry) => entry.path),
+    );
+    for (const owner of owners) {
+      const manifestPath = `${owner.path}/package.json`;
+      if (seededPaths.has(manifestPath)) continue;
+      yield* seedFile(fileSystem, repositoryRoot, manifestPath);
     }
   });
 
@@ -254,6 +285,7 @@ export const make = Effect.gen(function* () {
             plan: new Plan({
               baseline: {
                 root: workspaceRoot,
+                packageOwners: apply.plan.baseline.packageOwners,
                 paths: apply.plan.baseline.paths.map((entry) =>
                   entry.path === "." && entry._tag === "missing"
                     ? { _tag: "directory" as const, path: entry.path }
