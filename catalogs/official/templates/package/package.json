@@ -8,8 +8,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {},
-  "dependencies": {},
+  "dependencies": {
+{{#if noModule=package-library}}    "effect": "4.1.4"{{/if}}
+  },
   "devDependencies": {
+{{#if module=package-library}}    "effect": "4.1.4",{{/if}}
     "@repo/config-typescript": "{{workspaceDependency}}",
     "vitest": "^5.1.0"
   }

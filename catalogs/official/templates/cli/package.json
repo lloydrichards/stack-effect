@@ -7,7 +7,10 @@
     "{{packageName}}": "{{#if runtime=deno}}dist/{{packageName}}{{/if}}{{#if runtime=bun}}dist/index.js{{/if}}{{#if runtime=node}}dist/index.js{{/if}}"
   },
   "scripts": {},
-  "dependencies": {},
+  "dependencies": {
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.1.4",
+    "effect": "4.1.4"
+  },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
     {{#if runtime=bun}}"@types/bun": "^1.4.4",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}
