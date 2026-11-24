@@ -29,8 +29,12 @@ import * as internal from "./internal/recipeService";
  * module for each required capability the recipe leaves unmet, following
  * `providerStrategy`: `fail-on-ambiguous` adds the only candidate and fails
  * with `AmbiguousRecipeProvider` when there are several, `first-provider`
- * adds the first candidate in catalog order, and both fail with
- * `MissingRecipeProvider` when there is none. `renderCreateCommand`
+ * adds the first candidate in catalog order, and `explicit` adds the module it
+ * names or fails with `InvalidRecipeProvider` when that module is not a
+ * candidate. All fail with `MissingRecipeProvider` when there is none.
+ * Candidates come from sources the requesting module's source may reference,
+ * and a module Blueprint attaches anyway counts as the provider.
+ * `renderCreateCommand`
  * omits flags whose values match the runtime's defaults.
  */
 export class RecipeService extends Context.Service<

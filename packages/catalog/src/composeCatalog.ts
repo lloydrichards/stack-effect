@@ -404,6 +404,9 @@ export const composeCatalog = Effect.fn("Catalog.compose")(function* (
                 sourceLabel(index),
               ]),
             ),
+            requires: new Map(
+              sources.map((source) => [source.name, source.requires]),
+            ),
           },
   } as const;
 });

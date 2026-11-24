@@ -1,5 +1,13 @@
 import { assert, describe, layer } from "@effect/vitest";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import { CatalogService } from "@repo/catalog";
+import {
+  type CatalogFragment,
+  ModuleCapability,
+  type ModuleDefinition,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import type {
   RecipeProviderStrategy,
   RecipeTargetSpec,
@@ -9,7 +17,7 @@ import type { Selection } from "@repo/domain/Selection";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import { Effect, Layer, Schema } from "effect";
-import { ProviderCatalogLayer } from "./fixtures/scaffold";
+import { module, ProviderCatalogLayer, target } from "./fixtures/scaffold";
 
 // A custom-only source keeps official workspace tools out of the selection.
 const config = Schema.decodeUnknownSync(StackConfig)({
@@ -41,9 +49,94 @@ const modulesOn = (selection: Selection, targetKey: string) =>
     .find((target) => target.identity.toKey() === targetKey)
     ?.modules.map((module) => module.id);
 
-const TestLayer = Layer.merge(RecipeService.layer, BlueprintService.layer).pipe(
-  Layer.provide(ProviderCatalogLayer),
+const resolveLayer = <E>(catalog: Layer.Layer<CatalogService, E>) =>
+  Layer.merge(RecipeService.layer, BlueprintService.layer).pipe(
+    Layer.provide(catalog),
+  );
+
+const TestLayer = resolveLayer(ProviderCatalogLayer);
+
+const sqlProvider = (id: string, ...kinds: ReadonlyArray<string>) =>
+  module(id, "package", {
+    supportedOn: kinds.map((kind) => ({
+      _tag: "kind" as const,
+      kind: TargetKind.make(kind),
+    })),
+    provides: [ModuleCapability.make("sql")],
+  });
+
+const requiresSql = (
+  kind: string,
+  name: string,
+): ModuleDefinition["dependencies"][number] => ({
+  _tag: "required-capability",
+  target: new TargetIdentity({ kind: TargetKind.make(kind), name }),
+  capability: ModuleCapability.make("sql"),
+});
+
+/**
+ * A custom source, listed first, that contributes another `sql` provider to
+ * the official package target. Official modules cannot reference it.
+ */
+const SourcesCatalogLayer = CatalogService.fromFragments(
+  [
+    { targets: [], modules: [sqlProvider("sql-custom", "package")] },
+    {
+      targets: [target("workspace"), target("package")],
+      modules: [
+        sqlProvider("sql-official", "package"),
+        module("official-repository", "package", {
+          dependencies: [requiresSql("package", "db")],
+        }),
+      ],
+    },
+  ] satisfies ReadonlyArray<CatalogFragment>,
+  {
+    sources: [
+      { name: "custom", requires: ["official"] },
+      { name: "official", requires: [] },
+    ],
+  },
 );
+
+/**
+ * `sql-first` precedes `sql-required`, which modules and the `db` target
+ * attach as a hard dependency.
+ */
+const HardDependencyCatalogLayer = CatalogService.fromFragments([
+  {
+    targets: [
+      target("workspace"),
+      target("package"),
+      target("db", { requiredModules: [ModuleId.make("sql-required")] }),
+    ],
+    modules: [
+      sqlProvider("sql-first", "package", "db"),
+      sqlProvider("sql-required", "package", "db"),
+      module("hard-repository", "package", {
+        dependencies: [
+          {
+            _tag: "required-module",
+            target: new TargetIdentity({
+              kind: TargetKind.make("package"),
+              name: "db",
+            }),
+            moduleId: ModuleId.make("sql-required"),
+          },
+          requiresSql("package", "db"),
+        ],
+      }),
+      module("db-repository", "db", {
+        dependencies: [requiresSql("db", "main")],
+      }),
+    ],
+  } satisfies CatalogFragment,
+]);
+
+const strategies: ReadonlyArray<RecipeProviderStrategy> = [
+  { _tag: "fail-on-ambiguous" },
+  { _tag: "first-provider" },
+];
 
 describe("RecipeService", () => {
   layer(TestLayer)("resolve", (it) => {
@@ -156,5 +249,121 @@ describe("RecipeService", () => {
           ]);
         }),
     );
+
+    it.effect(
+      "should add the provider an explicit strategy names among several candidates",
+      () =>
+        Effect.gen(function* () {
+          const selection = yield* resolve(
+            [recipeTarget("package", "db", "todo-repository")],
+            {
+              _tag: "explicit",
+              providers: [
+                {
+                  target: recipeTarget("package", "db").target,
+                  capability: ModuleCapability.make("db-sql"),
+                  moduleId: ModuleId.make("sql-postgres"),
+                },
+              ],
+            },
+          );
+
+          assert.deepStrictEqual(modulesOn(selection, "packages/db"), [
+            ModuleId.make("todo-repository"),
+            ModuleId.make("sql-postgres"),
+          ]);
+        }),
+    );
+
+    it.effect(
+      "should reject an explicit provider that cannot provide the capability on that target",
+      () =>
+        Effect.gen(function* () {
+          const error = yield* resolve(
+            [recipeTarget("package", "db", "todo-repository")],
+            {
+              _tag: "explicit",
+              providers: [
+                {
+                  target: recipeTarget("package", "db").target,
+                  capability: ModuleCapability.make("db-sql"),
+                  moduleId: ModuleId.make("telemetry-deno"),
+                },
+              ],
+            },
+          ).pipe(Effect.flip);
+
+          assert.strictEqual(error._tag, "InvalidRecipeProvider");
+          if (error._tag !== "InvalidRecipeProvider") return;
+          assert.strictEqual(error.moduleId, "telemetry-deno");
+          assert.deepStrictEqual(
+            error.providers.map((provider) => provider.moduleId),
+            ["sql-sqlite", "sql-postgres"],
+          );
+        }),
+    );
   });
+
+  layer(resolveLayer(SourcesCatalogLayer))("resolve across sources", (it) => {
+    it.effect(
+      "should consider only providers the requesting module's source may reference",
+      () =>
+        Effect.gen(function* () {
+          for (const strategy of strategies) {
+            const selection = yield* resolve(
+              [recipeTarget("package", "db", "official-repository")],
+              strategy,
+            );
+
+            assert.deepStrictEqual(
+              modulesOn(selection, "packages/db"),
+              [
+                ModuleId.make("official-repository"),
+                ModuleId.make("sql-official"),
+              ],
+              strategy._tag,
+            );
+          }
+        }),
+    );
+  });
+
+  layer(resolveLayer(HardDependencyCatalogLayer))(
+    "resolve with hard dependencies",
+    (it) => {
+      it.effect(
+        "should select the hard-required provider instead of choosing another",
+        () =>
+          Effect.gen(function* () {
+            const blueprints = yield* BlueprintService;
+            const cases = [
+              {
+                recipe: recipeTarget("package", "db", "hard-repository"),
+                targetKey: "packages/db",
+              },
+              {
+                recipe: recipeTarget("db", "main", "db-repository"),
+                targetKey: recipeTarget("db", "main").target.toKey(),
+              },
+            ];
+
+            for (const strategy of strategies) {
+              for (const { recipe, targetKey } of cases) {
+                const selection = yield* resolve([recipe], strategy);
+
+                const providers = modulesOn(selection, targetKey)?.filter(
+                  (id) => id.startsWith("sql-"),
+                );
+                assert.deepStrictEqual(
+                  providers,
+                  [ModuleId.make("sql-required")],
+                  `${strategy._tag} ${targetKey}`,
+                );
+                yield* blueprints.resolve(selection, config);
+              }
+            }
+          }),
+      );
+    },
+  );
 });

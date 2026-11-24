@@ -102,6 +102,8 @@ const requiredCapabilityDependency = Match.type<ModuleDependency>().pipe(
 type CatalogOrigins = {
   readonly targets: ReadonlyMap<string, string>;
   readonly modules: ReadonlyMap<string, string>;
+  /** Sources each source declares in `requires`. */
+  readonly requires: ReadonlyMap<string, ReadonlyArray<string>>;
 };
 
 const CatalogDefinitions = Context.Service<
@@ -224,10 +226,25 @@ export class CatalogService extends Context.Service<CatalogService>()(
         );
       });
 
+      // Mirrors composition: a definition may reference its own source or one
+      // its source declares in `requires`.
+      const canReference = (ownerId: ModuleId, referencedId: ModuleId) => {
+        const owner = origins?.modules.get(ownerId);
+        const referenced = origins?.modules.get(referencedId);
+        return (
+          owner === undefined ||
+          referenced === undefined ||
+          owner === referenced ||
+          (origins?.requires.get(owner) ?? []).includes(referenced)
+        );
+      };
+
       const getCapabilityProviders = (options: {
         capability: ModuleCapability;
         target: TargetIdentity;
         visibility?: Visibility;
+        /** Keep only providers this module's source may reference. */
+        requestingModuleId?: ModuleId;
       }) =>
         Arr.filter(
           capabilityProviderIndex.get(options.capability) ?? [],
@@ -235,7 +252,9 @@ export class CatalogService extends Context.Service<CatalogService>()(
             hasVisibility(mod, options.visibility) &&
             Arr.some(mod.supportedOn, (supportedOn) =>
               options.target.matches(supportedOn),
-            ),
+            ) &&
+            (options.requestingModuleId === undefined ||
+              canReference(options.requestingModuleId, mod.id)),
         );
 
       const toBuilderCatalog = Effect.fn("CatalogService.toBuilderCatalog")(

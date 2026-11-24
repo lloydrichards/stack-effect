@@ -37,7 +37,8 @@ export type RecipeSpec = typeof RecipeSpec.Type;
  * **Gotchas**
  *
  * Every strategy adds the only candidate when there is one. `explicit` falls
- * back to `fail-on-ambiguous` for requirements it does not name.
+ * back to `fail-on-ambiguous` for requirements it does not name, and rejects a
+ * named module that is not one of the candidates.
  */
 export const RecipeProviderStrategy = Schema.TaggedUnion({
   "fail-on-ambiguous": {},
@@ -150,8 +151,33 @@ export class AmbiguousRecipeProvider extends Schema.TaggedError<AmbiguousRecipeP
   }
 }
 
+/**
+ * An `explicit` provider strategy names a module for a requirement, and that
+ * module is not one of the providers the requester can use there.
+ *
+ * **When to use**
+ *
+ * Handle it where a recipe is resolved; `moduleId` is the rejected choice and
+ * `providers` lists the valid candidates in catalog order.
+ */
+export class InvalidRecipeProvider extends Schema.TaggedError<InvalidRecipeProvider>()(
+  "InvalidRecipeProvider",
+  {
+    requestingModuleId: ModuleId,
+    target: TargetIdentity,
+    capability: ModuleCapability,
+    moduleId: ModuleId,
+    providers: Schema.Array(RecipeProviderCandidate),
+  },
+) {
+  override get message(): string {
+    return `Module "${this.requestingModuleId}" requires capability "${this.capability}" on ${this.target.toKey()}, and "${this.moduleId}" cannot provide it there for this runtime. Choose one of: ${this.providers.map((provider) => `${provider.moduleId} (${provider.title})`).join(", ")}.`;
+  }
+}
+
 /** Failures `RecipeService.resolve` can return. */
 export type RecipeResolveError =
   | InvalidRecipeSpec
   | MissingRecipeProvider
-  | AmbiguousRecipeProvider;
+  | AmbiguousRecipeProvider
+  | InvalidRecipeProvider;
