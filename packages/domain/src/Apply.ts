@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { duplicates } from "./Catalog";
 import { byPath, Plan, RepositoryPath, RepositoryPathOrder } from "./Plan";
 
@@ -68,6 +68,10 @@ export class ApplyError extends Schema.TaggedError<ApplyError>()("ApplyError", {
 const ApplyFailedPath = Schema.Struct({
   path: RepositoryPath,
   reason: Schema.String,
+  /** Messages along the failure's cause chain, outermost first. */
+  causes: Schema.Array(Schema.String).pipe(
+    Schema.withDecodingDefaultKey(Effect.succeed([])),
+  ),
 });
 
 /**

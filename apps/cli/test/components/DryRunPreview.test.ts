@@ -21,6 +21,29 @@ const input = {
 };
 
 describe("DryRunPreview", () => {
+  it("prints each cause under a failed write", () => {
+    const output = Box.renderPlainSync(
+      DryRunPreview({
+        ...input,
+        apply: new ApplyResult({
+          created: [],
+          modified: [],
+          skipped: [],
+          failed: [
+            {
+              path: RepositoryPath.make("apps/api.ts"),
+              reason: "Could not rename apps/api.ts",
+              causes: ["EACCES: permission denied"],
+            },
+          ],
+        }),
+      }),
+    );
+
+    expect(output).toContain("Could not rename apps/api.ts");
+    expect(output).toContain("Caused by: EACCES: permission denied");
+  });
+
   it("keeps generated-file output absent unless requested", () => {
     const existingOutput = Box.renderPlainSync(DryRunPreview(input));
     const explicitUndefinedOutput = Box.renderPlainSync(

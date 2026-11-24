@@ -350,6 +350,7 @@ describe("ScaffoldPipeline", () => {
                       {
                         path: RepositoryPath.make("packages/app/package.json"),
                         reason: "Permission denied",
+                        causes: [],
                       },
                     ],
                   }),
