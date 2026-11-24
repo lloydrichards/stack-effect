@@ -12,7 +12,7 @@ import {
   RecipeTargetSpec,
   type RecipeTargetSpec as RecipeTargetSpecType,
 } from "@repo/domain/Recipe";
-import { Effect, Result, Schema, SchemaGetter } from "effect";
+import { Array as Arr, Effect, Result, Schema, SchemaGetter } from "effect";
 
 const splitCommaSeparated = (values: ReadonlyArray<string>): Array<string> =>
   values.flatMap((value) =>
@@ -23,7 +23,7 @@ const splitCommaSeparated = (values: ReadonlyArray<string>): Array<string> =>
   );
 
 const duplicatedValues = (values: ReadonlyArray<string>): Array<string> =>
-  [...Map.groupBy(values, (value) => value)]
+  Object.entries(Arr.groupBy(values, (value) => value))
     .filter(([, grouped]) => grouped.length > 1)
     .map(([value]) => value);
 

@@ -7,7 +7,7 @@ import {
   type RepoSnapshotPath,
   RepositoryPath,
 } from "@repo/domain/Plan";
-import { Effect, Match, Option, Predicate, Schema } from "effect";
+import { Array as Arr, Effect, Match, Option, Predicate, Schema } from "effect";
 import { findJsxSlotMarker, makeJsxSourceFile } from "./jsxSlot";
 
 /** @internal */
@@ -260,8 +260,9 @@ const packageJsonOperations = (
     });
   }
 
-  const depsBySection = Map.groupBy(intent.dependencies, (d) => d.section);
-  for (const [section, deps] of depsBySection) {
+  for (const section of ["dependencies", "devDependencies"] as const) {
+    const deps = intent.dependencies.filter((d) => d.section === section);
+    if (deps.length === 0) continue;
     operations.push({
       _tag: "json-pkg-deps",
       fileType: "json",
@@ -589,7 +590,7 @@ const assessPackageJsonEntries = ({
   intent: PlanningIntentPackageJsonPath;
 }): FlatStringRecordAssessment<PlanConflict> => {
   const { path } = intent;
-  const dependenciesBySection = Map.groupBy(
+  const dependenciesBySection = Arr.groupBy(
     intent.dependencies,
     (plannedDependency) => plannedDependency.section,
   );
@@ -604,7 +605,7 @@ const assessPackageJsonEntries = ({
   const dependencyAssessments = (
     ["dependencies", "devDependencies"] as const
   ).flatMap((section) => {
-    const sectionDependencies = dependenciesBySection.get(section);
+    const sectionDependencies = dependenciesBySection[section];
     return sectionDependencies === undefined
       ? []
       : [
