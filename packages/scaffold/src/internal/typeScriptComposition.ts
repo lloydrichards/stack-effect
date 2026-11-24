@@ -62,6 +62,33 @@ export const composeTypeScript: (
 );
 
 const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
+  // Older projects may already bind a name through another specifier, such as
+  // a package barrel instead of its subpath export. A second binding of the
+  // same name would not parse, so keep the existing import.
+  const bound = localImportBindings(sourceFile);
+  const namedImports = op.namedImports?.filter((name) => !bound.has(name));
+  const defaultImport =
+    op.defaultImport !== undefined && !bound.has(op.defaultImport)
+      ? op.defaultImport
+      : undefined;
+  const namespaceImport =
+    op.namespaceImport !== undefined && !bound.has(op.namespaceImport)
+      ? op.namespaceImport
+      : undefined;
+
+  const requestsBindings =
+    Boolean(op.namedImports?.length) ||
+    op.defaultImport !== undefined ||
+    op.namespaceImport !== undefined;
+  const addsBindings =
+    Boolean(namedImports?.length) ||
+    defaultImport !== undefined ||
+    namespaceImport !== undefined;
+
+  if (requestsBindings && !addsBindings) {
+    return;
+  }
+
   const existingImport = sourceFile.getImportDeclaration(
     (decl) => decl.getModuleSpecifierValue() === op.moduleSpecifier,
   );
@@ -70,22 +97,33 @@ const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
     sourceFile.addImportDeclaration({
       moduleSpecifier: op.moduleSpecifier,
       isTypeOnly: op.typeOnly ?? false,
-      ...(op.namedImports && { namedImports: [...op.namedImports] }),
-      ...(op.defaultImport && { defaultImport: op.defaultImport }),
-      ...(op.namespaceImport && { namespaceImport: op.namespaceImport }),
+      ...(namedImports?.length && { namedImports }),
+      ...(defaultImport && { defaultImport }),
+      ...(namespaceImport && { namespaceImport }),
     });
     return;
   }
 
-  if (op.namedImports) {
-    const existingNames = new Set(
-      existingImport.getNamedImports().map((ni) => ni.getName()),
-    );
-    for (const name of op.namedImports) {
-      if (!existingNames.has(name)) existingImport.addNamedImport(name);
-    }
+  for (const name of namedImports ?? []) {
+    existingImport.addNamedImport(name);
   }
 };
+
+/** Local names bound by the file's import declarations. */
+const localImportBindings = (sourceFile: SourceFile): ReadonlySet<string> =>
+  new Set(
+    sourceFile
+      .getImportDeclarations()
+      .flatMap((decl) => [
+        ...decl
+          .getNamedImports()
+          .map((named) => named.getAliasNode()?.getText() ?? named.getName()),
+        ...[decl.getDefaultImport(), decl.getNamespaceImport()].flatMap(
+          (identifier) =>
+            identifier === undefined ? [] : [identifier.getText()],
+        ),
+      ]),
+  );
 
 /**
  * Append an argument to a call expression. If the call's sole argument is an

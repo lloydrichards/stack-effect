@@ -1,4 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
+import { CatalogService } from "@repo/catalog";
 import { RepositoryPath } from "@repo/domain/Plan";
 import { Effect } from "effect";
 import {
@@ -6,10 +7,13 @@ import {
   apply,
   decideAll,
   exists,
+  module,
   paths,
+  pipelineLayer,
   plan,
   readFile,
   repositoryRoot,
+  target,
   withFault,
   writeFiles,
   testPipeline,
@@ -32,6 +36,51 @@ const planAndApply = (...modules: ReadonlyArray<string>) =>
 
 const count = (contents: string, pattern: RegExp) =>
   contents.match(pattern)?.length ?? 0;
+
+const entryPoint = "packages/app/src/index.ts";
+
+/** Toolkit modules that import from package subpath exports, as the official MCP catalog does. */
+const toolkitModule = (name: string) =>
+  module(`${name.toLowerCase()}-toolkit`, "package", {
+    contributions: [
+      {
+        _tag: "ts-call-arg",
+        path: "{{targetPath}}/src/index.ts",
+        targetVariable: "McpCapabilities",
+        functionName: "Layer.mergeAll",
+        argument: `McpServer.toolkit(${name}Toolkit).pipe(Layer.provide(${name}ToolkitHandlers))`,
+        import: {
+          moduleSpecifier: `@repo/ai/${name}Toolkit`,
+          namedImports: [`${name}Toolkit`, `${name}ToolkitHandlers`],
+        },
+      },
+    ],
+  });
+
+const toolkitPipeline = pipelineLayer(
+  CatalogService.fromFragments([
+    {
+      targets: [target("package")],
+      modules: [toolkitModule("Math"), toolkitModule("DateTime")],
+    },
+  ]),
+);
+
+/** Local names bound by each import clause, in file order. */
+const importedNames = (contents: string) =>
+  Array.from(contents.matchAll(/import\s*\{([^}]*)\}\s*from/g)).flatMap(
+    ([, names = ""]) =>
+      names
+        .split(",")
+        .map(
+          (name) =>
+            name
+              .trim()
+              .split(/\s+as\s+/)
+              .at(-1) ?? "",
+        )
+        .filter((name) => name !== ""),
+  );
 
 describe("ApplyService", () => {
   it.effect("should write every created file and report its path", () =>
@@ -358,6 +407,48 @@ describe("ApplyService", () => {
           assert.include(changed.message, "Options.input");
           assert.strictEqual(yield* readFile(optionsFile), once);
         }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should keep one binding per name when an older entry point imports it from another specifier",
+      () =>
+        Effect.gen(function* () {
+          const legacyImport =
+            'import { MathToolkit, MathToolkitHandlers, Prompts } from "@repo/ai";';
+          yield* writeFiles({
+            [entryPoint]: [
+              legacyImport,
+              'import { Layer } from "effect";',
+              "",
+              "const McpCapabilities = Layer.mergeAll(",
+              "  McpServer.toolkit(MathToolkit).pipe(Layer.provide(MathToolkitHandlers)),",
+              "  Prompts,",
+              ");",
+              "",
+            ].join("\n"),
+          });
+
+          yield* planAndApply("math-toolkit", "datetime-toolkit");
+          const written = yield* readFile(entryPoint);
+          assert.include(written, legacyImport);
+          assert.notInclude(written, '"@repo/ai/MathToolkit"');
+          assert.deepStrictEqual(importedNames(written).toSorted(), [
+            "DateTimeToolkit",
+            "DateTimeToolkitHandlers",
+            "Layer",
+            "MathToolkit",
+            "MathToolkitHandlers",
+            "Prompts",
+          ]);
+          assert.strictEqual(
+            count(written, /McpServer\.toolkit\(MathToolkit\)/g),
+            1,
+          );
+          assert.strictEqual(
+            count(written, /McpServer\.toolkit\(DateTimeToolkit\)/g),
+            1,
+          );
+        }).pipe(Effect.provide(toolkitPipeline)),
     );
   });
 });
