@@ -83,6 +83,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
   catalogs: Schema.optional(CatalogSources),
 }) {
   /** The same config with a catalog selection, e.g. a project's saved sources. */
+  // fallow-ignore-next-line unused-class-member -- called by the CLI plan command
   withCatalogs(catalogs: CatalogSources): StackConfig {
     return new StackConfig({
       $schema: this.$schema,
@@ -124,6 +125,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
     });
   }
 
+  // fallow-ignore-next-line unused-class-member -- called by ContributionTokenContext.resolve
   get packageManagerSpec(): string {
     switch (this.packageManagerName) {
       case "bun":
@@ -137,6 +139,7 @@ export class StackConfig extends Schema.Class<StackConfig>("StackConfig")({
     }
   }
 
+  // fallow-ignore-next-line unused-class-member -- called by ContributionTokenContext.resolve
   get workspaceDependency(): "*" | "workspace:*" {
     return this.packageManagerName === "npm" ? "*" : "workspace:*";
   }
