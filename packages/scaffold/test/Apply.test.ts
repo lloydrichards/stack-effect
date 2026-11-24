@@ -5,11 +5,11 @@ import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it, layer } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
 import {
   OfficialCatalogLayer,
   officialCatalogLayerWith,
 } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
   type ModuleDefinition,
@@ -91,7 +91,7 @@ describe("Applier", () => {
     });
 
   const toolkitPipeline = pipelineLayer(
-    CatalogService.fromFragments([
+    CatalogReader.fromFragments([
       {
         targets: [target("package")],
         modules: [toolkitModule("Math"), toolkitModule("DateTime")],
@@ -1041,7 +1041,7 @@ describe("ApplyWorkspaces", () => {
 
   // Writes a manifest whose name differs from the target's package name, so only Apply sees the owner collision.
   const foreignNamePipeline = pipelineLayer(
-    CatalogService.fromFragments([
+    CatalogReader.fromFragments([
       {
         targets: [target("package")],
         modules: [

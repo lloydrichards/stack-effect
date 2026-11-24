@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
 import { officialCatalogLayerWith } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Blueprint,
   makeBlueprintEdge,
@@ -110,7 +110,7 @@ describe("Finalizer", () => {
     targets: TargetOverrides = {},
     modules: ModuleOverrides = {},
   ) =>
-    CatalogService.fromFragments([fragmentWith(targets, modules)], {
+    CatalogReader.fromFragments([fragmentWith(targets, modules)], {
       allowFinalizeScripts: true,
     });
 
@@ -436,7 +436,7 @@ describe("Finalizer", () => {
           Effect.provide(
             Finalizer.layer.pipe(
               Layer.provide(
-                CatalogService.fromFragments(
+                CatalogReader.fromFragments(
                   [
                     { targets: [codegenTarget("server")], modules: [] },
                     { targets: [codegenTarget("client-react")], modules: [] },

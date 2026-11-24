@@ -1,4 +1,4 @@
-import { decodeCatalogDocument } from "@repo/catalog";
+import { decodeDocument } from "@repo/catalog/Protocol";
 import {
   type CatalogDocument,
   OFFICIAL_CATALOG_URL,
@@ -36,7 +36,7 @@ export const loadOfficialCatalog = Effect.fn("Authoring.loadOfficialCatalog")(
         Effect.flatMap((response) => response.json),
         Effect.mapError((error) => unavailable(error.message)),
       );
-    return yield* decodeCatalogDocument(json).pipe(
+    return yield* decodeDocument(json).pipe(
       Effect.mapError((error) => unavailable(error.message)),
     ) satisfies Effect.Effect<CatalogDocument, OfficialCatalogUnavailable>;
   },

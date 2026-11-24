@@ -2,7 +2,7 @@
  * Blueprint resolution: turns a Selection into the dependency closure of
  * targets and modules a catalog provides.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import type {
   Blueprint,
   BlueprintFailure,
@@ -36,6 +36,6 @@ export class BlueprintResolver extends Context.Service<
     ) => Effect.Effect<Blueprint, BlueprintFailure | CatalogNotFound>;
   }
 >()("@repo/scaffold/BlueprintResolver") {
-  static readonly layer: Layer.Layer<BlueprintResolver, never, CatalogService> =
+  static readonly layer: Layer.Layer<BlueprintResolver, never, CatalogReader> =
     Layer.effect(BlueprintResolver, internal.make);
 }

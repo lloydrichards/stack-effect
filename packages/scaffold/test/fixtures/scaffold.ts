@@ -1,6 +1,6 @@
 import { FileSystemTesting, MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { Apply } from "@repo/domain/Apply";
 import {
   CatalogDocument,
@@ -260,7 +260,7 @@ export const testCatalog = {
   ],
 } satisfies CatalogFragment;
 
-export const TestCatalogLayer = CatalogService.fromFragments([testCatalog]);
+export const TestCatalogLayer = CatalogReader.fromFragments([testCatalog]);
 
 const requiresCapability = (
   name: string,
@@ -320,7 +320,7 @@ export const providerCatalog = {
   ],
 } satisfies CatalogFragment;
 
-export const ProviderCatalogLayer = CatalogService.fromFragments([
+export const ProviderCatalogLayer = CatalogReader.fromFragments([
   providerCatalog,
 ]);
 
@@ -347,7 +347,7 @@ export const app = (...modules: ReadonlyArray<string>) =>
 // Pipeline
 
 /** Plan, Apply, and preview services over the platform and a catalog. */
-export const pipelineLayer = <E>(catalog: Layer.Layer<CatalogService, E>) =>
+export const pipelineLayer = <E>(catalog: Layer.Layer<CatalogReader, E>) =>
   Layer.provideMerge(
     Layer.mergeAll(
       BlueprintResolver.layer,
@@ -484,7 +484,7 @@ export type Fault = {
  */
 export const withFault = Effect.fnUntraced(function* (fault: Fault) {
   const base = yield* FileSystem.FileSystem;
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const { fileSystem, state: fired } = yield* FileSystemTesting.make(
     base,
     Effect.fnUntraced(function* () {
@@ -532,7 +532,7 @@ export const withFault = Effect.fnUntraced(function* (fault: Fault) {
       Layer.succeed(FileSystem.FileSystem, fileSystem),
       Path.layer,
       BrowserCrypto.layer,
-      Layer.succeed(CatalogService, catalog),
+      Layer.succeed(CatalogReader, catalog),
     ),
   );
   return {

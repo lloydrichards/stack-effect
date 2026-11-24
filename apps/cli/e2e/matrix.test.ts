@@ -1,6 +1,6 @@
 import { describe, layer } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { ModuleId } from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
@@ -71,12 +71,12 @@ const defaultTargetNames = new Map([
 ]);
 
 const catalogModules = await Effect.runPromise(
-  Effect.map(CatalogService, (catalog) => catalog.getModules()).pipe(
+  Effect.map(CatalogReader, (catalog) => catalog.getModules()).pipe(
     Effect.provide(OfficialCatalogLayer),
   ),
 );
 const getCapabilityProviders = await Effect.runPromise(
-  Effect.map(CatalogService, (catalog) =>
+  Effect.map(CatalogReader, (catalog) =>
     catalog.getCapabilityProviders.bind(catalog),
   ).pipe(Effect.provide(OfficialCatalogLayer)),
 );
@@ -196,7 +196,7 @@ const maximalBundles = (moduleIds: ReadonlyArray<string>) =>
   );
 
 const buildMatrix = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const entries: Array<MatrixEntry> = [];
 
   for (const kind of catalog.getTargetKinds({ visibility: "public" })) {
@@ -284,7 +284,7 @@ const identityToTarget = (identity: { kind: string; name: string }) => {
 };
 
 const buildChildrenMatrix = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const entries: Array<ChildrenMatrixEntry> = [];
 
   const allModules = catalog.getModules();
@@ -329,7 +329,7 @@ const childrenMatrix = await Effect.runPromise(
 );
 
 const buildCapabilityMatrix = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const entries: Array<CapabilityMatrixEntry> = [];
   const allModules = catalog.getModules();
 

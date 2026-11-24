@@ -5,7 +5,7 @@ description: Catalog composition, v1 protocol checks, read-only lookup, source p
 status: stable
 sources:
   - id: source-1
-    resource: ../../packages/catalog/src/CatalogService.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: source-2
     resource: ../../catalogs/official/src/targetRegistry.ts
   - id: source-3
@@ -13,9 +13,9 @@ sources:
   - id: source-4
     resource: ../../packages/domain/src/Catalog.ts
   - id: compose
-    resource: ../../packages/catalog/src/composeCatalog.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: protocol
-    resource: ../../packages/catalog/src/CatalogProtocol.ts
+    resource: ../../packages/catalog/src/Protocol.ts
   - id: official-service
     resource: ../../catalogs/official/src/service.ts
   - id: loader
@@ -39,9 +39,9 @@ generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 
 `@repo/catalog` owns the runtime catalog. It holds three parts:
 
-- `composeCatalog` composes catalog fragments into one set of definitions. It validates each fragment's shape, then checks duplicate IDs, references, ownership, conflicts, and Finalize scripts across the union. When fragments come from named sources, it also applies the source rules and records each definition's source.
-- `CatalogProtocol` holds the v1 protocol checks: `V1_INTERPRETER_CAPABILITIES`, `validateCatalogCapabilities`, and `decodeCatalogDocument`.
-- `CatalogService` provides read-only lookup and projections for Blueprint resolution, recipe selection, CLI graphs, and Recipe Builder. `CatalogService.fromFragments` builds it from composed fragments. It does not own mutable generated workspaces.
+- `Catalog.compose` composes catalog fragments into one set of definitions. It validates each fragment's shape, then checks duplicate IDs, references, ownership, conflicts, and Finalize scripts across the union. When fragments come from named sources, it also applies the source rules and records each definition's source.
+- The `Protocol` module holds the v1 protocol checks: `V1_INTERPRETER_CAPABILITIES`, `validateCapabilities`, and `decodeDocument`.
+- `CatalogReader` provides read-only lookup and projections for Blueprint resolution, recipe selection, CLI graphs, and Recipe Builder. `CatalogReader.fromFragments` builds it from composed fragments. It does not own mutable generated workspaces.
 
 `@repo/catalog` does no network or cache work. `CatalogLoader` in `@repo/scaffold` fetches documents and hands them to composition, as described in [catalog loading](catalog-loading.md "provides the composed catalog"). The [distribution decision](catalog-distribution.md "sets delivery and freshness policy") and the [source selection decision](catalog-source-selection.md "sets rules for composing sources") set the policy it follows. The [catalog definitions contract](../domain/catalog-definitions.md "defines the entities") defines targets, modules, and children.
 
@@ -53,7 +53,7 @@ The official target and module definitions live in `catalogs/official` and are b
 - `catalogs/official/src/moduleRegistry.ts` orders the per-file module groups from `catalogs/official/src/modules/`.
 - `catalogs/official/templates/<owner>/` holds generated file bodies. The `template()` call in each definition is the authority for which file it uses, since shared and runtime-variant templates live under one owner. Edit their generated files first using the [catalog authoring workflow](../guides/catalog-authoring.md "governs template changes").
 - `catalogs/author` defines the author catalog, which generates a standalone [catalog registry project](catalog-registry-project.md "records its shape").
-- `packages/catalog/src/CatalogService.ts` indexes target kinds, module IDs, and capability providers.
+- `packages/catalog/src/internal/catalogReader.ts` indexes target kinds, module IDs, and capability providers.
 
 Targets include workspace, package, server, CLI, React, and Foldkit destinations. Treat `targetRegistry.ts` as the complete list, rather than copying an exhaustive inventory into documentation. The `Registry` in these file names is naming only; it is not the hosted registry.
 

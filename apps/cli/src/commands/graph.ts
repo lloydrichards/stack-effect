@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type CatalogEdge,
   type CatalogGraph,
@@ -331,7 +331,7 @@ export const graph = Command.make(
   { format: formatFlag, catalog: catalogFlag, root: rootFlag },
   (flags) =>
     Effect.gen(function* () {
-      const catalog = yield* CatalogService;
+      const catalog = yield* CatalogReader;
       const selection = yield* CatalogSelection;
       // Official-only output stays unchanged; sources appear once custom catalogs are selected.
       const sourceOf = selection.sources.some((source) =>

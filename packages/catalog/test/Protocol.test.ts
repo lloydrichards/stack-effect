@@ -1,10 +1,10 @@
 import { assert, describe, it } from "@effect/vitest";
+import { compose } from "@repo/catalog/Catalog";
 import {
-  composeCatalog,
-  decodeCatalogDocument,
-  validateCatalogCapabilities,
+  decodeDocument,
+  validateCapabilities,
   V1_INTERPRETER_CAPABILITIES,
-} from "@repo/catalog";
+} from "@repo/catalog/Protocol";
 import {
   CatalogDocument,
   ModuleCapability,
@@ -50,7 +50,7 @@ describe("CatalogProtocol", () => {
             (name) => name !== "target:hierarchical-name",
           ),
         };
-        const document = yield* decodeCatalogDocument(
+        const document = yield* decodeDocument(
           yield* Schema.encodeEffect(CatalogDocument)(flat),
         );
         assert.deepStrictEqual(
@@ -67,7 +67,7 @@ describe("CatalogProtocol", () => {
         const original = yield* decodedTestCatalog;
         const base = yield* Schema.encodeEffect(CatalogDocument)(original);
         const error = yield* Effect.flip(
-          decodeCatalogDocument({
+          decodeDocument({
             ...base,
             targets: base.targets.map((target) =>
               target.kind === "package"
@@ -137,17 +137,17 @@ describe("CatalogProtocol", () => {
             (name) => name !== "target:hierarchical-name",
           );
           const omitted = yield* Effect.flip(
-            validateCatalogCapabilities({
+            validateCapabilities({
               ...document,
               requiredCapabilities: flat,
             }),
           );
           assert.include(omitted.capabilities, "target:hierarchical-name");
-          const decoded = yield* decodeCatalogDocument(
+          const decoded = yield* decodeDocument(
             yield* Schema.encodeEffect(CatalogDocument)(document),
           );
           assert.include(
-            (yield* Effect.flip(validateCatalogCapabilities(decoded, flat)))
+            (yield* Effect.flip(validateCapabilities(decoded, flat)))
               .capabilities,
             "target:hierarchical-name",
           );
@@ -176,7 +176,7 @@ describe("CatalogProtocol", () => {
               : module,
           ),
         };
-        yield* validateCatalogCapabilities(document);
+        yield* validateCapabilities(document);
       }),
   );
 
@@ -211,7 +211,7 @@ describe("CatalogProtocol", () => {
       Effect.gen(function* () {
         const document = yield* decodedTestCatalog;
         const failure = yield* Effect.flip(
-          validateCatalogCapabilities({
+          validateCapabilities({
             ...document,
             requiredCapabilities: [
               ...document.requiredCapabilities,
@@ -236,7 +236,7 @@ describe("CatalogProtocol", () => {
         const first = document.modules[0];
         assert.isDefined(first);
         const failure = yield* Effect.flip(
-          validateCatalogCapabilities(
+          validateCapabilities(
             withModuleContribution(document, [extraFile("{{unknown}}")]),
           ),
         );
@@ -268,7 +268,7 @@ describe("CatalogProtocol", () => {
         assert.match(tokenContext.resolve(contents), /\{\{/);
         const document = yield* decodedTestCatalog;
         const failure = yield* Effect.flip(
-          validateCatalogCapabilities(
+          validateCapabilities(
             withModuleContribution(document, [extraFile(contents)]),
           ),
         );
@@ -282,7 +282,7 @@ describe("CatalogProtocol", () => {
       Effect.gen(function* () {
         const document = yield* decodedTestCatalog;
         const failure = yield* Effect.flip(
-          validateCatalogCapabilities(
+          validateCapabilities(
             withModuleContribution(document, [
               {
                 _tag: "file",
@@ -313,9 +313,9 @@ describe("CatalogProtocol", () => {
           targets: [],
           modules: [module],
         });
-        const fragment = yield* decodeCatalogDocument(encoded);
+        const fragment = yield* decodeDocument(encoded);
         assert.strictEqual(fragment.modules.length, 1);
-        const error = yield* Effect.flip(composeCatalog([fragment]));
+        const error = yield* Effect.flip(compose([fragment]));
         assert.deepStrictEqual(
           Arr.dedupe(error.details.map((issue) => issue.code)),
           ["missing-reference"],
@@ -331,7 +331,7 @@ describe("CatalogProtocol", () => {
         const [target, ...targets] = document.targets;
         assert.isDefined(target);
         const failure = yield* Effect.flip(
-          validateCatalogCapabilities({
+          validateCapabilities({
             ...document,
             requiredCapabilities: [
               ...document.requiredCapabilities,

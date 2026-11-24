@@ -9,7 +9,7 @@ sources:
   - id: source-2
     resource: ../../packages/domain/src/Plan.ts
   - id: protocol
-    resource: ../../packages/catalog/src/CatalogProtocol.ts
+    resource: ../../packages/catalog/src/Protocol.ts
   - id: package-layout
     resource: ../../.agents/skills/stack-effect-design/SKILL.md
   - id: loader-tests

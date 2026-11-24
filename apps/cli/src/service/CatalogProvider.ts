@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type CatalogSources,
   isCustomCatalogSource,
@@ -55,7 +55,7 @@ export class CatalogProvider extends Context.Service<
   static readonly authoring = Layer.effect(
     this,
     Effect.gen(function* () {
-      const catalog = yield* CatalogService;
+      const catalog = yield* CatalogReader;
       return {
         load: (sources) =>
           sources.every((source) => !isCustomCatalogSource(source.name))

@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Blueprint,
   type BlueprintAttachedModuleNode,
@@ -48,7 +48,7 @@ const appendEdge = (stateRef: Ref.Ref<ResolutionState>, edge: BlueprintEdge) =>
 
 const validateSelection = Effect.fnUntraced(function* (
   selection: Selection,
-  catalog: CatalogService["Service"],
+  catalog: CatalogReader["Service"],
 ) {
   const selectedTargetKeys = new Set<string>();
 
@@ -98,7 +98,7 @@ const validateSelection = Effect.fnUntraced(function* (
 
 const resolveSelection = Effect.fnUntraced(function* (
   selection: Selection,
-  catalog: CatalogService["Service"],
+  catalog: CatalogReader["Service"],
 ) {
   const stateRef = yield* Ref.make<ResolutionState>({
     targets: HashMap.empty(),
@@ -323,7 +323,7 @@ const resolveSelection = Effect.fnUntraced(function* (
 
 /** @internal */
 export const make = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
 
   const resolve = Effect.fn("BlueprintResolver.resolve")(function* (
     selection: Selection,

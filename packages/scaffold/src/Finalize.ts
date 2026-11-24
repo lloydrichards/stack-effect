@@ -2,7 +2,7 @@
  * Finalize: runs the post-apply scripts a Blueprint contributes and collects
  * its next steps.
  */
-import type { CatalogService } from "@repo/catalog";
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import type { Blueprint, CatalogNotFound } from "@repo/domain/Blueprint";
 import type { FinalizeScript, ScriptResult } from "@repo/domain/Finalize";
 import type { StackConfig } from "@repo/domain/StackConfig";
@@ -102,6 +102,6 @@ export class Finalizer extends Context.Service<
   static readonly layer: Layer.Layer<
     Finalizer,
     never,
-    CatalogService | ChildProcessSpawner
+    CatalogReader | ChildProcessSpawner
   > = Layer.effect(Finalizer, internal.make);
 }

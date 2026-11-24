@@ -1,5 +1,5 @@
 import { assert, it as baseIt, layer } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type ModuleDefinition,
   ModuleId,
@@ -28,7 +28,7 @@ baseIt.effect(
   "should project an injected module into the builder catalog, catalog tree and graph when a fragment is added to the official catalog",
   () =>
     Effect.gen(function* () {
-      const catalog = yield* CatalogService;
+      const catalog = yield* CatalogReader;
       const projection = yield* catalog.toBuilderCatalog([
         new TargetIdentity({ kind: TargetKind.make("package"), name: "extra" }),
       ]);
@@ -55,12 +55,12 @@ baseIt.effect(
     ),
 );
 
-layer(OfficialCatalogLayer)("CatalogService", (it) => {
+layer(OfficialCatalogLayer)("CatalogReader", (it) => {
   it.effect(
     "should expose module incompatibilities when building the public catalog tree",
     () =>
       Effect.gen(function* () {
-        const catalog = yield* CatalogService;
+        const catalog = yield* CatalogReader;
         const workspace = catalog.toCatalogTree.targets.find(
           (target) => target.kind === "workspace",
         );

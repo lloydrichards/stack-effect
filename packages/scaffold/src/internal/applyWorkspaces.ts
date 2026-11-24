@@ -1,5 +1,5 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Apply,
   ApplyFailure,
@@ -32,7 +32,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
     const repositoryState = yield* RepositoryState.RepositoryState;
     const digest = yield* Digest.Digest;
     const secureRandom = yield* SecureRandom.SecureRandom;
-    const catalog = yield* CatalogService;
+    const catalog = yield* CatalogReader;
 
     const stale = (changes: ReadonlyArray<StalePlanChange>) =>
       new StalePlanFailure({
@@ -156,7 +156,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
           plan(input).pipe(
             Effect.provide(
               Layer.fresh(Planner.layer).pipe(
-                Layer.provide(Layer.succeed(CatalogService, catalog)),
+                Layer.provide(Layer.succeed(CatalogReader, catalog)),
                 Layer.provide(fileSystemLayer),
               ),
             ),

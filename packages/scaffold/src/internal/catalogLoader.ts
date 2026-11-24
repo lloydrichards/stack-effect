@@ -1,4 +1,5 @@
-import { CatalogService, decodeCatalogDocument } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
+import { decodeDocument } from "@repo/catalog/Protocol";
 import {
   CatalogCapabilityError,
   type CatalogDocument,
@@ -135,7 +136,7 @@ export const make = (cache: CatalogCache["Service"]) =>
           sourceUrl,
           `Catalog from ${sourceUrl} uses an unsupported formatVersion.`,
         );
-      const document = yield* decodeCatalogDocument(json).pipe(
+      const document = yield* decodeDocument(json).pipe(
         Effect.mapError((error) =>
           error instanceof CatalogCapabilityError
             ? failure(
@@ -401,9 +402,9 @@ export const make = (cache: CatalogCache["Service"]) =>
       allowFinalizeScripts = false,
     }: Parameters<CatalogLoader["Service"]["load"]>[0]) {
       const { value, ...loaded } = yield* loadDocument(sourceUrl, (document) =>
-        CatalogService.pipe(
+        CatalogReader.pipe(
           Effect.provide(
-            CatalogService.fromFragments(
+            CatalogReader.fromFragments(
               [document],
               allowFinalizeScripts ? { trustedFragmentIndex: 0 } : {},
             ),
@@ -477,9 +478,9 @@ export const make = (cache: CatalogCache["Service"]) =>
         .map((result) => result.success);
 
       const composedSources = loaded.map(({ source }) => source);
-      const catalog = yield* CatalogService.pipe(
+      const catalog = yield* CatalogReader.pipe(
         Effect.provide(
-          CatalogService.fromFragments(
+          CatalogReader.fromFragments(
             loaded.map(({ document }) => document),
             {
               allowFinalizeScripts: true,

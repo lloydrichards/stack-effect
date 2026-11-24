@@ -13,7 +13,7 @@ sources:
   - id: config
     resource: ../../packages/domain/src/StackConfig.ts
   - id: compose
-    resource: ../../packages/catalog/src/composeCatalog.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: loader
     resource: ../../packages/scaffold/src/Catalog.ts
   - id: selection
@@ -89,10 +89,10 @@ Authoring validation and preview for a document that requires the official sourc
 ## Load each source, then compose once
 
 1. `CatalogLoader.loadSources` loads each selected source. The fetch, decode, capability check, and cache rules apply to each URL separately. Each source keeps its own cache entry, digest, freshness state, and warning.
-2. Each document is decoded and checked on its own, for structure, `formatVersion`, and capabilities. No `CatalogService` exists yet.
-3. `composeCatalog` composes all documents once. It checks `requires` against the selected set first, and fails with `missing-source` before any reference check. It rejects duplicate target kinds and module IDs as `duplicate-id`, naming both sources. It validates references against the union and the dependency rules above.
-4. Composition records each target's and module's source. `CatalogService.getSource` exposes this record to diagnostics, `graph`, and Finalize.
-5. `loadSources` returns a `LoadedCatalogSet`: one composed `CatalogService` and one `LoadedCatalogSource` per source, with its name, URL, `requires`, digest, freshness, and warning. The command or Builder session uses that one catalog throughout.
+2. Each document is decoded and checked on its own, for structure, `formatVersion`, and capabilities. No `CatalogReader` exists yet.
+3. `Catalog.compose` composes all documents once. It checks `requires` against the selected set first, and fails with `missing-source` before any reference check. It rejects duplicate target kinds and module IDs as `duplicate-id`, naming both sources. It validates references against the union and the dependency rules above.
+4. Composition records each target's and module's source. `CatalogReader.getSource` exposes this record to diagnostics, `graph`, and Finalize.
+5. `loadSources` returns a `LoadedCatalogSet`: one composed `CatalogReader` and one `LoadedCatalogSource` per source, with its name, URL, `requires`, digest, freshness, and warning. The command or Builder session uses that one catalog throughout.
 
 The outage policy applies to each source separately:
 
@@ -175,7 +175,7 @@ Failure cases:
 | Package | Contract |
 | --- | --- |
 | `@repo/domain` | `CatalogSource`, `CatalogSources`, and `StackConfig.catalogs`. `CatalogDocument.requires`. Source-aware `CatalogIssueCode` values. The generated `stack.effect.schema.json`. |
-| `@repo/catalog` | `composeCatalog` with per-source `requires`, reference, and conflict rules. `CatalogService.getSource`. |
+| `@repo/catalog` | `Catalog.compose` with per-source `requires`, reference, and conflict rules. `CatalogReader.getSource`. |
 | `@repo/scaffold` | `CatalogLoader.loadSources` and per-source cache and freshness. Source-labelled Finalize scripts. |
 | `stack-effect` CLI | `--catalog`, saving, and mismatch errors. `CatalogSelection`, custom-only `create`, the `--yes`/`--trust` split, source-grouped prompts, `plan` `sources`, and `graph` provenance. |
 | Recipe Builder | Source selection UI, the `catalog` link parameter, confirmation before fetching a non-official URL, and source and cache visibility. |

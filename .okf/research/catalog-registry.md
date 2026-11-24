@@ -7,7 +7,7 @@ sources:
   - id: catalog
     resource: ../../packages/domain/src/Catalog.ts
   - id: service
-    resource: ../../packages/catalog/src/CatalogService.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: community
     resource: https://github.com/lloydrichards/stack-effect/issues/249
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
@@ -21,7 +21,7 @@ Superseded by the [catalog distribution decision](../architecture/catalog-distri
 
 ## The catalog model fits JSON
 
-The catalog holds target and module definitions, dependencies, compatibility rules, template strings, and six tagged contribution types. Loading the full definitions preserves composition and unresolved configuration tokens. The smaller `CatalogTree` and `BuilderCatalog` projections omit generation data and cannot serve as the downloadable catalog. [Definition contracts](https://github.com/lloydrichards/stack-effect/blob/375c27c8568f07d44c5ba4c095e31dc60ff9bc38/packages/domain/src/Catalog.ts), [catalog projections](https://github.com/lloydrichards/stack-effect/blob/375c27c8568f07d44c5ba4c095e31dc60ff9bc38/packages/catalog/src/CatalogService.ts).
+The catalog holds target and module definitions, dependencies, compatibility rules, template strings, and six tagged contribution types. Loading the full definitions preserves composition and unresolved configuration tokens. The smaller `CatalogTree` and `BuilderCatalog` projections omit generation data and cannot serve as the downloadable catalog. [Definition contracts](https://github.com/lloydrichards/stack-effect/blob/375c27c8568f07d44c5ba4c095e31dc60ff9bc38/packages/domain/src/Catalog.ts), [catalog projections](https://github.com/lloydrichards/stack-effect/blob/375c27c8568f07d44c5ba4c095e31dc60ff9bc38/packages/catalog/src/Catalog.ts).
 
 A local probe encoded `{ targets: targetRegistry, modules: moduleRegistry }` through `Schema.fromJsonString(Schema.Struct(...))`, using arrays of `TargetDefinition` and `ModuleDefinition`. Decoding and encoding again produced identical bytes. All 62 dependency target identities regained callable `toKey()` methods. Plain `JSON.parse` alone would lose that schema-class behavior.
 

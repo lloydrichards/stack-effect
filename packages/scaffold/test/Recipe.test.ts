@@ -1,6 +1,6 @@
 import { assert, describe, it, layer } from "@effect/vitest";
-import { CatalogService } from "@repo/catalog";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type CatalogFragment,
   ModuleCapability,
@@ -54,7 +54,7 @@ describe("RecipeResolver", () => {
       .find((target) => target.identity.toKey() === targetKey)
       ?.modules.map((module) => module.id);
 
-  const resolveLayer = <E>(catalog: Layer.Layer<CatalogService, E>) =>
+  const resolveLayer = <E>(catalog: Layer.Layer<CatalogReader, E>) =>
     Layer.merge(RecipeResolver.layer, BlueprintResolver.layer).pipe(
       Layer.provide(catalog),
     );
@@ -83,7 +83,7 @@ describe("RecipeResolver", () => {
    * A custom source, listed first, that contributes another `sql` provider to
    * the official package target. Official modules cannot reference it.
    */
-  const SourcesCatalogLayer = CatalogService.fromFragments(
+  const SourcesCatalogLayer = CatalogReader.fromFragments(
     [
       { targets: [], modules: [sqlProvider("sql-custom", "package")] },
       {
@@ -108,7 +108,7 @@ describe("RecipeResolver", () => {
    * `sql-first` precedes `sql-required`, which modules and the `db` target
    * attach as a hard dependency.
    */
-  const HardDependencyCatalogLayer = CatalogService.fromFragments([
+  const HardDependencyCatalogLayer = CatalogReader.fromFragments([
     {
       targets: [
         target("workspace"),

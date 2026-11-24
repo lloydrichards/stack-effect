@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type Blueprint,
   BlueprintNode,
@@ -116,7 +116,7 @@ const buildConfigDerivedScripts = (
 
 /** @internal */
 export const make = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const spawner = yield* ChildProcessSpawner;
 
   const collectResolvedScripts = Effect.fnUntraced(function* (

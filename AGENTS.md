@@ -23,7 +23,7 @@ For official catalog modules and templates, follow the [catalog-workspace skill]
 - Keep Plan free of apply policy. Require exactly one ApplyDecision per conflicted planned path, with no decisions for other paths.
 - Modules contribute only to their owning target. Model cross-target effects as target or module dependencies.
 - Keep shared contracts in `@repo/domain` and runtime behavior in the scaffold or catalog service that owns it. Preserve explicit failures and conflicts so callers can handle them.
-- Production CLI commands and Recipe Builder sessions load registry JSON through `CatalogLoader`. Reuse the resolved `CatalogService` across the operation. Keep bundled definitions in repository authoring and fixtures.
+- Production CLI commands and Recipe Builder sessions load registry JSON through `CatalogLoader`. Reuse the resolved `CatalogReader` across the operation. Keep bundled definitions in repository authoring and fixtures.
 - When changing shared behavior, check the affected entry points. Consider interactive and non-interactive CLI paths, Recipe Builder, and existing projects as applicable. For a catalog source change, check both `--catalog` and persisted `stack.effect.json` sources against the [source selection contract](.okf/domain/catalog-sources.md).
 
 Read the [OKF index](.okf/index.md) to find the relevant contract or decision. Use the [canonical vocabulary](.okf/domain/ubiquitous-language.md) and [domain definitions](.okf/domain/index.md). When a durable rule or decision changes, use the [OKF skill](.agents/skills/okf/SKILL.md) to update its concept. Run `bun run okf:check` after bundle edits.

@@ -1,10 +1,10 @@
+import { compose } from "@repo/catalog/Catalog";
 import {
-  composeCatalog,
   hierarchicalNameCapabilities,
   templateCapabilities,
   V1_INTERPRETER_CAPABILITIES,
-  validateCatalogCapabilities,
-} from "@repo/catalog";
+  validateCapabilities,
+} from "@repo/catalog/Protocol";
 import {
   CatalogDocument,
   type CatalogIssue,
@@ -533,7 +533,7 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
     ),
   };
   const allowScripts = options.finalizeScripts === "allow";
-  const composed = yield* composeCatalog(
+  const composed = yield* compose(
     official === undefined ? [authored] : [official, authored],
     official === undefined
       ? { allowFinalizeScripts: allowScripts }
@@ -593,7 +593,7 @@ export const buildCatalog = Effect.fn("Authoring.buildCatalog")(function* (
       ownedBy(composed.origins?.modules, module.id),
     ),
   };
-  yield* validateCatalogCapabilities(document).pipe(
+  yield* validateCapabilities(document).pipe(
     Effect.catchTag("CatalogCapabilityError", (error) =>
       fail(
         error.details.flatMap(({ subject, capability }) => {

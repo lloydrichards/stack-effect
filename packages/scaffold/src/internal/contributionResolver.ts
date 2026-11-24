@@ -1,4 +1,4 @@
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { Contribution } from "@repo/domain/Catalog";
 import {
@@ -78,7 +78,7 @@ const resolveContributionTokens = (
 
 /** @internal */
 export const makeContributionResolver = Effect.gen(function* () {
-  const catalog = yield* CatalogService;
+  const catalog = yield* CatalogReader;
   const recipes = yield* RecipeResolver;
 
   const resolve = Effect.fn("ContributionResolver.resolve")(function* (

@@ -11,7 +11,7 @@ sources:
   - id: config
     resource: ../../packages/domain/src/StackConfig.ts
   - id: compose
-    resource: ../../packages/catalog/src/composeCatalog.ts
+    resource: ../../packages/catalog/src/Catalog.ts
   - id: loader
     resource: ../../packages/scaffold/src/Catalog.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
@@ -98,7 +98,7 @@ Connected terms:
 
 In code:
 
-- `CatalogFragment`, `composeCatalog`, `CatalogService.fromFragments`
+- `CatalogFragment`, `Catalog.compose`, `CatalogReader.fromFragments`
 
 ## Source provenance
 
@@ -116,7 +116,7 @@ Connected terms:
 
 In code:
 
-- `CatalogService.getSource`, the `source` field on scripts from `Finalizer.scripts`
+- `CatalogReader.getSource`, the `source` field on scripts from `Finalizer.scripts`
 
 ## CatalogIssueCode
 

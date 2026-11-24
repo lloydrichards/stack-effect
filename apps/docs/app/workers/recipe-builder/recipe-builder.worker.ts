@@ -3,7 +3,7 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import * as BrowserWorkerRunner from "@effect/platform-browser/BrowserWorkerRunner";
-import { CatalogService } from "@repo/catalog";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   ModuleCategory,
   TargetIdentity,
@@ -159,7 +159,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
     });
 
     const configurationChoices = (
-      catalogs: typeof CatalogService.Service,
+      catalogs: typeof CatalogReader.Service,
       category: string,
     ) =>
       catalogs
@@ -189,7 +189,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
           }).pipe(
             Effect.provide(
               RecipePreviewer.layer.pipe(
-                Layer.provide(Layer.succeed(CatalogService, catalog)),
+                Layer.provide(Layer.succeed(CatalogReader, catalog)),
                 Layer.provide(PreviewPlatformLive),
               ),
             ),
