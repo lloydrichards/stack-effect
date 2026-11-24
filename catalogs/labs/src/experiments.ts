@@ -1,4 +1,5 @@
-import { defineModules, templates } from "@repo/authoring";
+import { defineModules } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(new URL("../templates/", import.meta.url));
 // Publishable Library compiles and packs src. Keep the workspace-only planner outside it.

@@ -29,7 +29,8 @@ overrides:
 
 ```ts
 // modules.ts
-import { defineModules, templates } from "@stack-effect/author";
+import { defineModules } from "@stack-effect/author/Define";
+import { templates } from "@stack-effect/author/Template";
 
 const template = templates(new URL("./templates/", import.meta.url));
 
@@ -54,7 +55,7 @@ export const rest = "REST entry point";
 
 ```ts
 // targets.ts
-import { defineTargets } from "@stack-effect/author";
+import { defineTargets } from "@stack-effect/author/Define";
 
 export const targets = defineTargets(import.meta.url, [
   {
@@ -70,7 +71,7 @@ export const targets = defineTargets(import.meta.url, [
 ```ts
 // build.ts
 import { NodeServices } from "@effect/platform-node";
-import { buildCatalog } from "@stack-effect/author";
+import { buildCatalog } from "@stack-effect/author/Build";
 import { Effect } from "effect";
 import { mkdir, writeFile } from "node:fs/promises";
 import { modules } from "./modules.ts";
@@ -96,7 +97,8 @@ A catalog may reference official targets and modules if it declares `requires: [
 
 ```ts
 import { NodeServices } from "@effect/platform-node";
-import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
+import { buildCatalog } from "@stack-effect/author/Build";
+import { loadOfficialCatalog } from "@stack-effect/author/Official";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { modules } from "./modules.ts";
@@ -114,17 +116,21 @@ Consumers must select the official catalog too, for example `--catalog official 
 
 ## API
 
-| Export | Purpose |
-| --- | --- |
-| `defineTargets`, `defineModules` | Group definitions under their source file (`import.meta.url`). |
-| `templates` | Point a contribution field at a template file, resolved at build time. |
-| `buildCatalog` | Validate the definitions and return `{ json, document, provenance }`. |
-| `loadOfficialCatalog`, `OFFICIAL_CATALOG_URL` | Fetch the official document for `requires: ["official"]`. |
-| `CatalogBuildError`, `OfficialCatalogUnavailable` | Typed failures. |
-| `CatalogBuildIssue`, `CatalogBuildIssueCode`, `DefinitionProvenance`, `TemplateProvenance` | Schemas for build issues and provenance. |
-| `CatalogInput`, `TargetInput`, `ModuleInput`, `ContributionInput`, `DefinitionGroup`, `TemplateRef`, `isTemplateRef` | Input types and the template reference guard. |
-| `BuildCatalogOptions`, `BuildCatalogResult` | Types of `buildCatalog`'s options and result. |
-| `CatalogDocument`, `CatalogIssueCode`, `CatalogIssueSubject` | The v1 document type, issue codes, and the schema naming an issue's definition. |
+Each concept is its own subpath. The package root re-exports all of them, so `import { buildCatalog } from "@stack-effect/author"` also works.
+
+| Subpath | Export | Purpose |
+| --- | --- | --- |
+| `/Define` | `defineTargets`, `defineModules` | Group definitions under their source file (`import.meta.url`). |
+| `/Define` | `CatalogInput`, `TargetInput`, `ModuleInput`, `ContributionInput`, `DefinitionGroup` | Input types. |
+| `/Template` | `templates` | Point a contribution field at a template file, resolved at build time. |
+| `/Template` | `TemplateRef`, `isTemplateRef` | The template reference type and its guard. |
+| `/Build` | `buildCatalog` | Validate the definitions and return `{ json, document, provenance }`. |
+| `/Build` | `BuildCatalogOptions`, `BuildCatalogResult` | Types of `buildCatalog`'s options and result. |
+| `/Build` | `CatalogBuildError` | Typed build failure. |
+| `/Build` | `CatalogBuildIssue`, `CatalogBuildIssueCode`, `DefinitionProvenance`, `TemplateProvenance` | Schemas for build issues and provenance. |
+| `/Build` | `CatalogDocument`, `CatalogIssueCode`, `CatalogIssueSubject` | The v1 document type, issue codes, and the schema naming an issue's definition. |
+| `/Official` | `loadOfficialCatalog`, `OFFICIAL_CATALOG_URL` | Fetch the official document for `requires: ["official"]`. |
+| `/Official` | `OfficialCatalogUnavailable` | Typed fetch failure. |
 
 `buildCatalog` options:
 

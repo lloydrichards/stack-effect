@@ -118,7 +118,7 @@ describe("registry project", () => {
             if (created.exitCode !== 0)
               assert.match(
                 created.stdout + created.stderr,
-                /@stack-effect\/author@~0\.4\.0 failed to resolve/,
+                /@stack-effect\/author@~0\.6\.0 failed to resolve/,
               );
             yield* cli.expectFileExists(`${registry}/catalog/starter.ts`);
             yield* cli.expectFileContaining(
@@ -142,7 +142,7 @@ describe("registry project", () => {
 
               const manifest = yield* read(`${registry}/package.json`);
               const local = manifest
-                .replace('"~0.4.0"', `"file:${author}"`)
+                .replace('"~0.6.0"', `"file:${author}"`)
                 .replace('"~0.19.0"', `"file:${stackEffect}"`);
               assert.notInclude(local, '"~0.', "every pinned range replaced");
               yield* project.writeFile(

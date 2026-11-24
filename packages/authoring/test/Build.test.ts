@@ -1,13 +1,13 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it, layer } from "@effect/vitest";
+import { buildCatalog } from "@repo/authoring/Build";
 import {
-  buildCatalog,
   type CatalogInput,
   defineModules,
   defineTargets,
   type ModuleInput,
-  templates,
-} from "@repo/authoring";
+} from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { catalog, root } from "./fixtures/standalone/catalog";
 import { acmeTargets } from "./fixtures/standalone/targets";
@@ -288,7 +288,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
             subject: { _tag: "module", id: "acme-extra" },
             code: "missing-reference",
             message: "Module acme-extra references missing module acme-missing",
-            sources: ["test/buildCatalog.test.ts"],
+            sources: ["test/Build.test.ts"],
           },
         ]);
       }),
@@ -305,7 +305,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
             code: "unsupported-capability",
             message:
               "Module acme-extra uses unsupported capability token:acmeToken",
-            sources: ["test/buildCatalog.test.ts"],
+            sources: ["test/Build.test.ts"],
             template: "test/fixtures/invalid/unknown-token.txt",
           },
         ]);
@@ -327,7 +327,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
             code: "finalize-script",
             message:
               'Module acme-extra declares Finalize scripts; pass finalizeScripts: "allow" to publish them',
-            sources: ["test/buildCatalog.test.ts"],
+            sources: ["test/Build.test.ts"],
           },
         ]);
         const allowed = yield* buildCatalog(input, {
@@ -376,12 +376,12 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
           [
             {
               code: "missing-template",
-              sources: ["test/buildCatalog.test.ts"],
+              sources: ["test/Build.test.ts"],
               template: "test/fixtures/invalid/missing-a.txt",
             },
             {
               code: "missing-template",
-              sources: ["test/buildCatalog.test.ts"],
+              sources: ["test/Build.test.ts"],
               template: "test/fixtures/invalid/missing-b.txt",
             },
           ],
@@ -413,7 +413,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
             {
               subject: { _tag: "target", kind: "acme-extra-target" },
               code: "invalid-shape",
-              sources: ["test/buildCatalog.test.ts"],
+              sources: ["test/Build.test.ts"],
             },
           ],
         );
@@ -424,7 +424,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
     {
       condition: "a module has no id",
       definitions: '[{"title":"No id"}]',
-      subject: "(unnamed module 1 in test/buildCatalog.test.ts)",
+      subject: "(unnamed module 1 in test/Build.test.ts)",
     },
     {
       condition: "a module has no contributions",
@@ -441,12 +441,12 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
     {
       condition: "a module is null",
       definitions: "[null]",
-      subject: "(unnamed module 1 in test/buildCatalog.test.ts)",
+      subject: "(unnamed module 1 in test/Build.test.ts)",
     },
     {
       condition: "the definitions are an object instead of an array",
       definitions: "{}",
-      subject: "(unnamed module 1 in test/buildCatalog.test.ts)",
+      subject: "(unnamed module 1 in test/Build.test.ts)",
     },
   ])(
     "should report an invalid shape instead of crashing when $condition",
@@ -468,7 +468,7 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
             {
               subject: { _tag: "module", id: subject },
               code: "invalid-shape",
-              sources: ["test/buildCatalog.test.ts"],
+              sources: ["test/Build.test.ts"],
             },
           ],
         );
@@ -744,14 +744,14 @@ layer(NodeServices.layer)("buildCatalog", (it) => {
         const unknownToken = yield* buildError(withUnknownToken);
         assert.strictEqual(
           unknownToken.message,
-          "Catalog build failed:\n  test/buildCatalog.test.ts template test/fixtures/invalid/unknown-token.txt: Module acme-extra uses unsupported capability token:acmeToken",
+          "Catalog build failed:\n  test/Build.test.ts template test/fixtures/invalid/unknown-token.txt: Module acme-extra uses unsupported capability token:acmeToken",
         );
         const duplicate = yield* buildError(
           withModule({ ...standaloneModule, id: "acme-workspace-readme" }),
         );
         assert.include(
           duplicate.message,
-          "\n  test/fixtures/standalone/modules.ts, test/buildCatalog.test.ts: Duplicate module ID acme-workspace-readme",
+          "\n  test/fixtures/standalone/modules.ts, test/Build.test.ts: Duplicate module ID acme-workspace-readme",
         );
       }),
   );

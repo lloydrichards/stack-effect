@@ -446,7 +446,8 @@ Each script builds your catalog with `requires: ["official"]` and the official d
 In `scripts/validate.ts`, replace the program and its layer:
 
 ```ts
-import { buildCatalog, loadOfficialCatalog } from "@stack-effect/author";
+import { buildCatalog } from "@stack-effect/author/Build";
+import { loadOfficialCatalog } from "@stack-effect/author/Official";
 import { Console, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { catalog, catalogId, root } from "../catalog/index.ts";

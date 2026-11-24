@@ -1,4 +1,4 @@
-import { buildCatalog } from "@stack-effect/author";
+import { buildCatalog } from "@stack-effect/author/Build";
 import { Console, Effect, FileSystem, Path } from "effect";
 import { catalog, catalogId, root } from "../catalog/index.ts";
 import { runMain, Services } from "./platform.ts";

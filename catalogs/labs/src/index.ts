@@ -1,4 +1,5 @@
-import { defineModules, templates, type CatalogInput } from "@repo/authoring";
+import { defineModules, type CatalogInput } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 import { clusterCounter } from "./cluster-counter";
 import { counterClients } from "./cluster-counter-clients";
 import { discordInteractions } from "./discord-interactions";

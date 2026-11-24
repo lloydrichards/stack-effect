@@ -1,4 +1,5 @@
-import { defineModules, templates } from "@repo/authoring";
+import { defineModules } from "@repo/authoring/Define";
+import { templates } from "@repo/authoring/Template";
 
 const template = templates(
   new URL("../../templates/cloudflare-worker/", import.meta.url),

@@ -4,18 +4,18 @@ title: Catalog authoring package
 description: How @repo/authoring builds v1 catalog documents from TypeScript definitions and template files, and how @stack-effect/author publishes it.
 status: stable
 sources:
-  - id: index
-    resource: ../../packages/authoring/src/index.ts
   - id: define
     resource: ../../packages/authoring/src/Define.ts
   - id: template
     resource: ../../packages/authoring/src/Template.ts
   - id: build
-    resource: ../../packages/authoring/src/buildCatalog.ts
+    resource: ../../packages/authoring/src/Build.ts
   - id: official
-    resource: ../../packages/authoring/src/official.ts
+    resource: ../../packages/authoring/src/Official.ts
   - id: package
     resource: ../../packages/author/package.json
+  - id: entry
+    resource: ../../packages/author/src/index.ts
   - id: bundle
     resource: ../../packages/author/tsdown.config.ts
   - id: verify
@@ -26,6 +26,8 @@ generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 # Catalog authoring package
 
 `@repo/authoring` turns TypeScript definitions and template files into a v1 [catalog document](../domain/catalog-sources.md "produces this document"). `catalogs/official` and `catalogs/author` use it, and so do external catalogs through the published `@stack-effect/author` package.
+
+Each concept is its own module and `exports` subpath, with no root index: `@repo/authoring/Define`, `Template`, `Build`, and `Official`.
 
 ## Define definitions and templates
 
@@ -43,6 +45,6 @@ generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 
 ## Publish `@stack-effect/author`
 
-`packages/author` re-exports `@repo/authoring`. tsdown bundles the private `@repo/*` packages into ESM and type declarations, and keeps every `effect` import external. The package declares `effect` as an exact peer, with no range, so authors supply the one runtime version the code was built against. `verify:package` packs the tarball, or with `--registry` uses the published version, and installs it into a clean project with no links into this repository. It then builds a catalog there.
+`packages/author` publishes the same four modules as subpaths, such as `@stack-effect/author/Build`, plus a root entry that re-exports all of them. The root keeps imports written before the subpaths existed working; it is the only hand-written index the authoring packages keep. tsdown builds one entry per subpath straight from the authoring modules, bundles the private `@repo/*` packages into ESM and type declarations, and keeps every `effect` import external. The package declares `effect` as an exact peer, with no range, so authors supply the one runtime version the code was built against. `verify:package` packs the tarball, or with `--registry` uses the published version, and installs it into a clean project with no links into this repository. It then builds a catalog there.
 
 The generated catalog registry project depends on this package with a `~` range, and pins `effect` to the same version as the peer.

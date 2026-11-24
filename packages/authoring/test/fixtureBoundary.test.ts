@@ -3,7 +3,7 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
 const allowed = [
-  /^@repo\/authoring$/,
+  /^@repo\/authoring\/(Build|Define|Official|Template)$/,
   /^effect(\/.*)?$/,
   /^@effect\/platform-[a-z]+$/,
 ];
@@ -15,7 +15,7 @@ const specifiersIn = (source: string): ReadonlyArray<string> =>
     ),
   ].map((match) => match[2] ?? "");
 
-/** Imports that leave the fixture or reach past the public authoring entry. */
+/** Imports that leave the fixture or reach past the public authoring modules. */
 const boundaryViolations = (
   path: Path.Path,
   fixture: string,
@@ -42,7 +42,7 @@ layer(NodeServices.layer)("fixture boundary", (it) => {
       Effect.gen(function* () {
         const path = yield* Path.Path;
         const source = [
-          `import { buildCatalog } from "@repo/authoring";`,
+          `import { buildCatalog } from "@repo/authoring/Build";`,
           `import type { Schema } from "effect";`,
           `import { local } from "./local";`,
           `import { official } from '@repo/catalog';`,

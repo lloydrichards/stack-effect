@@ -213,7 +213,7 @@ const program = Effect.gen(function* () {
       yield* fs.writeFileString(
         source,
         (yield* fs.readFileString(source))
-          .replaceAll('"@repo/authoring"', `"${name}"`)
+          .replaceAll('"@repo/authoring/', `"${name}/`)
           .replace(/from "\.\/(\w+)"/g, 'from "./$1.ts"'),
       );
     }),

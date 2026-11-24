@@ -1,4 +1,4 @@
-import type { CatalogInput } from "@repo/authoring";
+import type { CatalogInput } from "@repo/authoring/Define";
 import { moduleGroups } from "./moduleRegistry";
 import { targetGroup } from "./targetRegistry";
 

@@ -1,4 +1,4 @@
-import { defineModules } from "@repo/authoring";
+import { defineModules } from "@repo/authoring/Define";
 import { clientModules } from "./client";
 import { clientFoldkitModules } from "./client-foldkit";
 
