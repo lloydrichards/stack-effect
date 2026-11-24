@@ -4,9 +4,8 @@ import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { assert, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { describe, expect } from "vitest";
 import {
   type DocPage,
   docMarkdownPath,
@@ -42,23 +41,26 @@ describe("published documentation Markdown", () => {
       Effect.gen(function* () {
         const assets = yield* generateDocsMarkdown();
         const guide = assets["/getting-started.md"];
-        expect(guide).toContain("## Before you begin");
-        expect(guide).toContain(
+        assert.include(guide, "## Before you begin");
+        assert.include(
+          guide,
           "Check the tools and local ports used in this tutorial.",
         );
-        expect(guide).toContain("git config --get user.email");
-        expect(guide).toContain("stack-effect · plan\n\n```text\nPlan");
-        expect(guide).toContain("Created: 9 files");
-        expect(guide).toContain('"Hello Effect!"');
-        expect(guide).not.toMatch(/<AnsiTerminal|<DisclosurePanel|className/);
-        expect(guide).not.toContain("\u001b");
-        expect(assets["/index.md"]).toContain(
+        assert.include(guide, "git config --get user.email");
+        assert.include(guide, "stack-effect · plan\n\n```text\nPlan");
+        assert.include(guide, "Created: 9 files");
+        assert.include(guide, '"Hello Effect!"');
+        assert.notMatch(guide, /<AnsiTerminal|<DisclosurePanel|className/);
+        assert.notInclude(guide, "\u001b");
+        assert.include(
+          assets["/index.md"],
           "# Scaffold an Effect application.",
         );
-        expect(assets["/index.md"]).toContain(
+        assert.include(
+          assets["/index.md"],
           `[Recipe Builder](${docsOrigin}/builder)`,
         );
-        expect(assets["/how-it-works.md"]).toContain("```mermaid");
+        assert.include(assets["/how-it-works.md"], "```mermaid");
       }),
   );
 
@@ -85,16 +87,19 @@ export const view = <Component value={1} />;
           { route: "/getting-started", source: "getting-started.mdx" },
         );
         const markdown = assets["/getting-started.md"];
-        expect(markdown).not.toContain('import Component from "component";');
-        expect(markdown).toContain('import { Effect } from "effect";');
-        expect(markdown).toContain(
+        assert.isDefined(markdown);
+        assert.notInclude(markdown, 'import Component from "component";');
+        assert.include(markdown, 'import { Effect } from "effect";');
+        assert.include(
+          markdown,
           "export const view = <Component value={1} />;",
         );
-        expect(markdown).toContain(
+        assert.include(
+          markdown,
           `${docsOrigin}/reference/cli/plan.md#examples`,
         );
-        expect(markdown).toContain(`${docsOrigin}/getting-started.md#example`);
-        expect(markdown).toMatch(/\| Option\s*\| Value\s*\|/);
+        assert.include(markdown, `${docsOrigin}/getting-started.md#example`);
+        assert.match(markdown, /\| Option\s*\| Value\s*\|/);
       }),
   );
 
@@ -128,13 +133,15 @@ export const view = <Component value={1} />;
             recursive: true,
           }),
         );
-        expect(docPages.map((page) => page.source).toSorted()).toEqual(
+        assert.deepStrictEqual(
+          docPages.map((page) => page.source).toSorted(),
           files.filter((file) => file.endsWith(".mdx")).toSorted(),
         );
         const assets = yield* generateDocsMarkdown();
         const paths = docPages.map((page) => docMarkdownPath(page.route));
-        expect(new Set(paths).size).toBe(paths.length);
-        expect(Object.keys(assets).toSorted()).toEqual(
+        assert.strictEqual(new Set(paths).size, paths.length);
+        assert.deepStrictEqual(
+          Object.keys(assets).toSorted(),
           [...paths, "/llms.txt"].toSorted(),
         );
         const index = assets["/llms.txt"];
@@ -143,12 +150,10 @@ export const view = <Component value={1} />;
         ).flatMap(([, url]) =>
           url === undefined ? [] : [new URL(url).pathname],
         );
-        expect(markdownLinks).toEqual(paths);
-        expect(markdownLinks[0]).toBe("/use-with-coding-agents.md");
-        expect(assets["/reference/cli/schema.md"]).toContain("--root");
-        expect(assets["/reference/cli/schema.md"]).not.toContain(
-          "Generated from",
-        );
+        assert.deepStrictEqual(markdownLinks, paths);
+        assert.strictEqual(markdownLinks[0], "/use-with-coding-agents.md");
+        assert.include(assets["/reference/cli/schema.md"], "--root");
+        assert.notInclude(assets["/reference/cli/schema.md"], "Generated from");
       }),
   );
 });

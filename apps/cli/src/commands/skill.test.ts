@@ -9,7 +9,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { assert, describe, it } from "@effect/vitest";
 
 const entry = fileURLToPath(new URL("../index.ts", import.meta.url));
 const source = new URL("../skills/stack-effect/SKILL.md", import.meta.url);
@@ -28,22 +28,22 @@ describe("skill command", () => {
 
     try {
       const read = run(repository, "read");
-      expect(read.status).toBe(0);
-      expect(read.stdout).toBe(markdown);
-      expect(read.stderr).toBe("");
+      assert.strictEqual(read.status, 0);
+      assert.strictEqual(read.stdout, markdown);
+      assert.strictEqual(read.stderr, "");
 
       const install = run(tmpdir(), "write", "--path", repository);
-      expect(install.status).toBe(0);
-      expect(readFileSync(destination, "utf8")).toBe(markdown);
+      assert.strictEqual(install.status, 0);
+      assert.strictEqual(readFileSync(destination, "utf8"), markdown);
 
       writeFileSync(destination, "local edit\n");
       const conflict = run(repository, "write");
-      expect(conflict.status).toBe(1);
-      expect(conflict.stderr).toContain("--force");
-      expect(readFileSync(destination, "utf8")).toBe("local edit\n");
+      assert.strictEqual(conflict.status, 1);
+      assert.include(conflict.stderr, "--force");
+      assert.strictEqual(readFileSync(destination, "utf8"), "local edit\n");
 
-      expect(run(repository, "write", "--force").status).toBe(0);
-      expect(readFileSync(destination, "utf8")).toBe(markdown);
+      assert.strictEqual(run(repository, "write", "--force").status, 0);
+      assert.strictEqual(readFileSync(destination, "utf8"), markdown);
     } finally {
       rmSync(repository, { recursive: true, force: true });
     }
@@ -59,11 +59,11 @@ describe("skill command", () => {
       symlinkSync(external, join(repository, ".agents"), "dir");
 
       const install = run(repository, "write", "--force");
-      expect(install.status).toBe(1);
-      expect(install.stderr).toContain("Skill path contains a symlink");
-      expect(() =>
+      assert.strictEqual(install.status, 1);
+      assert.include(install.stderr, "Skill path contains a symlink");
+      assert.throws(() =>
         readFileSync(join(external, "skills/stack-effect/SKILL.md")),
-      ).toThrow();
+      );
     } finally {
       rmSync(repository, { recursive: true, force: true });
       rmSync(external, { recursive: true, force: true });

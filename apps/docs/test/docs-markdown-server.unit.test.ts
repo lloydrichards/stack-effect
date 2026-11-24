@@ -1,7 +1,7 @@
+import { afterAll, assert, beforeAll, describe, it } from "@effect/vitest";
 // These transport tests exercise Vite and native HTTP responses directly.
 // @effect-diagnostics asyncFunction:off globalFetch:off
 import { createServer, type ViteDevServer } from "vite";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { docMarkdownPath, docPages } from "../app/lib/docs-manifest";
 import { docsMarkdown } from "../scripts/docs-markdown-plugin";
 import vercel from "../vercel.json";
@@ -29,24 +29,29 @@ describe("documentation text HTTP responses", () => {
 
   it("serves fresh Markdown on GET and metadata without a body on HEAD", async () => {
     const response = await fetch(`${origin}/getting-started.md?download=1`);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe(
+    assert.strictEqual(response.status, 200);
+    assert.strictEqual(
+      response.headers.get("content-type"),
       "text/markdown; charset=utf-8",
     );
-    expect(response.headers.get("link")).toContain('rel="describedby"');
+    assert.include(response.headers.get("link"), 'rel="describedby"');
     const text = await response.text();
-    expect(text).toContain("## Before you begin");
+    assert.include(text, "## Before you begin");
     const head = await fetch(`${origin}/getting-started.md`, {
       method: "HEAD",
     });
-    expect(head.status).toBe(200);
-    expect(head.headers.get("content-length")).toBe(
+    assert.strictEqual(head.status, 200);
+    assert.strictEqual(
+      head.headers.get("content-length"),
       String(Buffer.byteLength(text)),
     );
-    expect(await head.text()).toBe("");
+    assert.strictEqual(await head.text(), "");
     const index = await fetch(`${origin}/llms.txt`);
-    expect(index.headers.get("content-type")).toBe("text/plain; charset=utf-8");
-    expect(await index.text()).toContain("/use-with-coding-agents.md");
+    assert.strictEqual(
+      index.headers.get("content-type"),
+      "text/plain; charset=utf-8",
+    );
+    assert.include(await index.text(), "/use-with-coding-agents.md");
   });
 
   it.each([
@@ -56,16 +61,17 @@ describe("documentation text HTTP responses", () => {
     "/llms-full.txt",
   ])("returns 404 instead of the SPA for %s", async (path) => {
     const response = await fetch(origin + path);
-    expect(response.status).toBe(404);
-    expect(await response.text()).not.toContain("<html");
+    assert.strictEqual(response.status, 404);
+    assert.notInclude(await response.text(), "<html");
   });
 
   it("rejects writes and advertises text discovery on human documentation URLs", async () => {
     const response = await fetch(`${origin}/index.md`, { method: "POST" });
-    expect(response.status).toBe(405);
-    expect(response.headers.get("allow")).toBe("GET, HEAD");
+    assert.strictEqual(response.status, 405);
+    assert.strictEqual(response.headers.get("allow"), "GET, HEAD");
     const html = await fetch(`${origin}/reference/cli/plan`);
-    expect(html.headers.get("link")).toContain(
+    assert.include(
+      html.headers.get("link"),
       '</reference/cli/plan.md>; rel="alternate"',
     );
   });
@@ -75,7 +81,7 @@ describe("documentation text HTTP responses", () => {
       const headers = vercel.headers.find(
         (entry) => entry.source === page.route,
       )?.headers;
-      expect(headers).toContainEqual({
+      assert.deepInclude(headers ?? [], {
         key: "Link",
         value: `<${docMarkdownPath(page.route)}>; rel="alternate"; type="text/markdown", </llms.txt>; rel="describedby"`,
       });
@@ -91,10 +97,11 @@ describe("documentation text HTTP responses", () => {
           route.status === 404 &&
           new RegExp(`^${route.src}$`).test(path),
       );
-      expect(missing).toBeGreaterThan(
+      assert.isAbove(
+        missing,
         vercel.routes.findIndex((route) => "handle" in route),
       );
-      expect(missing).toBeLessThan(fallback);
+      assert.isBelow(missing, fallback);
     });
   });
 });

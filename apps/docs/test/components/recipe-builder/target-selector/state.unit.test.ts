@@ -1,6 +1,6 @@
+import { assert, describe, expect, it } from "@effect/vitest";
 import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { Schema } from "effect";
-import { assert, describe, expect, it } from "vitest";
 import type { SupportSelection } from "../../../../app/components/recipe-builder/form";
 import {
   buildModuleRelationshipNodes,
@@ -124,18 +124,19 @@ describe("recipe builder state", () => {
       ],
     });
 
-    expect(
+    assert.strictEqual(
       moduleRequiresCapability(
         clientTodo,
         { kind: "client-react", name: "web" },
         "db-sql",
         catalog,
       ),
-    ).toBe(true);
+      true,
+    );
   });
 
   it("should omit configuration children when building root dependency relationships", () => {
-    expect(
+    assert.deepStrictEqual(
       buildModuleRelationshipNodes(
         parentModuleFixture,
         { kind: "client-react", name: "web" },
@@ -154,7 +155,8 @@ describe("recipe builder state", () => {
           ],
         }),
       ),
-    ).toEqual([]);
+      [],
+    );
   });
 
   it("should retain nested configuration when it belongs to a required dependency", () => {
@@ -208,7 +210,7 @@ describe("recipe builder state", () => {
       () => 1,
     );
 
-    expect(result).toEqual([
+    assert.deepStrictEqual(result, [
       {
         ...clientTargetFixture,
         modules: ["config-typescript-vite", "client-react-http-api"],
@@ -265,7 +267,7 @@ describe("recipe builder state", () => {
       () => 3,
     );
 
-    expect(result).toEqual([
+    assert.deepStrictEqual(result, [
       clientTargetFixture,
       {
         ...secondClient,
@@ -303,7 +305,7 @@ describe("recipe builder state", () => {
     );
     assert.isDefined(selectedClient);
 
-    expect(
+    assert.deepStrictEqual(
       toggleTargetModule(
         selected,
         selectedClient,
@@ -312,7 +314,8 @@ describe("recipe builder state", () => {
         recipeCatalogFixture,
         () => 2,
       ),
-    ).toEqual([clientTargetFixture]);
+      [clientTargetFixture],
+    );
   });
 
   it("should preserve a manually selected module when its implication is removed", () => {
@@ -338,9 +341,10 @@ describe("recipe builder state", () => {
       () => 2,
     );
 
-    expect(
+    assert.deepStrictEqual(
       result.find((target) => target.id === serverTargetFixture.id)?.modules,
-    ).toEqual(["server-http-api"]);
+      ["server-http-api"],
+    );
   });
 
   it("should remove downstream implied targets when their source target is removed", () => {
@@ -353,9 +357,10 @@ describe("recipe builder state", () => {
       () => 1,
     );
 
-    expect(
+    assert.deepStrictEqual(
       removeTargetAndDependencies(selected, clientTargetFixture.id),
-    ).toEqual([]);
+      [],
+    );
   });
 
   it("should remove the upstream source module when its implied target is removed", () => {
@@ -368,9 +373,10 @@ describe("recipe builder state", () => {
       () => 1,
     );
 
-    expect(removeTargetAndDependencies(selected, "implied-server-1")).toEqual([
-      clientTargetFixture,
-    ]);
+    assert.deepStrictEqual(
+      removeTargetAndDependencies(selected, "implied-server-1"),
+      [clientTargetFixture],
+    );
   });
 
   it("should remove nested support selections when their parent module is deselected", () => {
@@ -398,20 +404,21 @@ describe("recipe builder state", () => {
       },
     ];
 
-    expect(
+    assert.deepStrictEqual(
       removeModuleSupportSelections(
         selections,
         clientTargetFixture,
         parentModuleFixture,
         modules,
       ),
-    ).toEqual([
-      {
-        owner: { kind: "client-react", name: "web" },
-        parentId: unrelatedModuleFixture.id,
-        selected: [],
-      },
-    ]);
+      [
+        {
+          owner: { kind: "client-react", name: "web" },
+          parentId: unrelatedModuleFixture.id,
+          selected: [],
+        },
+      ],
+    );
   });
 
   it("should remove cyclic descendant selections when malformed catalog children form a cycle", () => {
@@ -432,14 +439,15 @@ describe("recipe builder state", () => {
       }),
     );
 
-    expect(
+    assert.deepStrictEqual(
       removeModuleSupportSelections(
         selections,
         clientTargetFixture,
         cyclicParent,
         modules,
       ),
-    ).toEqual([]);
+      [],
+    );
   });
 
   it("should fill the first available suffix when default target names have a gap", () => {
@@ -448,13 +456,14 @@ describe("recipe builder state", () => {
     );
     assert.isDefined(definition);
 
-    expect(
+    assert.strictEqual(
       makeTargetInstance("client-new", definition, [
         clientTargetFixture,
         { ...clientTargetFixture, id: "client-2", name: "web-2" },
         { ...clientTargetFixture, id: "client-4", name: "web-4" },
       ]).name,
-    ).toBe("web-3");
+      "web-3",
+    );
   });
 });
 
@@ -484,8 +493,8 @@ describe("retainCatalogSupportSelections", () => {
       catalogWith([childModuleFixture, leafModuleFixture]),
     );
 
-    expect(result.selections).toBe(selections);
-    expect(result.removedModules).toEqual([]);
+    assert.strictEqual(result.selections, selections);
+    assert.deepStrictEqual(result.removedModules, []);
   });
 
   it("should drop a selection when its support target left with its catalog", () => {
@@ -493,8 +502,8 @@ describe("retainCatalogSupportSelections", () => {
       targetModules: [],
     });
 
-    expect(result.selections).toEqual([]);
-    expect(result.removedModules).toEqual([leafModuleFixture.id]);
+    assert.deepStrictEqual(result.selections, []);
+    assert.deepStrictEqual(result.removedModules, [leafModuleFixture.id]);
   });
 
   it("should drop a selection when its parent module is no longer provided", () => {
@@ -503,8 +512,8 @@ describe("retainCatalogSupportSelections", () => {
       catalogWith([leafModuleFixture]),
     );
 
-    expect(result.selections).toEqual([]);
-    expect(result.removedModules).toEqual([leafModuleFixture.id]);
+    assert.deepStrictEqual(result.selections, []);
+    assert.deepStrictEqual(result.removedModules, [leafModuleFixture.id]);
   });
 
   it("should remove only the optional modules when the catalog lost some of them", () => {
@@ -513,7 +522,7 @@ describe("retainCatalogSupportSelections", () => {
       catalogWith([childModuleFixture]),
     );
 
-    expect(result.selections).toEqual([{ ...selection, selected: [] }]);
-    expect(result.removedModules).toEqual([leafModuleFixture.id]);
+    assert.deepStrictEqual(result.selections, [{ ...selection, selected: [] }]);
+    assert.deepStrictEqual(result.removedModules, [leafModuleFixture.id]);
   });
 });

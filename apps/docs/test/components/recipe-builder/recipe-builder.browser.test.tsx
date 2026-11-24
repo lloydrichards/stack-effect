@@ -1,8 +1,13 @@
+import { assert, beforeEach, expect, test } from "@effect/vitest";
+import { CustomCatalogSource } from "@repo/domain/CatalogSource";
 import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
+import { Schema } from "effect";
 // Browser interaction callbacks intentionally use the async APIs exposed by Playwright and Vitest Browser Mode.
 // @effect-diagnostics asyncFunction:off
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
-import { beforeEach, expect, test, vi } from "vitest";
+// Vitest hoists vi.mock and vi.hoisted only when vi comes from "vitest".
+// oxlint-disable-next-line no-restricted-imports
+import { vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";
 import type { CatalogAtomRequest } from "../../../app/atom/recipe-builder-atom";
@@ -279,10 +284,13 @@ const openReactTarget = async () => {
 test("opens a new recipe with the official and same-site Labs catalogs", async () => {
   await renderRecipeBuilder();
   await expect.poll(lastRequestedSources).toEqual(["official", "labs"]);
-  expect(workerCalls.catalogRequests.at(-1)?.sources[1]).toEqual({
-    name: "labs",
-    url: new URL("/registry/v1/labs.json", window.location.origin).href,
-  });
+  assert.deepStrictEqual(
+    workerCalls.catalogRequests.at(-1)?.sources[1],
+    Schema.decodeSync(CustomCatalogSource)({
+      name: "labs",
+      url: new URL("/registry/v1/labs.json", window.location.origin).href,
+    }),
+  );
   await expect
     .element(page.getByText("Load catalogs from this link?"))
     .not.toBeInTheDocument();
@@ -304,8 +312,11 @@ test("preserves a moved selection until the visitor adds Labs", async () => {
     new URLSearchParams(
       page.getByLabelText("Recipe URL search").element().textContent ?? "",
     ).get("target");
-  expect(selectedTarget()).toBe("client-react/web:client-react-web-worker");
-  expect(workerCalls.catalogRequests).toHaveLength(0);
+  assert.strictEqual(
+    selectedTarget(),
+    "client-react/web:client-react-web-worker",
+  );
+  assert.lengthOf(workerCalls.catalogRequests, 0);
 
   await page.getByRole("button", { name: "Add Labs", exact: true }).click();
   await expect.poll(lastRequestedSources).toEqual(["official", "labs"]);
@@ -329,7 +340,7 @@ test("allows an explicit fallback when the default Labs catalog fails", async ()
   await expect
     .element(page.getByText("Catalog labs unavailable"))
     .toBeVisible();
-  expect(lastRequestedSources()).toEqual(["official", "labs"]);
+  assert.deepStrictEqual(lastRequestedSources(), ["official", "labs"]);
 
   workerCalls.catalogFailure = undefined;
   await page.getByRole("button", { name: "Continue without Labs" }).click();
@@ -389,7 +400,8 @@ test("adds a target before editing its modules in the inline overview", async ()
   const add = page.getByRole("button", { name: "Add target", exact: true });
   await expect.element(add).toBeDisabled();
   await page.getByRole("radio", { name: "React Client" }).click();
-  expect(page.getByLabelText("Recipe URL search").element().textContent).toBe(
+  assert.strictEqual(
+    page.getByLabelText("Recipe URL search").element().textContent,
     "",
   );
   await add.click();
@@ -776,7 +788,7 @@ test("should reconcile a rename after its delayed catalog request completes", as
     .not.toBeInTheDocument();
 
   const pendingIdentity = workerCalls.pendingIdentityCatalogs[0];
-  expect(pendingIdentity?.interrupted).toBe(false);
+  assert.strictEqual(pendingIdentity?.interrupted, false);
 
   workerCalls.deferIdentityCatalog = false;
   pendingIdentity?.complete();
@@ -784,7 +796,7 @@ test("should reconcile a rename after its delayed catalog request completes", as
   await expect
     .element(page.getByText(/could not be resolved in the current catalog/u))
     .toBeVisible();
-  expect(pendingIdentity?.interrupted).toBe(false);
+  assert.strictEqual(pendingIdentity?.interrupted, false);
 });
 
 test("should retain modules when a duplicate target name becomes unique", async () => {
@@ -1016,7 +1028,7 @@ test("should ask before loading when a shared link names a custom catalog", asyn
     .element(page.getByText("Load catalogs from this link?"))
     .toBeVisible();
   await expect.element(page.getByText(`ext · ${extUrl}`)).toBeVisible();
-  expect(workerCalls.catalogRequests).toHaveLength(0);
+  assert.lengthOf(workerCalls.catalogRequests, 0);
 
   await page.getByRole("button", { name: "Load these catalogs" }).click();
 
@@ -1034,11 +1046,12 @@ test("should start over with the official catalog when a visitor declines", asyn
     .click();
 
   await expect.poll(lastRequestedSources).toEqual(["official"]);
-  expect(
+  assert.strictEqual(
     workerCalls.catalogRequests.some((request) =>
       request.sources.some((source) => source.name === "ext"),
     ),
-  ).toBe(false);
+    false,
+  );
   await expect.poll(sharedCatalogParams).toEqual([]);
 });
 
@@ -1201,11 +1214,12 @@ test("should reject an invalid catalog entry without changing the selection", as
   await page.getByRole("button", { name: "Add catalog" }).click();
 
   await expect.element(page.getByText(/an https URL/u)).toBeVisible();
-  expect(
+  assert.strictEqual(
     workerCalls.catalogRequests
       .slice(requests)
       .some((request) => request.sources.length > 1),
-  ).toBe(false);
+    false,
+  );
 });
 
 test("should name the catalog that failed to load when a custom catalog is unavailable", async () => {

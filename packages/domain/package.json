@@ -32,6 +32,8 @@
     "effect": "4.1.4"
   },
   "devDependencies": {
-    "@repo/config-typescript": "workspace:*"
+    "@effect/vitest": "4.1.4",
+    "@repo/config-typescript": "workspace:*",
+    "vitest": "^5.1.0"
   }
 }

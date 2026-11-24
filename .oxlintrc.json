@@ -85,23 +85,13 @@
       }
     },
     {
-      "files": ["**/test/**/*.ts", "**/*.test.ts", "**/*.test.tsx"],
-      "rules": {
-        "no-restricted-imports": [
-          "error",
-          {
-            "patterns": [
-              {
-                "group": ["**/internal/*"],
-                "message": "Tests import public modules only."
-              }
-            ]
-          }
-        ]
-      }
-    },
-    {
-      "files": ["packages/scaffold/test/**"],
+      "files": [
+        "**/test/**/*.ts",
+        "**/test/**/*.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/e2e/**/*.ts"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",

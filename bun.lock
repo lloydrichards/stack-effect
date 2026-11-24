@@ -221,7 +221,9 @@
         "effect": "4.1.4",
       },
       "devDependencies": {
+        "@effect/vitest": "4.1.4",
         "@repo/config-typescript": "workspace:*",
+        "vitest": "^5.1.0",
       },
     },
     "packages/scaffold": {

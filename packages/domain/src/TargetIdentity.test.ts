@@ -1,5 +1,5 @@
+import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
 import { TargetIdentity, targetPathsOverlap } from "./Catalog";
 
 describe("target identity placement", () => {
@@ -15,23 +15,25 @@ describe("target identity placement", () => {
     "sdk\\api",
     "sdk/api:bad",
   ])("should reject an identity when its name is unsafe: %s", (name) => {
-    expect(() =>
+    assert.throws(() =>
       Schema.decodeSync(TargetIdentity)({ kind: "package", name }),
-    ).toThrow();
+    );
   });
   it("should reject an identity when the package name is empty or the kind is unsafe", () => {
-    expect(() =>
+    assert.throws(() =>
       Schema.decodeSync(TargetIdentity)({ kind: "package", name: "" }),
-    ).toThrow();
-    expect(() =>
+    );
+    assert.throws(() =>
       Schema.decodeSync(TargetIdentity)({ kind: "server/sdk", name: "api" }),
-    ).toThrow();
+    );
   });
   it("should detect overlap when directory boundaries differ only by case", () => {
-    expect(targetPathsOverlap("packages/SDK", "packages/sdk/client")).toBe(
+    assert.strictEqual(
+      targetPathsOverlap("packages/SDK", "packages/sdk/client"),
       true,
     );
-    expect(targetPathsOverlap("packages/sdk", "packages/sdk-other")).toBe(
+    assert.strictEqual(
+      targetPathsOverlap("packages/sdk", "packages/sdk-other"),
       false,
     );
   });

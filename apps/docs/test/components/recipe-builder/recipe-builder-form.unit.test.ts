@@ -1,6 +1,7 @@
+import { assert, describe, it } from "@effect/vitest";
+import { ModuleId, TargetKind } from "@repo/domain/Catalog";
 import { CustomCatalogSource } from "@repo/domain/CatalogSource";
 import { Option, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 import {
   initialRecipeBuilderValues,
   RecipeBuilderFormValues,
@@ -26,7 +27,7 @@ describe("recipe builder form", () => {
         ],
       });
 
-      expect(Option.isNone(result)).toBe(true);
+      assert.strictEqual(Option.isNone(result), true);
     },
   );
 
@@ -42,7 +43,7 @@ describe("recipe builder form", () => {
       targets: [target, { ...target, id: "client-2" }],
     });
 
-    expect(Option.isNone(result)).toBe(true);
+    assert.strictEqual(Option.isNone(result), true);
   });
 });
 
@@ -58,10 +59,10 @@ describe("recipe preview input", () => {
         test: "",
       },
     });
-    expect(input.config.monorepo).toBeUndefined();
-    expect(input.config.lint).toBeUndefined();
-    expect(input.config.format).toBeUndefined();
-    expect(input.config.test).toBeUndefined();
+    assert.isUndefined(input.config.monorepo);
+    assert.isUndefined(input.config.lint);
+    assert.isUndefined(input.config.format);
+    assert.isUndefined(input.config.test);
   });
 
   const ext = Schema.decodeSync(CustomCatalogSource)({
@@ -82,10 +83,10 @@ describe("recipe preview input", () => {
     const targets = input.recipe.targets.map(({ target }) => target.kind);
     const modules = input.recipe.targets.flatMap(({ modules }) => modules);
 
-    expect(input.config.lint).toBe(fullStackRecipeFixture.config.lint);
-    expect(targets).toContain("workspace");
-    expect(targets).toContain("package");
-    expect(modules).toContain("workspace-devenv-git");
+    assert.strictEqual(input.config.lint, fullStackRecipeFixture.config.lint);
+    assert.include(targets, TargetKind.make("workspace"));
+    assert.include(targets, TargetKind.make("package"));
+    assert.include(modules, ModuleId.make("workspace-devenv-git"));
   });
 
   it("should drop official tool, database, and Git choices when the official catalog is not selected", () => {
@@ -98,12 +99,12 @@ describe("recipe preview input", () => {
     });
     const modules = input.recipe.targets.flatMap(({ modules }) => modules);
 
-    expect(input.config.monorepo).toBeUndefined();
-    expect(input.config.lint).toBeUndefined();
-    expect(input.config.format).toBeUndefined();
-    expect(input.config.test).toBeUndefined();
-    expect(modules).not.toContain("workspace-devenv-git");
-    expect(modules).not.toContain("workspace-devenv-husky");
-    expect(modules).not.toContain("package-db-sqlite");
+    assert.isUndefined(input.config.monorepo);
+    assert.isUndefined(input.config.lint);
+    assert.isUndefined(input.config.format);
+    assert.isUndefined(input.config.test);
+    assert.notInclude(modules, ModuleId.make("workspace-devenv-git"));
+    assert.notInclude(modules, ModuleId.make("workspace-devenv-husky"));
+    assert.notInclude(modules, ModuleId.make("package-db-sqlite"));
   });
 });

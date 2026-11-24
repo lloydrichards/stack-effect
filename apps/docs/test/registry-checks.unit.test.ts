@@ -1,7 +1,6 @@
-import { it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
-import { describe, expect } from "vitest";
 import { checkRegistry } from "../scripts/registry-checks";
 
 const base = new URL("https://registry.example");
@@ -75,8 +74,9 @@ describe("registry checks", () => {
     () =>
       Effect.gen(function* () {
         const results = yield* checkRegistry(base, ["/good.json"]);
-        expect(failedChecks(results)).toEqual([]);
-        expect(results.map((check) => check.check)).toContain(
+        assert.deepStrictEqual(failedChecks(results), []);
+        assert.include(
+          results.map((check) => check.check),
           "missing path 404",
         );
       }).pipe(Effect.provide(stubRegistry())),
@@ -87,7 +87,7 @@ describe("registry checks", () => {
     () =>
       Effect.gen(function* () {
         const results = yield* checkRegistry(base, ["/stale.json"]);
-        expect(failedChecks(results)).toEqual(["conditional 304"]);
+        assert.deepStrictEqual(failedChecks(results), ["conditional 304"]);
       }).pipe(Effect.provide(stubRegistry())),
   );
 
@@ -96,7 +96,7 @@ describe("registry checks", () => {
     () =>
       Effect.gen(function* () {
         const results = yield* checkRegistry(base, ["/bare.json"]);
-        expect(failedChecks(results)).toEqual([
+        assert.deepStrictEqual(failedChecks(results), [
           "revalidates",
           "conditional 304",
           "CORS GET",
@@ -110,7 +110,7 @@ describe("registry checks", () => {
     () =>
       Effect.gen(function* () {
         const results = yield* checkRegistry(base, ["/plain.json"]);
-        expect(failedChecks(results)).toEqual(["JSON content type"]);
+        assert.deepStrictEqual(failedChecks(results), ["JSON content type"]);
       }).pipe(Effect.provide(stubRegistry())),
   );
 
@@ -119,7 +119,7 @@ describe("registry checks", () => {
     () =>
       Effect.gen(function* () {
         const results = yield* checkRegistry(base, ["/good.json"]);
-        expect(failedChecks(results)).toEqual(["missing path 404"]);
+        assert.deepStrictEqual(failedChecks(results), ["missing path 404"]);
       }).pipe(Effect.provide(stubRegistry(200))),
   );
 });
