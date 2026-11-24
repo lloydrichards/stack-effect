@@ -122,7 +122,7 @@
             ],
             "patterns": [
               {
-                "group": ["**/internal/*"],
+                "group": ["**/internal/**"],
                 "message": "Tests import public modules only."
               }
             ]
