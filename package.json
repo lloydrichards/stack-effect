@@ -21,6 +21,7 @@
     "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch --typescript --oxlint",
     "test": "turbo run test",
+    "test:mutation": "turbo run test:mutation --concurrency=1",
     "start": "bun apps/cli/src/index.ts",
     "type-check": "turbo run type-check",
     "okf:check": "okf-graph validate .okf --json"
@@ -30,6 +31,8 @@
     "@effect/language-service": "^0.87.5",
     "@effect/platform-bun": "4.1.4",
     "@effect/tsgo": "0.68.1",
+    "@stryker-mutator/core": "10.1.1",
+    "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/bun": "^1.4.4",
     "effect": "4.1.4",
     "fallow": "3.46.0",
