@@ -1,44 +1,30 @@
 import type {
+  CatalogEdge,
   CatalogGraph,
   CatalogFragment,
   ModuleCapability,
   ModuleCategory,
   ModuleDefinition,
-  ModuleDependency,
   ModuleId,
-  ModuleImplication,
-  SupportedOn,
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
 import {
   CatalogNotFound,
   CatalogTree,
+  ModuleDependency,
   TargetIdentity,
 } from "@repo/domain/Catalog";
-import {
-  Array as Arr,
-  Context,
-  Effect,
-  Graph,
-  Match,
-  Option,
-  Result,
-} from "effect";
+import { Array as Arr, Context, Effect, Graph, Option } from "effect";
 import type {
   BuilderCatalog,
   BuilderCatalogModule,
   CatalogOrigins,
 } from "../Catalog";
-
-const supportedOnTargetKind = Match.type<SupportedOn>().pipe(
-  Match.tag("kind", (s) => s.kind),
-  Match.tag("identity", (s) => s.identity.kind),
-  Match.exhaustive,
-);
+import { dependencyTarget, supportedOnTargetKind } from "./definitionTargets";
 
 const hasVisibility = (
-  definition: { readonly visibility?: Visibility },
+  definition: { visibility?: Visibility },
   visibility: Visibility | undefined,
 ) =>
   visibility === undefined ||
@@ -50,27 +36,12 @@ const moduleSupportsTargetKind = (mod: ModuleDefinition, kind: TargetKind) =>
     (supportedOn) => supportedOnTargetKind(supportedOn) === kind,
   );
 
-const requiredModuleDependency = Match.type<ModuleDependency>().pipe(
-  Match.tag("required-module", (dep) =>
-    Result.succeed({
-      targetKind: dep.target.kind,
-      targetName: dep.target.name,
-      moduleId: dep.moduleId,
-    }),
-  ),
-  Match.orElse(() => Result.fail("skip" as const)),
-);
-
-const requiredCapabilityDependency = Match.type<ModuleDependency>().pipe(
-  Match.tag("required-capability", (dep) =>
-    Result.succeed({
-      targetKind: dep.target.kind,
-      targetName: dep.target.name,
-      capability: dep.capability,
-    }),
-  ),
-  Match.orElse(() => Result.fail("skip" as const)),
-);
+// A missing node means the reference is invalid; composition reports it.
+const edge = (
+  from: number | undefined,
+  to: number | undefined,
+  kind: CatalogEdge,
+) => ({ from, to, kind });
 
 /** @internal */
 export const CatalogDefinitions = Context.Service<
@@ -86,19 +57,6 @@ export const makeCatalogReader = Effect.gen(function* () {
   } = yield* CatalogDefinitions;
   const targetIndex = new Map(targetRegistry.map((t) => [t.kind, t]));
   const moduleIndex = new Map(moduleRegistry.map((m) => [m.id, m]));
-
-  const capabilityProviderIndex = Arr.reduce(
-    moduleRegistry,
-    new Map<string, Array<(typeof moduleRegistry)[number]>>(),
-    (index, definition) => {
-      for (const capability of definition.provides ?? []) {
-        const providers = index.get(capability) ?? [];
-        providers.push(definition);
-        index.set(capability, providers);
-      }
-      return index;
-    },
-  );
 
   const allImplications = Arr.flatMap(
     moduleRegistry,
@@ -145,16 +103,13 @@ export const makeCatalogReader = Effect.gen(function* () {
     );
   });
 
-  const isImpliedByAny = Effect.fn("CatalogReader.isImpliedByAny")(function* (
-    moduleId: ModuleId,
-    targetKind: TargetKind,
-  ) {
-    return Arr.some(
-      allImplications,
-      (imp: ModuleImplication) =>
-        imp.moduleId === moduleId && imp.targetKind === targetKind,
-    );
-  });
+  const isImpliedByAny = (moduleId: ModuleId, targetKind: TargetKind) =>
+    Effect.succeed(
+      Arr.some(
+        allImplications,
+        (imp) => imp.moduleId === moduleId && imp.targetKind === targetKind,
+      ),
+    ).pipe(Effect.withSpan("CatalogReader.isImpliedByAny"));
 
   const getImplications = Effect.fn("CatalogReader.getImplications")(function* (
     moduleIds: ReadonlyArray<ModuleId>,
@@ -170,16 +125,13 @@ export const makeCatalogReader = Effect.gen(function* () {
     );
   });
 
-  const getTargetKinds = (options?: {
-    visibility?: Visibility;
-  }): ReadonlyArray<TargetKind> => {
-    return Arr.map(
+  const getTargetKinds = (options?: { visibility?: Visibility }) =>
+    Arr.map(
       Arr.filter(Arr.fromIterable(targetIndex.values()), (target) =>
         hasVisibility(target, options?.visibility),
       ),
       (target) => target.kind,
     );
-  };
 
   const getSupportedModules = Effect.fn("CatalogReader.getSupportedModules")(
     function* (kind: TargetKind, options?: { visibility?: Visibility }) {
@@ -210,12 +162,12 @@ export const makeCatalogReader = Effect.gen(function* () {
     capability: ModuleCapability;
     target: TargetIdentity;
     visibility?: Visibility;
-    /** Keep only providers this module's source may reference. */
     requestingModuleId?: ModuleId;
   }) =>
     Arr.filter(
-      capabilityProviderIndex.get(options.capability) ?? [],
+      moduleRegistry,
       (mod) =>
+        Arr.contains(mod.provides ?? [], options.capability) &&
         hasVisibility(mod, options.visibility) &&
         Arr.some(mod.supportedOn, (supportedOn) =>
           options.target.matches(supportedOn),
@@ -225,7 +177,9 @@ export const makeCatalogReader = Effect.gen(function* () {
     );
 
   const toBuilderCatalog = Effect.fn("CatalogReader.toBuilderCatalog")(
-    function* (owners: ReadonlyArray<TargetIdentity>) {
+    function* (
+      owners: ReadonlyArray<TargetIdentity>,
+    ): Effect.fn.Return<BuilderCatalog, CatalogNotFound> {
       const supportedModules = (owner: TargetIdentity) =>
         Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
           Arr.some(module.supportedOn, (supportedOn) =>
@@ -245,30 +199,24 @@ export const makeCatalogReader = Effect.gen(function* () {
         expanded.set(ownerKey(owner), owner);
         const modules = supportedModules(owner);
         const dependencyOwners = Arr.flatMap(modules, (module) =>
-          Arr.map(module.dependencies, (dependency) =>
-            dependency._tag === "required-target"
-              ? dependency.identity
-              : dependency.target,
-          ),
+          Arr.map(module.dependencies, dependencyTarget),
         );
-        const implicationOwners = Arr.filterMap(
-          Arr.flatMap(modules, (module) => module.implies ?? []),
-          (implication) => {
+        const implicationOwners = modules
+          .flatMap((module) => module.implies ?? [])
+          .flatMap((implication) => {
             const existing = [...owners, ...expanded.values()].find(
               (candidate) => candidate.kind === implication.targetKind,
             );
-            if (existing !== undefined) return Result.succeed(existing);
+            if (existing !== undefined) return [existing];
             const definition = targetIndex.get(implication.targetKind);
-            return definition === undefined
-              ? Result.fail("skip" as const)
-              : Result.succeed(
-                  new TargetIdentity({
-                    kind: definition.kind,
-                    name: definition.defaultName ?? definition.kind,
-                  }),
-                );
-          },
-        );
+            if (definition === undefined) return [];
+            return [
+              new TargetIdentity({
+                kind: definition.kind,
+                name: definition.defaultName ?? definition.kind,
+              }),
+            ];
+          });
         return expandOwners(
           [...remaining, ...dependencyOwners, ...implicationOwners],
           expanded,
@@ -314,61 +262,49 @@ export const makeCatalogReader = Effect.gen(function* () {
           owner,
           modules: projectModules(owner),
         })),
-      } satisfies BuilderCatalog;
+      };
     },
   );
 
-  const toGraph: CatalogGraph = Graph.directed((g) => {
-    const targetNodes = new Map<string, number>();
-    for (const target of targetRegistry) {
-      const idx = Graph.addNode(g, {
-        _tag: "target" as const,
-        definition: target,
-      });
-      targetNodes.set(target.kind, idx);
-    }
+  const toGraph: CatalogGraph = Graph.directed((graph) => {
+    const targetNodes = new Map(
+      targetRegistry.map((definition) => [
+        definition.kind,
+        Graph.addNode(graph, { _tag: "target", definition }),
+      ]),
+    );
+    const moduleNodes = moduleRegistry.map((definition) => ({
+      definition,
+      node: Graph.addNode(graph, { _tag: "module", definition }),
+    }));
+    const moduleNodeById = new Map(
+      moduleNodes.map(({ definition, node }) => [definition.id, node]),
+    );
 
-    const moduleNodes = new Map<string, number>();
-    const indexedModules = Arr.map(moduleRegistry, (mod) => {
-      const idx = Graph.addNode(g, {
-        _tag: "module" as const,
-        definition: mod,
-      });
-      moduleNodes.set(mod.id, idx);
-      return [mod, idx] as const;
-    });
-
-    for (const [mod, modIdx] of indexedModules) {
-      for (const supported of mod.supportedOn) {
-        const targetIdx = targetNodes.get(supportedOnTargetKind(supported));
-        if (targetIdx !== undefined) {
-          Graph.addEdge(g, modIdx, targetIdx, "supportedOn");
-        }
-      }
-
-      for (const dep of mod.dependencies) {
-        if (dep._tag === "required-module") {
-          const depIdx = moduleNodes.get(dep.moduleId);
-          if (depIdx !== undefined) {
-            Graph.addEdge(g, modIdx, depIdx, "requiredModule");
-          }
-        }
-      }
-
-      for (const imp of mod.implies ?? []) {
-        const impliedIdx = moduleNodes.get(imp.moduleId);
-        if (impliedIdx !== undefined) {
-          Graph.addEdge(g, modIdx, impliedIdx, "implies");
-        }
-      }
-
-      for (const child of mod.children ?? []) {
-        const childIdx = moduleNodes.get(child.moduleId);
-        if (childIdx !== undefined) {
-          // NOTE: Child edges point to parents so graph consumers can traverse childOf relationships directly.
-          Graph.addEdge(g, childIdx, modIdx, "childOf");
-        }
-      }
+    const edges = moduleNodes.flatMap(({ definition, node }) => [
+      ...definition.supportedOn.map((supported) =>
+        edge(
+          node,
+          targetNodes.get(supportedOnTargetKind(supported)),
+          "supportedOn",
+        ),
+      ),
+      ...definition.dependencies
+        .filter(ModuleDependency.guards["required-module"])
+        .map((dependency) =>
+          edge(node, moduleNodeById.get(dependency.moduleId), "requiredModule"),
+        ),
+      ...(definition.implies ?? []).map((implication) =>
+        edge(node, moduleNodeById.get(implication.moduleId), "implies"),
+      ),
+      // Child edges point to parents so graph consumers can traverse childOf relationships directly.
+      ...(definition.children ?? []).map((child) =>
+        edge(moduleNodeById.get(child.moduleId), node, "childOf"),
+      ),
+    ]);
+    for (const { from, to, kind } of edges) {
+      if (from !== undefined && to !== undefined)
+        Graph.addEdge(graph, from, to, kind);
     }
   });
 
@@ -390,37 +326,40 @@ export const makeCatalogReader = Effect.gen(function* () {
       title: target.title,
       description: target.description,
       requiredModules: target.requiredModules ?? [],
-      modules: Arr.filterMap(Arr.fromIterable(moduleIndex.values()), (mod) => {
-        if (!moduleSupportsTargetKind(mod, target.kind)) {
-          return Result.fail("skip" as const);
-        }
-        return Result.succeed({
+      modules: Arr.fromIterable(moduleIndex.values())
+        .filter((mod) => moduleSupportsTargetKind(mod, target.kind))
+        .map((mod) => ({
           id: mod.id,
           title: mod.title,
           description: mod.description,
           categories: mod.categories ?? [],
-          requires: Arr.filterMap(mod.dependencies, requiredModuleDependency),
-          requiredCapabilities: Arr.filterMap(
-            mod.dependencies,
-            requiredCapabilityDependency,
-          ),
+          requires: mod.dependencies
+            .filter(ModuleDependency.guards["required-module"])
+            .map((dependency) => ({
+              targetKind: dependency.target.kind,
+              targetName: dependency.target.name,
+              moduleId: dependency.moduleId,
+            })),
+          requiredCapabilities: mod.dependencies
+            .filter(ModuleDependency.guards["required-capability"])
+            .map((dependency) => ({
+              targetKind: dependency.target.kind,
+              targetName: dependency.target.name,
+              capability: dependency.capability,
+            })),
           provides: mod.provides ?? [],
           implies: (mod.implies ?? []).map((imp) => ({
             targetKind: imp.targetKind,
             moduleId: imp.moduleId,
           })),
           conflictsWith: mod.conflictsWith ?? [],
-        });
-      }),
+        })),
     })),
   });
 
-  /** The selected source that supplied a definition, when sources are named. */
   const getSource = (
-    subject:
-      | { readonly _tag: "target"; readonly kind: string }
-      | { readonly _tag: "module"; readonly id: string },
-  ): Option.Option<string> =>
+    subject: { _tag: "target"; kind: string } | { _tag: "module"; id: string },
+  ) =>
     Option.fromUndefinedOr(
       subject._tag === "target"
         ? origins?.targets.get(subject.kind)

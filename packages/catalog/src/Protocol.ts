@@ -8,9 +8,10 @@ import {
   CatalogDocument,
   type CatalogFragment,
   type CatalogDefinition,
-  type CatalogIssueSubject,
+  CatalogIssueSubject,
 } from "@repo/domain/Catalog";
-import { Array as Arr, Effect, Schema } from "effect";
+import { Array as Arr, Effect, Predicate, Schema } from "effect";
+import { dependencyTarget } from "./internal/definitionTargets";
 
 const contributionTags = [
   "file",
@@ -67,14 +68,12 @@ export const V1_INTERPRETER_CAPABILITIES: ReadonlyArray<string> = [
   "target:hierarchical-name",
 ];
 
-const stringsIn = (value: unknown): ReadonlyArray<string> =>
-  typeof value === "string"
-    ? [value]
-    : Array.isArray(value)
-      ? value.flatMap(stringsIn)
-      : typeof value === "object" && value !== null
-        ? Object.values(value).flatMap(stringsIn)
-        : [];
+const stringsIn = (value: unknown): ReadonlyArray<string> => {
+  if (Predicate.isString(value)) return [value];
+  if (Predicate.isObjectOrArray(value))
+    return Object.values(value).flatMap(stringsIn);
+  return [];
+};
 
 /** Interpreter capabilities one template string needs, including syntax faults. */
 export const templateCapabilities = (text: string): ReadonlyArray<string> => {
@@ -119,10 +118,8 @@ const definitionHierarchicalNameCapabilities = (
           ...definition.supportedOn.flatMap((rule) =>
             rule._tag === "identity" ? [rule.identity.name] : [],
           ),
-          ...definition.dependencies.map((dependency) =>
-            dependency._tag === "required-target"
-              ? dependency.identity.name
-              : dependency.target.name,
+          ...definition.dependencies.map(
+            (dependency) => dependencyTarget(dependency).name,
           ),
         ]
       : [definition.defaultName ?? ""];
@@ -167,17 +164,14 @@ export const validateCapabilities = Effect.fn("Catalog.validateCapabilities")(
   ) {
     const supported = new Set(interpreterCapabilities);
     const declared = new Set(document.requiredCapabilities);
-    const documentSubject: CatalogIssueSubject = { _tag: "document" };
-    const users: ReadonlyArray<{
-      readonly subject: CatalogIssueSubject;
-      readonly capabilities: ReadonlySet<string>;
-    }> = [
+    const documentSubject = CatalogIssueSubject.cases.document.make({});
+    const users = [
       ...document.targets.map((target) => ({
-        subject: { _tag: "target", kind: target.kind } as const,
+        subject: CatalogIssueSubject.cases.target.make({ kind: target.kind }),
         capabilities: definitionCapabilities(target),
       })),
       ...document.modules.map((module) => ({
-        subject: { _tag: "module", id: module.id } as const,
+        subject: CatalogIssueSubject.cases.module.make({ id: module.id }),
         capabilities: definitionCapabilities(module),
       })),
     ];
