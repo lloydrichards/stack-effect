@@ -40,6 +40,9 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+          # The complexity gate compares against the merge-base with main.
+          fetch-depth: 0
 
       - name: Install Dependencies
         uses: ./.github/actions/setup

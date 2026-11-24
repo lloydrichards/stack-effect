@@ -14,7 +14,21 @@
     ],
     "func-style": ["error", "expression"],
     "typescript/no-non-null-assertion": "error",
-    "layout/no-src-tests": "error"
+    "layout/no-src-tests": "error",
+    "effecttsgo/crypto-random-uuid": "error",
+    "effecttsgo/crypto-random-uuid-in-effect": "error",
+    "effecttsgo/effect-try-without-catch": "error",
+    "effecttsgo/global-console": "error",
+    "effecttsgo/global-console-in-effect": "error",
+    "effecttsgo/global-date": "error",
+    "effecttsgo/global-date-in-effect": "error",
+    "effecttsgo/global-json-in-effect": "error",
+    "effecttsgo/global-random": "error",
+    "effecttsgo/global-random-in-effect": "error",
+    "effecttsgo/node-builtin-import": "error",
+    "effecttsgo/process-env": "error",
+    "effecttsgo/process-env-in-effect": "error",
+    "unicorn/prefer-array-flat-map": "error"
   },
   "overrides": [
     {
@@ -30,12 +44,30 @@
       }
     },
     {
-      "files": ["**/*.test.ts", "**/*.test.tsx"],
+      "files": [
+        "**/test/**/*.ts",
+        "**/test/**/*.tsx",
+        "**/*.test.ts",
+        "**/*.test.tsx",
+        "**/e2e/**/*.ts"
+      ],
       "rules": {
         "effecttsgo/async-function": "off",
         "effecttsgo/node-builtin-import": "off",
         "effecttsgo/global-json": "off",
         "effecttsgo/global-json-in-effect": "off"
+      }
+    },
+    {
+      "files": ["tools/**", "apps/docs/scripts/**"],
+      "rules": {
+        "effecttsgo/node-builtin-import": "off"
+      }
+    },
+    {
+      "files": ["apps/docs/app/entry.server.tsx"],
+      "rules": {
+        "effecttsgo/global-console": "off"
       }
     },
     {
