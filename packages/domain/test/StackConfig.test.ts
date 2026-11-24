@@ -7,7 +7,7 @@ import {
 import { Schema } from "effect";
 
 describe("StackConfig TypeScript version", () => {
-  it("accepts supported TypeScript major versions", () => {
+  it("should keep the TypeScript version when a config names a supported major", () => {
     const typescript6 = Schema.decodeSync(StackConfig)({
       name: "typescript-6",
       runtime: { _tag: "bun" },
@@ -23,7 +23,7 @@ describe("StackConfig TypeScript version", () => {
     assert.strictEqual(typescript7.typescript, "7");
   });
 
-  it("keeps existing configs without a TypeScript version decodable", () => {
+  it("should default to TypeScript 6 when an existing config has no TypeScript version", () => {
     const config = Schema.decodeSync(StackConfig)({
       name: "existing-project",
       runtime: { _tag: "bun" },
@@ -33,7 +33,7 @@ describe("StackConfig TypeScript version", () => {
     assert.strictEqual(config.typescriptVersion, "6");
   });
 
-  it("rejects unsupported TypeScript major versions", () => {
+  it("should reject the config when it names an unsupported TypeScript major", () => {
     assert.throws(() =>
       Schema.decodeUnknownSync(StackConfig)({
         name: "unsupported-version",
@@ -62,7 +62,7 @@ describe("StackConfig editor schema metadata", () => {
 });
 
 describe("StackConfig Deno runtime", () => {
-  it("decodes Deno with Deno-owned package and workspace commands", () => {
+  it("should use Deno as the package manager with workspace dependencies when the runtime is Deno", () => {
     const config = Schema.decodeSync(StackConfig)({
       name: "deno-project",
       runtime: { _tag: "deno" },
@@ -86,7 +86,7 @@ describe("StackConfigDefaults", () => {
     test: "vitest",
   };
 
-  it("keeps the configured defaults for Bun and Node", () => {
+  it("should keep the configured defaults when the runtime is Bun or Node", () => {
     for (const runtime of ["bun", "node"] as const) {
       assert.deepStrictEqual(defaultsForRuntime(defaults, runtime), {
         typescript: "7",
@@ -98,7 +98,7 @@ describe("StackConfigDefaults", () => {
     }
   });
 
-  it("uses Deno defaults without copying unrelated configuration fields", () => {
+  it("should clear monorepo, lint, and format and use TypeScript 6 when the runtime is Deno", () => {
     assert.deepStrictEqual(defaultsForRuntime(defaults, "deno"), {
       typescript: "6",
       monorepo: undefined,

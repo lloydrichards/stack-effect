@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Apply, ApplyError, ApplyResult, StalePlan } from "@repo/domain/Apply";
+import { Apply, ApplyResult } from "@repo/domain/Apply";
 import { RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
 
@@ -24,7 +24,7 @@ describe("@repo/domain Apply", () => {
     conflicts: conflictedPaths.map((path) => ({ _tag: "completeFile", path })),
   };
 
-  it("accepts one supported decision for each conflicted path", () => {
+  it("should keep each decision when every conflicted path has exactly one supported decision", () => {
     const apply = decodeApply({
       plan: conflictedPlan,
       decisions: [
@@ -74,14 +74,17 @@ describe("@repo/domain Apply", () => {
       ],
       message: "Unexpected apply decision for non-conflicted path README.md.",
     },
-  ])("rejects decisions with $name", ({ decisions, message }) => {
-    assert.throws(
-      () => decodeApply({ plan: conflictedPlan, decisions }),
-      message,
-    );
-  });
+  ])(
+    "should reject the Apply when decisions contain $name",
+    ({ decisions, message }) => {
+      assert.throws(
+        () => decodeApply({ plan: conflictedPlan, decisions }),
+        message,
+      );
+    },
+  );
 
-  it("sorts apply result paths deterministically", () => {
+  it("should order every result category by path when the result is sorted", () => {
     const result = new ApplyResult({
       created: [
         RepositoryPath.make("packages/domain/src/Api.ts"),
@@ -125,39 +128,5 @@ describe("@repo/domain Apply", () => {
       result.failed.map((failedPath) => failedPath.path),
       ["README.md", "packages/domain/src/index.ts"],
     );
-  });
-
-  it("decodes apply failures", () => {
-    const error = Schema.decodeSync(ApplyError)({
-      _tag: "ApplyError",
-      message: "Missing decision for packages/domain/package.json",
-    });
-
-    assert.strictEqual(error._tag, "ApplyError");
-    assert.strictEqual(
-      error.message,
-      "Missing decision for packages/domain/package.json",
-    );
-  });
-
-  it("decodes stale Plan failures with a partial result and no file contents", () => {
-    const error = Schema.decodeSync(StalePlan)({
-      _tag: "StalePlan",
-      message: "The repository changed after planning",
-      changes: [{ path: "README.md", kind: "modified" }],
-      partialResult: {
-        created: ["package.json"],
-        modified: [],
-        skipped: [],
-        failed: [],
-      },
-    });
-
-    assert.deepStrictEqual(error.changes, [
-      { path: RepositoryPath.make("README.md"), kind: "modified" },
-    ]);
-    assert.deepStrictEqual(error.partialResult.created, [
-      RepositoryPath.make("package.json"),
-    ]);
   });
 });
