@@ -33,26 +33,23 @@ Read the [OKF index](.okf/index.md) to find the relevant contract or decision. U
 | Task | Guidance |
 | --- | --- |
 | Add, review, or consolidate tests | [Test design](.agents/skills/stack-effect-testing/SKILL.md) |
-| Change a service interface, package export, or dependency boundary | [Package design](.agents/skills/stack-effect-design/SKILL.md) |
+| Add or move a module, package, or subpath, or change a service interface, package export, or dependency boundary | [Package design](.agents/skills/stack-effect-design/SKILL.md) |
 | Change generated code or the catalog source that emits it | [Catalog workspace](.agents/skills/catalog-workspace/SKILL.md) |
 
-When writing or reviewing TypeScript, read the [coding taste guide](.agents/TASTE.md). It links to the generated Todo and SQLite examples for Effect services, Layers, schemas, and HTTP handlers.
+When writing or reviewing TypeScript, read the [coding taste guide](.agents/TASTE.md). It covers how code reads: Effect idioms, naming, services and Layers, schemas, errors, and matching, with links to the generated Todo and SQLite examples. Package layout and test placement live in the skills above.
 
 ## Engineering taste
 
-- Extend the existing owner first. Extract a helper when a part needs to compose independently or has a real second caller. Add a service when a capability needs its own dependency or lifecycle boundary. Keep each PR focused on one outcome.
+- Extend the existing owner first. Keep each PR focused on one outcome.
 - Keep CLI commands and Recipe Builder handlers focused on decoding inputs, calling shared services, and presenting results. Put filesystem and HTTP quirks in adapters. For example, both entry points should get the same conflict from Plan, then each can present it in its own way.
-- Infer local types. Declare types where they define a contract. Write comments for constraints the code cannot show, such as why generated template bytes must stay verbatim. Put the change history in the PR.
-- Declare each feature's environment configuration in a named, module-level `Config.all({ ... })`, even when it has one field. Read it in the feature's layer or entry point. Keep defaults and secret redaction in that declaration so readers can scan the full set of settings.
-- Put domain schemas, data types, and errors in the scaffold's `packages/domain`. Keep runtime services, transport and storage adapters, and framework-specific state and messages with their implementations.
-- Use blank lines between distinct steps in a function, such as reading configuration, validating input, running an operation, and handling its result. Follow the surrounding code's structure so the steps are easy to scan.
+- Write comments for constraints the code cannot show, such as why generated template bytes must stay verbatim. Put the change history in the PR.
+- Put service-free contracts that clients import, such as schemas, data types, and errors, in the scaffold's `packages/domain`, and keep anything that stays inside one module with that module. Keep runtime services, transport and storage adapters, and framework-specific state and messages with their implementations. The [package design skill](.agents/skills/stack-effect-design/SKILL.md#lay-out-a-package) has the full rule.
 - Reuse existing theme tokens and UI atoms in generated clients. Follow nearby modules for form controls, cards, validation feedback, focus states, and accessible markup.
 - Keep `.test.ts` and `.test.tsx` files out of generated targets and modules. Keep scaffold and integration verification in the repository's test workspaces.
 
 ## Work with Effect in this repo
 
-- Use named `Effect.fn("Service.operation")` for new service operations. Keep existing span names stable. Use `Effect.gen` for inline programs and layer construction, and `yield*` to compose effects. Use `Effect.fnUntraced` when a helper already runs inside a traced operation or would emit a span on every item in a loop.
-- Resolve service dependencies when constructing the layer. Wire platform layers and run the Effect at the entry point. Keep pure calculations as plain typed functions and keep expected failures in the Effect error channel. Recover where the caller or adapter has enough context to decide what to do.
+- Follow the [coding taste guide](.agents/TASTE.md) for spans, services, Layers, and error handling.
 - Decode external inputs with Effect Schema and derive types from the schema. Fix type gaps in the model or use typed fixtures and stubs. Avoid `any` and `as unknown as` casts.
 - Check nearby code before choosing an unfamiliar Effect API. Start with `node_modules/effect/AGENTS.md` and follow the links for the API you need. Read the installed source or declarations when the guide leaves a question open. Use a local checkout or upstream source only at the matching version. For a dependency update, check the target version.
 

@@ -2,7 +2,10 @@
 
 Use these preferences when writing or reviewing TypeScript. The Todo HTTP API with SQLite is the reference for generated Effect code. Follow the [catalog workspace workflow](skills/catalog-workspace/SKILL.md) to try it. The [catalog authoring guide](../.okf/guides/catalog-authoring.md#effect-patterns-in-generated-code) describes the boundaries the example follows.
 
-Use the [testing skill](skills/stack-effect-testing/SKILL.md) for test design and generated-project verification.
+This guide covers how code reads. Two skills own structure:
+
+- Use the [package design skill](skills/stack-effect-design/SKILL.md#lay-out-a-package) when you add or move a module, package, `exports` subpath, or internal module. It owns package layout and where contracts live.
+- Use the [testing skill](skills/stack-effect-testing/SKILL.md) for test design, test file placement and naming, and generated-project verification.
 
 These rules apply to generated catalog code and to repository packages such as `packages/scaffold`. Where the two differ, a section says so under "In generated code" or "In repo packages".
 
@@ -15,9 +18,8 @@ These rules apply to generated catalog code and to repository packages such as `
 | A camelCase limit with its value repeated in messages | One `SCREAMING_SNAKE_CASE` constant that the check and the message both use |
 | `switch (value._tag)` inside Effect code | `Match.valueTags`. An exhaustive `switch` on a plain string is fine |
 | A `function` helper declared below its caller | An arrow `const` declared before the code that uses it |
-| JSDoc that restates the function name | A `//` comment on the constraint, next to the line it constrains. Public modules carry fuller docs; see Package shape |
+| JSDoc that restates the function name | A `//` comment on the constraint, next to the line it constrains. Public modules carry fuller docs; see Public module docs |
 | A reusable service Layer that provides its own crypto or filesystem | Leave the platform service as a requirement. The app or entry point provides it |
-| Tests that stub the owner's collaborators and assert on recorded calls | The real owner over the memory filesystem, asserting on results and written files |
 
 ## Decide what is a service
 
@@ -34,7 +36,7 @@ These rules apply to generated catalog code and to repository packages such as `
 - Use a short sequence of collection operations when it makes the transformation easy to follow. Use a loop when the order of steps or early exit is clearer that way.
 - Use native array methods by default. Use Effect's `Array` module for `Option`-returning lookups, structural-equality helpers such as `dedupe`, and data-last steps inside a `pipe`. Use `reduce` only to fold to a single value. Group with `Map.groupBy`, and build keyed collections with a loop over a local `Map`.
 - Keep a workflow in one function unless a part needs to compose independently or has a real second caller. The [GitHub webhook](../catalogs/labs/templates/server-github-issue-label/src/webhooks/github.ts) keeps signature parsing, the bounded body read, and verification together before decoding the event.
-- Give each public service operation a span named `Owner.operation`. Use `Effect.fn("Owner.operation")` when it has a generator body. End the pipeline with `Effect.withSpan("Owner.operation")` when it is an argument-free Effect value or a one-expression function. Add argument-dependent attributes with `Effect.annotateCurrentSpan` inside the body. Use `Effect.fnUntraced` for private helpers, per-item work, and pure-module functions. Do not leave `Effect.fn` unnamed. Give a private step its own span only when it is a distinct I/O call that runs once per operation.
+- Give each public service operation a span named `Owner.operation`. Use `Effect.fn("Owner.operation")` when it has a generator body. End the pipeline with `Effect.withSpan("Owner.operation")` when it is an argument-free Effect value or a one-expression function. Add argument-dependent attributes with `Effect.annotateCurrentSpan` inside the body. Use `Effect.fnUntraced` for private helpers, per-item work, and pure-module functions. Do not leave `Effect.fn` unnamed. Keep existing span names stable; change one only when you deliberately rename its owner or operation. Give a private step its own span only when it is a distinct I/O call that runs once per operation.
 - Write sequential steps and branches inside `Effect.gen` or `Effect.fn`. Attach whole-effect behaviour such as timeout, retry, error mapping, recovery, spans, or provision with `.pipe` on an `Effect.gen`, or as extra arguments to `Effect.fn`, not `.pipe` on it. Keep step-specific error mapping or recovery next to the step it handles. Do not branch inside `flatMap` or nest a `gen` inside a combinator. See how the [Summary Queue](../catalogs/labs/templates/cli-persisted-queue/src/jobs/SummaryQueue.ts) provides its Layer for an entire operation.
 - Return early for guards. Use `else` for peer branches that read as one decision.
 - Keep numeric defaults and constraints next to their config or schema definitions. Put a shared policy value in a `SCREAMING_SNAKE_CASE` constant near the top of the file. The [WebFetch toolkit](../catalogs/labs/templates/package-ai-toolkit-webfetch/src/toolkits/WebFetchToolkit.ts) uses one limit for the length check and truncation.
@@ -55,7 +57,7 @@ Declare the shape in the `Context.Service` generic. Build the implementation in 
 
 `static readonly layer` wires everything the package owns and leaves open only what the app chooses: platform services such as FileSystem, Path, and crypto, and drivers such as SqlClient and HttpClient. Name variants for what differs, such as `layerMemory`, `layerDemo`, or `layerConfig`. Add `layerTest` only for a service that fronts an external system. This deliberately differs from Effect's [composition example](../node_modules/effect/ai-docs/src/01_effect/03_services/20_layer-composition.ts), where `layer` also picks the driver. Do not use `Live` or `Default`. Use PascalCase role names for standalone Layers, such as `TodoHandlers` and `TodoRoutes`. Add `Layer` when the role alone is ambiguous.
 
-Qualify new service IDs by owning package, for example `@repo/db/TodoRepository`. Preserve existing IDs, including the Todo reference's `"TodoRepository"`.
+Qualify new service IDs by owning package, for example `@repo/db/TodoRepository`. Keep an existing ID stable; change it only when you deliberately rename or move the service, in the same change. Generated code keeps the Todo reference's `"TodoRepository"`.
 
 The app chooses the database and crypto implementations. `Layer.provide` keeps them internal to the repository wiring. Use `Layer.provideMerge` when another consumer also needs a provided service. See the [repository](../catalogs/official/templates/package-db-todo-repository/src/TodoRepository.ts) and [app Layer](../catalogs/official/templates/server-todo-repository/src/Services/TodoRepository.ts).
 
@@ -67,7 +69,7 @@ export const TodoRepositoryLayer = TodoRepository.layer.pipe(
 
 Expose the operations and observations that callers need. The [Presence service](../catalogs/official/templates/package-presence-service/src/services/PresenceService.ts) exposes a stream of events and owns the `PubSub` internally.
 
-Declare a named `Config.all` at module scope and read it when building the feature Layer. Give shared settings one owner. The [upstream GraphQL route](../catalogs/labs/templates/server-graphql-client/src/api/UpstreamItems.ts) owns its optional URL and uses the [server port config](../catalogs/official/templates/server/src/ServerConfig.ts).
+Declare each feature's environment configuration in a named, module-level `Config.all({ … })`, even when it has one field. Read it when building the feature Layer or at the entry point. Keep defaults and secret redaction in that declaration so readers can scan the full set of settings. Give shared settings one owner. The [upstream GraphQL route](../catalogs/labs/templates/server-graphql-client/src/api/UpstreamItems.ts) owns its optional URL and uses the [server port config](../catalogs/official/templates/server/src/ServerConfig.ts).
 
 ## Schemas and handlers
 
@@ -100,7 +102,7 @@ const TodoRow = Todo.mapFields((fields) => ({
 
 Give an error its own tag when a caller handles it differently, as with `TodoNotFound` becoming a 404. Otherwise fail with the operation's one error, carrying `message` and `cause`. When a caller needs to branch within that error, model the branches as a tagged reason union with structured fields and recover with `Effect.catchReason`, as in Effect's [reason errors example](../node_modules/effect/ai-docs/src/01_effect/04_errors/20_reason-errors.ts). Do not use a string-literal `reason`, and do not drop the cause.
 
-Define errors with `Schema.TaggedError` and raise them with `return yield* new X({ … })`. Carry the original cause as `cause: Schema.Defect()`. Put an error in `@repo/domain`, next to the data it describes, when it appears in an operation another package calls. Keep an error that stays inside one module with that module.
+Recover from an error where the caller or adapter has enough context to decide what to do. Define errors with `Schema.TaggedError` and raise them with `return yield* new X({ … })`. Carry the original cause as `cause: Schema.Defect()`. Put an error in `@repo/domain`, next to the data it describes, when it appears in an operation another package calls. Keep an error that stays inside one module with that module.
 
 Translate infrastructure failures into the reusable service's error vocabulary. Assign HTTP status codes in the HTTP contract. Keep HttpApi's default 400 for schema rejection. Use typed validation middleware when clients need a stable error body.
 
@@ -148,24 +150,8 @@ Use `Ref` when shared state coordinates fibers. A private `Map` is fine for simp
 
 Use an explicit owner scope for work that outlives a request. Use `FiberMap` when the owner needs keyed cancellation. The [managed chat runtime](../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts) registers generation fibers in its Layer scope, and ChatSessions rejects overlapping sends.
 
-In a shutdown test, wait for an explicit start signal before closing the owner scope. Verify cleanup and any released resources. See the [managed chat regression fixture](../apps/cli/e2e/fixtures/chat-owner-scope.ts.txt).
-
-```ts
-yield* Deferred.await(generationStarted);
-yield* Scope.close(ownerScope, Exit.void);
-assert.equal(yield* Deferred.isDone(generationStopped), true);
-```
-
-## Package shape
-
-Build deep modules with narrow public APIs, as Effect and `@effect-vfs` do. Each public module is `src/X.ts`, and the module is its documentation and API design layer. Keep a small implementation in the public file. When the implementation gets deep, move it to `src/internal/x.ts`. Let the public file delegate with explicitly typed exports, such as `export const empty: <K, V>() => HashMap<K, V> = internal.empty`. A service keeps its class and shape in `X.ts` and builds its layer from its internal module's constructor. When one public module holds several services, give each constructor its own name, such as `planner.makePlanner`. Pass in a service from the same public module, as `ContributionResolver.use(planner.makePlanner)` does, instead of importing it as a value. Mark every export of an internal module `/** @internal */`. An internal module imports its own public module as types only, to avoid a runtime import cycle. It may import other public modules as values, as Effect's internals do.
-
-Group a package's public API into one module per concept, as Effect groups `Effect` or `Schema`, not one module per service. `@repo/scaffold/Plan` holds `Planner` and `ContributionResolver`, and `@repo/scaffold/Apply` holds `Applier`, `ApplyWorkspaces`, and `RecipePreviewer`. Expose each public module as its own subpath in `exports`, named after the module, and set `"./internal/*": null`. Do not publish a root index. `@repo/domain` already works this way. Do not hand-maintain index or per-platform re-export files. Lint rejects `export *` barrels; it cannot see a file of named re-exports, so reviewers check for those. Put data contracts that clients import without services in `@repo/domain`. Name its modules after the lifecycle concepts, `Selection`, `Blueprint`, `Plan`, `Apply`, `Finalize`, `Recipe`, and `Catalog`, plus `StackConfig` for the persisted `stack.effect.json`. Keep each schema, error, and helper, such as an `Order`, in the concept it serves, not in a utility or grab-bag module. Define any data a package returns to another package as a Schema there, even when nothing decodes it yet, and build values with its `make` so the contract is checked where it is produced. Tests live in `test/`, outside `src/`, and import only public modules.
-
-In generated code, the same rule applies. Modules add a package's public entry points as `package.json` `exports` subpaths through `json-pkg-exports` contributions, not as `export *` lines in a composed `src/index.ts`.
+## Public module docs
 
 Open each public module with a header saying what it is for. Give each public export a one-line summary, a **When to use** section, and **Gotchas** when there are some. Add an **Example** when usage is not obvious from the signature. Do not add `@since`, `@category`, or `@stability`. Internal modules carry `/** @internal */` and constraint comments only. In generated code, keep comments to constraints.
 
-Shared packages return data. Put presentation, such as terminal layout, colours, prompts, and UI, in the app that presents it. Delete presentation code that has no caller instead of moving it.
-
-Export only what another module uses in production code. A test is not a caller. `fallow dead-code --production --include-entry-exports` enforces this in lint. When Fallow cannot see a class member that production code calls through an inferred or nested type, put `// fallow-ignore-next-line unused-class-member -- called by <caller>` on the line above the member. Do not add names to `usedClassMembers`, because a name there exempts every class that has a member by that name. Do not silence other findings with ignore entries or comments. Fix the export or the coverage instead.
+Export only what another module uses in production code. A test is not a caller. Fallow enforces this in lint. The [package design skill](skills/stack-effect-design/SKILL.md#keep-exports-honest) says how to handle a finding Fallow cannot see.

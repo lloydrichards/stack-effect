@@ -96,7 +96,7 @@ bun run type-check
 Commands use `Command.make()` from `effect/cli`:
 
 1. Create the command in `apps/cli/src/commands/<name>.ts`
-2. Register it in `apps/cli/src/index.ts` via `Command.withSubcommands()`
+2. Register it in `apps/cli/src/command.ts` via `Command.withSubcommands()`
 3. Add UI components in `apps/cli/src/components/` if needed
 
 Commands access scaffold services (`BlueprintResolver`, `Planner`, etc.) through Effect's context. See existing commands for the pattern.
@@ -108,9 +108,9 @@ bun run type-check
 
 ### Fixing Bugs in Scaffold Logic
 
-Each public module in `packages/scaffold/src/` is one lifecycle concept: `Blueprint.ts`, `Plan.ts`, `Apply.ts`, `Finalize.ts`, `Recipe.ts`, and `Catalog.ts`. Import it through its package subpath, such as `@repo/scaffold/Plan` for `Planner`. Deep implementations live in `src/internal/`, which the package does not export.
+Each public module in `packages/scaffold/src/` is one lifecycle concept: `Blueprint.ts`, `Plan.ts`, `Apply.ts`, `Finalize.ts`, `Recipe.ts`, and `Catalog.ts`. Import it through its package subpath, such as `@repo/scaffold/Plan` for `Planner`. Deep implementations live in `src/internal/`, which the package does not export. The [package design skill](.agents/skills/stack-effect-design/SKILL.md#lay-out-a-package) describes the layout rules.
 
-Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/Blueprint.test.ts`), and use `@effect/vitest`:
+Tests live in `packages/scaffold/test/`, one file per public module (e.g., `test/Blueprint.test.ts`), and use `@effect/vitest`. The [testing skill](.agents/skills/stack-effect-testing/SKILL.md) covers placement and naming:
 
 ```typescript
 import { describe, layer } from "@effect/vitest";
