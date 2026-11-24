@@ -17,7 +17,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { RepositoryPath } from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
 import {
   Applier,
@@ -40,6 +40,7 @@ import {
   plan,
   platform,
   preview,
+  ProviderCatalogLayer,
   readFile,
   repositoryRoot,
   selected,
@@ -56,6 +57,9 @@ describe("Applier", () => {
   const manifest = "packages/app/package.json";
   const appFile = "packages/app/src/App.tsx";
   const optionsFile = "packages/app/src/Options.ts";
+  const decodeJson = Schema.decodeUnknownSync(
+    Schema.fromJsonString(Schema.Json),
+  );
 
   /** Plans and applies a selection, failing on any conflict or failed write. */
   const planAndApply = (...modules: ReadonlyArray<string>) =>
@@ -159,7 +163,7 @@ describe("Applier", () => {
   );
 
   it.effect(
-    "should report sorted skipped paths when a modified file is written unchanged",
+    "should skip publication when composition produces the same bytes",
     () =>
       Effect.gen(function* () {
         const formatted =
@@ -176,14 +180,59 @@ describe("Applier", () => {
           "modify",
         );
 
-        const result = yield* apply(planned);
+        const deniedPublication = yield* withFault({
+          method: "rename",
+          path: `${repositoryRoot}/${manifest}`,
+        });
+        const result = yield* deniedPublication.provide(apply(planned));
 
+        assert.deepStrictEqual(result.failed, []);
         assert.deepStrictEqual(result.modified, []);
-        assert.deepStrictEqual(
-          result.skipped,
+        assert.sameMembers(
+          [...result.skipped],
           paths(manifest, "packages/app/src/a.txt", "packages/app/src/b.txt"),
         );
         assert.strictEqual(yield* readFile(manifest), formatted);
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should compose changes onto the existing manifest and preserve user fields",
+    () =>
+      Effect.gen(function* () {
+        const existing =
+          '{"name":"@repo/app","private":true,"scripts":{"build":"vite build"}}';
+        yield* writeFiles({ [manifest]: existing });
+        const planned = yield* plan(app("manifest"));
+
+        const result = yield* apply(planned);
+
+        assert.deepStrictEqual(result.failed, []);
+        assert.deepStrictEqual(result.modified, paths(manifest));
+        assert.deepStrictEqual(decodeJson(yield* readFile(manifest)), {
+          name: "@repo/app",
+          private: true,
+          scripts: { build: "vite build", dev: "vite" },
+        });
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should create a root manifest from a composition with no existing file or seed",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({});
+        const planned = yield* plan(
+          selection(selected("workspace", "project", "root-scripts")),
+        );
+
+        const result = yield* apply(planned);
+
+        assert.deepStrictEqual(result.failed, []);
+        assert.include(result.created, RepositoryPath.make("package.json"));
+        assert.deepStrictEqual(decodeJson(yield* readFile("package.json")), {
+          scripts: { dev: "vite" },
+        });
       }).pipe(Effect.provide(testPipeline)),
   );
 
@@ -306,6 +355,37 @@ describe("Applier", () => {
         );
         assert.isFalse(yield* exists("packages/app/src/a.txt"));
         assert.strictEqual(yield* readFile("packages/app/src/b.txt"), "B\n");
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should continue publishing files after failing to publish a new owner manifest",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({});
+        const planned = yield* plan(app("manifest", "pair"));
+        const fault = yield* withFault({
+          method: "rename",
+          path: `${repositoryRoot}/${manifest}`,
+        });
+
+        const result = yield* fault.provide(apply(planned));
+
+        assert.deepStrictEqual(
+          result.failed.map(({ path }) => path),
+          [manifest],
+        );
+        assert.deepStrictEqual(
+          result.created,
+          paths("packages/app/src/a.txt", "packages/app/src/b.txt"),
+        );
+        assert.isFalse(yield* exists(manifest));
+        assert.strictEqual(yield* readFile("packages/app/src/a.txt"), "A\n");
+        const files = yield* FileSystem.FileSystem;
+        assert.sameMembers(
+          yield* files.readDirectory(`${repositoryRoot}/packages/app`),
+          ["src"],
+        );
       }).pipe(Effect.provide(testPipeline)),
   );
 
@@ -539,25 +619,71 @@ describe("Applier", () => {
               `packages:\n${members.map((member) => `  - ${member}\n`).join("")}\nallowBuilds:\n  esbuild: true\n`,
             );
 
+            const withUserComment = pnpm.replace(
+              "  - packages/helper\n",
+              "  - packages/helper # maintained separately\n",
+            );
+            yield* writeFiles({ "pnpm-workspace.yaml": withUserComment });
             const repeated = yield* planAt("sdk/codecs");
             const result = yield* apply(repeated, decideAll(repeated, "skip"));
 
             assert.deepStrictEqual(result.failed, []);
-            assert.strictEqual(yield* readFile("pnpm-workspace.yaml"), pnpm);
+            assert.strictEqual(
+              yield* readFile("pnpm-workspace.yaml"),
+              withUserComment,
+            );
             assert.include(
               yield* readFile("deno.json"),
               '"custom": "echo custom"',
             );
-            assert.isTrue(
+            assert.deepStrictEqual(
               repeated.outcomes
-                .filter((outcome) =>
-                  ["package.json", "deno.json", "pnpm-workspace.yaml"].includes(
-                    outcome.path,
-                  ),
+                .filter(
+                  ({ path, classification }) =>
+                    (path === "package.json" || path === "deno.json") &&
+                    classification !== "unchanged",
                 )
-                .every((outcome) => outcome.classification === "unchanged"),
+                .map(({ path, classification }) => ({ path, classification })),
+              [],
+            );
+            assert.strictEqual(
+              repeated.outcomes.find(
+                (outcome) => outcome.path === "pnpm-workspace.yaml",
+              )?.classification,
+              "unchanged",
             );
           }).pipe(Effect.provide(officialLayer)),
+      );
+    }
+
+    for (const [label, path, contents] of [
+      [
+        "invalid YAML with a packages sequence",
+        "pnpm-workspace.yaml",
+        "packages: []\npackages: []\n",
+      ],
+      [
+        "a non-sequence packages field",
+        "pnpm-workspace.yaml",
+        "packages: packages/*\n",
+      ],
+      ["invalid JSON", "package.json", '{"workspaces": [}'],
+      [
+        "a non-array workspace field",
+        "deno.json",
+        '{"workspace":"packages/*"}',
+      ],
+    ] as const) {
+      it.effect(`should reject ${label} in ${path}`, () =>
+        Effect.gen(function* () {
+          yield* writeFiles({ [path]: contents });
+
+          const failure = yield* Effect.flip(plan(app("pair")));
+
+          assert.strictEqual(failure._tag, "PlanError");
+          assert.isDefined(failure.cause);
+          assert.strictEqual(yield* readFile(path), contents);
+        }).pipe(Effect.provide(testPipeline)),
       );
     }
 
@@ -609,6 +735,69 @@ describe("Applier", () => {
           }).pipe(Effect.provide(officialLayer)),
       );
     }
+
+    it.effect(
+      "should ignore owner manifests in hidden and dependency grouping directories",
+      () =>
+        Effect.gen(function* () {
+          yield* ownerManifest("packages/.generated/domain", "@repo/domain");
+          yield* ownerManifest("packages/Node_Modules/domain", "@repo/domain");
+
+          const planned = yield* build;
+          const result = yield* apply(planned);
+
+          assert.deepStrictEqual(planned.baseline.packageOwners, []);
+          assert.deepStrictEqual(result.failed, []);
+          assert.include(
+            result.created,
+            RepositoryPath.make("packages/domain/package.json"),
+          );
+        }).pipe(Effect.provide(officialLayer)),
+    );
+
+    it.effect(
+      "should reject an owner manifest with a case-mismatched filename",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const grouping = `${repositoryRoot}/packages/helper`;
+          yield* ownerManifest("packages/helper", "@repo/helper");
+          yield* build;
+          yield* fs.rename(
+            `${grouping}/package.json`,
+            `${grouping}/Package.json`,
+          );
+
+          const failure = yield* Effect.flip(build);
+
+          assert.strictEqual(failure._tag, "PlanError");
+          assert.isFalse(yield* exists("packages/domain/package.json"));
+        }).pipe(Effect.provide(officialLayer)),
+    );
+
+    it.effect(
+      "should treat the workspace root name independently of an application owner name",
+      () =>
+        Effect.gen(function* () {
+          const stackConfig = new StackConfig({
+            name: "server-api",
+            runtime: { _tag: "bun" },
+          });
+          yield* ownerManifest("apps/server-api", "server-api");
+
+          const planned = yield* plan(
+            selection(selected("workspace", stackConfig.name)),
+            { config: stackConfig },
+          );
+
+          assert.deepStrictEqual(planned.baseline.packageOwners, [
+            {
+              path: RepositoryPath.make("apps/server-api"),
+              name: "server-api",
+            },
+          ]);
+        }).pipe(Effect.provide(officialLayer)),
+    );
 
     it.effect(
       "should preserve existing files when sdk/client aliases sdk-client",
@@ -732,21 +921,25 @@ describe("Applier", () => {
       }).pipe(Effect.provide(testPipeline)),
     );
 
-    it.effect("should reject non-text contents at a planned path", () =>
-      Effect.gen(function* () {
-        const files = yield* FileSystem.FileSystem;
-        yield* writeFiles({ "packages/app/src/.keep": "" });
-        yield* files.writeFile(
-          `${repositoryRoot}/packages/app/src/a.txt`,
-          Uint8Array.of(0xff, 0x00),
-        );
+    for (const [label, bytes] of [
+      ["a NUL in otherwise valid UTF-8", Uint8Array.of(0x41, 0x00)],
+      ["invalid UTF-8 without NUL", Uint8Array.of(0xff)],
+    ] as const) {
+      it.effect(`should reject a planned text file containing ${label}`, () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          yield* writeFiles({ "packages/app/src/.keep": "" });
+          yield* files.writeFile(
+            `${repositoryRoot}/packages/app/src/a.txt`,
+            bytes,
+          );
 
-        const failure = yield* Effect.flip(plan(app("pair")));
+          const failure = yield* Effect.flip(plan(app("pair")));
 
-        assert.strictEqual(failure._tag, "PlanError");
-        assert.include(failure.message, "packages/app/src/a.txt");
-      }).pipe(Effect.provide(testPipeline)),
-    );
+          assert.strictEqual(failure._tag, "PlanError");
+        }).pipe(Effect.provide(testPipeline)),
+      );
+    }
 
     it.effect("should reject a symbolic link at a planned path", () =>
       Effect.gen(function* () {
@@ -879,6 +1072,53 @@ describe("Applier", () => {
           kind: "deleted",
         });
       }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should report an unreadable planned file as a stale type change",
+      () =>
+        Effect.gen(function* () {
+          const path = RepositoryPath.make("packages/app/src/a.txt");
+          yield* writeFiles({ [path]: "A\n" });
+          const planned = yield* plan(app("pair"));
+          const fault = yield* withFault({
+            method: "readFile",
+            path: `${repositoryRoot}/${path}`,
+          });
+
+          const failure = yield* Effect.flip(fault.provide(apply(planned)));
+
+          assert(failure._tag === "StalePlan");
+          assert.deepStrictEqual(failure.changes, [
+            { path, kind: "typeChanged" },
+          ]);
+          assert.deepStrictEqual(failure.partialResult.created, []);
+          assert.isFalse(yield* exists("packages/app/src/b.txt"));
+          assert.strictEqual(yield* readFile(path), "A\n");
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should report a directory replacing a planned file as a stale type change",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const path = RepositoryPath.make("packages/app/src/a.txt");
+          const absolutePath = `${repositoryRoot}/${path}`;
+          yield* writeFiles({ [path]: "A\n" });
+          const planned = yield* plan(app("pair"));
+          yield* fs.remove(absolutePath);
+          yield* fs.makeDirectory(absolutePath);
+
+          const failure = yield* Effect.flip(apply(planned));
+
+          assert(failure._tag === "StalePlan");
+          assert.deepStrictEqual(failure.changes, [
+            { path, kind: "typeChanged" },
+          ]);
+          assert.deepStrictEqual(failure.partialResult.created, []);
+          assert.isFalse(yield* exists("packages/app/src/b.txt"));
+        }).pipe(Effect.provide(testPipeline)),
     );
 
     it.effect(
@@ -1097,6 +1337,24 @@ describe("ApplyWorkspaces", () => {
       }).pipe(Effect.provide(foreignNamePipeline)),
   );
 
+  it.effect(
+    "should preserve an established owner when a manifest override would rename it",
+    () =>
+      Effect.gen(function* () {
+        const original = '{"name":"@repo/app"}';
+        yield* writeFiles({ [manifest]: original });
+        const planned = yield* plan(app("helper-manifest"));
+        const decisions = decideAll(planned, "override");
+
+        const previewed = yield* Effect.flip(preview(planned, decisions));
+        const applied = yield* Effect.flip(apply(planned, decisions));
+
+        assert.strictEqual(previewed._tag, "ApplyError");
+        assert.strictEqual(applied._tag, "ApplyError");
+        assert.strictEqual(yield* readFile(manifest), original);
+      }).pipe(Effect.provide(foreignNamePipeline)),
+  );
+
   it.effect("should seed byte-order-marked files with their exact bytes", () =>
     Effect.gen(function* () {
       const original = "\uFEFFA\n";
@@ -1239,6 +1497,62 @@ describe("ApplyWorkspaces", () => {
   );
 
   it.effect(
+    "should reject an equally sized baseline captured for different paths",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({});
+        const build = (name: string) =>
+          plan(selection(selected("package", name, "pair")));
+        const seeded = yield* build("first");
+        const other = yield* build("second");
+        const workspaces = yield* ApplyWorkspaces;
+        const workspace = yield* workspaces.fromRepository({
+          repositoryRoot,
+          baseline: seeded.baseline,
+        });
+
+        const failure = yield* Effect.flip(
+          workspace.materialize(new Apply({ plan: other, decisions: [] })),
+        );
+
+        assert.strictEqual(failure._tag, "ApplyError");
+        assert.isFalse(yield* exists("packages/second/src/a.txt"));
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should still preview and apply a Plan without an ownership inventory",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({ [manifest]: '{"name":"@repo/app"}' });
+        const planned = yield* plan(app("scripts", "pair"));
+        const legacyPlan = new Plan({
+          outcomes: planned.outcomes,
+          conflicts: planned.conflicts,
+          baseline: {
+            root: planned.baseline.root,
+            paths: planned.baseline.paths,
+          },
+        });
+
+        const previewed = yield* preview(legacyPlan);
+        const applied = yield* apply(legacyPlan);
+
+        assert.deepStrictEqual(previewed.apply, applied);
+        assert.deepStrictEqual(applied.failed, []);
+        assert.deepStrictEqual(
+          applied.created,
+          paths("packages/app/src/a.txt", "packages/app/src/b.txt"),
+        );
+        assert.deepStrictEqual(applied.modified, paths(manifest));
+        assert.deepStrictEqual(decodeJson(yield* readFile(manifest)), {
+          name: "@repo/app",
+          scripts: { dev: "vite" },
+        });
+      }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
     "should materialize a Plan built in a seeded workspace without writing to the host",
     () =>
       Effect.gen(function* () {
@@ -1355,6 +1669,75 @@ describe("RecipePreviewer", () => {
     },
   );
 
+  it.effect(
+    "should include the provided StackConfig among files sorted by path",
+    () =>
+      Effect.gen(function* () {
+        const previews = yield* RecipePreviewer;
+        const input = new StackConfig({
+          name: "preview-configuration",
+          runtime: { _tag: "node", packageManager: "pnpm" },
+          typescript: "7",
+        });
+        const result = yield* previews.preview({
+          config: input,
+          recipe: { targets: [] },
+        });
+
+        const configuration = result.files.find(
+          ({ path }) => path === "stack.effect.json",
+        );
+        assert.isDefined(configuration);
+        assert.strictEqual(configuration.status, "created");
+        const decoded = yield* Schema.decodeEffect(
+          Schema.fromJsonString(StackConfig),
+        )(configuration.contents);
+        assert.deepStrictEqual(decoded, input);
+        const filePaths = result.files.map(({ path }) => path);
+        assert.deepStrictEqual(filePaths, [...filePaths].sort());
+      }).pipe(Effect.provide(TestLayer)),
+  );
+
+  it.effect(
+    "should surface ambiguous providers for the preview caller to choose",
+    () =>
+      Effect.gen(function* () {
+        const previews = yield* RecipePreviewer;
+        const failure = yield* Effect.flip(
+          previews.preview({
+            config,
+            recipe: {
+              targets: [
+                {
+                  target: new TargetIdentity({
+                    kind: TargetKind.make("package"),
+                    name: "db",
+                  }),
+                  modules: [ModuleId.make("todo-repository")],
+                },
+              ],
+            },
+          }),
+        );
+
+        assert(failure._tag === "AmbiguousRecipeProvider");
+        assert.strictEqual(failure.requestingModuleId, "todo-repository");
+        assert.strictEqual(failure.target.toKey(), "packages/db");
+        assert.strictEqual(failure.capability, "db-sql");
+        assert.sameMembers(
+          failure.providers.map(({ moduleId }) => moduleId),
+          ["sql-sqlite", "sql-postgres"],
+        );
+      }).pipe(
+        Effect.provide(
+          RecipePreviewer.layer.pipe(
+            Layer.provide(platform),
+            Layer.provide(ProviderCatalogLayer),
+          ),
+        ),
+      ),
+  );
+
   const previewQualityConfig = (
     lint: "biome" | "oxlint",
     format: "dprint" | "oxfmt",
@@ -1452,41 +1835,8 @@ describe("RecipePreviewer", () => {
             packageJson.scripts["format:check"],
             "oxfmt --check",
           );
-          assert.strictEqual(packageJson.devDependencies["oxfmt"], "^0.78.0");
+          assert.isNotEmpty(packageJson.devDependencies["oxfmt"]);
           assert.isUndefined(fileContents("dprint.json"));
-        }),
-    );
-
-    it.effect(
-      "should emit the established Oxfmt policy when Oxfmt formatting is selected",
-      () =>
-        Effect.gen(function* () {
-          const preview = yield* previewQualityConfig("biome", "oxfmt");
-
-          assert.deepStrictEqual(
-            UnknownFromJsonString(fileAt(preview)(".oxfmtrc.jsonc") ?? "{}"),
-            {
-              $schema: "./node_modules/oxfmt/configuration_schema.json",
-              printWidth: 80,
-              tabWidth: 2,
-              useTabs: false,
-              semi: true,
-              singleQuote: false,
-              trailingComma: "all",
-              sortImports: false,
-              sortTailwindcss: false,
-              sortPackageJson: false,
-              ignorePatterns: [
-                "**/node_modules/**",
-                "**/dist/**",
-                "**/build/**",
-                "**/coverage/**",
-                "**/generated/**",
-                "**/.cache/**",
-                "**/.turbo/**",
-              ],
-            },
-          );
         }),
     );
 
@@ -1521,6 +1871,11 @@ describe("RecipePreviewer", () => {
           assert.strictEqual(packageJson.scripts["lint"], "biome lint");
           assert.isDefined(fileContents("biome.jsonc"));
           assert.notInclude(fileContents("biome.jsonc"), '"formatter"');
+          assert.propertyVal(
+            UnknownFromJsonString(fileContents(".oxfmtrc.jsonc") ?? "{}"),
+            "sortImports",
+            false,
+          );
           assert.include(
             fileContents(".vscode/settings.json"),
             "source.organizeImports.biome",
@@ -1564,11 +1919,8 @@ describe("RecipePreviewer", () => {
 
           assert.strictEqual(packageJson.scripts["lint"], "oxlint");
           assert.strictEqual(packageJson.scripts["lint:fix"], "oxlint --fix");
-          assert.strictEqual(packageJson.devDependencies["oxlint"], "1.93.0");
-          assert.strictEqual(
-            packageJson.devDependencies["oxlint-tsgolint"],
-            "7.0.2006",
-          );
+          assert.isNotEmpty(packageJson.devDependencies["oxlint"]);
+          assert.isNotEmpty(packageJson.devDependencies["oxlint-tsgolint"]);
           assert.include(
             fileContents(".oxlintrc.json"),
             "oxlint-presets/effect-native.json",

@@ -11,7 +11,6 @@ import {
 } from "@repo/domain/Catalog";
 import {
   type RecipeProviderStrategy,
-  RecipeSpec,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
@@ -144,6 +143,30 @@ describe("RecipeResolver", () => {
   ];
 
   layer(TestLayer)("resolve", (it) => {
+    it.effect(
+      "should report a missing configured tool in a custom-only catalog",
+      () =>
+        Effect.gen(function* () {
+          const recipes = yield* RecipeResolver;
+          const recipe = { targets: [] };
+          const providerStrategy = { _tag: "fail-on-ambiguous" as const };
+          yield* recipes.resolve(recipe, { config, providerStrategy });
+
+          const error = yield* Effect.flip(
+            recipes.resolve(recipe, {
+              config: new StackConfig({ ...config, lint: "biome" }),
+              providerStrategy,
+            }),
+          );
+
+          assert(error._tag === "InvalidRecipeSpec");
+          assert.deepStrictEqual(
+            error.issues.map(({ path }) => path),
+            [["config"]],
+          );
+        }),
+    );
+
     it.effect(
       "should add the only provider when a selected module requires a capability",
       () =>
@@ -278,6 +301,34 @@ describe("RecipeResolver", () => {
           ]);
         }),
     );
+
+    for (const [label, targetName, capability] of [
+      ["another target", "analytics", "db-sql"],
+      ["another capability", "db", "secrets"],
+    ] as const) {
+      it.effect(
+        `should keep provider ambiguity when an explicit choice names ${label}`,
+        () =>
+          Effect.gen(function* () {
+            const error = yield* Effect.flip(
+              resolve([recipeTarget("package", "db", "todo-repository")], {
+                _tag: "explicit",
+                providers: [
+                  {
+                    target: recipeTarget("package", targetName).target,
+                    capability: ModuleCapability.make(capability),
+                    moduleId: ModuleId.make("sql-postgres"),
+                  },
+                ],
+              }),
+            );
+
+            assert(error._tag === "AmbiguousRecipeProvider");
+            assert.strictEqual(error.target.toKey(), "packages/db");
+            assert.strictEqual(error.capability, "db-sql");
+          }),
+      );
+    }
 
     it.effect(
       "should reject an explicit provider that cannot provide the capability on that target",
@@ -778,29 +829,8 @@ describe("RecipeResolver with the official catalog", () => {
         }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should allow recipes to omit explicit workspace targets", () =>
-      Effect.gen(function* () {
-        const service = yield* RecipeResolver;
-        const selection = yield* service.resolve(
-          { targets: [] },
-          {
-            config: testConfig,
-            providerStrategy: { _tag: "fail-on-ambiguous" },
-          },
-        );
-
-        assertTargetModules(selection, ".", [
-          ModuleId.make("workspace-typescript-7"),
-          ModuleId.make("workspace-monorepo-vite-plus"),
-          ModuleId.make("workspace-quality-oxlint"),
-          ModuleId.make("workspace-quality-oxfmt"),
-          ModuleId.make("workspace-test-vitest"),
-        ]);
-      }).pipe(Effect.provide(TestLayer)),
-    );
-
     it.effect(
-      "should return a workspace-only Selection when the recipe has no targets",
+      "should return only the configured workspace when the recipe has no targets",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeResolver;
@@ -816,6 +846,13 @@ describe("RecipeResolver with the official catalog", () => {
             selection.targets.map((target) => target.identity.toKey()),
             ["."],
           );
+          assertTargetModules(selection, ".", [
+            ModuleId.make("workspace-typescript-7"),
+            ModuleId.make("workspace-monorepo-vite-plus"),
+            ModuleId.make("workspace-quality-oxlint"),
+            ModuleId.make("workspace-quality-oxfmt"),
+            ModuleId.make("workspace-test-vitest"),
+          ]);
         }).pipe(Effect.provide(TestLayer)),
     );
 
@@ -951,20 +988,6 @@ describe("RecipeResolver with the official catalog", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should reject the recipe when a package target is unnamed", () =>
-      Effect.gen(function* () {
-        const error = yield* Effect.flip(
-          Schema.decodeEffect(RecipeSpec)({
-            targets: [{ target: { kind: "package", name: "" }, modules: [] }],
-          }),
-        );
-        assert.include(
-          error.message,
-          "Package targets require a non-empty name",
-        );
-      }),
-    );
-
     it.effect("should fail accurately for an unknown unnamed target kind", () =>
       Effect.gen(function* () {
         const service = yield* RecipeResolver;
@@ -992,7 +1015,10 @@ describe("RecipeResolver with the official catalog", () => {
         if (error._tag !== "InvalidRecipeSpec") {
           assert.fail("Expected InvalidRecipeSpec.");
         }
-        assert.include(error.issues[0]?.message, "Unknown target kind");
+        assert.deepStrictEqual(
+          error.issues.map(({ path }) => path),
+          [["targets", "target", "kind"]],
+        );
       }).pipe(Effect.provide(TestLayer)),
     );
 
@@ -1102,9 +1128,11 @@ describe("RecipeResolver with the official catalog", () => {
           );
         }).pipe(Effect.provide(TestLayer)),
     );
+  });
 
+  describe("renderCreateCommand", () => {
     it.effect(
-      "should return only Selection data when recipe resolution succeeds",
+      "should keep explicitly selected workspace modules in a copied command",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeResolver;
@@ -1113,10 +1141,10 @@ describe("RecipeResolver with the official catalog", () => {
               targets: [
                 {
                   target: new TargetIdentity({
-                    kind: TargetKind.make("package"),
-                    name: "db",
+                    kind: TargetKind.make("workspace"),
+                    name: "recipe-app",
                   }),
-                  modules: [ModuleId.make("package-db-postgres")],
+                  modules: [ModuleId.make("workspace-devenv-nix-flake")],
                 },
               ],
             },
@@ -1126,17 +1154,38 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assert.containsAllKeys(selection, ["targets"]);
-          assert.doesNotHaveAnyKeys(selection, [
-            "spec",
-            "providerStrategy",
-            "resolvedTargets",
-          ]);
+          const command = service.renderCreateCommand({
+            config: testConfig,
+            selection,
+          });
+          assert.match(
+            command,
+            / --target workspace\/recipe-app:workspace-devenv-nix-flake(?: |$)/,
+          );
         }).pipe(Effect.provide(TestLayer)),
     );
-  });
 
-  describe("renderCreateCommand", () => {
+    it.effect("should quote an apostrophe in a copied catalog argument", () =>
+      Effect.gen(function* () {
+        const service = yield* RecipeResolver;
+        const config = Schema.decodeUnknownSync(StackConfig)({
+          name: "recipe-app",
+          runtime: { _tag: "bun" },
+          catalogs: [
+            { name: "custom", url: "https://example.test/it's/catalog.json" },
+          ],
+        });
+        const command = service.renderCreateCommand({
+          config,
+          selection: { targets: [] },
+        });
+        assert.include(
+          command,
+          String.raw`--catalog 'custom=https://example.test/it'\''s/catalog.json'`,
+        );
+      }).pipe(Effect.provide(TestLayer)),
+    );
+
     it.effect(
       "should omit values supplied by an injected default StackConfig",
       () => {

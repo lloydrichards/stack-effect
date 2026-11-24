@@ -13,11 +13,17 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { FinalizeReport } from "@repo/domain/Finalize";
+import { FinalizeReport, FinalizeScript } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { type FinalizeConfig, Finalizer } from "@repo/scaffold/Finalize";
-import { Effect, Layer, Result, Schema, Stream } from "effect";
-import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
+import { Effect, Layer, Result, Schema, Sink, Stream } from "effect";
+import {
+  ChildProcessSpawner,
+  ExitCode,
+  make as makeSpawner,
+  makeHandle,
+  ProcessId,
+} from "effect/process/ChildProcessSpawner";
 
 describe("Finalizer", () => {
   const serverIdentity = new TargetIdentity({
@@ -207,6 +213,36 @@ describe("Finalizer", () => {
     },
   );
 
+  it.effect("should keep next-step order and collapse duplicate guidance", () =>
+    Effect.gen(function* () {
+      const finalize = yield* Finalizer;
+      const blueprint = targetWithModule(
+        serverIdentity,
+        ModuleId.make("server-guidance"),
+      );
+      const steps = yield* finalize.collectNextSteps(blueprint, makeConfig());
+
+      assert.deepStrictEqual(steps, [
+        "Read apps/sdk/server-api/README.md",
+        "Start apps/sdk/server-api",
+      ]);
+    }).pipe(
+      Effect.provide(
+        makeFinalizeLayer([], {
+          targets: { server: { nextSteps: ["Read {{targetPath}}/README.md"] } },
+          modules: {
+            "server-guidance": {
+              nextSteps: [
+                "Read {{targetPath}}/README.md",
+                "Start {{targetPath}}",
+              ],
+            },
+          },
+        }),
+      ),
+    ),
+  );
+
   const runToReport = (
     svc: typeof Finalizer.Service,
     blueprint: Blueprint,
@@ -273,8 +309,16 @@ describe("Finalizer", () => {
           );
 
           assert.deepStrictEqual(
-            scripts.map((s) => s.label),
-            ["Install dependencies", "Run biome lint", "Run biome format"],
+            scripts.map(({ command, workdir, origin }) => ({
+              command,
+              workdir,
+              origin,
+            })),
+            [
+              { command: "bun install", workdir: ".", origin: "config" },
+              { command: "bun run lint", workdir: ".", origin: "config" },
+              { command: "bun run format", workdir: ".", origin: "config" },
+            ],
           );
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
@@ -302,6 +346,8 @@ describe("Finalizer", () => {
           const config = new StackConfig({
             name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "deno" },
+            lint: "oxlint",
+            format: "oxfmt",
           });
           const scripts = yield* svc.scripts(
             emptyBlueprint,
@@ -310,7 +356,12 @@ describe("Finalizer", () => {
 
           assert.deepStrictEqual(
             scripts.map((script) => script.command),
-            ["deno install", "deno task --if-present prepare"],
+            [
+              "deno install",
+              "deno task --if-present prepare",
+              "deno task lint",
+              "deno task format",
+            ],
           );
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
@@ -328,6 +379,10 @@ describe("Finalizer", () => {
             scripts.map((s) => s.label),
             ["Generate prisma client", "Install dependencies"],
           );
+          assert.include(scripts[0], {
+            workdir: "apps/sdk/server-api",
+            origin: "target: server",
+          });
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -361,6 +416,10 @@ describe("Finalizer", () => {
             scripts.map((s) => s.label),
             ["Initialize shadcn", "Install dependencies"],
           );
+          assert.include(scripts[0], {
+            workdir: "apps/client-react-web",
+            origin: "module: shadcn-init",
+          });
         }).pipe(
           Effect.provide(
             makeFinalizeLayer([], {
@@ -468,6 +527,74 @@ describe("Finalizer", () => {
   });
 
   describe("executeScoped", () => {
+    it.effect(
+      "should run in the target directory and return stdout and stderr",
+      () =>
+        Effect.scoped(
+          Effect.gen(function* () {
+            const finalize = yield* Finalizer;
+            const execution = yield* finalize.executeScoped(
+              FinalizeScript.make({
+                command: "printf ready && printf warning >&2",
+                label: "Check target",
+                phase: "finalize",
+                origin: "target: server",
+                workdir: "apps/sdk/server-api",
+              }),
+              "/repo",
+            );
+
+            const output = yield* Stream.runCollect(execution.output);
+            assert.sameMembers(Array.from(output), ["ready", "warning"]);
+            const result = yield* execution.result;
+            assert.isTrue(Result.isSuccess(result));
+          }),
+        ).pipe(
+          Effect.provide(
+            Finalizer.layer.pipe(
+              Layer.provide(catalogLayerWith()),
+              Layer.provide(
+                Layer.succeed(
+                  ChildProcessSpawner,
+                  makeSpawner((command) => {
+                    assert(command._tag === "StandardCommand");
+                    assert.strictEqual(
+                      command.options.cwd,
+                      "/repo/apps/sdk/server-api",
+                    );
+                    assert.strictEqual(command.options.shell, true);
+                    const encoder = new TextEncoder();
+                    const stdout =
+                      command.options.stdout === "pipe"
+                        ? Stream.make(encoder.encode("ready\n"))
+                        : Stream.empty;
+                    const stderr =
+                      command.options.stderr === "pipe"
+                        ? Stream.make(encoder.encode("warning\n"))
+                        : Stream.empty;
+                    return Effect.succeed(
+                      makeHandle({
+                        pid: ProcessId(1234),
+                        stdin: Sink.drain,
+                        stdout,
+                        stderr,
+                        all: Stream.merge(stdout, stderr),
+                        exitCode: Effect.succeed(ExitCode(0)),
+                        isRunning: Effect.succeed(false),
+                        kill: () => Effect.void,
+                        getInputFd: () => Sink.drain,
+                        getOutputFd: () => Stream.empty,
+                        unref: Effect.succeed(Effect.void),
+                      }),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ),
+    );
+
     it.effect(
       "should execute scripts and report success when every command exits cleanly",
       () => {

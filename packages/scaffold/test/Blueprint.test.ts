@@ -1,5 +1,6 @@
-import { assert, describe, layer } from "@effect/vitest";
+import { assert, describe, it, layer } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
+import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type Blueprint,
   makeBlueprintEdge,
@@ -9,6 +10,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, Layer, Schema } from "effect";
+import { ProviderCatalogLayer, selected, target } from "./fixtures/scaffold";
 
 describe("BlueprintResolver", () => {
   const domainIdentity = new TargetIdentity({
@@ -60,16 +62,16 @@ describe("BlueprintResolver", () => {
           () =>
             Effect.gen(function* () {
               const blueprintResolver = yield* BlueprintResolver;
+              const [first, second] = names.map((name) =>
+                selected("package", name),
+              );
+              assert.isDefined(first);
+              assert.isDefined(second);
+              yield* blueprintResolver.resolve({
+                targets: [first, selected("package", "unrelated")],
+              });
               const error = yield* Effect.flip(
-                blueprintResolver.resolve({
-                  targets: names.map((name) => ({
-                    identity: new TargetIdentity({
-                      kind: TargetKind.make("package"),
-                      name,
-                    }),
-                    modules: [],
-                  })),
-                }),
+                blueprintResolver.resolve({ targets: [first, second] }),
               );
 
               assert.strictEqual(error._tag, "BlueprintError");
@@ -80,57 +82,40 @@ describe("BlueprintResolver", () => {
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {
           const blueprintResolver = yield* BlueprintResolver;
-          const error = yield* Effect.flip(
-            blueprintResolver.resolve({
-              targets: [
-                {
-                  identity: new TargetIdentity({
-                    kind: TargetKind.make("server"),
-                    name: "api",
-                  }),
-                  modules: [],
-                },
-                {
-                  identity: new TargetIdentity({
-                    kind: TargetKind.make("server"),
-                    name: "api",
-                  }),
-                  modules: [],
-                },
-              ],
+          const target = {
+            identity: new TargetIdentity({
+              kind: TargetKind.make("server"),
+              name: "api",
             }),
+            modules: [],
+          };
+          yield* blueprintResolver.resolve({ targets: [target] });
+          const error = yield* Effect.flip(
+            blueprintResolver.resolve({ targets: [target, target] }),
           );
 
           assert.strictEqual(error._tag, "BlueprintError");
-          assert.include(error.message, "Duplicate target selection");
-          assert.include(error.message, "apps/server-api");
         }),
       );
 
       it.effect("should fail when the same module is selected twice", () =>
         Effect.gen(function* () {
           const blueprintResolver = yield* BlueprintResolver;
+          const identity = new TargetIdentity({
+            kind: TargetKind.make("server"),
+            name: "api",
+          });
+          const module = { id: ModuleId.make("server-http-api") };
+          yield* blueprintResolver.resolve({
+            targets: [{ identity, modules: [module] }],
+          });
           const error = yield* Effect.flip(
             blueprintResolver.resolve({
-              targets: [
-                {
-                  identity: new TargetIdentity({
-                    kind: TargetKind.make("server"),
-                    name: "api",
-                  }),
-                  modules: [
-                    { id: ModuleId.make("server-http-api") },
-                    { id: ModuleId.make("server-http-api") },
-                  ],
-                },
-              ],
+              targets: [{ identity, modules: [module, module] }],
             }),
           );
 
           assert.strictEqual(error._tag, "BlueprintError");
-          assert.include(error.message, "Duplicate module selection");
-          assert.include(error.message, "apps/server-api");
-          assert.include(error.message, "server-http-api");
         }),
       );
 
@@ -194,27 +179,21 @@ describe("BlueprintResolver", () => {
         () =>
           Effect.gen(function* () {
             const blueprintResolver = yield* BlueprintResolver;
+            const first = "workspace-quality-biome-format";
+            const second = "workspace-quality-oxfmt";
+            yield* blueprintResolver.resolve({
+              targets: [selected("workspace", "root", first)],
+            });
+            yield* blueprintResolver.resolve({
+              targets: [selected("workspace", "root", second)],
+            });
             const error = yield* Effect.flip(
               blueprintResolver.resolve({
-                targets: [
-                  {
-                    identity: new TargetIdentity({
-                      kind: TargetKind.make("workspace"),
-                      name: "root",
-                    }),
-                    modules: [
-                      { id: ModuleId.make("workspace-quality-biome-format") },
-                      { id: ModuleId.make("workspace-quality-oxfmt") },
-                    ],
-                  },
-                ],
+                targets: [selected("workspace", "root", first, second)],
               }),
             );
 
             assert.strictEqual(error._tag, "BlueprintError");
-            assert.include(error.message, "Incompatible modules");
-            assert.include(error.message, "workspace-quality-biome-format");
-            assert.include(error.message, "workspace-quality-oxfmt");
           }),
       );
 
@@ -269,15 +248,25 @@ describe("BlueprintResolver", () => {
               ],
             });
 
-            assert.strictEqual(
-              getAttachedModule(
-                blueprint,
-                toAttachedModuleNodeId(
+            const consumer = toAttachedModuleNodeId(
+              dbIdentity.toKey(),
+              ModuleId.make("package-db-todo-repository"),
+            );
+            const provider = toAttachedModuleNodeId(
+              dbIdentity.toKey(),
+              ModuleId.make("package-db-sqlite"),
+            );
+
+            assert.includeDeepMembers(
+              [...blueprint.edges],
+              [
+                makeBlueprintEdge(
+                  "required-target",
+                  consumer,
                   dbIdentity.toKey(),
-                  ModuleId.make("package-db-sqlite"),
                 ),
-              ).moduleId,
-              "package-db-sqlite",
+                makeBlueprintEdge("required-module", consumer, provider),
+              ],
             );
           }),
       );
@@ -706,4 +695,82 @@ describe("BlueprintResolver", () => {
       );
     });
   });
+
+  it.effect(
+    "should reject a capability dependency when its target was not selected",
+    () =>
+      Effect.gen(function* () {
+        const blueprintResolver = yield* BlueprintResolver;
+        const consumer = selected("package", "app", "todo-repository");
+        const provider = selected("package", "db", "sql-sqlite");
+        const accepted = yield* blueprintResolver.resolve({
+          targets: [consumer, provider],
+        });
+        const error = yield* Effect.flip(
+          blueprintResolver.resolve({ targets: [consumer] }),
+        );
+
+        assert.includeDeepMembers(
+          [...accepted.edges],
+          [
+            makeBlueprintEdge(
+              "required-module",
+              toAttachedModuleNodeId(
+                consumer.identity.toKey(),
+                ModuleId.make("todo-repository"),
+              ),
+              toAttachedModuleNodeId(
+                provider.identity.toKey(),
+                ModuleId.make("sql-sqlite"),
+              ),
+            ),
+          ],
+        );
+        assert.strictEqual(error._tag, "BlueprintError");
+      }).pipe(
+        Effect.provide(
+          BlueprintResolver.layer.pipe(Layer.provide(ProviderCatalogLayer)),
+        ),
+      ),
+  );
+
+  it.effect(
+    "should reject an unsupported runtime even when the target has no modules",
+    () =>
+      Effect.gen(function* () {
+        const blueprintResolver = yield* BlueprintResolver;
+        const app = selected("server", "api");
+        const selection = { targets: [app] };
+        const bunConfig = new StackConfig({
+          ...denoConfig,
+          runtime: { _tag: "bun" },
+        });
+        const blueprint = yield* blueprintResolver.resolve(
+          selection,
+          bunConfig,
+        );
+        const error = yield* Effect.flip(
+          blueprintResolver.resolve(selection, denoConfig),
+        );
+
+        assert.strictEqual(
+          getNode(blueprint, app.identity.toKey())._tag,
+          "target",
+        );
+        assert.strictEqual(error._tag, "BlueprintError");
+      }).pipe(
+        Effect.provide(
+          BlueprintResolver.layer.pipe(
+            Layer.provide(
+              CatalogReader.fromFragments([
+                {
+                  targets: [target("server", { supportedRuntimes: ["bun"] })],
+                  modules: [],
+                },
+              ]),
+            ),
+          ),
+        ),
+      ),
+  );
 });

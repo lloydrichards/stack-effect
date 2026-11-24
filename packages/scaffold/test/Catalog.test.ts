@@ -14,7 +14,13 @@ import {
 } from "@repo/domain/Catalog";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
 import { Deferred, Effect, Fiber, Layer, Option, Schema } from "effect";
-import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
+import * as Digest from "effect/crypto/Digest";
+import {
+  HttpClient,
+  HttpClientError,
+  HttpClientRequest,
+  HttpClientResponse,
+} from "effect/http";
 import { TestClock } from "effect/testing";
 import {
   json,
@@ -41,7 +47,7 @@ describe("CatalogLoader", () => {
   const response = (
     request: HttpClientRequest.HttpClientRequest,
     status: number,
-    body: string | null = null,
+    body: BodyInit | null = null,
     headers: HeadersInit = {},
   ) => {
     const responseHeaders = new Headers(headers);
@@ -200,23 +206,40 @@ describe("CatalogLoader", () => {
   ];
 
   it.effect(
-    "should revalidate the kept response with its ETag when the source is loaded again",
+    "should refresh the cached validation time when a source returns 304",
     () => {
       const requests: Array<HttpClientRequest.HttpClientRequest> = [];
+      const lastModified = "Tue, 24 Nov 2026 10:00:00 GMT";
       const layer = testLayer((request) => {
         requests.push(request);
-        return requests.length === 1
-          ? response(request, 200, document, { etag: '"v1"' })
-          : response(request, 304);
+        if (requests.length === 1) {
+          return response(request, 200, document, {
+            etag: '"v1"',
+            "last-modified": lastModified,
+          });
+        }
+        return response(request, requests.length === 2 ? 304 : 503);
       });
       return Effect.gen(function* () {
         const loader = yield* CatalogLoader;
+        yield* TestClock.setTime(1_000);
         const first = yield* loader.load({ sourceUrl });
-        const second = yield* loader.load({ sourceUrl });
+        yield* TestClock.setTime(2_000);
+        const revalidated = yield* loader.load({ sourceUrl });
+        yield* TestClock.setTime(3_000);
+        const stale = yield* loader.load({ sourceUrl });
+
         assert.strictEqual(first.freshness, "current");
-        assert.strictEqual(second.freshness, "current");
-        assert.strictEqual(first.digest, second.digest);
+        assert.strictEqual(revalidated.freshness, "current");
+        assert.strictEqual(revalidated.digest, first.digest);
         assert.strictEqual(requests[1]?.headers["if-none-match"], '"v1"');
+        assert.strictEqual(
+          requests[1]?.headers["if-modified-since"],
+          lastModified,
+        );
+        assert.strictEqual(stale.freshness, "cached");
+        assert.strictEqual(stale.digest, first.digest);
+        assert.strictEqual(stale.warning?.lastValidatedAt, 2_000);
       }).pipe(Effect.provide(layer));
     },
   );
@@ -232,22 +255,25 @@ describe("CatalogLoader", () => {
       return Effect.gen(function* () {
         const loader = yield* CatalogLoader;
         yield* loader.load({ sourceUrl });
-        assert.deepStrictEqual(Object.keys(requests[0]?.headers ?? {}), [
-          "accept",
-        ]);
+        assert.deepStrictEqual(
+          { ...requests[0]?.headers },
+          {
+            accept: "application/json",
+          },
+        );
       }).pipe(Effect.provide(layer));
     },
   );
 
-  it.effect(
-    "should return a stale-labeled cached catalog when the server fails transiently",
-    () => {
+  it.effect.each([408, 429, 500, 503])(
+    "should return a stale-labeled cached catalog when the server returns %s",
+    (status) => {
       let calls = 0;
       const layer = testLayer((request) => {
         calls++;
         return calls === 1
           ? response(request, 200, document)
-          : response(request, 503);
+          : response(request, status);
       });
       return Effect.gen(function* () {
         const loader = yield* CatalogLoader;
@@ -316,6 +342,40 @@ describe("CatalogLoader", () => {
         assert.isAbove(loaded.catalog.toCatalogTree.targets.length, 0);
         assert.strictEqual(loaded.freshness, "current");
       }),
+  );
+
+  it.effect(
+    "should load a script-bearing document only when the caller grants permission",
+    () => {
+      const script = {
+        label: "Generate client",
+        command: "bun run generate",
+        phase: "finalize" as const,
+      };
+      const documentWithScript = json("scripts", {
+        targets: [target("api")],
+        modules: [module("api-client", "api", { scripts: [script] })],
+      });
+      return Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const denied = yield* Effect.flip(loader.load({ sourceUrl }));
+        const trusted = yield* loader.load({
+          sourceUrl,
+          allowFinalizeScripts: true,
+        });
+        const loaded = yield* trusted.catalog.getModule(
+          ModuleId.make("api-client"),
+        );
+
+        assert.strictEqual(denied.reason._tag, "CatalogDocumentInvalid");
+        assert.strictEqual(denied.sourceUrl, sourceUrl);
+        assert.deepStrictEqual(loaded.scripts, [script]);
+      }).pipe(
+        Effect.provide(
+          testLayer((request) => response(request, 200, documentWithScript)),
+        ),
+      );
+    },
   );
 
   it.effect(
@@ -453,6 +513,41 @@ describe("CatalogLoader", () => {
     },
   );
 
+  it.effect("should ignore a valid cache entry for another source URL", () => {
+    const cache = Layer.effect(
+      CatalogCache,
+      Effect.gen(function* () {
+        const crypto = yield* Digest.Digest;
+        const bytes = new TextEncoder().encode(document);
+        const digest = yield* crypto.digestHex(Digest.sha256, bytes);
+        return CatalogCache.of({
+          read: () =>
+            Effect.succeed({
+              sourceUrl: "https://other.example.test/catalog.json",
+              bytes,
+              digest,
+              etag: '"other"',
+              validatedAt: 1,
+            }),
+          write: () => Effect.void,
+        });
+      }),
+    ).pipe(Layer.provide(BrowserCrypto.layer));
+    const requests: Array<HttpClientRequest.HttpClientRequest> = [];
+    const layer = testLayer((request) => {
+      requests.push(request);
+      return response(request, 503);
+    }, cache);
+    return Effect.gen(function* () {
+      const loader = yield* CatalogLoader;
+      const error = yield* Effect.flip(loader.load({ sourceUrl }));
+
+      assert.strictEqual(error.reason._tag, "CatalogUnavailable");
+      assert.strictEqual(error.sourceUrl, sourceUrl);
+      assert.isUndefined(requests[0]?.headers["if-none-match"]);
+    }).pipe(Effect.provide(layer));
+  });
+
   it.effect.each(rejections)(
     "should fail with $reason when the response $condition",
     ({ reason, respond, detail }) =>
@@ -466,6 +561,153 @@ describe("CatalogLoader", () => {
           assert.include(error.cause.message, detail);
         }
       }).pipe(Effect.provide(testLayer(respond))),
+  );
+
+  it.effect(
+    "should reject an invalid source URL before making an HTTP request",
+    () =>
+      Effect.gen(function* () {
+        const invalidUrl = "relative/catalog.json";
+        const loader = yield* CatalogLoader;
+        const error = yield* Effect.flip(
+          loader.load({ sourceUrl: invalidUrl }),
+        );
+
+        assert.strictEqual(error._tag, "CatalogLoadError");
+        assert.strictEqual(error.reason._tag, "CatalogSourceInvalid");
+        assert.strictEqual(error.sourceUrl, invalidUrl);
+      }).pipe(
+        Effect.provide(
+          testLayer(() =>
+            assert.fail("An invalid catalog URL must not be fetched"),
+          ),
+        ),
+      ),
+  );
+
+  it.effect("should reject a response without a content type", () =>
+    Effect.gen(function* () {
+      const loader = yield* CatalogLoader;
+      const error = yield* Effect.flip(loader.load({ sourceUrl }));
+
+      assert(error.reason._tag === "CatalogContentTypeInvalid");
+      assert.strictEqual(error.reason.contentType, "");
+      assert.strictEqual(error.sourceUrl, sourceUrl);
+    }).pipe(
+      Effect.provide(
+        testLayer((request) =>
+          HttpClientResponse.fromWeb(request, new Response(null)),
+        ),
+      ),
+    ),
+  );
+
+  it.effect(
+    "should reject invalid UTF-8 inside an otherwise valid document",
+    () => {
+      const bytes = new TextEncoder().encode(document);
+      bytes[document.indexOf("fixture")] = 0xff;
+      return Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const error = yield* Effect.flip(loader.load({ sourceUrl }));
+
+        assert.strictEqual(error.reason._tag, "CatalogJsonInvalid");
+        assert.strictEqual(error.sourceUrl, sourceUrl);
+      }).pipe(
+        Effect.provide(testLayer((request) => response(request, 200, bytes))),
+      );
+    },
+  );
+
+  it.effect("should decode all chunks at the exact body size limit", () => {
+    const maxBytes = 8 * 1024 * 1024;
+    const documentWithTarget = json("bounded", { targets: [target("api")] });
+    const bytes = new TextEncoder().encode(documentWithTarget);
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(bytes.slice(0, 13));
+        controller.enqueue(bytes.slice(13));
+        controller.enqueue(new Uint8Array(maxBytes - bytes.length).fill(32));
+        controller.close();
+      },
+    });
+
+    return Effect.gen(function* () {
+      const loader = yield* CatalogLoader;
+      const loaded = yield* loader.load({ sourceUrl });
+
+      assert.strictEqual(loaded.freshness, "current");
+      assert.deepStrictEqual(
+        loaded.catalog.toCatalogTree.targets.map(({ kind }) => kind),
+        ["api"],
+      );
+    }).pipe(
+      Effect.provide(testLayer((request) => response(request, 200, body))),
+    );
+  });
+
+  it.effect(
+    "should report a transport failure with the requested source",
+    () => {
+      const client = HttpClient.make((request) =>
+        Effect.fail(
+          new HttpClientError.HttpClientError({
+            reason: new HttpClientError.TransportError({ request }),
+          }),
+        ),
+      );
+      return Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const error = yield* Effect.flip(loader.load({ sourceUrl }));
+
+        assert.strictEqual(error.reason._tag, "CatalogUnavailable");
+        assert.strictEqual(error.sourceUrl, sourceUrl);
+      }).pipe(Effect.provide(testLayer(client)));
+    },
+  );
+
+  it.effect(
+    "should use cached data when reading a fresh response fails",
+    () => {
+      let requests = 0;
+      const layer = testLayer((request) => {
+        if (++requests === 1) return response(request, 200, document);
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(new Error("connection closed"));
+          },
+        });
+        return response(request, 200, body);
+      });
+      return Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const first = yield* loader.load({ sourceUrl });
+        const stale = yield* loader.load({ sourceUrl });
+
+        assert.strictEqual(stale.freshness, "cached");
+        assert.strictEqual(stale.digest, first.digest);
+        assert.strictEqual(stale.warning?.kind, "stale");
+      }).pipe(Effect.provide(layer));
+    },
+  );
+
+  it.effect(
+    "should stop after one retry when both responses are 304 without a cache",
+    () => {
+      const requests: Array<HttpClientRequest.HttpClientRequest> = [];
+      const layer = testLayer((request) => {
+        requests.push(request);
+        return response(request, 304);
+      });
+      return Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const error = yield* Effect.flip(loader.load({ sourceUrl }));
+
+        assert.strictEqual(error.reason._tag, "CatalogUnavailable");
+        assert.strictEqual(error.sourceUrl, sourceUrl);
+        assert.lengthOf(requests, 2);
+      }).pipe(Effect.provide(layer));
+    },
   );
 
   it.effect(
@@ -484,7 +726,8 @@ describe("CatalogLoader", () => {
         const error = yield* Effect.flip(
           (yield* CatalogLoader).load({ sourceUrl }),
         );
-        assert.strictEqual(error.reason._tag, "CatalogContentTooLarge");
+        assert(error.reason._tag === "CatalogContentTooLarge");
+        assert.strictEqual(error.reason.maxBytes, 8 * 1024 * 1024);
         assert.isTrue(canceled);
       }).pipe(
         Effect.provide(
@@ -531,6 +774,77 @@ describe("CatalogLoader", () => {
         assert.isTrue(stopped);
       }).pipe(Effect.provide(layer));
     },
+  );
+
+  it.effect.each([
+    { phase: "cache and HTTP", cacheReadMillis: 5_000, shouldFetch: true },
+    { phase: "cache alone", cacheReadMillis: undefined, shouldFetch: false },
+  ])(
+    "should enforce one load deadline across $phase",
+    ({ cacheReadMillis, shouldFetch }) =>
+      Effect.gen(function* () {
+        const finished = yield* Deferred.make<void>();
+        let requested = false;
+        const cache = Layer.succeed(CatalogCache, {
+          read: () =>
+            cacheReadMillis === undefined
+              ? Effect.never
+              : Effect.sleep(cacheReadMillis).pipe(Effect.as(undefined)),
+          write: () => Effect.void,
+        });
+        const client = HttpClient.make(() =>
+          Effect.sync(() => {
+            requested = true;
+          }).pipe(Effect.andThen(Effect.never)),
+        );
+        yield* TestClock.setTime(10_000);
+        const fiber = yield* Effect.forkChild(
+          Effect.gen(function* () {
+            const loader = yield* CatalogLoader;
+            return yield* Effect.flip(loader.load({ sourceUrl }));
+          }).pipe(
+            Effect.provide(testLayer(client, cache)),
+            Effect.ensuring(Deferred.succeed(finished, undefined)),
+          ),
+          { startImmediately: true },
+        );
+
+        yield* TestClock.adjust(14_999);
+        assert.isFalse(yield* Deferred.isDone(finished));
+        yield* TestClock.adjust(1);
+        assert.isTrue(yield* Deferred.isDone(finished));
+        const error = yield* Fiber.join(fiber);
+
+        assert(error.reason._tag === "CatalogTimedOut");
+        assert.strictEqual(error.reason.timeoutMillis, 15_000);
+        assert.strictEqual(requested, shouldFetch);
+      }),
+  );
+
+  it.effect("should use the validated cache when revalidation times out", () =>
+    Effect.gen(function* () {
+      const revalidating = yield* Deferred.make<void>();
+      let requests = 0;
+      const client = HttpClient.make((request) =>
+        ++requests === 1
+          ? Effect.succeed(response(request, 200, document))
+          : Deferred.succeed(revalidating, undefined).pipe(
+              Effect.andThen(Effect.never),
+            ),
+      );
+      yield* Effect.gen(function* () {
+        const loader = yield* CatalogLoader;
+        const current = yield* loader.load({ sourceUrl });
+        const retry = yield* Effect.forkChild(loader.load({ sourceUrl }));
+        yield* Deferred.await(revalidating);
+        yield* TestClock.adjust(15_000);
+        const cached = yield* Fiber.join(retry);
+
+        assert.strictEqual(cached.freshness, "cached");
+        assert.strictEqual(cached.digest, current.digest);
+        assert.strictEqual(cached.warning?.kind, "stale");
+      }).pipe(Effect.provide(testLayer(client)));
+    }),
   );
 
   it.effect(
@@ -818,6 +1132,40 @@ describe("CatalogLoader", () => {
           assert.include(error.cause.message, urls[sourceName]);
         }).pipe(Effect.provide(layer));
       },
+    );
+
+    it.effect(
+      "should report the first selected failure when sources finish in reverse order",
+      () =>
+        Effect.gen(function* () {
+          const laterSourceStarted = yield* Deferred.make<void>();
+          const client = HttpClient.make((request) =>
+            request.url === urls.acme
+              ? Deferred.await(laterSourceStarted).pipe(
+                  Effect.andThen(Effect.sleep(1)),
+                  Effect.as(response(request, 410)),
+                )
+              : Deferred.succeed(laterSourceStarted, undefined).pipe(
+                  Effect.as(response(request, 503)),
+                ),
+          );
+          const load = yield* Effect.forkChild(
+            Effect.flip(
+              loadSources(select("acme", "beta")).pipe(
+                Effect.provide(testLayer(client)),
+              ),
+            ),
+            { startImmediately: true },
+          );
+          yield* TestClock.adjust(15_000);
+          const error = yield* Fiber.join(load);
+
+          assert(error._tag === "CatalogLoadError");
+          assert.strictEqual(error.sourceName, "acme");
+          assert.strictEqual(error.sourceUrl, urls.acme);
+          assert(error.reason._tag === "CatalogHttpStatusRejected");
+          assert.strictEqual(error.reason.status, 410);
+        }),
     );
 
     it.effect(
