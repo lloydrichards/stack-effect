@@ -64,13 +64,39 @@ export const DryRunPreview = ({
         Box.text(`${apply.skipped.length}`).pipe(Box.annotate(Ansi.dim)),
       ),
       Flex.fixed(Box.text("skip").pipe(Box.annotate(Ansi.dim))),
+      ...(apply.failed.length === 0
+        ? []
+        : [
+            Flex.fixed(
+              Box.text(`${apply.failed.length}`).pipe(Box.annotate(Ansi.red)),
+            ),
+            Flex.fixed(Box.text("fail").pipe(Box.annotate(Ansi.dim))),
+          ]),
     ],
     terminalWidth,
     { gap: 1 },
   );
 
+  // Failed writes always show, with or without --show-files.
+  const failedWrites = apply.failed.map(({ path, reason }) =>
+    Box.vcat(
+      [
+        Box.hsep(
+          [
+            Box.text("x").pipe(Box.annotate(Ansi.red)),
+            Box.text(path).pipe(Box.annotate(Ansi.bold)),
+          ],
+          1,
+          Box.left,
+        ),
+        Box.text(reason).pipe(Box.annotate(Ansi.dim), Box.moveRight(2)),
+      ],
+      Box.left,
+    ),
+  );
+
   const applyContent = Box.vsep(
-    [sectionTitle("Apply"), plan.tree, changesStats],
+    [sectionTitle("Apply"), plan.tree, changesStats, ...failedWrites],
     1,
     Box.left,
   );

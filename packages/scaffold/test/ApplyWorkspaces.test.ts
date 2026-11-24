@@ -5,6 +5,7 @@ import nodePath from "node:path";
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it } from "@effect/vitest";
+import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
@@ -12,16 +13,20 @@ import { PlanService } from "@repo/scaffold/PlanService";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import {
   app,
+  apply,
   config,
   decideAll,
   exists,
+  module,
   paths,
+  pipelineLayer,
   plan,
   preview,
   readFile,
   repositoryRoot,
   selected,
   selection,
+  target,
   TestCatalogLayer,
   writeFiles,
   testPipeline,
@@ -30,6 +35,26 @@ import {
 const decodeJson = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Json));
 
 const manifest = "packages/app/package.json";
+
+// Writes a manifest whose name differs from the target's package name, so only Apply sees the owner collision.
+const foreignNamePipeline = pipelineLayer(
+  CatalogService.fromFragments([
+    {
+      targets: [target("package")],
+      modules: [
+        module("helper-manifest", "package", {
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{targetPath}}/package.json",
+              contents: '{ "name": "@repo/helper" }\n',
+            },
+          ],
+        }),
+      ],
+    },
+  ]),
+);
 const tsconfig = "packages/app/tsconfig.json";
 
 describe("ApplyWorkspaces", () => {
@@ -75,6 +100,30 @@ describe("ApplyWorkspaces", () => {
         );
         assert.isFalse(yield* exists("packages/app/src"));
       }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect(
+    "should reject an owner collision outside the Plan baseline like host Apply",
+    () =>
+      Effect.gen(function* () {
+        yield* writeFiles({
+          "packages/helper/package.json": '{"name":"@repo/helper"}',
+        });
+        const planned = yield* plan(app("helper-manifest"));
+        assert.isFalse(
+          planned.baseline.paths.some(
+            (entry) => entry.path === "packages/helper/package.json",
+          ),
+        );
+
+        const previewed = yield* Effect.flip(preview(planned));
+        const applied = yield* Effect.flip(apply(planned));
+
+        assert.strictEqual(previewed._tag, "ApplyFailure");
+        assert.strictEqual(applied._tag, "ApplyFailure");
+        assert.strictEqual(previewed.message, applied.message);
+        assert.isFalse(yield* exists(manifest));
+      }).pipe(Effect.provide(foreignNamePipeline)),
   );
 
   it.effect("should seed byte-order-marked files with their exact bytes", () =>

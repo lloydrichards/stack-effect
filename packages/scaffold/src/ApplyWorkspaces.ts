@@ -58,8 +58,9 @@ export type ApplyWorkspace = {
  *
  * **Gotchas**
  *
- * `fromRepository` copies only the paths the host Plan captured, and fails
- * with `StalePlanFailure` when they changed since planning.
+ * `fromRepository` copies only the paths the host Plan captured plus each
+ * package owner's manifest, and fails with `StalePlanFailure` when they
+ * changed since planning.
  */
 export class ApplyWorkspaces extends Context.Service<
   ApplyWorkspaces,
