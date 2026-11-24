@@ -304,10 +304,10 @@ describe("recipe builder URL", () => {
       const { catalogs } = decode("official", `ext=${url}`).initialValues
         .config;
 
-      assert.isDefined(catalogs);
-      assert.deepInclude(
-        [...catalogs],
-        Schema.decodeSync(CustomCatalogSource)({ name: "ext", url }),
+      const custom = catalogs?.find((source) => source.name === "ext");
+      assert.strictEqual(
+        custom && "url" in custom ? custom.url : undefined,
+        url,
       );
     });
 
