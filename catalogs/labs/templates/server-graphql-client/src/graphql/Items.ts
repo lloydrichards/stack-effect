@@ -32,7 +32,7 @@ export const makeItemLookup = Effect.gen(function* () {
             reason.errors.length === 1 &&
             reason.errors[0].extensions?.["code"] === "ITEM_NOT_FOUND"
           ) {
-            return yield* Effect.fail(UpstreamItemNotFound.make({ id }));
+            return yield* new UpstreamItemNotFound({ id });
           }
 
           return yield* error;
@@ -41,7 +41,7 @@ export const makeItemLookup = Effect.gen(function* () {
     );
 
     if (item === null) {
-      return yield* Effect.fail(UpstreamItemNotFound.make({ id }));
+      return yield* new UpstreamItemNotFound({ id });
     }
 
     return item;

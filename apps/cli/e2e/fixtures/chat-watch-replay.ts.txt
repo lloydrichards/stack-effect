@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Deferred, Effect, Stream } from "effect";
+import { Context, Deferred, Effect, Layer, Stream } from "effect";
 import type { ChatMessage, ChatStreamPart } from "@repo/domain/Chat";
 import { ChatManagedRuntime } from "./apps/server-api/src/runtime/ChatManagedRuntime";
 import { ChatRuntime } from "./apps/server-api/src/runtime/ChatRuntime";
@@ -29,7 +29,8 @@ await Effect.runPromise(
       Effect.andThen(Deferred.await(receivedDuringReplay)),
       Effect.as(livePart),
     );
-    const managed = yield* ChatManagedRuntime.make.pipe(
+    const managed = yield* Layer.build(ChatManagedRuntime.layer).pipe(
+      Effect.map(Context.get(ChatManagedRuntime)),
       Effect.provideService(ChatRuntime, {
         start: sessions.start,
         ask: () => Stream.empty,

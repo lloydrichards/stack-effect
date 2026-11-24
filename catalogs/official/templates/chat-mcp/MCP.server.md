@@ -64,6 +64,6 @@ On the MCP server:
 - Add a resource file under `src/resources` and register its layer in `McpCapabilities`. Choose a stable URI and update the API's `MCP_RESOURCE_URIS` if it should supply that resource to chat.
 - Define a toolkit and handler layer, then register `McpServer.toolkit(YourToolkit).pipe(Layer.provide(YourToolkitHandlers))` in `McpCapabilities`. Keep app-specific implementations in the app; share toolkits through `@repo/ai` only when other apps need them.
 
-On the API, customize `src/mcp/McpTools.ts`, `src/mcp/McpResources.ts`, or `src/mcp/McpPrompts.ts`. `src/mcp/McpClient.ts` owns the shared connection. Domain modules own models and errors. `McpPromptsShape` stays beside the service because it describes operations and Effect requirements. The domain models module is independent of chat; a separate module contributes the chat prompt option.
+On the API, customize `src/mcp/McpTools.ts`, `src/mcp/McpResources.ts`, or `src/mcp/McpPrompts.ts`. `src/mcp/McpClient.ts` owns the shared connection. Domain modules own models and errors. The `McpPrompts` service declares its operations beside its Layer, not in a domain module, because they describe Effect requirements. The domain models module is independent of chat; a separate module contributes the chat prompt option.
 
 Only selected capabilities generate implementation files. This starter supports text resources and text prompt messages from one HTTP MCP server. Unsupported content fails explicitly.

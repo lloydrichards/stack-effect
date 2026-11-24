@@ -25,9 +25,7 @@ export const ImportValidationCard = () => {
   const [content, setContent] = useState(sample);
   const [result, validate] = useAtom(importValidationAtom);
   const event = AsyncResult.getOrElse(result, () => undefined);
-  const [events, setEvents] = useState<
-    readonly (typeof ImportValidationEvent.Type)[]
-  >([]);
+  const [events, setEvents] = useState<readonly ImportValidationEvent[]>([]);
 
   useEffect(() => {
     if (event === undefined) return;

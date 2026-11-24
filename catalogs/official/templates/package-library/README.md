@@ -1,6 +1,6 @@
 # {{packageName}}
 
-An ESM library whose starter `greet(name)` function returns an Effect containing a greeting. Builds include JavaScript and TypeScript declarations.
+An ESM library whose starter `greet(name)` function returns a greeting. Builds include JavaScript and TypeScript declarations.
 
 ## Try it
 
@@ -14,9 +14,8 @@ The example builds the library and prints `Hello, Effect!` using its compiled pu
 
 ```ts
 import { greet } from "{{packageName}}";
-import { Effect } from "effect";
 
-console.log(await Effect.runPromise(greet("Effect")));
+console.log(greet("Effect"));
 ```
 
 Consumers need the compatible `effect` peer dependency declared in `package.json`.

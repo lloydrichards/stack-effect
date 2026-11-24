@@ -1,7 +1,6 @@
 import { ChatStepLimit, type ChatStreamPart } from "@repo/domain/Chat";
 import {
   Console,
-  Data,
   Effect,
   Match,
   Option,
@@ -18,9 +17,10 @@ import {
 } from "../chat/ChatCommandConfiguration";
 import { TerminalChatDriver } from "../chat/ChatDriver";
 
-class ChatCommandInputError extends Data.TaggedError("ChatCommandInputError")<{
-  readonly message: string;
-}> {}
+class ChatCommandInputError extends Schema.TaggedError<
+  ChatCommandInputError,
+  { readonly brand: unique symbol }
+>()("ChatCommandInputError", { message: Schema.String }) {}
 
 const message = Argument.String("message").pipe(
   Argument.withSchema(Schema.NonEmptyString),
@@ -89,7 +89,15 @@ const makeAskCommand = <Config extends Command.Command.Config, R>(
                   () => failCommand(ChatStepLimit.message),
                 ),
                 Match.tag("error", ({ message }) => failCommand(message)),
-                Match.orElse(() => Effect.void),
+                Match.tag(
+                  "reasoning",
+                  "tool-start",
+                  "tool-success",
+                  "tool-failure",
+                  "finish",
+                  () => Effect.void,
+                ),
+                Match.exhaustive,
               ),
             ),
           );

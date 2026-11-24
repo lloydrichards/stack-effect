@@ -4,7 +4,15 @@ import {
   chatErrorPart,
 } from "@repo/ai/AiChatService";
 import { FastModelLayer } from "@repo/ai/LanguageModel";
-import { type ChatId, type ChatMessage } from "@repo/domain/Chat";
+import {
+  type ChatId,
+  type ChatMessage,
+  type ChatStreamPart,
+} from "@repo/domain/Chat";
+import type {
+  ChatNotFoundError,
+  GenerationInProgressError,
+} from "@repo/domain/ChatRpc";
 import {
   type ChatTurnOptions,
   validateChatTurnOptions,
@@ -22,7 +30,7 @@ const makeChatRuntime = Effect.gen(function* () {
   const generate = (
     messages: ReadonlyArray<ChatMessage>,
     options: ChatTurnOptions = {},
-    sessionAi?: typeof AiChatService.Service,
+    sessionAi?: AiChatService["Service"],
   ) =>
     Stream.unwrap(
       Effect.gen(function* () {
@@ -35,7 +43,7 @@ const makeChatRuntime = Effect.gen(function* () {
       Stream.provide(FastModelLayer),
       Stream.catchCause((cause) => Stream.fromEffect(chatErrorPart(cause))),
     );
-  return {
+  return ChatRuntime.of({
     start: turn.sessions.start,
     generate,
     ask: (
@@ -49,13 +57,29 @@ const makeChatRuntime = Effect.gen(function* () {
           return generate(messages, options, ai);
         }),
       ),
-  } as const;
+  });
 });
 
-export class ChatRuntime extends Context.Service<ChatRuntime>()("ChatRuntime", {
-  make: makeChatRuntime,
-}) {
-  static readonly layer = Layer.effect(ChatRuntime)(ChatRuntime.make).pipe(
+export class ChatRuntime extends Context.Service<
+  ChatRuntime,
+  {
+    readonly start: Effect.Effect<{ readonly chatId: ChatId }>;
+    readonly generate: (
+      messages: ReadonlyArray<ChatMessage>,
+      options?: ChatTurnOptions,
+      sessionAi?: AiChatService["Service"],
+    ) => Stream.Stream<ChatStreamPart>;
+    readonly ask: (
+      chatId: ChatId,
+      messages: ReadonlyArray<ChatMessage>,
+      options?: ChatTurnOptions,
+    ) => Stream.Stream<
+      ChatStreamPart,
+      ChatNotFoundError | GenerationInProgressError
+    >;
+  }
+>()("ChatRuntime") {
+  static readonly layer = Layer.effect(ChatRuntime, makeChatRuntime).pipe(
     Layer.provide(ChatRuntimeDependencies),
   );
 }

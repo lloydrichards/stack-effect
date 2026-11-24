@@ -6,6 +6,7 @@ export const TickEvent = Schema.Union([
   Schema.TaggedStruct("tick", {}),
   Schema.TaggedStruct("end", {}),
 ]);
+export type TickEvent = typeof TickEvent.Type;
 
 export class EventRpc extends RpcGroup.make(
   Rpc.make("tick", {

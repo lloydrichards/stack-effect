@@ -4,14 +4,11 @@ import { counterBaseUrl } from "./counter-client";
 
 const key = `stack-effect:cluster-counter-history:${encodeURIComponent(counterBaseUrl)}`;
 
-type Rows = typeof CounterHistory.Type;
-type Counter = typeof CounterState.Type;
-
 const JsonRows = Schema.fromJsonString(CounterHistory);
 const decode = Schema.decodeUnknownOption(JsonRows);
 const encode = Schema.encodeOption(JsonRows);
 
-export const loadCounters = (): Rows => {
+export const loadCounters = (): CounterHistory => {
   let stored: string | null;
   try {
     stored = localStorage.getItem(key);
@@ -23,12 +20,15 @@ export const loadCounters = (): Rows => {
   return result._tag === "Some" ? result.value : [];
 };
 
-export const upsertCounter = (rows: Rows, result: Counter): Rows =>
+export const upsertCounter = (
+  rows: CounterHistory,
+  result: CounterState,
+): CounterHistory =>
   rows.some((row) => row.id === result.id)
     ? rows.map((row) => (row.id === result.id ? result : row))
     : [...rows, result];
 
-export const saveCounter = (result: Counter) => {
+export const saveCounter = (result: CounterState) => {
   const encoded = encode(upsertCounter(loadCounters(), result));
   if (encoded._tag === "None") return;
 

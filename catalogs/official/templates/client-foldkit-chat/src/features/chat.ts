@@ -13,7 +13,7 @@ import { taggedStruct as m } from "foldkit/schema";
 import { modifyFields as evo } from "foldkit/struct";
 import { ChatClient } from "../services/chat-client";
 
-const ChatMessageSchema = Schema.Struct({
+const ChatHistoryEntry = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "system"]),
   content: Schema.String,
   segments: Schema.Option(Schema.Array(MessageSegment)),
@@ -21,18 +21,13 @@ const ChatMessageSchema = Schema.Struct({
 
 const ChatMessagesJson = Schema.fromJsonString(Schema.Array(ChatMessage));
 
-const ChatStateSchema = Schema.Literals([
-  "idle",
-  "streaming",
-  "complete",
-  "error",
-]);
+const ChatState = Schema.Literals(["idle", "streaming", "complete", "error"]);
 
 export const Model = Schema.Struct({
   chatId: Schema.Option(ChatId),
   chatInput: Schema.String,
-  chatHistory: Schema.Array(ChatMessageSchema),
-  chatState: ChatStateSchema,
+  chatHistory: Schema.Array(ChatHistoryEntry),
+  chatState: ChatState,
   chatSegments: Schema.Array(MessageSegment),
   chatReasoning: Schema.Option(Schema.String),
   chatError: Schema.Option(Schema.String),

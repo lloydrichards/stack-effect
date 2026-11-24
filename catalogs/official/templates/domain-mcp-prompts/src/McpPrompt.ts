@@ -4,14 +4,14 @@ export const McpPromptSelection = Schema.Struct({
   name: Schema.NonEmptyString,
   arguments: Schema.optional(Schema.Record(Schema.String, Schema.String)),
 });
-export type McpPromptSelection = Schema.Schema.Type<typeof McpPromptSelection>;
+export type McpPromptSelection = typeof McpPromptSelection.Type;
 
 export const McpPromptArgument = Schema.Struct({
   name: Schema.String,
   description: Schema.optional(Schema.String),
   required: Schema.optional(Schema.Boolean),
 });
-export type McpPromptArgument = Schema.Schema.Type<typeof McpPromptArgument>;
+export type McpPromptArgument = typeof McpPromptArgument.Type;
 
 export const McpPromptDescriptor = Schema.Struct({
   name: Schema.String,
@@ -19,15 +19,13 @@ export const McpPromptDescriptor = Schema.Struct({
   description: Schema.optional(Schema.String),
   arguments: Schema.optional(Schema.Array(McpPromptArgument)),
 });
-export type McpPromptDescriptor = Schema.Schema.Type<
-  typeof McpPromptDescriptor
->;
+export type McpPromptDescriptor = typeof McpPromptDescriptor.Type;
 
 export const McpPromptMessage = Schema.Struct({
   role: Schema.Literals(["user", "assistant"]),
   content: Schema.String,
 });
-export type McpPromptMessage = Schema.Schema.Type<typeof McpPromptMessage>;
+export type McpPromptMessage = typeof McpPromptMessage.Type;
 
 export class McpPromptSelectionError extends Schema.TaggedError<McpPromptSelectionError, { readonly brand: unique symbol }>()(
   "McpPromptSelectionError",

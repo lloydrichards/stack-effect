@@ -2,16 +2,17 @@ import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 
 export const ClientId = Schema.String.pipe(Schema.brand("ClientId"));
+export type ClientId = typeof ClientId.Type;
 
 export const ClientStatus = Schema.Literals(["online", "away", "busy"]);
-export type ClientStatus = Schema.Schema.Type<typeof ClientStatus>;
+export type ClientStatus = typeof ClientStatus.Type;
 
 export const ClientInfo = Schema.Struct({
   clientId: ClientId,
   status: ClientStatus,
   connectedAt: Schema.DateTimeUtcFromMillis,
 });
-export type ClientInfo = Schema.Schema.Type<typeof ClientInfo>;
+export type ClientInfo = typeof ClientInfo.Type;
 
 export const WebSocketEvent = Schema.Union([
   // Initial connection acknowledgment with assigned ClientId
@@ -35,7 +36,7 @@ export const WebSocketEvent = Schema.Union([
     disconnectedAt: Schema.DateTimeUtcFromMillis,
   }),
 ]);
-export type WebSocketEvent = Schema.Schema.Type<typeof WebSocketEvent>;
+export type WebSocketEvent = typeof WebSocketEvent.Type;
 
 export class WebSocketRpc extends RpcGroup.make(
   // Subscribe to presence events - returns a stream of events

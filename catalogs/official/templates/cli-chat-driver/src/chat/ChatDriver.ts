@@ -36,16 +36,20 @@ const makeGenerate = Effect.gen(function* () {
     );
 });
 
-export class TerminalChatDriver extends Context.Service<TerminalChatDriver>()(
-  "TerminalChatDriver",
+export class TerminalChatDriver extends Context.Service<
+  TerminalChatDriver,
   {
-    make: Effect.gen(function* () {
-      const streamTurn = yield* makeGenerate;
-      return { streamTurn } as const;
+    readonly streamTurn: (
+      messages: ReadonlyArray<ChatMessage>,
+      options?: ChatTurnOptions,
+      inputMessages?: ReadonlyArray<ChatMessage>,
+    ) => Stream.Stream<ChatStreamPart>;
+  }
+>()("TerminalChatDriver") {
+  static readonly layer = Layer.effect(
+    TerminalChatDriver,
+    Effect.gen(function* () {
+      return TerminalChatDriver.of({ streamTurn: yield* makeGenerate });
     }),
-  },
-) {
-  static readonly layer = Layer.effect(TerminalChatDriver)(
-    TerminalChatDriver.make,
   ).pipe(Layer.provide(TerminalChatDependencies));
 }

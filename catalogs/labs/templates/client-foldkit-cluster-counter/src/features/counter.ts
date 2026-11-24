@@ -130,7 +130,7 @@ const counterForm = <ParentMessage>(
 };
 
 const counterHistory = <ParentMessage>(
-  counters: typeof CounterHistory.Type,
+  counters: CounterHistory,
   h: HtmlBuilder<ParentMessage>,
 ): Html => {
   return h.div(

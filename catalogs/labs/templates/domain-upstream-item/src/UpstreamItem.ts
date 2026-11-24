@@ -10,9 +10,7 @@ export const UpstreamItem = Schema.Struct({
   name: Schema.String,
 });
 
-export const UpstreamItemNotFound = Schema.TaggedStruct(
-  "UpstreamItemNotFound",
-  {
-    id: UpstreamItemId,
-  },
-);
+export class UpstreamItemNotFound extends Schema.TaggedError<
+  UpstreamItemNotFound,
+  { readonly brand: unique symbol }
+>()("UpstreamItemNotFound", { id: UpstreamItemId }) {}

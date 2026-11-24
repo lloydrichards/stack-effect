@@ -13,7 +13,7 @@ export const ChatWatchEvent = Schema.TaggedUnion({
   },
 });
 
-export type ChatWatchEvent = Schema.Schema.Type<typeof ChatWatchEvent>;
+export type ChatWatchEvent = typeof ChatWatchEvent.Type;
 
 export class ChatManagedRpc extends RpcGroup.make(
   Rpc.make("chat_send", {

@@ -22,13 +22,26 @@ export const makeSessionAi = Layer.build(Layer.fresh(AiChatService.layer)).pipe(
 
 type ChatSession = {
   readonly active: boolean;
-  readonly ai: typeof AiChatService.Service;
+  readonly ai: AiChatService["Service"];
 };
 
-export class ChatSessions extends Context.Service<ChatSessions>()(
-  "ChatSessions",
+export class ChatSessions extends Context.Service<
+  ChatSessions,
   {
-    make: Effect.gen(function* () {
+    readonly start: Effect.Effect<{ readonly chatId: ChatId }>;
+    readonly ensure: (chatId: ChatId) => Effect.Effect<void, ChatNotFoundError>;
+    readonly reserveScoped: (
+      chatId: ChatId,
+    ) => Effect.Effect<
+      AiChatService["Service"],
+      ChatNotFoundError | GenerationInProgressError,
+      Scope.Scope
+    >;
+  }
+>()("ChatSessions") {
+  static readonly layer = Layer.effect(
+    ChatSessions,
+    Effect.gen(function* () {
       const sessions = yield* Ref.make<HashMap.HashMap<ChatId, ChatSession>>(
         HashMap.empty(),
       );
@@ -42,7 +55,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
             current,
           ): readonly [
             Effect.Effect<
-              typeof AiChatService.Service,
+              AiChatService["Service"],
               ChatNotFoundError | GenerationInProgressError
             >,
             HashMap.HashMap<ChatId, ChatSession>,
@@ -78,7 +91,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
           }),
         );
 
-      return {
+      return ChatSessions.of({
         start: Effect.gen(function* () {
           const chatId = ChatId.make(yield* crypto.uuidV4().pipe(Effect.orDie));
           const ai = yield* Effect.setContext(makeSessionAi, appContext);
@@ -97,11 +110,7 @@ export class ChatSessions extends Context.Service<ChatSessions>()(
           ),
         reserveScoped: (chatId: ChatId) =>
           Effect.acquireRelease(reserve(chatId), () => release(chatId)),
-      } as const;
+      });
     }),
-  },
-) {
-  static readonly layer = Layer.effect(ChatSessions)(ChatSessions.make).pipe(
-    Layer.provide(PlatformCryptoLayer),
-  );
+  ).pipe(Layer.provide(PlatformCryptoLayer));
 }

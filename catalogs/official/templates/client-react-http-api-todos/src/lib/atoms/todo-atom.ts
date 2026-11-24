@@ -24,22 +24,20 @@ export const todoAtom = runtime.fn((command: TodoCommand) =>
       baseUrl: SERVER_URL,
     });
 
-    yield* Match.value(command).pipe(
-      Match.tagsExhaustive({
-        list: () => Effect.void,
-        create: ({ title }) =>
-          Effect.asVoid(client.todos.create({ payload: { title } })),
-        update: ({ id, title, completed }) =>
-          Effect.asVoid(
-            client.todos.update({
-              params: { id },
-              payload: { title, completed },
-            }),
-          ),
-        delete: ({ id }) =>
-          Effect.asVoid(client.todos.delete({ params: { id } })),
-      }),
-    );
+    yield* Match.valueTags(command, {
+      list: () => Effect.void,
+      create: ({ title }) =>
+        Effect.asVoid(client.todos.create({ payload: { title } })),
+      update: ({ id, title, completed }) =>
+        Effect.asVoid(
+          client.todos.update({
+            params: { id },
+            payload: { title, completed },
+          }),
+        ),
+      delete: ({ id }) =>
+        Effect.asVoid(client.todos.delete({ params: { id } })),
+    });
 
     return {
       command: command._tag,

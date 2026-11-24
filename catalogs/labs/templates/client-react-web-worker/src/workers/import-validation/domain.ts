@@ -24,6 +24,7 @@ export const ImportValidationEvent = Schema.TaggedUnion({
     total: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   },
 });
+export type ImportValidationEvent = typeof ImportValidationEvent.Type;
 
 export class ImportValidationFailure extends Schema.TaggedError<ImportValidationFailure, { readonly brand: unique symbol }>()(
   "ImportValidationFailure",
