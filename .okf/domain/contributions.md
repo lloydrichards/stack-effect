@@ -13,7 +13,7 @@ sources:
   - id: package-shape
     resource: ../../.agents/TASTE.md
   - id: loader-tests
-    resource: ../../packages/scaffold/test/CatalogLoader.test.ts
+    resource: ../../packages/scaffold/test/Catalog.test.ts
 generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
 ---
 

@@ -108,9 +108,9 @@ bun run type-check
 
 ### Fixing Bugs in Scaffold Logic
 
-Each public module in `packages/scaffold/src/` is one pipeline service, such as `BlueprintResolver.ts`, `Planner.ts`, `Applier.ts`, and `Finalizer.ts`. Import it through its package subpath, such as `@repo/scaffold/Planner`. Deep implementations live in `src/internal/`, which the package does not export.
+Each public module in `packages/scaffold/src/` is one lifecycle concept: `Blueprint.ts`, `Plan.ts`, `Apply.ts`, `Finalize.ts`, `Recipe.ts`, and `Catalog.ts`. Import it through its package subpath, such as `@repo/scaffold/Plan` for `Planner`. Deep implementations live in `src/internal/`, which the package does not export.
 
-Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/BlueprintResolver.test.ts`), and use `@effect/vitest`:
+Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/Blueprint.test.ts`), and use `@effect/vitest`:
 
 ```typescript
 import { describe, layer } from "@effect/vitest";

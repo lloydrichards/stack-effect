@@ -19,210 +19,212 @@ import { type FinalizeConfig, Finalizer } from "@repo/scaffold/Finalize";
 import { Effect, Layer, Result, Schema, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
-const serverIdentity = new TargetIdentity({
-  kind: TargetKind.make("server"),
-  name: "sdk/api",
-});
-
-const clientIdentity = new TargetIdentity({
-  kind: TargetKind.make("client-react"),
-  name: "web",
-});
-
-const bunConfig = new StackConfig({
-  name: Schema.NonEmptyString.make("test-project"),
-  runtime: { _tag: "bun" },
-});
-
-const nodeConfig = new StackConfig({
-  name: Schema.NonEmptyString.make("test-project"),
-  runtime: { _tag: "node", packageManager: "pnpm" },
-});
-
-const makeConfig = (config: StackConfig = bunConfig) => ({
-  config,
-  repositoryRoot: "/repo",
-});
-
-const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
-
-const singleTargetBlueprint = (identity: TargetIdentity) =>
-  new Blueprint({
-    nodes: [{ _tag: "target", id: identity.toKey(), identity }],
-    edges: [],
+describe("Finalizer", () => {
+  const serverIdentity = new TargetIdentity({
+    kind: TargetKind.make("server"),
+    name: "sdk/api",
   });
 
-const targetWithModule = (identity: TargetIdentity, moduleId: ModuleId) =>
-  new Blueprint({
-    nodes: [
-      { _tag: "target", id: identity.toKey(), identity },
-      {
-        _tag: "attached-module",
-        id: toAttachedModuleNodeId(identity.toKey(), moduleId),
-        targetId: identity.toKey(),
-        moduleId,
-      },
-    ],
-    edges: [
-      makeBlueprintEdge(
-        "owns-module",
-        identity.toKey(),
-        toAttachedModuleNodeId(identity.toKey(), moduleId),
-      ),
-    ],
+  const clientIdentity = new TargetIdentity({
+    kind: TargetKind.make("client-react"),
+    name: "web",
   });
 
-type TargetOverrides = Record<string, Partial<TargetDefinition>>;
-type ModuleOverrides = Record<string, Partial<ModuleDefinition>>;
+  const bunConfig = new StackConfig({
+    name: Schema.NonEmptyString.make("test-project"),
+    runtime: { _tag: "bun" },
+  });
 
-/** One catalog fragment with the server and client-react targets plus overrides. */
-const fragmentWith = (
-  targets: TargetOverrides = {},
-  modules: ModuleOverrides = {},
-) => ({
-  targets: Object.entries({
-    server: {},
-    "client-react": {},
-    ...targets,
-  }).map(([kind, overrides]): TargetDefinition => ({
+  const nodeConfig = new StackConfig({
+    name: Schema.NonEmptyString.make("test-project"),
+    runtime: { _tag: "node", packageManager: "pnpm" },
+  });
+
+  const makeConfig = (config: StackConfig = bunConfig) => ({
+    config,
+    repositoryRoot: "/repo",
+  });
+
+  const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
+
+  const singleTargetBlueprint = (identity: TargetIdentity) =>
+    new Blueprint({
+      nodes: [{ _tag: "target", id: identity.toKey(), identity }],
+      edges: [],
+    });
+
+  const targetWithModule = (identity: TargetIdentity, moduleId: ModuleId) =>
+    new Blueprint({
+      nodes: [
+        { _tag: "target", id: identity.toKey(), identity },
+        {
+          _tag: "attached-module",
+          id: toAttachedModuleNodeId(identity.toKey(), moduleId),
+          targetId: identity.toKey(),
+          moduleId,
+        },
+      ],
+      edges: [
+        makeBlueprintEdge(
+          "owns-module",
+          identity.toKey(),
+          toAttachedModuleNodeId(identity.toKey(), moduleId),
+        ),
+      ],
+    });
+
+  type TargetOverrides = Record<string, Partial<TargetDefinition>>;
+  type ModuleOverrides = Record<string, Partial<ModuleDefinition>>;
+
+  /** One catalog fragment with the server and client-react targets plus overrides. */
+  const fragmentWith = (
+    targets: TargetOverrides = {},
+    modules: ModuleOverrides = {},
+  ) => ({
+    targets: Object.entries({
+      server: {},
+      "client-react": {},
+      ...targets,
+    }).map(([kind, overrides]): TargetDefinition => ({
+      kind: TargetKind.make(kind),
+      title: kind,
+      description: `The ${kind} target`,
+      contributions: [],
+      ...overrides,
+    })),
+    modules: Object.entries(modules).map(
+      ([id, overrides]): ModuleDefinition => ({
+        id: ModuleId.make(id),
+        title: id,
+        description: `The ${id} module`,
+        supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+        dependencies: [],
+        contributions: [],
+        ...overrides,
+      }),
+    ),
+  });
+
+  /** A real, composed catalog whose fragment may declare Finalize scripts. */
+  const catalogLayerWith = (
+    targets: TargetOverrides = {},
+    modules: ModuleOverrides = {},
+  ) =>
+    CatalogService.fromFragments([fragmentWith(targets, modules)], {
+      allowFinalizeScripts: true,
+    });
+
+  /** A target whose only Finalize script runs `bun run codegen` at the repository root. */
+  const codegenTarget = (kind: string): TargetDefinition => ({
     kind: TargetKind.make(kind),
     title: kind,
     description: `The ${kind} target`,
     contributions: [],
-    ...overrides,
-  })),
-  modules: Object.entries(modules).map(([id, overrides]): ModuleDefinition => ({
-    id: ModuleId.make(id),
-    title: id,
-    description: `The ${id} module`,
-    supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-    dependencies: [],
-    contributions: [],
-    ...overrides,
-  })),
-});
-
-/** A real, composed catalog whose fragment may declare Finalize scripts. */
-const catalogLayerWith = (
-  targets: TargetOverrides = {},
-  modules: ModuleOverrides = {},
-) =>
-  CatalogService.fromFragments([fragmentWith(targets, modules)], {
-    allowFinalizeScripts: true,
+    scripts: [{ label: "Codegen", command: "bun run codegen", workdir: "." }],
   });
 
-/** A target whose only Finalize script runs `bun run codegen` at the repository root. */
-const codegenTarget = (kind: string): TargetDefinition => ({
-  kind: TargetKind.make(kind),
-  title: kind,
-  description: `The ${kind} target`,
-  contributions: [],
-  scripts: [{ label: "Codegen", command: "bun run codegen", workdir: "." }],
-});
+  const makeSpawnerLayer = (
+    executed: string[],
+    failures: Set<string> = new Set(),
+  ) =>
+    // NOTE: The fake spawner records the exact shell command and can fail selected commands.
+    Layer.succeed(ChildProcessSpawner, {
+      spawn: (command: { command: string; args: ReadonlyArray<string> }) => {
+        const cmd = [command.command, ...command.args].join(" ");
+        executed.push(cmd);
+        const failed = failures.has(cmd);
+        return Effect.succeed({
+          stdout: Stream.empty,
+          stderr: Stream.empty,
+          exitCode: failed ? Effect.succeed(1) : Effect.succeed(0),
+          pid: Effect.succeed(1234),
+          kill: () => Effect.void,
+          unref: Effect.void,
+        });
+      },
+      exitCode: (command: { command: string; args: ReadonlyArray<string> }) => {
+        const cmd = [command.command, ...command.args].join(" ");
+        executed.push(cmd);
+        if (failures.has(cmd)) {
+          return Effect.fail("Command failed: " + cmd);
+        }
+        return Effect.succeed(0);
+      },
+    } as never);
 
-const makeSpawnerLayer = (
-  executed: string[],
-  failures: Set<string> = new Set(),
-) =>
-  // NOTE: The fake spawner records the exact shell command and can fail selected commands.
-  Layer.succeed(ChildProcessSpawner, {
-    spawn: (command: { command: string; args: ReadonlyArray<string> }) => {
-      const cmd = [command.command, ...command.args].join(" ");
-      executed.push(cmd);
-      const failed = failures.has(cmd);
-      return Effect.succeed({
-        stdout: Stream.empty,
-        stderr: Stream.empty,
-        exitCode: failed ? Effect.succeed(1) : Effect.succeed(0),
-        pid: Effect.succeed(1234),
-        kill: () => Effect.void,
-        unref: Effect.void,
-      });
-    },
-    exitCode: (command: { command: string; args: ReadonlyArray<string> }) => {
-      const cmd = [command.command, ...command.args].join(" ");
-      executed.push(cmd);
-      if (failures.has(cmd)) {
-        return Effect.fail("Command failed: " + cmd);
-      }
-      return Effect.succeed(0);
-    },
-  } as never);
+  const makeFinalizeLayer = (
+    executed: string[],
+    opts: {
+      targets?: Record<string, Partial<TargetDefinition>>;
+      modules?: Record<string, Partial<ModuleDefinition>>;
+      failures?: Set<string>;
+    } = {},
+  ) =>
+    Finalizer.layer.pipe(
+      Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
+      Layer.provide(makeSpawnerLayer(executed, opts.failures)),
+    );
 
-const makeFinalizeLayer = (
-  executed: string[],
-  opts: {
-    targets?: Record<string, Partial<TargetDefinition>>;
-    modules?: Record<string, Partial<ModuleDefinition>>;
-    failures?: Set<string>;
-  } = {},
-) =>
-  Finalizer.layer.pipe(
-    Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
-    Layer.provide(makeSpawnerLayer(executed, opts.failures)),
+  it.effect(
+    "should resolve next-step tokens when a module injected into the official catalog declares next steps",
+    () => {
+      const moduleId = ModuleId.make("server-extra-example");
+      const catalogLayer = officialCatalogLayerWith([
+        {
+          targets: [],
+          modules: [
+            {
+              id: moduleId,
+              title: "Extra example",
+              description: "Contributed guidance",
+              supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
+              dependencies: [],
+              contributions: [],
+              nextSteps: ["Read {{targetPath}}/extra.txt"],
+            },
+          ],
+        },
+      ]);
+      const serviceLayer = Finalizer.layer.pipe(
+        Layer.provide(catalogLayer),
+        Layer.provide(makeSpawnerLayer([])),
+      );
+      return Effect.gen(function* () {
+        const finalize = yield* Finalizer;
+        const steps = yield* finalize.collectNextSteps(
+          targetWithModule(serverIdentity, moduleId),
+          makeConfig(),
+        );
+        assert.include(steps, "Read apps/sdk/server-api/extra.txt");
+      }).pipe(Effect.provide(serviceLayer));
+    },
   );
 
-it.effect(
-  "should resolve next-step tokens when a module injected into the official catalog declares next steps",
-  () => {
-    const moduleId = ModuleId.make("server-extra-example");
-    const catalogLayer = officialCatalogLayerWith([
-      {
-        targets: [],
-        modules: [
-          {
-            id: moduleId,
-            title: "Extra example",
-            description: "Contributed guidance",
-            supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
-            dependencies: [],
-            contributions: [],
-            nextSteps: ["Read {{targetPath}}/extra.txt"],
-          },
-        ],
-      },
-    ]);
-    const serviceLayer = Finalizer.layer.pipe(
-      Layer.provide(catalogLayer),
-      Layer.provide(makeSpawnerLayer([])),
-    );
-    return Effect.gen(function* () {
-      const finalize = yield* Finalizer;
-      const steps = yield* finalize.collectNextSteps(
-        targetWithModule(serverIdentity, moduleId),
-        makeConfig(),
+  const runToReport = (
+    svc: typeof Finalizer.Service,
+    blueprint: Blueprint,
+    config: FinalizeConfig,
+  ) =>
+    Effect.gen(function* () {
+      const scripts = yield* svc.scripts(blueprint, config);
+      const results = yield* Effect.forEach(
+        scripts,
+        (script) =>
+          Effect.scoped(
+            Effect.gen(function* () {
+              const execution = yield* svc.executeScoped(
+                script,
+                config.repositoryRoot,
+              );
+              yield* execution.output.pipe(Stream.runDrain);
+              return yield* execution.result;
+            }),
+          ),
+        { concurrency: 1 },
       );
-      assert.include(steps, "Read apps/sdk/server-api/extra.txt");
-    }).pipe(Effect.provide(serviceLayer));
-  },
-);
+      return new FinalizeReport({ results });
+    });
 
-const runToReport = (
-  svc: typeof Finalizer.Service,
-  blueprint: Blueprint,
-  config: FinalizeConfig,
-) =>
-  Effect.gen(function* () {
-    const scripts = yield* svc.scripts(blueprint, config);
-    const results = yield* Effect.forEach(
-      scripts,
-      (script) =>
-        Effect.scoped(
-          Effect.gen(function* () {
-            const execution = yield* svc.executeScoped(
-              script,
-              config.repositoryRoot,
-            );
-            yield* execution.output.pipe(Stream.runDrain);
-            return yield* execution.result;
-          }),
-        ),
-      { concurrency: 1 },
-    );
-    return new FinalizeReport({ results });
-  });
-
-describe("Finalizer", () => {
   describe("scripts", () => {
     it.effect(
       "should return only config-derived scripts when the blueprint has no Finalize scripts",

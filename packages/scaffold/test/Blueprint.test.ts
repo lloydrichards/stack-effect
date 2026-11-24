@@ -10,45 +10,45 @@ import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, Layer, Schema } from "effect";
 
-const domainIdentity = new TargetIdentity({
-  kind: TargetKind.make("package"),
-  name: "domain",
-});
-const serverApiIdentity = new TargetIdentity({
-  kind: TargetKind.make("server"),
-  name: "api",
-});
-const dbIdentity = new TargetIdentity({
-  kind: TargetKind.make("package"),
-  name: "db",
-});
-
-const getNode = (blueprint: Blueprint, id: string) => {
-  const node = blueprint.nodes.find((candidate) => candidate.id === id);
-  assert.isDefined(node, `Expected blueprint node ${id} to exist`);
-  return node;
-};
-
-const getAttachedModule = (blueprint: Blueprint, id: string) => {
-  const node = getNode(blueprint, id);
-  assert(
-    node._tag === "attached-module",
-    `Expected blueprint node ${id} to be an attached module`,
-  );
-  return node;
-};
-
-const denoConfig = new StackConfig({
-  name: Schema.NonEmptyString.make("deno-project"),
-  runtime: { _tag: "deno" },
-  typescript: "6",
-});
-
-const TestLayer = BlueprintResolver.layer.pipe(
-  Layer.provide(OfficialCatalogLayer),
-);
-
 describe("BlueprintResolver", () => {
+  const domainIdentity = new TargetIdentity({
+    kind: TargetKind.make("package"),
+    name: "domain",
+  });
+  const serverApiIdentity = new TargetIdentity({
+    kind: TargetKind.make("server"),
+    name: "api",
+  });
+  const dbIdentity = new TargetIdentity({
+    kind: TargetKind.make("package"),
+    name: "db",
+  });
+
+  const getNode = (blueprint: Blueprint, id: string) => {
+    const node = blueprint.nodes.find((candidate) => candidate.id === id);
+    assert.isDefined(node, `Expected blueprint node ${id} to exist`);
+    return node;
+  };
+
+  const getAttachedModule = (blueprint: Blueprint, id: string) => {
+    const node = getNode(blueprint, id);
+    assert(
+      node._tag === "attached-module",
+      `Expected blueprint node ${id} to be an attached module`,
+    );
+    return node;
+  };
+
+  const denoConfig = new StackConfig({
+    name: Schema.NonEmptyString.make("deno-project"),
+    runtime: { _tag: "deno" },
+    typescript: "6",
+  });
+
+  const TestLayer = BlueprintResolver.layer.pipe(
+    Layer.provide(OfficialCatalogLayer),
+  );
+
   layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {
       for (const names of [

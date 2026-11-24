@@ -11,31 +11,35 @@ import {
   repositoryRoot,
   selected,
   selection,
+  testPipeline,
   withFault,
   writeFiles,
-  testPipeline,
 } from "./fixtures/scaffold";
 
-const officialLayer = pipelineLayer(OfficialCatalogLayer);
-
-const outcomeAt = (planned: Plan, path: string): PlanOutcome => {
-  const outcome = planned.outcomes.find((candidate) => candidate.path === path);
-  assert.isDefined(outcome, `Expected a planned outcome for ${path}`);
-  return outcome;
-};
-
-const conflictsAt = (planned: Plan, path: string): ReadonlyArray<object> =>
-  planned.conflicts.filter((conflict) => conflict.path === path);
-
-const operationsAt = (planned: Plan, path: string) => {
-  const outcome = outcomeAt(planned, path);
-  assert(outcome._tag === "composed", `Expected ${path} to be composed`);
-  return outcome.operations;
-};
-
-const domain = selection(selected("package", "domain", "domain-api-contracts"));
-
 describe("Planner", () => {
+  const officialLayer = pipelineLayer(OfficialCatalogLayer);
+
+  const outcomeAt = (planned: Plan, path: string): PlanOutcome => {
+    const outcome = planned.outcomes.find(
+      (candidate) => candidate.path === path,
+    );
+    assert.isDefined(outcome, `Expected a planned outcome for ${path}`);
+    return outcome;
+  };
+
+  const conflictsAt = (planned: Plan, path: string): ReadonlyArray<object> =>
+    planned.conflicts.filter((conflict) => conflict.path === path);
+
+  const operationsAt = (planned: Plan, path: string) => {
+    const outcome = outcomeAt(planned, path);
+    assert(outcome._tag === "composed", `Expected ${path} to be composed`);
+    return outcome.operations;
+  };
+
+  const domain = selection(
+    selected("package", "domain", "domain-api-contracts"),
+  );
+
   describe("with the official catalog", () => {
     it.effect(
       "should create target and dependency files that are missing",
@@ -170,7 +174,10 @@ describe("Planner", () => {
             outcomeAt(planned, path).classification,
             "conflict",
           );
-          assert.deepInclude(conflictsAt(planned, path), { ...conflict, path });
+          assert.deepInclude(conflictsAt(planned, path), {
+            ...conflict,
+            path,
+          });
         }).pipe(Effect.provide(officialLayer)),
       );
     }

@@ -35,7 +35,7 @@ sources:
   - id: contribution-resolver
     resource: ../../packages/scaffold/src/Plan.ts
   - id: readme-contract
-    resource: ../../packages/scaffold/test/RecipePreviewer.readmes.test.ts
+    resource: ../../packages/scaffold/test/Apply.test.ts
 generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
 ---
 
