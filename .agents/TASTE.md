@@ -119,6 +119,7 @@ Pick the matching form by shape:
 - Use `Match.value(...).pipe(Match.when(…), Match.exhaustive)` for predicates or partial patterns.
 - Map a closed literal union to constant values with an object that `satisfies Record<Union, T>`.
 - Use `Match.orElse` only for open inputs such as external data with unknown tags, and say why in a comment.
+- To keep only some cases, filter with the union's guard, such as `deps.filter(ModuleDependency.guards["required-capability"])` or `ModuleDependency.isAnyOf([...])`. Exhaustive matching applies when every case gets a branch. A filter only narrows the list, so it is not a missing branch.
 
 The [Todo atom](../catalogs/official/templates/client-react-http-api-todos/src/lib/atoms/todo-atom.ts) matches its commands. In plain TypeScript, an exhaustive `switch` is fine when its cases read better as statements. The [Presence reducer](../catalogs/official/templates/client-react-ws-presence/src/components/presence-panel.tsx) checks exhaustiveness with `satisfies never`.
 
