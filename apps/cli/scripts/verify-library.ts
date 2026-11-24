@@ -4,9 +4,9 @@ import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { Apply } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { PlanService } from "@repo/scaffold/PlanService";
+import { Applier } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Planner } from "@repo/scaffold/Plan";
 import {
   Console,
   Data,
@@ -63,9 +63,9 @@ const verify = (runtime: "bun" | "node") =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const blueprintService = yield* BlueprintService;
-    const planService = yield* PlanService;
-    const applyService = yield* ApplyService;
+    const blueprintResolver = yield* BlueprintResolver;
+    const planner = yield* Planner;
+    const applier = yield* Applier;
     const root = yield* fs.makeTempDirectoryScoped({
       prefix: `stack-library-${runtime}-`,
     });
@@ -79,7 +79,7 @@ const verify = (runtime: "bun" | "node") =>
           : { _tag: "node", packageManager: "npm" },
       typescript: "7",
     });
-    const blueprint = yield* blueprintService.resolve(
+    const blueprint = yield* blueprintResolver.resolve(
       {
         targets: [
           {
@@ -100,7 +100,7 @@ const verify = (runtime: "bun" | "node") =>
       },
       config,
     );
-    const plan = yield* planService.build({
+    const plan = yield* planner.build({
       blueprint,
       config,
       repositoryRoot: project,
@@ -109,7 +109,7 @@ const verify = (runtime: "bun" | "node") =>
       plan.conflicts.length === 0,
       "Fresh library must not require Apply decisions",
     );
-    const applied = yield* applyService.apply({
+    const applied = yield* applier.apply({
       apply: new Apply({ plan, decisions: [] }),
       repositoryRoot: project,
     });
@@ -267,9 +267,9 @@ try {
   }).pipe(Effect.scoped);
 
 const Services = Layer.mergeAll(
-  BlueprintService.layer,
-  PlanService.layer,
-  ApplyService.layer,
+  BlueprintResolver.layer,
+  Planner.layer,
+  Applier.layer,
 ).pipe(
   Layer.provide(OfficialCatalogLayer),
   Layer.provide(Layer.merge(NodeServices.layer, NodeCrypto.layer)),

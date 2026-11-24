@@ -9,8 +9,7 @@ import {
 import { RecipeResolveOptions, RecipeSpec } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { RecipeService } from "@repo/scaffold/RecipeService";
-import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
+import { RecipeResolver, StackConfigDefaults } from "@repo/scaffold/Recipe";
 import { Effect, Layer, Schema } from "effect";
 
 const testConfigFields = {
@@ -26,7 +25,7 @@ const testConfigFields = {
 const testConfig = new StackConfig(testConfigFields);
 
 const makeTestLayer = (defaults: StackConfig) =>
-  RecipeService.layer.pipe(
+  RecipeResolver.layer.pipe(
     Layer.provide(OfficialCatalogLayer),
     Layer.provide(Layer.succeed(StackConfigDefaults, defaults)),
   );
@@ -49,7 +48,7 @@ const assertTargetModules = (
   );
 };
 
-describe("RecipeService", () => {
+describe("RecipeResolver", () => {
   describe("schemas", () => {
     it("should decode target specs when the command provides plain recipe input", () => {
       const spec = Schema.decodeSync(RecipeSpec)({
@@ -127,7 +126,7 @@ describe("RecipeService", () => {
   describe("resolve", () => {
     it.effect("should select the Nx workspace module when configured", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const config = new StackConfig({
           ...testConfigFields,
           monorepo: "nx",
@@ -152,7 +151,7 @@ describe("RecipeService", () => {
 
     it.effect("should select the Vite+ workspace module when configured", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const config = new StackConfig({
           ...testConfigFields,
           monorepo: "vite-plus",
@@ -179,7 +178,7 @@ describe("RecipeService", () => {
       "should return a Selection when recipe targets are requested",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -218,7 +217,7 @@ describe("RecipeService", () => {
       "should seed workspace modules when StackConfig defines workspace tooling",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -258,7 +257,7 @@ describe("RecipeService", () => {
       "should select the TypeScript 6 workspace module when overridden",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const config = new StackConfig({
             ...testConfigFields,
             typescript: "6",
@@ -285,7 +284,7 @@ describe("RecipeService", () => {
       "should select independent lint and format modules when quality tools are configured",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const cases = [
             {
               lint: "biome",
@@ -343,7 +342,7 @@ describe("RecipeService", () => {
       "should add workspace target modules when the recipe explicitly targets the workspace",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -377,7 +376,7 @@ describe("RecipeService", () => {
       "should normalize workspace target names when explicit workspace modules are requested",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -419,7 +418,7 @@ describe("RecipeService", () => {
       "should dedupe workspace modules when StackConfig and recipe targets overlap",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -458,7 +457,7 @@ describe("RecipeService", () => {
       "should use catalog defaults when app target names are empty",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -495,7 +494,7 @@ describe("RecipeService", () => {
 
     it.effect("should allow recipes to omit explicit workspace targets", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const selection = yield* service.resolve(
           { targets: [] },
           {
@@ -518,7 +517,7 @@ describe("RecipeService", () => {
       "should return a workspace-only Selection when the recipe has no targets",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             { targets: [] },
             {
@@ -538,7 +537,7 @@ describe("RecipeService", () => {
       "should merge duplicate target specs when they resolve to the same target key",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -575,7 +574,7 @@ describe("RecipeService", () => {
       "should keep the first identity when recipe targets share a key",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -610,7 +609,7 @@ describe("RecipeService", () => {
 
     it.effect("should leave module validation for Blueprint resolution", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const selection = yield* service.resolve(
           {
             targets: [
@@ -641,7 +640,7 @@ describe("RecipeService", () => {
 
     it.effect("should use catalog default names for unnamed targets", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const selection = yield* service.resolve(
           {
             targets: [
@@ -682,7 +681,7 @@ describe("RecipeService", () => {
 
     it.effect("should fail accurately for an unknown unnamed target kind", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const error = yield* Effect.flip(
           service.resolve(
             {
@@ -715,7 +714,7 @@ describe("RecipeService", () => {
       "should leave required-module dependencies for Blueprint resolution",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -748,7 +747,7 @@ describe("RecipeService", () => {
       "should not add same-kind required modules before Blueprint resolution",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -781,7 +780,7 @@ describe("RecipeService", () => {
       "should leave implied modules for Blueprint/catalog resolution",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -822,7 +821,7 @@ describe("RecipeService", () => {
       "should return only Selection data when recipe resolution succeeds",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             {
               targets: [
@@ -866,7 +865,7 @@ describe("RecipeService", () => {
         });
 
         return Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const selection = yield* service.resolve(
             { targets: [] },
             {
@@ -890,7 +889,7 @@ describe("RecipeService", () => {
       "should render an explicit monorepo flag when Nx is configured",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const config = new StackConfig({
             ...testConfigFields,
             monorepo: "nx",
@@ -914,7 +913,7 @@ describe("RecipeService", () => {
       "should omit the monorepo flag when Vite+ is configured by default",
       () =>
         Effect.gen(function* () {
-          const service = yield* RecipeService;
+          const service = yield* RecipeResolver;
           const config = new StackConfig({
             ...testConfigFields,
             monorepo: "vite-plus",
@@ -936,7 +935,7 @@ describe("RecipeService", () => {
 
     it.effect("should render selected targets as create target flags", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const selection = yield* service.resolve(
           {
             targets: [
@@ -971,7 +970,7 @@ describe("RecipeService", () => {
 
     it.effect("should render non-default config flags and --no-git", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const config = new StackConfig({
           name: "node app",
           runtime: { _tag: "node", packageManager: "pnpm" },
@@ -1011,7 +1010,7 @@ describe("RecipeService", () => {
 
     it.effect("should keep explicit Deno tooling in a copied command", () =>
       Effect.gen(function* () {
-        const service = yield* RecipeService;
+        const service = yield* RecipeResolver;
         const config = new StackConfig({
           ...testConfigFields,
           runtime: { _tag: "deno" },

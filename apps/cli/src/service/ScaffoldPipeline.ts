@@ -4,15 +4,14 @@ import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import type { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import {
   type FinalizeConfig,
-  FinalizeService,
+  Finalizer,
   scriptKey,
-} from "@repo/scaffold/FinalizeService";
-import { PlanService } from "@repo/scaffold/PlanService";
+} from "@repo/scaffold/Finalize";
+import { Planner } from "@repo/scaffold/Plan";
 import { Confirm, type ConfirmOptions, MultiSelect } from "@repo/tui";
 import {
   Array as Arr,
@@ -151,13 +150,13 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         createCommand?: string;
       }) =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
-          const planService = yield* PlanService;
-          const finalizeService = yield* FinalizeService;
-          const applyService = yield* ApplyService;
+          const blueprintResolver = yield* BlueprintResolver;
+          const planner = yield* Planner;
+          const finalizer = yield* Finalizer;
+          const applier = yield* Applier;
           const workspaces = yield* ApplyWorkspaces;
 
-          const blueprint = yield* blueprintService.resolve(selection, config);
+          const blueprint = yield* blueprintResolver.resolve(selection, config);
 
           const formattedBlueprint = ScaffoldTree.formatBlueprint(blueprint);
           const blueprintBox = Box.vsep(
@@ -187,7 +186,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             }
           }
 
-          const plan = yield* planService.build({
+          const plan = yield* planner.build({
             blueprint,
             repositoryRoot,
             config,
@@ -222,7 +221,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               config,
               repositoryRoot,
             };
-            const previewScripts = yield* finalizeService.scripts(
+            const previewScripts = yield* finalizer.scripts(
               blueprint,
               finalizeConfig,
             );
@@ -267,7 +266,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             }
           }
 
-          const result = yield* applyService.apply({
+          const result = yield* applier.apply({
             apply: new Apply({ plan, decisions }),
             repositoryRoot,
           });
@@ -283,7 +282,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
             config,
             repositoryRoot,
           };
-          const previewScripts = yield* finalizeService.scripts(
+          const previewScripts = yield* finalizer.scripts(
             blueprint,
             finalizeConfig,
           );
@@ -368,7 +367,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                       yield* Console.log(
                         `  [>] ${script.label}: ${script.command}`,
                       );
-                      const execution = yield* finalizeService.executeScoped(
+                      const execution = yield* finalizer.executeScoped(
                         script,
                         repositoryRoot,
                       );
@@ -411,7 +410,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
               selectedScriptKeys(selectedScripts),
             );
 
-            const nextSteps = yield* finalizeService.collectNextSteps(
+            const nextSteps = yield* finalizer.collectNextSteps(
               blueprint,
               finalizeConfig,
             );

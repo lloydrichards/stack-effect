@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { RecipeTargetString } from "@repo/scaffold/RecipeTargets";
+import { RecipeTargetString } from "@repo/scaffold/Recipe";
 import { Schema } from "effect";
 
 describe("RecipeTargetString", () => {

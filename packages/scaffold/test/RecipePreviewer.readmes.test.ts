@@ -6,11 +6,10 @@ import {
 import { Apply } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { PlanService } from "@repo/scaffold/PlanService";
-import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { Applier, RecipePreviewer } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Planner } from "@repo/scaffold/Plan";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Effect, FileSystem, Layer } from "effect";
 import { pipelineLayer, platform } from "./fixtures/scaffold";
 
@@ -209,10 +208,10 @@ describe("generated READMEs", () => {
     () =>
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
-        const recipes = yield* RecipeService;
-        const blueprints = yield* BlueprintService;
-        const plans = yield* PlanService;
-        const applies = yield* ApplyService;
+        const recipes = yield* RecipeResolver;
+        const blueprints = yield* BlueprintResolver;
+        const plans = yield* Planner;
+        const applies = yield* Applier;
         const initial = yield* recipes.resolve(
           { targets: [target("server", "api", "server-http-api")] },
           { config, providerStrategy: { _tag: "fail-on-ambiguous" } },
@@ -284,7 +283,7 @@ describe("generated READMEs", () => {
       }).pipe(
         Effect.provide(
           Layer.provideMerge(
-            RecipeService.layer,
+            RecipeResolver.layer,
             pipelineLayer(OfficialCatalogLayer),
           ),
         ),

@@ -1,6 +1,6 @@
 /**
- * Finalize: the scripts and next steps a Blueprint needs after Apply has
- * written its files, such as installing dependencies and formatting.
+ * Finalize: runs the post-apply scripts a Blueprint contributes and collects
+ * its next steps.
  */
 import type { CatalogService } from "@repo/catalog";
 import type { Blueprint, CatalogNotFound } from "@repo/domain/Blueprint";
@@ -15,14 +15,14 @@ import {
   type Stream,
 } from "effect";
 import type { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
-import * as internal from "./internal/finalizeService";
+import * as internal from "./internal/finalizer";
 
 /**
  * The configuration and repository a Finalize run resolves scripts for.
  *
  * **When to use**
  *
- * Pass it to `FinalizeService.scripts` and `collectNextSteps`.
+ * Pass it to `Finalizer.scripts` and `collectNextSteps`.
  */
 export type FinalizeConfig = {
   readonly config: StackConfig;
@@ -34,7 +34,7 @@ export type FinalizeConfig = {
  *
  * **When to use**
  *
- * Read it from `FinalizeService.executeScoped`.
+ * Read it from `Finalizer.executeScoped`.
  *
  * **Gotchas**
  *
@@ -77,8 +77,8 @@ export const scriptKey: (script: {
  * `scripts` returns them in run order: catalog `finalize` scripts, then
  * configuration scripts, then `post-finalize` scripts, with duplicates removed.
  */
-export class FinalizeService extends Context.Service<
-  FinalizeService,
+export class Finalizer extends Context.Service<
+  Finalizer,
   {
     readonly scripts: (
       blueprint: Blueprint,
@@ -98,10 +98,10 @@ export class FinalizeService extends Context.Service<
       config: FinalizeConfig,
     ) => Effect.Effect<ReadonlyArray<string>, CatalogNotFound>;
   }
->()("@repo/scaffold/FinalizeService") {
+>()("@repo/scaffold/Finalizer") {
   static readonly layer: Layer.Layer<
-    FinalizeService,
+    Finalizer,
     never,
     CatalogService | ChildProcessSpawner
-  > = Layer.effect(FinalizeService, internal.make);
+  > = Layer.effect(Finalizer, internal.make);
 }

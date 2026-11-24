@@ -9,11 +9,7 @@ import { ContributionTokenContext } from "@repo/domain/Plan";
 import { Effect, Option, Result, Stream } from "effect";
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
-import type {
-  FinalizeConfig,
-  FinalizeExecution,
-  FinalizeService,
-} from "../FinalizeService";
+import type { FinalizeConfig, FinalizeExecution, Finalizer } from "../Finalize";
 
 /**
  * The source is part of the key, so a custom script can never stand in for an
@@ -176,7 +172,7 @@ export const make = Effect.gen(function* () {
     return [...targetScripts.flat(), ...moduleScripts.flat()];
   });
 
-  const scripts = Effect.fn("FinalizeService.scripts")(function* (
+  const scripts = Effect.fn("Finalizer.scripts")(function* (
     blueprint: Blueprint,
     config: FinalizeConfig,
   ) {
@@ -185,7 +181,7 @@ export const make = Effect.gen(function* () {
     return orderScripts(deduplicateScripts(resolved), configScripts);
   });
 
-  const executeScoped = Effect.fn("FinalizeService.executeScoped")(function* (
+  const executeScoped = Effect.fn("Finalizer.executeScoped")(function* (
     script: FinalizeScript,
     repositoryRoot: string,
   ) {
@@ -225,38 +221,39 @@ export const make = Effect.gen(function* () {
     return { output, result } satisfies FinalizeExecution;
   });
 
-  const collectNextSteps = Effect.fn("FinalizeService.collectNextSteps")(
-    function* (blueprint: Blueprint, config: FinalizeConfig) {
-      const { targetNodes, modules } = attachedModules(blueprint);
+  const collectNextSteps = Effect.fn("Finalizer.collectNextSteps")(function* (
+    blueprint: Blueprint,
+    config: FinalizeConfig,
+  ) {
+    const { targetNodes, modules } = attachedModules(blueprint);
 
-      const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
-        Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
+    const targetSteps = yield* Effect.forEach(targetNodes, (node) =>
+      Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
+        resolveNextSteps(
+          definition.nextSteps,
+          createTokenContext(config, node),
+        ),
+      ),
+    );
+
+    const moduleSteps = yield* Effect.forEach(
+      modules,
+      ({ moduleNode, targetNode }) =>
+        Effect.map(catalog.getModule(moduleNode.moduleId), (definition) =>
           resolveNextSteps(
             definition.nextSteps,
-            createTokenContext(config, node),
+            createTokenContext(config, targetNode),
           ),
         ),
-      );
+    );
 
-      const moduleSteps = yield* Effect.forEach(
-        modules,
-        ({ moduleNode, targetNode }) =>
-          Effect.map(catalog.getModule(moduleNode.moduleId), (definition) =>
-            resolveNextSteps(
-              definition.nextSteps,
-              createTokenContext(config, targetNode),
-            ),
-          ),
-      );
-
-      // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
-      return [...new Set([...targetSteps.flat(), ...moduleSteps.flat()])];
-    },
-  );
+    // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
+    return [...new Set([...targetSteps.flat(), ...moduleSteps.flat()])];
+  });
 
   return {
     scripts,
     executeScoped,
     collectNextSteps,
-  } satisfies FinalizeService["Service"];
+  } satisfies Finalizer["Service"];
 });

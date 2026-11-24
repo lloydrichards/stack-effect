@@ -17,12 +17,10 @@ import {
 import { type Plan, RepositoryPath } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
-import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
-import { PlanService } from "@repo/scaffold/PlanService";
+import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
+import { Planner } from "@repo/scaffold/Plan";
 import {
   Effect,
   FileSystem,
@@ -352,9 +350,9 @@ export const app = (...modules: ReadonlyArray<string>) =>
 export const pipelineLayer = <E>(catalog: Layer.Layer<CatalogService, E>) =>
   Layer.provideMerge(
     Layer.mergeAll(
-      BlueprintService.layer,
-      PlanService.layer,
-      ApplyService.layer,
+      BlueprintResolver.layer,
+      Planner.layer,
+      Applier.layer,
       ApplyWorkspaces.layer,
     ),
     Layer.mergeAll(platform, catalog),
@@ -372,8 +370,8 @@ export const plan = (
   } = {},
 ) =>
   Effect.gen(function* () {
-    const blueprints = yield* BlueprintService;
-    const plans = yield* PlanService;
+    const blueprints = yield* BlueprintResolver;
+    const plans = yield* Planner;
     const stackConfig = options.config ?? config;
     const blueprint = yield* blueprints.resolve(input, stackConfig);
     return yield* plans.build({
@@ -392,7 +390,7 @@ export const apply = (
   root = repositoryRoot,
 ) =>
   Effect.gen(function* () {
-    const service = yield* ApplyService;
+    const service = yield* Applier;
     return yield* service.apply({
       apply: new Apply({ plan: planned, decisions }),
       repositoryRoot: root,
@@ -525,9 +523,9 @@ export const withFault = Effect.fnUntraced(function* (fault: Fault) {
   // Fresh services, so none built over the unwrapped FileSystem is reused.
   const faulted = Layer.provide(
     Layer.mergeAll(
-      Layer.fresh(BlueprintService.layer),
-      Layer.fresh(PlanService.layer),
-      Layer.fresh(ApplyService.layer),
+      Layer.fresh(BlueprintResolver.layer),
+      Layer.fresh(Planner.layer),
+      Layer.fresh(Applier.layer),
       Layer.fresh(ApplyWorkspaces.layer),
     ),
     Layer.mergeAll(

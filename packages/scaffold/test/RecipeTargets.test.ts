@@ -3,7 +3,7 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
   parseRecipeTargetSpecs,
   RecipeTargetString,
-} from "@repo/scaffold/RecipeTargets";
+} from "@repo/scaffold/Recipe";
 import { Effect, Schema } from "effect";
 
 describe("recipe target syntax", () => {

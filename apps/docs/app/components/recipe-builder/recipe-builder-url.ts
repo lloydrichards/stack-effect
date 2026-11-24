@@ -8,10 +8,10 @@ import {
   runtimeForPackageManager,
 } from "@repo/domain/StackConfig";
 import {
+  defaultsForRuntime,
   encodeRecipeTargetSpecs,
   RecipeTargetString,
-} from "@repo/scaffold/RecipeTargets";
-import { defaultsForRuntime } from "@repo/scaffold/StackConfigDefaults";
+} from "@repo/scaffold/Recipe";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,

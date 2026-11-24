@@ -5,11 +5,10 @@ import type { MaterializedApply } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { FinalizeService } from "@repo/scaffold/FinalizeService";
-import { PlanService } from "@repo/scaffold/PlanService";
+import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Finalizer } from "@repo/scaffold/Finalize";
+import { Planner } from "@repo/scaffold/Plan";
 import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
 import { TestConsole } from "effect/testing";
@@ -92,18 +91,18 @@ const layerWithServices = ({
 }: {
   plan?: Plan;
   materialize?: (apply: Apply) => Effect.Effect<MaterializedApply>;
-  apply?: (typeof ApplyService.Service)["apply"];
-  executeScoped: (typeof FinalizeService.Service)["executeScoped"];
+  apply?: (typeof Applier.Service)["apply"];
+  executeScoped: (typeof Finalizer.Service)["executeScoped"];
 }) =>
   Layer.mergeAll(
     ScaffoldPipeline.layer,
-    Layer.succeed(BlueprintService, {
+    Layer.succeed(BlueprintResolver, {
       resolve: () => Effect.succeed(blueprint),
     }),
-    Layer.succeed(PlanService, {
+    Layer.succeed(Planner, {
       build: () => Effect.succeed(planned),
     }),
-    Layer.succeed(ApplyService, { apply }),
+    Layer.succeed(Applier, { apply }),
     Layer.succeed(ApplyWorkspaces, {
       empty: Effect.die(new Error("dry run should seed the workspace")),
       fromRepository: () =>
@@ -112,7 +111,7 @@ const layerWithServices = ({
           materialize,
         }),
     }),
-    Layer.succeed(FinalizeService, {
+    Layer.succeed(Finalizer, {
       scripts: () => Effect.succeed([script]),
       executeScoped,
       collectNextSteps: () => Effect.succeed([]),

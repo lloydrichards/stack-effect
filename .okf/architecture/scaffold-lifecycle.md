@@ -5,16 +5,16 @@ description: Current domain boundaries and filesystem ownership in Stack Effect.
 status: stable
 sources:
   - id: plan
-    resource: ../../packages/scaffold/src/PlanService.ts
+    resource: ../../packages/scaffold/src/Plan.ts
     title: Plan construction
   - id: apply
-    resource: ../../packages/scaffold/src/ApplyService.ts
+    resource: ../../packages/scaffold/src/Apply.ts
     title: Apply preparation and execution
   - id: workspace
-    resource: ../../packages/scaffold/src/ApplyWorkspaces.ts
+    resource: ../../packages/scaffold/src/Apply.ts
     title: In-memory workspace creation and materialization
   - id: recipe
-    resource: ../../packages/scaffold/src/RecipePreviewer.ts
+    resource: ../../packages/scaffold/src/Apply.ts
     title: Recipe preview
   - id: write
     resource: ../../packages/scaffold/src/internal/atomicWriter.ts
@@ -25,15 +25,15 @@ sources:
   - id: exports
     resource: ../../packages/scaffold/package.json
   - id: finalize
-    resource: ../../packages/scaffold/src/FinalizeService.ts
+    resource: ../../packages/scaffold/src/Finalize.ts
   - id: loader
-    resource: ../../packages/scaffold/src/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
     title: Catalog loading and composition
   - id: services
     resource: ../../apps/cli/src/services.ts
     title: CLI command service layer
   - id: contribution-resolver
-    resource: ../../packages/scaffold/src/ContributionResolver.ts
+    resource: ../../packages/scaffold/src/Plan.ts
   - id: readme-contract
     resource: ../../packages/scaffold/test/RecipePreviewer.readmes.test.ts
 generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
@@ -59,15 +59,15 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 ## Service ownership
 
-`BlueprintService` validates Selection and resolves target/module dependency closure through CatalogService. Blueprint contains identities and dependency edges, not file contributions.
+`BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogService. Blueprint contains identities and dependency edges, not file contributions.
 
-`PlanService` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
+`Planner` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
 
 The CLI rejects required dependency conflicts before Apply in interactive and automatic modes. Other conflicted paths retain explicit override or skip decisions. This policy stays in `ScaffoldPipeline`; Plan remains policy-free.
 
-`ApplyService` prepares skip, authoritative-write, or composed-write actions. The pure `Composition` module routes JSON and TypeScript operations to `JsonComposition` and `TypeScriptComposition`. `AtomicWriter` enforces create, modify, or override expectations at each path. These internals should not become caller-owned policy.
+`Applier` prepares skip, authoritative-write, or composed-write actions. The pure `Composition` module routes JSON and TypeScript operations to `JsonComposition` and `TypeScriptComposition`. `AtomicWriter` enforces create, modify, or override expectations at each path. These internals should not become caller-owned policy.
 
-The CLI renders Blueprint and Plan itself; `@repo/scaffold` returns data only. RecipeService resolves recipe inputs; RecipePreviewer produces the builder preview. Consult the package exports for the current public service boundary.
+The CLI renders Blueprint and Plan itself; `@repo/scaffold` returns data only. RecipeResolver resolves recipe inputs; RecipePreviewer produces the builder preview. Consult the package exports for the current public service boundary.
 
 ## Generated READMEs
 
@@ -77,7 +77,7 @@ Official README contributions create missing files and classify differing existi
 
 ## Finalize ownership
 
-`FinalizeService.scripts` returns the ordered scripts as data, for both preview and execution. The caller selects scripts, runs each with `FinalizeService.executeScoped` in a scope it owns, and collects results. Catalog scripts are deduplicated by source, workdir, and command. The source is part of the key, so a custom script can never stand in for an official one. Finalize-phase scripts precede config-derived install, lint, and format commands; post-finalize scripts follow them. Lint and format commands depend on configured tools, not only Biome.
+`Finalizer.scripts` returns the ordered scripts as data, for both preview and execution. The caller selects scripts, runs each with `Finalizer.executeScoped` in a scope it owns, and collects results. Catalog scripts are deduplicated by source, workdir, and command. The source is part of the key, so a custom script can never stand in for an official one. Finalize-phase scripts precede config-derived install, lint, and format commands; post-finalize scripts follow them. Lint and format commands depend on configured tools, not only Biome.
 
 The CLI owns trust decisions, as the [source selection decision](catalog-source-selection.md "gates Finalize scripts by source") defines them, as well as skipped-script handling, conflict reporting, and assembly of FinalizeReport. A report contains executed success/failure results, skipped scripts, unresolved conflicts, and next steps. Output streams are separate from those structured results.
 

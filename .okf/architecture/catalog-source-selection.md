@@ -15,13 +15,13 @@ sources:
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader
-    resource: ../../packages/scaffold/src/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
   - id: selection
     resource: ../../apps/cli/src/service/CatalogSelection.ts
   - id: cli-sources
     resource: ../../apps/cli/src/lib/catalogSources.ts
   - id: finalize
-    resource: ../../packages/scaffold/src/FinalizeService.ts
+    resource: ../../packages/scaffold/src/Finalize.ts
   - id: graph
     resource: ../../apps/cli/src/commands/graph.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
@@ -107,7 +107,7 @@ A compatible content update takes effect on the next command or session. A runni
 ## Gate Finalize scripts at run time
 
 - Custom catalogs may contribute Finalize scripts. The loader composes every selected source with scripts allowed; consent decides whether they run.
-- `FinalizeService` records each collected script's source name, together with its `target` or `module` origin. The CLI resolves the URL from the loaded sources when it shows the script.
+- `Finalizer` records each collected script's source name, together with its `target` or `module` origin. The CLI resolves the URL from the loaded sources when it shows the script.
 - The source is part of the script's deduplication key, so a custom script can never stand in for an official one.
 - `--yes` accepts defaults and runs official scripts only.
 - `--trust` also runs scripts from custom sources.
@@ -123,7 +123,7 @@ JSON loading never runs remote code. Finalize scripts and the generated project'
 
 Every project still has a `workspace` target at `.`.
 
-- When `official` is selected, the current tool defaults and implicit workspace module IDs apply. These are `StackConfigDefaults`, `WorkspaceModules`, and `workspace-devenv-git`.
+- When `official` is selected, the current tool defaults and implicit workspace module IDs apply. These are `StackConfigDefaults`, the tool-to-module mapping in `@repo/scaffold/Recipe`, and `workspace-devenv-git`.
 - When `official` is not selected, none of those apply. The selected sources must supply a `workspace` target, and without one, `create` fails with a named error.
 - A tool flag that names a module missing from the composed catalog fails.
 - A custom-only config omits the `lint`, `format`, `test`, and `monorepo` fields.

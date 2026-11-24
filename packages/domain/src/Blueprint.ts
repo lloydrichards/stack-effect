@@ -232,7 +232,7 @@ const BlueprintFields = Schema.Struct({
 export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
   BlueprintFields,
 ) {
-  // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve
+  // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve
   toSorted(): Blueprint {
     return new Blueprint({
       nodes: [...this.nodes].sort(blueprintNodeOrder),

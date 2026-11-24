@@ -9,8 +9,8 @@ import {
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Effect } from "effect";
-import type { ContributionResolver } from "../ContributionResolver";
-import { RecipeService } from "../RecipeService";
+import type { ContributionResolver } from "../Plan";
+import { RecipeResolver } from "../Recipe";
 
 const resolveContributionTokens = (
   contributions: ReadonlyArray<Contribution>,
@@ -77,9 +77,9 @@ const resolveContributionTokens = (
 };
 
 /** @internal */
-export const make = Effect.gen(function* () {
+export const makeContributionResolver = Effect.gen(function* () {
   const catalog = yield* CatalogService;
-  const recipes = yield* RecipeService;
+  const recipes = yield* RecipeResolver;
 
   const resolve = Effect.fn("ContributionResolver.resolve")(function* (
     blueprint: Blueprint,

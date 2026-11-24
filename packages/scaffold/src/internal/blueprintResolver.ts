@@ -26,7 +26,7 @@ import {
   Ref,
   SchemaIssue,
 } from "effect";
-import type { BlueprintService } from "../BlueprintService";
+import type { BlueprintResolver } from "../Blueprint";
 
 const formatSchemaIssue = SchemaIssue.makeFormatterDefault();
 
@@ -325,7 +325,7 @@ const resolveSelection = Effect.fnUntraced(function* (
 export const make = Effect.gen(function* () {
   const catalog = yield* CatalogService;
 
-  const resolve = Effect.fn("BlueprintService.resolve")(function* (
+  const resolve = Effect.fn("BlueprintResolver.resolve")(function* (
     selection: Selection,
     config?: StackConfig,
   ) {
@@ -389,5 +389,5 @@ export const make = Effect.gen(function* () {
     return blueprint.toSorted();
   });
 
-  return { resolve } satisfies BlueprintService["Service"];
+  return { resolve } satisfies BlueprintResolver["Service"];
 });

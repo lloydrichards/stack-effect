@@ -63,7 +63,7 @@ export type RecipeProviderStrategy = typeof RecipeProviderStrategy.Type;
  *
  * **When to use**
  *
- * Pass it to `RecipeService.resolve` with the recipe.
+ * Pass it to `RecipeResolver.resolve` with the recipe.
  */
 export const RecipeResolveOptions = Schema.Struct({
   config: StackConfig,
@@ -175,7 +175,7 @@ export class InvalidRecipeProvider extends Schema.TaggedError<InvalidRecipeProvi
   }
 }
 
-/** Failures `RecipeService.resolve` can return. */
+/** Failures `RecipeResolver.resolve` can return. */
 export type RecipeResolveError =
   | InvalidRecipeSpec
   | MissingRecipeProvider

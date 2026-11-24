@@ -13,21 +13,18 @@ import {
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { ContributionResolver } from "@repo/scaffold/ContributionResolver";
-import { FinalizeService } from "@repo/scaffold/FinalizeService";
-import { PlanService } from "@repo/scaffold/PlanService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
-import { parseRecipeTargetSpecs } from "@repo/scaffold/RecipeTargets";
+import { Applier } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Finalizer } from "@repo/scaffold/Finalize";
+import { ContributionResolver, Planner } from "@repo/scaffold/Plan";
 import {
   defaultsForRuntime,
+  parseRecipeTargetSpecs,
+  RecipeResolver,
   StackConfigDefaults,
-} from "@repo/scaffold/StackConfigDefaults";
-import {
   toTypeScriptModuleId,
   toWorkspaceModuleId,
-} from "@repo/scaffold/WorkspaceModules";
+} from "@repo/scaffold/Recipe";
 import {
   Array as Arr,
   Console,
@@ -137,7 +134,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
     targetSpecs: Option.Option<ReadonlyArray<RecipeTargetSpec>>,
   ) {
     const catalog = yield* CatalogService;
-    const recipes = yield* RecipeService;
+    const recipes = yield* RecipeResolver;
 
     if (Option.isSome(targetSpecs)) {
       const targets = yield* parseRecipeTargetSpecs(targetSpecs.value);
@@ -563,8 +560,8 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
     config: StackConfig;
     repositoryRoot: string;
   }) {
-    const finalizeService = yield* FinalizeService;
-    const scripts = yield* finalizeService.scripts(blueprint, {
+    const finalizer = yield* Finalizer;
+    const scripts = yield* finalizer.scripts(blueprint, {
       config,
       repositoryRoot,
     });
@@ -575,7 +572,7 @@ const runFinalizeScripts = Effect.fn("catalog.workspace.runFinalizeScripts")(
         Effect.scoped(
           Effect.gen(function* () {
             yield* Console.log(`$ ${script.command}`);
-            const { output, result } = yield* finalizeService.executeScoped(
+            const { output, result } = yield* finalizer.executeScoped(
               script,
               repositoryRoot,
             );
@@ -649,16 +646,16 @@ const reset = Command.make(
       });
 
       const selection = yield* buildWorkspaceSelection(config, flags.target);
-      const blueprintService = yield* BlueprintService;
-      const blueprint = yield* blueprintService.resolve(selection, config);
-      const planService = yield* PlanService;
-      const plan = yield* planService.build({
+      const blueprintResolver = yield* BlueprintResolver;
+      const blueprint = yield* blueprintResolver.resolve(selection, config);
+      const planner = yield* Planner;
+      const plan = yield* planner.build({
         blueprint,
         repositoryRoot,
         config,
       });
-      const applyService = yield* ApplyService;
-      const result = yield* applyService.apply({
+      const applier = yield* Applier;
+      const result = yield* applier.apply({
         apply: new Apply({ plan, decisions: [] }),
         repositoryRoot,
       });

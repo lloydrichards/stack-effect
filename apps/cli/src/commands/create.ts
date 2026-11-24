@@ -16,12 +16,12 @@ import {
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
 } from "@repo/domain/StackConfig";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import {
   defaultsForRuntime,
+  RecipeResolver,
   StackConfigDefaults,
-} from "@repo/scaffold/StackConfigDefaults";
+} from "@repo/scaffold/Recipe";
 import { Array as Arr, Console, Effect, Option } from "effect";
 import { Command } from "effect/cli";
 import {
@@ -186,7 +186,7 @@ export const create = Command.make(
       yield* validateShowFiles(flags);
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
-      const recipes = yield* RecipeService;
+      const recipes = yield* RecipeResolver;
       const defaults = yield* StackConfigDefaults;
       const catalogSelection = yield* CatalogSelection;
 
@@ -248,7 +248,7 @@ export const create = Command.make(
           providerStrategy: { _tag: "fail-on-ambiguous" },
         }),
       );
-      const blueprints = yield* BlueprintService;
+      const blueprints = yield* BlueprintResolver;
       yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 

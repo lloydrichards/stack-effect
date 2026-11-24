@@ -10,8 +10,7 @@ import {
   CatalogHttpStatusRejected,
   type CatalogLoadReason,
 } from "@repo/domain/Catalog";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
-import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
+import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
 import { Deferred, Effect, Fiber, Layer, Schema } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";

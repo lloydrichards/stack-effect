@@ -1,21 +1,74 @@
 /**
- * Loads catalog registry documents over HTTP, validates them, caches them,
- * and composes the selected sources into one `CatalogService` for an
- * operation.
+ * Catalog loading: fetches, verifies, caches, and composes registry catalogs
+ * into the CatalogService the other stages use.
  */
 import type { CatalogService } from "@repo/catalog";
 import type {
+  CatalogCacheEntry,
+  CatalogCacheFailure,
   CatalogCompositionFailure,
   CatalogLoadFailure,
   CatalogLoadWarning,
   CatalogSources,
   LoadedCatalogSource,
 } from "@repo/domain/Catalog";
-import { Context, type Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import type * as Digest from "effect/crypto/Digest";
 import type { HttpClient } from "effect/http";
-import type { CatalogCache } from "./CatalogCache";
 import * as internal from "./internal/catalogLoader";
+
+const copyEntry = (entry: CatalogCacheEntry): CatalogCacheEntry => ({
+  ...entry,
+  bytes: new Uint8Array(entry.bytes),
+});
+
+/**
+ * Reads and writes cached catalog documents by source URL.
+ *
+ * **When to use**
+ *
+ * Provide it to `CatalogLoader.layer`: a file cache in the CLI, IndexedDB in
+ * the browser, or `layerMemory` in tests and controlled fixtures.
+ *
+ * **Gotchas**
+ *
+ * `read` returns `undefined` for a miss. Adapters must publish the complete
+ * entry atomically, so a reader never sees half of a write.
+ */
+export class CatalogCache extends Context.Service<
+  CatalogCache,
+  {
+    readonly read: (
+      sourceUrl: string,
+    ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheFailure>;
+    // Adapters must publish the complete entry atomically.
+    readonly write: (
+      entry: CatalogCacheEntry,
+    ) => Effect.Effect<void, CatalogCacheFailure>;
+  }
+>()("@repo/scaffold/CatalogCache") {
+  // A deterministic, runtime-neutral cache for tests and controlled fixtures.
+  static readonly layerMemory: Layer.Layer<CatalogCache> = Layer.effect(
+    CatalogCache,
+    Effect.gen(function* () {
+      const entries = yield* Ref.make(new Map<string, CatalogCacheEntry>());
+
+      return CatalogCache.of({
+        read: (sourceUrl) =>
+          Ref.get(entries).pipe(
+            Effect.map((items) => {
+              const entry = items.get(sourceUrl);
+              return entry === undefined ? undefined : copyEntry(entry);
+            }),
+          ),
+        write: (entry) =>
+          Ref.update(entries, (items) =>
+            new Map(items).set(entry.sourceUrl, copyEntry(entry)),
+          ),
+      });
+    }),
+  );
+}
 
 /**
  * One catalog document loaded as a `CatalogService`, with where it came from.
@@ -84,5 +137,5 @@ export class CatalogLoader extends Context.Service<
     CatalogLoader,
     never,
     HttpClient.HttpClient | CatalogCache | Digest.Digest
-  > = Layer.effect(CatalogLoader, internal.make);
+  > = Layer.effect(CatalogLoader, CatalogCache.use(internal.make));
 }

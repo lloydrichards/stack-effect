@@ -339,7 +339,7 @@ const PlanFields = Schema.Struct({
  * @since 1.0.0
  */
 export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
-  // fallow-ignore-next-line unused-class-member -- called by projectPlan in PlanService
+  // fallow-ignore-next-line unused-class-member -- called by projectPlan in Planner
   toSorted(): Plan {
     return new Plan({
       baseline: {

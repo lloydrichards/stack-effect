@@ -1,9 +1,9 @@
 import { PlanRequest } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { FinalizeService } from "@repo/scaffold/FinalizeService";
-import { PlanService } from "@repo/scaffold/PlanService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Finalizer } from "@repo/scaffold/Finalize";
+import { Planner } from "@repo/scaffold/Plan";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   Array as Arr,
   Console,
@@ -123,26 +123,26 @@ export const plan = Command.make(
         freshness,
       }));
 
-      const blueprintService = yield* BlueprintService;
-      const blueprint = yield* blueprintService.resolve(
+      const blueprintResolver = yield* BlueprintResolver;
+      const blueprint = yield* blueprintResolver.resolve(
         input.selection,
         config,
       );
-      const recipes = yield* RecipeService;
+      const recipes = yield* RecipeResolver;
       const createCommand = recipes.renderCreateCommand({
         config,
         selection: input.selection,
       });
 
-      const planService = yield* PlanService;
-      const planResult = yield* planService.build({
+      const planner = yield* Planner;
+      const planResult = yield* planner.build({
         blueprint,
         repositoryRoot,
         config,
       });
 
-      const finalizeService = yield* FinalizeService;
-      const scripts = yield* finalizeService
+      const finalizer = yield* Finalizer;
+      const scripts = yield* finalizer
         .scripts(blueprint, { repositoryRoot, config })
         .pipe(
           Effect.orElseSucceed(
