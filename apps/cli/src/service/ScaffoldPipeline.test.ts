@@ -197,39 +197,46 @@ describe("ScaffoldPipeline", () => {
       }).pipe(Effect.provide(TestConsole.layer)),
   );
 
-  it.effect(
-    "should reject incompatible required dependencies before applying",
-    () =>
-      Effect.gen(function* () {
-        const pipeline = yield* ScaffoldPipeline;
-        const exit = yield* Effect.exit(pipeline.run(runInput));
+  for (const yes of [true, false]) {
+    it.effect(
+      `should reject incompatible required dependencies before applying in ${yes ? "automatic" : "interactive"} mode`,
+      () =>
+        Effect.gen(function* () {
+          // Interactive mode confirms the Plan, then fails without asking to override.
+          if (!yes) yield* MockTerminal.inputKey("enter");
+          const pipeline = yield* ScaffoldPipeline;
+          const exit = yield* Effect.exit(pipeline.run({ ...runInput, yes }));
 
-        assert.containSubset(squashFailure(exit), {
-          _tag: "DependencyConflictFailure",
-          message:
-            "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
-        });
-      }).pipe(
-        Effect.provide(
-          layerWithServices({
-            plan: new Plan({
-              ...conflictPlan,
-              conflicts: [
-                {
-                  _tag: "dependencies",
-                  path: RepositoryPath.make("package.json"),
-                  section: "dependencies",
-                  name: "foldkit",
-                },
-              ],
-            }),
-            apply: () =>
-              Effect.die(new Error("dependency conflicts must fail first")),
-            executeScoped: failingExecution,
-          }),
+          assert.containSubset(squashFailure(exit), {
+            _tag: "DependencyConflictFailure",
+            message:
+              "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
+          });
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              layerWithServices({
+                plan: new Plan({
+                  ...conflictPlan,
+                  conflicts: [
+                    {
+                      _tag: "dependencies",
+                      path: RepositoryPath.make("package.json"),
+                      section: "dependencies",
+                      name: "foldkit",
+                    },
+                  ],
+                }),
+                apply: () =>
+                  Effect.die(new Error("dependency conflicts must fail first")),
+                executeScoped: failingExecution,
+              }),
+              MockTerminal.layer,
+            ),
+          ),
         ),
-      ),
-  );
+    );
+  }
 
   it.effect("should fail when a non-dry-run finalize script fails", () =>
     Effect.gen(function* () {
