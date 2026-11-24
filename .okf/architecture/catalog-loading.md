@@ -5,9 +5,9 @@ description: How the CLI and Recipe Builder resolve catalog sources, fetch and c
 status: stable
 sources:
   - id: loader
-    resource: ../../packages/scaffold/src/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
   - id: cache
-    resource: ../../packages/scaffold/src/CatalogCache.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
   - id: file-cache
     resource: ../../apps/cli/src/service/FileCatalogCache.ts
   - id: provider

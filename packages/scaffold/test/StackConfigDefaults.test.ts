@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { defaultsForRuntime } from "@repo/scaffold/StackConfigDefaults";
+import { defaultsForRuntime } from "@repo/scaffold/Recipe";
 
 const defaults = {
   name: "example",

@@ -94,7 +94,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     return targetNameSlug(this).length > 0;
   }
 
-  // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve and packageOwnership
+  // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve and packageOwnership
   toPath(): TargetPath {
     return TargetPath.make(toTargetPathString(this));
   }
@@ -109,7 +109,7 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
    * - Apps use flat names: `<kind>` or `<kind>-<name>`
    * Hierarchical name segments are joined with hyphens for npm names.
    */
-  // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve and packageOwnership
+  // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve and packageOwnership
   toPackageName(): string {
     const slug = targetNameSlug(this);
     const resolvedName = slug || this.kind;
@@ -319,7 +319,7 @@ export const ModuleDependency = Schema.TaggedUnion({
 
   /**
    * Module must be attached to the specified target.
-   * Target existence is implicit - the BlueprintService will create both
+   * Target existence is implicit - the BlueprintResolver will create both
    * a required-target edge and a required-module edge when resolving.
    */
   "required-module": {

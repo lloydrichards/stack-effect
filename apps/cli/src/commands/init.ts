@@ -8,13 +8,13 @@ import {
 } from "@repo/domain/Catalog";
 import { RecipeResolveOptions } from "@repo/domain/Recipe";
 import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/StackConfig";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import {
   defaultsForRuntime,
+  RecipeResolver,
   StackConfigDefaults,
-} from "@repo/scaffold/StackConfigDefaults";
-import { toWorkspaceToolValue } from "@repo/scaffold/WorkspaceModules";
+  toWorkspaceToolValue,
+} from "@repo/scaffold/Recipe";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option } from "effect";
 import { Ansi, Box } from "effect-boxes";
@@ -353,7 +353,7 @@ export const init = Command.make(
       }
 
       const pipeline = yield* ScaffoldPipeline;
-      const recipe = yield* RecipeService;
+      const recipe = yield* RecipeResolver;
       const explicitWorkspaceModules = [
         ...(git ? [ModuleId.make("workspace-devenv-git")] : []),
         ...dxExtras.map((moduleId) => ModuleId.make(moduleId)),
@@ -379,7 +379,7 @@ export const init = Command.make(
         }),
       );
 
-      const blueprints = yield* BlueprintService;
+      const blueprints = yield* BlueprintResolver;
       yield* blueprints.resolve(selection, config);
 
       if (!flags.dryRun) {

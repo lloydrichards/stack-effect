@@ -9,10 +9,7 @@ import {
   CatalogSourceInvalid,
   type LoadedCatalogSource,
 } from "@repo/domain/Catalog";
-import {
-  CatalogLoader,
-  type LoadedCatalogSet,
-} from "@repo/scaffold/CatalogLoader";
+import { CatalogLoader, type LoadedCatalogSet } from "@repo/scaffold/Catalog";
 import { Console, Context, DateTime, Effect, Layer } from "effect";
 
 const isoTime = (millis: number) =>

@@ -10,8 +10,7 @@ import {
   TargetKind,
   OFFICIAL_CATALOG_URL,
 } from "@repo/domain/Catalog";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
-import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
+import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
 import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import {
   Console,

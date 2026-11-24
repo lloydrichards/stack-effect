@@ -20,17 +20,18 @@ import {
 import type { Selection } from "@repo/domain/Selection";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Option } from "effect";
-import type { RecipeService } from "../RecipeService";
+import type { RecipeResolver } from "../Recipe";
 import {
   encodeRecipeTargetSpecs,
   mergeRecipeTargets,
   type ParsedRecipeTarget,
-} from "../RecipeTargets";
+} from "./recipeTargets";
 import {
   defaultsForRuntime,
   StackConfigDefaults,
-} from "../StackConfigDefaults";
-import { toTypeScriptModuleId, toWorkspaceModuleId } from "../WorkspaceModules";
+  toTypeScriptModuleId,
+  toWorkspaceModuleId,
+} from "./stackConfigDefaults";
 
 // Matches the runtimes Blueprint assumes for a definition that names none.
 const DEFAULT_SUPPORTED_RUNTIMES: ReadonlyArray<SupportedRuntime> = [
@@ -433,7 +434,7 @@ export const make = Effect.gen(function* () {
     return selected;
   });
 
-  const resolve = Effect.fn("RecipeService.resolve")(function* (
+  const resolve = Effect.fn("RecipeResolver.resolve")(function* (
     recipe: RecipeSpec,
     options: RecipeResolveOptions,
   ) {
@@ -572,5 +573,5 @@ export const make = Effect.gen(function* () {
     ].join(" ");
   };
 
-  return { resolve, renderCreateCommand } satisfies RecipeService["Service"];
+  return { resolve, renderCreateCommand } satisfies RecipeResolver["Service"];
 });

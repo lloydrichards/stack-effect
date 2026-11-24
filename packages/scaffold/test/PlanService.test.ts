@@ -35,7 +35,7 @@ const operationsAt = (planned: Plan, path: string) => {
 
 const domain = selection(selected("package", "domain", "domain-api-contracts"));
 
-describe("PlanService", () => {
+describe("Planner", () => {
   describe("with the official catalog", () => {
     it.effect(
       "should create target and dependency files that are missing",

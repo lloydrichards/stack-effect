@@ -15,10 +15,7 @@ import {
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/StackConfig";
-import {
-  type FinalizeConfig,
-  FinalizeService,
-} from "@repo/scaffold/FinalizeService";
+import { type FinalizeConfig, Finalizer } from "@repo/scaffold/Finalize";
 import { Effect, Layer, Result, Schema, Stream } from "effect";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 
@@ -160,7 +157,7 @@ const makeFinalizeLayer = (
     failures?: Set<string>;
   } = {},
 ) =>
-  FinalizeService.layer.pipe(
+  Finalizer.layer.pipe(
     Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
     Layer.provide(makeSpawnerLayer(executed, opts.failures)),
   );
@@ -185,12 +182,12 @@ it.effect(
         ],
       },
     ]);
-    const serviceLayer = FinalizeService.layer.pipe(
+    const serviceLayer = Finalizer.layer.pipe(
       Layer.provide(catalogLayer),
       Layer.provide(makeSpawnerLayer([])),
     );
     return Effect.gen(function* () {
-      const finalize = yield* FinalizeService;
+      const finalize = yield* Finalizer;
       const steps = yield* finalize.collectNextSteps(
         targetWithModule(serverIdentity, moduleId),
         makeConfig(),
@@ -201,7 +198,7 @@ it.effect(
 );
 
 const runToReport = (
-  svc: typeof FinalizeService.Service,
+  svc: typeof Finalizer.Service,
   blueprint: Blueprint,
   config: FinalizeConfig,
 ) =>
@@ -225,14 +222,14 @@ const runToReport = (
     return new FinalizeReport({ results });
   });
 
-describe("FinalizeService", () => {
+describe("Finalizer", () => {
   describe("scripts", () => {
     it.effect(
       "should return only config-derived scripts when the blueprint has no Finalize scripts",
       () => {
         const executed: string[] = [];
         return Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
 
           const scripts = yield* svc.scripts(
             emptyBlueprint,
@@ -253,7 +250,7 @@ describe("FinalizeService", () => {
       "should include lint and format scripts when lint and format tools are configured",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const config = new StackConfig({
             name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "bun" },
@@ -277,7 +274,7 @@ describe("FinalizeService", () => {
       "should install with pnpm when the runtime is Node with pnpm",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
 
           const scripts = yield* svc.scripts(
             emptyBlueprint,
@@ -292,7 +289,7 @@ describe("FinalizeService", () => {
       "should run the prepare task after installing dependencies when the runtime is Deno",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const config = new StackConfig({
             name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "deno" },
@@ -313,7 +310,7 @@ describe("FinalizeService", () => {
       "should list target Finalize scripts before config-derived scripts when a target declares scripts",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const blueprint = singleTargetBlueprint(serverIdentity);
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
@@ -344,7 +341,7 @@ describe("FinalizeService", () => {
       "should list module Finalize scripts before config-derived scripts when a module declares scripts",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const moduleId = ModuleId.make("shadcn-init");
           const blueprint = targetWithModule(clientIdentity, moduleId);
 
@@ -376,7 +373,7 @@ describe("FinalizeService", () => {
       "should resolve token placeholders when a script command contains them",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const blueprint = singleTargetBlueprint(serverIdentity);
 
           const scripts = yield* svc.scripts(blueprint, makeConfig());
@@ -408,7 +405,7 @@ describe("FinalizeService", () => {
       "should keep both scripts when different sources declare the same command and workdir",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const blueprint = new Blueprint({
             nodes: [serverIdentity, clientIdentity].map((identity) => ({
               _tag: "target" as const,
@@ -435,7 +432,7 @@ describe("FinalizeService", () => {
           );
         }).pipe(
           Effect.provide(
-            FinalizeService.layer.pipe(
+            Finalizer.layer.pipe(
               Layer.provide(
                 CatalogService.fromFragments(
                   [
@@ -464,7 +461,7 @@ describe("FinalizeService", () => {
       () => {
         const executed: string[] = [];
         return Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
 
           const report = yield* runToReport(svc, emptyBlueprint, makeConfig());
 
@@ -480,7 +477,7 @@ describe("FinalizeService", () => {
       "should keep executing and report the failure when one script fails",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const config = new StackConfig({
             name: Schema.NonEmptyString.make("test"),
             runtime: { _tag: "bun" },
@@ -510,7 +507,7 @@ describe("FinalizeService", () => {
       "should run module Finalize scripts before config-derived scripts when a module declares scripts",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const moduleId = ModuleId.make("shadcn-init");
           const blueprint = targetWithModule(clientIdentity, moduleId);
 
@@ -545,7 +542,7 @@ describe("FinalizeService", () => {
       "should run target Finalize scripts before module Finalize scripts when both declare scripts",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const moduleId = ModuleId.make("http-api");
           const blueprint = targetWithModule(serverIdentity, moduleId);
 
@@ -591,7 +588,7 @@ describe("FinalizeService", () => {
       "should run post-finalize scripts after config-derived scripts when a module declares a post-finalize phase",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const moduleId = ModuleId.make("workspace-devenv-git");
           const blueprint = targetWithModule(serverIdentity, moduleId);
 
@@ -624,7 +621,7 @@ describe("FinalizeService", () => {
       "should order Finalize, config-derived, then post-finalize scripts when all phases are present",
       () =>
         Effect.gen(function* () {
-          const svc = yield* FinalizeService;
+          const svc = yield* Finalizer;
           const moduleId = ModuleId.make("workspace-devenv-git");
           const blueprint = targetWithModule(serverIdentity, moduleId);
           const config = new StackConfig({

@@ -7,8 +7,7 @@ import {
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Effect, SchemaIssue } from "effect";
-import { ContributionResolver } from "../ContributionResolver";
-import type { PlanService } from "../PlanService";
+import type { ContributionResolver, Planner } from "../Plan";
 import { validatePackageOwners } from "./packageOwnership";
 import * as PlanAssessment from "./planAssessment";
 import type { PlanningIntentPath } from "./planAssessment";
@@ -78,62 +77,62 @@ const projectPlan = Effect.fnUntraced(function* ({
 });
 
 /** @internal */
-export const make = Effect.gen(function* () {
-  const contribute = yield* ContributionResolver;
-  const repositoryState = yield* RepositoryState.RepositoryState;
+export const makePlanner = (contribute: ContributionResolver["Service"]) =>
+  Effect.gen(function* () {
+    const repositoryState = yield* RepositoryState.RepositoryState;
 
-  const build = Effect.fn("PlanService.build")(function* ({
-    blueprint,
-    repositoryRoot,
-    config,
-  }: {
-    readonly blueprint: Blueprint;
-    readonly repositoryRoot: string;
-    readonly config: StackConfig;
-  }) {
-    const owners = yield* repositoryState.discoverOwners(repositoryRoot);
-    yield* validatePackageOwners(blueprint, owners);
-    const normalizedContributions = yield* contribute.resolve(
+    const build = Effect.fn("Planner.build")(function* ({
       blueprint,
+      repositoryRoot,
       config,
-    );
-    const planningPaths = yield* PlanningIntent.compile(
-      normalizedContributions,
-    );
+    }: {
+      readonly blueprint: Blueprint;
+      readonly repositoryRoot: string;
+      readonly config: StackConfig;
+    }) {
+      const owners = yield* repositoryState.discoverOwners(repositoryRoot);
+      yield* validatePackageOwners(blueprint, owners);
+      const normalizedContributions = yield* contribute.resolve(
+        blueprint,
+        config,
+      );
+      const planningPaths = yield* PlanningIntent.compile(
+        normalizedContributions,
+      );
 
-    const captured = yield* repositoryState.capture({
-      repositoryRoot,
-      paths: [
-        ...new Set([
-          repositoryRootPath,
-          ...workspaceManifestPaths,
-          ...planningPaths.flatMap((planningPath) => [
-            planningPath.path,
-            ...PlanAssessment.collectAncestorPaths(planningPath.path),
+      const captured = yield* repositoryState.capture({
+        repositoryRoot,
+        paths: [
+          ...new Set([
+            repositoryRootPath,
+            ...workspaceManifestPaths,
+            ...planningPaths.flatMap((planningPath) => [
+              planningPath.path,
+              ...PlanAssessment.collectAncestorPaths(planningPath.path),
+            ]),
           ]),
-        ]),
-      ],
-    });
-    // Keep the owners validated above so drift since validation fails the recheck below.
-    const baseline = { ...captured.baseline, packageOwners: owners };
-    const plan = yield* projectPlan({
-      planningPaths,
-      repositorySnapshot: captured.snapshot,
-      baseline,
-    });
-
-    const current = yield* repositoryState.capture({
-      repositoryRoot,
-      paths: baseline.paths.map((entry) => entry.path),
-    });
-    const changes = RepositoryState.compare(baseline, current.baseline);
-    if (changes.length > 0) {
-      return yield* new PlanFailure({
-        message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+        ],
       });
-    }
-    return plan;
-  });
+      // Keep the owners validated above so drift since validation fails the recheck below.
+      const baseline = { ...captured.baseline, packageOwners: owners };
+      const plan = yield* projectPlan({
+        planningPaths,
+        repositorySnapshot: captured.snapshot,
+        baseline,
+      });
 
-  return { build } satisfies PlanService["Service"];
-});
+      const current = yield* repositoryState.capture({
+        repositoryRoot,
+        paths: baseline.paths.map((entry) => entry.path),
+      });
+      const changes = RepositoryState.compare(baseline, current.baseline);
+      if (changes.length > 0) {
+        return yield* new PlanFailure({
+          message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
+        });
+      }
+      return plan;
+    });
+
+    return { build } satisfies Planner["Service"];
+  });

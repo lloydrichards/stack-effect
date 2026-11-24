@@ -1,6 +1,6 @@
 /**
- * Blueprint resolution: turns a Selection into the full dependency closure of
- * targets and modules it needs, checked against the catalog.
+ * Blueprint resolution: turns a Selection into the dependency closure of
+ * targets and modules a catalog provides.
  */
 import type { CatalogService } from "@repo/catalog";
 import type {
@@ -11,7 +11,7 @@ import type {
 import type { Selection } from "@repo/domain/Selection";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Context, type Effect, Layer } from "effect";
-import * as internal from "./internal/blueprintService";
+import * as internal from "./internal/blueprintResolver";
 
 /**
  * Resolves a Selection into a sorted Blueprint.
@@ -27,15 +27,15 @@ import * as internal from "./internal/blueprintService";
  * configured runtime. Targets whose paths or package names overlap fail with
  * `BlueprintFailure`.
  */
-export class BlueprintService extends Context.Service<
-  BlueprintService,
+export class BlueprintResolver extends Context.Service<
+  BlueprintResolver,
   {
     readonly resolve: (
       selection: Selection,
       config?: StackConfig,
     ) => Effect.Effect<Blueprint, BlueprintFailure | CatalogNotFound>;
   }
->()("@repo/scaffold/BlueprintService") {
-  static readonly layer: Layer.Layer<BlueprintService, never, CatalogService> =
-    Layer.effect(BlueprintService, internal.make);
+>()("@repo/scaffold/BlueprintResolver") {
+  static readonly layer: Layer.Layer<BlueprintResolver, never, CatalogService> =
+    Layer.effect(BlueprintResolver, internal.make);
 }

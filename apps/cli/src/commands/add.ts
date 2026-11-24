@@ -11,8 +11,7 @@ import {
   RecipeResolveOptions,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { RecipeService } from "@repo/scaffold/RecipeService";
-import { parseRecipeTargetSpecs } from "@repo/scaffold/RecipeTargets";
+import { parseRecipeTargetSpecs, RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   HorizontalSelect,
   type NestedModuleChild,
@@ -280,7 +279,7 @@ const resolveImplications = (targets: Array<CollectedTarget>) =>
         Effect.gen(function* () {
           const definition = yield* catalog.getModule(moduleId);
 
-          // NOTE: BlueprintService resolves required-module deps; this prompt only places implied modules.
+          // NOTE: BlueprintResolver resolves required-module deps; this prompt only places implied modules.
           yield* Effect.forEach(definition.implies ?? [], (implication) =>
             Effect.gen(function* () {
               const candidates = Arr.filter(
@@ -875,7 +874,7 @@ export const add = Command.make(
 
       const configure = yield* ConfigureService;
       const pipeline = yield* ScaffoldPipeline;
-      const recipes = yield* RecipeService;
+      const recipes = yield* RecipeResolver;
 
       const repositoryRoot = Option.getOrElse(flags.root, () => process.cwd());
 

@@ -21,7 +21,7 @@ import {
   Path,
   Schema,
 } from "effect";
-import type { ApplyService } from "../ApplyService";
+import type { Applier } from "../Apply";
 import { type ApplyWriteRequest, AtomicWriter } from "./atomicWriter";
 import * as Composition from "./composition";
 import { prepareOwnerWrites } from "./packageOwnership";
@@ -246,7 +246,7 @@ const materializeFrom = Effect.fnUntraced(function* (apply: Apply) {
 });
 
 /** @internal */
-export const make = Effect.gen(function* () {
+export const makeApplier = Effect.gen(function* () {
   const atomicWriter = yield* AtomicWriter;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -526,7 +526,7 @@ export const make = Effect.gen(function* () {
     );
   });
 
-  const apply = Effect.fn("ApplyService.apply")(function* ({
+  const apply = Effect.fn("Applier.apply")(function* ({
     apply: applyIntent,
     repositoryRoot,
   }: {
@@ -558,5 +558,5 @@ export const make = Effect.gen(function* () {
     return toApplyResult({ skippedPaths, writeAttempts });
   });
 
-  return { apply } satisfies ApplyService["Service"];
+  return { apply } satisfies Applier["Service"];
 });

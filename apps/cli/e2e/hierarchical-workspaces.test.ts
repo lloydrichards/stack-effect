@@ -11,8 +11,8 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -103,7 +103,7 @@ for (const mode of modes) {
       ...("monorepo" in mode ? { monorepo: mode.monorepo } : {}),
     });
     const services = Layer.mergeAll(
-      BlueprintService.layer,
+      BlueprintResolver.layer,
       ApplyWorkspaces.layer,
     ).pipe(
       Layer.provideMerge(officialCatalogLayerWith([{ targets: [], modules }])),
@@ -116,7 +116,7 @@ for (const mode of modes) {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
           const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-          const resolver = yield* BlueprintService;
+          const resolver = yield* BlueprintResolver;
           const workspaces = yield* ApplyWorkspaces;
           const blueprint = yield* resolver.resolve(
             {

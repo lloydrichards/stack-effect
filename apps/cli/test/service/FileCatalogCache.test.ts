@@ -1,6 +1,6 @@
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
+import { CatalogCache } from "@repo/scaffold/Catalog";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import { fileCatalogCacheLayer } from "../../src/service/FileCatalogCache";
 

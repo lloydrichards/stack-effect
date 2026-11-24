@@ -7,9 +7,9 @@ import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it } from "@effect/vitest";
 import { CatalogService } from "@repo/catalog";
 import { Apply } from "@repo/domain/Apply";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { PlanService } from "@repo/scaffold/PlanService";
+import { ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Planner } from "@repo/scaffold/Plan";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import {
   app,
@@ -191,8 +191,8 @@ describe("ApplyWorkspaces", () => {
         Effect.provide(
           Layer.provideMerge(
             Layer.mergeAll(
-              BlueprintService.layer,
-              PlanService.layer,
+              BlueprintResolver.layer,
+              Planner.layer,
               ApplyWorkspaces.layer,
             ),
             hostLayer,
@@ -274,7 +274,7 @@ describe("ApplyWorkspaces", () => {
         yield* writeFiles({});
         const seeded = yield* plan(app("pair"));
         const workspaces = yield* ApplyWorkspaces;
-        const blueprints = yield* BlueprintService;
+        const blueprints = yield* BlueprintResolver;
         const workspace = yield* workspaces.fromRepository({
           repositoryRoot,
           baseline: seeded.baseline,

@@ -14,8 +14,8 @@ import type {
 } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Effect, Layer, Schema } from "effect";
 import { module, ProviderCatalogLayer, target } from "./fixtures/scaffold";
 
@@ -40,7 +40,7 @@ const resolve = (
   providerStrategy: RecipeProviderStrategy = { _tag: "fail-on-ambiguous" },
 ) =>
   Effect.gen(function* () {
-    const recipes = yield* RecipeService;
+    const recipes = yield* RecipeResolver;
     return yield* recipes.resolve({ targets }, { config, providerStrategy });
   });
 
@@ -50,7 +50,7 @@ const modulesOn = (selection: Selection, targetKey: string) =>
     ?.modules.map((module) => module.id);
 
 const resolveLayer = <E>(catalog: Layer.Layer<CatalogService, E>) =>
-  Layer.merge(RecipeService.layer, BlueprintService.layer).pipe(
+  Layer.merge(RecipeResolver.layer, BlueprintResolver.layer).pipe(
     Layer.provide(catalog),
   );
 
@@ -138,7 +138,7 @@ const strategies: ReadonlyArray<RecipeProviderStrategy> = [
   { _tag: "first-provider" },
 ];
 
-describe("RecipeService", () => {
+describe("RecipeResolver", () => {
   layer(TestLayer)("resolve", (it) => {
     it.effect(
       "should add the only provider when a selected module requires a capability",
@@ -152,7 +152,7 @@ describe("RecipeService", () => {
             ModuleId.make("secrets-env"),
           ]);
 
-          const blueprints = yield* BlueprintService;
+          const blueprints = yield* BlueprintResolver;
           const blueprint = yield* blueprints.resolve(selection, config);
           assert.isTrue(
             blueprint.nodes.some(
@@ -335,7 +335,7 @@ describe("RecipeService", () => {
         "should select the hard-required provider instead of choosing another",
         () =>
           Effect.gen(function* () {
-            const blueprints = yield* BlueprintService;
+            const blueprints = yield* BlueprintResolver;
             const cases = [
               {
                 recipe: recipeTarget("package", "db", "hard-repository"),

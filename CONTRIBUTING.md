@@ -99,7 +99,7 @@ Commands use `Command.make()` from `effect/cli`:
 2. Register it in `apps/cli/src/index.ts` via `Command.withSubcommands()`
 3. Add UI components in `apps/cli/src/components/` if needed
 
-Commands access scaffold services (`BlueprintService`, `PlanService`, etc.) through Effect's context. See existing commands for the pattern.
+Commands access scaffold services (`BlueprintResolver`, `Planner`, etc.) through Effect's context. See existing commands for the pattern.
 
 ```bash
 bun run test --filter=stack-effect
@@ -108,9 +108,9 @@ bun run type-check
 
 ### Fixing Bugs in Scaffold Logic
 
-Each public module in `packages/scaffold/src/` is one pipeline service, such as `BlueprintService.ts`, `PlanService.ts`, `ApplyService.ts`, and `FinalizeService.ts`. Import it through its package subpath, such as `@repo/scaffold/PlanService`. Deep implementations live in `src/internal/`, which the package does not export.
+Each public module in `packages/scaffold/src/` is one pipeline service, such as `BlueprintResolver.ts`, `Planner.ts`, `Applier.ts`, and `Finalizer.ts`. Import it through its package subpath, such as `@repo/scaffold/Planner`. Deep implementations live in `src/internal/`, which the package does not export.
 
-Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/BlueprintService.test.ts`), and use `@effect/vitest`:
+Tests live in `packages/scaffold/test/`, named after the public module they exercise (e.g., `test/BlueprintResolver.test.ts`), and use `@effect/vitest`:
 
 ```typescript
 import { describe, layer } from "@effect/vitest";

@@ -1,7 +1,7 @@
-import { makeRuntime } from "@repo/domain/StackConfig";
-("use client");
+"use client";
 
-import { defaultsForRuntime } from "@repo/scaffold/StackConfigDefaults";
+import { makeRuntime } from "@repo/domain/StackConfig";
+import { defaultsForRuntime } from "@repo/scaffold/Recipe";
 import { useSelector } from "@tanstack/react-form";
 import { String as Str } from "effect";
 import { Check } from "lucide-react";

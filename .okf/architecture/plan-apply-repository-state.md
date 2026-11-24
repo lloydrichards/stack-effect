@@ -14,10 +14,10 @@ sources:
     resource: ../../packages/scaffold/src/internal/repositoryState.ts
     title: Repository capture, baseline, and freshness checks
   - id: planning
-    resource: ../../packages/scaffold/src/PlanService.ts
+    resource: ../../packages/scaffold/src/Plan.ts
     title: Plan construction
   - id: execution
-    resource: ../../packages/scaffold/src/ApplyService.ts
+    resource: ../../packages/scaffold/src/Apply.ts
     title: Apply behavior
   - id: writing
     resource: ../../packages/scaffold/src/internal/atomicWriter.ts
@@ -33,7 +33,7 @@ Status: Implemented for Plan, preview, and Apply.
 
 Without a repository baseline, Apply could read newer contents when composing a file or overwrite a file that changed after planning. Preview could show a different host state from the one Plan classified. See the [scaffold lifecycle](scaffold-lifecycle.md "describes implemented behavior").
 
-`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryState` captures the relevant paths as text, fingerprints existing text files, and verifies their current state against the baseline. `PlanService` checks the capture again before returning. Apply and preview check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. Preview runs the same Apply in a private memory filesystem after checking the source repository.
+`Plan.baseline` now stores the canonical root and the state of inspected paths. `RepositoryState` captures the relevant paths as text, fingerprints existing text files, and verifies their current state against the baseline. `Planner` checks the capture again before returning. Apply and preview check the baseline before reading or writing. Apply checks each target and its ancestors again before writing. A stale error reports changed paths and, after partial publication, the paths already written. Preview runs the same Apply in a private memory filesystem after checking the source repository.
 
 ## Decision
 

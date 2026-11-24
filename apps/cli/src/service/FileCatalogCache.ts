@@ -3,7 +3,7 @@ import {
   type CatalogCacheEntry,
   CatalogCacheFailure,
 } from "@repo/domain/Catalog";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
+import { CatalogCache } from "@repo/scaffold/Catalog";
 import {
   Config,
   Effect,

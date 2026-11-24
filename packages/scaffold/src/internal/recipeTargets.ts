@@ -1,8 +1,3 @@
-/**
- * The `kind/name[:module,...]` target syntax that CLI flags and Recipe Builder
- * URLs use to describe recipe targets, and the merging rules for repeated
- * targets.
- */
 import {
   type ModuleId,
   TargetIdentity,
@@ -38,26 +33,7 @@ const targetParts = (value: string) => {
   };
 };
 
-/**
- * Decodes one `kind/name[:module-id,...]` string into a recipe target spec,
- * and encodes it back.
- *
- * **When to use**
- *
- * Decode `--target` flags and Recipe Builder URL parameters.
- *
- * **Gotchas**
- *
- * The name must be a valid target name and cannot contain `:`. A trailing
- * `:` with no module IDs is rejected.
- *
- * **Example**
- *
- * ```ts
- * Schema.decodeUnknownSync(RecipeTargetString)("server/api:server-http-api")
- * // { target: { kind: "server", name: "api" }, modules: ["server-http-api"] }
- * ```
- */
+/** @internal */
 export const RecipeTargetString = Schema.String.check(
   Schema.makeFilter((value) => {
     const parts = targetParts(value);
@@ -93,17 +69,12 @@ export const RecipeTargetString = Schema.String.check(
   }),
 );
 
+/** @internal */
 export type RecipeTargetString = typeof RecipeTargetString.Type;
 
 const encodeRecipeTargetSpec = Schema.encodeSync(RecipeTargetString);
 
-/**
- * Encodes recipe target specs as `kind/name[:module-id,...]` strings.
- *
- * **When to use**
- *
- * Write targets into a shareable URL or command line.
- */
+/** @internal */
 export const encodeRecipeTargetSpecs = (
   specs: ReadonlyArray<RecipeTargetSpecType>,
 ): Array<string> => specs.map((spec) => encodeRecipeTargetSpec(spec));
@@ -111,31 +82,13 @@ export const encodeRecipeTargetSpecs = (
 const renderRecipeTargetSpec = (spec: RecipeTargetSpecType): string =>
   `${spec.target.kind}/${spec.target.name}:${spec.modules.join(",")}`;
 
-/**
- * One target and the modules requested for it, after parsing.
- *
- * **When to use**
- *
- * Collect targets before merging them with `mergeRecipeTargets`.
- */
+/** @internal */
 export type ParsedRecipeTarget = {
   readonly target: TargetIdentity;
   readonly modules: ReadonlyArray<ModuleId>;
 };
 
-/**
- * Merges targets with the same key, keeping first-seen order and each
- * module's first occurrence.
- *
- * **When to use**
- *
- * Combine targets from several flags or sources into one recipe.
- *
- * **Gotchas**
- *
- * The last target for a key supplies its identity, so callers that want
- * another identity pass it on every target with that key.
- */
+/** @internal */
 export const mergeRecipeTargets = (
   targets: ReadonlyArray<ParsedRecipeTarget>,
 ): Array<ParsedRecipeTarget> => {
@@ -174,18 +127,7 @@ const recipeTargetSpecToCollected = Effect.fnUntraced(function* (
   return { target: spec.target, modules: spec.modules };
 });
 
-/**
- * Validates decoded target specs and merges repeated targets.
- *
- * **When to use**
- *
- * Turn decoded `--target` flags into the targets of a recipe.
- *
- * **Gotchas**
- *
- * Fails with a message when one spec repeats a module ID. Repeating a target
- * across specs is allowed and merges them.
- */
+/** @internal */
 export const parseRecipeTargetSpecs: (
   specs: ReadonlyArray<RecipeTargetSpec>,
 ) => Effect.Effect<Array<ParsedRecipeTarget>, string> = Effect.fnUntraced(

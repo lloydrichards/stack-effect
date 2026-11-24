@@ -12,7 +12,7 @@ import {
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
 } from "@repo/domain/StackConfig";
-import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
+import { StackConfigDefaults } from "@repo/scaffold/Recipe";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
 

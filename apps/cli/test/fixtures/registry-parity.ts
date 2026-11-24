@@ -15,10 +15,9 @@ import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { RecipePreviewInput } from "@repo/domain/Recipe";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { CatalogCache } from "@repo/scaffold/CatalogCache";
-import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
-import { RecipeService } from "@repo/scaffold/RecipeService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Effect, Layer, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
@@ -66,20 +65,20 @@ const expectedBlueprint = await Effect.runPromise(
       officialUrl: sourceUrl,
     });
     return yield* Effect.gen(function* () {
-      const selection = yield* (yield* RecipeService).resolve(
+      const selection = yield* (yield* RecipeResolver).resolve(
         request.input.recipe,
         {
           config: request.input.config,
           providerStrategy: { _tag: "fail-on-ambiguous" },
         },
       );
-      return yield* (yield* BlueprintService).resolve(
+      return yield* (yield* BlueprintResolver).resolve(
         selection,
         request.input.config,
       );
     }).pipe(
       Effect.provide(
-        Layer.merge(RecipeService.layer, BlueprintService.layer).pipe(
+        Layer.merge(RecipeResolver.layer, BlueprintResolver.layer).pipe(
           Layer.provideMerge(Layer.succeed(CatalogService, catalog)),
         ),
       ),

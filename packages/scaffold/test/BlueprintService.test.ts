@@ -7,7 +7,7 @@ import {
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, Layer, Schema } from "effect";
 
 const domainIdentity = new TargetIdentity({
@@ -44,11 +44,11 @@ const denoConfig = new StackConfig({
   typescript: "6",
 });
 
-const TestLayer = BlueprintService.layer.pipe(
+const TestLayer = BlueprintResolver.layer.pipe(
   Layer.provide(OfficialCatalogLayer),
 );
 
-describe("BlueprintService", () => {
+describe("BlueprintResolver", () => {
   layer(TestLayer)("resolve", (it) => {
     describe("when validating selections", () => {
       for (const names of [
@@ -59,9 +59,9 @@ describe("BlueprintService", () => {
           `should reject overlapping packages when ${names.join(" and ")} are selected`,
           () =>
             Effect.gen(function* () {
-              const blueprintService = yield* BlueprintService;
+              const blueprintResolver = yield* BlueprintResolver;
               const error = yield* Effect.flip(
-                blueprintService.resolve({
+                blueprintResolver.resolve({
                   targets: names.map((name) => ({
                     identity: new TargetIdentity({
                       kind: TargetKind.make("package"),
@@ -79,9 +79,9 @@ describe("BlueprintService", () => {
 
       it.effect("should fail when the same target is selected twice", () =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
+          const blueprintResolver = yield* BlueprintResolver;
           const error = yield* Effect.flip(
-            blueprintService.resolve({
+            blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -109,9 +109,9 @@ describe("BlueprintService", () => {
 
       it.effect("should fail when the same module is selected twice", () =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
+          const blueprintResolver = yield* BlueprintResolver;
           const error = yield* Effect.flip(
-            blueprintService.resolve({
+            blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -138,9 +138,9 @@ describe("BlueprintService", () => {
         "should fail when a module is not supported by the selected target",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const error = yield* Effect.flip(
-              blueprintService.resolve({
+              blueprintResolver.resolve({
                 targets: [
                   {
                     identity: new TargetIdentity({
@@ -165,9 +165,9 @@ describe("BlueprintService", () => {
 
       it.effect("should propagate a missing module catalog lookup", () =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
+          const blueprintResolver = yield* BlueprintResolver;
           const error = yield* Effect.flip(
-            blueprintService.resolve({
+            blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -193,9 +193,9 @@ describe("BlueprintService", () => {
         "should fail when incompatible modules resolve on one target",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const error = yield* Effect.flip(
-              blueprintService.resolve({
+              blueprintResolver.resolve({
                 targets: [
                   {
                     identity: new TargetIdentity({
@@ -222,8 +222,8 @@ describe("BlueprintService", () => {
         "should allow compatible modules when they share a presentation category",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -256,8 +256,8 @@ describe("BlueprintService", () => {
         "should resolve a required capability through one explicitly selected provider",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: dbIdentity,
@@ -286,8 +286,8 @@ describe("BlueprintService", () => {
         "should not add Todo RPC contracts for an HTTP-only Todo selection",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: serverApiIdentity,
@@ -317,9 +317,9 @@ describe("BlueprintService", () => {
         "should reject a required capability without exactly one selected provider",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const error = yield* Effect.flip(
-              blueprintService.resolve({
+              blueprintResolver.resolve({
                 targets: [
                   {
                     identity: dbIdentity,
@@ -343,9 +343,9 @@ describe("BlueprintService", () => {
         "should reject a required capability with multiple selected providers",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const error = yield* Effect.flip(
-              blueprintService.resolve({
+              blueprintResolver.resolve({
                 targets: [
                   {
                     identity: dbIdentity,
@@ -371,9 +371,9 @@ describe("BlueprintService", () => {
         "should reject multiple providers even without a capability consumer",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const error = yield* Effect.flip(
-              blueprintService.resolve({
+              blueprintResolver.resolve({
                 targets: [
                   {
                     identity: dbIdentity,
@@ -398,8 +398,8 @@ describe("BlueprintService", () => {
         "should imply required targets and modules when server-http-api is selected",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -483,12 +483,12 @@ describe("BlueprintService", () => {
         "should resolve same-kind required modules on the selected target",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const cliCustomIdentity = new TargetIdentity({
               kind: TargetKind.make("cli"),
               name: "sdk/custom",
             });
-            const blueprint = yield* blueprintService.resolve({
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: cliCustomIdentity,
@@ -523,8 +523,8 @@ describe("BlueprintService", () => {
         "should keep distinct target ids when app kinds share the same name",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -557,8 +557,8 @@ describe("BlueprintService", () => {
         "should resolve the config-typescript-vite module on client selections",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve({
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [
                 {
                   identity: new TargetIdentity({
@@ -595,12 +595,12 @@ describe("BlueprintService", () => {
         "should attach target-required modules for client even when none are selected",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
+            const blueprintResolver = yield* BlueprintResolver;
             const identity = new TargetIdentity({
               kind: TargetKind.make("client-react"),
               name: "required",
             });
-            const blueprint = yield* blueprintService.resolve({
+            const blueprint = yield* blueprintResolver.resolve({
               targets: [{ identity, modules: [] }],
             });
 
@@ -626,8 +626,8 @@ describe("BlueprintService", () => {
         "should resolve a supported Deno server and its dependencies",
         () =>
           Effect.gen(function* () {
-            const blueprintService = yield* BlueprintService;
-            const blueprint = yield* blueprintService.resolve(
+            const blueprintResolver = yield* BlueprintResolver;
+            const blueprint = yield* blueprintResolver.resolve(
               {
                 targets: [
                   {
@@ -654,12 +654,12 @@ describe("BlueprintService", () => {
 
       it.effect("should resolve a Deno client and its Vite dependency", () =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
+          const blueprintResolver = yield* BlueprintResolver;
           const client = new TargetIdentity({
             kind: TargetKind.make("client-react"),
             name: "web",
           });
-          const blueprint = yield* blueprintService.resolve(
+          const blueprint = yield* blueprintResolver.resolve(
             { targets: [{ identity: client, modules: [] }] },
             denoConfig,
           );
@@ -679,9 +679,9 @@ describe("BlueprintService", () => {
 
       it.effect("should reject Turbo for Deno before planning", () =>
         Effect.gen(function* () {
-          const blueprintService = yield* BlueprintService;
+          const blueprintResolver = yield* BlueprintResolver;
           const failure = yield* Effect.flip(
-            blueprintService.resolve(
+            blueprintResolver.resolve(
               {
                 targets: [
                   {

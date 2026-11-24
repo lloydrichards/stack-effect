@@ -19,7 +19,7 @@ sources:
   - id: official-service
     resource: ../../catalogs/official/src/service.ts
   - id: loader
-    resource: ../../packages/scaffold/src/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
   - id: preset-discovery
     resource: ../../apps/docs/app/workers/recipe-builder/recipe-builder.worker.ts
   - id: preset-projection
@@ -27,7 +27,7 @@ sources:
   - id: preset-editor
     resource: ../../apps/docs/app/components/recipe-builder/target-selector/use-target-editor.ts
   - id: provider-resolution
-    resource: ../../packages/scaffold/src/internal/recipeService.ts
+    resource: ../../packages/scaffold/src/internal/recipeResolver.ts
     title: Recipe capability provider resolution
   - id: recipe-errors
     resource: ../../packages/domain/src/Recipe.ts
@@ -75,7 +75,7 @@ A module contributes only to its owning target. Cross-target effects use tagged 
 
 ## Capability provider resolution
 
-`RecipeService.resolve` resolves providers before it returns the Selection. It walks every module the Blueprint would attach: selected modules, target required modules, `required-module` dependencies, and providers it adds, until nothing changes. A requirement is met when the Selection already has a module on the dependency target that provides the capability. A non-package dependency on the requester's own kind means the requester's target, as in Blueprint.
+`RecipeResolver.resolve` resolves providers before it returns the Selection. It walks every module the Blueprint would attach: selected modules, target required modules, `required-module` dependencies, and providers it adds, until nothing changes. A requirement is met when the Selection already has a module on the dependency target that provides the capability. A non-package dependency on the requester's own kind means the requester's target, as in Blueprint.
 
 Capability requirements wait until the walk has reached every hard dependency: target required modules and `required-module` dependencies. When a module Blueprint attaches that way already provides the capability on the dependency target, that module joins the Selection and no strategy applies, because Blueprint reads providers from the Selection.
 

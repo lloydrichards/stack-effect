@@ -4,14 +4,11 @@ import {
   selectsOfficialCatalog,
 } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { ApplyService } from "@repo/scaffold/ApplyService";
-import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { ContributionResolver } from "@repo/scaffold/ContributionResolver";
-import { FinalizeService } from "@repo/scaffold/FinalizeService";
-import { PlanService } from "@repo/scaffold/PlanService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
-import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
+import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Finalizer } from "@repo/scaffold/Finalize";
+import { ContributionResolver, Planner } from "@repo/scaffold/Plan";
+import { RecipeResolver, StackConfigDefaults } from "@repo/scaffold/Recipe";
 import { Effect, Layer, type Option } from "effect";
 import { CatalogProvider } from "./service/CatalogProvider";
 import { CatalogSelection } from "./service/CatalogSelection";
@@ -19,14 +16,14 @@ import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
 const StackEffectServicesLayer = Layer.mergeAll(
-  ApplyService.layer,
+  Applier.layer,
   ApplyWorkspaces.layer,
-  BlueprintService.layer,
+  BlueprintResolver.layer,
   ContributionResolver.layer,
-  FinalizeService.layer,
-  PlanService.layer,
+  Finalizer.layer,
+  Planner.layer,
   ConfigureService.layer,
-  RecipeService.layer,
+  RecipeResolver.layer,
   ScaffoldPipeline.layer,
 );
 

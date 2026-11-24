@@ -1,6 +1,6 @@
 import { BunServices, BunCrypto } from "@effect/platform-bun";
 import { NodeServices, NodeCrypto } from "@effect/platform-node";
-import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
+import { CatalogLoader } from "@repo/scaffold/Catalog";
 import { Config, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { CatalogProvider } from "./service/CatalogProvider";

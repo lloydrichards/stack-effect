@@ -82,7 +82,7 @@ const importedNames = (contents: string) =>
         .filter((name) => name !== ""),
   );
 
-describe("ApplyService", () => {
+describe("Applier", () => {
   it.effect("should write every created file and report its path", () =>
     Effect.gen(function* () {
       yield* writeFiles({});

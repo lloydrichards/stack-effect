@@ -13,7 +13,7 @@ sources:
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader
-    resource: ../../packages/scaffold/src/CatalogLoader.ts
+    resource: ../../packages/scaffold/src/Catalog.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 
@@ -116,7 +116,7 @@ Connected terms:
 
 In code:
 
-- `CatalogService.getSource`, the `source` field on scripts from `FinalizeService.scripts`
+- `CatalogService.getSource`, the `source` field on scripts from `Finalizer.scripts`
 
 ## CatalogIssueCode
 
