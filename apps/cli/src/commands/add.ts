@@ -8,10 +8,11 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  parseRecipeTargetSpecs,
   RecipeResolveOptions,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { parseRecipeTargetSpecs, RecipeResolver } from "@repo/scaffold/Recipe";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   HorizontalSelect,
   type NestedModuleChild,

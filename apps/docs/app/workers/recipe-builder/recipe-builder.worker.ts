@@ -14,9 +14,9 @@ import {
   formatCatalogSource,
   type LoadedCatalogSource,
 } from "@repo/domain/Catalog";
+import { toWorkspaceToolValue } from "@repo/domain/StackConfig";
 import { RecipePreviewer } from "@repo/scaffold/Apply";
 import { CatalogLoader, type LoadedCatalogSet } from "@repo/scaffold/Catalog";
-import { toWorkspaceToolValue } from "@repo/scaffold/Recipe";
 import {
   Data,
   Effect,

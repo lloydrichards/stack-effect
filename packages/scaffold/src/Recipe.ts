@@ -1,20 +1,18 @@
 /**
- * Recipes: resolve user intent into a Selection, with the stack configuration
- * defaults, tool-to-module mapping, and target specs that feed it.
+ * Recipes: resolve user intent into a Selection against the loaded catalog. The
+ * service-free pieces, target spec syntax and stack configuration defaults, live
+ * in `@repo/domain/Recipe` and `@repo/domain/StackConfig`.
  */
 import type { CatalogService } from "@repo/catalog";
 import type {
   RecipeResolveError,
   RecipeResolveOptions,
   RecipeSpec,
-  RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
-import type { RuntimeName, StackConfig } from "@repo/domain/StackConfig";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Context, type Effect, Layer } from "effect";
 import * as internal from "./internal/recipeResolver";
-import * as recipeTargets from "./internal/recipeTargets";
-import * as stackConfigDefaults from "./internal/stackConfigDefaults";
 
 /**
  * Resolves recipes into Selections and renders `create` commands.
@@ -56,133 +54,3 @@ export class RecipeResolver extends Context.Service<
   static readonly layer: Layer.Layer<RecipeResolver, never, CatalogService> =
     Layer.effect(RecipeResolver, internal.make);
 }
-
-/**
- * Decodes one `kind/name[:module-id,...]` string into a recipe target spec,
- * and encodes it back.
- *
- * **When to use**
- *
- * Decode `--target` flags and Recipe Builder URL parameters.
- *
- * **Gotchas**
- *
- * The name must be a valid target name and cannot contain `:`. A trailing
- * `:` with no module IDs is rejected.
- *
- * **Example**
- *
- * ```ts
- * Schema.decodeUnknownSync(RecipeTargetString)("server/api:server-http-api")
- * // { target: { kind: "server", name: "api" }, modules: ["server-http-api"] }
- * ```
- */
-export const RecipeTargetString: typeof recipeTargets.RecipeTargetString =
-  recipeTargets.RecipeTargetString;
-
-export type RecipeTargetString = recipeTargets.RecipeTargetString;
-
-/**
- * Encodes recipe target specs as `kind/name[:module-id,...]` strings.
- *
- * **When to use**
- *
- * Write targets into a shareable URL or command line.
- */
-export const encodeRecipeTargetSpecs: (
-  specs: ReadonlyArray<RecipeTargetSpec>,
-) => Array<string> = recipeTargets.encodeRecipeTargetSpecs;
-
-/**
- * One target and the modules requested for it, after parsing.
- *
- * **When to use**
- *
- * Read the targets `parseRecipeTargetSpecs` returns, with repeats merged.
- */
-export type ParsedRecipeTarget = recipeTargets.ParsedRecipeTarget;
-
-/**
- * Validates decoded target specs and merges repeated targets.
- *
- * **When to use**
- *
- * Turn decoded `--target` flags into the targets of a recipe.
- *
- * **Gotchas**
- *
- * Fails with a message when one spec repeats a module ID. Repeating a target
- * across specs is allowed and merges them.
- */
-export const parseRecipeTargetSpecs: (
-  specs: ReadonlyArray<RecipeTargetSpec>,
-) => Effect.Effect<Array<ParsedRecipeTarget>, string> =
-  recipeTargets.parseRecipeTargetSpecs;
-
-/**
- * The configuration a recipe uses for every field the user leaves unset.
- *
- * **When to use**
- *
- * Read it to prefill configuration prompts and forms. Provide a different
- * value to change the defaults, such as for a custom-only catalog selection.
- */
-export const StackConfigDefaults: Context.Reference<StackConfig> =
-  stackConfigDefaults.StackConfigDefaults;
-
-/**
- * Adjusts tool defaults for a runtime. Deno, for example, defaults to
- * TypeScript 6 with no monorepo, lint, or format tool.
- *
- * **When to use**
- *
- * Recompute the suggested tools when the user changes the runtime.
- *
- * **Gotchas**
- *
- * A runtime override of `undefined` clears that default rather than keeping
- * it. TypeScript falls back to `"6"` when no default names a version.
- */
-export const defaultsForRuntime: (
-  defaults: stackConfigDefaults.RuntimeDefaults,
-  runtime: RuntimeName,
-) => stackConfigDefaults.RuntimeDefaults & { readonly typescript: "6" | "7" } =
-  stackConfigDefaults.defaultsForRuntime;
-
-/**
- * Maps a configured tool to its workspace module ID.
- *
- * **When to use**
- *
- * Turn a `lint`, `format`, or tool setting into the module a recipe adds.
- *
- * **Gotchas**
- *
- * `biome` maps to different modules for lint and format. An unknown value is
- * returned unchanged, so custom catalogs can name their own module IDs.
- */
-export const toWorkspaceModuleId: (
-  category: "lint" | "format" | "tool",
-  toolValue: string,
-) => string = stackConfigDefaults.toWorkspaceModuleId;
-
-/**
- * Maps a workspace module ID back to its configuration tool name.
- *
- * **When to use**
- *
- * Show catalog modules as configuration choices. Unknown IDs are returned
- * unchanged.
- */
-export const toWorkspaceToolValue: (moduleId: string) => string =
-  stackConfigDefaults.toWorkspaceToolValue;
-
-/**
- * The workspace module ID for a TypeScript version.
- *
- * **When to use**
- *
- * Add the TypeScript module that matches the configured version.
- */
-export const toTypeScriptModuleId: (version: "6" | "7") => string =
-  stackConfigDefaults.toTypeScriptModuleId;

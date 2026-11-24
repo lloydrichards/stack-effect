@@ -11,8 +11,8 @@ import {
   Runtime,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
+  StackConfigDefaults,
 } from "@repo/domain/StackConfig";
-import { StackConfigDefaults } from "@repo/scaffold/Recipe";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
 

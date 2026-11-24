@@ -9,22 +9,22 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  parseRecipeTargetSpecs,
   RecipeResolveOptions,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/StackConfig";
+import {
+  defaultsForRuntime,
+  StackConfig,
+  StackConfigDefaults,
+  toTypeScriptModuleId,
+  toWorkspaceModuleId,
+} from "@repo/domain/StackConfig";
 import { Applier } from "@repo/scaffold/Apply";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Finalizer } from "@repo/scaffold/Finalize";
 import { ContributionResolver, Planner } from "@repo/scaffold/Plan";
-import {
-  defaultsForRuntime,
-  parseRecipeTargetSpecs,
-  RecipeResolver,
-  StackConfigDefaults,
-  toTypeScriptModuleId,
-  toWorkspaceModuleId,
-} from "@repo/scaffold/Recipe";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   Array as Arr,
   Console,

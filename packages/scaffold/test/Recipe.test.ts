@@ -11,20 +11,13 @@ import {
 } from "@repo/domain/Catalog";
 import {
   type RecipeProviderStrategy,
-  RecipeResolveOptions,
   RecipeSpec,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
-import { StackConfig } from "@repo/domain/StackConfig";
+import { StackConfig, StackConfigDefaults } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
-import {
-  defaultsForRuntime,
-  parseRecipeTargetSpecs,
-  RecipeResolver,
-  RecipeTargetString,
-  StackConfigDefaults,
-} from "@repo/scaffold/Recipe";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Effect, Layer, Schema } from "effect";
 import { module, ProviderCatalogLayer, target } from "./fixtures/scaffold";
 
@@ -379,94 +372,6 @@ describe("RecipeResolver", () => {
   );
 });
 
-describe("recipe target specs", () => {
-  describe("recipe target syntax", () => {
-    it.each(["server/sdk/api:server-http-api", "package/sdk/client"])(
-      "should retain nested names when parsing %s",
-      (value) => {
-        const spec = Schema.decodeSync(RecipeTargetString)(value);
-        assert.strictEqual(
-          spec.target.kind,
-          value.startsWith("server") ? "server" : "package",
-        );
-        assert.strictEqual(
-          spec.target.name,
-          value.startsWith("server") ? "sdk/api" : "sdk/client",
-        );
-        assert.strictEqual(Schema.encodeSync(RecipeTargetString)(spec), value);
-      },
-    );
-    it.each([
-      "server/sdk//api",
-      "package/",
-      "server/sdk/../api",
-      "server/api:",
-      "server/api: , ",
-    ])("should reject target syntax when parsing malformed %s", (value) => {
-      assert.throws(() => Schema.decodeSync(RecipeTargetString)(value));
-    });
-  });
-
-  describe("parseRecipeTargetSpecs", () => {
-    it("should keep the last identity when target specs share a key", () => {
-      const decode = Schema.decodeSync(RecipeTargetString);
-      const targets = Effect.runSync(
-        parseRecipeTargetSpecs([
-          decode("server/Api:server-http-api"),
-          decode("server/api:server-http-rpc"),
-        ]),
-      );
-
-      assert.deepStrictEqual(targets, [
-        {
-          target: new TargetIdentity({
-            kind: TargetKind.make("server"),
-            name: "api",
-          }),
-          modules: [
-            ModuleId.make("server-http-api"),
-            ModuleId.make("server-http-rpc"),
-          ],
-        },
-      ]);
-    });
-  });
-});
-
-describe("StackConfigDefaults", () => {
-  const defaults = {
-    name: "example",
-    runtime: { _tag: "bun" as const },
-    typescript: "7" as const,
-    monorepo: "vite-plus",
-    lint: "oxlint",
-    format: "oxfmt",
-    test: "vitest",
-  };
-
-  it("keeps the configured defaults for Bun and Node", () => {
-    for (const runtime of ["bun", "node"] as const) {
-      assert.deepStrictEqual(defaultsForRuntime(defaults, runtime), {
-        typescript: "7",
-        monorepo: "vite-plus",
-        lint: "oxlint",
-        format: "oxfmt",
-        test: "vitest",
-      });
-    }
-  });
-
-  it("uses Deno defaults without copying unrelated configuration fields", () => {
-    assert.deepStrictEqual(defaultsForRuntime(defaults, "deno"), {
-      typescript: "6",
-      monorepo: undefined,
-      lint: undefined,
-      format: undefined,
-      test: "vitest",
-    });
-  });
-});
-
 describe("RecipeResolver with the official catalog", () => {
   const testConfigFields = {
     name: "recipe-app",
@@ -503,80 +408,6 @@ describe("RecipeResolver with the official catalog", () => {
       moduleIds,
     );
   };
-
-  describe("schemas", () => {
-    it("should decode target specs when the command provides plain recipe input", () => {
-      const spec = Schema.decodeSync(RecipeSpec)({
-        targets: [
-          {
-            target: { kind: "server", name: "api" },
-            modules: ["server-http-api"],
-          },
-          {
-            target: { kind: "client-react", name: "web" },
-            modules: ["client-react-vite"],
-          },
-        ],
-      });
-
-      assert.strictEqual(spec.targets[0]?.target.toKey(), "apps/server-api");
-      assert.deepStrictEqual(spec.targets[0]?.modules, [
-        ModuleId.make("server-http-api"),
-      ]);
-      assert.strictEqual(
-        spec.targets[1]?.target.toKey(),
-        "apps/client-react-web",
-      );
-    });
-
-    it("should decode provider strategy variants when recipe resolution options are parsed", () => {
-      const strategyOf = (providerStrategy: unknown) =>
-        Schema.decodeUnknownSync(RecipeResolveOptions)({
-          config: testConfig,
-          providerStrategy,
-        }).providerStrategy;
-
-      assert.deepStrictEqual(strategyOf({ _tag: "fail-on-ambiguous" }), {
-        _tag: "fail-on-ambiguous",
-      });
-      assert.deepStrictEqual(strategyOf({ _tag: "first-provider" }), {
-        _tag: "first-provider",
-      });
-
-      const explicit = strategyOf({
-        _tag: "explicit",
-        providers: [
-          {
-            target: { kind: "package", name: "db" },
-            capability: "db-sql",
-            moduleId: "package-db-postgres",
-          },
-        ],
-      });
-
-      if (explicit._tag !== "explicit") {
-        assert.fail("Expected explicit provider strategy.");
-      }
-
-      assert.strictEqual(explicit.providers[0]?.target.toKey(), "packages/db");
-      assert.strictEqual(
-        explicit.providers[0]?.capability,
-        ModuleCapability.make("db-sql"),
-      );
-    });
-
-    it("should decode resolve options when config and provider strategy are provided", () => {
-      const options = Schema.decodeSync(RecipeResolveOptions)({
-        config: testConfig,
-        providerStrategy: { _tag: "first-provider" },
-      });
-
-      assert.strictEqual(options.config.name, testConfig.name);
-      assert.deepStrictEqual(options.providerStrategy, {
-        _tag: "first-provider",
-      });
-    });
-  });
 
   describe("resolve", () => {
     it.effect("should select the Nx workspace module when configured", () =>

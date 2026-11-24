@@ -11,17 +11,15 @@ import {
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import {
+  defaultsForRuntime,
   makeRuntime,
   runtimeForPackageManager,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
+  StackConfigDefaults,
 } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
-import {
-  defaultsForRuntime,
-  RecipeResolver,
-  StackConfigDefaults,
-} from "@repo/scaffold/Recipe";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Array as Arr, Console, Effect, Option } from "effect";
 import { Command } from "effect/cli";
 import {

@@ -7,14 +7,15 @@ import {
   selectsOfficialCatalog,
 } from "@repo/domain/Catalog";
 import { RecipeResolveOptions } from "@repo/domain/Recipe";
-import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/StackConfig";
-import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import {
   defaultsForRuntime,
-  RecipeResolver,
+  makeRuntime,
+  STACK_CONFIG_SCHEMA_URL,
   StackConfigDefaults,
   toWorkspaceToolValue,
-} from "@repo/scaffold/Recipe";
+} from "@repo/domain/StackConfig";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Confirm, MultiSelect, Select, TextInput } from "@repo/tui";
 import { Console, Effect, Option } from "effect";
 import { Ansi, Box } from "effect-boxes";

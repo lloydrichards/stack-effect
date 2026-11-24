@@ -9,29 +9,27 @@ import {
 } from "@repo/domain/Catalog";
 import {
   AmbiguousRecipeProvider,
+  encodeRecipeTargetSpecs,
   InvalidRecipeProvider,
   InvalidRecipeSpec,
+  mergeRecipeTargets,
   MissingRecipeProvider,
+  type ParsedRecipeTarget,
   type RecipeProviderStrategy,
   type RecipeResolveOptions,
   type RecipeSpec,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import type { Selection } from "@repo/domain/Selection";
-import { StackConfig } from "@repo/domain/StackConfig";
-import { Array as Arr, Effect, Option } from "effect";
-import type { RecipeResolver } from "../Recipe";
-import {
-  encodeRecipeTargetSpecs,
-  mergeRecipeTargets,
-  type ParsedRecipeTarget,
-} from "./recipeTargets";
 import {
   defaultsForRuntime,
+  StackConfig,
   StackConfigDefaults,
   toTypeScriptModuleId,
   toWorkspaceModuleId,
-} from "./stackConfigDefaults";
+} from "@repo/domain/StackConfig";
+import { Array as Arr, Effect, Option } from "effect";
+import type { RecipeResolver } from "../Recipe";
 
 // Matches the runtimes Blueprint assumes for a definition that names none.
 const DEFAULT_SUPPORTED_RUNTIMES: ReadonlyArray<SupportedRuntime> = [

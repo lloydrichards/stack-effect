@@ -1,5 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/StackConfig";
+import {
+  defaultsForRuntime,
+  STACK_CONFIG_SCHEMA_URL,
+  StackConfig,
+} from "@repo/domain/StackConfig";
 import { Schema } from "effect";
 
 describe("StackConfig TypeScript version", () => {
@@ -68,5 +72,39 @@ describe("StackConfig Deno runtime", () => {
     assert.strictEqual(config.runtimeName, "deno");
     assert.strictEqual(config.packageManagerName, "deno");
     assert.strictEqual(config.workspaceDependency, "workspace:*");
+  });
+});
+
+describe("StackConfigDefaults", () => {
+  const defaults = {
+    name: "example",
+    runtime: { _tag: "bun" as const },
+    typescript: "7" as const,
+    monorepo: "vite-plus",
+    lint: "oxlint",
+    format: "oxfmt",
+    test: "vitest",
+  };
+
+  it("keeps the configured defaults for Bun and Node", () => {
+    for (const runtime of ["bun", "node"] as const) {
+      assert.deepStrictEqual(defaultsForRuntime(defaults, runtime), {
+        typescript: "7",
+        monorepo: "vite-plus",
+        lint: "oxlint",
+        format: "oxfmt",
+        test: "vitest",
+      });
+    }
+  });
+
+  it("uses Deno defaults without copying unrelated configuration fields", () => {
+    assert.deepStrictEqual(defaultsForRuntime(defaults, "deno"), {
+      typescript: "6",
+      monorepo: undefined,
+      lint: undefined,
+      format: undefined,
+      test: "vitest",
+    });
   });
 });
