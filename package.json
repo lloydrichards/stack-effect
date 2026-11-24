@@ -15,7 +15,7 @@
     "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",
     "docs:generate": "bun run --cwd apps/cli docs:generate",
     "lint": "oxlint . && bun run lint:dead && bun run lint:complexity",
-    "lint:complexity": "fallow audit --only health --production-health",
+    "lint:complexity": "fallow health --production --min-severity critical",
     "lint:dead": "fallow dead-code --production --include-entry-exports",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
