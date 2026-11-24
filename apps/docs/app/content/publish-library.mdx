@@ -24,14 +24,10 @@ One `package.json` describes both workspace use and npm publication. It exports 
 
 After installing workspace dependencies, run `npm run example` from `packages/sdk`. It builds the library and prints `Hello, Effect!`.
 
-The public entry point exports a small Effect you can build on:
+The public entry point exports a plain function you can build on:
 
 ```ts
-import { Effect } from "effect";
-
-export const greet = Effect.fnUntraced(function* (name: string) {
-  return yield* Effect.succeed(`Hello, ${name}!`);
-});
+export const greet = (name: string) => `Hello, ${name}!`;
 ```
 
 `scripts/example.mjs` imports `greet` through the package name and runs it. Edit the greeting or use the script to try additional public exports.
