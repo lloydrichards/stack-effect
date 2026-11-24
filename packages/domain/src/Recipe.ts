@@ -25,13 +25,19 @@ export const RecipeSpec = Schema.Struct({
 export type RecipeSpec = typeof RecipeSpec.Type;
 
 /**
- * How recipe resolution picks a provider module when several satisfy a
- * capability.
+ * How recipe resolution picks a provider module for a required capability that
+ * the recipe leaves unmet.
  *
  * **When to use**
  *
- * Pass it inside `RecipeResolveOptions`. Use `explicit` to record choices a
- * user already made.
+ * Pass it inside `RecipeResolveOptions`. Use `fail-on-ambiguous` when a user
+ * must choose between alternatives, `first-provider` when any provider will
+ * do, and `explicit` to record choices a user already made.
+ *
+ * **Gotchas**
+ *
+ * Every strategy adds the only candidate when there is one. `explicit` falls
+ * back to `fail-on-ambiguous` for requirements it does not name.
  */
 export const RecipeProviderStrategy = Schema.TaggedUnion({
   "fail-on-ambiguous": {},
@@ -87,3 +93,65 @@ export class InvalidRecipeSpec extends Schema.TaggedError<InvalidRecipeSpec>()(
     return `Invalid recipe: ${this.issues.map((issue) => issue.message).join("; ")}`;
   }
 }
+
+/**
+ * A selected module requires a capability on a target, and no module in the
+ * selected catalogs provides it there for the configured runtime.
+ *
+ * **When to use**
+ *
+ * Handle it where a recipe is resolved; `requestingModuleId`, `target`, and
+ * `capability` identify the unmet requirement.
+ */
+export class MissingRecipeProvider extends Schema.TaggedError<MissingRecipeProvider>()(
+  "MissingRecipeProvider",
+  {
+    requestingModuleId: ModuleId,
+    target: TargetIdentity,
+    capability: ModuleCapability,
+  },
+) {
+  override get message(): string {
+    return `Module "${this.requestingModuleId}" requires capability "${this.capability}" on ${this.target.toKey()}, but no module in the selected catalogs provides it there for this runtime. Select a provider module explicitly or add a catalog that provides one.`;
+  }
+}
+
+/**
+ * A module that can provide a required capability.
+ */
+export const RecipeProviderCandidate = Schema.Struct({
+  moduleId: ModuleId,
+  title: Schema.String,
+  description: Schema.String,
+});
+
+export type RecipeProviderCandidate = typeof RecipeProviderCandidate.Type;
+
+/**
+ * A selected module requires a capability on a target, several modules can
+ * provide it, and the provider strategy does not choose between them.
+ *
+ * **When to use**
+ *
+ * Handle it where a recipe is resolved; `providers` lists the candidates in
+ * catalog order so a caller can ask the user to pick one.
+ */
+export class AmbiguousRecipeProvider extends Schema.TaggedError<AmbiguousRecipeProvider>()(
+  "AmbiguousRecipeProvider",
+  {
+    requestingModuleId: ModuleId,
+    target: TargetIdentity,
+    capability: ModuleCapability,
+    providers: Schema.Array(RecipeProviderCandidate),
+  },
+) {
+  override get message(): string {
+    return `Module "${this.requestingModuleId}" requires capability "${this.capability}" on ${this.target.toKey()}, and several modules provide it: ${this.providers.map((provider) => `${provider.moduleId} (${provider.title})`).join(", ")}. Select one of them on ${this.target.toKey()} explicitly.`;
+  }
+}
+
+/** Failures `RecipeService.resolve` can return. */
+export type RecipeResolveError =
+  | InvalidRecipeSpec
+  | MissingRecipeProvider
+  | AmbiguousRecipeProvider;

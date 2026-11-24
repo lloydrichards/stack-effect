@@ -1,7 +1,17 @@
 import { CatalogService } from "@repo/catalog";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
+  type ModuleCapability,
+  type ModuleDefinition,
+  ModuleId,
+  type SupportedRuntime,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
+import {
+  AmbiguousRecipeProvider,
   InvalidRecipeSpec,
+  MissingRecipeProvider,
+  type RecipeProviderStrategy,
   type RecipeResolveOptions,
   type RecipeSpec,
   type RecipeTargetSpec,
@@ -20,6 +30,12 @@ import {
   StackConfigDefaults,
 } from "../StackConfigDefaults";
 import { toTypeScriptModuleId, toWorkspaceModuleId } from "../WorkspaceModules";
+
+// Matches the runtimes Blueprint assumes for a definition that names none.
+const DEFAULT_SUPPORTED_RUNTIMES: ReadonlyArray<SupportedRuntime> = [
+  "bun",
+  "node",
+];
 
 const quoteShellArg = (value: string) =>
   /^[A-Za-z0-9_./:,@+-]+$/.test(value)
@@ -127,6 +143,63 @@ const resolveTargetIdentity = Effect.fnUntraced(function* (
   });
 });
 
+// Mirrors Blueprint: a non-package dependency on the requester's own kind
+// means the requester's target.
+const dependencyTargetOf = (
+  requester: TargetIdentity,
+  dependencyTarget: TargetIdentity,
+) =>
+  dependencyTarget.kind !== "package" &&
+  dependencyTarget.kind === requester.kind
+    ? requester
+    : dependencyTarget;
+
+const supportsRuntime = (definition: ModuleDefinition, config: StackConfig) =>
+  (definition.supportedRuntimes ?? DEFAULT_SUPPORTED_RUNTIMES).includes(
+    config.runtimeName,
+  );
+
+type ProviderRequirement = {
+  readonly requestingModuleId: ModuleId;
+  readonly target: TargetIdentity;
+  readonly capability: ModuleCapability;
+};
+
+const chooseProvider = Effect.fnUntraced(function* (
+  strategy: RecipeProviderStrategy,
+  requirement: ProviderRequirement,
+  candidates: ReadonlyArray<ModuleDefinition>,
+) {
+  const named =
+    strategy._tag === "explicit"
+      ? strategy.providers.find(
+          (provider) =>
+            provider.target.toKey() === requirement.target.toKey() &&
+            provider.capability === requirement.capability,
+        )
+      : undefined;
+  // Blueprint validates a named provider like any other selected module.
+  if (named !== undefined) return named.moduleId;
+
+  const [first, ...others] = candidates;
+  if (first === undefined) {
+    return yield* new MissingRecipeProvider(requirement);
+  }
+
+  if (others.length === 0 || strategy._tag === "first-provider") {
+    return first.id;
+  }
+
+  return yield* new AmbiguousRecipeProvider({
+    ...requirement,
+    providers: candidates.map(({ id, title, description }) => ({
+      moduleId: id,
+      title,
+      description,
+    })),
+  });
+});
+
 const toSelection = (
   targets: ReadonlyArray<ParsedRecipeTarget>,
 ): Selection => ({
@@ -202,6 +275,115 @@ export const make = Effect.gen(function* () {
     if (issues.length > 0) return yield* new InvalidRecipeSpec({ issues });
   });
 
+  const findModule = (moduleId: ModuleId) =>
+    catalog.getModule(moduleId).pipe(Effect.option);
+
+  const targetRequiredModules = (identity: TargetIdentity) =>
+    catalog.getTarget(identity.kind).pipe(
+      Effect.map((definition) => definition.requiredModules ?? []),
+      Effect.orElseSucceed((): ReadonlyArray<ModuleId> => []),
+    );
+
+  // Adds a provider for each required capability the recipe leaves unmet,
+  // walking the modules Blueprint would attach until nothing changes. Unknown
+  // modules and targets are skipped here so Blueprint reports them.
+  const addCapabilityProviders = Effect.fnUntraced(function* (
+    targets: ReadonlyArray<ParsedRecipeTarget>,
+    options: RecipeResolveOptions,
+  ) {
+    const selected = targets.map(({ target, modules }) => ({
+      target,
+      modules: [...modules],
+    }));
+    const findSelected = (identity: TargetIdentity) =>
+      selected.find(({ target }) => target.toKey() === identity.toKey());
+
+    const pending: Array<{ target: TargetIdentity; moduleId: ModuleId }> = [];
+    const enqueueTarget = Effect.fnUntraced(function* (
+      target: TargetIdentity,
+      modules: ReadonlyArray<ModuleId>,
+    ) {
+      for (const moduleId of [
+        ...modules,
+        ...(yield* targetRequiredModules(target)),
+      ]) {
+        pending.push({ target, moduleId });
+      }
+    });
+    for (const { target, modules } of selected) {
+      yield* enqueueTarget(target, modules);
+    }
+
+    const visited = new Set<string>();
+    for (
+      let next = pending.shift();
+      next !== undefined;
+      next = pending.shift()
+    ) {
+      const key = `${next.target.toKey()}#${next.moduleId}`;
+      if (visited.has(key)) continue;
+      visited.add(key);
+
+      const definition = yield* findModule(next.moduleId);
+      if (Option.isNone(definition)) continue;
+
+      for (const dependency of definition.value.dependencies) {
+        if (dependency._tag === "required-module") {
+          pending.push({
+            target: dependencyTargetOf(next.target, dependency.target),
+            moduleId: dependency.moduleId,
+          });
+          continue;
+        }
+        if (dependency._tag !== "required-capability") continue;
+
+        const requirement = {
+          requestingModuleId: next.moduleId,
+          target: dependencyTargetOf(next.target, dependency.target),
+          capability: dependency.capability,
+        };
+        const dependencyTarget = findSelected(requirement.target);
+
+        // Several selected providers stay for Blueprint to reject.
+        const selectedProviders = yield* Effect.filter(
+          dependencyTarget?.modules ?? [],
+          (moduleId) =>
+            findModule(moduleId).pipe(
+              Effect.map((provider) =>
+                Option.exists(provider, ({ provides }) =>
+                  (provides ?? []).includes(requirement.capability),
+                ),
+              ),
+            ),
+        );
+        if (selectedProviders.length > 0) continue;
+
+        const candidates = catalog
+          .getCapabilityProviders({
+            capability: requirement.capability,
+            target: requirement.target,
+          })
+          .filter((candidate) => supportsRuntime(candidate, options.config));
+        const providerId = yield* chooseProvider(
+          options.providerStrategy,
+          requirement,
+          candidates,
+        );
+
+        if (dependencyTarget === undefined) {
+          // Blueprint looks the provider up under the dependency's own key.
+          selected.push({ target: requirement.target, modules: [providerId] });
+          yield* enqueueTarget(requirement.target, [providerId]);
+        } else if (!dependencyTarget.modules.includes(providerId)) {
+          dependencyTarget.modules.push(providerId);
+          pending.push({ target: requirement.target, moduleId: providerId });
+        }
+      }
+    }
+
+    return selected;
+  });
+
   const resolve = Effect.fn("RecipeService.resolve")(function* (
     recipe: RecipeSpec,
     options: RecipeResolveOptions,
@@ -237,14 +419,14 @@ export const make = Effect.gen(function* () {
       }
     }
 
-    return toSelection(
-      mergeRecipeTargets(
-        targets.map(({ target, modules }) => ({
-          target: firstIdentities.get(target.toKey()) ?? target,
-          modules,
-        })),
-      ),
+    const merged = mergeRecipeTargets(
+      targets.map(({ target, modules }) => ({
+        target: firstIdentities.get(target.toKey()) ?? target,
+        modules,
+      })),
     );
+
+    return toSelection(yield* addCapabilityProviders(merged, options));
   });
 
   const renderCreateCommand = ({

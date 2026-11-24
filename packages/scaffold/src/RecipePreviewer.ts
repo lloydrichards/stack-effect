@@ -7,7 +7,7 @@ import { Apply, ApplyFailure, type StalePlanFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
-import type { InvalidRecipeSpec } from "@repo/domain/Recipe";
+import type { RecipeResolveError } from "@repo/domain/Recipe";
 import {
   RecipePreview,
   type RecipePreviewInput,
@@ -32,7 +32,7 @@ const StackConfigFromJsonString = Schema.fromJsonString(StackConfig, {
 });
 
 type RecipePreviewError =
-  | InvalidRecipeSpec
+  | RecipeResolveError
   | BlueprintFailure
   | PlanFailure
   | CatalogNotFound

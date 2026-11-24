@@ -4,7 +4,7 @@
  */
 import type { CatalogService } from "@repo/catalog";
 import type {
-  InvalidRecipeSpec,
+  RecipeResolveError,
   RecipeResolveOptions,
   RecipeSpec,
 } from "@repo/domain/Recipe";
@@ -25,7 +25,12 @@ import * as internal from "./internal/recipeService";
  * **Gotchas**
  *
  * `resolve` adds the workspace modules the configuration implies, such as the
- * TypeScript, monorepo, lint, format, and test tools. `renderCreateCommand`
+ * TypeScript, monorepo, lint, format, and test tools. It also adds a provider
+ * module for each required capability the recipe leaves unmet, following
+ * `providerStrategy`: `fail-on-ambiguous` adds the only candidate and fails
+ * with `AmbiguousRecipeProvider` when there are several, `first-provider`
+ * adds the first candidate in catalog order, and both fail with
+ * `MissingRecipeProvider` when there is none. `renderCreateCommand`
  * omits flags whose values match the runtime's defaults.
  */
 export class RecipeService extends Context.Service<
@@ -34,7 +39,7 @@ export class RecipeService extends Context.Service<
     readonly resolve: (
       spec: RecipeSpec,
       options: RecipeResolveOptions,
-    ) => Effect.Effect<Selection, InvalidRecipeSpec>;
+    ) => Effect.Effect<Selection, RecipeResolveError>;
     readonly renderCreateCommand: (options: {
       readonly config: StackConfig;
       readonly selection: Selection;
