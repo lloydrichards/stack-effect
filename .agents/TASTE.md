@@ -209,7 +209,7 @@ Export only what another module uses in production code. A test is not a caller.
 | `effecttsgo/node-builtin-import` | `.oxlintrc.json` | A Node built-in import outside tests, `tools/`, and docs scripts. Use the platform service |
 | `effecttsgo/effect-try-without-catch` | `.oxlintrc.json` | `Effect.try` without a `catch` that maps to a typed error |
 | `unicorn/prefer-array-flat-map` | `.oxlintrc.json` | `.map(…).flat()` |
-| `effecttsgo/global-json`, `no-nested-ternary` | `.oxlintrc.json`, `packages/domain/src` and `packages/scaffold/src` | `JSON.parse` or `JSON.stringify`, such as a string equality key, and a nested ternary. Use `Schema.fromJsonString`, `Equal` or a named `Equivalence`, and a lookup table or `Match` |
+| `effecttsgo/global-json`, `no-nested-ternary` | `.oxlintrc.json`, `packages/domain/src`, `packages/scaffold/src`, `packages/catalog/src`, and `apps/cli/src` | `JSON.parse` or `JSON.stringify`, such as a string equality key, and a nested ternary. Use `Schema.fromJsonString`, `Equal` or a named `Equivalence`, and a lookup table or `Match` |
 | `max-depth` 3, `max-nested-callbacks` 4 | same scope | Blocks nested more than three deep and callback pyramids. Flatten with `flatMap` or a named step |
 | `shape/max-inputs` 4 | [`tools/oxlint/shape.mjs`](../tools/oxlint/shape.mjs), same scope | A function with more than four inputs, counting destructured fields |
 | `shape/no-push-accumulator` | `shape.mjs`, same scope | An empty collection filled in a loop that never reads it, and `reduce` with a collection seed |
