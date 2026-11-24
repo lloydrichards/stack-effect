@@ -207,7 +207,7 @@ describe("ScaffoldPipeline", () => {
           const exit = yield* Effect.exit(pipeline.run({ ...runInput, yes }));
 
           assert.containSubset(squashFailure(exit), {
-            _tag: "DependencyConflictFailure",
+            _tag: "DependencyConflict",
             message:
               "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
           });
@@ -244,7 +244,7 @@ describe("ScaffoldPipeline", () => {
       const error = squashFailure(exit);
 
       assert.containSubset(error, {
-        _tag: "FinalizeScriptFailure",
+        _tag: "FinalizeScriptError",
         message: "1 finalize script(s) failed.",
         failed: 1,
       });

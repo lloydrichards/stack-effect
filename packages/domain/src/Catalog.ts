@@ -1,6 +1,5 @@
 import {
   Array as Arr,
-  Data,
   Effect,
   Equal,
   type Graph,
@@ -12,11 +11,14 @@ import {
 } from "effect";
 import { Url } from "effect/http";
 
-export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
-  catalog: "target" | "module";
-  entity: "target-kind" | "module";
-  id: string;
-}> {
+export class CatalogNotFound extends Schema.TaggedError<CatalogNotFound>()(
+  "CatalogNotFound",
+  {
+    catalog: Schema.Literals(["target", "module"]),
+    entity: Schema.Literals(["target-kind", "module"]),
+    id: Schema.String,
+  },
+) {
   override get message(): string {
     return `Catalog ${this.entity} "${this.id}" was not found.`;
   }
@@ -579,11 +581,11 @@ export const CatalogCapabilityIssue = Schema.Struct({
   subject: CatalogIssueSubject,
   capability: Schema.String,
 });
-export type CatalogCapabilityIssue = typeof CatalogCapabilityIssue.Type;
 
-export class CatalogValidationError extends Data.TaggedError(
+export class CatalogValidationError extends Schema.TaggedError<CatalogValidationError>()(
   "CatalogValidationError",
-)<{ readonly details: ReadonlyArray<CatalogIssue> }> {
+  { details: Schema.Array(CatalogIssue) },
+) {
   get issues(): ReadonlyArray<string> {
     return this.details.map((issue) => issue.message);
   }
@@ -593,9 +595,10 @@ export class CatalogValidationError extends Data.TaggedError(
   }
 }
 
-export class CatalogCapabilityError extends Data.TaggedError(
+export class CatalogCapabilityError extends Schema.TaggedError<CatalogCapabilityError>()(
   "CatalogCapabilityError",
-)<{ readonly details: ReadonlyArray<CatalogCapabilityIssue> }> {
+  { details: Schema.Array(CatalogCapabilityIssue) },
+) {
   get capabilities(): ReadonlyArray<string> {
     return [...new Set(this.details.map((issue) => issue.capability))];
   }
@@ -836,8 +839,8 @@ export type CatalogCacheEntry = typeof CatalogCacheEntry.Type;
  * Fail a `CatalogCache` operation with it. Catalog loading treats it as a
  * cache miss or a persistence warning, never as a load failure.
  */
-export class CatalogCacheFailure extends Schema.TaggedError<CatalogCacheFailure>()(
-  "CatalogCacheFailure",
+export class CatalogCacheError extends Schema.TaggedError<CatalogCacheError>()(
+  "CatalogCacheError",
   {
     message: Schema.String,
     cause: Schema.optional(Schema.Defect()),
@@ -912,7 +915,7 @@ export class CatalogContentTooLarge extends Schema.TaggedError<CatalogContentToo
  *
  * **When to use**
  *
- * Match on `CatalogLoadFailure.reason._tag` to choose a message or a retry.
+ * Match on `CatalogLoadError.reason._tag` to choose a message or a retry.
  * Only `CatalogUnavailable` and `CatalogTimedOut` are transient.
  */
 const CatalogLoadReason = Schema.Union([
@@ -927,18 +930,18 @@ const CatalogLoadReason = Schema.Union([
   CatalogCapabilityUnsupported,
   CatalogContentTooLarge,
 ]);
-export type CatalogLoadReason = typeof CatalogLoadReason.Type;
 
 /**
  * A selected catalog source had no usable document.
  *
  * **When to use**
  *
- * Handle it wherever catalog sources are loaded; `message` already names the
- * source URL, and `reason` says what went wrong.
+ * Handle it wherever catalog sources are loaded; `reason` says what went
+ * wrong. A failure from `loadSources` names the source in `message` and
+ * carries the failure that names the URL as its `cause`.
  */
-export class CatalogLoadFailure extends Schema.TaggedError<CatalogLoadFailure>()(
-  "CatalogLoadFailure",
+export class CatalogLoadError extends Schema.TaggedError<CatalogLoadError>()(
+  "CatalogLoadError",
   {
     reason: CatalogLoadReason,
     sourceUrl: Schema.String,
@@ -994,15 +997,15 @@ const describeSource = (source: LoadedCatalogSource) =>
  *
  * **When to use**
  *
- * Handle it next to `CatalogLoadFailure` when loading several sources.
+ * Handle it next to `CatalogLoadError` when loading several sources.
  *
  * **Gotchas**
  *
  * When any source came from cache, the message suggests retrying once the
  * sources are reachable, because they may compose after a refresh.
  */
-export class CatalogCompositionFailure extends Schema.TaggedError<CatalogCompositionFailure>()(
-  "CatalogCompositionFailure",
+export class CatalogCompositionError extends Schema.TaggedError<CatalogCompositionError>()(
+  "CatalogCompositionError",
   {
     issues: Schema.Array(CatalogIssue),
     sources: Schema.Array(LoadedCatalogSource),

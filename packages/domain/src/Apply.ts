@@ -60,13 +60,10 @@ export class Apply extends Schema.Class<Apply>("Apply")(
   ),
 ) {}
 
-export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
-  "ApplyFailure",
-  {
-    message: Schema.String,
-    cause: Schema.optional(Schema.Defect()),
-  },
-) {}
+export class ApplyError extends Schema.TaggedError<ApplyError>()("ApplyError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 
 const ApplyFailedPath = Schema.Struct({
   path: RepositoryPath,
@@ -113,14 +110,11 @@ export const StalePlanChange = Schema.Struct({
 export type StalePlanChange = typeof StalePlanChange.Type;
 
 /** A Plan no longer describes the repository being previewed or written. */
-export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(
-  "StalePlanFailure",
-  {
-    message: Schema.String,
-    changes: Schema.Array(StalePlanChange),
-    partialResult: ApplyResult,
-  },
-) {}
+export class StalePlan extends Schema.TaggedError<StalePlan>()("StalePlan", {
+  message: Schema.String,
+  changes: Schema.Array(StalePlanChange),
+  partialResult: ApplyResult,
+}) {}
 
 /**
  * A file an Apply created or modified, read back with its final contents.

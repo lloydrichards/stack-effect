@@ -1,6 +1,6 @@
 import {
   type PlanEntryClassification,
-  PlanFailure,
+  PlanError,
   PlanOutcome,
   type RepoSnapshot,
   RepositoryPath,
@@ -64,7 +64,7 @@ const registerManifest = Effect.fnUntraced(function* (
   if (path === "pnpm-workspace.yaml") {
     const document = parseDocument(contents);
     if (document.errors.length > 0)
-      return yield* new PlanFailure({
+      return yield* new PlanError({
         message: `Invalid pnpm-workspace.yaml: ${document.errors.map((error) => error.message).join("; ")}`,
         cause: document.errors,
       });
@@ -74,7 +74,7 @@ const registerManifest = Effect.fnUntraced(function* (
     )(isSeq(sequence) ? sequence.toJSON() : undefined).pipe(
       Effect.mapError(
         (cause) =>
-          new PlanFailure({
+          new PlanError({
             message: "Expected a packages sequence in pnpm-workspace.yaml.",
             cause,
           }),
@@ -96,8 +96,8 @@ const registerManifest = Effect.fnUntraced(function* (
   const object = yield* Schema.decodeEffect(jsonObject)(contents).pipe(
     Effect.mapError(
       (cause) =>
-        new PlanFailure({
-          message: `Could not read workspace membership in ${path}: ${cause.message}`,
+        new PlanError({
+          message: `Could not read workspace membership in ${path}`,
           cause,
         }),
     ),
@@ -109,7 +109,7 @@ const registerManifest = Effect.fnUntraced(function* (
   )(object[field]).pipe(
     Effect.mapError(
       (cause) =>
-        new PlanFailure({
+        new PlanError({
           message: `Expected ${field} to be an array of paths in ${path}.`,
           cause,
         }),
@@ -117,7 +117,7 @@ const registerManifest = Effect.fnUntraced(function* (
   );
   const paths = mergeMembers(entries, members);
   if (outcome?._tag === "complete") {
-    const updated = `${yield* Schema.encodeEffect(jsonObject)({ ...object, [field]: paths }).pipe(Effect.mapError((cause) => new PlanFailure({ message: cause.message, cause })))}\n`;
+    const updated = `${yield* Schema.encodeEffect(jsonObject)({ ...object, [field]: paths }).pipe(Effect.mapError((cause) => new PlanError({ message: `Could not encode ${path}`, cause })))}\n`;
     return {
       ...outcome,
       contents: updated,

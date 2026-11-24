@@ -17,10 +17,10 @@ import {
   Array as Arr,
   Console,
   Context,
-  Data,
   Effect,
   Layer,
   Result,
+  Schema,
   Stream,
 } from "effect";
 import { Ansi, Box } from "effect-boxes";
@@ -34,19 +34,20 @@ import {
   trustNotes,
 } from "./CatalogSelection";
 
-class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
-  message: string;
-  retry?: boolean;
-}> {}
+class ScaffoldAborted extends Schema.TaggedError<ScaffoldAborted>()(
+  "ScaffoldAborted",
+  { message: Schema.String, retry: Schema.optional(Schema.Boolean) },
+) {}
 
-class DependencyConflictFailure extends Data.TaggedError(
-  "DependencyConflictFailure",
-)<{ message: string }> {}
+class DependencyConflict extends Schema.TaggedError<DependencyConflict>()(
+  "DependencyConflict",
+  { message: Schema.String },
+) {}
 
-class FinalizeScriptFailure extends Data.TaggedError("FinalizeScriptFailure")<{
-  message: string;
-  failed: number;
-}> {}
+class FinalizeScriptError extends Schema.TaggedError<FinalizeScriptError>()(
+  "FinalizeScriptError",
+  { message: Schema.String, failed: Schema.Number },
+) {}
 
 type PreviewScript = Parameters<typeof scriptKey>[0] & {
   readonly label: string;
@@ -102,7 +103,7 @@ const resolveConflictDecisions = <E, R>({
         (conflict) => conflict._tag === "dependencies",
       );
       if (dependencyConflicts.length > 0) {
-        return yield* new DependencyConflictFailure({
+        return yield* new DependencyConflict({
           message: `Cannot apply modules with required dependency conflicts at ${path}: ${Arr.join(
             Arr.map(dependencyConflicts, (conflict) => conflict.name),
             ", ",
@@ -398,7 +399,7 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
                 yield* Console.log(
                   `\n${report.failed} finalize script(s) failed. See errors above.`,
                 );
-                return yield* new FinalizeScriptFailure({
+                return yield* new FinalizeScriptError({
                   message: `${report.failed} finalize script(s) failed.`,
                   failed: report.failed,
                 });

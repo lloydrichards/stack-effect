@@ -96,13 +96,10 @@ const PlanBaseline = Schema.Struct({
 
 export type PlanBaseline = typeof PlanBaseline.Type;
 
-export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
-  "PlanFailure",
-  {
-    message: Schema.String,
-    cause: Schema.optional(Schema.Defect()),
-  },
-) {}
+export class PlanError extends Schema.TaggedError<PlanError>()("PlanError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 
 const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
   fileType: Schema.tag("json"),

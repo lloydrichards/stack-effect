@@ -7,7 +7,7 @@ import {
   CatalogSources,
 } from "@repo/domain/Catalog";
 import { RecipePreview, RecipePreviewInput } from "@repo/domain/Recipe";
-import { Option, Schema } from "effect";
+import { Cause, Option, Predicate, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 
 const CatalogChoice = Schema.Struct({
@@ -83,8 +83,8 @@ export const RecipeBuilderCatalog = Schema.Struct({
 
 export type RecipeBuilderCatalog = typeof RecipeBuilderCatalog.Type;
 
-export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpcFailure>()(
-  "RecipeBuilderRpcFailure",
+export class RecipeBuilderRpcError extends Schema.TaggedError<RecipeBuilderRpcError>()(
+  "RecipeBuilderRpcError",
   {
     message: Schema.String,
     /** The selected source that failed to load, when one did. */
@@ -99,14 +99,33 @@ export class RecipeBuilderRpcFailure extends Schema.TaggedError<RecipeBuilderRpc
     ),
     /** Sources that loaded before composition failed. */
     sources: Schema.optional(Schema.Array(RecipeBuilderCatalogSource)),
+    /** Messages along the failure's cause chain, outermost first. */
+    causes: Schema.optional(Schema.Array(Schema.String)),
   },
 ) {}
 
-export const makeRecipeBuilderRpcFailure = (
+// `Cause.prettyErrors` turns every cause into an `Error` and cuts cycles.
+const chainMessages = (error: unknown): ReadonlyArray<string> => {
+  const cause = Predicate.hasProperty(error, "cause") ? error.cause : undefined;
+  return cause instanceof Error ? [cause.message, ...chainMessages(cause)] : [];
+};
+
+/**
+ * Messages along the cause chain below `error`, each once, outermost first.
+ * The RPC error carries only strings, so the worker sends why with what.
+ */
+export const causeMessages = (error: unknown): ReadonlyArray<string> =>
+  Cause.prettyErrors(Cause.fail(error)).flatMap((pretty) =>
+    [...new Set([pretty.message, ...chainMessages(pretty)])]
+      .slice(1)
+      .filter((message) => message.length > 0),
+  );
+
+export const makeRecipeBuilderRpcError = (
   operation: "preview" | "catalog",
   error?: unknown,
 ) =>
-  new RecipeBuilderRpcFailure({
+  new RecipeBuilderRpcError({
     message: Schema.decodeUnknownOption(
       Schema.Struct({ message: Schema.String }),
     )(error).pipe(
@@ -118,13 +137,14 @@ export const makeRecipeBuilderRpcFailure = (
             : "The recipe catalog could not be loaded.",
       }),
     ),
+    causes: causeMessages(error),
   });
 
 export class RecipeBuilderRpc extends RpcGroup.make(
   Rpc.make("preview", {
     payload: { ...RecipePreviewInput.fields, sessionId: Schema.Finite },
     success: RecipePreview,
-    error: RecipeBuilderRpcFailure,
+    error: RecipeBuilderRpcError,
   }),
   Rpc.make("catalog", {
     payload: {
@@ -135,6 +155,6 @@ export class RecipeBuilderRpc extends RpcGroup.make(
       sessionId: Schema.Finite,
     },
     success: RecipeBuilderCatalog,
-    error: RecipeBuilderRpcFailure,
+    error: RecipeBuilderRpcError,
   }),
 ) {}

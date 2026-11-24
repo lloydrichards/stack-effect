@@ -4,8 +4,8 @@ import {
   isCustomCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
   OFFICIAL_CATALOG_URL,
-  type CatalogCompositionFailure,
-  CatalogLoadFailure,
+  type CatalogCompositionError,
+  CatalogLoadError,
   CatalogSourceInvalid,
   type LoadedCatalogSource,
 } from "@repo/domain/Catalog";
@@ -32,7 +32,7 @@ export class CatalogProvider extends Context.Service<
       sources: CatalogSources,
     ) => Effect.Effect<
       LoadedCatalogSet,
-      CatalogLoadFailure | CatalogCompositionFailure
+      CatalogLoadError | CatalogCompositionError
     >;
   }
 >()("CatalogProvider") {
@@ -72,7 +72,7 @@ export class CatalogProvider extends Context.Service<
                 ],
               })
             : Effect.fail(
-                new CatalogLoadFailure({
+                new CatalogLoadError({
                   reason: new CatalogSourceInvalid(),
                   sourceUrl: "local:authoring",
                   message:

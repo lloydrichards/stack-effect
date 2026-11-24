@@ -80,7 +80,7 @@ Connected terms:
 
 In code:
 
-- `Blueprint`, `BlueprintTargetNode`, `BlueprintAttachedModuleNode`, `BlueprintFailure`
+- `Blueprint`, `BlueprintTargetNode`, `BlueprintAttachedModuleNode`, `BlueprintError`
 
 ## Plan
 
@@ -104,7 +104,7 @@ Connected terms:
 
 In code:
 
-- `Plan`, `PlanFailure`
+- `Plan`, `PlanError`
 
 ## Apply
 
@@ -117,7 +117,7 @@ Invariants:
 - Decisions are path-based and currently only `override` or `skip`; each
   conflicted path receives exactly one decision regardless of how many
   diagnostics describe it.
-- Execution may fail with `ApplyFailure` reasons.
+- Execution may fail with `ApplyError` reasons.
 
 Connected terms:
 
@@ -125,7 +125,7 @@ Connected terms:
 
 In code:
 
-- `Apply`, `ApplyDecision`, `ApplyFailure`
+- `Apply`, `ApplyDecision`, `ApplyError`
 
 ## ApplyResult
 

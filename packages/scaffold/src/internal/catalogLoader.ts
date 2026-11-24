@@ -7,15 +7,14 @@ import {
   type CatalogValidationError,
   CatalogCacheEntry,
   CatalogCapabilityUnsupported,
-  CatalogCompositionFailure,
+  CatalogCompositionError,
   CatalogContentTooLarge,
   CatalogContentTypeInvalid,
   CatalogDocumentInvalid,
   CatalogFormatUnsupported,
   CatalogHttpStatusRejected,
   CatalogJsonInvalid,
-  CatalogLoadFailure,
-  type CatalogLoadReason,
+  CatalogLoadError,
   CatalogLoadWarning,
   LoadedCatalogSource,
   CatalogSourceInvalid,
@@ -34,11 +33,11 @@ const MAX_CATALOG_BYTES = 8 * MIB;
 const CATALOG_TIMEOUT_MILLIS = 15_000;
 
 // Steps fail with the reason and message; `loadDocument` attaches the source once.
-class LoadIssue extends Data.TaggedError("LoadIssue")<{
-  reason: CatalogLoadReason;
-  message: string;
-  cause?: unknown;
-}> {}
+class LoadIssue extends Schema.TaggedError<LoadIssue>()("LoadIssue", {
+  reason: CatalogLoadError.fields.reason,
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 
 type DocumentRequest<A> = {
   sourceUrl: CatalogSourceUrl;
@@ -59,7 +58,7 @@ const decodeSourceUrl = (sourceUrl: string) =>
   Schema.decodeEffect(CatalogSourceUrl)(sourceUrl).pipe(
     Effect.mapError(
       (cause) =>
-        new CatalogLoadFailure({
+        new CatalogLoadError({
           reason: new CatalogSourceInvalid(),
           sourceUrl,
           message: `Invalid catalog URL: ${sourceUrl}`,
@@ -145,7 +144,7 @@ export const make = (cache: CatalogCache["Service"]) =>
               })
             : new LoadIssue({
                 reason: new CatalogDocumentInvalid(),
-                message: `Invalid catalog from ${sourceUrl}: ${error.message}`,
+                message: `Catalog from ${sourceUrl} is not a valid catalog document.`,
                 cause: error,
               }),
         ),
@@ -351,7 +350,7 @@ export const make = (cache: CatalogCache["Service"]) =>
       }).pipe(
         Effect.mapError(
           (issue) =>
-            new CatalogLoadFailure({
+            new CatalogLoadError({
               reason: issue.reason,
               sourceUrl: request.sourceUrl,
               message: issue.message,
@@ -396,12 +395,12 @@ export const make = (cache: CatalogCache["Service"]) =>
         effect.pipe(
           Effect.mapError(
             (error) =>
-              new CatalogLoadFailure({
+              new CatalogLoadError({
                 reason: error.reason,
                 sourceUrl: error.sourceUrl,
                 sourceName: source.name,
-                message: `Catalog source ${source.name}: ${error.message}`,
-                cause: error.cause,
+                message: `Could not load catalog source ${source.name}.`,
+                cause: error,
               }),
           ),
         ),
@@ -412,7 +411,7 @@ export const make = (cache: CatalogCache["Service"]) =>
       allowFinalizeScripts = false,
     }: Parameters<CatalogLoader["Service"]["load"]>[0]): Effect.fn.Return<
       LoadedCatalog,
-      CatalogLoadFailure
+      CatalogLoadError
     > {
       const url = yield* decodeSourceUrl(sourceUrl);
       const { value, freshness } = yield* loadDocument({
@@ -448,7 +447,7 @@ export const make = (cache: CatalogCache["Service"]) =>
           )
         : undefined;
       if (officialAlias !== undefined)
-        return yield* new CatalogLoadFailure({
+        return yield* new CatalogLoadError({
           reason: new CatalogSourceInvalid(),
           sourceUrl: officialUrl,
           sourceName: officialAlias.name,
@@ -482,7 +481,7 @@ export const make = (cache: CatalogCache["Service"]) =>
         ),
         Effect.mapError(
           (error: CatalogValidationError) =>
-            new CatalogCompositionFailure({
+            new CatalogCompositionError({
               issues: error.details,
               sources: loaded.map(({ source }) => source),
               cause: error,

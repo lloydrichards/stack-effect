@@ -2,7 +2,7 @@ import {
   type CompositionOperation,
   PlanConflict,
   type PlanEntryClassification,
-  PlanFailure,
+  PlanError,
   PlanOutcome,
   type RepoSnapshotPath,
   RepositoryPath,
@@ -631,8 +631,8 @@ const getExistingFileContents = (
         file: ({ contents }) => Effect.succeed(contents),
         directory: () =>
           Effect.fail(
-            new PlanFailure({
-              message: `Expected ${path} to be a file during planning.`,
+            new PlanError({
+              message: `Expected ${path} to be a file.`,
             }),
           ),
       });

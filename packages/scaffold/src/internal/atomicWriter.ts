@@ -1,4 +1,4 @@
-import { ApplyFailure } from "@repo/domain/Apply";
+import { ApplyError } from "@repo/domain/Apply";
 import type { RepositoryPath } from "@repo/domain/Plan";
 import {
   Clock,
@@ -60,31 +60,31 @@ const InspectedPath = Data.taggedEnum<InspectedPath>();
 export type RepositoryFiles = {
   readonly read: (
     path: RepositoryPath,
-  ) => Effect.Effect<Option.Option<string>, ApplyFailure>;
+  ) => Effect.Effect<Option.Option<string>, ApplyError>;
   // `onParentDirectoryReady` runs once the parent directory exists, before the file is written.
   readonly write: (
     request: WriteRequest,
     onParentDirectoryReady: Effect.Effect<void>,
-  ) => Effect.Effect<WriteAttempt, ApplyFailure>;
+  ) => Effect.Effect<WriteAttempt, ApplyError>;
 };
 
 const expectedAttempt = (
   request: WriteRequest,
   existing: InspectedPath,
-): Effect.Effect<WriteAttempt, ApplyFailure> =>
+): Effect.Effect<WriteAttempt, ApplyError> =>
   Match.valueTags(request, {
     create: ({ path }) =>
       existing._tag === "missing"
         ? Effect.succeed(WriteAttempt.created({ path }))
         : Effect.fail(
-            new ApplyFailure({
+            new ApplyError({
               message: `Expected ${path} to be missing for create apply mode.`,
             }),
           ),
     replace: ({ path, contents, reason }) => {
       if (existing._tag !== "file") {
         return Effect.fail(
-          new ApplyFailure({
+          new ApplyError({
             message: `Expected ${path} to be an existing file for ${reason} apply mode.`,
           }),
         );
@@ -126,8 +126,8 @@ export class AtomicWriter extends Context.Service<
             .pipe(
               Effect.mapError(
                 (error) =>
-                  new ApplyFailure({
-                    message: `Could not write temporary file ${tempPath} during apply: ${error.message}`,
+                  new ApplyError({
+                    message: `Could not write temporary file ${tempPath}`,
                     cause: error,
                   }),
               ),
@@ -136,8 +136,8 @@ export class AtomicWriter extends Context.Service<
           yield* fileSystem.rename(tempPath, absolutePath).pipe(
             Effect.mapError(
               (error) =>
-                new ApplyFailure({
-                  message: `Could not rename ${tempPath} to ${absolutePath} during apply: ${error.message}`,
+                new ApplyError({
+                  message: `Could not rename ${tempPath} to ${absolutePath}`,
                   cause: error,
                 }),
             ),
@@ -159,8 +159,8 @@ export class AtomicWriter extends Context.Service<
           ),
           Effect.mapError(
             (error) =>
-              new ApplyFailure({
-                message: `Could not inspect ${absolutePath} during apply: ${error.message}`,
+              new ApplyError({
+                message: `Could not inspect ${absolutePath}`,
                 cause: error,
               }),
           ),
@@ -177,8 +177,8 @@ export class AtomicWriter extends Context.Service<
         const contents = yield* fileSystem.readFileString(absolutePath).pipe(
           Effect.mapError(
             (error) =>
-              new ApplyFailure({
-                message: `Could not read ${absolutePath} during apply: ${error.message}`,
+              new ApplyError({
+                message: `Could not read ${absolutePath}`,
                 cause: error,
               }),
           ),
@@ -198,8 +198,8 @@ export class AtomicWriter extends Context.Service<
           missing: () => Effect.succeedNone,
           directory: () =>
             Effect.fail(
-              new ApplyFailure({
-                message: `Expected ${absolutePath} to be a file during apply.`,
+              new ApplyError({
+                message: `Expected ${absolutePath} to be a file.`,
               }),
             ),
           file: ({ contents }) => Effect.succeedSome(contents),
@@ -226,8 +226,8 @@ export class AtomicWriter extends Context.Service<
           .pipe(
             Effect.mapError(
               (error) =>
-                new ApplyFailure({
-                  message: `Could not create directory ${path.dirname(absolutePath)} during apply: ${error.message}`,
+                new ApplyError({
+                  message: `Could not create directory ${path.dirname(absolutePath)}`,
                   cause: error,
                 }),
             ),

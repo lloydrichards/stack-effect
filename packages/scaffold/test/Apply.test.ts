@@ -247,7 +247,7 @@ describe("Applier", () => {
           apply(planned, decideAll(planned, "override")),
         );
 
-        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.strictEqual(failure._tag, "ApplyError");
         assert.include(failure.message, identifier);
         assert.strictEqual(yield* readFile(path), contents);
         assert.isFalse(yield* exists("packages/app/src/a.txt"));
@@ -273,7 +273,7 @@ describe("Applier", () => {
         const failure = yield* Effect.flip(fault.provide(apply(planned)));
 
         assert.isTrue(yield* fault.fired);
-        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.strictEqual(failure._tag, "ApplyError");
         assert.include(failure.message, appFile);
         assert.isFalse(yield* exists("packages/app/src/Api.ts"));
         assert.strictEqual(yield* readFile(appFile), existing);
@@ -399,7 +399,7 @@ describe("Applier", () => {
           );
 
           assert.deepStrictEqual(repeated.skipped, paths(optionsFile));
-          assert.strictEqual(changed._tag, "ApplyFailure");
+          assert.strictEqual(changed._tag, "ApplyError");
           assert.include(changed.message, "Options.input");
           assert.strictEqual(yield* readFile(optionsFile), once);
         }).pipe(Effect.provide(testPipeline)),
@@ -571,7 +571,7 @@ describe("Applier", () => {
 
             const failure = yield* Effect.flip(build);
 
-            assert.strictEqual(failure._tag, "PlanFailure");
+            assert.strictEqual(failure._tag, "PlanError");
             assert.include(failure.message, directory);
             assert.isFalse(yield* exists("packages/domain/src/Api.ts"));
           }).pipe(Effect.provide(officialLayer)),
@@ -600,7 +600,7 @@ describe("Applier", () => {
 
             const failure = yield* Effect.flip(build);
 
-            assert.strictEqual(failure._tag, "PlanFailure");
+            assert.strictEqual(failure._tag, "PlanError");
           }).pipe(Effect.provide(officialLayer)),
       );
     }
@@ -615,7 +615,7 @@ describe("Applier", () => {
 
           const failure = yield* Effect.flip(plan(packages("sdk/client")));
 
-          assert.strictEqual(failure._tag, "PlanFailure");
+          assert.strictEqual(failure._tag, "PlanError");
           assert.strictEqual(
             yield* readFile("packages/sdk-client/package.json"),
             original,
@@ -692,7 +692,7 @@ describe("Applier", () => {
 
             const failure = yield* Effect.flip(apply(planned));
 
-            assert(failure._tag === "StalePlanFailure");
+            assert(failure._tag === "StalePlan");
             assert.deepStrictEqual(failure.partialResult.created, []);
           }).pipe(Effect.provide(officialLayer)),
       );
@@ -738,7 +738,7 @@ describe("Applier", () => {
 
         const failure = yield* Effect.flip(plan(app("pair")));
 
-        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.strictEqual(failure._tag, "PlanError");
         assert.include(failure.message, "packages/app/src/a.txt");
       }).pipe(Effect.provide(testPipeline)),
     );
@@ -755,7 +755,7 @@ describe("Applier", () => {
 
         const failure = yield* Effect.flip(plan(app("pair")));
 
-        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.strictEqual(failure._tag, "PlanError");
         assert.include(failure.message, "packages/app/src/a.txt");
       }).pipe(Effect.provide(testPipeline)),
     );
@@ -773,13 +773,13 @@ describe("Applier", () => {
           const previewFailure = yield* Effect.flip(preview(planned));
           const applyFailure = yield* Effect.flip(apply(planned));
 
-          assert(previewFailure._tag === "StalePlanFailure");
+          assert(previewFailure._tag === "StalePlan");
           assert.deepInclude(previewFailure.changes, {
             path: "packages/app/src/a.txt",
             kind: "created",
           });
           assert.notInclude(previewFailure.message, "private new content");
-          assert(applyFailure._tag === "StalePlanFailure");
+          assert(applyFailure._tag === "StalePlan");
           assert.deepStrictEqual(applyFailure.partialResult.created, []);
           assert.strictEqual(
             yield* readFile("packages/app/src/a.txt"),
@@ -798,7 +798,7 @@ describe("Applier", () => {
 
           const failure = yield* Effect.flip(preview(planned, [], "/other"));
 
-          assert(failure._tag === "StalePlanFailure");
+          assert(failure._tag === "StalePlan");
           assert.deepInclude(failure.changes, {
             path: ".",
             kind: "rootChanged",
@@ -815,7 +815,7 @@ describe("Applier", () => {
 
         const second = yield* Effect.flip(apply(planned));
 
-        assert(second._tag === "StalePlanFailure");
+        assert(second._tag === "StalePlan");
         assert.deepStrictEqual(second.partialResult.created, []);
       }).pipe(Effect.provide(testPipeline)),
     );
@@ -847,7 +847,7 @@ describe("Applier", () => {
             yield* writeFiles({ [path]: original });
             const restored = yield* preview(planned);
 
-            assert(failure._tag === "StalePlanFailure");
+            assert(failure._tag === "StalePlan");
             assert.deepInclude(failure.changes, {
               path: RepositoryPath.make(path),
               kind,
@@ -868,7 +868,7 @@ describe("Applier", () => {
 
         const failure = yield* Effect.flip(preview(planned));
 
-        assert(failure._tag === "StalePlanFailure");
+        assert(failure._tag === "StalePlan");
         assert.deepInclude(failure.changes, {
           path: "packages/app/src/a.txt",
           kind: "deleted",
@@ -886,7 +886,7 @@ describe("Applier", () => {
 
           const failure = yield* Effect.flip(apply(planned));
 
-          assert(failure._tag === "StalePlanFailure");
+          assert(failure._tag === "StalePlan");
           for (const path of [
             "packages",
             "packages/app",
@@ -916,7 +916,7 @@ describe("Applier", () => {
           apply(planned, decideAll(planned, "skip")),
         );
 
-        assert(failure._tag === "StalePlanFailure");
+        assert(failure._tag === "StalePlan");
         assert.deepInclude(failure.changes, {
           path: tsconfig,
           kind: "modified",
@@ -942,7 +942,7 @@ describe("Applier", () => {
         const failure = yield* Effect.flip(fault.provide(apply(planned)));
 
         assert.isTrue(yield* fault.fired);
-        assert(failure._tag === "StalePlanFailure");
+        assert(failure._tag === "StalePlan");
         assert.deepInclude(failure.changes, { path: ".", kind: "modified" });
         assert.deepStrictEqual(
           failure.partialResult.created,
@@ -974,7 +974,7 @@ describe("Applier", () => {
           const failure = yield* Effect.flip(fault.provide(apply(planned)));
 
           assert.isTrue(yield* fault.fired);
-          assert(failure._tag === "StalePlanFailure");
+          assert(failure._tag === "StalePlan");
           assert.deepInclude(failure.changes, {
             path: "packages/app/src/a.txt",
             kind: "created",
@@ -1085,8 +1085,8 @@ describe("ApplyWorkspaces", () => {
         const previewed = yield* Effect.flip(preview(planned));
         const applied = yield* Effect.flip(apply(planned));
 
-        assert.strictEqual(previewed._tag, "ApplyFailure");
-        assert.strictEqual(applied._tag, "ApplyFailure");
+        assert.strictEqual(previewed._tag, "ApplyError");
+        assert.strictEqual(applied._tag, "ApplyError");
         assert.strictEqual(previewed.message, applied.message);
         assert.isFalse(yield* exists(manifest));
       }).pipe(Effect.provide(foreignNamePipeline)),
@@ -1199,7 +1199,7 @@ describe("ApplyWorkspaces", () => {
         workspace.materialize(new Apply({ plan: planned, decisions: [] })),
       );
 
-      assert(failure._tag === "StalePlanFailure");
+      assert(failure._tag === "StalePlan");
       assert.deepInclude(failure.changes, {
         path: "packages/app/src/a.txt",
         kind: "created",
@@ -1228,7 +1228,7 @@ describe("ApplyWorkspaces", () => {
           workspace.materialize(new Apply({ plan: other, decisions: [] })),
         );
 
-        assert.strictEqual(failure._tag, "ApplyFailure");
+        assert.strictEqual(failure._tag, "ApplyError");
         assert.isFalse(yield* exists(tsconfig));
       }).pipe(Effect.provide(testPipeline)),
   );

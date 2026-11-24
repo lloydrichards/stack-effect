@@ -5,9 +5,9 @@
 import type { CatalogReader } from "@repo/catalog/Catalog";
 import type {
   CatalogCacheEntry,
-  CatalogCacheFailure,
-  CatalogCompositionFailure,
-  CatalogLoadFailure,
+  CatalogCacheError,
+  CatalogCompositionError,
+  CatalogLoadError,
   CatalogLoadWarning,
   CatalogSources,
   LoadedCatalogSource,
@@ -40,11 +40,11 @@ export class CatalogCache extends Context.Service<
   {
     readonly read: (
       sourceUrl: string,
-    ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheFailure>;
+    ) => Effect.Effect<CatalogCacheEntry | undefined, CatalogCacheError>;
     // Adapters must publish the complete entry atomically.
     readonly write: (
       entry: CatalogCacheEntry,
-    ) => Effect.Effect<void, CatalogCacheFailure>;
+    ) => Effect.Effect<void, CatalogCacheError>;
   }
 >()("@repo/scaffold/CatalogCache") {
   // A deterministic, runtime-neutral cache for tests and controlled fixtures.
@@ -120,7 +120,7 @@ export class CatalogLoader extends Context.Service<
       readonly sourceUrl: string;
       // Application-owned authority. Never inferred from a downloaded catalogId.
       readonly allowFinalizeScripts?: boolean;
-    }) => Effect.Effect<LoadedCatalog, CatalogLoadFailure>;
+    }) => Effect.Effect<LoadedCatalog, CatalogLoadError>;
     // Loads every selected source, then composes them once. Any source without
     // usable data fails the whole selection.
     readonly loadSources: (input: {
@@ -129,7 +129,7 @@ export class CatalogLoader extends Context.Service<
       readonly officialUrl: string;
     }) => Effect.Effect<
       LoadedCatalogSet,
-      CatalogLoadFailure | CatalogCompositionFailure
+      CatalogLoadError | CatalogCompositionError
     >;
   }
 >()("@repo/scaffold/CatalogLoader") {

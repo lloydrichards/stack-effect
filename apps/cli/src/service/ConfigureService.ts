@@ -1,33 +1,34 @@
 import { StackConfig } from "@repo/domain/StackConfig";
-import { Context, Data, Effect, FileSystem, Layer, Schema } from "effect";
+import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 export { StackConfig };
 
 export const CONFIG_FILENAME = "stack.effect.json" as const;
 
-class MissingConfigError extends Data.TaggedError("MissingConfigError")<{
-  readonly path: string;
-}> {
+class MissingConfigError extends Schema.TaggedError<MissingConfigError>()(
+  "MissingConfigError",
+  { path: Schema.String },
+) {
   override get message(): string {
     return `No ${CONFIG_FILENAME} found at ${this.path}. Run 'stack-effect init' first.`;
   }
 }
 
-class MalformedConfigError extends Data.TaggedError("MalformedConfigError")<{
-  readonly path: string;
-  readonly detail: string;
-}> {
+class MalformedConfigError extends Schema.TaggedError<MalformedConfigError>()(
+  "MalformedConfigError",
+  { path: Schema.String, cause: Schema.Defect() },
+) {
   override get message(): string {
-    return `Invalid ${CONFIG_FILENAME} at ${this.path}: ${this.detail}`;
+    return `Invalid ${CONFIG_FILENAME} at ${this.path}`;
   }
 }
 
-class ConfigFileError extends Data.TaggedError("ConfigFileError")<{
-  readonly path: string;
-  readonly detail: string;
-}> {
+class ConfigFileError extends Schema.TaggedError<ConfigFileError>()(
+  "ConfigFileError",
+  { path: Schema.String, cause: Schema.Defect() },
+) {
   override get message(): string {
-    return `Could not read ${CONFIG_FILENAME} at ${this.path}: ${this.detail}`;
+    return `Could not read ${CONFIG_FILENAME} at ${this.path}`;
   }
 }
 
@@ -43,25 +44,21 @@ export class ConfigureService extends Context.Service<ConfigureService>()(
       const readConfig = (repositoryRoot: string) =>
         Effect.gen(function* () {
           const location = configPath(repositoryRoot);
-          const raw = yield* fs.readFileString(location).pipe(
-            Effect.mapError((error) =>
-              error.reason._tag === "NotFound"
-                ? new MissingConfigError({ path: location })
-                : new ConfigFileError({
-                    path: location,
-                    detail: error.message,
-                  }),
-            ),
-          );
+          const raw = yield* fs
+            .readFileString(location)
+            .pipe(
+              Effect.mapError((error) =>
+                error.reason._tag === "NotFound"
+                  ? new MissingConfigError({ path: location })
+                  : new ConfigFileError({ path: location, cause: error }),
+              ),
+            );
           return yield* Schema.decodeEffect(Schema.fromJsonString(StackConfig))(
             raw,
           ).pipe(
             Effect.mapError(
               (error) =>
-                new MalformedConfigError({
-                  path: location,
-                  detail: error.message,
-                }),
+                new MalformedConfigError({ path: location, cause: error }),
             ),
           );
         });

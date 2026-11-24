@@ -1,6 +1,6 @@
 import { Contribution } from "@repo/domain/Catalog";
 import {
-  PlanFailure,
+  PlanError,
   RepositoryPath,
   type NormalizedContributions,
 } from "@repo/domain/Plan";
@@ -200,7 +200,7 @@ const derivePlanningIntentFamily = Effect.fnUntraced(function* (
   path: string,
 ): Effect.fn.Return<
   PlanningIntentFamily | CompositePlanningIntentFamily,
-  PlanFailure
+  PlanError
 > {
   const families = new Set(entries.map((entry) => FAMILY_OF_ENTRY[entry._tag]));
   const [family] = families;
@@ -218,7 +218,7 @@ const derivePlanningIntentFamily = Effect.fnUntraced(function* (
     }
   }
 
-  return yield* new PlanFailure({
+  return yield* new PlanError({
     message: `Conflicting planning intents for ${path}.`,
   });
 });
@@ -229,7 +229,7 @@ const requireSingleValue = Effect.fnUntraced(function* <Value>(
 ) {
   const first = Arr.head(values);
   if (Option.isNone(first) || !values.every((value) => value === first.value)) {
-    return yield* new PlanFailure({ message: errorMessage });
+    return yield* new PlanError({ message: errorMessage });
   }
   return first.value;
 });
@@ -249,7 +249,7 @@ const collectUniqueEntries = Effect.fnUntraced(function* <
         SamePackageJsonKey(first, entry) && first.value !== entry.value,
     ),
   );
-  if (disagrees) return yield* new PlanFailure({ message: errorMessage });
+  if (disagrees) return yield* new PlanError({ message: errorMessage });
   return firsts;
 });
 
@@ -340,7 +340,7 @@ const jsxSlotPath = ({ path, groups }: PathEntries, seed: string | undefined) =>
 
 const derivePlanningIntentPath = Effect.fnUntraced(function* (
   entries: Arr.NonEmptyReadonlyArray<PlanningIntentEntry>,
-): Effect.fn.Return<PlanningIntentPath, PlanFailure> {
+): Effect.fn.Return<PlanningIntentPath, PlanError> {
   const { path } = entries[0];
   const family = yield* derivePlanningIntentFamily(entries, path);
   const pathEntries = { path, groups: groupPlanningIntentEntries(entries) };
@@ -378,7 +378,7 @@ const derivePlanningIntentPath = Effect.fnUntraced(function* (
 /** @internal */
 export const compile = Effect.fnUntraced(function* (
   normalizedContributions: NormalizedContributions,
-): Effect.fn.Return<ReadonlyArray<PlanningIntentPath>, PlanFailure> {
+): Effect.fn.Return<ReadonlyArray<PlanningIntentPath>, PlanError> {
   const entries = [
     ...normalizedContributions.targets,
     ...normalizedContributions.modules,

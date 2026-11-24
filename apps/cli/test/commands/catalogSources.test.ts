@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { OFFICIAL_CATALOG_URL } from "@repo/domain/Catalog";
+import { CatalogLoadError, OFFICIAL_CATALOG_URL } from "@repo/domain/Catalog";
 import { Effect, Schema } from "effect";
 import {
   catalogSourcesFixture,
@@ -244,7 +244,12 @@ describe("catalog sources", () => {
               "--root",
               directory,
             ]);
-            assert.include(errorMessage(error), "Catalog source down");
+            assert.strictEqual(
+              errorMessage(error),
+              "Could not load catalog source down.",
+            );
+            assert.instanceOf(error, CatalogLoadError);
+            assert.include(errorMessage(error.cause), urls.down);
             assert.isFalse(yield* fs.exists(path.join(directory, "broken")));
           }),
         ),

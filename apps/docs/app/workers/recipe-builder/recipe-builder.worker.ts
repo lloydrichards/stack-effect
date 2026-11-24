@@ -8,8 +8,8 @@ import {
   ModuleCategory,
   TargetIdentity,
   TargetKind,
-  type CatalogCompositionFailure,
-  type CatalogLoadFailure,
+  type CatalogCompositionError,
+  type CatalogLoadError,
   type CatalogSources,
   formatCatalogSource,
   type LoadedCatalogSource,
@@ -18,22 +18,23 @@ import { toWorkspaceToolValue } from "@repo/domain/StackConfig";
 import { RecipePreviewer } from "@repo/scaffold/Apply";
 import { CatalogLoader, type LoadedCatalogSet } from "@repo/scaffold/Catalog";
 import {
-  Data,
   Effect,
   Fiber,
   Layer,
   Option,
   Path,
+  Schema,
   SynchronizedRef,
 } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { RpcServer } from "effect/rpc";
 import {
   CatalogModule,
-  makeRecipeBuilderRpcFailure,
+  causeMessages,
+  makeRecipeBuilderRpcError,
   RecipeBuilderCatalog,
   RecipeBuilderRpc,
-  RecipeBuilderRpcFailure,
+  RecipeBuilderRpcError,
 } from "./domain";
 import { IndexedDbCatalogCache } from "./IndexedDbCatalogCache";
 
@@ -49,7 +50,7 @@ type CatalogSession = {
   readonly key: string;
   readonly load: Effect.Effect<
     LoadedCatalogSet,
-    CatalogLoadFailure | CatalogCompositionFailure
+    CatalogLoadError | CatalogCompositionError
   >;
 };
 
@@ -76,14 +77,11 @@ const unreachableHint =
   " The browser could not fetch it. The host may be offline, or it may not allow requests from this site.";
 
 const catalogFailure = (
-  error:
-    | CatalogLoadFailure
-    | CatalogCompositionFailure
-    | CatalogSessionReplaced,
+  error: CatalogLoadError | CatalogCompositionError | CatalogSessionReplaced,
 ) =>
-  error._tag === "CatalogLoadFailure"
-    ? new RecipeBuilderRpcFailure({
-        // loadSources already prefixes the source name; its messages name the URL.
+  error._tag === "CatalogLoadError"
+    ? new RecipeBuilderRpcError({
+        // loadSources names the source; the causes name the URL and why.
         message: `${error.message}${
           error.reason._tag === "CatalogUnavailable" &&
           error.reason.status === undefined
@@ -94,20 +92,20 @@ const catalogFailure = (
           name: error.sourceName ?? error.sourceUrl,
           sourceUrl: error.sourceUrl,
         },
+        causes: causeMessages(error),
       })
-    : error._tag === "CatalogCompositionFailure"
-      ? new RecipeBuilderRpcFailure({
+    : error._tag === "CatalogCompositionError"
+      ? new RecipeBuilderRpcError({
           message: error.message,
           issues: error.issues.map(({ code, message }) => ({ code, message })),
           sources: error.sources.map(toRpcSource),
         })
-      : makeRecipeBuilderRpcFailure("catalog", error);
+      : makeRecipeBuilderRpcError("catalog", error);
 
-class CatalogSessionReplaced extends Data.TaggedError(
+class CatalogSessionReplaced extends Schema.TaggedError<CatalogSessionReplaced>()(
   "CatalogSessionReplaced",
-)<{
-  readonly message: string;
-}> {}
+  { message: Schema.String },
+) {}
 
 const replaced = () =>
   new CatalogSessionReplaced({
@@ -198,7 +196,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
         (effect) =>
           effect.pipe(
             Effect.mapError((error) =>
-              makeRecipeBuilderRpcFailure("preview", error),
+              makeRecipeBuilderRpcError("preview", error),
             ),
           ),
       ),
@@ -223,7 +221,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
           )
           .pipe(
             Effect.mapError((error) =>
-              makeRecipeBuilderRpcFailure("catalog", error),
+              makeRecipeBuilderRpcError("catalog", error),
             ),
           );
         const sourceOf = (subject: Parameters<typeof catalogs.getSource>[0]) =>

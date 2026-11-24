@@ -5,7 +5,7 @@
 import type { CatalogReader } from "@repo/catalog/Catalog";
 import type {
   Blueprint,
-  BlueprintFailure,
+  BlueprintError,
   CatalogNotFound,
 } from "@repo/domain/Blueprint";
 import type { Selection } from "@repo/domain/Selection";
@@ -25,7 +25,7 @@ import * as internal from "./internal/blueprintResolver";
  *
  * Pass `config` to also reject targets and modules that do not support the
  * configured runtime. Targets whose paths or package names overlap fail with
- * `BlueprintFailure`.
+ * `BlueprintError`.
  */
 export class BlueprintResolver extends Context.Service<
   BlueprintResolver,
@@ -33,7 +33,7 @@ export class BlueprintResolver extends Context.Service<
     readonly resolve: (
       selection: Selection,
       config?: StackConfig,
-    ) => Effect.Effect<Blueprint, BlueprintFailure | CatalogNotFound>;
+    ) => Effect.Effect<Blueprint, BlueprintError | CatalogNotFound>;
   }
 >()("@repo/scaffold/BlueprintResolver") {
   static readonly layer: Layer.Layer<BlueprintResolver, never, CatalogReader> =

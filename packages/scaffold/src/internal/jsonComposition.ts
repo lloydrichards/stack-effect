@@ -1,4 +1,4 @@
-import { ApplyFailure } from "@repo/domain/Apply";
+import { ApplyError } from "@repo/domain/Apply";
 import type { JsonCompositionOperation } from "@repo/domain/Plan";
 import { Effect, Match, Predicate, Schema } from "effect";
 
@@ -12,8 +12,8 @@ const assignPackageJsonEntries = Effect.fnUntraced(function* (
 ) {
   const existingSection = pkg[sectionName];
   if (existingSection !== undefined && !Predicate.isObject(existingSection)) {
-    return yield* new ApplyFailure({
-      message: `Expected package.json field "${sectionName}" to be an object during apply.`,
+    return yield* new ApplyError({
+      message: `Expected package.json field "${sectionName}" to be an object.`,
     });
   }
 
@@ -28,7 +28,7 @@ const assignPackageJsonEntries = Effect.fnUntraced(function* (
 const applyJsonOperation = (
   pkg: Record<string, unknown>,
   op: JsonCompositionOperation,
-): Effect.Effect<void, ApplyFailure> =>
+): Effect.Effect<void, ApplyError> =>
   Match.valueTags(op, {
     "json-workspace-members": (o) => {
       pkg[o.field] = o.members;
@@ -45,15 +45,15 @@ const applyJsonOperation = (
 export const composeJson: (
   contents: string,
   operations: ReadonlyArray<JsonCompositionOperation>,
-) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+) => Effect.Effect<string, ApplyError> = Effect.fnUntraced(
   function* (contents, operations) {
     const pkg = yield* Schema.decodeEffect(PackageJsonFromString)(
       contents,
     ).pipe(
       Effect.mapError(
         (error) =>
-          new ApplyFailure({
-            message: `Could not parse package.json during apply: ${error.message}`,
+          new ApplyError({
+            message: "Could not parse package.json",
             cause: error,
           }),
       ),
@@ -71,8 +71,8 @@ export const composeJson: (
     ).pipe(
       Effect.mapError(
         (error) =>
-          new ApplyFailure({
-            message: `Could not encode package.json during apply: ${error.message}`,
+          new ApplyError({
+            message: "Could not encode package.json",
             cause: error,
           }),
       ),

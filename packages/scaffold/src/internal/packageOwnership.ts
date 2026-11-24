@@ -2,7 +2,7 @@ import { Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { targetPathsOverlap } from "@repo/domain/Catalog";
 import {
   type PackageOwner,
-  PlanFailure,
+  PlanError,
   RepositoryPath,
   byPath,
 } from "@repo/domain/Plan";
@@ -32,7 +32,7 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
     })),
     Effect.mapError(
       (cause) =>
-        new PlanFailure({
+        new PlanError({
           message: `Cannot inspect package ownership at ${manifestPath}: invalid package JSON or missing name`,
           cause,
         }),
@@ -54,7 +54,7 @@ export const assertDistinctOwners = Effect.fnUntraced(function* (
   );
   if (Option.isSome(collision)) {
     const { owner, other } = collision.value;
-    return yield* new PlanFailure({
+    return yield* new PlanError({
       message: `Cannot inspect package ownership at ${owner.path}: ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
     });
   }
@@ -83,7 +83,7 @@ export const validatePackageOwners = Effect.fnUntraced(function* (
   );
   if (Option.isSome(relocation)) {
     const { owner, other } = relocation.value;
-    return yield* new PlanFailure({
+    return yield* new PlanError({
       message: `Cannot inspect package ownership at ${owner.path}: package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
     });
   }
@@ -146,7 +146,7 @@ export const prepareOwnerWrites = Effect.fnUntraced(function* (
   for (const owner of ownerWrites) {
     const previous = existing.find((other) => other.path === owner.path);
     if (previous !== undefined && previous.name !== owner.name) {
-      return yield* new PlanFailure({
+      return yield* new PlanError({
         message: `Cannot inspect package ownership at ${owner.path}: cannot change owner ${previous.name} to ${owner.name}`,
       });
     }

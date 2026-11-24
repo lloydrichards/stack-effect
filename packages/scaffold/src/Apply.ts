@@ -5,18 +5,18 @@
 import type { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Apply,
-  ApplyFailure,
+  ApplyError,
   type ApplyResult,
   type MaterializedApply,
   MaterializedFile,
-  type StalePlanFailure,
+  type StalePlan,
 } from "@repo/domain/Apply";
-import type { Blueprint, BlueprintFailure } from "@repo/domain/Blueprint";
+import type { Blueprint, BlueprintError } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import {
   type Plan,
   type PlanBaseline,
-  type PlanFailure,
+  type PlanError,
   RepositoryPath,
   byPath,
 } from "@repo/domain/Plan";
@@ -56,7 +56,7 @@ import { RecipeResolver } from "./Recipe";
  * **Gotchas**
  *
  * Apply re-checks the repository against the Plan's baseline and fails with
- * `StalePlanFailure` when it changed since planning. Writes are atomic per
+ * `StalePlan` when it changed since planning. Writes are atomic per
  * file, not across the repository, so a failure can leave earlier files
  * written; the result lists every path by outcome.
  */
@@ -66,7 +66,7 @@ export class Applier extends Context.Service<
     readonly apply: (input: {
       readonly apply: Apply;
       readonly repositoryRoot: string;
-    }) => Effect.Effect<ApplyResult, ApplyFailure | StalePlanFailure>;
+    }) => Effect.Effect<ApplyResult, ApplyError | StalePlan>;
   }
 >()("@repo/scaffold/Applier") {
   static readonly layer: Layer.Layer<
@@ -96,10 +96,10 @@ export type ApplyWorkspace = {
   readonly plan: (input: {
     readonly blueprint: Blueprint;
     readonly config: StackConfig;
-  }) => Effect.Effect<Plan, PlanFailure | CatalogNotFound>;
+  }) => Effect.Effect<Plan, PlanError | CatalogNotFound>;
   readonly materialize: (
     apply: Apply,
-  ) => Effect.Effect<MaterializedApply, ApplyFailure | StalePlanFailure>;
+  ) => Effect.Effect<MaterializedApply, ApplyError | StalePlan>;
 };
 
 /**
@@ -113,19 +113,19 @@ export type ApplyWorkspace = {
  * **Gotchas**
  *
  * `fromRepository` copies only the paths the host Plan captured plus each
- * package owner's manifest, and fails with `StalePlanFailure` when they
+ * package owner's manifest, and fails with `StalePlan` when they
  * changed since planning.
  */
 export class ApplyWorkspaces extends Context.Service<
   ApplyWorkspaces,
   {
     /** Opens a workspace with no repository files, for plans built inside it. */
-    readonly empty: Effect.Effect<ApplyWorkspace, ApplyFailure>;
+    readonly empty: Effect.Effect<ApplyWorkspace, ApplyError>;
     /** Opens a workspace seeded with the repository paths a host Plan captured. */
     readonly fromRepository: (input: {
       readonly repositoryRoot: string;
       readonly baseline: PlanBaseline;
-    }) => Effect.Effect<ApplyWorkspace, ApplyFailure | StalePlanFailure>;
+    }) => Effect.Effect<ApplyWorkspace, ApplyError | StalePlan>;
   }
 >()("@repo/scaffold/ApplyWorkspaces") {
   static readonly layer: Layer.Layer<
@@ -150,11 +150,11 @@ const StackConfigFromJsonString = Schema.fromJsonString(StackConfig, {
 
 type RecipePreviewError =
   | RecipeResolveError
-  | BlueprintFailure
-  | PlanFailure
+  | BlueprintError
+  | PlanError
   | CatalogNotFound
-  | ApplyFailure
-  | StalePlanFailure;
+  | ApplyError
+  | StalePlan;
 
 /**
  * Previews the files a recipe would generate in a new repository.
@@ -217,8 +217,8 @@ export class RecipePreviewer extends Context.Service<
         )(config).pipe(
           Effect.mapError(
             (error) =>
-              new ApplyFailure({
-                message: `Could not serialize the preview configuration: ${error.message}`,
+              new ApplyError({
+                message: "Could not serialize the preview configuration",
                 cause: error,
               }),
           ),

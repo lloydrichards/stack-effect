@@ -62,7 +62,7 @@ it.effect("should read no entry when a source was never written", () =>
 );
 
 it.effect(
-  "should fail with CatalogCacheFailure when the cached file is corrupt",
+  "should fail with CatalogCacheError when the cached file is corrupt",
   () =>
     withCacheDirectory((directory) =>
       Effect.gen(function* () {
@@ -74,7 +74,7 @@ it.effect(
         assert.isDefined(file);
         yield* fs.writeFileString(path.join(directory, file ?? ""), "{");
         const error = yield* Effect.flip(cache.read(sourceUrl));
-        assert.propertyVal(error, "_tag", "CatalogCacheFailure");
+        assert.propertyVal(error, "_tag", "CatalogCacheError");
       }),
     ),
 );

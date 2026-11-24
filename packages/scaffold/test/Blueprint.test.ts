@@ -72,7 +72,7 @@ describe("BlueprintResolver", () => {
                 }),
               );
 
-              assert.strictEqual(error._tag, "BlueprintFailure");
+              assert.strictEqual(error._tag, "BlueprintError");
             }),
         );
       }
@@ -101,7 +101,7 @@ describe("BlueprintResolver", () => {
             }),
           );
 
-          assert.strictEqual(error._tag, "BlueprintFailure");
+          assert.strictEqual(error._tag, "BlueprintError");
           assert.include(error.message, "Duplicate target selection");
           assert.include(error.message, "apps/server-api");
         }),
@@ -127,7 +127,7 @@ describe("BlueprintResolver", () => {
             }),
           );
 
-          assert.strictEqual(error._tag, "BlueprintFailure");
+          assert.strictEqual(error._tag, "BlueprintError");
           assert.include(error.message, "Duplicate module selection");
           assert.include(error.message, "apps/server-api");
           assert.include(error.message, "server-http-api");
@@ -153,7 +153,7 @@ describe("BlueprintResolver", () => {
               }),
             );
 
-            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.strictEqual(error._tag, "BlueprintError");
             assert.include(
               error.message,
               "Unsupported target-module combination",
@@ -211,7 +211,7 @@ describe("BlueprintResolver", () => {
               }),
             );
 
-            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.strictEqual(error._tag, "BlueprintError");
             assert.include(error.message, "Incompatible modules");
             assert.include(error.message, "workspace-quality-biome-format");
             assert.include(error.message, "workspace-quality-oxfmt");
@@ -331,7 +331,7 @@ describe("BlueprintResolver", () => {
               }),
             );
 
-            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.strictEqual(error._tag, "BlueprintError");
             assert.include(
               error.message,
               "Select exactly one provider module explicitly",
@@ -359,7 +359,7 @@ describe("BlueprintResolver", () => {
               }),
             );
 
-            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.strictEqual(error._tag, "BlueprintError");
             assert.include(
               error.message,
               "Select exactly one provider module explicitly",
@@ -386,7 +386,7 @@ describe("BlueprintResolver", () => {
               }),
             );
 
-            assert.strictEqual(error._tag, "BlueprintFailure");
+            assert.strictEqual(error._tag, "BlueprintError");
             assert.include(
               error.message,
               "Multiple providers selected for capability db-sql",
@@ -699,7 +699,7 @@ describe("BlueprintResolver", () => {
             ),
           );
 
-          assert.strictEqual(failure._tag, "BlueprintFailure");
+          assert.strictEqual(failure._tag, "BlueprintError");
           assert.include(failure.message, "deno");
           assert.include(failure.message, "workspace-monorepo-turbo");
         }),
