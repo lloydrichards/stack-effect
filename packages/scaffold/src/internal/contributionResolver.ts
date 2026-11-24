@@ -4,12 +4,10 @@ import { Contribution } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   ModuleContribution,
-  type NormalizedContributions,
   TargetContribution,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Effect } from "effect";
-import type { ContributionResolver } from "../Plan";
 import { RecipeResolver } from "../Recipe";
 
 const resolveContributionTokens = (
@@ -112,9 +110,10 @@ export const makeContributionResolver = Effect.gen(function* () {
       },
     });
 
-    const targetContexts = new Map<string, ContributionTokenContext>();
-    const targetContributions = definitions.map(({ node, definition }) => {
-      const context = new ContributionTokenContext({
+    const targetContexts = definitions.map(({ node, definition }) => ({
+      node,
+      definition,
+      context: new ContributionTokenContext({
         targetKey: node.id,
         identity: node.identity,
         config,
@@ -123,47 +122,44 @@ export const makeContributionResolver = Effect.gen(function* () {
         moduleIds: modules
           .filter((module) => module.targetId === node.id)
           .map((module) => module.moduleId),
-      });
-      targetContexts.set(node.id, context);
-
-      return TargetContribution.make({
-        targetKey: node.id,
-        contributions: resolveContributionTokens(
-          definition.contributions,
-          context,
-        ),
-      });
-    });
-
-    const moduleContributions = [];
-    for (const node of modules) {
-      const context = targetContexts.get(node.targetId);
-      if (context === undefined) {
-        return yield* Effect.die(
-          new Error(
-            `Validated Blueprint is missing target context ${node.targetId}`,
-          ),
-        );
-      }
-      const moduleDefinition = yield* catalog.getModule(node.moduleId);
-
-      moduleContributions.push(
-        ModuleContribution.make({
-          targetKey: node.targetId,
-          moduleId: node.moduleId,
+      }),
+    }));
+    const targetContributions = targetContexts.map(
+      ({ node, definition, context }) =>
+        TargetContribution.make({
+          targetKey: node.id,
           contributions: resolveContributionTokens(
-            moduleDefinition.contributions,
+            definition.contributions,
             context,
           ),
         }),
-      );
-    }
+    );
 
-    return {
-      targets: targetContributions,
-      modules: moduleContributions,
-    } satisfies NormalizedContributions;
+    // A validated Blueprint has exactly one target per module.
+    const attachedModules = modules.flatMap((node) =>
+      targetContexts
+        .filter((target) => target.node.id === node.targetId)
+        .map(({ context }) => ({ node, context })),
+    );
+    const moduleContributions = yield* Effect.forEach(
+      attachedModules,
+      ({ node, context }) =>
+        catalog.getModule(node.moduleId).pipe(
+          Effect.map((moduleDefinition) =>
+            ModuleContribution.make({
+              targetKey: node.targetId,
+              moduleId: node.moduleId,
+              contributions: resolveContributionTokens(
+                moduleDefinition.contributions,
+                context,
+              ),
+            }),
+          ),
+        ),
+    );
+
+    return { targets: targetContributions, modules: moduleContributions };
   });
 
-  return { resolve } satisfies ContributionResolver["Service"];
+  return { resolve };
 });

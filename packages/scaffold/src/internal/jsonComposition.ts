@@ -1,20 +1,17 @@
 import { ApplyFailure } from "@repo/domain/Apply";
 import type { JsonCompositionOperation } from "@repo/domain/Plan";
-import { Effect, Match, Schema } from "effect";
+import { Effect, Match, Predicate, Schema } from "effect";
 
 const PackageJson = Schema.Record(Schema.String, Schema.Json);
 const PackageJsonFromString = Schema.fromJsonString(PackageJson, { space: 2 });
 
-const isPlainObject = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
 const assignPackageJsonEntries = Effect.fnUntraced(function* (
   pkg: Record<string, unknown>,
   sectionName: string,
-  entries: ReadonlyArray<{ readonly name: string; readonly value: string }>,
+  entries: ReadonlyArray<{ name: string; value: string }>,
 ) {
   const existingSection = pkg[sectionName];
-  if (existingSection !== undefined && !isPlainObject(existingSection)) {
+  if (existingSection !== undefined && !Predicate.isObject(existingSection)) {
     return yield* new ApplyFailure({
       message: `Expected package.json field "${sectionName}" to be an object during apply.`,
     });
@@ -63,9 +60,11 @@ export const composeJson: (
     );
 
     const mutablePkg: Record<string, unknown> = { ...pkg };
-    for (const op of operations) {
-      yield* applyJsonOperation(mutablePkg, op);
-    }
+    yield* Effect.forEach(
+      operations,
+      (op) => applyJsonOperation(mutablePkg, op),
+      { discard: true },
+    );
 
     const encoded = yield* Schema.encodeUnknownEffect(PackageJsonFromString)(
       mutablePkg,

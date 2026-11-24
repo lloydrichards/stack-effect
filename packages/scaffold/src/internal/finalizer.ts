@@ -1,15 +1,25 @@
 import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type Blueprint,
+  type BlueprintAttachedModuleNode,
   BlueprintNode,
   type BlueprintTargetNode,
 } from "@repo/domain/Blueprint";
 import { FinalizeScript, type ScriptResult } from "@repo/domain/Finalize";
 import { ContributionTokenContext } from "@repo/domain/Plan";
-import { Effect, Option, Result, Stream } from "effect";
+import {
+  Array as Arr,
+  Effect,
+  type PlatformError,
+  type Scope,
+  Equivalence,
+  Option,
+  Result,
+  Stream,
+} from "effect";
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
-import type { FinalizeConfig, FinalizeExecution, Finalizer } from "../Finalize";
+import type { FinalizeConfig, FinalizeExecution } from "../Finalize";
 
 /**
  * The source is part of the key, so a custom script can never stand in for an
@@ -18,9 +28,9 @@ import type { FinalizeConfig, FinalizeExecution, Finalizer } from "../Finalize";
  * @internal
  */
 export const scriptKey = (script: {
-  readonly command: string;
-  readonly workdir: string;
-  readonly source?: string | undefined;
+  command: string;
+  workdir: string;
+  source?: string | undefined;
 }) => `${script.source ?? ""}::${script.workdir}::${script.command}`;
 
 const sourceField = (source: Option.Option<string>) =>
@@ -59,15 +69,14 @@ const resolveNextSteps = (
   context: ContributionTokenContext,
 ) => (steps ?? []).map((step) => context.resolve(step));
 
-const deduplicateScripts = (scripts: ReadonlyArray<FinalizeScript>) => {
-  const seen = new Set<string>();
-  return scripts.filter((s) => {
-    const key = scriptKey(s);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
+// The source is part of a script's identity, so a custom script can never
+// stand in for an official one.
+const SameScript = Equivalence.make<FinalizeScript>(
+  (self, that) =>
+    self.source === that.source &&
+    self.workdir === that.workdir &&
+    self.command === that.command,
+);
 
 // Finalize-phase module and target scripts run first, then config-derived
 // scripts (install, lint, format), then post-finalize scripts (e.g. git init).
@@ -119,57 +128,66 @@ export const make = Effect.gen(function* () {
   const catalog = yield* CatalogReader;
   const spawner = yield* ChildProcessSpawner;
 
+  const targetScripts = Effect.fnUntraced(function* (
+    config: FinalizeConfig,
+    node: BlueprintTargetNode,
+  ) {
+    const { scripts } = yield* catalog.getTarget(node.identity.kind);
+    const context = createTokenContext(config, node);
+    const source = sourceField(
+      catalog.getSource({ _tag: "target", kind: node.identity.kind }),
+    );
+    return (scripts ?? []).map((script) =>
+      FinalizeScript.make({
+        label: script.label,
+        command: context.resolve(script.command),
+        workdir: context.resolve(script.workdir ?? "{{targetPath}}"),
+        phase: script.phase,
+        origin: `target: ${node.identity.kind}`,
+        ...source,
+      }),
+    );
+  });
+
+  const moduleScripts = Effect.fnUntraced(function* (
+    config: FinalizeConfig,
+    {
+      moduleNode,
+      targetNode,
+    }: {
+      moduleNode: BlueprintAttachedModuleNode;
+      targetNode: BlueprintTargetNode;
+    },
+  ) {
+    const { scripts } = yield* catalog.getModule(moduleNode.moduleId);
+    const context = createTokenContext(config, targetNode);
+    const source = sourceField(
+      catalog.getSource({ _tag: "module", id: moduleNode.moduleId }),
+    );
+    return (scripts ?? []).map((script) =>
+      FinalizeScript.make({
+        label: script.label,
+        command: context.resolve(script.command),
+        workdir: context.resolve(script.workdir ?? "{{targetPath}}"),
+        phase: script.phase,
+        origin: `module: ${moduleNode.moduleId}`,
+        ...source,
+      }),
+    );
+  });
+
   const collectResolvedScripts = Effect.fnUntraced(function* (
     blueprint: Blueprint,
     config: FinalizeConfig,
   ) {
     const { targetNodes, modules } = attachedModules(blueprint);
-
-    const targetScripts = yield* Effect.forEach(targetNodes, (node) =>
-      Effect.map(catalog.getTarget(node.identity.kind), ({ scripts }) => {
-        const context = createTokenContext(config, node);
-        return (scripts ?? []).map((s) =>
-          FinalizeScript.make({
-            label: s.label,
-            command: context.resolve(s.command),
-            workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-            phase: s.phase,
-            origin: `target: ${node.identity.kind}`,
-            ...sourceField(
-              catalog.getSource({
-                _tag: "target",
-                kind: node.identity.kind,
-              }),
-            ),
-          }),
-        );
-      }),
+    const fromTargets = yield* Effect.forEach(targetNodes, (node) =>
+      targetScripts(config, node),
     );
-
-    const moduleScripts = yield* Effect.forEach(
-      modules,
-      ({ moduleNode, targetNode }) =>
-        Effect.map(catalog.getModule(moduleNode.moduleId), (definition) => {
-          const context = createTokenContext(config, targetNode);
-          return (definition.scripts ?? []).map((s) =>
-            FinalizeScript.make({
-              label: s.label,
-              command: context.resolve(s.command),
-              workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-              phase: s.phase,
-              origin: `module: ${moduleNode.moduleId}`,
-              ...sourceField(
-                catalog.getSource({
-                  _tag: "module",
-                  id: moduleNode.moduleId,
-                }),
-              ),
-            }),
-          );
-        }),
+    const fromModules = yield* Effect.forEach(modules, (module) =>
+      moduleScripts(config, module),
     );
-
-    return [...targetScripts.flat(), ...moduleScripts.flat()];
+    return [...fromTargets.flat(), ...fromModules.flat()];
   });
 
   const scripts = Effect.fn("Finalizer.scripts")(function* (
@@ -178,13 +196,17 @@ export const make = Effect.gen(function* () {
   ) {
     const resolved = yield* collectResolvedScripts(blueprint, config);
     const configScripts = buildConfigDerivedScripts(config);
-    return orderScripts(deduplicateScripts(resolved), configScripts);
+    return orderScripts(Arr.dedupeWith(resolved, SameScript), configScripts);
   });
 
   const executeScoped = Effect.fn("Finalizer.executeScoped")(function* (
     script: FinalizeScript,
     repositoryRoot: string,
-  ) {
+  ): Effect.fn.Return<
+    FinalizeExecution,
+    PlatformError.PlatformError,
+    Scope.Scope
+  > {
     const workdir =
       script.workdir === "."
         ? repositoryRoot
@@ -218,7 +240,7 @@ export const make = Effect.gen(function* () {
       }),
     );
 
-    return { output, result } satisfies FinalizeExecution;
+    return { output, result };
   });
 
   const collectNextSteps = Effect.fn("Finalizer.collectNextSteps")(function* (
@@ -248,12 +270,8 @@ export const make = Effect.gen(function* () {
     );
 
     // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
-    return [...new Set([...targetSteps.flat(), ...moduleSteps.flat()])];
+    return Arr.dedupe([...targetSteps.flat(), ...moduleSteps.flat()]);
   });
 
-  return {
-    scripts,
-    executeScoped,
-    collectNextSteps,
-  } satisfies Finalizer["Service"];
+  return { scripts, executeScoped, collectNextSteps };
 });

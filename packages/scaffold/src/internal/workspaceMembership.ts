@@ -130,6 +130,7 @@ const registerManifest = Effect.fnUntraced(function* (
   }
   const changed = !sameMembers(entries, paths);
   if (!changed) return outcome;
+  const membershipChange = existing === undefined ? "create" : "modify";
   return PlanOutcome.cases.composed.make({
     path,
     seedContents: outcome?.seedContents,
@@ -143,11 +144,7 @@ const registerManifest = Effect.fnUntraced(function* (
       },
     ],
     classification:
-      outcome?.classification === "conflict"
-        ? "conflict"
-        : existing === undefined
-          ? "create"
-          : "modify",
+      outcome?.classification === "conflict" ? "conflict" : membershipChange,
   });
 });
 

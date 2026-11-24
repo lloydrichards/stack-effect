@@ -2,6 +2,7 @@ import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   type ModuleCapability,
   type ModuleDefinition,
+  ModuleDependency,
   ModuleId,
   type SupportedRuntime,
   TargetIdentity,
@@ -23,19 +24,25 @@ import {
 import type { Selection } from "@repo/domain/Selection";
 import {
   defaultsForRuntime,
+  type RuntimeName,
   StackConfig,
   StackConfigDefaults,
   toTypeScriptModuleId,
   toWorkspaceModuleId,
 } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Option } from "effect";
-import type { RecipeResolver } from "../Recipe";
 
 // Matches the runtimes Blueprint assumes for a definition that names none.
 const DEFAULT_SUPPORTED_RUNTIMES: ReadonlyArray<SupportedRuntime> = [
   "bun",
   "node",
 ];
+
+const CREATE_COMMAND = {
+  bun: "bunx stack-effect@latest",
+  deno: "deno run -A npm:stack-effect@latest",
+  node: "npx stack-effect@latest",
+} satisfies Record<RuntimeName, string>;
 
 const quoteShellArg = (value: string) =>
   /^[A-Za-z0-9_./:,@+-]+$/.test(value)
@@ -160,9 +167,9 @@ const supportsRuntime = (definition: ModuleDefinition, config: StackConfig) =>
   );
 
 type ProviderRequirement = {
-  readonly requestingModuleId: ModuleId;
-  readonly target: TargetIdentity;
-  readonly capability: ModuleCapability;
+  requestingModuleId: ModuleId;
+  target: TargetIdentity;
+  capability: ModuleCapability;
 };
 
 const toProviderCandidates = (candidates: ReadonlyArray<ModuleDefinition>) =>
@@ -329,16 +336,16 @@ export const make = Effect.gen(function* () {
       target: TargetIdentity,
       modules: ReadonlyArray<ModuleId>,
     ) {
-      for (const moduleId of [
-        ...modules,
-        ...(yield* targetRequiredModules(target)),
-      ]) {
-        pending.push({ target, moduleId });
-      }
+      const required = yield* targetRequiredModules(target);
+      pending.push(
+        ...[...modules, ...required].map((moduleId) => ({ target, moduleId })),
+      );
     });
-    for (const { target, modules } of selected) {
-      yield* enqueueTarget(target, modules);
-    }
+    yield* Effect.forEach(
+      selected,
+      ({ target, modules }) => enqueueTarget(target, modules),
+      { discard: true },
+    );
 
     const selectProvider = Effect.fnUntraced(function* (
       target: TargetIdentity,
@@ -371,20 +378,25 @@ export const make = Effect.gen(function* () {
         const definition = yield* findModule(next.moduleId);
         if (Option.isNone(definition)) continue;
 
-        for (const dependency of definition.value.dependencies) {
-          if (dependency._tag === "required-module") {
-            pending.push({
-              target: dependencyTargetOf(next.target, dependency.target),
+        const requester = next;
+        const { dependencies } = definition.value;
+        pending.push(
+          ...dependencies
+            .filter(ModuleDependency.guards["required-module"])
+            .map((dependency) => ({
+              target: dependencyTargetOf(requester.target, dependency.target),
               moduleId: dependency.moduleId,
-            });
-          } else if (dependency._tag === "required-capability") {
-            requirements.push({
-              requestingModuleId: next.moduleId,
-              target: dependencyTargetOf(next.target, dependency.target),
+            })),
+        );
+        requirements.push(
+          ...dependencies
+            .filter(ModuleDependency.guards["required-capability"])
+            .map((dependency) => ({
+              requestingModuleId: requester.moduleId,
+              target: dependencyTargetOf(requester.target, dependency.target),
               capability: dependency.capability,
-            });
-          }
-        }
+            })),
+        );
       }
     });
 
@@ -438,15 +450,14 @@ export const make = Effect.gen(function* () {
   ) {
     yield* requireCustomWorkspace(options.config);
 
-    const recipeTargets: Array<ParsedRecipeTarget> = [];
-    for (const target of recipe.targets) {
-      const identity = yield* resolveTargetIdentity(
-        catalog,
-        options.config,
-        target.target,
-      );
-      recipeTargets.push({ target: identity, modules: target.modules });
-    }
+    const recipeTargets = yield* Effect.forEach(recipe.targets, (target) =>
+      resolveTargetIdentity(catalog, options.config, target.target).pipe(
+        Effect.map((identity) => ({
+          target: identity,
+          modules: target.modules,
+        })),
+      ),
+    );
 
     const targets = [
       {
@@ -481,15 +492,9 @@ export const make = Effect.gen(function* () {
     config,
     selection,
   }: {
-    readonly config: StackConfig;
-    readonly selection: Selection;
+    config: StackConfig;
+    selection: Selection;
   }) => {
-    const commandRunner =
-      config.runtime._tag === "bun"
-        ? "bunx"
-        : config.runtime._tag === "deno"
-          ? "deno run -A npm:"
-          : "npx";
     const packageManager = configPackageManager(config.runtime);
     const official = config.usesOfficialCatalog;
     // Custom-only configs compare tools against no defaults, so every named tool renders.
@@ -528,10 +533,7 @@ export const make = Effect.gen(function* () {
     );
 
     return [
-      commandRunner === "deno run -A npm:"
-        ? "deno run -A npm:stack-effect@latest"
-        : commandRunner,
-      ...(commandRunner === "deno run -A npm:" ? [] : ["stack-effect@latest"]),
+      CREATE_COMMAND[config.runtime._tag],
       "create",
       quoteShellArg(config.name),
       ...(config.catalogs ?? []).flatMap((source) => [
@@ -571,5 +573,5 @@ export const make = Effect.gen(function* () {
     ].join(" ");
   };
 
-  return { resolve, renderCreateCommand } satisfies RecipeResolver["Service"];
+  return { resolve, renderCreateCommand };
 });

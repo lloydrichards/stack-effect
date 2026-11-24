@@ -3,6 +3,7 @@ import { decodeDocument } from "@repo/catalog/Protocol";
 import {
   CatalogCapabilityError,
   type CatalogDocument,
+  type CatalogSource,
   type CatalogValidationError,
   CatalogCacheEntry,
   CatalogCapabilityUnsupported,
@@ -23,63 +24,76 @@ import {
   CatalogUnavailable,
   selectsOfficialCatalog,
 } from "@repo/domain/Catalog";
-import { Clock, Effect, Result, Schema, Stream } from "effect";
+import { Clock, Data, Effect, Predicate, Result, Schema, Stream } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import type {
-  CatalogCache,
-  CatalogLoader,
-  LoadedCatalog,
-  LoadedCatalogSet,
-} from "../Catalog";
+import type { CatalogCache, CatalogLoader, LoadedCatalog } from "../Catalog";
 
 const MIB = 1024 * 1024;
 const MAX_CATALOG_BYTES = 8 * MIB;
 const CATALOG_TIMEOUT_MILLIS = 15_000;
 
-type LoadedDocument<A> = {
-  readonly value: A;
-  /** Entry to cache once the caller has finished validating the document. */
-  readonly pending?: CatalogCacheEntry | undefined;
-  readonly sourceUrl: string;
-  readonly digest: string;
-  readonly freshness: "current" | "cached";
-  readonly warning?: CatalogLoadWarning | undefined;
+// Steps fail with the reason and message; `loadDocument` attaches the source once.
+class LoadIssue extends Data.TaggedError("LoadIssue")<{
+  reason: CatalogLoadReason;
+  message: string;
+  cause?: unknown;
+}> {}
+
+type DocumentRequest<A> = {
+  sourceUrl: CatalogSourceUrl;
+  check: (document: CatalogDocument) => Effect.Effect<A, LoadIssue>;
 };
 
-const failure = (
-  reason: CatalogLoadReason,
-  sourceUrl: string,
-  message: string,
-  cause?: unknown,
-) => new CatalogLoadFailure({ reason, sourceUrl, message, cause });
+type CachedDocument<A> = { value: A; entry: CatalogCacheEntry };
+
+// `current` holds the entry to cache once the caller accepts the document.
+type DocumentFreshness = Data.TaggedEnum<{
+  current: { entry: CatalogCacheEntry };
+  cached: { entry: CatalogCacheEntry; warning: CatalogLoadWarning };
+}>;
+
+const DocumentFreshness = Data.taggedEnum<DocumentFreshness>();
 
 const decodeSourceUrl = (sourceUrl: string) =>
   Schema.decodeEffect(CatalogSourceUrl)(sourceUrl).pipe(
-    Effect.mapError((cause) =>
-      failure(
-        new CatalogSourceInvalid(),
-        sourceUrl,
-        `Invalid catalog URL: ${sourceUrl}`,
-        cause,
-      ),
+    Effect.mapError(
+      (cause) =>
+        new CatalogLoadFailure({
+          reason: new CatalogSourceInvalid(),
+          sourceUrl,
+          message: `Invalid catalog URL: ${sourceUrl}`,
+          cause,
+        }),
     ),
   );
 
-const persistenceWarningFor = (
-  sourceUrl: string,
-  validatedAt: number,
-): CatalogLoadWarning =>
+const persistenceWarning = (entry: CatalogCacheEntry) =>
   CatalogLoadWarning.make({
     kind: "persistence",
-    sourceUrl,
-    lastValidatedAt: validatedAt,
-    message: `Catalog from ${sourceUrl} is current, but it could not be cached.`,
+    sourceUrl: entry.sourceUrl,
+    lastValidatedAt: entry.validatedAt,
+    message: `Catalog from ${entry.sourceUrl} is current, but it could not be cached.`,
   });
 
-const isTransient = (error: CatalogLoadFailure) =>
-  error.reason._tag === "CatalogUnavailable" ||
-  error.reason._tag === "CatalogTimedOut";
+const describeLoad = (
+  freshness: DocumentFreshness,
+  warning: CatalogLoadWarning | undefined,
+) => ({
+  sourceUrl: freshness.entry.sourceUrl,
+  digest: freshness.entry.digest,
+  freshness: freshness._tag,
+  warning,
+});
+
+const isTransient = (issue: LoadIssue) =>
+  issue.reason._tag === "CatalogUnavailable" ||
+  issue.reason._tag === "CatalogTimedOut";
+
+const isRetryableStatus = (status: number) =>
+  status === 408 || status === 429 || (status >= 500 && status < 600);
+
+const JSON_CONTENT_TYPE = /^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|\s*$)/i;
 
 /** @internal */
 export const make = (cache: CatalogCache["Service"]) =>
@@ -88,92 +102,82 @@ export const make = (cache: CatalogCache["Service"]) =>
     const crypto = yield* Digest.Digest;
 
     const decodeBytes = Effect.fnUntraced(function* <A>(
+      request: DocumentRequest<A>,
       bytes: Uint8Array,
-      sourceUrl: string,
-      check: (
-        document: CatalogDocument,
-      ) => Effect.Effect<A, CatalogLoadFailure>,
     ) {
-      const digest = yield* crypto.digestHex(Digest.sha256, bytes);
+      const { sourceUrl } = request;
       const text = yield* Effect.try({
         try: () => new TextDecoder("utf-8", { fatal: true }).decode(bytes),
         catch: (cause) =>
-          failure(
-            new CatalogJsonInvalid(),
-            sourceUrl,
-            `Catalog from ${sourceUrl} is not UTF-8.`,
+          new LoadIssue({
+            reason: new CatalogJsonInvalid(),
+            message: `Catalog from ${sourceUrl} is not UTF-8.`,
             cause,
-          ),
+          }),
       });
       const json = yield* Schema.decodeEffect(
         Schema.fromJsonString(Schema.Unknown),
       )(text).pipe(
-        Effect.mapError((cause) =>
-          failure(
-            new CatalogJsonInvalid(),
-            sourceUrl,
-            `Catalog from ${sourceUrl} is not valid JSON.`,
-            cause,
-          ),
+        Effect.mapError(
+          (cause) =>
+            new LoadIssue({
+              reason: new CatalogJsonInvalid(),
+              message: `Catalog from ${sourceUrl} is not valid JSON.`,
+              cause,
+            }),
         ),
       );
       if (
-        typeof json === "object" &&
-        json !== null &&
-        "formatVersion" in json &&
+        Predicate.hasProperty(json, "formatVersion") &&
         json.formatVersion !== 1
       )
-        return yield* failure(
-          new CatalogFormatUnsupported(),
-          sourceUrl,
-          `Catalog from ${sourceUrl} uses an unsupported formatVersion.`,
-        );
+        return yield* new LoadIssue({
+          reason: new CatalogFormatUnsupported(),
+          message: `Catalog from ${sourceUrl} uses an unsupported formatVersion.`,
+        });
       const document = yield* decodeDocument(json).pipe(
         Effect.mapError((error) =>
           error instanceof CatalogCapabilityError
-            ? failure(
-                new CatalogCapabilityUnsupported(),
-                sourceUrl,
-                error.message,
-                error,
-              )
-            : failure(
-                new CatalogDocumentInvalid(),
-                sourceUrl,
-                `Invalid catalog from ${sourceUrl}: ${error.message}`,
-                error,
-              ),
+            ? new LoadIssue({
+                reason: new CatalogCapabilityUnsupported(),
+                message: error.message,
+                cause: error,
+              })
+            : new LoadIssue({
+                reason: new CatalogDocumentInvalid(),
+                message: `Invalid catalog from ${sourceUrl}: ${error.message}`,
+                cause: error,
+              }),
         ),
       );
-      const value = yield* check(document);
-      return { value, digest };
+      return yield* request.check(document);
     });
 
     const readBounded = Effect.fnUntraced(function* (
+      sourceUrl: CatalogSourceUrl,
       response: HttpClientResponse.HttpClientResponse,
-      sourceUrl: string,
     ) {
+      // A running size bounds the read before the whole body is buffered.
       const chunks: Array<Uint8Array> = [];
       let size = 0;
       const accept = Effect.fnUntraced(function* (chunk: Uint8Array) {
         size += chunk.byteLength;
         if (size > MAX_CATALOG_BYTES)
-          return yield* failure(
-            new CatalogContentTooLarge({ maxBytes: MAX_CATALOG_BYTES }),
-            sourceUrl,
-            `Catalog from ${sourceUrl} exceeds ${MAX_CATALOG_BYTES / MIB} MiB.`,
-          );
+          return yield* new LoadIssue({
+            reason: new CatalogContentTooLarge({ maxBytes: MAX_CATALOG_BYTES }),
+            message: `Catalog from ${sourceUrl} exceeds ${MAX_CATALOG_BYTES / MIB} MiB.`,
+          });
         chunks.push(chunk);
       });
 
       yield* response.stream.pipe(
-        Stream.mapError((error) =>
-          failure(
-            new CatalogUnavailable(),
-            sourceUrl,
-            `Could not read catalog response from ${sourceUrl}.`,
-            error,
-          ),
+        Stream.mapError(
+          (error) =>
+            new LoadIssue({
+              reason: new CatalogUnavailable(),
+              message: `Could not read catalog response from ${sourceUrl}.`,
+              cause: error,
+            }),
         ),
         Stream.runForEach(accept),
       );
@@ -187,231 +191,250 @@ export const make = (cache: CatalogCache["Service"]) =>
       return bytes;
     });
 
-    const writeCache = (entry: CatalogCacheEntry) =>
-      cache.write(entry).pipe(
-        Effect.as(true),
-        Effect.orElseSucceed(() => false),
-      );
-
     const readCached = Effect.fnUntraced(function* <A>(
-      sourceUrl: string,
-      check: (
-        document: CatalogDocument,
-      ) => Effect.Effect<A, CatalogLoadFailure>,
+      request: DocumentRequest<A>,
     ) {
-      const entry = yield* cache.read(sourceUrl);
-      if (entry === undefined || entry.sourceUrl !== sourceUrl)
+      const entry = yield* cache.read(request.sourceUrl);
+      if (entry === undefined || entry.sourceUrl !== request.sourceUrl)
         return undefined;
       const bytes = new Uint8Array(entry.bytes);
       const digest = yield* crypto.digestHex(Digest.sha256, bytes);
       if (digest !== entry.digest) return undefined;
-      const decoded = yield* decodeBytes(bytes, sourceUrl, check);
-      return { entry: { ...entry, bytes }, ...decoded };
+      const value = yield* decodeBytes(request, bytes);
+      return { value, entry: { ...entry, bytes } };
     });
 
-    const loadDocument = Effect.fnUntraced(function* <A>(
+    const execute = (
       sourceUrl: CatalogSourceUrl,
-      check: (
-        document: CatalogDocument,
-      ) => Effect.Effect<A, CatalogLoadFailure>,
-      // Hand the fetched entry back instead of caching it, for callers whose
-      // validation finishes only after this document joins others.
-      deferPersistence = false,
-    ) {
-      const startedAt = yield* Clock.currentTimeMillis;
-      const cached = yield* readCached(sourceUrl, check).pipe(
-        Effect.timeout(CATALOG_TIMEOUT_MILLIS),
-        Effect.orElseSucceed(() => undefined),
-      );
-
-      let pending: CatalogCacheEntry | undefined;
-      const persist = Effect.fnUntraced(function* (entry: CatalogCacheEntry) {
-        if (deferPersistence) {
-          pending = entry;
-          return true;
-        }
-        return yield* writeCache(entry);
-      });
-      const persistenceWarning = (validatedAt: number) =>
-        persistenceWarningFor(sourceUrl, validatedAt);
-
-      const fetchCurrent = Effect.fnUntraced(function* () {
-        for (let attempt = 0; attempt < 2; attempt++) {
-          let request = HttpClientRequest.get(sourceUrl).pipe(
-            HttpClientRequest.setHeader("accept", "application/json"),
-          );
-          if (attempt === 0 && cached?.entry.etag)
-            request = HttpClientRequest.setHeader(
-              request,
-              "if-none-match",
-              cached.entry.etag,
-            );
-          if (attempt === 0 && cached?.entry.lastModified)
-            request = HttpClientRequest.setHeader(
-              request,
-              "if-modified-since",
-              cached.entry.lastModified,
-            );
-          const response = yield* client.execute(request).pipe(
-            // Trace headers are not CORS-safelisted, so a browser would
-            // preflight every catalog fetch, and hosts need not allow them.
-            Effect.provideService(HttpClient.TracerPropagationEnabled, false),
-            Effect.mapError((cause) =>
-              failure(
-                new CatalogUnavailable(),
-                sourceUrl,
-                `Could not fetch catalog from ${sourceUrl}.`,
+      validators: CatalogCacheEntry | undefined,
+    ) =>
+      client
+        .execute(
+          HttpClientRequest.get(sourceUrl).pipe(
+            HttpClientRequest.setHeaders({
+              accept: "application/json",
+              ...(validators?.etag ? { "if-none-match": validators.etag } : {}),
+              ...(validators?.lastModified
+                ? { "if-modified-since": validators.lastModified }
+                : {}),
+            }),
+          ),
+        )
+        .pipe(
+          // Trace headers are not CORS-safelisted, so a browser would
+          // preflight every catalog fetch, and hosts need not allow them.
+          Effect.provideService(HttpClient.TracerPropagationEnabled, false),
+          Effect.mapError(
+            (cause) =>
+              new LoadIssue({
+                reason: new CatalogUnavailable(),
+                message: `Could not fetch catalog from ${sourceUrl}.`,
                 cause,
-              ),
-            ),
-          );
-          if (response.status === 304) {
-            if (cached !== undefined) {
-              const validatedAt = yield* Clock.currentTimeMillis;
-              const written = yield* persist({
-                ...cached.entry,
-                validatedAt,
-              });
-              return {
-                value: cached.value,
-                sourceUrl,
-                digest: cached.digest,
-                freshness: "current" as const,
-                warning: written ? undefined : persistenceWarning(validatedAt),
-              };
-            }
-            if (attempt === 0) continue;
-            return yield* failure(
-              new CatalogUnavailable(),
-              sourceUrl,
-              `Catalog server returned 304 without usable cached data at ${sourceUrl}.`,
-            );
-          }
-          if (
-            response.status === 408 ||
-            response.status === 429 ||
-            (response.status >= 500 && response.status < 600)
-          )
-            return yield* failure(
-              new CatalogUnavailable({ status: response.status }),
-              sourceUrl,
-              `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
-            );
-          if (response.status !== 200)
-            return yield* failure(
-              new CatalogHttpStatusRejected({ status: response.status }),
-              sourceUrl,
-              `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
-            );
-          const contentType = response.headers["content-type"] ?? "";
-          if (
-            !/^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|\s*$)/i.test(
-              contentType,
-            )
-          )
-            return yield* failure(
-              new CatalogContentTypeInvalid({ contentType }),
-              sourceUrl,
-              `Catalog response from ${sourceUrl} is not JSON.`,
-            );
-          const bytes = yield* readBounded(response, sourceUrl);
-          const decoded = yield* decodeBytes(bytes, sourceUrl, check);
-          const validatedAt = yield* Clock.currentTimeMillis;
-          const entry = CatalogCacheEntry.make({
-            sourceUrl,
-            bytes,
-            digest: decoded.digest,
-            validatedAt,
-            ...(response.headers["etag"]
-              ? { etag: response.headers["etag"] }
-              : {}),
-            ...(response.headers["last-modified"]
-              ? { lastModified: response.headers["last-modified"] }
-              : {}),
-          });
-          const written = yield* persist(entry);
-          return {
-            value: decoded.value,
-            sourceUrl,
-            digest: decoded.digest,
-            freshness: "current" as const,
-            warning: written ? undefined : persistenceWarning(validatedAt),
-          };
-        }
-        return yield* failure(
-          new CatalogUnavailable(),
-          sourceUrl,
-          `Catalog server returned no usable document at ${sourceUrl}.`,
+              }),
+          ),
         );
+
+    const readCurrent = Effect.fnUntraced(function* <A>(
+      request: DocumentRequest<A>,
+      response: HttpClientResponse.HttpClientResponse,
+    ) {
+      const { sourceUrl } = request;
+      if (isRetryableStatus(response.status))
+        return yield* new LoadIssue({
+          reason: new CatalogUnavailable({ status: response.status }),
+          message: `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
+        });
+      if (response.status !== 200)
+        return yield* new LoadIssue({
+          reason: new CatalogHttpStatusRejected({ status: response.status }),
+          message: `Catalog server returned HTTP ${response.status} at ${sourceUrl}.`,
+        });
+      const contentType = response.headers["content-type"] ?? "";
+      if (!JSON_CONTENT_TYPE.test(contentType))
+        return yield* new LoadIssue({
+          reason: new CatalogContentTypeInvalid({ contentType }),
+          message: `Catalog response from ${sourceUrl} is not JSON.`,
+        });
+
+      const bytes = yield* readBounded(sourceUrl, response);
+      const digest = yield* crypto.digestHex(Digest.sha256, bytes);
+      const value = yield* decodeBytes(request, bytes);
+      const validatedAt = yield* Clock.currentTimeMillis;
+      const entry = CatalogCacheEntry.make({
+        sourceUrl,
+        bytes,
+        digest,
+        validatedAt,
+        ...(response.headers["etag"] ? { etag: response.headers["etag"] } : {}),
+        ...(response.headers["last-modified"]
+          ? { lastModified: response.headers["last-modified"] }
+          : {}),
       });
+      return { value, freshness: DocumentFreshness.current({ entry }) };
+    });
 
-      const timedOut = (cause?: unknown) =>
-        failure(
-          new CatalogTimedOut({ timeoutMillis: CATALOG_TIMEOUT_MILLIS }),
-          sourceUrl,
-          `Catalog load timed out after ${CATALOG_TIMEOUT_MILLIS / 1000} seconds at ${sourceUrl}.`,
-          cause,
-        );
-      const elapsed = (yield* Clock.currentTimeMillis) - startedAt;
-      const remaining = CATALOG_TIMEOUT_MILLIS - elapsed;
-      const current =
-        remaining <= 0
-          ? Effect.fail(timedOut())
-          : fetchCurrent().pipe(
-              Effect.timeout(remaining),
-              Effect.catchTag("TimeoutError", (error) =>
-                Effect.fail(timedOut(error)),
-              ),
-            );
-
-      if (cached === undefined) {
-        const loaded: LoadedDocument<A> = yield* current;
-        return { ...loaded, pending };
+    const fetchCurrent = Effect.fnUntraced(function* <A>(
+      request: DocumentRequest<A>,
+      cached: CachedDocument<A> | undefined,
+    ) {
+      const response = yield* execute(request.sourceUrl, cached?.entry);
+      if (response.status !== 304) return yield* readCurrent(request, response);
+      if (cached !== undefined) {
+        const validatedAt = yield* Clock.currentTimeMillis;
+        return {
+          value: cached.value,
+          freshness: DocumentFreshness.current({
+            entry: { ...cached.entry, validatedAt },
+          }),
+        };
       }
 
-      const loaded: LoadedDocument<A> = yield* current.pipe(
-        Effect.catchIf(isTransient, () =>
-          Effect.succeed({
-            value: cached.value,
-            sourceUrl,
-            digest: cached.digest,
-            freshness: "cached" as const,
-            warning: CatalogLoadWarning.make({
-              kind: "stale",
-              sourceUrl,
-              lastValidatedAt: cached.entry.validatedAt,
-              message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
+      // A 304 to a request without validators has nothing to revalidate; ask once more.
+      const retried = yield* execute(request.sourceUrl, undefined);
+      if (retried.status === 304)
+        return yield* new LoadIssue({
+          reason: new CatalogUnavailable(),
+          message: `Catalog server returned 304 without usable cached data at ${request.sourceUrl}.`,
+        });
+      return yield* readCurrent(request, retried);
+    });
+
+    // Callers persist a `current` document once they accept it, so a selection
+    // that fails to compose never replaces a source's last validated entry.
+    const loadDocument = <A>(request: DocumentRequest<A>) =>
+      Effect.gen(function* () {
+        const { sourceUrl } = request;
+        const startedAt = yield* Clock.currentTimeMillis;
+        const cached = yield* readCached(request).pipe(
+          Effect.timeout(CATALOG_TIMEOUT_MILLIS),
+          Effect.orElseSucceed(() => undefined),
+        );
+
+        const remaining =
+          CATALOG_TIMEOUT_MILLIS -
+          ((yield* Clock.currentTimeMillis) - startedAt);
+        const timedOut = Effect.fail(
+          new LoadIssue({
+            reason: new CatalogTimedOut({
+              timeoutMillis: CATALOG_TIMEOUT_MILLIS,
             }),
+            message: `Catalog load timed out after ${CATALOG_TIMEOUT_MILLIS / 1000} seconds at ${sourceUrl}.`,
           }),
+        );
+        const current =
+          remaining <= 0
+            ? timedOut
+            : fetchCurrent(request, cached).pipe(
+                Effect.timeoutOrElse({
+                  duration: remaining,
+                  orElse: () => timedOut,
+                }),
+              );
+        if (cached === undefined) return yield* current;
+
+        return yield* current.pipe(
+          Effect.catchIf(isTransient, () =>
+            Effect.succeed({
+              value: cached.value,
+              freshness: DocumentFreshness.cached({
+                entry: cached.entry,
+                warning: CatalogLoadWarning.make({
+                  kind: "stale",
+                  sourceUrl,
+                  lastValidatedAt: cached.entry.validatedAt,
+                  message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
+                }),
+              }),
+            }),
+          ),
+        );
+      }).pipe(
+        Effect.mapError(
+          (issue) =>
+            new CatalogLoadFailure({
+              reason: issue.reason,
+              sourceUrl: request.sourceUrl,
+              message: issue.message,
+              cause: issue.cause,
+            }),
         ),
       );
-      return { ...loaded, pending };
-    });
+
+    const persist = (freshness: DocumentFreshness) =>
+      DocumentFreshness.$match(freshness, {
+        current: ({ entry }) =>
+          cache.write(entry).pipe(
+            Effect.as(undefined),
+            Effect.orElseSucceed(() => persistenceWarning(entry)),
+          ),
+        cached: ({ warning }) => Effect.succeed(warning),
+      }).pipe(Effect.map((warning) => describeLoad(freshness, warning)));
+
+    const loadSource = Effect.fnUntraced(
+      function* (source: CatalogSource, officialUrl: string) {
+        const sourceUrl =
+          "url" in source ? source.url : yield* decodeSourceUrl(officialUrl);
+        const { value: document, freshness } = yield* loadDocument({
+          sourceUrl,
+          check: (document: CatalogDocument) => Effect.succeed(document),
+        });
+        const staleWarning = DocumentFreshness.$is("cached")(freshness)
+          ? freshness.warning
+          : undefined;
+        return {
+          document,
+          freshness,
+          source: LoadedCatalogSource.make({
+            name: source.name,
+            requires: document.requires ?? [],
+            ...describeLoad(freshness, staleWarning),
+          }),
+        };
+      },
+      (effect, source) =>
+        effect.pipe(
+          Effect.mapError(
+            (error) =>
+              new CatalogLoadFailure({
+                reason: error.reason,
+                sourceUrl: error.sourceUrl,
+                sourceName: source.name,
+                message: `Catalog source ${source.name}: ${error.message}`,
+                cause: error.cause,
+              }),
+          ),
+        ),
+    );
 
     const load = Effect.fn("CatalogLoader.load")(function* ({
       sourceUrl,
       allowFinalizeScripts = false,
-    }: Parameters<CatalogLoader["Service"]["load"]>[0]) {
+    }: Parameters<CatalogLoader["Service"]["load"]>[0]): Effect.fn.Return<
+      LoadedCatalog,
+      CatalogLoadFailure
+    > {
       const url = yield* decodeSourceUrl(sourceUrl);
-      const { value, ...loaded } = yield* loadDocument(url, (document) =>
-        CatalogReader.pipe(
-          Effect.provide(
-            CatalogReader.fromFragments(
-              [document],
-              allowFinalizeScripts ? { trustedFragmentIndex: 0 } : {},
+      const { value, freshness } = yield* loadDocument({
+        sourceUrl: url,
+        check: (document) =>
+          CatalogReader.pipe(
+            Effect.provide(
+              CatalogReader.fromFragments(
+                [document],
+                allowFinalizeScripts ? { trustedFragmentIndex: 0 } : {},
+              ),
+            ),
+            Effect.mapError(
+              (error: CatalogValidationError) =>
+                new LoadIssue({
+                  reason: new CatalogDocumentInvalid(),
+                  message: error.message,
+                  cause: error,
+                }),
             ),
           ),
-          Effect.mapError((error: CatalogValidationError) =>
-            failure(
-              new CatalogDocumentInvalid(),
-              sourceUrl,
-              error.message,
-              error,
-            ),
-          ),
-        ),
-      );
-      return { ...loaded, catalog: value } satisfies LoadedCatalog;
+      });
+      return { catalog: value, ...(yield* persist(freshness)) };
     });
 
     const loadSources = Effect.fn("CatalogLoader.loadSources")(function* ({
@@ -433,39 +456,7 @@ export const make = (cache: CatalogCache["Service"]) =>
 
       const results = yield* Effect.forEach(
         sources,
-        (source) =>
-          ("url" in source
-            ? Effect.succeed(source.url)
-            : decodeSourceUrl(officialUrl)
-          ).pipe(
-            Effect.flatMap((sourceUrl) =>
-              loadDocument(
-                sourceUrl,
-                (document) => Effect.succeed(document),
-                true,
-              ),
-            ),
-            Effect.map(({ value, pending, ...rest }) => ({
-              document: value,
-              pending,
-              source: LoadedCatalogSource.make({
-                name: source.name,
-                requires: value.requires ?? [],
-                ...rest,
-              }),
-            })),
-            Effect.mapError(
-              (error) =>
-                new CatalogLoadFailure({
-                  reason: error.reason,
-                  sourceUrl: error.sourceUrl,
-                  sourceName: source.name,
-                  message: `Catalog source ${source.name}: ${error.message}`,
-                  cause: error.cause,
-                }),
-            ),
-            Effect.result,
-          ),
+        (source) => Effect.result(loadSource(source, officialUrl)),
         { concurrency: "unbounded" },
       );
       // Report the first failure in selection order, however the fetches raced.
@@ -475,7 +466,6 @@ export const make = (cache: CatalogCache["Service"]) =>
         .filter(Result.isSuccess)
         .map((result) => result.success);
 
-      const composedSources = loaded.map(({ source }) => source);
       const catalog = yield* CatalogReader.pipe(
         Effect.provide(
           CatalogReader.fromFragments(
@@ -493,34 +483,21 @@ export const make = (cache: CatalogCache["Service"]) =>
           (error: CatalogValidationError) =>
             new CatalogCompositionFailure({
               issues: error.details,
-              sources: composedSources,
+              sources: loaded.map(({ source }) => source),
               cause: error,
             }),
         ),
       );
 
-      // Only a selection that composed may replace any source's last validated entry.
-      const loadedSources: Array<LoadedCatalogSource> = [];
-      for (const { source, pending } of loaded) {
-        if (pending === undefined) {
-          loadedSources.push(source);
-          continue;
-        }
-        const written = yield* writeCache(pending);
-        loadedSources.push(
-          written
-            ? source
-            : LoadedCatalogSource.make({
-                ...source,
-                warning: persistenceWarningFor(
-                  source.sourceUrl,
-                  pending.validatedAt,
-                ),
-              }),
-        );
-      }
-      return { catalog, sources: loadedSources } satisfies LoadedCatalogSet;
+      const persisted = yield* Effect.forEach(loaded, ({ source, freshness }) =>
+        persist(freshness).pipe(
+          Effect.map((loadedSource) =>
+            LoadedCatalogSource.make({ ...source, ...loadedSource }),
+          ),
+        ),
+      );
+      return { catalog, sources: persisted };
     });
 
-    return { load, loadSources } satisfies CatalogLoader["Service"];
+    return { load, loadSources };
   });

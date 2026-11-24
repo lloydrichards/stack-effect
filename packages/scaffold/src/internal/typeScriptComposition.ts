@@ -6,7 +6,7 @@ import type {
   TsObjectFieldOp,
   TypeScriptCompositionOperation,
 } from "@repo/domain/Plan";
-import { Effect, Match, Option, pipe } from "effect";
+import { Effect, Equal, Match, Option, pipe } from "effect";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import {
   IndentationText,
@@ -17,49 +17,6 @@ import {
   ts,
 } from "ts-morph";
 import { findJsxSlotMarker, isJsxSlotMarker, jsxSlotMarker } from "./jsxSlot";
-
-/** @internal */
-export const composeTypeScript: (
-  contents: string,
-  operations: ReadonlyArray<TypeScriptCompositionOperation>,
-) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
-  function* (contents, operations) {
-    const project = new Project({
-      useInMemoryFileSystem: true,
-      skipAddingFilesFromTsConfig: true,
-      manipulationSettings: {
-        indentationText: IndentationText.TwoSpaces,
-        newLineKind: NewLineKind.LineFeed,
-        quoteKind: QuoteKind.Double,
-      },
-    });
-
-    const sourceFile = project.createSourceFile(
-      operations.some((operation) => operation._tag === "ts-jsx-slot")
-        ? "temp.tsx"
-        : "temp.ts",
-      contents,
-    );
-
-    const previousJsxSlotContents = new Map<string, string>();
-
-    for (const op of operations) {
-      yield* Match.valueTags(op, {
-        "ts-add-import": (importOp) => {
-          applyTsAddImport(sourceFile, importOp);
-          return Effect.void;
-        },
-        "ts-append-call-arg": (appendOp) =>
-          applyTsAppendCallArg(sourceFile, appendOp),
-        "ts-object-field": (fieldOp) => applyTsObjectField(sourceFile, fieldOp),
-        "ts-jsx-slot": (slotOp) =>
-          applyTsJsxSlot(sourceFile, slotOp, previousJsxSlotContents),
-      });
-    }
-
-    return sourceFile.getFullText();
-  },
-);
 
 const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
   // Older projects may already bind a name through another specifier, such as
@@ -104,12 +61,9 @@ const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
     return;
   }
 
-  for (const name of namedImports ?? []) {
-    existingImport.addNamedImport(name);
-  }
+  existingImport.addNamedImports(namedImports ?? []);
 };
 
-/** Local names bound by the file's import declarations. */
 const localImportBindings = (sourceFile: SourceFile): ReadonlySet<string> =>
   new Set(
     sourceFile
@@ -125,12 +79,8 @@ const localImportBindings = (sourceFile: SourceFile): ReadonlySet<string> =>
       ]),
   );
 
-/**
- * Append an argument to a call expression. If the call's sole argument is an
- * array literal, the new value is added as an element of that array instead
- * of as a second function argument. This handles patterns like
- * `Command.withSubcommands([])` where new entries belong inside the array.
- */
+// A sole array-literal argument, as in `Command.withSubcommands([])`, takes
+// the new value as an element instead of a second argument.
 const appendToCallOrArray = (call: CallExpression, argument: string): void => {
   const args = call.getArguments();
 
@@ -209,25 +159,34 @@ const toOuterCurriedCall = (call: CallExpression): CallExpression => {
   return call;
 };
 
+const findTargetCall = (
+  sourceFile: SourceFile,
+  op: TsAppendCallArgOp | TsObjectFieldOp,
+) =>
+  pipe(
+    getTargetInitializer(sourceFile, op.targetVariable),
+    Option.flatMap((initializer) =>
+      Option.fromUndefinedOr(findCallExpression(initializer, op.functionName)),
+    ),
+  );
+
 const applyTsAppendCallArg = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
   op: TsAppendCallArgOp,
 ) {
-  const initializer = getTargetInitializer(sourceFile, op.targetVariable);
-  if (Option.isNone(initializer)) {
-    return yield* missingTarget(op.targetVariable, op.functionName);
-  }
+  const call = findTargetCall(sourceFile, op);
+  if (Option.isNone(call))
+    return yield* new ApplyFailure({
+      message: `Could not find ${op.functionName} on ${op.targetVariable} during TypeScript composition.`,
+    });
 
-  const call = findCallExpression(initializer.value, op.functionName);
-  if (call) {
-    appendToCallOrArray(toOuterCurriedCall(call), op.argument);
-    return;
-  }
-
-  return yield* missingTarget(op.targetVariable, op.functionName);
+  appendToCallOrArray(toOuterCurriedCall(call.value), op.argument);
 });
 
-const expressionStructure = (value: string): string => {
+type SyntaxTree = [number, string | ReadonlyArray<SyntaxTree>];
+
+// Compares parsed structure, so formatting and trailing commas do not conflict.
+const expressionStructure = (value: string): SyntaxTree | string => {
   const source = ts.createSourceFile(
     "expression.ts",
     `const value = ${value};`,
@@ -237,7 +196,8 @@ const expressionStructure = (value: string): string => {
   const statement = source.statements[0];
   if (!statement || !ts.isVariableStatement(statement)) return value;
   const expression = statement.declarationList.declarations[0]?.initializer;
-  type SyntaxTree = readonly [number, string | ReadonlyArray<SyntaxTree>];
+  const leaf = (node: ts.Node) =>
+    ts.isStringLiteral(node) ? node.text : node.getText(source);
   const syntax = (node: ts.Node): SyntaxTree => {
     const children = node.getChildren(source);
     const withoutTrailingComma =
@@ -249,12 +209,10 @@ const expressionStructure = (value: string): string => {
       node.kind,
       withoutTrailingComma.length > 0
         ? withoutTrailingComma.map(syntax)
-        : ts.isStringLiteral(node)
-          ? node.text
-          : node.getText(source),
+        : leaf(node),
     ];
   };
-  return expression ? JSON.stringify(syntax(expression)) : value;
+  return expression ? syntax(expression) : value;
 };
 
 // Later properties win. An opaque spread or computed key can supply the field at runtime.
@@ -291,28 +249,33 @@ const applyTsObjectField = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
   op: TsObjectFieldOp,
 ) {
-  const initializer = getTargetInitializer(sourceFile, op.targetVariable);
-  if (Option.isNone(initializer)) {
-    return yield* missingTarget(op.targetVariable, op.functionName);
-  }
-
-  const call = findCallExpression(initializer.value, op.functionName);
-  const objectArg = call
-    ?.getArguments()
-    .find((arg) => arg.isKind(SyntaxKind.ObjectLiteralExpression));
-  if (!objectArg) {
-    return yield* missingTarget(op.targetVariable, op.functionName);
-  }
-
-  const objectLiteral = objectArg.asKindOrThrow(
-    SyntaxKind.ObjectLiteralExpression,
+  const objectLiteral = pipe(
+    findTargetCall(sourceFile, op),
+    Option.flatMap((call) =>
+      Option.fromUndefinedOr(
+        call
+          .getArguments()
+          .find((arg) => arg.isKind(SyntaxKind.ObjectLiteralExpression)),
+      ),
+    ),
+    Option.map((arg) => arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression)),
   );
-  const existingValue = objectFieldValue(objectLiteral.compilerNode, op.field);
+  if (Option.isNone(objectLiteral))
+    return yield* new ApplyFailure({
+      message: `Could not find ${op.functionName} on ${op.targetVariable} during TypeScript composition.`,
+    });
+
+  const existingValue = objectFieldValue(
+    objectLiteral.value.compilerNode,
+    op.field,
+  );
   if (existingValue !== undefined) {
     if (
       existingValue !== "unknown" &&
-      expressionStructure(existingValue.getText()) ===
-        expressionStructure(op.value)
+      Equal.equals(
+        expressionStructure(existingValue.getText()),
+        expressionStructure(op.value),
+      )
     ) {
       return;
     }
@@ -321,19 +284,11 @@ const applyTsObjectField = Effect.fnUntraced(function* (
     });
   }
 
-  objectLiteral.addPropertyAssignment({
+  objectLiteral.value.addPropertyAssignment({
     name: op.field,
     initializer: op.value,
   });
-  return;
 });
-
-const missingTarget = (targetVariable: string, functionName: string) =>
-  Effect.fail(
-    new ApplyFailure({
-      message: `Could not find ${functionName} on ${targetVariable} during TypeScript composition.`,
-    }),
-  );
 
 const applyTsJsxSlot = Effect.fnUntraced(function* (
   sourceFile: SourceFile,
@@ -352,11 +307,10 @@ const applyTsJsxSlot = Effect.fnUntraced(function* (
   const markerEnd = marker.getEnd();
   const parent = marker.getParent();
   const children =
-    parent.getKind() === SyntaxKind.JsxElement
-      ? parent.asKindOrThrow(SyntaxKind.JsxElement).getJsxChildren()
-      : parent.getKind() === SyntaxKind.JsxFragment
-        ? parent.asKindOrThrow(SyntaxKind.JsxFragment).getJsxChildren()
-        : [];
+    (
+      parent.asKind(SyntaxKind.JsxElement) ??
+      parent.asKind(SyntaxKind.JsxFragment)
+    )?.getJsxChildren() ?? [];
   const markerIndex = children.findIndex((child) => child === marker);
   const slotChildren = children.slice(markerIndex + 1);
   const nextMarkerIndex = slotChildren.findIndex(
@@ -389,3 +343,62 @@ const applyTsJsxSlot = Effect.fnUntraced(function* (
   sourceFile.replaceWithText(newText);
   previousContents.set(op.slotId, op.content);
 });
+
+const applyOperation = (
+  composition: {
+    sourceFile: SourceFile;
+    previousJsxSlotContents: Map<string, string>;
+  },
+  operation: TypeScriptCompositionOperation,
+) =>
+  Match.valueTags(operation, {
+    "ts-add-import": (importOp) =>
+      Effect.sync(() => applyTsAddImport(composition.sourceFile, importOp)),
+    "ts-append-call-arg": (appendOp) =>
+      applyTsAppendCallArg(composition.sourceFile, appendOp),
+    "ts-object-field": (fieldOp) =>
+      applyTsObjectField(composition.sourceFile, fieldOp),
+    "ts-jsx-slot": (slotOp) =>
+      applyTsJsxSlot(
+        composition.sourceFile,
+        slotOp,
+        composition.previousJsxSlotContents,
+      ),
+  });
+
+/** @internal */
+export const composeTypeScript: (
+  contents: string,
+  operations: ReadonlyArray<TypeScriptCompositionOperation>,
+) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+  function* (contents, operations) {
+    const project = new Project({
+      useInMemoryFileSystem: true,
+      skipAddingFilesFromTsConfig: true,
+      manipulationSettings: {
+        indentationText: IndentationText.TwoSpaces,
+        newLineKind: NewLineKind.LineFeed,
+        quoteKind: QuoteKind.Double,
+      },
+    });
+
+    const sourceFile = project.createSourceFile(
+      operations.some((operation) => operation._tag === "ts-jsx-slot")
+        ? "temp.tsx"
+        : "temp.ts",
+      contents,
+    );
+
+    const composition = {
+      sourceFile,
+      previousJsxSlotContents: new Map<string, string>(),
+    };
+    yield* Effect.forEach(
+      operations,
+      (operation) => applyOperation(composition, operation),
+      { discard: true },
+    );
+
+    return sourceFile.getFullText();
+  },
+);
