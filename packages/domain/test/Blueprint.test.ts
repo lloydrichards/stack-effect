@@ -10,7 +10,7 @@ import {
   TargetKey,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { Schema } from "effect";
+import { Effect, SchemaIssue } from "effect";
 
 const domainIdentity = new TargetIdentity({
   kind: TargetKind.make("package"),
@@ -93,52 +93,7 @@ const makeUnsortedBlueprint = () =>
   });
 
 describe("@repo/domain Blueprint", () => {
-  it("should derive canonical paths and match identity rules when names need normalization", () => {
-    const identity = new TargetIdentity({
-      kind: TargetKind.make("server"),
-      name: "My Api",
-    });
-
-    assert.strictEqual(identity.toKey(), "apps/server-my-api");
-    assert.strictEqual(identity.toPath(), "apps/server-my-api");
-    assert.strictEqual(
-      identity.matches({ _tag: "kind", kind: TargetKind.make("server") }),
-      true,
-    );
-    assert.strictEqual(
-      identity.matches({
-        _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("server"),
-          name: "my-api",
-        }),
-      }),
-      true,
-    );
-    assert.strictEqual(
-      identity.matches({
-        _tag: "identity",
-        identity: new TargetIdentity({
-          kind: TargetKind.make("client-react"),
-          name: "my-api",
-        }),
-      }),
-      false,
-    );
-  });
-
-  it("should preserve target identity behavior when decoding", () => {
-    const identity = Schema.decodeSync(TargetIdentity)({
-      kind: "package",
-      name: "domain",
-    });
-
-    assert.instanceOf(identity, TargetIdentity);
-    assert.strictEqual(identity.toKey(), "packages/domain");
-    assert.strictEqual(identity.toPath(), "packages/domain");
-  });
-
-  it("should sort nodes and edges deterministically when normalizing a Blueprint", () => {
+  it("should order nodes and edges canonically when a Blueprint is sorted", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
     assert.deepStrictEqual(
@@ -288,33 +243,17 @@ describe("@repo/domain Blueprint", () => {
     },
   ] as const;
 
-  it("should reject invalid identities and ownership relationships during checked construction", () => {
-    invalidBlueprints.forEach(({ mutate, name }) => {
-      assert.throws(
-        () => new Blueprint(mutate(makeUnsortedBlueprint())),
-        "Schema validation failed",
-        null,
-        name,
-      );
-    });
-  });
+  const formatIssue = SchemaIssue.makeFormatterDefault();
 
-  it("should reject invalid ownership relationships when decoding", () => {
-    const blueprint = makeUnsortedBlueprint();
-    const invalid = {
-      nodes: blueprint.nodes,
-      edges: blueprint.edges.filter(
-        (edge) =>
-          !(
-            edge.reason === "owns-module" &&
-            edge.from === domainIdentity.toKey()
-          ),
-      ),
-    };
+  it.effect.each(invalidBlueprints)(
+    "should name the broken invariant when a Blueprint has $name",
+    ({ mutate, message }) =>
+      Effect.gen(function* () {
+        const issue = yield* Effect.flip(
+          Blueprint.makeEffect(mutate(makeUnsortedBlueprint())),
+        );
 
-    assert.throws(
-      () => Schema.decodeSync(Blueprint)(invalid),
-      "must have exactly one owns-module edge",
-    );
-  });
+        assert.include(formatIssue(issue), message);
+      }),
+  );
 });

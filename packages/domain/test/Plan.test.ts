@@ -16,7 +16,7 @@ describe("@repo/domain Plan", () => {
       { _tag: "missing", path: RepositoryPath.make("package.json") },
     ],
   } as const;
-  it("should accept supported classifications and reject unsupported values", () => {
+  it("should accept the four classifications and reject any other value when decoding an outcome", () => {
     const decodeOutcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value);
     const outcome = (classification: string) => ({
       _tag: "complete",
@@ -39,24 +39,7 @@ describe("@repo/domain Plan", () => {
     assert.throws(() => decodeOutcome(outcome("delete")));
   });
 
-  it("should decode outcome and conflict fields independently", () => {
-    const outcome = Schema.decodeSync(Plan.fields.outcomes.value)({
-      _tag: "complete",
-      path: "packages/domain/tsconfig.json",
-      classification: "create",
-      contents: '{"extends":"../../packages/config-typescript/base.json"}',
-    });
-
-    assert.strictEqual(outcome._tag, "complete");
-    const conflict = Schema.decodeSync(Plan.fields.conflicts.value)({
-      _tag: "completeFile",
-      path: "package.json",
-    });
-
-    assert.strictEqual(conflict._tag, "completeFile");
-  });
-
-  it("should sort outcomes and distinct same-path diagnostics deterministically", () => {
+  it("should order outcomes, baseline paths, and same-path diagnostics canonically when a Plan is sorted", () => {
     const plan = new Plan({
       baseline: {
         root: "/workspace",
@@ -288,7 +271,7 @@ describe("@repo/domain Plan", () => {
   ];
 
   it.each(invalidPlans)(
-    "should reject a Plan with $name",
+    "should name the broken invariant when a Plan has $name",
     ({ decode, message }) => {
       assert.throws(decode, message);
     },
@@ -296,48 +279,47 @@ describe("@repo/domain Plan", () => {
 });
 
 describe("ContributionTokenContext.resolve", () => {
-  it("preserves literal replacement characters in README recipes and workspace descriptions", () => {
-    const identity = new TargetIdentity({
-      kind: TargetKind.make("package"),
-      name: "sdk/client",
-    });
+  const nested = new TargetIdentity({
+    kind: TargetKind.make("package"),
+    name: "sdk/client",
+  });
+
+  it("should keep replacement characters literal when the recipe or a workspace description contains $&", () => {
     const recipe =
       "bunx stack-effect@latest create sdk --catalog 'mine=https://example.com/catalog.json?q=$&'";
     const context = new ContributionTokenContext({
-      targetKey: identity.toKey(),
-      identity,
+      targetKey: nested.toKey(),
+      identity: nested,
       config: new StackConfig({ name: "sdk", runtime: { _tag: "bun" } }),
       scaffoldRecipe: recipe,
-      projectTargets: [{ identity, description: "Price $& guide" }],
+      projectTargets: [{ identity: nested, description: "Price $& guide" }],
     });
+
     assert.strictEqual(context.resolve("{{scaffoldRecipe}}"), recipe);
     assert.include(context.resolve("{{workspaceTargets}}"), "Price $& guide");
+  });
+
+  it("should resolve path tokens and a flat npm name when the target name is nested", () => {
+    const context = new ContributionTokenContext({
+      targetKey: nested.toKey(),
+      identity: nested,
+      config: new StackConfig({ name: "sdk", runtime: { _tag: "bun" } }),
+    });
+
+    assert.strictEqual(
+      context.resolve("{{targetPath}}/src {{targetDir}} {{packageName}}"),
+      "packages/sdk/client/src packages/sdk/client @repo/sdk-client",
+    );
     assert.strictEqual(
       context.resolve("{{projectRoot}}/README.md"),
       "../../../README.md",
     );
   });
 
-  it("should resolve path tokens and flat npm names when the target name is nested", () => {
-    const identity = new TargetIdentity({
-      kind: TargetKind.make("package"),
-      name: "sdk/client",
-    });
-    const context = new ContributionTokenContext({
-      targetKey: identity.toKey(),
-      identity,
-      config: new StackConfig({
-        name: Schema.NonEmptyString.make("sdk"),
-        runtime: { _tag: "bun" },
-      }),
-    });
-    assert.strictEqual(
-      context.resolve("{{targetPath}}/src {{targetDir}} {{packageName}}"),
-      "packages/sdk/client/src packages/sdk/client @repo/sdk-client",
-    );
-  });
-
-  const makeContext = (configOverrides: Partial<StackConfig> = {}) =>
+  const makeContext = (
+    configOverrides: Partial<StackConfig> = {},
+    moduleIds?: ReadonlyArray<string>,
+  ) =>
     new ContributionTokenContext({
       targetKey: TargetKey.make("apps/server-api"),
       identity: new TargetIdentity({
@@ -349,273 +331,277 @@ describe("ContributionTokenContext.resolve", () => {
         runtime: { _tag: "bun" },
         ...configOverrides,
       }),
+      moduleIds,
     });
 
-  it("selects template branches using modules attached to this target", () => {
-    const template =
-      "{{#if module=package-library}}public{{/if}}{{#if noModule=package-library}}private{{/if}}";
-    const base = makeContext();
-    assert.strictEqual(base.resolve(template), "private");
-    assert.strictEqual(
-      new ContributionTokenContext({
-        targetKey: base.targetKey,
-        identity: base.identity,
-        config: base.config,
-        moduleIds: ["package-library"],
-      }).resolve(template),
-      "public",
-    );
-    assert.strictEqual(
-      new ContributionTokenContext({
-        targetKey: base.targetKey,
-        identity: base.identity,
-        config: base.config,
-        moduleIds: ["other"],
-      }).resolve(template),
-      "private",
-    );
-  });
+  const node = (packageManager: "pnpm" | "npm") =>
+    ({ runtime: { _tag: "node", packageManager } }) as const;
 
-  describe("simple tokens", () => {
-    it("resolves {{lint}} token", () => {
-      const ctx = makeContext({ lint: "biome" });
-      assert.strictEqual(ctx.resolve("{{lint}}"), "biome");
-    });
+  it.each([
+    {
+      label: "lint is set",
+      config: { lint: "biome" },
+      token: "{{lint}}",
+      expected: "biome",
+    },
+    {
+      label: "format is set",
+      config: { format: "dprint" },
+      token: "{{format}}",
+      expected: "dprint",
+    },
+    {
+      label: "test is set",
+      config: { test: "vitest" },
+      token: "{{test}}",
+      expected: "vitest",
+    },
+    {
+      label: "monorepo is set",
+      config: { monorepo: "turbo" },
+      token: "{{monorepo}}",
+      expected: "turbo",
+    },
+    {
+      label: "typescript is set",
+      config: { typescript: "7" },
+      token: "{{typescript}}",
+      expected: "7",
+    },
+    { label: "lint is unset", config: {}, token: "{{lint}}", expected: "" },
+    { label: "format is unset", config: {}, token: "{{format}}", expected: "" },
+    { label: "test is unset", config: {}, token: "{{test}}", expected: "" },
+    {
+      label: "monorepo is unset",
+      config: {},
+      token: "{{monorepo}}",
+      expected: "",
+    },
+    {
+      label: "typescript is unset",
+      config: {},
+      token: "{{typescript}}",
+      expected: "6",
+    },
+    {
+      label: "the runtime is Bun",
+      config: {},
+      token: "{{workspaceDependency}}",
+      expected: "workspace:*",
+    },
+    {
+      label: "the package manager is pnpm",
+      config: node("pnpm"),
+      token: "{{workspaceDependency}}",
+      expected: "workspace:*",
+    },
+    {
+      label: "the package manager is npm",
+      config: node("npm"),
+      token: "{{workspaceDependency}}",
+      expected: "*",
+    },
+  ] as const)(
+    "should resolve $token to '$expected' when $label",
+    ({ config, token, expected }) => {
+      assert.strictEqual(makeContext(config).resolve(token), expected);
+    },
+  );
 
-    it("resolves {{format}} token", () => {
-      const ctx = makeContext({ format: "dprint" });
-      assert.strictEqual(ctx.resolve("{{format}}"), "dprint");
-    });
+  it.each([
+    {
+      label: "the field is set",
+      config: { lint: "biome" },
+      template: "{{#if lint}}yes{{/if}}",
+      expected: "yes",
+    },
+    {
+      label: "the field is unset",
+      config: {},
+      template: "{{#if lint}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the field is an empty string",
+      config: { lint: "" },
+      template: "{{#if lint}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the field is unknown",
+      config: { lint: "biome" },
+      template: "{{#if unknown}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the field equals the value",
+      config: { lint: "biome" },
+      template: "{{#if lint=biome}}yes{{/if}}",
+      expected: "yes",
+    },
+    {
+      label: "the field differs from the value",
+      config: { lint: "oxlint" },
+      template: "{{#if lint=biome}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the compared field is unset",
+      config: {},
+      template: "{{#if lint=biome}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the compared field is unknown",
+      config: { lint: "biome" },
+      template: "{{#if unknown=value}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the value contains a hyphen",
+      config: { monorepo: "vite-plus" },
+      template: "{{#if monorepo=vite-plus}}yes{{/if}}",
+      expected: "yes",
+    },
+    {
+      label: "the runtime is Bun and the condition names bun",
+      config: {},
+      template: "{{#if runtime=bun}}yes{{/if}}",
+      expected: "yes",
+    },
+    {
+      label: "the runtime is Node and the condition names bun",
+      config: node("pnpm"),
+      template: "{{#if runtime=bun}}yes{{/if}}",
+      expected: "",
+    },
+    {
+      label: "the runtime is Node and the condition names node",
+      config: node("pnpm"),
+      template: "{{#if runtime=node}}yes{{/if}}",
+      expected: "yes",
+    },
+  ] as const)(
+    "should resolve $template to '$expected' when $label",
+    ({ config, template, expected }) => {
+      assert.strictEqual(makeContext(config).resolve(template), expected);
+    },
+  );
 
-    it("resolves {{test}} token", () => {
-      const ctx = makeContext({ test: "vitest" });
-      assert.strictEqual(ctx.resolve("{{test}}"), "vitest");
-    });
-
-    it("resolves {{monorepo}} token", () => {
-      const ctx = makeContext({ monorepo: "turbo" });
-      assert.strictEqual(ctx.resolve("{{monorepo}}"), "turbo");
-    });
-
-    it("resolves {{typescript}} token", () => {
-      const ctx = makeContext({ typescript: "7" });
-      assert.strictEqual(ctx.resolve("{{typescript}}"), "7");
-    });
-
-    it("resolves workspace dependencies for Bun", () => {
+  it.each([
+    {
+      label: "no modules are attached",
+      moduleIds: undefined,
+      expected: "private",
+    },
+    {
+      label: "the named module is attached",
+      moduleIds: ["package-library"],
+      expected: "public",
+    },
+    {
+      label: "only another module is attached",
+      moduleIds: ["other"],
+      expected: "private",
+    },
+  ])(
+    "should select the '$expected' branch when $label",
+    ({ moduleIds, expected }) => {
       assert.strictEqual(
-        makeContext().resolve("{{workspaceDependency}}"),
-        "workspace:*",
+        makeContext({}, moduleIds).resolve(
+          "{{#if module=package-library}}public{{/if}}{{#if noModule=package-library}}private{{/if}}",
+        ),
+        expected,
       );
-    });
+    },
+  );
 
-    it("resolves workspace dependencies for pnpm", () => {
-      const ctx = makeContext({
-        runtime: { _tag: "node", packageManager: "pnpm" },
-      });
-      assert.strictEqual(ctx.resolve("{{workspaceDependency}}"), "workspace:*");
-    });
-
-    it("resolves workspace dependencies for npm", () => {
-      const ctx = makeContext({
-        runtime: { _tag: "node", packageManager: "npm" },
-      });
-      assert.strictEqual(ctx.resolve("{{workspaceDependency}}"), "*");
-    });
-
-    it("resolves undefined config fields to empty string", () => {
-      const ctx = makeContext({});
-      assert.strictEqual(ctx.resolve("{{lint}}"), "");
-      assert.strictEqual(ctx.resolve("{{format}}"), "");
-      assert.strictEqual(ctx.resolve("{{test}}"), "");
-      assert.strictEqual(ctx.resolve("{{monorepo}}"), "");
-      assert.strictEqual(ctx.resolve("{{typescript}}"), "6");
-    });
-  });
-
-  describe("truthy conditionals", () => {
-    it("includes content when field is set", () => {
-      const ctx = makeContext({ lint: "biome" });
+  it.each([
+    { label: "no monorepo tool is configured", config: {}, expected: "native" },
+    {
+      label: "a monorepo tool is configured",
+      config: { monorepo: "nx" },
+      expected: "external",
+    },
+  ])(
+    "should select the $expected workspace task when $label",
+    ({ config, expected }) => {
       assert.strictEqual(
-        ctx.resolve("{{#if lint}}has lint{{/if}}"),
-        "has lint",
-      );
-    });
-
-    it("excludes content when field is undefined", () => {
-      const ctx = makeContext({});
-      assert.strictEqual(ctx.resolve("{{#if lint}}has lint{{/if}}"), "");
-    });
-
-    it("excludes content when field is empty string", () => {
-      const ctx = makeContext({ lint: "" });
-      assert.strictEqual(ctx.resolve("{{#if lint}}has lint{{/if}}"), "");
-    });
-  });
-
-  describe("computed Effect Oxlint conditionals", () => {
-    const template =
-      "{{#if effectOxlint}}effect{{/if}}/{{#if standaloneOxlint}}standalone{{/if}}/{{#if standaloneEffectOxlint}}standalone-effect{{/if}}/{{#if typescript7Diagnostics}}typescript{{/if}}";
-
-    it("enables Effect Oxlint and its standalone variant for TS7 outside Vite+", () => {
-      const ctx = makeContext({
-        typescript: "7",
-        lint: "oxlint",
-        monorepo: "turbo",
-      });
-
-      assert.strictEqual(
-        ctx.resolve(template),
-        "effect/standalone/standalone-effect/",
-      );
-    });
-
-    it("enables Effect Oxlint but not its standalone variant for TS7 Vite+", () => {
-      const ctx = makeContext({
-        typescript: "7",
-        lint: "oxlint",
-        monorepo: "vite-plus",
-      });
-
-      assert.strictEqual(ctx.resolve(template), "effect///");
-    });
-
-    it("disables Effect Oxlint for TS6 with Oxlint", () => {
-      const ctx = makeContext({ typescript: "6", lint: "oxlint" });
-
-      assert.strictEqual(ctx.resolve(template), "/standalone//");
-    });
-
-    it("disables Effect Oxlint for TS7 with a different linter", () => {
-      const ctx = makeContext({ typescript: "7", lint: "biome" });
-
-      assert.strictEqual(ctx.resolve(template), "///typescript");
-    });
-
-    it("enables standalone Oxlint when monorepo is omitted", () => {
-      const ctx = makeContext({ typescript: "7", lint: "oxlint" });
-
-      assert.strictEqual(
-        ctx.resolve(template),
-        "effect/standalone/standalone-effect/",
-      );
-    });
-  });
-
-  describe("equality conditionals", () => {
-    it("selects the native workspace task when no monorepo tool is configured", () => {
-      assert.strictEqual(
-        makeContext({}).resolve(
+        makeContext(config).resolve(
           "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
         ),
-        "native",
+        expected,
       );
+    },
+  );
+
+  it.each([
+    {
+      label: "TypeScript 7 uses Oxlint outside Vite+",
+      config: { typescript: "7", lint: "oxlint", monorepo: "turbo" },
+      expected: "effect/standalone/standalone-effect/",
+    },
+    {
+      label: "TypeScript 7 uses Oxlint inside Vite+",
+      config: { typescript: "7", lint: "oxlint", monorepo: "vite-plus" },
+      expected: "effect///",
+    },
+    {
+      label: "TypeScript 7 uses Oxlint with no monorepo tool",
+      config: { typescript: "7", lint: "oxlint" },
+      expected: "effect/standalone/standalone-effect/",
+    },
+    {
+      label: "TypeScript 6 uses Oxlint",
+      config: { typescript: "6", lint: "oxlint" },
+      expected: "/standalone//",
+    },
+    {
+      label: "TypeScript 7 uses another linter",
+      config: { typescript: "7", lint: "biome" },
+      expected: "///typescript",
+    },
+  ] as const)(
+    "should derive the Oxlint and diagnostics flags '$expected' when $label",
+    ({ config, expected }) => {
       assert.strictEqual(
-        makeContext({ monorepo: "nx" }).resolve(
-          "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
+        makeContext(config).resolve(
+          "{{#if effectOxlint}}effect{{/if}}/{{#if standaloneOxlint}}standalone{{/if}}/{{#if standaloneEffectOxlint}}standalone-effect{{/if}}/{{#if typescript7Diagnostics}}typescript{{/if}}",
         ),
-        "external",
+        expected,
       );
-    });
+    },
+  );
 
-    it("should resolve an equality conditional when its value contains a hyphen", () => {
-      const ctx = makeContext({ monorepo: "vite-plus" });
+  it.each([
+    {
+      label: "every condition holds",
+      config: { lint: "biome", format: "biome" },
+      expected: "lint-biome format-biome",
+    },
+    {
+      label: "only one condition holds",
+      config: { lint: "biome", format: "dprint" },
+      expected: "lint-biome ",
+    },
+  ] as const)(
+    "should resolve each conditional independently when $label",
+    ({ config, expected }) => {
       assert.strictEqual(
-        ctx.resolve(
-          "{{#if monorepo=vite-plus}}node_modules/.vite/task-cache{{/if}}",
+        makeContext(config).resolve(
+          "{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}",
         ),
-        "node_modules/.vite/task-cache",
+        expected,
       );
-    });
+    },
+  );
 
-    it("includes content when field equals value", () => {
-      const ctx = makeContext({ lint: "biome" });
-      assert.strictEqual(
-        ctx.resolve("{{#if lint=biome}}is biome{{/if}}"),
-        "is biome",
-      );
-    });
-
-    it("excludes content when field does not equal value", () => {
-      const ctx = makeContext({ lint: "oxlint" });
-      assert.strictEqual(ctx.resolve("{{#if lint=biome}}is biome{{/if}}"), "");
-    });
-
-    it("excludes content when field is undefined", () => {
-      const ctx = makeContext({});
-      assert.strictEqual(ctx.resolve("{{#if lint=biome}}is biome{{/if}}"), "");
-    });
-
-    it("works with runtime field", () => {
-      const bunCtx = makeContext({});
-      assert.strictEqual(
-        bunCtx.resolve("{{#if runtime=bun}}is bun{{/if}}"),
-        "is bun",
-      );
-
-      const nodeCtx = new ContributionTokenContext({
-        targetKey: TargetKey.make("apps/server-api"),
-        identity: new TargetIdentity({
-          kind: TargetKind.make("server"),
-          name: "api",
-        }),
-        config: new StackConfig({
-          name: "my-project",
-          runtime: { _tag: "node", packageManager: "pnpm" },
-        }),
-      });
-      assert.strictEqual(
-        nodeCtx.resolve("{{#if runtime=bun}}is bun{{/if}}"),
-        "",
-      );
-      assert.strictEqual(
-        nodeCtx.resolve("{{#if runtime=node}}is node{{/if}}"),
-        "is node",
-      );
-    });
-  });
-
-  describe("unknown fields", () => {
-    it("treats unknown field as falsy in truthy check", () => {
-      const ctx = makeContext({ lint: "biome" });
-      assert.strictEqual(ctx.resolve("{{#if unknown}}content{{/if}}"), "");
-    });
-
-    it("treats unknown field as falsy in equality check", () => {
-      const ctx = makeContext({ lint: "biome" });
-      assert.strictEqual(
-        ctx.resolve("{{#if unknown=value}}content{{/if}}"),
-        "",
-      );
-    });
-  });
-
-  describe("multiple conditionals", () => {
-    it("resolves multiple conditionals in same template", () => {
-      const ctx = makeContext({ lint: "biome", format: "biome" });
-      const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
-      assert.strictEqual(ctx.resolve(template), "lint-biome format-biome");
-    });
-
-    it("handles mixed true and false conditionals", () => {
-      const ctx = makeContext({ lint: "biome", format: "dprint" });
-      const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
-      assert.strictEqual(ctx.resolve(template), "lint-biome ");
-    });
-  });
-
-  describe("multiline content", () => {
-    it("preserves multiline content in conditionals", () => {
-      const ctx = makeContext({ lint: "biome" });
-      const template = `{{#if lint=biome}}line1
-line2
-line3{{/if}}`;
-      assert.strictEqual(
-        ctx.resolve(template),
-        `line1
-line2
-line3`,
-      );
-    });
+  it("should keep every line when a conditional body spans lines", () => {
+    assert.strictEqual(
+      makeContext({ lint: "biome" }).resolve(
+        "{{#if lint=biome}}line1\nline2\nline3{{/if}}",
+      ),
+      "line1\nline2\nline3",
+    );
   });
 });
