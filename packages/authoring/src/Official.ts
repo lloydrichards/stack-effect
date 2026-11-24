@@ -15,7 +15,11 @@ export { OFFICIAL_CATALOG_URL };
 /** The official catalog could not be fetched or is not a valid v1 document. */
 export class OfficialCatalogUnavailable extends Schema.TaggedError<OfficialCatalogUnavailable>()(
   "OfficialCatalogUnavailable",
-  { url: Schema.String, message: Schema.String, cause: Schema.Defect() },
+  {
+    url: Schema.String,
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
 ) {}
 
 /**
