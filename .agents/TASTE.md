@@ -217,4 +217,5 @@ Export only what another module uses in production code. A test is not a caller.
 | `shape/error-name` | `shape.mjs`, `packages/*/src`, `apps/cli/src`, and `apps/docs/app` | An error class built on `Schema.TaggedError`, `Schema.ErrorClass`, or `Data.TaggedError` whose name ends in `Failure` |
 | `shape/no-cause-message` | `shape.mjs`, same scope as `error-name` | A `message` template that interpolates a `.message` inside `new X({ … })` that also passes `cause` |
 | `effecttsgo/prefer-schema-tagged-error` | `.oxlintrc.json`, same scope as `error-name` | `Data.TaggedError`. Define the error with `Schema.TaggedError` |
-| Fallow complexity audit | `bun run lint:complexity` | New complexity that gets a failing audit verdict. Existing findings and warnings, such as a moderate CRAP score, are only reported |
+| Fallow health | `bun run lint:complexity` | A function in production code that Fallow rates critical. Split it into parts you can name, or replace branching with a table or a match |
+| Generated project lint | [`workspace-quality-oxlint/_oxlintrc.json`](../catalogs/official/templates/workspace-quality-oxlint/_oxlintrc.json) | `max-depth` 3, `max-nested-callbacks` 4, `no-nested-ternary`, `typescript/array-type`, and `unicorn/prefer-array-flat-map` in generated workspaces, on top of Effect's presets |
