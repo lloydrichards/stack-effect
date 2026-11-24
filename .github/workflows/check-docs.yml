@@ -45,6 +45,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          # The complexity gate compares against the merge-base with main.
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       - run: bun lint
 
