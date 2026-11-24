@@ -24,7 +24,7 @@ sources:
     resource: ../../catalogs/labs/src/service.ts
   - id: qualification
     resource: https://github.com/lloydrichards/stack-effect/issues/275
-generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
+generated: { by: claude, at: "2026-11-24T10:00:00+01:00" }
 ---
 
 # Catalog distribution and freshness
@@ -36,6 +36,8 @@ Status: Implemented.
 Serve the official catalog as a Stack Effect-owned JSON document at `https://stack-effect.lloydrichards.dev/registry/v1/catalog.json`. The docs origin hosts public assets; `public` is a build-source directory and is not part of the URL.
 
 The v1 path identifies a protocol family, not an immutable content release. New definitions and template fixes may replace the document while preserving existing identifiers and supported interpreter operations. A catalog source move preserves the ID but changes which source must supply it. Freeze the v1 capability baseline so adding a module cannot silently make the entire catalog unreadable by older v1 clients. New interpreter semantics require a separate protocol decision.
+
+`barrel-export` is the one operation removed from v1 without a new protocol path. No third-party catalog used it, and Official and Labs stopped emitting it in the same change. A document that still contains it no longer decodes; see the [contribution contract](../domain/contributions.md "records the barrel-export removal"). Merging to `main` redeploys the registry, while the CLI reaches npm only when the Changesets version PR merges. So the documents without `barrel-export` must be live before that PR merges. Any future removal from v1 needs its own decision here.
 
 Do not require catalog semver, a historical-content archive, a catalog lockfile, or a downloaded catalog committed to each project. Older `stack.effect.json` files use the official source as an internal default. A content digest identifies loaded bytes and detects cache corruption; it does not authenticate the publisher or promise that those bytes remain downloadable.
 
