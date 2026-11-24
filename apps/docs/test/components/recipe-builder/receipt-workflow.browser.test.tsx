@@ -1,6 +1,6 @@
+import { assert, expect, test } from "@effect/vitest";
 // @effect-diagnostics asyncFunction:off
 import { MemoryRouter } from "react-router";
-import { expect, test } from "vitest";
 import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
@@ -60,6 +60,6 @@ test.each(["client-react", "client-foldkit"])(
     await expect
       .poll(() => command.element().textContent)
       .toContain("--target package/db:package-db-postgres");
-    expect(command.element().textContent).not.toContain("package-db-sqlite");
+    assert.notInclude(command.element().textContent, "package-db-sqlite");
   },
 );

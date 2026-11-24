@@ -1,5 +1,5 @@
+import { assert, describe, it } from "@effect/vitest";
 import { Result, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 import { CatalogSources } from "./CatalogSource";
 
 const decode = (input: unknown) =>
@@ -9,7 +9,10 @@ const acme = { name: "acme", url: "https://catalog.acme.dev/v1.json" };
 
 describe("CatalogSources", () => {
   it("should accept the selection when the official source is paired with a named custom source", () => {
-    expect(Result.isSuccess(decode([{ name: "official" }, acme]))).toBe(true);
+    assert.strictEqual(
+      Result.isSuccess(decode([{ name: "official" }, acme])),
+      true,
+    );
   });
 
   it.each([
@@ -19,16 +22,20 @@ describe("CatalogSources", () => {
   ])(
     "should accept plain http when the url %s is on a loopback host",
     (url) => {
-      expect(Result.isSuccess(decode([{ name: "local", url }]))).toBe(true);
+      assert.strictEqual(
+        Result.isSuccess(decode([{ name: "local", url }])),
+        true,
+      );
     },
   );
 
   it("should reject plain http when the host is not loopback", () => {
-    expect(
+    assert.strictEqual(
       Result.isFailure(
         decode([{ name: "remote", url: "http://catalog.acme.dev/v1.json" }]),
       ),
-    ).toBe(true);
+      true,
+    );
   });
 
   it.each([
@@ -51,12 +58,13 @@ describe("CatalogSources", () => {
     ["one url under two names", [acme, { ...acme, name: "acme-mirror" }]],
     ["a repeated official entry", [{ name: "official" }, { name: "official" }]],
   ])("should reject a selection when it contains %s", (_, input) => {
-    expect(Result.isFailure(decode(input))).toBe(true);
+    assert.strictEqual(Result.isFailure(decode(input)), true);
   });
 
   it("should accept the selection when the url has a query string", () => {
-    expect(
+    assert.strictEqual(
       Result.isSuccess(decode([{ ...acme, url: `${acme.url}?channel=beta` }])),
-    ).toBe(true);
+      true,
+    );
   });
 });

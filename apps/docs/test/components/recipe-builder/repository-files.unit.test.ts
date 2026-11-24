@@ -1,4 +1,4 @@
-import { expect, test } from "vitest";
+import { assert, expect, test } from "@effect/vitest";
 import {
   compareFiles,
   fileTree,
@@ -47,7 +47,7 @@ test("summarizes nested changes on surviving folders, including removals", () =>
     },
     { name: "README.md", change: undefined },
   ]);
-  expect(changes).toContainEqual({
+  assert.deepInclude(changes, {
     path: "apps/api/old/util.ts",
     status: "Removed",
   });

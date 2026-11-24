@@ -1,5 +1,6 @@
+import { assert, describe, expect, it } from "@effect/vitest";
+import { CustomCatalogSource } from "@repo/domain/CatalogSource";
 import { Schema } from "effect";
-import { assert, describe, expect, it } from "vitest";
 import {
   decodeRecipeBuilderUrl,
   encodeRecipeBuilderUrl,
@@ -18,12 +19,15 @@ describe("recipe builder URL", () => {
     const encoded = encodeRecipeBuilderUrl(fullStackRecipeFixture);
     const decoded = decodeRecipeBuilderUrl(encoded);
 
-    expect(decoded.issue).toBeUndefined();
+    assert.isUndefined(decoded.issue);
+    // toEqual ignores the decoded `catalogs: undefined` key; assert.deepStrictEqual does not.
     expect(decoded.initialValues.config).toEqual(fullStackRecipeFixture.config);
-    expect(decoded.initialValues.gitEnabled).toBe(
+    assert.strictEqual(
+      decoded.initialValues.gitEnabled,
       fullStackRecipeFixture.gitEnabled,
     );
-    expect(encodeRecipeBuilderUrl(decoded.initialValues).toString()).toBe(
+    assert.strictEqual(
+      encodeRecipeBuilderUrl(decoded.initialValues).toString(),
       encoded.toString(),
     );
     const client = decoded.initialValues.targets.find(
@@ -42,7 +46,7 @@ describe("recipe builder URL", () => {
         },
       ],
     });
-    expect(decoded.initialValues.supportSelections).toEqual([]);
+    assert.deepStrictEqual(decoded.initialValues.supportSelections, []);
   });
 
   it.each([false, true])(
@@ -74,10 +78,10 @@ describe("recipe builder URL", () => {
         targets: toggle(target),
       });
       const decoded = decodeRecipeBuilderUrl(encoded);
-      expect(decoded.issue).toBeUndefined();
+      assert.isUndefined(decoded.issue);
       const [restored] = decoded.initialValues.targets;
       assert.isDefined(restored);
-      expect(restored.requirements).toEqual([
+      assert.deepStrictEqual(restored.requirements, [
         {
           sourceTargetId: restored.id,
           sourceModuleId: source.id,
@@ -105,14 +109,16 @@ describe("recipe builder URL", () => {
     const encoded = encodeRecipeBuilderUrl(values);
     const decoded = decodeRecipeBuilderUrl(encoded);
 
-    expect(encoded.get("runtime")).toBe("deno");
-    expect(encoded.get("package-manager")).toBe("deno");
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config.runtime).toEqual({ _tag: "deno" });
-    expect(decoded.initialValues.config.typescript).toBe("6");
-    expect(decoded.initialValues.config.monorepo).toBeUndefined();
-    expect(decoded.initialValues.config.lint).toBeUndefined();
-    expect(decoded.initialValues.config.format).toBeUndefined();
+    assert.strictEqual(encoded.get("runtime"), "deno");
+    assert.strictEqual(encoded.get("package-manager"), "deno");
+    assert.isUndefined(decoded.issue);
+    assert.deepStrictEqual(decoded.initialValues.config.runtime, {
+      _tag: "deno",
+    });
+    assert.strictEqual(decoded.initialValues.config.typescript, "6");
+    assert.isUndefined(decoded.initialValues.config.monorepo);
+    assert.isUndefined(decoded.initialValues.config.lint);
+    assert.isUndefined(decoded.initialValues.config.format);
   });
 
   it("keeps explicit Deno tooling choices in a share URL", () => {
@@ -130,15 +136,15 @@ describe("recipe builder URL", () => {
     const encoded = encodeRecipeBuilderUrl(values);
     const decoded = decodeRecipeBuilderUrl(encoded);
 
-    expect(encoded.get("typescript")).toBe("7");
-    expect(encoded.get("monorepo")).toBe("vite-plus");
-    expect(encoded.get("lint")).toBe("oxlint");
-    expect(encoded.get("format")).toBe("oxfmt");
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config.typescript).toBe("7");
-    expect(decoded.initialValues.config.monorepo).toBe("vite-plus");
-    expect(decoded.initialValues.config.lint).toBe("oxlint");
-    expect(decoded.initialValues.config.format).toBe("oxfmt");
+    assert.strictEqual(encoded.get("typescript"), "7");
+    assert.strictEqual(encoded.get("monorepo"), "vite-plus");
+    assert.strictEqual(encoded.get("lint"), "oxlint");
+    assert.strictEqual(encoded.get("format"), "oxfmt");
+    assert.isUndefined(decoded.issue);
+    assert.strictEqual(decoded.initialValues.config.typescript, "7");
+    assert.strictEqual(decoded.initialValues.config.monorepo, "vite-plus");
+    assert.strictEqual(decoded.initialValues.config.lint, "oxlint");
+    assert.strictEqual(decoded.initialValues.config.format, "oxfmt");
   });
 
   it("infers Deno from a shared URL with only its package manager", () => {
@@ -146,8 +152,10 @@ describe("recipe builder URL", () => {
       new URLSearchParams("package-manager=deno"),
     );
 
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config.runtime).toEqual({ _tag: "deno" });
+    assert.isUndefined(decoded.issue);
+    assert.deepStrictEqual(decoded.initialValues.config.runtime, {
+      _tag: "deno",
+    });
   });
 
   it("restores explicit Deno tooling choices", () => {
@@ -157,8 +165,8 @@ describe("recipe builder URL", () => {
       ),
     );
 
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config).toMatchObject({
+    assert.isUndefined(decoded.issue);
+    assert.containSubset(decoded.initialValues.config, {
       runtime: { _tag: "deno" },
       typescript: "7",
       monorepo: "vite-plus",
@@ -181,8 +189,8 @@ describe("recipe builder URL", () => {
     ].forEach((search) => {
       const decoded = decodeRecipeBuilderUrl(new URLSearchParams(search));
 
-      expect(decoded.issue).toBeDefined();
-      expect(decoded.initialValues.targets).toEqual([]);
+      assert.isDefined(decoded.issue);
+      assert.deepStrictEqual(decoded.initialValues.targets, []);
     });
   });
 
@@ -201,11 +209,11 @@ describe("recipe builder URL", () => {
       gitEnabled: false,
     });
 
-    expect(params.get("name")).toBe(fullStackRecipeFixture.config.name);
-    expect(params.getAll("target")).not.toHaveLength(0);
-    expect(params.has("runtime")).toBe(false);
-    expect(params.has("package-manager")).toBe(false);
-    expect(params.has("no-git")).toBe(true);
+    assert.strictEqual(params.get("name"), fullStackRecipeFixture.config.name);
+    assert.isNotEmpty(params.getAll("target"));
+    assert.strictEqual(params.has("runtime"), false);
+    assert.strictEqual(params.has("package-manager"), false);
+    assert.strictEqual(params.has("no-git"), true);
   });
 
   it("hydrates a valid project-name-only URL", () => {
@@ -213,8 +221,8 @@ describe("recipe builder URL", () => {
       new URLSearchParams("?name=shared-recipe"),
     );
 
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config.name).toBe("shared-recipe");
+    assert.isUndefined(decoded.issue);
+    assert.strictEqual(decoded.initialValues.config.name, "shared-recipe");
   });
 
   it("uses the default TypeScript version for Nx shared links when omitted", () => {
@@ -222,9 +230,9 @@ describe("recipe builder URL", () => {
       new URLSearchParams("?name=shared-recipe&monorepo=nx"),
     );
 
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.config.monorepo).toBe("nx");
-    expect(decoded.initialValues.config.typescript).toBe("7");
+    assert.isUndefined(decoded.issue);
+    assert.strictEqual(decoded.initialValues.config.monorepo, "nx");
+    assert.strictEqual(decoded.initialValues.config.typescript, "7");
   });
 
   it("round trips the database provider outside editable targets", () => {
@@ -234,18 +242,23 @@ describe("recipe builder URL", () => {
     });
     const decoded = decodeRecipeBuilderUrl(encoded);
 
-    expect(decoded.issue).toBeUndefined();
-    expect(decoded.initialValues.database).toBe("sqlite");
-    expect(
+    assert.isUndefined(decoded.issue);
+    assert.strictEqual(decoded.initialValues.database, "sqlite");
+    assert.strictEqual(
       decoded.initialValues.targets.some(
         (target) => target.kind === "package" && target.name === "db",
       ),
-    ).toBe(false);
-    expect(encoded.getAll("target")).toContain("package/db:package-db-sqlite");
+      false,
+    );
+    assert.include(encoded.getAll("target"), "package/db:package-db-sqlite");
   });
 
   describe("catalog parameters", () => {
     const ext = "https://ext.example.test/v1.json";
+    const extSource = Schema.decodeSync(CustomCatalogSource)({
+      name: "ext",
+      url: ext,
+    });
     const decode = (...catalogs: ReadonlyArray<string>) =>
       decodeRecipeBuilderUrl(
         new URLSearchParams([
@@ -257,53 +270,58 @@ describe("recipe builder URL", () => {
     it("uses the official catalog when a link names none", () => {
       const decoded = decode();
 
-      expect(decoded.issue).toBeUndefined();
-      expect(decoded.initialValues.config.catalogs).toBeUndefined();
+      assert.isUndefined(decoded.issue);
+      assert.isUndefined(decoded.initialValues.config.catalogs);
     });
 
     it("stores an explicit official-only link as the default set", () => {
       const decoded = decode("official");
 
-      expect(decoded.issue).toBeUndefined();
-      expect(decoded.initialValues.config.catalogs).toBeUndefined();
-      expect(
+      assert.isUndefined(decoded.issue);
+      assert.isUndefined(decoded.initialValues.config.catalogs);
+      assert.deepStrictEqual(
         encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
-      ).toEqual([]);
+        [],
+      );
     });
 
     it("round trips a custom catalog beside the official one in order", () => {
       const decoded = decode(`ext=${ext}`, "official");
 
-      expect(decoded.issue).toBeUndefined();
-      expect(decoded.initialValues.config.catalogs).toEqual([
-        { name: "ext", url: ext },
+      assert.isUndefined(decoded.issue);
+      assert.deepStrictEqual(decoded.initialValues.config.catalogs, [
+        extSource,
         { name: "official" },
       ]);
-      expect(
+      assert.deepStrictEqual(
         encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
-      ).toEqual([`ext=${ext}`, "official"]);
+        [`ext=${ext}`, "official"],
+      );
     });
 
     it("splits a catalog parameter at the first equals sign", () => {
       const url = `${ext}?channel=beta`;
-      const decoded = decode("official", `ext=${url}`);
+      const { catalogs } = decode("official", `ext=${url}`).initialValues
+        .config;
 
-      expect(decoded.initialValues.config.catalogs).toContainEqual({
-        name: "ext",
-        url,
-      });
+      assert.isDefined(catalogs);
+      assert.deepInclude(
+        [...catalogs],
+        Schema.decodeSync(CustomCatalogSource)({ name: "ext", url }),
+      );
     });
 
     it("round trips a link without the official catalog", () => {
       const decoded = decode(`ext=${ext}`);
 
-      expect(decoded.issue).toBeUndefined();
-      expect(decoded.initialValues.config.catalogs).toEqual([
-        { name: "ext", url: ext },
+      assert.isUndefined(decoded.issue);
+      assert.deepStrictEqual(decoded.initialValues.config.catalogs, [
+        extSource,
       ]);
-      expect(
+      assert.deepStrictEqual(
         encodeRecipeBuilderUrl(decoded.initialValues).getAll("catalog"),
-      ).toEqual([`ext=${ext}`]);
+        [`ext=${ext}`],
+      );
     });
 
     it("leaves official tool and Git choices out of a custom-only link", () => {
@@ -314,8 +332,8 @@ describe("recipe builder URL", () => {
         gitEnabled: false,
       });
 
-      expect(encoded.has("lint")).toBe(false);
-      expect(encoded.has("no-git")).toBe(false);
+      assert.strictEqual(encoded.has("lint"), false);
+      assert.strictEqual(encoded.has("no-git"), false);
     });
 
     it.each([
@@ -326,7 +344,8 @@ describe("recipe builder URL", () => {
       (_label, catalogs) => {
         const decoded = decode(...catalogs);
 
-        expect(decoded.issue).toMatch(/invalid catalogs/u);
+        assert.isDefined(decoded.issue);
+        assert.match(decoded.issue, /invalid catalogs/u);
       },
     );
   });

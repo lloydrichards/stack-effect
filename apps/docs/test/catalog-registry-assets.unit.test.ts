@@ -1,9 +1,8 @@
-import { it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { CatalogDocument } from "@repo/domain/Catalog";
 import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import Ajv2020 from "ajv/dist/2020.js";
 import { Effect, Option, Schema } from "effect";
-import { describe, expect } from "vitest";
 import { isMovedToLabs } from "../app/components/recipe-builder/labs-migration";
 import {
   AUTHOR_CATALOG_ASSET_PATH,
@@ -37,11 +36,13 @@ describe("catalog registry assets", () => {
         )(assets[asset]);
 
         // Previously published IDs remain available except for the explicit Labs moves.
-        expect(catalog.targets.map((target) => target.kind)).toEqual(
-          expect.arrayContaining(ids.targets),
+        assert.includeMembers(
+          catalog.targets.map((target) => target.kind),
+          ids.targets,
         );
-        expect(catalog.modules.map((module) => module.id)).toEqual(
-          expect.arrayContaining(ids.modules),
+        assert.includeMembers(
+          catalog.modules.map((module) => module.id),
+          ids.modules,
         );
       }),
   );
@@ -57,15 +58,16 @@ describe("catalog registry assets", () => {
         const official = yield* decode(assets[CATALOG_ASSET_PATH]);
         const labs = yield* decode(assets[LABS_CATALOG_ASSET_PATH]);
         const officialIds = official.modules.map(({ id }) => id);
-        expect(officialIds.filter(isMovedToLabs)).toEqual([]);
-        expect(labs.requires).toEqual(["official"]);
-        expect(labs.modules.map(({ id }) => id)).toEqual(
-          expect.arrayContaining([
+        assert.deepStrictEqual(officialIds.filter(isMovedToLabs), []);
+        assert.deepStrictEqual(labs.requires, ["official"]);
+        assert.includeMembers(
+          labs.modules.map(({ id }) => id),
+          [
             "client-react-web-worker",
             "package-ai-toolkit-webfetch",
             "server-chat-runtime-managed",
             "cli-persisted-queue",
-          ]),
+          ],
         );
       }),
   );
@@ -81,15 +83,19 @@ describe("catalog registry assets", () => {
         const validate = new Ajv2020().compile(schema);
         const old = { name: "old-project", runtime: { _tag: "bun" } };
 
-        expect(schema).toMatchObject({
+        assert.containSubset(schema, {
           $id: STACK_CONFIG_SCHEMA_URL,
           $schema: "https://json-schema.org/draft/2020-12/schema",
         });
-        expect(validate(old)).toBe(true);
-        expect(validate({ $schema: STACK_CONFIG_SCHEMA_URL, ...old })).toBe(
+        assert.strictEqual(validate(old), true);
+        assert.strictEqual(
+          validate({ $schema: STACK_CONFIG_SCHEMA_URL, ...old }),
           true,
         );
-        expect(validate({ ...old, runtime: { _tag: "unknown" } })).toBe(false);
+        assert.strictEqual(
+          validate({ ...old, runtime: { _tag: "unknown" } }),
+          false,
+        );
       }),
   );
 
@@ -104,9 +110,10 @@ describe("catalog registry assets", () => {
     "should publish the build when it matches the current catalog",
     () =>
       Effect.gen(function* () {
-        expect(
+        assert.strictEqual(
           yield* publishableCatalog(example, Option.some(expected), expected),
-        ).toBe(expected);
+          expected,
+        );
       }),
   );
 
@@ -117,8 +124,8 @@ describe("catalog registry assets", () => {
         const missing = yield* Effect.flip(
           publishableCatalog(example, Option.none(), expected),
         );
-        expect(missing._tag).toBe("CatalogBuildMissing");
-        expect(missing.message).toContain(example.workspace);
+        assert.strictEqual(missing._tag, "CatalogBuildMissing");
+        assert.include(missing.message, example.workspace);
       }),
   );
 
@@ -131,7 +138,7 @@ describe("catalog registry assets", () => {
           expected,
         ),
       );
-      expect(stale._tag).toBe("CatalogBuildStale");
+      assert.strictEqual(stale._tag, "CatalogBuildStale");
     }),
   );
 });

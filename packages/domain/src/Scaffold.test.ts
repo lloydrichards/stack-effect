@@ -1,5 +1,5 @@
+import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
 import { TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 import {
   ContributionTokenContext,
@@ -22,9 +22,10 @@ describe("@repo/domain Scaffold", () => {
       scaffoldRecipe: recipe,
       projectTargets: [{ identity, description: "Price $& guide" }],
     });
-    expect(context.resolve("{{scaffoldRecipe}}")).toBe(recipe);
-    expect(context.resolve("{{workspaceTargets}}")).toContain("Price $& guide");
-    expect(context.resolve("{{projectRoot}}/README.md")).toBe(
+    assert.strictEqual(context.resolve("{{scaffoldRecipe}}"), recipe);
+    assert.include(context.resolve("{{workspaceTargets}}"), "Price $& guide");
+    assert.strictEqual(
+      context.resolve("{{projectRoot}}/README.md"),
       "../../../README.md",
     );
   });
@@ -42,9 +43,10 @@ describe("@repo/domain Scaffold", () => {
         runtime: { _tag: "bun" },
       }),
     });
-    expect(
+    assert.strictEqual(
       context.resolve("{{targetPath}}/src {{targetDir}} {{packageName}}"),
-    ).toBe("packages/sdk/client/src packages/sdk/client @repo/sdk-client");
+      "packages/sdk/client/src packages/sdk/client @repo/sdk-client",
+    );
   });
   it("accepts realistic target identities users are expected to provide", () => {
     const packageIdentity = Schema.decodeSync(TargetIdentity)({
@@ -60,10 +62,10 @@ describe("@repo/domain Scaffold", () => {
       name: "admin-ui",
     });
 
-    expect(packageIdentity.toKey()).toBe("packages/domain");
-    expect(packageIdentity.toPath()).toBe("packages/domain");
-    expect(serverIdentity.toKey()).toBe("apps/server-api");
-    expect(clientIdentity.toPath()).toBe("apps/client-react-admin-ui");
+    assert.strictEqual(packageIdentity.toKey(), "packages/domain");
+    assert.strictEqual(packageIdentity.toPath(), "packages/domain");
+    assert.strictEqual(serverIdentity.toKey(), "apps/server-api");
+    assert.strictEqual(clientIdentity.toPath(), "apps/client-react-admin-ui");
   });
 
   it("accepts empty target names for apps (uses kind only)", () => {
@@ -72,15 +74,15 @@ describe("@repo/domain Scaffold", () => {
       name: "",
     });
 
-    expect(identity.toKey()).toBe("apps/server");
-    expect(identity.toPath()).toBe("apps/server");
-    expect(identity.toPackageName()).toBe("server");
+    assert.strictEqual(identity.toKey(), "apps/server");
+    assert.strictEqual(identity.toPath(), "apps/server");
+    assert.strictEqual(identity.toPackageName(), "server");
   });
 
   it("should reject a target identity when its name is a dot", () => {
-    expect(() =>
+    assert.throws(() =>
       Schema.decodeSync(TargetIdentity)({ kind: "client-react", name: "." }),
-    ).toThrow();
+    );
   });
 
   it("slugifies uppercase names into canonical keys and paths", () => {
@@ -89,8 +91,8 @@ describe("@repo/domain Scaffold", () => {
       name: "API",
     });
 
-    expect(identity.toKey()).toBe("apps/server-api");
-    expect(identity.toPath()).toBe("apps/server-api");
+    assert.strictEqual(identity.toKey(), "apps/server-api");
+    assert.strictEqual(identity.toPath(), "apps/server-api");
   });
 
   it("slugifies names with spaces into canonical keys and paths", () => {
@@ -99,8 +101,8 @@ describe("@repo/domain Scaffold", () => {
       name: "SDK/My API",
     });
 
-    expect(identity.toKey()).toBe("apps/sdk/server-my-api");
-    expect(identity.toPath()).toBe("apps/sdk/server-my-api");
+    assert.strictEqual(identity.toKey(), "apps/sdk/server-my-api");
+    assert.strictEqual(identity.toPath(), "apps/sdk/server-my-api");
   });
 
   it("should preserve slash-separated hierarchy when deriving canonical keys and paths", () => {
@@ -109,9 +111,9 @@ describe("@repo/domain Scaffold", () => {
       name: "domain/core",
     });
 
-    expect(identity.toKey()).toBe("packages/domain/core");
-    expect(identity.toPath()).toBe("packages/domain/core");
-    expect(identity.toPackageName()).toBe("@repo/domain-core");
+    assert.strictEqual(identity.toKey(), "packages/domain/core");
+    assert.strictEqual(identity.toPath(), "packages/domain/core");
+    assert.strictEqual(identity.toPackageName(), "@repo/domain-core");
   });
 
   it("slugifies names with underscores into canonical keys and paths", () => {
@@ -120,8 +122,8 @@ describe("@repo/domain Scaffold", () => {
       name: "admin_ui",
     });
 
-    expect(identity.toKey()).toBe("apps/client-react-admin-ui");
-    expect(identity.toPath()).toBe("apps/client-react-admin-ui");
+    assert.strictEqual(identity.toKey(), "apps/client-react-admin-ui");
+    assert.strictEqual(identity.toPath(), "apps/client-react-admin-ui");
   });
 
   it("normalizes surrounding whitespace before deriving canonical keys and paths", () => {
@@ -130,8 +132,8 @@ describe("@repo/domain Scaffold", () => {
       name: "  SDK/My Api  ",
     });
 
-    expect(identity.toKey()).toBe("apps/sdk/server-my-api");
-    expect(identity.toPath()).toBe("apps/sdk/server-my-api");
+    assert.strictEqual(identity.toKey(), "apps/sdk/server-my-api");
+    assert.strictEqual(identity.toPath(), "apps/sdk/server-my-api");
   });
 
   describe("toPackageName", () => {
@@ -140,7 +142,7 @@ describe("@repo/domain Scaffold", () => {
         kind: "package",
         name: "domain",
       });
-      expect(identity.toPackageName()).toBe("@repo/domain");
+      assert.strictEqual(identity.toPackageName(), "@repo/domain");
     });
 
     it("returns kind-name for apps with names", () => {
@@ -153,8 +155,8 @@ describe("@repo/domain Scaffold", () => {
         name: "web",
       });
 
-      expect(serverIdentity.toPackageName()).toBe("server-api");
-      expect(clientIdentity.toPackageName()).toBe("client-react-web");
+      assert.strictEqual(serverIdentity.toPackageName(), "server-api");
+      assert.strictEqual(clientIdentity.toPackageName(), "client-react-web");
     });
 
     it("returns just kind for apps without names", () => {
@@ -167,8 +169,8 @@ describe("@repo/domain Scaffold", () => {
         name: "",
       });
 
-      expect(serverIdentity.toPackageName()).toBe("server");
-      expect(clientIdentity.toPackageName()).toBe("client-react");
+      assert.strictEqual(serverIdentity.toPackageName(), "server");
+      assert.strictEqual(clientIdentity.toPackageName(), "client-react");
     });
 
     it("slugifies package names", () => {
@@ -176,7 +178,7 @@ describe("@repo/domain Scaffold", () => {
         kind: "package",
         name: "Domain Core",
       });
-      expect(identity.toPackageName()).toBe("@repo/domain-core");
+      assert.strictEqual(identity.toPackageName(), "@repo/domain-core");
     });
 
     it("slugifies app names", () => {
@@ -184,7 +186,7 @@ describe("@repo/domain Scaffold", () => {
         kind: "server",
         name: "My API",
       });
-      expect(identity.toPackageName()).toBe("server-my-api");
+      assert.strictEqual(identity.toPackageName(), "server-my-api");
     });
   });
 
@@ -194,9 +196,9 @@ describe("@repo/domain Scaffold", () => {
       name: "jobs",
     });
 
-    expect(identity.toKey()).toBe("apps/worker-jobs");
-    expect(identity.toPath()).toBe("apps/worker-jobs");
-    expect(identity.toPackageName()).toBe("worker-jobs");
+    assert.strictEqual(identity.toKey(), "apps/worker-jobs");
+    assert.strictEqual(identity.toPath(), "apps/worker-jobs");
+    assert.strictEqual(identity.toPackageName(), "worker-jobs");
   });
 });
 
@@ -213,8 +215,8 @@ describe("StackConfig TypeScript version", () => {
       typescript: "7",
     });
 
-    expect(typescript6.typescript).toBe("6");
-    expect(typescript7.typescript).toBe("7");
+    assert.strictEqual(typescript6.typescript, "6");
+    assert.strictEqual(typescript7.typescript, "7");
   });
 
   it("keeps existing configs without a TypeScript version decodable", () => {
@@ -223,18 +225,18 @@ describe("StackConfig TypeScript version", () => {
       runtime: { _tag: "bun" },
     });
 
-    expect(config.typescript).toBeUndefined();
-    expect(config.typescriptVersion).toBe("6");
+    assert.isUndefined(config.typescript);
+    assert.strictEqual(config.typescriptVersion, "6");
   });
 
   it("rejects unsupported TypeScript major versions", () => {
-    expect(() =>
+    assert.throws(() =>
       Schema.decodeUnknownSync(StackConfig)({
         name: "unsupported-version",
         runtime: { _tag: "bun" },
         typescript: "8",
       }),
-    ).toThrow();
+    );
   });
 });
 
@@ -250,8 +252,8 @@ describe("StackConfig editor schema metadata", () => {
       runtime: { _tag: "bun" },
     });
 
-    expect(old.$schema).toBeUndefined();
-    expect(annotated.$schema).toBe(STACK_CONFIG_SCHEMA_URL);
+    assert.isUndefined(old.$schema);
+    assert.strictEqual(annotated.$schema, STACK_CONFIG_SCHEMA_URL);
   });
 });
 
@@ -263,9 +265,9 @@ describe("StackConfig Deno runtime", () => {
       typescript: "6",
     });
 
-    expect(config.runtimeName).toBe("deno");
-    expect(config.packageManagerName).toBe("deno");
-    expect(config.workspaceDependency).toBe("workspace:*");
+    assert.strictEqual(config.runtimeName, "deno");
+    assert.strictEqual(config.packageManagerName, "deno");
+    assert.strictEqual(config.workspaceDependency, "workspace:*");
   });
 });
 
@@ -288,53 +290,56 @@ describe("ContributionTokenContext.resolve", () => {
     const template =
       "{{#if module=package-library}}public{{/if}}{{#if noModule=package-library}}private{{/if}}";
     const base = makeContext();
-    expect(base.resolve(template)).toBe("private");
-    expect(
+    assert.strictEqual(base.resolve(template), "private");
+    assert.strictEqual(
       new ContributionTokenContext({
         targetKey: base.targetKey,
         identity: base.identity,
         config: base.config,
         moduleIds: ["package-library"],
       }).resolve(template),
-    ).toBe("public");
-    expect(
+      "public",
+    );
+    assert.strictEqual(
       new ContributionTokenContext({
         targetKey: base.targetKey,
         identity: base.identity,
         config: base.config,
         moduleIds: ["other"],
       }).resolve(template),
-    ).toBe("private");
+      "private",
+    );
   });
 
   describe("simple tokens", () => {
     it("resolves {{lint}} token", () => {
       const ctx = makeContext({ lint: "biome" });
-      expect(ctx.resolve("{{lint}}")).toBe("biome");
+      assert.strictEqual(ctx.resolve("{{lint}}"), "biome");
     });
 
     it("resolves {{format}} token", () => {
       const ctx = makeContext({ format: "dprint" });
-      expect(ctx.resolve("{{format}}")).toBe("dprint");
+      assert.strictEqual(ctx.resolve("{{format}}"), "dprint");
     });
 
     it("resolves {{test}} token", () => {
       const ctx = makeContext({ test: "vitest" });
-      expect(ctx.resolve("{{test}}")).toBe("vitest");
+      assert.strictEqual(ctx.resolve("{{test}}"), "vitest");
     });
 
     it("resolves {{monorepo}} token", () => {
       const ctx = makeContext({ monorepo: "turbo" });
-      expect(ctx.resolve("{{monorepo}}")).toBe("turbo");
+      assert.strictEqual(ctx.resolve("{{monorepo}}"), "turbo");
     });
 
     it("resolves {{typescript}} token", () => {
       const ctx = makeContext({ typescript: "7" });
-      expect(ctx.resolve("{{typescript}}")).toBe("7");
+      assert.strictEqual(ctx.resolve("{{typescript}}"), "7");
     });
 
     it("resolves workspace dependencies for Bun", () => {
-      expect(makeContext().resolve("{{workspaceDependency}}")).toBe(
+      assert.strictEqual(
+        makeContext().resolve("{{workspaceDependency}}"),
         "workspace:*",
       );
     });
@@ -343,40 +348,43 @@ describe("ContributionTokenContext.resolve", () => {
       const ctx = makeContext({
         runtime: { _tag: "node", packageManager: "pnpm" },
       });
-      expect(ctx.resolve("{{workspaceDependency}}")).toBe("workspace:*");
+      assert.strictEqual(ctx.resolve("{{workspaceDependency}}"), "workspace:*");
     });
 
     it("resolves workspace dependencies for npm", () => {
       const ctx = makeContext({
         runtime: { _tag: "node", packageManager: "npm" },
       });
-      expect(ctx.resolve("{{workspaceDependency}}")).toBe("*");
+      assert.strictEqual(ctx.resolve("{{workspaceDependency}}"), "*");
     });
 
     it("resolves undefined config fields to empty string", () => {
       const ctx = makeContext({});
-      expect(ctx.resolve("{{lint}}")).toBe("");
-      expect(ctx.resolve("{{format}}")).toBe("");
-      expect(ctx.resolve("{{test}}")).toBe("");
-      expect(ctx.resolve("{{monorepo}}")).toBe("");
-      expect(ctx.resolve("{{typescript}}")).toBe("6");
+      assert.strictEqual(ctx.resolve("{{lint}}"), "");
+      assert.strictEqual(ctx.resolve("{{format}}"), "");
+      assert.strictEqual(ctx.resolve("{{test}}"), "");
+      assert.strictEqual(ctx.resolve("{{monorepo}}"), "");
+      assert.strictEqual(ctx.resolve("{{typescript}}"), "6");
     });
   });
 
   describe("truthy conditionals", () => {
     it("includes content when field is set", () => {
       const ctx = makeContext({ lint: "biome" });
-      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("has lint");
+      assert.strictEqual(
+        ctx.resolve("{{#if lint}}has lint{{/if}}"),
+        "has lint",
+      );
     });
 
     it("excludes content when field is undefined", () => {
       const ctx = makeContext({});
-      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("");
+      assert.strictEqual(ctx.resolve("{{#if lint}}has lint{{/if}}"), "");
     });
 
     it("excludes content when field is empty string", () => {
       const ctx = makeContext({ lint: "" });
-      expect(ctx.resolve("{{#if lint}}has lint{{/if}}")).toBe("");
+      assert.strictEqual(ctx.resolve("{{#if lint}}has lint{{/if}}"), "");
     });
   });
 
@@ -391,7 +399,8 @@ describe("ContributionTokenContext.resolve", () => {
         monorepo: "turbo",
       });
 
-      expect(ctx.resolve(template)).toBe(
+      assert.strictEqual(
+        ctx.resolve(template),
         "effect/standalone/standalone-effect/",
       );
     });
@@ -403,25 +412,26 @@ describe("ContributionTokenContext.resolve", () => {
         monorepo: "vite-plus",
       });
 
-      expect(ctx.resolve(template)).toBe("effect///");
+      assert.strictEqual(ctx.resolve(template), "effect///");
     });
 
     it("disables Effect Oxlint for TS6 with Oxlint", () => {
       const ctx = makeContext({ typescript: "6", lint: "oxlint" });
 
-      expect(ctx.resolve(template)).toBe("/standalone//");
+      assert.strictEqual(ctx.resolve(template), "/standalone//");
     });
 
     it("disables Effect Oxlint for TS7 with a different linter", () => {
       const ctx = makeContext({ typescript: "7", lint: "biome" });
 
-      expect(ctx.resolve(template)).toBe("///typescript");
+      assert.strictEqual(ctx.resolve(template), "///typescript");
     });
 
     it("enables standalone Oxlint when monorepo is omitted", () => {
       const ctx = makeContext({ typescript: "7", lint: "oxlint" });
 
-      expect(ctx.resolve(template)).toBe(
+      assert.strictEqual(
+        ctx.resolve(template),
         "effect/standalone/standalone-effect/",
       );
     });
@@ -429,45 +439,54 @@ describe("ContributionTokenContext.resolve", () => {
 
   describe("equality conditionals", () => {
     it("selects the native workspace task when no monorepo tool is configured", () => {
-      expect(
+      assert.strictEqual(
         makeContext({}).resolve(
           "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
         ),
-      ).toBe("native");
-      expect(
+        "native",
+      );
+      assert.strictEqual(
         makeContext({ monorepo: "nx" }).resolve(
           "{{#if monorepo}}external{{/if}}{{#if noMonorepo}}native{{/if}}",
         ),
-      ).toBe("external");
+        "external",
+      );
     });
 
     it("should resolve an equality conditional when its value contains a hyphen", () => {
       const ctx = makeContext({ monorepo: "vite-plus" });
-      expect(
+      assert.strictEqual(
         ctx.resolve(
           "{{#if monorepo=vite-plus}}node_modules/.vite/task-cache{{/if}}",
         ),
-      ).toBe("node_modules/.vite/task-cache");
+        "node_modules/.vite/task-cache",
+      );
     });
 
     it("includes content when field equals value", () => {
       const ctx = makeContext({ lint: "biome" });
-      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("is biome");
+      assert.strictEqual(
+        ctx.resolve("{{#if lint=biome}}is biome{{/if}}"),
+        "is biome",
+      );
     });
 
     it("excludes content when field does not equal value", () => {
       const ctx = makeContext({ lint: "oxlint" });
-      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("");
+      assert.strictEqual(ctx.resolve("{{#if lint=biome}}is biome{{/if}}"), "");
     });
 
     it("excludes content when field is undefined", () => {
       const ctx = makeContext({});
-      expect(ctx.resolve("{{#if lint=biome}}is biome{{/if}}")).toBe("");
+      assert.strictEqual(ctx.resolve("{{#if lint=biome}}is biome{{/if}}"), "");
     });
 
     it("works with runtime field", () => {
       const bunCtx = makeContext({});
-      expect(bunCtx.resolve("{{#if runtime=bun}}is bun{{/if}}")).toBe("is bun");
+      assert.strictEqual(
+        bunCtx.resolve("{{#if runtime=bun}}is bun{{/if}}"),
+        "is bun",
+      );
 
       const nodeCtx = new ContributionTokenContext({
         targetKey: TargetKey.make("apps/server-api"),
@@ -480,8 +499,12 @@ describe("ContributionTokenContext.resolve", () => {
           runtime: { _tag: "node", packageManager: "pnpm" },
         }),
       });
-      expect(nodeCtx.resolve("{{#if runtime=bun}}is bun{{/if}}")).toBe("");
-      expect(nodeCtx.resolve("{{#if runtime=node}}is node{{/if}}")).toBe(
+      assert.strictEqual(
+        nodeCtx.resolve("{{#if runtime=bun}}is bun{{/if}}"),
+        "",
+      );
+      assert.strictEqual(
+        nodeCtx.resolve("{{#if runtime=node}}is node{{/if}}"),
         "is node",
       );
     });
@@ -490,12 +513,15 @@ describe("ContributionTokenContext.resolve", () => {
   describe("unknown fields", () => {
     it("treats unknown field as falsy in truthy check", () => {
       const ctx = makeContext({ lint: "biome" });
-      expect(ctx.resolve("{{#if unknown}}content{{/if}}")).toBe("");
+      assert.strictEqual(ctx.resolve("{{#if unknown}}content{{/if}}"), "");
     });
 
     it("treats unknown field as falsy in equality check", () => {
       const ctx = makeContext({ lint: "biome" });
-      expect(ctx.resolve("{{#if unknown=value}}content{{/if}}")).toBe("");
+      assert.strictEqual(
+        ctx.resolve("{{#if unknown=value}}content{{/if}}"),
+        "",
+      );
     });
   });
 
@@ -503,13 +529,13 @@ describe("ContributionTokenContext.resolve", () => {
     it("resolves multiple conditionals in same template", () => {
       const ctx = makeContext({ lint: "biome", format: "biome" });
       const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
-      expect(ctx.resolve(template)).toBe("lint-biome format-biome");
+      assert.strictEqual(ctx.resolve(template), "lint-biome format-biome");
     });
 
     it("handles mixed true and false conditionals", () => {
       const ctx = makeContext({ lint: "biome", format: "dprint" });
       const template = `{{#if lint=biome}}lint-biome{{/if}} {{#if format=biome}}format-biome{{/if}}`;
-      expect(ctx.resolve(template)).toBe("lint-biome ");
+      assert.strictEqual(ctx.resolve(template), "lint-biome ");
     });
   });
 
@@ -519,9 +545,12 @@ describe("ContributionTokenContext.resolve", () => {
       const template = `{{#if lint=biome}}line1
 line2
 line3{{/if}}`;
-      expect(ctx.resolve(template)).toBe(`line1
+      assert.strictEqual(
+        ctx.resolve(template),
+        `line1
 line2
-line3`);
+line3`,
+      );
     });
   });
 });

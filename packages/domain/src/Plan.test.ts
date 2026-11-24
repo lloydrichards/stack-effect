@@ -1,6 +1,6 @@
+import { assert, describe, it } from "@effect/vitest";
 import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
   const baseline = { root: "/workspace", paths: [] } as const;
@@ -19,11 +19,12 @@ describe("@repo/domain Plan", () => {
       "unchanged",
       "conflict",
     ]) {
-      expect(decodeOutcome(outcome(classification)).classification).toBe(
+      assert.strictEqual(
+        decodeOutcome(outcome(classification)).classification,
         classification,
       );
     }
-    expect(() => decodeOutcome(outcome("delete"))).toThrow();
+    assert.throws(() => decodeOutcome(outcome("delete")));
   });
 
   it("should decode outcome and conflict fields independently", () => {
@@ -34,13 +35,13 @@ describe("@repo/domain Plan", () => {
       contents: '{"extends":"../../packages/config-typescript/base.json"}',
     });
 
-    expect(outcome._tag).toBe("complete");
+    assert.strictEqual(outcome._tag, "complete");
     const conflict = Schema.decodeSync(Plan.fields.conflicts.value)({
       _tag: "completeFile",
       path: "package.json",
     });
 
-    expect(conflict._tag).toBe("completeFile");
+    assert.strictEqual(conflict._tag, "completeFile");
   });
 
   it("should sort outcomes and distinct same-path diagnostics deterministically", () => {
@@ -100,31 +101,37 @@ describe("@repo/domain Plan", () => {
       ],
     }).toSorted();
 
-    expect(plan.outcomes.map((outcome) => outcome.path)).toEqual([
-      "apps/web/src/App.tsx",
-      "packages/domain/src/Api.ts",
-      "packages/domain/src/index.ts",
-      "packages/domain/tsconfig.json",
-    ]);
-    expect(plan.baseline.paths.map((entry) => entry.path)).toEqual([
-      "a.txt",
-      "z.txt",
-    ]);
-    expect(plan.conflicts.map((conflict) => conflict.path)).toEqual([
-      "packages/domain/src/index.ts",
-      "apps/web/src/App.tsx",
-      "apps/web/src/App.tsx",
-      "packages/domain/tsconfig.json",
-    ]);
-    expect(plan.conflicts.slice(1, 3)).toEqual([
+    assert.deepStrictEqual(
+      plan.outcomes.map((outcome) => outcome.path),
+      [
+        "apps/web/src/App.tsx",
+        "packages/domain/src/Api.ts",
+        "packages/domain/src/index.ts",
+        "packages/domain/tsconfig.json",
+      ],
+    );
+    assert.deepStrictEqual(
+      plan.baseline.paths.map((entry) => entry.path),
+      ["a.txt", "z.txt"],
+    );
+    assert.deepStrictEqual(
+      plan.conflicts.map((conflict) => conflict.path),
+      [
+        "packages/domain/src/index.ts",
+        "apps/web/src/App.tsx",
+        "apps/web/src/App.tsx",
+        "packages/domain/tsconfig.json",
+      ],
+    );
+    assert.deepStrictEqual(plan.conflicts.slice(1, 3), [
       {
         _tag: "jsxSlotTargetNotFound",
-        path: "apps/web/src/App.tsx",
+        path: RepositoryPath.make("apps/web/src/App.tsx"),
         slotId: "components",
       },
       {
         _tag: "jsxSlotTargetNotFound",
-        path: "apps/web/src/App.tsx",
+        path: RepositoryPath.make("apps/web/src/App.tsx"),
         slotId: "footer",
       },
     ]);
@@ -229,17 +236,17 @@ describe("@repo/domain Plan", () => {
 
   it("should reject invalid relationships during checked construction", () => {
     invalidPlans.forEach(({ construct, name }) => {
-      expect(construct, name).toThrow();
+      assert.throws(construct, null, null, name);
     });
   });
 
   it("should reject invalid relationships when decoding", () => {
-    expect(() =>
+    assert.throws(() =>
       Schema.decodeSync(Plan)({
         baseline,
         outcomes: [],
         conflicts: [{ _tag: "completeFile", path: "README.md" }],
       }),
-    ).toThrow();
+    );
   });
 });

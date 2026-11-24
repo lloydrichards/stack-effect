@@ -1,3 +1,4 @@
+import { assert, describe, it } from "@effect/vitest";
 import {
   Apply,
   ApplyFailure,
@@ -6,7 +7,6 @@ import {
 } from "@repo/domain/Apply";
 import { RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Apply", () => {
   const decodeApply = Schema.decodeUnknownSync(Apply);
@@ -25,19 +25,22 @@ describe("@repo/domain Apply", () => {
       ],
     });
 
-    expect(apply.decisions).toEqual([
-      { path: "packages/domain/package.json", value: "override" },
-      { path: "package.json", value: "skip" },
+    assert.deepStrictEqual(apply.decisions, [
+      {
+        path: RepositoryPath.make("packages/domain/package.json"),
+        value: "override",
+      },
+      { path: RepositoryPath.make("package.json"), value: "skip" },
     ]);
   });
 
   it("rejects unsupported apply decision values", () => {
-    expect(() =>
+    assert.throws(() =>
       decodeApply({
         plan: emptyPlan,
         decisions: [{ path: "package.json", value: "merge" }],
       }),
-    ).toThrow();
+    );
   });
 
   it("sorts apply result paths deterministically", () => {
@@ -66,19 +69,22 @@ describe("@repo/domain Apply", () => {
       ],
     }).toSorted();
 
-    expect(result.created).toEqual(["README.md", "packages/domain/src/Api.ts"]);
-    expect(result.modified).toEqual([
-      "apps/server-api/package.json",
-      "packages/domain/package.json",
+    assert.deepStrictEqual(result.created, [
+      RepositoryPath.make("README.md"),
+      RepositoryPath.make("packages/domain/src/Api.ts"),
     ]);
-    expect(result.skipped).toEqual([
-      "package.json",
-      "packages/domain/src/index.ts",
+    assert.deepStrictEqual(result.modified, [
+      RepositoryPath.make("apps/server-api/package.json"),
+      RepositoryPath.make("packages/domain/package.json"),
     ]);
-    expect(result.failed.map((failedPath) => failedPath.path)).toEqual([
-      "README.md",
-      "packages/domain/src/index.ts",
+    assert.deepStrictEqual(result.skipped, [
+      RepositoryPath.make("package.json"),
+      RepositoryPath.make("packages/domain/src/index.ts"),
     ]);
+    assert.deepStrictEqual(
+      result.failed.map((failedPath) => failedPath.path),
+      ["README.md", "packages/domain/src/index.ts"],
+    );
   });
 
   it("decodes apply failures", () => {
@@ -87,8 +93,9 @@ describe("@repo/domain Apply", () => {
       message: "Missing decision for packages/domain/package.json",
     });
 
-    expect(error._tag).toBe("ApplyFailure");
-    expect(error.message).toBe(
+    assert.strictEqual(error._tag, "ApplyFailure");
+    assert.strictEqual(
+      error.message,
       "Missing decision for packages/domain/package.json",
     );
   });
@@ -106,7 +113,11 @@ describe("@repo/domain Apply", () => {
       },
     });
 
-    expect(error.changes).toEqual([{ path: "README.md", kind: "modified" }]);
-    expect(error.partialResult.created).toEqual(["package.json"]);
+    assert.deepStrictEqual(error.changes, [
+      { path: RepositoryPath.make("README.md"), kind: "modified" },
+    ]);
+    assert.deepStrictEqual(error.partialResult.created, [
+      RepositoryPath.make("package.json"),
+    ]);
   });
 });

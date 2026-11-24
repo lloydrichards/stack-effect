@@ -1,5 +1,5 @@
+import { assert, describe, it } from "@effect/vitest";
 import { RepositoryPath } from "@repo/domain/Plan";
-import { describe, expect, it } from "vitest";
 import * as LlmPlan from "./LlmPlan";
 
 describe("LlmPlan.render", () => {
@@ -23,7 +23,7 @@ describe("LlmPlan.render", () => {
       tree: "",
     });
 
-    expect(rendered.conflicts).toEqual([
+    assert.deepStrictEqual(rendered.conflicts, [
       {
         path: "apps/web/src/App.tsx",
         kind: "jsx-slot-target-not-found",

@@ -1,6 +1,6 @@
+import { expect, test } from "@effect/vitest";
 // @effect-diagnostics asyncFunction:off
 import { MemoryRouter } from "react-router";
-import { expect, test } from "vitest";
 import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";

@@ -1,6 +1,5 @@
-import assert from "node:assert/strict";
 import { NodeServices } from "@effect/platform-node";
-import { describe, expect, it } from "@effect/vitest";
+import { assert, describe, it } from "@effect/vitest";
 import { type Apply, ApplyResult } from "@repo/domain/Apply";
 import type { MaterializedApply } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
@@ -122,8 +121,9 @@ const layerWithServices = ({
   );
 
 const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
-  expect(Exit.isFailure(exit)).toBe(true);
-  assert(Exit.isFailure(exit), "Expected effect to fail");
+  if (!Exit.isFailure(exit)) {
+    return assert.fail("Expected effect to fail");
+  }
   return Cause.squash(exit.cause);
 };
 
@@ -149,7 +149,9 @@ describe("ScaffoldPipeline", () => {
           ),
         );
 
-        expect(decisions).toEqual([[{ path: "package.json", value: "skip" }]]);
+        assert.deepStrictEqual(decisions, [
+          [{ path: RepositoryPath.make("package.json"), value: "skip" }],
+        ]);
       }),
   );
 
@@ -187,9 +189,11 @@ describe("ScaffoldPipeline", () => {
             ),
           );
 
-        expect(decisions).toEqual([[{ path: "package.json", value: "skip" }]]);
+        assert.deepStrictEqual(decisions, [
+          [{ path: RepositoryPath.make("package.json"), value: "skip" }],
+        ]);
         // The prompt shows the formatted Plan it asks about.
-        expect(conflictPrompt).toContain("Plan");
+        assert.include(conflictPrompt, "Plan");
       }).pipe(Effect.provide(TestConsole.layer)),
   );
 
@@ -200,7 +204,7 @@ describe("ScaffoldPipeline", () => {
         const pipeline = yield* ScaffoldPipeline;
         const exit = yield* Effect.exit(pipeline.run(runInput));
 
-        expect(squashFailure(exit)).toMatchObject({
+        assert.containSubset(squashFailure(exit), {
           _tag: "DependencyConflictFailure",
           message:
             "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
@@ -233,7 +237,7 @@ describe("ScaffoldPipeline", () => {
       const exit = yield* Effect.exit(pipeline.run(runInput));
       const error = squashFailure(exit);
 
-      expect(error).toMatchObject({
+      assert.containSubset(error, {
         _tag: "FinalizeScriptFailure",
         message: "1 finalize script(s) failed.",
         failed: 1,
@@ -250,7 +254,7 @@ describe("ScaffoldPipeline", () => {
         pipeline.run({ ...runInput, dryRun: true }),
       );
 
-      expect(Exit.isSuccess(exit)).toBe(true);
+      assert.strictEqual(Exit.isSuccess(exit), true);
     }).pipe(
       Effect.provide(
         layerWithServices({
@@ -288,7 +292,7 @@ describe("ScaffoldPipeline", () => {
           ),
         );
 
-        expect(Exit.isSuccess(exit)).toBe(true);
+        assert.strictEqual(Exit.isSuccess(exit), true);
       }),
   );
 
@@ -301,14 +305,14 @@ describe("ScaffoldPipeline", () => {
           pipeline.run({ ...runInput, dryRun: true }),
         );
 
-        expect(Exit.isSuccess(exit)).toBe(true);
+        assert.strictEqual(Exit.isSuccess(exit), true);
       }).pipe(
         Effect.provide(
           layerWithServices({
             plan: conflictPlan,
             materialize: (apply) => {
-              expect(apply.decisions).toEqual([
-                { path: "package.json", value: "skip" },
+              assert.deepStrictEqual(apply.decisions, [
+                { path: RepositoryPath.make("package.json"), value: "skip" },
               ]);
               return Effect.succeed({ apply: applyResult, files: [] });
             },

@@ -1,6 +1,6 @@
 // Browser interaction callbacks use the async APIs exposed by Vitest Browser Mode.
 // @effect-diagnostics asyncFunction:off
-import { afterEach, expect, test, vi } from "vitest";
+import { afterEach, assert, expect, test, vi } from "@effect/vitest";
 import { render } from "vitest-browser-react";
 import { page } from "vitest/browser";
 import { DocMarkdownActions } from "../../app/components/doc-markdown-actions";
@@ -22,7 +22,8 @@ test("loads the current page only when copying and copies its returned Markdown"
   await expect
     .element(page.getByRole("button", { name: "Copied", exact: true }))
     .toBeVisible();
-  expect(clipboard.mock.calls[0]?.[0]).toContain(
+  assert.include(
+    clipboard.mock.calls[0]?.[0],
     "# Build your first Stack Effect project",
   );
 });

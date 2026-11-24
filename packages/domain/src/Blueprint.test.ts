@@ -1,10 +1,10 @@
+import { assert, describe, it } from "@effect/vitest";
 import {
   Blueprint,
   makeBlueprintEdge,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { Schema } from "effect";
-import { describe, expect, it } from "vitest";
 import { ModuleId, TargetIdentity, TargetKey, TargetKind } from "./Catalog";
 
 const domainIdentity = new TargetIdentity({
@@ -94,12 +94,13 @@ describe("@repo/domain Blueprint", () => {
       name: "My Api",
     });
 
-    expect(identity.toKey()).toBe("apps/server-my-api");
-    expect(identity.toPath()).toBe("apps/server-my-api");
-    expect(
+    assert.strictEqual(identity.toKey(), "apps/server-my-api");
+    assert.strictEqual(identity.toPath(), "apps/server-my-api");
+    assert.strictEqual(
       identity.matches({ _tag: "kind", kind: TargetKind.make("server") }),
-    ).toBe(true);
-    expect(
+      true,
+    );
+    assert.strictEqual(
       identity.matches({
         _tag: "identity",
         identity: new TargetIdentity({
@@ -107,8 +108,9 @@ describe("@repo/domain Blueprint", () => {
           name: "my-api",
         }),
       }),
-    ).toBe(true);
-    expect(
+      true,
+    );
+    assert.strictEqual(
       identity.matches({
         _tag: "identity",
         identity: new TargetIdentity({
@@ -116,7 +118,8 @@ describe("@repo/domain Blueprint", () => {
           name: "my-api",
         }),
       }),
-    ).toBe(false);
+      false,
+    );
   });
 
   it("should preserve target identity behavior when decoding", () => {
@@ -125,32 +128,38 @@ describe("@repo/domain Blueprint", () => {
       name: "domain",
     });
 
-    expect(identity).toBeInstanceOf(TargetIdentity);
-    expect(identity.toKey()).toBe("packages/domain");
-    expect(identity.toPath()).toBe("packages/domain");
+    assert.instanceOf(identity, TargetIdentity);
+    assert.strictEqual(identity.toKey(), "packages/domain");
+    assert.strictEqual(identity.toPath(), "packages/domain");
   });
 
   it("should sort nodes and edges deterministically when normalizing a Blueprint", () => {
     const blueprint = makeUnsortedBlueprint().toSorted();
 
-    expect(blueprint.nodes.map((node) => node.id)).toEqual([
-      toAttachedModuleNodeId(
-        serverApiIdentity.toKey(),
-        ModuleId.make("server-http-api"),
-      ),
-      toAttachedModuleNodeId(
-        domainIdentity.toKey(),
-        ModuleId.make("domain-api-contracts"),
-      ),
-      "apps/server-api",
-      "packages/domain",
-    ]);
-    expect(blueprint.edges.map((edge) => edge.id)).toEqual([
-      "owns-module=>apps/server-api=>apps/server-api#server-http-api",
-      "owns-module=>packages/domain=>packages/domain#domain-api-contracts",
-      "required-module=>apps/server-api#server-http-api=>packages/domain#domain-api-contracts",
-      "required-target=>apps/server-api#server-http-api=>packages/domain",
-    ]);
+    assert.deepStrictEqual(
+      blueprint.nodes.map((node) => node.id),
+      [
+        toAttachedModuleNodeId(
+          serverApiIdentity.toKey(),
+          ModuleId.make("server-http-api"),
+        ),
+        toAttachedModuleNodeId(
+          domainIdentity.toKey(),
+          ModuleId.make("domain-api-contracts"),
+        ),
+        "apps/server-api",
+        "packages/domain",
+      ],
+    );
+    assert.deepStrictEqual(
+      blueprint.edges.map((edge) => edge.id),
+      [
+        "owns-module=>apps/server-api=>apps/server-api#server-http-api",
+        "owns-module=>packages/domain=>packages/domain#domain-api-contracts",
+        "required-module=>apps/server-api#server-http-api=>packages/domain#domain-api-contracts",
+        "required-target=>apps/server-api#server-http-api=>packages/domain",
+      ],
+    );
   });
 
   const invalidBlueprints = [
@@ -276,10 +285,12 @@ describe("@repo/domain Blueprint", () => {
 
   it("should reject invalid identities and ownership relationships during checked construction", () => {
     invalidBlueprints.forEach(({ mutate, name }) => {
-      expect(
+      assert.throws(
         () => new Blueprint(mutate(makeUnsortedBlueprint())),
+        "Schema validation failed",
+        null,
         name,
-      ).toThrow("Schema validation failed");
+      );
     });
   });
 
@@ -296,7 +307,8 @@ describe("@repo/domain Blueprint", () => {
       ),
     };
 
-    return expect(Schema.decodePromise(Blueprint)(invalid)).rejects.toThrow(
+    assert.throws(
+      () => Schema.decodeSync(Blueprint)(invalid),
       "must have exactly one owns-module edge",
     );
   });

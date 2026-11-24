@@ -1,4 +1,4 @@
-import { assert, it } from "@effect/vitest";
+import { afterEach, assert, beforeEach, it } from "@effect/vitest";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
 import { ModuleId } from "@repo/domain/Catalog";
@@ -11,7 +11,6 @@ import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { AtomRegistry } from "effect/reactivity";
-import { afterEach, beforeEach } from "vitest";
 import {
   type CatalogAtomRequest,
   catalogAtom,
