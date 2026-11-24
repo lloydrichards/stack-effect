@@ -24,7 +24,7 @@ These rules apply to generated catalog code and to repository packages such as `
 | `for (const x of xs) yield* step(x)` that collects or discards results | `yield* Effect.forEach(xs, step)` with `step` a named operation |
 | `const fail = (message, cause) => new XError({ message, cause })` | `new XError({ message, cause })` at the step that fails |
 | `if (a && !b) return yield* new XError(…)` to reject a combination of fields | A tagged union or a `.check` on the schema, so the combination cannot be built |
-| `x.field ?? "default"` at each reader | `Schema.withDecodingDefaultKey` on the field, so the decoded type is total |
+| `x.field ?? "default"` at each reader | `Schema.withDecodingDefaultKey` on the field, or `Schema.withDecodingDefault` when `undefined` also defaults, so the decoded type is total |
 | `JSON.stringify([a, b])` or `` `${a}::${b}` `` as an equality key | `Equal`, `Arr.dedupe`, or a named `Equivalence` |
 | `.sort((a, b) => a.localeCompare(b))` | `.sort(Order.String)`, or an `Order` built with `Order.mapInput` |
 | `{ _tag: "x" } satisfies T` or `"x" as const` | The union's constructor, or a declared return type |
@@ -98,7 +98,7 @@ Declare each feature's environment configuration in a named, module-level `Confi
 
 Declare optional fields with `Schema.optional`, which gives `?: T | undefined`, and pass possibly-undefined values straight through. Use `Schema.optionalKey` with a conditional spread only when absent and `undefined` must stay distinct, and say why in a comment.
 
-Make the decoded type total. Put a field's default in its decoding with `Schema.withDecodingDefaultKey`, and its normalization, such as trimming, in a schema such as `Schema.Trim`, so readers never repeat it with `??`, a cast, or `.trim()`. `Schema.withConstructorDefault` only fills values passed through `make`. Give a comparison rule, such as case-insensitive paths, one named `Equivalence`. Use `??` only for absence the code does not own, such as an optional terminal width.
+Make the decoded type total. Put a field's default in its decoding with `Schema.withDecodingDefaultKey` when only an absent key defaults, or `Schema.withDecodingDefault` when an explicit `undefined` should default too. The key variant defaults `undefined` only when the field's schema admits it, as `Schema.UndefinedOr` does, and otherwise rejects it. Put its normalization, such as trimming, in a schema such as `Schema.Trim`, so readers never repeat it with `??`, a cast, or `.trim()`. `Schema.withConstructorDefault` only fills values passed through `make`. Give a comparison rule, such as case-insensitive paths, one named `Equivalence`. Use `??` only for absence the code does not own, such as an optional terminal width.
 
 Put an invariant that spans several fields on the type, so an invalid value cannot be decoded or constructed. Use a tagged union when the fields select a case, and `.check(Schema.makeFilter(…))` when they only constrain each other, with one filter per rule so each failure has its own message. Keep runtime checks for facts outside the value, such as the filesystem or the catalog, and write them as one exhaustive match on the union, not a `validate…` function that reads a mode string. Delete a `make…` helper that silently coerces an invalid combination.
 
