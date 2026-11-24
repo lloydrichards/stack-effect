@@ -18,6 +18,9 @@
     "test": {
       "dependsOn": ["^test"]
     },
+    "test:mutation": {
+      "cache": false
+    },
     "clean": {
       "cache": false
     },

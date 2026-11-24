@@ -70,3 +70,7 @@ tsconfig.tsbuildinfo
 /.github/hooks/impeccable.json
 /.github/skills/impeccable/
 /.impeccable/critique/
+
+# Stryker
+.stryker-tmp/
+**/reports/mutation/
