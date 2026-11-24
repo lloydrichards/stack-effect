@@ -17,7 +17,7 @@ export const ModuleContribution = Schema.Struct({
   contributions: Schema.Array(Contribution),
 });
 
-export const NormalizedContributions = Schema.Struct({
+const NormalizedContributions = Schema.Struct({
   targets: Schema.Array(TargetContribution),
   modules: Schema.Array(ModuleContribution),
 });
@@ -63,7 +63,7 @@ export const makeRuntime = (
     Match.exhaustive,
   );
 
-export const TypeScriptVersion = Schema.Literals(["6", "7"]);
+const TypeScriptVersion = Schema.Literals(["6", "7"]);
 
 export type TypeScriptVersion = typeof TypeScriptVersion.Type;
 

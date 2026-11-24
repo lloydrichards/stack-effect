@@ -16,6 +16,14 @@
       "exports": ["*"]
     }
   ],
-  "usedClassMembers": ["message"],
+  "usedClassMembers": [
+    "message",
+    "toSorted",
+    "toPath",
+    "toPackageName",
+    "withCatalogs",
+    "packageManagerSpec",
+    "workspaceDependency"
+  ],
   "ignoreDependencies": ["@effect/language-service"]
 }

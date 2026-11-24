@@ -4,10 +4,7 @@ import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import Ajv2020 from "ajv/dist/2020.js";
 import { Effect, Option, Schema } from "effect";
 import { describe, expect } from "vitest";
-import {
-  isMovedToLabs,
-  movedToLabs,
-} from "../app/components/recipe-builder/labs-migration";
+import { isMovedToLabs } from "../app/components/recipe-builder/labs-migration";
 import {
   AUTHOR_CATALOG_ASSET_PATH,
   CATALOG_ASSET_PATH,
@@ -63,7 +60,12 @@ describe("catalog registry assets", () => {
         expect(officialIds.filter(isMovedToLabs)).toEqual([]);
         expect(labs.requires).toEqual(["official"]);
         expect(labs.modules.map(({ id }) => id)).toEqual(
-          expect.arrayContaining([...movedToLabs, "cli-persisted-queue"]),
+          expect.arrayContaining([
+            "client-react-web-worker",
+            "package-ai-toolkit-webfetch",
+            "server-chat-runtime-managed",
+            "cli-persisted-queue",
+          ]),
         );
       }),
   );

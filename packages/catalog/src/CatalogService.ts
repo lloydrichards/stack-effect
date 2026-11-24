@@ -1,7 +1,6 @@
 import type {
   CatalogGraph,
   CatalogFragment,
-  CatalogTree,
   ModuleCapability,
   ModuleCategory,
   ModuleChild,
@@ -14,7 +13,11 @@ import type {
   TargetKind,
   Visibility,
 } from "@repo/domain/Catalog";
-import { CatalogNotFound, TargetIdentity } from "@repo/domain/Catalog";
+import {
+  CatalogNotFound,
+  CatalogTree,
+  TargetIdentity,
+} from "@repo/domain/Catalog";
 import {
   Array as Arr,
   Context,
@@ -27,7 +30,7 @@ import {
 } from "effect";
 import { type ComposeCatalogOptions, composeCatalog } from "./composeCatalog";
 
-export type BuilderCatalogTarget = {
+type BuilderCatalogTarget = {
   readonly kind: TargetKind;
   readonly title: string;
   readonly description: string;
@@ -35,7 +38,7 @@ export type BuilderCatalogTarget = {
   readonly requiredModules: ReadonlyArray<ModuleId>;
 };
 
-export type BuilderCatalogModule = {
+type BuilderCatalogModule = {
   readonly supportedRuntimes?: ReadonlyArray<SupportedRuntime> | undefined;
   readonly id: ModuleId;
   readonly title: string;
@@ -47,12 +50,12 @@ export type BuilderCatalogModule = {
   readonly conflictsWith: ReadonlyArray<ModuleId>;
 };
 
-export type BuilderCatalogTargetModules = {
+type BuilderCatalogTargetModules = {
   readonly owner: TargetIdentity;
   readonly modules: ReadonlyArray<BuilderCatalogModule>;
 };
 
-export type BuilderCatalog = {
+type BuilderCatalog = {
   readonly targets: ReadonlyArray<BuilderCatalogTarget>;
   readonly targetModules: ReadonlyArray<BuilderCatalogTargetModules>;
 };
@@ -424,7 +427,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
             hasVisibility(mod, options?.visibility),
         );
 
-      const toCatalogTree: CatalogTree = {
+      const toCatalogTree = CatalogTree.make({
         targets: Arr.map(Arr.fromIterable(targetIndex.values()), (target) => ({
           kind: target.kind,
           title: target.title,
@@ -459,7 +462,7 @@ export class CatalogService extends Context.Service<CatalogService>()(
             },
           ),
         })),
-      };
+      });
 
       /** The selected source that supplied a definition, when sources are named. */
       const getSource = (

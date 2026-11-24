@@ -7,7 +7,10 @@ import { Apply, ApplyFailure, type StalePlanFailure } from "@repo/domain/Apply";
 import type { BlueprintFailure } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { PlanFailure } from "@repo/domain/Plan";
-import type { RecipeResolveError } from "@repo/domain/Recipe";
+import {
+  RecipeResolveOptions,
+  type RecipeResolveError,
+} from "@repo/domain/Recipe";
 import {
   RecipePreview,
   type RecipePreviewInput,
@@ -81,10 +84,13 @@ export class RecipePreviewer extends Context.Service<
         recipe,
         config,
       }: RecipePreviewInput) {
-        const selection = yield* recipes.resolve(recipe, {
-          config,
-          providerStrategy: { _tag: "fail-on-ambiguous" },
-        });
+        const selection = yield* recipes.resolve(
+          recipe,
+          RecipeResolveOptions.make({
+            config,
+            providerStrategy: { _tag: "fail-on-ambiguous" },
+          }),
+        );
         const blueprint = yield* blueprints.resolve(selection, config);
 
         const workspace = yield* workspaces.empty;

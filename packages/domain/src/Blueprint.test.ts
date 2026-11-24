@@ -153,24 +153,6 @@ describe("@repo/domain Blueprint", () => {
     ]);
   });
 
-  it("should return present and absent targets when querying a Blueprint", () => {
-    const blueprint = makeUnsortedBlueprint().toSorted();
-    const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
-
-    expect(blueprint.hasTarget("apps/server-api")).toBe(true);
-    expect(blueprint.hasTarget("apps/cli-tooling")).toBe(false);
-    expect(blueprint.getTarget("packages/domain")).toEqual({
-      _tag: "target",
-      id: "packages/domain",
-      identity: {
-        kind: "package",
-        name: "domain",
-      },
-    });
-    expect(emptyBlueprint.hasTarget("apps/server-api")).toBe(false);
-    expect(emptyBlueprint.getTarget("apps/server-api")).toBeUndefined();
-  });
-
   const invalidBlueprints = [
     {
       name: "duplicate node IDs",

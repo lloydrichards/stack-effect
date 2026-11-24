@@ -4,7 +4,7 @@ import { Contribution } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   ModuleContribution,
-  NormalizedContributions,
+  type NormalizedContributions,
   type StackConfig,
   TargetContribution,
 } from "@repo/domain/Scaffold";

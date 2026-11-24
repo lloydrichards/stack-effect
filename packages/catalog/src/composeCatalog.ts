@@ -10,7 +10,7 @@ import {
 import { Array as Arr, Effect, Schema } from "effect";
 
 /** A selected source that supplied one fragment, and the sources it may reference. */
-export type CatalogFragmentSource = {
+type CatalogFragmentSource = {
   readonly name: string;
   readonly requires: ReadonlyArray<string>;
 };

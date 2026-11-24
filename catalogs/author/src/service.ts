@@ -9,7 +9,7 @@ import { AUTHOR_CATALOG_ID, authorCatalog, authorCatalogRoot } from "./index";
  * workspace, so it requires the official catalog and validates against the
  * local official definitions, which the output never embeds.
  */
-export const buildAuthorCatalog = Effect.gen(function* () {
+const buildAuthorCatalog = Effect.gen(function* () {
   const { document: official } = yield* buildOfficialCatalog;
   return yield* buildCatalog(authorCatalog, {
     catalogId: AUTHOR_CATALOG_ID,

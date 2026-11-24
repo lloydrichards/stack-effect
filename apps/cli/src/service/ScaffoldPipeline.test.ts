@@ -11,14 +11,10 @@ import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { FinalizeService } from "@repo/scaffold/FinalizeService";
 import { PlanService } from "@repo/scaffold/PlanService";
-import type { ConfirmOptions } from "@repo/tui";
+import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import { Cause, Effect, Exit, Layer, Result, Stream } from "effect";
-import { Box } from "effect-boxes";
-import {
-  FinalizeScriptFailure,
-  resolveConflictDecisions,
-  ScaffoldPipeline,
-} from "./ScaffoldPipeline";
+import { TestConsole } from "effect/testing";
+import { ScaffoldPipeline } from "./ScaffoldPipeline";
 
 const blueprint = new Blueprint({ nodes: [], edges: [] });
 const baseline = { root: "/tmp/pipeline-app", paths: [] };
@@ -92,10 +88,12 @@ const runFinalizeScriptsInDryRun = () =>
 const layerWithServices = ({
   plan: planned = plan,
   materialize = () => Effect.succeed({ apply: applyResult, files: [] }),
+  apply = () => Effect.succeed(applyResult),
   executeScoped,
 }: {
   plan?: Plan;
   materialize?: (apply: Apply) => Effect.Effect<MaterializedApply>;
+  apply?: (typeof ApplyService.Service)["apply"];
   executeScoped: (typeof FinalizeService.Service)["executeScoped"];
 }) =>
   Layer.mergeAll(
@@ -106,9 +104,7 @@ const layerWithServices = ({
     Layer.succeed(PlanService, {
       build: () => Effect.succeed(planned),
     }),
-    Layer.succeed(ApplyService, {
-      apply: () => Effect.succeed(applyResult),
-    }),
+    Layer.succeed(ApplyService, { apply }),
     Layer.succeed(ApplyWorkspaces, {
       empty: Effect.die(new Error("dry run should seed the workspace")),
       fromRepository: () =>
@@ -133,78 +129,103 @@ const squashFailure = (exit: Exit.Exit<unknown, unknown>) => {
 
 describe("ScaffoldPipeline", () => {
   it.effect(
-    "should resolve one decision per path in interactive and automatic modes",
+    "should skip each conflicted path once when applying with --yes",
     () =>
       Effect.gen(function* () {
-        const prompts: Array<ConfirmOptions> = [];
-        const planBox = Box.text("formatted plan");
-
-        const decisions = yield* resolveConflictDecisions({
-          plan: conflictPlan,
-          yes: false,
-          planBox,
-          confirm: (options) => {
-            prompts.push(options);
-            return Effect.succeed(false);
-          },
-        });
-
-        expect(prompts).toHaveLength(1);
-        expect(decisions).toEqual([{ path: "package.json", value: "skip" }]);
-        const options = prompts[0];
-        expect(options?.message).toBe(
-          "Conflict at package.json (completeFile, scripts). Override?",
+        const decisions: Array<Apply["decisions"]> = [];
+        yield* Effect.gen(function* () {
+          const pipeline = yield* ScaffoldPipeline;
+          return yield* Effect.exit(pipeline.run(runInput));
+        }).pipe(
+          Effect.provide(
+            layerWithServices({
+              plan: conflictPlan,
+              apply: ({ apply }) => {
+                decisions.push(apply.decisions);
+                return Effect.succeed(applyResult);
+              },
+              executeScoped: failingExecution,
+            }),
+          ),
         );
-        expect(options?.children).toBe(planBox);
 
-        const automaticDecisions = yield* resolveConflictDecisions({
-          plan: conflictPlan,
-          yes: true,
-          planBox,
-          confirm: () =>
-            Effect.die(new Error("automatic mode should not prompt")),
-        });
-
-        expect(automaticDecisions).toEqual([
-          { path: "package.json", value: "skip" },
-        ]);
+        expect(decisions).toEqual([[{ path: "package.json", value: "skip" }]]);
       }),
   );
 
-  for (const yes of [true, false]) {
-    it.effect(
-      `should reject incompatible required dependencies in ${yes ? "automatic" : "interactive"} mode`,
-      () =>
-        Effect.gen(function* () {
-          const exit = yield* Effect.exit(
-            resolveConflictDecisions({
-              plan: new Plan({
-                ...conflictPlan,
-                conflicts: [
-                  {
-                    _tag: "dependencies",
-                    path: RepositoryPath.make("package.json"),
-                    section: "dependencies",
-                    name: "foldkit",
-                  },
-                ],
+  it.effect(
+    "should ask before overriding each conflicted path when applying interactively",
+    () =>
+      Effect.gen(function* () {
+        const decisions: Array<Apply["decisions"]> = [];
+        yield* Effect.gen(function* () {
+          yield* MockTerminal.inputKey("enter"); // Continue with these changes
+          yield* MockTerminal.inputKey("enter"); // Conflict at package.json: keep default skip
+          yield* MockTerminal.inputKey("enter"); // Apply changes
+          const pipeline = yield* ScaffoldPipeline;
+          return yield* Effect.exit(pipeline.run({ ...runInput, yes: false }));
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              layerWithServices({
+                plan: conflictPlan,
+                apply: ({ apply }) => {
+                  decisions.push(apply.decisions);
+                  return Effect.succeed(applyResult);
+                },
+                executeScoped: failingExecution,
               }),
-              yes,
-              planBox: Box.text("formatted plan"),
-              confirm: () =>
-                Effect.die(
-                  new Error("dependency conflicts must fail before prompting"),
-                ),
-            }),
+              MockTerminal.layer,
+            ),
+          ),
+        );
+        const conflictPrompt = (yield* TestConsole.logLines)
+          .map(String)
+          .find((frame) =>
+            frame.includes(
+              "Conflict at package.json (completeFile, scripts). Override?",
+            ),
           );
-          expect(squashFailure(exit)).toMatchObject({
-            _tag: "DependencyConflictFailure",
-            message:
-              "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
-          });
-        }),
-    );
-  }
+
+        expect(decisions).toEqual([[{ path: "package.json", value: "skip" }]]);
+        // The prompt shows the formatted Plan it asks about.
+        expect(conflictPrompt).toContain("Plan");
+      }).pipe(Effect.provide(TestConsole.layer)),
+  );
+
+  it.effect(
+    "should reject incompatible required dependencies before applying",
+    () =>
+      Effect.gen(function* () {
+        const pipeline = yield* ScaffoldPipeline;
+        const exit = yield* Effect.exit(pipeline.run(runInput));
+
+        expect(squashFailure(exit)).toMatchObject({
+          _tag: "DependencyConflictFailure",
+          message:
+            "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
+        });
+      }).pipe(
+        Effect.provide(
+          layerWithServices({
+            plan: new Plan({
+              ...conflictPlan,
+              conflicts: [
+                {
+                  _tag: "dependencies",
+                  path: RepositoryPath.make("package.json"),
+                  section: "dependencies",
+                  name: "foldkit",
+                },
+              ],
+            }),
+            apply: () =>
+              Effect.die(new Error("dependency conflicts must fail first")),
+            executeScoped: failingExecution,
+          }),
+        ),
+      ),
+  );
 
   it.effect("should fail when a non-dry-run finalize script fails", () =>
     Effect.gen(function* () {
@@ -212,8 +233,8 @@ describe("ScaffoldPipeline", () => {
       const exit = yield* Effect.exit(pipeline.run(runInput));
       const error = squashFailure(exit);
 
-      expect(error).toBeInstanceOf(FinalizeScriptFailure);
       expect(error).toMatchObject({
+        _tag: "FinalizeScriptFailure",
         message: "1 finalize script(s) failed.",
         failed: 1,
       });

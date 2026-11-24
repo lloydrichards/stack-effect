@@ -14,7 +14,7 @@ import type { KeyBinding, KeyMap } from "../../lib/KeyBinding.js";
 /**
  * Render a single key binding as `**key** action` (bold key, normal action).
  */
-export const Kbd = (binding: KeyBinding) =>
+const Kbd = (binding: KeyBinding) =>
   Box.hcat(
     [
       Box.text(binding.label).pipe(Box.annotate(Ansi.bold)),

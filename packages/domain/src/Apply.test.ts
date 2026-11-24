@@ -1,74 +1,43 @@
 import {
   Apply,
-  ApplyDecision,
   ApplyFailure,
   ApplyResult,
   StalePlanFailure,
 } from "@repo/domain/Apply";
-import { Plan, RepositoryPath } from "@repo/domain/Plan";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Apply", () => {
+  const decodeApply = Schema.decodeUnknownSync(Apply);
+  const emptyPlan = {
+    baseline: { root: "/workspace", paths: [] },
+    outcomes: [],
+    conflicts: [],
+  };
+
   it("accepts supported apply decision values", () => {
-    expect(
-      Schema.decodeSync(ApplyDecision)({
-        path: "package.json",
-        value: "override",
-      }),
-    ).toMatchObject({ value: "override" });
-    expect(
-      Schema.decodeSync(ApplyDecision)({
-        path: "package.json",
-        value: "skip",
-      }),
-    ).toMatchObject({ value: "skip" });
+    const apply = decodeApply({
+      plan: emptyPlan,
+      decisions: [
+        { path: "packages/domain/package.json", value: "override" },
+        { path: "package.json", value: "skip" },
+      ],
+    });
+
+    expect(apply.decisions).toEqual([
+      { path: "packages/domain/package.json", value: "override" },
+      { path: "package.json", value: "skip" },
+    ]);
   });
 
   it("rejects unsupported apply decision values", () => {
     expect(() =>
-      Schema.decodeUnknownSync(ApplyDecision)({
-        path: "package.json",
-        value: "merge",
+      decodeApply({
+        plan: emptyPlan,
+        decisions: [{ path: "package.json", value: "merge" }],
       }),
     ).toThrow();
-  });
-
-  it("decodes apply decisions independently", () => {
-    const decision = Schema.decodeSync(ApplyDecision)({
-      path: "packages/domain/package.json",
-      value: "override",
-    });
-
-    expect(decision).toEqual({
-      path: "packages/domain/package.json",
-      value: "override",
-    });
-  });
-
-  it("sorts apply decisions deterministically", () => {
-    const apply = new Apply({
-      plan: new Plan({
-        baseline: { root: "/workspace", paths: [] },
-        outcomes: [],
-        conflicts: [],
-      }),
-      decisions: [
-        {
-          path: RepositoryPath.make("packages/domain/src/index.ts"),
-          value: "skip",
-        },
-        {
-          path: RepositoryPath.make("README.md"),
-          value: "override",
-        },
-      ],
-    }).toSorted();
-
-    expect(apply.decisions.map((decision) => decision.path)).toEqual([
-      "README.md",
-      "packages/domain/src/index.ts",
-    ]);
   });
 
   it("sorts apply result paths deterministically", () => {

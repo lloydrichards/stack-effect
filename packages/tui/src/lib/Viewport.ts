@@ -1,9 +1,7 @@
 /**
  * Viewport — a pure state machine for windowed content scrolling.
  *
- * Provides two modes:
- * - Active: consumes ScrollAction and returns new state (for dedicated scroll keys)
- * - Passive: derives scroll offset from cursor position (for cursor-driven scrolling)
+ * Consumes ScrollAction and returns new state (for dedicated scroll keys).
  *
  * State is 2D (row + col) to support future horizontal scrolling,
  * but render currently only slices vertically.
@@ -77,24 +75,6 @@ export const scroll = (
       return Option.some({ ...state, col: state.col + 1 });
     }
   }
-};
-
-// ─── Passive mode: follow cursor ─────────────────────────────────────────────
-
-/**
- * Adjust the viewport offset so that `cursorRow` is visible within the window.
- * Does not change state if the cursor is already visible.
- */
-export const scrollToReveal = (
-  state: State,
-  cursorRow: number,
-  visibleHeight: number,
-): State => {
-  if (cursorRow < state.row) return { ...state, row: cursorRow };
-  if (cursorRow >= state.row + visibleHeight) {
-    return { ...state, row: cursorRow - visibleHeight + 1 };
-  }
-  return state;
 };
 
 // ─── Render ──────────────────────────────────────────────────────────────────

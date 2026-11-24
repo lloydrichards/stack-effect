@@ -5,11 +5,11 @@ import { Effect, Layer } from "effect";
 import pkg from "../../package.json";
 import { stackEffectCommand } from "../command";
 import { CatalogProvider } from "../service/CatalogProvider";
-import { StackEffectServicesLayer } from "../services";
+import { ConfigureService } from "../service/ConfigureService";
 import { collectCliReference, validateCliReference } from "./CliReference";
 import { renderCliReferencePages } from "./CliReferenceMarkdown";
 
-const TestLayer = StackEffectServicesLayer.pipe(
+const TestLayer = ConfigureService.layer.pipe(
   Layer.provideMerge(CatalogProvider.authoring),
   Layer.provideMerge(OfficialCatalogLayer),
   Layer.provideMerge(Layer.merge(NodeServices.layer, NodeCrypto.layer)),

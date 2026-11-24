@@ -16,7 +16,7 @@ import { Selection } from "./Selection";
  *
  * Read it to show or diff the files a dry run or preview produces.
  */
-export const ApplyPreviewFile = Schema.Struct({
+const ApplyPreviewFile = Schema.Struct({
   path: Schema.String,
   status: Schema.Literals(["created", "modified"]),
   contents: Schema.String,

@@ -1,18 +1,39 @@
 // Inventory checks read actual documentation files from the repository.
 // @effect-diagnostics nodeBuiltinImport:off
-import { readdir } from "node:fs/promises";
-import { it } from "@effect/vitest";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
+import { assert, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { describe, expect } from "vitest";
 import {
+  type DocPage,
   docMarkdownPath,
   docPages,
   docsOrigin,
 } from "../app/lib/docs-manifest";
-import {
-  convertDocMarkdown,
-  generateDocsMarkdown,
-} from "../scripts/docs-markdown";
+import { generateDocsMarkdown } from "../scripts/docs-markdown";
+
+/** Publishes one synthetic page, read from a temporary content directory. */
+const publishPage = (source: string, page: Pick<DocPage, "route" | "source">) =>
+  Effect.acquireUseRelease(
+    Effect.promise(() => mkdtemp(join(tmpdir(), "docs-markdown-"))),
+    (directory) =>
+      Effect.gen(function* () {
+        yield* Effect.promise(() =>
+          writeFile(join(directory, page.source), source),
+        );
+        return yield* generateDocsMarkdown({
+          pages: [
+            { ...page, title: "Synthetic", summary: "", group: "Start here" },
+          ],
+          contentRoot: pathToFileURL(`${directory}/`),
+        });
+      }),
+    (directory) =>
+      Effect.promise(() => rm(directory, { recursive: true, force: true })),
+  );
 
 describe("published documentation Markdown", () => {
   it.effect(
@@ -45,7 +66,7 @@ describe("published documentation Markdown", () => {
     "preserves fenced source code and GFM while resolving copied documentation links",
     () =>
       Effect.gen(function* () {
-        const markdown = yield* convertDocMarkdown(
+        const assets = yield* publishPage(
           `import Component from "component";
 
 # Example
@@ -61,8 +82,9 @@ import { Effect } from "effect";
 export const view = <Component value={1} />;
 \`\`\`
 `,
-          "/getting-started",
+          { route: "/getting-started", source: "getting-started.mdx" },
         );
+        const markdown = assets["/getting-started.md"];
         expect(markdown).not.toContain('import Component from "component";');
         expect(markdown).toContain('import { Effect } from "effect";');
         expect(markdown).toContain(
@@ -87,18 +109,13 @@ export const view = <Component value={1} />;
     "refuses unsupported content instead of evaluating or dropping it: %s",
     (source) =>
       Effect.gen(function* () {
-        const result = yield* convertDocMarkdown(
-          source,
-          "/",
-          "unsupported.mdx",
-        ).pipe(Effect.result);
-        expect(result._tag).toBe("Failure");
-        if (result._tag === "Failure") {
-          expect(result.failure.source).toBe("unsupported.mdx");
-          expect(String(result.failure.cause)).toMatch(
-            /Markdown alternative.*1:\d+/,
-          );
-        }
+        const failure = yield* publishPage(source, {
+          route: "/",
+          source: "unsupported.mdx",
+        }).pipe(Effect.flip);
+        assert.strictEqual(failure._tag, "DocsMarkdownError");
+        assert.strictEqual(failure.source, "unsupported.mdx");
+        assert.match(String(failure.cause), /Markdown alternative.*1:\d+/);
       }),
   );
 

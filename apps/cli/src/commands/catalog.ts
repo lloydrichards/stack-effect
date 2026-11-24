@@ -4,11 +4,14 @@ import type { Blueprint } from "@repo/domain/Blueprint";
 import {
   type Contribution,
   ModuleId,
-  SupportedOn,
+  type SupportedOn,
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import type { RecipeTargetSpec } from "@repo/domain/Recipe";
+import {
+  RecipeResolveOptions,
+  type RecipeTargetSpec,
+} from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
@@ -94,7 +97,7 @@ const CatalogWorkspaceManifestFromJsonString = Schema.fromJsonString(
   { space: 2 },
 );
 
-export class WorkspaceCommandFailed extends Data.TaggedError(
+class WorkspaceCommandFailed extends Data.TaggedError(
   "WorkspaceCommandFailed",
 )<{
   command: string;
@@ -105,7 +108,7 @@ export class WorkspaceCommandFailed extends Data.TaggedError(
   }
 }
 
-export class WorkspaceValidationFailed extends Data.TaggedError(
+class WorkspaceValidationFailed extends Data.TaggedError(
   "WorkspaceValidationFailed",
 )<{
   command: string;
@@ -128,8 +131,6 @@ const targetIdentityFrom = (supportedOn: SupportedOn, moduleId: string) =>
             : (defaultTargetNames.get(supportedOn.kind) ?? supportedOn.kind),
       });
 
-export { buildWorkspaceSelection };
-
 const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
   function* (
     config: StackConfig,
@@ -147,10 +148,10 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
             modules: target.modules,
           })),
         },
-        {
+        RecipeResolveOptions.make({
           config,
           providerStrategy: { _tag: "fail-on-ambiguous" },
-        },
+        }),
       );
     }
 
@@ -264,10 +265,10 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
           modules: Arr.map(target.modules, (module) => module.id),
         })),
       },
-      {
+      RecipeResolveOptions.make({
         config,
         providerStrategy: { _tag: "first-provider" },
-      },
+      }),
     );
   },
 );

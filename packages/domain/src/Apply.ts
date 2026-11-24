@@ -9,12 +9,10 @@ import { Plan, RepositoryPath } from "./Plan";
  * @category Apply
  * @since 1.0.0
  */
-export const ApplyDecision = Schema.Struct({
+const ApplyDecision = Schema.Struct({
   path: RepositoryPath,
   value: Schema.Literals(["override", "skip"]),
 });
-
-export type ApplyDecision = typeof ApplyDecision.Type;
 
 /**
  * Combines a Plan with user decisions for all conflicted paths, forming the
@@ -29,14 +27,7 @@ export type ApplyDecision = typeof ApplyDecision.Type;
 export class Apply extends Schema.Class<Apply>("Apply")({
   plan: Plan,
   decisions: Schema.Array(ApplyDecision),
-}) {
-  toSorted(): Apply {
-    return new Apply({
-      plan: this.plan.toSorted(),
-      decisions: [...this.decisions].sort(pathOrd),
-    });
-  }
-}
+}) {}
 
 export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
   "ApplyFailure",
@@ -46,7 +37,7 @@ export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
   },
 ) {}
 
-export const ApplyFailedPath = Schema.Struct({
+const ApplyFailedPath = Schema.Struct({
   path: RepositoryPath,
   reason: Schema.String,
 });
@@ -79,7 +70,7 @@ export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
   }
 }
 
-export const StalePlanChange = Schema.Struct({
+const StalePlanChange = Schema.Struct({
   path: RepositoryPath,
   kind: Schema.Literals([
     "created",
@@ -109,13 +100,11 @@ export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(
  *
  * Present the result of an Apply that ran in a staged workspace.
  */
-export const MaterializedFile = Schema.Struct({
+const MaterializedFile = Schema.Struct({
   path: RepositoryPath,
   status: Schema.Literals(["created", "modified"]),
   contents: Schema.String,
 });
-
-export type MaterializedFile = typeof MaterializedFile.Type;
 
 /**
  * The result of an Apply in a staged workspace, with the files it wrote.
