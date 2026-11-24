@@ -7,8 +7,10 @@ const thinkTool = Tool.make("think", {
   success: Schema.String,
 });
 
+/** Lets the model share a progress note with the user. */
 export const ThinkToolkit = Toolkit.make(thinkTool);
 
+/** Lets the model share a progress note with the user. */
 export const ThinkToolkitHandlers = ThinkToolkit.toLayer({
   think: ({ thought }) => Effect.succeed(thought),
 });

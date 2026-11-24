@@ -10,9 +10,7 @@ const HealthHandlers = HttpApiBuilder.group(Api, "health", (handlers) =>
 );
 
 const HelloHandlers = HttpApiBuilder.group(Api, "hello", (handlers) =>
-  handlers.handle("get", () =>
-    Effect.succeed({ message: "Hello Effect!", success: true }),
-  ),
+  handlers.handle("get", () => Effect.succeed({ message: "Hello Effect!" })),
 );
 
 // These public read-only endpoints send no cookies.

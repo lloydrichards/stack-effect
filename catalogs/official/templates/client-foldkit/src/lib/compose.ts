@@ -10,10 +10,7 @@ import type { Html } from "foldkit/html";
 export const Init = {
   child: <Model, Message, ParentMessage>(
     mod: {
-      readonly init: () => readonly [
-        Model,
-        ReadonlyArray<Command.Command<Message>>,
-      ];
+      init: () => readonly [Model, ReadonlyArray<Command.Command<Message>>];
     },
     key: string,
     toParentMessage: (input: { message: Message }) => ParentMessage,
@@ -29,9 +26,9 @@ export const Init = {
     ParentModel extends Record<string, unknown>,
     ParentMessage,
     Children extends ReadonlyArray<{
-      readonly key: string;
-      readonly model: unknown;
-      readonly commands: ReadonlyArray<Command.Command<ParentMessage>>;
+      key: string;
+      model: unknown;
+      commands: ReadonlyArray<Command.Command<ParentMessage>>;
     }>,
   >(
     ...children: Children

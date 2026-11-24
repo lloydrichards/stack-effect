@@ -191,7 +191,7 @@ export const cliModules = defineModules(import.meta.url, [
       {
         _tag: "file",
         path: "{{targetPath}}/src/observability/DevTools.ts",
-        contents: template("./cli-devtools/src/observability/DevTools.ts"),
+        contents: template("./server-devtools/src/observability/DevTools.ts"),
       },
       {
         _tag: "ts-call-arg",

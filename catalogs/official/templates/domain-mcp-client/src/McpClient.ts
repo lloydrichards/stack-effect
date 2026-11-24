@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
-export class UnsupportedMcpContentError extends Schema.TaggedError<UnsupportedMcpContentError, { readonly brand: unique symbol }>()(
-  "UnsupportedMcpContentError",
+export class UnsupportedMcpContent extends Schema.TaggedError<UnsupportedMcpContent, { readonly brand: unique symbol }>()(
+  "UnsupportedMcpContent",
   {
     capability: Schema.Literals(["resource", "prompt"]),
     source: Schema.String,

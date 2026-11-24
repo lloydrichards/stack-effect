@@ -4,10 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {},
-  "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.1.4",
-    "effect": "4.1.4"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
     {{#if runtime=bun}}"@types/bun": "^1.4.4",{{/if}}{{#if runtime=node}}"@types/node": "^24.0.0",{{/if}}

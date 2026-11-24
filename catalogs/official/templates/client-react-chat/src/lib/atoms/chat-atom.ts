@@ -1,7 +1,7 @@
 import {
   type ChatId,
   type ChatMessage,
-  type ChatResponse,
+  ChatResponse,
   ChatStreamPart,
   type ToolCall,
 } from "@repo/domain/Chat";
@@ -12,7 +12,7 @@ import { ChatRpcClient } from "../chat-rpc-client";
 
 export const chatStartAtom: AtomType.AtomResultFn<
   void,
-  { readonly chatId: ChatId },
+  { chatId: ChatId },
   unknown
 > = runtime.fn(() =>
   Effect.gen(function* () {
@@ -155,10 +155,7 @@ const updateToolResult = (
 };
 
 export const chatAtom: AtomType.AtomResultFn<
-  {
-    readonly chatId: ChatId;
-    readonly messages: readonly ChatMessage[];
-  },
+  { chatId: ChatId; messages: ReadonlyArray<ChatMessage> },
   ChatResponse,
   unknown
 > = runtime.fn(({ chatId, messages }) => {
@@ -169,27 +166,19 @@ export const chatAtom: AtomType.AtomResultFn<
     }),
   ).pipe(
     Stream.provide(ChatRpcClient.layer),
-    Stream.tapError((error: unknown) =>
-      Effect.logError("[chatAtom] Stream error occurred:", error),
-    ),
+    Stream.tapError((error) => Effect.logError("Chat stream failed", error)),
     Stream.scan(
-      () => ({ _tag: "initial" as const }),
+      () => ChatResponse.cases.initial.make({}),
       accumulateChatResponse,
     ),
     Stream.drop(1),
-    Stream.catch((error: unknown) => {
-      const errorMessage =
-        error instanceof Error
-          ? `Stream failed: ${error.message}`
-          : `Stream failed: ${String(error)}`;
-      return Stream.make({
-        _tag: "error" as const,
-        segments: [],
-        error: {
-          message: errorMessage,
-          recoverable: false,
-        },
-      } as ChatResponse);
-    }),
+    Stream.catch(() =>
+      Stream.make(
+        ChatResponse.cases.error.make({
+          segments: [],
+          error: { message: "Chat stream failed", recoverable: false },
+        }),
+      ),
+    ),
   );
 });

@@ -14,6 +14,20 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
+type ListState = "loading" | "failed" | "empty" | "ready";
+
+const toListState = (state: {
+  hasLoaded: boolean;
+  isWaiting: boolean;
+  isFailure: boolean;
+  count: number;
+}): ListState => {
+  if (!state.hasLoaded && state.isWaiting) return "loading";
+  if (!state.hasLoaded && state.isFailure) return "failed";
+  if (state.count === 0) return "empty";
+  return "ready";
+};
+
 export const TodoCard = () => {
   const [result, execute] = useAtom(todoAtom);
   const [title, setTitle] = useState("");
@@ -25,6 +39,12 @@ export const TodoCard = () => {
   });
   const isWaiting = AsyncResult.isWaiting(result);
   const isFailure = AsyncResult.isFailure(result);
+  const listState = toListState({
+    hasLoaded,
+    isWaiting,
+    isFailure,
+    count: todos.length,
+  });
 
   useEffect(() => {
     execute({ _tag: "list" });
@@ -51,7 +71,9 @@ export const TodoCard = () => {
         <div className="flex items-start justify-between gap-4">
           <div>
             <CardTitle>Todos</CardTitle>
-            <CardDescription>Persistent tasks from the HTTP API</CardDescription>
+            <CardDescription>
+              Persistent tasks from the HTTP API
+            </CardDescription>
           </div>
           <div className="rounded-full border bg-background px-2.5 py-1 font-medium text-muted-foreground text-xs tabular-nums">
             {todos.filter((todo) => !todo.completed).length} open
@@ -80,12 +102,13 @@ export const TodoCard = () => {
         </form>
 
         <div className="min-h-0 flex-1 overflow-y-auto rounded-md border">
-          {!hasLoaded && isWaiting ? (
+          {listState === "loading" && (
             <div className="flex h-full min-h-32 items-center justify-center gap-2 p-6 text-muted-foreground text-sm">
               <RefreshCw className="size-4 animate-spin" />
               Loading todos…
             </div>
-          ) : !hasLoaded && isFailure ? (
+          )}
+          {listState === "failed" && (
             <div className="flex h-full min-h-32 flex-col items-center justify-center gap-3 p-6 text-center">
               <div>
                 <p className="font-medium text-sm">Could not load todos</p>
@@ -98,17 +121,20 @@ export const TodoCard = () => {
                 Try again
               </Button>
             </div>
-          ) : todos.length === 0 ? (
+          )}
+          {listState === "empty" && (
             <div className="flex h-full min-h-32 flex-col items-center justify-center gap-2 p-6 text-center">
               <div className="rounded-full border bg-muted p-2">
                 <Check className="size-4 text-muted-foreground" />
               </div>
               <p className="font-medium text-sm">Nothing on your list</p>
               <p className="max-w-52 text-muted-foreground text-xs">
-                Add a task above. It will still be here after the server restarts.
+                Add a task above. It will still be here after the server
+                restarts.
               </p>
             </div>
-          ) : (
+          )}
+          {listState === "ready" && (
             <ul className="divide-y">
               {todos.map((todo) => (
                 <li className="group flex items-center gap-3 p-3" key={todo.id}>

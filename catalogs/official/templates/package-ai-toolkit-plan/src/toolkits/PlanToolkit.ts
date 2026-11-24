@@ -86,13 +86,11 @@ export const PlanToolkitHandlers = PlanToolkit.toLayer(
     return {
       plan_create: (params) =>
         Effect.gen(function* () {
-          const steps: Array<PlanStep> = Arr.map(params.steps, (content) => ({
-            content,
-            status: "pending" as const,
-          }));
+          const steps = Arr.map(params.steps, (content) =>
+            PlanStep.make({ content, status: "pending" }),
+          );
 
           yield* SynchronizedRef.set(planRef, steps);
-          yield* Effect.logDebug(`Plan created with ${steps.length} steps`);
           return formatPlan(steps);
         }),
 
@@ -111,11 +109,7 @@ export const PlanToolkitHandlers = PlanToolkit.toLayer(
             return step;
           });
           return Effect.succeed([formatPlan(updated), updated] as const);
-        }).pipe(
-          Effect.tap(() =>
-            Effect.logDebug(`Plan step ${stepIndex} -> ${status}`),
-          ),
-        ),
+        }),
 
       plan_get: () =>
         SynchronizedRef.get(planRef).pipe(

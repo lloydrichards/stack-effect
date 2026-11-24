@@ -1,5 +1,5 @@
-import { ChatPreparationError } from "@repo/domain/Chat";
-import { UnsupportedMcpContentError } from "@repo/domain/McpClient";
+import { ChatMessage, ChatPreparationError } from "@repo/domain/Chat";
+import { UnsupportedMcpContent } from "@repo/domain/McpClient";
 import { McpResourceUris } from "@repo/domain/McpResource";
 
 import { Array, Config, Effect, Schema } from "effect";
@@ -12,35 +12,39 @@ export const makeMcpResources = Effect.gen(function* () {
     "MCP_RESOURCE_URIS",
   );
 
+  const readUri = (uri: string) =>
+    client.readResource({ uri }).pipe(
+      Effect.flatMap((resource) =>
+        Effect.forEach(resource.contents, (content) =>
+          "text" in content
+            ? Effect.succeed(
+                ChatMessage.make({
+                  role: "user",
+                  content: `MCP resource ${content.uri}\n${content.text}`,
+                }),
+              )
+            : Effect.fail(
+                new UnsupportedMcpContent({
+                  capability: "resource",
+                  source: content.uri,
+                  contentType: content.mimeType ?? "binary",
+                  message: `MCP resource ${content.uri} contains non-text content`,
+                }),
+              ),
+        ),
+      ),
+    );
+
   return Effect.fn("McpResources.prepare")(
     function* () {
-      const messages = yield* Effect.forEach(uris, (uri) =>
-        Effect.gen(function* () {
-          const resource = yield* client.readResource({ uri });
-          return yield* Effect.forEach(resource.contents, (content) =>
-            "text" in content
-              ? Effect.succeed({
-                  role: "user" as const,
-                  content: `MCP resource ${content.uri}\n${content.text}`,
-                })
-              : Effect.fail(
-                  new UnsupportedMcpContentError({
-                    capability: "resource",
-                    source: content.uri,
-                    contentType: content.mimeType ?? "binary",
-                    message: `MCP resource ${content.uri} contains non-text content`,
-                  }),
-                ),
-          );
-        }),
-      );
+      const messages = yield* Effect.forEach(uris, readUri);
       return Array.flatten(messages);
     },
     Effect.mapError(
       (error) =>
         new ChatPreparationError({
           reason: {
-            code: Schema.is(UnsupportedMcpContentError)(error)
+            code: Schema.is(UnsupportedMcpContent)(error)
               ? "unsupported-content"
               : "remote-failure",
             message: error.message,

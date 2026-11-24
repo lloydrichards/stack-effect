@@ -1,8 +1,8 @@
 import {
   ChatPreparationError,
+  ChatStreamPart,
   type ChatFailure,
   type ChatMessage,
-  type ChatStreamPart,
 } from "@repo/domain/Chat";
 import {
   Cause,
@@ -39,9 +39,9 @@ export const chatPrompt = (
     prompt = [],
     input = [],
   }: {
-    readonly resources?: ReadonlyArray<ChatMessage>;
-    readonly prompt?: ReadonlyArray<ChatMessage>;
-    readonly input?: ReadonlyArray<ChatMessage>;
+    resources?: ReadonlyArray<ChatMessage>;
+    prompt?: ReadonlyArray<ChatMessage>;
+    input?: ReadonlyArray<ChatMessage>;
   } = {},
 ): Prompt.Prompt => {
   const index =
@@ -63,24 +63,26 @@ export const chatPrompt = (
   );
 };
 
+const failureReason = (failure: unknown): ChatFailure | undefined => {
+  if (Schema.is(ChatPreparationError)(failure)) return failure.reason;
+  if (failure instanceof Error) {
+    return { code: "remote-failure", message: failure.message };
+  }
+  return undefined;
+};
+
 export const chatErrorPart = Effect.fn("AiChatService.chatErrorPart")(
   function* <E>(cause: Cause.Cause<E>) {
     if (Cause.hasInterruptsOnly(cause)) return yield* Effect.interrupt;
     yield* Effect.logError("Chat generation failed", cause);
-    const failure = Option.getOrUndefined(Cause.findErrorOption(cause));
-    const reason: ChatFailure | undefined = Schema.is(ChatPreparationError)(
-      failure,
-    )
-      ? failure.reason
-      : failure instanceof Error
-        ? { code: "remote-failure", message: failure.message }
-        : undefined;
-    return {
-      _tag: "error",
+    const reason = failureReason(
+      Option.getOrUndefined(Cause.findErrorOption(cause)),
+    );
+    return ChatStreamPart.cases.error.make({
       message: reason?.message ?? "Chat generation failed",
       recoverable: reason?.code === "invalid-input",
       reason,
-    } satisfies ChatStreamPart;
+    });
   },
 );
 
@@ -113,15 +115,15 @@ type ChatTools = Record<string, Tool.Any>;
 type ChatRequirements<Tools extends ChatTools> =
   | LanguageModel.LanguageModel
   | LanguageModel.ExtractServices<{
-      readonly toolkit: Toolkit.WithHandler<Tools>;
+      toolkit: Toolkit.WithHandler<Tools>;
     }>;
 
 export class AiChatService extends Context.Service<
   AiChatService,
   {
     readonly stream: <Tools extends ChatTools = {}>(input: {
-      readonly prompt: Prompt.RawInput;
-      readonly toolkit?: Toolkit.WithHandler<Tools> | undefined;
+      prompt: Prompt.RawInput;
+      toolkit?: Toolkit.WithHandler<Tools> | undefined;
     }) => Stream.Stream<ChatStreamPart, never, ChatRequirements<Tools>>;
     readonly chat: <Tools extends ChatTools = {}>(
       prompt: Prompt.RawInput,
@@ -143,8 +145,8 @@ export class AiChatService extends Context.Service<
         prompt,
         toolkit,
       }: {
-        readonly prompt: Prompt.RawInput;
-        readonly toolkit?: Toolkit.WithHandler<Tools> | undefined;
+        prompt: Prompt.RawInput;
+        toolkit?: Toolkit.WithHandler<Tools> | undefined;
       }) =>
         toolkit === undefined
           ? streamWithToolkit(prompt, localToolkit)

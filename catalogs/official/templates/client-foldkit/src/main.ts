@@ -15,8 +15,8 @@ export type Message = typeof Message.Type;
 export const update = (model: Model, message: Message) =>
   M.value(message).pipe(
     M.withReturnType<{
-      readonly model: Model;
-      readonly commands: ReadonlyArray<Command.Command<Message>>;
+      model: Model;
+      commands: ReadonlyArray<Command.Command<Message>>;
     }>(),
     M.tagsExhaustive({
       GotThemeMessage: ({ message }) => {

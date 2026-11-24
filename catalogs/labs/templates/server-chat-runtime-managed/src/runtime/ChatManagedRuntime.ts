@@ -1,11 +1,9 @@
 import type { ChatId, ChatMessage } from "@repo/domain/Chat";
 import { ChatWatchEvent } from "@repo/domain/ChatManagedRpc";
-import type {
-  ChatNotFoundError,
-  GenerationInProgressError,
-} from "@repo/domain/ChatRpc";
+import type { ChatNotFound, GenerationInProgress } from "@repo/domain/ChatRpc";
 import type { ChatTurnOptions } from "@repo/domain/ChatTurnOptions";
 import {
+  Array as Arr,
   Context,
   Effect,
   Exit,
@@ -31,13 +29,11 @@ export class ChatManagedRuntime extends Context.Service<
       readonly chatId: ChatId;
       readonly message: ChatMessage;
       readonly options?: ChatTurnOptions;
-    }) => Effect.Effect<void, ChatNotFoundError | GenerationInProgressError>;
+    }) => Effect.Effect<void, ChatNotFound | GenerationInProgress>;
     readonly watch: (
       chatId: ChatId,
-    ) => Stream.Stream<ChatWatchEvent, ChatNotFoundError>;
-    readonly interrupt: (
-      chatId: ChatId,
-    ) => Effect.Effect<void, ChatNotFoundError>;
+    ) => Stream.Stream<ChatWatchEvent, ChatNotFound>;
+    readonly interrupt: (chatId: ChatId) => Effect.Effect<void, ChatNotFound>;
   }
 >()("ChatManagedRuntime") {
   static readonly layer = Layer.effect(
@@ -59,7 +55,7 @@ export class ChatManagedRuntime extends Context.Service<
         Effect.gen(function* () {
           yield* Ref.update(events, (current) =>
             HashMap.set(current, chatId, [
-              ...Option.getOrElse(HashMap.get(current, chatId), () => []),
+              ...Option.getOrElse(HashMap.get(current, chatId), Arr.empty),
               event,
             ]),
           );
@@ -91,7 +87,7 @@ export class ChatManagedRuntime extends Context.Service<
 
               const history = yield* Ref.modify(messages, (current) => {
                 const nextMessages = [
-                  ...Option.getOrElse(HashMap.get(current, chatId), () => []),
+                  ...Option.getOrElse(HashMap.get(current, chatId), Arr.empty),
                   message,
                 ];
                 return [

@@ -19,13 +19,7 @@ const getCurrentDatetimeTool = Tool.make("get_current_datetime", {
   failureMode: "return",
 });
 
-/**
- * Provides the current date and time in a specified timezone.
- * Models have no access to real-time clocks, making this essential
- * for any time-aware agent behavior.
- *
- * @module
- */
+/** Gives the model the current time, which it cannot observe on its own. */
 export const DateTimeToolkit = Toolkit.make(getCurrentDatetimeTool);
 
 export const DateTimeToolkitHandlers = DateTimeToolkit.toLayer(
@@ -41,8 +35,6 @@ export const DateTimeToolkitHandlers = DateTimeToolkit.toLayer(
             () => `Invalid timezone "${tz}": not a valid IANA timezone`,
           ),
         );
-
-        yield* Effect.logDebug(`Getting current datetime for timezone: ${tz}`);
 
         return {
           iso: now,

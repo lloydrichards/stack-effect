@@ -13,16 +13,12 @@ export const RestCard = () => {
         <CardTitle>REST API</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
-        <Button onClick={() => getHello()}>
-          Call REST API
-        </Button>
+        <Button onClick={() => getHello()}>Call REST API</Button>
         <div className="rounded-md border border-border bg-muted/50 p-4">
           {AsyncResult.builder(response)
             .onSuccess((data) => (
               <pre className="text-sm">
-                <code>
-                  Message: {data.message}{"\n"}Success: {data.success.toString()}
-                </code>
+                <code>Message: {data.message}</code>
               </pre>
             ))
             .onFailure((error) => (

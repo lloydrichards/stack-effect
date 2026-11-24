@@ -1,11 +1,11 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 
-export const TickEvent = Schema.Union([
-  Schema.TaggedStruct("starting", {}),
-  Schema.TaggedStruct("tick", {}),
-  Schema.TaggedStruct("end", {}),
-]);
+export const TickEvent = Schema.TaggedUnion({
+  starting: {},
+  tick: {},
+  end: {},
+});
 export type TickEvent = typeof TickEvent.Type;
 
 export class EventRpc extends RpcGroup.make(

@@ -14,49 +14,41 @@ export const ClientInfo = Schema.Struct({
 });
 export type ClientInfo = typeof ClientInfo.Type;
 
-export const WebSocketEvent = Schema.Union([
-  // Initial connection acknowledgment with assigned ClientId
-  Schema.TaggedStruct("connected", {
+export const WebSocketEvent = Schema.TaggedUnion({
+  // Sent only to the subscriber, with the ClientId it was assigned.
+  connected: {
     clientId: ClientId,
     connectedAt: Schema.DateTimeUtcFromMillis,
-  }),
-  // Broadcast when a user joins
-  Schema.TaggedStruct("user_joined", {
+  },
+  user_joined: {
     client: ClientInfo,
-  }),
-  // Broadcast when a user's status changes
-  Schema.TaggedStruct("status_changed", {
+  },
+  status_changed: {
     clientId: ClientId,
     status: ClientStatus,
     changedAt: Schema.DateTimeUtcFromMillis,
-  }),
-  // Broadcast when a user disconnects
-  Schema.TaggedStruct("user_left", {
+  },
+  user_left: {
     clientId: ClientId,
     disconnectedAt: Schema.DateTimeUtcFromMillis,
-  }),
-]);
+  },
+});
 export type WebSocketEvent = typeof WebSocketEvent.Type;
 
 export class WebSocketRpc extends RpcGroup.make(
-  // Subscribe to presence events - returns a stream of events
   Rpc.make("subscribe", {
     success: WebSocketEvent,
-    stream: true, // This makes it a streaming RPC over WebSocket
+    stream: true,
   }),
 
-  // Set your presence status (requires clientId from subscribe)
+  // Takes the ClientId that subscribe assigned.
   Rpc.make("setStatus", {
     payload: {
       clientId: ClientId,
       status: ClientStatus,
     },
-    success: Schema.Struct({
-      success: Schema.Boolean,
-    }),
   }),
 
-  // Get current list of connected clients
   Rpc.make("getPresence", {
     success: Schema.Struct({
       clients: Schema.Array(ClientInfo),

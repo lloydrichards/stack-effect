@@ -1,7 +1,7 @@
 {{#if runtime=bun}}import { BunCrypto as PlatformCrypto } from "@effect/platform-bun";{{/if}}{{#if runtime=node}}import { NodeCrypto as PlatformCrypto } from "@effect/platform-node";{{/if}}{{#if runtime=deno}}import { DenoCrypto as PlatformCrypto } from "@effect/platform-deno";{{/if}}
 import {
-  type ClientInfo,
-  type WebSocketEvent,
+  ClientInfo,
+  WebSocketEvent,
   WebSocketRpc,
 } from "@repo/domain/WebSocket";
 import { ClientGenerator } from "@repo/presence/ClientGenerator";
@@ -13,87 +13,51 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
   Effect.gen(function* () {
     const presence = yield* PresenceService;
     const gen = yield* ClientGenerator;
-    yield* Effect.logInfo("Starting Presence RPC Live Implementation");
 
     return WebSocketRpc.of({
       subscribe: Effect.fnUntraced(function* () {
-        yield* Effect.logDebug("New presence subscription");
-
         const clientId = yield* gen.generateClientId;
         const connectedAt = yield* DateTime.now;
-        const clientInfo: ClientInfo = {
-          clientId,
-          status: "online",
-          connectedAt,
-        };
-
         const queue = yield* Queue.unbounded<WebSocketEvent>();
 
-        // Fork the stream consumer to handle incoming PubSub events
         yield* Effect.forkScoped(
           presence.subscribe.pipe(
-            Stream.tap((event) =>
-              Effect.gen(function* () {
-                // Filter out our own user_joined event since we send "connected" instead
-                if (
-                  event._tag === "user_joined" &&
-                  event.client.clientId === clientId
-                ) {
-                  return;
-                }
-                yield* Queue.offer(queue, event);
-              }),
+            // The subscriber gets "connected" instead of its own user_joined.
+            Stream.filter(
+              (event) =>
+                event._tag !== "user_joined" ||
+                event.client.clientId !== clientId,
             ),
-            Stream.runDrain,
+            Stream.runForEach((event) => Queue.offer(queue, event)),
             Effect.ensuring(
-              Effect.gen(function* () {
-                yield* presence.removeClient(clientId);
-                yield* Queue.shutdown(queue);
-                yield* Effect.logDebug(
-                  `Presence subscription ended for ${clientId}`,
-                );
-              }),
+              Effect.andThen(
+                presence.removeClient(clientId),
+                Queue.shutdown(queue),
+              ),
             ),
           ),
         );
 
-        // Get existing clients BEFORE adding ourselves
+        // Read the existing clients before addClient lists this one.
         const existingClients = presence.getClients();
-
-        // Now add ourselves - this publishes user_joined to PubSub for other clients
-        yield* presence.addClient(clientId, clientInfo);
-
-        // Send our own connected event (not user_joined since we're the one connecting)
-        yield* Queue.offer(queue, {
-          _tag: "connected",
+        yield* presence.addClient(
           clientId,
-          connectedAt,
-        });
+          ClientInfo.make({ clientId, status: "online", connectedAt }),
+        );
 
-        // Send existing clients as user_joined events so we know who's already here
-        for (const client of existingClients) {
-          yield* Queue.offer(queue, {
-            _tag: "user_joined",
-            client,
-          });
-        }
+        yield* Queue.offerAll(queue, [
+          WebSocketEvent.cases.connected.make({ clientId, connectedAt }),
+          ...existingClients.map((client) =>
+            WebSocketEvent.cases.user_joined.make({ client }),
+          ),
+        ]);
 
         return queue;
       }),
 
-      setStatus: Effect.fnUntraced(function* (payload) {
-        yield* Effect.logDebug(
-          `Setting status for ${payload.clientId} to ${payload.status}`,
-        );
-        yield* presence.setStatus(payload.clientId, payload.status);
-        return { success: true };
-      }),
+      setStatus: ({ clientId, status }) => presence.setStatus(clientId, status),
 
-      getPresence: Effect.fnUntraced(function* () {
-        const clients = presence.getClients();
-        yield* Effect.logDebug(`Returning ${clients.length} clients`);
-        return { clients: [...clients] };
-      }),
+      getPresence: () => Effect.succeed({ clients: presence.getClients() }),
     });
   }),
 ).pipe(

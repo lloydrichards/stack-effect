@@ -6,7 +6,6 @@ import { ChatRuntime } from "../runtime/ChatRuntime";
 const ChatRpcHandlers = ChatRpc.toLayer(
   Effect.gen(function* () {
     const runtime = yield* ChatRuntime;
-    yield* Effect.logInfo("Starting Chat RPC Live Implementation");
     return ChatRpc.of({
       chat_start: () => runtime.start,
       chat_ask: ({ chatId, messages, options }) =>

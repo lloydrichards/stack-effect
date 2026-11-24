@@ -8,13 +8,11 @@ const PromptHandlers = McpPromptRpc.toLayer(
     const prompts = yield* McpPrompts;
     return McpPromptRpc.of({
       prompts_list: () =>
-        prompts
-          .list()
-          .pipe(
-            Effect.mapError(
-              (error) => new McpPromptError({ message: error.message }),
-            ),
+        prompts.list.pipe(
+          Effect.mapError(
+            (error) => new McpPromptError({ message: error.message }),
           ),
+        ),
     });
   }),
 );

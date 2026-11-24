@@ -1,7 +1,7 @@
-import type {
-  ClientId,
-  ClientInfo,
-  ClientStatus,
+import {
+  type ClientId,
+  type ClientInfo,
+  type ClientStatus,
   WebSocketEvent,
 } from "@repo/domain/WebSocket";
 import { Context, DateTime, Effect, Layer, PubSub, Stream } from "effect";
@@ -25,8 +25,6 @@ export class PresenceService extends Context.Service<
   static readonly layer = Layer.effect(
     PresenceService,
     Effect.gen(function* () {
-      yield* Effect.logInfo("Initializing PresenceService");
-
       const clientsMap = new Map<ClientId, ClientInfo>();
 
       const pubsub = yield* PubSub.sliding<WebSocketEvent>(1000);
@@ -37,12 +35,10 @@ export class PresenceService extends Context.Service<
       ) {
         clientsMap.set(clientId, info);
 
-        yield* PubSub.publish(pubsub, {
-          _tag: "user_joined",
-          client: info,
-        });
-
-        yield* Effect.logDebug(`Client added: ${clientId}`);
+        yield* PubSub.publish(
+          pubsub,
+          WebSocketEvent.cases.user_joined.make({ client: info }),
+        );
       });
 
       const removeClient = Effect.fn("PresenceService.removeClient")(function* (
@@ -55,13 +51,10 @@ export class PresenceService extends Context.Service<
 
           clientsMap.delete(clientId);
 
-          yield* PubSub.publish(pubsub, {
-            _tag: "user_left",
-            clientId,
-            disconnectedAt,
-          });
-
-          yield* Effect.logDebug(`Client removed: ${clientId}`);
+          yield* PubSub.publish(
+            pubsub,
+            WebSocketEvent.cases.user_left.make({ clientId, disconnectedAt }),
+          );
         }
       });
 
@@ -73,22 +66,15 @@ export class PresenceService extends Context.Service<
 
         if (client) {
           const changedAt = yield* DateTime.now;
-          const updatedClient: ClientInfo = {
-            ...client,
-            status,
-          };
+          clientsMap.set(clientId, { ...client, status });
 
-          clientsMap.set(clientId, updatedClient);
-
-          yield* PubSub.publish(pubsub, {
-            _tag: "status_changed",
-            clientId,
-            status,
-            changedAt,
-          });
-
-          yield* Effect.logDebug(
-            `Client ${clientId} status changed to ${status}`,
+          yield* PubSub.publish(
+            pubsub,
+            WebSocketEvent.cases.status_changed.make({
+              clientId,
+              status,
+              changedAt,
+            }),
           );
         }
       });

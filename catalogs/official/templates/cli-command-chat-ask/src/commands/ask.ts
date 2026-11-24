@@ -1,4 +1,8 @@
-import { ChatStepLimit, type ChatStreamPart } from "@repo/domain/Chat";
+import {
+  ChatMessage,
+  ChatStepLimit,
+  type ChatStreamPart,
+} from "@repo/domain/Chat";
 import {
   Console,
   Effect,
@@ -48,6 +52,28 @@ const failCommand = (message: string) =>
     ),
   );
 
+const writePart = (part: ChatStreamPart) =>
+  Match.value(part).pipe(
+    Match.tag("text", ({ delta }) =>
+      Stdio.Stdio.use((stdio) =>
+        Stream.make(delta).pipe(Stream.run(stdio.stdout())),
+      ),
+    ),
+    Match.when({ _tag: "finish", reason: ChatStepLimit.reason }, () =>
+      failCommand(ChatStepLimit.message),
+    ),
+    Match.tag("error", ({ message }) => failCommand(message)),
+    Match.tag(
+      "reasoning",
+      "tool-start",
+      "tool-success",
+      "tool-failure",
+      "finish",
+      () => Effect.void,
+    ),
+    Match.exhaustive,
+  );
+
 const makeAskCommand = <Config extends Command.Command.Config, R>(
   configuration: Configuration<Config, R>,
 ) =>
@@ -68,39 +94,14 @@ const makeAskCommand = <Config extends Command.Command.Config, R>(
           .streamTurn(
             [
               { role: "system", content: askSystemPrompt },
-              ...Option.toArray(message).map((content) => ({
-                role: "user" as const,
-                content,
-              })),
+              ...Option.toArray(message).map((content) =>
+                ChatMessage.make({ role: "user", content }),
+              ),
             ],
             action.turnOptions,
             action.inputMessages,
           )
-          .pipe(
-            Stream.runForEach((part: ChatStreamPart) =>
-              Match.value(part).pipe(
-                Match.tag("text", ({ delta }) =>
-                  Stdio.Stdio.use((stdio) =>
-                    Stream.make(delta).pipe(Stream.run(stdio.stdout())),
-                  ),
-                ),
-                Match.when(
-                  { _tag: "finish", reason: ChatStepLimit.reason },
-                  () => failCommand(ChatStepLimit.message),
-                ),
-                Match.tag("error", ({ message }) => failCommand(message)),
-                Match.tag(
-                  "reasoning",
-                  "tool-start",
-                  "tool-success",
-                  "tool-failure",
-                  "finish",
-                  () => Effect.void,
-                ),
-                Match.exhaustive,
-              ),
-            ),
-          );
+          .pipe(Stream.runForEach(writePart));
       }).pipe(
         Effect.catch((error) => failCommand(error.message)),
         Effect.provide(ChatCommandDependencies),

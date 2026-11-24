@@ -5,10 +5,8 @@ import { PostgresLayer } from "./Database";
 
 const MigrationsDirectory = Effect.gen(function* () {
   const path = yield* Path.Path;
-  return path.join(
-    path.dirname(new URL(import.meta.url).pathname),
-    "migrations",
-  );
+  const modulePath = yield* path.fromFileUrl(new URL(import.meta.url));
+  return path.join(path.dirname(modulePath), "migrations");
 });
 
 export const MigrationsLayer = Layer.unwrap(

@@ -32,7 +32,7 @@ await Effect.runPromise(
     yield* managed.send({ chatId, message });
     yield* Deferred.await(generationStarted);
     const duplicate = yield* Effect.flip(managed.send({ chatId, message }));
-    assert.equal(duplicate._tag, "GenerationInProgressError");
+    assert.equal(duplicate._tag, "GenerationInProgress");
 
     yield* Scope.close(ownerScope, Exit.void);
     assert.equal(yield* Deferred.isDone(generationStopped), true);

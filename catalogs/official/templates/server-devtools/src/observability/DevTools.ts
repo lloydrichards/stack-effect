@@ -16,7 +16,6 @@ export const DevToolsLayer = Layer.unwrap(
       return Layer.empty;
     }
 
-    yield* Effect.logDebug("Enabling DevTools Layer");
     return DevTools.layer(config.devToolsUrl);
   }),
 );

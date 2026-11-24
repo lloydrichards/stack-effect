@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 import { ChatId, ChatMessage, ChatStreamPart } from "./Chat";
-import { ChatNotFoundError, GenerationInProgressError } from "./ChatRpc";
+import { ChatNotFound, GenerationInProgress } from "./ChatRpc";
 import { ChatTurnOptions } from "./ChatTurnOptions";
 
 export const ChatWatchEvent = Schema.TaggedUnion({
@@ -23,14 +23,14 @@ export class ChatManagedRpc extends RpcGroup.make(
       options: Schema.optional(ChatTurnOptions),
     },
     success: Schema.Void,
-    error: Schema.Union([ChatNotFoundError, GenerationInProgressError]),
+    error: Schema.Union([ChatNotFound, GenerationInProgress]),
   }),
   Rpc.make("chat_watch", {
     payload: {
       chatId: ChatId,
     },
     success: ChatWatchEvent,
-    error: ChatNotFoundError,
+    error: ChatNotFound,
     stream: true,
   }),
   Rpc.make("chat_interrupt", {
@@ -38,6 +38,6 @@ export class ChatManagedRpc extends RpcGroup.make(
       chatId: ChatId,
     },
     success: Schema.Void,
-    error: ChatNotFoundError,
+    error: ChatNotFound,
   }),
 ) {}

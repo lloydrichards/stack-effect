@@ -1,6 +1,6 @@
 import {
   ChatStepLimit,
-  type ChatStreamPart,
+  ChatStreamPart,
   type UsageMetadata,
 } from "@repo/domain/Chat";
 import {
@@ -68,9 +68,9 @@ export const chatEvents = <E, R>(
           return yield* Match.value(part).pipe(
             Match.discriminatorsExhaustive("type")({
               "reasoning-delta": ({ delta }) =>
-                Effect.succeed({ _tag: "reasoning", delta } as const),
+                Effect.succeed(ChatStreamPart.cases.reasoning.make({ delta })),
               "text-delta": ({ delta }) =>
-                Effect.succeed({ _tag: "text", delta } as const),
+                Effect.succeed(ChatStreamPart.cases.text.make({ delta })),
               "tool-call": (call) =>
                 Effect.gen(function* () {
                   pending.add(call.id);
@@ -80,12 +80,11 @@ export const chatEvents = <E, R>(
                       ? ""
                       : (yield* displayValue(call.params)).trim();
 
-                  return {
-                    _tag: "tool-start",
+                  return ChatStreamPart.cases["tool-start"].make({
                     id: call.id,
                     name: call.name,
                     ...(input ? { input } : {}),
-                  } as const;
+                  });
                 }),
               "tool-result": (part) =>
                 Effect.gen(function* () {
@@ -94,18 +93,16 @@ export const chatEvents = <E, R>(
                   pending.delete(part.id);
                   const result = yield* displayValue(part.result);
                   return part.isFailure
-                    ? ({
-                        _tag: "tool-failure",
+                    ? ChatStreamPart.cases["tool-failure"].make({
                         id: part.id,
                         name: part.name,
                         error: result,
-                      } as const)
-                    : ({
-                        _tag: "tool-success",
+                      })
+                    : ChatStreamPart.cases["tool-success"].make({
                         id: part.id,
                         name: part.name,
                         output: result,
-                      } as const);
+                      });
                 }),
               error: ({ error }) =>
                 Effect.flatMap(displayValue(error), streamError),
@@ -182,7 +179,7 @@ export const chatEvents = <E, R>(
       }
       const reason =
         finishReason === "tool-calls" ? ChatStepLimit.reason : finishReason;
-      return { _tag: "finish", reason, usage };
+      return ChatStreamPart.cases.finish.make({ reason, usage });
     });
     return Stream.concat(events, Stream.fromEffect(finish));
   });

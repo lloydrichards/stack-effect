@@ -1,10 +1,7 @@
 import { AiChatService } from "@repo/ai/AiChatService";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import { ChatId } from "@repo/domain/Chat";
-import {
-  ChatNotFoundError,
-  GenerationInProgressError,
-} from "@repo/domain/ChatRpc";
+import { ChatNotFound, GenerationInProgress } from "@repo/domain/ChatRpc";
 {{#if runtime=bun}}import { layer as PlatformCryptoLayer } from "@effect/platform-bun/BunCrypto";{{/if}}{{#if runtime=node}}import { layer as PlatformCryptoLayer } from "@effect/platform-node/NodeCrypto";{{/if}}{{#if runtime=deno}}import { layer as PlatformCryptoLayer } from "@effect/platform-deno/DenoCrypto";{{/if}}
 import {
   Context,
@@ -21,20 +18,20 @@ export const makeSessionAi = Layer.build(Layer.fresh(AiChatService.layer)).pipe(
 );
 
 type ChatSession = {
-  readonly active: boolean;
-  readonly ai: AiChatService["Service"];
+  active: boolean;
+  ai: AiChatService["Service"];
 };
 
 export class ChatSessions extends Context.Service<
   ChatSessions,
   {
     readonly start: Effect.Effect<{ readonly chatId: ChatId }>;
-    readonly ensure: (chatId: ChatId) => Effect.Effect<void, ChatNotFoundError>;
+    readonly ensure: (chatId: ChatId) => Effect.Effect<void, ChatNotFound>;
     readonly reserveScoped: (
       chatId: ChatId,
     ) => Effect.Effect<
       AiChatService["Service"],
-      ChatNotFoundError | GenerationInProgressError,
+      ChatNotFound | GenerationInProgress,
       Scope.Scope
     >;
   }
@@ -56,20 +53,17 @@ export class ChatSessions extends Context.Service<
           ): readonly [
             Effect.Effect<
               AiChatService["Service"],
-              ChatNotFoundError | GenerationInProgressError
+              ChatNotFound | GenerationInProgress
             >,
             HashMap.HashMap<ChatId, ChatSession>,
           ] =>
             Option.match(HashMap.get(current, chatId), {
               onNone: () =>
-                [
-                  Effect.fail(new ChatNotFoundError({ chatId })),
-                  current,
-                ] as const,
+                [Effect.fail(new ChatNotFound({ chatId })), current] as const,
               onSome: (session) =>
                 session.active
                   ? ([
-                      Effect.fail(new GenerationInProgressError({ chatId })),
+                      Effect.fail(new GenerationInProgress({ chatId })),
                       current,
                     ] as const)
                   : ([
@@ -103,7 +97,7 @@ export class ChatSessions extends Context.Service<
           Ref.get(sessions).pipe(
             Effect.flatMap((current) =>
               Option.match(HashMap.get(current, chatId), {
-                onNone: () => Effect.fail(new ChatNotFoundError({ chatId })),
+                onNone: () => Effect.fail(new ChatNotFound({ chatId })),
                 onSome: () => Effect.void,
               }),
             ),
