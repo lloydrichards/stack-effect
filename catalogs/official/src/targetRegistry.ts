@@ -1,6 +1,5 @@
 import { defineTargets } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
-import { EFFECT_RUNTIME_PLATFORM, effectDependency } from "./dependencies";
 
 const template = templates(new URL("../templates/", import.meta.url));
 
@@ -102,7 +101,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./cloudflare-worker/package.json"),
       },
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",
@@ -130,8 +128,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./client-react/package.json"),
       },
-      effectDependency("@effect/atom-react"),
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/index.html",
@@ -257,8 +253,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./client-foldkit/package.json"),
       },
-      effectDependency("@effect/platform-browser"),
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/index.html",
@@ -367,8 +361,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./server/package.json"),
       },
-      effectDependency(EFFECT_RUNTIME_PLATFORM),
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
@@ -476,8 +468,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./server/package.json"),
       },
-      effectDependency(EFFECT_RUNTIME_PLATFORM),
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
@@ -573,8 +563,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./cli/package.json"),
       },
-      effectDependency(EFFECT_RUNTIME_PLATFORM),
-      effectDependency("effect"),
       {
         _tag: "file",
         path: "{{targetPath}}/src/index.ts",
@@ -649,11 +637,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/package.json",
         contents: template("./package/package.json"),
       },
-      effectDependency("{{#if noModule=package-library}}effect{{/if}}"),
-      effectDependency(
-        "{{#if module=package-library}}effect{{/if}}",
-        "devDependencies",
-      ),
       {
         _tag: "file",
         path: "{{targetPath}}/tsconfig.json",

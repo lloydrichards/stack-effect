@@ -1,18 +1,5 @@
-import type { ContributionInput } from "@repo/authoring/Define";
-
-// Effect packages release together, so every `effect` and `@effect/*` pin uses this version.
+// Effect packages release together, so every `effect` and `@effect/*` pin uses
+// this version. Target seed manifests write it literally: a seed is a default
+// for new targets, while a module's pin is a requirement on existing ones.
+// The templates test checks that both agree.
 export const EFFECT_VERSION = "4.1.4";
-
-export const EFFECT_RUNTIME_PLATFORM =
-  "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}";
-
-export const effectDependency = (
-  name: string,
-  field: "dependencies" | "devDependencies" = "dependencies",
-): ContributionInput => ({
-  _tag: "pkg-json-entry",
-  path: "{{targetPath}}/package.json",
-  field,
-  name,
-  value: EFFECT_VERSION,
-});

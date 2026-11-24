@@ -1770,6 +1770,64 @@ describe("RecipePreviewer", () => {
     );
 
     it.effect(
+      "keeps a compatible Effect range when adding an unrelated module",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const recipes = yield* RecipeResolver;
+          const blueprints = yield* BlueprintResolver;
+          const plans = yield* Planner;
+          const applies = yield* Applier;
+          const resolve = (modules: ReadonlyArray<string>) =>
+            recipes
+              .resolve(
+                { targets: modules.map((id) => target("server", "api", id)) },
+                { config, providerStrategy: { _tag: "fail-on-ambiguous" } },
+              )
+              .pipe(
+                Effect.flatMap((selection) =>
+                  blueprints.resolve(selection, config),
+                ),
+                Effect.flatMap((blueprint) =>
+                  plans.build({ blueprint, config, repositoryRoot: "/repo" }),
+                ),
+              );
+          yield* fs.makeDirectory("/repo", { recursive: true });
+          yield* applies.apply({
+            apply: new Apply({
+              plan: yield* resolve(["server-http-api"]),
+              decisions: [],
+            }),
+            repositoryRoot: "/repo",
+          });
+          const manifestPath = "/repo/apps/server-api/package.json";
+          const manifest = yield* fs.readFileString(manifestPath);
+          yield* fs.writeFileString(
+            manifestPath,
+            manifest.replace(/"effect": "[^"]+"/, '"effect": "^4.1.4"'),
+          );
+
+          const plan = yield* resolve(["server-http-api", "server-devtools"]);
+
+          assert.deepStrictEqual(
+            plan.conflicts
+              .filter(
+                (conflict) => conflict.path === "apps/server-api/package.json",
+              )
+              .map((conflict) => conflict.path),
+            [],
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.provideMerge(
+              RecipeResolver.layer,
+              pipelineLayer(OfficialCatalogLayer),
+            ),
+          ),
+        ),
+    );
+
+    it.effect(
       "preserves edited root and local READMEs when adding a module",
       () =>
         Effect.gen(function* () {
