@@ -77,11 +77,13 @@ A module contributes only to its owning target. Cross-target effects use tagged 
 
 `RecipeService.resolve` resolves providers before it returns the Selection. It walks every module the Blueprint would attach: selected modules, target required modules, `required-module` dependencies, and providers it adds, until nothing changes. A requirement is met when the Selection already has a module on the dependency target that provides the capability. A non-package dependency on the requester's own kind means the requester's target, as in Blueprint.
 
-For an unmet requirement, the candidates are the catalog's `getCapabilityProviders` for that target, in catalog order, that support the configured runtime. The `providerStrategy` decides:
+Capability requirements wait until the walk has reached every hard dependency: target required modules and `required-module` dependencies. When a module Blueprint attaches that way already provides the capability on the dependency target, that module joins the Selection and no strategy applies, because Blueprint reads providers from the Selection.
+
+For any other unmet requirement, the candidates are the catalog's `getCapabilityProviders` for that target, in catalog order, that support the configured runtime and come from a source the requesting module may reference: its own source, or one its source declares in `requires`, as in catalog composition. Providers from other sources are neither added nor counted as alternatives. The `providerStrategy` decides:
 
 - `fail-on-ambiguous` adds the only candidate and fails with `AmbiguousRecipeProvider`, listing every candidate, when there are several. `init`, `add`, `create`, `catalog workspace reset --target`, and Recipe Builder previews use it.
 - `first-provider` adds the first candidate. The catalog workspace uses it when it selects every module.
-- `explicit` adds the provider it names for that target and capability, and otherwise behaves like `fail-on-ambiguous`.
+- `explicit` adds the provider it names for that target and capability when it is a candidate, fails with `InvalidRecipeProvider`, listing the candidates, when it is not, and otherwise behaves like `fail-on-ambiguous`.
 
 Every strategy fails with `MissingRecipeProvider` when there is no candidate. The provider joins the dependency target, and an absent target joins the Selection under the dependency's identity so Blueprint finds it. When the Selection already holds several providers, recipe resolution leaves them for Blueprint to reject. Identical recipes and catalogs give identical Selections, because the walk follows recipe and catalog order.
 
