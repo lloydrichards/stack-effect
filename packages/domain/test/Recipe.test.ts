@@ -120,6 +120,7 @@ describe("RecipeTargetString", () => {
     "server/sdk//api",
     "server/sdk/../api",
     "package/",
+    "server",
   ])("should reject the spec when it is malformed: '%s'", (value) => {
     assert.throws(() => Schema.decodeSync(RecipeTargetString)(value));
   });
@@ -148,4 +149,17 @@ describe("parseRecipeTargetSpecs", () => {
       },
     ]);
   });
+
+  it.effect(
+    "should fail and name the module when a target spec repeats a module",
+    () =>
+      Effect.gen(function* () {
+        const spec = yield* Schema.decodeEffect(RecipeTargetString)(
+          "server/api:server-http-api,server-http-api",
+        );
+        const failure = yield* Effect.flip(parseRecipeTargetSpecs([spec]));
+
+        assert.include(failure, "server-http-api");
+      }),
+  );
 });

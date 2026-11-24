@@ -20,16 +20,31 @@ const serverApiIdentity = new TargetIdentity({
   kind: TargetKind.make("server"),
   name: "api",
 });
+const webIdentity = new TargetIdentity({
+  kind: TargetKind.make("client-react"),
+  name: "web",
+});
+const domainContracts = toAttachedModuleNodeId(
+  domainIdentity.toKey(),
+  ModuleId.make("domain-api-contracts"),
+);
+const domainErrors = toAttachedModuleNodeId(
+  domainIdentity.toKey(),
+  ModuleId.make("domain-errors"),
+);
+const serverHttpApi = toAttachedModuleNodeId(
+  serverApiIdentity.toKey(),
+  ModuleId.make("server-http-api"),
+);
 
+// Three targets and a target with two modules keep "the module's own target"
+// and "the module's own ownership edge" distinguishable from their neighbours.
 const makeUnsortedBlueprint = () =>
   new Blueprint({
     nodes: [
       {
         _tag: "attached-module",
-        id: toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
+        id: domainContracts,
         targetId: domainIdentity.toKey(),
         moduleId: ModuleId.make("domain-api-contracts"),
       },
@@ -40,10 +55,7 @@ const makeUnsortedBlueprint = () =>
       },
       {
         _tag: "attached-module",
-        id: toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
+        id: serverHttpApi,
         targetId: serverApiIdentity.toKey(),
         moduleId: ModuleId.make("server-http-api"),
       },
@@ -52,45 +64,47 @@ const makeUnsortedBlueprint = () =>
         id: serverApiIdentity.toKey(),
         identity: serverApiIdentity,
       },
+      {
+        _tag: "attached-module",
+        id: domainErrors,
+        targetId: domainIdentity.toKey(),
+        moduleId: ModuleId.make("domain-errors"),
+      },
+      {
+        _tag: "target",
+        id: webIdentity.toKey(),
+        identity: webIdentity,
+      },
     ],
     edges: [
-      makeBlueprintEdge(
-        "required-module",
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-      ),
-      makeBlueprintEdge(
-        "owns-module",
-        domainIdentity.toKey(),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
-      ),
+      makeBlueprintEdge("required-module", serverHttpApi, domainContracts),
+      makeBlueprintEdge("owns-module", domainIdentity.toKey(), domainContracts),
       makeBlueprintEdge(
         "owns-module",
         serverApiIdentity.toKey(),
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
+        serverHttpApi,
       ),
+      makeBlueprintEdge("owns-module", domainIdentity.toKey(), domainErrors),
       makeBlueprintEdge(
         "required-target",
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
+        serverHttpApi,
         domainIdentity.toKey(),
       ),
     ],
   });
+
+const replaceDomainContractsOwnership = (
+  blueprint: Blueprint,
+  replacement: ReturnType<typeof makeBlueprintEdge>,
+) => ({
+  nodes: blueprint.nodes,
+  edges: [
+    ...blueprint.edges.filter(
+      (edge) => !(edge.reason === "owns-module" && edge.to === domainContracts),
+    ),
+    replacement,
+  ],
+});
 
 describe("@repo/domain Blueprint", () => {
   it("should order nodes and edges canonically when a Blueprint is sorted", () => {
@@ -99,14 +113,10 @@ describe("@repo/domain Blueprint", () => {
     assert.deepStrictEqual(
       blueprint.nodes.map((node) => node.id),
       [
-        toAttachedModuleNodeId(
-          serverApiIdentity.toKey(),
-          ModuleId.make("server-http-api"),
-        ),
-        toAttachedModuleNodeId(
-          domainIdentity.toKey(),
-          ModuleId.make("domain-api-contracts"),
-        ),
+        serverHttpApi,
+        domainContracts,
+        domainErrors,
+        "apps/client-react-web",
         "apps/server-api",
         "packages/domain",
       ],
@@ -116,6 +126,7 @@ describe("@repo/domain Blueprint", () => {
       [
         "owns-module=>apps/server-api=>apps/server-api#server-http-api",
         "owns-module=>packages/domain=>packages/domain#domain-api-contracts",
+        "owns-module=>packages/domain=>packages/domain#domain-errors",
         "required-module=>apps/server-api#server-http-api=>packages/domain#domain-api-contracts",
         "required-target=>apps/server-api#server-http-api=>packages/domain",
       ],
@@ -221,6 +232,32 @@ describe("@repo/domain Blueprint", () => {
           ),
         ],
       }),
+      message: "must have exactly one owns-module edge",
+    },
+    {
+      name: "its only ownership edge coming from another target",
+      mutate: (blueprint: Blueprint) =>
+        replaceDomainContractsOwnership(
+          blueprint,
+          makeBlueprintEdge(
+            "owns-module",
+            serverApiIdentity.toKey(),
+            domainContracts,
+          ),
+        ),
+      message: "must have exactly one owns-module edge",
+    },
+    {
+      name: "a non-ownership edge from its target in place of ownership",
+      mutate: (blueprint: Blueprint) =>
+        replaceDomainContractsOwnership(
+          blueprint,
+          makeBlueprintEdge(
+            "required-module",
+            domainIdentity.toKey(),
+            domainContracts,
+          ),
+        ),
       message: "must have exactly one owns-module edge",
     },
     {

@@ -39,6 +39,10 @@ describe("CatalogSources", () => {
       "a url with a query string",
       [{ ...acme, url: `${acme.url}?channel=beta` }],
     ],
+    [
+      "two custom sources with different urls",
+      [acme, { name: "beta", url: "https://catalog.beta.dev/v1.json" }],
+    ],
   ])("should accept the selection when it contains %s", (_, input) => {
     assert.strictEqual(Result.isSuccess(decode(input)), true);
   });
@@ -57,6 +61,8 @@ describe("CatalogSources", () => {
     ["a file url", [{ ...acme, url: "file:///tmp/catalog.json" }]],
     ["a url fragment", [{ ...acme, url: `${acme.url}#latest` }]],
     ["credentials in the url", [{ ...acme, url: "https://me:pw@acme.dev/v1" }]],
+    ["a username in the url", [{ ...acme, url: "https://me@acme.dev/v1" }]],
+    ["a password in the url", [{ ...acme, url: "https://:pw@acme.dev/v1" }]],
     ["an empty host", [{ ...acme, url: "https://:443/catalog.json" }]],
     ["whitespace in the host", [{ ...acme, url: "https://acme .dev/v1.json" }]],
     [
@@ -93,6 +99,34 @@ describe("TargetIdentity", () => {
       name: "admin-ui",
       key: "apps/client-react-admin-ui",
       packageName: "client-react-admin-ui",
+    },
+    {
+      label: "a whitespace-only app name",
+      kind: "server",
+      name: "   ",
+      key: "apps/server",
+      packageName: "server",
+    },
+    {
+      label: "the workspace root",
+      kind: "workspace",
+      name: "",
+      key: ".",
+      packageName: "workspace",
+    },
+    {
+      label: "a name that merely ends with a reserved device word",
+      kind: "package",
+      name: "falcon",
+      key: "packages/falcon",
+      packageName: "@repo/falcon",
+    },
+    {
+      label: "a name that merely starts with a reserved device word",
+      kind: "package",
+      name: "console",
+      key: "packages/console",
+      packageName: "@repo/console",
     },
     {
       label: "an unnamed server app",
@@ -193,7 +227,10 @@ describe("TargetIdentity", () => {
     { kind: "package", name: "sdk/api:bad" },
     { kind: "package", name: "" },
     { kind: "client-react", name: "." },
+    { kind: "package", name: "   " },
     { kind: "server/sdk", name: "api" },
+    { kind: "Server", name: "api" },
+    { kind: "client_react", name: "web" },
   ])(
     "should reject the identity when kind $kind or name '$name' is unsafe",
     (input) => {
@@ -224,6 +261,11 @@ describe("TargetIdentity", () => {
       matches: true,
     },
     {
+      label: "the selector names another kind",
+      selector: { _tag: "kind", kind: TargetKind.make("client-react") },
+      matches: false,
+    },
+    {
       label: "the selector names the same name under another kind",
       selector: {
         _tag: "identity",
@@ -241,14 +283,35 @@ describe("TargetIdentity", () => {
     },
   );
 
-  it("should detect overlap when directory boundaries differ only by case", () => {
-    assert.strictEqual(
-      targetPathsOverlap("packages/SDK", "packages/sdk/client"),
-      true,
-    );
-    assert.strictEqual(
-      targetPathsOverlap("packages/sdk", "packages/sdk-other"),
-      false,
-    );
-  });
+  it.each([
+    {
+      label: "the paths are equal",
+      left: "packages/sdk",
+      right: "packages/sdk",
+      overlaps: true,
+    },
+    {
+      label: "the paths differ only by case",
+      left: "packages/SDK",
+      right: "packages/sdk/client",
+      overlaps: true,
+    },
+    {
+      label: "the first path is nested in the second",
+      left: "packages/sdk/client",
+      right: "packages/sdk",
+      overlaps: true,
+    },
+    {
+      label: "the paths only share a name prefix",
+      left: "packages/sdk",
+      right: "packages/sdk-other",
+      overlaps: false,
+    },
+  ])(
+    "should report overlap of $overlaps when $label",
+    ({ left, right, overlaps }) => {
+      assert.strictEqual(targetPathsOverlap(left, right), overlaps);
+    },
+  );
 });
