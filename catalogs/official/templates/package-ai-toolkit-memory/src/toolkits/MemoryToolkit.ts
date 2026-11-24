@@ -9,6 +9,8 @@ import {
 } from "effect";
 import { Tool, Toolkit } from "effect/ai";
 
+const MemoryKeysJson = Schema.fromJsonString(Schema.Array(Schema.String));
+
 const memorySetTool = Tool.make("memory_set", {
   description: String.stripMargin(`
     |Store a key-value pair in the scratchpad. Overwrites existing keys.
@@ -56,6 +58,7 @@ const memoryDeleteTool = Tool.make("memory_delete", {
   failureMode: "return",
 });
 
+/** A key-value scratchpad that lasts as long as its Layer. */
 export const MemoryToolkit = Toolkit.make(
   memorySetTool,
   memoryGetTool,
@@ -63,15 +66,13 @@ export const MemoryToolkit = Toolkit.make(
   memoryDeleteTool,
 );
 
-/** Backed by an in-memory HashMap Ref scoped to the layer lifetime. */
-export const InMemoryToolkitHandlers = MemoryToolkit.toLayer(
+export const MemoryToolkitHandlers = MemoryToolkit.toLayer(
   Effect.gen(function* () {
     const store = yield* Ref.make(HashMap.empty<string, string>());
 
     return {
       memory_set: (params) =>
         Ref.update(store, HashMap.set(params.key, params.value)).pipe(
-          Effect.tap(() => Effect.logDebug(`Memory set: ${params.key}`)),
           Effect.map(() => `Stored "${params.key}"`),
         ),
 
@@ -85,16 +86,13 @@ export const InMemoryToolkitHandlers = MemoryToolkit.toLayer(
               onSome: Effect.succeed,
             }),
           ),
-          Effect.tap(() => Effect.logDebug(`Memory get: ${params.key}`)),
         ),
 
       memory_list: () =>
         Ref.get(store).pipe(
           Effect.map((map) => Arr.fromIterable(HashMap.keys(map))),
-          Effect.tap((keys) =>
-            Effect.logDebug(`Memory list: ${keys.length} keys`),
-          ),
-          Effect.map(JSON.stringify),
+          Effect.flatMap(Schema.encodeEffect(MemoryKeysJson)),
+          Effect.orDie,
         ),
 
       memory_delete: (params) =>
@@ -108,7 +106,6 @@ export const InMemoryToolkitHandlers = MemoryToolkit.toLayer(
               ? Effect.succeed(`Deleted "${params.key}"`)
               : Effect.fail(`Key "${params.key}" not found in memory`),
           ),
-          Effect.tap(() => Effect.logDebug(`Memory delete: ${params.key}`)),
         ),
     };
   }),

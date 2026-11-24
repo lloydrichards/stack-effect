@@ -25,7 +25,9 @@ export const ImportValidationCard = () => {
   const [content, setContent] = useState(sample);
   const [result, validate] = useAtom(importValidationAtom);
   const event = AsyncResult.getOrElse(result, () => undefined);
-  const [events, setEvents] = useState<readonly ImportValidationEvent[]>([]);
+  const [events, setEvents] = useState<ReadonlyArray<ImportValidationEvent>>(
+    [],
+  );
 
   useEffect(() => {
     if (event === undefined) return;
@@ -84,13 +86,13 @@ export const ImportValidationCard = () => {
           </Button>
         </div>
         <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/40 p-3 text-sm">
-          {summary ? (
-            <p>Completed: {summary.total} rows processed.</p>
-          ) : total === undefined ? (
+          {summary && <p>Completed: {summary.total} rows processed.</p>}
+          {!summary && total === undefined && (
             <p className="text-muted-foreground">
               Run validation to receive rolling Worker RPC events.
             </p>
-          ) : (
+          )}
+          {!summary && total !== undefined && (
             <p>
               Processing {rows.length} of {total} rows…
             </p>

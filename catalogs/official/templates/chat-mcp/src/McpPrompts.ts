@@ -1,21 +1,19 @@
-import { ChatPreparationError } from "@repo/domain/Chat";
-import { UnsupportedMcpContentError } from "@repo/domain/McpClient";
+import { type ChatFailure, ChatPreparationError } from "@repo/domain/Chat";
+import { UnsupportedMcpContent } from "@repo/domain/McpClient";
 import {
   McpPromptDescriptor,
   type McpPromptMessage,
   McpPromptSelection,
   McpPromptSelectionError,
 } from "@repo/domain/McpPrompt";
-import { Context, type Duration, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 import { McpClient, type McpClientError } from "effect/ai";
 import { McpClientLayer } from "./McpClient";
 
 export class McpPrompts extends Context.Service<
   McpPrompts,
   {
-    readonly list: (options?: {
-      readonly timeout?: Duration.Input;
-    }) => Effect.Effect<
+    readonly list: Effect.Effect<
       ReadonlyArray<McpPromptDescriptor>,
       McpClientError.McpClientError | Schema.SchemaError
     >;
@@ -26,7 +24,7 @@ export class McpPrompts extends Context.Service<
       | McpClientError.McpClientError
       | Schema.SchemaError
       | McpPromptSelectionError
-      | UnsupportedMcpContentError
+      | UnsupportedMcpContent
     >;
   }
 >()("McpPrompts") {
@@ -34,17 +32,14 @@ export class McpPrompts extends Context.Service<
     McpPrompts,
     Effect.gen(function* () {
       const client = yield* McpClient.McpClient;
-      const list = Effect.fn("McpPrompts.list")(function* (options?: {
-        readonly timeout?: Duration.Input;
-      }) {
-        return yield* client
-          .listPrompts(options)
-          .pipe(
-            Effect.flatMap(
-              Schema.decodeUnknownEffect(Schema.Array(McpPromptDescriptor)),
-            ),
-          );
-      });
+      const list = client
+        .listPrompts()
+        .pipe(
+          Effect.flatMap(
+            Schema.decodeUnknownEffect(Schema.Array(McpPromptDescriptor)),
+          ),
+          Effect.withSpan("McpPrompts.list"),
+        );
       const render = Effect.fn("McpPrompts.render")(function* (
         input: McpPromptSelection,
       ) {
@@ -71,7 +66,7 @@ export class McpPrompts extends Context.Service<
         return yield* Effect.forEach(result.messages, (message) => {
           if (message.content.type !== "text")
             return Effect.fail(
-              new UnsupportedMcpContentError({
+              new UnsupportedMcpContent({
                 capability: "prompt",
                 source: selection.name,
                 contentType: message.content.type,
@@ -89,6 +84,13 @@ export class McpPrompts extends Context.Service<
   ).pipe(Layer.provide(McpClientLayer));
 }
 
+const preparationCode = (error: unknown): ChatFailure["code"] => {
+  if (Schema.is(McpPromptSelectionError)(error) || Schema.isSchemaError(error))
+    return "invalid-input";
+  if (Schema.is(UnsupportedMcpContent)(error)) return "unsupported-content";
+  return "remote-failure";
+};
+
 export const readMcpPrompt = Effect.gen(function* () {
   const prompts = yield* McpPrompts;
   return Effect.fn("McpPrompts.prepareTurn")(function* (
@@ -100,13 +102,7 @@ export const readMcpPrompt = Effect.gen(function* () {
         (error) =>
           new ChatPreparationError({
             reason: {
-              code:
-                Schema.is(McpPromptSelectionError)(error) ||
-                Schema.isSchemaError(error)
-                  ? "invalid-input"
-                  : Schema.is(UnsupportedMcpContentError)(error)
-                    ? "unsupported-content"
-                    : "remote-failure",
+              code: preparationCode(error),
               message: error.message,
               source: selection.name,
             },

@@ -2,7 +2,7 @@ import { useAtom } from "@effect/atom-react";
 import {
   ChatStepLimit,
   type ChatId,
-  type ChatResponse,
+  ChatResponse,
   type MessageSegment,
 } from "@repo/domain/Chat";
 import { Cause } from "effect";
@@ -38,7 +38,7 @@ type ChatEntry = {
   id: string;
   role: "user" | "assistant" | "system";
   message: string;
-  segments?: readonly MessageSegment[];
+  segments?: ReadonlyArray<MessageSegment>;
   usage?:
     | {
         promptTokens: number;
@@ -49,14 +49,24 @@ type ChatEntry = {
   finishReason?: string | undefined;
 };
 
-const EMPTY_SEGMENTS: readonly MessageSegment[] = [];
+const EMPTY_SEGMENTS: ReadonlyArray<MessageSegment> = [];
+
+const streamingEntry = (
+  chatId: ChatId | null,
+  segments: ReadonlyArray<MessageSegment>,
+): ChatEntry => ({
+  id: `streaming-${chatId ?? "pending"}`,
+  role: "assistant",
+  message: "",
+  segments,
+});
 
 export const ChatBox = () => {
   const [result, runChat] = useAtom(chatAtom);
   const [startResult, startChat] = useAtom(chatStartAtom);
   const [chatId, setChatId] = useState<ChatId | null>(null);
   const [input, setInput] = useState("");
-  const [history, setHistory] = useState<ChatEntry[]>([]);
+  const [history, setHistory] = useState<Array<ChatEntry>>([]);
   const lastSentMessagesRef = useRef<
     Array<{
       role: "user" | "assistant" | "system";
@@ -74,9 +84,8 @@ export const ChatBox = () => {
     return `chat-entry-${entryIdRef.current}`;
   };
 
-  const currentResult: ChatResponse = AsyncResult.getOrElse(
-    result,
-    () => ({ _tag: "initial" }) as const,
+  const currentResult = AsyncResult.getOrElse(result, () =>
+    ChatResponse.cases.initial.make({}),
   );
 
   const currentSegments =
@@ -151,15 +160,7 @@ export const ChatBox = () => {
 
   const displayHistory =
     currentResult._tag === "streaming" && currentResult.segments.length > 0
-      ? [
-          ...history,
-          {
-            id: `streaming-${chatId ?? "pending"}`,
-            role: "assistant" as const,
-            message: "",
-            segments: currentResult.segments,
-          },
-        ]
+      ? [...history, streamingEntry(chatId, currentResult.segments)]
       : history;
 
   const completionSnapshot = useMemo(() => {
@@ -340,31 +341,26 @@ export const ChatBox = () => {
   );
 };
 
-const StatusMarker = ({
-  label,
-  status,
-}: {
-  label: string;
-  status: "active" | "error" | "pending";
-}) => {
-  const Icon =
-    status === "error"
-      ? CircleAlertIcon
-      : status === "active"
-        ? CircleCheckIcon
-        : LoaderCircleIcon;
+type Status = "active" | "error" | "pending";
+
+const STATUS_ICON = {
+  active: CircleCheckIcon,
+  error: CircleAlertIcon,
+  pending: LoaderCircleIcon,
+} satisfies Record<Status, unknown>;
+
+const STATUS_ICON_CLASS = {
+  active: undefined,
+  error: "text-destructive",
+  pending: "animate-spin",
+} satisfies Record<Status, string | undefined>;
+
+const StatusMarker = ({ label, status }: { label: string; status: Status }) => {
+  const Icon = STATUS_ICON[status];
 
   return (
     <Marker variant={status === "active" ? "border" : "default"}>
-      <MarkerIcon
-        className={
-          status === "error"
-            ? "text-destructive"
-            : status === "pending"
-              ? "animate-spin"
-              : undefined
-        }
-      >
+      <MarkerIcon className={STATUS_ICON_CLASS[status]}>
         <Icon />
       </MarkerIcon>
       <MarkerContent>{label}</MarkerContent>
@@ -397,7 +393,7 @@ const AssistantSegment = ({ segment }: { segment: MessageSegment }) => {
   );
 };
 
-const historyToMessages = (messages: ChatEntry[]) =>
+const historyToMessages = (messages: Array<ChatEntry>) =>
   messages.map((msg) => {
     if (msg.role === "assistant" && msg.segments) {
       const textContent = msg.segments.reduce(

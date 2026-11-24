@@ -26,7 +26,7 @@ const MathExpression = Schema.String.check(
 const calculateTool = Tool.make("calculate", {
   description: String.stripMargin(`
     |Evaluate an arithmetic expression deterministically. Use instead of
-    |mental math. Supports: +, -, *, /, % (modulo), ** (exponent), parentheses.
+    |mental math. Supports: +, -, *, /, % (modulo), ^ or ** (exponent), parentheses.
   `),
   parameters: Schema.Struct({
     expression: MathExpression,
@@ -126,29 +126,22 @@ const evaluate = (expr: string, original: string) =>
       (result): result is number =>
         typeof result === "number" && Number.isFinite(result),
       (result) =>
-        `Expression did not produce a finite number: '${original}' = ${globalThis.String(result)}`,
+        `Expression did not produce a finite number: '${original}' = ${result}`,
     ),
   );
 
-/**
- * Evaluates arithmetic expressions deterministically.
- * Models are unreliable at mental math; this offloads computation
- * to a safe evaluator restricted to numeric operators.
- *
- * @module
- */
+/** Evaluates arithmetic deterministically, so the model does no mental math. */
 export const MathToolkit = Toolkit.make(calculateTool);
 
 export const MathToolkitHandlers = MathToolkit.toLayer(
   Effect.succeed({
     calculate: (params) =>
       Effect.gen(function* () {
-        const expr = params.expression;
-        const normalized = normalize(expr);
-        const result = yield* evaluate(normalized, expr);
-
-        yield* Effect.logDebug(`Calculate: ${expr} = ${result}`);
-        return globalThis.String(result);
+        const result = yield* evaluate(
+          normalize(params.expression),
+          params.expression,
+        );
+        return result.toString();
       }),
   }),
 );

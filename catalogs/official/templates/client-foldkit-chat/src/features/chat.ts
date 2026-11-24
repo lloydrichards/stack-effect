@@ -93,7 +93,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
           chatSegments: () => [
             ...segments.slice(0, -1),
             {
-              _tag: "text" as const,
+              _tag: "text",
               content: last.content + delta,
               isComplete: true,
             },
@@ -103,7 +103,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
       return evo(model, {
         chatSegments: () => [
           ...segments,
-          { _tag: "text" as const, content: delta, isComplete: true },
+          { _tag: "text", content: delta, isComplete: true },
         ],
       });
     },
@@ -117,11 +117,11 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         chatSegments: () => [
           ...segments,
           {
-            _tag: "tool-call" as const,
+            _tag: "tool-call",
             tool: {
               id,
               name,
-              status: "running" as const,
+              status: "running",
               ...(input === undefined ? {} : { input }),
             },
           },
@@ -136,7 +136,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
                   ...seg,
                   tool: {
                     ...seg.tool,
-                    status: "complete" as const,
+                    status: "complete",
                     result: output,
                   },
                 }
@@ -152,7 +152,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
                   ...seg,
                   tool: {
                     ...seg.tool,
-                    status: "failed" as const,
+                    status: "failed",
                     result: error,
                   },
                 }
@@ -164,7 +164,7 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         chatHistory: (prev) => [
           ...prev,
           {
-            role: "assistant" as const,
+            role: "assistant",
             content: extractTextFromSegments(model.chatSegments),
             segments: Option.some([...model.chatSegments]),
           },
@@ -172,12 +172,12 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         chatSegments: () => [],
         chatReasoning: () => Option.none(),
         reachedStepLimit: () => reason === ChatStepLimit.reason,
-        chatState: () => "complete" as const,
+        chatState: () => "complete",
         chatStreaming: () => false,
       }),
     error: ({ message }): Model =>
       evo(model, {
-        chatState: () => "error" as const,
+        chatState: () => "error",
         chatStreaming: () => false,
         chatError: () => Option.some(message),
       }),
@@ -206,11 +206,11 @@ export const update = (
       if (trimmed === "") return [model, []] as const;
       const nextHistory = [
         ...model.chatHistory,
-        {
-          role: "user" as const,
+        ChatHistoryEntry.make({
+          role: "user",
           content: trimmed,
           segments: Option.none(),
-        },
+        }),
       ];
       const messagesJson = Schema.encodeUnknownSync(ChatMessagesJson)(
         nextHistory.map((msg) => ({
@@ -224,7 +224,7 @@ export const update = (
           chatInput: () => "",
           reachedStepLimit: () => false,
           chatHistory: () => nextHistory,
-          chatState: () => "streaming" as const,
+          chatState: () => "streaming",
           chatStreaming: () => Option.isSome(model.chatId),
           chatSegments: () => [],
           chatReasoning: () => Option.none(),
@@ -247,7 +247,7 @@ export const update = (
     FailedStartChat: ({ error }) =>
       [
         evo(model, {
-          chatState: () => "error" as const,
+          chatState: () => "error",
           chatStreaming: () => false,
           chatError: () => Option.some(error),
         }),
@@ -257,7 +257,7 @@ export const update = (
     FailedChatStream: ({ error }) =>
       [
         evo(model, {
-          chatState: () => "error" as const,
+          chatState: () => "error",
           chatStreaming: () => false,
           chatError: () => Option.some(error),
         }),
@@ -564,20 +564,23 @@ const segmentsView = <ParentMessage>(
       : toolCallView(h, segment.tool),
   );
 
+const TOOL_STATUS_ICON = {
+  running: "...",
+  complete: "ok",
+  failed: "!!",
+} satisfies Record<ToolCall["status"], string>;
+
+const TOOL_STATUS_BADGE = {
+  running: "bg-secondary text-secondary-foreground",
+  complete: "bg-primary text-primary-foreground",
+  failed: "bg-destructive text-destructive-foreground",
+} satisfies Record<ToolCall["status"], string>;
+
 const toolCallView = <ParentMessage>(
   h: HtmlBuilder<ParentMessage>,
   tool: ToolCall,
-): Html => {
-  const statusIcon =
-    tool.status === "running"
-      ? "..."
-      : tool.status === "complete"
-        ? "ok"
-        : tool.status === "failed"
-          ? "!!"
-          : "?";
-
-  return h.div(
+): Html =>
+  h.div(
     [
       h.Class(
         "w-full rounded-none border border-border bg-muted/50 px-3 py-2 text-xs",
@@ -587,18 +590,15 @@ const toolCallView = <ParentMessage>(
       h.div(
         [h.Class("flex items-center gap-2")],
         [
-          h.span([h.Class("font-mono text-muted-foreground")], [statusIcon]),
+          h.span(
+            [h.Class("font-mono text-muted-foreground")],
+            [TOOL_STATUS_ICON[tool.status]],
+          ),
           h.span([h.Class("font-medium")], [tool.name]),
           h.span(
             [
               h.Class(
-                `inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.6rem] font-semibold ${
-                  tool.status === "complete"
-                    ? "bg-primary text-primary-foreground"
-                    : tool.status === "failed"
-                      ? "bg-destructive text-destructive-foreground"
-                      : "bg-secondary text-secondary-foreground"
-                }`,
+                `inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.6rem] font-semibold ${TOOL_STATUS_BADGE[tool.status]}`,
               ),
             ],
             [tool.status],
@@ -615,7 +615,6 @@ const toolCallView = <ParentMessage>(
         : []),
     ],
   );
-};
 
 const reasoningView = <ParentMessage>(
   h: HtmlBuilder<ParentMessage>,

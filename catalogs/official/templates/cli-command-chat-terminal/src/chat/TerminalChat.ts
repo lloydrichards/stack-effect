@@ -50,16 +50,16 @@ type InputAction = typeof InputAction.Type;
 type TerminalChatStreamTurn = TerminalChatDriver["Service"]["streamTurn"];
 
 type TerminalChatState = {
-  readonly input: string;
-  readonly cursor: number;
-  readonly messages: ReadonlyArray<ChatMessage>;
-  readonly activeTurn: ActiveTurn | null;
-  readonly error: string | null;
+  input: string;
+  cursor: number;
+  messages: ReadonlyArray<ChatMessage>;
+  activeTurn: ActiveTurn | null;
+  error: string | null;
 };
 
 type ActiveTurn = {
-  readonly assistantText: string;
-  readonly status: string | null;
+  assistantText: string;
+  status: string | null;
 };
 
 const clampCursor = (value: number, input: string) =>
@@ -78,8 +78,8 @@ const isKey = (input: Terminal.UserInput, key: string) =>
   !input.key.shift;
 
 const getTerminalInput = (input: {
-  readonly input?: Terminal.UserInput;
-  readonly event?: Terminal.UserInput;
+  input?: Terminal.UserInput;
+  event?: Terminal.UserInput;
 }): Option.Option<Terminal.UserInput> => {
   const value = input.input ?? input.event;
   return value ? Option.some(value) : Option.none();

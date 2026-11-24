@@ -42,6 +42,6 @@ export const todoAtom = runtime.fn((command: TodoCommand) =>
     return {
       command: command._tag,
       todos: yield* client.todos.list(),
-    } as const;
+    };
   }).pipe(Effect.provide(FetchHttpClient.layer)),
 );

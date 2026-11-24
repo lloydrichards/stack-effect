@@ -1,5 +1,6 @@
 import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "../dependencies";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 
@@ -124,14 +125,14 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/ai-anthropic",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
@@ -411,10 +412,10 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/src/services/AiChatService.ts",
         targetVariable: "ChatToolkitHandlers",
         functionName: "Layer.mergeAll",
-        argument: "InMemoryToolkitHandlers",
+        argument: "MemoryToolkitHandlers",
         import: {
           moduleSpecifier: "../toolkits/MemoryToolkit",
-          namedImports: ["InMemoryToolkitHandlers"],
+          namedImports: ["MemoryToolkitHandlers"],
         },
       },
     ],
@@ -626,14 +627,14 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
@@ -761,14 +762,14 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "@effect/sql-pg",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
@@ -893,14 +894,14 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@effect/sql-sqlite-node",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "@effect/sql-pg",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
     ],
   },
@@ -957,7 +958,7 @@ export const packageModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "pkg-json-entry",

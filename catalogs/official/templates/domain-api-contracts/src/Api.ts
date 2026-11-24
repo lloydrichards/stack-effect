@@ -7,7 +7,6 @@ import {
 
 export const ApiResponse = Schema.Struct({
   message: Schema.String,
-  success: Schema.Literal(true),
 });
 export type ApiResponse = typeof ApiResponse.Type;
 

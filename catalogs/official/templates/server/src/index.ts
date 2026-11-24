@@ -9,7 +9,6 @@ import { HttpApiBuilder } from "effect/http-api";
 import { HealthHandlers } from "./api/Health";
 import { HelloHandlers } from "./api/Hello";
 
-// HTTP API Router
 const ApiRouter = HttpApiBuilder.layer(Api).pipe(
   Layer.provide([HealthHandlers, HelloHandlers]),
 );
@@ -25,9 +24,9 @@ const main = Effect.gen(function* () {
   const config = yield* ServerConfig;
   const allowedOrigins = config.allowedOrigins.split(",").map((o) => o.trim());
 
-  yield* Effect.logInfo(`CORS allowed origins: ${allowedOrigins.join(", ")}`);
-  yield* Effect.logInfo("Starting server with:");
-  yield* Effect.logInfo("  - HTTP API at /");
+  yield* Effect.logInfo("CORS allowed origins").pipe(
+    Effect.annotateLogs({ allowedOrigins }),
+  );
 
   const CorsRouters = AllRouters.pipe(
     Layer.provide(

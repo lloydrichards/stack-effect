@@ -9,10 +9,7 @@ import {
   type ChatMessage,
   type ChatStreamPart,
 } from "@repo/domain/Chat";
-import type {
-  ChatNotFoundError,
-  GenerationInProgressError,
-} from "@repo/domain/ChatRpc";
+import type { ChatNotFound, GenerationInProgress } from "@repo/domain/ChatRpc";
 import {
   type ChatTurnOptions,
   validateChatTurnOptions,
@@ -73,10 +70,7 @@ export class ChatRuntime extends Context.Service<
       chatId: ChatId,
       messages: ReadonlyArray<ChatMessage>,
       options?: ChatTurnOptions,
-    ) => Stream.Stream<
-      ChatStreamPart,
-      ChatNotFoundError | GenerationInProgressError
-    >;
+    ) => Stream.Stream<ChatStreamPart, ChatNotFound | GenerationInProgress>;
   }
 >()("ChatRuntime") {
   static readonly layer = Layer.effect(ChatRuntime, makeChatRuntime).pipe(

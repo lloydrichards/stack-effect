@@ -355,10 +355,10 @@ const main = Effect.scoped(Effect.gen(function* () {
   const restoredOptionError = yield* Schema.decodeEffect(optionErrorJson)(yield* Schema.encodeEffect(optionErrorJson)(optionError));
   assert(restoredOptionError instanceof promptDomain.McpPromptOptionError);
   assert.equal(restoredOptionError.message, optionError.message);
-  const contentErrorJson = Schema.fromJsonString(resourceDomain.UnsupportedMcpContentError);
-  const contentError = new resourceDomain.UnsupportedMcpContentError({ capability: "resource", source: "fixture://selected", contentType: "blob", message: "Unsupported content" });
+  const contentErrorJson = Schema.fromJsonString(resourceDomain.UnsupportedMcpContent);
+  const contentError = new resourceDomain.UnsupportedMcpContent({ capability: "resource", source: "fixture://selected", contentType: "blob", message: "Unsupported content" });
   const restoredContentError = yield* Schema.decodeEffect(contentErrorJson)(yield* Schema.encodeEffect(contentErrorJson)(contentError));
-  assert(restoredContentError instanceof resourceDomain.UnsupportedMcpContentError);
+  assert(restoredContentError instanceof resourceDomain.UnsupportedMcpContent);
   assert.equal(restoredContentError.message, contentError.message);
   scenario = "normal";
   for (const app of ["cli", "server"] as const) {
@@ -395,11 +395,11 @@ const main = Effect.scoped(Effect.gen(function* () {
       yield* (app === "cli"
         ? Effect.gen(function* () {
             const driver = yield* TerminalChatDriver;
-            yield* exercise((prompt) => driver.streamTurn([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
+            yield* exercise((prompt) => driver.streamTurn([], prompt === undefined ? {} : { prompt }), () => prompts.list, prompts.render);
           }).pipe(Effect.provide(TerminalChatDriver.layer))
         : Effect.gen(function* () {
             const runtime = yield* ChatRuntime;
-            yield* exercise((prompt) => runtime.generate([], prompt === undefined ? {} : { prompt }), prompts.list, prompts.render);
+            yield* exercise((prompt) => runtime.generate([], prompt === undefined ? {} : { prompt }), () => prompts.list, prompts.render);
           }).pipe(Effect.provide(ChatRuntime.layer.pipe(Layer.provide(ChatSessions.layer)))));
     }).pipe(Effect.provide(promptModule.McpPrompts.layer), Effect.provide(config("2026-07-28")), Effect.provide(fetchLayer));
   }

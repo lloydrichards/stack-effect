@@ -1,7 +1,7 @@
 import {
   McpPromptDescriptor,
   McpPromptOptionError,
-  type McpPromptSelection,
+  McpPromptSelection,
 } from "@repo/domain/McpPrompt";
 import { Effect, Option, Schema } from "effect";
 import { Flag } from "effect/cli";
@@ -16,9 +16,9 @@ export const mcpPromptOptions = {
 };
 export const promptSelection = Effect.fn("McpPromptOptions.selection")(
   function* (options: {
-    readonly prompt: Option.Option<string>;
-    readonly promptArgs: Readonly<Record<string, string>>;
-    readonly listPrompts: boolean;
+    prompt: Option.Option<string>;
+    promptArgs: Record<string, string>;
+    listPrompts: boolean;
   }) {
     const name = Option.getOrUndefined(options.prompt);
     const hasArgs = Object.keys(options.promptArgs).length > 0;
@@ -30,9 +30,8 @@ export const promptSelection = Effect.fn("McpPromptOptions.selection")(
       return yield* new McpPromptOptionError({
         message: "Use --list-prompts separately from --prompt and --prompt-arg",
       });
-    const selection: McpPromptSelection | undefined =
-      name === undefined ? undefined : { name, arguments: options.promptArgs };
-    return selection;
+    if (name === undefined) return undefined;
+    return McpPromptSelection.make({ name, arguments: options.promptArgs });
   },
 );
 export const encodePromptList = Schema.encodeEffect(

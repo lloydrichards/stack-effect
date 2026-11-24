@@ -1,5 +1,6 @@
 import { type ContributionInput, defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "../dependencies";
 
 const template = templates(
   new URL("../../templates/alchemy/", import.meta.url),
@@ -51,11 +52,11 @@ export const alchemyModules = defineModules(import.meta.url, [
         "@alchemy.run/frontend-frameworks",
         "2.0.0-beta.87",
       ),
-      entry("devDependencies", "effect", "4.1.4"),
+      entry("devDependencies", "effect", EFFECT_VERSION),
       entry(
         "devDependencies",
         "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}",
-        "4.1.4",
+        EFFECT_VERSION,
       ),
       entry("devDependencies", "@types/node", "^26.6.6"),
       entry("scripts", "infra:check", "tsc -p tsconfig.infra.json --noEmit"),

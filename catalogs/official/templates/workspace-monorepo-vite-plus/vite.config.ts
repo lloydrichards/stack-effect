@@ -8,6 +8,16 @@ export default defineConfig({
     options: {
       denyWarnings: false,
     },
+    rules: {
+      "max-depth": ["error", 3],
+      "max-nested-callbacks": ["error", 4],
+      "no-nested-ternary": "error",
+      "typescript/array-type": [
+        "error",
+        { default: "generic", readonly: "generic" },
+      ],
+      "unicorn/prefer-array-flat-map": "error",
+    },
     overrides: [
       {
         files: ["**/*.test.ts", "**/*.test.tsx"],

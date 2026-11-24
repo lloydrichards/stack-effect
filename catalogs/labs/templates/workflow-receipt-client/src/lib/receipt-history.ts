@@ -26,7 +26,7 @@ const encode = Schema.encodeOption(JsonRows);
 export const receiptHistoryKey = "stack-effect:receipt-history";
 const legacyHistoryKey = "stack-effect-receipt-preview-history";
 
-export const loadReceipts = (): readonly ReceiptRow[] => {
+export const loadReceipts = (): ReadonlyArray<ReceiptRow> => {
   let stored: string | null;
   try {
     stored =
@@ -46,9 +46,9 @@ export const loadReceipts = (): readonly ReceiptRow[] => {
 };
 
 export const upsertReceipt = (
-  rows: readonly ReceiptRow[],
+  rows: ReadonlyArray<ReceiptRow>,
   row: ReceiptRow,
-): readonly ReceiptRow[] => {
+): ReadonlyArray<ReceiptRow> => {
   const existing = rows.find((item) => item.executionId === row.executionId);
   if (!existing) return [row, ...rows];
   if (existing.status !== "Pending" || row.status === "Pending") return rows;

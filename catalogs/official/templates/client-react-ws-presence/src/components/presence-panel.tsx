@@ -15,8 +15,16 @@ import {
   WebSocketClient,
 } from "@/lib/web-socket-client";
 
+type Connection = "connected" | "connecting" | "disconnected";
+
+const CONNECTION_BADGE = {
+  connected: "border-primary/30 bg-primary/10 text-primary",
+  connecting: "border-secondary/50 bg-secondary text-secondary-foreground",
+  disconnected: "border-destructive/40 bg-destructive/10 text-destructive",
+} satisfies Record<Connection, string>;
+
 const buildClientListFromEvents = (
-  events: readonly WebSocketEvent[],
+  events: ReadonlyArray<WebSocketEvent>,
 ): {
   clients: Map<ClientId, ClientInfo>;
   myClientId: ClientId | null;
@@ -71,7 +79,7 @@ export const PresencePanel = ({ className }: { className?: string }) => {
 
   const events = AsyncResult.getOrElse(
     eventsResult,
-    () => [] as readonly WebSocketEvent[],
+    () => [] as ReadonlyArray<WebSocketEvent>,
   );
 
   const { clients: clientMap, myClientId } = useMemo(
@@ -104,8 +112,12 @@ export const PresencePanel = ({ className }: { className?: string }) => {
     }
   };
 
-  const isConnected = AsyncResult.isSuccess(eventsResult);
-  const isConnecting = AsyncResult.isInitial(eventsResult);
+  const connection = AsyncResult.match(eventsResult, {
+    onInitial: (): Connection => "connecting",
+    onFailure: (): Connection => "disconnected",
+    onSuccess: (): Connection => (myClientId ? "connected" : "connecting"),
+  });
+  const isConnected = connection === "connected";
 
   return (
     <Card className={cn("flex h-full flex-col", className)}>
@@ -113,23 +125,17 @@ export const PresencePanel = ({ className }: { className?: string }) => {
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle>WebSocket Presence (RPC)</CardTitle>
-            <p className="text-xs text-muted-foreground">Realtime status updates over RPC.</p>
+            <p className="text-xs text-muted-foreground">
+              Realtime status updates over RPC.
+            </p>
           </div>
           <span
             className={cn(
               "inline-flex items-center rounded-full border px-2 py-0.5 text-[0.65rem]",
-              isConnected
-                ? "border-primary/30 bg-primary/10 text-primary"
-                : isConnecting
-                  ? "border-secondary/50 bg-secondary text-secondary-foreground"
-                  : "border-destructive/40 bg-destructive/10 text-destructive",
+              CONNECTION_BADGE[connection],
             )}
           >
-            {isConnected && myClientId
-              ? "connected"
-              : isConnecting
-                ? "connecting"
-                : "disconnected"}
+            {connection}
           </span>
         </div>
       </CardHeader>
@@ -139,7 +145,7 @@ export const PresencePanel = ({ className }: { className?: string }) => {
           <Button
             onClick={() => handleSetStatus("online")}
             className="flex-1"
-            disabled={!isConnected || !myClientId}
+            disabled={!isConnected}
           >
             Online
           </Button>
@@ -147,7 +153,7 @@ export const PresencePanel = ({ className }: { className?: string }) => {
             variant="secondary"
             onClick={() => handleSetStatus("away")}
             className="flex-1"
-            disabled={!isConnected || !myClientId}
+            disabled={!isConnected}
           >
             Away
           </Button>
@@ -155,7 +161,7 @@ export const PresencePanel = ({ className }: { className?: string }) => {
             variant="outline"
             onClick={() => handleSetStatus("busy")}
             className="flex-1"
-            disabled={!isConnected || !myClientId}
+            disabled={!isConnected}
           >
             Busy
           </Button>
