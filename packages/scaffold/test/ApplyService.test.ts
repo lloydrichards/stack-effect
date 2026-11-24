@@ -54,6 +54,18 @@ describe("ApplyService", () => {
     }).pipe(Effect.provide(testPipeline)),
   );
 
+  it.effect("should write a package.json entry named __proto__", () =>
+    Effect.gen(function* () {
+      yield* writeFiles({ [manifest]: '{ "name": "@repo/app" }\n' });
+      yield* planAndApply("proto-script");
+
+      const { scripts } = JSON.parse(yield* readFile(manifest));
+
+      assert.isTrue(Object.hasOwn(scripts, "__proto__"));
+      assert.strictEqual(scripts["__proto__"], "node proto.js");
+    }).pipe(Effect.provide(testPipeline)),
+  );
+
   it.effect("should skip every path when the repository already matches", () =>
     Effect.gen(function* () {
       yield* writeFiles({});

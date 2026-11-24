@@ -20,11 +20,12 @@ const assignPackageJsonEntries = Effect.fnUntraced(function* (
     });
   }
 
-  const section: Record<string, unknown> = { ...existingSection };
-  for (const entry of entries) {
-    section[entry.name] = entry.value;
-  }
-  pkg[sectionName] = section;
+  // Object.fromEntries defines own keys, so an entry named `__proto__` is
+  // written instead of replacing the section's prototype.
+  pkg[sectionName] = Object.fromEntries([
+    ...Object.entries(existingSection ?? {}),
+    ...entries.map((entry) => [entry.name, entry.value] as const),
+  ]);
 });
 
 const applyJsonOperation = (
