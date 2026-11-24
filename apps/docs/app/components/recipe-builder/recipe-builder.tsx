@@ -10,6 +10,7 @@ import {
   recipeBuilderRpcErrorMessage,
   recipeBuilderRpcError,
 } from "../../atom/recipe-builder-atom";
+import type { RecipeBuilderCatalogSource } from "../../workers/recipe-builder/domain";
 import { BuilderWorkspace } from "./builder-workspace";
 import { usesOfficialCatalog } from "./form";
 import {
@@ -42,24 +43,10 @@ const validatedAtFormat = new Intl.DateTimeFormat(undefined, {
   timeStyle: "short",
 });
 
-const RecipeNotices = () => {
+const CatalogFailureNotice = () => {
   const form = useRecipeBuilderFormContext();
-  const {
-    catalog,
-    catalogFailed,
-    catalogResult,
-    compatibilityNotice,
-    retryCatalog,
-  } = useRecipeBuilderCatalog();
-  const { previewResult } = useRecipeBuilderPreview();
-  const {
-    urlIssue,
-    unconfirmedCatalogs,
-    confirmCatalogs,
-    setCatalogs,
-    labsMigration,
-  } = useRecipeBuilderUrl();
-  const awaitingConfirmation = unconfirmedCatalogs.length > 0;
+  const { catalogResult, retryCatalog } = useRecipeBuilderCatalog();
+  const { setCatalogs } = useRecipeBuilderUrl();
   const catalogFailure = AsyncResult.isFailure(catalogResult)
     ? recipeBuilderRpcError(catalogResult.cause)
     : undefined;
@@ -78,6 +65,117 @@ const RecipeNotices = () => {
     catalogs !== undefined &&
     !usesOfficialCatalog(catalogs) &&
     catalogFailure?.issues?.some((issue) => issue.code === "missing-source");
+  return (
+    <Alert variant="destructive" role="alert">
+      <AlertCircle />
+      <AlertTitle>
+        {catalogFailure?.issues
+          ? "Selected catalogs do not combine"
+          : catalogFailure?.failedSource
+            ? `Catalog ${catalogFailure.failedSource.name} unavailable`
+            : "Recipe catalog unavailable"}
+      </AlertTitle>
+      <AlertDescription className="flex flex-wrap items-center gap-3">
+        {catalogFailure?.issues ? (
+          <ul className="w-full list-disc pl-5">
+            {catalogFailure.issues.map((issue) => (
+              <li key={`${issue.code}:${issue.message}`}>{issue.message}</li>
+            ))}
+          </ul>
+        ) : (
+          <span className="whitespace-pre-line">
+            {AsyncResult.isFailure(catalogResult)
+              ? recipeBuilderRpcErrorMessage(catalogResult.cause)
+              : "Could not load the recipe catalog."}
+          </span>
+        )}
+        {cachedFailureSources?.length ? (
+          <p className="w-full">
+            Used cached catalogs for {cachedFailureSources.join(", ")}. Retry
+            when the catalog sources are reachable.
+          </p>
+        ) : null}
+        {missingOfficial ? (
+          <Button
+            type="button"
+            onClick={() =>
+              setCatalogs([{ name: OFFICIAL_CATALOG_SOURCE }, ...catalogs])
+            }
+          >
+            Add the official catalog
+          </Button>
+        ) : null}
+        {failedLabs ? (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              setCatalogs([
+                { name: OFFICIAL_CATALOG_SOURCE },
+                ...(catalogs ?? []).filter(
+                  (source) =>
+                    source.name !== "labs" &&
+                    source.name !== OFFICIAL_CATALOG_SOURCE,
+                ),
+              ])
+            }
+          >
+            Continue without Labs
+          </Button>
+        ) : null}
+        <Button type="button" variant="outline" onClick={retryCatalog}>
+          Retry catalog
+        </Button>
+      </AlertDescription>
+    </Alert>
+  );
+};
+
+const CatalogWarningNotice = ({
+  source,
+}: {
+  source: RecipeBuilderCatalogSource;
+}) => {
+  const { retryCatalog } = useRecipeBuilderCatalog();
+  const cached = source.freshness === "cached";
+  return (
+    <Alert role="status">
+      <AlertCircle />
+      <AlertTitle>
+        {cached
+          ? `Using cached catalog ${source.name}`
+          : `Catalog ${source.name} could not be saved`}
+      </AlertTitle>
+      <AlertDescription className="flex flex-wrap items-center gap-3">
+        <span>
+          {source.sourceUrl} · Last validated{" "}
+          {validatedAtFormat.format(source.warning?.lastValidatedAt)}.
+          {cached
+            ? " The registry is unavailable."
+            : " This preview is current, but may not be available offline."}
+        </span>
+        {cached ? (
+          <Button type="button" variant="outline" onClick={retryCatalog}>
+            Retry catalog
+          </Button>
+        ) : null}
+      </AlertDescription>
+    </Alert>
+  );
+};
+
+const RecipeNotices = () => {
+  const { catalog, catalogFailed, compatibilityNotice } =
+    useRecipeBuilderCatalog();
+  const { previewResult } = useRecipeBuilderPreview();
+  const {
+    urlIssue,
+    unconfirmedCatalogs,
+    confirmCatalogs,
+    setCatalogs,
+    labsMigration,
+  } = useRecipeBuilderUrl();
+  const awaitingConfirmation = unconfirmedCatalogs.length > 0;
   return (
     <>
       {awaitingConfirmation && urlIssue === undefined ? (
@@ -147,98 +245,12 @@ const RecipeNotices = () => {
         </Alert>
       ) : null}
 
-      {catalogFailed ? (
-        <Alert variant="destructive" role="alert">
-          <AlertCircle />
-          <AlertTitle>
-            {catalogFailure?.issues
-              ? "Selected catalogs do not combine"
-              : catalogFailure?.failedSource
-                ? `Catalog ${catalogFailure.failedSource.name} unavailable`
-                : "Recipe catalog unavailable"}
-          </AlertTitle>
-          <AlertDescription className="flex flex-wrap items-center gap-3">
-            {catalogFailure?.issues ? (
-              <ul className="w-full list-disc pl-5">
-                {catalogFailure.issues.map((issue) => (
-                  <li key={`${issue.code}:${issue.message}`}>
-                    {issue.message}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <span className="whitespace-pre-line">
-                {AsyncResult.isFailure(catalogResult)
-                  ? recipeBuilderRpcErrorMessage(catalogResult.cause)
-                  : "Could not load the recipe catalog."}
-              </span>
-            )}
-            {cachedFailureSources?.length ? (
-              <p className="w-full">
-                Used cached catalogs for {cachedFailureSources.join(", ")}.
-                Retry when the catalog sources are reachable.
-              </p>
-            ) : null}
-            {missingOfficial ? (
-              <Button
-                type="button"
-                onClick={() =>
-                  setCatalogs([{ name: OFFICIAL_CATALOG_SOURCE }, ...catalogs])
-                }
-              >
-                Add the official catalog
-              </Button>
-            ) : null}
-            {failedLabs ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setCatalogs([
-                    { name: OFFICIAL_CATALOG_SOURCE },
-                    ...(catalogs ?? []).filter(
-                      (source) =>
-                        source.name !== "labs" &&
-                        source.name !== OFFICIAL_CATALOG_SOURCE,
-                    ),
-                  ])
-                }
-              >
-                Continue without Labs
-              </Button>
-            ) : null}
-            <Button type="button" variant="outline" onClick={retryCatalog}>
-              Retry catalog
-            </Button>
-          </AlertDescription>
-        </Alert>
-      ) : null}
+      {catalogFailed ? <CatalogFailureNotice /> : null}
 
       {catalog?.sources
         .filter((source) => source.warning !== undefined)
         .map((source) => (
-          <Alert role="status" key={source.name}>
-            <AlertCircle />
-            <AlertTitle>
-              {source.freshness === "cached"
-                ? `Using cached catalog ${source.name}`
-                : `Catalog ${source.name} could not be saved`}
-            </AlertTitle>
-            <AlertDescription className="flex flex-wrap items-center gap-3">
-              <span>
-                {source.sourceUrl} · Last validated{" "}
-                {validatedAtFormat.format(source.warning?.lastValidatedAt)}.
-                {source.freshness === "cached"
-                  ? " The registry is unavailable."
-                  : " This preview is current, but may not be available offline."}
-              </span>
-              {source.freshness === "cached" ? (
-                <Button type="button" variant="outline" onClick={retryCatalog}>
-                  Retry catalog
-                </Button>
-              ) : null}
-            </AlertDescription>
-          </Alert>
+          <CatalogWarningNotice key={source.name} source={source} />
         ))}
 
       {AsyncResult.builder(previewResult)

@@ -140,26 +140,26 @@ export const Layout = ({ children }: { children: React.ReactNode }) => {
   );
 };
 
+const pageToc = (matches: ReturnType<typeof useMatches>): TOCItem[] =>
+  // React Router's useMatches handle is untyped.
+  (matches.at(-1)?.handle as any)?.toc ?? [];
+
 export default function App() {
   const { pathname } = useLocation();
-  const matches = useMatches();
-  const lastMatch = matches[matches.length - 1];
-  // React Router's useMatches handle is untyped.
-  const toc: TOCItem[] = (lastMatch?.handle as any)?.toc ?? [];
-  const hasToc = toc.length > 0;
+  const toc = pageToc(useMatches());
   const isLandingPage = pathname === "/";
   const isBuilderPage = isBuilderPath(pathname);
+  const isWidePage = isLandingPage || isBuilderPage;
+  const showToc = !isWidePage && toc.length > 0;
   const docPage = findDocPage(pathname);
 
   return (
     <MDXProvider components={proseComponents}>
-      {!isLandingPage && !isBuilderPage && hasToc && (
-        <TableOfContents toc={toc} />
-      )}
+      {showToc && <TableOfContents toc={toc} />}
       <div
         className={cn(
           "mx-auto w-full",
-          isLandingPage || isBuilderPage ? "max-w-[96rem]" : "max-w-[72ch]",
+          isWidePage ? "max-w-[96rem]" : "max-w-[72ch]",
         )}
       >
         {docPage ? (
@@ -173,9 +173,7 @@ export default function App() {
         <Outlet />
         {!isBuilderPage ? <DocFooter /> : null}
       </div>
-      {!isLandingPage && !isBuilderPage && hasToc && (
-        <TableOfContents toc={toc} desktopOnly />
-      )}
+      {showToc && <TableOfContents toc={toc} desktopOnly />}
     </MDXProvider>
   );
 }

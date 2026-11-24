@@ -58,24 +58,21 @@ const effectFnCall = (fn) => {
   return undefined;
 };
 
-const namingParents = new Set([
-  "VariableDeclarator",
-  "Property",
-  "MethodDefinition",
-  "PropertyDefinition",
-  "AssignmentExpression",
+// Each parent that names its value, and the key that holds the value.
+const namingSlots = new Map([
+  ["VariableDeclarator", "init"],
+  ["Property", "value"],
+  ["MethodDefinition", "value"],
+  ["PropertyDefinition", "value"],
+  ["AssignmentExpression", "right"],
 ]);
 
 const isNamed = (fn) => {
   if (fn.type === "FunctionDeclaration") return true;
-  const call = effectFnCall(fn);
-  const parent = outerParent(call ?? fn);
-  if (!parent || !namingParents.has(parent.type)) return false;
-  if (parent.type === "VariableDeclarator")
-    return unwrap(parent.init) === (call ?? fn);
-  if (parent.type === "AssignmentExpression")
-    return unwrap(parent.right) === (call ?? fn);
-  return unwrap(parent.value) === (call ?? fn);
+  const named = effectFnCall(fn) ?? fn;
+  const parent = outerParent(named);
+  const slot = namingSlots.get(parent?.type);
+  return slot !== undefined && unwrap(parent[slot]) === named;
 };
 
 const inputCount = (fn) =>
@@ -384,28 +381,31 @@ const constructsError = (expression) => {
   return name !== undefined && errorName.test(name);
 };
 
+const isFunctionValue = (node) =>
+  node?.type === "ArrowFunctionExpression" ||
+  node?.type === "FunctionExpression";
+
+// An expression body, or the argument of a block body that is a single `return`.
+const returnedValue = (body) => {
+  if (body.type !== "BlockStatement") return body;
+  const [statement] = body.body;
+  return body.body.length === 1 && statement.type === "ReturnStatement"
+    ? statement.argument
+    : undefined;
+};
+
 // The value a factory returns after unwrapping curried arrows and a body that
 // is a single `return`.
 const factoryResult = (fn) => {
-  let body = fn.body;
-  for (;;) {
-    if (body.type === "BlockStatement") {
-      if (body.body.length !== 1 || body.body[0].type !== "ReturnStatement")
-        return undefined;
-      body = body.body[0].argument;
-      if (!body) return undefined;
-    }
-    const inner = unwrap(body);
-    if (
-      inner?.type === "ArrowFunctionExpression" ||
-      inner?.type === "FunctionExpression"
-    ) {
-      body = inner.body;
-      continue;
-    }
-    return inner;
-  }
+  let result = unwrap(returnedValue(fn.body));
+  while (isFunctionValue(result)) result = unwrap(returnedValue(result.body));
+  return result;
 };
+
+const failsWithError = (result) =>
+  result.type === "CallExpression" &&
+  isMember(result.callee, "Effect", ["fail"]) &&
+  constructsError(result.arguments[0]);
 
 const noErrorFactory = {
   meta: {
@@ -418,19 +418,10 @@ const noErrorFactory = {
   create: (context) => ({
     VariableDeclarator: (node) => {
       const init = unwrap(node.init);
-      if (
-        init?.type !== "ArrowFunctionExpression" &&
-        init?.type !== "FunctionExpression"
-      )
-        return;
-      if (init.generator || init.async) return;
+      if (!isFunctionValue(init) || init.generator || init.async) return;
       const result = factoryResult(init);
-      if (!result) return;
-      const failed =
-        result.type === "CallExpression" &&
-        isMember(result.callee, "Effect", ["fail"]) &&
-        constructsError(result.arguments[0]);
-      if (!failed && !constructsError(result)) return;
+      if (!result || !(failsWithError(result) || constructsError(result)))
+        return;
       context.report({
         node,
         message:

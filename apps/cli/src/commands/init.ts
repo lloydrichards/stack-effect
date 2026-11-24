@@ -93,6 +93,65 @@ const chooseTool = Effect.fnUntraced(function* (
   return Option.getOrUndefined(choice);
 });
 
+// The answers shown for confirmation before the project is created.
+const configurationSummary = Effect.fnUntraced(function* (
+  config: StackConfig,
+  repositoryRoot: string,
+  git: boolean,
+  dxExtras: ReadonlyArray<string>,
+) {
+  const configure = yield* ConfigureService;
+  return Box.vsep(
+    [
+      Box.text("Project Configuration").pipe(
+        Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
+      ),
+      Box.hsep(
+        [
+          Box.vcat(
+            [
+              Box.text("Name:"),
+              Box.text("Directory:"),
+              Box.text("Runtime:"),
+              Box.text("Package manager:"),
+              Box.text("TypeScript:"),
+              Box.text("Monorepo:"),
+              Box.text("Lint:"),
+              Box.text("Format:"),
+              Box.text("Test:"),
+              Box.text("Git:"),
+              Box.text("DX Extras:"),
+              Box.text("Config:"),
+            ],
+            Box.left,
+          ),
+          Box.vcat(
+            [
+              Box.text(config.name),
+              Box.text(repositoryRoot),
+              Box.text(config.runtimeName),
+              Box.text(config.packageManagerName),
+              Box.text(config.typescriptVersion),
+              Box.text(config.monorepo ?? "none"),
+              Box.text(config.lint ?? "none"),
+              Box.text(config.format ?? "none"),
+              Box.text(config.test ?? "none"),
+              Box.text(git ? "yes" : "no"),
+              Box.text(dxExtras.length === 0 ? "none" : dxExtras.join(", ")),
+              Box.text(configure.configPath(repositoryRoot)),
+            ],
+            Box.left,
+          ),
+        ],
+        1,
+        Box.left,
+      ).pipe(Box.moveRight(1)),
+    ],
+    1,
+    Box.left,
+  );
+});
+
 export const init = Command.make(
   "init",
   {
@@ -285,56 +344,11 @@ export const init = Command.make(
         }),
       });
 
-      const dxExtrasDisplay =
-        dxExtras.length === 0 ? "none" : dxExtras.join(", ");
-      const configBox = Box.vsep(
-        [
-          Box.text("Project Configuration").pipe(
-            Box.annotate(Ansi.combine(Ansi.bold, Ansi.cyan)),
-          ),
-          Box.hsep(
-            [
-              Box.vcat(
-                [
-                  Box.text("Name:"),
-                  Box.text("Directory:"),
-                  Box.text("Runtime:"),
-                  Box.text("Package manager:"),
-                  Box.text("TypeScript:"),
-                  Box.text("Monorepo:"),
-                  Box.text("Lint:"),
-                  Box.text("Format:"),
-                  Box.text("Test:"),
-                  Box.text("Git:"),
-                  Box.text("DX Extras:"),
-                  Box.text("Config:"),
-                ],
-                Box.left,
-              ),
-              Box.vcat(
-                [
-                  Box.text(config.name),
-                  Box.text(repositoryRoot),
-                  Box.text(config.runtimeName),
-                  Box.text(config.packageManagerName),
-                  Box.text(config.typescriptVersion),
-                  Box.text(config.monorepo ?? "none"),
-                  Box.text(config.lint ?? "none"),
-                  Box.text(config.format ?? "none"),
-                  Box.text(config.test ?? "none"),
-                  Box.text(git === false ? "no" : "yes"),
-                  Box.text(dxExtrasDisplay),
-                  Box.text(configure.configPath(repositoryRoot)),
-                ],
-                Box.left,
-              ),
-            ],
-            1,
-            Box.left,
-          ).pipe(Box.moveRight(1)),
-        ],
-        1,
-        Box.left,
+      const configBox = yield* configurationSummary(
+        config,
+        repositoryRoot,
+        git,
+        dxExtras,
       );
 
       if (mode._tag === "write") {

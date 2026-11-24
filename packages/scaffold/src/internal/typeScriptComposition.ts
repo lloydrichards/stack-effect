@@ -6,7 +6,7 @@ import type {
   TsObjectFieldOp,
   TypeScriptCompositionOperation,
 } from "@repo/domain/Plan";
-import { Effect, Equal, Match, Option, pipe } from "effect";
+import { Effect, Equal, Match, Option, pipe, Predicate } from "effect";
 import type { CallExpression, Node, SourceFile } from "ts-morph";
 import {
   IndentationText,
@@ -23,26 +23,24 @@ const applyTsAddImport = (sourceFile: SourceFile, op: TsAddImportOp) => {
   // a package barrel instead of its subpath export. A second binding of the
   // same name would not parse, so keep the existing import.
   const bound = localImportBindings(sourceFile);
+  const unbound = (name: string | undefined) =>
+    name === undefined || bound.has(name) ? undefined : name;
   const namedImports = op.namedImports?.filter((name) => !bound.has(name));
-  const defaultImport =
-    op.defaultImport !== undefined && !bound.has(op.defaultImport)
-      ? op.defaultImport
-      : undefined;
-  const namespaceImport =
-    op.namespaceImport !== undefined && !bound.has(op.namespaceImport)
-      ? op.namespaceImport
-      : undefined;
+  const defaultImport = unbound(op.defaultImport);
+  const namespaceImport = unbound(op.namespaceImport);
 
-  const requestsBindings =
-    Boolean(op.namedImports?.length) ||
-    op.defaultImport !== undefined ||
-    op.namespaceImport !== undefined;
-  const addsBindings =
-    Boolean(namedImports?.length) ||
-    defaultImport !== undefined ||
-    namespaceImport !== undefined;
+  const requested = [
+    ...(op.namedImports ?? []),
+    op.defaultImport,
+    op.namespaceImport,
+  ].filter(Predicate.isNotUndefined);
+  const added = [
+    ...(namedImports ?? []),
+    defaultImport,
+    namespaceImport,
+  ].filter(Predicate.isNotUndefined);
 
-  if (requestsBindings && !addsBindings) {
+  if (requested.length > 0 && added.length === 0) {
     return;
   }
 

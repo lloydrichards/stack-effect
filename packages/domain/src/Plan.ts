@@ -384,6 +384,59 @@ const NormalizedContributions = Schema.Struct({
 
 export type NormalizedContributions = typeof NormalizedContributions.Type;
 
+const ConfigField = Schema.Literals([
+  "hasApps",
+  "runtime",
+  "packageManager",
+  "typescript",
+  "lint",
+  "format",
+  "test",
+  "monorepo",
+  "noMonorepo",
+  "effectOxlint",
+  "standaloneOxlint",
+  "standaloneEffectOxlint",
+  "typescript7Diagnostics",
+]);
+
+type ConfigField = typeof ConfigField.Type;
+
+const isConfigField = Schema.is(ConfigField);
+
+// A conditional treats any non-empty value as truthy.
+const flag = (condition: boolean) => (condition ? "true" : "");
+
+const CONFIG_FIELD_VALUES = {
+  hasApps: ({ projectTargets }) =>
+    flag(
+      projectTargets?.some(
+        ({ identity }) =>
+          identity.kind !== "workspace" && identity.kind !== "package",
+      ) ?? false,
+    ),
+  runtime: ({ config }) => config.runtimeName,
+  packageManager: ({ config }) => config.packageManagerName,
+  typescript: ({ config }) => config.typescriptVersion,
+  lint: ({ config }) => config.lint ?? "",
+  format: ({ config }) => config.format ?? "",
+  test: ({ config }) => config.test ?? "",
+  monorepo: ({ config }) => config.monorepo ?? "",
+  noMonorepo: ({ config }) => flag(config.monorepo === undefined),
+  effectOxlint: ({ config }) =>
+    flag(config.typescriptVersion === "7" && config.lint === "oxlint"),
+  standaloneOxlint: ({ config }) =>
+    flag(config.lint === "oxlint" && config.monorepo !== "vite-plus"),
+  standaloneEffectOxlint: ({ config }) =>
+    flag(
+      config.typescriptVersion === "7" &&
+        config.lint === "oxlint" &&
+        config.monorepo !== "vite-plus",
+    ),
+  typescript7Diagnostics: ({ config }) =>
+    flag(config.typescriptVersion === "7" && config.lint !== "oxlint"),
+} satisfies Record<ConfigField, (context: ContributionTokenContext) => string>;
+
 export class ContributionTokenContext extends Schema.Class<ContributionTokenContext>(
   "ContributionTokenContext",
 )({
@@ -445,56 +498,8 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
         : t.replaceAll(token, targetPath);
 
-    const getConfigValue = (field: string): string => {
-      switch (field) {
-        case "hasApps":
-          return this.projectTargets?.some(
-            ({ identity }) =>
-              identity.kind !== "workspace" && identity.kind !== "package",
-          )
-            ? "true"
-            : "";
-        case "runtime":
-          return this.config.runtimeName;
-        case "packageManager":
-          return this.config.packageManagerName;
-        case "typescript":
-          return this.config.typescriptVersion;
-        case "lint":
-          return this.config.lint ?? "";
-        case "format":
-          return this.config.format ?? "";
-        case "test":
-          return this.config.test ?? "";
-        case "monorepo":
-          return this.config.monorepo ?? "";
-        case "noMonorepo":
-          return this.config.monorepo === undefined ? "true" : "";
-        case "effectOxlint":
-          return this.config.typescriptVersion === "7" &&
-            this.config.lint === "oxlint"
-            ? "true"
-            : "";
-        case "standaloneOxlint":
-          return this.config.lint === "oxlint" &&
-            this.config.monorepo !== "vite-plus"
-            ? "true"
-            : "";
-        case "standaloneEffectOxlint":
-          return this.config.typescriptVersion === "7" &&
-            this.config.lint === "oxlint" &&
-            this.config.monorepo !== "vite-plus"
-            ? "true"
-            : "";
-        case "typescript7Diagnostics":
-          return this.config.typescriptVersion === "7" &&
-            this.config.lint !== "oxlint"
-            ? "true"
-            : "";
-        default:
-          return "";
-      }
-    };
+    const getConfigValue = (field: string): string =>
+      isConfigField(field) ? CONFIG_FIELD_VALUES[field](this) : "";
 
     const resolveConditionals = (t: string): string => {
       const conditionalRegex =
