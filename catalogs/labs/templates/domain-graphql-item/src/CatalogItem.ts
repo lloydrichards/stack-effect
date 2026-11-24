@@ -11,7 +11,7 @@ export const CatalogItem = Schema.Struct({
 });
 export type CatalogItem = typeof CatalogItem.Type;
 
-export const CatalogItemNotFound = Schema.TaggedStruct("CatalogItemNotFound", {
-  id: CatalogItemId,
-});
-export type CatalogItemNotFound = typeof CatalogItemNotFound.Type;
+export class CatalogItemNotFound extends Schema.TaggedError<
+  CatalogItemNotFound,
+  { readonly brand: unique symbol }
+>()("CatalogItemNotFound", { id: CatalogItemId }) {}

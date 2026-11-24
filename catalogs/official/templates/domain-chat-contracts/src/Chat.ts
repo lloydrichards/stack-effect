@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 export const ChatId = Schema.String.pipe(Schema.brand("ChatId"));
-export type ChatId = Schema.Schema.Type<typeof ChatId>;
+export type ChatId = typeof ChatId.Type;
 
 export const ChatFailure = Schema.Struct({
   code: Schema.Literals([
@@ -13,7 +13,7 @@ export const ChatFailure = Schema.Struct({
   message: Schema.String,
   source: Schema.optional(Schema.String),
 });
-export type ChatFailure = Schema.Schema.Type<typeof ChatFailure>;
+export type ChatFailure = typeof ChatFailure.Type;
 
 export class ChatPreparationError extends Schema.TaggedError<ChatPreparationError, { readonly brand: unique symbol }>()(
   "ChatPreparationError",
@@ -69,14 +69,14 @@ export const ChatStreamPart = Schema.TaggedUnion({
   },
 });
 
-export type ChatStreamPart = Schema.Schema.Type<typeof ChatStreamPart>;
+export type ChatStreamPart = typeof ChatStreamPart.Type;
 
 export const ChatMessage = Schema.Struct({
   role: Schema.Literals(["user", "assistant", "system"]),
   content: Schema.String,
 });
 
-export type ChatMessage = Schema.Schema.Type<typeof ChatMessage>;
+export type ChatMessage = typeof ChatMessage.Type;
 
 export const ToolCall = Schema.Struct({
   id: Schema.String,
@@ -86,7 +86,7 @@ export const ToolCall = Schema.Struct({
   result: Schema.optional(Schema.String),
 });
 
-export type ToolCall = Schema.Schema.Type<typeof ToolCall>;
+export type ToolCall = typeof ToolCall.Type;
 
 export const MessageSegment = Schema.TaggedUnion({
   text: {
@@ -98,7 +98,7 @@ export const MessageSegment = Schema.TaggedUnion({
   },
 });
 
-export type MessageSegment = Schema.Schema.Type<typeof MessageSegment>;
+export type MessageSegment = typeof MessageSegment.Type;
 
 export const UsageMetadata = Schema.Struct({
   promptTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
@@ -106,7 +106,7 @@ export const UsageMetadata = Schema.Struct({
   totalTokens: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 });
 
-export type UsageMetadata = Schema.Schema.Type<typeof UsageMetadata>;
+export type UsageMetadata = typeof UsageMetadata.Type;
 
 export const ErrorMetadata = Schema.Struct({
   message: Schema.String,
@@ -114,7 +114,7 @@ export const ErrorMetadata = Schema.Struct({
   reason: Schema.optional(ChatFailure),
 });
 
-export type ErrorMetadata = Schema.Schema.Type<typeof ErrorMetadata>;
+export type ErrorMetadata = typeof ErrorMetadata.Type;
 
 export const ChatResponse = Schema.TaggedUnion({
   initial: {},
@@ -133,4 +133,4 @@ export const ChatResponse = Schema.TaggedUnion({
   },
 });
 
-export type ChatResponse = Schema.Schema.Type<typeof ChatResponse>;
+export type ChatResponse = typeof ChatResponse.Type;

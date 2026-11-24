@@ -4,11 +4,11 @@ import type { Html, HtmlBuilder } from "foldkit/html";
 import { taggedStruct as m } from "foldkit/schema";
 import { modifyFields as evo } from "foldkit/struct";
 
-const ThemeSchema = Schema.Literals(["Light", "Dark"]);
-export type Theme = typeof ThemeSchema.Type;
+const Theme = Schema.Literals(["Light", "Dark"]);
+export type Theme = typeof Theme.Type;
 
 export const Model = Schema.Struct({
-  theme: ThemeSchema,
+  theme: Theme,
 });
 export type Model = typeof Model.Type;
 
@@ -47,7 +47,7 @@ export const update = (model: Model, message: Message) =>
 const resolveTheme = (theme: Theme): boolean => theme === "Dark";
 
 export const SaveTheme = Command.define("SaveTheme", {
-  args: { theme: ThemeSchema },
+  args: { theme: Theme },
   messages: [CompletedSaveTheme, CompletedSaveTheme],
   execute: ({ theme }) =>
     Effect.sync(() => {
@@ -57,7 +57,7 @@ export const SaveTheme = Command.define("SaveTheme", {
 });
 
 export const ApplyTheme = Command.define("ApplyTheme", {
-  args: { theme: ThemeSchema },
+  args: { theme: Theme },
   messages: [CompletedSaveTheme, CompletedSaveTheme],
   execute: ({ theme }) =>
     Effect.sync(() => {

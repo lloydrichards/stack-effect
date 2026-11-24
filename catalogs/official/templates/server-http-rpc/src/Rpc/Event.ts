@@ -6,12 +6,9 @@ const EventRpcHandlers = EventRpc.toLayer(
   Effect.gen(function* () {
     yield* Effect.logInfo("Starting Event RPC Live Implementation");
     return EventRpc.of({
-      tick: Effect.fn(function* (payload) {
+      tick: Effect.fnUntraced(function* (payload) {
         yield* Effect.logDebug("Creating new tick stream");
-        const queue = yield* Queue.unbounded<
-          typeof TickEvent.Type,
-          Cause.Done
-        >();
+        const queue = yield* Queue.unbounded<TickEvent, Cause.Done>();
         yield* Effect.forkScoped(
           Effect.gen(function* () {
             yield* Queue.offer(queue, { _tag: "starting" });

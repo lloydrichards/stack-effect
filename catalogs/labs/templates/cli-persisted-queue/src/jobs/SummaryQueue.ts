@@ -18,7 +18,7 @@ const QueueLayer = PersistedQueue.layer.pipe(
 );
 
 export const enqueueSummary = Effect.fn("SummaryQueue.enqueue")(function* (
-  job: typeof SummaryRequested.Type,
+  job: SummaryRequested,
 ) {
   const queue = yield* makeQueue();
   return yield* queue.offer(job, { id: job.jobId });

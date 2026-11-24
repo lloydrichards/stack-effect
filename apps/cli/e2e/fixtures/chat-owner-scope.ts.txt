@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { Deferred, Effect, Exit, Scope, Stream } from "effect";
+import { Context, Deferred, Effect, Exit, Layer, Scope, Stream } from "effect";
 import type { ChatMessage } from "@repo/domain/Chat";
 import { ChatManagedRuntime } from "./apps/server-api/src/runtime/ChatManagedRuntime";
 import { ChatRuntime } from "./apps/server-api/src/runtime/ChatRuntime";
@@ -13,7 +13,8 @@ await Effect.runPromise(
     const generationStarted = yield* Deferred.make<void>();
     const generationStopped = yield* Deferred.make<void>();
     const message: ChatMessage = { role: "user", content: "hello" };
-    const managed = yield* ChatManagedRuntime.make.pipe(
+    const managed = yield* Layer.build(ChatManagedRuntime.layer).pipe(
+      Effect.map(Context.get(ChatManagedRuntime)),
       Scope.provide(ownerScope),
       Effect.provideService(ChatRuntime, {
         start: sessions.start,

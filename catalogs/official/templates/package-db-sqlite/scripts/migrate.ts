@@ -2,8 +2,8 @@
 import { Console, Effect } from "effect";
 import { MigratedDatabaseLayer } from "../src/Migrations";
 
-const program = Console.log("Database migrations completed").pipe(
+const main = Console.log("Database migrations completed").pipe(
   Effect.provide(MigratedDatabaseLayer),
 );
 
-{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(program);
+{{#if runtime=bun}}BunRuntime{{/if}}{{#if runtime=node}}NodeRuntime{{/if}}{{#if runtime=deno}}DenoRuntime{{/if}}.runMain(main);

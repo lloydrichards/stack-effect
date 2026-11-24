@@ -9,6 +9,7 @@ export const ApiResponse = Schema.Struct({
   message: Schema.String,
   success: Schema.Literal(true),
 });
+export type ApiResponse = typeof ApiResponse.Type;
 
 export class HealthGroup extends HttpApiGroup.make("health")
   .add(HttpApiEndpoint.get("get", "/", { success: Schema.String }))

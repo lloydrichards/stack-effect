@@ -3,6 +3,7 @@ import { Context, Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import {
   RpcClient as EffectRpcClient,
+  type RpcClientError,
   RpcSerialization,
 } from "effect/rpc";
 
@@ -15,14 +16,19 @@ const HttpProtocolLayer = EffectRpcClient.layerProtocolHttp({
   Layer.provide(RpcSerialization.layerNdjson),
 );
 
-export class ChatRpcClient extends Context.Service<ChatRpcClient>()("ChatRpcClient", {
-  make: Effect.gen(function* () {
-    return {
-      client: yield* EffectRpcClient.make(ChatRpc),
-    } as const;
-  }),
-}) {
-  static readonly layer = Layer.effect(ChatRpcClient)(ChatRpcClient.make).pipe(
-    Layer.provide(HttpProtocolLayer),
-  );
+export class ChatRpcClient extends Context.Service<
+  ChatRpcClient,
+  {
+    readonly client: EffectRpcClient.FromGroup<
+      typeof ChatRpc,
+      RpcClientError.RpcClientError
+    >;
+  }
+>()("ChatRpcClient") {
+  static readonly layer = Layer.effect(
+    ChatRpcClient,
+    Effect.gen(function* () {
+      return ChatRpcClient.of({ client: yield* EffectRpcClient.make(ChatRpc) });
+    }),
+  ).pipe(Layer.provide(HttpProtocolLayer));
 }

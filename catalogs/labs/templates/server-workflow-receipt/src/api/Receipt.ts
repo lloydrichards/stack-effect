@@ -30,15 +30,13 @@ const ReceiptHandlers = HttpApiBuilder.group(
                 return { _tag: "Pending" };
               }
 
-              return Match.value(result.value).pipe(
-                Match.tagsExhaustive({
-                  Suspended: (): ReceiptStatus => ({ _tag: "Pending" }),
-                  Complete: ({ exit }): ReceiptStatus =>
-                    Exit.isSuccess(exit)
-                      ? { _tag: "Confirmed", receiptId: exit.value }
-                      : { _tag: "Failed" },
-                }),
-              );
+              return Match.valueTags(result.value, {
+                Suspended: (): ReceiptStatus => ({ _tag: "Pending" }),
+                Complete: ({ exit }): ReceiptStatus =>
+                  Exit.isSuccess(exit)
+                    ? { _tag: "Confirmed", receiptId: exit.value }
+                    : { _tag: "Failed" },
+              });
             }),
             Effect.provideService(WorkflowEngine.WorkflowEngine, engine),
           ),

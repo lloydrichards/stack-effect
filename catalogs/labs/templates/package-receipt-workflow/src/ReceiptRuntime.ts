@@ -3,7 +3,7 @@ import { type ReceiptId, ReceiptWriteError } from "@repo/domain/Receipt";
 import { Effect, Layer } from "effect";
 import { ClusterWorkflowEngine, SingleRunner } from "effect/cluster";
 import { SqlClient } from "effect/sql";
-import { ReceiptLayer, Receipts } from "./Receipt.js";
+import { ReceiptLayer, Receipts } from "./Receipt";
 
 const SqlReceipts = Layer.effect(
   Receipts,

@@ -16,7 +16,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
     yield* Effect.logInfo("Starting Presence RPC Live Implementation");
 
     return WebSocketRpc.of({
-      subscribe: Effect.fn(function* () {
+      subscribe: Effect.fnUntraced(function* () {
         yield* Effect.logDebug("New presence subscription");
 
         const clientId = yield* gen.generateClientId;
@@ -81,7 +81,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
         return queue;
       }),
 
-      setStatus: Effect.fn(function* (payload) {
+      setStatus: Effect.fnUntraced(function* (payload) {
         yield* Effect.logDebug(
           `Setting status for ${payload.clientId} to ${payload.status}`,
         );
@@ -89,7 +89,7 @@ const PresenceRpcHandlers = WebSocketRpc.toLayer(
         return { success: true };
       }),
 
-      getPresence: Effect.fn(function* () {
+      getPresence: Effect.fnUntraced(function* () {
         const clients = presence.getClients();
         yield* Effect.logDebug(`Returning ${clients.length} clients`);
         return { clients: [...clients] };

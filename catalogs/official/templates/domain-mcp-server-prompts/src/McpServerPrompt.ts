@@ -5,13 +5,9 @@ export const GreetingPromptArguments = Schema.Struct({
     description: "The name of the person to greet",
   }),
 });
-export type GreetingPromptArguments = Schema.Schema.Type<
-  typeof GreetingPromptArguments
->;
+export type GreetingPromptArguments = typeof GreetingPromptArguments.Type;
 
 export const BriefingPromptArguments = Schema.Struct(
   GreetingPromptArguments.fields,
 );
-export type BriefingPromptArguments = Schema.Schema.Type<
-  typeof BriefingPromptArguments
->;
+export type BriefingPromptArguments = typeof BriefingPromptArguments.Type;

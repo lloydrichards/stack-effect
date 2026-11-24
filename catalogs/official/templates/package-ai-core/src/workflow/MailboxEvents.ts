@@ -4,7 +4,6 @@ import {
   type UsageMetadata,
 } from "@repo/domain/Chat";
 import {
-  Data,
   Effect,
   Inspectable,
   Match,
@@ -28,12 +27,16 @@ const displayValue = (value: unknown) =>
         Effect.orElseSucceed(() => Inspectable.toStringUnknown(value, 2)),
       );
 
-class ChatStreamError extends Data.TaggedError("ChatStreamError")<{
-  readonly message: string;
-}> {}
+class ChatStreamError extends Schema.TaggedError<
+  ChatStreamError,
+  { readonly brand: unique symbol }
+>()("ChatStreamError", { message: Schema.String }) {}
 
 const streamError = (message: string) =>
   Effect.fail(new ChatStreamError({ message }));
+
+// Chat events come from deltas, tool calls, and finish parts; the other parts repeat or frame them.
+const ignorePart = () => Effect.undefined;
 
 export const chatEvents = <E, R>(
   parts: Stream.Stream<Response.AnyPart, E, R>,
@@ -63,7 +66,7 @@ export const chatEvents = <E, R>(
             finishReason = undefined;
           }
           return yield* Match.value(part).pipe(
-            Match.discriminators("type")({
+            Match.discriminatorsExhaustive("type")({
               "reasoning-delta": ({ delta }) =>
                 Effect.succeed({ _tag: "reasoning", delta } as const),
               "text-delta": ({ delta }) =>
@@ -128,8 +131,19 @@ export const chatEvents = <E, R>(
                   finishReason = part.reason;
                   return undefined;
                 }),
+              text: ignorePart,
+              "text-start": ignorePart,
+              "text-end": ignorePart,
+              reasoning: ignorePart,
+              "reasoning-start": ignorePart,
+              "reasoning-end": ignorePart,
+              "tool-params-start": ignorePart,
+              "tool-params-delta": ignorePart,
+              "tool-params-end": ignorePart,
+              file: ignorePart,
+              source: ignorePart,
+              "response-metadata": ignorePart,
             }),
-            Match.orElse(() => Effect.undefined),
           );
         }),
       ),

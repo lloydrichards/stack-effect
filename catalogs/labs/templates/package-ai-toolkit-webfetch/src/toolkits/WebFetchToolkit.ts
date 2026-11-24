@@ -90,9 +90,13 @@ export const WebFetchToolkitHandlers = WebFetchToolkit.toLayer(
                   (r) =>
                     `HTTP ${globalThis.String(r.response.status)} from "${params.url}"`,
                 ),
-                Match.orElse(
+                Match.tag(
+                  "EncodeError",
+                  "DecodeError",
+                  "EmptyBodyError",
                   () => `Failed to fetch "${params.url}": ${error.message}`,
                 ),
+                Match.exhaustive,
               ),
             ),
           );
@@ -108,6 +112,7 @@ export const WebFetchToolkitHandlers = WebFetchToolkit.toLayer(
           );
           const text = Match.value(contentType).pipe(
             Match.when(String.includes("text/html"), () => stripHtml(raw)),
+            // Content-Type is an open header value; only HTML needs stripping.
             Match.orElse(() => raw),
           );
 

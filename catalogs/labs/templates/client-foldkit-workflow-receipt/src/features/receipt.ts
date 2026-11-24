@@ -263,15 +263,13 @@ const receiptForm = <ParentMessage>(
           ),
         ],
       ),
-      ...Match.value(model.submission).pipe(
-        Match.tagsExhaustive({
-          Idle: () => [],
-          Starting: () => [],
-          Failed: ({ message }) => [
-            h.p([h.Role("alert"), h.Class("mt-3")], [message]),
-          ],
-        }),
-      ),
+      ...Match.valueTags(model.submission, {
+        Idle: () => [],
+        Starting: () => [],
+        Failed: ({ message }) => [
+          h.p([h.Role("alert"), h.Class("mt-3")], [message]),
+        ],
+      }),
     ],
   );
 

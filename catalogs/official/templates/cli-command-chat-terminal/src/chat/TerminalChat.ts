@@ -6,7 +6,6 @@ import {
 import {
   Array,
   Cause,
-  type Context,
   Data,
   Effect,
   Match,
@@ -35,7 +34,7 @@ export const TerminalChatEvent = Schema.TaggedUnion({
   TurnFailed: { message: Schema.String },
 });
 
-type TerminalChatEvent = Schema.Schema.Type<typeof TerminalChatEvent>;
+type TerminalChatEvent = typeof TerminalChatEvent.Type;
 
 const InputAction = Schema.TaggedUnion({
   Submit: {},
@@ -46,11 +45,9 @@ const InputAction = Schema.TaggedUnion({
   Noop: {},
 });
 
-type InputAction = Schema.Schema.Type<typeof InputAction>;
+type InputAction = typeof InputAction.Type;
 
-type TerminalChatStreamTurn = Context.Service.Shape<
-  typeof TerminalChatDriver
->["streamTurn"];
+type TerminalChatStreamTurn = TerminalChatDriver["Service"]["streamTurn"];
 
 type TerminalChatState = {
   readonly input: string;
@@ -164,7 +161,8 @@ const ChatMessageRow = (message: ChatMessage, width: number) =>
         width,
       ),
     ),
-    Match.orElse(() => Box.nullBox),
+    Match.when("system", () => Box.nullBox),
+    Match.exhaustive,
   );
 
 const AssistantDraft = (state: TerminalChatState, width: number) =>
@@ -289,7 +287,8 @@ const processStreamPart = (
         status: `failed ${name}`,
       })),
     ),
-    Match.orElse(() => state),
+    Match.tag("reasoning", "finish", () => state),
+    Match.exhaustive,
   );
 
 const completeTurn = (state: TerminalChatState): TerminalChatState => {
@@ -416,6 +415,7 @@ const toInputAction = (
         text: Option.getOrElse(input.input, () => ""),
       }),
     ),
+    // Terminal input is open-ended; keys without a binding do nothing.
     Match.orElse(() => InputAction.cases.Noop.make({})),
   );
 

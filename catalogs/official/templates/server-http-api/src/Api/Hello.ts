@@ -4,7 +4,7 @@ import { HttpApiBuilder } from "effect/http-api";
 
 export const HelloHandlers = HttpApiBuilder.group(Api, "hello", (handlers) =>
   handlers.handle("get", () => {
-    const data: typeof ApiResponse.Type = {
+    const data: ApiResponse = {
       message: "Hello Effect!",
       success: true,
     };

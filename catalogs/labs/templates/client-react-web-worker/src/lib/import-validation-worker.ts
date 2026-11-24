@@ -32,7 +32,7 @@ class ImportValidationClient extends AtomRpc.Service<ImportValidationClient>()(
 // Worker, protocol, validation loop, or scheduled batch cadence directly.
 export const importValidationAtom: Atom.AtomResultFn<
   string,
-  typeof ImportValidationEvent.Type,
+  ImportValidationEvent,
   unknown
 > = ImportValidationClient.runtime.fn((content: string) =>
   Stream.unwrap(

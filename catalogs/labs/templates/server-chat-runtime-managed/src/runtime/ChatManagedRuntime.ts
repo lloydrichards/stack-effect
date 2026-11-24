@@ -1,5 +1,9 @@
 import type { ChatId, ChatMessage } from "@repo/domain/Chat";
 import { ChatWatchEvent } from "@repo/domain/ChatManagedRpc";
+import type {
+  ChatNotFoundError,
+  GenerationInProgressError,
+} from "@repo/domain/ChatRpc";
 import type { ChatTurnOptions } from "@repo/domain/ChatTurnOptions";
 import {
   Context,
@@ -20,10 +24,25 @@ import { ChatSessions } from "./ChatSessions";
 
 type LiveEvent = readonly [ChatId, ChatWatchEvent];
 
-export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
-  "ChatManagedRuntime",
+export class ChatManagedRuntime extends Context.Service<
+  ChatManagedRuntime,
   {
-    make: Effect.gen(function* () {
+    readonly send: (input: {
+      readonly chatId: ChatId;
+      readonly message: ChatMessage;
+      readonly options?: ChatTurnOptions;
+    }) => Effect.Effect<void, ChatNotFoundError | GenerationInProgressError>;
+    readonly watch: (
+      chatId: ChatId,
+    ) => Stream.Stream<ChatWatchEvent, ChatNotFoundError>;
+    readonly interrupt: (
+      chatId: ChatId,
+    ) => Effect.Effect<void, ChatNotFoundError>;
+  }
+>()("ChatManagedRuntime") {
+  static readonly layer = Layer.effect(
+    ChatManagedRuntime,
+    Effect.gen(function* () {
       const runtime = yield* ChatRuntime;
       const sessions = yield* ChatSessions;
       const events = yield* Ref.make<
@@ -47,7 +66,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
           yield* PubSub.publish(liveEvents, [chatId, event] as const);
         }).pipe(Effect.uninterruptible, eventLock.withPermit);
 
-      return {
+      return ChatManagedRuntime.of({
         send: Effect.fn("ChatManagedRuntime.send")(
           function* ({
             chatId,
@@ -134,11 +153,7 @@ export class ChatManagedRuntime extends Context.Service<ChatManagedRuntime>()(
             yield* sessions.ensure(chatId);
             yield* FiberMap.remove(activeFibers, chatId);
           }),
-      } as const;
+      });
     }),
-  },
-) {
-  static readonly layer = Layer.effect(ChatManagedRuntime)(
-    ChatManagedRuntime.make,
   );
 }

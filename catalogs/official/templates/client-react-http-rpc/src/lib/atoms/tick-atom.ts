@@ -21,18 +21,16 @@ export const tickAtom = runtime.fn(
         () => ({ acc: "" }),
         (
           state,
-          event: typeof TickEvent.Type,
+          event: TickEvent,
         ): readonly [
           { acc: string },
-          ReadonlyArray<{ text: string; event: typeof TickEvent.Type }>,
+          ReadonlyArray<{ text: string; event: TickEvent }>,
         ] => {
-          const acc = Match.value(event).pipe(
-            Match.tagsExhaustive({
-              starting: () => "Start",
-              tick: () => `${state.acc}.`,
-              end: () => `${state.acc} End`,
-            }),
-          );
+          const acc = Match.valueTags(event, {
+            starting: () => "Start",
+            tick: () => `${state.acc}.`,
+            end: () => `${state.acc} End`,
+          });
           return [{ acc }, [{ text: acc, event }]];
         },
       ),

@@ -14,7 +14,7 @@ import {
 export const CounterForm = () => {
   const [id, setId] = useState("");
   const [pending, setPending] = useState(false);
-  const [result, setResult] = useState<typeof CounterState.Type>();
+  const [result, setResult] = useState<CounterState>();
   const [error, setError] = useState("");
   const [counters, setCounters] = useState(loadCounters);
 
@@ -81,11 +81,7 @@ export const CounterForm = () => {
   );
 };
 
-const CounterHistoryTable = ({
-  counters,
-}: {
-  counters: typeof CounterHistory.Type;
-}) => {
+const CounterHistoryTable = ({ counters }: { counters: CounterHistory }) => {
   return (
     <>
       <h3 className="mt-6 shrink-0 font-medium">Counter history</h3>

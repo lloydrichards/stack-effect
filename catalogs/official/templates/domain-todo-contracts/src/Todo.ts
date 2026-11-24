@@ -3,25 +3,25 @@ import { Schema } from "effect";
 export const TodoId = Schema.String.check(Schema.isUUID()).pipe(
   Schema.brand("TodoId"),
 );
-export type TodoId = Schema.Schema.Type<typeof TodoId>;
+export type TodoId = typeof TodoId.Type;
 
 export const Todo = Schema.Struct({
   id: TodoId,
   title: Schema.NonEmptyString,
   completed: Schema.Boolean,
 });
-export type Todo = Schema.Schema.Type<typeof Todo>;
+export type Todo = typeof Todo.Type;
 
 export const CreateTodoInput = Schema.Struct({
   title: Schema.NonEmptyString,
 });
-export type CreateTodoInput = Schema.Schema.Type<typeof CreateTodoInput>;
+export type CreateTodoInput = typeof CreateTodoInput.Type;
 
 export const UpdateTodoInput = Schema.Struct({
   title: Schema.NonEmptyString,
   completed: Schema.Boolean,
 });
-export type UpdateTodoInput = Schema.Schema.Type<typeof UpdateTodoInput>;
+export type UpdateTodoInput = typeof UpdateTodoInput.Type;
 
 export class TodoNotFound extends Schema.TaggedError<TodoNotFound, { readonly brand: unique symbol }>()(
   "TodoNotFound",

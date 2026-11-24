@@ -9,6 +9,7 @@ export const SummaryRequested = Schema.Struct({
   jobId: SummaryJobId,
   text: Schema.Trimmed.check(Schema.isNonEmpty()),
 });
+export type SummaryRequested = typeof SummaryRequested.Type;
 
 export type SummaryResult = {
   readonly jobId: SummaryJobId;

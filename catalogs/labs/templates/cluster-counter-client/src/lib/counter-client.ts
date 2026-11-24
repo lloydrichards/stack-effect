@@ -25,7 +25,7 @@ export const incrementCounter = Effect.fn("CounterClient.increment")(function* (
   input: string,
 ) {
   const id = yield* CounterId.makeEffect(input).pipe(
-    Effect.mapError(() => new InvalidCounterId()),
+    Effect.mapError((cause) => new InvalidCounterId({ cause })),
   );
 
   const client = yield* makeCounterClient;

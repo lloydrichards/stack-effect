@@ -68,16 +68,13 @@ export const FetchHello = Command.define("FetchHello", {
       const response = yield* client.execute(request);
 
       if (response.status !== 200) {
-        return yield* Effect.fail(
-          FailedFetchHello({ error: `HTTP ${response.status}` }),
-        );
+        return FailedFetchHello({ error: `HTTP ${response.status}` });
       }
 
       const json = yield* response.json;
       const data = yield* Schema.decodeUnknownEffect(ApiResponse)(json);
       return SucceededFetchHello({ data });
     }).pipe(
-      Effect.catchTag("FailedFetchHello", (error) => Effect.succeed(error)),
       Effect.orElseSucceed(() =>
         FailedFetchHello({ error: "Failed to fetch API" }),
       ),
