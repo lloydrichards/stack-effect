@@ -10,7 +10,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";

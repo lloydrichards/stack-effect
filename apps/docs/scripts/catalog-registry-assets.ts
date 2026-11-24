@@ -10,7 +10,7 @@ import {
   exportOfficialCatalog,
   publishedCatalogUrl,
 } from "@repo/catalog-official/service";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/StackConfig";
 import { Data, Effect, Option, Schema } from "effect";
 
 export const CATALOG_ASSET_PATH = "/registry/v1/catalog.json";

@@ -4,7 +4,7 @@ import { type Apply, ApplyResult } from "@repo/domain/Apply";
 import type { MaterializedApply } from "@repo/domain/Apply";
 import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan, RepositoryPath } from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";

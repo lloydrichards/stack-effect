@@ -12,8 +12,8 @@ import type {
   RecipeProviderStrategy,
   RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import { Effect, Layer, Schema } from "effect";

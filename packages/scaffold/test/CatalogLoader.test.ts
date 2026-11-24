@@ -1,13 +1,15 @@
 import { BrowserCrypto } from "@effect/platform-browser";
 import { assert, it } from "@effect/vitest";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
-import { CatalogDocument, ModuleId, TargetKind } from "@repo/domain/Catalog";
 import {
+  CatalogDocument,
+  ModuleId,
+  TargetKind,
   CatalogCacheFailure,
   type CatalogCacheEntry,
   CatalogHttpStatusRejected,
   type CatalogLoadReason,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
 import { Deferred, Effect, Fiber, Layer, Schema } from "effect";

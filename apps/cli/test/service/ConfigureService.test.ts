@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/StackConfig";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 import {
   CONFIG_FILENAME,

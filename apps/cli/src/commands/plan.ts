@@ -1,5 +1,5 @@
 import { PlanRequest } from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { FinalizeService } from "@repo/scaffold/FinalizeService";
 import { PlanService } from "@repo/scaffold/PlanService";

@@ -1,11 +1,13 @@
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
   type CatalogSources,
   selectsOfficialCatalog,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import {
   RecipeResolveOptions,
-  type RecipeSpec,
+  RecipeSpec,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
 import {
@@ -13,7 +15,7 @@ import {
   runtimeForPackageManager,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
-} from "@repo/domain/Scaffold";
+} from "@repo/domain/StackConfig";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import {
@@ -141,22 +143,23 @@ const buildConfig = ({
 const buildRecipeSpec = (
   targets: ReadonlyArray<RecipeTargetSpec>,
   includeGit: boolean,
-): RecipeSpec => ({
-  targets: [
-    ...(includeGit
-      ? [
-          {
-            target: new TargetIdentity({
-              kind: TargetKind.make("workspace"),
-              name: "",
-            }),
-            modules: [ModuleId.make("workspace-devenv-git")],
-          },
-        ]
-      : []),
-    ...targets,
-  ],
-});
+): RecipeSpec =>
+  RecipeSpec.make({
+    targets: [
+      ...(includeGit
+        ? [
+            {
+              target: new TargetIdentity({
+                kind: TargetKind.make("workspace"),
+                name: "",
+              }),
+              modules: [ModuleId.make("workspace-devenv-git")],
+            },
+          ]
+        : []),
+      ...targets,
+    ],
+  });
 
 export const create = Command.make(
   "create",

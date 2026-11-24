@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { CatalogDocument } from "@repo/domain/Catalog";
-import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
+import { STACK_CONFIG_SCHEMA_URL } from "@repo/domain/StackConfig";
 import Ajv2020 from "ajv/dist/2020.js";
 import { Effect, Option, Schema } from "effect";
 import { isMovedToLabs } from "../app/components/recipe-builder/labs-migration";

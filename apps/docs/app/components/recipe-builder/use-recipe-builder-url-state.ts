@@ -1,9 +1,9 @@
-import type { CatalogSources } from "@repo/domain/CatalogSource";
 import {
+  type CatalogSources,
   CustomCatalogSource,
   defaultCatalogSources,
   selectsOfficialCatalog,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { Option, Schema } from "effect";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

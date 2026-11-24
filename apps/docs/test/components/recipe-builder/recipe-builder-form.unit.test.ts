@@ -1,6 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ModuleId, TargetKind } from "@repo/domain/Catalog";
-import { CustomCatalogSource } from "@repo/domain/CatalogSource";
+import {
+  ModuleId,
+  TargetKind,
+  CustomCatalogSource,
+} from "@repo/domain/Catalog";
 import { Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,

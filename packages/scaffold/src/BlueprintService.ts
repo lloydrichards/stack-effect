@@ -8,8 +8,8 @@ import type {
   BlueprintFailure,
   CatalogNotFound,
 } from "@repo/domain/Blueprint";
-import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Context, type Effect, Layer } from "effect";
 import * as internal from "./internal/blueprintService";
 

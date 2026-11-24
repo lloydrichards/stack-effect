@@ -1,7 +1,7 @@
 import {
   type CatalogCacheEntry,
   CatalogCacheFailure,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { Effect, Layer } from "effect";
 

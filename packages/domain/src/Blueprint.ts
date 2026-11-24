@@ -5,7 +5,12 @@ import {
   TargetIdentity,
   TargetKey,
 } from "./Catalog";
-import { idOrd } from "./Order";
+
+/** Orders Blueprint edges by their `id`. */
+export const edgeOrder = Order.mapInput(
+  Order.String,
+  (edge: { id: string }) => edge.id,
+);
 
 export { CatalogNotFound };
 
@@ -77,7 +82,7 @@ const BlueprintNodeId = Schema.Union([
 
 export type BlueprintNodeId = typeof BlueprintNodeId.Type;
 
-export const blueprintNodeOrd = Order.mapInput(
+export const blueprintNodeOrder = Order.mapInput(
   Order.combineAll<BlueprintNode>([
     Order.mapInput(Order.String, (node) => node._tag),
     Order.mapInput(Order.String, (node) => node.id),
@@ -230,8 +235,8 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
   // fallow-ignore-next-line unused-class-member -- called by BlueprintService.resolve
   toSorted(): Blueprint {
     return new Blueprint({
-      nodes: [...this.nodes].sort(blueprintNodeOrd),
-      edges: [...this.edges].sort(idOrd),
+      nodes: [...this.nodes].sort(blueprintNodeOrder),
+      edges: [...this.edges].sort(edgeOrder),
     });
   }
 }

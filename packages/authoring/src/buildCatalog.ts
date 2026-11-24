@@ -14,8 +14,8 @@ import {
   catalogIssueLabel,
   ModuleDefinition,
   TargetDefinition,
+  OFFICIAL_CATALOG_ID,
 } from "@repo/domain/Catalog";
-import { OFFICIAL_CATALOG_ID } from "@repo/domain/CatalogSource";
 import {
   Array as Arr,
   Data,

@@ -12,7 +12,7 @@ import {
   RecipeResolveOptions,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { ContributionResolver } from "@repo/scaffold/ContributionResolver";

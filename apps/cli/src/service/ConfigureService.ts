@@ -1,4 +1,4 @@
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { Context, Data, Effect, FileSystem, Layer, Schema } from "effect";
 
 export { StackConfig };

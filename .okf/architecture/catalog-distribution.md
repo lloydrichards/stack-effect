@@ -9,7 +9,7 @@ sources:
   - id: service
     resource: ../../packages/catalog/src/CatalogService.ts
   - id: config
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/StackConfig.ts
   - id: schema-export
     resource: ../../apps/cli/src/commands/schema.ts
   - id: loader

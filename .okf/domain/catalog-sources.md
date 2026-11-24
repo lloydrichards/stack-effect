@@ -5,11 +5,11 @@ description: Domain definitions and invariants for catalog sources, v1 catalog d
 status: stable
 sources:
   - id: source-contract
-    resource: ../../packages/domain/src/CatalogSource.ts
+    resource: ../../packages/domain/src/Catalog.ts
   - id: document-contract
     resource: ../../packages/domain/src/Catalog.ts
   - id: config
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/StackConfig.ts
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader
@@ -157,6 +157,6 @@ Connected terms:
 
 In code:
 
-- `LoadedCatalogSource`, `CatalogCacheEntry`, and the catalog load errors in `@repo/domain/CatalogSource`
+- `LoadedCatalogSource`, `CatalogCacheEntry`, and the catalog load errors in `@repo/domain/Catalog`
 
 See [catalog loading](../architecture/catalog-loading.md "implements these contracts") and the [source selection decision](../architecture/catalog-source-selection.md "sets the policy for these contracts").

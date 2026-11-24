@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { RepositoryPath } from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { Effect, FileSystem, Schema } from "effect";
 import {
   app,

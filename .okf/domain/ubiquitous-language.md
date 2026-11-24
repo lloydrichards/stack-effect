@@ -9,7 +9,7 @@ sources:
   - id: source-2
     resource: ../../packages/domain/src/Apply.ts
   - id: source-3
-    resource: ../../packages/domain/src/CatalogSource.ts
+    resource: ../../packages/domain/src/Catalog.ts
   - id: source-4
     resource: ../../packages/domain/src/Catalog.ts
 generated: { by: codex, at: "2026-11-21T18:01:47+00:00" }

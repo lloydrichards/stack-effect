@@ -1,7 +1,7 @@
 import { NodeServices } from "@effect/platform-node";
 import { buildCatalog } from "@repo/authoring";
 import { CatalogService } from "@repo/catalog";
-import { OFFICIAL_CATALOG_ID } from "@repo/domain/CatalogSource";
+import { OFFICIAL_CATALOG_ID } from "@repo/domain/Catalog";
 import { Effect, Layer } from "effect";
 import { officialCatalog, officialCatalogRoot } from "./index";
 

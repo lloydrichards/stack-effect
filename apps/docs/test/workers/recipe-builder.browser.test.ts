@@ -1,13 +1,15 @@
 import { afterEach, assert, beforeEach, it } from "@effect/vitest";
 import { Blueprint } from "@repo/domain/Blueprint";
-import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
-import { ModuleId } from "@repo/domain/Catalog";
 import {
+  TargetIdentity,
+  TargetKey,
+  TargetKind,
   CatalogSources,
   defaultCatalogSources,
-} from "@repo/domain/CatalogSource";
-import { RecipePreview, RecipePreviewInput } from "@repo/domain/RecipePreview";
-import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
+} from "@repo/domain/Catalog";
+import { ModuleId } from "@repo/domain/Catalog";
+import { RecipePreview, RecipePreviewInput } from "@repo/domain/Recipe";
+import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/StackConfig";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { AtomRegistry } from "effect/reactivity";

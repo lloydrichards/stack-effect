@@ -1,8 +1,7 @@
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, it } from "@effect/vitest";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
-import { CatalogDocument } from "@repo/domain/Catalog";
-import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
+import { CatalogDocument, OFFICIAL_CATALOG_URL } from "@repo/domain/Catalog";
 import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import * as Stdio from "effect/Stdio";
 import {

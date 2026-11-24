@@ -4,9 +4,9 @@ import {
   SupportedRuntime,
   TargetDefinition,
   TargetIdentity,
+  CatalogSources,
 } from "@repo/domain/Catalog";
-import { CatalogSources } from "@repo/domain/CatalogSource";
-import { RecipePreview, RecipePreviewInput } from "@repo/domain/RecipePreview";
+import { RecipePreview, RecipePreviewInput } from "@repo/domain/Recipe";
 import { Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 

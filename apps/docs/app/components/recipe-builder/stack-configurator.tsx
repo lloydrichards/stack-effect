@@ -1,6 +1,6 @@
-"use client";
+import { makeRuntime } from "@repo/domain/StackConfig";
+("use client");
 
-import { makeRuntime } from "@repo/domain/Scaffold";
 import { defaultsForRuntime } from "@repo/scaffold/StackConfigDefaults";
 import { useSelector } from "@tanstack/react-form";
 import { String as Str } from "effect";

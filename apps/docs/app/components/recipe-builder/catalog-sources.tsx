@@ -5,7 +5,7 @@ import {
   CatalogSources,
   formatCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { Option, Schema } from "effect";
 import { AsyncResult } from "effect/reactivity";

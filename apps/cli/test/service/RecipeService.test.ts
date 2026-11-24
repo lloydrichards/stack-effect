@@ -7,8 +7,8 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { RecipeResolveOptions, RecipeSpec } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
 import { Effect, Layer, Schema } from "effect";

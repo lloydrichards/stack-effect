@@ -4,10 +4,10 @@ import {
   ModuleId,
   TargetIdentity,
   TargetKind,
+  selectsOfficialCatalog,
 } from "@repo/domain/Catalog";
-import { selectsOfficialCatalog } from "@repo/domain/CatalogSource";
 import { RecipeResolveOptions } from "@repo/domain/Recipe";
-import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
+import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/StackConfig";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import {

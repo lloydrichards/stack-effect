@@ -14,7 +14,7 @@ import { join, relative } from "node:path";
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { CatalogService } from "@repo/catalog";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
-import { RecipePreviewInput } from "@repo/domain/RecipePreview";
+import { RecipePreviewInput } from "@repo/domain/Recipe";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { CatalogLoader } from "@repo/scaffold/CatalogLoader";

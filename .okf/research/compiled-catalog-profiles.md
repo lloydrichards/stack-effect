@@ -11,7 +11,7 @@ sources:
     resource: ../../catalogs/official/src/modules/client.ts
     title: Shared JSX slot contributions
   - id: inputs
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/StackConfig.ts
     title: Rendering input dimensions
   - id: report
     resource: effect-vfs-review.md

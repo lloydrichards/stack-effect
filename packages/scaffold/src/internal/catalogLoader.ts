@@ -3,8 +3,6 @@ import {
   CatalogCapabilityError,
   type CatalogDocument,
   type CatalogValidationError,
-} from "@repo/domain/Catalog";
-import {
   CatalogCacheEntry,
   CatalogCapabilityUnsupported,
   CatalogCompositionFailure,
@@ -22,7 +20,7 @@ import {
   CatalogTimedOut,
   CatalogUnavailable,
   selectsOfficialCatalog,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { Clock, Effect, Result, Schema, Stream } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";

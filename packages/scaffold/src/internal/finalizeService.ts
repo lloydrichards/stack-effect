@@ -5,7 +5,7 @@ import {
   type BlueprintTargetNode,
 } from "@repo/domain/Blueprint";
 import { FinalizeScript, type ScriptResult } from "@repo/domain/Finalize";
-import { ContributionTokenContext } from "@repo/domain/Scaffold";
+import { ContributionTokenContext } from "@repo/domain/Plan";
 import { Effect, Option, Result, Stream } from "effect";
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";

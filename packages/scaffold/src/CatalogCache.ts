@@ -1,12 +1,12 @@
+import type {
+  CatalogCacheEntry,
+  CatalogCacheFailure,
+} from "@repo/domain/Catalog";
 /**
  * Storage for validated catalog documents, so catalog loading can revalidate
  * cheaply and fall back to the last good copy when a source is unreachable.
  * Each runtime provides its own adapter.
  */
-import type {
-  CatalogCacheEntry,
-  CatalogCacheFailure,
-} from "@repo/domain/CatalogSource";
 import { Context, Effect, Layer, Ref } from "effect";
 
 const copyEntry = (entry: CatalogCacheEntry): CatalogCacheEntry => ({

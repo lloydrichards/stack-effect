@@ -9,7 +9,7 @@ sources:
   - id: source-2
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-3
-    resource: ../../packages/domain/src/CatalogSource.ts
+    resource: ../../packages/domain/src/Catalog.ts
   - id: source-4
     resource: ../../packages/catalog/src/composeCatalog.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }

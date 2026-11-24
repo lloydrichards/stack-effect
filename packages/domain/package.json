@@ -7,14 +7,11 @@
     "./Apply": "./src/Apply.ts",
     "./Blueprint": "./src/Blueprint.ts",
     "./Catalog": "./src/Catalog.ts",
-    "./CatalogSource": "./src/CatalogSource.ts",
-    "./Order": "./src/Order.ts",
+    "./Finalize": "./src/Finalize.ts",
     "./Plan": "./src/Plan.ts",
     "./Recipe": "./src/Recipe.ts",
-    "./RecipePreview": "./src/RecipePreview.ts",
-    "./Scaffold": "./src/Scaffold.ts",
-    "./Finalize": "./src/Finalize.ts",
-    "./Selection": "./src/Selection.ts"
+    "./Selection": "./src/Selection.ts",
+    "./StackConfig": "./src/StackConfig.ts"
   },
   "scripts": {
     "type-check": "tsc --noEmit",

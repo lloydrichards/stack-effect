@@ -8,8 +8,12 @@ import {
   StalePlanFailure,
   type StalePlanChange,
 } from "@repo/domain/Apply";
-import { pathOrd } from "@repo/domain/Order";
-import { Plan, type PlanBaseline, repositoryRootPath } from "@repo/domain/Plan";
+import {
+  Plan,
+  type PlanBaseline,
+  repositoryRootPath,
+  byPath,
+} from "@repo/domain/Plan";
 import { Effect, FileSystem, Layer, Path } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
@@ -125,7 +129,7 @@ export const make = Effect.gen(function* () {
           path,
           status: "modified" as const,
         })),
-      ].sort(pathOrd);
+      ].sort(byPath);
       const files = yield* Effect.forEach(successfulPaths, ({ path, status }) =>
         fileSystem.readFileString(virtualPath.join(workspaceRoot, path)).pipe(
           Effect.map((contents) => ({ path, status, contents })),

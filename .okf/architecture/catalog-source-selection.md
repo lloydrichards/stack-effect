@@ -9,9 +9,9 @@ sources:
   - id: definitions
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-contract
-    resource: ../../packages/domain/src/CatalogSource.ts
+    resource: ../../packages/domain/src/Catalog.ts
   - id: config
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/StackConfig.ts
   - id: compose
     resource: ../../packages/catalog/src/composeCatalog.ts
   - id: loader

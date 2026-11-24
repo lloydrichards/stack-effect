@@ -8,8 +8,8 @@ import {
   type TargetDefinition,
   TargetIdentity,
   TargetKind,
+  OFFICIAL_CATALOG_URL,
 } from "@repo/domain/Catalog";
-import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
 import * as MockTerminal from "@repo/tui/test/MockTerminal";

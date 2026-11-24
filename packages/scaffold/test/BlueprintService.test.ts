@@ -6,7 +6,7 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { Effect, Layer, Schema } from "effect";
 

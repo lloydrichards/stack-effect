@@ -3,8 +3,8 @@ import {
   defaultCatalogSources,
   formatCatalogSources,
   sameCatalogSources,
-} from "@repo/domain/CatalogSource";
-import type { StackConfig } from "@repo/domain/Scaffold";
+} from "@repo/domain/Catalog";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Data, Effect, Option, Schema } from "effect";
 import { CONFIG_FILENAME } from "../service/ConfigureService";
 

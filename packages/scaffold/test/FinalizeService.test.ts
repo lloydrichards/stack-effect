@@ -14,7 +14,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import {
   type FinalizeConfig,
   FinalizeService,
