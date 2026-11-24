@@ -1,7 +1,5 @@
 import {
   type Blueprint,
-  type BlueprintAttachedModuleNode,
-  type BlueprintEdge,
   BlueprintNode,
   blueprintNodeOrder,
   edgeOrder,
@@ -13,7 +11,7 @@ import {
   type PlanOutcome,
   byPath,
 } from "@repo/domain/Plan";
-import { Array as Arr, Match, pipe, String } from "effect";
+import { Array as Arr, Match, Order, String } from "effect";
 import { Ansi, Box } from "effect-boxes";
 
 const planLegendBox = [
@@ -40,32 +38,38 @@ const planLegendBox = [
 ];
 
 type FormattedBlueprint = {
-  readonly title: string;
-  readonly content: Box.Box<Ansi.AnsiStyle>;
+  title: string;
+  content: Box.Box<Ansi.AnsiStyle>;
 };
 
 type FormattedPlan = {
-  readonly title: string;
-  readonly legend: Box.Box<Ansi.AnsiStyle>;
-  readonly summary: string;
-  readonly tree: Box.Box<Ansi.AnsiStyle>;
+  title: string;
+  legend: Box.Box<Ansi.AnsiStyle>;
+  summary: string;
+  tree: Box.Box<Ansi.AnsiStyle>;
 };
 
-/**
- * Generic tree node that can represent any hierarchical data.
- * Used by both Blueprint and Plan formatters for consistent tree rendering.
- */
+type Connector = "dashed" | "solid" | "plain";
+
+const CONNECTOR_TEXT = {
+  dashed: "╌>",
+  solid: "─>",
+  plain: "──",
+} satisfies Record<Connector, string>;
+
 type TreeNode<A> = {
-  readonly label: Box.Box<A>;
-  readonly badge?: Box.Box<A>;
-  readonly connector: "dashed" | "solid" | "plain";
-  readonly children: ReadonlyArray<TreeNode<A>>;
+  label: Box.Box<A>;
+  badge?: Box.Box<A>;
+  connector: Connector;
+  children: ReadonlyArray<TreeNode<A>>;
 };
 
-/**
- * Renders a list of tree nodes as a Box with proper tree connectors and indentation.
- * Supports nested children recursively.
- */
+const treeNode = (
+  connector: Connector,
+  label: Box.Box<Ansi.AnsiStyle>,
+  children: ReadonlyArray<TreeNode<Ansi.AnsiStyle>>,
+): TreeNode<Ansi.AnsiStyle> => ({ label, connector, children });
+
 const renderTreeNodes = <A>(
   nodes: ReadonlyArray<TreeNode<A>>,
   indent = "",
@@ -80,12 +84,6 @@ const renderTreeNodes = <A>(
       const connector = isLast ? "╰" : "├";
       const childIndent = String.concat(indent, isLast ? "    " : "│   ");
 
-      const connectorText = Match.value(node.connector).pipe(
-        Match.when("dashed", () => "╌>"),
-        Match.when("solid", () => "─>"),
-        Match.when("plain", () => "──"),
-        Match.exhaustive,
-      );
       const labelWithBadge = node.badge
         ? Box.hsep([node.badge, node.label], 1, Box.left)
         : node.label;
@@ -93,7 +91,7 @@ const renderTreeNodes = <A>(
       const branchLine = Box.hcat(
         [
           Box.text(`${indent}${connector}`),
-          Box.text(connectorText),
+          Box.text(CONNECTOR_TEXT[node.connector]),
           labelWithBadge.pipe(Box.moveRight(1)),
         ],
         Box.top,
@@ -116,31 +114,18 @@ export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
     };
   }
 
-  const attachedModulesByTarget = pipe(
-    blueprint.nodes,
-    Arr.filter(BlueprintNode.guards["attached-module"]),
-    Arr.reduce(
-      new Map<string, ReadonlyArray<BlueprintAttachedModuleNode>>(),
-      (groups, node) =>
-        groups.set(
-          node.targetId,
-          Arr.append(groups.get(node.targetId) ?? [], node),
-        ),
-    ),
+  const attachedModulesByTarget = Map.groupBy(
+    blueprint.nodes.filter(BlueprintNode.guards["attached-module"]),
+    (node) => node.targetId,
   );
 
-  const outgoingEdgesByNode = Arr.reduce(
-    blueprint.edges,
-    new Map<string, ReadonlyArray<BlueprintEdge>>(),
-    (groups, edge) =>
-      groups.set(edge.from, Arr.append(groups.get(edge.from) ?? [], edge)),
-  );
+  const outgoingEdgesByNode = Map.groupBy(blueprint.edges, (edge) => edge.from);
 
   const targetBoxes = Arr.map(
     blueprint.nodes.filter(BlueprintNode.guards.target),
     (targetNode) => {
       const attachedModules = Arr.sort(
-        Arr.fromIterable(attachedModulesByTarget.get(targetNode.id) ?? []),
+        attachedModulesByTarget.get(targetNode.id) ?? [],
         blueprintNodeOrder,
       );
 
@@ -155,17 +140,14 @@ export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
         Box.top,
       );
 
-      const moduleNodes: ReadonlyArray<TreeNode<Ansi.AnsiStyle>> = Arr.map(
-        attachedModules,
-        (attachedModule) => ({
-          label: Box.text(attachedModule.id),
-          connector: "dashed" as const,
-          children: Arr.map(
+      const moduleNodes = Arr.map(attachedModules, (attachedModule) =>
+        treeNode(
+          "dashed",
+          Box.text(attachedModule.id),
+          Arr.map(
             Arr.sort(
               Arr.filter(
-                Arr.fromIterable(
-                  outgoingEdgesByNode.get(attachedModule.id) ?? [],
-                ),
+                outgoingEdgesByNode.get(attachedModule.id) ?? [],
                 (edge) =>
                   edge.reason !== "owns-module" &&
                   !(
@@ -175,20 +157,21 @@ export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
               ),
               edgeOrder,
             ),
-            (edge) => ({
-              label: Box.hsep(
-                [
-                  Box.text(edge.to),
-                  Box.text(`[${edge.reason}]`).pipe(Box.annotate(Ansi.dim)),
-                ],
-                1,
-                Box.left,
+            (edge) =>
+              treeNode(
+                "solid",
+                Box.hsep(
+                  [
+                    Box.text(edge.to),
+                    Box.text(`[${edge.reason}]`).pipe(Box.annotate(Ansi.dim)),
+                  ],
+                  1,
+                  Box.left,
+                ),
+                [],
               ),
-              connector: "solid" as const,
-              children: [],
-            }),
           ),
-        }),
+        ),
       );
 
       const moduleLines = renderTreeNodes(moduleNodes, "  ");
@@ -219,14 +202,9 @@ export const formatPlan = (plan: Plan): FormattedPlan => {
     }),
   );
 
-  const conflictsByPath = Arr.reduce(
+  const conflictsByPath = Map.groupBy(
     plan.conflicts,
-    new Map<string, ReadonlyArray<PlanConflict>>(),
-    (groups, conflict) =>
-      groups.set(
-        conflict.path,
-        Arr.append(groups.get(conflict.path) ?? [], conflict),
-      ),
+    (conflict) => conflict.path,
   );
 
   const treeNodes = buildNodes(
@@ -254,81 +232,71 @@ export const formatPlan = (plan: Plan): FormattedPlan => {
   };
 };
 
+type PathEntry = {
+  segments: ReadonlyArray<string>;
+  outcome: PlanOutcome;
+};
+
+type PathGroup = {
+  key: string;
+  files: ReadonlyArray<PathEntry>;
+  directories: ReadonlyArray<PathEntry>;
+};
+
+// Directory groups sort before file leaves so paths render like a filesystem tree.
+const directoriesFirst = Order.combine(
+  Order.mapInput(
+    Order.Boolean,
+    (group: PathGroup) => group.directories.length === 0,
+  ),
+  Order.mapInput(Order.String, (group: PathGroup) => group.key.toLowerCase()),
+);
+
 const buildNodes = (
-  entries: ReadonlyArray<{
-    readonly segments: ReadonlyArray<string>;
-    readonly outcome: PlanOutcome;
-  }>,
+  entries: ReadonlyArray<PathEntry>,
   depth: number,
   conflictsByPath: ReadonlyMap<string, ReadonlyArray<PlanConflict>>,
 ): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
   if (entries.length === 0) return [];
 
-  const groups = Arr.reduce<
-    (typeof entries)[number],
-    Array<{
-      readonly key: string;
-      readonly items: Array<(typeof entries)[number]>;
-    }>
-  >(entries, [], (groups, entry) => {
-    const segment = entry.segments[depth];
-    if (segment === undefined) return groups;
-    const existing = groups.find((g) => g.key === segment);
-    if (existing) {
-      existing.items.push(entry);
-    } else {
-      groups.push({ key: segment, items: [entry] });
-    }
-    return groups;
+  const segmented = entries.flatMap((entry) => {
+    const key = entry.segments[depth];
+    return key === undefined ? [] : [{ key, entry }];
   });
-
-  // NOTE: Directory groups sort before file leaves so paths render like a filesystem tree.
-  const classified = Arr.map(groups, (group) => {
-    const hasDeep = group.items.some((e) => e.segments.length > depth + 1);
-    return { ...group, hasDeep };
-  });
-
-  const sorted = [...classified].sort((a, b) => {
-    if (a.hasDeep && !b.hasDeep) return -1;
-    if (!a.hasDeep && b.hasDeep) return 1;
-    return a.key.toLowerCase().localeCompare(b.key.toLowerCase());
-  });
-
-  return Arr.flatMap(
-    sorted,
-    (group): ReadonlyArray<TreeNode<Ansi.AnsiStyle>> => {
-      const files = group.items.filter((e) => e.segments.length === depth + 1);
-      const directories = group.items.filter(
-        (e) => e.segments.length > depth + 1,
-      );
-
-      const result: Array<TreeNode<Ansi.AnsiStyle>> = [];
-
-      if (directories.length > 0) {
-        result.push({
-          label: Box.text(group.key),
-          connector: "plain",
-          children: buildNodes(directories, depth + 1, conflictsByPath),
-        });
-      }
-
-      for (const file of files) {
-        const conflicts = conflictsByPath.get(file.outcome.path) ?? [];
-        result.push({
-          label: Box.text(group.key),
-          badge: formatPlanClassificationBadge(file.outcome.classification),
-          connector: "plain",
-          children: Arr.map(conflicts, (conflict) => ({
-            label: formatConflictLine(conflict),
-            connector: "plain" as const,
-            children: [],
-          })),
-        });
-      }
-
-      return result;
-    },
+  const groups = Array.from(
+    Map.groupBy(segmented, ({ key }) => key),
+    ([key, items]): PathGroup => ({
+      key,
+      files: items.flatMap(({ entry }) =>
+        entry.segments.length === depth + 1 ? [entry] : [],
+      ),
+      directories: items.flatMap(({ entry }) =>
+        entry.segments.length > depth + 1 ? [entry] : [],
+      ),
+    }),
   );
+
+  return groups.sort(directoriesFirst).flatMap((group) => [
+    ...(group.directories.length > 0
+      ? [
+          treeNode(
+            "plain",
+            Box.text(group.key),
+            buildNodes(group.directories, depth + 1, conflictsByPath),
+          ),
+        ]
+      : []),
+    ...group.files.map((file) => ({
+      ...treeNode(
+        "plain",
+        Box.text(group.key),
+        (conflictsByPath.get(file.outcome.path) ?? []).map((conflict) =>
+          treeNode("plain", formatConflictLine(conflict), []),
+        ),
+      ),
+      badge: formatPlanClassificationBadge(file.outcome.classification),
+    })),
+  ]);
 };
 
 const formatPlanClassificationBadge = (

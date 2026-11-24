@@ -19,10 +19,8 @@ const wrapFileContents = (contents: string, width: number) =>
 export const DryRunPreview = ({
   blueprint,
   plan,
-  apply,
-  scripts,
-  createCommand,
-  generatedFiles,
+  changes: { apply, generatedFiles },
+  finalize: { scripts, createCommand },
 }: {
   blueprint: Box.Box<Ansi.AnsiStyle>;
   plan: {
@@ -30,15 +28,14 @@ export const DryRunPreview = ({
     tree: Box.Box<Ansi.AnsiStyle>;
     legend: Box.Box<Ansi.AnsiStyle>;
   };
-  apply: ApplyResult;
-  scripts: ReadonlyArray<{
-    label: string;
-    command: string;
-    phase: string;
-    origin: string;
-  }>;
-  createCommand?: string | undefined;
-  generatedFiles?: ReadonlyArray<ApplyPreviewFile> | undefined;
+  changes: {
+    apply: ApplyResult;
+    generatedFiles?: ReadonlyArray<ApplyPreviewFile> | undefined;
+  };
+  finalize: {
+    scripts: ReadonlyArray<{ command: string; phase: string }>;
+    createCommand?: string | undefined;
+  };
 }) => {
   const terminalWidth = process.stdout.columns ?? 80;
   const commandWidth = Math.max(32, terminalWidth - 8);
@@ -113,14 +110,7 @@ export const DryRunPreview = ({
     "post-finalize": "Post-Finalize",
   };
 
-  const groupedScripts = scripts.reduce<
-    Map<string, Array<(typeof scripts)[number]>>
-  >((groups, script) => {
-    const list = groups.get(script.phase) ?? [];
-    list.push(script);
-    groups.set(script.phase, list);
-    return groups;
-  }, new Map());
+  const groupedScripts = Map.groupBy(scripts, (script) => script.phase);
 
   const scriptGroups =
     groupedScripts.size > 0

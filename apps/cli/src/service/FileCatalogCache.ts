@@ -68,9 +68,6 @@ export const fileCatalogCacheLayer = (directory?: string) =>
         return path.join(root, `${hash}.json`);
       });
 
-      const fail = (message: string, cause: unknown) =>
-        new CatalogCacheError({ message, cause });
-
       const read = Effect.fn("FileCatalogCache.read")(function* (
         sourceUrl: string,
       ) {
@@ -80,14 +77,22 @@ export const fileCatalogCacheLayer = (directory?: string) =>
             (error) => error.reason._tag === "NotFound",
             () => Effect.as(Effect.void, undefined),
           ),
-          Effect.mapError((cause) =>
-            fail(`Could not read catalog cache at ${location}.`, cause),
+          Effect.mapError(
+            (cause) =>
+              new CatalogCacheError({
+                message: `Could not read catalog cache at ${location}.`,
+                cause,
+              }),
           ),
         );
         if (json === undefined) return undefined;
         const stored = yield* Schema.decodeEffect(StoredJson)(json).pipe(
-          Effect.mapError((cause) =>
-            fail(`Invalid catalog cache at ${location}.`, cause),
+          Effect.mapError(
+            (cause) =>
+              new CatalogCacheError({
+                message: `Invalid catalog cache at ${location}.`,
+                cause,
+              }),
           ),
         );
         const { bytes, ...metadata } = stored;
@@ -107,8 +112,12 @@ export const fileCatalogCacheLayer = (directory?: string) =>
           ...entry,
           bytes: Buffer.from(entry.bytes).toString("base64"),
         }).pipe(
-          Effect.mapError((cause) =>
-            fail("Could not encode catalog cache entry.", cause),
+          Effect.mapError(
+            (cause) =>
+              new CatalogCacheError({
+                message: "Could not encode catalog cache entry.",
+                cause,
+              }),
           ),
         );
         yield* Effect.gen(function* () {
@@ -116,8 +125,12 @@ export const fileCatalogCacheLayer = (directory?: string) =>
           yield* fs.writeFileString(temporary, json);
           yield* fs.rename(temporary, location);
         }).pipe(
-          Effect.mapError((cause) =>
-            fail(`Could not write catalog cache at ${location}.`, cause),
+          Effect.mapError(
+            (cause) =>
+              new CatalogCacheError({
+                message: `Could not write catalog cache at ${location}.`,
+                cause,
+              }),
           ),
           Effect.onExit(() => fs.remove(temporary).pipe(Effect.ignore)),
         );

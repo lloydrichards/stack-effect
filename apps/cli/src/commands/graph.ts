@@ -49,20 +49,19 @@ const labelsOf = (nodes: ReadonlyArray<IndexedNode>) =>
   Arr.map(nodes, ([, n]) => nodeLabel(n)).join(", ");
 
 type RowData = {
-  readonly node: CatalogNode;
-  readonly supportedOn: ReadonlyArray<string>;
-  readonly requires: ReadonlyArray<string>;
-  readonly implies: ReadonlyArray<string>;
-  readonly childOf: ReadonlyArray<string>;
+  node: CatalogNode;
+  supportedOn: ReadonlyArray<string>;
+  requires: ReadonlyArray<string>;
+  implies: ReadonlyArray<string>;
+  childOf: ReadonlyArray<string>;
 };
 
-const classifyEdge = Match.type<CatalogEdge>().pipe(
-  Match.when("supportedOn", () => "supportedOn" as const),
-  Match.when("requiredModule", () => "requires" as const),
-  Match.when("implies", () => "implies" as const),
-  Match.when("childOf", () => "childOf" as const),
-  Match.exhaustive,
-);
+const EDGE_COLUMN = {
+  supportedOn: "supportedOn",
+  requiredModule: "requires",
+  implies: "implies",
+  childOf: "childOf",
+} satisfies Record<CatalogEdge, keyof RowData>;
 
 const collectRowData = (g: CatalogGraph): Array<RowData> => {
   const edges = collectEdges(g);
@@ -70,9 +69,9 @@ const collectRowData = (g: CatalogGraph): Array<RowData> => {
   return Arr.map(collectNodes(g), ([idx, node]) => {
     const outgoing = Arr.filter(edges, ([, e]) => e.source === idx);
 
-    const buckets = Arr.groupBy(outgoing, ([, e]) => classifyEdge(e.data));
+    const buckets = Arr.groupBy(outgoing, ([, e]) => EDGE_COLUMN[e.data]);
 
-    const resolve = (key: ReturnType<typeof classifyEdge>) =>
+    const resolve = (key: (typeof EDGE_COLUMN)[CatalogEdge]) =>
       Arr.map(buckets[key] ?? [], ([, e]) =>
         Graph.getNode(g, e.target).pipe(
           Option.map(nodeLabel),

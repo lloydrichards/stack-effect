@@ -11,13 +11,15 @@ const input = {
     tree: Box.text("tree"),
     legend: Box.text("legend"),
   },
-  apply: new ApplyResult({
-    created: [RepositoryPath.make("apps/api.ts")],
-    modified: [RepositoryPath.make("package.json")],
-    skipped: [RepositoryPath.make("README.md")],
-    failed: [],
-  }),
-  scripts: [],
+  changes: {
+    apply: new ApplyResult({
+      created: [RepositoryPath.make("apps/api.ts")],
+      modified: [RepositoryPath.make("package.json")],
+      skipped: [RepositoryPath.make("README.md")],
+      failed: [],
+    }),
+  },
+  finalize: { scripts: [] },
 };
 
 describe("DryRunPreview", () => {
@@ -25,18 +27,20 @@ describe("DryRunPreview", () => {
     const output = Box.renderPlainSync(
       DryRunPreview({
         ...input,
-        apply: new ApplyResult({
-          created: [],
-          modified: [],
-          skipped: [],
-          failed: [
-            {
-              path: RepositoryPath.make("apps/api.ts"),
-              reason: "Could not rename apps/api.ts",
-              causes: ["EACCES: permission denied"],
-            },
-          ],
-        }),
+        changes: {
+          apply: new ApplyResult({
+            created: [],
+            modified: [],
+            skipped: [],
+            failed: [
+              {
+                path: RepositoryPath.make("apps/api.ts"),
+                reason: "Could not rename apps/api.ts",
+                causes: ["EACCES: permission denied"],
+              },
+            ],
+          }),
+        },
       }),
     );
 
@@ -47,7 +51,10 @@ describe("DryRunPreview", () => {
   it("keeps generated-file output absent unless requested", () => {
     const existingOutput = Box.renderPlainSync(DryRunPreview(input));
     const explicitUndefinedOutput = Box.renderPlainSync(
-      DryRunPreview({ ...input, generatedFiles: undefined }),
+      DryRunPreview({
+        ...input,
+        changes: { ...input.changes, generatedFiles: undefined },
+      }),
     );
 
     expect(explicitUndefinedOutput).toBe(existingOutput);
@@ -58,18 +65,21 @@ describe("DryRunPreview", () => {
     const output = Box.renderPlainSync(
       DryRunPreview({
         ...input,
-        generatedFiles: [
-          {
-            path: "apps/api.ts",
-            status: "created",
-            contents: "export const first = 1;\nexport const second = 2;\n",
-          },
-          {
-            path: "package.json",
-            status: "modified",
-            contents: '{\n  "name": "preview"\n}\n',
-          },
-        ],
+        changes: {
+          ...input.changes,
+          generatedFiles: [
+            {
+              path: "apps/api.ts",
+              status: "created",
+              contents: "export const first = 1;\nexport const second = 2;\n",
+            },
+            {
+              path: "package.json",
+              status: "modified",
+              contents: '{\n  "name": "preview"\n}\n',
+            },
+          ],
+        },
       }),
     );
 
@@ -90,9 +100,12 @@ describe("DryRunPreview", () => {
     const output = Box.renderPlainSync(
       DryRunPreview({
         ...input,
-        generatedFiles: [
-          { path: "long.txt", status: "created", contents: longLine },
-        ],
+        changes: {
+          ...input.changes,
+          generatedFiles: [
+            { path: "long.txt", status: "created", contents: longLine },
+          ],
+        },
       }),
     );
 
