@@ -20,7 +20,7 @@ import {
   FieldLabel,
 } from "~/components/ui/field";
 import { Input } from "~/components/ui/input";
-import { recipeBuilderRpcFailure } from "../../atom/recipe-builder-atom";
+import { recipeBuilderRpcError } from "../../atom/recipe-builder-atom";
 import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import { usesOfficialCatalog } from "./form";
 import {
@@ -47,7 +47,7 @@ export const CatalogSourcesPanel = () => {
   const [issue, setIssue] = useState<string>();
   const failure =
     !catalogResult.waiting && AsyncResult.isFailure(catalogResult)
-      ? recipeBuilderRpcFailure(catalogResult.cause)
+      ? recipeBuilderRpcError(catalogResult.cause)
       : undefined;
   const selected = catalogs ?? [{ name: OFFICIAL_CATALOG_SOURCE }];
   const officialSelected = usesOfficialCatalog(catalogs);

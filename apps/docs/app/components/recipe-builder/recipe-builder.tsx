@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
   recipeBuilderRpcErrorMessage,
-  recipeBuilderRpcFailure,
+  recipeBuilderRpcError,
 } from "../../atom/recipe-builder-atom";
 import { BuilderWorkspace } from "./builder-workspace";
 import { usesOfficialCatalog } from "./form";
@@ -61,7 +61,7 @@ const RecipeNotices = () => {
   } = useRecipeBuilderUrl();
   const awaitingConfirmation = unconfirmedCatalogs.length > 0;
   const catalogFailure = AsyncResult.isFailure(catalogResult)
-    ? recipeBuilderRpcFailure(catalogResult.cause)
+    ? recipeBuilderRpcError(catalogResult.cause)
     : undefined;
   const cachedFailureSources = catalogFailure?.sources
     ?.filter((source) => source.freshness === "cached")
@@ -167,7 +167,7 @@ const RecipeNotices = () => {
                 ))}
               </ul>
             ) : (
-              <span>
+              <span className="whitespace-pre-line">
                 {AsyncResult.isFailure(catalogResult)
                   ? recipeBuilderRpcErrorMessage(catalogResult.cause)
                   : "Could not load the recipe catalog."}
@@ -248,7 +248,7 @@ const RecipeNotices = () => {
           <Alert variant="destructive">
             <AlertCircle />
             <AlertTitle>Preview could not be generated</AlertTitle>
-            <AlertDescription>
+            <AlertDescription className="whitespace-pre-line">
               {recipeBuilderRpcErrorMessage(cause)}
             </AlertDescription>
           </Alert>

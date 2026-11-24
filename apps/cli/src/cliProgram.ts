@@ -1,8 +1,22 @@
-import { Cause, Console, Effect } from "effect";
+import { Cause, Console, Effect, Predicate } from "effect";
 import { Ansi, Box } from "effect-boxes";
 import { Command } from "effect/cli";
 import pkg from "../package.json";
 import { stackEffectCommand } from "./command";
+
+// Messages along the `cause` chain below `error`, outermost first.
+// `Cause.prettyErrors` turns every cause into an `Error` and cuts cycles.
+const causeMessages = (error: unknown): ReadonlyArray<string> => {
+  const cause = Predicate.hasProperty(error, "cause") ? error.cause : undefined;
+  return cause instanceof Error ? [cause.message, ...causeMessages(cause)] : [];
+};
+
+// Each cause once, skipping any that repeats a message above it.
+const causeLines = (error: Error) =>
+  [...new Set([error.message, ...causeMessages(error)])]
+    .slice(1)
+    .filter((message) => message.length > 0)
+    .map((message) => `  Caused by: ${message}`);
 
 export const cliProgram = stackEffectCommand.pipe(
   Command.run({ version: pkg.version }),
@@ -26,8 +40,9 @@ export const cliProgram = stackEffectCommand.pipe(
     }
 
     const message = Cause.prettyErrors(cause)
-      .map((error) => error.message)
-      .filter((message) => message.length > 0)
+      .flatMap((error) =>
+        error.message.length > 0 ? [error.message, ...causeLines(error)] : [],
+      )
       .join("\n");
 
     return Console.error(

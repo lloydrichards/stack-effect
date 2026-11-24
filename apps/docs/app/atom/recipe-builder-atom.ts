@@ -7,7 +7,7 @@ import { RpcClient } from "effect/rpc";
 import type { RpcClientError } from "effect/rpc/RpcClientError";
 import {
   RecipeBuilderRpc,
-  type RecipeBuilderRpcFailure,
+  type RecipeBuilderRpcError,
 } from "../workers/recipe-builder/domain";
 
 class RecipeBuilderClient extends AtomRpc.Service<RecipeBuilderClient>()(
@@ -79,23 +79,26 @@ export const previewAtom = RecipeBuilderClient.runtime.fn(
 );
 
 /** The worker's typed failure, when the cause carries one. */
-export const recipeBuilderRpcFailure = (
-  cause: Cause.Cause<RecipeBuilderRpcFailure | RpcClientError>,
-): RecipeBuilderRpcFailure | undefined =>
+export const recipeBuilderRpcError = (
+  cause: Cause.Cause<RecipeBuilderRpcError | RpcClientError>,
+): RecipeBuilderRpcError | undefined =>
   Cause.findErrorOption(cause).pipe(
-    Option.filter((error) => error._tag === "RecipeBuilderRpcFailure"),
+    Option.filter((error) => error._tag === "RecipeBuilderRpcError"),
     Option.getOrUndefined,
   );
 
 export const recipeBuilderRpcErrorMessage = (
-  cause: Cause.Cause<RecipeBuilderRpcFailure | RpcClientError>,
+  cause: Cause.Cause<RecipeBuilderRpcError | RpcClientError>,
 ): string =>
   Cause.findErrorOption(cause).pipe(
     Option.match({
       onNone: () => "The preview worker stopped unexpectedly.",
       onSome: (error) =>
-        error._tag === "RecipeBuilderRpcFailure"
-          ? error.message
+        error._tag === "RecipeBuilderRpcError"
+          ? [
+              error.message,
+              ...(error.causes ?? []).map((cause) => `Caused by: ${cause}`),
+            ].join("\n")
           : "The preview worker stopped unexpectedly.",
     }),
   );
