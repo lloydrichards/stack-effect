@@ -3,12 +3,467 @@ import {
   CatalogDocument,
   type CatalogIssue,
   type CatalogIssueCode,
-  type CatalogIssueSubject,
+  CatalogIssueSubject,
   CatalogValidationError,
+  type ModuleDefinition,
+  type ModuleId,
+  ModuleDependency,
+  type SupportedOn,
   catalogIssueLabel,
+  duplicates,
 } from "@repo/domain/Catalog";
 import { Array as Arr, Effect, Schema } from "effect";
-import type { ComposeOptions } from "../Catalog";
+import type { ComposeOptions, FragmentSource } from "../Catalog";
+import { dependencyTarget, supportedOnTargetKind } from "./definitionTargets";
+
+type Fragment = CatalogFragment | CatalogDocument;
+
+// The definition that owns an issue, and the fragment it came from.
+type Owner = {
+  subject: CatalogIssueSubject;
+  fragment: number;
+};
+
+const fragmentIndex = (ids: ReadonlyArray<ReadonlyArray<string>>) =>
+  new Map(
+    ids
+      .flatMap((fragmentIds, index) =>
+        fragmentIds.map((id) => [id, index] as const),
+      )
+      .toReversed(),
+  );
+
+const composition = (
+  decoded: ReadonlyArray<Fragment>,
+  sources: ReadonlyArray<FragmentSource> | undefined,
+) => {
+  // Each definition keeps its own fragment, so a duplicate ID keeps its own source.
+  const targetEntries = decoded.flatMap((fragment, index) =>
+    fragment.targets.map((target) => ({ target, fragment: index })),
+  );
+  const moduleEntries = decoded.flatMap((fragment, index) =>
+    fragment.modules.map((module) => ({ module, fragment: index })),
+  );
+  return {
+    sources,
+    targetEntries,
+    moduleEntries,
+    targetFragment: fragmentIndex(
+      decoded.map((fragment) => fragment.targets.map((target) => target.kind)),
+    ),
+    moduleFragment: fragmentIndex(
+      decoded.map((fragment) => fragment.modules.map((module) => module.id)),
+    ),
+    moduleById: new Map(
+      moduleEntries.map(({ module }) => [module.id, module] as const),
+    ),
+  };
+};
+
+type Composition = ReturnType<typeof composition>;
+
+const sourceLabel = (context: Composition, index: number | undefined) =>
+  index === undefined
+    ? ""
+    : (context.sources?.[index]?.name ?? `fragment ${index}`);
+
+/** Whether a definition from `owner` may reference one from `referenced`. */
+const canReference = (
+  context: Composition,
+  owner: number,
+  referenced: number | undefined,
+) =>
+  context.sources === undefined ||
+  referenced === undefined ||
+  owner === referenced ||
+  (context.sources[owner]?.requires ?? []).includes(
+    sourceLabel(context, referenced),
+  );
+
+const issue = (
+  owner: Owner,
+  code: CatalogIssueCode,
+  message: string,
+): CatalogIssue => ({
+  subject: owner.subject,
+  code,
+  message,
+  fragment: owner.fragment,
+});
+
+const sourced = (context: Composition, located: CatalogIssue): CatalogIssue =>
+  context.sources === undefined
+    ? located
+    : {
+        ...located,
+        message: `Source ${sourceLabel(context, located.fragment)}: ${located.message}`,
+      };
+
+const sourceIssues = (
+  sources: ReadonlyArray<FragmentSource>,
+): ReadonlyArray<CatalogIssue> =>
+  sources.flatMap((source, index) =>
+    source.requires.flatMap((name): ReadonlyArray<CatalogIssue> => {
+      if (name === source.name)
+        return [
+          {
+            subject: CatalogIssueSubject.cases.document.make({}),
+            code: "invalid-shape",
+            message: `Source ${source.name} cannot require itself`,
+            fragment: index,
+          },
+        ];
+      if (sources.some((other) => other.name === name)) return [];
+      return [
+        {
+          subject: CatalogIssueSubject.cases.document.make({}),
+          code: "missing-source",
+          message: `Source ${source.name} requires the ${name} catalog, which is not selected; select it with --catalog ${name}`,
+          fragment: index,
+        },
+      ];
+    }),
+  );
+
+const inSources = (context: Composition, fragments: ReadonlyArray<number>) =>
+  context.sources === undefined
+    ? ""
+    : ` in sources ${Arr.dedupe(fragments.map((index) => sourceLabel(context, index))).join(" and ")}`;
+
+const duplicateIssues = (context: Composition): ReadonlyArray<CatalogIssue> => [
+  ...duplicates(context.targetEntries.map(({ target }) => target.kind)).map(
+    (kind): CatalogIssue => ({
+      subject: CatalogIssueSubject.cases.target.make({ kind }),
+      code: "duplicate-id",
+      message: `Duplicate target kind ${kind}${inSources(
+        context,
+        context.targetEntries
+          .filter(({ target }) => target.kind === kind)
+          .map(({ fragment }) => fragment),
+      )}`,
+    }),
+  ),
+  ...duplicates(context.moduleEntries.map(({ module }) => module.id)).map(
+    (id): CatalogIssue => ({
+      subject: CatalogIssueSubject.cases.module.make({ id }),
+      code: "duplicate-id",
+      message: `Duplicate module ID ${id}${inSources(
+        context,
+        context.moduleEntries
+          .filter(({ module }) => module.id === id)
+          .map(({ fragment }) => fragment),
+      )}`,
+    }),
+  ),
+];
+
+const undeclaredIssues = (
+  context: Composition,
+  owner: Owner,
+  referenced: number | undefined,
+  description: string,
+): ReadonlyArray<CatalogIssue> =>
+  canReference(context, owner.fragment, referenced)
+    ? []
+    : [
+        issue(
+          owner,
+          "undeclared-reference",
+          `${catalogIssueLabel(owner.subject)} references ${description} from source ${sourceLabel(context, referenced)} without declaring requires: ["${sourceLabel(context, referenced)}"]`,
+        ),
+      ];
+
+const targetReferenceIssues = (
+  context: Composition,
+  owner: Owner,
+  kind: string,
+): ReadonlyArray<CatalogIssue> => [
+  ...(context.targetFragment.has(kind)
+    ? []
+    : [
+        issue(
+          owner,
+          "missing-reference",
+          `${catalogIssueLabel(owner.subject)} references missing target ${kind}`,
+        ),
+      ]),
+  ...undeclaredIssues(
+    context,
+    owner,
+    context.targetFragment.get(kind),
+    `target ${kind}`,
+  ),
+];
+
+const moduleReferenceIssues = (
+  context: Composition,
+  owner: Owner,
+  id: ModuleId,
+): ReadonlyArray<CatalogIssue> => [
+  ...(context.moduleById.has(id)
+    ? []
+    : [
+        issue(
+          owner,
+          "missing-reference",
+          `${catalogIssueLabel(owner.subject)} references missing module ${id}`,
+        ),
+      ]),
+  ...undeclaredIssues(
+    context,
+    owner,
+    context.moduleFragment.get(id),
+    `module ${id}`,
+  ),
+];
+
+const supportsKind = (module: ModuleDefinition, kind: string) =>
+  module.supportedOn.some((rule) => rule._tag === "kind" && rule.kind === kind);
+
+const rulesOverlap = (rule: SupportedOn, other: SupportedOn) =>
+  rule._tag === "identity" && other._tag === "identity"
+    ? rule.identity.toKey() === other.identity.toKey()
+    : supportedOnTargetKind(rule) === supportedOnTargetKind(other);
+
+const targetIssues = (
+  context: Composition,
+  entry: Composition["targetEntries"][number],
+): ReadonlyArray<CatalogIssue> => {
+  const { target } = entry;
+  const owner: Owner = {
+    subject: CatalogIssueSubject.cases.target.make({ kind: target.kind }),
+    fragment: entry.fragment,
+  };
+  return (target.requiredModules ?? []).flatMap((id) => {
+    const required = context.moduleById.get(id);
+    return [
+      ...moduleReferenceIssues(context, owner, id),
+      ...(required && !supportsKind(required, target.kind)
+        ? [
+            issue(
+              owner,
+              "unsupported-target",
+              `Target ${target.kind} requires module ${id} on another target`,
+            ),
+          ]
+        : []),
+    ];
+  });
+};
+
+const requiredModuleIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+  dependency: Extract<ModuleDependency, { _tag: "required-module" }>,
+): ReadonlyArray<CatalogIssue> => {
+  const required = context.moduleById.get(dependency.moduleId);
+  return [
+    ...moduleReferenceIssues(context, owner, dependency.moduleId),
+    ...(required &&
+    !required.supportedOn.some((rule) => dependency.target.matches(rule))
+      ? [
+          issue(
+            owner,
+            "unsupported-target",
+            `Module ${module.id} requires ${dependency.moduleId} on an unsupported target`,
+          ),
+        ]
+      : []),
+  ];
+};
+
+const capabilityIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+  dependency: Extract<ModuleDependency, { _tag: "required-capability" }>,
+): ReadonlyArray<CatalogIssue> =>
+  context.moduleEntries.some(
+    (candidate) =>
+      candidate.module.provides?.includes(dependency.capability) &&
+      candidate.module.supportedOn.some((rule) =>
+        dependency.target.matches(rule),
+      ) &&
+      canReference(context, owner.fragment, candidate.fragment),
+  )
+    ? []
+    : [
+        issue(
+          owner,
+          "unavailable-capability",
+          `Module ${module.id} requires unavailable capability ${dependency.capability}`,
+        ),
+      ];
+
+const dependencyIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+): ReadonlyArray<CatalogIssue> =>
+  module.dependencies.flatMap((dependency) => [
+    ...targetReferenceIssues(context, owner, dependencyTarget(dependency).kind),
+    ...ModuleDependency.match(dependency, {
+      "required-target": () => [],
+      "required-module": (required) =>
+        requiredModuleIssues(context, owner, module, required),
+      "required-capability": (required) =>
+        capabilityIssues(context, owner, module, required),
+    }),
+  ]);
+
+const implicationIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+): ReadonlyArray<CatalogIssue> =>
+  (module.implies ?? []).flatMap((implication) => {
+    const implied = context.moduleById.get(implication.moduleId);
+    return [
+      ...targetReferenceIssues(context, owner, implication.targetKind),
+      ...moduleReferenceIssues(context, owner, implication.moduleId),
+      ...(implied && !supportsKind(implied, implication.targetKind)
+        ? [
+            issue(
+              owner,
+              "unsupported-target",
+              `Module ${module.id} implies ${implication.moduleId} on an unsupported target`,
+            ),
+          ]
+        : []),
+    ];
+  });
+
+const childIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+): ReadonlyArray<CatalogIssue> =>
+  (module.children ?? []).flatMap((child) => {
+    const definition = context.moduleById.get(child.moduleId);
+    return [
+      ...moduleReferenceIssues(context, owner, child.moduleId),
+      ...(definition &&
+      !module.supportedOn.some((rule) =>
+        definition.supportedOn.some((other) => rulesOverlap(rule, other)),
+      )
+        ? [
+            issue(
+              owner,
+              "unsupported-target",
+              `Module ${module.id} has child ${child.moduleId} on another target`,
+            ),
+          ]
+        : []),
+    ];
+  });
+
+const conflictIssues = (
+  context: Composition,
+  owner: Owner,
+  module: ModuleDefinition,
+): ReadonlyArray<CatalogIssue> =>
+  (module.conflictsWith ?? []).flatMap((conflict) => {
+    const conflictFragment = context.moduleFragment.get(conflict);
+    // Conflicts are symmetric, and another source cannot edit its side.
+    if (
+      context.sources !== undefined &&
+      conflictFragment !== undefined &&
+      conflictFragment !== owner.fragment
+    )
+      return [
+        issue(
+          owner,
+          "cross-source-conflict",
+          `Module ${module.id} conflicts with ${conflict} from source ${sourceLabel(context, conflictFragment)}; conflicts must stay within one source`,
+        ),
+      ];
+    const other = context.moduleById.get(conflict);
+    return [
+      ...moduleReferenceIssues(context, owner, conflict),
+      ...(other && !other.conflictsWith?.includes(module.id)
+        ? [
+            issue(
+              owner,
+              "asymmetric-conflict",
+              `Module ${module.id} has asymmetric conflict with ${conflict}`,
+            ),
+          ]
+        : []),
+    ];
+  });
+
+const moduleIssues = (
+  context: Composition,
+  entry: Composition["moduleEntries"][number],
+): ReadonlyArray<CatalogIssue> => {
+  const { module } = entry;
+  const owner: Owner = {
+    subject: CatalogIssueSubject.cases.module.make({ id: module.id }),
+    fragment: entry.fragment,
+  };
+  return [
+    ...module.supportedOn.flatMap((rule) =>
+      targetReferenceIssues(context, owner, supportedOnTargetKind(rule)),
+    ),
+    ...dependencyIssues(context, owner, module),
+    ...implicationIssues(context, owner, module),
+    ...childIssues(context, owner, module),
+    ...conflictIssues(context, owner, module),
+  ];
+};
+
+const finalizeScriptIssues = (
+  decoded: ReadonlyArray<Fragment>,
+  options: ComposeOptions,
+): ReadonlyArray<CatalogIssue> =>
+  options.allowFinalizeScripts
+    ? []
+    : decoded.flatMap((fragment, index): ReadonlyArray<CatalogIssue> =>
+        index === options.trustedFragmentIndex
+          ? []
+          : [
+              ...fragment.targets
+                .filter((target) => target.scripts?.length)
+                .map((target): CatalogIssue => ({
+                  subject: CatalogIssueSubject.cases.target.make({
+                    kind: target.kind,
+                  }),
+                  code: "finalize-script",
+                  message: `Fragment ${index} target ${target.kind} contains Finalize scripts`,
+                  fragment: index,
+                })),
+              ...fragment.modules
+                .filter((module) => module.scripts?.length)
+                .map((module): CatalogIssue => ({
+                  subject: CatalogIssueSubject.cases.module.make({
+                    id: module.id,
+                  }),
+                  code: "finalize-script",
+                  message: `Fragment ${index} module ${module.id} contains Finalize scripts`,
+                  fragment: index,
+                })),
+            ],
+      );
+
+const origins = (
+  context: Composition,
+  sources: ReadonlyArray<FragmentSource>,
+) => ({
+  targets: new Map(
+    [...context.targetFragment].map(([kind, index]) => [
+      kind,
+      sourceLabel(context, index),
+    ]),
+  ),
+  modules: new Map(
+    [...context.moduleFragment].map(([id, index]) => [
+      id,
+      sourceLabel(context, index),
+    ]),
+  ),
+  requires: new Map(sources.map((source) => [source.name, source.requires])),
+});
 
 /** @internal */
 export const compose = Effect.fn("Catalog.compose")(function* (
@@ -24,7 +479,7 @@ export const compose = Effect.fn("Catalog.compose")(function* (
           new CatalogValidationError({
             details: [
               {
-                subject: { _tag: "document" },
+                subject: CatalogIssueSubject.cases.document.make({}),
                 code: "invalid-shape",
                 message: `Fragment ${index}: ${error.message}`,
                 fragment: index,
@@ -34,362 +489,29 @@ export const compose = Effect.fn("Catalog.compose")(function* (
       ),
     ),
   );
-  const targets = Arr.flatMap(decoded, (fragment) => fragment.targets);
-  const modules = Arr.flatMap(decoded, (fragment) => fragment.modules);
-  const fragmentOf = (ids: ReadonlyArray<ReadonlyArray<string>>) =>
-    new Map(
-      ids
-        .flatMap((fragmentIds, index) =>
-          fragmentIds.map((id) => [id, index] as const),
-        )
-        .toReversed(),
-    );
-  const targetFragment = fragmentOf(
-    decoded.map((fragment) => fragment.targets.map((target) => target.kind)),
-  );
-  const moduleFragment = fragmentOf(
-    decoded.map((fragment) => fragment.modules.map((module) => module.id)),
-  );
-  // Index-aligned with `targets` and `modules`, so a duplicate ID keeps its own source.
-  const targetFragments = decoded.flatMap((fragment, index) =>
-    fragment.targets.map(() => index),
-  );
-  const moduleFragments = decoded.flatMap((fragment, index) =>
-    fragment.modules.map(() => index),
-  );
   const { sources } = options;
-  const sourceLabel = (index: number | undefined) =>
-    index === undefined ? "" : (sources?.[index]?.name ?? `fragment ${index}`);
-  const targetByKind = new Map<string, (typeof targets)[number]>(
-    targets.map((target) => [target.kind, target]),
-  );
-  const moduleById = new Map<string, (typeof modules)[number]>(
-    modules.map((module) => [module.id, module]),
-  );
-  const issues: Array<CatalogIssue> = [];
-  const moduleSubject = (id: string): CatalogIssueSubject => ({
-    _tag: "module",
-    id,
-  });
-  const targetSubject = (kind: string): CatalogIssueSubject => ({
-    _tag: "target",
-    kind,
-  });
-  const report = (
-    subject: CatalogIssueSubject,
-    code: CatalogIssueCode,
-    message: string,
-    fragment: number | undefined,
-  ) => {
-    issues.push({
-      subject,
-      code,
-      message:
-        sources === undefined || fragment === undefined
-          ? message
-          : `Source ${sourceLabel(fragment)}: ${message}`,
-      fragment,
-    });
-  };
-  /** Whether a definition from `owner` may reference one from `referenced`. */
-  const canReference = (
-    owner: number | undefined,
-    referenced: number | undefined,
-  ) =>
-    sources === undefined ||
-    owner === undefined ||
-    referenced === undefined ||
-    owner === referenced ||
-    (sources[owner]?.requires ?? []).includes(sourceLabel(referenced));
-  const declareReference = (
-    owner: CatalogIssueSubject,
-    fragment: number | undefined,
-    referenced: number | undefined,
-    description: string,
-  ) => {
-    if (!canReference(fragment, referenced))
-      report(
-        owner,
-        "undeclared-reference",
-        `${catalogIssueLabel(owner)} references ${description} from source ${sourceLabel(referenced)} without declaring requires: ["${sourceLabel(referenced)}"]`,
-        fragment,
-      );
-  };
 
   // Dependencies between sources are checked first: a missing source would
   // otherwise surface as a cascade of missing references.
-  const sourceIssues = (sources ?? []).flatMap((source, index) =>
-    source.requires.flatMap((name): ReadonlyArray<CatalogIssue> =>
-      name === source.name
-        ? [
-            {
-              subject: { _tag: "document" },
-              code: "invalid-shape",
-              message: `Source ${source.name} cannot require itself`,
-              fragment: index,
-            },
-          ]
-        : sources?.some((other) => other.name === name)
-          ? []
-          : [
-              {
-                subject: { _tag: "document" },
-                code: "missing-source",
-                message: `Source ${source.name} requires the ${name} catalog, which is not selected; select it with --catalog ${name}`,
-                fragment: index,
-              },
-            ],
-    ),
-  );
-  if (sourceIssues.length > 0)
-    return yield* new CatalogValidationError({ details: sourceIssues });
+  const unresolvedSources = sourceIssues(sources ?? []);
+  if (unresolvedSources.length > 0)
+    return yield* new CatalogValidationError({ details: unresolvedSources });
 
-  const duplicates = (ids: ReadonlyArray<ReadonlyArray<string>>) => {
-    const flat = ids.flat();
-    return Arr.dedupe(
-      flat.filter((id, index) => flat.indexOf(id) !== index),
-    ).map((id) => ({
-      id,
-      owners: ids.flatMap((fragmentIds, index) =>
-        fragmentIds.includes(id) ? [sourceLabel(index)] : [],
-      ),
-    }));
-  };
-  const inSources = (owners: ReadonlyArray<string>) =>
-    sources === undefined
-      ? ""
-      : ` in sources ${Arr.dedupe(owners).join(" and ")}`;
-  issues.push(
-    ...duplicates(
-      decoded.map((fragment) => fragment.targets.map((target) => target.kind)),
-    ).map(({ id, owners }): CatalogIssue => ({
-      subject: targetSubject(id),
-      code: "duplicate-id",
-      message: `Duplicate target kind ${id}${inSources(owners)}`,
-    })),
-    ...duplicates(
-      decoded.map((fragment) => fragment.modules.map((module) => module.id)),
-    ).map(({ id, owners }): CatalogIssue => ({
-      subject: moduleSubject(id),
-      code: "duplicate-id",
-      message: `Duplicate module ID ${id}${inSources(owners)}`,
-    })),
-  );
-
-  const supports = (module: (typeof modules)[number], kind: string) =>
-    module.supportedOn.some(
-      (rule) => rule._tag === "kind" && rule.kind === kind,
-    );
-  const requireTarget = (
-    kind: string,
-    owner: CatalogIssueSubject,
-    fragment: number | undefined,
-  ) => {
-    if (!targetByKind.has(kind))
-      report(
-        owner,
-        "missing-reference",
-        `${catalogIssueLabel(owner)} references missing target ${kind}`,
-        fragment,
-      );
-    declareReference(
-      owner,
-      fragment,
-      targetFragment.get(kind),
-      `target ${kind}`,
-    );
-  };
-  const requireModule = (
-    id: string,
-    owner: CatalogIssueSubject,
-    fragment: number | undefined,
-  ) => {
-    if (!moduleById.has(id))
-      report(
-        owner,
-        "missing-reference",
-        `${catalogIssueLabel(owner)} references missing module ${id}`,
-        fragment,
-      );
-    declareReference(owner, fragment, moduleFragment.get(id), `module ${id}`);
-  };
-
-  for (const [position, target] of targets.entries()) {
-    const fragment = targetFragments[position];
-    for (const id of target.requiredModules ?? []) {
-      requireModule(id, targetSubject(target.kind), fragment);
-      const required = moduleById.get(id);
-      if (required && !supports(required, target.kind)) {
-        report(
-          targetSubject(target.kind),
-          "unsupported-target",
-          `Target ${target.kind} requires module ${id} on another target`,
-          fragment,
-        );
-      }
-    }
-  }
-  for (const [position, module] of modules.entries()) {
-    const fragment = moduleFragments[position];
-    const owner = moduleSubject(module.id);
-    for (const rule of module.supportedOn) {
-      requireTarget(
-        rule._tag === "kind" ? rule.kind : rule.identity.kind,
-        owner,
-        fragment,
-      );
-    }
-    for (const dependency of module.dependencies) {
-      const target =
-        dependency._tag === "required-target"
-          ? dependency.identity
-          : dependency.target;
-      requireTarget(target.kind, owner, fragment);
-      if (dependency._tag === "required-module") {
-        requireModule(dependency.moduleId, owner, fragment);
-        const required = moduleById.get(dependency.moduleId);
-        if (
-          required &&
-          !required.supportedOn.some((rule) => target.matches(rule))
-        )
-          report(
-            owner,
-            "unsupported-target",
-            `Module ${module.id} requires ${dependency.moduleId} on an unsupported target`,
-            fragment,
-          );
-      }
-      if (
-        dependency._tag === "required-capability" &&
-        !modules.some(
-          (candidate, candidatePosition) =>
-            candidate.provides?.includes(dependency.capability) &&
-            candidate.supportedOn.some((rule) => target.matches(rule)) &&
-            canReference(fragment, moduleFragments[candidatePosition]),
-        )
-      )
-        report(
-          owner,
-          "unavailable-capability",
-          `Module ${module.id} requires unavailable capability ${dependency.capability}`,
-          fragment,
-        );
-    }
-    for (const implication of module.implies ?? []) {
-      requireTarget(implication.targetKind, owner, fragment);
-      requireModule(implication.moduleId, owner, fragment);
-      const implied = moduleById.get(implication.moduleId);
-      if (implied && !supports(implied, implication.targetKind))
-        report(
-          owner,
-          "unsupported-target",
-          `Module ${module.id} implies ${implication.moduleId} on an unsupported target`,
-          fragment,
-        );
-    }
-    for (const child of module.children ?? []) {
-      requireModule(child.moduleId, owner, fragment);
-      const definition = moduleById.get(child.moduleId);
-      if (
-        definition &&
-        !module.supportedOn.some((rule) =>
-          definition.supportedOn.some((other) => {
-            if (rule._tag === "kind" && other._tag === "kind")
-              return rule.kind === other.kind;
-            if (rule._tag === "identity" && other._tag === "identity")
-              return rule.identity.toKey() === other.identity.toKey();
-            return (
-              (rule._tag === "kind" ? rule.kind : rule.identity.kind) ===
-              (other._tag === "kind" ? other.kind : other.identity.kind)
-            );
-          }),
-        )
-      )
-        report(
-          owner,
-          "unsupported-target",
-          `Module ${module.id} has child ${child.moduleId} on another target`,
-          fragment,
-        );
-    }
-    for (const conflict of module.conflictsWith ?? []) {
-      const conflictFragment = moduleFragment.get(conflict);
-      // Conflicts are symmetric, and another source cannot edit its side.
-      if (
-        sources !== undefined &&
-        conflictFragment !== undefined &&
-        conflictFragment !== fragment
-      ) {
-        report(
-          owner,
-          "cross-source-conflict",
-          `Module ${module.id} conflicts with ${conflict} from source ${sourceLabel(conflictFragment)}; conflicts must stay within one source`,
-          fragment,
-        );
-        continue;
-      }
-      requireModule(conflict, owner, fragment);
-      if (
-        moduleById.has(conflict) &&
-        !moduleById.get(conflict)?.conflictsWith?.includes(module.id)
-      )
-        report(
-          owner,
-          "asymmetric-conflict",
-          `Module ${module.id} has asymmetric conflict with ${conflict}`,
-          fragment,
-        );
-    }
-  }
-  issues.push(
-    ...decoded.flatMap((fragment, index): ReadonlyArray<CatalogIssue> =>
-      options.allowFinalizeScripts || index === options.trustedFragmentIndex
-        ? []
-        : [
-            ...fragment.targets
-              .filter((target) => target.scripts?.length)
-              .map((target) => ({
-                subject: targetSubject(target.kind),
-                code: "finalize-script" as const,
-                message: `Fragment ${index} target ${target.kind} contains Finalize scripts`,
-                fragment: index,
-              })),
-            ...fragment.modules
-              .filter((module) => module.scripts?.length)
-              .map((module) => ({
-                subject: moduleSubject(module.id),
-                code: "finalize-script" as const,
-                message: `Fragment ${index} module ${module.id} contains Finalize scripts`,
-                fragment: index,
-              })),
-          ],
-    ),
-  );
-
-  if (issues.length)
+  const context = composition(decoded, sources);
+  const issues = [
+    ...duplicateIssues(context),
+    ...[
+      ...context.targetEntries.flatMap((entry) => targetIssues(context, entry)),
+      ...context.moduleEntries.flatMap((entry) => moduleIssues(context, entry)),
+    ].map((located) => sourced(context, located)),
+    ...finalizeScriptIssues(decoded, options),
+  ];
+  if (issues.length > 0)
     return yield* new CatalogValidationError({ details: issues });
+
   return {
-    targets,
-    modules,
-    origins:
-      sources === undefined
-        ? undefined
-        : {
-            targets: new Map(
-              [...targetFragment].map(([kind, index]) => [
-                kind,
-                sourceLabel(index),
-              ]),
-            ),
-            modules: new Map(
-              [...moduleFragment].map(([id, index]) => [
-                id,
-                sourceLabel(index),
-              ]),
-            ),
-            requires: new Map(
-              sources.map((source) => [source.name, source.requires]),
-            ),
-          },
-  } as const;
+    targets: context.targetEntries.map(({ target }) => target),
+    modules: context.moduleEntries.map(({ module }) => module),
+    origins: sources === undefined ? undefined : origins(context, sources),
+  };
 });
