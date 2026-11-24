@@ -20,6 +20,14 @@ These rules apply to generated catalog code and to repository packages such as `
 | A `function` helper declared below its caller | An arrow `const` declared before the code that uses it |
 | JSDoc that restates the function name | A `//` comment on the constraint, next to the line it constrains. Public modules carry fuller docs; see Public module docs |
 | A reusable service Layer that provides its own crypto or filesystem | Leave the platform service as a requirement. The app or entry point provides it |
+| `const out = []` filled by `push` in a loop | One expression: `map`, `filter`, `flatMap`, `Map.groupBy`, or a spread of conditional parts |
+| `for (const x of xs) yield* step(x)` that collects or discards results | `yield* Effect.forEach(xs, step)` with `step` a named operation |
+| `const fail = (message, cause) => new XError({ message, cause })` | `new XError({ message, cause })` at the step that fails |
+| `if (a && !b) return yield* new XError(…)` to reject a combination of fields | A tagged union or a `.check` on the schema, so the combination cannot be built |
+| `x.field ?? "default"` at each reader | `Schema.withDecodingDefaultKey` on the field, so the decoded type is total |
+| `JSON.stringify([a, b])` or `` `${a}::${b}` `` as an equality key | `Equal`, `Arr.dedupe`, or a named `Equivalence` |
+| `.sort((a, b) => a.localeCompare(b))` | `.sort(Order.String)`, or an `Order` built with `Order.mapInput` |
+| `{ _tag: "x" } satisfies T` or `"x" as const` | The union's constructor, or a declared return type |
 
 ## Decide what is a service
 
@@ -33,15 +41,26 @@ These rules apply to generated catalog code and to repository packages such as `
 ## Keep the operation readable
 
 - Let the main operation read in execution order. Use blank lines between distinct stages such as dependency lookup, decoding, the operation, and handling its result. Keep each guard next to the value it checks.
-- Use a short sequence of collection operations when it makes the transformation easy to follow. Use a loop when the order of steps or early exit is clearer that way.
-- Use native array methods by default. Use Effect's `Array` module for `Option`-returning lookups, structural-equality helpers such as `dedupe`, and data-last steps inside a `pipe`. Use `reduce` only to fold to a single value. Group with `Map.groupBy`, and build keyed collections with a loop over a local `Map`.
-- Keep a workflow in one function unless a part needs to compose independently or has a real second caller. The [GitHub webhook](../catalogs/labs/templates/server-github-issue-label/src/webhooks/github.ts) keeps signature parsing, the bounded body read, and verification together before decoding the event.
+- Build a collection as one expression: `map`, `filter`, `flatMap`, `Map.groupBy` or `Arr.groupBy`, `Record.fromEntries`, or a spread of conditional parts. Split cases with the union's guard, as in `attempts.filter(isCreated)`, not a `switch` that pushes into buckets. Seed an empty array, `Map`, or `Set` and fill it in a loop only when a step reads what earlier steps produced, such as a worklist, a first-wins dedupe, or ordered operations of different kinds. Use `reduce` only to fold to a single value, never with a collection seed.
+- Use native array methods by default. Use Effect's `Array` module for `Option`-returning lookups, structural-equality helpers such as `dedupe` and `dedupeWith`, and data-last steps inside a `pipe`. `Arr.partition` takes a `Result`-returning function in v4, and `Arr.partitionMap` no longer exists.
+- Iterate effects with `Effect.forEach(items, step)`, adding `{ discard: true }` when the results are not needed. `step` is an existing operation or a named `Effect.fnUntraced`. Keep `for…of` with `yield*` for early exit, state carried between items, or worklists. Flatten nested iteration into the pairs you visit with `flatMap`, or move the inner level into the named step. Keep at most three levels of nested blocks.
+- Keep a workflow in one function unless a part needs to compose independently or has a real second caller. The [GitHub webhook](../catalogs/labs/templates/server-github-issue-label/src/webhooks/github.ts) keeps signature parsing, the bounded body read, and verification together before decoding the event. Split a function that Fallow marks complex when its parts are checks or formats you can name separately, such as one `…Issues` function per validation concern. Do not split a linear workflow only to lower the score.
 - Give each public service operation a span named `Owner.operation`. Use `Effect.fn("Owner.operation")` when it has a generator body. End the pipeline with `Effect.withSpan("Owner.operation")` when it is an argument-free Effect value or a one-expression function. Add argument-dependent attributes with `Effect.annotateCurrentSpan` inside the body. Use `Effect.fnUntraced` for private helpers, per-item work, and pure-module functions. Do not leave `Effect.fn` unnamed. Keep existing span names stable; change one only when you deliberately rename its owner or operation. Give a private step its own span only when it is a distinct I/O call that runs once per operation.
-- Write sequential steps and branches inside `Effect.gen` or `Effect.fn`. Attach whole-effect behaviour such as timeout, retry, error mapping, recovery, spans, or provision with `.pipe` on an `Effect.gen`, or as extra arguments to `Effect.fn`, not `.pipe` on it. Keep step-specific error mapping or recovery next to the step it handles. Do not branch inside `flatMap` or nest a `gen` inside a combinator. See how the [Summary Queue](../catalogs/labs/templates/cli-persisted-queue/src/jobs/SummaryQueue.ts) provides its Layer for an entire operation.
+- Write sequential steps and branches inside `Effect.gen` or `Effect.fn`. Attach whole-effect behaviour such as timeout, retry, error mapping, recovery, spans, or provision with `.pipe` on an `Effect.gen`, or as extra arguments to `Effect.fn`, not `.pipe` on it. Keep step-specific error mapping or recovery next to the step it handles. Do not branch inside `flatMap` or nest an inline `gen` inside a combinator; pass a named step instead. See how the [Summary Queue](../catalogs/labs/templates/cli-persisted-queue/src/jobs/SummaryQueue.ts) provides its Layer for an entire operation.
 - Return early for guards. Use `else` for peer branches that read as one decision.
 - Keep numeric defaults and constraints next to their config or schema definitions. Put a shared policy value in a `SCREAMING_SNAKE_CASE` constant near the top of the file. The [WebFetch toolkit](../catalogs/labs/templates/package-ai-toolkit-webfetch/src/toolkits/WebFetchToolkit.ts) uses one limit for the length check and truncation.
 - Write a total, pure calculation as a plain function that returns its value. Write a pure step that can fail with an expected error as `Effect.fnUntraced`, raising with `return yield*`. Inside a generator, write local synchronous work as plain statements. Use `Effect.sync` only to defer an outside side effect until the Effect runs. Do not use `Effect.suspend` for early returns.
 - Wrap throwing synchronous calls inside Effect workflows with `Effect.try`. At a plain JavaScript boundary, keep native `try/catch` around the operation whose exception the adapter can handle. See the [math toolkit](../catalogs/official/templates/package-ai-toolkit-math/src/toolkits/MathToolkit.ts) and [receipt history adapter](../catalogs/labs/templates/workflow-receipt-client/src/lib/receipt-history.ts).
+- Use Effect's module when it models the primitive: `Predicate` for type guards, `Order` for sorting, `Equal` and `Equivalence` for comparison, `Schema.fromJsonString` for JSON, `Path` and `Path.fromFileUrl` for paths, `Config` for the environment, `Clock` and `DateTime` for time, and `Random` for randomness. Effect's own guide says never to write helpers like `isRecord` or `isString`. Use the platform where Effect has no counterpart, such as `TextDecoder` for strict UTF-8 or `os.homedir`.
+- Sort with a named `Order`, never `localeCompare` or a bare `.sort()` outside UI code, so identical inputs produce identical output. Compare and dedupe values with `Equal`, `Arr.dedupe`, or a named `Equivalence` with `Arr.dedupeWith` when identity is a subset of fields. Build a string key only when the string is itself a stored or displayed identity, such as `TargetIdentity.toKey()`.
+
+## Shape a function
+
+- Give a function at most four inputs, counting the fields of a destructured options object as inputs. When it needs more, the inputs belong to a domain value or a service: name that type instead of widening the bag.
+- Bind a value that every step of an operation shares, such as a repository root or a source URL, once into a handle or domain value, as Effect derives a client with `HttpClient.mapRequest(HttpClientRequest.prependUrl(base))`. Helpers take the handle as one input. A helper closes over Layer-time services only; declare it at Layer or module scope, never inside an operation.
+- Replace a boolean parameter that chooses behaviour with a literal union or tagged union that names each case, or with two operations. Decode command-line flags into that type once, in the command. A boolean that is data, such as `isLast` or a schema field, is fine.
+- Construct an error inline with `new X({ … })` at the step that fails, so the call site names the class and its fields. Write a helper only when it computes something the call site cannot see, such as a message derived from structured data, and never curry one for point-free use. Make an error that many operations reuse unchanged a module constant.
+- Inline a single-use helper that is shorter than its call. Delete a parameter or option that no production caller passes; a test is not a caller.
 
 ## Function and type syntax
 
@@ -50,6 +69,10 @@ Use arrow functions by default, including for named functions and components. Us
 Write relative imports without an extension. Import Effect modules by name from `"effect"`, using an `effect/…` subpath only for modules the root does not export. Import pure and internal modules as namespaces. Mark type-only imports with `import type`, or an inline `type` in mixed imports. `verbatimModuleSyntax` enforces this in repository workspaces. Generated workspaces don't enable it yet, so follow the rule there by hand.
 
 Declare types where they define a contract: each export of a public module, service shapes, and recursive functions. Give a public generator function `Effect.fn.Return<A, E>` so its error union cannot widen silently. Infer internal-module exports, private helpers, locals, and Layer bodies.
+
+Let a constructor or a declared type carry a literal. Build tagged values with the union's constructor, such as `X.cases.y.make(…)` for a Schema union or `Data.taggedEnum` for an internal one, and model an internal union with one of those instead of a hand-written `{ _tag: … } | …` type. Do not write `as const` on a single literal, `satisfies` on a return value, or a type annotation on a temporary only to pin a literal. `[…] as const` tuples that feed `Schema.Literals` and lookup tables that `satisfies Record<Union, T>` are fine.
+
+Write `readonly` where it is part of a contract: service shapes and exported domain data that is not derived from a Schema. Leave it off component props, inline parameter types, and file-local types. Write a read-only array as `ReadonlyArray<T>`.
 
 ## Services and Layers
 
@@ -74,6 +97,10 @@ Declare each feature's environment configuration in a named, module-level `Confi
 ## Schemas and handlers
 
 Declare optional fields with `Schema.optional`, which gives `?: T | undefined`, and pass possibly-undefined values straight through. Use `Schema.optionalKey` with a conditional spread only when absent and `undefined` must stay distinct, and say why in a comment.
+
+Make the decoded type total. Put a field's default in its decoding with `Schema.withDecodingDefaultKey`, and its normalization, such as trimming, in a schema such as `Schema.Trim`, so readers never repeat it with `??`, a cast, or `.trim()`. `Schema.withConstructorDefault` only fills values passed through `make`. Give a comparison rule, such as case-insensitive paths, one named `Equivalence`. Use `??` only for absence the code does not own, such as an optional terminal width.
+
+Put an invariant that spans several fields on the type, so an invalid value cannot be decoded or constructed. Use a tagged union when the fields select a case, and `.check(Schema.makeFilter(…))` when they only constrain each other, with one filter per rule so each failure has its own message. Keep runtime checks for facts outside the value, such as the filesystem or the catalog, and write them as one exhaustive match on the union, not a `validate…` function that reads a mode string. Delete a `make…` helper that silently coerces an invalid combination.
 
 Pair each schema that appears in a signature with a same-name type, `export type X = typeof X.Type`. A `Schema.Class` already is its type. Use the name in signatures. Do not write `typeof X.Type` inline, reach into `.fields`, or spell it `Schema.Schema.Type<typeof X>`. Export a named schema for any nested piece you need.
 
@@ -101,6 +128,10 @@ const TodoRow = Todo.mapFields((fields) => ({
 ```
 
 Give an error its own tag when a caller handles it differently, as with `TodoNotFound` becoming a 404. Otherwise fail with the operation's one error, carrying `message` and `cause`. When a caller needs to branch within that error, model the branches as a tagged reason union with structured fields and recover with `Effect.catchReason`, as in Effect's [reason errors example](../node_modules/effect/ai-docs/src/01_effect/04_errors/20_reason-errors.ts). Do not use a string-literal `reason`, and do not drop the cause.
+
+Name errors as Effect does. Name an operation's error `<Operation>Error`, such as `ApplyError` or `CatalogLoadError`. Name a reason, or an error callers handle separately, for its condition, such as `TodoNotFound`, `StalePlan`, or `CatalogTimedOut`. Do not use a `Failure` suffix.
+
+Write a message that names the failed action and its subject, such as `` `Could not write ${path}` ``. The `cause` says why. Do not interpolate `cause.message`, and do not repeat the phase that the error type already names, such as "during apply". The app's presenter prints the cause chain.
 
 Recover from an error where the caller or adapter has enough context to decide what to do. Define errors with `Schema.TaggedError` and raise them with `return yield* new X({ … })`. Carry the original cause as `cause: Schema.Defect()`. Put an error in `@repo/domain`, next to the data it describes, when it appears in an operation another package calls. Keep an error that stays inside one module with that module.
 
@@ -150,8 +181,32 @@ Use `Ref` when shared state coordinates fibers. A private `Map` is fine for simp
 
 Use an explicit owner scope for work that outlives a request. Use `FiberMap` when the owner needs keyed cancellation. The [managed chat runtime](../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts) registers generation fibers in its Layer scope, and ChatSessions rejects overlapping sends.
 
+## Comments and logs
+
+Write a comment for a constraint the code cannot show. Do not narrate the next line, add section banners, or put JSDoc on a declaration that is not exported unless it states a constraint. A file that needs banners is several modules. Keep `// NOTE:` composition anchors in templates.
+
+Do not log lifecycle or per-call progress, such as "Starting the RPC implementation" or a debug line per tool call; `Effect.fn` spans already record it. Log an event an operator acts on, with a fixed message and structured fields from `Effect.annotateLogs`, not an interpolated string. A line that tells the user where a server listens, and `Effect.logError` on a failure the code deliberately swallows, are fine.
+
+## In generated code
+
+- Return the resource or `void` from a success channel. Do not add a `success`, `ok`, or `status` flag; a failure goes in the error channel.
+- Copy the shape of sibling templates, such as the other toolkits' export names, doc placement, and logging. When two templates would hold the same file, share one template between the modules.
+- Pin each dependency version once, in a constant in the catalog source, not as a literal in each module.
+
 ## Public module docs
 
 Open each public module with a header saying what it is for. Give each public export a one-line summary, a **When to use** section, and **Gotchas** when there are some. Add an **Example** when usage is not obvious from the signature. Do not add `@since`, `@category`, or `@stability`. Internal modules carry `/** @internal */` and constraint comments only. In generated code, keep comments to constraints.
 
 Export only what another module uses in production code. A test is not a caller. Fallow enforces this in lint. The [package design skill](skills/stack-effect-design/SKILL.md#keep-exports-honest) says how to handle a finding Fallow cannot see.
+
+## Lint that enforces taste
+
+`bun lint` enforces these rules. Turn a rule on in the change that fixes its last violation, so the main branch always lints clean.
+
+| Rule | Where | What it rejects |
+| --- | --- | --- |
+| `effecttsgo/global-date`, `global-random`, `crypto-random-uuid`, `process-env`, and `global-console`, each with its `-in-effect` form, plus `global-json-in-effect` | [`.oxlintrc.json`](../.oxlintrc.json) | A platform global where an Effect module models it. The docs server entry may write to the console |
+| `effecttsgo/node-builtin-import` | `.oxlintrc.json` | A Node built-in import outside tests, `tools/`, and docs scripts. Use the platform service |
+| `effecttsgo/effect-try-without-catch` | `.oxlintrc.json` | `Effect.try` without a `catch` that maps to a typed error |
+| `unicorn/prefer-array-flat-map` | `.oxlintrc.json` | `.map(…).flat()` |
+| Fallow complexity audit | `bun run lint:complexity` | A function that a change pushes over Fallow's complexity thresholds. Existing findings are reported, not gated |
