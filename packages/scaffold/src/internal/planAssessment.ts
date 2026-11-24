@@ -661,8 +661,14 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
   }
 
   const existingEntries = existingValue ?? {};
+  // Read own keys only, so an entry named after an Object.prototype member
+  // such as `__proto__` counts as absent.
+  const existingEntryOf = (entry: Entry) =>
+    Object.hasOwn(existingEntries, keyOf(entry))
+      ? existingEntries[keyOf(entry)]
+      : undefined;
   const conflicts = requiredEntries.flatMap((entry) => {
-    const existingEntry = existingEntries[keyOf(entry)];
+    const existingEntry = existingEntryOf(entry);
 
     return existingEntry === undefined || existingEntry === valueOf(entry)
       ? []
@@ -672,7 +678,7 @@ const assessFlatStringRecordEntries = <Entry, Conflict>({
   return {
     conflicts,
     hasAdditions: requiredEntries.some(
-      (entry) => existingEntries[keyOf(entry)] === undefined,
+      (entry) => existingEntryOf(entry) === undefined,
     ),
   };
 };

@@ -178,6 +178,14 @@ export const testCatalog = {
       name: "dev",
       value: "vite",
     }),
+    // A script whose name is also Object.prototype's accessor.
+    packageModule("proto-script", {
+      _tag: "pkg-json-entry",
+      path: "{{targetPath}}/package.json",
+      field: "scripts",
+      name: "__proto__",
+      value: "node proto.js",
+    }),
     packageModule(
       "manifest",
       {
