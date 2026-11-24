@@ -132,7 +132,7 @@ const toApplyResult = (
     ]),
     failed: attempts
       .filter(WriteAttempt.$is("failed"))
-      .map(({ path, reason }) => ({ path, reason })),
+      .map(({ path, reason, causes }) => ({ path, reason, causes })),
   }).toSorted();
 
 const relevantBaseline = (
@@ -165,6 +165,13 @@ const missingAncestors = (baseline: PlanBaseline, filePath: RepositoryPath) =>
         (entry.path === "." || filePath.startsWith(`${entry.path}/`)),
     )
     .map((entry) => entry.path);
+
+// Messages along an error's `cause` chain, outermost first, so a failed row
+// keeps the filesystem reason that its own message leaves out.
+const causeMessages = (error: Error): Array<string> =>
+  error.cause instanceof Error
+    ? [error.cause.message, ...causeMessages(error.cause)]
+    : [];
 
 const materializeFrom = (apply: Apply) => {
   const decisionsByPath = new Map(
@@ -379,6 +386,7 @@ export const makeApplier = Effect.gen(function* () {
               WriteAttempt.failed({
                 path: request.path,
                 reason: error.message,
+                causes: causeMessages(error),
               }),
             ),
           ),

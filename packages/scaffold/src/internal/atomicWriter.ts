@@ -38,7 +38,11 @@ export type WriteAttempt = Data.TaggedEnum<{
   created: { path: RepositoryPath };
   modified: { path: RepositoryPath };
   unchanged: { path: RepositoryPath };
-  failed: { path: RepositoryPath; reason: string };
+  failed: {
+    path: RepositoryPath;
+    reason: string;
+    causes: Array<string>;
+  };
 }>;
 
 /** @internal */

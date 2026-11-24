@@ -299,6 +299,11 @@ describe("Applier", () => {
           result.failed.map((entry) => entry.path),
           ["packages/app/src/a.txt"],
         );
+        assert.isTrue(
+          result.failed[0]?.causes.some((cause) =>
+            cause.includes("injected fault"),
+          ),
+        );
         assert.isFalse(yield* exists("packages/app/src/a.txt"));
         assert.strictEqual(yield* readFile("packages/app/src/b.txt"), "B\n");
       }).pipe(Effect.provide(testPipeline)),

@@ -99,10 +99,12 @@ describe("@repo/domain Apply", () => {
         {
           path: RepositoryPath.make("packages/domain/src/index.ts"),
           reason: "could not write file",
+          causes: [],
         },
         {
           path: RepositoryPath.make("README.md"),
           reason: "permission denied",
+          causes: [],
         },
       ],
     }).toSorted();

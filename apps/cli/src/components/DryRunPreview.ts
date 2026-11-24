@@ -78,7 +78,7 @@ export const DryRunPreview = ({
   );
 
   // Failed writes always show, with or without --show-files.
-  const failedWrites = apply.failed.map(({ path, reason }) =>
+  const failedWrites = apply.failed.map(({ path, reason, causes }) =>
     Box.vcat(
       [
         Box.hsep(
@@ -90,6 +90,12 @@ export const DryRunPreview = ({
           Box.left,
         ),
         Box.text(reason).pipe(Box.annotate(Ansi.dim), Box.moveRight(2)),
+        ...causes.map((cause) =>
+          Box.text(`Caused by: ${cause}`).pipe(
+            Box.annotate(Ansi.dim),
+            Box.moveRight(2),
+          ),
+        ),
       ],
       Box.left,
     ),
