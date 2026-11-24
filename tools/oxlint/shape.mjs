@@ -440,11 +440,102 @@ const noErrorFactory = {
   }),
 };
 
+// ---------------------------------------------------------------------------
+// error-name
+
+const errorBases = [
+  ["Schema", ["TaggedError", "ErrorClass"]],
+  ["Data", ["TaggedError"]],
+];
+
+// `Schema.TaggedError<X>()("X", fields)` and `Data.TaggedError("X")` nest calls
+// around the base, so follow callees down to it.
+const errorBase = (superClass) => {
+  let current = unwrap(superClass);
+  if (current?.type !== "CallExpression") return undefined;
+  while (current.type === "CallExpression") current = current.callee;
+  return errorBases.some(([object, properties]) =>
+    isMember(current, object, properties),
+  )
+    ? current
+    : undefined;
+};
+
+const errorNameRule = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Name an error `<Operation>Error` or for its condition, never `…Failure`.",
+    },
+  },
+  create: (context) => {
+    const check = (node) => {
+      if (!node.id?.name.endsWith("Failure") || !errorBase(node.superClass))
+        return;
+      context.report({
+        node: node.id,
+        message:
+          "Name an operation's error `<Operation>Error`, and an error callers handle separately for its condition. Do not use a `Failure` suffix.",
+      });
+    };
+    return { ClassDeclaration: check, ClassExpression: check };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// no-cause-message
+
+const propertyNamed = (properties, name) =>
+  properties.find(
+    (property) =>
+      property.type === "Property" &&
+      !property.computed &&
+      (property.key.name ?? property.key.value) === name,
+  );
+
+const interpolatesMessage = (value) =>
+  value?.type === "TemplateLiteral" &&
+  value.expressions.some((expression) => {
+    const member = unwrap(expression);
+    return (
+      member.type === "MemberExpression" &&
+      !member.computed &&
+      member.property.name === "message"
+    );
+  });
+
+const noCauseMessage = {
+  meta: {
+    type: "suggestion",
+    docs: {
+      description:
+        "Keep the cause's message out of an error message that carries the cause.",
+    },
+  },
+  create: (context) => ({
+    NewExpression: (node) => {
+      const fields = unwrap(node.arguments[0]);
+      if (fields?.type !== "ObjectExpression") return;
+      if (!propertyNamed(fields.properties, "cause")) return;
+      const message = propertyNamed(fields.properties, "message");
+      if (!interpolatesMessage(unwrap(message?.value))) return;
+      context.report({
+        node: message,
+        message:
+          "Name the failed action and its subject in `message`; `cause` already carries why, and the presenter prints it.",
+      });
+    },
+  }),
+};
+
 export default {
   meta: { name: "shape" },
   rules: {
     "max-inputs": maxInputs,
     "no-push-accumulator": noPushAccumulator,
     "no-error-factory": noErrorFactory,
+    "error-name": errorNameRule,
+    "no-cause-message": noCauseMessage,
   },
 };

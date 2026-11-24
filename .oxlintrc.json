@@ -88,6 +88,14 @@
       }
     },
     {
+      "files": ["packages/*/src/**", "apps/cli/src/**", "apps/docs/app/**"],
+      "rules": {
+        "shape/error-name": "error",
+        "shape/no-cause-message": "error",
+        "effecttsgo/prefer-schema-tagged-error": "error"
+      }
+    },
+    {
       "files": ["packages/authoring/src/**/*.ts"],
       "rules": {
         "no-restricted-imports": [

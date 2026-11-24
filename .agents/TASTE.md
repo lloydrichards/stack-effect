@@ -214,4 +214,7 @@ Export only what another module uses in production code. A test is not a caller.
 | `shape/max-inputs` 4 | [`tools/oxlint/shape.mjs`](../tools/oxlint/shape.mjs), same scope | A function with more than four inputs, counting destructured fields |
 | `shape/no-push-accumulator` | `shape.mjs`, same scope | An empty collection filled in a loop that never reads it, and `reduce` with a collection seed |
 | `shape/no-error-factory` | `shape.mjs`, same scope | A function whose body only constructs an `…Error` or `…Failure` |
+| `shape/error-name` | `shape.mjs`, `packages/*/src`, `apps/cli/src`, and `apps/docs/app` | An error class built on `Schema.TaggedError`, `Schema.ErrorClass`, or `Data.TaggedError` whose name ends in `Failure` |
+| `shape/no-cause-message` | `shape.mjs`, same scope as `error-name` | A `message` template that interpolates a `.message` inside `new X({ … })` that also passes `cause` |
+| `effecttsgo/prefer-schema-tagged-error` | `.oxlintrc.json`, same scope as `error-name` | `Data.TaggedError`. Define the error with `Schema.TaggedError` |
 | Fallow complexity audit | `bun run lint:complexity` | New complexity that gets a failing audit verdict. Existing findings and warnings, such as a moderate CRAP score, are only reported |
