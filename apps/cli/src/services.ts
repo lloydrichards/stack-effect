@@ -3,12 +3,12 @@ import {
   type CatalogSources,
   selectsOfficialCatalog,
 } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/StackConfig";
+import { StackConfig, StackConfigDefaults } from "@repo/domain/StackConfig";
 import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Finalizer } from "@repo/scaffold/Finalize";
 import { ContributionResolver, Planner } from "@repo/scaffold/Plan";
-import { RecipeResolver, StackConfigDefaults } from "@repo/scaffold/Recipe";
+import { RecipeResolver } from "@repo/scaffold/Recipe";
 import { Effect, Layer, type Option } from "effect";
 import { CatalogProvider } from "./service/CatalogProvider";
 import { CatalogSelection } from "./service/CatalogSelection";

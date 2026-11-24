@@ -123,7 +123,7 @@ JSON loading never runs remote code. Finalize scripts and the generated project'
 
 Every project still has a `workspace` target at `.`.
 
-- When `official` is selected, the current tool defaults and implicit workspace module IDs apply. These are `StackConfigDefaults`, the tool-to-module mapping in `@repo/scaffold/Recipe`, and `workspace-devenv-git`.
+- When `official` is selected, the current tool defaults and implicit workspace module IDs apply. These are `StackConfigDefaults`, the tool-to-module mapping in `@repo/domain/StackConfig`, and `workspace-devenv-git`.
 - When `official` is not selected, none of those apply. The selected sources must supply a `workspace` target, and without one, `create` fails with a named error.
 - A tool flag that names a module missing from the composed catalog fails.
 - A custom-only config omits the `lint`, `format`, `test`, and `monorepo` fields.

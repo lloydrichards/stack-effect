@@ -17,7 +17,6 @@ export default defineConfig({
       "@effect-vfs/memory",
       "@repo/scaffold/Apply",
       "@repo/scaffold/Catalog",
-      "@repo/scaffold/Recipe",
       "shiki/langs/dockerfile.mjs",
       "shiki/langs/dotenv.mjs",
       "shiki/langs/javascript.mjs",

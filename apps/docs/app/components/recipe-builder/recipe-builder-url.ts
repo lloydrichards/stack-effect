@@ -4,14 +4,14 @@ import {
   OFFICIAL_CATALOG_SOURCE,
 } from "@repo/domain/Catalog";
 import {
+  encodeRecipeTargetSpecs,
+  RecipeTargetString,
+} from "@repo/domain/Recipe";
+import {
+  defaultsForRuntime,
   makeRuntime,
   runtimeForPackageManager,
 } from "@repo/domain/StackConfig";
-import {
-  defaultsForRuntime,
-  encodeRecipeTargetSpecs,
-  RecipeTargetString,
-} from "@repo/scaffold/Recipe";
 import { Array as Arr, Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
