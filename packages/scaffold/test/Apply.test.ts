@@ -1850,6 +1850,66 @@ describe("RecipePreviewer", () => {
           ),
         ),
     );
+
+    it.effect(
+      "keeps a conflicted file when the apply intent skipped its checks",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const recipes = yield* RecipeResolver;
+          const blueprints = yield* BlueprintResolver;
+          const plans = yield* Planner;
+          const applies = yield* Applier;
+          const resolve = (targets: ReadonlyArray<ReturnType<typeof target>>) =>
+            recipes
+              .resolve(
+                { targets },
+                { config, providerStrategy: { _tag: "fail-on-ambiguous" } },
+              )
+              .pipe(
+                Effect.flatMap((selection) =>
+                  blueprints.resolve(selection, config),
+                ),
+                Effect.flatMap((blueprint) =>
+                  plans.build({ blueprint, config, repositoryRoot: "/repo" }),
+                ),
+              );
+          yield* fs.makeDirectory("/repo", { recursive: true });
+          // A valid intent passes as a plain object too.
+          const initial: Apply = {
+            plan: yield* resolve([target("server", "api", "server-http-api")]),
+            decisions: [],
+          };
+          yield* applies.apply({ apply: initial, repositoryRoot: "/repo" });
+          const edited = "# Our API\n\nCustom operations guide.\n";
+          yield* fs.writeFileString("/repo/README.md", edited);
+          const plan = yield* resolve([
+            target("server", "api", "server-http-api-todos"),
+            target("package", "db", "package-db-sqlite"),
+          ]);
+          assert.isTrue(
+            plan.conflicts.some((conflict) => conflict.path === "README.md"),
+          );
+
+          const unchecked: Apply = { plan, decisions: [] };
+          const exit = yield* Effect.exit(
+            applies.apply({ apply: unchecked, repositoryRoot: "/repo" }),
+          );
+
+          assert.isTrue(exit._tag === "Failure");
+          assert.strictEqual(
+            yield* fs.readFileString("/repo/README.md"),
+            edited,
+          );
+        }).pipe(
+          Effect.provide(
+            Layer.provideMerge(
+              RecipeResolver.layer,
+              pipelineLayer(OfficialCatalogLayer),
+            ),
+          ),
+        ),
+    );
   });
 
   describe("Alchemy deployment", () => {

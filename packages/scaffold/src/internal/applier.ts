@@ -1,5 +1,5 @@
 import {
-  type Apply,
+  Apply,
   ApplyFailure,
   ApplyResult,
   type StalePlanChange,
@@ -403,12 +403,18 @@ export const makeApplier = Effect.gen(function* () {
   });
 
   const apply = Effect.fn("Applier.apply")(function* ({
-    apply: applyIntent,
+    apply: input,
     repositoryRoot,
   }: {
     apply: Apply;
     repositoryRoot: string;
   }) {
+    // A structural `{ plan, decisions }` type-checks as Apply without the
+    // decision checks, and a missing decision would then override a conflict.
+    // Rebuilding runs them; a value that fails is a defect in the caller.
+    const applyIntent = yield* Effect.sync(
+      () => new Apply({ plan: input.plan, decisions: input.decisions }),
+    );
     const repository = repositoryState.at(repositoryRoot);
     const files = atomicWriter.at(repositoryRoot);
     const { baseline } = applyIntent.plan;
