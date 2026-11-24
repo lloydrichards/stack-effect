@@ -17,8 +17,6 @@ import {
 } from "@repo/scaffold/CatalogLoader";
 import { Console, Context, DateTime, Effect, Layer } from "effect";
 
-export { OFFICIAL_CATALOG_URL };
-
 const isoTime = (millis: number) =>
   DateTime.formatIso(DateTime.makeUnsafe(millis));
 

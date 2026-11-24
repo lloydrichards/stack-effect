@@ -40,26 +40,6 @@ describe("Viewport", () => {
     });
   });
 
-  describe("scrollToReveal (passive mode)", () => {
-    it("does not change state when cursor is visible", () => {
-      const state: Viewport.State = { row: 5, col: 0 };
-      const result = Viewport.scrollToReveal(state, 7, 5);
-      assert.deepStrictEqual(result, state);
-    });
-
-    it("scrolls up when cursor is above viewport", () => {
-      const state: Viewport.State = { row: 5, col: 0 };
-      const result = Viewport.scrollToReveal(state, 3, 5);
-      assert.deepStrictEqual(result, { row: 3, col: 0 });
-    });
-
-    it("scrolls down when cursor is below viewport", () => {
-      const state: Viewport.State = { row: 5, col: 0 };
-      const result = Viewport.scrollToReveal(state, 12, 5);
-      assert.deepStrictEqual(result, { row: 8, col: 0 });
-    });
-  });
-
   describe("render", () => {
     const items = Array.from({ length: 10 }, (_, i) => Box.text(`line-${i}`));
 

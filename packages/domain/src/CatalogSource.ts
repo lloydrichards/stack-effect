@@ -11,7 +11,7 @@ export const OFFICIAL_CATALOG_ID = "stack-effect-official";
 export const OFFICIAL_CATALOG_URL =
   "https://stack-effect.lloydrichards.dev/registry/v1/catalog.json";
 
-export const CatalogSourceName = Schema.String.check(
+const CatalogSourceName = Schema.String.check(
   Schema.isPattern(/^[a-z][a-z0-9-]{0,31}$/, {
     message:
       "Catalog source names must start with a lowercase letter and contain at most 32 lowercase letters, digits, or hyphens",
@@ -53,11 +53,11 @@ const catalogUrlIssue = (value: string): string | undefined => {
 };
 
 /** Absolute https URL, or http on a loopback host for local previews. */
-export const CatalogSourceUrl = Schema.String.check(
+const CatalogSourceUrl = Schema.String.check(
   Schema.makeFilter(catalogUrlIssue),
 ).pipe(Schema.brand("CatalogSourceUrl"));
 
-export const OfficialCatalogSource = Schema.Struct({
+const OfficialCatalogSource = Schema.Struct({
   name: Schema.Literal(OFFICIAL_CATALOG_SOURCE),
   url: Schema.optionalKey(Schema.Never),
 });
@@ -67,7 +67,7 @@ export const CustomCatalogSource = Schema.Struct({
   url: CatalogSourceUrl,
 });
 
-export const CatalogSource = Schema.Union([
+const CatalogSource = Schema.Union([
   OfficialCatalogSource,
   CustomCatalogSource,
 ]);
@@ -227,7 +227,7 @@ export class CatalogContentTooLarge extends Schema.TaggedError<CatalogContentToo
  * Match on `CatalogLoadFailure.reason._tag` to choose a message or a retry.
  * Only `CatalogUnavailable` and `CatalogTimedOut` are transient.
  */
-export const CatalogLoadReason = Schema.Union([
+const CatalogLoadReason = Schema.Union([
   CatalogSourceInvalid,
   CatalogUnavailable,
   CatalogTimedOut,

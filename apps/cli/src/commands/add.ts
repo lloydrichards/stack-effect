@@ -7,7 +7,10 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import type { RecipeTargetSpec } from "@repo/domain/Recipe";
+import {
+  RecipeResolveOptions,
+  type RecipeTargetSpec,
+} from "@repo/domain/Recipe";
 import { RecipeService } from "@repo/scaffold/RecipeService";
 import { parseRecipeTargetSpecs } from "@repo/scaffold/RecipeTargets";
 import {
@@ -46,7 +49,7 @@ import {
 import { ConfigureService } from "../service/ConfigureService";
 import { ScaffoldPipeline } from "../service/ScaffoldPipeline";
 
-export type CollectedTarget = {
+type CollectedTarget = {
   kind: TargetKind;
   name: string;
   modules: Array<ModuleId>;
@@ -533,7 +536,7 @@ const collectRequiredModuleClosure = (
     return yield* Ref.get(reachableRef);
   });
 
-export const resolveCapabilities = <E, R>(
+const resolveCapabilities = <E, R>(
   targets: Array<CollectedTarget>,
   confirmed: boolean,
   selectProvider: (options: {
@@ -892,10 +895,10 @@ export const add = Command.make(
             modules: target.modules,
           })),
         },
-        {
+        RecipeResolveOptions.make({
           config,
           providerStrategy: { _tag: "fail-on-ambiguous" },
-        },
+        }),
       );
       const createCommand = recipes.renderCreateCommand({ config, selection });
 

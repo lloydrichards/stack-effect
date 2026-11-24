@@ -1,5 +1,5 @@
 import {
-  type CatalogCapabilityIssue,
+  CatalogCapabilityIssue,
   CatalogCapabilityError,
   CatalogDocument,
   type CatalogFragment,
@@ -178,10 +178,12 @@ export const validateCatalogCapabilities = Effect.fn(
       capabilities: definitionCapabilities(module),
     })),
   ];
-  const details: ReadonlyArray<CatalogCapabilityIssue> = [
+  const details = [
     ...document.requiredCapabilities
       .filter((capability) => !supported.has(capability))
-      .map((capability) => ({ subject: documentSubject, capability })),
+      .map((capability) =>
+        CatalogCapabilityIssue.make({ subject: documentSubject, capability }),
+      ),
     ...capabilitiesUsedBy(document)
       .filter(
         (capability) => !supported.has(capability) || !declared.has(capability),
@@ -189,7 +191,9 @@ export const validateCatalogCapabilities = Effect.fn(
       .flatMap((capability) =>
         users
           .filter((user) => user.capabilities.has(capability))
-          .map(({ subject }) => ({ subject, capability })),
+          .map(({ subject }) =>
+            CatalogCapabilityIssue.make({ subject, capability }),
+          ),
       ),
   ];
   if (details.length > 0) return yield* new CatalogCapabilityError({ details });

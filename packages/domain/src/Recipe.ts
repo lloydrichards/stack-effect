@@ -40,7 +40,7 @@ export type RecipeSpec = typeof RecipeSpec.Type;
  * back to `fail-on-ambiguous` for requirements it does not name, and rejects a
  * named module that is not one of the candidates.
  */
-export const RecipeProviderStrategy = Schema.TaggedUnion({
+const RecipeProviderStrategy = Schema.TaggedUnion({
   "fail-on-ambiguous": {},
   "first-provider": {},
   explicit: {
@@ -120,13 +120,11 @@ export class MissingRecipeProvider extends Schema.TaggedError<MissingRecipeProvi
 /**
  * A module that can provide a required capability.
  */
-export const RecipeProviderCandidate = Schema.Struct({
+const RecipeProviderCandidate = Schema.Struct({
   moduleId: ModuleId,
   title: Schema.String,
   description: Schema.String,
 });
-
-export type RecipeProviderCandidate = typeof RecipeProviderCandidate.Type;
 
 /**
  * A selected module requires a capability on a target, several modules can

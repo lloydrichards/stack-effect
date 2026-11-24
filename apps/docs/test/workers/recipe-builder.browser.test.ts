@@ -6,10 +6,7 @@ import {
   CatalogSources,
   defaultCatalogSources,
 } from "@repo/domain/CatalogSource";
-import {
-  ApplyPreviewFile,
-  RecipePreviewInput,
-} from "@repo/domain/RecipePreview";
+import { RecipePreview, RecipePreviewInput } from "@repo/domain/RecipePreview";
 import { STACK_CONFIG_SCHEMA_URL, StackConfig } from "@repo/domain/Scaffold";
 import { Cause, Effect, Exit, Option, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
@@ -19,17 +16,23 @@ import {
   type CatalogAtomRequest,
   catalogAtom,
   previewAtom,
-  type PreviewAtomRequest,
 } from "../../app/atom/recipe-builder-atom";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
 import { RecipeBuilderRpcFailure } from "../../app/workers/recipe-builder/domain";
 import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
 import { registryParityCases } from "../fixtures/registry-parity";
 
+/** The request the preview atom receives. */
+type PreviewAtomRequest = {
+  readonly sessionId: number;
+  readonly targetIdentityKey: string;
+  readonly input: RecipePreviewInput;
+};
+
 const CliParityResult = Schema.Struct({
   // The parity fixture resolves this in-process; only the files come from the CLI.
   expectedBlueprint: Blueprint,
-  files: Schema.Array(ApplyPreviewFile),
+  files: RecipePreview.fields.files,
 });
 
 const catalogSource = () =>

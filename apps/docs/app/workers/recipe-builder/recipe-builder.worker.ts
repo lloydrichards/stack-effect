@@ -34,7 +34,9 @@ import {
 import { FetchHttpClient } from "effect/http";
 import { RpcServer } from "effect/rpc";
 import {
+  CatalogModule,
   makeRecipeBuilderRpcFailure,
+  RecipeBuilderCatalog,
   RecipeBuilderRpc,
   RecipeBuilderRpcFailure,
 } from "./domain";
@@ -234,7 +236,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
             onNone: () => ({}),
             onSome: (source) => ({ source }),
           });
-        return {
+        return RecipeBuilderCatalog.make({
           sources: loaded.sources.map(toRpcSource),
           targets: projection.targets.map((target) => ({
             ...target,
@@ -242,10 +244,12 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
           })),
           targetModules: projection.targetModules.map((entry) => ({
             ...entry,
-            modules: entry.modules.map((module) => ({
-              ...module,
-              ...sourceOf({ _tag: "module", id: module.id }),
-            })),
+            modules: entry.modules.map((module) =>
+              CatalogModule.make({
+                ...module,
+                ...sourceOf({ _tag: "module", id: module.id }),
+              }),
+            ),
           })),
           configuration: {
             monorepo: configurationChoices(catalogs, "monorepo"),
@@ -255,7 +259,7 @@ const RecipeBuilderRpcHandlersLive = RecipeBuilderRpc.toLayer(
             devenv: configurationChoices(catalogs, "devenv"),
             presets: configurationChoices(catalogs, "preset"),
           },
-        };
+        });
       }),
     });
   }),

@@ -2,15 +2,13 @@ import { NodeCrypto } from "@effect/platform-node";
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { exportLabsCatalog } from "@repo/catalog-labs/service";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
+import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { cliProgram } from "../src/cliProgram";
-import {
-  CatalogProvider,
-  OFFICIAL_CATALOG_URL,
-} from "../src/service/CatalogProvider";
+import { CatalogProvider } from "../src/service/CatalogProvider";
 import { ConfigureService } from "../src/service/ConfigureService";
 import { labsFixtureUrl } from "./fixtures/labs-source";
 

@@ -49,7 +49,7 @@ const languageByFilename: Readonly<Record<string, Language>> = {
   Dockerfile: "dockerfile",
 };
 
-export const languageForPath = (path: string): Language | "text" => {
+const languageForPath = (path: string): Language | "text" => {
   const filename = path.split("/").at(-1) ?? path;
   const extension = filename.split(".").at(-1)?.toLowerCase() ?? "";
   return (

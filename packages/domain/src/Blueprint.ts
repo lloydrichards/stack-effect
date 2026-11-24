@@ -23,7 +23,7 @@ export class BlueprintFailure extends Schema.TaggedError<BlueprintFailure>()(
  * @category Blueprint
  * @since 1.0.0
  */
-export const BlueprintTargetNode = Schema.TaggedStruct("target", {
+const BlueprintTargetNode = Schema.TaggedStruct("target", {
   id: TargetKey,
   identity: TargetIdentity,
 });
@@ -37,7 +37,7 @@ export type BlueprintTargetNode = typeof BlueprintTargetNode.Type;
  * @category Blueprint
  * @since 1.0.0
  */
-export const BlueprintAttachedModuleNodeId = Schema.TemplateLiteral([
+const BlueprintAttachedModuleNodeId = Schema.TemplateLiteral([
   TargetKey,
   "#",
   ModuleId,
@@ -53,14 +53,11 @@ export type BlueprintAttachedModuleNodeId =
  * @category Blueprint
  * @since 1.0.0
  */
-export const BlueprintAttachedModuleNode = Schema.TaggedStruct(
-  "attached-module",
-  {
-    id: BlueprintAttachedModuleNodeId,
-    targetId: TargetKey,
-    moduleId: ModuleId,
-  },
-);
+const BlueprintAttachedModuleNode = Schema.TaggedStruct("attached-module", {
+  id: BlueprintAttachedModuleNodeId,
+  targetId: TargetKey,
+  moduleId: ModuleId,
+});
 
 export type BlueprintAttachedModuleNode =
   typeof BlueprintAttachedModuleNode.Type;
@@ -73,7 +70,7 @@ export const BlueprintNode = Schema.Union([
 export type BlueprintNode = typeof BlueprintNode.Type;
 
 /** Identifies a Blueprint graph node: a target key or an attached-module ID. */
-export const BlueprintNodeId = Schema.Union([
+const BlueprintNodeId = Schema.Union([
   TargetKey,
   BlueprintAttachedModuleNodeId,
 ]).check(Schema.isNonEmpty());
@@ -88,7 +85,7 @@ export const blueprintNodeOrd = Order.mapInput(
   (node: BlueprintNode) => node,
 );
 
-export const BlueprintEdgeReason = Schema.Literals([
+const BlueprintEdgeReason = Schema.Literals([
   "owns-module",
   "required-target",
   "required-module",
@@ -103,13 +100,11 @@ export type BlueprintEdgeReason = typeof BlueprintEdgeReason.Type;
  * @category Blueprint
  * @since 1.0.0
  */
-export const BlueprintEdgeId = Schema.NonEmptyString.pipe(
+const BlueprintEdgeId = Schema.NonEmptyString.pipe(
   Schema.brand("BlueprintEdgeId"),
 );
 
-export type BlueprintEdgeId = typeof BlueprintEdgeId.Type;
-
-export const BlueprintEdge = Schema.Struct({
+const BlueprintEdge = Schema.Struct({
   id: BlueprintEdgeId,
   from: BlueprintNodeId,
   to: BlueprintNodeId,
@@ -237,20 +232,6 @@ export class Blueprint extends Schema.Class<Blueprint>("Blueprint")(
       nodes: [...this.nodes].sort(blueprintNodeOrd),
       edges: [...this.edges].sort(idOrd),
     });
-  }
-
-  hasTarget(targetId: string): boolean {
-    return this.nodes.some(
-      (node): node is BlueprintTargetNode =>
-        BlueprintNode.guards.target(node) && node.id === targetId,
-    );
-  }
-
-  getTarget(targetId: string): BlueprintTargetNode | undefined {
-    return this.nodes.find(
-      (node): node is BlueprintTargetNode =>
-        BlueprintNode.guards.target(node) && node.id === targetId,
-    );
   }
 }
 

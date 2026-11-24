@@ -29,7 +29,7 @@ export type RepositoryPath = typeof RepositoryPath.Type;
 /** The repository root itself, as a repository path. */
 export const repositoryRootPath = RepositoryPath.make(".");
 
-export const RepoSnapshotPath = Schema.TaggedUnion({
+const RepoSnapshotPath = Schema.TaggedUnion({
   missing: {
     path: RepositoryPath,
   },
@@ -44,14 +44,14 @@ export const RepoSnapshotPath = Schema.TaggedUnion({
 
 export type RepoSnapshotPath = typeof RepoSnapshotPath.Type;
 
-export const RepoSnapshot = Schema.Struct({
+const RepoSnapshot = Schema.Struct({
   paths: Schema.Array(RepoSnapshotPath),
 });
 
 export type RepoSnapshot = typeof RepoSnapshot.Type;
 
 /** The repository state against which a Plan was computed. */
-export const PlanBaselinePath = Schema.TaggedUnion({
+const PlanBaselinePath = Schema.TaggedUnion({
   missing: { path: RepositoryPath },
   directory: { path: RepositoryPath },
   file: { path: RepositoryPath, sha256: Schema.String },
@@ -59,14 +59,14 @@ export const PlanBaselinePath = Schema.TaggedUnion({
 
 export type PlanBaselinePath = typeof PlanBaselinePath.Type;
 
-export const PackageOwner = Schema.Struct({
+const PackageOwner = Schema.Struct({
   path: RepositoryPath,
   name: Schema.NonEmptyString,
 });
 
 export type PackageOwner = typeof PackageOwner.Type;
 
-export const PlanBaseline = Schema.Struct({
+const PlanBaseline = Schema.Struct({
   root: Schema.String,
   paths: Schema.Array(PlanBaselinePath),
   /** Discovered package ownership, retained for stale-Plan verification. */
@@ -83,7 +83,7 @@ export class PlanFailure extends Schema.TaggedError<PlanFailure>()(
   },
 ) {}
 
-export const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
+const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
   fileType: Schema.tag("json"),
   entries: Schema.Array(
     Schema.Struct({
@@ -93,7 +93,7 @@ export const JsonPkgExportsOp = Schema.TaggedStruct("json-pkg-exports", {
   ),
 });
 
-export const JsonPkgDepsOp = Schema.TaggedStruct("json-pkg-deps", {
+const JsonPkgDepsOp = Schema.TaggedStruct("json-pkg-deps", {
   fileType: Schema.tag("json"),
   section: Schema.Literals(["dependencies", "devDependencies"]),
   entries: Schema.Array(
@@ -104,7 +104,7 @@ export const JsonPkgDepsOp = Schema.TaggedStruct("json-pkg-deps", {
   ),
 });
 
-export const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
+const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
   fileType: Schema.tag("json"),
   entries: Schema.Array(
     Schema.Struct({
@@ -117,7 +117,7 @@ export const JsonPkgScriptsOp = Schema.TaggedStruct("json-pkg-scripts", {
 /**
  * TypeScript Operations - for AST manipulation via ts-morph
  */
-export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
+const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
   fileType: Schema.tag("typescript"),
   moduleSpecifier: Schema.String,
   namedImports: Schema.optional(Schema.Array(Schema.String)),
@@ -128,7 +128,7 @@ export const TsAddImportOp = Schema.TaggedStruct("ts-add-import", {
 
 export type TsAddImportOp = typeof TsAddImportOp.Type;
 
-export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
+const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
   fileType: Schema.tag("typescript"),
   targetVariable: Schema.String,
   functionName: Schema.String,
@@ -137,7 +137,7 @@ export const TsAppendCallArgOp = Schema.TaggedStruct("ts-append-call-arg", {
 
 export type TsAppendCallArgOp = typeof TsAppendCallArgOp.Type;
 
-export const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
+const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
   fileType: Schema.tag("typescript"),
   targetVariable: Schema.String,
   functionName: Schema.String,
@@ -147,7 +147,7 @@ export const TsObjectFieldOp = Schema.TaggedStruct("ts-object-field", {
 
 export type TsObjectFieldOp = typeof TsObjectFieldOp.Type;
 
-export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
+const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
   fileType: Schema.tag("typescript"),
   slotId: Schema.String,
   content: Schema.String,
@@ -155,23 +155,20 @@ export const TsJsxSlotOp = Schema.TaggedStruct("ts-jsx-slot", {
 
 export type TsJsxSlotOp = typeof TsJsxSlotOp.Type;
 
-export const JsonWorkspaceMembersOp = Schema.TaggedStruct(
-  "json-workspace-members",
-  {
-    fileType: Schema.tag("json"),
-    field: Schema.Literals(["workspaces", "workspace"]),
-    members: Schema.Array(Schema.String),
-  },
-);
+const JsonWorkspaceMembersOp = Schema.TaggedStruct("json-workspace-members", {
+  fileType: Schema.tag("json"),
+  field: Schema.Literals(["workspaces", "workspace"]),
+  members: Schema.Array(Schema.String),
+});
 
-export const JsonCompositionOperation = Schema.Union([
+const JsonCompositionOperation = Schema.Union([
   JsonWorkspaceMembersOp,
   JsonPkgExportsOp,
   JsonPkgDepsOp,
   JsonPkgScriptsOp,
 ]);
 
-export const TypeScriptCompositionOperation = Schema.Union([
+const TypeScriptCompositionOperation = Schema.Union([
   TsAddImportOp,
   TsAppendCallArgOp,
   TsObjectFieldOp,
@@ -190,7 +187,7 @@ export const CompositionOperation = Schema.Union([
 
 export type CompositionOperation = typeof CompositionOperation.Type;
 
-export const PlanEntryClassification = Schema.Literals([
+const PlanEntryClassification = Schema.Literals([
   "create",
   "modify",
   "unchanged",

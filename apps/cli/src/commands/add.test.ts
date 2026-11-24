@@ -1,49 +1,56 @@
-import { describe, expect, it } from "@effect/vitest";
-import { OfficialCatalogLayer } from "@repo/catalog-official/service";
-import { ModuleId, TargetKind } from "@repo/domain/Catalog";
+import { assert, describe, it } from "@effect/vitest";
+import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import { Effect } from "effect";
-import { type CollectedTarget, resolveCapabilities } from "./add";
+import {
+  catalogSourcesFixture,
+  urls,
+  withNodeServices,
+} from "./catalogSources.fixture";
 
-describe("add capability resolution", () => {
-  it.effect("offers providers required by a transitive module dependency", () =>
-    Effect.gen(function* () {
-      const targets: Array<CollectedTarget> = [
-        {
-          kind: TargetKind.make("server"),
-          name: "api",
-          modules: [ModuleId.make("server-http-api-todos")],
-          confirmed: true,
-        },
-      ];
-      const offeredProviders: Array<string> = [];
+describe("add", () => {
+  it.effect(
+    "should offer providers for a capability that a selected module requires through a dependency",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          const root = path.join(directory, "shop");
+          yield* fs.makeDirectory(root);
+          yield* fs.writeFileString(
+            path.join(root, "stack.effect.json"),
+            JSON.stringify({
+              name: "shop",
+              runtime: { _tag: "bun" },
+              catalogs: [{ name: "providers", url: urls.providers }],
+            }),
+          );
 
-      const changed = yield* resolveCapabilities(
-        targets,
-        false,
-        ({ definition, providers }) =>
-          Effect.sync(() => {
-            offeredProviders.push(
-              `${definition.id}:${providers.map((provider) => provider.id).join(",")}`,
-            );
-            return providers[0];
-          }).pipe(
-            Effect.filterOrElse(
-              (provider) => provider !== undefined,
-              () => Effect.die("Expected at least one database provider"),
+          const { stdout } = yield* run(["add", "--root", root, "--dry-run"], {
+            input: Effect.forEach(
+              [
+                MockTerminal.inputKey("enter"), // target kind: api
+                MockTerminal.inputText("svc"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("space"), // module: api-todos
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("enter"), // Confirm all
+                MockTerminal.inputKey("enter"), // provider: sql-sqlite
+                MockTerminal.inputKey("enter"), // Confirm all
+              ],
+              (input) => input,
+              { discard: true },
             ),
-          ),
-      );
+          });
+          const output = stdout.join("\n");
 
-      expect(changed).toBe(true);
-      expect(offeredProviders).toEqual([
-        "package-db-todo-repository:package-db-sqlite,package-db-postgres",
-      ]);
-      expect(targets).toContainEqual({
-        kind: "package",
-        name: "db",
-        modules: ["package-db-sqlite"],
-        confirmed: false,
-      });
-    }).pipe(Effect.provide(OfficialCatalogLayer)),
+          assert.include(
+            output,
+            'Module "todo-repository" requires db-sql. Which provider should be added to packages/db?',
+          );
+          assert.include(output, "sql-postgres");
+          assert.include(output, "packages/db#sql-sqlite");
+        }),
+      ),
+    30_000,
   );
 });

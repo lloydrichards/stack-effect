@@ -1,15 +1,5 @@
-export {
-  type BuilderCatalog,
-  type BuilderCatalogModule,
-  type BuilderCatalogTarget,
-  type BuilderCatalogTargetModules,
-  CatalogService,
-} from "./CatalogService";
-export {
-  type CatalogFragmentSource,
-  type ComposeCatalogOptions,
-  composeCatalog,
-} from "./composeCatalog";
+export { CatalogService } from "./CatalogService";
+export { composeCatalog } from "./composeCatalog";
 export {
   decodeCatalogDocument,
   hierarchicalNameCapabilities,

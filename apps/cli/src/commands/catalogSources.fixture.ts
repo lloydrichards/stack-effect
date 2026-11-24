@@ -2,13 +2,17 @@ import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import {
   CatalogDocument,
+  ModuleCapability,
   type ModuleDefinition,
   ModuleId,
   type TargetDefinition,
+  TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
+import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import { CatalogLoader } from "@repo/scaffold/CatalogLoader";
+import * as MockTerminal from "@repo/tui/test/MockTerminal";
 import {
   Console,
   Effect,
@@ -30,11 +34,9 @@ import {
 import * as ChildProcess from "effect/process/ChildProcess";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as Stdio from "effect/Stdio";
+import type * as Terminal from "effect/Terminal";
 import { stackEffectCommand } from "../command";
-import {
-  CatalogProvider,
-  OFFICIAL_CATALOG_URL,
-} from "../service/CatalogProvider";
+import { CatalogProvider } from "../service/CatalogProvider";
 import { ConfigureService } from "../service/ConfigureService";
 
 export const runCommand = Command.runWith(stackEffectCommand, {
@@ -48,6 +50,7 @@ export const urls = {
   ext: "https://ext.test/v1.json",
   down: "https://down.test/v1.json",
   sneaky: "https://sneaky.test/v1.json",
+  providers: "https://providers.test/v1.json",
 } as const;
 
 export const target = (kind: string, file: string): TargetDefinition => ({
@@ -91,6 +94,49 @@ const acme = encode({
 
 /** Custom catalog documents served by the routed fake registry. */
 export const documents: Readonly<Record<string, string>> = {
+  [urls.providers]: encode({
+    formatVersion: 1,
+    catalogId: Schema.NonEmptyString.make("providers"),
+    requiredCapabilities: ["contribution:file", "token:targetPath"],
+    targets: [
+      target("api", "api.txt"),
+      target("workspace", "PROVIDERS.md"),
+      target("package", "package.txt"),
+    ],
+    modules: [
+      // Requires the repository module, which in turn requires a SQL provider.
+      module("api-todos", "api", {
+        dependencies: [
+          {
+            _tag: "required-module",
+            target: new TargetIdentity({
+              kind: TargetKind.make("package"),
+              name: "db",
+            }),
+            moduleId: ModuleId.make("todo-repository"),
+          },
+        ],
+      }),
+      module("todo-repository", "package", {
+        dependencies: [
+          {
+            _tag: "required-capability",
+            target: new TargetIdentity({
+              kind: TargetKind.make("package"),
+              name: "db",
+            }),
+            capability: ModuleCapability.make("db-sql"),
+          },
+        ],
+      }),
+      module("sql-sqlite", "package", {
+        provides: [ModuleCapability.make("db-sql")],
+      }),
+      module("sql-postgres", "package", {
+        provides: [ModuleCapability.make("db-sql")],
+      }),
+    ],
+  }),
   [urls.acme]: acme,
   [urls.acmeWithQuery]: acme,
   [urls.beta]: encode({
@@ -250,6 +296,8 @@ export type RunCapture = {
 export type RunOptions = {
   /** JSON value piped to stdin, for `plan`. */
   readonly stdin?: unknown;
+  /** Keys queued on a mock terminal before the command starts its prompts. */
+  readonly input?: Effect.Effect<void, never, Terminal.Terminal>;
 };
 
 const decodeJsonRecord = Schema.decodeEffect(
@@ -287,6 +335,10 @@ export const catalogSourcesFixture = Effect.gen(function* () {
       Layer.merge(
         options.stdin === undefined ? Layer.empty : stdinLayer(options.stdin),
       ),
+      // NOTE: Merged last so prompts read the mock terminal, not the Node one.
+      Layer.merge(
+        options.input === undefined ? Layer.empty : MockTerminal.layer,
+      ),
     );
     const capture: RunCapture = {
       stdout: output.stdout,
@@ -301,10 +353,10 @@ export const catalogSourcesFixture = Effect.gen(function* () {
   const run = (args: ReadonlyArray<string>, options: RunOptions = {}) =>
     Effect.suspend(() => {
       const { layer, capture } = prepare(options);
-      return runCommand([...args]).pipe(
-        Effect.provide(layer),
-        Effect.as(capture),
-      );
+      return Effect.andThen(
+        options.input ?? Effect.void,
+        runCommand([...args]),
+      ).pipe(Effect.provide(layer), Effect.as(capture));
     });
 
   /** Runs the CLI expecting failure; fails if the command succeeds. */

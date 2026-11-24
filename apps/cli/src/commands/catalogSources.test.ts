@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
+import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
 import { Effect } from "effect";
-import { OFFICIAL_CATALOG_URL } from "../service/CatalogProvider";
 import {
   catalogSourcesFixture,
   errorMessage,

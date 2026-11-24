@@ -12,12 +12,13 @@ import stripAnsi from "strip-ansi";
 import { unified } from "unified";
 import { visit } from "unist-util-visit";
 import {
+  type DocPage,
   docMarkdownPath,
   docPages,
   docsOrigin,
 } from "../app/lib/docs-manifest.ts";
 
-export class DocsMarkdownError extends Data.TaggedError("DocsMarkdownError")<{
+class DocsMarkdownError extends Data.TaggedError("DocsMarkdownError")<{
   readonly source: string;
   readonly cause: unknown;
 }> {}
@@ -120,7 +121,7 @@ const serializeExpression: MarkdownHandle = (node) =>
     ? ""
     : unsupported(node, "Dynamic content needs a Markdown alternative");
 
-export const convertDocMarkdown = Effect.fn("Docs.convertMarkdown")(function* (
+const convertDocMarkdown = Effect.fn("Docs.convertMarkdown")(function* (
   source: string,
   route: string,
   filename = route,
@@ -157,14 +158,14 @@ export const convertDocMarkdown = Effect.fn("Docs.convertMarkdown")(function* (
   });
 });
 
-const llmsIndex = () => `# Stack Effect
+const llmsIndex = (pages: ReadonlyArray<DocPage>) => `# Stack Effect
 
 > A CLI for creating and extending full-stack TypeScript repositories built with Effect.
 
 Start with the coding-agent guide. Use the CLI's schema output to discover current capabilities and Plan input, then produce read-only Plans before changing a repository. Respect the user's existing authorization and request approval for actions outside it. Catalogs can change independently of the CLI version; inspect Plan source digests and freshness.
 
 ${pipe(
-  docPages,
+  pages,
   Arr.groupBy((page) => page.group),
   (groups) =>
     Object.entries(groups)
@@ -182,31 +183,38 @@ ${pipe(
 - [Project configuration schema](${docsOrigin}/schemas/v1/stack.effect.schema.json): Schema for stack.effect.json. The CLI schema command emits the separate Plan input schema.
 `;
 
-export const loadDocMarkdown = Effect.fn("Docs.loadMarkdown")(function* (
-  page: (typeof docPages)[number],
+const loadDocMarkdown = Effect.fn("Docs.loadMarkdown")(function* (
+  page: DocPage,
+  contentRoot: URL,
 ) {
   const source = yield* Effect.tryPromise({
-    try: () =>
-      readFile(
-        new URL(`../app/content/${page.source}`, import.meta.url),
-        "utf8",
-      ),
+    try: () => readFile(new URL(page.source, contentRoot), "utf8"),
     catch: (cause) => new DocsMarkdownError({ source: page.source, cause }),
   });
   return yield* convertDocMarkdown(source, page.route, page.source);
 });
 
+/**
+ * Markdown for each documentation page, plus `/llms.txt`, keyed by URL path.
+ * Defaults to the published pages; `contentRoot` must end with a slash.
+ */
 export const generateDocsMarkdown = Effect.fn("Docs.generateMarkdown")(
-  function* () {
-    const pages = yield* Effect.forEach(docPages, (page) =>
+  function* ({
+    pages = docPages,
+    contentRoot = new URL("../app/content/", import.meta.url),
+  }: {
+    readonly pages?: ReadonlyArray<DocPage>;
+    readonly contentRoot?: URL;
+  } = {}) {
+    const entries = yield* Effect.forEach(pages, (page) =>
       Effect.gen(function* () {
-        const markdown = yield* loadDocMarkdown(page);
+        const markdown = yield* loadDocMarkdown(page, contentRoot);
         return [docMarkdownPath(page.route), markdown] as const;
       }),
     );
     const assets: Record<string, string> & { readonly "/llms.txt": string } = {
-      ...Object.fromEntries(pages),
-      "/llms.txt": llmsIndex(),
+      ...Object.fromEntries(entries),
+      "/llms.txt": llmsIndex(pages),
     };
     return assets;
   },

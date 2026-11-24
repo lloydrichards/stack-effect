@@ -45,12 +45,6 @@ export const typefaceHeading6 = (className?: string) =>
 export const typefaceBody = (className?: string) =>
   cn("font-sans text-base leading-[1.7] tracking-normal", className);
 
-export const typefaceMeta = (className?: string) =>
-  cn(
-    "font-sans text-[0.8125rem] font-medium leading-[1.5] tracking-[0.01em]",
-    className,
-  );
-
 export const typefaceAnchor = (className?: string) =>
   cn(
     "font-medium underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary transition-colors duration-150",

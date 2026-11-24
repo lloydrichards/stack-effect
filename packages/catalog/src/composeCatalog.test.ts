@@ -9,7 +9,7 @@ import {
 } from "@repo/domain/Catalog";
 import { Effect, Result } from "effect";
 import { composeCatalog } from "./composeCatalog";
-import { testCatalog } from "./testCatalog";
+import { testCatalog } from "./testCatalog.fixture";
 
 const extraModule: ModuleDefinition = {
   id: ModuleId.make("workspace-extra-example"),

@@ -6,7 +6,6 @@ export * from "./components/HorizontalSelect";
 export * from "./components/MultiSelect";
 export * from "./components/NestedMultiSelect";
 export * from "./components/Select";
-export * from "./components/TextArea";
 export * from "./components/TextInput";
 export * from "./lib/KeyBinding";
 export * from "./lib/Layout";

@@ -1,28 +1,50 @@
 import { describe, expect, it } from "vitest";
-import { languageForPath } from "../../app/lib/syntax-highlighter";
+import { highlightSource } from "../../app/lib/syntax-highlighter";
 
-describe("languageForPath", () => {
+const isHighlighted = async (path: string) => {
+  const lines = await highlightSource(path, "value");
+  return lines.flat().some((token) => token.light !== undefined);
+};
+
+describe("highlightSource", () => {
   it.each([
-    ["src/index.css", "css"],
-    ["Dockerfile", "dockerfile"],
-    [".env", "dotenv"],
-    ["packages/db/.env.example", "dotenv"],
-    [".envrc", "shellscript"],
-    ["index.html", "html"],
-    ["public/theme-init.js", "javascript"],
-    ["package.json", "json"],
-    ["biome.jsonc", "jsonc"],
-    ["scripts/hash-env.mjs", "javascript"],
-    ["flake.nix", "nix"],
-    ["src/index.ts", "typescript"],
-    ["src/app.tsx", "tsx"],
-    ["pnpm-workspace.yaml", "yaml"],
-    ["docker-compose.yml", "yaml"],
-  ] as const)("maps %s to %s", (path, language) => {
-    expect(languageForPath(path)).toBe(language);
+    "src/index.css",
+    "Dockerfile",
+    ".env",
+    "packages/db/.env.example",
+    ".envrc",
+    "index.html",
+    "public/theme-init.js",
+    "package.json",
+    "biome.jsonc",
+    "scripts/hash-env.mjs",
+    "flake.nix",
+    "src/index.ts",
+    "src/app.tsx",
+    "pnpm-workspace.yaml",
+    "docker-compose.yml",
+  ])("highlights %s", async (path) => {
+    expect(await isHighlighted(path)).toBe(true);
   });
 
-  it("leaves unsupported files as plain text", () => {
-    expect(languageForPath(".gitignore")).toBe("text");
+  it("leaves unsupported files as plain text", async () => {
+    expect(await highlightSource(".gitignore", "node_modules\ndist")).toEqual([
+      [
+        {
+          content: "node_modules",
+          light: undefined,
+          dark: undefined,
+          fontStyle: undefined,
+        },
+      ],
+      [
+        {
+          content: "dist",
+          light: undefined,
+          dark: undefined,
+          fontStyle: undefined,
+        },
+      ],
+    ]);
   });
 });

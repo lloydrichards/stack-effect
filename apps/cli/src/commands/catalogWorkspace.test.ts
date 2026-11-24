@@ -1,62 +1,72 @@
-import { describe, expect, it } from "@effect/vitest";
-import { OfficialCatalogLayer } from "@repo/catalog-official/service";
-import { StackConfig } from "@repo/domain/Scaffold";
-import { BlueprintService } from "@repo/scaffold/BlueprintService";
-import { RecipeService } from "@repo/scaffold/RecipeService";
-import { RecipeTargetString } from "@repo/scaffold/RecipeTargets";
-import { Effect, Layer, Option, Schema } from "effect";
-import { buildWorkspaceSelection } from "./catalog";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect } from "effect";
+import {
+  catalogSourcesFixture,
+  errorMessage,
+  withNodeServices,
+} from "./catalogSources.fixture";
 
-const config = new StackConfig({
-  name: "catalog-built",
-  runtime: { _tag: "deno" },
-  typescript: "7",
-});
-const TestLayer = Layer.mergeAll(
-  RecipeService.layer,
-  BlueprintService.layer,
-).pipe(Layer.provideMerge(OfficialCatalogLayer));
-
-describe("catalog authoring workspace runtime", () => {
+describe("catalog workspace reset", () => {
   it.effect(
-    "generates the default Deno blueprint without unsupported modules",
+    "should leave modules Deno does not support out of the default workspace",
     () =>
-      Effect.gen(function* () {
-        const selection = yield* buildWorkspaceSelection(config, Option.none());
-        expect(
-          selection.targets.flatMap((target) =>
-            target.modules.map((module) => module.id),
-          ),
-        ).not.toContain("package-library");
-        const blueprint = yield* (yield* BlueprintService).resolve(
-          selection,
-          config,
-        );
-        expect(blueprint).toBeDefined();
-        expect(
-          selection.targets.some(
-            (target) => target.identity.kind === "cloudflare-worker",
-          ),
-        ).toBe(false);
-      }).pipe(Effect.provide(TestLayer)),
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          const root = path.join(directory, "catalog-deno");
+
+          const { executed } = yield* run([
+            "catalog",
+            "workspace",
+            "reset",
+            "--runtime",
+            "deno",
+            "--root",
+            root,
+          ]);
+
+          const manifest = yield* fs.readFileString(
+            path.join(root, ".catalog-build-manifest.json"),
+          );
+          assert.include(manifest, '"moduleId"');
+          assert.notInclude(manifest, "package-library");
+          assert.notInclude(manifest, "cloudflare-worker");
+          assert.include(
+            executed.map(({ command }) => command),
+            "git init --initial-branch=main",
+          );
+        }),
+      ),
+    60_000,
   );
 
-  it.effect("rejects an explicit unsupported Deno library", () =>
-    Effect.gen(function* () {
-      const selection = yield* buildWorkspaceSelection(
-        config,
-        Option.some([
-          yield* Schema.decodeEffect(RecipeTargetString)(
+  it.effect(
+    "should reject an explicit module that Deno does not support",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { runFailing, directory, path } = yield* catalogSourcesFixture;
+
+          const { error, executed } = yield* runFailing([
+            "catalog",
+            "workspace",
+            "reset",
+            "--runtime",
+            "deno",
+            "--target",
             "package/library:package-library",
-          ),
-        ]),
-      );
-      const error = yield* Effect.flip(
-        (yield* BlueprintService).resolve(selection, config),
-      );
-      expect(error.message).toContain(
-        "Runtime deno does not support module package-library",
-      );
-    }).pipe(Effect.provide(TestLayer)),
+            "--root",
+            path.join(directory, "catalog-deno"),
+          ]);
+
+          assert.propertyVal(error, "_tag", "BlueprintFailure");
+          assert.include(
+            errorMessage(error),
+            "Runtime deno does not support module package-library",
+          );
+          assert.deepStrictEqual(executed, []);
+        }),
+      ),
+    60_000,
   );
 });

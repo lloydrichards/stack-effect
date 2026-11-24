@@ -6,6 +6,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { selectsOfficialCatalog } from "@repo/domain/CatalogSource";
+import { RecipeResolveOptions } from "@repo/domain/Recipe";
 import { makeRuntime, STACK_CONFIG_SCHEMA_URL } from "@repo/domain/Scaffold";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { RecipeService } from "@repo/scaffold/RecipeService";
@@ -372,10 +373,10 @@ export const init = Command.make(
                   },
                 ],
         },
-        {
+        RecipeResolveOptions.make({
           config,
           providerStrategy: { _tag: "fail-on-ambiguous" },
-        },
+        }),
       );
 
       const blueprints = yield* BlueprintService;

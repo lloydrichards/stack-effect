@@ -1,25 +1,29 @@
-import {
-  Plan,
-  PlanEntryClassification,
-  RepositoryPath,
-} from "@repo/domain/Plan";
+import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 describe("@repo/domain Plan", () => {
   const baseline = { root: "/workspace", paths: [] } as const;
   it("should accept supported classifications and reject unsupported values", () => {
-    expect(Schema.decodeSync(PlanEntryClassification)("create")).toBe("create");
-    expect(Schema.decodeSync(PlanEntryClassification)("modify")).toBe("modify");
-    expect(Schema.decodeSync(PlanEntryClassification)("unchanged")).toBe(
+    const decodeOutcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value);
+    const outcome = (classification: string) => ({
+      _tag: "complete",
+      path: "package.json",
+      classification,
+      contents: "{}",
+    });
+
+    for (const classification of [
+      "create",
+      "modify",
       "unchanged",
-    );
-    expect(Schema.decodeSync(PlanEntryClassification)("conflict")).toBe(
       "conflict",
-    );
-    expect(() =>
-      Schema.decodeUnknownSync(PlanEntryClassification)("delete"),
-    ).toThrow();
+    ]) {
+      expect(decodeOutcome(outcome(classification)).classification).toBe(
+        classification,
+      );
+    }
+    expect(() => decodeOutcome(outcome("delete"))).toThrow();
   });
 
   it("should decode outcome and conflict fields independently", () => {

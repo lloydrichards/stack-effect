@@ -16,8 +16,8 @@ import {
   CatalogJsonInvalid,
   CatalogLoadFailure,
   type CatalogLoadReason,
-  type CatalogLoadWarning,
-  type LoadedCatalogSource,
+  CatalogLoadWarning,
+  LoadedCatalogSource,
   CatalogSourceInvalid,
   CatalogTimedOut,
   CatalogUnavailable,
@@ -78,12 +78,13 @@ const normalizedUrl = Effect.fnUntraced(function* (sourceUrl: string) {
 const persistenceWarningFor = (
   sourceUrl: string,
   validatedAt: number,
-): CatalogLoadWarning => ({
-  kind: "persistence",
-  sourceUrl,
-  lastValidatedAt: validatedAt,
-  message: `Catalog from ${sourceUrl} is current, but it could not be cached.`,
-});
+): CatalogLoadWarning =>
+  CatalogLoadWarning.make({
+    kind: "persistence",
+    sourceUrl,
+    lastValidatedAt: validatedAt,
+    message: `Catalog from ${sourceUrl} is current, but it could not be cached.`,
+  });
 
 const isTransient = (error: CatalogLoadFailure) =>
   error.reason._tag === "CatalogUnavailable" ||
@@ -378,12 +379,12 @@ export const make = Effect.gen(function* () {
           sourceUrl,
           digest: cached.digest,
           freshness: "cached" as const,
-          warning: {
-            kind: "stale" as const,
+          warning: CatalogLoadWarning.make({
+            kind: "stale",
             sourceUrl,
             lastValidatedAt: cached.entry.validatedAt,
             message: `Using cached catalog from ${sourceUrl}; last validated at ${cached.entry.validatedAt} ms since epoch.`,
-          },
+          }),
         }),
       ),
     );
@@ -441,11 +442,11 @@ export const make = Effect.gen(function* () {
           Effect.map(({ value, pending, ...rest }) => ({
             document: value,
             pending,
-            source: {
+            source: LoadedCatalogSource.make({
               name: source.name,
               requires: value.requires ?? [],
               ...rest,
-            },
+            }),
           })),
           Effect.mapError(
             (error) =>
@@ -503,13 +504,13 @@ export const make = Effect.gen(function* () {
       loadedSources.push(
         written
           ? source
-          : {
+          : LoadedCatalogSource.make({
               ...source,
               warning: persistenceWarningFor(
                 source.sourceUrl,
                 pending.validatedAt,
               ),
-            },
+            }),
       );
     }
     return { catalog, sources: loadedSources } satisfies LoadedCatalogSet;

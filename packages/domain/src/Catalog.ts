@@ -61,7 +61,7 @@ export const TargetKind = Schema.String.check(
 
 export type TargetKind = typeof TargetKind.Type;
 
-export const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
+const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
 
 export type TargetPath = typeof TargetPath.Type;
 
@@ -160,7 +160,7 @@ const toTargetPathString = (identity: TargetIdentity): string => {
   }
 };
 
-export const SupportedOn = Schema.TaggedUnion({
+const SupportedOn = Schema.TaggedUnion({
   kind: {
     kind: TargetKind,
   },
@@ -171,9 +171,9 @@ export const SupportedOn = Schema.TaggedUnion({
 
 export type SupportedOn = typeof SupportedOn.Type;
 
-export const ScriptPhase = Schema.Literals(["finalize", "post-finalize"]);
+const ScriptPhase = Schema.Literals(["finalize", "post-finalize"]);
 
-export const ScriptDefinition = Schema.Struct({
+const ScriptDefinition = Schema.Struct({
   label: Schema.String,
   command: Schema.String,
   workdir: Schema.String.pipe(
@@ -186,7 +186,7 @@ export const ScriptDefinition = Schema.Struct({
   ),
 });
 
-export const ModuleImplication = Schema.Struct({
+const ModuleImplication = Schema.Struct({
   targetKind: TargetKind,
   moduleId: ModuleId,
 });
@@ -338,7 +338,7 @@ export const ModuleDependency = Schema.TaggedUnion({
 
 export type ModuleDependency = typeof ModuleDependency.Type;
 
-export const Visibility = Schema.Literals(["public", "internal"]);
+const Visibility = Schema.Literals(["public", "internal"]);
 
 export type Visibility = typeof Visibility.Type;
 
@@ -361,7 +361,7 @@ export type ModuleCategory = typeof ModuleCategory.Type;
  *
  * Children must share at least one `supportedOn` rule with their parent.
  */
-export const ModuleChild = Schema.Struct({
+const ModuleChild = Schema.Struct({
   moduleId: ModuleId,
   requirement: Schema.Literals(["required", "optional"]),
 });
@@ -465,10 +465,7 @@ export const TargetDefinition = Schema.Struct({
 export type TargetDefinition = typeof TargetDefinition.Type;
 
 /** A target or module definition from a Catalog. */
-export const CatalogDefinition = Schema.Union([
-  TargetDefinition,
-  ModuleDefinition,
-]);
+const CatalogDefinition = Schema.Union([TargetDefinition, ModuleDefinition]);
 
 export type CatalogDefinition = typeof CatalogDefinition.Type;
 
@@ -568,7 +565,7 @@ export class CatalogCapabilityError extends Data.TaggedError(
   }
 }
 
-export const CatalogNode = Schema.TaggedUnion({
+const CatalogNode = Schema.TaggedUnion({
   target: {
     definition: TargetDefinition,
   },
@@ -579,7 +576,7 @@ export const CatalogNode = Schema.TaggedUnion({
 
 export type CatalogNode = typeof CatalogNode.Type;
 
-export const CatalogEdge = Schema.Literals([
+const CatalogEdge = Schema.Literals([
   "supportedOn",
   "requiredModule",
   "implies",
@@ -594,7 +591,7 @@ export type CatalogGraph = Graph.DirectedGraph<CatalogNode, CatalogEdge>;
  * A module entry within the catalog tree, showing what it requires and implies
  * so an LLM can understand the consequences of selecting it.
  */
-export const CatalogTreeModule = Schema.Struct({
+const CatalogTreeModule = Schema.Struct({
   id: ModuleId,
   title: Schema.String,
   description: Schema.String,
@@ -623,7 +620,7 @@ export const CatalogTreeModule = Schema.Struct({
  * This makes it trivial to see "for target X, I can pick modules [A, B, C]"
  * along with their dependency/implication edges.
  */
-export const CatalogTreeTarget = Schema.Struct({
+const CatalogTreeTarget = Schema.Struct({
   kind: TargetKind,
   title: Schema.String,
   description: Schema.String,
@@ -638,5 +635,3 @@ export const CatalogTreeTarget = Schema.Struct({
 export const CatalogTree = Schema.Struct({
   targets: Schema.Array(CatalogTreeTarget),
 });
-
-export type CatalogTree = typeof CatalogTree.Type;

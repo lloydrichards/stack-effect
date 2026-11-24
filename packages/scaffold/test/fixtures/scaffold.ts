@@ -1,7 +1,7 @@
 import { FileSystemTesting, MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { CatalogService } from "@repo/catalog";
-import { Apply, type ApplyDecision } from "@repo/domain/Apply";
+import { Apply } from "@repo/domain/Apply";
 import {
   CatalogDocument,
   type CatalogFragment,
@@ -382,6 +382,8 @@ export const plan = (
       repositoryRoot: options.repositoryRoot ?? repositoryRoot,
     });
   });
+
+type ApplyDecision = Apply["decisions"][number];
 
 /** Applies a Plan with the given decisions. */
 export const apply = (

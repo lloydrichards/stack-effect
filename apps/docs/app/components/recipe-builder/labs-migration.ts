@@ -1,5 +1,5 @@
 /** The published module IDs that changed sources in the Labs launch. */
-export const movedToLabs = [
+const movedToLabs = [
   "client-react-web-worker",
   "package-ai-toolkit-webfetch",
   "server-chat-runtime-managed",

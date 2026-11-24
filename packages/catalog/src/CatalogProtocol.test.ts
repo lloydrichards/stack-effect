@@ -20,7 +20,7 @@ import {
   exportTestCatalog,
   testCatalog,
   withModuleContribution,
-} from "./testCatalog";
+} from "./testCatalog.fixture";
 
 const extraFile = (contents: string) =>
   ({ _tag: "file", path: "extra.txt", contents }) as const;

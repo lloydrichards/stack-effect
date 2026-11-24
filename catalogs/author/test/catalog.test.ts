@@ -1,7 +1,12 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
+import { CatalogDocument } from "@repo/domain/Catalog";
 import { Effect, FileSystem, Path, Schema } from "effect";
-import { buildAuthorCatalog, exportAuthorCatalog } from "../src/service";
+import { exportAuthorCatalog } from "../src/service";
+
+const authorDocument = exportAuthorCatalog.pipe(
+  Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(CatalogDocument))),
+);
 
 const readRelative = (url: URL) =>
   Effect.gen(function* () {
@@ -11,8 +16,8 @@ const readRelative = (url: URL) =>
   }).pipe(Effect.provide(NodeServices.layer));
 
 const contentsOf = (path: string) =>
-  buildAuthorCatalog.pipe(
-    Effect.map(({ document }) =>
+  authorDocument.pipe(
+    Effect.map((document) =>
       [...document.targets, ...document.modules]
         .flatMap((definition) => definition.contributions)
         .flatMap((contribution) =>
@@ -36,7 +41,7 @@ describe("author catalog", () => {
     "should publish only its own definitions when it requires official",
     () =>
       Effect.gen(function* () {
-        const { document } = yield* buildAuthorCatalog;
+        const document = yield* authorDocument;
         assert.deepStrictEqual(document.requires, ["official"]);
         assert.deepStrictEqual(
           document.targets.map((target) => target.kind),

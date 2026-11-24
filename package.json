@@ -14,8 +14,8 @@
     "dev": "turbo run dev",
     "docs:check": "bun run docs:generate && git diff --exit-code -- apps/docs/app/content/reference/cli",
     "docs:generate": "bun run --cwd apps/cli docs:generate",
-    "lint": "oxlint .",
-    "lint:dead": "bunx fallow dead-code --production --include-entry-exports",
+    "lint": "oxlint . && bun run lint:dead",
+    "lint:dead": "fallow dead-code --production --include-entry-exports",
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "prepare": "effect-tsgo patch --typescript --oxlint",
@@ -28,16 +28,17 @@
     "@changesets/cli": "^3.0.3",
     "@effect/language-service": "^0.87.5",
     "@effect/platform-bun": "4.1.4",
+    "@effect/tsgo": "0.68.1",
     "@types/bun": "^1.4.4",
     "effect": "4.1.4",
-    "turbo": "^2.11.11",
-    "typescript": "7.0.2",
-    "vitest": "^5.1.0",
-    "@effect/tsgo": "0.68.1",
+    "fallow": "3.46.0",
     "okf-graph": "0.3.1",
     "oxfmt": "0.78.0",
     "oxlint": "1.93.0",
-    "oxlint-tsgolint": "7.0.2006"
+    "oxlint-tsgolint": "7.0.2006",
+    "turbo": "^2.11.11",
+    "typescript": "7.0.2",
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": ">=24"

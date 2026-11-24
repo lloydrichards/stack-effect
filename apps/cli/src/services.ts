@@ -18,7 +18,7 @@ import { CatalogSelection } from "./service/CatalogSelection";
 import { ConfigureService } from "./service/ConfigureService";
 import { ScaffoldPipeline } from "./service/ScaffoldPipeline";
 
-export const StackEffectServicesLayer = Layer.mergeAll(
+const StackEffectServicesLayer = Layer.mergeAll(
   ApplyService.layer,
   ApplyWorkspaces.layer,
   BlueprintService.layer,

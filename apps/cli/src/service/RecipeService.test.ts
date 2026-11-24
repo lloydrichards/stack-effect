@@ -6,11 +6,7 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import {
-  RecipeProviderStrategy,
-  RecipeResolveOptions,
-  RecipeSpec,
-} from "@repo/domain/Recipe";
+import { RecipeResolveOptions, RecipeSpec } from "@repo/domain/Recipe";
 import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
 import { RecipeService } from "@repo/scaffold/RecipeService";
@@ -80,20 +76,20 @@ describe("RecipeService", () => {
     });
 
     it("should decode provider strategy variants when recipe resolution options are parsed", () => {
-      assert.deepStrictEqual(
-        Schema.decodeSync(RecipeProviderStrategy)({
-          _tag: "fail-on-ambiguous",
-        }),
-        { _tag: "fail-on-ambiguous" },
-      );
-      assert.deepStrictEqual(
-        Schema.decodeSync(RecipeProviderStrategy)({
-          _tag: "first-provider",
-        }),
-        { _tag: "first-provider" },
-      );
+      const strategyOf = (providerStrategy: unknown) =>
+        Schema.decodeUnknownSync(RecipeResolveOptions)({
+          config: testConfig,
+          providerStrategy,
+        }).providerStrategy;
 
-      const explicit = Schema.decodeSync(RecipeProviderStrategy)({
+      assert.deepStrictEqual(strategyOf({ _tag: "fail-on-ambiguous" }), {
+        _tag: "fail-on-ambiguous",
+      });
+      assert.deepStrictEqual(strategyOf({ _tag: "first-provider" }), {
+        _tag: "first-provider",
+      });
+
+      const explicit = strategyOf({
         _tag: "explicit",
         providers: [
           {

@@ -48,7 +48,7 @@ export type CatalogAtomRequest = {
   }>;
 };
 
-export type PreviewAtomRequest = {
+type PreviewAtomRequest = {
   readonly sessionId: number;
   readonly targetIdentityKey: string;
   readonly input: RecipePreviewInput;

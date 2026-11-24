@@ -1,15 +1,20 @@
+import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
 // Browser interaction callbacks intentionally use the async APIs exposed by Playwright and Vitest Browser Mode.
 // @effect-diagnostics asyncFunction:off
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import { beforeEach, expect, test, vi } from "vitest";
 import { render } from "vitest-browser-react";
 import { page, userEvent } from "vitest/browser";
-import type {
-  CatalogAtomRequest,
-  PreviewAtomRequest,
-} from "../../../app/atom/recipe-builder-atom";
+import type { CatalogAtomRequest } from "../../../app/atom/recipe-builder-atom";
 import { RecipeBuilder } from "../../../app/components/recipe-builder/recipe-builder";
 import { RecipeBuilderRpcFailure } from "../../../app/workers/recipe-builder/domain";
+
+/** The request the preview atom receives. */
+type PreviewAtomRequest = {
+  readonly sessionId: number;
+  readonly targetIdentityKey: string;
+  readonly input: RecipePreviewInput;
+};
 
 const workerCalls = vi.hoisted(() => ({
   reconcileModules: false,

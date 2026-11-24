@@ -40,13 +40,11 @@ class ScaffoldAborted extends Data.TaggedError("ScaffoldAborted")<{
   retry?: boolean;
 }> {}
 
-export class DependencyConflictFailure extends Data.TaggedError(
+class DependencyConflictFailure extends Data.TaggedError(
   "DependencyConflictFailure",
 )<{ message: string }> {}
 
-export class FinalizeScriptFailure extends Data.TaggedError(
-  "FinalizeScriptFailure",
-)<{
+class FinalizeScriptFailure extends Data.TaggedError("FinalizeScriptFailure")<{
   message: string;
   failed: number;
 }> {}
@@ -87,7 +85,7 @@ const skipConflictDecisions = (plan: Plan) =>
     value: "skip" as const,
   }));
 
-export const resolveConflictDecisions = <E, R>({
+const resolveConflictDecisions = <E, R>({
   plan,
   yes,
   planBox,

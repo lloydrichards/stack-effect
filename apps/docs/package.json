@@ -30,7 +30,6 @@
     "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",
     "@shikijs/transformers": "^4.6.0",
-    "@standard-schema/spec": "^1.1.0",
     "@tanstack/react-form": "^1.33.5",
     "@tanstack/store": "^0.11.2",
     "class-variance-authority": "^0.7.1",

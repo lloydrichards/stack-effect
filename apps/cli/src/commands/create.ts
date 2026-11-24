@@ -3,7 +3,11 @@ import {
   type CatalogSources,
   selectsOfficialCatalog,
 } from "@repo/domain/CatalogSource";
-import type { RecipeSpec, RecipeTargetSpec } from "@repo/domain/Recipe";
+import {
+  RecipeResolveOptions,
+  type RecipeSpec,
+  type RecipeTargetSpec,
+} from "@repo/domain/Recipe";
 import {
   makeRuntime,
   runtimeForPackageManager,
@@ -234,10 +238,13 @@ export const create = Command.make(
         flags.target.value,
         !flags.noGit && selectsOfficialCatalog(catalogSelection.sources),
       );
-      const selection = yield* recipes.resolve(recipeSpec, {
-        config,
-        providerStrategy: { _tag: "fail-on-ambiguous" },
-      });
+      const selection = yield* recipes.resolve(
+        recipeSpec,
+        RecipeResolveOptions.make({
+          config,
+          providerStrategy: { _tag: "fail-on-ambiguous" },
+        }),
+      );
       const blueprints = yield* BlueprintService;
       yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
