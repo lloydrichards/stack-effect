@@ -328,4 +328,49 @@ describe("ScaffoldPipeline", () => {
         ),
       ),
   );
+
+  it.effect(
+    "should report each failed virtual write during a dry run without generated files",
+    () =>
+      Effect.gen(function* () {
+        const exit = yield* Effect.gen(function* () {
+          const pipeline = yield* ScaffoldPipeline;
+          return yield* Effect.exit(
+            pipeline.run({ ...runInput, dryRun: true }),
+          );
+        }).pipe(
+          Effect.provide(
+            layerWithServices({
+              materialize: () =>
+                Effect.succeed({
+                  apply: new ApplyResult({
+                    created: [],
+                    modified: [],
+                    skipped: [],
+                    failed: [
+                      {
+                        path: RepositoryPath.make("packages/app/package.json"),
+                        reason: "Permission denied",
+                      },
+                    ],
+                  }),
+                  files: [],
+                }),
+              executeScoped: runFinalizeScriptsInDryRun,
+            }),
+          ),
+        );
+        const output = (yield* TestConsole.logLines)
+          .map(String)
+          .join("\n")
+          // oxlint-disable-next-line no-control-regex -- strips ANSI styling
+          .replace(/\u001b\[[0-9;]*m/g, "");
+
+        // Matches the real Apply, which reports failed writes without failing the command.
+        assert.isTrue(Exit.isSuccess(exit));
+        assert.include(output, "1 fail");
+        assert.include(output, "x packages/app/package.json");
+        assert.include(output, "Permission denied");
+      }).pipe(Effect.provide(TestConsole.layer)),
+  );
 });
