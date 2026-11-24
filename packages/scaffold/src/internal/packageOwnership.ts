@@ -6,18 +6,18 @@ import {
   RepositoryPath,
   byPath,
 } from "@repo/domain/Plan";
-import { Effect, Schema } from "effect";
+import { Array as Arr, Effect, Equivalence, Option, Schema } from "effect";
 
-/** @internal */
-export const ownershipFailure = (
-  path: string,
-  detail: string,
-  cause?: unknown,
-) =>
-  new PlanFailure({
-    message: `Cannot inspect package ownership at ${path}: ${detail}`,
-    cause,
-  });
+/**
+ * Package names and path segments that differ only in case name the same
+ * package on case-insensitive filesystems and registries.
+ *
+ * @internal
+ */
+export const CaseInsensitive = Equivalence.mapInput(
+  Equivalence.String,
+  (value: string) => value.toLowerCase(),
+);
 
 const ManifestName = Schema.fromJsonString(
   Schema.Struct({ name: Schema.NonEmptyString }),
@@ -30,12 +30,12 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
       path: RepositoryPath.make(manifestPath.slice(0, -"/package.json".length)),
       name,
     })),
-    Effect.mapError((cause) =>
-      ownershipFailure(
-        manifestPath,
-        "invalid package JSON or missing name",
-        cause,
-      ),
+    Effect.mapError(
+      (cause) =>
+        new PlanFailure({
+          message: `Cannot inspect package ownership at ${manifestPath}: invalid package JSON or missing name`,
+          cause,
+        }),
     ),
   );
 
@@ -44,18 +44,19 @@ export const parsePackageOwner = (manifestPath: string, contents: string) =>
 export const assertDistinctOwners = Effect.fnUntraced(function* (
   owners: ReadonlyArray<PackageOwner>,
 ) {
-  for (const [index, owner] of owners.entries()) {
-    for (const other of owners.slice(index + 1)) {
-      if (
-        owner.name.toLowerCase() === other.name.toLowerCase() ||
-        targetPathsOverlap(owner.path, other.path)
-      ) {
-        return yield* ownershipFailure(
-          owner.path,
-          `ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
-        );
-      }
-    }
+  const collision = Arr.findFirst(
+    owners.flatMap((owner, index) =>
+      owners.slice(index + 1).map((other) => ({ owner, other })),
+    ),
+    ({ owner, other }) =>
+      CaseInsensitive(owner.name, other.name) ||
+      targetPathsOverlap(owner.path, other.path),
+  );
+  if (Option.isSome(collision)) {
+    const { owner, other } = collision.value;
+    return yield* new PlanFailure({
+      message: `Cannot inspect package ownership at ${owner.path}: ambiguous owners ${owner.name} at ${owner.path} and ${other.name} at ${other.path}`,
+    });
   }
 });
 
@@ -73,19 +74,33 @@ export const validatePackageOwners = Effect.fnUntraced(function* (
     }));
   yield* assertDistinctOwners(proposed);
 
-  for (const owner of proposed) {
-    for (const other of existing) {
-      const sameName = owner.name.toLowerCase() === other.name.toLowerCase();
-      if (owner.path === other.path && sameName) continue;
-      if (sameName || targetPathsOverlap(owner.path, other.path)) {
-        return yield* ownershipFailure(
-          owner.path,
-          `package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
-        );
-      }
-    }
+  const relocation = Arr.findFirst(
+    proposed.flatMap((owner) => existing.map((other) => ({ owner, other }))),
+    ({ owner, other }) => {
+      const sameName = CaseInsensitive(owner.name, other.name);
+      if (owner.path === other.path && sameName) return false;
+      return sameName || targetPathsOverlap(owner.path, other.path);
+    },
+  );
+  if (Option.isSome(relocation)) {
+    const { owner, other } = relocation.value;
+    return yield* new PlanFailure({
+      message: `Cannot inspect package ownership at ${owner.path}: package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
+    });
   }
 });
+
+const isOwnedBy = (root: string, owner: string) => {
+  const rootSegments = root.split("/");
+  const ownerSegments = owner.split("/");
+  return (
+    ownerSegments.length < rootSegments.length &&
+    Arr.makeEquivalence(CaseInsensitive)(
+      ownerSegments,
+      rootSegments.slice(0, ownerSegments.length),
+    )
+  );
+};
 
 /** @internal */
 export const isRootManifest = (
@@ -102,11 +117,9 @@ export const isRootManifest = (
       .slice(1, -1)
       .every(
         (segment) =>
-          !segment.startsWith(".") && segment.toLowerCase() !== "node_modules",
+          !segment.startsWith(".") && !CaseInsensitive(segment, "node_modules"),
       ) &&
-    !ownerPaths.some((owner) =>
-      root.toLowerCase().startsWith(`${owner.toLowerCase()}/`),
-    )
+    !ownerPaths.some((owner) => isOwnedBy(root, owner))
   );
 };
 
@@ -134,10 +147,9 @@ export const prepareOwnerWrites = Effect.fnUntraced(function* (
   for (const owner of ownerWrites) {
     const previous = existing.find((other) => other.path === owner.path);
     if (previous !== undefined && previous.name !== owner.name) {
-      return yield* ownershipFailure(
-        owner.path,
-        `cannot change owner ${previous.name} to ${owner.name}`,
-      );
+      return yield* new PlanFailure({
+        message: `Cannot inspect package ownership at ${owner.path}: cannot change owner ${previous.name} to ${owner.name}`,
+      });
     }
   }
   const finalOwners = [

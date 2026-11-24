@@ -73,8 +73,6 @@ const ApplyFailedPath = Schema.Struct({
   reason: Schema.String,
 });
 
-export type ApplyFailedPath = typeof ApplyFailedPath.Type;
-
 /**
  * The outcome of executing an Apply against the filesystem.
  *
@@ -101,7 +99,7 @@ export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
   }
 }
 
-const StalePlanChange = Schema.Struct({
+export const StalePlanChange = Schema.Struct({
   path: RepositoryPath,
   kind: Schema.Literals([
     "created",
@@ -131,11 +129,13 @@ export class StalePlanFailure extends Schema.TaggedError<StalePlanFailure>()(
  *
  * Present the result of an Apply that ran in a staged workspace.
  */
-const MaterializedFile = Schema.Struct({
+export const MaterializedFile = Schema.Struct({
   path: RepositoryPath,
   status: Schema.Literals(["created", "modified"]),
   contents: Schema.String,
 });
+
+export type MaterializedFile = typeof MaterializedFile.Type;
 
 /**
  * The result of an Apply in a staged workspace, with the files it wrote.

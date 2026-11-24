@@ -3,41 +3,105 @@ import type { RepositoryPath } from "@repo/domain/Plan";
 import {
   Clock,
   Context,
+  Data,
   Effect,
   FileSystem,
   Layer,
+  Match,
   Option,
   Path,
   Random,
+  Schema,
 } from "effect";
 
 /** @internal */
-export type ApplyWriteRequest = {
-  readonly path: RepositoryPath;
-  readonly contents: string;
-  readonly writeMode: "create" | "modify" | "override";
-};
+export const WriteMode = Schema.Literals(["create", "modify", "override"]);
 
 /** @internal */
-export type ApplyWriteOutcome = {
-  readonly path: RepositoryPath;
-  readonly status: "created" | "modified" | "unchanged";
+export type WriteMode = typeof WriteMode.Type;
+
+/** @internal */
+export type WriteRequest = Data.TaggedEnum<{
+  create: { path: RepositoryPath; contents: string };
+  replace: {
+    path: RepositoryPath;
+    contents: string;
+    reason: Exclude<WriteMode, "create">;
+  };
+}>;
+
+/** @internal */
+export const WriteRequest = Data.taggedEnum<WriteRequest>();
+
+/** @internal */
+export type WriteAttempt = Data.TaggedEnum<{
+  created: { path: RepositoryPath };
+  modified: { path: RepositoryPath };
+  unchanged: { path: RepositoryPath };
+  failed: { path: RepositoryPath; reason: string };
+}>;
+
+/** @internal */
+export const WriteAttempt = Data.taggedEnum<WriteAttempt>();
+
+type InspectedPath = Data.TaggedEnum<{
+  missing: {};
+  directory: {};
+  file: { contents: string };
+}>;
+
+const InspectedPath = Data.taggedEnum<InspectedPath>();
+
+/**
+ * Reads and atomically writes files under one repository root.
+ *
+ * @internal
+ */
+export type RepositoryFiles = {
+  readonly read: (
+    path: RepositoryPath,
+  ) => Effect.Effect<Option.Option<string>, ApplyFailure>;
+  // `onParentDirectoryReady` runs once the parent directory exists, before the file is written.
+  readonly write: (
+    request: WriteRequest,
+    onParentDirectoryReady: Effect.Effect<void>,
+  ) => Effect.Effect<WriteAttempt, ApplyFailure>;
 };
 
-type InspectedPath =
-  | { readonly _tag: "missing" }
-  | { readonly _tag: "directory" }
-  | { readonly _tag: "file"; readonly contents: string };
+const expectedAttempt = (
+  request: WriteRequest,
+  existing: InspectedPath,
+): Effect.Effect<WriteAttempt, ApplyFailure> =>
+  Match.valueTags(request, {
+    create: ({ path }) =>
+      existing._tag === "missing"
+        ? Effect.succeed(WriteAttempt.created({ path }))
+        : Effect.fail(
+            new ApplyFailure({
+              message: `Expected ${path} to be missing for create apply mode.`,
+            }),
+          ),
+    replace: ({ path, contents, reason }) => {
+      if (existing._tag !== "file") {
+        return Effect.fail(
+          new ApplyFailure({
+            message: `Expected ${path} to be an existing file for ${reason} apply mode.`,
+          }),
+        );
+      }
+      return Effect.succeed(
+        existing.contents === contents
+          ? WriteAttempt.unchanged({ path })
+          : WriteAttempt.modified({ path }),
+      );
+    },
+  });
 
 /** @internal */
 export class AtomicWriter extends Context.Service<
   AtomicWriter,
   {
-    readonly write: (input: {
-      readonly repositoryRoot: string;
-      readonly write: ApplyWriteRequest;
-      readonly onParentDirectoryReady?: Effect.Effect<void>;
-    }) => Effect.Effect<ApplyWriteOutcome, ApplyFailure>;
+    readonly at: (repositoryRoot: string) => RepositoryFiles;
   }
 >()("@repo/scaffold/AtomicWriter") {
   static readonly layer = Layer.effect(
@@ -46,16 +110,13 @@ export class AtomicWriter extends Context.Service<
       const fileSystem = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
 
-      const atomicWrite = Effect.fnUntraced(function* ({
-        path,
-        contents,
-      }: {
-        path: string;
-        contents: string;
-      }) {
+      const atomicWrite = Effect.fnUntraced(function* (
+        absolutePath: string,
+        contents: string,
+      ) {
         const currentTime = yield* Clock.currentTimeMillis;
         const random = yield* Random.next;
-        const tempPath = `${path}.apply-temp-${currentTime}-${random
+        const tempPath = `${absolutePath}.apply-temp-${currentTime}-${random
           .toString(16)
           .slice(2)}`;
 
@@ -72,11 +133,11 @@ export class AtomicWriter extends Context.Service<
               ),
             );
 
-          yield* fileSystem.rename(tempPath, path).pipe(
+          yield* fileSystem.rename(tempPath, absolutePath).pipe(
             Effect.mapError(
               (error) =>
                 new ApplyFailure({
-                  message: `Could not rename ${tempPath} to ${path} during apply: ${error.message}`,
+                  message: `Could not rename ${tempPath} to ${absolutePath} during apply: ${error.message}`,
                   cause: error,
                 }),
             ),
@@ -88,8 +149,8 @@ export class AtomicWriter extends Context.Service<
         );
       });
 
-      const inspect = Effect.fnUntraced(function* (path: string) {
-        const pathStat = yield* fileSystem.stat(path).pipe(
+      const inspect = Effect.fnUntraced(function* (absolutePath: string) {
+        const pathStat = yield* fileSystem.stat(absolutePath).pipe(
           Effect.asSome,
           Effect.catchReason(
             "PlatformError",
@@ -99,76 +160,63 @@ export class AtomicWriter extends Context.Service<
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                message: `Could not inspect ${path} during apply: ${error.message}`,
+                message: `Could not inspect ${absolutePath} during apply: ${error.message}`,
                 cause: error,
               }),
           ),
         );
 
         if (Option.isNone(pathStat)) {
-          return { _tag: "missing" } satisfies InspectedPath;
+          return InspectedPath.missing();
         }
 
         if (pathStat.value.type === "Directory") {
-          return { _tag: "directory" } satisfies InspectedPath;
+          return InspectedPath.directory();
         }
 
-        const contents = yield* fileSystem.readFileString(path).pipe(
+        const contents = yield* fileSystem.readFileString(absolutePath).pipe(
           Effect.mapError(
             (error) =>
               new ApplyFailure({
-                message: `Could not read ${path} during apply: ${error.message}`,
+                message: `Could not read ${absolutePath} during apply: ${error.message}`,
                 cause: error,
               }),
           ),
         );
 
-        return { _tag: "file", contents } satisfies InspectedPath;
+        return InspectedPath.file({ contents });
       });
 
-      const validateWriteMode = Effect.fnUntraced(function* (
-        write: ApplyWriteRequest,
-        existingPath: InspectedPath,
+      const read = Effect.fnUntraced(function* (
+        repositoryRoot: string,
+        filePath: RepositoryPath,
       ) {
-        if (write.writeMode === "create") {
-          if (existingPath._tag !== "missing") {
-            return yield* new ApplyFailure({
-              message: `Expected ${write.path} to be missing for create apply mode.`,
-            });
-          }
-          return;
-        }
+        const absolutePath = path.join(repositoryRoot, filePath);
+        const existing = yield* inspect(absolutePath);
 
-        if (existingPath._tag !== "file") {
-          return yield* new ApplyFailure({
-            message: `Expected ${write.path} to be an existing file for ${write.writeMode} apply mode.`,
-          });
-        }
+        return yield* Match.valueTags(existing, {
+          missing: () => Effect.succeedNone,
+          directory: () =>
+            Effect.fail(
+              new ApplyFailure({
+                message: `Expected ${absolutePath} to be a file during apply.`,
+              }),
+            ),
+          file: ({ contents }) => Effect.succeedSome(contents),
+        });
       });
 
-      const write = Effect.fn("AtomicWriter.write")(function* ({
-        repositoryRoot,
-        write,
-        onParentDirectoryReady,
-      }: {
-        repositoryRoot: string;
-        write: ApplyWriteRequest;
-        onParentDirectoryReady?: Effect.Effect<void>;
-      }) {
-        const absolutePath = path.join(repositoryRoot, write.path);
+      const write = Effect.fn("AtomicWriter.write")(function* (
+        repositoryRoot: string,
+        request: WriteRequest,
+        onParentDirectoryReady: Effect.Effect<void>,
+      ) {
+        const absolutePath = path.join(repositoryRoot, request.path);
 
-        const existingPath: InspectedPath = yield* inspect(absolutePath);
-
-        yield* validateWriteMode(write, existingPath);
-
-        if (
-          existingPath._tag === "file" &&
-          existingPath.contents === write.contents
-        ) {
-          return {
-            path: write.path,
-            status: "unchanged",
-          } satisfies ApplyWriteOutcome;
+        const existing = yield* inspect(absolutePath);
+        const attempt = yield* expectedAttempt(request, existing);
+        if (attempt._tag === "unchanged") {
+          return attempt;
         }
 
         yield* fileSystem
@@ -184,22 +232,20 @@ export class AtomicWriter extends Context.Service<
                 }),
             ),
           );
-        if (onParentDirectoryReady !== undefined) {
-          yield* onParentDirectoryReady;
-        }
+        yield* onParentDirectoryReady;
 
-        yield* atomicWrite({
-          path: absolutePath,
-          contents: write.contents,
-        });
+        yield* atomicWrite(absolutePath, request.contents);
 
-        return {
-          path: write.path,
-          status: existingPath._tag === "missing" ? "created" : "modified",
-        } satisfies ApplyWriteOutcome;
+        return attempt;
       });
 
-      return AtomicWriter.of({ write });
+      return AtomicWriter.of({
+        at: (repositoryRoot) => ({
+          read: (filePath) => read(repositoryRoot, filePath),
+          write: (request, onParentDirectoryReady) =>
+            write(repositoryRoot, request, onParentDirectoryReady),
+        }),
+      });
     }),
   );
 }

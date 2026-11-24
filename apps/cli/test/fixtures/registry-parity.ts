@@ -14,6 +14,7 @@ import { join, relative } from "node:path";
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import { CatalogReader } from "@repo/catalog/Catalog";
+import { byPath } from "@repo/domain/Plan";
 import { RecipePreviewInput } from "@repo/domain/Recipe";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { CatalogCache, CatalogLoader } from "@repo/scaffold/Catalog";
@@ -137,7 +138,7 @@ try {
       status: "created" as const,
       contents: readFileSync(path, "utf8"),
     }))
-    .sort((left, right) => left.path.localeCompare(right.path));
+    .sort(byPath);
   process.stdout.write(JSON.stringify({ expectedBlueprint, files }));
 } finally {
   rmSync(temporaryRoot, { recursive: true, force: true });

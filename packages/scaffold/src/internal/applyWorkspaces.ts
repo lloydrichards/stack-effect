@@ -5,16 +5,19 @@ import {
   ApplyFailure,
   ApplyResult,
   MaterializedApply,
+  MaterializedFile,
   StalePlanFailure,
-  type StalePlanChange,
+  StalePlanChange,
 } from "@repo/domain/Apply";
 import {
   Plan,
   type PlanBaseline,
+  type PlanBaselinePath,
+  type RepositoryPath,
   repositoryRootPath,
   byPath,
 } from "@repo/domain/Plan";
-import { Effect, FileSystem, Layer, Path } from "effect";
+import { Effect, FileSystem, Layer, Match, Path } from "effect";
 import * as Digest from "effect/crypto/Digest";
 import * as SecureRandom from "effect/crypto/SecureRandom";
 import type { Applier, ApplyWorkspace, ApplyWorkspaces } from "../Apply";
@@ -22,6 +25,33 @@ import { Planner } from "../Plan";
 import * as RepositoryState from "./repositoryState";
 
 const workspaceRoot = "/workspace";
+
+// A host repository copied into one workspace filesystem.
+type WorkspaceSeed = {
+  repository: RepositoryState.Repository;
+  repositoryRoot: string;
+  fileSystem: FileSystem.FileSystem;
+};
+
+const emptyResult = new ApplyResult({
+  created: [],
+  modified: [],
+  skipped: [],
+  failed: [],
+});
+
+const stalePlanMessage = (changes: ReadonlyArray<StalePlanChange>) =>
+  `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`;
+
+const rootChanges = [
+  StalePlanChange.make({ path: repositoryRootPath, kind: "rootChanged" }),
+];
+
+const rootChanged = new StalePlanFailure({
+  changes: rootChanges,
+  partialResult: emptyResult,
+  message: stalePlanMessage(rootChanges),
+});
 
 /** @internal */
 export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
@@ -34,24 +64,18 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
     const secureRandom = yield* SecureRandom.SecureRandom;
     const catalog = yield* CatalogReader;
 
-    const stale = (changes: ReadonlyArray<StalePlanChange>) =>
-      new StalePlanFailure({
-        changes,
-        partialResult: new ApplyResult({
-          created: [],
-          modified: [],
-          skipped: [],
-          failed: [],
-        }),
-        message: `Repository changed since planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
-      });
-
-    const verify = Effect.fnUntraced(function* (input: {
-      readonly repositoryRoot: string;
-      readonly baseline: PlanBaseline;
-    }) {
-      const changes = yield* repositoryState.verify(input);
-      if (changes.length > 0) return yield* stale(changes);
+    const verify = Effect.fnUntraced(function* (
+      repository: RepositoryState.Repository,
+      baseline: PlanBaseline,
+    ) {
+      const changes = yield* repository.verify(baseline);
+      if (changes.length > 0) {
+        return yield* new StalePlanFailure({
+          changes,
+          partialResult: emptyResult,
+          message: stalePlanMessage(changes),
+        });
+      }
     });
 
     const makeFileSystem = Effect.fnUntraced(function* () {
@@ -84,6 +108,22 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
         Layer.succeed(Path.Path, virtualPath),
         Layer.succeed(Digest.Digest, digest),
       );
+      const readBack = (
+        path: RepositoryPath,
+        status: MaterializedFile["status"],
+      ) =>
+        fileSystem.readFileString(virtualPath.join(workspaceRoot, path)).pipe(
+          Effect.map((contents) =>
+            MaterializedFile.make({ path, status, contents }),
+          ),
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                message: `Could not read ${path} after Apply: ${error.message}`,
+                cause: error,
+              }),
+          ),
+        );
       // The host and private roots can have the same path; retain the origin of Plans built here.
       const workspacePlans = new WeakSet<Plan>();
       const plan = Effect.fn("ApplyWorkspace.plan")(function* ({
@@ -122,32 +162,14 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
           ),
         );
 
-        const successfulPaths = [
-          ...result.created.map((path) => ({
-            path,
-            status: "created" as const,
-          })),
-          ...result.modified.map((path) => ({
-            path,
-            status: "modified" as const,
-          })),
+        const files = [
+          ...(yield* Effect.forEach(result.created, (path) =>
+            readBack(path, "created"),
+          )),
+          ...(yield* Effect.forEach(result.modified, (path) =>
+            readBack(path, "modified"),
+          )),
         ].sort(byPath);
-        const files = yield* Effect.forEach(
-          successfulPaths,
-          ({ path, status }) =>
-            fileSystem
-              .readFileString(virtualPath.join(workspaceRoot, path))
-              .pipe(
-                Effect.map((contents) => ({ path, status, contents })),
-                Effect.mapError(
-                  (error) =>
-                    new ApplyFailure({
-                      message: `Could not read ${path} after Apply: ${error.message}`,
-                      cause: error,
-                    }),
-                ),
-              ),
-        );
         return MaterializedApply.make({ apply: result, files });
       });
 
@@ -172,28 +194,18 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
         fileSystem,
         Effect.fnUntraced(function* (apply) {
           if (apply.plan.baseline.root !== workspaceRoot) {
-            return yield* stale([
-              { path: repositoryRootPath, kind: "rootChanged" },
-            ]);
+            return yield* rootChanged;
           }
           return apply;
         }),
       );
     }).pipe(Effect.withSpan("ApplyWorkspaces.empty"));
 
-    const seedFailure =
-      (path: string) => (error: { readonly message: string }) =>
-        new ApplyFailure({
-          message: `Could not seed ${path}: ${error.message}`,
-          cause: error,
-        });
-
     const seedFile = Effect.fnUntraced(function* (
-      fileSystem: FileSystem.FileSystem,
-      repositoryRoot: string,
+      seed: WorkspaceSeed,
       path: string,
     ) {
-      const sourcePath = hostPath.join(repositoryRoot, path);
+      const sourcePath = hostPath.join(seed.repositoryRoot, path);
       const targetPath = virtualPath.join(workspaceRoot, path);
       const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
         Effect.mapError(
@@ -204,56 +216,70 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
             }),
         ),
       );
-      yield* fileSystem
+      yield* seed.fileSystem
         .makeDirectory(virtualPath.dirname(targetPath), {
           recursive: true,
         })
         .pipe(
-          Effect.andThen(fileSystem.writeFile(targetPath, contents)),
-          Effect.mapError(seedFailure(path)),
+          Effect.andThen(seed.fileSystem.writeFile(targetPath, contents)),
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({
+                message: `Could not seed ${path}: ${error.message}`,
+                cause: error,
+              }),
+          ),
         );
     });
 
-    const seedFileSystem = Effect.fnUntraced(function* (
-      fileSystem: FileSystem.FileSystem,
-      repositoryRoot: string,
-      baseline: PlanBaseline,
-    ) {
-      for (const entry of baseline.paths) {
-        if (entry._tag === "missing") continue;
-
-        if (entry._tag === "directory") {
-          yield* fileSystem
-            .makeDirectory(virtualPath.join(workspaceRoot, entry.path), {
+    const seedEntry = (seed: WorkspaceSeed, entry: PlanBaselinePath) =>
+      Match.valueTags(entry, {
+        missing: () => Effect.void,
+        directory: ({ path }) =>
+          seed.fileSystem
+            .makeDirectory(virtualPath.join(workspaceRoot, path), {
               recursive: true,
             })
-            .pipe(Effect.mapError(seedFailure(entry.path)));
-          continue;
-        }
+            .pipe(
+              Effect.mapError(
+                (error) =>
+                  new ApplyFailure({
+                    message: `Could not seed ${path}: ${error.message}`,
+                    cause: error,
+                  }),
+              ),
+            ),
+        file: ({ path }) => seedFile(seed, path),
+      });
 
-        yield* seedFile(fileSystem, repositoryRoot, entry.path);
-      }
+    const seedFileSystem = Effect.fnUntraced(function* (
+      seed: WorkspaceSeed,
+      baseline: PlanBaseline,
+    ) {
+      yield* Effect.forEach(baseline.paths, (entry) => seedEntry(seed, entry), {
+        discard: true,
+      });
 
       // Apply checks package ownership across the whole repository, so seed every
       // owner manifest the baseline paths left out.
       const owners =
         baseline.packageOwners ??
-        (yield* repositoryState
-          .discoverOwners(repositoryRoot)
-          .pipe(
-            Effect.mapError(
-              (error) =>
-                new ApplyFailure({ message: error.message, cause: error }),
-            ),
-          ));
+        (yield* seed.repository.discoverOwners.pipe(
+          Effect.mapError(
+            (error) =>
+              new ApplyFailure({ message: error.message, cause: error }),
+          ),
+        ));
       const seededPaths = new Set<string>(
         baseline.paths.map((entry) => entry.path),
       );
-      for (const owner of owners) {
-        const manifestPath = `${owner.path}/package.json`;
-        if (seededPaths.has(manifestPath)) continue;
-        yield* seedFile(fileSystem, repositoryRoot, manifestPath);
-      }
+      yield* Effect.forEach(
+        owners
+          .map((owner) => `${owner.path}/package.json`)
+          .filter((manifestPath) => !seededPaths.has(manifestPath)),
+        (manifestPath) => seedFile(seed, manifestPath),
+        { discard: true },
+      );
     });
 
     const fromRepository = Effect.fn("ApplyWorkspaces.fromRepository")(
@@ -261,11 +287,15 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
         readonly repositoryRoot: string;
         readonly baseline: PlanBaseline;
       }) {
-        yield* verify(input);
+        const repository = repositoryState.at(input.repositoryRoot);
+        yield* verify(repository, input.baseline);
         const fileSystem = yield* makeFileSystem();
 
-        yield* seedFileSystem(fileSystem, input.repositoryRoot, input.baseline);
-        yield* verify(input);
+        yield* seedFileSystem(
+          { repository, repositoryRoot: input.repositoryRoot, fileSystem },
+          input.baseline,
+        );
+        yield* verify(repository, input.baseline);
 
         return makeWorkspace(
           fileSystem,
@@ -274,14 +304,9 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
               return apply;
             }
             if (apply.plan.baseline.root !== input.baseline.root) {
-              return yield* stale([
-                { path: repositoryRootPath, kind: "rootChanged" },
-              ]);
+              return yield* rootChanged;
             }
-            yield* verify({
-              baseline: apply.plan.baseline,
-              repositoryRoot: input.repositoryRoot,
-            });
+            yield* verify(repository, apply.plan.baseline);
             if (
               input.baseline.paths.length !==
                 apply.plan.baseline.paths.length ||
@@ -298,10 +323,11 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
                 baseline: {
                   root: workspaceRoot,
                   packageOwners: apply.plan.baseline.packageOwners,
-                  paths: apply.plan.baseline.paths.map((entry) =>
-                    entry.path === "." && entry._tag === "missing"
-                      ? { _tag: "directory" as const, path: entry.path }
-                      : entry,
+                  paths: apply.plan.baseline.paths.map(
+                    (entry): PlanBaselinePath =>
+                      entry.path === "." && entry._tag === "missing"
+                        ? { _tag: "directory", path: entry.path }
+                        : entry,
                   ),
                 },
                 outcomes: [...apply.plan.outcomes],

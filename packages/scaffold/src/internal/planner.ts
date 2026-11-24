@@ -90,7 +90,8 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
       readonly repositoryRoot: string;
       readonly config: StackConfig;
     }) {
-      const owners = yield* repositoryState.discoverOwners(repositoryRoot);
+      const repository = repositoryState.at(repositoryRoot);
+      const owners = yield* repository.discoverOwners;
       yield* validatePackageOwners(blueprint, owners);
       const normalizedContributions = yield* contribute.resolve(
         blueprint,
@@ -100,19 +101,16 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
         normalizedContributions,
       );
 
-      const captured = yield* repositoryState.capture({
-        repositoryRoot,
-        paths: [
-          ...new Set([
-            repositoryRootPath,
-            ...workspaceManifestPaths,
-            ...planningPaths.flatMap((planningPath) => [
-              planningPath.path,
-              ...PlanAssessment.collectAncestorPaths(planningPath.path),
-            ]),
+      const captured = yield* repository.capture([
+        ...new Set([
+          repositoryRootPath,
+          ...workspaceManifestPaths,
+          ...planningPaths.flatMap((planningPath) => [
+            planningPath.path,
+            ...PlanAssessment.collectAncestorPaths(planningPath.path),
           ]),
-        ],
-      });
+        ]),
+      ]);
       // Keep the owners validated above so drift since validation fails the recheck below.
       const baseline = { ...captured.baseline, packageOwners: owners };
       const plan = yield* projectPlan({
@@ -121,10 +119,9 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
         baseline,
       });
 
-      const current = yield* repositoryState.capture({
-        repositoryRoot,
-        paths: baseline.paths.map((entry) => entry.path),
-      });
+      const current = yield* repository.capture(
+        baseline.paths.map((entry) => entry.path),
+      );
       const changes = RepositoryState.compare(baseline, current.baseline);
       if (changes.length > 0) {
         return yield* new PlanFailure({
