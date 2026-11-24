@@ -133,7 +133,7 @@ export const make = Effect.gen(function* () {
             label: s.label,
             command: context.resolve(s.command),
             workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-            phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+            phase: s.phase,
             origin: `target: ${node.identity.kind}`,
             ...sourceField(
               catalog.getSource({
@@ -156,7 +156,7 @@ export const make = Effect.gen(function* () {
               label: s.label,
               command: context.resolve(s.command),
               workdir: context.resolve(s.workdir ?? "{{targetPath}}"),
-              phase: (s.phase ?? "finalize") as "finalize" | "post-finalize",
+              phase: s.phase,
               origin: `module: ${moduleNode.moduleId}`,
               ...sourceField(
                 catalog.getSource({

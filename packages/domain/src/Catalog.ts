@@ -1,9 +1,13 @@
 import {
+  Array as Arr,
   Data,
   Effect,
+  Equal,
   type Graph,
+  Option,
   Result,
   Schema,
+  SchemaGetter,
   String as Str,
 } from "effect";
 
@@ -16,6 +20,21 @@ export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
     return `Catalog ${this.entity} "${this.id}" was not found.`;
   }
 }
+
+/**
+ * The values that occur more than once, each listed once in first-seen order.
+ *
+ * **When to use**
+ *
+ * Report repeated identities from a schema check. Values compare with `Equal`,
+ * so a structured identity needs no string key.
+ */
+export const duplicates = <A>(values: ReadonlyArray<A>): Array<A> =>
+  Arr.dedupe(
+    values.filter(
+      (value, index) => values.findIndex(Equal.equals(value)) !== index,
+    ),
+  );
 
 export const ModuleId = Schema.String.pipe(Schema.brand("ModuleId"));
 
@@ -173,19 +192,37 @@ const SupportedOn = Schema.TaggedUnion({
 
 export type SupportedOn = typeof SupportedOn.Type;
 
+/**
+ * Makes a key optional in a published document and fills `value` when it is
+ * absent, so the decoded type is total.
+ *
+ * **Gotchas**
+ *
+ * Encoding drops a value equal to the default, so a document decoded and
+ * encoded again keeps the bytes an author wrote without the default.
+ */
+const withOmittedDefault = <A>(schema: Schema.Codec<A>, value: A) =>
+  Schema.optionalKey(schema).pipe(
+    Schema.decodeTo(Schema.toType(schema), {
+      decode: SchemaGetter.withDefault(Effect.succeed(value)),
+      encode: SchemaGetter.transformOptional(
+        Option.filter((encoded: A) => !Equal.equals(encoded, value)),
+      ),
+    }),
+  );
+
 const ScriptPhase = Schema.Literals(["finalize", "post-finalize"]);
 
 const ScriptDefinition = Schema.Struct({
   label: Schema.String,
   command: Schema.String,
+  // The default holds a template token, so a decoding default would make
+  // capability checks see `token:targetPath` the author never wrote.
   workdir: Schema.String.pipe(
     Schema.optionalKey,
     Schema.withConstructorDefault(Effect.succeed("{{targetPath}}")),
   ),
-  phase: ScriptPhase.pipe(
-    Schema.optionalKey,
-    Schema.withConstructorDefault(Effect.succeed("finalize" as const)),
-  ),
+  phase: withOmittedDefault(ScriptPhase, "finalize"),
 });
 
 const ModuleImplication = Schema.Struct({
@@ -660,39 +697,56 @@ const CatalogSourceName = Schema.String.check(
   ),
 ).pipe(Schema.brand("CatalogSourceName"));
 
-const loopbackHosts = new Set(["localhost", "127.0.0.1", "[::1]"]);
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
-// Domain code has no WHATWG URL global, so split the parts the rules need.
-const absoluteUrl =
-  /^(?<scheme>[a-z][a-z0-9+.-]*):\/\/(?<authority>[^/?#\s]*)[^#\s]*$/i;
-const hostAndPort = /^(?<host>\[[0-9a-f:.]+\]|[^:[\]]+)(?::(?<port>\d+))?$/i;
-
-const catalogUrlIssue = (value: string): string | undefined => {
-  const parts = absoluteUrl.exec(value)?.groups;
-  const scheme = parts?.["scheme"]?.toLowerCase();
-  const authority = parts?.["authority"] ?? "";
-  const address = hostAndPort.exec(authority)?.groups;
-  const host = address?.["host"]?.toLowerCase();
-  const port = Number(address?.["port"] ?? 0);
-  return value.includes("#")
-    ? `Catalog URL must not contain a fragment: ${value}`
-    : parts === undefined
-      ? `Catalog URL must be absolute, without whitespace: ${value}`
-      : authority.includes("@")
-        ? "Catalog URL must not contain credentials"
-        : host === undefined || port > 65_535
-          ? `Catalog URL must name a host and a valid port: ${value}`
-          : scheme !== "https" && scheme !== "http"
-            ? `Catalog URL must use https: ${value}`
-            : scheme === "http" && !loopbackHosts.has(host)
-              ? `Catalog URL must use https unless it targets a loopback host: ${value}`
-              : undefined;
-};
-
-/** Absolute https URL, or http on a loopback host for local previews. */
-const CatalogSourceUrl = Schema.String.check(
-  Schema.makeFilter(catalogUrlIssue),
+/**
+ * Absolute https URL, or http on a loopback host for local previews.
+ *
+ * **When to use**
+ *
+ * Decode a catalog URL from a flag, a form, or an application setting before
+ * fetching it. The decoded value keeps the bytes the user wrote.
+ */
+export const CatalogSourceUrl = Schema.String.check(
+  // Later rules read the parsed URL, so a value that does not parse stops here.
+  Schema.makeFilter(
+    (value) =>
+      (URL.canParse(value) && !/\s/.test(value)) ||
+      `Catalog URL must be absolute, without whitespace: ${value}`,
+    undefined,
+    true,
+  ),
+  Schema.makeFilter(
+    (value) =>
+      !value.includes("#") ||
+      `Catalog URL must not contain a fragment: ${value}`,
+  ),
+  Schema.makeFilter((value) => {
+    const url = new URL(value);
+    return (
+      (url.username === "" && url.password === "") ||
+      "Catalog URL must not contain credentials"
+    );
+  }),
+  Schema.makeFilter((value) => {
+    const { protocol } = new URL(value);
+    return (
+      protocol === "https:" ||
+      protocol === "http:" ||
+      `Catalog URL must use https: ${value}`
+    );
+  }),
+  Schema.makeFilter((value) => {
+    const { protocol, hostname } = new URL(value);
+    return (
+      protocol !== "http:" ||
+      LOOPBACK_HOSTS.has(hostname) ||
+      `Catalog URL must use https unless it targets a loopback host: ${value}`
+    );
+  }),
 ).pipe(Schema.brand("CatalogSourceUrl"));
+
+export type CatalogSourceUrl = typeof CatalogSourceUrl.Type;
 
 const OfficialCatalogSource = Schema.Struct({
   name: Schema.Literal(OFFICIAL_CATALOG_SOURCE),
@@ -709,10 +763,6 @@ const CatalogSource = Schema.Union([
   CustomCatalogSource,
 ]);
 export type CatalogSource = typeof CatalogSource.Type;
-
-const duplicates = (values: ReadonlyArray<string>) => [
-  ...new Set(values.filter((value, index) => values.indexOf(value) !== index)),
-];
 
 /** An explicit, non-empty selection. Order is kept for display only. */
 export const CatalogSources = Schema.NonEmptyArray(CatalogSource).check(

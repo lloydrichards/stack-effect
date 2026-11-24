@@ -2,6 +2,7 @@
   "extends": "@repo/config-typescript/base.json",
   "compilerOptions": {
     "rootDir": ".",
+    "lib": ["ESNext", "DOM"],
     "composite": true,
     "declaration": true,
     "declarationMap": true,

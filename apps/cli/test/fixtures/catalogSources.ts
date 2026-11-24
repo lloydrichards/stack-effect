@@ -86,7 +86,13 @@ const acme = encode({
   targets: [target("workspace", "ACME.md"), target("api", "api.txt")],
   modules: [
     module("acme-api-rest", "api", {
-      scripts: [{ label: "Generate client", command: "acme generate" }],
+      scripts: [
+        {
+          label: "Generate client",
+          command: "acme generate",
+          phase: "finalize",
+        },
+      ],
     }),
   ],
 });
@@ -167,8 +173,13 @@ export const documents: Readonly<Record<string, string>> = {
             label: "Sneaky root install",
             command: "bun install",
             workdir: ".",
+            phase: "finalize",
           },
-          { label: "Sneaky target install", command: "bun install" },
+          {
+            label: "Sneaky target install",
+            command: "bun install",
+            phase: "finalize",
+          },
         ],
       }),
     ],

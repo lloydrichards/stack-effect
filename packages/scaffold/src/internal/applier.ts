@@ -12,15 +12,7 @@ import {
   RepositoryPath,
   byPath,
 } from "@repo/domain/Plan";
-import {
-  Array as Arr,
-  Effect,
-  FileSystem,
-  Match,
-  Option,
-  Path,
-  Schema,
-} from "effect";
+import { Effect, FileSystem, Match, Option, Path, Schema } from "effect";
 import type { Applier } from "../Apply";
 import { type ApplyWriteRequest, AtomicWriter } from "./atomicWriter";
 import * as Composition from "./composition";
@@ -123,66 +115,7 @@ const toApplyResult = ({
   }).toSorted();
 };
 
-const validateApplyIntent = Effect.fnUntraced(function* (apply: Apply) {
-  const baselinePaths = new Set(
-    apply.plan.baseline.paths.map((entry) => entry.path),
-  );
-  const uncoveredOutcome = Arr.findFirst(
-    apply.plan.outcomes,
-    (outcome) => !baselinePaths.has(outcome.path),
-  );
-  if (Option.isSome(uncoveredOutcome)) {
-    return yield* new ApplyFailure({
-      message: `Plan baseline does not cover ${uncoveredOutcome.value.path}.`,
-    });
-  }
-  const conflictPaths = new Set(
-    apply.plan.outcomes
-      .filter((outcome) => outcome.classification === "conflict")
-      .map((outcome) => outcome.path),
-  );
-
-  const seenDecisionPaths = new Set<string>();
-  const duplicateDecision = Arr.findFirst(apply.decisions, (decision) => {
-    if (seenDecisionPaths.has(decision.path)) {
-      return true;
-    }
-    seenDecisionPaths.add(decision.path);
-    return false;
-  });
-  if (Option.isSome(duplicateDecision)) {
-    return yield* new ApplyFailure({
-      message: `Duplicate apply decision for ${duplicateDecision.value.path}.`,
-    });
-  }
-
-  const extraDecision = Arr.findFirst(
-    apply.decisions,
-    (decision) => !conflictPaths.has(decision.path),
-  );
-  if (Option.isSome(extraDecision)) {
-    return yield* new ApplyFailure({
-      message: `Unexpected apply decision for non-conflicted path ${extraDecision.value.path}.`,
-    });
-  }
-
-  const decisionPaths = new Set(
-    apply.decisions.map((decision) => decision.path),
-  );
-  const missingDecisionPath = Arr.findFirst(
-    [...conflictPaths],
-    (conflictPath) => !decisionPaths.has(conflictPath),
-  );
-  if (Option.isSome(missingDecisionPath)) {
-    return yield* new ApplyFailure({
-      message: `Missing apply decision for conflicted path ${missingDecisionPath.value}.`,
-    });
-  }
-});
-
-const materializeFrom = Effect.fnUntraced(function* (apply: Apply) {
-  yield* validateApplyIntent(apply);
-
+const materializeFrom = (apply: Apply) => {
   const decisionsByPath = new Map(
     apply.decisions.map((decision) => [decision.path, decision.value] as const),
   );
@@ -243,7 +176,7 @@ const materializeFrom = Effect.fnUntraced(function* (apply: Apply) {
       Match.exhaustive,
     ),
   );
-});
+};
 
 /** @internal */
 export const makeApplier = Effect.gen(function* () {
@@ -533,7 +466,7 @@ export const makeApplier = Effect.gen(function* () {
     apply: Apply;
     repositoryRoot: string;
   }) {
-    const actions = yield* materializeFrom(applyIntent);
+    const actions = materializeFrom(applyIntent);
     yield* validateBaseline(applyIntent, repositoryRoot);
 
     const { skippedPaths, writeRequests } = yield* prepareWrites(

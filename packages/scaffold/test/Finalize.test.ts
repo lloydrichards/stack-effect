@@ -120,7 +120,14 @@ describe("Finalizer", () => {
     title: kind,
     description: `The ${kind} target`,
     contributions: [],
-    scripts: [{ label: "Codegen", command: "bun run codegen", workdir: "." }],
+    scripts: [
+      {
+        label: "Codegen",
+        command: "bun run codegen",
+        workdir: ".",
+        phase: "finalize",
+      },
+    ],
   });
 
   const makeSpawnerLayer = (
@@ -330,6 +337,7 @@ describe("Finalizer", () => {
                     {
                       label: "Generate prisma client",
                       command: "bun prisma generate",
+                      phase: "finalize",
                     },
                   ],
                 },
@@ -362,6 +370,7 @@ describe("Finalizer", () => {
                     {
                       label: "Initialize shadcn",
                       command: "bunx shadcn init",
+                      phase: "finalize",
                     },
                   ],
                 },
@@ -394,6 +403,7 @@ describe("Finalizer", () => {
                       label: "Build",
                       command:
                         "{{packageManager}} run build --cwd {{targetPath}}",
+                      phase: "finalize",
                     },
                   ],
                 },
@@ -531,6 +541,7 @@ describe("Finalizer", () => {
                     {
                       label: "Init shadcn",
                       command: "bunx shadcn init",
+                      phase: "finalize",
                     },
                   ],
                 },
@@ -567,6 +578,7 @@ describe("Finalizer", () => {
                     {
                       label: "Target setup",
                       command: "echo target",
+                      phase: "finalize",
                     },
                   ],
                 },
@@ -577,6 +589,7 @@ describe("Finalizer", () => {
                     {
                       label: "Module setup",
                       command: "echo module",
+                      phase: "finalize",
                     },
                   ],
                 },

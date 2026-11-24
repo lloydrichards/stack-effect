@@ -1,6 +1,7 @@
-import { Array as Arr, Order, Schema } from "effect";
+import { Order, Schema } from "effect";
 import {
   CatalogNotFound,
+  duplicates,
   ModuleId,
   TargetIdentity,
   TargetKey,
@@ -129,28 +130,17 @@ export const makeBlueprintEdge = (
   reason,
 });
 
-const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
-  Arr.map(
-    Arr.filter(
-      Object.entries(Arr.groupBy(values, (value) => value)),
-      ([, groupedValues]) => groupedValues.length > 1,
-    ),
-    ([value]) => value,
-  );
-
 const BlueprintFields = Schema.Struct({
   nodes: Schema.Array(BlueprintNode),
   edges: Schema.Array(BlueprintEdge),
 }).check(
   Schema.makeFilter((blueprint) => {
-    const duplicateNodeIds = Arr.map(
-      duplicates(Arr.map(blueprint.nodes, (node) => node.id)),
-      (id) => `Blueprint node id must be unique: ${id}`,
-    );
-    const duplicateEdgeIds = Arr.map(
-      duplicates(Arr.map(blueprint.edges, (edge) => edge.id)),
-      (id) => `Blueprint edge id must be unique: ${id}`,
-    );
+    const duplicateNodeIds = duplicates(
+      blueprint.nodes.map((node) => node.id),
+    ).map((id) => `Blueprint node id must be unique: ${id}`);
+    const duplicateEdgeIds = duplicates(
+      blueprint.edges.map((edge) => edge.id),
+    ).map((id) => `Blueprint edge id must be unique: ${id}`);
     const targetIdentityIssues = blueprint.nodes.flatMap((node) =>
       node._tag === "target" && node.id !== node.identity.toKey()
         ? [

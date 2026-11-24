@@ -208,42 +208,6 @@ describe("Applier", () => {
     );
   }
 
-  for (const { name, path, decisions } of [
-    { name: "a conflict has no decision", path: tsconfig, decisions: [] },
-    {
-      name: "decisions repeat a path",
-      path: tsconfig,
-      decisions: ["override", "skip"],
-    },
-    {
-      name: "a decision names a path without a conflict",
-      path: "packages/app/src/a.txt",
-      decisions: ["override"],
-    },
-  ] as const) {
-    it.effect(`should reject the Apply before writing when ${name}`, () =>
-      Effect.gen(function* () {
-        yield* writeFiles({ [tsconfig]: "{}\n" });
-        const planned = yield* plan(app("tsconfig", "pair"));
-
-        const failure = yield* Effect.flip(
-          apply(
-            planned,
-            decisions.map((value) => ({
-              path: RepositoryPath.make(path),
-              value,
-            })),
-          ),
-        );
-
-        assert.strictEqual(failure._tag, "ApplyFailure");
-        assert.include(failure.message, path);
-        assert.strictEqual(yield* readFile(tsconfig), "{}\n");
-        assert.isFalse(yield* exists("packages/app/src/a.txt"));
-      }).pipe(Effect.provide(testPipeline)),
-    );
-  }
-
   for (const { name, modules, path, contents, identifier } of [
     {
       name: "a call target is missing",

@@ -197,23 +197,32 @@ export const defaultsForRuntime = (
     runtimeOverrides[runtime].typescript ?? defaults.typescript ?? "6",
 });
 
-const workspaceToolModules = {
+const workspaceToolModules: Readonly<Record<string, string>> = {
   nx: "workspace-monorepo-nx",
   turbo: "workspace-monorepo-turbo",
   "vite-plus": "workspace-monorepo-vite-plus",
   dprint: "workspace-quality-dprint",
   oxlint: "workspace-quality-oxlint",
   vitest: "workspace-test-vitest",
-} as const;
+};
 
-const workspaceLintModules = {
+const workspaceLintModules: Readonly<Record<string, string>> = {
   biome: "workspace-quality-biome-lint",
-} as const;
+};
 
-const workspaceFormatModules = {
+const workspaceFormatModules: Readonly<Record<string, string>> = {
   biome: "workspace-quality-biome-format",
   oxfmt: "workspace-quality-oxfmt",
-} as const;
+};
+
+const workspaceCategoryModules: Record<
+  "lint" | "format" | "tool",
+  Readonly<Record<string, string>>
+> = {
+  lint: workspaceLintModules,
+  format: workspaceFormatModules,
+  tool: {},
+};
 
 const moduleToolValues = Object.fromEntries(
   [
@@ -239,12 +248,8 @@ export const toWorkspaceModuleId = (
   category: "lint" | "format" | "tool",
   toolValue: string,
 ): string =>
-  (category === "lint"
-    ? workspaceLintModules[toolValue as keyof typeof workspaceLintModules]
-    : category === "format"
-      ? workspaceFormatModules[toolValue as keyof typeof workspaceFormatModules]
-      : undefined) ??
-  workspaceToolModules[toolValue as keyof typeof workspaceToolModules] ??
+  workspaceCategoryModules[category][toolValue] ??
+  workspaceToolModules[toolValue] ??
   toolValue;
 
 /**

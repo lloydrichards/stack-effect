@@ -544,7 +544,13 @@ describe("CatalogLoader", () => {
       targets: [target("workspace"), target("api")],
       modules: [
         module("acme-api-rest", "api", {
-          scripts: [{ label: "Generate client", command: "bun run generate" }],
+          scripts: [
+            {
+              label: "Generate client",
+              command: "bun run generate",
+              phase: "finalize",
+            },
+          ],
         }),
       ],
     });
