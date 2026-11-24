@@ -19,7 +19,7 @@ import {
   previewAtom,
 } from "../../app/atom/recipe-builder-atom";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
-import { RecipeBuilderRpcFailure } from "../../app/workers/recipe-builder/domain";
+import { RecipeBuilderRpcError } from "../../app/workers/recipe-builder/domain";
 import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
 import { registryParityCases } from "../fixtures/registry-parity";
 
@@ -55,7 +55,7 @@ const official = { name: "official" };
 const rpcFailure = <A, E>(exit: Exit.Exit<A, E>) =>
   Exit.isFailure(exit)
     ? Cause.findErrorOption(exit.cause).pipe(
-        Option.filter(Schema.is(RecipeBuilderRpcFailure)),
+        Option.filter(Schema.is(RecipeBuilderRpcError)),
         Option.getOrUndefined,
       )
     : undefined;
@@ -750,8 +750,11 @@ it.live(
         name: "missing",
         sourceUrl: source.url,
       });
-      assert.include(failure?.message ?? "", "Catalog source missing");
-      assert.include(failure?.message ?? "", source.url);
+      assert.strictEqual(
+        failure?.message,
+        "Could not load catalog source missing.",
+      );
+      assert.include(failure?.causes?.[0] ?? "", source.url);
     }).pipe(Effect.scoped),
 );
 
@@ -777,8 +780,11 @@ it.live(
         ),
       );
       assert.strictEqual(failure?.failedSource?.name, "ext");
-      assert.include(failure?.message ?? "", source.url);
+      assert.include(failure?.causes?.[0] ?? "", source.url);
       assert.include(failure?.message ?? "", "may not allow requests");
-      assert.notMatch(failure?.message ?? "", /CORS/u);
+      assert.notMatch(
+        [failure?.message, ...(failure?.causes ?? [])].join("\n"),
+        /CORS/u,
+      );
     }).pipe(Effect.scoped),
 );

@@ -2,11 +2,11 @@ import { MemoryFileSystem } from "@effect-vfs/memory";
 import { CatalogReader } from "@repo/catalog/Catalog";
 import {
   Apply,
-  ApplyFailure,
+  ApplyError,
   ApplyResult,
   MaterializedApply,
   MaterializedFile,
-  StalePlanFailure,
+  StalePlan,
   StalePlanChange,
 } from "@repo/domain/Apply";
 import {
@@ -47,7 +47,7 @@ const rootChanges = [
   StalePlanChange.make({ path: repositoryRootPath, kind: "rootChanged" }),
 ];
 
-const rootChanged = new StalePlanFailure({
+const rootChanged = new StalePlan({
   changes: rootChanges,
   partialResult: emptyResult,
   message: stalePlanMessage(rootChanges),
@@ -70,7 +70,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
     ) {
       const changes = yield* repository.verify(baseline);
       if (changes.length > 0) {
-        return yield* new StalePlanFailure({
+        return yield* new StalePlan({
           changes,
           partialResult: emptyResult,
           message: stalePlanMessage(changes),
@@ -86,8 +86,8 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
       yield* fileSystem.makeDirectory(workspaceRoot, { recursive: true }).pipe(
         Effect.mapError(
           (error) =>
-            new ApplyFailure({
-              message: `Could not initialize the workspace: ${error.message}`,
+            new ApplyError({
+              message: "Could not initialize the workspace",
               cause: error,
             }),
         ),
@@ -101,7 +101,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
       admit: (
         apply: Apply,
         builtHere: boolean,
-      ) => Effect.Effect<Apply, ApplyFailure | StalePlanFailure>,
+      ) => Effect.Effect<Apply, ApplyError | StalePlan>,
     ): ApplyWorkspace => {
       const fileSystemLayer = Layer.mergeAll(
         Layer.succeed(FileSystem.FileSystem, fileSystem),
@@ -118,8 +118,8 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
           ),
           Effect.mapError(
             (error) =>
-              new ApplyFailure({
-                message: `Could not read ${path} after Apply: ${error.message}`,
+              new ApplyError({
+                message: `Could not read ${path} after Apply`,
                 cause: error,
               }),
           ),
@@ -210,8 +210,8 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
       const contents = yield* hostFileSystem.readFile(sourcePath).pipe(
         Effect.mapError(
           (error) =>
-            new ApplyFailure({
-              message: `Could not read ${sourcePath}: ${error.message}`,
+            new ApplyError({
+              message: `Could not read ${sourcePath}`,
               cause: error,
             }),
         ),
@@ -224,8 +224,8 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
           Effect.andThen(seed.fileSystem.writeFile(targetPath, contents)),
           Effect.mapError(
             (error) =>
-              new ApplyFailure({
-                message: `Could not seed ${path}: ${error.message}`,
+              new ApplyError({
+                message: `Could not seed ${path}`,
                 cause: error,
               }),
           ),
@@ -243,8 +243,8 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
             .pipe(
               Effect.mapError(
                 (error) =>
-                  new ApplyFailure({
-                    message: `Could not seed ${path}: ${error.message}`,
+                  new ApplyError({
+                    message: `Could not seed ${path}`,
                     cause: error,
                   }),
               ),
@@ -266,8 +266,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
         baseline.packageOwners ??
         (yield* seed.repository.discoverOwners.pipe(
           Effect.mapError(
-            (error) =>
-              new ApplyFailure({ message: error.message, cause: error }),
+            (error) => new ApplyError({ message: error.message, cause: error }),
           ),
         ));
       const seededPaths = new Set<string>(
@@ -313,7 +312,7 @@ export const makeApplyWorkspaces = (ApplierService: typeof Applier) =>
               RepositoryState.compare(input.baseline, apply.plan.baseline)
                 .length > 0
             ) {
-              return yield* new ApplyFailure({
+              return yield* new ApplyError({
                 message:
                   "Apply baseline differs from the seeded workspace. Create a new workspace for this Plan.",
               });

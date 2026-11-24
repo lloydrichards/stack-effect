@@ -15,8 +15,8 @@ export const edgeOrder = Order.mapInput(
 
 export { CatalogNotFound };
 
-export class BlueprintFailure extends Schema.TaggedError<BlueprintFailure>()(
-  "BlueprintFailure",
+export class BlueprintError extends Schema.TaggedError<BlueprintError>()(
+  "BlueprintError",
   {
     message: Schema.String,
     cause: Schema.optional(Schema.Defect()),

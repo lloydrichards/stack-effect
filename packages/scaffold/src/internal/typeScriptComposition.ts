@@ -1,4 +1,4 @@
-import { ApplyFailure } from "@repo/domain/Apply";
+import { ApplyError } from "@repo/domain/Apply";
 import type {
   TsAddImportOp,
   TsAppendCallArgOp,
@@ -176,7 +176,7 @@ const applyTsAppendCallArg = Effect.fnUntraced(function* (
 ) {
   const call = findTargetCall(sourceFile, op);
   if (Option.isNone(call))
-    return yield* new ApplyFailure({
+    return yield* new ApplyError({
       message: `Could not find ${op.functionName} on ${op.targetVariable} during TypeScript composition.`,
     });
 
@@ -261,7 +261,7 @@ const applyTsObjectField = Effect.fnUntraced(function* (
     Option.map((arg) => arg.asKindOrThrow(SyntaxKind.ObjectLiteralExpression)),
   );
   if (Option.isNone(objectLiteral))
-    return yield* new ApplyFailure({
+    return yield* new ApplyError({
       message: `Could not find ${op.functionName} on ${op.targetVariable} during TypeScript composition.`,
     });
 
@@ -279,7 +279,7 @@ const applyTsObjectField = Effect.fnUntraced(function* (
     ) {
       return;
     }
-    return yield* new ApplyFailure({
+    return yield* new ApplyError({
       message: `Conflicting value for ${op.targetVariable}.${op.field} during TypeScript composition.`,
     });
   }
@@ -299,7 +299,7 @@ const applyTsJsxSlot = Effect.fnUntraced(function* (
   const marker = findJsxSlotMarker(sourceFile, op.slotId);
 
   if (!marker) {
-    return yield* new ApplyFailure({
+    return yield* new ApplyError({
       message: `Could not find JSX slot ${jsxSlotMarker(op.slotId)} during TypeScript composition.`,
     });
   }
@@ -370,7 +370,7 @@ const applyOperation = (
 export const composeTypeScript: (
   contents: string,
   operations: ReadonlyArray<TypeScriptCompositionOperation>,
-) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+) => Effect.Effect<string, ApplyError> = Effect.fnUntraced(
   function* (contents, operations) {
     const project = new Project({
       useInMemoryFileSystem: true,

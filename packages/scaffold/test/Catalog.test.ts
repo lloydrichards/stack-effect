@@ -3,12 +3,11 @@ import { assert, describe, it } from "@effect/vitest";
 import { exportOfficialCatalog } from "@repo/catalog-official/service";
 import {
   type CatalogCacheEntry,
-  CatalogCacheFailure,
-  CatalogCompositionFailure,
+  CatalogCacheError,
+  CatalogCompositionError,
   CatalogDocument,
   CatalogHttpStatusRejected,
-  CatalogLoadFailure,
-  type CatalogLoadReason,
+  CatalogLoadError,
   type CatalogSources,
   ModuleId,
   TargetKind,
@@ -84,7 +83,7 @@ describe("CatalogLoader", () => {
   const encode = Schema.encodeSync(Schema.fromJsonString(CatalogDocument));
 
   type RejectionCase = {
-    readonly reason: CatalogLoadReason["_tag"];
+    readonly reason: CatalogLoadError["reason"]["_tag"];
     readonly condition: string;
     readonly respond: Handler;
     readonly detail?: string;
@@ -364,7 +363,7 @@ describe("CatalogLoader", () => {
       const cache = Layer.succeed(CatalogCache, {
         read: () => Effect.as(Effect.void, undefined),
         write: (_entry: CatalogCacheEntry) =>
-          Effect.fail(new CatalogCacheFailure({ message: "storage full" })),
+          Effect.fail(new CatalogCacheError({ message: "storage full" })),
       });
       return Effect.gen(function* () {
         const loaded = yield* (yield* CatalogLoader).load({ sourceUrl });
@@ -411,7 +410,7 @@ describe("CatalogLoader", () => {
   it.effect("should fetch current data when the cache cannot be read", () => {
     const cache = Layer.succeed(CatalogCache, {
       read: () =>
-        Effect.fail(new CatalogCacheFailure({ message: "unavailable" })),
+        Effect.fail(new CatalogCacheError({ message: "unavailable" })),
       write: (_entry: CatalogCacheEntry) => Effect.void,
     });
     return Effect.gen(function* () {
@@ -462,7 +461,10 @@ describe("CatalogLoader", () => {
           (yield* CatalogLoader).load({ sourceUrl }),
         );
         assert.strictEqual(error.reason._tag, reason);
-        if (detail !== undefined) assert.include(error.message, detail);
+        if (detail !== undefined) {
+          assert.instanceOf(error.cause, Error);
+          assert.include(error.cause.message, detail);
+        }
       }).pipe(Effect.provide(testLayer(respond))),
   );
 
@@ -593,7 +595,7 @@ describe("CatalogLoader", () => {
     }) => catalog.toCatalogTree.targets.map((entry) => entry.kind);
 
     type SourceFailureCase = {
-      readonly reason: CatalogLoadReason["_tag"];
+      readonly reason: CatalogLoadError["reason"]["_tag"];
       readonly sourceName: keyof typeof urls;
       readonly condition: string;
       readonly routes: Record<string, () => Route>;
@@ -741,7 +743,7 @@ describe("CatalogLoader", () => {
         });
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(select("acme", "beta")));
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.match(
             error.message,
             /Duplicate target kind api in sources acme and beta/,
@@ -762,7 +764,7 @@ describe("CatalogLoader", () => {
           const error = yield* Effect.flip(
             loadSources(select("official", "ext")),
           );
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.deepStrictEqual(
             error.issues.map(({ code, fragment }) => ({ code, fragment })),
             [{ code: "undeclared-reference", fragment: 1 }],
@@ -785,7 +787,7 @@ describe("CatalogLoader", () => {
         });
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(select("acme", "beta")));
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.match(error.message, /references target api from source acme/);
         }).pipe(Effect.provide(layer));
       },
@@ -797,7 +799,7 @@ describe("CatalogLoader", () => {
         const { layer } = routedLayer(routes);
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(selection));
-          assert.instanceOf(error, CatalogLoadFailure);
+          assert.instanceOf(error, CatalogLoadError);
           assert.deepStrictEqual(
             {
               reason: error.reason._tag,
@@ -808,10 +810,12 @@ describe("CatalogLoader", () => {
             },
             { reason, sourceName, sourceUrl: urls[sourceName], status },
           );
-          assert.match(
+          assert.strictEqual(
             error.message,
-            new RegExp(`^Catalog source ${sourceName}: `),
+            `Could not load catalog source ${sourceName}.`,
           );
+          assert.instanceOf(error.cause, CatalogLoadError);
+          assert.include(error.cause.message, urls[sourceName]);
         }).pipe(Effect.provide(layer));
       },
     );
@@ -859,7 +863,7 @@ describe("CatalogLoader", () => {
           const error = yield* Effect.flip(
             loadSources(select("official", "ext")),
           );
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.match(
             error.message,
             /Source ext: Module ext-auth references missing target server/,
@@ -890,7 +894,7 @@ describe("CatalogLoader", () => {
         const { layer } = routedLayer({ [urls.ext]: () => ext });
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(select("ext")));
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.deepStrictEqual(
             error.issues.map((issue) => issue.code),
             ["missing-source"],
@@ -925,7 +929,7 @@ describe("CatalogLoader", () => {
         });
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(select("acme", "beta")));
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           const missing = error.issues.find(
             (issue) => issue.code === "missing-reference",
           );
@@ -946,7 +950,7 @@ describe("CatalogLoader", () => {
         });
         return Effect.gen(function* () {
           const error = yield* Effect.flip(loadSources(select("official")));
-          assert.instanceOf(error, CatalogCompositionFailure);
+          assert.instanceOf(error, CatalogCompositionError);
           assert.deepStrictEqual(
             error.issues.map(({ code, fragment, message }) => ({
               code,
@@ -994,7 +998,7 @@ describe("CatalogLoader", () => {
         return Effect.gen(function* () {
           yield* loadSources(select("acme"));
           const broken = yield* Effect.flip(loadSources(select("acme")));
-          assert.instanceOf(broken, CatalogCompositionFailure);
+          assert.instanceOf(broken, CatalogCompositionError);
           // Transport outage: the doc says use the source's *validated* cache.
           // `load` never caches an invalid document, so it would serve acmeGood.
           const { sources } = yield* loadSources(select("acme"));
@@ -1015,7 +1019,7 @@ describe("CatalogLoader", () => {
               select("official", { name: "mirror", url: officialUrl }),
             ),
           );
-          assert.instanceOf(error, CatalogLoadFailure);
+          assert.instanceOf(error, CatalogLoadError);
           assert.strictEqual(error.reason._tag, "CatalogSourceInvalid");
           assert.strictEqual(error.sourceName, "mirror");
           assert.strictEqual(error.sourceUrl, officialUrl);

@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import {
   type CatalogCacheEntry,
-  CatalogCacheFailure,
+  CatalogCacheError,
 } from "@repo/domain/Catalog";
 import { CatalogCache } from "@repo/scaffold/Catalog";
 import {
@@ -69,7 +69,7 @@ export const fileCatalogCacheLayer = (directory?: string) =>
       });
 
       const fail = (message: string, cause: unknown) =>
-        new CatalogCacheFailure({ message, cause });
+        new CatalogCacheError({ message, cause });
 
       const read = Effect.fn("FileCatalogCache.read")(function* (
         sourceUrl: string,

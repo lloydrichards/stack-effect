@@ -1,7 +1,7 @@
 import type { Blueprint } from "@repo/domain/Blueprint";
 import {
   Plan,
-  PlanFailure,
+  PlanError,
   type RepoSnapshot,
   type RepoSnapshotPath,
   repositoryRootPath,
@@ -73,7 +73,7 @@ const projectPlan = Effect.fnUntraced(function* ({
   }).pipe(
     Effect.mapError(
       (cause) =>
-        new PlanFailure({
+        new PlanError({
           message: `Invalid projected Plan: ${formatSchemaIssue(cause)}`,
           cause,
         }),
@@ -131,7 +131,7 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
       );
       const changes = RepositoryState.compare(baseline, current.baseline);
       if (changes.length > 0) {
-        return yield* new PlanFailure({
+        return yield* new PlanError({
           message: `Repository changed during planning: ${changes.map((change) => `${change.path} (${change.kind})`).join(", ")}. Replan and try again.`,
         });
       }

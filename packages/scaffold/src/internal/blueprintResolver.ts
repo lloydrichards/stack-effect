@@ -3,7 +3,7 @@ import {
   Blueprint,
   type BlueprintAttachedModuleNode,
   type BlueprintEdge,
-  BlueprintFailure,
+  BlueprintError,
   BlueprintNode,
   type BlueprintTargetNode,
   type CatalogNotFound,
@@ -62,7 +62,7 @@ const ensureModuleSupportedOn = Effect.fnUntraced(function* (
 ) {
   const isSupported = yield* catalog.isSupportedOn(moduleId, target);
   if (!isSupported)
-    return yield* new BlueprintFailure({
+    return yield* new BlueprintError({
       message: `Unsupported target-module combination: ${target.toKey()} requires module ${moduleId}`,
     });
 });
@@ -78,7 +78,7 @@ const validateTarget = Effect.fnUntraced(function* (
       .some((earlier) => earlier.id === moduleSelection.id),
   );
   if (duplicate !== undefined)
-    return yield* new BlueprintFailure({
+    return yield* new BlueprintError({
       message: `Duplicate module selection: ${target.identity.toKey()} requires module ${duplicate.id}`,
     });
 
@@ -97,7 +97,7 @@ const validateSelection = Effect.fnUntraced(function* (
   for (const target of selection.targets) {
     const targetKey = target.identity.toKey();
     if (selectedTargetKeys.has(targetKey))
-      return yield* new BlueprintFailure({
+      return yield* new BlueprintError({
         message: `Duplicate target selection: ${targetKey}`,
       });
     selectedTargetKeys.add(targetKey);
@@ -130,7 +130,7 @@ const ensureRuntimeSupported = Effect.fnUntraced(function* (
   const supportedRuntimes =
     definition.supportedRuntimes ?? DEFAULT_SUPPORTED_RUNTIMES;
   if (!supportedRuntimes.includes(config.runtimeName))
-    return yield* new BlueprintFailure({
+    return yield* new BlueprintError({
       message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,
     });
 });
@@ -174,7 +174,7 @@ const resolveSelection = Effect.fnUntraced(function* (
     moduleId: ModuleId,
   ) => Effect.Effect<
     BlueprintAttachedModuleNode,
-    BlueprintFailure | CatalogNotFound
+    BlueprintError | CatalogNotFound
   > = Effect.fnUntraced(function* (target: TargetIdentity, moduleId: ModuleId) {
     yield* ensureModuleSupportedOn(catalog, target, moduleId);
 
@@ -206,7 +206,7 @@ const resolveSelection = Effect.fnUntraced(function* (
       );
 
       if (Option.isSome(sharedProvider)) {
-        return yield* new BlueprintFailure({
+        return yield* new BlueprintError({
           message: `Multiple providers selected for capability ${sharedProvider.value} on ${targetState.id}: ${attached.moduleId}, ${moduleId}. Select exactly one provider module.`,
         });
       }
@@ -216,7 +216,7 @@ const resolveSelection = Effect.fnUntraced(function* (
         (attachedDefinition.conflictsWith ?? []).includes(moduleId);
 
       if (isIncompatible) {
-        return yield* new BlueprintFailure({
+        return yield* new BlueprintError({
           message: `Incompatible modules on ${targetState.id}: ${attached.moduleId} conflicts with ${moduleId}`,
         });
       }
@@ -301,7 +301,7 @@ const resolveSelection = Effect.fnUntraced(function* (
 
       const providerDefinition = providers[0];
       if (providers.length !== 1 || providerDefinition === undefined) {
-        return yield* new BlueprintFailure({
+        return yield* new BlueprintError({
           message: `Unresolved capability dependency: ${target.toKey()} requires module ${moduleId}, which needs ${capability} on ${dependencyTarget.toKey()}. Select exactly one provider module explicitly.`,
         });
       }
@@ -373,7 +373,7 @@ export const make = Effect.gen(function* () {
         ),
     );
     if (collisions.length > 0)
-      return yield* new BlueprintFailure({
+      return yield* new BlueprintError({
         message: `Overlapping target ownership: ${collisions.join("; ")}`,
       });
 
@@ -383,7 +383,7 @@ export const make = Effect.gen(function* () {
     }).pipe(
       Effect.mapError(
         (cause) =>
-          new BlueprintFailure({
+          new BlueprintError({
             message: `Invalid resolved Blueprint: ${formatSchemaIssue(cause)}`,
             cause,
           }),

@@ -1,6 +1,6 @@
 import {
   type CatalogCacheEntry,
-  CatalogCacheFailure,
+  CatalogCacheError,
 } from "@repo/domain/Catalog";
 import { CatalogCache } from "@repo/scaffold/Catalog";
 import { Effect, Layer } from "effect";
@@ -8,9 +8,9 @@ import { Effect, Layer } from "effect";
 const databaseName = "stack-effect-catalog";
 const storeName = "documents";
 const failure = (message: string, cause: unknown) =>
-  new CatalogCacheFailure({ message, cause });
+  new CatalogCacheError({ message, cause });
 
-const openDatabase = Effect.callback<IDBDatabase, CatalogCacheFailure>(
+const openDatabase = Effect.callback<IDBDatabase, CatalogCacheError>(
   (resume) => {
     try {
       const request = indexedDB.open(databaseName, 1);
@@ -32,7 +32,7 @@ const openDatabase = Effect.callback<IDBDatabase, CatalogCacheFailure>(
 );
 
 const withDatabase = <A>(
-  use: (database: IDBDatabase) => Effect.Effect<A, CatalogCacheFailure>,
+  use: (database: IDBDatabase) => Effect.Effect<A, CatalogCacheError>,
 ) =>
   Effect.acquireUseRelease(openDatabase, use, (database) =>
     Effect.sync(() => database.close()),
@@ -40,7 +40,7 @@ const withDatabase = <A>(
 
 const read = (sourceUrl: string) =>
   withDatabase((database) =>
-    Effect.callback<CatalogCacheEntry | undefined, CatalogCacheFailure>(
+    Effect.callback<CatalogCacheEntry | undefined, CatalogCacheError>(
       (resume) => {
         try {
           const transaction = database.transaction(storeName, "readonly");
@@ -80,7 +80,7 @@ const read = (sourceUrl: string) =>
 
 const write = (entry: CatalogCacheEntry) =>
   withDatabase((database) =>
-    Effect.callback<void, CatalogCacheFailure>((resume) => {
+    Effect.callback<void, CatalogCacheError>((resume) => {
       try {
         const transaction = database.transaction(storeName, "readwrite");
         transaction

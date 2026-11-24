@@ -1,10 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import {
-  Apply,
-  ApplyFailure,
-  ApplyResult,
-  StalePlanFailure,
-} from "@repo/domain/Apply";
+import { Apply, ApplyError, ApplyResult, StalePlan } from "@repo/domain/Apply";
 import { RepositoryPath } from "@repo/domain/Plan";
 import { Schema } from "effect";
 
@@ -131,12 +126,12 @@ describe("@repo/domain Apply", () => {
   });
 
   it("decodes apply failures", () => {
-    const error = Schema.decodeSync(ApplyFailure)({
-      _tag: "ApplyFailure",
+    const error = Schema.decodeSync(ApplyError)({
+      _tag: "ApplyError",
       message: "Missing decision for packages/domain/package.json",
     });
 
-    assert.strictEqual(error._tag, "ApplyFailure");
+    assert.strictEqual(error._tag, "ApplyError");
     assert.strictEqual(
       error.message,
       "Missing decision for packages/domain/package.json",
@@ -144,8 +139,8 @@ describe("@repo/domain Apply", () => {
   });
 
   it("decodes stale Plan failures with a partial result and no file contents", () => {
-    const error = Schema.decodeSync(StalePlanFailure)({
-      _tag: "StalePlanFailure",
+    const error = Schema.decodeSync(StalePlan)({
+      _tag: "StalePlan",
       message: "The repository changed after planning",
       changes: [{ path: "README.md", kind: "modified" }],
       partialResult: {

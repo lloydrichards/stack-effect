@@ -239,7 +239,7 @@ describe("Planner", () => {
 
         const failure = yield* Effect.flip(plan(domain));
 
-        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.strictEqual(failure._tag, "PlanError");
         assert.include(failure.message, "packages/domain/");
       }).pipe(Effect.provide(officialLayer)),
     );
@@ -279,7 +279,7 @@ describe("Planner", () => {
           const failure = yield* Effect.flip(fault.provide(plan(app("pair"))));
 
           assert.isTrue(yield* fault.fired);
-          assert.strictEqual(failure._tag, "PlanFailure");
+          assert.strictEqual(failure._tag, "PlanError");
           assert.include(failure.message, "packages/app/src/a.txt");
         }).pipe(Effect.provide(testPipeline)),
       );
@@ -291,7 +291,7 @@ describe("Planner", () => {
 
         const failure = yield* Effect.flip(plan(app("tsconfig")));
 
-        assert.strictEqual(failure._tag, "PlanFailure");
+        assert.strictEqual(failure._tag, "PlanError");
         assert.include(failure.message, "packages/app/tsconfig.json");
       }).pipe(Effect.provide(testPipeline)),
     );

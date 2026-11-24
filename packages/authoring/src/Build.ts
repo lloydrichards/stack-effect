@@ -7,7 +7,7 @@ import {
   CatalogIssueCode,
   CatalogIssueSubject,
 } from "@repo/domain/Catalog";
-import { Data, Effect, type FileSystem, type Path, Schema } from "effect";
+import { Effect, type FileSystem, type Path, Schema } from "effect";
 import type { CatalogInput } from "./Define";
 import * as internal from "./internal/build";
 
@@ -46,9 +46,10 @@ const formatIssue = (issue: CatalogBuildIssue): string => {
   return location ? `${location}: ${issue.message}` : issue.message;
 };
 
-export class CatalogBuildError extends Data.TaggedError("CatalogBuildError")<{
-  readonly issues: ReadonlyArray<CatalogBuildIssue>;
-}> {
+export class CatalogBuildError extends Schema.TaggedError<CatalogBuildError>()(
+  "CatalogBuildError",
+  { issues: Schema.Array(CatalogBuildIssue) },
+) {
   override get message(): string {
     return ["Catalog build failed:", ...this.issues.map(formatIssue)].join(
       "\n  ",

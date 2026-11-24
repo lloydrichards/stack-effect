@@ -1,4 +1,4 @@
-import type { ApplyFailure } from "@repo/domain/Apply";
+import type { ApplyError } from "@repo/domain/Apply";
 import type {
   CompositionOperation,
   JsonCompositionOperation,
@@ -33,7 +33,7 @@ export const compose: (
   path: string,
   contents: string,
   operations: ReadonlyArray<CompositionOperation>,
-) => Effect.Effect<string, ApplyFailure> = Effect.fnUntraced(
+) => Effect.Effect<string, ApplyError> = Effect.fnUntraced(
   function* (path, contents, operations) {
     if (operations.length === 0) {
       return contents;

@@ -3,7 +3,7 @@ import {
   type PackageOwner,
   type PlanBaseline,
   type PlanBaselinePath,
-  PlanFailure,
+  PlanError,
   type RepoSnapshot,
   type RepoSnapshotPath,
   RepositoryPath,
@@ -98,7 +98,7 @@ export const compare = (
 export type Repository = {
   readonly capture: (
     paths: ReadonlyArray<RepositoryPath>,
-  ) => Effect.Effect<RepositoryCapture, PlanFailure>;
+  ) => Effect.Effect<RepositoryCapture, PlanError>;
   // Checks every path in `baseline`; narrow `baseline.paths` to check fewer.
   readonly verify: (
     baseline: PlanBaseline,
@@ -106,7 +106,7 @@ export type Repository = {
   // Discovers roots through grouping directories; package contents are not owners.
   readonly discoverOwners: Effect.Effect<
     ReadonlyArray<PackageOwner>,
-    PlanFailure
+    PlanError
   >;
 };
 
@@ -161,7 +161,7 @@ export class RepositoryState extends Context.Service<
             ),
             Effect.mapError(
               (cause) =>
-                new PlanFailure({
+                new PlanError({
                   message: "Could not resolve the repository root.",
                   cause,
                 }),
@@ -182,17 +182,17 @@ export class RepositoryState extends Context.Service<
       const readEntry = Effect.fnUntraced(function* (
         repositoryRoot: string,
         snapshotPath: RepositoryPath,
-      ): Effect.fn.Return<RepoSnapshotPath, PlanFailure> {
+      ): Effect.fn.Return<RepoSnapshotPath, PlanError> {
         const absolutePath = path.join(repositoryRoot, snapshotPath);
-        const symbolicLink = new PlanFailure({
+        const symbolicLink = new PlanError({
           message: `Symbolic link in repository path ${snapshotPath} is unsupported.`,
         });
 
         const entry = yield* lstatOption(absolutePath).pipe(
           Effect.mapError(
             (cause) =>
-              new PlanFailure({
-                message: `Could not inspect ${snapshotPath} during planning: ${cause.message}`,
+              new PlanError({
+                message: `Could not inspect ${snapshotPath}`,
                 cause,
               }),
           ),
@@ -208,8 +208,8 @@ export class RepositoryState extends Context.Service<
           const target = yield* statOption(absolutePath).pipe(
             Effect.mapError(
               (cause) =>
-                new PlanFailure({
-                  message: `Could not inspect ${snapshotPath} during planning: ${cause.message}`,
+                new PlanError({
+                  message: `Could not inspect ${snapshotPath}`,
                   cause,
                 }),
             ),
@@ -223,7 +223,7 @@ export class RepositoryState extends Context.Service<
         }
 
         if (info.type !== "File") {
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Unsupported repository entry at ${snapshotPath}: ${info.type}.`,
           });
         }
@@ -231,15 +231,15 @@ export class RepositoryState extends Context.Service<
         const bytes = yield* fileSystem.readFile(absolutePath).pipe(
           Effect.mapError(
             (cause) =>
-              new PlanFailure({
-                message: `Could not read ${snapshotPath} during planning: ${cause.message}`,
+              new PlanError({
+                message: `Could not read ${snapshotPath}`,
                 cause,
               }),
           ),
         );
 
         if (bytes.includes(0)) {
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Non-text repository file at ${snapshotPath} is unsupported.`,
           });
         }
@@ -250,7 +250,7 @@ export class RepositoryState extends Context.Service<
               bytes,
             ),
           catch: (cause) =>
-            new PlanFailure({
+            new PlanError({
               message: `Non-text repository file at ${snapshotPath} is unsupported.`,
               cause,
             }),
@@ -300,14 +300,14 @@ export class RepositoryState extends Context.Service<
         ).pipe(
           Effect.mapError(
             (cause) =>
-              new PlanFailure({
+              new PlanError({
                 message: `Cannot inspect package ownership at ${relative}: could not stat entry`,
                 cause,
               }),
           ),
         );
         if (Option.isSome(entry) && entry.value.type === "SymbolicLink") {
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Cannot inspect package ownership at ${relative}: symbolic links are unsupported`,
           });
         }
@@ -320,7 +320,7 @@ export class RepositoryState extends Context.Service<
       ) {
         const manifest = yield* inspectOwnerEntry(repositoryRoot, manifestPath);
         if (Option.isNone(manifest) || manifest.value.type !== "File")
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Cannot inspect package ownership at ${manifestPath}: expected regular file`,
           });
         const contents = yield* fileSystem
@@ -328,7 +328,7 @@ export class RepositoryState extends Context.Service<
           .pipe(
             Effect.mapError(
               (cause) =>
-                new PlanFailure({
+                new PlanError({
                   message: `Cannot inspect package ownership at ${manifestPath}: could not read manifest`,
                   cause,
                 }),
@@ -340,11 +340,11 @@ export class RepositoryState extends Context.Service<
       const visitOwners = Effect.fnUntraced(function* (
         repositoryRoot: string,
         relative: string,
-      ): Effect.fn.Return<ReadonlyArray<PackageOwner>, PlanFailure> {
+      ): Effect.fn.Return<ReadonlyArray<PackageOwner>, PlanError> {
         const entry = yield* inspectOwnerEntry(repositoryRoot, relative);
         if (Option.isNone(entry)) return [];
         if (entry.value.type !== "Directory")
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Cannot inspect package ownership at ${relative}: expected directory`,
           });
         const names = yield* fileSystem
@@ -352,7 +352,7 @@ export class RepositoryState extends Context.Service<
           .pipe(
             Effect.mapError(
               (cause) =>
-                new PlanFailure({
+                new PlanError({
                   message: `Cannot inspect package ownership at ${relative}: could not list directory`,
                   cause,
                 }),
@@ -363,7 +363,7 @@ export class RepositoryState extends Context.Service<
             CaseInsensitive(name, "package.json") && name !== "package.json",
         );
         if (alias !== undefined)
-          return yield* new PlanFailure({
+          return yield* new PlanError({
             message: `Cannot inspect package ownership at ${relative}/${alias}: package manifests must use the canonical package.json filename`,
           });
         if (names.includes("package.json")) {

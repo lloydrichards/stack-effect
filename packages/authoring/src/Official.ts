@@ -7,18 +7,16 @@ import {
   type CatalogDocument,
   OFFICIAL_CATALOG_URL,
 } from "@repo/domain/Catalog";
-import { Data, Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 
 export { OFFICIAL_CATALOG_URL };
 
 /** The official catalog could not be fetched or is not a valid v1 document. */
-export class OfficialCatalogUnavailable extends Data.TaggedError(
+export class OfficialCatalogUnavailable extends Schema.TaggedError<OfficialCatalogUnavailable>()(
   "OfficialCatalogUnavailable",
-)<{
-  readonly url: string;
-  readonly message: string;
-}> {}
+  { url: Schema.String, message: Schema.String, cause: Schema.Defect() },
+) {}
 
 /**
  * Fetch the official catalog so a catalog that declares `requires:
@@ -28,20 +26,20 @@ export class OfficialCatalogUnavailable extends Data.TaggedError(
 export const loadOfficialCatalog = Effect.fn("Authoring.loadOfficialCatalog")(
   function* (url: string = OFFICIAL_CATALOG_URL) {
     const client = yield* HttpClient.HttpClient;
-    const unavailable = (reason: string) =>
-      new OfficialCatalogUnavailable({
-        url,
-        message: `Could not load the official catalog from ${url}: ${reason}`,
-      });
+    const message = `Could not load the official catalog from ${url}`;
     const json = yield* client
       .get(url, { headers: { accept: "application/json" } })
       .pipe(
         Effect.flatMap(HttpClientResponse.filterStatusOk),
         Effect.flatMap((response) => response.json),
-        Effect.mapError((error) => unavailable(error.message)),
+        Effect.mapError(
+          (cause) => new OfficialCatalogUnavailable({ url, message, cause }),
+        ),
       );
     return yield* decodeDocument(json).pipe(
-      Effect.mapError((error) => unavailable(error.message)),
+      Effect.mapError(
+        (cause) => new OfficialCatalogUnavailable({ url, message, cause }),
+      ),
     ) satisfies Effect.Effect<CatalogDocument, OfficialCatalogUnavailable>;
   },
 );

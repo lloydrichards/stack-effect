@@ -268,10 +268,11 @@ describe("loadOfficialCatalog", () => {
 
         assert.strictEqual(error._tag, "OfficialCatalogUnavailable");
         assert.strictEqual(error.url, "https://official.test/v1.json");
-        assert.include(
+        assert.strictEqual(
           error.message,
-          "Could not load the official catalog from https://official.test/v1.json: ",
+          "Could not load the official catalog from https://official.test/v1.json",
         );
+        assert.instanceOf(error.cause, Error);
       }).pipe(
         Effect.provide(
           serving(() =>

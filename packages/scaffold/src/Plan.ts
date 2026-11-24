@@ -8,7 +8,7 @@ import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type {
   NormalizedContributions,
   Plan,
-  PlanFailure,
+  PlanError,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import {
@@ -77,7 +77,7 @@ export class Planner extends Context.Service<
       readonly blueprint: Blueprint;
       readonly repositoryRoot: string;
       readonly config: StackConfig;
-    }) => Effect.Effect<Plan, PlanFailure | CatalogNotFound>;
+    }) => Effect.Effect<Plan, PlanError | CatalogNotFound>;
   }
 >()("@repo/scaffold/Planner") {
   static readonly layer: Layer.Layer<

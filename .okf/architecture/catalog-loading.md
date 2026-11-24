@@ -58,7 +58,7 @@ Other HTTP statuses, a non-JSON content type, invalid JSON, an invalid document,
 
 ## Compose, then persist
 
-After every source loads, `loadSources` composes all documents once with Finalize scripts allowed and each source's `requires`. Consent to run scripts is a Finalize decision, not a loading one. If composition fails, `CatalogCompositionFailure` names every source with its URL and freshness.
+After every source loads, `loadSources` composes all documents once with Finalize scripts allowed and each source's `requires`. Consent to run scripts is a Finalize decision, not a loading one. If composition fails, `CatalogCompositionError` names every source with its URL and freshness.
 
 Cache entries are written only after the selection composes, so an entry is never replaced by a document that failed. A failed write adds a `persistence` warning and does not fail the operation. The result is a `LoadedCatalogSet`: the composed `CatalogReader` and one `LoadedCatalogSource` per source.
 

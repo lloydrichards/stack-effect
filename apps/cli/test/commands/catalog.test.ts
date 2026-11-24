@@ -59,7 +59,7 @@ describe("catalog workspace reset", () => {
             path.join(directory, "catalog-deno"),
           ]);
 
-          assert.propertyVal(error, "_tag", "BlueprintFailure");
+          assert.propertyVal(error, "_tag", "BlueprintError");
           assert.include(
             errorMessage(error),
             "Runtime deno does not support module package-library",

@@ -5,14 +5,18 @@ import {
   sameCatalogSources,
 } from "@repo/domain/Catalog";
 import type { StackConfig } from "@repo/domain/StackConfig";
-import { Data, Effect, Option, Schema } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { CONFIG_FILENAME } from "../service/ConfigureService";
 
 /** A --catalog selection the CLI refuses before loading any catalog. */
-class CatalogSelectionError extends Data.TaggedError("CatalogSelectionError")<{
-  readonly reason: "invalidFlag" | "mismatch";
-  readonly message: string;
-}> {}
+class CatalogSelectionError extends Schema.TaggedError<CatalogSelectionError>()(
+  "CatalogSelectionError",
+  {
+    reason: Schema.Literals(["invalidFlag", "mismatch"]),
+    message: Schema.String,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
 
 const parseCatalogFlag = (entry: string) => {
   const separator = entry.indexOf("=");
@@ -42,7 +46,8 @@ const parseCatalogFlags = Effect.fn("parseCatalogFlags")(function* (
       (error) =>
         new CatalogSelectionError({
           reason: "invalidFlag",
-          message: `Invalid --catalog selection: ${error.message}`,
+          message: "Invalid --catalog selection",
+          cause: error,
         }),
     ),
   );

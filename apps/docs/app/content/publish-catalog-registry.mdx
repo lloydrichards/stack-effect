@@ -519,13 +519,13 @@ Templates that land in official targets pass through the consumer's official lin
 
 ## When a catalog fails to load
 
-Stack Effect stops before writing any file when a selected source cannot be used. Each message names the source and its URL.
+Stack Effect stops before writing any file when a selected source cannot be used. The message names the source, and the `Caused by:` lines under it name the URL and say why.
 
 | Situation | Message |
 | --- | --- |
-| The URL is plain `http:` on a public host | `Invalid --catalog selection: Catalog URL must use https unless it targets a loopback host: <url>` |
-| The host is unreachable and nothing is cached | `Catalog source mine: Could not fetch catalog from <url>.` |
-| The document is not a valid v1 catalog | `Catalog source mine: Catalog from <url> uses an unsupported formatVersion.` |
+| The URL is plain `http:` on a public host | `Invalid --catalog selection`, caused by `Catalog URL must use https unless it targets a loopback host: <url>` |
+| The host is unreachable and nothing is cached | `Could not load catalog source mine.`, caused by `Could not fetch catalog from <url>.` |
+| The document is not a valid v1 catalog | `Could not load catalog source mine.`, caused by `Catalog from <url> uses an unsupported formatVersion.` |
 | An extension catalog is selected without `official` | `Selected catalogs do not compose: Source ext requires the official catalog, which is not selected; select it with --catalog official.` |
 | Two sources define the same kind or ID, including an official one | `Selected catalogs do not compose: Duplicate target kind workspace in sources mine and extras; …` |
 

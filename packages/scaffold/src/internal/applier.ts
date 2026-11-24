@@ -1,9 +1,9 @@
 import {
   Apply,
-  ApplyFailure,
+  ApplyError,
   ApplyResult,
   type StalePlanChange,
-  StalePlanFailure,
+  StalePlan,
 } from "@repo/domain/Apply";
 import {
   CompositionOperation,
@@ -277,7 +277,7 @@ export const makeApplier = Effect.gen(function* () {
   const prepare = (
     action: MaterializedPlannedOutcomeAction,
     files: RepositoryFiles,
-  ): Effect.Effect<PreparedApplyAction, ApplyFailure> =>
+  ): Effect.Effect<PreparedApplyAction, ApplyError> =>
     Match.valueTags(action, {
       skip: ({ path }) => Effect.succeed(PreparedApplyAction.skip({ path })),
       "write-authoritative": ({ path, contents, writeMode }) =>
@@ -295,7 +295,7 @@ export const makeApplier = Effect.gen(function* () {
   ) {
     const changes = yield* repository.verify(baseline);
     if (changes.length > 0) {
-      return yield* new StalePlanFailure({
+      return yield* new StalePlan({
         changes,
         partialResult: emptyResult,
         message: stalePlanMessage(changes, emptyResult),
@@ -313,7 +313,7 @@ export const makeApplier = Effect.gen(function* () {
       (yield* repository.discoverOwners.pipe(
         Effect.mapError(
           (error) =>
-            new ApplyFailure({
+            new ApplyError({
               message: error.message,
               cause: error,
             }),
@@ -327,7 +327,7 @@ export const makeApplier = Effect.gen(function* () {
     ).pipe(
       Effect.mapError(
         (error) =>
-          new ApplyFailure({
+          new ApplyError({
             message: error.message,
             cause: error,
           }),
@@ -357,7 +357,7 @@ export const makeApplier = Effect.gen(function* () {
       );
       if (changes.length > 0) {
         const partialResult = toApplyResult(batch, attempts);
-        return yield* new StalePlanFailure({
+        return yield* new StalePlan({
           changes,
           partialResult,
           message: stalePlanMessage(changes, partialResult),

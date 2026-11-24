@@ -28,7 +28,6 @@ import { RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   Array as Arr,
   Console,
-  Data,
   DateTime,
   Effect,
   FileSystem,
@@ -94,23 +93,19 @@ const CatalogWorkspaceManifestFromJsonString = Schema.fromJsonString(
   { space: 2 },
 );
 
-class WorkspaceCommandFailed extends Data.TaggedError(
+class WorkspaceCommandFailed extends Schema.TaggedError<WorkspaceCommandFailed>()(
   "WorkspaceCommandFailed",
-)<{
-  command: string;
-  cause: unknown;
-}> {
+  { command: Schema.String, cause: Schema.Defect() },
+) {
   override get message(): string {
     return `Workspace command failed: ${this.command}`;
   }
 }
 
-class WorkspaceValidationFailed extends Data.TaggedError(
+class WorkspaceValidationFailed extends Schema.TaggedError<WorkspaceValidationFailed>()(
   "WorkspaceValidationFailed",
-)<{
-  command: string;
-  exitCode: number;
-}> {
+  { command: Schema.String, exitCode: Schema.Number },
+) {
   override get message(): string {
     return `Workspace validation failed: ${this.command} exited with code ${this.exitCode}.`;
   }
