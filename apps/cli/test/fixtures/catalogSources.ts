@@ -50,6 +50,7 @@ export const urls = {
   down: "https://down.test/v1.json",
   sneaky: "https://sneaky.test/v1.json",
   providers: "https://providers.test/v1.json",
+  implications: "https://implications.test/v1.json",
 } as const;
 
 export const target = (kind: string, file: string): TargetDefinition => ({
@@ -78,6 +79,11 @@ export const module = (
 });
 
 const encode = Schema.encodeSync(Schema.fromJsonString(CatalogDocument));
+
+const implies = (kind: string, id: string) => ({
+  targetKind: TargetKind.make(kind),
+  moduleId: ModuleId.make(id),
+});
 
 const acme = encode({
   formatVersion: 1,
@@ -140,6 +146,38 @@ export const documents: Readonly<Record<string, string>> = {
       module("sql-postgres", "package", {
         provides: [ModuleCapability.make("db-sql")],
       }),
+    ],
+  }),
+  [urls.implications]: encode({
+    formatVersion: 1,
+    catalogId: Schema.NonEmptyString.make("implications"),
+    requiredCapabilities: ["contribution:file", "token:targetPath"],
+    targets: [
+      target("app", "app.txt"),
+      target("workspace", "IMPLICATIONS.md"),
+      target("server", "server.txt"),
+      target("client", "client.txt"),
+      target("package", "package.txt"),
+      target("worker", "worker.txt"),
+    ],
+    modules: [
+      module("origin", "app", {
+        implies: [
+          implies("server", "relay"),
+          implies("client", "client-base"),
+          implies("package", "library"),
+        ],
+      }),
+      // Placed on the client while the server is walked, before the package.
+      module("relay", "server", {
+        implies: [implies("client", "relay-client")],
+      }),
+      module("client-base", "client"),
+      module("relay-client", "client", {
+        implies: [implies("worker", "job")],
+      }),
+      module("library", "package", { implies: [implies("worker", "job")] }),
+      module("job", "worker"),
     ],
   }),
   [urls.acme]: acme,

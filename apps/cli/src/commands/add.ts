@@ -237,28 +237,29 @@ const placeImplication = Effect.fnUntraced(function* (
   return true;
 });
 
+const placeImplicationsOf = Effect.fnUntraced(function* (
+  targets: Array<CollectedTarget>,
+  moduleId: ModuleId,
+) {
+  const definition = yield* (yield* CatalogReader).getModule(moduleId);
+  return yield* Effect.forEach(definition.implies ?? [], (implication) =>
+    placeImplication(targets, definition, implication),
+  );
+});
+
 // An implied module may live on another target kind; place it there, adding the target if needed.
 const resolveImplications = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
 ) {
-  const catalog = yield* CatalogReader;
-  const definitions = yield* Effect.forEach(
-    targets.flatMap((target) => target.modules),
-    catalog.getModule,
-  );
-
   // NOTE: BlueprintResolver resolves required-module deps; this prompt only places implied modules.
-  const placed = yield* Effect.forEach(
-    definitions.flatMap((definition) =>
-      (definition.implies ?? []).map((implication) => ({
-        definition,
-        implication,
-      })),
+  // Walk the live arrays: a module placed during this pass is visited in
+  // target order, so the first requester of a shared module asks where it goes.
+  const placed = yield* Effect.forEach(targets, (target) =>
+    Effect.forEach(target.modules, (moduleId) =>
+      placeImplicationsOf(targets, moduleId),
     ),
-    ({ definition, implication }) =>
-      placeImplication(targets, definition, implication),
   );
-  return placed.some(Boolean);
+  return placed.flat(2).some(Boolean);
 });
 
 const resolveImplicationsInteractive = Effect.fnUntraced(function* (

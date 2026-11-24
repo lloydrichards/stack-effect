@@ -53,4 +53,58 @@ describe("add", () => {
       ),
     30_000,
   );
+
+  it.effect(
+    "should ask the first requester in target order where a shared implied module goes",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          const root = path.join(directory, "shop");
+          yield* fs.makeDirectory(root);
+          yield* fs.writeFileString(
+            path.join(root, "stack.effect.json"),
+            JSON.stringify({
+              name: "shop",
+              runtime: { _tag: "bun" },
+              catalogs: [{ name: "implications", url: urls.implications }],
+            }),
+          );
+
+          const { stdout } = yield* run(["add", "--root", root, "--dry-run"], {
+            input: Effect.forEach(
+              [
+                MockTerminal.inputKey("enter"), // target kind: app
+                MockTerminal.inputText("shell"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("space"), // module: origin
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("api"), // server for relay
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("web"), // client for client-base
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("lib"), // package for library
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("jobs"), // worker for job
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("enter"), // Confirm all
+              ],
+              (input) => input,
+              { discard: true },
+            ),
+          });
+          const output = stdout.join("\n");
+
+          assert.include(
+            output,
+            'Module "relay-client" requires a worker target',
+          );
+          assert.notInclude(
+            output,
+            'Module "library" requires a worker target',
+          );
+        }),
+      ),
+    30_000,
+  );
 });
