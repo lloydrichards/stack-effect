@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
   "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
-  "jsPlugins": ["./tools/oxlint/layout.mjs"],
+  "jsPlugins": ["./tools/oxlint/layout.mjs", "./tools/oxlint/shape.mjs"],
   "rules": {
     "eslint/require-yield": "off",
     "effecttsgo/unnecessary-typeof-type": "off",
@@ -71,10 +71,20 @@
       }
     },
     {
-      "files": ["packages/domain/src/**"],
+      "files": ["packages/domain/src/**", "packages/scaffold/src/**"],
       "rules": {
         "effecttsgo/global-json": "error",
-        "no-nested-ternary": "error"
+        "no-nested-ternary": "error",
+        "max-depth": ["error", 3],
+        "max-nested-callbacks": ["error", 4],
+        "shape/max-inputs": [
+          "error",
+          {
+            "max": 4
+          }
+        ],
+        "shape/no-push-accumulator": "error",
+        "shape/no-error-factory": "error"
       }
     },
     {
