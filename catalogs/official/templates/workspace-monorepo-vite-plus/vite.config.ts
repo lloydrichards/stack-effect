@@ -13,7 +13,7 @@ export default defineConfig({
       "max-nested-callbacks": ["error", 4],
       "no-nested-ternary": "error",
       "typescript/array-type": [
-        "error",
+        "warn",
         { default: "generic", readonly: "generic" },
       ],
       "unicorn/prefer-array-flat-map": "error",
