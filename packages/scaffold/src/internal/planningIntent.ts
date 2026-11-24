@@ -419,11 +419,12 @@ export const compile = Effect.fnUntraced(function* (
   ].flatMap((entry) => toPlanningIntentEntries(entry.contributions));
 
   const planningPaths: Array<PlanningIntentPath> = [];
-  for (const [path, pathEntries] of Map.groupBy(
-    entries,
-    (entry) => entry.path,
+  for (const pathEntries of Object.values(
+    Arr.groupBy(entries, (entry) => entry.path),
   )) {
-    planningPaths.push(yield* derivePlanningIntentPath(path, pathEntries));
+    planningPaths.push(
+      yield* derivePlanningIntentPath(pathEntries[0].path, pathEntries),
+    );
   }
   return planningPaths;
 });
