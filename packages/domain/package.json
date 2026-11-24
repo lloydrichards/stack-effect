@@ -4,25 +4,18 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/Api.ts",
     "./Apply": "./src/Apply.ts",
-    "./Api": "./src/Api.ts",
     "./Blueprint": "./src/Blueprint.ts",
     "./Catalog": "./src/Catalog.ts",
     "./CatalogSource": "./src/CatalogSource.ts",
-    "./Chat": "./src/Chat.ts",
     "./Order": "./src/Order.ts",
     "./Plan": "./src/Plan.ts",
     "./Recipe": "./src/Recipe.ts",
     "./RecipePreview": "./src/RecipePreview.ts",
-    "./Rpc": "./src/Rpc.ts",
     "./Scaffold": "./src/Scaffold.ts",
     "./Finalize": "./src/Finalize.ts",
-    "./Selection": "./src/Selection.ts",
-    "./WebSocket": "./src/WebSocket.ts"
+    "./Selection": "./src/Selection.ts"
   },
-  "main": "./src/Api.ts",
-  "types": "./src/Api.ts",
   "scripts": {
     "type-check": "tsc --noEmit",
     "test": "vitest run",

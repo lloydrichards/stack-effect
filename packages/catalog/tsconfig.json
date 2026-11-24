@@ -10,6 +10,6 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "exclude": ["dist", "build", "node_modules"]
 }

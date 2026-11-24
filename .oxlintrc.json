@@ -1,13 +1,20 @@
 {
   "$schema": "./node_modules/@effect/tsgo/oxlint-schema.json",
   "extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
+  "jsPlugins": ["./tools/oxlint/layout.mjs"],
   "rules": {
     "eslint/require-yield": "off",
     "effecttsgo/unnecessary-typeof-type": "off",
     "typescript/consistent-type-definitions": ["error", "type"],
-    "oxc/no-barrel-file": ["error", { "threshold": 0 }],
+    "oxc/no-barrel-file": [
+      "error",
+      {
+        "threshold": 0
+      }
+    ],
     "func-style": ["error", "expression"],
-    "typescript/no-non-null-assertion": "error"
+    "typescript/no-non-null-assertion": "error",
+    "layout/no-src-tests": "error"
   },
   "overrides": [
     {
