@@ -10,15 +10,28 @@ import { Schema } from "effect";
 
 describe("@repo/domain Apply", () => {
   const decodeApply = Schema.decodeUnknownSync(Apply);
-  const emptyPlan = {
-    baseline: { root: "/workspace", paths: [] },
-    outcomes: [],
-    conflicts: [],
+  const conflictedPaths = ["packages/domain/package.json", "package.json"];
+  const conflictedPlan = {
+    baseline: {
+      root: "/workspace",
+      paths: conflictedPaths.map((path) => ({
+        _tag: "file",
+        path,
+        sha256: "",
+      })),
+    },
+    outcomes: conflictedPaths.map((path) => ({
+      _tag: "complete",
+      path,
+      classification: "conflict",
+      contents: "{}",
+    })),
+    conflicts: conflictedPaths.map((path) => ({ _tag: "completeFile", path })),
   };
 
-  it("accepts supported apply decision values", () => {
+  it("accepts one supported decision for each conflicted path", () => {
     const apply = decodeApply({
-      plan: emptyPlan,
+      plan: conflictedPlan,
       decisions: [
         { path: "packages/domain/package.json", value: "override" },
         { path: "package.json", value: "skip" },
@@ -34,12 +47,42 @@ describe("@repo/domain Apply", () => {
     ]);
   });
 
-  it("rejects unsupported apply decision values", () => {
-    assert.throws(() =>
-      decodeApply({
-        plan: emptyPlan,
-        decisions: [{ path: "package.json", value: "merge" }],
-      }),
+  it.each([
+    {
+      name: "an unsupported value",
+      decisions: [
+        { path: "packages/domain/package.json", value: "override" },
+        { path: "package.json", value: "merge" },
+      ],
+      message: 'Expected "override" | "skip"',
+    },
+    {
+      name: "a conflict without a decision",
+      decisions: [{ path: "packages/domain/package.json", value: "override" }],
+      message: "Missing apply decision for conflicted path package.json.",
+    },
+    {
+      name: "a repeated path",
+      decisions: [
+        { path: "packages/domain/package.json", value: "override" },
+        { path: "package.json", value: "skip" },
+        { path: "package.json", value: "override" },
+      ],
+      message: "Duplicate apply decision for package.json.",
+    },
+    {
+      name: "a path without a conflict",
+      decisions: [
+        { path: "packages/domain/package.json", value: "override" },
+        { path: "package.json", value: "skip" },
+        { path: "README.md", value: "skip" },
+      ],
+      message: "Unexpected apply decision for non-conflicted path README.md.",
+    },
+  ])("rejects decisions with $name", ({ decisions, message }) => {
+    assert.throws(
+      () => decodeApply({ plan: conflictedPlan, decisions }),
+      message,
     );
   });
 

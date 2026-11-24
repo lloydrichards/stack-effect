@@ -209,4 +209,5 @@ Export only what another module uses in production code. A test is not a caller.
 | `effecttsgo/node-builtin-import` | `.oxlintrc.json` | A Node built-in import outside tests, `tools/`, and docs scripts. Use the platform service |
 | `effecttsgo/effect-try-without-catch` | `.oxlintrc.json` | `Effect.try` without a `catch` that maps to a typed error |
 | `unicorn/prefer-array-flat-map` | `.oxlintrc.json` | `.map(…).flat()` |
+| `effecttsgo/global-json` and `no-nested-ternary` | `.oxlintrc.json`, `packages/domain/src` only | `JSON.parse` or `JSON.stringify` in domain contracts, such as a string equality key, and a nested ternary. Use `Schema.fromJsonString`, `Equal` or a named `Equivalence`, and a lookup table or `Match` |
 | Fallow complexity audit | `bun run lint:complexity` | A function that a change pushes over Fallow's complexity thresholds. Existing findings are reported, not gated |

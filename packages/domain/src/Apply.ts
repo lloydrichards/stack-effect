@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { duplicates } from "./Catalog";
 import { byPath, Plan, RepositoryPath, RepositoryPathOrder } from "./Plan";
 
 /**
@@ -13,20 +14,51 @@ const ApplyDecision = Schema.Struct({
   value: Schema.Literals(["override", "skip"]),
 });
 
+const conflictedPaths = (plan: Plan) =>
+  new Set(
+    plan.outcomes
+      .filter((outcome) => outcome.classification === "conflict")
+      .map((outcome) => outcome.path),
+  );
+
 /**
  * Combines a Plan with user decisions for all conflicted paths, forming the
  * complete execution intent.
  *
- * An Apply is valid only when every conflict in the Plan has a corresponding
- * ApplyDecision — missing or extra decisions are invalid.
+ * An Apply is valid only when every conflict in the Plan has exactly one
+ * ApplyDecision. Construction and decoding reject a missing, extra, or
+ * repeated decision.
  *
  * @category Apply
  * @since 1.0.0
  */
-export class Apply extends Schema.Class<Apply>("Apply")({
-  plan: Plan,
-  decisions: Schema.Array(ApplyDecision),
-}) {}
+export class Apply extends Schema.Class<Apply>("Apply")(
+  Schema.Struct({
+    plan: Plan,
+    decisions: Schema.Array(ApplyDecision),
+  }).check(
+    Schema.makeFilter(({ decisions }) =>
+      duplicates(decisions.map((decision) => decision.path)).map(
+        (path) => `Duplicate apply decision for ${path}.`,
+      ),
+    ),
+    Schema.makeFilter(({ plan, decisions }) => {
+      const conflicted = conflictedPaths(plan);
+      return decisions
+        .filter((decision) => !conflicted.has(decision.path))
+        .map(
+          (decision) =>
+            `Unexpected apply decision for non-conflicted path ${decision.path}.`,
+        );
+    }),
+    Schema.makeFilter(({ plan, decisions }) => {
+      const decided = new Set(decisions.map((decision) => decision.path));
+      return [...conflictedPaths(plan)]
+        .filter((path) => !decided.has(path))
+        .map((path) => `Missing apply decision for conflicted path ${path}.`);
+    }),
+  ),
+) {}
 
 export class ApplyFailure extends Schema.TaggedError<ApplyFailure>()(
   "ApplyFailure",

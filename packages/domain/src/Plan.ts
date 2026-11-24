@@ -1,5 +1,11 @@
-import { Array as Arr, Order, Schema } from "effect";
-import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
+import { Order, Schema } from "effect";
+import {
+  Contribution,
+  duplicates,
+  ModuleId,
+  TargetIdentity,
+  TargetKey,
+} from "./Catalog";
 import { Selection } from "./Selection";
 import { StackConfig } from "./StackConfig";
 
@@ -260,26 +266,28 @@ export const PlanConflict = Schema.TaggedUnion({
 
 export type PlanConflict = typeof PlanConflict.Type;
 
-const planConflictKey = (conflict: PlanConflict): string =>
-  PlanConflict.match(conflict, {
-    exports: (c) => JSON.stringify([c._tag, c.path, c.name]),
-    dependencies: (c) => JSON.stringify([c._tag, c.path, c.section, c.name]),
-    scripts: (c) => JSON.stringify([c._tag, c.path, c.name]),
-    tsconfig: (c) => JSON.stringify([c._tag, c.path]),
-    completeFile: (c) => JSON.stringify([c._tag, c.path]),
-    compositionTargetNotFound: (c) =>
-      JSON.stringify([c._tag, c.path, c.targetVariable, c.functionName]),
-    jsxSlotTargetNotFound: (c) => JSON.stringify([c._tag, c.path, c.slotId]),
-  });
-
-const duplicates = (values: ReadonlyArray<string>): ReadonlyArray<string> =>
-  Arr.map(
-    Arr.filter(
-      Object.entries(Arr.groupBy(values, (value) => value)),
-      ([, groupedValues]) => groupedValues.length > 1,
-    ),
-    ([value]) => value,
-  );
+/**
+ * Orders Plan conflicts by kind, then path, then the fields that tell
+ * conflicts on one path apart.
+ */
+const planConflictOrder = Order.combineAll<PlanConflict>([
+  Order.mapInput(Order.String, (conflict: PlanConflict) => conflict._tag),
+  byPath,
+  Order.mapInput(Order.Array(Order.String), (conflict: PlanConflict) =>
+    PlanConflict.match(conflict, {
+      exports: ({ name }) => [name],
+      dependencies: ({ section, name }) => [section, name],
+      scripts: ({ name }) => [name],
+      tsconfig: () => [],
+      completeFile: () => [],
+      compositionTargetNotFound: ({ targetVariable, functionName }) => [
+        targetVariable,
+        functionName,
+      ],
+      jsxSlotTargetNotFound: ({ slotId }) => [slotId],
+    }),
+  ),
+]);
 
 const PlanFields = Schema.Struct({
   baseline: PlanBaseline,
@@ -289,7 +297,6 @@ const PlanFields = Schema.Struct({
   Schema.makeFilter(({ baseline, conflicts, outcomes }) => {
     const baselinePaths = baseline.paths.map((entry) => entry.path);
     const outcomePaths = outcomes.map((outcome) => outcome.path);
-    const conflictKeys = conflicts.map(planConflictKey);
     const conflictedOutcomePaths = new Set(
       outcomes
         .filter((outcome) => outcome.classification === "conflict")
@@ -304,9 +311,9 @@ const PlanFields = Schema.Struct({
       ...duplicates(outcomePaths).map(
         (path) => `Plan outcome paths must be unique; duplicate path: ${path}`,
       ),
-      ...duplicates(conflictKeys).map(
-        (key) =>
-          `Plan conflict diagnostics must be unique; duplicate identity: ${key}`,
+      ...duplicates(conflicts).map(
+        (conflict) =>
+          `Plan conflict diagnostics must be unique; duplicate ${conflict._tag} conflict at ${conflict.path}`,
       ),
       ...[...conflictPaths]
         .filter((path) => !conflictedOutcomePaths.has(path))
@@ -321,6 +328,12 @@ const PlanFields = Schema.Struct({
             `Plan conflicted outcome must have at least one conflict diagnostic: ${path}`,
         ),
     ];
+  }),
+  Schema.makeFilter(({ baseline, outcomes }) => {
+    const baselinePaths = new Set(baseline.paths.map((entry) => entry.path));
+    return outcomes
+      .filter((outcome) => !baselinePaths.has(outcome.path))
+      .map((outcome) => `Plan baseline does not cover ${outcome.path}`);
   }),
 );
 
@@ -351,9 +364,7 @@ export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
         paths: [...this.baseline.paths].sort(byPath),
       },
       outcomes: [...this.outcomes].sort(byPath),
-      conflicts: [...this.conflicts].sort(
-        Order.mapInput(Order.String, planConflictKey),
-      ),
+      conflicts: [...this.conflicts].sort(planConflictOrder),
     });
   }
 }
@@ -425,10 +436,9 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
    * Unknown fields in conditionals silently evaluate as falsy.
    */
   resolve(template: string): string {
-    const resolvedTargetName =
-      this.identity.name.trim().length > 0
-        ? this.identity.name
-        : this.identity.kind;
+    const resolvedTargetName = this.identity.hasExplicitName()
+      ? this.identity.name
+      : this.identity.kind;
 
     const targetPath = this.identity.toPath();
 

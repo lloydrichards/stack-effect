@@ -71,6 +71,13 @@
       }
     },
     {
+      "files": ["packages/domain/src/**"],
+      "rules": {
+        "effecttsgo/global-json": "error",
+        "no-nested-ternary": "error"
+      }
+    },
+    {
       "files": ["packages/authoring/src/**/*.ts"],
       "rules": {
         "no-restricted-imports": [

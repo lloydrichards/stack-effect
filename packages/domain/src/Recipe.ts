@@ -1,6 +1,7 @@
-import { Array as Arr, Effect, Result, Schema, SchemaGetter } from "effect";
+import { Effect, Result, Schema, SchemaGetter } from "effect";
 import { Blueprint } from "./Blueprint";
 import {
+  duplicates,
   ModuleCapability,
   ModuleId,
   TargetIdentity,
@@ -252,11 +253,6 @@ const splitCommaSeparated = (values: ReadonlyArray<string>): Array<string> =>
       .filter((part) => part.length > 0),
   );
 
-const duplicatedValues = (values: ReadonlyArray<string>): Array<string> =>
-  Object.entries(Arr.groupBy(values, (value) => value))
-    .filter(([, grouped]) => grouped.length > 1)
-    .map(([value]) => value);
-
 const targetParts = (value: string) => {
   const slash = value.indexOf("/");
   const colon = value.indexOf(":", slash + 1);
@@ -413,7 +409,7 @@ export const mergeRecipeTargets = (
 const recipeTargetSpecToCollected = Effect.fnUntraced(function* (
   spec: RecipeTargetSpec,
 ) {
-  const duplicateModules = duplicatedValues(spec.modules);
+  const duplicateModules = duplicates(spec.modules);
 
   if (duplicateModules.length > 0) {
     return yield* Effect.fail(

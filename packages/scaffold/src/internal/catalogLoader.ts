@@ -18,6 +18,7 @@ import {
   CatalogLoadWarning,
   LoadedCatalogSource,
   CatalogSourceInvalid,
+  CatalogSourceUrl,
   CatalogTimedOut,
   CatalogUnavailable,
   selectsOfficialCatalog,
@@ -53,26 +54,17 @@ const failure = (
   cause?: unknown,
 ) => new CatalogLoadFailure({ reason, sourceUrl, message, cause });
 
-const normalizedUrl = Effect.fnUntraced(function* (sourceUrl: string) {
-  const url = yield* Effect.try({
-    try: () => new URL(sourceUrl),
-    catch: (cause) =>
+const decodeSourceUrl = (sourceUrl: string) =>
+  Schema.decodeEffect(CatalogSourceUrl)(sourceUrl).pipe(
+    Effect.mapError((cause) =>
       failure(
         new CatalogSourceInvalid(),
         sourceUrl,
         `Invalid catalog URL: ${sourceUrl}`,
         cause,
       ),
-  });
-  if (url.protocol !== "http:" && url.protocol !== "https:")
-    return yield* failure(
-      new CatalogSourceInvalid(),
-      sourceUrl,
-      `Invalid catalog URL: ${sourceUrl}`,
-    );
-  url.hash = "";
-  return url.toString();
-});
+    ),
+  );
 
 const persistenceWarningFor = (
   sourceUrl: string,
@@ -218,7 +210,7 @@ export const make = (cache: CatalogCache["Service"]) =>
     });
 
     const loadDocument = Effect.fnUntraced(function* <A>(
-      inputUrl: string,
+      sourceUrl: CatalogSourceUrl,
       check: (
         document: CatalogDocument,
       ) => Effect.Effect<A, CatalogLoadFailure>,
@@ -226,7 +218,6 @@ export const make = (cache: CatalogCache["Service"]) =>
       // validation finishes only after this document joins others.
       deferPersistence = false,
     ) {
-      const sourceUrl = yield* normalizedUrl(inputUrl);
       const startedAt = yield* Clock.currentTimeMillis;
       const cached = yield* readCached(sourceUrl, check).pipe(
         Effect.timeout(CATALOG_TIMEOUT_MILLIS),
@@ -401,7 +392,8 @@ export const make = (cache: CatalogCache["Service"]) =>
       sourceUrl,
       allowFinalizeScripts = false,
     }: Parameters<CatalogLoader["Service"]["load"]>[0]) {
-      const { value, ...loaded } = yield* loadDocument(sourceUrl, (document) =>
+      const url = yield* decodeSourceUrl(sourceUrl);
+      const { value, ...loaded } = yield* loadDocument(url, (document) =>
         CatalogReader.pipe(
           Effect.provide(
             CatalogReader.fromFragments(
@@ -442,11 +434,17 @@ export const make = (cache: CatalogCache["Service"]) =>
       const results = yield* Effect.forEach(
         sources,
         (source) =>
-          loadDocument(
-            "url" in source ? source.url : officialUrl,
-            (document) => Effect.succeed(document),
-            true,
+          ("url" in source
+            ? Effect.succeed(source.url)
+            : decodeSourceUrl(officialUrl)
           ).pipe(
+            Effect.flatMap((sourceUrl) =>
+              loadDocument(
+                sourceUrl,
+                (document) => Effect.succeed(document),
+                true,
+              ),
+            ),
             Effect.map(({ value, pending, ...rest }) => ({
               document: value,
               pending,

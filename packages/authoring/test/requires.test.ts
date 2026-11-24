@@ -34,7 +34,13 @@ const official: CatalogDocument = {
       supportedOn: [{ _tag: "kind", kind: TargetKind.make("server") }],
       dependencies: [],
       contributions: [],
-      scripts: [{ label: "Install", command: "bun install" }],
+      scripts: [
+        {
+          label: "Install",
+          command: "bun install",
+          phase: "finalize",
+        },
+      ],
     },
   ],
 };

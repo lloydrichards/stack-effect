@@ -9,7 +9,13 @@ import { StackConfig } from "@repo/domain/StackConfig";
 import { Schema } from "effect";
 
 describe("@repo/domain Plan", () => {
-  const baseline = { root: "/workspace", paths: [] } as const;
+  const baseline = {
+    root: "/workspace",
+    paths: [
+      { _tag: "missing", path: RepositoryPath.make("README.md") },
+      { _tag: "missing", path: RepositoryPath.make("package.json") },
+    ],
+  } as const;
   it("should accept supported classifications and reject unsupported values", () => {
     const decodeOutcome = Schema.decodeUnknownSync(Plan.fields.outcomes.value);
     const outcome = (classification: string) => ({
@@ -57,6 +63,16 @@ describe("@repo/domain Plan", () => {
         paths: [
           { _tag: "missing", path: RepositoryPath.make("z.txt") },
           { _tag: "file", path: RepositoryPath.make("a.txt"), sha256: "abc" },
+          ...[
+            "packages/domain/src/Api.ts",
+            "apps/web/src/App.tsx",
+            "packages/domain/tsconfig.json",
+            "packages/domain/src/index.ts",
+          ].map((path) => ({
+            _tag: "file" as const,
+            path: RepositoryPath.make(path),
+            sha256: "abc",
+          })),
         ],
       },
       outcomes: [
@@ -118,7 +134,14 @@ describe("@repo/domain Plan", () => {
     );
     assert.deepStrictEqual(
       plan.baseline.paths.map((entry) => entry.path),
-      ["a.txt", "z.txt"],
+      [
+        "a.txt",
+        "apps/web/src/App.tsx",
+        "packages/domain/src/Api.ts",
+        "packages/domain/src/index.ts",
+        "packages/domain/tsconfig.json",
+        "z.txt",
+      ],
     );
     assert.deepStrictEqual(
       plan.conflicts.map((conflict) => conflict.path),
@@ -143,14 +166,17 @@ describe("@repo/domain Plan", () => {
     ]);
   });
 
+  const decodePlan = Schema.decodeUnknownSync(Plan);
   const invalidPlans: ReadonlyArray<{
     readonly name: string;
-    readonly construct: () => Plan;
+    readonly message: string;
+    readonly decode: () => Plan;
   }> = [
     {
       name: "duplicate baseline paths",
-      construct: () =>
-        new Plan({
+      message: "duplicate path: README.md",
+      decode: () =>
+        decodePlan({
           baseline: {
             root: "/workspace",
             paths: [
@@ -164,8 +190,9 @@ describe("@repo/domain Plan", () => {
     },
     {
       name: "duplicate outcome paths",
-      construct: () =>
-        new Plan({
+      message: "Plan outcome paths must be unique",
+      decode: () =>
+        decodePlan({
           baseline,
           outcomes: [
             {
@@ -186,8 +213,9 @@ describe("@repo/domain Plan", () => {
     },
     {
       name: "duplicate exact conflict diagnostics",
-      construct: () =>
-        new Plan({
+      message: "duplicate scripts conflict at package.json",
+      decode: () =>
+        decodePlan({
           baseline,
           outcomes: [
             {
@@ -213,8 +241,9 @@ describe("@repo/domain Plan", () => {
     },
     {
       name: "orphan conflict diagnostics",
-      construct: () =>
-        new Plan({
+      message: "must reference a conflicted outcome: README.md",
+      decode: () =>
+        decodePlan({
           baseline,
           outcomes: [],
           conflicts: [
@@ -224,8 +253,9 @@ describe("@repo/domain Plan", () => {
     },
     {
       name: "conflicted outcomes without diagnostics",
-      construct: () =>
-        new Plan({
+      message: "must have at least one conflict diagnostic: README.md",
+      decode: () =>
+        decodePlan({
           baseline,
           outcomes: [
             {
@@ -238,23 +268,31 @@ describe("@repo/domain Plan", () => {
           conflicts: [],
         }),
     },
+    {
+      name: "outcomes outside the baseline",
+      message: "Plan baseline does not cover docs/guide.md",
+      decode: () =>
+        decodePlan({
+          baseline,
+          outcomes: [
+            {
+              _tag: "complete",
+              path: RepositoryPath.make("docs/guide.md"),
+              classification: "create",
+              contents: "# Guide\n",
+            },
+          ],
+          conflicts: [],
+        }),
+    },
   ];
 
-  it("should reject invalid relationships during checked construction", () => {
-    invalidPlans.forEach(({ construct, name }) => {
-      assert.throws(construct, null, null, name);
-    });
-  });
-
-  it("should reject invalid relationships when decoding", () => {
-    assert.throws(() =>
-      Schema.decodeSync(Plan)({
-        baseline,
-        outcomes: [],
-        conflicts: [{ _tag: "completeFile", path: "README.md" }],
-      }),
-    );
-  });
+  it.each(invalidPlans)(
+    "should reject a Plan with $name",
+    ({ decode, message }) => {
+      assert.throws(decode, message);
+    },
+  );
 });
 
 describe("ContributionTokenContext.resolve", () => {
