@@ -10,6 +10,7 @@ import {
   SchemaGetter,
   String as Str,
 } from "effect";
+import { Url } from "effect/http";
 
 export class CatalogNotFound extends Data.TaggedError("CatalogNotFound")<{
   catalog: "target" | "module";
@@ -711,7 +712,7 @@ export const CatalogSourceUrl = Schema.String.check(
   // Later rules read the parsed URL, so a value that does not parse stops here.
   Schema.makeFilter(
     (value) =>
-      (URL.canParse(value) && !/\s/.test(value)) ||
+      (Result.isSuccess(Url.fromString(value)) && !/\s/.test(value)) ||
       `Catalog URL must be absolute, without whitespace: ${value}`,
     undefined,
     true,

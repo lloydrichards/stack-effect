@@ -364,6 +364,7 @@ export const make = (cache: CatalogCache["Service"]) =>
       DocumentFreshness.$match(freshness, {
         current: ({ entry }) =>
           cache.write(entry).pipe(
+            Effect.timeout(CATALOG_TIMEOUT_MILLIS),
             Effect.as(undefined),
             Effect.orElseSucceed(() => persistenceWarning(entry)),
           ),
