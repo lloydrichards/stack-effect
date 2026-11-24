@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
+  encodeRecipeTargetSpecs,
   parseRecipeTargetSpecs,
   RecipeTargetString,
 } from "@repo/domain/Recipe";
@@ -22,6 +23,20 @@ describe("RecipeTargetString", () => {
         ModuleId.make("client-react-http-api"),
       ],
     });
+  });
+
+  it("should encode every spec in order when a recipe has several targets", () => {
+    const decode = Schema.decodeSync(RecipeTargetString);
+    const values = [
+      "server/api:server-http-api",
+      "package/core:package-library",
+      "server-mcp/",
+    ];
+
+    assert.deepStrictEqual(
+      encodeRecipeTargetSpecs(values.map((value) => decode(value))),
+      values,
+    );
   });
 
   it("should encode the compact string when a spec has a target and modules", () => {
