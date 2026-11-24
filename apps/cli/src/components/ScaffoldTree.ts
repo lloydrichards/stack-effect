@@ -3,14 +3,15 @@ import {
   type BlueprintAttachedModuleNode,
   type BlueprintEdge,
   BlueprintNode,
-  blueprintNodeOrd,
+  blueprintNodeOrder,
+  edgeOrder,
 } from "@repo/domain/Blueprint";
-import { idOrd, pathOrd } from "@repo/domain/Order";
-import type {
-  Plan,
-  PlanConflict,
-  PlanEntryClassification,
-  PlanOutcome,
+import {
+  type Plan,
+  type PlanConflict,
+  type PlanEntryClassification,
+  type PlanOutcome,
+  byPath,
 } from "@repo/domain/Plan";
 import { Array as Arr, Match, pipe, String } from "effect";
 import { Ansi, Box } from "effect-boxes";
@@ -140,7 +141,7 @@ export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
     (targetNode) => {
       const attachedModules = Arr.sort(
         Arr.fromIterable(attachedModulesByTarget.get(targetNode.id) ?? []),
-        blueprintNodeOrd,
+        blueprintNodeOrder,
       );
 
       const targetHeader = Box.hcat(
@@ -172,7 +173,7 @@ export const formatBlueprint = (blueprint: Blueprint): FormattedBlueprint => {
                     edge.to === attachedModule.targetId
                   ),
               ),
-              idOrd,
+              edgeOrder,
             ),
             (edge) => ({
               label: Box.hsep(
@@ -229,7 +230,7 @@ export const formatPlan = (plan: Plan): FormattedPlan => {
   );
 
   const treeNodes = buildNodes(
-    Arr.map(Arr.sort(plan.outcomes, pathOrd), (outcome) => ({
+    Arr.map(Arr.sort(plan.outcomes, byPath), (outcome) => ({
       segments: String.split(
         outcome.path.startsWith("./") ? outcome.path.slice(2) : outcome.path,
         "/",

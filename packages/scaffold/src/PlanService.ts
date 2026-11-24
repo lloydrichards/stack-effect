@@ -6,7 +6,7 @@ import type { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type { Plan, PlanFailure } from "@repo/domain/Plan";
-import type { StackConfig } from "@repo/domain/Scaffold";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import {
   Context,
   type Effect,

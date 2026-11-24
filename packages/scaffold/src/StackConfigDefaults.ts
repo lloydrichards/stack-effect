@@ -1,8 +1,8 @@
+import { type RuntimeName, StackConfig } from "@repo/domain/StackConfig";
 /**
  * The default stack configuration that recipes and the CLI fall back to, and
  * the per-runtime adjustments to those defaults.
  */
-import { type RuntimeName, StackConfig } from "@repo/domain/Scaffold";
 import { Context, Schema } from "effect";
 
 /**

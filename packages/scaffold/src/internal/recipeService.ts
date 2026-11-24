@@ -17,8 +17,8 @@ import {
   type RecipeSpec,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
-import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Option } from "effect";
 import type { RecipeService } from "../RecipeService";
 import {

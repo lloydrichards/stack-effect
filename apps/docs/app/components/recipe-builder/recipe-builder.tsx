@@ -1,6 +1,6 @@
 "use client";
 
-import { OFFICIAL_CATALOG_SOURCE } from "@repo/domain/CatalogSource";
+import { OFFICIAL_CATALOG_SOURCE } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { AsyncResult } from "effect/reactivity";
 import { AlertCircle } from "lucide-react";

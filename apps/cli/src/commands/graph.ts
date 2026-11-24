@@ -1,10 +1,10 @@
 import { CatalogService } from "@repo/catalog";
-import type {
-  CatalogEdge,
-  CatalogGraph,
-  CatalogNode,
+import {
+  type CatalogEdge,
+  type CatalogGraph,
+  type CatalogNode,
+  isCustomCatalogSource,
 } from "@repo/domain/Catalog";
-import { isCustomCatalogSource } from "@repo/domain/CatalogSource";
 import { Table } from "@repo/tui";
 import {
   Array as Arr,

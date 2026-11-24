@@ -1,11 +1,11 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ModuleId } from "@repo/domain/Catalog";
 import {
+  ModuleId,
   CatalogCompositionFailure,
   CatalogLoadFailure,
   type CatalogLoadReason,
   type CatalogSources,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { Effect, Option } from "effect";
 import {
   json,

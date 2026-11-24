@@ -17,7 +17,7 @@ sources:
   - id: source-6
     resource: ../../packages/domain/src/Finalize.ts
   - id: source-7
-    resource: ../../packages/domain/src/CatalogSource.ts
+    resource: ../../packages/domain/src/Catalog.ts
 generated: { by: claude, at: "2026-09-29T18:00:00+02:00" }
 ---
 

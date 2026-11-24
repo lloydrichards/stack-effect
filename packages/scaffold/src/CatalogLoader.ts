@@ -10,7 +10,7 @@ import type {
   CatalogLoadWarning,
   CatalogSources,
   LoadedCatalogSource,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { Context, type Effect, Layer } from "effect";
 import type * as Digest from "effect/crypto/Digest";
 import type { HttpClient } from "effect/http";

@@ -2,7 +2,7 @@ import { homedir } from "node:os";
 import {
   type CatalogCacheEntry,
   CatalogCacheFailure,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { CatalogCache } from "@repo/scaffold/CatalogCache";
 import {
   Config,

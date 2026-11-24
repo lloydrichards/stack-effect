@@ -3,17 +3,15 @@ import {
   TargetIdentity,
   TargetKind,
   TargetName,
-} from "@repo/domain/Catalog";
-import {
   CatalogSources,
   selectsOfficialCatalog,
-} from "@repo/domain/CatalogSource";
-import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
+} from "@repo/domain/Catalog";
+import type { RecipePreviewInput } from "@repo/domain/Recipe";
 import {
   Runtime,
   STACK_CONFIG_SCHEMA_URL,
   StackConfig,
-} from "@repo/domain/Scaffold";
+} from "@repo/domain/StackConfig";
 import { StackConfigDefaults } from "@repo/scaffold/StackConfigDefaults";
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";

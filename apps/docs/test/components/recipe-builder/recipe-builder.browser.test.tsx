@@ -1,6 +1,6 @@
 import { assert, beforeEach, expect, test } from "@effect/vitest";
-import { CustomCatalogSource } from "@repo/domain/CatalogSource";
-import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
+import { CustomCatalogSource } from "@repo/domain/Catalog";
+import type { RecipePreviewInput } from "@repo/domain/Recipe";
 import { Schema } from "effect";
 // Browser interaction callbacks intentionally use the async APIs exposed by Playwright and Vitest Browser Mode.
 // @effect-diagnostics asyncFunction:off

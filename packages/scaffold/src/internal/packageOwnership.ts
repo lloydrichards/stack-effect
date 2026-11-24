@@ -1,10 +1,10 @@
 import { Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
 import { targetPathsOverlap } from "@repo/domain/Catalog";
-import { pathOrd } from "@repo/domain/Order";
 import {
   type PackageOwner,
   PlanFailure,
   RepositoryPath,
+  byPath,
 } from "@repo/domain/Plan";
 import { Effect, Schema } from "effect";
 
@@ -145,7 +145,7 @@ export const prepareOwnerWrites = Effect.fnUntraced(function* (
       (owner) => !ownerWrites.some((write) => write.path === owner.path),
     ),
     ...ownerWrites,
-  ].sort(pathOrd);
+  ].sort(byPath);
   yield* assertDistinctOwners(finalOwners);
   return ownerWrites;
 });

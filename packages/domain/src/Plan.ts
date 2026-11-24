@@ -1,7 +1,7 @@
 import { Array as Arr, Order, Schema } from "effect";
-import { pathOrd } from "./Order";
-import { StackConfig } from "./Scaffold";
+import { Contribution, ModuleId, TargetIdentity, TargetKey } from "./Catalog";
 import { Selection } from "./Selection";
+import { StackConfig } from "./StackConfig";
 
 /**
  * The portable request accepted by planning entry points.
@@ -25,6 +25,21 @@ export const RepositoryPath = Schema.String.pipe(
 );
 
 export type RepositoryPath = typeof RepositoryPath.Type;
+
+/**
+ * Orders repository paths segment by segment, so a directory's files stay
+ * together instead of interleaving with names that share its prefix.
+ */
+export const RepositoryPathOrder = Order.mapInput(
+  Order.Array(Order.String),
+  (path: string) => path.split("/"),
+);
+
+/** Orders values by their repository `path`. */
+export const byPath = Order.mapInput(
+  RepositoryPathOrder,
+  (input: { path: string }) => input.path,
+);
 
 /** The repository root itself, as a repository path. */
 export const repositoryRootPath = RepositoryPath.make(".");
@@ -332,13 +347,222 @@ export class Plan extends Schema.Class<Plan>("Plan")(PlanFields) {
         packageOwners:
           this.baseline.packageOwners === undefined
             ? undefined
-            : [...this.baseline.packageOwners].sort(pathOrd),
-        paths: [...this.baseline.paths].sort(pathOrd),
+            : [...this.baseline.packageOwners].sort(byPath),
+        paths: [...this.baseline.paths].sort(byPath),
       },
-      outcomes: [...this.outcomes].sort(pathOrd),
+      outcomes: [...this.outcomes].sort(byPath),
       conflicts: [...this.conflicts].sort(
         Order.mapInput(Order.String, planConflictKey),
       ),
     });
+  }
+}
+
+export const TargetContribution = Schema.Struct({
+  targetKey: TargetKey,
+  contributions: Schema.Array(Contribution),
+});
+
+export const ModuleContribution = Schema.Struct({
+  targetKey: TargetKey,
+  moduleId: ModuleId,
+  contributions: Schema.Array(Contribution),
+});
+
+const NormalizedContributions = Schema.Struct({
+  targets: Schema.Array(TargetContribution),
+  modules: Schema.Array(ModuleContribution),
+});
+
+export type NormalizedContributions = typeof NormalizedContributions.Type;
+
+export class ContributionTokenContext extends Schema.Class<ContributionTokenContext>(
+  "ContributionTokenContext",
+)({
+  targetKey: TargetKey,
+  identity: TargetIdentity,
+  config: StackConfig,
+  moduleIds: Schema.optional(Schema.Array(Schema.String)),
+  scaffoldRecipe: Schema.optional(Schema.String),
+  projectTargets: Schema.optional(
+    Schema.Array(
+      Schema.Struct({ identity: TargetIdentity, description: Schema.String }),
+    ),
+  ),
+}) {
+  /**
+   * Resolve template tokens and conditionals in a string.
+   *
+   * ## Simple Tokens
+   * - `{{projectName}}` - Project name from config
+   * - `{{runtime}}` - "bun", "deno", or "node"
+   * - `{{packageManager}}` - "bun", "deno", "npm", or "pnpm"
+   * - `{{packageManagerSpec}}` - Full version spec (e.g., "bun@1.4.2")
+   * - `{{typescript}}` - TypeScript major version ("6" or "7"; defaults to "6")
+   * - `{{workspaceDependency}}` - Package-manager-compatible local workspace range
+   * - `{{lint}}` - Lint tool ("biome", "oxlint", or "")
+   * - `{{format}}` - Format tool ("biome", "dprint", "oxfmt", or "")
+   * - `{{test}}` - Test framework ("vitest" or "")
+   * - `{{monorepo}}` - Monorepo tool (for example, "turbo", "vite-plus", or "nx")
+   * - `{{runCommand}}` - Package script runner for the selected runtime
+   * - `{{scaffoldRecipe}}` - Command to recreate the initial resolved scaffold
+   * - `{{workspaceTargets}}` - Markdown table of the initial project targets
+   * - `{{projectRoot}}` - Relative path from this target to the project root
+   * - `{{targetKind}}`, `{{targetName}}`, `{{targetPath}}`, `{{targetDir}}`, `{{packageName}}`
+   *
+   * ## Conditionals
+   * - `{{#if field}}...{{/if}}` - Include content if field is truthy (non-empty)
+   * - `{{#if field=value}}...{{/if}}` - Include content if field equals value
+   * - `{{#if module=module-id}}...{{/if}}` - Include content when the target has that module
+   * - `{{#if noModule=module-id}}...{{/if}}` - Include content when the target lacks that module
+   * - `hasApps` - Truthy when the initial project contains application targets
+   * - `effectOxlint` - Truthy for TypeScript 7 with Oxlint
+   * - `standaloneOxlint` - Truthy for Oxlint outside Vite+
+   * - `standaloneEffectOxlint` - Truthy for Effect Oxlint outside Vite+
+   * - `noMonorepo` - Truthy when no monorepo tool is selected
+   * - `typescript7Diagnostics` - Truthy for TypeScript 7 without Effect Oxlint
+   *
+   * Unknown fields in conditionals silently evaluate as falsy.
+   */
+  resolve(template: string): string {
+    const resolvedTargetName =
+      this.identity.name.trim().length > 0
+        ? this.identity.name
+        : this.identity.kind;
+
+    const targetPath = this.identity.toPath();
+
+    // NOTE: Workspace targets omit "./" so token output matches contribution paths.
+    const resolveTargetToken = (t: string, token: string) =>
+      targetPath === "."
+        ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
+        : t.replaceAll(token, targetPath);
+
+    const getConfigValue = (field: string): string => {
+      switch (field) {
+        case "hasApps":
+          return this.projectTargets?.some(
+            ({ identity }) =>
+              identity.kind !== "workspace" && identity.kind !== "package",
+          )
+            ? "true"
+            : "";
+        case "runtime":
+          return this.config.runtimeName;
+        case "packageManager":
+          return this.config.packageManagerName;
+        case "typescript":
+          return this.config.typescriptVersion;
+        case "lint":
+          return this.config.lint ?? "";
+        case "format":
+          return this.config.format ?? "";
+        case "test":
+          return this.config.test ?? "";
+        case "monorepo":
+          return this.config.monorepo ?? "";
+        case "noMonorepo":
+          return this.config.monorepo === undefined ? "true" : "";
+        case "effectOxlint":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint === "oxlint"
+            ? "true"
+            : "";
+        case "standaloneOxlint":
+          return this.config.lint === "oxlint" &&
+            this.config.monorepo !== "vite-plus"
+            ? "true"
+            : "";
+        case "standaloneEffectOxlint":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint === "oxlint" &&
+            this.config.monorepo !== "vite-plus"
+            ? "true"
+            : "";
+        case "typescript7Diagnostics":
+          return this.config.typescriptVersion === "7" &&
+            this.config.lint !== "oxlint"
+            ? "true"
+            : "";
+        default:
+          return "";
+      }
+    };
+
+    const resolveConditionals = (t: string): string => {
+      const conditionalRegex =
+        /\{\{#if\s+(\w+)(?:=([\w-]+))?\}\}([\s\S]*?)\{\{\/if\}\}/g;
+      return t.replace(conditionalRegex, (_, field, value, content) => {
+        if (
+          value !== undefined &&
+          (field === "module" || field === "noModule")
+        ) {
+          const selected = this.moduleIds?.includes(value) ?? false;
+          return (field === "module" ? selected : !selected) ? content : "";
+        }
+        const configValue = getConfigValue(field);
+        if (value !== undefined) {
+          return configValue === value ? content : "";
+        }
+        return configValue.length > 0 ? content : "";
+      });
+    };
+
+    const withConditionals = resolveConditionals(template);
+    const projectTargets =
+      this.projectTargets?.filter(
+        ({ identity }) => identity.kind !== "workspace",
+      ) ?? [];
+    const workspaceTargets =
+      projectTargets.length === 0
+        ? "This workspace has no application yet. Add targets with `stack-effect add`."
+        : [
+            "| Workspace | Responsibility |",
+            "| --- | --- |",
+            ...projectTargets.map(
+              ({ identity, description }) =>
+                `| [${identity.toPath()}](${identity.toPath()}) | ${description.replaceAll("|", "\\|").replaceAll("\n", " ")} |`,
+            ),
+          ].join("\n");
+    const projectRoot =
+      targetPath === "."
+        ? "."
+        : targetPath
+            .split("/")
+            .map(() => "..")
+            .join("/");
+
+    return resolveTargetToken(
+      resolveTargetToken(
+        withConditionals
+          .replaceAll("{{targetKind}}", this.identity.kind)
+          .replaceAll("{{targetName}}", resolvedTargetName)
+          .replaceAll("{{packageName}}", this.identity.toPackageName())
+          .replaceAll("{{runtime}}", this.config.runtimeName)
+          .replaceAll("{{packageManager}}", this.config.packageManagerName)
+          .replaceAll("{{packageManagerSpec}}", this.config.packageManagerSpec)
+          .replaceAll("{{typescript}}", this.config.typescriptVersion)
+          .replaceAll(
+            "{{workspaceDependency}}",
+            this.config.workspaceDependency,
+          )
+          .replaceAll("{{projectName}}", this.config.name)
+          .replaceAll("{{lint}}", this.config.lint ?? "")
+          .replaceAll("{{format}}", this.config.format ?? "")
+          .replaceAll("{{test}}", this.config.test ?? "")
+          .replaceAll("{{monorepo}}", this.config.monorepo ?? ""),
+        "{{targetDir}}",
+      ),
+      "{{targetPath}}",
+    )
+      .replaceAll(
+        "{{runCommand}}",
+        this.config.runtimeName === "deno"
+          ? "deno task"
+          : `${this.config.packageManagerName} run`,
+      )
+      .replaceAll("{{projectRoot}}", projectRoot)
+      .replaceAll("{{workspaceTargets}}", () => workspaceTargets)
+      .replaceAll("{{scaffoldRecipe}}", () => this.scaffoldRecipe ?? "");
   }
 }

@@ -5,7 +5,7 @@
 import type { CatalogService } from "@repo/catalog";
 import type { Blueprint, CatalogNotFound } from "@repo/domain/Blueprint";
 import type { FinalizeScript, ScriptResult } from "@repo/domain/Finalize";
-import type { StackConfig } from "@repo/domain/Scaffold";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import {
   Context,
   type Effect,

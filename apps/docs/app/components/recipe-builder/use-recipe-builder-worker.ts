@@ -1,11 +1,12 @@
 "use client";
 
 import { useAtom } from "@effect/atom-react";
-import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
+  TargetIdentity,
+  TargetKind,
   defaultCatalogSources,
   formatCatalogSources,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
 import { Option, Schema } from "effect";

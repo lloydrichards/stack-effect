@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { OFFICIAL_CATALOG_URL } from "@repo/domain/CatalogSource";
+import { OFFICIAL_CATALOG_URL } from "@repo/domain/Catalog";
 import { Effect, Schema } from "effect";
 import {
   catalogSourcesFixture,

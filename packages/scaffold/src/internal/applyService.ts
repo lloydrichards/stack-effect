@@ -6,11 +6,11 @@ import {
   type StalePlanChange,
   StalePlanFailure,
 } from "@repo/domain/Apply";
-import { pathOrd } from "@repo/domain/Order";
 import {
   CompositionOperation,
   type PackageOwner,
   RepositoryPath,
+  byPath,
 } from "@repo/domain/Plan";
 import {
   Array as Arr,
@@ -469,7 +469,7 @@ export const make = Effect.gen(function* () {
               (existing) => existing.path !== owner.path,
             ),
             owner,
-          ].sort(pathOrd);
+          ].sort(byPath);
         }
       }
     }

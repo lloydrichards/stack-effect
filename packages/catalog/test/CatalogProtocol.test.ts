@@ -13,7 +13,8 @@ import {
   TargetKind,
   TargetKey,
 } from "@repo/domain/Catalog";
-import { ContributionTokenContext, StackConfig } from "@repo/domain/Scaffold";
+import { ContributionTokenContext } from "@repo/domain/Plan";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Schema } from "effect";
 import {
   decodedTestCatalog,

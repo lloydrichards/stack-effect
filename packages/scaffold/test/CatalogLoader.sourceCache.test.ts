@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import {
   CatalogCompositionFailure,
   CatalogLoadFailure,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import {
   json,

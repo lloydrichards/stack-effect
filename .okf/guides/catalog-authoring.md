@@ -7,7 +7,7 @@ sources:
   - id: source-1
     resource: ../../.agents/skills/catalog-workspace/SKILL.md
   - id: source-2
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/Plan.ts
   - id: source-3
     resource: ../../package.json
   - id: source-4

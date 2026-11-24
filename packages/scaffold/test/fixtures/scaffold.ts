@@ -12,11 +12,11 @@ import {
   type TargetDefinition,
   TargetIdentity,
   TargetKind,
+  CatalogSources,
 } from "@repo/domain/Catalog";
-import { CatalogSources } from "@repo/domain/CatalogSource";
 import { type Plan, RepositoryPath } from "@repo/domain/Plan";
-import { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";

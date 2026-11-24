@@ -1,7 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { RecipePreviewer } from "@repo/scaffold/RecipePreviewer";
 import { Effect, Layer, Schema } from "effect";
 import { platform } from "./fixtures/scaffold";

@@ -8,14 +8,12 @@ import {
   ModuleCategory,
   TargetIdentity,
   TargetKind,
-} from "@repo/domain/Catalog";
-import {
   type CatalogCompositionFailure,
   type CatalogLoadFailure,
   type CatalogSources,
   formatCatalogSource,
   type LoadedCatalogSource,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import {
   CatalogLoader,
   type LoadedCatalogSet,

@@ -5,9 +5,9 @@ import {
   ContributionTokenContext,
   ModuleContribution,
   type NormalizedContributions,
-  type StackConfig,
   TargetContribution,
-} from "@repo/domain/Scaffold";
+} from "@repo/domain/Plan";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Effect } from "effect";
 import type { ContributionResolver } from "../ContributionResolver";
 import { RecipeService } from "../RecipeService";

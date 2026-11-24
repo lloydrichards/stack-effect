@@ -1,5 +1,5 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import { CustomCatalogSource } from "@repo/domain/CatalogSource";
+import { CustomCatalogSource } from "@repo/domain/Catalog";
 import { Schema } from "effect";
 import {
   decodeRecipeBuilderUrl,

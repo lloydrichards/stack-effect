@@ -1,4 +1,4 @@
-import type { RecipePreviewInput } from "@repo/domain/RecipePreview";
+import type { RecipePreviewInput } from "@repo/domain/Recipe";
 import { toRecipePreviewInput } from "../../app/components/recipe-builder/form";
 import { fullStackRecipeFixture } from "../components/recipe-builder/recipe-fixtures";
 

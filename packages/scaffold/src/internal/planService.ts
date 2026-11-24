@@ -5,7 +5,7 @@ import {
   type RepoSnapshot,
   repositoryRootPath,
 } from "@repo/domain/Plan";
-import type { StackConfig } from "@repo/domain/Scaffold";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Effect, SchemaIssue } from "effect";
 import { ContributionResolver } from "../ContributionResolver";
 import type { PlanService } from "../PlanService";

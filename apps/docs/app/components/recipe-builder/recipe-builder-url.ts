@@ -2,8 +2,11 @@ import {
   CatalogSources,
   formatCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
-} from "@repo/domain/CatalogSource";
-import { makeRuntime, runtimeForPackageManager } from "@repo/domain/Scaffold";
+} from "@repo/domain/Catalog";
+import {
+  makeRuntime,
+  runtimeForPackageManager,
+} from "@repo/domain/StackConfig";
 import {
   encodeRecipeTargetSpecs,
   RecipeTargetString,

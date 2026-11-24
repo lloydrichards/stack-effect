@@ -7,7 +7,7 @@ sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
-    resource: ../../packages/domain/src/Scaffold.ts
+    resource: ../../packages/domain/src/Plan.ts
   - id: protocol
     resource: ../../packages/catalog/src/CatalogProtocol.ts
   - id: package-shape

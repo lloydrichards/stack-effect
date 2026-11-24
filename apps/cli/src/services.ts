@@ -2,8 +2,8 @@ import { CatalogService } from "@repo/catalog";
 import {
   type CatalogSources,
   selectsOfficialCatalog,
-} from "@repo/domain/CatalogSource";
-import { StackConfig } from "@repo/domain/Scaffold";
+} from "@repo/domain/Catalog";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";

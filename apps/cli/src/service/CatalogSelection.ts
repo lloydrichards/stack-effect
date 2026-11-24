@@ -2,8 +2,8 @@ import {
   type CatalogSources,
   defaultCatalogSources,
   isCustomCatalogSource,
-} from "@repo/domain/CatalogSource";
-import type { LoadedCatalogSource } from "@repo/domain/CatalogSource";
+  type LoadedCatalogSource,
+} from "@repo/domain/Catalog";
 import { Array as Arr, Context, Option } from "effect";
 
 /** The catalog sources a command resolved and loaded before any other work. */

@@ -4,13 +4,11 @@ import {
   isCustomCatalogSource,
   OFFICIAL_CATALOG_SOURCE,
   OFFICIAL_CATALOG_URL,
-} from "@repo/domain/CatalogSource";
-import {
   type CatalogCompositionFailure,
   CatalogLoadFailure,
   CatalogSourceInvalid,
   type LoadedCatalogSource,
-} from "@repo/domain/CatalogSource";
+} from "@repo/domain/Catalog";
 import {
   CatalogLoader,
   type LoadedCatalogSet,

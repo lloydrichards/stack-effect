@@ -1,5 +1,4 @@
 import type { StalePlanChange } from "@repo/domain/Apply";
-import { pathOrd } from "@repo/domain/Order";
 import {
   type PackageOwner,
   type PlanBaseline,
@@ -9,6 +8,7 @@ import {
   type RepoSnapshotPath,
   RepositoryPath,
   repositoryRootPath,
+  byPath,
 } from "@repo/domain/Plan";
 import {
   Context,
@@ -369,7 +369,7 @@ export class RepositoryState extends Context.Service<
 
           const owners = (yield* Effect.forEach(["apps", "packages"], visit))
             .flat()
-            .sort(pathOrd);
+            .sort(byPath);
           yield* assertDistinctOwners(owners);
           return owners;
         },

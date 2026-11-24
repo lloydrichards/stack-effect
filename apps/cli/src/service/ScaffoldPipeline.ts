@@ -1,9 +1,9 @@
 import { Apply } from "@repo/domain/Apply";
-import { isCustomCatalogSource } from "@repo/domain/CatalogSource";
+import { isCustomCatalogSource } from "@repo/domain/Catalog";
 import { FinalizeReport } from "@repo/domain/Finalize";
 import type { Plan } from "@repo/domain/Plan";
-import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { ApplyWorkspaces } from "@repo/scaffold/ApplyWorkspaces";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";

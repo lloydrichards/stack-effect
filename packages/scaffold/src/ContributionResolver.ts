@@ -5,10 +5,8 @@
 import type { CatalogService } from "@repo/catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
-import type {
-  NormalizedContributions,
-  StackConfig,
-} from "@repo/domain/Scaffold";
+import type { NormalizedContributions } from "@repo/domain/Plan";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import { Context, type Effect, Layer } from "effect";
 import * as internal from "./internal/contributionResolver";
 import { RecipeService } from "./RecipeService";

@@ -1,6 +1,5 @@
 import { Schema } from "effect";
-import { pathOrd, pathStrOrd } from "./Order";
-import { Plan, RepositoryPath } from "./Plan";
+import { byPath, Plan, RepositoryPath, RepositoryPathOrder } from "./Plan";
 
 /**
  * A user's resolution for a conflicted path: override existing content or
@@ -62,10 +61,10 @@ export class ApplyResult extends Schema.Class<ApplyResult>("ApplyResult")({
 }) {
   toSorted(): ApplyResult {
     return new ApplyResult({
-      created: [...this.created].sort(pathStrOrd),
-      modified: [...this.modified].sort(pathStrOrd),
-      skipped: [...this.skipped].sort(pathStrOrd),
-      failed: [...this.failed].sort(pathOrd),
+      created: [...this.created].sort(RepositoryPathOrder),
+      modified: [...this.modified].sort(RepositoryPathOrder),
+      skipped: [...this.skipped].sort(RepositoryPathOrder),
+      failed: [...this.failed].sort(byPath),
     });
   }
 }

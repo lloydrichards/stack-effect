@@ -1,6 +1,9 @@
 import { Contribution } from "@repo/domain/Catalog";
-import { PlanFailure, RepositoryPath } from "@repo/domain/Plan";
-import type { NormalizedContributions } from "@repo/domain/Scaffold";
+import {
+  PlanFailure,
+  RepositoryPath,
+  type NormalizedContributions,
+} from "@repo/domain/Plan";
 import { Array as Arr, Effect, Option, Schema } from "effect";
 import { PlanningIntentImport, PlanningIntentPath } from "./planAssessment";
 

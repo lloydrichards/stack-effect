@@ -16,8 +16,8 @@ import {
   type ModuleId,
   type TargetIdentity,
 } from "@repo/domain/Catalog";
-import type { StackConfig } from "@repo/domain/Scaffold";
 import type { Selection } from "@repo/domain/Selection";
+import type { StackConfig } from "@repo/domain/StackConfig";
 import {
   Array as Arr,
   Effect,

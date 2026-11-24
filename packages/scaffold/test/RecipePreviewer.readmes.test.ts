@@ -5,7 +5,7 @@ import {
 } from "@repo/catalog-official/service";
 import { Apply } from "@repo/domain/Apply";
 import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
-import { StackConfig } from "@repo/domain/Scaffold";
+import { StackConfig } from "@repo/domain/StackConfig";
 import { ApplyService } from "@repo/scaffold/ApplyService";
 import { BlueprintService } from "@repo/scaffold/BlueprintService";
 import { PlanService } from "@repo/scaffold/PlanService";

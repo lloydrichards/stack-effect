@@ -10,12 +10,10 @@ import type { PlanFailure } from "@repo/domain/Plan";
 import {
   RecipeResolveOptions,
   type RecipeResolveError,
-} from "@repo/domain/Recipe";
-import {
   RecipePreview,
   type RecipePreviewInput,
-} from "@repo/domain/RecipePreview";
-import { StackConfig } from "@repo/domain/Scaffold";
+} from "@repo/domain/Recipe";
+import { StackConfig } from "@repo/domain/StackConfig";
 import {
   Context,
   Effect,
