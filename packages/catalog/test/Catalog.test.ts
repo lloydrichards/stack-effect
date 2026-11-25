@@ -459,6 +459,11 @@ it.effect(
         localProvider.id,
       ]);
 
+      yield* compose(
+        [official, { ...extension, modules: [requester] }, unrelated],
+        { sources },
+      );
+
       const unavailable = yield* Effect.flip(
         compose(
           [testCatalog, { ...extension, modules: [requester] }, unrelated],
