@@ -76,19 +76,25 @@ assert.equal(typeof planTasks, "function");
     );
 
     for (const layout of [
-      "compiled output",
-      "source with compiled JS excluded",
+      { name: "planner-compiled", files: '["dist"]', consumer: "node" },
+      {
+        name: "planner-no-maps",
+        files: '["dist", "src", "!dist/**/*.map"]',
+        consumer: "node",
+      },
+      {
+        name: "planner-source",
+        files: '["dist", "src", "!dist/**/*.js"]',
+        consumer: "bun",
+      },
     ] as const) {
       it.effect(
-        `publishes TaskPlan when an existing library packs ${layout}`,
+        `publishes TaskPlan when an existing library packs ${layout.files}`,
         () =>
           Effect.gen(function* () {
             const cli = yield* CLI;
             const fs = yield* FileSystem.FileSystem;
-            const name =
-              layout === "compiled output"
-                ? "planner-compiled"
-                : "planner-source";
+            const { name } = layout;
             yield* cli.run(
               "create",
               name,
@@ -106,13 +112,9 @@ assert.equal(typeof planTasks, "function");
 
             const libraryPath = `${cli.workdir}/${name}/packages/library`;
             const rootExport =
-              layout === "compiled output"
+              layout.consumer === "node"
                 ? "./dist/src/main.js"
                 : "./src/main.ts";
-            const packedFiles =
-              layout === "compiled output"
-                ? '"files": ["dist"]'
-                : '"files": ["dist", "src", "!dist/**/*.js"]';
             const manifestPath = `${libraryPath}/package.json`;
             const manifest = yield* fs.readFileString(manifestPath);
             yield* fs.writeFileString(
@@ -121,14 +123,14 @@ assert.equal(typeof planTasks, "function");
                 .replace("./dist/index.js", rootExport)
                 .replace(
                   /"files": \[\s*"dist\/\*\*\/\*\.js",\s*"dist\/\*\*\/\*\.d\.ts"\s*\]/u,
-                  packedFiles,
+                  `"files": ${layout.files}`,
                 ),
             );
             const tsconfigPath = `${libraryPath}/tsconfig.build.json`;
             const tsconfig = yield* fs.readFileString(tsconfigPath);
             yield* fs.writeFileString(
               tsconfigPath,
-              tsconfig.replace('"rootDir": "src"', '"rootDir": "."'),
+              `// Keep emitted paths relative to the package root.\n${tsconfig.replace('"rootDir": "src"', '"rootDir": "."')}`,
             );
             yield* fs.rename(
               `${libraryPath}/src/index.ts`,
@@ -194,7 +196,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
               );
               yield* consumer.expectCommandSucceeds(
                 "Import packed TaskPlan",
-                layout === "compiled output" ? "node" : "bun",
+                layout.consumer,
                 "verify.mjs",
               );
             });
