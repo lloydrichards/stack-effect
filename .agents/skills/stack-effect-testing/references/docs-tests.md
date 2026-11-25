@@ -1,0 +1,6 @@
+# Docs and browser tests
+
+- Test docs content in `apps/docs/test/`. Use the published document or rendered output to check route-specific content, links, anchors, and registry assets. Compile snippets that promise valid code and check runnable examples against the result the docs describe. Use the repository's existing docs and registry checks for deployed assets.
+- Use `*.unit.test.ts` or `*.unit.test.tsx` for docs and Recipe Builder behavior that runs in Node, such as URL encoding or result projection. Use `*.browser.test.ts` or `*.browser.test.tsx` when a browser API, worker, navigation, download, or rendered interaction is part of the failure. Match the patterns in the [Vitest config](../../../../apps/docs/vitest.config.ts).
+- Follow a user journey and assert visible output or the downloaded artifact. For a worker contract, assert the result at the worker boundary. Keep catalog-generated file details in the catalog integration suite unless the browser's handling of those files is the behavior under test.
+- Use controlled HTTP responses in ordinary tests. Keep deployed registry checks at their existing entry points when validating real CORS, cache validators, or missing assets. Follow the [docs instructions](../../../../apps/docs/AGENTS.md) for local and CI commands.
