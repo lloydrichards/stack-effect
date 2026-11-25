@@ -1,0 +1,6 @@
+# CLI tests
+
+- Put command and service tests in `apps/cli/test/`. Mirror the source layout and name multi-command tests for the contract they share. Exercise the real entry point that owns flag decoding, prompts, output, or failure policy. Assert the user-visible result, such as the command transcript, exit status, or written file.
+- Use `apps/cli/e2e/` when the failure requires the executable, shell, a host filesystem, subprocesses, or a complete generated project. Use the existing harness, isolated temporary projects, and controlled registry fixtures. Start with the documented command journey and add cases for failures it cannot expose.
+- Keep generated-project runtime fixtures in the repository. The [add E2E suite](../../../../apps/cli/e2e/add.test.ts) injects runnable fixtures into generated projects to check their public imports and runtime behavior. For the CLI's treatment of an Apply conflict, check what the CLI prompts for or returns. Keep generic conflict and write safety in the Scaffold suite.
+- Run `bun run test --filter=stack-effect` for the CLI workspace. Use `bun run --cwd apps/cli test:e2e` for the E2E suite and follow the [CLI instructions](../../../../apps/cli/AGENTS.md) for targeted runs and smoke tests.
