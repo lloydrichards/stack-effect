@@ -28,7 +28,8 @@ export const base = {
   jsonReporter: { fileName: "reports/mutation/mutation.json" },
   tempDirName: ".stryker-tmp",
   cleanTempDir: "always",
-  incremental: true,
+  // Clean runs avoid stale coverage and test attribution. Opt in for a local comparison.
+  incremental: false,
   incrementalFile: "reports/mutation/stryker-incremental.json",
   thresholds: { high: 80, low: 60, break: null },
   ignoreStatic: true,

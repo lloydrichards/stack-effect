@@ -10,7 +10,7 @@
   },
   "scripts": {
     "type-check": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "vitest run --exclude '**/.stryker-tmp/**'",
     "test:mutation": "stryker run",
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
