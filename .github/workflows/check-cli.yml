@@ -58,7 +58,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Verify Types
-        run: bun run type-check --filter=stack-effect --filter=@repo/authoring --filter=@stack-effect/author
+        run: bun run type-check --filter=stack-effect --filter=@repo/authoring --filter=@repo/catalog-official-integration --filter=@stack-effect/author
 
   formatting:
     name: "Formatting"
@@ -88,7 +88,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run Tests
-        run: bun run test --filter=stack-effect --filter=@repo/authoring
+        run: bun run test --filter=stack-effect --filter=@repo/authoring --filter=@repo/catalog-official-integration
 
       - name: Build
         run: bun run build --filter=stack-effect
