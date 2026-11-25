@@ -1,6 +1,8 @@
+import { stripVTControlCharacters } from "node:util";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { Prompt } from "effect/cli";
+import { TestConsole } from "effect/testing";
 import { TextInput } from "../../src/components/TextInput.js";
 import * as MockTerminal from "../services/MockTerminal.js";
 import { TestLayer } from "../services/TestLayer.js";
@@ -10,7 +12,10 @@ describe("TextInput", () => {
     Effect.gen(function* () {
       const prompt = TextInput({ message: "Name" });
 
-      yield* MockTerminal.inputText("hello");
+      yield* MockTerminal.inputText("he");
+      yield* MockTerminal.inputKey("x", { ctrl: true });
+      yield* MockTerminal.inputKey("y", { meta: true });
+      yield* MockTerminal.inputText("llo");
       yield* MockTerminal.inputKey("enter");
 
       const result = yield* Prompt.run(prompt);
@@ -45,9 +50,11 @@ describe("TextInput", () => {
     Effect.gen(function* () {
       const prompt = TextInput({ message: "Name" });
 
-      yield* MockTerminal.inputText("helo");
+      yield* MockTerminal.inputText("hexlo");
+      yield* MockTerminal.inputKey("left");
+      yield* MockTerminal.inputKey("left");
       yield* MockTerminal.inputKey("backspace");
-      yield* MockTerminal.inputText("lo");
+      yield* MockTerminal.inputText("l");
       yield* MockTerminal.inputKey("enter");
 
       const result = yield* Prompt.run(prompt);
@@ -59,13 +66,16 @@ describe("TextInput", () => {
     Effect.gen(function* () {
       const prompt = TextInput({ message: "Name" });
 
-      yield* MockTerminal.inputText("ac");
+      yield* MockTerminal.inputText("abde");
       yield* MockTerminal.inputKey("left");
-      yield* MockTerminal.inputText("b");
+      yield* MockTerminal.inputKey("left");
+      yield* MockTerminal.inputKey("left");
+      yield* MockTerminal.inputKey("right");
+      yield* MockTerminal.inputText("c");
       yield* MockTerminal.inputKey("enter");
 
       const result = yield* Prompt.run(prompt);
-      assert.strictEqual(result, "abc");
+      assert.strictEqual(result, "abcde");
     }).pipe(Effect.provide(TestLayer)),
   );
 
@@ -100,6 +110,17 @@ describe("TextInput", () => {
 
       const result = yield* Prompt.run(prompt);
       assert.strictEqual(result, "abc");
+      const frames = (yield* TestConsole.logLines).map((line) =>
+        stripVTControlCharacters(String(line)),
+      );
+      const rejected = frames.findIndex((frame) => frame.includes("Too short"));
+      assert.isAtLeast(rejected, 0);
+
+      const corrected = frames
+        .slice(rejected + 1)
+        .find((frame) => frame.includes("abc"));
+      assert.isDefined(corrected);
+      assert.notInclude(corrected, "Too short");
     }).pipe(Effect.provide(TestLayer)),
   );
 });

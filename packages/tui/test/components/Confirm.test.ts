@@ -1,6 +1,8 @@
+import { stripVTControlCharacters } from "node:util";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { Prompt } from "effect/cli";
+import { TestConsole } from "effect/testing";
 import { Confirm } from "../../src/components/Confirm.js";
 import * as MockTerminal from "../services/MockTerminal.js";
 import { TestLayer } from "../services/TestLayer.js";
@@ -35,12 +37,32 @@ describe("Confirm", () => {
 
   it.effect("submits true on immediate enter when initial is true", () =>
     Effect.gen(function* () {
-      const prompt = Confirm({ message: "Continue?", initial: true });
+      const prompt = Confirm({
+        message: "Continue?",
+        initial: true,
+        label: { confirm: "Proceed", deny: "Go back" },
+      });
 
       yield* MockTerminal.inputKey("enter");
 
       const result = yield* Prompt.run(prompt);
       assert.strictEqual(result, true);
+      const frames = (yield* TestConsole.logLines).map((line) =>
+        stripVTControlCharacters(String(line)),
+      );
+      assert.isTrue(
+        frames.some(
+          (frame) => frame.includes("Proceed") && frame.includes("Go back"),
+        ),
+      );
+      assert.isTrue(
+        frames.some(
+          (frame) =>
+            frame.includes("Continue?") &&
+            frame.includes("Proceed") &&
+            !frame.includes("Go back"),
+        ),
+      );
     }).pipe(Effect.provide(TestLayer)),
   );
 

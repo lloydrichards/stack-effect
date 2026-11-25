@@ -1,6 +1,8 @@
+import { stripVTControlCharacters } from "node:util";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { Prompt } from "effect/cli";
+import { TestConsole } from "effect/testing";
 import { HorizontalSelect } from "../../src/components/HorizontalSelect.js";
 import * as MockTerminal from "../services/MockTerminal.js";
 import { TestLayer } from "../services/TestLayer.js";
@@ -32,6 +34,25 @@ describe("HorizontalSelect", () => {
 
       const result = yield* Prompt.run(prompt);
       assert.strictEqual(result, "server");
+      const frames = (yield* TestConsole.logLines).map((line) =>
+        stripVTControlCharacters(String(line)),
+      );
+      assert.isTrue(
+        frames.some((frame) =>
+          ["Target", "Client", "Server", "Package"].every((label) =>
+            frame.includes(label),
+          ),
+        ),
+      );
+      assert.isTrue(
+        frames.some(
+          (frame) =>
+            frame.includes("Target") &&
+            frame.includes("Server") &&
+            !frame.includes("Client") &&
+            !frame.includes("Package"),
+        ),
+      );
     }).pipe(Effect.provide(TestLayer)),
   );
 

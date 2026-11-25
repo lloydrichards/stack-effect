@@ -42,10 +42,25 @@ describe("KeyBinding", () => {
       });
       assert.isFalse(ctrlBinding.matches(toInput("d")));
       assert.isTrue(ctrlBinding.matches(toInput("d", { ctrl: true })));
+
+      const modified = new KeyBinding({
+        keys: ["d"],
+        label: "meta+shift+d",
+        action: "submit",
+        meta: true,
+        shift: true,
+      });
+      assert.isTrue(
+        modified.matches(toInput("d", { meta: true, shift: true })),
+      );
+      assert.isFalse(modified.matches(toInput("d", { meta: true })));
+      assert.isFalse(modified.matches(toInput("d", { shift: true })));
     });
 
     it("does not match when modifier is pressed but not required", () => {
       assert.isFalse(binding.matches(toInput("enter", { ctrl: true })));
+      assert.isFalse(binding.matches(toInput("enter", { meta: true })));
+      assert.isFalse(binding.matches(toInput("enter", { shift: true })));
     });
   });
 

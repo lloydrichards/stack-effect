@@ -34,9 +34,11 @@ describe("Viewport", () => {
       assert.deepStrictEqual(result, Option.some({ row: 0, col: 1 }));
     });
 
-    it("returns none when scrolling left at col 0", () => {
-      const result = Viewport.scroll(Viewport.initial, "left", bounds);
-      assert.isTrue(Option.isNone(result));
+    it("scrolls left and stops at column zero", () => {
+      const left = Viewport.scroll({ row: 0, col: 1 }, "left", bounds);
+      assert.deepStrictEqual(left, Option.some(Viewport.initial));
+      const atStart = Viewport.scroll(Viewport.initial, "left", bounds);
+      assert.isTrue(Option.isNone(atStart));
     });
   });
 
@@ -44,8 +46,12 @@ describe("Viewport", () => {
     const items = Array.from({ length: 10 }, (_, i) => Box.text(`line-${i}`));
 
     it("slices items to visible window", () => {
-      const result = Viewport.render(items, { row: 2, col: 0 }, 3);
-      assert.strictEqual(result.items.length, 3);
+      const result = Viewport.render(items, { row: 2, col: 1 }, 3);
+      assert.deepStrictEqual(
+        result.items.map((item) => Box.renderPrettySync(item)),
+        ["line-2", "line-3", "line-4"],
+      );
+      assert.isTrue(result.meta.hasLeft);
       assert.isTrue(result.meta.hasAbove);
       assert.isTrue(result.meta.hasBelow);
     });
@@ -53,6 +59,7 @@ describe("Viewport", () => {
     it("reports hasAbove=false at top", () => {
       const result = Viewport.render(items, Viewport.initial, 3);
       assert.isFalse(result.meta.hasAbove);
+      assert.isFalse(result.meta.hasLeft);
       assert.isTrue(result.meta.hasBelow);
     });
 
