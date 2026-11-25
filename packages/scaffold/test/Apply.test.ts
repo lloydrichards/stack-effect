@@ -10,7 +10,7 @@ import {
   officialCatalogLayerWith,
 } from "@repo/catalog-official/service";
 import { CatalogReader } from "@repo/catalog/Catalog";
-import { Apply } from "@repo/domain/Apply";
+import { Apply, ApplyResult } from "@repo/domain/Apply";
 import {
   type ModuleDefinition,
   ModuleId,
@@ -1211,35 +1211,64 @@ describe("Applier", () => {
       }).pipe(Effect.provide(testPipeline)),
     );
 
-    it.effect("should stop when a foreign owner appears during Apply", () =>
-      Effect.gen(function* () {
-        const files = yield* FileSystem.FileSystem;
-        yield* writeFiles({});
-        const planned = yield* plan(app("manifest", "pair"));
-        const fault = yield* withFault({
-          method: "rename",
-          path: `${repositoryRoot}/packages/app/package.json`,
-          before: ownerManifest("packages/foreign", "@repo/foreign").pipe(
-            Effect.provideService(FileSystem.FileSystem, files),
-          ),
-        });
+    for (const scenario of [
+      "a foreign owner appears",
+      "an owner manifest becomes unreadable",
+    ]) {
+      it.effect(`should stop when ${scenario} during Apply`, () =>
+        Effect.gen(function* () {
+          const files = yield* FileSystem.FileSystem;
+          const owner = "packages/foreign/package.json";
+          const pending = "packages/app/src/a.txt";
+          const original = "local content\n";
+          const writeOwner = ownerManifest("packages/foreign", "@repo/foreign");
+          const unreadable =
+            scenario === "an owner manifest becomes unreadable";
+          yield* writeFiles({ [pending]: original });
+          if (unreadable) yield* writeOwner;
+          const planned = yield* plan(app("manifest", "pair"));
+          const fault = yield* withFault(
+            unreadable
+              ? {
+                  method: "readFile",
+                  path: `${repositoryRoot}/${owner}`,
+                  when: files.exists(`${repositoryRoot}/${manifest}`),
+                }
+              : {
+                  method: "rename",
+                  path: `${repositoryRoot}/${manifest}`,
+                  before: writeOwner.pipe(
+                    Effect.provideService(FileSystem.FileSystem, files),
+                  ),
+                },
+          );
 
-        const failure = yield* Effect.flip(fault.provide(apply(planned)));
+          const failure = yield* Effect.flip(
+            fault.provide(apply(planned, decideAll(planned, "override"))),
+          );
 
-        assert.isTrue(yield* fault.fired);
-        assert(failure._tag === "StalePlan");
-        assert.deepInclude(failure.changes, { path: ".", kind: "modified" });
-        assert.deepStrictEqual(
-          failure.partialResult.created,
-          paths("packages/app/package.json"),
-        );
-        assert.isFalse(yield* exists("packages/app/src/a.txt"));
-        assert.strictEqual(
-          yield* readFile("packages/foreign/package.json"),
-          '{"name":"@repo/foreign"}',
-        );
-      }).pipe(Effect.provide(testPipeline)),
-    );
+          assert.isTrue(yield* fault.fired);
+          assert(failure._tag === "StalePlan");
+          assert.deepInclude(failure.changes, { path: ".", kind: "modified" });
+          assert.deepStrictEqual(
+            failure.partialResult,
+            new ApplyResult({
+              created: paths(manifest),
+              modified: [],
+              skipped: [],
+              failed: [],
+            }),
+          );
+          assert.isTrue(yield* exists(manifest));
+          assert.strictEqual(yield* readFile(pending), original);
+          assert.isFalse(yield* exists("packages/app/src/b.txt"));
+          assert.strictEqual(
+            yield* readFile(owner),
+            '{"name":"@repo/foreign"}',
+          );
+        }).pipe(Effect.provide(testPipeline)),
+      );
+    }
 
     it.effect(
       "should stop with a partial result when a later path changes during Apply",
