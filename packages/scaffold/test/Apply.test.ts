@@ -164,7 +164,7 @@ describe("Applier", () => {
   );
 
   it.effect(
-    "should skip publication when composition produces the same bytes",
+    "should report sorted skipped paths without republishing unchanged composition",
     () =>
       Effect.gen(function* () {
         const formatted =
@@ -189,8 +189,8 @@ describe("Applier", () => {
 
         assert.deepStrictEqual(result.failed, []);
         assert.deepStrictEqual(result.modified, []);
-        assert.sameMembers(
-          [...result.skipped],
+        assert.deepStrictEqual(
+          result.skipped,
           paths(manifest, "packages/app/src/a.txt", "packages/app/src/b.txt"),
         );
         assert.strictEqual(yield* readFile(manifest), formatted);
@@ -486,6 +486,9 @@ describe("Applier", () => {
           yield* planAndApply("nested-string-field");
           const generated = yield* readFile(optionsFile);
           assert.include(generated, "Schema.String");
+          const unchanged = yield* planAndApply("nested-string-field");
+          assert.deepStrictEqual(unchanged.skipped, paths(optionsFile));
+          assert.strictEqual(yield* readFile(optionsFile), generated);
 
           const value = nestedStruct("Schema.String").replaceAll(" })", ", })");
           const edited = `// Keep the local schema formatting.\nconst Options = Schema.Struct({ ...{ "input": ${value} }, ...{ other: Schema.String } });\n`;
