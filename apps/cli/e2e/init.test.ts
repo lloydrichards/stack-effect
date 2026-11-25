@@ -313,7 +313,7 @@ describe("init", () => {
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
             "devDependencies.nx",
-            "^24.0.6",
+            "24.0.6",
           );
           yield* cli.expectJsonFile(
             "nx-bun-app/package.json",
