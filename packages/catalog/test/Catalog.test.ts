@@ -8,7 +8,7 @@ import {
   TargetKind,
   type ModuleDefinition,
 } from "@repo/domain/Catalog";
-import { Effect, Result } from "effect";
+import { Effect, Graph, Option, Result } from "effect";
 import { testCatalog } from "./fixtures/testCatalog";
 
 const extraModule: ModuleDefinition = {
@@ -21,7 +21,7 @@ const extraModule: ModuleDefinition = {
 };
 
 it.effect(
-  "should compose an extension while keeping Builder choices specific to each target",
+  "should expose dependency edges and owner-specific Builder choices for a composed extension",
   () => {
     const kind = TargetKind.make("package");
     const api = new TargetIdentity({ kind, name: "api" });
@@ -30,6 +30,12 @@ it.effect(
       ...extraModule,
       id: ModuleId.make("package-extra"),
       supportedOn: [{ _tag: "kind", kind }],
+      implies: [
+        {
+          targetKind: TargetKind.make("workspace"),
+          moduleId: ModuleId.make("workspace-quality-oxlint"),
+        },
+      ],
       children: [
         {
           moduleId: ModuleId.make("package-api-extra"),
@@ -45,6 +51,26 @@ it.effect(
 
     return Effect.gen(function* () {
       const reader = yield* CatalogReader;
+      const graph = reader.toGraph;
+      const docs = Graph.findNode(
+        graph,
+        (node) =>
+          node._tag === "module" && node.definition.id === "workspace-api-docs",
+      );
+      const contracts = Graph.findNode(
+        graph,
+        (node) =>
+          node._tag === "module" &&
+          node.definition.id === "domain-api-contracts",
+      );
+      assert(Option.isSome(docs));
+      assert(Option.isSome(contracts));
+      assert.deepInclude(Array.from(Graph.values(Graph.edges(graph))), {
+        source: docs.value,
+        target: contracts.value,
+        data: "requiredModule",
+      });
+
       const builder = yield* reader.toBuilderCatalog([api, sdk]);
 
       assert.sameMembers(
@@ -71,6 +97,20 @@ it.effect(
           },
           {
             name: "sdk",
+            modules: ["domain-api-contracts", "package-extra"],
+            availableChildren: [],
+          },
+          {
+            name: "workspace",
+            modules: [
+              "workspace-api-docs",
+              "workspace-quality-biome",
+              "workspace-quality-oxlint",
+            ],
+            availableChildren: undefined,
+          },
+          {
+            name: "domain",
             modules: ["domain-api-contracts", "package-extra"],
             availableChildren: [],
           },
