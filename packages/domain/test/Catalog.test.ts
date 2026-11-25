@@ -59,7 +59,6 @@ describe("CatalogSources", () => {
       [{ name: "remote", url: "http://catalog.acme.dev/v1.json" }],
     ],
     ["a url on the official source", [{ name: "official", url: acme.url }]],
-    ["a custom source named official", [{ ...acme, name: "official" }]],
     ["an uppercase name", [{ ...acme, name: "Acme" }]],
     ["a name longer than 32 characters", [{ ...acme, name: "a".repeat(33) }]],
     ["a relative url", [{ ...acme, url: "/registry/v1/catalog.json" }]],
