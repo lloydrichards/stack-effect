@@ -50,7 +50,8 @@ describe("TextInput", () => {
     Effect.gen(function* () {
       const prompt = TextInput({ message: "Name" });
 
-      yield* MockTerminal.inputText("hexlo");
+      yield* MockTerminal.inputText("hexlox");
+      yield* MockTerminal.inputKey("backspace");
       yield* MockTerminal.inputKey("left");
       yield* MockTerminal.inputKey("left");
       yield* MockTerminal.inputKey("backspace");
@@ -118,7 +119,7 @@ describe("TextInput", () => {
 
       const corrected = frames
         .slice(rejected + 1)
-        .find((frame) => frame.includes("abc"));
+        .find((frame) => frame.includes("abc") && /enter\s+submit/.test(frame));
       assert.isDefined(corrected);
       assert.notInclude(corrected, "Too short");
     }).pipe(Effect.provide(TestLayer)),
