@@ -109,6 +109,13 @@ assert.equal(typeof planTasks, "function");
         consumer: "bun",
       },
       {
+        name: "planner-directory-glob",
+        files:
+          '["dist", "src", "!dist/**/*.js", "dist/*/", "dist/src/main.js"]',
+        consumer: "bun",
+        rootExport: "./dist/src/main.js",
+      },
+      {
         name: "planner-case-mismatch",
         files: '["dist", "src", "!DIST/src/TaskPlan.js", "/dist/**/*.js"]',
         consumer: "node",
@@ -154,9 +161,11 @@ assert.equal(typeof planTasks, "function");
 
             const libraryPath = `${cli.workdir}/${name}/packages/library`;
             const rootExport =
-              layout.consumer === "node"
-                ? "./dist/src/main.js"
-                : "./src/main.ts";
+              "rootExport" in layout
+                ? layout.rootExport
+                : layout.consumer === "node"
+                  ? "./dist/src/main.js"
+                  : "./src/main.ts";
             const manifestPath = `${libraryPath}/package.json`;
             const manifest = yield* fs.readFileString(manifestPath);
             yield* fs.writeFileString(
