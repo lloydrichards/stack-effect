@@ -40,6 +40,10 @@ const resolveContributionTokens = (
             field: c.field,
             name,
             value: resolveString(c.value),
+            compiledValue:
+              c.compiledValue === undefined
+                ? undefined
+                : resolveString(c.compiledValue),
           }),
         ];
       },

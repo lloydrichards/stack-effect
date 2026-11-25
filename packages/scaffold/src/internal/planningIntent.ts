@@ -26,6 +26,7 @@ const PlanningIntentPackageJsonEntry = Schema.TaggedStruct("packageJsonEntry", {
   ]),
   name: Schema.String,
   value: Schema.String,
+  compiledValue: Schema.optional(Schema.String),
 });
 
 type PlanningIntentPackageJsonEntry =
@@ -90,6 +91,7 @@ const toPlanningIntentEntries = (
           field: c.field,
           name: c.name,
           value: c.value,
+          compiledValue: c.compiledValue,
         }),
       ],
       "ts-call-arg": (c): ReadonlyArray<PlanningIntentEntry> => [
@@ -246,7 +248,9 @@ const collectUniqueEntries = Effect.fnUntraced(function* <
   const disagrees = entries.some((entry) =>
     firsts.some(
       (first) =>
-        SamePackageJsonKey(first, entry) && first.value !== entry.value,
+        SamePackageJsonKey(first, entry) &&
+        (first.value !== entry.value ||
+          first.compiledValue !== entry.compiledValue),
     ),
   );
   if (disagrees) return yield* new PlanError({ message: errorMessage });
@@ -295,7 +299,11 @@ const packageJsonPath = Effect.fnUntraced(function* (
   return PlanningIntentPath.cases.packageJson.make({
     path,
     seed,
-    exports: exports.map(({ name, value }) => ({ name, value })),
+    exports: exports.map(({ name, value, compiledValue }) => ({
+      name,
+      value,
+      compiledValue,
+    })),
     dependencies: dependencies.map(({ field, name, value }) => ({
       section: field,
       name,

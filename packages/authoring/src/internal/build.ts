@@ -1,6 +1,6 @@
 import { compose } from "@repo/catalog/Catalog";
 import {
-  hierarchicalNameCapabilities,
+  structuredCapabilities,
   templateCapabilities,
   V1_INTERPRETER_CAPABILITIES,
   validateCapabilities,
@@ -483,12 +483,14 @@ export const buildCatalog = Effect.fnUntraced(function* (
     origins: ReadonlyMap<string, string> | undefined,
     key: string,
   ) => origins === undefined || origins.get(key) === catalogId;
+  const structured = new Set(structuredCapabilities(authored));
   const document: CatalogDocument = {
     formatVersion: 1,
     catalogId,
     requiredCapabilities: V1_INTERPRETER_CAPABILITIES.filter((capability) =>
-      capability === "target:hierarchical-name"
-        ? hierarchicalNameCapabilities(authored).includes(capability)
+      capability === "target:hierarchical-name" ||
+      capability === "contribution:compiled-package-export"
+        ? structured.has(capability)
         : [
               "condition:module",
               "condition:noModule",

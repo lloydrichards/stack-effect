@@ -27,7 +27,7 @@ const assessPlanningPath = Effect.fnUntraced(function* (
 ) {
   const snapshotPath = snapshotPaths.get(intent.path);
   const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
-    intent,
+    PlanAssessment.useCompiledPackageExports(intent, snapshotPath),
     snapshotPath,
   );
   const assessment = yield* PlanAssessment.assess({

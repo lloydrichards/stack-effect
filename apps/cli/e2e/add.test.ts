@@ -75,6 +75,90 @@ assert.equal(typeof planTasks, "function");
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
+    it.effect("publishes TaskPlan when added to an existing library", () =>
+      Effect.gen(function* () {
+        const cli = yield* CLI;
+        const fs = yield* FileSystem.FileSystem;
+        const name = "planner-library";
+        yield* cli.run(
+          "create",
+          name,
+          ...labsCatalogArgs,
+          "--target",
+          "package/library:package-library",
+          "--runtime",
+          "bun",
+          "--root",
+          cli.workdir,
+          "--yes",
+          "--no-git",
+        );
+        yield* cli.expectExitCode(0);
+
+        yield* cli.run(
+          "add",
+          ...labsCatalogArgs,
+          "--target",
+          "package/library:package-task-plan",
+          "--root",
+          `${cli.workdir}/${name}`,
+          "--yes",
+        );
+        yield* cli.expectExitCode(0);
+
+        const consumerPath = `${cli.workdir}/consumer`;
+        yield* fs.makeDirectory(consumerPath);
+        yield* cli.withinProject(
+          `${name}/packages/library`,
+          function* (library) {
+            yield* library.expectCommandSucceeds(
+              "Scratchpad",
+              "bun",
+              "run",
+              "scratch",
+            );
+            yield* library.expectBuildSucceeds();
+            yield* library.expectCommandSucceeds(
+              "Pack library",
+              "npm",
+              "pack",
+              "--pack-destination",
+              consumerPath,
+            );
+          },
+        );
+
+        yield* cli.withinProject("consumer", function* (consumer) {
+          yield* consumer.writeFile(
+            "package.json",
+            `{
+  "type": "module",
+  "dependencies": { "@repo/library": "file:./repo-library-0.0.0.tgz" }
+}`,
+          );
+          yield* consumer.expectInstallSucceeds();
+          yield* consumer.writeFile(
+            "verify.mjs",
+            `import assert from "node:assert/strict";
+import { planTasks, Tasks } from "@repo/library/TaskPlan";
+import { Effect, Schema } from "effect";
+
+const tasks = Schema.decodeUnknownSync(Tasks)([
+  { id: "publish", prerequisites: ["build"] },
+  { id: "build", prerequisites: [] },
+]);
+assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
+`,
+          );
+          yield* consumer.expectCommandSucceeds(
+            "Import packed TaskPlan",
+            "node",
+            "verify.mjs",
+          );
+        });
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
     it.effect("runs the offline GitHub issue demo without shipping tests", () =>
       Effect.gen(function* () {
         const cli = yield* CLI;
