@@ -8,6 +8,8 @@ import {
   RepositoryPath,
 } from "@repo/domain/Plan";
 import { Array as Arr, Effect, Match, Option, Predicate, Schema } from "effect";
+import { minimatch } from "minimatch";
+import { ts } from "ts-morph";
 import { findJsxSlotMarker, makeJsxSourceFile } from "./jsxSlot";
 
 /** @internal */
@@ -165,7 +167,40 @@ export const preserveDenoSqlitePermissions = (
 };
 
 const publishableBuild = "node scripts/clean.mjs && tsc -p tsconfig.build.json";
-const packagedBuildOutput = ["dist", "dist/", "dist/**/*.js"] as const;
+const isPackageFiles = Schema.is(Schema.Array(Schema.String));
+
+const isPacked = (files: ReadonlyArray<string>, value: string) => {
+  const path = value.slice(2);
+  const parts = path.split("/");
+  const paths = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  const rule = files.findLast((entry) => {
+    const pattern = entry.replace(/^!?(?:\.\/)?/u, "").replace(/\/$/u, "");
+    return (
+      pattern.length <= 65_536 &&
+      paths.some((candidate) =>
+        minimatch(candidate, pattern, {
+          dot: true,
+          nonegate: true,
+          nocomment: true,
+          platform: "linux",
+        }),
+      )
+    );
+  });
+  return rule !== undefined && !rule.startsWith("!");
+};
+
+const readBuildOptions = (buildConfig: RepoSnapshotPath | undefined) => {
+  if (buildConfig?._tag !== "file") return undefined;
+  const parsed = ts.parseConfigFileTextToJson(
+    buildConfig.path,
+    buildConfig.contents,
+  );
+  const config: unknown = parsed.config;
+  return parsed.error === undefined && Predicate.isReadonlyObject(config)
+    ? config["compilerOptions"]
+    : undefined;
+};
 const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
 
 /** @internal */
@@ -194,32 +229,14 @@ export const useCompiledPackageExports = Effect.fnUntraced(function* (
   const files = manifest?.["files"];
   const scripts = manifest?.["scripts"];
   if (
-    !Array.isArray(files) ||
-    !packagedBuildOutput.some((entry) => files.includes(entry)) ||
+    !isPackageFiles(files) ||
     !isFlatStringRecord(scripts) ||
     scripts["build"] !== publishableBuild
   )
     return intent;
 
-  const exclusions = files.filter(
-    (entry): entry is string =>
-      typeof entry === "string" && entry.startsWith("!"),
-  );
+  const options = readBuildOptions(buildConfig);
   if (
-    exclusions.length > 0 &&
-    exclusions.every(
-      (entry) => entry === "!dist" || entry.startsWith("!dist/"),
-    ) &&
-    (files.includes("src") || files.includes("src/"))
-  )
-    return intent;
-
-  const options =
-    buildConfig?._tag === "file"
-      ? parseJsonRecord(buildConfig.contents)?.["compilerOptions"]
-      : undefined;
-  if (
-    exclusions.length > 0 ||
     !Predicate.isReadonlyObject(options) ||
     options["outDir"] !== "dist" ||
     (options["rootDir"] !== "src" && options["rootDir"] !== ".") ||
@@ -232,17 +249,27 @@ export const useCompiledPackageExports = Effect.fnUntraced(function* (
   }
 
   const sourceDirectory = options["rootDir"] === "." ? "src/" : "";
-  return {
-    ...intent,
-    exports: intent.exports.map((entry) => {
-      const source = sourceExport.exec(entry.value)?.[1];
-      return source === undefined ||
-        source.endsWith(".test") ||
-        source.endsWith(".d")
-        ? entry
-        : { ...entry, value: `./dist/${sourceDirectory}${source}.js` };
-    }),
-  };
+  const exports = yield* Effect.forEach(intent.exports, (entry) => {
+    const source = sourceExport.exec(entry.value)?.[1];
+    if (
+      source === undefined ||
+      source.endsWith(".test") ||
+      source.endsWith(".d")
+    )
+      return Effect.succeed(entry);
+
+    const compiled = `./dist/${sourceDirectory}${source}.js`;
+    if (isPacked(files, compiled))
+      return Effect.succeed({ ...entry, value: compiled });
+    if (isPacked(files, entry.value)) return Effect.succeed(entry);
+    return Effect.fail(
+      new PlanError({
+        message: `Cannot add export ${entry.name} to ${intent.path}. Include ${compiled} or ${entry.value} in package.json files.`,
+      }),
+    );
+  });
+
+  return { ...intent, exports };
 });
 
 const importOperation = (
