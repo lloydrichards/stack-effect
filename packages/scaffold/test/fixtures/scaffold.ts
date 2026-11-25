@@ -221,7 +221,7 @@ export const testCatalog = {
       _tag: "jsx-slot",
       path: "{{targetPath}}/src/App.tsx",
       slotId: "components",
-      content: "<Alpha />",
+      content: "  <Alpha />  ",
       import: { moduleSpecifier: "./cards", namedImports: ["Alpha", "Beta"] },
     }),
     packageModule("beta-slot", {
@@ -230,6 +230,12 @@ export const testCatalog = {
       slotId: "components",
       content: "<Beta />",
       import: { moduleSpecifier: "./cards", namedImports: ["Alpha", "Beta"] },
+    }),
+    packageModule("alpha-label-slot", {
+      _tag: "jsx-slot",
+      path: "{{targetPath}}/src/App.tsx",
+      slotId: "components",
+      content: "Slot label",
     }),
     optionsField("options-field", "Schema.Number"),
     optionsField("nested-string-field", nestedStruct("Schema.String")),

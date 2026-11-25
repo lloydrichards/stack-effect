@@ -232,6 +232,21 @@ describe("BlueprintResolver", () => {
 
     describe("when resolving dependencies", () => {
       it.effect(
+        "should resolve the same dependency graph for identical selections",
+        () =>
+          Effect.gen(function* () {
+            const resolver = yield* BlueprintResolver;
+            const input = {
+              targets: [selected("server", "api", "server-http-api")],
+            };
+            const blueprint = yield* resolver.resolve(input);
+
+            assert.isNotEmpty(blueprint.edges);
+            assert.deepStrictEqual(yield* resolver.resolve(input), blueprint);
+          }),
+      );
+
+      it.effect(
         "should resolve a required capability through one explicitly selected provider",
         () =>
           Effect.gen(function* () {

@@ -88,11 +88,13 @@ const runFinalizeScriptsInDryRun = () =>
 
 const layerWithServices = ({
   plan: planned = plan,
+  scripts = [script],
   materialize = () => Effect.succeed({ apply: applyResult, files: [] }),
   apply = () => Effect.succeed(applyResult),
   executeScoped,
 }: {
   plan?: Plan;
+  scripts?: ReadonlyArray<typeof script>;
   materialize?: (apply: Apply) => Effect.Effect<MaterializedApply>;
   apply?: (typeof Applier.Service)["apply"];
   executeScoped: (typeof Finalizer.Service)["executeScoped"];
@@ -115,7 +117,7 @@ const layerWithServices = ({
         }),
     }),
     Layer.succeed(Finalizer, {
-      scripts: () => Effect.succeed([script]),
+      scripts: () => Effect.succeed(scripts),
       executeScoped,
       collectNextSteps: () => Effect.succeed([]),
     }),
@@ -242,20 +244,46 @@ describe("ScaffoldPipeline", () => {
     );
   }
 
-  it.effect("should fail when a non-dry-run finalize script fails", () =>
-    Effect.gen(function* () {
-      const pipeline = yield* ScaffoldPipeline;
-      const exit = yield* Effect.exit(pipeline.run(request, assumeYes));
-      const error = squashFailure(exit);
+  it.effect(
+    "should run later finalize scripts and report an earlier failure",
+    () =>
+      Effect.gen(function* () {
+        const later = {
+          ...script,
+          label: "Later finalize",
+          command: "echo ready",
+        };
+        const exit = yield* Effect.exit(
+          ScaffoldPipeline.use((pipeline) =>
+            pipeline.run(request, assumeYes),
+          ).pipe(
+            Effect.provide(
+              layerWithServices({
+                scripts: [script, later],
+                executeScoped: (current) =>
+                  current.command === script.command
+                    ? failingExecution()
+                    : Effect.succeed({
+                        output: Stream.make("later script finished"),
+                        result: Effect.succeed(Result.succeed(later)),
+                      }),
+              }),
+            ),
+          ),
+        );
 
-      assert.containSubset(error, {
-        _tag: "FinalizeScriptError",
-        message: "1 finalize script(s) failed.",
-        failed: 1,
-      });
-    }).pipe(
-      Effect.provide(layerWithServices({ executeScoped: failingExecution })),
-    ),
+        assert.containSubset(squashFailure(exit), {
+          _tag: "FinalizeScriptError",
+          failed: 1,
+        });
+        const output = (yield* TestConsole.logLines).join("\n");
+        assert.include(output, "later script finished");
+        assert.include(output, "Process exited with code 1");
+        assert.isBelow(
+          output.indexOf("Process exited with code 1"),
+          output.indexOf("later script finished"),
+        );
+      }).pipe(Effect.provide(TestConsole.layer)),
   );
 
   it.effect("should not execute finalize scripts when running a dry run", () =>

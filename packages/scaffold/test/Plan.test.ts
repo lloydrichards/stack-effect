@@ -3,10 +3,13 @@ import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { CatalogReader } from "@repo/catalog/Catalog";
 import type { Contribution } from "@repo/domain/Catalog";
 import { type Plan, type PlanOutcome, RepositoryPath } from "@repo/domain/Plan";
-import { Effect, FileSystem, Schema } from "effect";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { ContributionResolver } from "@repo/scaffold/Plan";
+import { Effect, FileSystem, Layer, Schema } from "effect";
 import {
   app,
   apply,
+  config,
   module,
   pipelineLayer,
   plan,
@@ -19,6 +22,96 @@ import {
   withFault,
   writeFiles,
 } from "./fixtures/scaffold";
+
+describe("ContributionResolver", () => {
+  const catalog = CatalogReader.fromFragments([
+    {
+      targets: [
+        target("workspace", {
+          contributions: [
+            { _tag: "file", path: " {{targetPath}} ", contents: "omit me" },
+            {
+              _tag: "file",
+              path: " {{targetPath}}/root.txt  ",
+              contents: "root",
+            },
+          ],
+        }),
+        target("package"),
+      ],
+      modules: [
+        module("marker", "package", {
+          contributions: [
+            {
+              _tag: "file",
+              path: "{{targetPath}}/marker.txt",
+              contents: "{{targetName}}",
+            },
+            {
+              _tag: "pkg-json-entry",
+              path: "{{targetPath}}/package.json",
+              field: "scripts",
+              name: " check ",
+              value: "bun test",
+            },
+          ],
+        }),
+      ],
+    },
+  ]);
+  const layer = Layer.mergeAll(
+    BlueprintResolver.layer,
+    ContributionResolver.layer,
+  ).pipe(Layer.provide(catalog));
+
+  it.effect(
+    "should resolve paths in the owning target and omit empty file paths",
+    () =>
+      Effect.gen(function* () {
+        const blueprints = yield* BlueprintResolver;
+        const resolver = yield* ContributionResolver;
+        const workspace = selected("workspace", "demo");
+        const library = selected("package", "tools/parser", "marker");
+        const blueprint = yield* blueprints.resolve(
+          selection(workspace, library),
+          config,
+        );
+        const result = yield* resolver.resolve(blueprint, config);
+
+        assert.deepStrictEqual(
+          result.targets.map(({ targetKey, contributions }) => ({
+            targetKey,
+            paths: contributions.map(({ path }) => path),
+          })),
+          [
+            { targetKey: workspace.identity.toKey(), paths: ["root.txt"] },
+            { targetKey: library.identity.toKey(), paths: [] },
+          ],
+        );
+        assert.lengthOf(result.modules, 1);
+        const [attached] = result.modules;
+        assert.equal(attached?.targetKey, library.identity.toKey());
+        assert.equal(attached?.moduleId, "marker");
+        assert.lengthOf(attached?.contributions ?? [], 2);
+        assert.include(
+          attached?.contributions.find(({ _tag }) => _tag === "file"),
+          {
+            path: "packages/tools/parser/marker.txt",
+            contents: "tools/parser",
+          },
+        );
+        assert.include(
+          attached?.contributions.find(({ _tag }) => _tag === "pkg-json-entry"),
+          {
+            path: "packages/tools/parser/package.json",
+            field: "scripts",
+            name: "check",
+            value: "bun test",
+          },
+        );
+      }).pipe(Effect.provide(layer)),
+  );
+});
 
 describe("Planner", () => {
   const officialLayer = pipelineLayer(OfficialCatalogLayer);
@@ -499,11 +592,20 @@ describe("Planner", () => {
 
   describe("with the test catalog", () => {
     it.effect(
-      "should record missing, directory, and file paths in the baseline",
+      "should capture a deterministic baseline without serializing user file contents",
       () =>
         Effect.gen(function* () {
-          yield* writeFiles({ "packages/app/src/a.txt": "A\n" });
-          const planned = yield* plan(app("pair"));
+          const privateContents = "distinctive local file contents";
+          yield* writeFiles({
+            "packages/app/src/a.txt": "A\n",
+            "packages/app/src/b.txt": privateContents,
+          });
+          const planned = yield* plan(app("pair", "api"));
+          assert.deepStrictEqual(yield* plan(app("pair", "api")), planned);
+          const encoded = yield* Schema.encodeEffect(
+            Schema.fromJsonString(Schema.Unknown),
+          )(planned);
+          assert.notInclude(encoded, privateContents);
           const tags = new Map<string, string>(
             planned.baseline.paths.map((entry) => [entry.path, entry._tag]),
           );
@@ -511,7 +613,8 @@ describe("Planner", () => {
           assert.strictEqual(planned.baseline.root, repositoryRoot);
           assert.strictEqual(tags.get("packages/app/src"), "directory");
           assert.strictEqual(tags.get("packages/app/src/a.txt"), "file");
-          assert.strictEqual(tags.get("packages/app/src/b.txt"), "missing");
+          assert.strictEqual(tags.get("packages/app/src/b.txt"), "file");
+          assert.strictEqual(tags.get("packages/app/src/Api.ts"), "missing");
           assert.strictEqual(
             outcomeAt(planned, "packages/app/src/a.txt").classification,
             "unchanged",
@@ -554,6 +657,7 @@ describe("Planner", () => {
         const failure = yield* Effect.flip(change.provide(plan(app("pair"))));
 
         assert.strictEqual(failure._tag, "PlanError");
+        assert.include(failure.message, path);
         assert.strictEqual(yield* readFile(path), "User edit\n");
       }).pipe(Effect.provide(testPipeline)),
     );
