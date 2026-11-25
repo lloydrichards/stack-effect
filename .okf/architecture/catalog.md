@@ -32,7 +32,10 @@ sources:
   - id: recipe-errors
     resource: ../../packages/domain/src/Recipe.ts
     title: Provider strategy and provider errors
-generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
+  - id: scaffold-integration
+    resource: ../../catalogs/official-integration/test/Scaffold.test.ts
+    title: Official catalog scaffolding integration tests
+generated: { by: claude, at: "2026-11-25T00:00:00+00:00" }
 ---
 
 # Catalog architecture
@@ -56,6 +59,10 @@ The official target and module definitions live in `catalogs/official` and are b
 - `packages/catalog/src/internal/catalogReader.ts` indexes target kinds, module IDs, and capability providers.
 
 Targets include workspace, package, server, CLI, React, and Foldkit destinations. Treat `targetRegistry.ts` as the complete list, rather than copying an exhaustive inventory into documentation. The `Registry` in these file names is naming only; it is not the hosted registry.
+
+## Official catalog integration tests
+
+`@repo/catalog-official-integration` exercises the official catalog through Scaffold's public services. It owns tests for generated tooling, READMEs, and Alchemy deployment files. Its dependencies point to both the official catalog and Scaffold, so Scaffold can keep using the official catalog as a test fixture without creating a workspace dependency cycle. Run the suite with `bun run test --filter=@repo/catalog-official-integration`.
 
 ## Lookup and projections
 

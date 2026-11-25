@@ -167,6 +167,22 @@
         "vitest": "^5.1.0",
       },
     },
+    "catalogs/official-integration": {
+      "name": "@repo/catalog-official-integration",
+      "version": "0.0.0",
+      "devDependencies": {
+        "@effect-vfs/memory": "^0.11.0",
+        "@effect/platform-browser": "4.1.4",
+        "@effect/vitest": "4.1.4",
+        "@repo/catalog-official": "workspace:*",
+        "@repo/config-typescript": "workspace:*",
+        "@repo/domain": "workspace:*",
+        "@repo/scaffold": "workspace:*",
+        "@types/node": "^26.6.6",
+        "effect": "4.1.4",
+        "vitest": "^5.1.0",
+      },
+    },
     "packages/author": {
       "name": "@stack-effect/author",
       "version": "0.5.0",
@@ -670,6 +686,8 @@
     "@repo/catalog-labs": ["@repo/catalog-labs@workspace:catalogs/labs"],
 
     "@repo/catalog-official": ["@repo/catalog-official@workspace:catalogs/official"],
+
+    "@repo/catalog-official-integration": ["@repo/catalog-official-integration@workspace:catalogs/official-integration"],
 
     "@repo/config-typescript": ["@repo/config-typescript@workspace:packages/config-typescript"],
 
