@@ -275,6 +275,20 @@ describe("TargetIdentity", () => {
       packageName: "@repo/console",
     },
     {
+      label: "a COM device name made safe by normalization",
+      kind: "package",
+      name: "COM1",
+      key: "packages/com-1",
+      packageName: "@repo/com-1",
+    },
+    {
+      label: "an LPT device name made safe by normalization",
+      kind: "package",
+      name: "LPT1",
+      key: "packages/lpt-1",
+      packageName: "@repo/lpt-1",
+    },
+    {
       label: "an unnamed server app",
       kind: "server",
       name: "",
