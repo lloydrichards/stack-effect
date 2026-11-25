@@ -190,11 +190,6 @@ export const experiments = defineModules(import.meta.url, [
         contents: template("./package-task-plan/scratchpad.ts"),
       },
       {
-        _tag: "file",
-        path: "{{targetPath}}/README.task-plan.md",
-        contents: template("./package-task-plan/README.task-plan.md"),
-      },
-      {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "exports",
@@ -213,7 +208,7 @@ export const experiments = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "Task Planner: From `{{targetPath}}`, run `{{#if runtime=deno}}deno task{{/if}}{{#if runtime=bun}}{{packageManager}} run{{/if}}{{#if runtime=node}}{{packageManager}} run{{/if}} scratch` to see the task order. See `{{targetPath}}/README.task-plan.md` for the library layout and packaging steps.",
+      "Task Planner: From `{{targetPath}}`, run `{{#if runtime=deno}}deno task{{/if}}{{#if runtime=bun}}{{packageManager}} run{{/if}}{{#if runtime=node}}{{packageManager}} run{{/if}} scratch` to see the task order.",
     ],
   },
 ]);
