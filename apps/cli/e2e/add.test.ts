@@ -87,9 +87,33 @@ assert.equal(typeof planTasks, "function");
         files: '["dist", "src", "!dist/**/*.js"]',
         consumer: "bun",
       },
+      {
+        name: "planner-anchored",
+        files: '["dist", "src", "!/dist/src/TaskPlan.js"]',
+        consumer: "bun",
+      },
+      {
+        name: "planner-basename",
+        files: '["dist", "src", "!TaskPlan.js"]',
+        consumer: "bun",
+      },
+      {
+        name: "planner-source-only",
+        files: '["src"]',
+        consumer: "bun",
+        outDir: "build",
+      },
+      {
+        name: "planner-narrow-include",
+        files: '["dist"]',
+        consumer: "node",
+        include: "src/main.ts",
+      },
     ] as const) {
       it.effect(
-        `publishes TaskPlan when an existing library packs ${layout.files}`,
+        "include" in layout
+          ? "rejects a compiled export when TypeScript does not include its source"
+          : `publishes TaskPlan when an existing library packs ${layout.files}`,
         () =>
           Effect.gen(function* () {
             const cli = yield* CLI;
@@ -128,9 +152,15 @@ assert.equal(typeof planTasks, "function");
             );
             const tsconfigPath = `${libraryPath}/tsconfig.build.json`;
             const tsconfig = yield* fs.readFileString(tsconfigPath);
+            const outDir = "outDir" in layout ? layout.outDir : "dist";
+            const include =
+              "include" in layout ? layout.include : "src/**/*.ts";
             yield* fs.writeFileString(
               tsconfigPath,
-              `// Keep emitted paths relative to the package root.\n${tsconfig.replace('"rootDir": "src"', '"rootDir": "."')}`,
+              `// Keep emitted paths relative to the package root.\n${tsconfig
+                .replace('"rootDir": "src"', '"rootDir": "."')
+                .replace('"outDir": "dist"', `"outDir": "${outDir}"`)
+                .replace('"src/**/*.ts"', `"${include}"`)}`,
             );
             yield* fs.rename(
               `${libraryPath}/src/index.ts`,
@@ -146,6 +176,12 @@ assert.equal(typeof planTasks, "function");
               `${cli.workdir}/${name}`,
               "--yes",
             );
+            if ("include" in layout) {
+              yield* cli.expectExitCode(1);
+              const unchanged = yield* fs.readFileString(manifestPath);
+              assert.notInclude(unchanged, '"./TaskPlan"');
+              return;
+            }
             yield* cli.expectExitCode(0);
 
             const consumerPath = `${cli.workdir}/${name}-consumer`;
@@ -191,6 +227,7 @@ const tasks = Schema.decodeUnknownSync(Tasks)([
   { id: "build", prerequisites: [] },
 ]);
 assert.equal(typeof greet, "function");
+assert.ok(import.meta.resolve("@repo/library/TaskPlan").endsWith(${layout.consumer === "node" ? '".js"' : '".ts"'}));
 assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
 `,
               );

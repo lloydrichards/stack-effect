@@ -173,24 +173,42 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
   const path = value.slice(2);
   const parts = path.split("/");
   const paths = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
-  const rule = files.findLast((entry) => {
-    const pattern = entry.replace(/^!?(?:\.\/)?/u, "").replace(/\/$/u, "");
-    return (
-      pattern.length <= 65_536 &&
-      paths.some((candidate) =>
-        minimatch(candidate, pattern, {
-          dot: true,
-          nonegate: true,
-          nocomment: true,
-          platform: "linux",
-        }),
-      )
+  const matchingRules = files
+    .map((entry) => {
+      const excludes = entry.startsWith("!");
+      const rule = excludes ? entry.slice(1) : entry.replace(/^\.\//u, "");
+      const anchored = rule.startsWith("/");
+      const pattern = rule.replace(/^\//u, "").replace(/\/$/u, "");
+      return { anchored, excludes, pattern };
+    })
+    .filter(
+      ({ anchored, excludes, pattern }) =>
+        pattern.length <= 65_536 &&
+        paths.some((candidate) =>
+          minimatch(candidate, pattern, {
+            dot: true,
+            nonegate: true,
+            nocomment: true,
+            nocase: excludes,
+            matchBase: excludes && !anchored,
+            platform: "linux",
+          }),
+        ),
     );
-  });
-  return rule !== undefined && !rule.startsWith("!");
+  // npm can give explicitly listed files priority over ignore patterns.
+  if (
+    matchingRules.some(
+      ({ excludes, pattern }) => !excludes && pattern === path,
+    ) &&
+    matchingRules.some(({ excludes }) => excludes)
+  )
+    return undefined;
+
+  const last = matchingRules.at(-1);
+  return last !== undefined && !last.excludes;
 };
 
-const readBuildOptions = (buildConfig: RepoSnapshotPath | undefined) => {
+const readBuildConfig = (buildConfig: RepoSnapshotPath | undefined) => {
   if (buildConfig?._tag !== "file") return undefined;
   const parsed = ts.parseConfigFileTextToJson(
     buildConfig.path,
@@ -198,9 +216,43 @@ const readBuildOptions = (buildConfig: RepoSnapshotPath | undefined) => {
   );
   const config: unknown = parsed.config;
   return parsed.error === undefined && Predicate.isReadonlyObject(config)
-    ? config["compilerOptions"]
+    ? config
     : undefined;
 };
+const packageRelativeDirectory = /^(?:[\w-]+\/)*[\w-]+$/u;
+const generatedBuildExcludes = ["dist", "node_modules", "**/*.test.ts"];
+
+const compiledSourceDirectory = (
+  config: Record<string, unknown> | undefined,
+) => {
+  const options = config?.["compilerOptions"];
+  const include = config?.["include"];
+  const exclude = config?.["exclude"];
+  if (
+    !Predicate.isReadonlyObject(options) ||
+    !isPackageFiles(include) ||
+    include.length !== 1 ||
+    include[0] !== "src/**/*.ts" ||
+    !isPackageFiles(exclude) ||
+    exclude.some((pattern) => !generatedBuildExcludes.includes(pattern)) ||
+    config?.["files"] !== undefined
+  )
+    return undefined;
+
+  const outDir = options["outDir"];
+  const rootDir = options["rootDir"];
+  if (
+    typeof outDir !== "string" ||
+    !packageRelativeDirectory.test(outDir) ||
+    (rootDir !== "src" && rootDir !== ".") ||
+    options["noEmit"] !== false ||
+    options["emitDeclarationOnly"] === true
+  )
+    return undefined;
+
+  return rootDir === "." ? `${outDir}/src` : outDir;
+};
+
 const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
 
 /** @internal */
@@ -228,27 +280,18 @@ export const useCompiledPackageExports = Effect.fnUntraced(function* (
   const manifest = parseJsonRecord(snapshotPath.contents);
   const files = manifest?.["files"];
   const scripts = manifest?.["scripts"];
-  if (
-    !isPackageFiles(files) ||
-    !isFlatStringRecord(scripts) ||
-    scripts["build"] !== publishableBuild
-  )
+  if (!isFlatStringRecord(scripts) || scripts["build"] !== publishableBuild)
     return intent;
 
-  const options = readBuildOptions(buildConfig);
-  if (
-    !Predicate.isReadonlyObject(options) ||
-    options["outDir"] !== "dist" ||
-    (options["rootDir"] !== "src" && options["rootDir"] !== ".") ||
-    options["noEmit"] !== false ||
-    options["emitDeclarationOnly"] === true
-  ) {
+  if (!isPackageFiles(files)) {
     return yield* new PlanError({
-      message: `Cannot infer compiled exports for ${intent.path}. Use the generated Publishable Library build and pack layout, or add the module and its export manually.`,
+      message: `Cannot infer packed exports for ${intent.path}. Declare the files that the library publishes in package.json.`,
     });
   }
 
-  const sourceDirectory = options["rootDir"] === "." ? "src/" : "";
+  const compiledDirectory = compiledSourceDirectory(
+    readBuildConfig(buildConfig),
+  );
   const exports = yield* Effect.forEach(intent.exports, (entry) => {
     const source = sourceExport.exec(entry.value)?.[1];
     if (
@@ -258,13 +301,22 @@ export const useCompiledPackageExports = Effect.fnUntraced(function* (
     )
       return Effect.succeed(entry);
 
-    const compiled = `./dist/${sourceDirectory}${source}.js`;
-    if (isPacked(files, compiled))
+    const compiled =
+      compiledDirectory === undefined
+        ? undefined
+        : `./${compiledDirectory}/${source}.js`;
+    const packsCompiled =
+      compiled === undefined ? false : isPacked(files, compiled);
+    if (compiled !== undefined && packsCompiled)
       return Effect.succeed({ ...entry, value: compiled });
-    if (isPacked(files, entry.value)) return Effect.succeed(entry);
+    if (packsCompiled === false && isPacked(files, entry.value))
+      return Effect.succeed(entry);
+
+    const packedPaths =
+      compiled === undefined ? entry.value : `${compiled} or ${entry.value}`;
     return Effect.fail(
       new PlanError({
-        message: `Cannot add export ${entry.name} to ${intent.path}. Include ${compiled} or ${entry.value} in package.json files.`,
+        message: `Cannot add export ${entry.name} to ${intent.path}. Check tsconfig.build.json and make package.json files unambiguously include ${packedPaths}.`,
       }),
     );
   });
