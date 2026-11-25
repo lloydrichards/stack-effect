@@ -169,22 +169,30 @@ const packagedBuildOutput = ["dist", "dist/", "dist/**/*.js"] as const;
 const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
 
 /** @internal */
-export const useCompiledPackageExports = (
+export const compiledExportConfigPath = (intent: PlanningIntentPath) =>
+  intent._tag === "packageJson" &&
+  intent.exports.some(({ value }) => sourceExport.test(value))
+    ? RepositoryPath.make(
+        intent.path.replace(/package\.json$/u, "tsconfig.build.json"),
+      )
+    : undefined;
+
+/** @internal */
+export const useCompiledPackageExports = Effect.fnUntraced(function* (
   intent: PlanningIntentPath,
   snapshotPath: RepoSnapshotPath | undefined,
-): PlanningIntentPath => {
+  buildConfig: RepoSnapshotPath | undefined,
+) {
   if (
     intent._tag !== "packageJson" ||
-    intent.exports.length === 0 ||
-    snapshotPath?._tag !== "file"
+    snapshotPath?._tag !== "file" ||
+    compiledExportConfigPath(intent) === undefined
   )
     return intent;
 
   const manifest = parseJsonRecord(snapshotPath.contents);
   const files = manifest?.["files"];
   const scripts = manifest?.["scripts"];
-  // This generated build compiles src into dist, and npm packs the artifacts.
-  // The root export can point at any public entry in that output.
   if (
     !Array.isArray(files) ||
     !packagedBuildOutput.some((entry) => files.includes(entry)) ||
@@ -193,6 +201,37 @@ export const useCompiledPackageExports = (
   )
     return intent;
 
+  const exclusions = files.filter(
+    (entry): entry is string =>
+      typeof entry === "string" && entry.startsWith("!"),
+  );
+  if (
+    exclusions.length > 0 &&
+    exclusions.every(
+      (entry) => entry === "!dist" || entry.startsWith("!dist/"),
+    ) &&
+    (files.includes("src") || files.includes("src/"))
+  )
+    return intent;
+
+  const options =
+    buildConfig?._tag === "file"
+      ? parseJsonRecord(buildConfig.contents)?.["compilerOptions"]
+      : undefined;
+  if (
+    exclusions.length > 0 ||
+    !Predicate.isReadonlyObject(options) ||
+    options["outDir"] !== "dist" ||
+    (options["rootDir"] !== "src" && options["rootDir"] !== ".") ||
+    options["noEmit"] !== false ||
+    options["emitDeclarationOnly"] === true
+  ) {
+    return yield* new PlanError({
+      message: `Cannot infer compiled exports for ${intent.path}. Use the generated Publishable Library build and pack layout, or add the module and its export manually.`,
+    });
+  }
+
+  const sourceDirectory = options["rootDir"] === "." ? "src/" : "";
   return {
     ...intent,
     exports: intent.exports.map((entry) => {
@@ -201,10 +240,10 @@ export const useCompiledPackageExports = (
         source.endsWith(".test") ||
         source.endsWith(".d")
         ? entry
-        : { ...entry, value: `./dist/${source}.js` };
+        : { ...entry, value: `./dist/${sourceDirectory}${source}.js` };
     }),
   };
-};
+});
 
 const importOperation = (
   planningImport: PlanningIntentImport,

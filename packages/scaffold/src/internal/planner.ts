@@ -26,8 +26,16 @@ const assessPlanningPath = Effect.fnUntraced(function* (
   intent: PlanningIntentPath,
 ) {
   const snapshotPath = snapshotPaths.get(intent.path);
+  const buildConfigPath = PlanAssessment.compiledExportConfigPath(intent);
+  const compiled = yield* PlanAssessment.useCompiledPackageExports(
+    intent,
+    snapshotPath,
+    buildConfigPath === undefined
+      ? undefined
+      : snapshotPaths.get(buildConfigPath),
+  );
   const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
-    PlanAssessment.useCompiledPackageExports(intent, snapshotPath),
+    compiled,
     snapshotPath,
   );
   const assessment = yield* PlanAssessment.assess({
@@ -109,14 +117,17 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
       );
 
       const captured = yield* repository.capture(
-        Arr.dedupe([
-          repositoryRootPath,
-          ...workspaceManifestPaths,
-          ...planningPaths.flatMap((planningPath) => [
-            planningPath.path,
-            ...PlanAssessment.collectAncestorPaths(planningPath.path),
-          ]),
-        ]),
+        Arr.dedupe(
+          [
+            repositoryRootPath,
+            ...workspaceManifestPaths,
+            ...planningPaths.flatMap((planningPath) => [
+              planningPath.path,
+              ...PlanAssessment.collectAncestorPaths(planningPath.path),
+              PlanAssessment.compiledExportConfigPath(planningPath),
+            ]),
+          ].filter((path) => path !== undefined),
+        ),
       );
       // Keep the owners validated above so drift since validation fails the recheck below.
       const baseline = { ...captured.baseline, packageOwners: owners };
