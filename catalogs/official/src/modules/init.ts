@@ -359,7 +359,8 @@ export const initModules = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "devDependencies",
         name: "nx",
-        value: "^24.0.6",
+        // Nx 24.0.7 declares a peer range that excludes TypeScript 7.
+        value: "24.0.6",
       },
       {
         _tag: "pkg-json-entry",
