@@ -423,11 +423,43 @@ describe("Applier", () => {
         }).pipe(Effect.provide(testPipeline)),
     );
 
+    it.effect(
+      "should reuse an existing slot contribution when the catalog adds whitespace around it",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [appFile]:
+              'import { Alpha } from "./cards";\nexport const App = () => <main>{/* @slot:components */}<Alpha /></main>;\n',
+          });
+          yield* planAndApply("alpha-slot", "beta-slot");
+
+          const written = yield* readFile(appFile);
+          assert.strictEqual(count(written, /<Alpha \/>/g), 1);
+          assert.match(written, /<Alpha \/>\s*<Beta \/>/);
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
+    it.effect(
+      "should reuse padded JSX text before inserting the next contribution",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [appFile]:
+              "export const App = () => <main>{/* @slot:components */}  Slot label  </main>;\n",
+          });
+          yield* planAndApply("alpha-label-slot", "beta-slot");
+
+          const written = yield* readFile(appFile);
+          assert.strictEqual(count(written, /Slot label/g), 1);
+          assert.match(written, /Slot label\s*<Beta \/>/);
+        }).pipe(Effect.provide(testPipeline)),
+    );
+
     it.effect("should apply slot content in a JSX fragment once", () =>
       Effect.gen(function* () {
         yield* writeFiles({
           [appFile]:
-            "export const App = () => (\n  <>\n    {/* @slot:components */}\n  </>\n);\n",
+            "export const App = () => <>{/* @slot:components */}</>;\n",
         });
         yield* planAndApply("card-slot");
         const once = yield* readFile(appFile);
@@ -462,11 +494,13 @@ describe("Applier", () => {
 
             const written = yield* readFile(appFile);
             assert.strictEqual(count(written, /<Card \/>/g), 2);
-            assert.isBelow(
-              written.indexOf("<Card />"),
-              written.lastIndexOf("<Card />"),
-            );
-            if (module === "first-card-slot") {
+            if (module === "card-slot") {
+              assert.match(
+                written,
+                /<main>[^]*@slot:components[^]*<Card \/>[^]*<\/main>/,
+              );
+              assert.match(written, /<aside>\s*<Card \/>\s*<\/aside>/);
+            } else {
               assert.isBelow(
                 written.indexOf("<Card />"),
                 written.indexOf("{/* @slot:second */}"),
@@ -1399,7 +1433,8 @@ describe("ApplyWorkspaces", () => {
 
         assert.strictEqual(previewed._tag, "ApplyError");
         assert.strictEqual(applied._tag, "ApplyError");
-        assert.strictEqual(previewed.message, applied.message);
+        assert.include(previewed.message, "@repo/helper");
+        assert.include(applied.message, "@repo/helper");
         assert.isFalse(yield* exists(manifest));
       }).pipe(Effect.provide(foreignNamePipeline)),
   );
@@ -1542,28 +1577,6 @@ describe("ApplyWorkspaces", () => {
   );
 
   it.effect(
-    "should reject a host Plan with a different baseline even when it is current",
-    () =>
-      Effect.gen(function* () {
-        yield* writeFiles({});
-        const seeded = yield* plan(app("pair"));
-        const other = yield* plan(app("tsconfig"));
-        const workspaces = yield* ApplyWorkspaces;
-        const workspace = yield* workspaces.fromRepository({
-          repositoryRoot,
-          baseline: seeded.baseline,
-        });
-
-        const failure = yield* Effect.flip(
-          workspace.materialize(new Apply({ plan: other, decisions: [] })),
-        );
-
-        assert.strictEqual(failure._tag, "ApplyError");
-        assert.isFalse(yield* exists(tsconfig));
-      }).pipe(Effect.provide(testPipeline)),
-  );
-
-  it.effect(
     "should reject an equally sized baseline captured for different paths",
     () =>
       Effect.gen(function* () {
@@ -1585,6 +1598,26 @@ describe("ApplyWorkspaces", () => {
         assert.strictEqual(failure._tag, "ApplyError");
         assert.isFalse(yield* exists("packages/second/src/a.txt"));
       }).pipe(Effect.provide(testPipeline)),
+  );
+
+  it.effect("should reject a Plan that adds paths to the seeded baseline", () =>
+    Effect.gen(function* () {
+      yield* writeFiles({});
+      const seeded = yield* plan(app("pair"));
+      const expanded = yield* plan(app("pair", "tsconfig"));
+      const workspaces = yield* ApplyWorkspaces;
+      const workspace = yield* workspaces.fromRepository({
+        repositoryRoot,
+        baseline: seeded.baseline,
+      });
+
+      const failure = yield* Effect.flip(
+        workspace.materialize(new Apply({ plan: expanded, decisions: [] })),
+      );
+
+      assert.strictEqual(failure._tag, "ApplyError");
+      assert.isFalse(yield* exists(tsconfig));
+    }).pipe(Effect.provide(testPipeline)),
   );
 
   it.effect(

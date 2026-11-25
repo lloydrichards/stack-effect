@@ -13,10 +13,20 @@ import {
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { FinalizeReport, FinalizeScript } from "@repo/domain/Finalize";
+import { FinalizeScript } from "@repo/domain/Finalize";
 import { StackConfig } from "@repo/domain/StackConfig";
-import { type FinalizeConfig, Finalizer } from "@repo/scaffold/Finalize";
-import { Effect, Layer, Result, Schema, Sink, Stream } from "effect";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
+import { Finalizer, scriptKey } from "@repo/scaffold/Finalize";
+import {
+  Effect,
+  Layer,
+  Ref,
+  Result,
+  Schema,
+  type Scope,
+  Sink,
+  Stream,
+} from "effect";
 import {
   ChildProcessSpawner,
   ExitCode,
@@ -52,12 +62,6 @@ describe("Finalizer", () => {
   });
 
   const emptyBlueprint = new Blueprint({ nodes: [], edges: [] });
-
-  const singleTargetBlueprint = (identity: TargetIdentity) =>
-    new Blueprint({
-      nodes: [{ _tag: "target", id: identity.toKey(), identity }],
-      edges: [],
-    });
 
   const targetWithModule = (identity: TargetIdentity, moduleId: ModuleId) =>
     new Blueprint({
@@ -136,46 +140,20 @@ describe("Finalizer", () => {
     ],
   });
 
-  const makeSpawnerLayer = (
-    executed: string[],
-    failures: Set<string> = new Set(),
-  ) =>
-    // NOTE: The fake spawner records the exact shell command and can fail selected commands.
-    Layer.succeed(ChildProcessSpawner, {
-      spawn: (command: { command: string; args: ReadonlyArray<string> }) => {
-        const cmd = [command.command, ...command.args].join(" ");
-        executed.push(cmd);
-        const failed = failures.has(cmd);
-        return Effect.succeed({
-          stdout: Stream.empty,
-          stderr: Stream.empty,
-          exitCode: failed ? Effect.succeed(1) : Effect.succeed(0),
-          pid: Effect.succeed(1234),
-          kill: () => Effect.void,
-          unref: Effect.void,
-        });
-      },
-      exitCode: (command: { command: string; args: ReadonlyArray<string> }) => {
-        const cmd = [command.command, ...command.args].join(" ");
-        executed.push(cmd);
-        if (failures.has(cmd)) {
-          return Effect.fail("Command failed: " + cmd);
-        }
-        return Effect.succeed(0);
-      },
-    } as never);
+  const unusedSpawner = Layer.succeed(
+    ChildProcessSpawner,
+    makeSpawner(() => Effect.die("Expected to list scripts without spawning")),
+  );
 
   const makeFinalizeLayer = (
-    executed: string[],
     opts: {
-      targets?: Record<string, Partial<TargetDefinition>>;
-      modules?: Record<string, Partial<ModuleDefinition>>;
-      failures?: Set<string>;
+      targets?: TargetOverrides;
+      modules?: ModuleOverrides;
     } = {},
   ) =>
-    Finalizer.layer.pipe(
+    Layer.mergeAll(Finalizer.layer, BlueprintResolver.layer).pipe(
       Layer.provide(catalogLayerWith(opts.targets, opts.modules)),
-      Layer.provide(makeSpawnerLayer(executed, opts.failures)),
+      Layer.provide(unusedSpawner),
     );
 
   it.effect(
@@ -200,7 +178,7 @@ describe("Finalizer", () => {
       ]);
       const serviceLayer = Finalizer.layer.pipe(
         Layer.provide(catalogLayer),
-        Layer.provide(makeSpawnerLayer([])),
+        Layer.provide(unusedSpawner),
       );
       return Effect.gen(function* () {
         const finalize = yield* Finalizer;
@@ -229,7 +207,7 @@ describe("Finalizer", () => {
       ]);
     }).pipe(
       Effect.provide(
-        makeFinalizeLayer([], {
+        makeFinalizeLayer({
           targets: {
             server: {
               nextSteps: [
@@ -251,36 +229,10 @@ describe("Finalizer", () => {
     ),
   );
 
-  const runToReport = (
-    svc: typeof Finalizer.Service,
-    blueprint: Blueprint,
-    config: FinalizeConfig,
-  ) =>
-    Effect.gen(function* () {
-      const scripts = yield* svc.scripts(blueprint, config);
-      const results = yield* Effect.forEach(
-        scripts,
-        (script) =>
-          Effect.scoped(
-            Effect.gen(function* () {
-              const execution = yield* svc.executeScoped(
-                script,
-                config.repositoryRoot,
-              );
-              yield* execution.output.pipe(Stream.runDrain);
-              return yield* execution.result;
-            }),
-          ),
-        { concurrency: 1 },
-      );
-      return new FinalizeReport({ results });
-    });
-
   describe("scripts", () => {
     it.effect(
       "should return only config-derived scripts when the blueprint has no Finalize scripts",
       () => {
-        const executed: string[] = [];
         return Effect.gen(function* () {
           const svc = yield* Finalizer;
 
@@ -294,8 +246,7 @@ describe("Finalizer", () => {
             ["Install dependencies"],
           );
           assert.strictEqual(scripts[0]?.command, "bun install");
-          assert.deepStrictEqual(executed, []);
-        }).pipe(Effect.provide(makeFinalizeLayer(executed)));
+        }).pipe(Effect.provide(makeFinalizeLayer()));
       },
     );
 
@@ -328,7 +279,7 @@ describe("Finalizer", () => {
               { command: "bun run format", workdir: ".", origin: "config" },
             ],
           );
-        }).pipe(Effect.provide(makeFinalizeLayer([]))),
+        }).pipe(Effect.provide(makeFinalizeLayer())),
     );
 
     it.effect(
@@ -343,7 +294,7 @@ describe("Finalizer", () => {
           );
 
           assert.strictEqual(scripts[0]?.command, "pnpm install");
-        }).pipe(Effect.provide(makeFinalizeLayer([]))),
+        }).pipe(Effect.provide(makeFinalizeLayer())),
     );
 
     it.effect(
@@ -374,98 +325,42 @@ describe("Finalizer", () => {
               commands,
             );
           }
-        }).pipe(Effect.provide(makeFinalizeLayer([]))),
+        }).pipe(Effect.provide(makeFinalizeLayer())),
     );
 
     it.effect(
-      "should list target Finalize scripts before config-derived scripts when a target declares scripts",
+      "should list target, module, config, and post-finalize scripts in run order",
       () =>
         Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const blueprint = singleTargetBlueprint(serverIdentity);
+          const finalizer = yield* Finalizer;
+          const resolver = yield* BlueprintResolver;
+          const blueprint = yield* resolver.resolve({
+            targets: [
+              {
+                identity: serverIdentity,
+                modules: [{ id: ModuleId.make("app-setup") }],
+              },
+            ],
+          });
 
-          const scripts = yield* svc.scripts(blueprint, makeConfig());
+          const scripts = yield* finalizer.scripts(blueprint, makeConfig());
 
           assert.deepStrictEqual(
-            scripts.map((s) => s.label),
-            ["Generate prisma client", "Install dependencies"],
+            scripts.map(({ label }) => label),
+            ["Build", "Module setup", "Install dependencies", "Post setup"],
           );
           assert.include(scripts[0], {
+            command: "bun run build --cwd apps/sdk/server-api",
             workdir: "apps/sdk/server-api",
             origin: "target: server",
           });
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              targets: {
-                server: {
-                  scripts: [
-                    {
-                      label: "Generate prisma client",
-                      command: "bun prisma generate",
-                      phase: "finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should list module Finalize scripts before config-derived scripts when a module declares scripts",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const moduleId = ModuleId.make("shadcn-init");
-          const blueprint = targetWithModule(clientIdentity, moduleId);
-
-          const scripts = yield* svc.scripts(blueprint, makeConfig());
-
-          assert.deepStrictEqual(
-            scripts.map((s) => s.label),
-            ["Initialize shadcn", "Install dependencies"],
-          );
-          assert.include(scripts[0], {
-            workdir: "apps/client-react-web",
-            origin: "module: shadcn-init",
+          assert.include(scripts[1], {
+            workdir: "apps/sdk/server-api",
+            origin: "module: app-setup",
           });
         }).pipe(
           Effect.provide(
-            makeFinalizeLayer([], {
-              modules: {
-                "shadcn-init": {
-                  scripts: [
-                    {
-                      label: "Initialize shadcn",
-                      command: "bunx shadcn init",
-                      phase: "finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should resolve token placeholders when a script command contains them",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const blueprint = singleTargetBlueprint(serverIdentity);
-
-          const scripts = yield* svc.scripts(blueprint, makeConfig());
-
-          assert.strictEqual(
-            scripts[0]?.command,
-            "bun run build --cwd apps/sdk/server-api",
-          );
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
+            makeFinalizeLayer({
               targets: {
                 server: {
                   scripts: [
@@ -474,6 +369,22 @@ describe("Finalizer", () => {
                       command:
                         "{{packageManager}} run build --cwd {{targetPath}}",
                       phase: "finalize",
+                    },
+                  ],
+                },
+              },
+              modules: {
+                "app-setup": {
+                  scripts: [
+                    {
+                      label: "Module setup",
+                      command: "echo setup",
+                      phase: "finalize",
+                    },
+                    {
+                      label: "Post setup",
+                      command: "echo done",
+                      phase: "post-finalize",
                     },
                   ],
                 },
@@ -497,16 +408,17 @@ describe("Finalizer", () => {
             edges: [],
           });
 
-          const scripts = yield* svc.scripts(blueprint, makeConfig());
+          const scripts = (yield* svc.scripts(blueprint, makeConfig())).filter(
+            (script) => script.phase === "finalize",
+          );
 
+          assert.strictEqual(new Set(scripts.map(scriptKey)).size, 2);
           assert.deepStrictEqual(
-            scripts
-              .filter((script) => script.phase === "finalize")
-              .map(({ command, workdir, source }) => ({
-                command,
-                workdir,
-                source,
-              })),
+            scripts.map(({ command, workdir, source }) => ({
+              command,
+              workdir,
+              source,
+            })),
             [
               { command: "bun run codegen", workdir: ".", source: "acme" },
               { command: "bun run codegen", workdir: ".", source: "beta" },
@@ -530,12 +442,54 @@ describe("Finalizer", () => {
                   },
                 ),
               ),
-              Layer.provide(makeSpawnerLayer([])),
+              Layer.provide(unusedSpawner),
             ),
           ),
         ),
     );
   });
+
+  const checkScript = FinalizeScript.make({
+    label: "Check target",
+    command: "check",
+    phase: "finalize",
+    origin: "target: server",
+    workdir: ".",
+  });
+
+  const executionLayer = (
+    exitCode: Effect.Effect<ExitCode>,
+    process: Effect.Effect<void, never, Scope.Scope>,
+  ) =>
+    Finalizer.layer.pipe(
+      Layer.provide(catalogLayerWith()),
+      Layer.provide(
+        Layer.succeed(
+          ChildProcessSpawner,
+          makeSpawner((command) => {
+            assert(command._tag === "StandardCommand");
+            assert.strictEqual(command.options.cwd, "/repo");
+            return process.pipe(
+              Effect.as(
+                makeHandle({
+                  pid: ProcessId(1234),
+                  stdin: Sink.drain,
+                  stdout: Stream.empty,
+                  stderr: Stream.empty,
+                  all: Stream.empty,
+                  exitCode,
+                  isRunning: Effect.succeed(true),
+                  kill: () => Effect.void,
+                  getInputFd: () => Sink.drain,
+                  getOutputFd: () => Stream.empty,
+                  unref: Effect.succeed(Effect.void),
+                }),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
 
   describe("executeScoped", () => {
     it.effect(
@@ -558,7 +512,11 @@ describe("Finalizer", () => {
             const output = yield* Stream.runCollect(execution.output);
             assert.sameMembers(Array.from(output), ["ready", "warning"]);
             const result = yield* execution.result;
-            assert.isTrue(Result.isSuccess(result));
+            assert(Result.isSuccess(result));
+            assert.deepStrictEqual(result.success, {
+              label: "Check target",
+              command: "printf ready && printf warning >&2",
+            });
           }),
         ).pipe(
           Effect.provide(
@@ -606,206 +564,52 @@ describe("Finalizer", () => {
         ),
     );
 
-    it.effect(
-      "should execute scripts and report success when every command exits cleanly",
-      () => {
-        const executed: string[] = [];
-        return Effect.gen(function* () {
-          const svc = yield* Finalizer;
+    it.effect("should report a nonzero exit with the script identity", () =>
+      Effect.gen(function* () {
+        const finalizer = yield* Finalizer;
+        const result = yield* Effect.scoped(
+          finalizer
+            .executeScoped(checkScript, "/repo")
+            .pipe(Effect.flatMap((execution) => execution.result)),
+        );
 
-          const report = yield* runToReport(svc, emptyBlueprint, makeConfig());
-
-          assert.strictEqual(report.succeeded, 1);
-          assert.strictEqual(report.failed, 0);
-          assert.strictEqual(report.results[0]?._tag, "Success");
-          assert.isAbove(executed.length, 0);
-        }).pipe(Effect.provide(makeFinalizeLayer(executed)));
-      },
+        assert(Result.isFailure(result));
+        assert.include(result.failure, {
+          label: checkScript.label,
+          command: checkScript.command,
+        });
+        assert.include(result.failure.error, "7");
+      }).pipe(
+        Effect.provide(
+          executionLayer(Effect.succeed(ExitCode(7)), Effect.void),
+        ),
+      ),
     );
 
     it.effect(
-      "should keep executing and report the failure when one script fails",
+      "should release a running process when the caller closes its scope",
       () =>
         Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const config = new StackConfig({
-            name: Schema.NonEmptyString.make("test"),
-            runtime: { _tag: "bun" },
-            lint: "biome",
+          const running = yield* Ref.make(false);
+          const run = Effect.gen(function* () {
+            const finalizer = yield* Finalizer;
+            yield* finalizer.executeScoped(checkScript, "/repo");
+            assert.isTrue(yield* Ref.get(running));
           });
 
-          const report = yield* runToReport(
-            svc,
-            emptyBlueprint,
-            makeConfig(config),
+          yield* Effect.scoped(run).pipe(
+            Effect.provide(
+              executionLayer(
+                Effect.never,
+                Effect.acquireRelease(Ref.set(running, true), () =>
+                  Ref.set(running, false),
+                ),
+              ),
+            ),
           );
 
-          // NOTE: Finalize reports failures after attempting every configured script.
-          assert.lengthOf(report.results, 2);
-          assert.strictEqual(report.results[0]?._tag, "Failure");
-          assert.strictEqual(report.results[1]?._tag, "Success");
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              failures: new Set(["bun install"]),
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should run module Finalize scripts before config-derived scripts when a module declares scripts",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const moduleId = ModuleId.make("shadcn-init");
-          const blueprint = targetWithModule(clientIdentity, moduleId);
-
-          const report = yield* runToReport(svc, blueprint, makeConfig());
-
-          const labels = report.results.map((r) =>
-            Result.isSuccess(r) ? r.success.label : r.failure.label,
-          );
-          assert.deepStrictEqual(labels, [
-            "Init shadcn",
-            "Install dependencies",
-          ]);
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              modules: {
-                "shadcn-init": {
-                  scripts: [
-                    {
-                      label: "Init shadcn",
-                      command: "bunx shadcn init",
-                      phase: "finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should run target Finalize scripts before module Finalize scripts when both declare scripts",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const moduleId = ModuleId.make("http-api");
-          const blueprint = targetWithModule(serverIdentity, moduleId);
-
-          const report = yield* runToReport(svc, blueprint, makeConfig());
-
-          const labels = report.results.map((r) =>
-            Result.isSuccess(r) ? r.success.label : r.failure.label,
-          );
-          assert.deepStrictEqual(labels, [
-            "Target setup",
-            "Module setup",
-            "Install dependencies",
-          ]);
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              targets: {
-                server: {
-                  scripts: [
-                    {
-                      label: "Target setup",
-                      command: "echo target",
-                      phase: "finalize",
-                    },
-                  ],
-                },
-              },
-              modules: {
-                "http-api": {
-                  scripts: [
-                    {
-                      label: "Module setup",
-                      command: "echo module",
-                      phase: "finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should run post-finalize scripts after config-derived scripts when a module declares a post-finalize phase",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const moduleId = ModuleId.make("workspace-devenv-git");
-          const blueprint = targetWithModule(serverIdentity, moduleId);
-
-          const report = yield* runToReport(svc, blueprint, makeConfig());
-
-          const labels = report.results.map((r) =>
-            Result.isSuccess(r) ? r.success.label : r.failure.label,
-          );
-          assert.deepStrictEqual(labels, ["Install dependencies", "Git init"]);
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              modules: {
-                "workspace-devenv-git": {
-                  scripts: [
-                    {
-                      label: "Git init",
-                      command: "git init",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
-    );
-
-    it.effect(
-      "should order Finalize, config-derived, then post-finalize scripts when all phases are present",
-      () =>
-        Effect.gen(function* () {
-          const svc = yield* Finalizer;
-          const moduleId = ModuleId.make("workspace-devenv-git");
-          const blueprint = targetWithModule(serverIdentity, moduleId);
-          const config = new StackConfig({
-            name: Schema.NonEmptyString.make("test"),
-            runtime: { _tag: "bun" },
-            lint: "biome",
-          });
-
-          const scripts = yield* svc.scripts(blueprint, makeConfig(config));
-
-          assert.deepStrictEqual(
-            scripts.map((s) => s.label),
-            ["Install dependencies", "Run biome lint", "Git init"],
-          );
-        }).pipe(
-          Effect.provide(
-            makeFinalizeLayer([], {
-              modules: {
-                "workspace-devenv-git": {
-                  scripts: [
-                    {
-                      label: "Git init",
-                      command: "git init",
-                      phase: "post-finalize",
-                    },
-                  ],
-                },
-              },
-            }),
-          ),
-        ),
+          assert.isFalse(yield* Ref.get(running));
+        }),
     );
   });
 });

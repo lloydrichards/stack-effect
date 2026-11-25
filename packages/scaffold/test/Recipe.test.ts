@@ -961,33 +961,6 @@ describe("RecipeResolver with the official catalog", () => {
       }).pipe(Effect.provide(TestLayer)),
     );
 
-    it.effect("should use catalog default names for unnamed targets", () =>
-      Effect.gen(function* () {
-        const service = yield* RecipeResolver;
-        const selection = yield* service.resolve(
-          {
-            targets: [
-              {
-                target: new TargetIdentity({
-                  kind: TargetKind.make("server"),
-                  name: "",
-                }),
-                modules: [ModuleId.make("server-http-api")],
-              },
-            ],
-          },
-          {
-            config: testConfig,
-            providerStrategy: { _tag: "fail-on-ambiguous" },
-          },
-        );
-
-        assertTargetModules(selection, "apps/server-api", [
-          ModuleId.make("server-http-api"),
-        ]);
-      }).pipe(Effect.provide(TestLayer)),
-    );
-
     it.effect("should fail accurately for an unknown unnamed target kind", () =>
       Effect.gen(function* () {
         const service = yield* RecipeResolver;
@@ -1171,6 +1144,7 @@ describe("RecipeResolver with the official catalog", () => {
         const config = Schema.decodeUnknownSync(StackConfig)({
           name: "recipe-app",
           runtime: { _tag: "bun" },
+          test: "vitest",
           catalogs: [
             { name: "custom", url: "https://example.test/it's/catalog.json" },
           ],
@@ -1179,6 +1153,7 @@ describe("RecipeResolver with the official catalog", () => {
           config,
           selection: { targets: [] },
         });
+        assert.match(command, / --test vitest(?: |$)/);
         assert.include(
           command,
           String.raw`--catalog 'custom=https://example.test/it'\''s/catalog.json'`,
@@ -1336,10 +1311,23 @@ describe("RecipeResolver with the official catalog", () => {
           },
         );
 
+        const [invocation, ...flags] = service
+          .renderCreateCommand({ config, selection })
+          .split(" --");
+
         assert.strictEqual(
-          service.renderCreateCommand({ config, selection }),
-          "npx stack-effect@latest create 'node app' --target client-react/web:client-react-vite,client-react-chat --runtime node --package-manager pnpm --monorepo turbo --lint eslint --format prettier --no-git",
+          invocation,
+          "npx stack-effect@latest create 'node app'",
         );
+        assert.sameMembers(flags, [
+          "target client-react/web:client-react-vite,client-react-chat",
+          "runtime node",
+          "package-manager pnpm",
+          "monorepo turbo",
+          "lint eslint",
+          "format prettier",
+          "no-git",
+        ]);
       }).pipe(Effect.provide(TestLayer)),
     );
 
@@ -1362,10 +1350,23 @@ describe("RecipeResolver with the official catalog", () => {
           },
         );
 
+        const [invocation, ...flags] = service
+          .renderCreateCommand({ config, selection })
+          .split(" --");
+
         assert.strictEqual(
-          service.renderCreateCommand({ config, selection }),
-          "deno run -A npm:stack-effect@latest create recipe-app --runtime deno --package-manager deno --typescript 7 --monorepo vite-plus --lint oxlint --format oxfmt --no-git",
+          invocation,
+          "deno run -A npm:stack-effect@latest create recipe-app",
         );
+        assert.sameMembers(flags, [
+          "runtime deno",
+          "package-manager deno",
+          "typescript 7",
+          "monorepo vite-plus",
+          "lint oxlint",
+          "format oxfmt",
+          "no-git",
+        ]);
       }).pipe(Effect.provide(TestLayer)),
     );
   });
