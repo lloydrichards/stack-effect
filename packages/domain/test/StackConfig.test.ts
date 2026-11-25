@@ -166,6 +166,7 @@ describe("StackConfig catalog sources", () => {
   const customOnly = sources([acme]);
   const mixed = sources([{ name: "official" }, acme]);
   const config = Schema.decodeSync(StackConfig)({
+    $schema: STACK_CONFIG_SCHEMA_URL,
     name: "project",
     runtime: { _tag: "node", packageManager: "npm" },
     typescript: "7",
