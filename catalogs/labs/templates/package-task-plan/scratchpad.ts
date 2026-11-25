@@ -1,6 +1,6 @@
 import { Tasks } from "@repo/domain/Task";
 import { Array as Arr, Console, Effect, Schema } from "effect";
-import { planTasks } from "./TaskPlan";
+import { planTasks } from "{{#if module=package-library}}./examples/task-plan/TaskPlan{{/if}}{{#if noModule=package-library}}@repo/task-plan/TaskPlan{{/if}}";
 
 const tasks = [
   { id: "publish", prerequisites: ["build", "test"] },

@@ -614,7 +614,7 @@ it.live("keeps the Labs planner outside the publishable library build", () =>
       preview.files.map(({ path, contents }) => [path, contents]),
     );
     assert.isTrue(files.has(`${root}/examples/task-plan/TaskPlan.ts`));
-    assert.isTrue(files.has(`${root}/examples/task-plan/scratchpad.ts`));
+    assert.isTrue(files.has(`${root}/scratchpad.ts`));
     assert.isFalse(files.has(`${root}/src/TaskPlan.ts`));
 
     const entries = Schema.Record(Schema.String, Schema.String);
@@ -631,10 +631,7 @@ it.live("keeps the Labs planner outside the publishable library build", () =>
     assert.deepEqual(manifest.exports, { ".": "./dist/index.js" });
     assert.notProperty(manifest.dependencies, "@repo/domain");
     assert.property(manifest.devDependencies, "@repo/domain");
-    assert.strictEqual(
-      manifest.scripts["scratch"],
-      "bun examples/task-plan/scratchpad.ts",
-    );
+    assert.strictEqual(manifest.scripts["scratch"], "bun scratchpad.ts");
   }).pipe(Effect.scoped),
 );
 
