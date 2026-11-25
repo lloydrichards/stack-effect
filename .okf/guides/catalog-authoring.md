@@ -30,8 +30,6 @@ sources:
     resource: ../../catalogs/official/src/modules/init.ts
   - id: source-13
     resource: ../../packages/scaffold/src/internal/planAssessment.ts
-  - id: source-14
-    resource: ../../packages/catalog/src/Protocol.ts
 generated: { by: codex, at: "2026-11-22T19:05:07+00:00" }
 ---
 
@@ -88,4 +86,4 @@ Continue with [adding a module](add-new-module.md "applies this workflow") or [a
 
 ## Extend a compiled package export
 
-A `pkg-json-entry` contribution for `exports` can supply `compiledValue` alongside its normal `value`. When Plan reads an existing manifest with `exports["."]` set to `./dist/index.js`, it uses `compiledValue` for that subpath. For a new manifest, `value` can use the `module=package-library` condition to select the compiled entry during creation. Catalogs with this field require the `contribution:compiled-package-export` interpreter capability.
+Use a `pkg-json-entry` contribution for `exports`. When a new package selects Publishable Library, the contribution can use the `module=package-library` condition to write the compiled path. When extending an existing package with the generated Publishable Library build and pack settings, Plan maps source exports under `./src/` to their compiled JavaScript under `./dist/`. The root export filename can change independently.

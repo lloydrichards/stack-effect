@@ -82,12 +82,7 @@ const PlanningIntentConflictOnModifyPath = Schema.TaggedStruct(
 const PlanningIntentPackageJsonPath = Schema.TaggedStruct("packageJson", {
   path: RepositoryPath,
   seed: PlanningIntentSeed,
-  exports: Schema.Array(
-    PlanningIntentNamedValue.mapFields((fields) => ({
-      ...fields,
-      compiledValue: Schema.optional(Schema.String),
-    })),
-  ),
+  exports: Schema.Array(PlanningIntentNamedValue),
   dependencies: Schema.Array(PlanningIntentPackageJsonDependency),
   scripts: Schema.Array(PlanningIntentNamedValue),
 });
@@ -169,6 +164,9 @@ export const preserveDenoSqlitePermissions = (
   };
 };
 
+const publishableBuild = "node scripts/clean.mjs && tsc -p tsconfig.build.json";
+const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
+
 /** @internal */
 export const useCompiledPackageExports = (
   intent: PlanningIntentPath,
@@ -176,21 +174,35 @@ export const useCompiledPackageExports = (
 ): PlanningIntentPath => {
   if (
     intent._tag !== "packageJson" ||
-    snapshotPath?._tag !== "file" ||
-    !intent.exports.some((entry) => entry.compiledValue !== undefined)
+    intent.exports.length === 0 ||
+    snapshotPath?._tag !== "file"
   )
     return intent;
 
-  const exports = parseJsonRecord(snapshotPath.contents)?.["exports"];
-  if (!isFlatStringRecord(exports) || exports["."] !== "./dist/index.js")
+  const manifest = parseJsonRecord(snapshotPath.contents);
+  const files = manifest?.["files"];
+  const scripts = manifest?.["scripts"];
+  // This generated build compiles src into dist, and npm packs the artifacts.
+  // The root export can point at any public entry in that output.
+  if (
+    !Array.isArray(files) ||
+    !files.includes("dist/**/*.js") ||
+    !files.includes("dist/**/*.d.ts") ||
+    !isFlatStringRecord(scripts) ||
+    scripts["build"] !== publishableBuild
+  )
     return intent;
 
   return {
     ...intent,
-    exports: intent.exports.map(({ name, value, compiledValue }) => ({
-      name,
-      value: compiledValue ?? value,
-    })),
+    exports: intent.exports.map((entry) => {
+      const source = sourceExport.exec(entry.value)?.[1];
+      return source === undefined ||
+        source.endsWith(".test") ||
+        source.endsWith(".d")
+        ? entry
+        : { ...entry, value: `./dist/${source}.js` };
+    }),
   };
 };
 

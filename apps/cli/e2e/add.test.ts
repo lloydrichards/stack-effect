@@ -75,71 +75,86 @@ assert.equal(typeof planTasks, "function");
       }).pipe(Effect.provide(NodeServices.layer)),
     );
 
-    it.effect("publishes TaskPlan when added to an existing library", () =>
-      Effect.gen(function* () {
-        const cli = yield* CLI;
-        const fs = yield* FileSystem.FileSystem;
-        const name = "planner-library";
-        yield* cli.run(
-          "create",
-          name,
-          ...labsCatalogArgs,
-          "--target",
-          "package/library:package-library",
-          "--runtime",
-          "bun",
-          "--root",
-          cli.workdir,
-          "--yes",
-          "--no-git",
-        );
-        yield* cli.expectExitCode(0);
+    it.effect(
+      "publishes TaskPlan when added to a library with a renamed root export",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const fs = yield* FileSystem.FileSystem;
+          const name = "planner-library";
+          yield* cli.run(
+            "create",
+            name,
+            ...labsCatalogArgs,
+            "--target",
+            "package/library:package-library",
+            "--runtime",
+            "bun",
+            "--root",
+            cli.workdir,
+            "--yes",
+            "--no-git",
+          );
+          yield* cli.expectExitCode(0);
 
-        yield* cli.run(
-          "add",
-          ...labsCatalogArgs,
-          "--target",
-          "package/library:package-task-plan",
-          "--root",
-          `${cli.workdir}/${name}`,
-          "--yes",
-        );
-        yield* cli.expectExitCode(0);
+          const libraryPath = `${cli.workdir}/${name}/packages/library`;
+          const manifestPath = `${libraryPath}/package.json`;
+          const manifest = yield* fs.readFileString(manifestPath);
+          yield* fs.writeFileString(
+            manifestPath,
+            manifest.replace("./dist/index.js", "./dist/main.js"),
+          );
+          yield* fs.rename(
+            `${libraryPath}/src/index.ts`,
+            `${libraryPath}/src/main.ts`,
+          );
 
-        const consumerPath = `${cli.workdir}/consumer`;
-        yield* fs.makeDirectory(consumerPath);
-        yield* cli.withinProject(
-          `${name}/packages/library`,
-          function* (library) {
-            yield* library.expectCommandSucceeds(
-              "Scratchpad",
-              "bun",
-              "run",
-              "scratch",
-            );
-            yield* library.expectBuildSucceeds();
-            yield* library.expectCommandSucceeds(
-              "Pack library",
-              "npm",
-              "pack",
-              "--pack-destination",
-              consumerPath,
-            );
-          },
-        );
+          yield* cli.run(
+            "add",
+            ...labsCatalogArgs,
+            "--target",
+            "package/library:package-task-plan",
+            "--root",
+            `${cli.workdir}/${name}`,
+            "--yes",
+          );
+          yield* cli.expectExitCode(0);
 
-        yield* cli.withinProject("consumer", function* (consumer) {
-          yield* consumer.writeFile(
-            "package.json",
-            `{
+          const consumerPath = `${cli.workdir}/consumer`;
+          yield* fs.makeDirectory(consumerPath);
+          yield* cli.withinProject(
+            `${name}/packages/library`,
+            function* (library) {
+              yield* library.expectCommandSucceeds(
+                "Scratchpad",
+                "bun",
+                "run",
+                "scratch",
+              );
+              yield* library.expectBuildSucceeds();
+              yield* library.expectCommandSucceeds(
+                "Pack library",
+                "npm",
+                "pack",
+                "--pack-destination",
+                consumerPath,
+              );
+            },
+          );
+
+          yield* cli.withinProject("consumer", function* (consumer) {
+            yield* consumer.writeFile(
+              "package.json",
+              `{
   "type": "module",
   "dependencies": { "@repo/library": "file:./repo-library-0.0.0.tgz" }
 }`,
-          );
-          yield* consumer.expectInstallSucceeds();
-          yield* consumer.writeFile(
-            "verify.mjs",
-            `import assert from "node:assert/strict";
+            );
+            yield* consumer.expectInstallSucceeds();
+            yield* consumer.writeFile(
+              "verify.mjs",
+              `import assert from "node:assert/strict";
+import { greet } from "@repo/library";
 import { planTasks, Tasks } from "@repo/library/TaskPlan";
 import { Effect, Schema } from "effect";
 
@@ -147,16 +162,17 @@ const tasks = Schema.decodeUnknownSync(Tasks)([
   { id: "publish", prerequisites: ["build"] },
   { id: "build", prerequisites: [] },
 ]);
+assert.equal(typeof greet, "function");
 assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
 `,
-          );
-          yield* consumer.expectCommandSucceeds(
-            "Import packed TaskPlan",
-            "node",
-            "verify.mjs",
-          );
-        });
-      }).pipe(Effect.provide(NodeServices.layer)),
+            );
+            yield* consumer.expectCommandSucceeds(
+              "Import packed TaskPlan",
+              "node",
+              "verify.mjs",
+            );
+          });
+        }).pipe(Effect.provide(NodeServices.layer)),
     );
 
     it.effect("runs the offline GitHub issue demo without shipping tests", () =>

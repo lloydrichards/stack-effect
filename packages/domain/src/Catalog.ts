@@ -269,8 +269,6 @@ export const Contribution = Schema.TaggedUnion({
     ]),
     name: Schema.String,
     value: Schema.String,
-    /** Alternate export for an existing manifest with a compiled library root export. */
-    compiledValue: Schema.optional(Schema.String),
   },
 
   /**
