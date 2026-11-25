@@ -66,7 +66,6 @@ export const V1_INTERPRETER_CAPABILITIES: ReadonlyArray<string> = [
   ...tokenNames.map((name) => `token:${name}`),
   ...conditionalNames.map((name) => `condition:${name}`),
   "target:hierarchical-name",
-  "contribution:compiled-package-export",
 ];
 
 const stringsIn = (value: unknown): ReadonlyArray<string> => {
@@ -129,22 +128,14 @@ const definitionHierarchicalNameCapabilities = (
     : [];
 };
 
-const compiledPackageExportCapability = (definition: CatalogDefinition) =>
-  definition.contributions.some(
-    (contribution) =>
-      contribution._tag === "pkg-json-entry" &&
-      contribution.compiledValue !== undefined,
-  )
-    ? ["contribution:compiled-package-export"]
-    : [];
-
-/** Capabilities required by structured contributions and target names. */
-export const structuredCapabilities = (fragment: CatalogFragment) =>
+/** Capabilities required by structured target names, excluding template text. */
+export const hierarchicalNameCapabilities = (
+  fragment: CatalogFragment,
+): ReadonlyArray<string> =>
   Arr.dedupe(
-    [...fragment.targets, ...fragment.modules].flatMap((definition) => [
-      ...definitionHierarchicalNameCapabilities(definition),
-      ...compiledPackageExportCapability(definition),
-    ]),
+    [...fragment.targets, ...fragment.modules].flatMap(
+      definitionHierarchicalNameCapabilities,
+    ),
   );
 
 const definitionCapabilities = (
@@ -155,7 +146,6 @@ const definitionCapabilities = (
       (contribution) => `contribution:${contribution._tag}`,
     ),
     ...definitionHierarchicalNameCapabilities(definition),
-    ...compiledPackageExportCapability(definition),
     ...stringsIn(definition).flatMap(templateCapabilities),
   ]);
 
