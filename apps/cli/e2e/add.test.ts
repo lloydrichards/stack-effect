@@ -98,6 +98,17 @@ assert.equal(typeof planTasks, "function");
         consumer: "bun",
       },
       {
+        name: "planner-exact-exclusion",
+        files: '["dist", "src", "!dist/src/TaskPlan.js", "/dist/**/*.js"]',
+        consumer: "bun",
+      },
+      {
+        name: "planner-case-mismatch",
+        files: '["dist", "src", "!DIST/src/TaskPlan.js", "/dist/**/*.js"]',
+        consumer: "node",
+        refusal: "pack rules disagree on the case of an exact exclusion",
+      },
+      {
         name: "planner-source-only",
         files: '["src"]',
         consumer: "bun",
@@ -108,11 +119,12 @@ assert.equal(typeof planTasks, "function");
         files: '["dist"]',
         consumer: "node",
         include: "src/main.ts",
+        refusal: "TypeScript does not include its source",
       },
     ] as const) {
       it.effect(
-        "include" in layout
-          ? "rejects a compiled export when TypeScript does not include its source"
+        "refusal" in layout
+          ? `rejects a compiled export when ${layout.refusal}`
           : `publishes TaskPlan when an existing library packs ${layout.files}`,
         () =>
           Effect.gen(function* () {
@@ -176,7 +188,7 @@ assert.equal(typeof planTasks, "function");
               `${cli.workdir}/${name}`,
               "--yes",
             );
-            if ("include" in layout) {
+            if ("refusal" in layout) {
               yield* cli.expectExitCode(1);
               const unchanged = yield* fs.readFileString(manifestPath);
               assert.notInclude(unchanged, '"./TaskPlan"');
