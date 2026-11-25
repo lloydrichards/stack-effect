@@ -586,16 +586,17 @@ it.live(
   60_000,
 );
 
-it.live("keeps the Labs planner outside the publishable library build", () =>
+it.live("includes Graph Task Planner in a publishable library", () =>
   Effect.gen(function* () {
     const session = yield* makeSession;
     const sources = sourcesOf(official, customSource("labs"));
+    const owner = new TargetIdentity({
+      kind: TargetKind.make("package"),
+      name: "library",
+    });
     const input = customOnlyInput("planner-library", sources, [
       {
-        target: new TargetIdentity({
-          kind: TargetKind.make("package"),
-          name: "task-plan",
-        }),
+        target: owner,
         modules: [
           ModuleId.make("package-library"),
           ModuleId.make("package-task-plan"),
@@ -603,19 +604,30 @@ it.live("keeps the Labs planner outside the publishable library build", () =>
       },
     ]);
 
-    yield* session.catalog({ sessionId: 62, sources });
+    const { catalog } = yield* session.catalog({
+      sessionId: 62,
+      sources,
+      targets: [{ id: "library", owner }],
+    });
+    const choices = catalog.targetModules.find(
+      (entry) => entry.owner.toKey() === owner.toKey(),
+    );
+    const planner = choices?.modules.find(
+      (module) => module.id === "package-task-plan",
+    );
+    assert.isDefined(planner);
+    assert.deepEqual(planner.supportedRuntimes, ["bun", "node", "deno"]);
     const { preview } = yield* session.preview({
       sessionId: 62,
       targetIdentityKey: "planner-library",
       input,
     });
-    const root = "packages/task-plan";
+    const root = "packages/library";
     const files = new Map(
       preview.files.map(({ path, contents }) => [path, contents]),
     );
-    assert.isTrue(files.has(`${root}/examples/task-plan/TaskPlan.ts`));
+    assert.isTrue(files.has(`${root}/src/TaskPlan.ts`));
     assert.isTrue(files.has(`${root}/scratchpad.ts`));
-    assert.isFalse(files.has(`${root}/src/TaskPlan.ts`));
 
     const entries = Schema.Record(Schema.String, Schema.String);
     const manifest = yield* Schema.decodeEffect(
@@ -628,9 +640,12 @@ it.live("keeps the Labs planner outside the publishable library build", () =>
         }),
       ),
     )(files.get(`${root}/package.json`) ?? "");
-    assert.deepEqual(manifest.exports, { ".": "./dist/index.js" });
+    assert.deepEqual(manifest.exports, {
+      ".": "./dist/index.js",
+      "./TaskPlan": "./dist/TaskPlan.js",
+    });
     assert.notProperty(manifest.dependencies, "@repo/domain");
-    assert.property(manifest.devDependencies, "@repo/domain");
+    assert.notProperty(manifest.devDependencies, "@repo/domain");
     assert.strictEqual(manifest.scripts["scratch"], "bun scratchpad.ts");
   }).pipe(Effect.scoped),
 );
