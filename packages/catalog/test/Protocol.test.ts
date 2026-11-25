@@ -60,25 +60,22 @@ describe("CatalogProtocol", () => {
       }),
   );
 
-  it.effect(
-    "should reject the catalog when its package default is not a valid identity",
-    () =>
-      Effect.gen(function* () {
-        const original = yield* decodedTestCatalog;
-        const base = yield* Schema.encodeEffect(CatalogDocument)(original);
-        const error = yield* Effect.flip(
-          decodeDocument({
-            ...base,
-            targets: base.targets.map((target) =>
-              target.kind === "package"
-                ? { ...target, defaultName: "" }
-                : target,
-            ),
-          }),
-        );
-        assert.strictEqual(error._tag, "SchemaError");
-        assert.include(error.message, "Default target names must be valid");
-      }),
+  it.effect("should reject a catalog target with an unknown wire field", () =>
+    Effect.gen(function* () {
+      const original = yield* decodedTestCatalog;
+      const base = yield* Schema.encodeEffect(CatalogDocument)(original);
+      const error = yield* Effect.flip(
+        decodeDocument({
+          ...base,
+          targets: base.targets.map((target) =>
+            target.kind === "package"
+              ? { ...target, unknownWireField: true }
+              : target,
+          ),
+        }),
+      );
+      assert.strictEqual(error._tag, "SchemaError");
+    }),
   );
 
   const owner = new TargetIdentity({
@@ -272,7 +269,17 @@ describe("CatalogProtocol", () => {
             withModuleContribution(document, [extraFile(contents)]),
           ),
         );
-        assert.isAbove(failure.capabilities.length, 0);
+        const [owner] = document.modules;
+        assert.isDefined(owner);
+        assert.deepStrictEqual(failure.details, [
+          {
+            subject: { _tag: "module", id: owner.id },
+            capability:
+              contents === "{{ runtime }}"
+                ? "token: runtime "
+                : "syntax:malformed-template",
+          },
+        ]);
       }),
   );
 
