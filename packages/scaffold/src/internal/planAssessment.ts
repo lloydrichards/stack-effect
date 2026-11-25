@@ -165,6 +165,7 @@ export const preserveDenoSqlitePermissions = (
 };
 
 const publishableBuild = "node scripts/clean.mjs && tsc -p tsconfig.build.json";
+const packagedBuildOutput = ["dist", "dist/", "dist/**/*.js"] as const;
 const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
 
 /** @internal */
@@ -186,8 +187,7 @@ export const useCompiledPackageExports = (
   // The root export can point at any public entry in that output.
   if (
     !Array.isArray(files) ||
-    !files.includes("dist/**/*.js") ||
-    !files.includes("dist/**/*.d.ts") ||
+    !packagedBuildOutput.some((entry) => files.includes(entry)) ||
     !isFlatStringRecord(scripts) ||
     scripts["build"] !== publishableBuild
   )
