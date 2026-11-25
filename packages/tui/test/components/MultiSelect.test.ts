@@ -36,11 +36,14 @@ describe("MultiSelect", () => {
 
         yield* MockTerminal.inputKey("space"); // Select Alpha.
         yield* MockTerminal.inputKey("space"); // Deselect Alpha.
-        yield* MockTerminal.inputKey("up");
-        yield* MockTerminal.inputKey("space"); // Select Gamma.
-        yield* MockTerminal.inputKey("down");
+        yield* MockTerminal.inputKey("up"); // Wrap to Gamma.
+        yield* MockTerminal.inputKey("down"); // Wrap to Alpha.
         yield* MockTerminal.inputKey("down");
         yield* MockTerminal.inputKey("space"); // Beta cannot be selected.
+        yield* MockTerminal.inputKey("down");
+        yield* MockTerminal.inputKey("space"); // Select Gamma.
+        yield* MockTerminal.inputKey("down"); // Wrap to Alpha.
+        yield* MockTerminal.inputKey("down"); // Move to Beta.
         yield* MockTerminal.inputKey("up");
         yield* MockTerminal.inputKey("space"); // Select Alpha again.
         yield* MockTerminal.inputKey("enter");
