@@ -214,11 +214,16 @@ export const experiments = defineModules(import.meta.url, [
       },
     ],
     contributions: [
-      ...["TaskPlan.ts", "scratchpad.ts"].map((file) => ({
-        _tag: "file" as const,
-        path: `{{targetPath}}/${plannerDirectory}/${file}`,
-        contents: template(`./package-task-plan/src/${file}`),
-      })),
+      {
+        _tag: "file",
+        path: `{{targetPath}}/${plannerDirectory}/TaskPlan.ts`,
+        contents: template("./package-task-plan/src/TaskPlan.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/scratchpad.ts",
+        contents: template("./package-task-plan/scratchpad.ts"),
+      },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
@@ -245,7 +250,7 @@ export const experiments = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "scratch",
-        value: `bun ${plannerDirectory}/scratchpad.ts`,
+        value: "bun scratchpad.ts",
       },
     ],
     nextSteps: [
