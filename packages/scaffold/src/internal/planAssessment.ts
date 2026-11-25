@@ -82,7 +82,12 @@ const PlanningIntentConflictOnModifyPath = Schema.TaggedStruct(
 const PlanningIntentPackageJsonPath = Schema.TaggedStruct("packageJson", {
   path: RepositoryPath,
   seed: PlanningIntentSeed,
-  exports: Schema.Array(PlanningIntentNamedValue),
+  exports: Schema.Array(
+    PlanningIntentNamedValue.mapFields((fields) => ({
+      ...fields,
+      compiledValue: Schema.optional(Schema.String),
+    })),
+  ),
   dependencies: Schema.Array(PlanningIntentPackageJsonDependency),
   scripts: Schema.Array(PlanningIntentNamedValue),
 });
@@ -161,6 +166,31 @@ export const preserveDenoSqlitePermissions = (
         ? { ...entry, value: existing }
         : entry;
     }),
+  };
+};
+
+/** @internal */
+export const useCompiledPackageExports = (
+  intent: PlanningIntentPath,
+  snapshotPath: RepoSnapshotPath | undefined,
+): PlanningIntentPath => {
+  if (
+    intent._tag !== "packageJson" ||
+    snapshotPath?._tag !== "file" ||
+    !intent.exports.some((entry) => entry.compiledValue !== undefined)
+  )
+    return intent;
+
+  const exports = parseJsonRecord(snapshotPath.contents)?.["exports"];
+  if (!isFlatStringRecord(exports) || exports["."] !== "./dist/index.js")
+    return intent;
+
+  return {
+    ...intent,
+    exports: intent.exports.map(({ name, value, compiledValue }) => ({
+      name,
+      value: compiledValue ?? value,
+    })),
   };
 };
 

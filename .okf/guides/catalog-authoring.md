@@ -28,6 +28,10 @@ sources:
     resource: ../../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts
   - id: source-12
     resource: ../../catalogs/official/src/modules/init.ts
+  - id: source-13
+    resource: ../../packages/scaffold/src/internal/planAssessment.ts
+  - id: source-14
+    resource: ../../packages/catalog/src/Protocol.ts
 generated: { by: codex, at: "2026-11-22T19:05:07+00:00" }
 ---
 
@@ -80,3 +84,8 @@ Write tokens as `{{targetPath}}`. Use `{{#if lint}}...{{/if}}` for a truthy conf
 Compiler-tool conditionals also include `effectOxlint`, `standaloneOxlint`, `standaloneEffectOxlint`, and `typescript7Diagnostics`. Read ContributionTokenContext for their exact predicates rather than duplicating them in catalog modules.
 
 Continue with [adding a module](add-new-module.md "applies this workflow") or [adding a target](add-new-target.md "applies this workflow").
+
+
+## Extend a compiled package export
+
+A `pkg-json-entry` contribution for `exports` can supply `compiledValue` alongside its normal `value`. When Plan reads an existing manifest with `exports["."]` set to `./dist/index.js`, it uses `compiledValue` for that subpath. For a new manifest, `value` can use the `module=package-library` condition to select the compiled entry during creation. Catalogs with this field require the `contribution:compiled-package-export` interpreter capability.

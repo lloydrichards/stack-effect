@@ -196,6 +196,7 @@ export const experiments = defineModules(import.meta.url, [
         name: "./TaskPlan",
         value:
           "{{#if module=package-library}}./dist/TaskPlan.js{{/if}}{{#if noModule=package-library}}./src/TaskPlan.ts{{/if}}",
+        compiledValue: "./dist/TaskPlan.js",
       },
       {
         _tag: "pkg-json-entry",

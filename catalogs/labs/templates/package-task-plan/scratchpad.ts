@@ -1,5 +1,5 @@
 import { Array as Arr, Console, Effect, Schema } from "effect";
-import { planTasks, Tasks } from "{{#if module=package-library}}./src/TaskPlan.ts{{/if}}{{#if noModule=package-library}}{{packageName}}/TaskPlan{{/if}}";
+import { planTasks, Tasks } from "./src/TaskPlan.ts";
 
 const tasks = [
   { id: "publish", prerequisites: ["build", "test"] },
