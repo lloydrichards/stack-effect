@@ -506,6 +506,18 @@ describe("Applier", () => {
 
           assert.strictEqual(changed._tag, "ApplyError");
           assert.strictEqual(yield* readFile(optionsFile), edited);
+
+          const computed =
+            'const Options = Schema.Struct({ ["input"]: Schema.String });\n';
+          yield* writeFiles({ [optionsFile]: computed });
+          const computedPlan = yield* plan(app("options-field", "pair"));
+          const computedFailure = yield* Effect.flip(
+            apply(computedPlan, decideAll(computedPlan, "override")),
+          );
+
+          assert.strictEqual(computedFailure._tag, "ApplyError");
+          assert.strictEqual(yield* readFile(optionsFile), computed);
+          assert.isFalse(yield* exists("packages/app/src/a.txt"));
         }).pipe(Effect.provide(testPipeline)),
     );
 
