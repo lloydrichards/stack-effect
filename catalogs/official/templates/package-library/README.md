@@ -29,7 +29,9 @@ Consumers need the compatible `effect` peer dependency declared in `package.json
 | `npm run type-check` | Check TypeScript without emitting files |
 | `npm run pack` | Build and create an npm tarball |
 
-Export public functions from `src/index.ts`. Use `.js` extensions in relative imports and exports so compiled ESM works in Node. Add explicit `package.json` export entries for public subpaths.
+Put each public API in a named file such as `src/X.ts`. Keep its schemas, types, typed errors, and usage examples with the API. If the implementation grows, put private code in `src/internal/x.ts`. Add an export such as `"./X": "./dist/X.js"` to `package.json` so consumers can import the compiled module by subpath. Use `.js` extensions in relative imports between compiled source files so Node can resolve them.
+
+For local experiments, keep a `scratchpad.ts` at the package root. If a module adds a `scratch` script, run `{{runCommand}} scratch` from this directory.
 
 Workspace consumers use the compiled entry point too. Build before importing the package; use the watch command during development.
 

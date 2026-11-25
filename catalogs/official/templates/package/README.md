@@ -6,7 +6,11 @@ See the [project README]({{projectRoot}}/README.md) for installation and workspa
 
 ## Use and extend
 
-Use this package for code shared by workspace consumers. Update public entry points in `package.json` when you expose new modules.
+Put each public API in a named file such as `src/X.ts`. Keep its schemas, types, typed errors, and usage examples with the API. If the implementation grows, put private code in `src/internal/x.ts`. Add an export such as `"./X": "./src/X.ts"` to `package.json` so workspace consumers can import the module by subpath.
+
+For local experiments, keep a `scratchpad.ts` at the package root. If a module adds a `scratch` script, run `{{runCommand}} scratch` from this directory.
+
+For Bun or Node projects, select **Publishable Library** to add a build that emits JavaScript and TypeScript declarations and a pack script that creates an npm tarball.
 
 {{#if module=domain-api-contracts}}`@repo/domain/Api` defines the base HTTP API. Update its server handlers and clients together when contracts change.
 {{/if}}{{#if module=domain-todo-contracts}}`@repo/domain/Todo` defines todo schemas, identifiers, inputs, and errors.
