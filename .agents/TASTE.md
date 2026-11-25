@@ -195,7 +195,11 @@ Do not log lifecycle or per-call progress, such as "Starting the RPC implementat
 
 ## Public module docs
 
-Open each public module with a header saying what it is for. Give each public export a one-line summary, a **When to use** section, and **Gotchas** when there are some. Add an **Example** when usage is not obvious from the signature. Do not add `@since`, `@category`, or `@stability`. Internal modules carry `/** @internal */` and constraint comments only. In generated code, keep comments to constraints.
+Open each public module with a header saying what it is for. Give every public declaration its own summary. Use **Details** for behavior or limitations that need more than a sentence. Include an **Example** when the caller needs to see how to use the API. Use short prose when a separate section would repeat the summary. Omit Effect's release and navigation tags (`@since`, `@category`, `@stability`).
+
+A schema value and its decoded type document different things, even when they share a name. On the schema, describe the accepted input and any meaningful validation, defaults, or encoding. On the type, link to the schema with `{@link Name}` and explain what the decoded value represents or how callers use it. Keep list-wide or cross-field guarantees with the operation or schema that actually checks them. For an error model, name the condition that raises it and explain any payload convention callers rely on.
+
+Use the generated [TaskPlan module](../catalogs/labs/templates/package-task-plan/src/TaskPlan.ts) as an example. Its `Tasks` schema checks the input shape and `planTasks` checks prerequisite relationships. Internal exports carry `/** @internal */`. Keep private comments to constraints.
 
 Export only what another module uses in production code. A test is not a caller. Fallow enforces this in lint. The [package design skill](skills/stack-effect-design/SKILL.md#keep-exports-honest) says how to handle a finding Fallow cannot see.
 

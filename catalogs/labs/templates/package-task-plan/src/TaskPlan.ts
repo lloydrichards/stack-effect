@@ -8,68 +8,84 @@
 
 import { Array as Arr, Effect, Graph, Option, Schema } from "effect";
 
-/** Identifies a task within one plan. Use this schema when decoding an ID. */
+/**
+ * Schema for a task ID. Decodes a non-empty string into a branded ID and
+ * encodes it as the original string.
+ */
 export const TaskId = Schema.NonEmptyString.pipe(Schema.brand("TaskId"));
 
+/**
+ * Decoded identifier from {@link TaskId}, used to match tasks to their
+ * prerequisites within a plan.
+ */
 export type TaskId = typeof TaskId.Type;
 
-/** Decodes a task definition with its prerequisite IDs. */
+/**
+ * Schema for one task definition. Both `id` and `prerequisites` are required.
+ *
+ * **Details**
+ *
+ * Use an empty prerequisite array for a task that can start immediately.
+ * {@link planTasks} validates references and cycles across the full task list.
+ */
 export const Task = Schema.Struct({
   id: TaskId,
   prerequisites: Schema.Array(TaskId),
 });
 
+/**
+ * Decoded task definition from {@link Task}. Each ID in `prerequisites`
+ * identifies a task that must run before this task.
+ */
 export type Task = typeof Task.Type;
 
-/** Decodes a collection of tasks before passing it to `planTasks`. */
+/**
+ * Schema for an array of task definitions. Decode raw input with this schema
+ * before passing it to {@link planTasks}. An empty array is valid.
+ */
 export const Tasks = Schema.Array(Task);
 
-/** Reports an ID that occurs more than once in the input. */
+/** Raised when multiple definitions use the same `taskId`. */
 export class DuplicateTaskId extends Schema.TaggedError<
   DuplicateTaskId,
   { readonly brand: unique symbol }
 >()("DuplicateTaskId", { taskId: TaskId }) {}
 
-/** Reports a prerequisite ID absent from the input. */
+/** Raised when `taskId` depends on a `prerequisiteId` absent from the input. */
 export class MissingPrerequisite extends Schema.TaggedError<
   MissingPrerequisite,
   { readonly brand: unique symbol }
 >()("MissingPrerequisite", { taskId: TaskId, prerequisiteId: TaskId }) {}
 
-/** Reports a dependency cycle as a path of task IDs. */
+/** Raised when dependencies form a cycle. The path repeats its starting ID at the end. */
 export class TaskCycle extends Schema.TaggedError<
   TaskCycle,
   { readonly brand: unique symbol }
 >()("TaskCycle", { path: Schema.Array(TaskId) }) {}
 
-/** Lists the typed failures returned by `planTasks`. */
+/** Expected failures from {@link planTasks} when decoded tasks cannot be ordered. */
 export type TaskPlanError = DuplicateTaskId | MissingPrerequisite | TaskCycle;
 
 /**
  * Returns each task ID once, with every prerequisite before its dependents.
  *
- * **When to use:** Call this after decoding task definitions to determine
- * which tasks must run before others.
+ * **Details**
  *
- * **Gotchas:** The relative order of independent tasks is unspecified.
- * The effect fails with `DuplicateTaskId`, `MissingPrerequisite`, or
- * `TaskCycle` when the input cannot be ordered.
+ * Pass decoded task definitions. The relative order of independent tasks is
+ * unspecified. The effect fails with a {@link TaskPlanError} when the task
+ * definitions contain duplicate IDs, missing prerequisites, or a cycle.
  *
  * **Example**
  *
  * ```ts
- * import { planTasks, TaskId } from "{{packageName}}/TaskPlan";
- * import { Effect } from "effect";
+ * import { planTasks, Tasks } from "{{packageName}}/TaskPlan";
+ * import { Effect, Schema } from "effect";
  *
- * const build = TaskId.make("build");
- * const publish = TaskId.make("publish");
- *
- * const order = Effect.runSync(
- *   planTasks([
- *     { id: publish, prerequisites: [build] },
- *     { id: build, prerequisites: [] },
- *   ]),
- * );
+ * const tasks = Schema.decodeUnknownSync(Tasks)([
+ *   { id: "publish", prerequisites: ["build"] },
+ *   { id: "build", prerequisites: [] },
+ * ]);
+ * const order = Effect.runSync(planTasks(tasks));
  * // order is ["build", "publish"]
  * ```
  */
