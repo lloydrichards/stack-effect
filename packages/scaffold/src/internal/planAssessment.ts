@@ -172,19 +172,23 @@ const isPackageFiles = Schema.is(Schema.Array(Schema.String));
 const isPacked = (files: ReadonlyArray<string>, value: string) => {
   const path = value.slice(2);
   const parts = path.split("/");
-  const paths = parts.map((_, index) => parts.slice(0, index + 1).join("/"));
+  const directories = parts
+    .slice(0, -1)
+    .map((_, index) => parts.slice(0, index + 1).join("/"));
+  const candidates = [...directories, path];
   const matchingRules = files
     .map((entry) => {
       const excludes = entry.startsWith("!");
       const rule = excludes ? entry.slice(1) : entry.replace(/^\.\//u, "");
       const anchored = rule.startsWith("/");
+      const directoryOnly = rule.endsWith("/");
       const pattern = rule.replace(/^\//u, "").replace(/\/$/u, "");
-      return { anchored, excludes, pattern };
+      return { anchored, directoryOnly, excludes, pattern };
     })
     .filter(
-      ({ anchored, excludes, pattern }) =>
+      ({ anchored, directoryOnly, excludes, pattern }) =>
         pattern.length <= 65_536 &&
-        paths.some((candidate) =>
+        (directoryOnly ? directories : candidates).some((candidate) =>
           minimatch(candidate, pattern, {
             dot: true,
             nonegate: true,
@@ -196,7 +200,9 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
         ),
     );
   // npm applies rules for exact files after the broader pack patterns.
-  const exactRules = matchingRules.filter(({ pattern }) => pattern === path);
+  const exactRules = matchingRules.filter(
+    ({ directoryOnly, pattern }) => !directoryOnly && pattern === path,
+  );
   const rule = exactRules.at(-1) ?? matchingRules.at(-1);
   if (rule === undefined) return false;
   if (exactRules.some(({ excludes }) => excludes !== rule.excludes))
@@ -205,8 +211,11 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
   // Whether a differently cased literal is an exact file depends on the filesystem.
   const lowerPath = path.toLowerCase();
   const caseDependentExclusion = matchingRules.some(
-    ({ excludes, pattern }) =>
-      excludes && pattern !== path && pattern.toLowerCase() === lowerPath,
+    ({ directoryOnly, excludes, pattern }) =>
+      !directoryOnly &&
+      excludes &&
+      pattern !== path &&
+      pattern.toLowerCase() === lowerPath,
   );
   return !rule.excludes && caseDependentExclusion ? undefined : !rule.excludes;
 };
