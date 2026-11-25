@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { compose } from "@repo/catalog/Catalog";
+import { CatalogReader, compose } from "@repo/catalog/Catalog";
 import {
   type CatalogIssueSubject,
   ModuleCapability,
@@ -21,16 +21,70 @@ const extraModule: ModuleDefinition = {
 };
 
 it.effect(
-  "should compose a module against another fragment's target when the fragments are independent",
-  () =>
-    Effect.gen(function* () {
-      const catalog = yield* compose(
-        [testCatalog, { targets: [], modules: [extraModule] }],
-        { trustedFragmentIndex: 0 },
+  "should compose an extension while keeping Builder choices specific to each target",
+  () => {
+    const kind = TargetKind.make("package");
+    const api = new TargetIdentity({ kind, name: "api" });
+    const sdk = new TargetIdentity({ kind, name: "sdk" });
+    const parent: ModuleDefinition = {
+      ...extraModule,
+      id: ModuleId.make("package-extra"),
+      supportedOn: [{ _tag: "kind", kind }],
+      children: [
+        {
+          moduleId: ModuleId.make("package-api-extra"),
+          requirement: "optional",
+        },
+      ],
+    };
+    const child: ModuleDefinition = {
+      ...extraModule,
+      id: ModuleId.make("package-api-extra"),
+      supportedOn: [{ _tag: "identity", identity: api }],
+    };
+
+    return Effect.gen(function* () {
+      const reader = yield* CatalogReader;
+      const builder = yield* reader.toBuilderCatalog([api, sdk]);
+
+      assert.sameMembers(
+        builder.targets.map(({ kind }) => kind),
+        testCatalog.targets.map(({ kind }) => kind),
       );
-      assert.strictEqual(catalog.modules.at(-1)?.id, extraModule.id);
-      assert.strictEqual(catalog.targets.length, testCatalog.targets.length);
-    }),
+      assert.sameDeepMembers(
+        builder.targetModules.map(({ owner, modules }) => ({
+          name: owner.name,
+          modules: modules.map(({ id }) => String(id)).toSorted(),
+          availableChildren: modules
+            .find(({ id }) => id === parent.id)
+            ?.children.map(({ moduleId }) => moduleId),
+        })),
+        [
+          {
+            name: "api",
+            modules: [
+              "domain-api-contracts",
+              "package-api-extra",
+              "package-extra",
+            ],
+            availableChildren: [child.id],
+          },
+          {
+            name: "sdk",
+            modules: ["domain-api-contracts", "package-extra"],
+            availableChildren: [],
+          },
+        ],
+      );
+    }).pipe(
+      Effect.provide(
+        CatalogReader.fromFragments([
+          testCatalog,
+          { targets: [], modules: [parent, child] },
+        ]),
+      ),
+    );
+  },
 );
 
 it.effect(
@@ -54,7 +108,7 @@ it.effect(
           },
         ],
       );
-      assert.match(failure.message, /Duplicate module ID/);
+      assert.strictEqual(failure._tag, "CatalogValidationError");
     }),
 );
 
@@ -84,7 +138,7 @@ it.effect(
           { trustedFragmentIndex: 0 },
         ),
       );
-      assert.match(failure.message, /Duplicate target kind workspace/);
+      assert.strictEqual(failure.details[0]?.code, "duplicate-id");
       assert.deepStrictEqual(failure.details[0]?.subject, {
         _tag: "target",
         kind: "workspace",
@@ -146,27 +200,64 @@ it.effect(
   "should fail with unsupported-target and asymmetric-conflict when a module references the wrong target and conflicts one-sidedly",
   () =>
     Effect.gen(function* () {
-      const invalid: ModuleDefinition = {
+      const packageKind = TargetKind.make("package");
+      const compatibleTarget = new TargetIdentity({
+        kind: packageKind,
+        name: "domain",
+      });
+      const workspaceTarget = new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "root",
+      });
+      const requiredId = ModuleId.make("domain-api-contracts");
+      const peerId = ModuleId.make("workspace-api-docs");
+      const fragment = {
+        ...testCatalog,
+        modules: testCatalog.modules.map((module): ModuleDefinition =>
+          module.id === requiredId
+            ? {
+                ...module,
+                supportedOn: [
+                  ...module.supportedOn,
+                  {
+                    _tag: "identity",
+                    identity: new TargetIdentity({
+                      kind: packageKind,
+                      name: "sdk",
+                    }),
+                  },
+                ],
+              }
+            : module,
+        ),
+      };
+      const compatible: ModuleDefinition = {
         ...extraModule,
+        dependencies: [
+          { _tag: "required-target", identity: compatibleTarget },
+          {
+            _tag: "required-module",
+            target: compatibleTarget,
+            moduleId: requiredId,
+          },
+        ],
+      };
+      yield* compose([fragment, { targets: [], modules: [compatible] }]);
+
+      const invalid: ModuleDefinition = {
+        ...compatible,
         dependencies: [
           {
             _tag: "required-module",
-            target: new TargetIdentity({
-              kind: TargetKind.make("workspace"),
-              name: "root",
-            }),
-            moduleId: ModuleId.make("domain-api-contracts"),
+            target: workspaceTarget,
+            moduleId: requiredId,
           },
         ],
-        conflictsWith: [ModuleId.make("workspace-quality-oxlint")],
+        conflictsWith: [peerId],
       };
       const failure = yield* Effect.flip(
-        compose([testCatalog, { targets: [], modules: [invalid] }], {
-          trustedFragmentIndex: 0,
-        }),
+        compose([fragment, { targets: [], modules: [invalid] }]),
       );
-      assert.include(failure.message, "unsupported target");
-      assert.include(failure.message, "asymmetric conflict");
       assert.deepStrictEqual(
         failure.details.map(({ subject, code }) => ({ subject, code })),
         [
@@ -280,37 +371,143 @@ it.effect.each(trustCases)(
 );
 
 it.effect(
-  "should fail with cross-source-conflict when a module conflicts with a module from another source",
+  "should expose only referenceable providers and reject cross-source conflicts",
   () =>
     Effect.gen(function* () {
-      const [conflictingModule] = testCatalog.modules;
-      assert.isDefined(conflictingModule);
-      const failure = yield* Effect.flip(
+      const target = new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "root",
+      });
+      const capability = ModuleCapability.make("example");
+      const provider = (id: string): ModuleDefinition => ({
+        ...extraModule,
+        id: ModuleId.make(id),
+        provides: [capability],
+      });
+      const officialProvider = provider("official-example");
+      const localProvider = provider("local-example");
+      const unrelatedProvider = provider("unrelated-example");
+      const requester: ModuleDefinition = {
+        ...extraModule,
+        dependencies: [{ _tag: "required-capability", target, capability }],
+      };
+      const official = {
+        ...testCatalog,
+        modules: [...testCatalog.modules, officialProvider],
+      };
+      const unrelated = { targets: [], modules: [unrelatedProvider] };
+      const sources = [
+        { name: "official", requires: [] },
+        { name: "ext", requires: ["official"] },
+        { name: "unrelated", requires: ["official"] },
+      ];
+      const extension = { targets: [], modules: [requester, localProvider] };
+      const fragments = [official, extension, unrelated];
+      for (const [required, code] of [
+        ["absent", "missing-source"],
+        ["ext", "invalid-shape"],
+      ] as const) {
+        const invalidSources = sources.map((source) =>
+          source.name === "ext"
+            ? { ...source, requires: [...source.requires, required] }
+            : source,
+        );
+        const error = yield* Effect.flip(
+          compose(fragments, { sources: invalidSources }),
+        );
+
+        assert.deepStrictEqual(
+          error.details.map(({ subject, code, fragment }) => ({
+            subject,
+            code,
+            fragment,
+          })),
+          [{ subject: { _tag: "document" }, code, fragment: 1 }],
+        );
+      }
+
+      const providers = yield* Effect.gen(function* () {
+        const reader = yield* CatalogReader;
+        const candidates = { capability, target };
+        return {
+          unrestricted: reader
+            .getCapabilityProviders(candidates)
+            .map(({ id }) => id),
+          referenceable: reader
+            .getCapabilityProviders({
+              ...candidates,
+              requestingModuleId: requester.id,
+            })
+            .map(({ id }) => id),
+        };
+      }).pipe(
+        Effect.provide(
+          CatalogReader.fromFragments(fragments, {
+            sources,
+          }),
+        ),
+      );
+
+      assert.sameMembers(providers.unrestricted, [
+        officialProvider.id,
+        localProvider.id,
+        unrelatedProvider.id,
+      ]);
+      assert.sameMembers(providers.referenceable, [
+        officialProvider.id,
+        localProvider.id,
+      ]);
+
+      const unavailable = yield* Effect.flip(
         compose(
-          [
-            { targets: testCatalog.targets, modules: testCatalog.modules },
-            {
-              targets: [],
-              modules: [
-                {
-                  ...extraModule,
-                  conflictsWith: [conflictingModule.id],
-                },
-              ],
-            },
-          ],
-          {
-            allowFinalizeScripts: true,
-            sources: [
-              { name: "official", requires: [] },
-              { name: "ext", requires: ["official"] },
-            ],
-          },
+          [testCatalog, { ...extension, modules: [requester] }, unrelated],
+          { sources },
         ),
       );
       assert.deepStrictEqual(
-        failure.details.map(({ code, fragment }) => ({ code, fragment })),
-        [{ code: "cross-source-conflict", fragment: 1 }],
+        unavailable.details.map(({ code, fragment, subject }) => ({
+          code,
+          fragment,
+          subject,
+        })),
+        [
+          {
+            code: "unavailable-capability",
+            fragment: 1,
+            subject: { _tag: "module", id: requester.id },
+          },
+        ],
+      );
+
+      const failure = yield* Effect.flip(
+        compose(
+          [
+            official,
+            {
+              ...extension,
+              modules: [
+                { ...requester, conflictsWith: [officialProvider.id] },
+                localProvider,
+              ],
+            },
+            unrelated,
+          ],
+          { sources, allowFinalizeScripts: true },
+        ),
+      );
+      assert.deepStrictEqual(
+        failure.details.map(({ code, fragment, subject }) => ({
+          code,
+          fragment,
+          subject,
+        })),
+        [
+          {
+            code: "cross-source-conflict",
+            fragment: 1,
+            subject: { _tag: "module", id: requester.id },
+          },
+        ],
       );
     }),
 );
