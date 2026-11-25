@@ -76,7 +76,7 @@ assert.equal(typeof planTasks, "function");
     );
 
     it.effect(
-      "publishes TaskPlan when added to a library with a renamed root export",
+      "publishes TaskPlan when an existing library packs the dist directory",
       () =>
         Effect.gen(function* () {
           const cli = yield* CLI;
@@ -102,7 +102,12 @@ assert.equal(typeof planTasks, "function");
           const manifest = yield* fs.readFileString(manifestPath);
           yield* fs.writeFileString(
             manifestPath,
-            manifest.replace("./dist/index.js", "./dist/main.js"),
+            manifest
+              .replace("./dist/index.js", "./dist/main.js")
+              .replace(
+                /"files": \[\s*"dist\/\*\*\/\*\.js",\s*"dist\/\*\*\/\*\.d\.ts"\s*\]/u,
+                '"files": ["dist"]',
+              ),
           );
           yield* fs.rename(
             `${libraryPath}/src/index.ts`,
