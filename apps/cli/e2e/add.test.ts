@@ -103,6 +103,12 @@ assert.equal(typeof planTasks, "function");
         consumer: "bun",
       },
       {
+        name: "planner-directory-only",
+        files:
+          '["dist", "src", "dist/src/TaskPlan.js/", "!dist/src/TaskPlan*.js"]',
+        consumer: "bun",
+      },
+      {
         name: "planner-case-mismatch",
         files: '["dist", "src", "!DIST/src/TaskPlan.js", "/dist/**/*.js"]',
         consumer: "node",
