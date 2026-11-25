@@ -1,10 +1,10 @@
 import {
   DuplicateTaskId,
   MissingPrerequisite,
+  planTasks,
   TaskCycle,
   TaskId,
-} from "@repo/domain/Task";
-import { planTasks } from "@repo/task-plan/TaskPlan";
+} from "@repo/task-plan/TaskPlan";
 import { Effect } from "effect";
 import { expect, it } from "vitest";
 

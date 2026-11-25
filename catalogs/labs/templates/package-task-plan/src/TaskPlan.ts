@@ -6,15 +6,44 @@
  * @module
  */
 
-import {
+import { Array as Arr, Effect, Graph, Option, Schema } from "effect";
+
+/** Identifies a task within one plan. Use this schema when decoding an ID. */
+export const TaskId = Schema.NonEmptyString.pipe(Schema.brand("TaskId"));
+
+export type TaskId = typeof TaskId.Type;
+
+/** Decodes a task definition with its prerequisite IDs. */
+export const Task = Schema.Struct({
+  id: TaskId,
+  prerequisites: Schema.Array(TaskId),
+});
+
+export type Task = typeof Task.Type;
+
+/** Decodes a collection of tasks before passing it to `planTasks`. */
+export const Tasks = Schema.Array(Task);
+
+/** Reports an ID that occurs more than once in the input. */
+export class DuplicateTaskId extends Schema.TaggedError<
   DuplicateTaskId,
+  { readonly brand: unique symbol }
+>()("DuplicateTaskId", { taskId: TaskId }) {}
+
+/** Reports a prerequisite ID absent from the input. */
+export class MissingPrerequisite extends Schema.TaggedError<
   MissingPrerequisite,
-  type Task,
+  { readonly brand: unique symbol }
+>()("MissingPrerequisite", { taskId: TaskId, prerequisiteId: TaskId }) {}
+
+/** Reports a dependency cycle as a path of task IDs. */
+export class TaskCycle extends Schema.TaggedError<
   TaskCycle,
-  type TaskId,
-  type TaskPlanError,
-} from "@repo/domain/Task";
-import { Array as Arr, Effect, Graph, Option } from "effect";
+  { readonly brand: unique symbol }
+>()("TaskCycle", { path: Schema.Array(TaskId) }) {}
+
+/** Lists the typed failures returned by `planTasks`. */
+export type TaskPlanError = DuplicateTaskId | MissingPrerequisite | TaskCycle;
 
 /**
  * Returns each task ID once, with every prerequisite before its dependents.
@@ -29,8 +58,7 @@ import { Array as Arr, Effect, Graph, Option } from "effect";
  * **Example**
  *
  * ```ts
- * import { TaskId } from "@repo/domain/Task";
- * import { planTasks } from "{{#if module=package-library}}./examples/task-plan/TaskPlan{{/if}}{{#if noModule=package-library}}@repo/task-plan/TaskPlan{{/if}}";
+ * import { planTasks, TaskId } from "{{packageName}}/TaskPlan";
  * import { Effect } from "effect";
  *
  * const build = TaskId.make("build");

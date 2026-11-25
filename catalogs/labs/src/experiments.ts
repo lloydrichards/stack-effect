@@ -2,10 +2,6 @@ import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
 
 const template = templates(new URL("../templates/", import.meta.url));
-// Publishable Library compiles and packs src. Keep the workspace-only planner outside it.
-const plannerDirectory =
-  "{{#if module=package-library}}examples/task-plan{{/if}}{{#if noModule=package-library}}src{{/if}}";
-const domainTarget = { kind: "package", name: "domain" };
 
 export const experiments = defineModules(import.meta.url, [
   {
@@ -175,48 +171,17 @@ export const experiments = defineModules(import.meta.url, [
     ],
   },
   {
-    id: "domain-task-plan",
-    title: "Task Planner Contracts",
-    description: "Shared task schemas and planning errors",
-    visibility: "internal",
-    supportedRuntimes: ["bun"],
-    supportedOn: [{ _tag: "identity", identity: domainTarget }],
-    dependencies: [],
-    contributions: [
-      {
-        _tag: "file",
-        path: "{{targetPath}}/src/Task.ts",
-        contents: template("./domain-task-plan/src/Task.ts"),
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "exports",
-        name: "./Task",
-        value: "./src/Task.ts",
-      },
-    ],
-  },
-  {
     id: "package-task-plan",
     title: "Graph Task Planner",
     description:
       "Order tasks by prerequisite and report missing prerequisites or cycles",
-    supportedRuntimes: ["bun"],
-    supportedOn: [
-      { _tag: "identity", identity: { kind: "package", name: "task-plan" } },
-    ],
-    dependencies: [
-      {
-        _tag: "required-module",
-        target: domainTarget,
-        moduleId: "domain-task-plan",
-      },
-    ],
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "kind", kind: "package" }],
+    dependencies: [],
     contributions: [
       {
         _tag: "file",
-        path: `{{targetPath}}/${plannerDirectory}/TaskPlan.ts`,
+        path: "{{targetPath}}/src/TaskPlan.ts",
         contents: template("./package-task-plan/src/TaskPlan.ts"),
       },
       {
@@ -227,34 +192,22 @@ export const experiments = defineModules(import.meta.url, [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
-        field: "dependencies",
-        name: "{{#if noModule=package-library}}@repo/domain{{/if}}",
-        value: "{{workspaceDependency}}",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "devDependencies",
-        name: "{{#if module=package-library}}@repo/domain{{/if}}",
-        value: "{{workspaceDependency}}",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
         field: "exports",
-        name: "{{#if noModule=package-library}}./TaskPlan{{/if}}",
-        value: "./src/TaskPlan.ts",
+        name: "./TaskPlan",
+        value:
+          "{{#if module=package-library}}./dist/TaskPlan.js{{/if}}{{#if noModule=package-library}}./src/TaskPlan.ts{{/if}}",
       },
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "scripts",
         name: "scratch",
-        value: "bun scratchpad.ts",
+        value:
+          "{{#if runtime=bun}}bun scratchpad.ts{{/if}}{{#if runtime=node}}node scratchpad.ts{{/if}}{{#if runtime=deno}}deno run scratchpad.ts{{/if}}",
       },
     ],
     nextSteps: [
-      "Task Planner: Run `bun run --cwd {{targetPath}} scratch` to see the task order.{{#if module=package-library}} The planner is a workspace example and is excluded from the published library.{{/if}}",
+      "Task Planner: From `{{targetPath}}`, run `{{#if runtime=deno}}deno task{{/if}}{{#if runtime=bun}}{{packageManager}} run{{/if}}{{#if runtime=node}}{{packageManager}} run{{/if}} scratch` to see the task order.",
     ],
   },
 ]);
