@@ -1,6 +1,8 @@
+import { stripVTControlCharacters } from "node:util";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { Prompt } from "effect/cli";
+import { TestConsole } from "effect/testing";
 import { MultiSelect } from "../../src/components/MultiSelect.js";
 import * as MockTerminal from "../services/MockTerminal.js";
 import { TestLayer } from "../services/TestLayer.js";
@@ -23,22 +25,44 @@ describe("MultiSelect", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("space toggles current item", () =>
-    Effect.gen(function* () {
-      const prompt = MultiSelect({ message: "Pick", choices });
+  it.effect(
+    "space toggles enabled choices and leaves disabled choices unselected",
+    () =>
+      Effect.gen(function* () {
+        const prompt = MultiSelect({
+          message: "Pick",
+          choices: [choices[0], { ...choices[1], disabled: true }, choices[2]],
+        });
 
-      yield* MockTerminal.inputKey("space"); // toggle Alpha
-      yield* MockTerminal.inputKey("down");
-      yield* MockTerminal.inputKey("down");
-      yield* MockTerminal.inputKey("space"); // toggle Gamma
-      yield* MockTerminal.inputKey("enter");
+        yield* MockTerminal.inputKey("space"); // Select Alpha.
+        yield* MockTerminal.inputKey("space"); // Deselect Alpha.
+        yield* MockTerminal.inputKey("up");
+        yield* MockTerminal.inputKey("space"); // Select Gamma.
+        yield* MockTerminal.inputKey("down");
+        yield* MockTerminal.inputKey("down");
+        yield* MockTerminal.inputKey("space"); // Beta cannot be selected.
+        yield* MockTerminal.inputKey("up");
+        yield* MockTerminal.inputKey("space"); // Select Alpha again.
+        yield* MockTerminal.inputKey("enter");
 
-      const result = yield* Prompt.run(prompt);
-      assert.deepStrictEqual(result, ["alpha", "gamma"]);
-    }).pipe(Effect.provide(TestLayer)),
+        const result = yield* Prompt.run(prompt);
+        assert.deepStrictEqual(result, ["alpha", "gamma"]);
+        const frames = (yield* TestConsole.logLines).map((line) =>
+          stripVTControlCharacters(String(line)),
+        );
+        const firstSelection = frames.findIndex((frame) =>
+          frame.includes("(1/3)"),
+        );
+        assert.isAtLeast(firstSelection, 0);
+        assert.isTrue(
+          frames
+            .slice(firstSelection + 1)
+            .some((frame) => frame.includes("(0/3)")),
+        );
+      }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("'a' toggles all on, then off", () =>
+  it.effect("'a' selects all choices", () =>
     Effect.gen(function* () {
       const prompt = MultiSelect({ message: "Pick", choices });
 
@@ -63,19 +87,27 @@ describe("MultiSelect", () => {
     }).pipe(Effect.provide(TestLayer)),
   );
 
-  it.effect("respects min constraint (beeps on submit below min)", () =>
-    Effect.gen(function* () {
-      const prompt = MultiSelect({ message: "Pick", choices, min: 1 });
+  it.effect(
+    "enforces the minimum on submit and the maximum when toggling",
+    () =>
+      Effect.gen(function* () {
+        const prompt = MultiSelect({
+          message: "Pick",
+          choices,
+          min: 1,
+          max: 1,
+        });
 
-      // Try submit with 0 selected — should beep, not submit
-      yield* MockTerminal.inputKey("enter");
-      // Now select one and submit
-      yield* MockTerminal.inputKey("space");
-      yield* MockTerminal.inputKey("enter");
+        // Try submit with 0 selected — should beep, not submit
+        yield* MockTerminal.inputKey("enter");
+        yield* MockTerminal.inputKey("space");
+        yield* MockTerminal.inputKey("down");
+        yield* MockTerminal.inputKey("space"); // A second choice exceeds the maximum.
+        yield* MockTerminal.inputKey("enter");
 
-      const result = yield* Prompt.run(prompt);
-      assert.deepStrictEqual(result, ["alpha"]);
-    }).pipe(Effect.provide(TestLayer)),
+        const result = yield* Prompt.run(prompt);
+        assert.deepStrictEqual(result, ["alpha"]);
+      }).pipe(Effect.provide(TestLayer)),
   );
 
   it.effect("respects pre-selected choices", () =>
