@@ -183,11 +183,10 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
       const anchored = rule.startsWith("/");
       const directoryOnly = rule.endsWith("/");
       const pattern = rule.replace(/^\//u, "").replace(/\/$/u, "");
-      // npm expands a terminal /* so it covers files inside the directory.
+      // npm treats a bare * as include-all and expands a terminal /* recursively.
+      const recursive = pattern === "*" || pattern.endsWith("/*");
       const glob =
-        !excludes && pattern.endsWith("/*") && !directoryOnly
-          ? `${pattern}*`
-          : pattern;
+        !excludes && recursive && !directoryOnly ? `${pattern}*` : pattern;
       return { anchored, directoryOnly, excludes, pattern, glob };
     })
     .filter(({ anchored, directoryOnly, excludes, pattern, glob }) => {

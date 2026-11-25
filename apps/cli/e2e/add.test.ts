@@ -78,6 +78,11 @@ assert.equal(typeof planTasks, "function");
     for (const layout of [
       { name: "planner-compiled", files: '["dist"]', consumer: "node" },
       {
+        name: "planner-wildcard",
+        files: '["*", "!scratchpad.ts"]',
+        consumer: "node",
+      },
+      {
         name: "planner-no-maps",
         files: '["dist", "src", "!dist/**/*.map"]',
         consumer: "node",
