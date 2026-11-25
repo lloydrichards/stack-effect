@@ -195,17 +195,20 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
           }),
         ),
     );
-  // npm can give explicitly listed files priority over ignore patterns.
-  if (
-    matchingRules.some(
-      ({ excludes, pattern }) => !excludes && pattern === path,
-    ) &&
-    matchingRules.some(({ excludes }) => excludes)
-  )
+  // npm applies rules for exact files after the broader pack patterns.
+  const exactRules = matchingRules.filter(({ pattern }) => pattern === path);
+  const rule = exactRules.at(-1) ?? matchingRules.at(-1);
+  if (rule === undefined) return false;
+  if (exactRules.some(({ excludes }) => excludes !== rule.excludes))
     return undefined;
 
-  const last = matchingRules.at(-1);
-  return last !== undefined && !last.excludes;
+  // Whether a differently cased literal is an exact file depends on the filesystem.
+  const lowerPath = path.toLowerCase();
+  const caseDependentExclusion = matchingRules.some(
+    ({ excludes, pattern }) =>
+      excludes && pattern !== path && pattern.toLowerCase() === lowerPath,
+  );
+  return !rule.excludes && caseDependentExclusion ? undefined : !rule.excludes;
 };
 
 const readBuildConfig = (buildConfig: RepoSnapshotPath | undefined) => {
