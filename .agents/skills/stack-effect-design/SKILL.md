@@ -6,8 +6,9 @@ description: Design or review Stack Effect package layout, public and internal m
 # Package and service design
 
 1. Start with the current owner and its callers. Read the closest `AGENTS.md`, the package manifest, and the relevant [OKF contract](../../../.okf/index.md). Check the installed Effect guide as described in the [root instructions](../../../AGENTS.md).
-2. Compare what callers need to know about ordering, configuration, failures, and resource ownership. Keep those obligations in the owning service where possible. Before adding a helper or service, ask where the work would go if you removed it. Keep it if it removes repeated caller work or owns a real dependency or lifetime.
-3. Use the existing entry point unless a new consumer needs a distinct one. Check the manifest's `exports` map, the code it points to, and the actual imports. Keep implementation files private to their workspace. Follow the closest sibling package for new workspace packages, then check root workspace discovery, build and test tasks, and packaging for affected consumers.
+2. Review public declarations against the [public module docs guide](../../TASTE.md#public-module-docs). For a same-name schema and decoded type, check both declarations in the generated TypeScript or source. Each needs its own JSDoc and should explain its own contract.
+3. Compare what callers need to know about ordering, configuration, failures, and resource ownership. Keep those obligations in the owning service where possible. Before adding a helper or service, ask where the work would go if you removed it. Keep it if it removes repeated caller work or owns a real dependency or lifetime.
+4. Use the existing entry point unless a new consumer needs a distinct one. Check the manifest's `exports` map, the code it points to, and the actual imports. Keep implementation files private to their workspace. Follow the closest sibling package for new workspace packages, then check root workspace discovery, build and test tasks, and packaging for affected consumers.
 
 ## Lay out a package
 
