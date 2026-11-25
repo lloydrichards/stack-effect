@@ -466,13 +466,14 @@ export const exists = (path: string, root = repositoryRoot) =>
 /**
  * A FileSystem call to intercept, matched on its method and the absolute path
  * it names (the destination, for `rename`). It fires once, on the first
- * matching call after `skip`. By default the call fails; `before` instead
- * runs an effect and then lets the call proceed.
+ * matching call that passes `when` after `skip` matching calls. By default
+ * the call fails; `before` instead runs an effect and lets the call proceed.
  */
 export type Fault = {
   readonly method: "lstat" | "readFile" | "rename";
   readonly path: string;
   readonly before?: Effect.Effect<void, PlatformError.PlatformError>;
+  readonly when?: Effect.Effect<boolean, PlatformError.PlatformError>;
   /** Matching calls to let through before the fault fires. */
   readonly skip?: number;
 };
@@ -490,29 +491,22 @@ export const withFault = Effect.fnUntraced(function* (fault: Fault) {
     Effect.fnUntraced(function* () {
       const fired = yield* Ref.make(false);
       const matches = yield* Ref.make(0);
-      const intercept = (path: string) =>
-        path !== fault.path
-          ? Effect.void
-          : Ref.updateAndGet(matches, (count) => count + 1).pipe(
-              Effect.flatMap((count) =>
-                count !== (fault.skip ?? 0) + 1
-                  ? Effect.void
-                  : Ref.set(fired, true).pipe(
-                      Effect.andThen(
-                        fault.before ??
-                          Effect.fail(
-                            PlatformError.systemError({
-                              _tag: "Unknown",
-                              module: "FileSystem",
-                              method: fault.method,
-                              description: "injected fault",
-                              pathOrDescriptor: path,
-                            }),
-                          ),
-                      ),
-                    ),
-              ),
-            );
+      const intercept = Effect.fnUntraced(function* (path: string) {
+        if (path !== fault.path || (yield* Ref.get(fired))) return;
+        const count = yield* Ref.updateAndGet(matches, (count) => count + 1);
+        if (count <= (fault.skip ?? 0)) return;
+        if (fault.when !== undefined && !(yield* fault.when)) return;
+
+        if (yield* Ref.getAndSet(fired, true)) return;
+        if (fault.before !== undefined) return yield* fault.before;
+        return yield* PlatformError.systemError({
+          _tag: "Unknown",
+          module: "FileSystem",
+          method: fault.method,
+          description: "injected fault",
+          pathOrDescriptor: path,
+        });
+      });
       const handlers: FileSystemTesting.Handlers =
         fault.method === "rename"
           ? { rename: (_from, to) => intercept(to) }
