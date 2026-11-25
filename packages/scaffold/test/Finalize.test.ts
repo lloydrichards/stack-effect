@@ -223,18 +223,26 @@ describe("Finalizer", () => {
       const steps = yield* finalize.collectNextSteps(blueprint, makeConfig());
 
       assert.deepStrictEqual(steps, [
+        "Configure apps/sdk/server-api",
         "Read apps/sdk/server-api/README.md",
         "Start apps/sdk/server-api",
       ]);
     }).pipe(
       Effect.provide(
         makeFinalizeLayer([], {
-          targets: { server: { nextSteps: ["Read {{targetPath}}/README.md"] } },
+          targets: {
+            server: {
+              nextSteps: [
+                "Configure {{targetPath}}",
+                "Read {{targetPath}}/README.md",
+              ],
+            },
+          },
           modules: {
             "server-guidance": {
               nextSteps: [
-                "Read {{targetPath}}/README.md",
                 "Start {{targetPath}}",
+                "Read {{targetPath}}/README.md",
               ],
             },
           },
@@ -343,26 +351,29 @@ describe("Finalizer", () => {
       () =>
         Effect.gen(function* () {
           const svc = yield* Finalizer;
-          const config = new StackConfig({
-            name: Schema.NonEmptyString.make("test"),
-            runtime: { _tag: "deno" },
-            lint: "oxlint",
-            format: "oxfmt",
-          });
-          const scripts = yield* svc.scripts(
-            emptyBlueprint,
-            makeConfig(config),
-          );
-
-          assert.deepStrictEqual(
-            scripts.map((script) => script.command),
+          const install = ["deno install", "deno task --if-present prepare"];
+          for (const [tools, commands] of [
+            [{}, install],
             [
-              "deno install",
-              "deno task --if-present prepare",
-              "deno task lint",
-              "deno task format",
+              { lint: "oxlint", format: "oxfmt" },
+              [...install, "deno task lint", "deno task format"],
             ],
-          );
+          ] as const) {
+            const config = new StackConfig({
+              name: Schema.NonEmptyString.make("test"),
+              runtime: { _tag: "deno" },
+              ...tools,
+            });
+            const scripts = yield* svc.scripts(
+              emptyBlueprint,
+              makeConfig(config),
+            );
+
+            assert.deepStrictEqual(
+              scripts.map((script) => script.command),
+              commands,
+            );
+          }
         }).pipe(Effect.provide(makeFinalizeLayer([]))),
     );
 
