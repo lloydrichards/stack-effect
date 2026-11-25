@@ -183,22 +183,31 @@ const isPacked = (files: ReadonlyArray<string>, value: string) => {
       const anchored = rule.startsWith("/");
       const directoryOnly = rule.endsWith("/");
       const pattern = rule.replace(/^\//u, "").replace(/\/$/u, "");
-      return { anchored, directoryOnly, excludes, pattern };
+      // npm expands a terminal /* so it covers files inside the directory.
+      const glob =
+        !excludes && pattern.endsWith("/*") && !directoryOnly
+          ? `${pattern}*`
+          : pattern;
+      return { anchored, directoryOnly, excludes, pattern, glob };
     })
-    .filter(
-      ({ anchored, directoryOnly, excludes, pattern }) =>
-        pattern.length <= 65_536 &&
-        (directoryOnly ? directories : candidates).some((candidate) =>
-          minimatch(candidate, pattern, {
-            dot: true,
-            nonegate: true,
-            nocomment: true,
-            nocase: excludes,
-            matchBase: excludes && !anchored,
-            platform: "linux",
-          }),
-        ),
-    );
+    .filter(({ anchored, directoryOnly, excludes, pattern, glob }) => {
+      if (pattern.length > 65_536) return false;
+      if (!excludes && directories.includes(pattern)) return true;
+      if (!excludes && directoryOnly) return false;
+
+      const exclusionPaths = directoryOnly ? directories : candidates;
+      const paths = excludes ? exclusionPaths : [path];
+      return paths.some((candidate) =>
+        minimatch(candidate, glob, {
+          dot: true,
+          nonegate: true,
+          nocomment: true,
+          nocase: excludes,
+          matchBase: excludes && !anchored,
+          platform: "linux",
+        }),
+      );
+    });
   // npm applies rules for exact files after the broader pack patterns.
   const exactRules = matchingRules.filter(
     ({ directoryOnly, pattern }) => !directoryOnly && pattern === path,
