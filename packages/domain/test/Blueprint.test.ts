@@ -10,7 +10,7 @@ import {
   TargetKey,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { Effect, SchemaIssue } from "effect";
+import { Effect, Schema, SchemaIssue } from "effect";
 
 const domainIdentity = new TargetIdentity({
   kind: TargetKind.make("package"),
@@ -284,13 +284,29 @@ describe("@repo/domain Blueprint", () => {
 
   it.effect.each(invalidBlueprints)(
     "should name the broken invariant when a Blueprint has $name",
-    ({ mutate, message }) =>
+    ({ name, mutate, message }) =>
       Effect.gen(function* () {
         const issue = yield* Effect.flip(
           Blueprint.makeEffect(mutate(makeUnsortedBlueprint())),
         );
 
         assert.include(formatIssue(issue), message);
+
+        if (name === "a missing ownership edge") {
+          const encoded = Schema.encodeSync(Blueprint)(makeUnsortedBlueprint());
+          const decoded = yield* Effect.flip(
+            Schema.decodeUnknownEffect(Blueprint)({
+              ...encoded,
+              edges: encoded.edges.filter(
+                (edge) =>
+                  !(
+                    edge.reason === "owns-module" && edge.to === domainContracts
+                  ),
+              ),
+            }),
+          );
+          assert.include(decoded.message, message);
+        }
       }),
   );
 });
