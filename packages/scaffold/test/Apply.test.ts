@@ -35,6 +35,7 @@ import {
   decideAll,
   exists,
   module,
+  nestedStruct,
   paths,
   pipelineLayer,
   plan,
@@ -272,11 +273,20 @@ describe("Applier", () => {
       contents: "export const App = () => <main />;\n",
       identifier: "@slot:components",
     },
-    ...['"input"', '["input"]'].map((key) => ({
-      name: `object field ${key} already has a different value`,
+    ...[
+      [
+        "a later spread can replace the object field",
+        "input: Schema.Number, ...localFields",
+      ],
+      [
+        "a computed key can replace the object field",
+        "input: Schema.Number, [localKey]: localValue",
+      ],
+    ].map(([name, fields]) => ({
+      name,
       modules: ["options-field", "pair"],
       path: optionsFile,
-      contents: `const Options = Schema.Struct({ ${key}: Schema.String });\n`,
+      contents: `const Options = Schema.Struct({ ${fields} });\n`,
       identifier: "Options.input",
     })),
     {
@@ -474,19 +484,25 @@ describe("Applier", () => {
             [optionsFile]: "const Options = Schema.Struct({});\n",
           });
           yield* planAndApply("nested-string-field");
-          const once = yield* readFile(optionsFile);
+          const generated = yield* readFile(optionsFile);
+          assert.include(generated, "Schema.String");
 
+          const value = nestedStruct("Schema.String").replaceAll(" })", ", })");
+          const edited = `// Keep the local schema formatting.\nconst Options = Schema.Struct({ ...{ "input": ${value} }, ...{ other: Schema.String } });\n`;
+          yield* writeFiles({ [optionsFile]: edited });
           const repeated = yield* planAndApply("nested-string-field");
+
+          assert.deepStrictEqual(repeated.skipped, paths(optionsFile));
+          assert.strictEqual(yield* readFile(optionsFile), edited);
+
           const changed = yield* Effect.flip(
             Effect.flatMap(plan(app("nested-number-field")), (planned) =>
               apply(planned),
             ),
           );
 
-          assert.deepStrictEqual(repeated.skipped, paths(optionsFile));
           assert.strictEqual(changed._tag, "ApplyError");
-          assert.include(changed.message, "Options.input");
-          assert.strictEqual(yield* readFile(optionsFile), once);
+          assert.strictEqual(yield* readFile(optionsFile), edited);
         }).pipe(Effect.provide(testPipeline)),
     );
 
@@ -1122,24 +1138,33 @@ describe("Applier", () => {
     );
 
     it.effect(
-      "should report every preflight change, including an ancestor, before writing",
+      "should report preflight path changes and an unreadable owner before writing",
       () =>
         Effect.gen(function* () {
-          yield* writeFiles({});
+          const owner = "packages/existing/package.json";
+          const manifestContents = '{"name":"@repo/existing"}';
+          yield* writeFiles({ [owner]: manifestContents });
           const planned = yield* plan(app("pair"));
           yield* writeFiles({ "packages/app/src/a.txt": "external content" });
 
-          const failure = yield* Effect.flip(apply(planned));
+          const fault = yield* withFault({
+            method: "readFile",
+            path: `${repositoryRoot}/${owner}`,
+          });
+          const failure = yield* Effect.flip(fault.provide(apply(planned)));
+
+          assert.isTrue(yield* fault.fired);
 
           assert(failure._tag === "StalePlan");
           for (const path of [
-            "packages",
             "packages/app",
             "packages/app/src",
             "packages/app/src/a.txt",
           ]) {
             assert.deepInclude(failure.changes, { path, kind: "created" });
           }
+          assert.deepInclude(failure.changes, { path: ".", kind: "modified" });
+          assert.strictEqual(yield* readFile(owner), manifestContents);
           assert.deepStrictEqual(failure.partialResult.created, []);
           assert.deepStrictEqual(failure.partialResult.modified, []);
           assert.strictEqual(
@@ -1224,14 +1249,12 @@ describe("Applier", () => {
             path: "packages/app/src/a.txt",
             kind: "created",
           });
-          assert.include(
+          assert.deepStrictEqual(
             failure.partialResult.created,
-            RepositoryPath.make("packages/app/package.json"),
+            paths("packages/app/package.json"),
           );
-          assert.notInclude(
-            failure.partialResult.created,
-            RepositoryPath.make("packages/app/src/a.txt"),
-          );
+          assert.deepStrictEqual(failure.partialResult.modified, []);
+          assert.isFalse(yield* exists("packages/app/src/b.txt"));
           assert.strictEqual(
             yield* readFile("packages/app/src/a.txt"),
             "external late drift",
