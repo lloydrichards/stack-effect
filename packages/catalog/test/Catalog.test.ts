@@ -210,7 +210,6 @@ it.effect(
         name: "root",
       });
       const requiredId = ModuleId.make("domain-api-contracts");
-      const peerId = ModuleId.make("workspace-api-docs");
       const fragment = {
         ...testCatalog,
         modules: testCatalog.modules.map((module): ModuleDefinition =>
@@ -244,33 +243,35 @@ it.effect(
       };
       yield* compose([fragment, { targets: [], modules: [compatible] }]);
 
-      const invalid: ModuleDefinition = {
-        ...compatible,
-        dependencies: [
-          {
-            _tag: "required-module",
-            target: workspaceTarget,
-            moduleId: requiredId,
-          },
-        ],
-        conflictsWith: [peerId],
-      };
-      const failure = yield* Effect.flip(
-        compose([fragment, { targets: [], modules: [invalid] }]),
-      );
-      assert.deepStrictEqual(
-        failure.details.map(({ subject, code }) => ({ subject, code })),
-        [
-          {
-            subject: { _tag: "module", id: "workspace-extra-example" },
-            code: "unsupported-target",
-          },
-          {
-            subject: { _tag: "module", id: "workspace-extra-example" },
-            code: "asymmetric-conflict",
-          },
-        ],
-      );
+      for (const peerId of ["workspace-api-docs", "workspace-quality-oxlint"]) {
+        const invalid: ModuleDefinition = {
+          ...compatible,
+          dependencies: [
+            {
+              _tag: "required-module",
+              target: workspaceTarget,
+              moduleId: requiredId,
+            },
+          ],
+          conflictsWith: [ModuleId.make(peerId)],
+        };
+        const failure = yield* Effect.flip(
+          compose([fragment, { targets: [], modules: [invalid] }]),
+        );
+        assert.deepStrictEqual(
+          failure.details.map(({ subject, code }) => ({ subject, code })),
+          [
+            {
+              subject: { _tag: "module", id: "workspace-extra-example" },
+              code: "unsupported-target",
+            },
+            {
+              subject: { _tag: "module", id: "workspace-extra-example" },
+              code: "asymmetric-conflict",
+            },
+          ],
+        );
+      }
     }),
 );
 
