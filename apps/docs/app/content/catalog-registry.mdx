@@ -26,6 +26,7 @@ Labs contains experimental examples. A fresh Recipe Builder session loads the of
 | `client-react-web-worker` | React client |
 | `server-chat-runtime-managed` | HTTP server |
 | `package-ai-toolkit-webfetch` | AI package |
+| `server-slack-bot` | HTTP server with a shared Chat Bot package |
 
 The queue module uses Effect's PersistedQueue with SQLite. The following command adds it to a CLI target.
 
@@ -98,3 +99,16 @@ New `stack.effect.json` files include a [`$schema` editor link](/schemas/v1/stac
 A project can select catalog sources with an optional `catalogs` list, which `init` and `create` save from repeated `--catalog` flags. Without the list, the project uses the official catalog. Reading `catalogs` requires `stack-effect` 0.16.0 or later: older CLIs ignore the list, use the official catalog, and can drop the list when they rewrite `stack.effect.json`.
 
 Shared Recipe Builder links contain choices rather than catalog data. Reopening a link checks current definitions, may use a disclosed cached catalog during an outage, and reports choices that can no longer be resolved.
+
+### Connect a Chat Bot to Slack
+
+Add the Slack Integration to a server. Stack Effect also generates a Chat Bot package.
+
+```bash
+bunx stack-effect@latest create slack-bot --runtime bun \
+  --catalog official \
+  --catalog labs=https://stack-effect.lloydrichards.dev/registry/v1/labs.json \
+  --target server/support:server-slack-bot --yes
+```
+
+Open `slack-bot/apps/server-support/SLACK.md` for the Slack app installation and webhook setup. A mention with `ping` gets a threaded `pong`. Edit `slack-bot/packages/chat-bot/src/Bot.ts` to change the response.

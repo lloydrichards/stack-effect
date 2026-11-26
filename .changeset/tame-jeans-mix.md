@@ -2,4 +2,4 @@
 "@stack-effect/docs": minor
 ---
 
-Labs adds a Slack Bot module that replies in a thread when mentioned. Run the included fixture to try the webhook locally without Slack credentials.
+Labs can generate a shared Chat Bot package and connect it to Slack. Install the generated Slack app, mention the bot with `ping`, and edit `Bot.ts` to customize its reply.
