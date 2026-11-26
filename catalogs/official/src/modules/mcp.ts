@@ -1,5 +1,6 @@
 import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "../dependencies";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 
@@ -271,11 +272,19 @@ export const mcpModules = defineModules(import.meta.url, [
     dependencies: [],
     contributions: [
       {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect",
+        value: EFFECT_VERSION,
+      },
+      {
         _tag: "file",
         path: "{{targetPath}}/src/skills/WorkshopChecklistSkill.ts",
         contents: template(
           "./mcp-skill-workshop-checklist/src/skills/WorkshopChecklistSkill.ts",
         ),
+        conflictOnModify: true,
       },
       {
         _tag: "ts-call-arg",
