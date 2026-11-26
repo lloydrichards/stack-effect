@@ -198,7 +198,10 @@ const applyTsAppendCallArg = Effect.fnUntraced(function* (
     (arg) =>
       arg.getText() !== "Layer.empty" && !arg.isKind(SyntaxKind.SpreadElement),
   );
-  if (placeholder && hasLayer) {
+  // A plain array spread cannot supply mergeAll's required first argument.
+  const exposesLeadingSpread =
+    placeholder === args[0] && args[1]?.isKind(SyntaxKind.SpreadElement);
+  if (placeholder && hasLayer && !exposesLeadingSpread) {
     target.removeArgument(placeholder);
   }
 });
