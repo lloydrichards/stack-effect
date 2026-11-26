@@ -1,35 +1,27 @@
-import { Effect, Option, Schema } from "effect";
+import { Option, Schema } from "effect";
 import { Rpc, RpcGroup } from "effect/rpc";
 
 export const ImportRecord = Schema.Struct({
-  email: Schema.String.check(
-    Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/),
-  ),
+  email: Schema.String.check(Schema.isPattern(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)),
   name: Schema.String.check(Schema.isMinLength(1)),
 });
 
-export const ImportIssue = Schema.Struct({
-  line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
-  message: Schema.String,
-});
+const ImportLine = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
 
 export const ImportValidationEvent = Schema.TaggedUnion({
   started: { total: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)) },
-  row: {
-    accepted: Schema.Boolean,
-    line: Schema.Int.check(Schema.isGreaterThanOrEqualTo(1)),
-    issue: Schema.optional(ImportIssue),
-  },
+  accepted: { line: ImportLine },
+  rejected: { line: ImportLine, issue: Schema.String },
   completed: {
     total: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
   },
 });
 export type ImportValidationEvent = typeof ImportValidationEvent.Type;
 
-export class ImportValidationFailure extends Schema.TaggedError<ImportValidationFailure, { readonly brand: unique symbol }>()(
-  "ImportValidationFailure",
-  { message: Schema.String },
-) {}
+export class ImportValidationFailure extends Schema.TaggedError<
+  ImportValidationFailure,
+  { readonly brand: unique symbol }
+>()("ImportValidationFailure", { message: Schema.String }) {}
 
 export class ImportValidationRpc extends RpcGroup.make(
   Rpc.make("validate", {
@@ -40,34 +32,14 @@ export class ImportValidationRpc extends RpcGroup.make(
   }),
 ) {}
 
+const decodeImportRecord = Schema.decodeOption(
+  Schema.fromJsonString(ImportRecord),
+);
+
 export const parseImportRecord = (line: string, lineNumber: number) =>
-  Effect.sync(() => {
-    const parsed = Schema.decodeOption(Schema.fromJsonString(Schema.Unknown))(
-      line,
-    );
-    return Option.match(parsed, {
-      onNone: () => ({
-        accepted: false,
+  Option.isSome(decodeImportRecord(line))
+    ? ImportValidationEvent.cases.accepted.make({ line: lineNumber })
+    : ImportValidationEvent.cases.rejected.make({
         line: lineNumber,
-        issue: {
-          line: lineNumber,
-          message: "Expected a JSON object with a name and email address.",
-        },
-      }),
-      onSome: (value) =>
-        Schema.decodeUnknownOption(ImportRecord)(value).pipe(
-          Option.match({
-            onNone: () => ({
-              accepted: false,
-              line: lineNumber,
-              issue: {
-                line: lineNumber,
-                message:
-                  "Expected a JSON object with a name and email address.",
-              },
-            }),
-            onSome: () => ({ accepted: true, line: lineNumber }),
-          }),
-        ),
-    });
-  });
+        issue: "Expected a JSON object with a name and email address.",
+      });

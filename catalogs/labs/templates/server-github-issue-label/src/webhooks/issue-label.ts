@@ -18,9 +18,14 @@ export class GitHubLabels extends Context.Service<
     ) => Effect.Effect<void, GitHubLabelError>;
   }
 >()("example/GitHubLabels") {
-  static readonly layerDemo = Layer.succeed(GitHubLabels, {
-    add: Effect.fn("GitHubLabels.add")(({ repository, issueNumber, label }) =>
-      Console.log(`Would add ${label} to ${repository}#${issueNumber}`),
-    ),
+  static readonly layer = Layer.succeed(GitHubLabels, {
+    add: Effect.fn("GitHubLabels.add")(function* ({
+      repository,
+      issueNumber,
+      label,
+    }) {
+      // NOTE: Replace this log with an authenticated call to GitHub's add-labels endpoint. Keep replays safe by adding the same label.
+      yield* Console.log(`Would add ${label} to ${repository}#${issueNumber}`);
+    }),
   });
 }

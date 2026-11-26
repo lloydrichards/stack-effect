@@ -21,27 +21,36 @@ const ChatHistoryEntry = Schema.Struct({
 
 const ChatMessagesJson = Schema.fromJsonString(Schema.Array(ChatMessage));
 
-const ChatState = Schema.Literals(["idle", "streaming", "complete", "error"]);
+const ChatState = Schema.TaggedUnion({
+  Idle: {},
+  Starting: {},
+  Streaming: { chatId: ChatId },
+  Complete: { chatId: ChatId },
+  Error: { chatId: Schema.Option(ChatId), message: Schema.String },
+});
+type ChatState = typeof ChatState.Type;
+
+const sessionId = Match.typeTags<ChatState>()({
+  Idle: () => Option.none<ChatId>(),
+  Starting: () => Option.none<ChatId>(),
+  Streaming: ({ chatId }) => Option.some(chatId),
+  Complete: ({ chatId }) => Option.some(chatId),
+  Error: ({ chatId }) => chatId,
+});
 
 export const Model = Schema.Struct({
-  chatId: Schema.Option(ChatId),
   chatInput: Schema.String,
   chatHistory: Schema.Array(ChatHistoryEntry),
   chatState: ChatState,
   chatSegments: Schema.Array(MessageSegment),
   chatReasoning: Schema.Option(Schema.String),
-  chatError: Schema.Option(Schema.String),
-  chatStreaming: Schema.Boolean,
   reachedStepLimit: Schema.Boolean,
 });
 export type Model = typeof Model.Type;
 
 export const UpdatedChatInput = m("UpdatedChatInput", { value: Schema.String });
 export const SubmittedChatMessage = m("SubmittedChatMessage");
-export const StartedChat = m("StartedChat", {
-  chatId: ChatId,
-  messagesJson: Schema.String,
-});
+export const StartedChat = m("StartedChat", { chatId: ChatId });
 export const FailedStartChat = m("FailedStartChat", { error: Schema.String });
 export const ReceivedChatPart = m("ReceivedChatPart", {
   part: ChatStreamPart,
@@ -65,25 +74,22 @@ export const init = (): readonly [
   ReadonlyArray<Command.Command<Message>>,
 ] => [
   {
-    chatId: Option.none(),
     chatInput: "",
     chatHistory: [],
-    chatState: "idle",
+    chatState: ChatState.cases.Idle.make({}),
     reachedStepLimit: false,
     chatSegments: [],
     chatReasoning: Option.none(),
-    chatError: Option.none(),
-    chatStreaming: false,
   },
   [],
 ];
 
-type MutableSegment =
-  | { _tag: "text"; content: string; isComplete: boolean }
-  | { _tag: "tool-call"; tool: ToolCall };
-
 const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
-  const segments: Array<MutableSegment> = [...model.chatSegments];
+  if (model.chatState._tag !== "Streaming") return model;
+
+  const { chatId } = model.chatState;
+
+  const segments = model.chatSegments;
 
   return ChatStreamPart.match(part, {
     text: ({ delta }): Model => {
@@ -172,14 +178,12 @@ const applyChatPart = (model: Model, part: ChatStreamPart): Model => {
         chatSegments: () => [],
         chatReasoning: () => Option.none(),
         reachedStepLimit: () => reason === ChatStepLimit.reason,
-        chatState: () => "complete",
-        chatStreaming: () => false,
+        chatState: () => ChatState.cases.Complete.make({ chatId }),
       }),
     error: ({ message }): Model =>
       evo(model, {
-        chatState: () => "error",
-        chatStreaming: () => false,
-        chatError: () => Option.some(message),
+        chatState: () =>
+          ChatState.cases.Error.make({ chatId: Option.some(chatId), message }),
       }),
   });
 };
@@ -203,7 +207,15 @@ export const update = (
       [evo(model, { chatInput: () => value }), []] as const,
     SubmittedChatMessage: () => {
       const trimmed = model.chatInput.trim();
-      if (trimmed === "") return [model, []] as const;
+      if (
+        trimmed === "" ||
+        model.chatState._tag === "Starting" ||
+        model.chatState._tag === "Streaming"
+      ) {
+        return [model, []] as const;
+      }
+
+      const chatId = sessionId(model.chatState);
       const nextHistory = [
         ...model.chatHistory,
         ChatHistoryEntry.make({
@@ -212,68 +224,70 @@ export const update = (
           segments: Option.none(),
         }),
       ];
-      const messagesJson = Schema.encodeUnknownSync(ChatMessagesJson)(
-        nextHistory.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-      );
-
       return [
         evo(model, {
           chatInput: () => "",
           reachedStepLimit: () => false,
           chatHistory: () => nextHistory,
-          chatState: () => "streaming",
-          chatStreaming: () => Option.isSome(model.chatId),
+          chatState: () =>
+            Option.match(chatId, {
+              onNone: () => ChatState.cases.Starting.make({}),
+              onSome: (chatId) => ChatState.cases.Streaming.make({ chatId }),
+            }),
           chatSegments: () => [],
           chatReasoning: () => Option.none(),
-          chatError: () => Option.none(),
         }),
-        Option.match(model.chatId, {
-          onNone: () => [StartChat({ messagesJson })],
-          onSome: () => [],
-        }),
+        Option.isNone(chatId) ? [StartChat({})] : [],
       ] as const;
     },
     StartedChat: ({ chatId }) =>
-      [
-        evo(model, {
-          chatId: () => Option.some(chatId),
-          chatStreaming: () => true,
-        }),
-        [],
-      ] as const,
+      model.chatState._tag === "Starting"
+        ? ([
+            evo(model, {
+              chatState: () => ChatState.cases.Streaming.make({ chatId }),
+            }),
+            [],
+          ] as const)
+        : ([model, []] as const),
     FailedStartChat: ({ error }) =>
-      [
-        evo(model, {
-          chatState: () => "error",
-          chatStreaming: () => false,
-          chatError: () => Option.some(error),
-        }),
-        [],
-      ] as const,
+      model.chatState._tag === "Starting"
+        ? ([
+            evo(model, {
+              chatState: () =>
+                ChatState.cases.Error.make({
+                  chatId: Option.none(),
+                  message: error,
+                }),
+            }),
+            [],
+          ] as const)
+        : ([model, []] as const),
     ReceivedChatPart: ({ part }) => [applyChatPart(model, part), []] as const,
     FailedChatStream: ({ error }) =>
-      [
-        evo(model, {
-          chatState: () => "error",
-          chatStreaming: () => false,
-          chatError: () => Option.some(error),
-        }),
-        [],
-      ] as const,
+      model.chatState._tag === "Streaming"
+        ? ([
+            evo(model, {
+              chatState: () =>
+                ChatState.cases.Error.make({
+                  chatId: sessionId(model.chatState),
+                  message: error,
+                }),
+            }),
+            [],
+          ] as const)
+        : ([model, []] as const),
   });
 };
 
 export const StartChat = Command.define("StartChat", {
-  args: { messagesJson: Schema.String },
+  args: {},
   messages: [StartedChat, FailedStartChat],
-  execute: ({ messagesJson }) =>
+  execute: () =>
     Effect.gen(function* () {
       const client = yield* ChatClient;
       const { chatId } = yield* client.chat_start();
-      return StartedChat({ chatId, messagesJson });
+
+      return StartedChat({ chatId });
     }).pipe(
       Effect.orElseSucceed(() =>
         FailedStartChat({ error: "Failed to start chat" }),
@@ -285,56 +299,60 @@ export const StartChat = Command.define("StartChat", {
 export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
   chatStream: entry(
     {
-      chatId: Schema.Option(ChatId),
-      isStreaming: Schema.Boolean,
-      messagesJson: Schema.String,
+      turn: Schema.Option(
+        Schema.Struct({
+          chatId: ChatId,
+          messagesJson: Schema.String,
+        }),
+      ),
     },
     {
       modelToDependencies: (model) => ({
-        chatId: model.chatId,
-        isStreaming: model.chatStreaming,
-        messagesJson: model.chatStreaming
-          ? Schema.encodeUnknownSync(ChatMessagesJson)(
-              model.chatHistory.map((msg) => ({
-                role: msg.role,
-                content: msg.content,
-              })),
-            )
-          : "[]",
+        turn:
+          model.chatState._tag === "Streaming"
+            ? Option.some({
+                chatId: model.chatState.chatId,
+                messagesJson: Schema.encodeUnknownSync(ChatMessagesJson)(
+                  model.chatHistory.map(({ role, content }) => ({
+                    role,
+                    content,
+                  })),
+                ),
+              })
+            : Option.none(),
       }),
-      dependenciesToStream: ({ chatId, isStreaming, messagesJson }) =>
-        isStreaming
-          ? Effect.gen(function* () {
+      dependenciesToStream: ({ turn }) =>
+        Option.match(turn, {
+          onNone: () => Stream.empty,
+          onSome: ({ chatId, messagesJson }) =>
+            Effect.gen(function* () {
               const client = yield* ChatClient;
               const messages =
                 yield* Schema.decodeEffect(ChatMessagesJson)(messagesJson);
-              return Option.match(chatId, {
-                onNone: () => Stream.empty,
-                onSome: (id) =>
-                  client.chat_ask({ chatId: id, messages }).pipe(
-                    Stream.concat(
-                      Stream.make(
-                        ChatStreamPart.cases.error.make({
-                          message:
-                            "Chat stream ended before the assistant finished.",
-                          recoverable: true,
-                        }),
-                      ),
-                    ),
-                    Stream.takeUntil(
-                      (part) => part._tag === "finish" || part._tag === "error",
-                    ),
-                    Stream.map((part) => ReceivedChatPart({ part })),
+
+              return client.chat_ask({ chatId, messages }).pipe(
+                Stream.concat(
+                  Stream.make(
+                    ChatStreamPart.cases.error.make({
+                      message:
+                        "Chat stream ended before the assistant finished.",
+                      recoverable: true,
+                    }),
                   ),
-              });
+                ),
+                Stream.takeUntil(
+                  (part) => part._tag === "finish" || part._tag === "error",
+                ),
+                Stream.map((part) => ReceivedChatPart({ part })),
+              );
             }).pipe(
               Stream.unwrap,
+              Stream.provide(ChatClient.layer),
               Stream.catch(() =>
                 Stream.make(FailedChatStream({ error: "Chat stream failed" })),
               ),
-              Stream.provide(ChatClient.layer),
-            )
-          : Stream.empty,
+            ),
+        }),
     },
   ),
 }));
@@ -344,8 +362,8 @@ export const view = <ParentMessage>(
   toParentMessage: (message: Message) => ParentMessage,
   h: HtmlBuilder<ParentMessage>,
 ): Html => {
-  const isStreaming = model.chatState === "streaming";
-  const isDisabled = isStreaming;
+  const isStreaming = model.chatState._tag === "Streaming";
+  const isDisabled = isStreaming || model.chatState._tag === "Starting";
 
   return h.div(
     [
@@ -368,7 +386,7 @@ export const view = <ParentMessage>(
           h.div(
             [h.Class("flex gap-2")],
             [
-              ...Option.match(model.chatId, {
+              ...Option.match(sessionId(model.chatState), {
                 onNone: (): Array<Html> => [],
                 onSome: (chatId) => [
                   h.span(
@@ -381,7 +399,7 @@ export const view = <ParentMessage>(
                   ),
                 ],
               }),
-              ...(isStreaming
+              ...(isDisabled
                 ? [
                     h.span(
                       [
@@ -389,7 +407,7 @@ export const view = <ParentMessage>(
                           "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold border-border bg-secondary text-[0.65rem] uppercase tracking-[0.2em] text-secondary-foreground",
                         ),
                       ],
-                      ["Streaming"],
+                      [isStreaming ? "Streaming" : "Starting"],
                     ),
                   ]
                 : []),
@@ -406,7 +424,7 @@ export const view = <ParentMessage>(
                   ),
                 ],
               }),
-              ...(model.chatState === "error"
+              ...(model.chatState._tag === "Error"
                 ? [
                     h.span(
                       [
@@ -542,7 +560,7 @@ const streamingSegmentsView = <ParentMessage>(
   model: Model,
 ): Array<Html> => {
   if (model.chatSegments.length === 0) return [];
-  if (model.chatState !== "streaming") return [];
+  if (model.chatState._tag !== "Streaming") return [];
   return [
     h.div(
       [h.Class("flex w-full flex-col gap-2 items-start")],
@@ -643,21 +661,26 @@ const errorView = <ParentMessage>(
   h: HtmlBuilder<ParentMessage>,
   model: Model,
 ): Array<Html> =>
-  Option.match(model.chatError, {
-    onNone: () => [],
-    onSome: (error) => [
-      h.div(
-        [
-          h.Class(
-            "text-destructive text-xs p-3 border border-destructive/40 bg-destructive/10 rounded-none",
-          ),
-        ],
-        [
-          h.div(
-            [h.Class("flex items-start gap-2")],
-            [h.span([h.Class("font-medium text-foreground")], [error])],
-          ),
-        ],
-      ),
-    ],
-  });
+  Option.match(
+    model.chatState._tag === "Error"
+      ? Option.some(model.chatState.message)
+      : Option.none(),
+    {
+      onNone: () => [],
+      onSome: (error) => [
+        h.div(
+          [
+            h.Class(
+              "text-destructive text-xs p-3 border border-destructive/40 bg-destructive/10 rounded-none",
+            ),
+          ],
+          [
+            h.div(
+              [h.Class("flex items-start gap-2")],
+              [h.span([h.Class("font-medium text-foreground")], [error])],
+            ),
+          ],
+        ),
+      ],
+    },
+  );

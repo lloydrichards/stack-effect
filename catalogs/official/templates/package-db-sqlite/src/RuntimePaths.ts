@@ -11,33 +11,33 @@ export const resolveRuntimeAsset = (
     const path = yield* Path.Path;
     const modulePath = yield* path.fromFileUrl(moduleUrl);
 
-    const findRoot = (
+    const findRoot = Effect.fnUntraced(function* (
       directory: string,
-    ): Effect.Effect<string, ConfigProvider.SourceError | PlatformError> =>
-      Effect.suspend(() =>
-        Effect.gen(function* () {
-          const marker = path.join(directory, "stack.effect.json");
-          const exists = yield* fs.exists(marker);
+    ): Effect.fn.Return<string, ConfigProvider.SourceError | PlatformError> {
+      const marker = path.join(directory, "stack.effect.json");
+      if (yield* fs.exists(marker)) {
+        const info = yield* fs.stat(marker);
+        if (info.type !== "File") {
+          return yield* new ConfigProvider.SourceError({
+            message: `Project marker is not a file: ${marker}`,
+          });
+        }
 
-          if (exists) {
-            const info = yield* fs.stat(marker);
-            return info.type === "File"
-              ? directory
-              : yield* new ConfigProvider.SourceError({
-                  message: `Project marker is not a file: ${marker}`,
-                });
-          }
+        return directory;
+      }
 
-          const parent = path.dirname(directory);
-          return parent === directory
-            ? yield* new ConfigProvider.SourceError({
-                message: "No ancestor stack.effect.json file was found.",
-              })
-            : yield* findRoot(parent);
-        }),
-      );
+      const parent = path.dirname(directory);
+      if (parent === directory) {
+        return yield* new ConfigProvider.SourceError({
+          message: "No ancestor stack.effect.json file was found.",
+        });
+      }
+
+      return yield* findRoot(parent);
+    });
 
     const root = yield* findRoot(path.dirname(modulePath));
+
     return path.join(root, relativeAssetPath);
   }).pipe(
     Effect.mapError((cause) =>

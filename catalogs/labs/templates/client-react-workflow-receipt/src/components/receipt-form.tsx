@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 
 import { ReceiptId } from "@repo/domain/Receipt";
-import { Effect, Schema } from "effect";
+import { Effect, Match, Schema } from "effect";
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { awaitReceipt, startReceipt } from "../lib/receipt-client";
 import {
@@ -34,11 +34,20 @@ const ReceiptStatusRow = ({
     }).then(
       (result) => {
         if (controller.signal.aborted) return;
-        onUpdate({
-          executionId,
-          receiptId: result._tag === "Confirmed" ? result.receiptId : receiptId,
-          status: result._tag === "Confirmed" ? "Confirmed" : "Failed",
-        });
+        onUpdate(
+          Match.valueTags(result, {
+            Confirmed: (confirmed): ReceiptRow => ({
+              executionId,
+              receiptId: confirmed.receiptId,
+              status: "Confirmed",
+            }),
+            Failed: (): ReceiptRow => ({
+              executionId,
+              receiptId,
+              status: "Failed",
+            }),
+          }),
+        );
       },
       () => {
         if (!controller.signal.aborted) setPollFailed(true);

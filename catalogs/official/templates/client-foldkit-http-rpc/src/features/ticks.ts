@@ -85,11 +85,17 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
         isEnabled
           ? Effect.gen(function* () {
               const client = yield* RpcClient;
-              return client.tick({ ticks: 10 }).pipe(
-                Stream.map((event) => ReceivedTick({ event })),
-                Stream.orDie,
-              );
-            }).pipe(Stream.unwrap, Stream.provide(RpcClient.layer))
+
+              return client
+                .tick({ ticks: 10 })
+                .pipe(Stream.map((event) => ReceivedTick({ event })));
+            }).pipe(
+              Stream.unwrap,
+              Stream.provide(RpcClient.layer),
+              Stream.catch(() =>
+                Stream.make(FailedTickStream({ error: "Tick stream failed" })),
+              ),
+            )
           : Stream.empty,
     },
   ),

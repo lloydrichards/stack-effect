@@ -1,7 +1,7 @@
 import {
   ReceiptExecutionId,
   ReceiptId,
-  ReceiptStatus,
+  TerminalReceiptStatus,
 } from "@repo/domain/Receipt";
 import { Effect, Match, Schema, Stream } from "effect";
 import { Command, Subscription } from "foldkit";
@@ -36,7 +36,7 @@ const Started = message("Started", { submittedId: ReceiptId, row: ReceiptRow });
 const StartFailed = message("StartFailed");
 const Finished = message("Finished", {
   executionId: ReceiptExecutionId,
-  status: ReceiptStatus,
+  status: TerminalReceiptStatus,
 });
 const PollFailed = message("PollFailed", { executionId: ReceiptExecutionId });
 const HistorySaved = message("HistorySaved");
@@ -98,7 +98,12 @@ type Update = readonly [Model, ReadonlyArray<Command.Command<Message>>];
 export const init = (): Update => {
   const rows = loadReceipts();
   return [
-    { receiptId: "", rows, unavailable: [], submission: { _tag: "Idle" } },
+    {
+      receiptId: "",
+      rows,
+      unavailable: [],
+      submission: Submission.cases.Idle.make({}),
+    },
     rows
       .filter((row) => row.status === "Pending")
       .map(({ executionId }) => Wait({ executionId })),
@@ -160,7 +165,7 @@ export const update = (model: Model, event: Message): Update =>
           !Schema.is(ReceiptId)(receiptId)
           ? [model, []]
           : [
-              { ...model, submission: { _tag: "Starting" } },
+              { ...model, submission: Submission.cases.Starting.make({}) },
               [Start({ receiptId })],
             ];
       },
@@ -168,7 +173,7 @@ export const update = (model: Model, event: Message): Update =>
         const next = {
           ...model,
           rows: upsertReceipt(model.rows, row),
-          submission: { _tag: "Idle" } as const,
+          submission: Submission.cases.Idle.make({}),
           receiptId:
             model.receiptId.trim() === submittedId ? "" : model.receiptId,
         };
@@ -183,18 +188,22 @@ export const update = (model: Model, event: Message): Update =>
       StartFailed: () => [
         {
           ...model,
-          submission: {
-            _tag: "Failed",
+          submission: Submission.cases.Failed.make({
             message: "Could not start the receipt. Try again.",
-          },
+          }),
         },
         [],
       ],
       Finished: ({ executionId, status }) =>
         updateRow(model, executionId, (row) =>
-          status._tag === "Confirmed"
-            ? { ...row, receiptId: status.receiptId, status: "Confirmed" }
-            : { ...row, status: "Failed" },
+          Match.valueTags(status, {
+            Confirmed: ({ receiptId }): ReceiptRow => ({
+              ...row,
+              receiptId,
+              status: "Confirmed",
+            }),
+            Failed: (): ReceiptRow => ({ ...row, status: "Failed" }),
+          }),
         ),
       PollFailed: ({ executionId }) =>
         model.unavailable.includes(executionId) ||

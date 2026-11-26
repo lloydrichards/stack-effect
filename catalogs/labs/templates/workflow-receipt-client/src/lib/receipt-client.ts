@@ -1,6 +1,6 @@
 import type { ReceiptExecutionId, ReceiptId } from "@repo/domain/Receipt";
 import { ReceiptApi } from "@repo/domain/ReceiptApi";
-import { Effect, Schedule } from "effect";
+import { Effect } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 import { HttpApiClient } from "effect/http-api";
 
@@ -23,11 +23,13 @@ export const awaitReceipt = Effect.fn("ReceiptClient.await")(function* (
   executionId: ReceiptExecutionId,
 ) {
   const api = yield* client;
-  return yield* api.receipts.status({ params: { executionId } }).pipe(
-    Effect.repeat({
-      schedule: Schedule.spaced("500 millis"),
-      until: (status) => status._tag !== "Pending",
-    }),
-    Effect.timeout("30 seconds"),
-  );
-});
+  const status = api.receipts.status({ params: { executionId } });
+  let current = yield* status;
+
+  while (current._tag === "Pending") {
+    yield* Effect.sleep("500 millis");
+    current = yield* status;
+  }
+
+  return current;
+}, Effect.timeout("30 seconds"));

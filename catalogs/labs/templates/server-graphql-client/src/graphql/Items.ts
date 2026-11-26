@@ -19,21 +19,18 @@ export const makeItemLookup = Effect.gen(function* () {
 
   return Effect.fn("GraphQLItems.lookup")(function* (id: UpstreamItemId) {
     const { item } = yield* client.FindItem({ id }).pipe(
-      Effect.catchTag("GraphQLClientError", (error) =>
-        Effect.gen(function* () {
-          const { reason } = error;
+      Effect.catchTag("GraphQLClientError", (error) => {
+        const { reason } = error;
 
-          if (
-            reason._tag === "ResponseError" &&
-            reason.errors.length === 1 &&
-            reason.errors[0].extensions?.["code"] === "ITEM_NOT_FOUND"
-          ) {
-            return yield* new UpstreamItemNotFound({ id });
-          }
+        const missingItem =
+          reason._tag === "ResponseError" &&
+          reason.errors.length === 1 &&
+          reason.errors[0].extensions?.["code"] === "ITEM_NOT_FOUND";
 
-          return yield* error;
-        }),
-      ),
+        return Effect.fail(
+          missingItem ? new UpstreamItemNotFound({ id }) : error,
+        );
+      }),
     );
 
     if (item === null) {

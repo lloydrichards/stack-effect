@@ -91,19 +91,19 @@ export class ChatSessions extends Context.Service<
           const ai = yield* Effect.setContext(makeSessionAi, appContext);
           const session: ChatSession = { active: false, ai };
           yield* Ref.update(sessions, HashMap.set(chatId, session));
+
           return { chatId };
+        }).pipe(Effect.withSpan("ChatSessions.start")),
+        ensure: Effect.fn("ChatSessions.ensure")(function* (chatId) {
+          const current = yield* Ref.get(sessions);
+          if (!HashMap.has(current, chatId)) {
+            return yield* new ChatNotFound({ chatId });
+          }
         }),
-        ensure: (chatId: ChatId) =>
-          Ref.get(sessions).pipe(
-            Effect.flatMap((current) =>
-              Option.match(HashMap.get(current, chatId), {
-                onNone: () => Effect.fail(new ChatNotFound({ chatId })),
-                onSome: () => Effect.void,
-              }),
-            ),
+        reserveScoped: (chatId) =>
+          Effect.acquireRelease(reserve(chatId), () => release(chatId)).pipe(
+            Effect.withSpan("ChatSessions.reserveScoped"),
           ),
-        reserveScoped: (chatId: ChatId) =>
-          Effect.acquireRelease(reserve(chatId), () => release(chatId)),
       });
     }),
   ).pipe(Layer.provide(PlatformCryptoLayer));

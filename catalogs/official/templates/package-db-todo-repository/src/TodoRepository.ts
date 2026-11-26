@@ -15,8 +15,9 @@ const TodoRow = Todo.mapFields((fields) => ({
   completed: Schema.BooleanFromBit,
 }));
 
-const persistenceError = () =>
-  new TodoPersistenceError({ message: "Todo persistence operation failed" });
+const PersistenceError = new TodoPersistenceError({
+  message: "Todo persistence operation failed",
+});
 
 const logPersistenceCause = (cause: unknown) =>
   Effect.logError("Todo persistence operation failed", cause);
@@ -24,7 +25,7 @@ const logPersistenceCause = (cause: unknown) =>
 const decodeTodo = (row: unknown) =>
   Schema.decodeUnknownEffect(TodoRow)(row).pipe(
     Effect.tapError(logPersistenceCause),
-    Effect.mapError(persistenceError),
+    Effect.mapError(() => PersistenceError),
   );
 
 const decodeTodos = (rows: ReadonlyArray<unknown>) =>
@@ -55,16 +56,15 @@ export class TodoRepository extends Context.Service<
       const sql = yield* SqlClient;
       const crypto = yield* SecureRandom.SecureRandom;
 
-      const generateId = crypto.uuidV4().pipe(
-        Effect.map((id) => TodoId.make(id)),
-        Effect.mapError(persistenceError),
-      );
-
       const run = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
         effect.pipe(
           Effect.tapError(logPersistenceCause),
-          Effect.mapError(persistenceError),
+          Effect.mapError(() => PersistenceError),
         );
+
+      const generateId = run(crypto.uuidV4()).pipe(
+        Effect.map((id) => TodoId.make(id)),
+      );
 
       const list = Effect.gen(function* () {
         const rows = yield* run(
