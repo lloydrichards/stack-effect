@@ -40,7 +40,10 @@ export const ImportValidationCard = () => {
     [events],
   );
   const rows = useMemo(
-    () => events.flatMap((event) => (event._tag === "row" ? [event] : [])),
+    () =>
+      events.filter(
+        (event) => event._tag === "accepted" || event._tag === "rejected",
+      ),
     [events],
   );
   const total = useMemo(
@@ -48,12 +51,12 @@ export const ImportValidationCard = () => {
     [events],
   );
   const accepted = useMemo(
-    () => rows.filter((row) => row.accepted).length,
+    () => rows.filter((row) => row._tag === "accepted").length,
     [rows],
   );
   const recentRows = useMemo(() => rows.slice(-5).reverse(), [rows]);
   const issues = useMemo(
-    () => rows.flatMap((row) => (row.issue === undefined ? [] : [row.issue])),
+    () => rows.filter((row) => row._tag === "rejected"),
     [rows],
   );
 
@@ -106,16 +109,16 @@ export const ImportValidationCard = () => {
             <ol className="mt-2 space-y-1 font-mono text-xs">
               {recentRows.map((row) => (
                 <li key={row.line}>
-                  Line {row.line}: {row.accepted ? "accepted" : "rejected"}
+                  Line {row.line}: {row._tag}
                 </li>
               ))}
             </ol>
           )}
           {issues.length > 0 && (
             <ul className="mt-2 list-inside list-disc text-destructive">
-              {issues.map((issue) => (
-                <li key={issue.line}>
-                  Line {issue.line}: {issue.message}
+              {issues.map(({ line, issue }) => (
+                <li key={line}>
+                  Line {line}: {issue}
                 </li>
               ))}
             </ul>

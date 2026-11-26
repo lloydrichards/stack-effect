@@ -3,12 +3,12 @@ import { createHmac, randomBytes } from "node:crypto";
 import { ConfigProvider, Console, Effect, Layer } from "effect";
 import { HttpRouter } from "effect/http";
 import { GitHubIssueWebhook } from "../webhooks/github";
-import { GitHubLabels  } from "../webhooks/issue-label";
+import { GitHubLabels } from "../webhooks/issue-label";
 
 const secret = randomBytes(32).toString("hex");
 const app = HttpRouter.toWebHandler(
   GitHubIssueWebhook.pipe(
-    Layer.provide(GitHubLabels.layerDemo),
+    Layer.provide(GitHubLabels.layer),
     Layer.provide(
       ConfigProvider.layer(
         ConfigProvider.fromUnknown({ GITHUB_WEBHOOK_SECRET: secret }),

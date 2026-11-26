@@ -138,11 +138,12 @@ export class ChatManagedRuntime extends Context.Service<
               return Stream.fromIterable(replay).pipe(Stream.concat(live));
             }),
           ),
-        interrupt: (chatId) =>
-          Effect.gen(function* () {
+        interrupt: Effect.fn("ChatManagedRuntime.interrupt")(
+          function* (chatId) {
             yield* sessions.ensure(chatId);
             yield* FiberMap.remove(activeFibers, chatId);
-          }),
+          },
+        ),
       });
     }),
   );

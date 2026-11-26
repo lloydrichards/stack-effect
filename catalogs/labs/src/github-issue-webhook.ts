@@ -85,13 +85,13 @@ export const githubIssueWebhook = defineModules(import.meta.url, [
       serverLayer("AllRouters", "GitHubIssueWebhook", "./webhooks/github"),
       serverLayer(
         "RouterDependencies",
-        "GitHubLabels.layerDemo",
+        "GitHubLabels.layer",
         "./webhooks/issue-label",
         "GitHubLabels",
       ),
     ],
     nextSteps: [
-      "See `{{targetPath}}/GITHUB-WEBHOOK.md` for the signed fixture and the fake label client.",
+      "See `{{targetPath}}/GITHUB-WEBHOOK.md` for the signed fixture and where to add the GitHub API call.",
     ],
   },
 ]);

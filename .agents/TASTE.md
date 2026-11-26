@@ -79,7 +79,9 @@ Write `readonly` where it is part of a contract: service shapes and exported dom
 
 Declare the shape in the `Context.Service` generic. Build the implementation in `static readonly layer = Layer.effect(X, Effect.gen(…))` and return `X.of({ … })`. Add `make` only when several Layers share construction or construction takes arguments. Refer to the shape as `X["Service"]` instead of exporting a separate `XShape` type. This is the form in Effect's [service guide](../node_modules/effect/ai-docs/src/01_effect/03_services/01_service.ts) and the [Todo repository](../catalogs/official/templates/package-db-todo-repository/src/TodoRepository.ts).
 
-`static readonly layer` wires everything the package owns and leaves open only what the app chooses: platform services such as FileSystem, Path, and crypto, and drivers such as SqlClient and HttpClient. Name variants for what differs, such as `layerMemory`, `layerDemo`, or `layerConfig`. Add `layerTest` only for a service that fronts an external system. This deliberately differs from Effect's [composition example](../node_modules/effect/ai-docs/src/01_effect/03_services/20_layer-composition.ts), where `layer` also picks the driver. Do not use `Live` or `Default`. Use PascalCase role names for standalone Layers, such as `TodoHandlers` and `TodoRoutes`. Add `Layer` when the role alone is ambiguous.
+`static readonly layer` wires everything the package owns and leaves open only what the app chooses: platform services such as FileSystem, Path, and crypto, and drivers such as SqlClient and HttpClient. Name variants for what differs, such as `layerMemory` or `layerConfig`. Add `layerTest` only for a service that fronts an external system. This deliberately differs from Effect's [composition example](../node_modules/effect/ai-docs/src/01_effect/03_services/20_layer-composition.ts), where `layer` also picks the driver. Do not use `Live` or `Default`. Use PascalCase role names for standalone Layers, such as `TodoHandlers` and `TodoRoutes`. Add `Layer` when the role alone is ambiguous.
+
+When a generated service is a starting point for application logic, give it the normal service name and `.layer`. Put a `// NOTE:` where the reader should add the code. Name the operation to add and any constraint it must preserve. Reserve variant names for actual alternatives.
 
 Qualify new service IDs by owning package, for example `@repo/db/TodoRepository`. Keep an existing ID stable; change it only when you deliberately rename or move the service, in the same change. Generated code keeps the Todo reference's `"TodoRepository"`.
 
@@ -180,7 +182,7 @@ const CONNECTOR_TEXT = {
 
 Use `Ref` when shared state coordinates fibers. A private `Map` is fine for simple synchronous state. Keep a reservation's acquire and release operations together in the service. Let the caller choose the scope that owns the work. See [ChatSessions](../catalogs/official/templates/server-chat-rpc/src/runtime/ChatSessions.ts).
 
-Use a `Ref` when stream processing and finalization share state. Allocate it inside the effect that runs for each subscription. See [MailboxEvents](../catalogs/official/templates/package-ai-core/src/workflow/MailboxEvents.ts).
+Use `Stream.mapAccumEffect` when one sequential stream owns its state. If finalization can fail, append an explicit end marker so it runs only after normal upstream completion. See [MailboxEvents](../catalogs/official/templates/package-ai-core/src/workflow/MailboxEvents.ts). When separate stream stages share a `Ref`, allocate it inside the effect that runs for each subscription.
 
 Use an explicit owner scope for work that outlives a request. Use `FiberMap` when the owner needs keyed cancellation. The [managed chat runtime](../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts) registers generation fibers in its Layer scope, and ChatSessions rejects overlapping sends.
 

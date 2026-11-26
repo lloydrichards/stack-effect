@@ -153,7 +153,7 @@ export class AiChatService extends Context.Service<
           : streamWithToolkit(prompt, toolkit);
 
       // Existing queue consumers retain ownership through their calling fiber.
-      const chat = Effect.fnUntraced(function* <
+      const chat = Effect.fn("AiChatService.chat")(function* <
         Tools extends Record<string, Tool.Any> = {},
       >(prompt: Prompt.RawInput, toolkit?: Toolkit.WithHandler<Tools>) {
         const queue = yield* Queue.bounded<ChatStreamPart, Cause.Done>(16);

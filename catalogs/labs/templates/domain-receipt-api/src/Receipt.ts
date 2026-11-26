@@ -10,7 +10,10 @@ export type ReceiptExecutionId = typeof ReceiptExecutionId.Type;
 export class ReceiptWriteError extends Schema.TaggedError<
   ReceiptWriteError,
   { readonly brand: unique symbol }
->()("ReceiptWriteError", { id: ReceiptId }) {}
+>()("ReceiptWriteError", {
+  id: ReceiptId,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
 
 export const ReceiptStatus = Schema.TaggedUnion({
   Pending: {},
@@ -18,3 +21,8 @@ export const ReceiptStatus = Schema.TaggedUnion({
   Failed: {},
 });
 export type ReceiptStatus = typeof ReceiptStatus.Type;
+
+export const TerminalReceiptStatus = Schema.Union([
+  ReceiptStatus.cases.Confirmed,
+  ReceiptStatus.cases.Failed,
+]);

@@ -5,13 +5,15 @@ import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/http";
 import { makeItemLookup } from "../graphql/Items";
 import { ServerConfig } from "../ServerConfig";
 
-const UpstreamGraphQLUrl = Config.option(Config.String("UPSTREAM_GRAPHQL_URL"));
+const GraphQLConfig = Config.all({
+  url: Config.option(Config.String("UPSTREAM_GRAPHQL_URL")),
+});
 
 const ItemParams = Schema.Struct({ id: UpstreamItemId });
 
 const UpstreamGraphQLLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const url = yield* UpstreamGraphQLUrl;
+    const { url } = yield* GraphQLConfig;
     const { port } = yield* ServerConfig;
 
     return GraphQLProtocol.layerHttp({

@@ -174,11 +174,19 @@ export const subscriptions = Subscription.make<Model, Message>()((entry) => ({
         isEnabled
           ? Effect.gen(function* () {
               const client = yield* WsClient;
-              return client.subscribe().pipe(
-                Stream.map((event) => ReceivedPresenceEvent({ event })),
-                Stream.orDie,
-              );
-            }).pipe(Stream.unwrap, Stream.provide(WsClient.layer))
+
+              return client
+                .subscribe()
+                .pipe(Stream.map((event) => ReceivedPresenceEvent({ event })));
+            }).pipe(
+              Stream.unwrap,
+              Stream.provide(WsClient.layer),
+              Stream.catch(() =>
+                Stream.make(
+                  FailedPresenceStream({ error: "Presence stream failed" }),
+                ),
+              ),
+            )
           : Stream.empty,
     },
   ),
