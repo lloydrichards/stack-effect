@@ -36,7 +36,6 @@ layer(CLI.layer)("generated Slack integration", (it) => {
           const bot = "packages/chat-bot/src/Bot.ts";
           yield* project.expectTypeCheckPasses();
           yield* project.expectBuildSucceeds();
-          yield* project.expectFileContaining(bot, '"pong"');
           yield* project.expectFileContaining(
             `${server}/slack-app.yml`,
             "app_mention",
@@ -50,6 +49,9 @@ layer(CLI.layer)("generated Slack integration", (it) => {
             `${server}/package.json`,
             "fixture:slack",
           );
+          yield* project.expectFileNotExists(
+            `${server}/src/fixtures/slack-mention.ts`,
+          );
           const scenario = `${server}/slack.scenario.ts`;
           yield* project.writeFile(scenario, fixture);
           yield* project.expectCommandSucceeds(
@@ -62,17 +64,11 @@ layer(CLI.layer)("generated Slack integration", (it) => {
             .readFileString(`${project.dir}/${bot}`)
             .pipe(Effect.orDie);
           yield* project.writeFile(bot, botSource.replace('"pong"', '"hello"'));
-          yield* project.writeFile(
-            scenario,
-            fixture.replace(
-              'const expectedReply = "pong";',
-              'const expectedReply = "hello";',
-            ),
-          );
           yield* project.expectCommandSucceeds(
             "edited bot reply",
             "bun",
             scenario,
+            "hello",
           );
         });
       }).pipe(Effect.provide(NodeServices.layer)),

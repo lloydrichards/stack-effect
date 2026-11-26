@@ -84,5 +84,5 @@ jobs:
         run: |
           nix develop --command bash -lc '
             cd apps/cli
-            bun run test:e2e --maxWorkers=1 e2e/chat-stream.test.ts e2e/mcp-client.test.ts
+            bun run test:e2e --maxWorkers=1 e2e/chat-stream.test.ts e2e/mcp-client.test.ts e2e/slack-bot.test.ts
           '
