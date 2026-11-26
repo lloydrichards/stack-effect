@@ -41,6 +41,7 @@ These rules apply to generated catalog code and to repository packages such as `
 ## Keep the operation readable
 
 - Let the main operation read in execution order. Use blank lines between distinct stages such as dependency lookup, decoding, the operation, and handling its result. Keep each guard next to the value it checks.
+- Leave a blank line after the import block and between top-level declarations that serve different purposes. Add a blank line before a return when another statement precedes it in the same block.
 - Build a collection as one expression: `map`, `filter`, `flatMap`, `Map.groupBy` or `Arr.groupBy`, `Record.fromEntries`, or a spread of conditional parts. Split cases with the union's guard, as in `attempts.filter(isCreated)`, not a `switch` that pushes into buckets. Seed an empty array, `Map`, or `Set` and fill it in a loop only when a step reads what earlier steps produced, such as a worklist, a first-wins dedupe, or ordered operations of different kinds. Use `reduce` only to fold to a single value, never with a collection seed.
 - Use native array methods by default. Use Effect's `Array` module for `Option`-returning lookups, structural-equality helpers such as `dedupe` and `dedupeWith`, and data-last steps inside a `pipe`. `Arr.partition` takes a `Result`-returning function in v4, and `Arr.partitionMap` no longer exists.
 - Iterate effects with `Effect.forEach(items, step)`, adding `{ discard: true }` when the results are not needed. `step` is an existing operation or a named `Effect.fnUntraced`. Keep `for…of` with `yield*` for early exit, state carried between items, or worklists. Flatten nested iteration into the pairs you visit with `flatMap`, or move the inner level into the named step. Keep at most three levels of nested blocks.
@@ -178,6 +179,8 @@ const CONNECTOR_TEXT = {
 ## Own shared state and background work
 
 Use `Ref` when shared state coordinates fibers. A private `Map` is fine for simple synchronous state. Keep a reservation's acquire and release operations together in the service. Let the caller choose the scope that owns the work. See [ChatSessions](../catalogs/official/templates/server-chat-rpc/src/runtime/ChatSessions.ts).
+
+Use a `Ref` when stream processing and finalization share state. Allocate it inside the effect that runs for each subscription. See [MailboxEvents](../catalogs/official/templates/package-ai-core/src/workflow/MailboxEvents.ts).
 
 Use an explicit owner scope for work that outlives a request. Use `FiberMap` when the owner needs keyed cancellation. The [managed chat runtime](../catalogs/labs/templates/server-chat-runtime-managed/src/runtime/ChatManagedRuntime.ts) registers generation fibers in its Layer scope, and ChatSessions rejects overlapping sends.
 
