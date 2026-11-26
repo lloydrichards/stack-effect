@@ -26,13 +26,9 @@ const assessPlanningPath = Effect.fnUntraced(function* (
   intent: PlanningIntentPath,
 ) {
   const snapshotPath = snapshotPaths.get(intent.path);
-  const buildConfigPath = PlanAssessment.compiledExportConfigPath(intent);
   const compiled = yield* PlanAssessment.useCompiledPackageExports(
     intent,
-    snapshotPath,
-    buildConfigPath === undefined
-      ? undefined
-      : snapshotPaths.get(buildConfigPath),
+    snapshotPaths,
   );
   const planningPath = PlanAssessment.preserveDenoSqlitePermissions(
     compiled,
@@ -116,19 +112,57 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
         normalizedContributions,
       );
 
-      const captured = yield* repository.capture(
-        Arr.dedupe(
-          [
-            repositoryRootPath,
-            ...workspaceManifestPaths,
-            ...planningPaths.flatMap((planningPath) => [
-              planningPath.path,
-              ...PlanAssessment.collectAncestorPaths(planningPath.path),
-              PlanAssessment.compiledExportConfigPath(planningPath),
-            ]),
-          ].filter((path) => path !== undefined),
+      const paths = Arr.dedupe(
+        [
+          repositoryRootPath,
+          ...workspaceManifestPaths,
+          ...planningPaths.flatMap((planningPath) => [
+            planningPath.path,
+            ...PlanAssessment.collectAncestorPaths(planningPath.path),
+            PlanAssessment.compiledExportConfigPath(planningPath),
+          ]),
+        ].filter((path) => path !== undefined),
+      );
+      const initial = yield* repository.capture(paths);
+      const initialPaths = new Map(
+        initial.snapshot.paths.map((entry) => [entry.path, entry] as const),
+      );
+      const ignorePaths = Arr.dedupe(
+        planningPaths.flatMap((intent) =>
+          PlanAssessment.compiledExportIgnorePaths(intent, initialPaths),
         ),
       );
+      const plannedIgnore = planningPaths.find((intent) =>
+        ignorePaths.includes(intent.path),
+      );
+      if (plannedIgnore !== undefined) {
+        return yield* new PlanError({
+          message: `Cannot infer packed exports while changing ${plannedIgnore.path}. Apply the pack ignore rules first, then add the export manually if needed.`,
+        });
+      }
+      const captured =
+        ignorePaths.length === 0
+          ? initial
+          : yield* repository.capture(
+              Arr.dedupe([
+                ...paths,
+                ...ignorePaths.flatMap((path) => [
+                  ...PlanAssessment.collectAncestorPaths(path),
+                  path,
+                ]),
+              ]),
+            );
+
+      const layoutChanges = RepositoryState.compare(
+        initial.baseline,
+        captured.baseline,
+      );
+      if (layoutChanges.length > 0) {
+        return yield* new PlanError({
+          message:
+            "Repository changed while checking packed exports. Replan and try again.",
+        });
+      }
       // Keep the owners validated above so drift since validation fails the recheck below.
       const baseline = { ...captured.baseline, packageOwners: owners };
       const plan = yield* projectPlan({

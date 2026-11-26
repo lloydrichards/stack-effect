@@ -83,6 +83,15 @@ assert.equal(typeof planTasks, "function");
         consumer: "node",
       },
       {
+        name: "planner-nested-ignore",
+        files: '["*", "!scratchpad.ts"]',
+        consumer: "node",
+        rootExport: "./lib/dist/src/main.js",
+        outDir: "lib/dist",
+        ignore: "lib/.npmignore",
+        refusal: "a nested pack ignore can omit the compiled export",
+      },
+      {
         name: "planner-no-maps",
         files: '["dist", "src", "!dist/**/*.map"]',
         consumer: "node",
@@ -199,6 +208,14 @@ assert.equal(typeof planTasks, "function");
               `${libraryPath}/src/main.ts`,
             );
 
+            if ("ignore" in layout) {
+              yield* fs.makeDirectory(`${libraryPath}/lib`);
+              yield* fs.writeFileString(
+                `${libraryPath}/${layout.ignore}`,
+                "*.js\n!main.js\n",
+              );
+            }
+
             yield* cli.run(
               "add",
               ...labsCatalogArgs,
@@ -212,6 +229,34 @@ assert.equal(typeof planTasks, "function");
               yield* cli.expectExitCode(1);
               const unchanged = yield* fs.readFileString(manifestPath);
               assert.notInclude(unchanged, '"./TaskPlan"');
+              if ("ignore" in layout) {
+                yield* cli.withinProject(
+                  `${name}/packages/library`,
+                  function* (library) {
+                    yield* library.writeFile(
+                      "src/TaskPlan.ts",
+                      "export const sample = 1;\n",
+                    );
+                    yield* library.expectBuildSucceeds();
+                    yield* library.expectFileExists("lib/dist/src/TaskPlan.js");
+                    const packed = yield* library.exec(
+                      "npm",
+                      "pack",
+                      "--dry-run",
+                      "--json",
+                    );
+                    assert.equal(packed.exitCode, 0, packed.stderr);
+                    assert.include(
+                      packed.stdout,
+                      '"path": "lib/dist/src/main.js"',
+                    );
+                    assert.notInclude(
+                      packed.stdout,
+                      '"path": "lib/dist/src/TaskPlan.js"',
+                    );
+                  },
+                );
+              }
               return;
             }
             yield* cli.expectExitCode(0);
