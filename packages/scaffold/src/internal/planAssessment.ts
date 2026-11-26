@@ -273,35 +273,94 @@ const compiledSourceDirectory = (
   return rootDir === "." ? `${outDir}/src` : outDir;
 };
 
-const sourceExport = /^\.\/src\/([\w./-]+)\.ts$/;
+const sourceExport = /^\.\/src\/((?:[\w-][\w.-]*\/)*[\w-][\w.-]*)\.ts$/u;
 
 /** @internal */
 export const compiledExportConfigPath = (intent: PlanningIntentPath) =>
   intent._tag === "packageJson" &&
+  (intent.path === "package.json" || intent.path.endsWith("/package.json")) &&
   intent.exports.some(({ value }) => sourceExport.test(value))
     ? RepositoryPath.make(
         intent.path.replace(/package\.json$/u, "tsconfig.build.json"),
       )
     : undefined;
 
-/** @internal */
-export const useCompiledPackageExports = Effect.fnUntraced(function* (
+const packageExportCandidates = (
   intent: PlanningIntentPath,
-  snapshotPath: RepoSnapshotPath | undefined,
-  buildConfig: RepoSnapshotPath | undefined,
-) {
+  snapshotPaths: ReadonlyMap<string, RepoSnapshotPath>,
+) => {
+  const manifestFile = snapshotPaths.get(intent.path);
+  const configPath = compiledExportConfigPath(intent);
   if (
     intent._tag !== "packageJson" ||
-    snapshotPath?._tag !== "file" ||
-    compiledExportConfigPath(intent) === undefined
+    manifestFile?._tag !== "file" ||
+    configPath === undefined
   )
-    return intent;
+    return undefined;
 
-  const manifest = parseJsonRecord(snapshotPath.contents);
-  const files = manifest?.["files"];
+  const manifest = parseJsonRecord(manifestFile.contents);
   const scripts = manifest?.["scripts"];
   if (!isFlatStringRecord(scripts) || scripts["build"] !== publishableBuild)
-    return intent;
+    return undefined;
+
+  const compiledDirectory = compiledSourceDirectory(
+    readBuildConfig(snapshotPaths.get(configPath)),
+  );
+  const candidates = intent.exports.map((entry) => {
+    const source = sourceExport.exec(entry.value)?.[1];
+    const matchesSource =
+      source !== undefined &&
+      !source.endsWith(".test") &&
+      !source.endsWith(".d");
+    const compiled =
+      matchesSource && compiledDirectory !== undefined
+        ? `./${compiledDirectory}/${source}.js`
+        : undefined;
+    return { entry, matchesSource, compiled };
+  });
+
+  return { intent, files: manifest?.["files"], candidates };
+};
+
+const nestedPackIgnorePaths = (
+  manifestPath: RepositoryPath,
+  exportPath: string,
+) => {
+  const packagePath = manifestPath.slice(0, -"package.json".length);
+  const directories = collectAncestorPaths(
+    RepositoryPath.make(exportPath.slice(2)),
+  );
+  return directories.flatMap((directory) => [
+    RepositoryPath.make(`${packagePath}${directory}/.npmignore`),
+    RepositoryPath.make(`${packagePath}${directory}/.gitignore`),
+  ]);
+};
+
+/** @internal */
+export const compiledExportIgnorePaths = (
+  intent: PlanningIntentPath,
+  snapshotPaths: ReadonlyMap<string, RepoSnapshotPath>,
+): ReadonlyArray<RepositoryPath> =>
+  packageExportCandidates(intent, snapshotPaths)?.candidates.flatMap(
+    ({ entry, matchesSource, compiled }) =>
+      matchesSource
+        ? [
+            ...nestedPackIgnorePaths(intent.path, entry.value),
+            ...(compiled === undefined
+              ? []
+              : nestedPackIgnorePaths(intent.path, compiled)),
+          ]
+        : [],
+  ) ?? [];
+
+/** @internal */
+export const useCompiledPackageExports = Effect.fnUntraced(function* (
+  planningPath: PlanningIntentPath,
+  snapshotPaths: ReadonlyMap<string, RepoSnapshotPath>,
+) {
+  const layout = packageExportCandidates(planningPath, snapshotPaths);
+  if (layout === undefined) return planningPath;
+  const { intent, files, candidates } = layout;
 
   if (!isPackageFiles(files)) {
     return yield* new PlanError({
@@ -309,37 +368,37 @@ export const useCompiledPackageExports = Effect.fnUntraced(function* (
     });
   }
 
-  const compiledDirectory = compiledSourceDirectory(
-    readBuildConfig(buildConfig),
-  );
-  const exports = yield* Effect.forEach(intent.exports, (entry) => {
-    const source = sourceExport.exec(entry.value)?.[1];
-    if (
-      source === undefined ||
-      source.endsWith(".test") ||
-      source.endsWith(".d")
+  const packs = (path: string) => {
+    const packed = isPacked(files, path);
+    if (packed !== true) return packed;
+    // A nested ignore can override files. Leave that export to the package author.
+    return nestedPackIgnorePaths(intent.path, path).every(
+      (ignore) => snapshotPaths.get(ignore)?._tag === "missing",
     )
-      return Effect.succeed(entry);
+      ? true
+      : undefined;
+  };
 
-    const compiled =
-      compiledDirectory === undefined
-        ? undefined
-        : `./${compiledDirectory}/${source}.js`;
-    const packsCompiled =
-      compiled === undefined ? false : isPacked(files, compiled);
-    if (compiled !== undefined && packsCompiled)
-      return Effect.succeed({ ...entry, value: compiled });
-    if (packsCompiled === false && isPacked(files, entry.value))
-      return Effect.succeed(entry);
+  const exports = yield* Effect.forEach(
+    candidates,
+    ({ entry, matchesSource, compiled }) => {
+      if (!matchesSource) return Effect.succeed(entry);
 
-    const packedPaths =
-      compiled === undefined ? entry.value : `${compiled} or ${entry.value}`;
-    return Effect.fail(
-      new PlanError({
-        message: `Cannot add export ${entry.name} to ${intent.path}. Check tsconfig.build.json and make package.json files unambiguously include ${packedPaths}.`,
-      }),
-    );
-  });
+      const packsCompiled = compiled === undefined ? false : packs(compiled);
+      if (compiled !== undefined && packsCompiled)
+        return Effect.succeed({ ...entry, value: compiled });
+      if (packsCompiled === false && packs(entry.value))
+        return Effect.succeed(entry);
+
+      const packedPaths =
+        compiled === undefined ? entry.value : `${compiled} or ${entry.value}`;
+      return Effect.fail(
+        new PlanError({
+          message: `Cannot add export ${entry.name} to ${intent.path}. Check tsconfig.build.json, package.json files, and nested pack ignore files for ${packedPaths}.`,
+        }),
+      );
+    },
+  );
 
   return { ...intent, exports };
 });
