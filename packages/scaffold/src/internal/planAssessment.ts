@@ -547,7 +547,7 @@ export const assess = Effect.fnUntraced(function* ({
       return assessment.classification === "modify"
         ? createPathAssessment({
             classification: "conflict",
-            conflicts: [planConflict.tsconfig(intent.path)],
+            conflicts: [planConflict.completeFile(intent.path)],
           })
         : assessment;
     },
@@ -714,9 +714,14 @@ const collectMissingJsxSlotConflicts = (
   );
 };
 
+// Package declarations can be URLs with credentials. Only expose version-like
+// declarations from existing manifests in Plan diagnostics.
+const versionDeclaration =
+  /^(?:[vV]?[0-9xX*]|[~^<>=])[a-zA-Z0-9.*~^<>=+| \t-]*$/u;
+
 const planConflict = {
-  tsconfig: (path: RepositoryPath) =>
-    PlanConflict.cases.tsconfig.make({ path }),
+  completeFile: (path: RepositoryPath) =>
+    PlanConflict.cases.completeFile.make({ path }),
   exports: (path: RepositoryPath, name: string) =>
     PlanConflict.cases.exports.make({ path, name }),
   scripts: (path: RepositoryPath, name: string) =>
@@ -724,11 +729,17 @@ const planConflict = {
   dependencies: (
     path: RepositoryPath,
     dep: PlanningIntentPackageJsonDependency,
+    currentVersion?: string,
   ) =>
     PlanConflict.cases.dependencies.make({
       path,
       section: dep.section,
       name: dep.name,
+      requiredVersion: dep.value,
+      ...(currentVersion !== undefined &&
+      versionDeclaration.test(currentVersion)
+        ? { currentVersion }
+        : {}),
     }),
   compositionTargetNotFound: (
     path: RepositoryPath,
@@ -785,8 +796,12 @@ const assessPackageJsonEntries = ({
           assessFlatStringRecordEntries(
             packageJson[section],
             sectionDependencies,
-            (plannedDependency) =>
-              planConflict.dependencies(path, plannedDependency),
+            (plannedDependency, currentVersion) =>
+              planConflict.dependencies(
+                path,
+                plannedDependency,
+                currentVersion,
+              ),
           ),
         ];
   });
@@ -814,11 +829,11 @@ const assessFlatStringRecordEntries = <
 >(
   existingValue: unknown,
   requiredEntries: ReadonlyArray<Entry>,
-  toConflict: (entry: Entry) => PlanConflict,
+  toConflict: (entry: Entry, existingEntry?: string) => PlanConflict,
 ): FlatStringRecordAssessment => {
   if (existingValue !== undefined && !isFlatStringRecord(existingValue)) {
     return {
-      conflicts: requiredEntries.map(toConflict),
+      conflicts: requiredEntries.map((entry) => toConflict(entry)),
       hasAdditions: false,
     };
   }
@@ -835,7 +850,7 @@ const assessFlatStringRecordEntries = <
 
     return existingEntry === undefined || existingEntry === entry.value
       ? []
-      : [toConflict(entry)];
+      : [toConflict(entry, existingEntry)];
   });
 
   return {

@@ -216,7 +216,7 @@ describe("ScaffoldPipeline", () => {
           assert.containSubset(squashFailure(exit), {
             _tag: "DependencyConflict",
             message:
-              "Cannot apply modules with required dependency conflicts at package.json: foldkit. Resolve the dependency versions before applying these modules.",
+              'Cannot apply modules with required dependency conflicts at package.json: foldkit (declared "0.1.0", requires "0.2.0"). Resolve the dependency versions before applying these modules.',
           });
         }).pipe(
           Effect.provide(
@@ -230,6 +230,8 @@ describe("ScaffoldPipeline", () => {
                       path: RepositoryPath.make("package.json"),
                       section: "dependencies",
                       name: "foldkit",
+                      currentVersion: "0.1.0",
+                      requiredVersion: "0.2.0",
                     },
                   ],
                 }),

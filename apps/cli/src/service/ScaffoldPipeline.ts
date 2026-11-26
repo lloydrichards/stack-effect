@@ -112,7 +112,7 @@ const decideConflict = Effect.fnUntraced(function* (
   if (dependencyConflicts.length > 0) {
     return yield* new DependencyConflict({
       message: `Cannot apply modules with required dependency conflicts at ${path}: ${dependencyConflicts
-        .map((conflict) => conflict.name)
+        .map(ScaffoldTree.describeDependencyConflict)
         .join(
           ", ",
         )}. Resolve the dependency versions before applying these modules.`,

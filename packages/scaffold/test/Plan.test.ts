@@ -471,7 +471,9 @@ describe("Planner", () => {
             outcomeAt(protectedPlan, artifact).classification,
             "conflict",
           );
-          assert.lengthOf(conflictsAt(protectedPlan, artifact), 1);
+          assert.deepEqual(conflictsAt(protectedPlan, artifact), [
+            { _tag: "completeFile", path: artifact },
+          ]);
           assert.strictEqual(yield* readFile(artifact), existing);
         }).pipe(
           Effect.provide(
@@ -540,8 +542,18 @@ describe("Planner", () => {
         nested: true,
         conflicts: [
           { _tag: "exports", name: "./api" },
-          { _tag: "dependencies", section: "dependencies", name: "effect" },
-          { _tag: "dependencies", section: "devDependencies", name: "vitest" },
+          {
+            _tag: "dependencies",
+            section: "dependencies",
+            name: "effect",
+            requiredVersion: "^4.0.0",
+          },
+          {
+            _tag: "dependencies",
+            section: "devDependencies",
+            name: "vitest",
+            requiredVersion: "^5.0.0",
+          },
           { _tag: "scripts", name: "test" },
         ],
       },
@@ -549,7 +561,26 @@ describe("Planner", () => {
         name: "one dependency differs",
         existing: '{"name":"@repo/app","devDependencies":{"vitest":"^4.0.0"}}',
         conflicts: [
-          { _tag: "dependencies", section: "devDependencies", name: "vitest" },
+          {
+            _tag: "dependencies",
+            section: "devDependencies",
+            name: "vitest",
+            currentVersion: "^4.0.0",
+            requiredVersion: "^5.0.0",
+          },
+        ],
+      },
+      {
+        name: "a dependency is declared as a URL",
+        existing:
+          '{"name":"@repo/app","dependencies":{"effect":"https://example.invalid/effect.tgz"}}',
+        conflicts: [
+          {
+            _tag: "dependencies",
+            section: "dependencies",
+            name: "effect",
+            requiredVersion: "^4.0.0",
+          },
         ],
       },
       {
@@ -682,7 +713,7 @@ describe("Planner", () => {
 
           assert.deepStrictEqual(planned.conflicts, [
             {
-              _tag: "tsconfig",
+              _tag: "completeFile",
               path: RepositoryPath.make("packages/app/tsconfig.json"),
             },
           ]);

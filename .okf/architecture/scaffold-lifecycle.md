@@ -36,7 +36,7 @@ sources:
     resource: ../../packages/scaffold/src/Plan.ts
   - id: readme-contract
     resource: ../../packages/scaffold/test/Apply.test.ts
-generated: { by: codex, at: "2026-11-23T00:00:00+00:00" }
+generated: { by: codex, at: "2026-11-26T00:00:00+00:00" }
 ---
 
 # Scaffold lifecycle
@@ -61,7 +61,7 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 `BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogReader. Blueprint contains identities and dependency edges, not file contributions.
 
-`Planner` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision.
+`Planner` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision. Guarded file replacements report a complete-file conflict. Dependency conflicts record the required declaration and the existing declaration when it is a version or range. Existing URL and file declarations stay out of the diagnostic.
 
 The CLI rejects required dependency conflicts before Apply in interactive and automatic modes. Other conflicted paths retain explicit override or skip decisions. This policy stays in `ScaffoldPipeline`; Plan remains policy-free.
 
