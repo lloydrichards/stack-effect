@@ -1,7 +1,3 @@
-// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
-// Catalog contributors: apps/server-api#server-graphql-client:file
-
-// @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
 import {
   UpstreamItem,
   UpstreamItemId,

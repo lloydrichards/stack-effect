@@ -1,25 +1,18 @@
-// Generated from stack-effect catalog. Edit this workspace, then use git diff to port changes back.
-// Catalog contributors: apps/server-api#server-graphql-client:file
-
-// @effect-diagnostics unstableApiUsage:off The route uses Effect HTTP response constructors.
-// @effect-diagnostics experimentalApiUsage:off This Labs example demonstrates Effect's experimental GraphQL client.
 import { UpstreamItemId } from "@repo/domain/UpstreamItem";
 import { Config, Effect, Layer, Option, Schema } from "effect";
 import { GraphQLProtocol } from "effect/graphql";
 import { FetchHttpClient, HttpRouter, HttpServerResponse } from "effect/http";
 import { makeItemLookup } from "../graphql/Items";
-import { ServerPort } from "../ServerConfig";
+import { ServerConfig } from "../ServerConfig";
 
-const UpstreamGraphQLConfig = Config.all({
-  url: Config.option(Config.String("UPSTREAM_GRAPHQL_URL")),
-  port: ServerPort,
-});
+const UpstreamGraphQLUrl = Config.option(Config.String("UPSTREAM_GRAPHQL_URL"));
 
 const ItemParams = Schema.Struct({ id: UpstreamItemId });
 
 const UpstreamGraphQLLayer = Layer.unwrap(
   Effect.gen(function* () {
-    const { url, port } = yield* UpstreamGraphQLConfig;
+    const url = yield* UpstreamGraphQLUrl;
+    const { port } = yield* ServerConfig;
 
     return GraphQLProtocol.layerHttp({
       url: Option.getOrElse(url, () => `http://127.0.0.1:${port}/graphql`),
@@ -46,6 +39,7 @@ export const UpstreamItemsRoutes = HttpRouter.use((router) =>
         }
 
         const item = yield* lookup(params.value.id);
+
         return yield* HttpServerResponse.json(item);
       }).pipe(
         Effect.catchTags({

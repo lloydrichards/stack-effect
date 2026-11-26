@@ -137,7 +137,30 @@
           {{/if}}"unsafeEffectTypeAssertion": "warning"
         },
         "overrides": [
+          {{#if typescript=7}}{
+            "include": ["../../apps/*/src/api/UpstreamItems.ts"],
+            "options": {
+              "allowedUnstableApis": [
+                "effect/http/FetchHttpClient",
+                "effect/http/HttpRouter",
+                "effect/http/HttpServerResponse#json"
+              ],
+              "allowedExperimentalApis": [
+                "effect/graphql/GraphQLProtocol#layerHttp"
+              ]
+            }
+          },
           {
+            "include": ["../../apps/*/src/graphql/Items.ts"],
+            "options": {
+              "allowedExperimentalApis": [
+                "effect/graphql/GraphQL#query",
+                "effect/graphql/GraphQLClient#make",
+                "effect/graphql/GraphQLGroup#make"
+              ]
+            }
+          },
+          {{/if}}{
             "include": [
               "**/*.test.ts",
               "**/*.test.tsx"
