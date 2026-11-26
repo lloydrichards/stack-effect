@@ -11,7 +11,7 @@ import {
   type PlanOutcome,
   byPath,
 } from "@repo/domain/Plan";
-import { Array as Arr, Match, Order, String } from "effect";
+import { Array as Arr, Match, Order, Schema, String } from "effect";
 import { Ansi, Box } from "effect-boxes";
 
 const planLegendBox = [
@@ -312,12 +312,28 @@ const formatPlanClassificationBadge = (
   return Box.text(text).pipe(Box.annotate(style));
 };
 
+const quoteVersion = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+
+/** Describe the existing and required dependency declarations when available. */
+export const describeDependencyConflict = ({
+  name,
+  currentVersion,
+  requiredVersion,
+}: Extract<PlanConflict, { _tag: "dependencies" }>) => {
+  if (requiredVersion === undefined) return name;
+  const requirement = `requires ${quoteVersion(requiredVersion)}`;
+  return currentVersion === undefined
+    ? `${name} (${requirement})`
+    : `${name} (declared ${quoteVersion(currentVersion)}, ${requirement})`;
+};
+
 const formatConflictLine = (conflict: PlanConflict) =>
   Box.text(
     Match.value(conflict).pipe(
       Match.tags({
-        completeFile: () => "merge: complete file",
-        dependencies: (c) => `merge: ${c.section}.${c.name}`,
+        completeFile: () => "override replaces the entire file",
+        dependencies: (c) =>
+          `dependency conflict: ${c.section}.${describeDependencyConflict(c)}`,
         exports: (c) => `merge: exports ${c.name}`,
         scripts: (c) => `merge: scripts ${c.name}`,
         tsconfig: () => "merge: tsconfig",

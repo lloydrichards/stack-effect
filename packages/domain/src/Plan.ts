@@ -239,6 +239,8 @@ export const PlanConflict = Schema.TaggedUnion({
     path: RepositoryPath,
     section: Schema.String,
     name: Schema.String,
+    currentVersion: Schema.optionalKey(Schema.String),
+    requiredVersion: Schema.optionalKey(Schema.String),
   },
   scripts: {
     path: RepositoryPath,

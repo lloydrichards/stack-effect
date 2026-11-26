@@ -207,7 +207,15 @@ describe("ScaffoldTree", () => {
           name: "./Health",
         },
         {
-          _tag: "tsconfig",
+          _tag: "dependencies",
+          path: RepositoryPath.make("packages/domain/package.json"),
+          name: "effect",
+          section: "dependencies",
+          currentVersion: "4.1.4",
+          requiredVersion: "4.1.6",
+        },
+        {
+          _tag: "completeFile",
           path: RepositoryPath.make("packages/domain/tsconfig.json"),
         },
       ],
@@ -232,10 +240,11 @@ describe("ScaffoldTree", () => {
               |│       ├── src
               |│       │   ╰── [+] Api.ts
               |│       ├── [!] package.json
+              |│       │   ├── dependency conflict: dependencies.effect (declared "4.1.4", requires "4.1.6")
               |│       │   ├── merge: exports ./Api
               |│       │   ╰── merge: exports ./Health
               |│       ╰── [!] tsconfig.json
-              |│           ╰── merge: tsconfig
+              |│           ╰── override replaces the entire file
               |├── [=] package.json
               |╰── [~] README.md`),
     );

@@ -521,7 +521,9 @@ describe("Official catalog scaffolding", () => {
                 conflict._tag === "dependencies" &&
                 conflict.path === manifestPath &&
                 conflict.section === "dependencies" &&
-                conflict.name === "effect",
+                conflict.name === "effect" &&
+                conflict.currentVersion === "4.1.4" &&
+                conflict.requiredVersion === EFFECT_VERSION,
             ),
           );
 
