@@ -40,6 +40,14 @@ const slackFetch = async (
   return Response.json({ ok: false }, { status: 404 });
 };
 
+const slackConfig = {
+  SLACK_BOT_ENABLED: "true",
+  SLACK_APP_ID: appId,
+  SLACK_TEAM_ID: teamId,
+  SLACK_BOT_TOKEN: "xoxb-fixture",
+  SLACK_SIGNING_SECRET: signingSecret,
+};
+
 const makeApp = (config: Record<string, string>) =>
   HttpRouter.toWebHandler(
     SlackBotRoutes.pipe(
@@ -56,12 +64,11 @@ const makeApp = (config: Record<string, string>) =>
   );
 
 const disabled = makeApp({});
-const enabled = makeApp({
-  SLACK_BOT_ENABLED: "true",
-  SLACK_APP_ID: appId,
-  SLACK_TEAM_ID: teamId,
-  SLACK_BOT_TOKEN: "xoxb-fixture",
-  SLACK_SIGNING_SECRET: signingSecret,
+const enabled = makeApp(slackConfig);
+
+const challenge = JSON.stringify({
+  type: "url_verification",
+  challenge: "setup-challenge",
 });
 
 const body = JSON.stringify({
@@ -78,14 +85,14 @@ const body = JSON.stringify({
   },
 });
 
-const deliver = Effect.fnUntraced(function* (
-  app: ReturnType<typeof makeApp>,
+const signedRequest = Effect.fnUntraced(function* (
+  url: string,
   requestBody: string,
   signedBody = requestBody,
 ) {
   const now = yield* Clock.currentTimeMillis;
   const seconds = String(Math.floor(now / 1000));
-  const response = yield* Effect.promise(async () => {
+  return yield* Effect.promise(async () => {
     const encoder = new TextEncoder();
     const key = await crypto.subtle.importKey(
       "raw",
@@ -103,32 +110,89 @@ const deliver = Effect.fnUntraced(function* (
       byte.toString(16).padStart(2, "0"),
     ).join("");
 
-    return app.handler(
-      new Request("http://localhost/webhooks/slack", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-slack-request-timestamp": seconds,
-          "x-slack-signature": `v0=${signature}`,
-        },
-        body: requestBody,
-      }),
-    );
+    return new Request(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-slack-request-timestamp": seconds,
+        "x-slack-signature": `v0=${signature}`,
+      },
+      body: requestBody,
+    });
   });
-  return response;
 });
+
+const deliver = Effect.fnUntraced(function* (
+  app: ReturnType<typeof makeApp>,
+  requestBody: string,
+  signedBody = requestBody,
+) {
+  const request = yield* signedRequest(
+    "http://localhost/webhooks/slack",
+    requestBody,
+    signedBody,
+  );
+  return yield* Effect.promise(() => app.handler(request));
+});
+
+const verifyWebhookMount = async () => {
+  const portProbe = Bun.serve({
+    hostname: "127.0.0.1",
+    port: 0,
+    fetch: () => new Response(),
+  });
+  const port = portProbe.port;
+  portProbe.stop(true);
+  const origin = `http://127.0.0.1:${port}`;
+  const request = await Effect.runPromise(
+    signedRequest(`${origin}/webhooks/slack`, challenge),
+  );
+  const child = Bun.spawn(["bun", "src/index.ts"], {
+    cwd: import.meta.dir,
+    env: {
+      ...process.env,
+      ...slackConfig,
+      HOST: "127.0.0.1",
+      PORT: String(port),
+    },
+    stdout: "inherit",
+    stderr: "inherit",
+  });
+
+  try {
+    for (let attempt = 0; attempt < 100; attempt++) {
+      assert.equal(
+        child.exitCode,
+        null,
+        "generated server exited before serving requests",
+      );
+      const response = await fetch(request.clone(), {
+        signal: AbortSignal.timeout(1_000),
+      }).catch(() => undefined);
+      if (response) {
+        assert.equal(
+          response.status,
+          200,
+          "generated server rejected the signed Slack challenge",
+        );
+        assert.equal(await response.text(), "setup-challenge");
+        return;
+      }
+      await Bun.sleep(50);
+    }
+    assert.fail("generated server did not start");
+  } finally {
+    child.kill();
+    await child.exited;
+  }
+};
 
 await Effect.runPromise(
   Effect.gen(function* () {
+    if (process.argv[2] === undefined)
+      yield* Effect.promise(verifyWebhookMount);
     const unavailable = yield* deliver(disabled, body);
     assert.equal(unavailable.status, 404);
-
-    const verification = yield* deliver(
-      enabled,
-      JSON.stringify({ type: "url_verification", challenge: "setup-challenge" }),
-    );
-    assert.equal(verification.status, 200);
-    assert.equal(yield* Effect.promise(() => verification.text()), "setup-challenge");
 
     const rejected = yield* deliver(enabled, body + " ", body);
     assert.equal(rejected.status, 401);
