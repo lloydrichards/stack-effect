@@ -25,4 +25,4 @@ By default the client uses `http://127.0.0.1:<PORT>/graphql`. The port defaults 
 
 If the upstream uses `displayName` instead of `name`, change the query selection and give the operation a result schema with `displayName`. Map it to the domain's `name` in the lookup to keep the REST response stable.
 
-This example uses the experimental Effect GraphQL client at Effect 4.1.4. When adding it to an older project, upgrade Effect and its platform packages to the catalog pin first.
+This example uses the experimental Effect GraphQL client. When adding it to an older project, upgrade Effect and its platform packages to the catalog pin first.

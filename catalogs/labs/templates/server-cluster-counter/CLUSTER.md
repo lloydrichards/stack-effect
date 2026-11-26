@@ -20,7 +20,7 @@ The domain package defines the counter data in `Counter.ts`, the HTTP contract i
 
 If Stack Effect reports a manifest conflict, skip the override to preserve custom entries. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
 
-1. Add `"{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}": "4.1.4"` to the existing server dependencies.
+1. Add `{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}` to the existing server dependencies at the Effect version required by the catalog.
 {{#if runtime=deno}}2. Add `--allow-ffi` before the entry point in `dev`, `dev:watch`, and any `deno compile` command that lacks it.
 {{/if}}3. Resolve any other conflicts reported by `stack-effect add`, then run the workspace's package install command.
 

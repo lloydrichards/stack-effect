@@ -11,9 +11,9 @@
     "clean": "git clean -xdf .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.1.4",
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}": "4.1.6",
     "@stack-effect/author": "~0.6.0",
-    "effect": "4.1.4"
+    "effect": "4.1.6"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",

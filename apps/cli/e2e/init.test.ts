@@ -545,7 +545,7 @@ describe("init", () => {
             );
             yield* project.expectFileContaining(
               `${web}/package.json`,
-              '"@effect/platform-browser": "4.1.4"',
+              '"@effect/platform-browser": "4.1.6"',
             );
             yield* project.expectFileNotExists("apps/server-api/package.json");
             yield* project.expectFileNotExists("packages/domain/package.json");

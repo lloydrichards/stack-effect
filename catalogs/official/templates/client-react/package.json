@@ -6,11 +6,11 @@
   "scripts": {},
   "dependencies": {
     "@base-ui/react": "^1.9.0",
-    "@effect/atom-react": "4.1.4",
+    "@effect/atom-react": "4.1.6",
     "@fontsource-variable/jetbrains-mono": "^5.2.5",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "effect": "4.1.4",
+    "effect": "4.1.6",
     "lucide-react": "^1.72.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

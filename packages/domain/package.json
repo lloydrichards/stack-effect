@@ -20,10 +20,10 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "effect": "4.1.4"
+    "effect": "4.1.6"
   },
   "devDependencies": {
-    "@effect/vitest": "4.1.4",
+    "@effect/vitest": "4.1.6",
     "@repo/config-typescript": "workspace:*",
     "vitest": "^5.1.0"
   }

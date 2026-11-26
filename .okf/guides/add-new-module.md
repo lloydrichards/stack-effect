@@ -12,7 +12,9 @@ sources:
     resource: ../../catalogs/official/src/moduleRegistry.ts
   - id: source-4
     resource: ../../catalogs/labs/src/receipt-app.ts
-generated: { by: claude, at: "2026-11-24T00:00:00+00:00" }
+  - id: source-5
+    resource: ../../catalogs/official/src/dependencies.ts
+generated: { by: codex, at: "2026-11-26T00:00:00+00:00" }
 ---
 
 # Add a catalog module
@@ -95,6 +97,8 @@ An implication uses `{ targetKind, moduleId }` in `implies`. It connects selecti
 ## Choose contribution operations
 
 Use `file` for authoritative content; `pkg-json-entry` for an export, dependency, devDependency, or script; and `ts-call-arg`, `ts-object-field`, or `jsx-slot` for composition into existing code. Give each public module of a package its own `exports` subpath named after the module, and import it through that subpath from other targets. Do not add a root `src/index.ts` of re-exports; see the [contribution contract](../domain/contributions.md "defines package entry points"). A file contribution can set `conflictOnModify` when replacing existing content should require a decision.
+
+Use `EFFECT_VERSION` from `@repo/catalog-official/dependencies` for Effect packages that release with `effect`. Official modules can import it from `../dependencies`. A module contribution requires that version in an existing target. Generated manifest seeds carry the version as the default for new targets. Update those seed pins alongside the shared constant.
 
 A package dependency entry has this shape:
 
