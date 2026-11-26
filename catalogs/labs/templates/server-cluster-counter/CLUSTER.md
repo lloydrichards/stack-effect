@@ -18,11 +18,11 @@ The domain package defines the counter data in `Counter.ts`, the HTTP contract i
 
 ## Add the counter to an existing server
 
-If Stack Effect reports a manifest conflict, skip the override to preserve custom entries. Override replaces the entire `package.json`. The `--yes` option skips conflicted files.
-
-1. Add `{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}` to the existing server dependencies at the Effect version required by the catalog.
-{{#if runtime=deno}}2. Add `--allow-ffi` before the entry point in `dev`, `dev:watch`, and any `deno compile` command that lacks it.
-{{/if}}3. Resolve any other conflicts reported by `stack-effect add`, then run the workspace's package install command.
+1. Run `stack-effect add --target server/{{targetName}}:server-cluster-counter --dry-run` from the workspace root. If the plan reports an Effect dependency conflict, align the workspace's `effect` and Effect platform package pins with the version required by the catalog. Update the root `@effect/platform-node-shared` override in `package.json` and in `pnpm-workspace.yaml` if present.
+2. Run `stack-effect add --target server/{{targetName}}:server-cluster-counter` again. It adds `{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}` at the matching Effect version.
+{{#if runtime=deno}}3. Add `--allow-ffi` before the entry point in `dev`, `dev:watch`, and any `deno compile` command that lacks it.
+{{/if}}
+If Stack Effect reports another manifest conflict, update the existing manifest before you retry. This preserves your custom entries.
 
 ## Try the CLI
 

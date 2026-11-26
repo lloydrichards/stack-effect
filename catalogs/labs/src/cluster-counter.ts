@@ -99,6 +99,13 @@ export const clusterCounter = defineModules(import.meta.url, [
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
         field: "dependencies",
+        name: "effect",
+        value: EFFECT_VERSION,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
         name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
         value: EFFECT_VERSION,
       },
