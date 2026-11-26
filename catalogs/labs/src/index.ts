@@ -9,6 +9,7 @@ import { graphqlClient } from "./graphql-client";
 import { graphqlQuery } from "./graphql-query";
 import { receiptApp } from "./receipt-app";
 import { receiptWorkflow } from "./receipt-workflow";
+import { slackBot } from "./slack-bot";
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
 
@@ -104,6 +105,7 @@ export const labsCatalog: CatalogInput = {
     receiptApp,
     discordInteractions,
     githubIssueWebhook,
+    slackBot,
   ],
 };
 export const labsCatalogRoot = new URL("../", import.meta.url);
