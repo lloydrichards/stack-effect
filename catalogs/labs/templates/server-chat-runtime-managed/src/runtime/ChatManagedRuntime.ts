@@ -64,15 +64,7 @@ export class ChatManagedRuntime extends Context.Service<
 
       return ChatManagedRuntime.of({
         send: Effect.fn("ChatManagedRuntime.send")(
-          function* ({
-            chatId,
-            message,
-            options,
-          }: {
-            readonly chatId: ChatId;
-            readonly message: ChatMessage;
-            readonly options?: ChatTurnOptions;
-          }) {
+          function* ({ chatId, message, options }) {
             const reservation = yield* Scope.make();
 
             yield* Effect.gen(function* () {
@@ -120,7 +112,7 @@ export class ChatManagedRuntime extends Context.Service<
           // Complete the reservation handoff even if the sending request is interrupted.
           Effect.uninterruptible,
         ),
-        watch: (chatId: ChatId) =>
+        watch: (chatId) =>
           Stream.unwrap(
             Effect.gen(function* () {
               yield* sessions.ensure(chatId);
@@ -134,6 +126,7 @@ export class ChatManagedRuntime extends Context.Service<
                     () => [],
                   );
                   const subscription = yield* PubSub.subscribe(liveEvents);
+
                   return { replay, subscription };
                 }),
               );
@@ -141,10 +134,11 @@ export class ChatManagedRuntime extends Context.Service<
                 Stream.filter(([eventChatId]) => eventChatId === chatId),
                 Stream.map(([, event]) => event),
               );
+
               return Stream.fromIterable(replay).pipe(Stream.concat(live));
             }),
           ),
-        interrupt: (chatId: ChatId) =>
+        interrupt: (chatId) =>
           Effect.gen(function* () {
             yield* sessions.ensure(chatId);
             yield* FiberMap.remove(activeFibers, chatId);
