@@ -577,6 +577,26 @@ describe("Applier", () => {
     );
 
     it.effect(
+      "should keep the first layer when composition follows an array spread",
+      () =>
+        Effect.gen(function* () {
+          yield* writeFiles({
+            [entryPoint]: [
+              'import { Layer } from "effect";',
+              "const optionalLayers: ReadonlyArray<Layer.Layer<never>> = [];",
+              "const McpCapabilities = Layer.mergeAll(Layer.empty, ...optionalLayers);",
+            ].join("\n"),
+          });
+
+          yield* planAndApply("datetime-toolkit");
+          assert.match(
+            yield* readFile(entryPoint),
+            /Layer\.mergeAll\(\s*Layer\.empty,\s*\.\.\.optionalLayers,\s*McpServer\.toolkit\(DateTimeToolkit\)/,
+          );
+        }).pipe(Effect.provide(toolkitPipeline)),
+    );
+
+    it.effect(
       "should keep one binding per name when an older entry point imports it from another specifier",
       () =>
         Effect.gen(function* () {
