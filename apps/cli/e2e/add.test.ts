@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, layer } from "@effect/vitest";
+import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 import { Effect, FileSystem } from "effect";
 import { labsCatalogArgs } from "./fixtures/labs-source";
 import { CLI } from "./harness";
@@ -355,6 +356,108 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           ]);
         });
       }),
+    );
+
+    it.effect(
+      "requires an Effect upgrade before adding Cluster Counter to an older npm project",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const fs = yield* FileSystem.FileSystem;
+          const name = "cluster-counter-upgrade";
+          const root = `${cli.workdir}/${name}`;
+          yield* cli.run(
+            "create",
+            name,
+            ...labsCatalogArgs,
+            "--root",
+            cli.workdir,
+            "--target",
+            "server/api:server-http-api",
+            "--runtime",
+            "node",
+            "--package-manager",
+            "npm",
+            "--yes",
+            "--no-git",
+          );
+          yield* cli.expectExitCode(0);
+          const manifests = yield* Effect.forEach(
+            [
+              `${root}/package.json`,
+              `${root}/apps/server-api/package.json`,
+              `${root}/packages/domain/package.json`,
+            ],
+            (path) =>
+              fs.readFileString(path).pipe(
+                Effect.map((current) => ({
+                  path,
+                  current,
+                  older: current.replaceAll(`"${EFFECT_VERSION}"`, '"4.1.4"'),
+                })),
+              ),
+          );
+          yield* Effect.forEach(manifests, ({ path, older }) =>
+            fs.writeFileString(path, older),
+          );
+
+          const add = [
+            "add",
+            "--root",
+            root,
+            "--target",
+            "server/api:server-cluster-counter",
+            "--yes",
+          ];
+          const preview = yield* cli.run(...add, "--dry-run");
+          assert.strictEqual(
+            preview.exitCode,
+            0,
+            preview.stdout + preview.stderr,
+          );
+          assert.include(preview.stdout, "dependencies.effect");
+          const rejected = yield* cli.run(...add);
+          assert.strictEqual(
+            rejected.exitCode,
+            1,
+            rejected.stdout + rejected.stderr,
+          );
+          assert.match(
+            rejected.stdout + rejected.stderr,
+            /required dependency conflicts/,
+          );
+          assert.deepStrictEqual(
+            yield* Effect.forEach(manifests, ({ path }) =>
+              fs.readFileString(path),
+            ),
+            manifests.map(({ older }) => older),
+          );
+          assert.isFalse(
+            yield* fs.exists(`${root}/apps/server-api/src/cluster/Runner.ts`),
+          );
+
+          yield* Effect.forEach(manifests, ({ path, current }) =>
+            fs.writeFileString(path, current),
+          );
+          yield* cli.run(...add);
+          yield* cli.expectExitCode(0);
+          yield* cli.withinProject(name, function* (project) {
+            yield* project.expectFileContaining(
+              "apps/server-api/package.json",
+              `"@effect/sql-sqlite-node": "${EFFECT_VERSION}"`,
+            );
+            yield* project.expectFileContaining(
+              "apps/server-api/CLUSTER.md",
+              "@effect/platform-node-shared",
+            );
+            yield* project.expectFileContaining(
+              "apps/server-api/CLUSTER.md",
+              "stack-effect add --target server/api:server-cluster-counter --dry-run",
+            );
+            yield* project.expectTypeCheckPasses("npm");
+          });
+        }).pipe(Effect.provide(NodeServices.layer)),
+      { timeout: 120_000 },
     );
 
     for (const [moduleId, feature] of [
