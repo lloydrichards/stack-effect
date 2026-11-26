@@ -178,7 +178,29 @@ const applyTsAppendCallArg = Effect.fnUntraced(function* (
       message: `Could not find ${op.functionName} on ${op.targetVariable} during TypeScript composition.`,
     });
 
-  appendToCallOrArray(toOuterCurriedCall(call.value), op.argument);
+  const target = toOuterCurriedCall(call.value);
+  appendToCallOrArray(target, op.argument);
+
+  if (target.getExpression().getText() !== "Layer.mergeAll") return;
+
+  const layerImport = sourceFile.getImportDeclaration("effect");
+  const importsLayer = layerImport
+    ?.getNamedImports()
+    .some(
+      (named) =>
+        named.getName() === "Layer" && named.getAliasNode() === undefined,
+    );
+  if (!importsLayer) return;
+
+  const args = target.getArguments();
+  const placeholder = args.find((arg) => arg.getText() === "Layer.empty");
+  const hasLayer = args.some(
+    (arg) =>
+      arg.getText() !== "Layer.empty" && !arg.isKind(SyntaxKind.SpreadElement),
+  );
+  if (placeholder && hasLayer) {
+    target.removeArgument(placeholder);
+  }
 });
 
 type SyntaxTree = [number, string | ReadonlyArray<SyntaxTree>];

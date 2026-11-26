@@ -588,6 +588,7 @@ describe("Applier", () => {
               'import { Layer } from "effect";',
               "",
               "const McpCapabilities = Layer.mergeAll(",
+              "  Layer.empty,",
               "  McpServer.toolkit(MathToolkit).pipe(Layer.provide(MathToolkitHandlers)),",
               "  Prompts,",
               ");",
@@ -598,6 +599,7 @@ describe("Applier", () => {
           yield* planAndApply("math-toolkit", "datetime-toolkit");
           const written = yield* readFile(entryPoint);
           assert.include(written, legacyImport);
+          assert.notInclude(written, "Layer.empty");
           assert.notInclude(written, '"@repo/ai/MathToolkit"');
           assert.deepStrictEqual(importedNames(written).toSorted(), [
             "DateTimeToolkit",
