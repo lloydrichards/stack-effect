@@ -59,14 +59,14 @@
     "clean": "git clean -xdf .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "peerDependencies": {
-    "effect": "4.1.4"
+    "effect": "4.1.6"
   },
   "devDependencies": {
-    "@effect/platform-node": "4.1.4",
+    "@effect/platform-node": "4.1.6",
     "@repo/authoring": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@types/node": "^26.6.6",
-    "effect": "4.1.4",
+    "effect": "4.1.6",
     "tsdown": "^0.23.7"
   },
   "engines": {

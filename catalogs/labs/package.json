@@ -15,10 +15,10 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@effect/platform-node": "4.1.4",
+    "@effect/platform-node": "4.1.6",
     "@repo/authoring": "workspace:*",
     "@repo/catalog-official": "workspace:*",
-    "effect": "4.1.4"
+    "effect": "4.1.6"
   },
   "devDependencies": {
     "@repo/config-typescript": "workspace:*",

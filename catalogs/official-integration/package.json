@@ -9,14 +9,14 @@
   },
   "devDependencies": {
     "@effect-vfs/memory": "^0.11.0",
-    "@effect/platform-browser": "4.1.4",
-    "@effect/vitest": "4.1.4",
+    "@effect/platform-browser": "4.1.6",
+    "@effect/vitest": "4.1.6",
     "@repo/catalog-official": "workspace:*",
     "@repo/config-typescript": "workspace:*",
     "@repo/domain": "workspace:*",
     "@repo/scaffold": "workspace:*",
     "@types/node": "^26.6.6",
-    "effect": "4.1.4",
+    "effect": "4.1.6",
     "vitest": "^5.1.0"
   }
 }

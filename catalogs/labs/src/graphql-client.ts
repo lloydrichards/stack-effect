@@ -1,5 +1,6 @@
 import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -20,7 +21,7 @@ export const graphqlClient = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "file",
@@ -60,7 +61,7 @@ export const graphqlClient = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "effect",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "file",

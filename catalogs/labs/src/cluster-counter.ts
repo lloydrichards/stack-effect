@@ -1,5 +1,6 @@
 import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 
 const template = templates(new URL("../templates/", import.meta.url));
 const domain = { kind: "package", name: "domain" };
@@ -99,7 +100,7 @@ export const clusterCounter = defineModules(import.meta.url, [
         path: "{{targetPath}}/package.json",
         field: "dependencies",
         name: "{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}",
-        value: "4.1.4",
+        value: EFFECT_VERSION,
       },
       {
         _tag: "ts-call-arg",

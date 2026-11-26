@@ -1,5 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, layer } from "@effect/vitest";
+import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 import { buildOfficialCatalog } from "@repo/catalog-official/service";
 import { Array as Arr, Effect, FileSystem, Path } from "effect";
 
@@ -142,7 +143,9 @@ layer(NodeServices.layer)("catalog templates", (it) => {
             "@effect/platform-node-shared",
           ],
         );
-        assert.lengthOf(Arr.dedupe(pins.map(({ version }) => version)), 1);
+        for (const { pkg, version } of pins) {
+          assert.strictEqual(version, EFFECT_VERSION, pkg);
+        }
       }),
   );
 });

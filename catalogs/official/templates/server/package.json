@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {},
   "dependencies": {
-    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.1.4",
-    "effect": "4.1.4"
+    "{{#if runtime=bun}}@effect/platform-bun{{/if}}{{#if runtime=node}}@effect/platform-node{{/if}}{{#if runtime=deno}}@effect/platform-deno{{/if}}": "4.1.6",
+    "effect": "4.1.6"
   },
   "devDependencies": {
     "@repo/config-typescript": "{{workspaceDependency}}",
