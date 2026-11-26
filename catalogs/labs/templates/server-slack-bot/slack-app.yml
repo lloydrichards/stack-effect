@@ -1,0 +1,16 @@
+display_information:
+  name: Stack Effect Chat Bot
+features:
+  bot_user:
+    display_name: Stack Effect Chat Bot
+    always_online: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+settings:
+  event_subscriptions:
+    request_url: https://YOUR-PUBLIC-HOST.example/webhooks/slack
+    bot_events:
+      - app_mention

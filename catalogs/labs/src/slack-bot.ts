@@ -2,27 +2,64 @@ import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
 import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 
-const template = templates(
-  new URL("../templates/server-slack-bot/", import.meta.url),
-);
+const template = templates(new URL("../templates/", import.meta.url));
+
+const chatBot = { kind: "package", name: "chat-bot" };
 
 export const slackBot = defineModules(import.meta.url, [
   {
+    id: "package-chat-bot",
+    title: "Chat Bot",
+    description: "Bot replies shared by messaging integrations",
+    supportedRuntimes: ["bun", "node", "deno"],
+    supportedOn: [{ _tag: "identity", identity: chatBot }],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/src/Bot.ts",
+        contents: template("./package-chat-bot/src/Bot.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "exports",
+        name: "./Bot",
+        value: "./src/Bot.ts",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect",
+        value: EFFECT_VERSION,
+      },
+    ],
+  },
+  {
     id: "server-slack-bot",
-    title: "Slack Bot",
-    description: "Reply in a Slack thread when someone mentions the bot",
+    title: "Slack Integration",
+    description: "Connect the Chat Bot to Slack’s Events API",
     supportedRuntimes: ["bun", "node", "deno"],
     supportedOn: [{ _tag: "kind", kind: "server" }],
-    dependencies: [],
+    dependencies: [
+      {
+        _tag: "required-module",
+        target: chatBot,
+        moduleId: "package-chat-bot",
+      },
+    ],
     contributions: [
       ...[
         "SLACK.md",
         "src/webhooks/slack.ts",
-        "src/fixtures/slack-mention.ts",
+        "slack-app.yml",
+        ".env.slack.example",
       ].map((path) => ({
         _tag: "file" as const,
         path: `{{targetPath}}/${path}`,
-        contents: template(`./${path}`),
+        contents: template(`./server-slack-bot/${path}`),
       })),
       ...["effect", "@effect/chat-slack"].map((name) => ({
         _tag: "pkg-json-entry" as const,
@@ -34,10 +71,9 @@ export const slackBot = defineModules(import.meta.url, [
       {
         _tag: "pkg-json-entry",
         path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "fixture:slack",
-        value:
-          "{{#if runtime=bun}}bun{{/if}}{{#if runtime=node}}tsx{{/if}}{{#if runtime=deno}}deno run{{/if}} src/fixtures/slack-mention.ts",
+        field: "dependencies",
+        name: "@repo/chat-bot",
+        value: "{{workspaceDependency}}",
       },
       {
         _tag: "ts-call-arg",
@@ -52,7 +88,7 @@ export const slackBot = defineModules(import.meta.url, [
       },
     ],
     nextSteps: [
-      "See `{{targetPath}}/SLACK.md` to exercise the webhook locally and connect a Slack app.",
+      "See `{{targetPath}}/SLACK.md` to install your Slack app and try a threaded reply.",
     ],
   },
 ]);

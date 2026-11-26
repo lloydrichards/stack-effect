@@ -1,12 +1,23 @@
-# Slack Bot
+# Connect the Chat Bot to Slack
 
-Run `{{runCommand}} fixture:slack` from this server directory. The fixture runs the server’s Slack route layer in process with a fake Slack API. It checks that the route is disabled by default, that a signed mention produces one threaded reply when enabled, and that a tampered delivery returns HTTP 401.
+The Slack integration turns a bot mention into a threaded reply. Change the reply in `packages/chat-bot/src/Bot.ts` at the workspace root.
 
-## Connect a Slack app
+1. Set up a public HTTPS URL that forwards to this server. The default server port is `9000`. In `slack-app.yml`, set the request URL to your public HTTPS URL followed by `/webhooks/slack`.
+2. In [Slack app settings](https://api.slack.com/apps), create an app from the manifest. Install it to your workspace.
+3. From this server directory, copy `.env.slack.example` to `.env` and fill in the values. If you already have a `.env`, add the Slack settings to it.
+   - Use the App ID and Signing Secret from **Basic Information**.
+   - Use the Bot User OAuth Token from **OAuth & Permissions**.
+   - Set `SLACK_TEAM_ID` to your Slack workspace ID. You can find it in a Slack web URL such as `https://app.slack.com/client/T123…/…`.
+4. Load the environment and start the server.
 
-1. In your Slack app, add the bot token scopes `app_mentions:read` and `chat:write`. Install the app in your workspace and invite the bot to a channel.
-2. Set `SLACK_BOT_ENABLED=true`, `SLACK_APP_ID`, `SLACK_TEAM_ID`, `SLACK_BOT_TOKEN`, and `SLACK_SIGNING_SECRET` in the server environment. Use the Slack workspace ID for `SLACK_TEAM_ID`.
-3. Run `{{runCommand}} dev` and expose the server at a public HTTPS URL. In Event Subscriptions, set the Request URL to that URL plus `/webhooks/slack`, then subscribe to the `app_mention` bot event.
-4. Mention the bot in the channel. It replies with “Hello from Stack Effect!” in the thread.
+   ```sh
+   set -a
+   . ./.env
+   set +a
+   {{runCommand}} dev
+   ```
 
-Slack can redeliver events after a timeout. This example replies inline and can post twice if a delivery is retried. Use durable deduplication if your bot needs to handle retries without duplicate replies.
+5. In **Event Subscriptions**, verify the request URL and confirm that the app subscribes to the bot event `app_mention`. Invite the bot to a channel and send `@Stack Effect Chat Bot ping`. The bot replies `pong` in the thread.
+6. Edit the response in `packages/chat-bot/src/Bot.ts`, restart the server, and send another mention to see your change.
+
+Slack can retry deliveries, and this starter can send duplicate replies. Keep the handler fast enough to reply within the webhook deadline. For slower work, acknowledge after handing the event to a durable inbox that deduplicates deliveries.

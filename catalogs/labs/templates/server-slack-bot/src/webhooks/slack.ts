@@ -1,6 +1,7 @@
 // @effect-diagnostics unstableApiUsage:off This Labs module demonstrates the pinned Effect Chat API.
 import * as SlackChat from "@effect/chat-slack/SlackChat";
-import { Config, Effect, Layer } from "effect";
+import * as Bot from "@repo/chat-bot/Bot";
+import { Config, Effect, Layer, Schema } from "effect";
 import { Chat, ChatHandler, ChatMessage } from "effect/chat";
 import { Mac, SecureRandom } from "effect/crypto";
 import { FetchHttpClient } from "effect/http";
@@ -17,9 +18,7 @@ const MentionReplies = ChatHandler.layer(
 
     const chat = yield* Chat.Chat;
     yield* chat.startThread(event.thread, event.message.id).pipe(
-      Effect.flatMap((thread) =>
-        chat.post(thread, { markdown: "Hello from Stack Effect!" }),
-      ),
+      Effect.flatMap((thread) => Bot.reply(thread, event.message)),
       Effect.tapError((error) =>
         Effect.logWarning("Slack reply failed").pipe(
           Effect.annotateLogs({ reason: error.reason._tag }),
@@ -37,11 +36,12 @@ export const SlackBotRoutes = Layer.unwrap(
     );
     if (!enabled) return Layer.empty;
 
+    const secret = Schema.Redacted(Schema.NonEmptyString);
     const options = yield* Config.all({
-      appId: Config.String("SLACK_APP_ID"),
-      teamId: Config.String("SLACK_TEAM_ID"),
-      botToken: Config.Redacted("SLACK_BOT_TOKEN"),
-      signingSecret: Config.Redacted("SLACK_SIGNING_SECRET"),
+      appId: Config.NonEmptyString("SLACK_APP_ID"),
+      teamId: Config.NonEmptyString("SLACK_TEAM_ID"),
+      botToken: Config.schema(secret, "SLACK_BOT_TOKEN"),
+      signingSecret: Config.schema(secret, "SLACK_SIGNING_SECRET"),
     });
     return SlackChat.layerWebhook({ ...options, path: "/webhooks/slack" }).pipe(
       Layer.provide(MentionReplies),

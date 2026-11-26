@@ -1,12 +1,13 @@
 import { Clock, ConfigProvider, Console, Effect, Layer } from "effect";
 import { FetchHttpClient, HttpRouter } from "effect/http";
-import { SlackBotRoutes } from "../webhooks/slack";
+import { SlackBotRoutes } from "./src/webhooks/slack";
 
 const appId = "A123";
 const teamId = "T123";
 const botUserId = "U123";
 const channel = "C123";
 const timestamp = "1794509200.000100";
+const expectedReply = "pong";
 const signingSecret = "local-slack-fixture-secret";
 const posts: URLSearchParams[] = [];
 
@@ -71,7 +72,7 @@ const body = JSON.stringify({
     type: "app_mention",
     channel,
     user: "U456",
-    text: `<@${botUserId}> hello`,
+    text: `<@${botUserId}> ping`,
     ts: timestamp,
   },
 });
@@ -79,6 +80,7 @@ const body = JSON.stringify({
 const deliver = Effect.fnUntraced(function* (
   app: ReturnType<typeof makeApp>,
   requestBody: string,
+  signedBody = requestBody,
 ) {
   const now = yield* Clock.currentTimeMillis;
   const seconds = String(Math.floor(now / 1000));
@@ -94,7 +96,7 @@ const deliver = Effect.fnUntraced(function* (
     const mac = await crypto.subtle.sign(
       "HMAC",
       key,
-      encoder.encode(`v0:${seconds}:${body}`),
+      encoder.encode(`v0:${seconds}:${signedBody}`),
     );
     const signature = Array.from(new Uint8Array(mac), (byte) =>
       byte.toString(16).padStart(2, "0"),
@@ -112,33 +114,40 @@ const deliver = Effect.fnUntraced(function* (
       }),
     );
   });
-  return response.status;
+  return response;
 });
 
 await Effect.runPromise(
   Effect.gen(function* () {
     const unavailable = yield* deliver(disabled, body);
-    const rejected = yield* deliver(enabled, body + " ");
+    const verification = yield* deliver(
+      enabled,
+      JSON.stringify({ type: "url_verification", challenge: "setup-challenge" }),
+    );
+    const handshake = yield* Effect.promise(() => verification.text());
+    const rejected = yield* deliver(enabled, body + " ", body);
     const accepted = yield* deliver(enabled, body);
     const reply = posts[0];
     if (
-      unavailable !== 404 ||
-      rejected !== 401 ||
-      accepted !== 200 ||
+      unavailable.status !== 404 ||
+      verification.status !== 200 ||
+      handshake !== "setup-challenge" ||
+      rejected.status !== 401 ||
+      accepted.status !== 200 ||
       posts.length !== 1 ||
       reply?.get("channel") !== channel ||
       reply.get("thread_ts") !== timestamp ||
-      reply.get("text") !== "Hello from Stack Effect!"
+      reply.get("text") !== expectedReply
     ) {
       return yield* Effect.die(
         new Error(
-          `Expected HTTP 404, 401, 200, and one threaded reply. Got ${unavailable}, ${rejected}, ${accepted}, and ${posts.length} replies.`,
+          `Expected a disabled route, a verified setup challenge, a rejected signature, and one threaded reply with ${expectedReply}. Got status codes ${unavailable.status}, ${verification.status}, ${rejected.status}, ${accepted.status}, and ${posts.length} replies.`,
         ),
       );
     }
 
     yield* Console.log(
-      "Slack route disabled by default. When enabled, it rejects tampered deliveries and replies in the signed mention’s thread.",
+      "Slack route verifies setup, rejects tampered deliveries, and replies in the signed mention’s thread.",
     );
   }).pipe(
     Effect.ensuring(
