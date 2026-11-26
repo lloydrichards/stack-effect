@@ -1,6 +1,7 @@
 import { MemoryFileSystem } from "@effect-vfs/memory";
 import * as BrowserCrypto from "@effect/platform-browser/BrowserCrypto";
 import { assert, describe, it, layer } from "@effect/vitest";
+import { EFFECT_VERSION } from "@repo/catalog-official/dependencies";
 import {
   OfficialCatalogLayer,
   officialCatalogLayerWith,
@@ -472,6 +473,82 @@ describe("Official catalog scaffolding", () => {
               )
               .map((conflict) => conflict.path),
             [],
+          );
+        }).pipe(Effect.provide(applyLayer)),
+    );
+
+    it.effect(
+      "requires an Effect upgrade and preserves customized Workshop Checklist instructions",
+      () =>
+        Effect.gen(function* () {
+          const fs = yield* FileSystem.FileSystem;
+          const recipes = yield* RecipeResolver;
+          const blueprints = yield* BlueprintResolver;
+          const plans = yield* Planner;
+          const applies = yield* Applier;
+          const skillPath =
+            "apps/server-mcp-remote/src/skills/WorkshopChecklistSkill.ts";
+          const customSkill =
+            "// Custom packing instructions: bring spare labels.\n";
+          yield* fs.makeDirectory("/repo/apps/server-mcp-remote/src/skills", {
+            recursive: true,
+          });
+          yield* fs.writeFileString(`/repo/${skillPath}`, customSkill);
+          const manifestPath = "apps/server-mcp-remote/package.json";
+          yield* fs.writeFileString(
+            `/repo/${manifestPath}`,
+            '{"name":"server-mcp-remote","dependencies":{"effect":"4.1.4"}}',
+          );
+
+          const selection = yield* recipes.resolve(
+            {
+              targets: [
+                target("server-mcp", "remote", "mcp-skill-workshop-checklist"),
+              ],
+            },
+            { config, providerStrategy: { _tag: "fail-on-ambiguous" } },
+          );
+          const blueprint = yield* blueprints.resolve(selection, config);
+          const plan = yield* plans.build({
+            blueprint,
+            config,
+            repositoryRoot: "/repo",
+          });
+
+          assert.isTrue(
+            plan.conflicts.some(
+              (conflict) =>
+                conflict._tag === "dependencies" &&
+                conflict.path === manifestPath &&
+                conflict.section === "dependencies" &&
+                conflict.name === "effect",
+            ),
+          );
+
+          yield* fs.writeFileString(
+            `/repo/${manifestPath}`,
+            `{"name":"server-mcp-remote","dependencies":{"effect":"${EFFECT_VERSION}"}}`,
+          );
+          const upgradedPlan = yield* plans.build({
+            blueprint,
+            config,
+            repositoryRoot: "/repo",
+          });
+          assert.isTrue(
+            upgradedPlan.conflicts.some(
+              (conflict) => conflict.path === skillPath,
+            ),
+          );
+          const decisions = [
+            ...new Set(upgradedPlan.conflicts.map((conflict) => conflict.path)),
+          ].map((path) => ({ path, value: "skip" as const }));
+          yield* applies.apply({
+            apply: new Apply({ plan: upgradedPlan, decisions }),
+            repositoryRoot: "/repo",
+          });
+          assert.strictEqual(
+            yield* fs.readFileString(`/repo/${skillPath}`),
+            customSkill,
           );
         }).pipe(Effect.provide(applyLayer)),
     );
