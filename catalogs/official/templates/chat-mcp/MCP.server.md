@@ -6,7 +6,7 @@ The server owns one HTTP MCP connection. The selected modules supply a toolkit o
 
 The commands below use Bun and assume the MCP server target is named `remote` and this API target is named `{{targetName}}`. For Node, run the same package scripts with your package manager; the generated scripts use `tsx`. Deno scripts include their required permissions.
 
-Select these modules when creating or extending your workspace:
+Select these modules when creating or extending your workspace. If you left the API target name blank, replace `server/api:` with `server/:` in the command below.
 
 ```sh
 stack-effect add --yes \
@@ -17,7 +17,7 @@ stack-effect add --yes \
 The Briefing Prompt brings its calculator and primer dependencies. Start the MCP server in one terminal:
 
 ```sh
-bun run --cwd apps/server-mcp-remote dev
+bun run --cwd apps/remote dev
 ```
 
 Start the API in another terminal, using your own model credential:

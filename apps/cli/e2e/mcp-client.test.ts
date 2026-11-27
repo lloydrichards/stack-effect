@@ -24,9 +24,9 @@ describe("MCP chat extensions", () => {
             "--root",
             cli.workdir,
             "--target",
-            "cli/app:cli-command-chat-ask,cli-chat-mcp",
+            "cli/:cli-command-chat-ask,cli-chat-mcp",
             "--target",
-            "server/api:server-chat-mcp",
+            "server/:server-chat-mcp",
             "--yes",
             "--no-git",
           );
@@ -67,9 +67,9 @@ describe("MCP chat extensions", () => {
               "--root",
               cli.workdir,
               "--target",
-              `cli/app:cli-command-chat-ask,cli-chat-mcp-${capability}`,
+              `cli/:cli-command-chat-ask,cli-chat-mcp-${capability}`,
               "--target",
-              `server/api:server-chat-mcp-${capability}`,
+              `server/:server-chat-mcp-${capability}`,
               "--yes",
               "--no-git",
             );
@@ -149,7 +149,7 @@ describe("MCP chat extensions", () => {
               "--root",
               cli.workdir,
               "--target",
-              `cli/app:${modules}`,
+              `cli/:${modules}`,
               "--yes",
               "--no-git",
             );
@@ -165,7 +165,7 @@ describe("MCP chat extensions", () => {
               "--root",
               `${cli.workdir}/mcp-incremental`,
               "--target",
-              `cli/app:${feature}`,
+              `cli/:${feature}`,
               "--yes",
             );
             assert.strictEqual(
@@ -205,7 +205,7 @@ describe("MCP chat extensions", () => {
               "--root",
               `${cli.workdir}/mcp-incremental`,
               "--target",
-              "cli/app:cli-chat-mcp-tools",
+              "cli/:cli-chat-mcp-tools",
               "--yes",
             );
             assert.notStrictEqual(conflict.exitCode, 0);
@@ -232,7 +232,7 @@ describe("MCP chat extensions", () => {
             "--target",
             "server-mcp/remote:mcp-prompt-briefing,mcp-skill-workshop-checklist",
             "--target",
-            "server/api:server-chat-mcp-tools,server-chat-mcp-resources,server-chat-mcp-prompts",
+            "server/:server-chat-mcp-tools,server-chat-mcp-resources,server-chat-mcp-prompts",
             "--yes",
             "--no-git",
           );
@@ -286,9 +286,9 @@ describe("MCP chat extensions", () => {
             "--root",
             cli.workdir,
             "--target",
-            "cli/app:cli-command-chat-ask,cli-command-chat-terminal,cli-chat-mcp-tools,cli-chat-mcp-resources,cli-chat-mcp-prompts",
+            "cli/:cli-command-chat-ask,cli-command-chat-terminal,cli-chat-mcp-tools,cli-chat-mcp-resources,cli-chat-mcp-prompts",
             "--target",
-            "server/api:server-chat-mcp-tools,server-chat-mcp-resources,server-chat-mcp-prompts",
+            "server/:server-chat-mcp-tools,server-chat-mcp-resources,server-chat-mcp-prompts",
             "--target",
             "server/plain:server-chat-rpc",
             "--yes",

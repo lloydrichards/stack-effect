@@ -55,12 +55,10 @@ describe("generated README CLI contract", () => {
             libraryContents,
           );
           assert.include(
-            yield* fs.readFileString(`${root}/apps/server-api/README.md`),
+            yield* fs.readFileString(`${root}/apps/api/README.md`),
             "ALLOWED_ORIGINS",
           );
-          assert.isTrue(
-            yield* fs.exists(`${root}/apps/server-api/src/index.ts`),
-          );
+          assert.isTrue(yield* fs.exists(`${root}/apps/api/src/index.ts`));
         }),
       ),
   );

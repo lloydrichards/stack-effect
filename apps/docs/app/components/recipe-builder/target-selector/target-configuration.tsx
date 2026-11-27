@@ -85,9 +85,9 @@ const TargetConfiguration = ({
   const nameLocked = (target.requirements?.length ?? 0) > 0;
   const targetNameDescription = nameLocked
     ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
-    : target.name.length === 0
-      ? "Leave blank to use the target kind."
-      : "Use / for nested folders, such as sdk/web.";
+    : target.kind === "package"
+      ? "Use / for nested folders, such as sdk/web."
+      : "Enter a folder under apps, such as client or sdk/web. Leave blank to use the catalog default.";
   const presetTargets = usePresetTargets();
   const presetModules = presetTargets.flatMap(({ targets }) =>
     targets
@@ -156,6 +156,10 @@ const TargetConfiguration = ({
                   id={`target-name-${target.id}`}
                   name={field.name}
                   value={field.state.value}
+                  placeholder={
+                    catalog?.targets.find(({ kind }) => kind === target.kind)
+                      ?.defaultName || target.kind
+                  }
                   disabled={nameLocked}
                   spellCheck={false}
                   onBlur={field.handleBlur}

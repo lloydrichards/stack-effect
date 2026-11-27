@@ -18,6 +18,8 @@ The domain package defines the counter data in `Counter.ts`, the HTTP contract i
 
 ## Add the counter to an existing server
 
+If you left the server name blank, use `server/:server-cluster-counter` in the commands below.
+
 1. Run `stack-effect add --target server/{{targetName}}:server-cluster-counter --dry-run` from the workspace root. If the plan reports an Effect dependency conflict, align the workspace's `effect` and Effect platform package pins with the version required by the catalog. Update the root `@effect/platform-node-shared` override in `package.json` and in `pnpm-workspace.yaml` if present.
 2. Run `stack-effect add --target server/{{targetName}}:server-cluster-counter` again. It adds `{{#if runtime=bun}}@effect/sql-sqlite-bun{{/if}}{{#if runtime=node}}@effect/sql-sqlite-node{{/if}}{{#if runtime=deno}}@effect/sql-sqlite-node{{/if}}` at the matching Effect version.
 {{#if runtime=deno}}3. Add `--allow-ffi` before the entry point in `dev`, `dev:watch`, and any `deno compile` command that lacks it.

@@ -17,7 +17,7 @@ import {
   targetPathsOverlap,
   type ModuleId,
   type TargetDefinition,
-  type TargetIdentity,
+  TargetIdentity,
 } from "@repo/domain/Catalog";
 import type { Selection } from "@repo/domain/Selection";
 import type { StackConfig } from "@repo/domain/StackConfig";
@@ -241,11 +241,35 @@ const resolveSelection = Effect.fnUntraced(function* (
       makeBlueprintEdge("owns-module", targetState.id, attachedModuleNodeId),
     );
 
-    const dependencyTargetOf = (dependencyTarget: TargetIdentity) =>
-      dependencyTarget.kind !== "package" &&
-      dependencyTarget.kind === target.kind
-        ? target
-        : dependencyTarget;
+    const dependencyTargetOf = (dependencyTarget: TargetIdentity) => {
+      if (
+        dependencyTarget.kind !== "package" &&
+        dependencyTarget.kind === target.kind
+      )
+        return target;
+      // shortcut: CAFE imports fixed folders, revisit when its imports can follow resolved targets.
+      const allowNamedPlacement = moduleId !== "workspace-alchemy-cafe";
+      const selected =
+        selection.targets.find(
+          ({ identity }) => identity.toKey() === dependencyTarget.toKey(),
+        ) ??
+        selection.targets.find(
+          ({ identity }) =>
+            (allowNamedPlacement || identity.placement !== "named") &&
+            identity.matchesReference(dependencyTarget),
+        );
+      if (selected !== undefined) return selected.identity;
+      if (
+        dependencyTarget.kind === "package" ||
+        dependencyTarget.kind === "workspace"
+      )
+        return dependencyTarget;
+      return new TargetIdentity({
+        kind: dependencyTarget.kind,
+        name: dependencyTarget.name,
+        placement: "implicit",
+      });
+    };
 
     const requireTarget = Effect.fnUntraced(function* (
       identity: TargetIdentity,

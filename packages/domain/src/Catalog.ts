@@ -103,12 +103,21 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   Schema.Struct({
     kind: TargetKind,
     name: TargetName,
+    placement: Schema.optional(
+      Schema.Literals(["default", "named", "implicit"]),
+    ),
   }).check(
     Schema.makeFilter(
       (identity) =>
         identity.kind !== "package" ||
         identity.name.trim().length > 0 ||
         "Package targets require a non-empty name",
+    ),
+    Schema.makeFilter(
+      (identity) =>
+        identity.placement !== "named" ||
+        identity.name.trim().length > 0 ||
+        "Named app targets require a non-empty name",
     ),
   ),
 ) {
@@ -118,11 +127,30 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 
   // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve and packageOwnership
   toPath(): TargetPath {
-    return TargetPath.make(toTargetPathString(this));
+    return TargetPath.make(
+      this.placement === "named" &&
+        this.kind !== "package" &&
+        this.kind !== "workspace"
+        ? `apps/${targetNameSegments(this).join("/")}`
+        : toTargetPathString(this),
+    );
   }
 
   toKey(): TargetKey {
-    return TargetKey.make(toTargetPathString(this));
+    return TargetKey.make(
+      this.placement === "named" &&
+        this.kind !== "package" &&
+        this.kind !== "workspace"
+        ? `${this.kind}:${this.toPath()}`
+        : toTargetPathString(this),
+    );
+  }
+
+  matchesReference(reference: TargetIdentity): boolean {
+    return (
+      this.kind === reference.kind &&
+      toTargetPathString(this) === toTargetPathString(reference)
+    );
   }
 
   /**
@@ -147,26 +175,22 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
 
   matches(supportedOn: SupportedOn): boolean {
     return SupportedOn.match(supportedOn, {
-      identity: (s) => s.identity.toKey() === this.toKey(),
+      identity: (s) => this.matchesReference(s.identity),
       kind: (s) => s.kind === this.kind,
     });
   }
 }
 
+const targetNameSegments = (identity: TargetIdentity): Array<string> =>
+  identity.name.trim() === ""
+    ? []
+    : identity.name.split("/").map((segment) => Str.kebabCase(segment.trim()));
+
 const targetNameSlug = (identity: TargetIdentity): string =>
-  identity.name
-    .trim()
-    .split("/")
-    .map((segment) => Str.kebabCase(segment.trim()))
-    .join("-");
+  targetNameSegments(identity).join("-");
 
 const toTargetPathString = (identity: TargetIdentity): string => {
-  const segments =
-    identity.name.trim() === ""
-      ? []
-      : identity.name
-          .split("/")
-          .map((segment) => Str.kebabCase(segment.trim()));
+  const segments = targetNameSegments(identity);
   const leaf = segments.at(-1) ?? "";
   const group = segments.slice(0, -1);
 

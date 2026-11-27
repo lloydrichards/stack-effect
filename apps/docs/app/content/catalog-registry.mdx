@@ -37,8 +37,8 @@ bunx stack-effect@latest create queue-demo --runtime bun \
   --target cli/jobs:cli-persisted-queue --yes
 
 cd queue-demo
-bun apps/cli-jobs/src/index.ts enqueue --id demo-1 "Effect queues persist jobs"
-bun apps/cli-jobs/src/index.ts consume-once
+bun apps/jobs/src/index.ts enqueue --id demo-1 "Effect queues persist jobs"
+bun apps/jobs/src/index.ts consume-once
 ```
 
 The second command prints `demo-1: 4 words`. Run both commands with the same database configuration. By default the project uses `data/app.sqlite`. The consumer waits if there is no pending job. Reuse the same job ID to identify the same submission.
@@ -61,9 +61,9 @@ bun apps/server-api/src/index.ts
 From the project root in another terminal, run the following commands while the server is running.
 
 ```bash
-bun apps/cli-counter/src/index.ts counter a  # a: 1
-bun apps/cli-counter/src/index.ts counter a  # a: 2
-bun apps/cli-counter/src/index.ts counter b  # b: 1
+bun apps/counter/src/index.ts counter a  # a: 1
+bun apps/counter/src/index.ts counter a  # a: 2
+bun apps/counter/src/index.ts counter b  # b: 1
 ```
 
 The CLI sends `POST /counters/:id/increment`. The existing health route stays at `GET /`. Both use port 9000 by default. If you change the server's `PORT`, set `COUNTER_SERVER_URL` to the matching base URL.
@@ -111,4 +111,4 @@ bunx stack-effect@latest create slack-bot --runtime bun \
   --target server/support:server-slack-bot --yes
 ```
 
-Open `slack-bot/apps/server-support/SLACK.md` for the Slack app installation and webhook setup. A mention with `ping` gets a threaded `pong`. Edit `slack-bot/packages/chat-bot/src/Bot.ts` to change the response.
+Open `slack-bot/apps/support/SLACK.md` for the Slack app installation and webhook setup. A mention with `ping` gets a threaded `pong`. Edit `slack-bot/packages/chat-bot/src/Bot.ts` to change the response.

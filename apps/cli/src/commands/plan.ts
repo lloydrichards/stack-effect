@@ -123,15 +123,22 @@ export const plan = Command.make(
         freshness,
       }));
 
-      const blueprintResolver = yield* BlueprintResolver;
-      const blueprint = yield* blueprintResolver.resolve(
-        input.selection,
-        config,
-      );
       const recipes = yield* RecipeResolver;
+      const targets = yield* Effect.forEach(input.selection.targets, (target) =>
+        Effect.map(
+          recipes.resolveTarget(target.identity, config),
+          (identity) => ({
+            ...target,
+            identity,
+          }),
+        ),
+      );
+      const selection = { targets };
+      const blueprintResolver = yield* BlueprintResolver;
+      const blueprint = yield* blueprintResolver.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({
         config,
-        selection: input.selection,
+        selection,
       });
 
       const planner = yield* Planner;

@@ -1,6 +1,5 @@
-import { TargetIdentity } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
-import { Option, Schema } from "effect";
+import { Schema } from "effect";
 import { ArrowRight, Check } from "lucide-react";
 import { useRef, useState } from "react";
 import { DisclosurePanel } from "~/components/molecules/disclosure-panel";
@@ -181,13 +180,7 @@ export const BuilderWorkspace = () => {
     setStep(next);
     requestAnimationFrame(() => heading.current?.focus());
   };
-  const folder =
-    working && editor.activeTarget
-      ? Option.map(
-          Schema.decodeUnknownOption(TargetIdentity)(editor.activeTarget),
-          (identity) => identity.toPath(),
-        ).pipe(Option.getOrUndefined)
-      : undefined;
+  const folder = working ? editor.activeTargetPath : undefined;
   return (
     <div className="space-y-5">
       <nav

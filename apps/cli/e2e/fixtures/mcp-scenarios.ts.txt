@@ -477,8 +477,8 @@ const main = Effect.scoped(Effect.gen(function* () {
     assert(request, `concurrent ${name} keeps its own selected prompt`);
     assert(!JSON.stringify(request.prompt.content).includes(`remote-prompt-${name === "left" ? "right" : "left"}`));
   }
-  const plainRuntimeModule = yield* Effect.promise(() => import("../server-plain/src/runtime/ChatRuntime"));
-  const plainSessionsModule = yield* Effect.promise(() => import("../server-plain/src/runtime/ChatSessions"));
+  const plainRuntimeModule = yield* Effect.promise(() => import("../plain/src/runtime/ChatRuntime"));
+  const plainSessionsModule = yield* Effect.promise(() => import("../plain/src/runtime/ChatSessions"));
   resetModel();
   const unsupported = yield* Effect.gen(function* () {
     const runtime = yield* plainRuntimeModule.ChatRuntime;

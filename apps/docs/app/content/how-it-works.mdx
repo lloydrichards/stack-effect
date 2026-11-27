@@ -12,7 +12,7 @@ Start with an initialized Stack Effect repository and run the interactive add fl
 stack-effect add
 ```
 
-Choose the `server` target, name it `api`, and add its HTTP API module. That request is equivalent to `server/api:server-http-api`.
+Choose the `server` target, name it `api`, and add its HTTP API module. That request is equivalent to `server/api:server-http-api` and generates `apps/api`. Leave the name blank with `server/:server-http-api` to use the catalog folder `apps/server-api`.
 
 A **target** owns a location in the repository. A **module** adds a capability to its target. If that capability needs something elsewhere, Stack Effect models it as a dependency instead of letting one module write into an unrelated target.
 
@@ -26,9 +26,11 @@ Use slash-separated names for grouping. For example:
 stack-effect add --target server/sdk/api:server-http-api
 ```
 
-The name `sdk/api` creates the server at `apps/sdk/server-api`, with `server-sdk-api` in `package.json`. Use the same target argument when adding another module to that server. For packages, `package/sdk/client` creates `packages/sdk/client`, with the npm name `@repo/sdk-client`.
+The name `sdk/api` creates the server at `apps/sdk/api`, with `server-sdk-api` in `package.json`. Use the same target argument when adding another module to that server. For packages, `package/sdk/client` creates `packages/sdk/client`, with the npm name `@repo/sdk-client`.
 
 Stack Effect keeps npm names flat. `package/sdk/client` and `package/sdk-client` therefore cannot coexist even though their directories differ. It also rejects nested package roots and attempts to relocate an existing package. Grouping directories can contain multiple packages; a package directory owns its contents.
+
+If you created an app in a catalog default folder such as `apps/server-api` before this change, use a blank name to add modules there. An explicit name such as `api` selects `apps/api`. If a later `add` reports that a dependency would overlap or relocate that app, include its existing target, such as `--target server/api`, in the same command.
 
 To create a package with compiled JavaScript and declarations for npm, use the `package-library` module. See [Create a publishable library](/publish-library).
 

@@ -61,12 +61,12 @@ type CapabilityMatrixEntry = {
  * with their specific name (e.g., "package/domain", "package/ai").
  */
 const defaultTargetNames = new Map([
-  ["server", "api"],
+  ["server", ""],
   ["cloudflare-worker", "api"],
   ["client-react", "web"],
   ["client-foldkit", "app"],
   ["server-mcp", ""],
-  ["cli", "app"],
+  ["cli", ""],
   ["package", "library"],
 ]);
 
@@ -280,6 +280,11 @@ const getModuleTarget = (mod: {
 };
 
 const identityToTarget = (identity: { kind: string; name: string }) => {
+  if (
+    (identity.kind === "server" && identity.name === "api") ||
+    (identity.kind === "cli" && identity.name === "app")
+  )
+    return `${identity.kind}/`;
   return `${identity.kind}/${identity.name}`;
 };
 
@@ -375,7 +380,7 @@ const impliedServerArgs = ({ target, modules }: MatrixEntry): Array<string> => {
   );
   return serverModules.size === 0
     ? []
-    : ["--target", `server/api:${[...serverModules].join(",")}`];
+    : ["--target", `server/:${[...serverModules].join(",")}`];
 };
 
 const assertImpliedServerModules = (

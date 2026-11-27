@@ -398,7 +398,7 @@ describe("RecipeResolver", () => {
               },
               {
                 recipe: recipeTarget("db", "main", "db-repository"),
-                targetKey: recipeTarget("db", "main").target.toKey(),
+                targetKey: "db:apps/main",
               },
             ];
 
@@ -541,7 +541,7 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/server-api", [
+          assertTargetModules(selection, "server:apps/api", [
             ModuleId.make("server-http-api"),
           ]);
           assertTargetModules(selection, "packages/db", [
@@ -830,6 +830,43 @@ describe("RecipeResolver with the official catalog", () => {
     );
 
     it.effect(
+      "should reject two app kinds claiming the same named folder",
+      () =>
+        Effect.gen(function* () {
+          const recipes = yield* RecipeResolver;
+          const blueprints = yield* BlueprintResolver;
+          const selection = yield* recipes.resolve(
+            {
+              targets: ["server", "docs"].map((kind) => ({
+                target: new TargetIdentity({
+                  kind: TargetKind.make(kind),
+                  name: "shared",
+                }),
+                modules: [],
+              })),
+            },
+            {
+              config: testConfig,
+              providerStrategy: { _tag: "fail-on-ambiguous" },
+            },
+          );
+
+          const failure = yield* Effect.flip(
+            blueprints.resolve(selection, testConfig),
+          );
+          assert.include(failure.message, "Overlapping target ownership");
+          assert.include(failure.message, "apps/shared");
+        }).pipe(
+          Effect.provide(
+            Layer.merge(
+              TestLayer,
+              BlueprintResolver.layer.pipe(Layer.provide(OfficialCatalogLayer)),
+            ),
+          ),
+        ),
+    );
+
+    it.effect(
       "should return only the configured workspace when the recipe has no targets",
       () =>
         Effect.gen(function* () {
@@ -886,7 +923,7 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/server-api", [
+          assertTargetModules(selection, "server:apps/api", [
             ModuleId.make("server-http-api"),
             ModuleId.make("server-http-rpc"),
           ]);
@@ -924,7 +961,7 @@ describe("RecipeResolver with the official catalog", () => {
           );
 
           const server = selection.targets.find(
-            (target) => target.identity.toKey() === "apps/server-api",
+            (target) => target.identity.toKey() === "server:apps/api",
           );
           assert.strictEqual(server?.identity.name, "Api");
         }).pipe(Effect.provide(TestLayer)),
@@ -954,7 +991,7 @@ describe("RecipeResolver with the official catalog", () => {
           },
         );
 
-        assertTargetModules(selection, "apps/server-api", [
+        assertTargetModules(selection, "server:apps/api", [
           ModuleId.make("server-not-real"),
           ModuleId.make("package-db-postgres"),
         ]);
@@ -1018,7 +1055,7 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/client-react-web", [
+          assertTargetModules(selection, "client-react:apps/web", [
             ModuleId.make("client-react-http-api"),
           ]);
           assert.strictEqual(
@@ -1051,7 +1088,7 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/cli-custom", [
+          assertTargetModules(selection, "cli:apps/custom", [
             ModuleId.make("cli-command-chat-terminal"),
           ]);
           assert.strictEqual(
@@ -1087,12 +1124,12 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/client-react-web", [
+          assertTargetModules(selection, "client-react:apps/web", [
             ModuleId.make("client-react-http-api"),
             ModuleId.make("server-needs-db"),
           ]);
           assert.strictEqual(
-            modulesForTarget(selection.targets, "apps/server-api"),
+            modulesForTarget(selection.targets, "server:apps/api"),
             undefined,
           );
           assert.strictEqual(

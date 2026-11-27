@@ -42,7 +42,7 @@ const createCommand = (
     "create",
     projectName,
     "--target",
-    "cli/app:cli-command-hello",
+    "cli/:cli-command-hello",
     "--typescript",
     typescript,
     ...(options.format === undefined ? [] : ["--format", options.format]),
