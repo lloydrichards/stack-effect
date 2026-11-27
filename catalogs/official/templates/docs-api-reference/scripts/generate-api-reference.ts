@@ -64,6 +64,20 @@ const validateExports = (
         );
       }
       if (resolved.getFlags() & ts.SymbolFlags.Module) modules.add(resolved);
+
+      const aliases = new Set([exported]);
+      for (const alias of aliases) {
+        if (!alias.isAlias()) continue;
+        for (const declaration of alias.getDeclarations()) {
+          const imported = declaration
+            .getFirstAncestorByKind(ts.SyntaxKind.ImportDeclaration)
+            ?.getModuleSpecifier()
+            .getSymbol();
+          if (imported) modules.add(imported);
+        }
+        const next = alias.getImmediatelyAliasedSymbol();
+        if (next) aliases.add(next);
+      }
     }
   }
 
@@ -96,9 +110,11 @@ const entries = [...new Set(entryPoints)].map((entryPoint) => {
     dirname(entryPoint),
     ts.sys.fileExists,
   );
-  const project = new Project(
-    tsConfigFilePath === undefined ? {} : { tsConfigFilePath },
-  );
+  const project = new Project({
+    ...(tsConfigFilePath === undefined ? {} : { tsConfigFilePath }),
+    // Keep module resolution, but check ambiguous exports even in declaration files.
+    compilerOptions: { noCheck: false, skipLibCheck: false },
+  });
   const source = project.addSourceFileAtPath(entryPoint);
   project.resolveSourceFileDependencies();
 
