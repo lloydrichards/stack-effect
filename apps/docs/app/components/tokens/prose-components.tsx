@@ -178,7 +178,7 @@ export const proseComponents = {
     return (
       <code
         className={cn(
-          "bg-code text-code-foreground border border-code-border rounded-sm px-1.5 py-0.5 font-mono text-[0.875em]",
+          "bg-code text-code-foreground border border-code-border rounded-sm px-1.5 py-0.5 font-mono text-[0.875em] break-words",
           className,
         )}
         {...props}
