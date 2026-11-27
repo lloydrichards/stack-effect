@@ -1,5 +1,6 @@
 import { defineModules } from "@repo/authoring/Define";
 import { templates } from "@repo/authoring/Template";
+import { EFFECT_VERSION } from "../dependencies";
 
 const template = templates(new URL("../../templates/", import.meta.url));
 
@@ -189,6 +190,90 @@ export const docsModules = defineModules(import.meta.url, [
         field: "about",
         value:
           '{"slug": "about", "title": "About", "file": "routes/about.tsx"}',
+      },
+    ],
+  },
+  {
+    id: "docs-worker-demo",
+    title: "Interactive Worker Demo",
+    description:
+      "Embed a browser worker demo in MDX with streamed validation results",
+    supportedRuntimes: ["bun"],
+    supportedOn: [
+      {
+        _tag: "kind",
+        kind: "docs",
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/content/worker-demo.mdx",
+        contents: template("./docs-worker-demo/app/content/worker-demo.mdx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/components/import-validation-demo.tsx",
+        contents: template(
+          "./docs-worker-demo/app/components/import-validation-demo.tsx",
+        ),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/lib/import-validation-worker.ts",
+        contents: template(
+          "./docs-worker-demo/app/lib/import-validation-worker.ts",
+        ),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/workers/import-validation/domain.ts",
+        contents: template(
+          "./docs-worker-demo/app/workers/import-validation/domain.ts",
+        ),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/workers/import-validation/import-validation.worker.ts",
+        contents: template(
+          "./docs-worker-demo/app/workers/import-validation/import-validation.worker.ts",
+        ),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "effect",
+        value: EFFECT_VERSION,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@effect/atom-react",
+        value: EFFECT_VERSION,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "dependencies",
+        name: "@effect/platform-browser",
+        value: EFFECT_VERSION,
+      },
+      {
+        _tag: "ts-object-field",
+        path: "{{targetPath}}/app/docs-pages.ts",
+        targetVariable: "docsPages",
+        functionName: "defineDocsPages",
+        field: "workerDemo",
+        value:
+          '{"slug": "worker-demo", "title": "Interactive demo", "file": "content/worker-demo.mdx"}',
       },
     ],
   },
