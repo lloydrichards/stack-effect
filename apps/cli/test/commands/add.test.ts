@@ -120,6 +120,8 @@ describe("add", () => {
                 MockTerminal.inputKey("enter"),
                 MockTerminal.inputKey("down"),
                 MockTerminal.inputKey("space"),
+                MockTerminal.inputKey("down"),
+                MockTerminal.inputKey("space"),
                 MockTerminal.inputKey("enter"),
                 MockTerminal.inputKey("enter"),
                 MockTerminal.inputKey("enter"),
@@ -128,9 +130,40 @@ describe("add", () => {
               { discard: true },
             ),
           });
-          const flags = yield* run([...add, "--target", "api/:api-web"]);
+          const named = yield* run(add, {
+            input: Effect.forEach(
+              [
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("svc"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("down"),
+                MockTerminal.inputKey("space"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("right"),
+                MockTerminal.inputKey("enter"), // Edit modules
+                MockTerminal.inputKey("enter"), // Select the named target
+                MockTerminal.inputKey("enter"), // Keep api-web
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("enter"),
+              ],
+              (input) => input,
+              { discard: true },
+            ),
+          });
+          assert.include(named.stdout.join("\n"), "apps/svc#api-web");
+          assert.notInclude(named.stdout.join("\n"), "api-default-child");
+
+          const flags = yield* run([
+            ...add,
+            "--target",
+            "api/:api-web,api-default-child",
+          ]);
           for (const result of [interactive, flags]) {
             assert.include(result.stdout.join("\n"), "apps/api-svc#api-web");
+            assert.include(
+              result.stdout.join("\n"),
+              "apps/api-svc#api-default-child",
+            );
             assert.include(result.stdout.join("\n"), "apps/server-api");
             assert.notInclude(result.stdout.join("\n"), "apps/api/");
           }
