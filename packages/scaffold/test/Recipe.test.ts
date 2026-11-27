@@ -78,48 +78,87 @@ describe("RecipeResolver", () => {
     capability: ModuleCapability.make("sql"),
   });
 
+  const DefaultAppCatalogLayer = resolveLayer(
+    CatalogReader.fromFragments([
+      {
+        targets: [
+          target("workspace"),
+          target("client"),
+          target("server", { defaultName: "api" }),
+        ],
+        modules: [
+          sqlProvider("sql-server", "server"),
+          sqlProvider("sql-alternate", "server"),
+          module("client-consumer", "client", {
+            dependencies: [requiresSql("server", "api")],
+          }),
+          module("client-default-consumer", "client", {
+            dependencies: [requiresSql("server", "")],
+          }),
+          module("client-custom-consumer", "client", {
+            dependencies: [requiresSql("server", "backoffice")],
+          }),
+        ],
+      },
+    ]),
+  );
+
   it.effect(
-    "resolves a provider when a blank dependency refers to a catalog default",
+    "keeps app placement and provider choice when replaying a copied recipe",
     () =>
       Effect.gen(function* () {
+        const recipes = yield* RecipeResolver;
         const blueprints = yield* BlueprintResolver;
-        const selection = yield* resolve([
-          recipeTarget("client", "web", "client-consumer"),
-        ]);
-        const blueprint = yield* blueprints.resolve(selection, config);
+        for (const [moduleId, recipeName, key] of [
+          ["client-consumer", "", "apps/server-api"],
+          ["client-default-consumer", "", "apps/server-api"],
+          ["client-custom-consumer", "backoffice", "server:apps/backoffice"],
+        ] as const) {
+          const client = recipeTarget("client", "web", moduleId);
+          const selection = yield* resolve([client], {
+            _tag: "first-provider",
+          });
+          const command = recipes.renderCreateCommand({ config, selection });
 
-        assert.deepStrictEqual(modulesOn(selection, "apps/server-api"), [
-          ModuleId.make("sql-server"),
-        ]);
-        assert.isTrue(
-          blueprint.nodes.some(
-            (node) =>
-              node._tag === "attached-module" &&
-              node.targetId === "apps/server-api" &&
-              node.moduleId === "sql-server",
-          ),
-        );
-      }).pipe(
-        Effect.provide(
-          resolveLayer(
-            CatalogReader.fromFragments([
-              {
-                targets: [
-                  target("workspace"),
-                  target("client"),
-                  target("server", { defaultName: "api" }),
-                ],
-                modules: [
-                  sqlProvider("sql-server", "server"),
-                  module("client-consumer", "client", {
-                    dependencies: [requiresSql("server", "")],
-                  }),
-                ],
-              },
-            ]),
-          ),
-        ),
-      ),
+          assert.deepStrictEqual(modulesOn(selection, key), [
+            ModuleId.make("sql-server"),
+          ]);
+          assert.include(command, `--target server/${recipeName}:sql-server`);
+          const replay = yield* resolve([
+            client,
+            recipeTarget("server", recipeName, "sql-server"),
+          ]);
+          assert.deepStrictEqual(
+            yield* blueprints.resolve(replay, config),
+            yield* blueprints.resolve(selection, config),
+          );
+        }
+      }).pipe(Effect.provide(DefaultAppCatalogLayer)),
+  );
+
+  it.effect("keeps an explicit provider choice on a named app", () =>
+    Effect.gen(function* () {
+      const blueprints = yield* BlueprintResolver;
+      const server = recipeTarget("server", "api");
+      const selection = yield* resolve(
+        [recipeTarget("client", "web", "client-consumer"), server],
+        {
+          _tag: "explicit",
+          providers: [
+            {
+              target: server.target,
+              capability: ModuleCapability.make("sql"),
+              moduleId: ModuleId.make("sql-alternate"),
+            },
+          ],
+        },
+      );
+
+      assert.deepStrictEqual(modulesOn(selection, "server:apps/api"), [
+        ModuleId.make("sql-alternate"),
+      ]);
+      yield* blueprints.resolve(selection, config);
+    }).pipe(Effect.provide(DefaultAppCatalogLayer)),
   );
 
   /**
