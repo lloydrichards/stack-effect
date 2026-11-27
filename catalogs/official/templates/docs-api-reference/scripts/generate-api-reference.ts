@@ -41,21 +41,19 @@ const importedBinding = (declaration: Node) => {
       ?.getSymbol();
     return module && { module, name: declaration.getName() };
   }
-  if (!Node.isImportEqualsDeclaration(declaration)) return;
-  const reference = declaration.getModuleReference();
-  if (!Node.isQualifiedName(reference)) return;
-  const qualifier = reference.getLeft().getSymbol();
-  const module = qualifier?.getAliasedSymbol() ?? qualifier;
-  return module && { module, name: reference.getRight().getText() };
 };
 
-function* aliasQualifiers(declaration: Node) {
+function* qualifiedBindings(declaration: Node, aliases: Set<Symbol>) {
   if (!Node.isImportEqualsDeclaration(declaration)) return;
   let reference = declaration.getModuleReference();
   while (Node.isQualifiedName(reference)) {
+    const name = reference.getRight().getText();
     reference = reference.getLeft();
     const qualifier = reference.getSymbol();
-    if (qualifier) yield qualifier;
+    if (!qualifier) continue;
+    aliases.add(qualifier);
+    const module = qualifier.getAliasedSymbol() ?? qualifier;
+    yield { module, name };
   }
 }
 
@@ -65,8 +63,8 @@ const publicImports = (exported: Symbol) => {
   for (const alias of aliases) {
     if (!alias.isAlias()) continue;
     for (const declaration of alias.getDeclarations()) {
-      for (const qualifier of aliasQualifiers(declaration))
-        aliases.add(qualifier);
+      for (const binding of qualifiedBindings(declaration, aliases))
+        imports.push(binding);
       const imported = importedBinding(declaration);
       if (imported) imports.push(imported);
     }
