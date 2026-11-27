@@ -16,10 +16,14 @@ import {
 import { useForm } from "@tanstack/react-form";
 import { Array as Arr, Context, Schema } from "effect";
 
-const ProjectName = Schema.String.check(
-  Schema.makeFilter((name) =>
-    name.trim().length > 0 ? undefined : "Enter a project name.",
-  ),
+export const ProjectName = Schema.String.check(
+  Schema.makeFilter((name) => {
+    if (name.trim().length === 0) return "Enter a project name.";
+    return (
+      Schema.is(TargetName)(name) ||
+      "Use a project name with safe, non-empty directory segments."
+    );
+  }),
 );
 
 const KebabTargetName = TargetName.check(

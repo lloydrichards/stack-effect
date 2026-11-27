@@ -8,7 +8,7 @@ import { Button } from "~/components/ui/button";
 import { cn } from "~/lib/utils";
 import { CatalogSourcesPanel } from "./catalog-sources";
 import { DatabaseSelector } from "./database-selector";
-import { usesOfficialCatalog } from "./form";
+import { ProjectName, usesOfficialCatalog } from "./form";
 import { usePresetTargets } from "./preset-targets";
 import {
   useRecipeBuilderCatalog,
@@ -176,7 +176,7 @@ export const BuilderWorkspace = () => {
   const editor = useTargetEditor();
   const heading = useRef<HTMLHeadingElement>(null);
   const working = step === "targets";
-  const canContinue = config.name.trim().length > 0;
+  const canContinue = Schema.is(ProjectName)(config.name);
   const go = (next: Step) => {
     setStep(next);
     requestAnimationFrame(() => heading.current?.focus());

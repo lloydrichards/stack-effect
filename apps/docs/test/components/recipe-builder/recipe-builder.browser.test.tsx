@@ -972,28 +972,64 @@ test("should keep a current preview usable when browser storage fails", async ()
     .toBeEnabled();
 });
 
-test("should retain the last valid preview when the current Selection becomes invalid", async () => {
+test.each(["sdk//web", "."])(
+  "should retain the last valid preview for invalid target name %s",
+  async (name) => {
+    await renderRecipeBuilder();
+    await targetsStep();
+
+    const command = page.getByLabelText("Command to run locally");
+    await expect
+      .element(command)
+      .toHaveTextContent("bunx stack-effect create my-effect-app");
+
+    await openReactTarget();
+    await page.getByText("Target settings", { exact: true }).click();
+    await page.getByLabelText("Target name").fill(name);
+
+    await expect
+      .element(page.getByText("1 file", { exact: true }))
+      .toBeVisible();
+    await expect
+      .element(command)
+      .toHaveTextContent(
+        "Complete every target configuration to generate a command",
+      );
+    await expect
+      .element(page.getByRole("button", { name: "Copy command" }))
+      .toBeDisabled();
+
+    await page.getByLabelText("Target name").fill("client");
+    await expect
+      .element(page.getByRole("button", { name: "Copy command" }))
+      .toBeEnabled();
+  },
+);
+
+test("should show a validation error for a dot project name and recover", async () => {
   await renderRecipeBuilder();
-  await targetsStep();
 
-  const command = page.getByLabelText("Command to run locally");
-  await expect
-    .element(command)
-    .toHaveTextContent("bunx stack-effect create my-effect-app");
+  const name = page.getByLabelText("Project name");
+  const next = page.getByRole("button", { name: /Next: Explore targets/u });
+  await name.fill(".");
+  await userEvent.keyboard("{Tab}");
 
-  await openReactTarget();
-  await page.getByText("Target settings", { exact: true }).click();
-  await page.getByLabelText("Target name").fill("sdk//web");
+  await expect.element(name).toHaveAttribute("aria-invalid", "true");
+  await expect
+    .element(
+      page.getByText(
+        "Use a project name with safe, non-empty directory segments.",
+      ),
+    )
+    .toBeVisible();
+  await expect.element(next).toBeDisabled();
 
-  await expect.element(page.getByText("1 file", { exact: true })).toBeVisible();
+  await name.fill("my-project");
+  await expect.element(next).toBeEnabled();
+  await next.click();
   await expect
-    .element(command)
-    .toHaveTextContent(
-      "Complete every target configuration to generate a command",
-    );
-  await expect
-    .element(page.getByRole("button", { name: "Copy command" }))
-    .toBeDisabled();
+    .element(page.getByLabelText("Command to run locally"))
+    .toHaveTextContent("bunx stack-effect create my-project");
 });
 
 test("should show the newest preview when an older request completes after it is superseded", async () => {
