@@ -151,6 +151,12 @@ export const documents: Readonly<Record<string, string>> = {
             }),
           },
         ],
+        children: [
+          {
+            moduleId: ModuleId.make("api-default-child"),
+            requirement: "optional",
+          },
+        ],
         dependencies: [
           {
             _tag: "required-capability",
@@ -159,6 +165,17 @@ export const documents: Readonly<Record<string, string>> = {
               name: "api",
             }),
             capability: ModuleCapability.make("http-server"),
+          },
+        ],
+      }),
+      module("api-default-child", "api", {
+        supportedOn: [
+          {
+            _tag: "identity",
+            identity: new TargetIdentity({
+              kind: TargetKind.make("api"),
+              name: "",
+            }),
           },
         ],
       }),

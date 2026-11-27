@@ -134,6 +134,7 @@ const buildNode = (
   mod: ModuleDefinition,
   requirement: ChildRef["requirement"],
   visitedRef: Ref.Ref<ReadonlySet<string>>,
+  target: TargetIdentity,
 ): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogReader> =>
   Effect.gen(function* () {
     const node = {
@@ -147,7 +148,7 @@ const buildNode = (
     yield* Ref.update(visitedRef, (visited) => new Set([...visited, mod.id]));
     const children = Arr.getSomes(
       yield* Effect.forEach(childRefsOf(mod), (ref) =>
-        buildChild(ref, visitedRef),
+        buildChild(ref, visitedRef, target),
       ),
     );
 
@@ -160,23 +161,29 @@ const buildNode = (
 const buildChild = Effect.fnUntraced(function* (
   ref: ChildRef,
   visitedRef: Ref.Ref<ReadonlySet<string>>,
+  target: TargetIdentity,
 ) {
   const catalog = yield* CatalogReader;
   const child = yield* Effect.option(catalog.getModule(ref.moduleId));
   if (
     Option.isNone(child) ||
-    (yield* Ref.get(visitedRef)).has(child.value.id)
+    (yield* Ref.get(visitedRef)).has(child.value.id) ||
+    (ref.requirement === "optional" &&
+      !child.value.supportedOn.some((rule) => target.matches(rule)))
   ) {
     return Option.none();
   }
   return Option.some(
-    yield* buildNode(child.value, ref.requirement, visitedRef),
+    yield* buildNode(child.value, ref.requirement, visitedRef, target),
   );
 });
 
-const buildRoot = Effect.fnUntraced(function* (mod: ModuleDefinition) {
+const buildRoot = Effect.fnUntraced(function* (
+  mod: ModuleDefinition,
+  target: TargetIdentity,
+) {
   const visitedRef = yield* Ref.make<ReadonlySet<string>>(new Set());
-  return (yield* buildNode(mod, "required", visitedRef)).node;
+  return (yield* buildNode(mod, "required", visitedRef, target)).node;
 });
 
 /**
@@ -184,15 +191,22 @@ const buildRoot = Effect.fnUntraced(function* (mod: ModuleDefinition) {
  * children are shown for visibility, but Selection construction routes each
  * chosen module back to its owning target.
  */
-const buildModuleTree = (modules: ReadonlyArray<ModuleDefinition>) => {
+const buildModuleTree = (
+  modules: ReadonlyArray<ModuleDefinition>,
+  target: TargetIdentity,
+) => {
   const childModuleIds = new Set(
     modules.flatMap((mod) =>
       (mod.children ?? []).map((child) => child.moduleId),
     ),
   );
   return Effect.forEach(
-    modules.filter((mod) => !childModuleIds.has(mod.id)),
-    buildRoot,
+    modules.filter(
+      (mod) =>
+        !childModuleIds.has(mod.id) &&
+        mod.supportedOn.some((rule) => target.matches(rule)),
+    ),
+    (mod) => buildRoot(mod, target),
   );
 };
 
@@ -353,22 +367,33 @@ const ensureTargetModule = (
   return true;
 };
 
-const supportedModulesForTarget = (
+const pickTargetModules = Effect.fnUntraced(function* (
   identity: TargetIdentity,
-  moduleIds: ReadonlyArray<ModuleId>,
-) =>
-  Effect.gen(function* () {
-    const catalog = yield* CatalogReader;
-    const target = identity.hasExplicitName()
-      ? identity
-      : identity.placeCatalogReference(
-          (yield* catalog.getTarget(identity.kind)).defaultName,
-        );
-
-    return yield* Effect.filter(moduleIds, (moduleId) =>
-      catalog.isSupportedOn(moduleId, target),
-    );
+  message: string,
+  initialSelected: ReadonlyArray<ModuleId> = [],
+) {
+  const catalog = yield* CatalogReader;
+  const target = identity.hasExplicitName()
+    ? identity
+    : identity.placeCatalogReference(
+        (yield* catalog.getTarget(identity.kind)).defaultName,
+      );
+  const available = yield* catalog.getSupportedModules(target.kind, {
+    visibility: "public",
   });
+  const choices = yield* buildModuleTree(available, target);
+  if (!Arr.isReadonlyArrayNonEmpty(choices)) return Option.none();
+  const modules = yield* NestedMultiSelect({
+    message,
+    choices,
+    initialSelected,
+  });
+  return Option.some(
+    yield* Effect.filter(modules, (moduleId) =>
+      catalog.isSupportedOn(moduleId, target),
+    ),
+  );
+});
 
 // A dependency on the same non-package kind stays on the dependent's own target.
 const dependencyTargetFor = (
@@ -552,7 +577,6 @@ const addTarget = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
   targetChoices: ReadonlyArray<{ title: string; value: TargetKind }>,
 ) {
-  const catalog = yield* CatalogReader;
   const kind = yield* HorizontalSelect({
     message: "What kind of target do you want to add?",
     choices: targetChoices,
@@ -563,27 +587,15 @@ const addTarget = Effect.fnUntraced(function* (
     validate: validateTargetName(kind),
   });
 
-  const availableModules = yield* catalog.getSupportedModules(kind, {
-    visibility: "public",
-  });
-
-  const moduleTree = yield* buildModuleTree(availableModules);
-
-  const modules = Arr.isReadonlyArrayNonEmpty(moduleTree)
-    ? yield* NestedMultiSelect({
-        message: `Which modules do you want to add to "${kind}/${name}"?`,
-        choices: moduleTree,
-      })
-    : [];
-  const supportedModules = yield* supportedModulesForTarget(
+  const modules = yield* pickTargetModules(
     new TargetIdentity({ kind, name }),
-    modules,
+    `Which modules do you want to add to "${kind}/${name}"?`,
   );
 
   targets.push({
     kind,
     name,
-    modules: [...supportedModules],
+    modules: [...Option.getOrElse(modules, () => [])],
     confirmed: false,
   });
 });
@@ -591,7 +603,6 @@ const addTarget = Effect.fnUntraced(function* (
 const editTarget = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
 ) {
-  const catalog = yield* CatalogReader;
   const index = yield* Select({
     message: "Which target do you want to edit?",
     choices: targets.map((target, i) => ({
@@ -602,32 +613,20 @@ const editTarget = Effect.fnUntraced(function* (
   const target = targets[index];
   if (target === undefined) return;
 
-  const availableModules = yield* catalog.getSupportedModules(target.kind, {
-    visibility: "public",
-  });
-  if (!Arr.isReadonlyArrayNonEmpty(availableModules)) {
-    target.confirmed = true;
-    return;
-  }
-
-  const moduleTree = yield* buildModuleTree(availableModules);
-  const newModules = yield* NestedMultiSelect({
-    message: `Select modules for "${target.kind}/${target.name}":`,
-    choices: moduleTree,
-    initialSelected: target.modules,
-  });
-  const supportedModules = yield* supportedModulesForTarget(
+  const modules = yield* pickTargetModules(
     new TargetIdentity({ kind: target.kind, name: target.name }),
-    newModules,
+    `Select modules for "${target.kind}/${target.name}":`,
+    target.modules,
   );
-  target.modules = [...supportedModules];
   target.confirmed = true;
+  if (Option.isNone(modules)) return;
+  target.modules = [...modules.value];
 
   // NOTE: Prune implied modules that were invalidated by explicit edits before resolving again.
   yield* removeOrphanedImplications(
     targets,
     new Set(
-      supportedModules.map((moduleId) => implicationKey(target.kind, moduleId)),
+      modules.value.map((moduleId) => implicationKey(target.kind, moduleId)),
     ),
   );
   yield* resolveImplicationsInteractive(targets);
