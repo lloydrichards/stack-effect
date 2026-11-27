@@ -1,5 +1,4 @@
 import { BlueprintNode } from "@repo/domain/Blueprint";
-import type { TargetIdentity } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
 import { Option } from "effect";
@@ -7,7 +6,7 @@ import { AsyncResult } from "effect/reactivity";
 import { useRef, useState } from "react";
 import { trackEvent } from "~/lib/analytics";
 import { CatalogModule } from "../../../workers/recipe-builder/domain";
-import { ownerKey, type SupportConfiguration } from "../form";
+import { ownerKey, resolvedOwnerKey, type SupportConfiguration } from "../form";
 import { usePresetTargets } from "../preset-targets";
 import {
   useRecipeBuilderCatalog,
@@ -23,13 +22,6 @@ import {
   toggleTargetModule,
 } from "./state";
 
-const resolvedOwnerKey = (identity: TargetIdentity) =>
-  ownerKey(
-    identity.placement === "default"
-      ? { kind: identity.kind, name: "" }
-      : identity,
-  );
-
 export const useTargetEditor = () => {
   const form = useRecipeBuilderFormContext();
   const { catalog, catalogFailed, catalogOwnersByTargetId } =
@@ -44,7 +36,7 @@ export const useTargetEditor = () => {
   )?.blueprint;
   const presetNames = new Map(
     usePresetTargets().flatMap(({ preset, targets }) =>
-      targets.map(({ identity }) => [ownerKey(identity), preset.title]),
+      targets.map(({ identity }) => [resolvedOwnerKey(identity), preset.title]),
     ),
   );
   const requiredModuleNodes = new Set(

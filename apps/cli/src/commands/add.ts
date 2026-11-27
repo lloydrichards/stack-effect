@@ -359,9 +359,14 @@ const supportedModulesForTarget = (
 ) =>
   Effect.gen(function* () {
     const catalog = yield* CatalogReader;
+    const target = identity.hasExplicitName()
+      ? identity
+      : identity.placeCatalogReference(
+          (yield* catalog.getTarget(identity.kind)).defaultName,
+        );
 
     return yield* Effect.filter(moduleIds, (moduleId) =>
-      catalog.isSupportedOn(moduleId, identity),
+      catalog.isSupportedOn(moduleId, target),
     );
   });
 
