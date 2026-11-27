@@ -174,14 +174,15 @@ exit 1
 
             yield* project.writeFile(
               "smoke-mcp.sh",
-              `#!/bin/sh
+              String.raw`#!/bin/sh
 set -eu
-PORT=$((40000 + $$ % 20000))
-MCP_HOST=127.0.0.1 MCP_PORT="$PORT" apps/server-mcp-mcp/dist/server-mcp-mcp >mcp.log 2>&1 &
+MCP_HOST=127.0.0.1 MCP_PORT=0 apps/server-mcp-mcp/dist/server-mcp-mcp >mcp.log 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40; do
-  if curl -fsS "http://127.0.0.1:$PORT/mcp" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' >mcp-response.txt 2>/dev/null; then
+  kill -0 "$server_pid" 2>/dev/null || break
+  PORT="$(sed -n 's|.*Listening on http://127[.]0[.]0[.]1:\([1-9][0-9]*\).*|\1|p' mcp.log | head -n 1)"
+  if [ -n "$PORT" ] && curl -fsS "http://127.0.0.1:$PORT/mcp" -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' --data '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"smoke","version":"1"}}}' >mcp-response.txt 2>/dev/null; then
     grep -q '"protocolVersion":"2025-06-18"' mcp-response.txt
     exit 0
   fi
