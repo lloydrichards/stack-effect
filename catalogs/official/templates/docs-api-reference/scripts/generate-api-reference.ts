@@ -34,6 +34,13 @@ const importedBinding = (declaration: Node) => {
       .getSymbol();
     return module && { module, name: declaration.getName() };
   }
+  if (Node.isExportSpecifier(declaration)) {
+    const module = declaration
+      .getExportDeclaration()
+      .getModuleSpecifier()
+      ?.getSymbol();
+    return module && { module, name: declaration.getName() };
+  }
   if (!Node.isImportEqualsDeclaration(declaration)) return;
   const reference = declaration.getModuleReference();
   if (!Node.isQualifiedName(reference)) return;
