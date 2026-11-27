@@ -49,12 +49,24 @@ const importedBinding = (declaration: Node) => {
   return module && { module, name: reference.getRight().getText() };
 };
 
+function* aliasQualifiers(declaration: Node) {
+  if (!Node.isImportEqualsDeclaration(declaration)) return;
+  let reference = declaration.getModuleReference();
+  while (Node.isQualifiedName(reference)) {
+    reference = reference.getLeft();
+    const qualifier = reference.getSymbol();
+    if (qualifier) yield qualifier;
+  }
+}
+
 const publicImports = (exported: Symbol) => {
   const imports: Array<{ module: Symbol; name: string }> = [];
   const aliases = new Set([exported]);
   for (const alias of aliases) {
     if (!alias.isAlias()) continue;
     for (const declaration of alias.getDeclarations()) {
+      for (const qualifier of aliasQualifiers(declaration))
+        aliases.add(qualifier);
       const imported = importedBinding(declaration);
       if (imported) imports.push(imported);
     }
@@ -70,6 +82,8 @@ const recordStarExports = (
 ) => {
   const sources = new Set([module]);
   for (const source of sources) {
+    if (source.compilerSymbol.exports?.has(ts.escapeLeadingUnderscores(name)))
+      continue;
     for (const statement of source
       .getDeclarations()
       .flatMap(moduleStatements)) {
@@ -78,8 +92,14 @@ const recordStarExports = (
         statement.compilerNode.exportClause
       )
         continue;
-      const target = statement.getModuleSpecifier()?.getSymbol();
-      if (target) sources.add(target);
+      const specifier = statement.getModuleSpecifier();
+      const target = specifier?.getSymbol();
+      if (!target) {
+        throw new Error(
+          `Cannot resolve re-export ${specifier?.getLiteralValue()} from ${statement.getSourceFile().getFilePath()}.`,
+        );
+      }
+      sources.add(target);
       const names = namedImports.get(statement) ?? new Set<string>();
       names.add(name);
       namedImports.set(statement, names);
