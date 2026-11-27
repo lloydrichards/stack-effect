@@ -117,7 +117,11 @@ export const TargetWorkspace = ({
       {targets.length > 0 && (
         <ul aria-label="Selected targets" className="divide-y border-y">
           {targets.map((target) => {
-            const name = target.name || target.kind;
+            const name =
+              target.name ||
+              catalog?.targets.find(({ kind }) => kind === target.kind)
+                ?.defaultName ||
+              target.kind;
             const expanded = activeTarget?.id === target.id;
             const presetName = editor.presetNames.get(ownerKey(target));
             const origin = presetName

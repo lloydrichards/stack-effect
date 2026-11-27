@@ -1,4 +1,5 @@
 import { BlueprintNode } from "@repo/domain/Blueprint";
+import type { TargetIdentity } from "@repo/domain/Catalog";
 import { useSelector } from "@tanstack/react-form";
 import { batch } from "@tanstack/store";
 import { Option } from "effect";
@@ -21,6 +22,13 @@ import {
   toggleSupportSelection,
   toggleTargetModule,
 } from "./state";
+
+const resolvedOwnerKey = (identity: TargetIdentity) =>
+  ownerKey(
+    identity.placement === "default"
+      ? { kind: identity.kind, name: "" }
+      : identity,
+  );
 
 export const useTargetEditor = () => {
   const form = useRecipeBuilderFormContext();
@@ -58,7 +66,10 @@ export const useTargetEditor = () => {
   const targets = [...explicitTargets];
   const explicitOwners = new Set(explicitTargets.map(ownerKey));
   for (const { id, identity } of resolvedTargets) {
-    if (identity.kind === "workspace" || explicitOwners.has(ownerKey(identity)))
+    if (
+      identity.kind === "workspace" ||
+      explicitOwners.has(resolvedOwnerKey(identity))
+    )
       continue;
     targets.push({
       id: `resolved:${id}`,
@@ -177,7 +188,7 @@ export const useTargetEditor = () => {
 
   const resolvedActiveTarget = resolvedTargets.find(
     ({ identity }) =>
-      activeTarget && ownerKey(identity) === ownerKey(activeTarget),
+      activeTarget && resolvedOwnerKey(identity) === ownerKey(activeTarget),
   );
 
   return {
@@ -185,6 +196,7 @@ export const useTargetEditor = () => {
       ? requiredModulesByTarget.get(resolvedActiveTarget.id)
       : undefined,
     activeTarget,
+    activeTargetPath: resolvedActiveTarget?.identity.toPath(),
     activeTargetIndex,
     presetNames,
     addTarget,

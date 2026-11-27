@@ -400,6 +400,9 @@ test("adds a target before editing its modules in the inline overview", async ()
   const add = page.getByRole("button", { name: "Add target", exact: true });
   await expect.element(add).toBeDisabled();
   await page.getByRole("radio", { name: "React Client" }).click();
+  await expect
+    .element(page.getByText("apps/client-react-web", { exact: true }))
+    .toBeVisible();
   assert.strictEqual(
     page.getByLabelText("Recipe URL search").element().textContent,
     "",
@@ -408,6 +411,12 @@ test("adds a target before editing its modules in the inline overview", async ()
   await page
     .getByRole("button", { name: "Configure modules for web, client-react" })
     .click();
+  await page.getByText("Target settings", { exact: true }).click();
+  await expect.element(page.getByLabelText("Target name")).toHaveValue("");
+  await expect
+    .element(page.getByLabelText("Target name"))
+    .toHaveAttribute("placeholder", "web");
+  await page.getByText("Target settings", { exact: true }).click();
   const description = page.getByText(
     "REST API client with Effect Atom and typed HttpApiClient",
     { exact: true },
@@ -426,7 +435,7 @@ test("adds a target before editing its modules in the inline overview", async ()
     .toBeVisible();
   await expect
     .element(
-      page.getByText("Included by HTTP API Client in client-react/web", {
+      page.getByText("Included by HTTP API Client in client-react/", {
         exact: true,
       }),
     )

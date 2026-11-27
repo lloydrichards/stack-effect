@@ -24,7 +24,7 @@ const http = (path: string) => RpcClient.layerProtocolHttp({ url: `${apiUrl}${pa
   Layer.provide(FetchHttpClient.layer), Layer.provide(RpcSerialization.layerNdjson),
 );
 try {
-  const mcp = Bun.spawn(["bun", "apps/server-mcp-remote/src/index.ts"], {
+  const mcp = Bun.spawn(["bun", "apps/remote/src/index.ts"], {
     cwd: root, env: { ...process.env, MCP_PORT: String(mcpPort), MCP_HOST: "127.0.0.1" },
     stdout: Bun.file(`${root}/mcp-server.log`), stderr: Bun.file(`${root}/mcp-server-errors.log`),
   }); children.push(mcp); await ready(mcpUrl, mcp);

@@ -32,7 +32,7 @@ layer(CLI.layer)("generated Slack integration", (it) => {
           new URL("./fixtures/slack-mention.ts.txt", import.meta.url).pathname,
         );
         yield* cli.withinProject("slack-bot", function* (project) {
-          const server = "apps/server-support";
+          const server = "apps/support";
           const bot = "packages/chat-bot/src/Bot.ts";
           yield* project.expectTypeCheckPasses();
           yield* project.expectBuildSucceeds();

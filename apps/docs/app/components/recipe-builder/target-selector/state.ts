@@ -419,15 +419,21 @@ export const publicRootModules = <
 };
 
 export const nextTargetName = (
-  baseName: string,
+  definition: Pick<
+    RecipeBuilderCatalog["targets"][number],
+    "kind" | "defaultName"
+  >,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
-  kind: string,
 ): string => {
+  const { kind, defaultName } = definition;
+  const baseName = defaultName ?? kind;
   const usedNames = new Set(
     targets
       .filter((target) => target.kind === kind)
-      .map((target) => target.name),
+      .map((target) => target.name || baseName),
   );
+  if (kind !== "package" && defaultName !== undefined && usedNames.size === 0)
+    return "";
   if (!usedNames.has(baseName)) return baseName;
   return (
     Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
@@ -442,11 +448,10 @@ export const makeTargetInstance = (
   definition: RecipeBuilderCatalog["targets"][number],
   targets: ReadonlyArray<TargetInstance>,
 ): TargetInstance => {
-  const baseName = definition.defaultName ?? definition.kind;
   return {
     id,
     kind: definition.kind,
-    name: nextTargetName(baseName, targets, definition.kind),
+    name: nextTargetName(definition, targets),
     modules: definition.requiredModules,
   };
 };

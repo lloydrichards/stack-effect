@@ -4,7 +4,9 @@
  * in `@repo/domain/Recipe` and `@repo/domain/StackConfig`.
  */
 import type { CatalogReader } from "@repo/catalog/Catalog";
+import type { TargetIdentity } from "@repo/domain/Catalog";
 import type {
+  InvalidRecipeSpec,
   RecipeResolveError,
   RecipeResolveOptions,
   RecipeSpec,
@@ -41,6 +43,10 @@ import * as internal from "./internal/recipeResolver";
 export class RecipeResolver extends Context.Service<
   RecipeResolver,
   {
+    readonly resolveTarget: (
+      identity: TargetIdentity,
+      config: StackConfig,
+    ) => Effect.Effect<TargetIdentity, InvalidRecipeSpec>;
     readonly resolve: (
       spec: RecipeSpec,
       options: RecipeResolveOptions,

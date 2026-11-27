@@ -76,7 +76,7 @@ bunx stack-effect@latest add
 Follow this path through the prompts:
 
 1. Choose **Server** as the target kind.
-2. Enter `api` as the target name.
+2. Leave the target name blank to use `apps/server-api`.
 3. Select **HTTP API Endpoints**.
 4. Choose **Confirm all**.
 
@@ -148,7 +148,7 @@ The API works. Now preview a React client that calls it:
 
 ```bash
 bunx stack-effect@latest add \
-  --target client-react/web:client-react-http-api \
+  --target client-react/client:client-react-http-api \
   --yes \
   --dry-run
 ```
@@ -159,7 +159,7 @@ Apply the same target without `--yes`, `--trust`, or `--dry-run`:
 
 ```bash
 bunx stack-effect@latest add \
-  --target client-react/web:client-react-http-api
+  --target client-react/client:client-react-http-api
 ```
 
 This is the same target you just previewed, but now the command stops for approval. Review the Blueprint, review the Plan, and keep the default setup commands selected.
@@ -187,8 +187,8 @@ Before wrapping up, open these files to see how that request is assembled:
 - `packages/domain/src/Api.ts` defines the API contract shared by client and server.
 - `apps/server-api/src/index.ts` composes and starts the HTTP server.
 - `apps/server-api/src/Api/Hello.ts` implements the response you observed.
-- `apps/client-react-web/src/lib/atoms/hello-atom.ts` creates the typed client call.
-- `apps/client-react-web/src/app.tsx` is the client composition root that brings the generated UI together.
+- `apps/client/src/lib/atoms/hello-atom.ts` creates the typed client call.
+- `apps/client/src/app.tsx` is the client composition root that brings the generated UI together.
 
 The domain package owns the contract. The client uses it and the server implements it. You do not need to understand every Effect API here before you start changing the example.
 

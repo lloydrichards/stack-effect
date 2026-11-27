@@ -6,7 +6,9 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-11-21T18:01:19+00:00" }
+  - id: source-2
+    resource: ../../packages/scaffold/src/internal/recipeResolver.ts
+generated: { by: codex, at: "2026-11-27T15:03:44Z" }
 ---
 
 # Catalog definitions
@@ -20,6 +22,8 @@ Invariants:
 
 - Identity is `kind`. The `title` is a display label for target pickers and can change independently of the kind.
 - Includes contributions and optional scripts.
+- An explicit recipe app name maps to `apps/<name>`, including nested name segments. An omitted app name uses the catalog default and the kind-prefixed layout. Catalog dependency identities keep their default placement when the recipe does not select a matching app.
+- App folder ownership is exclusive across kinds. Package names keep their kind prefix so Plan can detect an attempt to create the same app at another path. Recipe resolution keeps the kind in named target keys so Blueprint can detect conflicting folder claims before planning.
 
 Connected terms:
 

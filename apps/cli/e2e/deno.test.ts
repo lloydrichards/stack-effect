@@ -76,13 +76,13 @@ describe("Deno generated project", () => {
             "--runtime",
             "deno",
             "--target",
-            "server/api:server-http-api,server-http-api-todos",
+            "server/:server-http-api,server-http-api-todos",
             "--target",
             "package/db:package-db-sqlite",
             "--target",
             "server-mcp/mcp:mcp-tools",
             "--target",
-            "cli/app:cli-command-hello",
+            "cli/:cli-command-hello",
             "--root",
             cli.workdir,
           );
@@ -96,7 +96,7 @@ describe("Deno generated project", () => {
               'from "@effect/platform-deno"',
             );
             yield* project.expectFileContaining(
-              "apps/server-mcp-mcp/src/index.ts",
+              "apps/mcp/src/index.ts",
               'from "@effect/platform-deno"',
             );
             yield* project.expectFileContaining(
@@ -176,7 +176,7 @@ exit 1
               "smoke-mcp.sh",
               String.raw`#!/bin/sh
 set -eu
-MCP_HOST=127.0.0.1 MCP_PORT=0 apps/server-mcp-mcp/dist/server-mcp-mcp >mcp.log 2>&1 &
+MCP_HOST=127.0.0.1 MCP_PORT=0 apps/mcp/dist/server-mcp-mcp >mcp.log 2>&1 &
 server_pid=$!
 trap 'kill "$server_pid" 2>/dev/null || true; wait "$server_pid" 2>/dev/null || true' EXIT
 for attempt in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40; do

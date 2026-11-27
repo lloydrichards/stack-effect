@@ -329,7 +329,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           name,
           ...labsCatalogArgs,
           "--target",
-          "server/api:server-github-issue-label",
+          "server/:server-github-issue-label",
           "--runtime",
           "bun",
           "--root",
@@ -359,6 +359,56 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
     );
 
     it.effect(
+      "requires the named server when a later add would create a second server",
+      () =>
+        Effect.gen(function* () {
+          const cli = yield* CLI;
+          const name = "existing-named-server";
+          const root = `${cli.workdir}/${name}`;
+
+          yield* cli.run(
+            "create",
+            name,
+            ...labsCatalogArgs,
+            "--root",
+            cli.workdir,
+            "--target",
+            "server/api:server-http-api",
+            "--yes",
+            "--no-git",
+          );
+          yield* cli.expectExitCode(0);
+
+          const add = [
+            "add",
+            "--root",
+            root,
+            "--target",
+            "cli/:cli-cluster-counter",
+            "--yes",
+          ];
+          const rejected = yield* cli.run(...add);
+          assert.strictEqual(rejected.exitCode, 1);
+          assert.include(
+            rejected.stdout + rejected.stderr,
+            "overlaps or relocates",
+          );
+          assert.include(rejected.stdout + rejected.stderr, "apps/api");
+
+          yield* cli.run(
+            ...add,
+            "--target",
+            "server/api:server-http-api",
+            "--dry-run",
+          );
+          yield* cli.expectExitCode(0);
+          yield* cli.withinProject(name, function* (project) {
+            yield* project.expectFileNotExists("apps/server-api/package.json");
+          });
+        }),
+    );
+
+    it.effect(
       "requires an Effect upgrade before adding Cluster Counter to an older npm project",
       () =>
         Effect.gen(function* () {
@@ -385,7 +435,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           const manifests = yield* Effect.forEach(
             [
               `${root}/package.json`,
-              `${root}/apps/server-api/package.json`,
+              `${root}/apps/api/package.json`,
               `${root}/packages/domain/package.json`,
             ],
             (path) =>
@@ -433,7 +483,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             manifests.map(({ older }) => older),
           );
           assert.isFalse(
-            yield* fs.exists(`${root}/apps/server-api/src/cluster/Runner.ts`),
+            yield* fs.exists(`${root}/apps/api/src/cluster/Runner.ts`),
           );
 
           yield* Effect.forEach(manifests, ({ path, current }) =>
@@ -443,15 +493,15 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           yield* cli.expectExitCode(0);
           yield* cli.withinProject(name, function* (project) {
             yield* project.expectFileContaining(
-              "apps/server-api/package.json",
+              "apps/api/package.json",
               `"@effect/sql-sqlite-node": "${EFFECT_VERSION}"`,
             );
             yield* project.expectFileContaining(
-              "apps/server-api/CLUSTER.md",
+              "apps/api/CLUSTER.md",
               "@effect/platform-node-shared",
             );
             yield* project.expectFileContaining(
-              "apps/server-api/CLUSTER.md",
+              "apps/api/CLUSTER.md",
               "stack-effect add --target server/api:server-cluster-counter --dry-run",
             );
             yield* project.expectTypeCheckPasses("npm");
@@ -488,7 +538,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
               "--no-git",
             );
             yield* cli.expectExitCode(0);
-            const manifestPath = `${root}/apps/client-foldkit-app/package.json`;
+            const manifestPath = `${root}/apps/app/package.json`;
             const manifest = yield* fs.readFileString(manifestPath);
             assert.include(manifest, '"foldkit": "0.170.0"');
             yield* fs.writeFileString(
@@ -497,7 +547,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             );
             const paths = [
               manifestPath,
-              `${root}/apps/client-foldkit-app/src/main.ts`,
+              `${root}/apps/app/src/main.ts`,
               `${root}/stack.effect.json`,
               `${root}/bun.lock`,
             ];
@@ -523,9 +573,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             );
             assert.deepStrictEqual(after, before);
             assert.isFalse(
-              yield* fs.exists(
-                `${root}/apps/client-foldkit-app/src/features/${feature}.ts`,
-              ),
+              yield* fs.exists(`${root}/apps/app/src/features/${feature}.ts`),
             );
             assert.isFalse(yield* fs.exists(`${root}/apps/server-api`));
             yield* fs.writeFileString(manifestPath, manifest);
@@ -629,9 +677,9 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           yield* Effect.forEach(
             [
               "package/domain:domain-api-contracts",
-              "server/api:server-http-api",
-              "server/api:server-chat-rpc",
-              "cli/app:cli-command-hello",
+              "server/:server-http-api",
+              "server/:server-chat-rpc",
+              "cli/:cli-command-hello",
             ],
             (target) =>
               Effect.gen(function* () {
@@ -702,7 +750,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             "--root",
             root,
             "--target",
-            "client-react/web:client-react-http-api",
+            "client-react/:client-react-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -774,7 +822,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             "--root",
             root,
             "--target",
-            "server/api:server-http-api",
+            "server/:server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -784,7 +832,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             "--root",
             root,
             "--target",
-            "client-react/web:client-react-http-api",
+            "client-react/:client-react-http-api",
             "--dry-run",
           );
           yield* cli.expectExitCode(0);
@@ -808,7 +856,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             "--root",
             root,
             "--target",
-            "server/api:server-chat-rpc",
+            "server/:server-chat-rpc",
           );
           yield* cli.expectExitCode(0);
 
@@ -925,7 +973,7 @@ await Effect.runPromise(
             "--root",
             root,
             "--target",
-            "cli/app:cli-command-chat-ask",
+            "cli/:cli-command-chat-ask",
           );
           yield* cli.expectExitCode(0);
 
@@ -982,36 +1030,34 @@ await Effect.runPromise(
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("terminal-chat-test", function* (project) {
-            yield* project.expectDirectoryExactly("apps", ["cli-custom"]);
+            yield* project.expectDirectoryExactly("apps", ["custom"]);
+            yield* project.expectFileExists("apps/custom/src/commands/chat.ts");
             yield* project.expectFileExists(
-              "apps/cli-custom/src/commands/chat.ts",
+              "apps/custom/src/chat/TerminalChat.ts",
             );
             yield* project.expectFileExists(
-              "apps/cli-custom/src/chat/TerminalChat.ts",
-            );
-            yield* project.expectFileExists(
-              "apps/cli-custom/src/chat/ChatDriver.ts",
+              "apps/custom/src/chat/ChatDriver.ts",
             );
             yield* project.expectFileExists("packages/ai/package.json");
             yield* project.expectFileExists("packages/domain/package.json");
             yield* project.expectFileContaining(
-              "apps/cli-custom/src/index.ts",
+              "apps/custom/src/index.ts",
               "chat",
             );
             yield* project.expectFileContaining(
-              "apps/cli-custom/package.json",
+              "apps/custom/package.json",
               '"@repo/ai": "workspace:*"',
             );
             yield* project.expectFileContaining(
-              "apps/cli-custom/package.json",
+              "apps/custom/package.json",
               '"@repo/domain": "workspace:*"',
             );
             yield* project.expectFileContaining(
-              "apps/cli-custom/package.json",
+              "apps/custom/package.json",
               '"effect-boxes": "^0.18.1"',
             );
             yield* project.expectFileNotExists(
-              "apps/cli-custom/src/commands/ask.ts",
+              "apps/custom/src/commands/ask.ts",
             );
             yield* project.expectFileNotExists("apps/server-api/package.json");
             yield* project.expectTypeCheckPasses();
@@ -1052,7 +1098,7 @@ await Effect.runPromise(
             "--root",
             root,
             "--target",
-            "server/api:server-http-api",
+            "server/:server-http-api",
           );
           yield* cli.expectExitCode(0);
 
@@ -1067,17 +1113,11 @@ await Effect.runPromise(
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("foldkit-test", function* (project) {
-            yield* project.expectFileExists(
-              "apps/client-foldkit-app/package.json",
-            );
-            yield* project.expectFileExists(
-              "apps/client-foldkit-app/src/main.ts",
-            );
-            yield* project.expectFileExists(
-              "apps/client-foldkit-app/src/features/rest.ts",
-            );
+            yield* project.expectFileExists("apps/app/package.json");
+            yield* project.expectFileExists("apps/app/src/main.ts");
+            yield* project.expectFileExists("apps/app/src/features/rest.ts");
             yield* project.expectFileContaining(
-              "apps/client-foldkit-app/vite.config.ts",
+              "apps/app/vite.config.ts",
               'fileURLToPath(new URL("./src", import.meta.url))',
             );
             yield* project.expectTypeCheckPasses();

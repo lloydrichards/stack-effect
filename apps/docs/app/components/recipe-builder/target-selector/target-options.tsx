@@ -46,15 +46,13 @@ export const AddTargetPicker = ({
         The selected catalogs have no application targets.
       </p>
     );
+  const name = choice && nextTargetName(choice, instances);
   const owner =
     choice &&
     new TargetIdentity({
       kind: choice.kind,
-      name: nextTargetName(
-        choice.defaultName ?? choice.kind,
-        instances,
-        choice.kind,
-      ),
+      name: name || choice.defaultName || "",
+      placement: name && choice.kind !== "package" ? "named" : undefined,
     });
   return (
     <form

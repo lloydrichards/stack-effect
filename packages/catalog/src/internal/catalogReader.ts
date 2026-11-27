@@ -180,12 +180,18 @@ export const makeCatalogReader = Effect.gen(function* () {
     function* (
       owners: ReadonlyArray<TargetIdentity>,
     ): Effect.fn.Return<BuilderCatalog, CatalogNotFound> {
-      const supportedModules = (owner: TargetIdentity) =>
-        Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
+      const supportedModules = (owner: TargetIdentity) => {
+        const defaultName = targetIndex.get(owner.kind)?.defaultName;
+        const identity =
+          !owner.hasExplicitName() && defaultName !== undefined
+            ? new TargetIdentity({ kind: owner.kind, name: defaultName })
+            : owner;
+        return Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
           Arr.some(module.supportedOn, (supportedOn) =>
-            owner.matches(supportedOn),
+            identity.matches(supportedOn),
           ),
         );
+      };
       const ownerKey = (owner: TargetIdentity) => `${owner.kind}/${owner.name}`;
       const expandOwners = (
         pending: ReadonlyArray<TargetIdentity>,
