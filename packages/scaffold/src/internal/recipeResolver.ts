@@ -182,6 +182,9 @@ const toProviderCandidates = (candidates: ReadonlyArray<ModuleDefinition>) =>
     description,
   }));
 
+const recipeTargetKey = (target: TargetIdentity) =>
+  `${target.kind}:${target.toKey()}`;
+
 const chooseProvider = Effect.fnUntraced(function* (
   strategy: RecipeProviderStrategy,
   requirement: ProviderRequirement,
@@ -197,8 +200,8 @@ const chooseProvider = Effect.fnUntraced(function* (
     strategy._tag === "explicit"
       ? strategy.providers.find(
           (provider) =>
-            providerTargetOf(provider.target).toKey() ===
-              requirement.target.toKey() &&
+            recipeTargetKey(providerTargetOf(provider.target)) ===
+              recipeTargetKey(requirement.target) &&
             provider.capability === requirement.capability,
         )
       : undefined;
@@ -335,8 +338,7 @@ export const make = Effect.gen(function* () {
     }));
     const findSelected = (identity: TargetIdentity) =>
       selected.find(
-        ({ target }) =>
-          target.kind === identity.kind && target.toKey() === identity.toKey(),
+        ({ target }) => recipeTargetKey(target) === recipeTargetKey(identity),
       );
     const placedTarget = (reference: TargetIdentity) =>
       findSelected(reference)?.target ??
@@ -419,7 +421,7 @@ export const make = Effect.gen(function* () {
         next = pending.shift()
       ) {
         const placed = yield* resolveReference(next.target);
-        const targetKey = placed.toKey();
+        const targetKey = recipeTargetKey(placed);
         const attachedOnTarget = attached.get(targetKey) ?? [];
         if (attachedOnTarget.includes(next.moduleId)) continue;
         attached.set(targetKey, [...attachedOnTarget, next.moduleId]);
@@ -472,7 +474,7 @@ export const make = Effect.gen(function* () {
       // Blueprint finds providers in the Selection, so a hard dependency that
       // already provides the capability is written there.
       const hardProvider = yield* Effect.findFirst(
-        attached.get(target.toKey()) ?? [],
+        attached.get(recipeTargetKey(target)) ?? [],
         (moduleId) => providesCapability(moduleId, capability),
       );
       const providerId = Option.isSome(hardProvider)
@@ -528,7 +530,7 @@ export const make = Effect.gen(function* () {
     // A recipe keeps the first identity it names for each target key.
     const firstIdentities = new Map<string, TargetIdentity>();
     for (const { target } of targets) {
-      const key = `${target.kind}:${target.toKey()}`;
+      const key = recipeTargetKey(target);
       if (!firstIdentities.has(key)) {
         firstIdentities.set(key, target);
       }
@@ -536,8 +538,7 @@ export const make = Effect.gen(function* () {
 
     const merged = mergeRecipeTargets(
       targets.map(({ target, modules }) => ({
-        target:
-          firstIdentities.get(`${target.kind}:${target.toKey()}`) ?? target,
+        target: firstIdentities.get(recipeTargetKey(target)) ?? target,
         modules,
       })),
     );

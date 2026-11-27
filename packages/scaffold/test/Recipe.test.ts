@@ -245,6 +245,55 @@ describe("RecipeResolver", () => {
       }).pipe(Effect.provide(DefaultAppCatalogLayer)),
   );
 
+  it.effect(
+    "keeps cached providers separate when app defaults claim the same path",
+    () =>
+      Effect.gen(function* () {
+        const blueprints = yield* BlueprintResolver;
+        const selection = yield* resolve([
+          recipeTarget("server-mcp", "", "mcp-sql"),
+          recipeTarget("client", "web", "client-mcp-consumer"),
+        ]);
+        const server = selection.targets.find(
+          ({ identity }) => identity.kind === "server",
+        );
+
+        assert.deepStrictEqual(
+          server?.modules.map(({ id }) => id),
+          [ModuleId.make("server-sql")],
+        );
+        const conflict = yield* Effect.flip(
+          blueprints.resolve(selection, config),
+        );
+        assert.include(
+          conflict.message,
+          "Overlapping target ownership at apps/server-mcp",
+        );
+      }).pipe(
+        Effect.provide(
+          resolveLayer(
+            CatalogReader.fromFragments([
+              {
+                targets: [
+                  target("workspace"),
+                  target("client"),
+                  target("server", { defaultName: "mcp" }),
+                  target("server-mcp", { defaultName: "" }),
+                ],
+                modules: [
+                  sqlProvider("server-sql", "server"),
+                  sqlProvider("mcp-sql", "server-mcp"),
+                  module("client-mcp-consumer", "client", {
+                    dependencies: [requiresSql("server", "mcp")],
+                  }),
+                ],
+              },
+            ]),
+          ),
+        ),
+      ),
+  );
+
   /**
    * A custom source, listed first, that contributes another `sql` provider to
    * the official package target. Official modules cannot reference it.

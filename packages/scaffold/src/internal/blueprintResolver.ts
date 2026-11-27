@@ -92,14 +92,18 @@ const validateSelection = Effect.fnUntraced(function* (
   selection: Selection,
   catalog: CatalogReader["Service"],
 ) {
-  const selectedTargetKeys = new Set<string>();
+  const selectedTargetKinds = new Map<string, TargetIdentity["kind"]>();
   for (const target of selection.targets) {
     const targetKey = target.identity.toKey();
-    if (selectedTargetKeys.has(targetKey))
+    const previousKind = selectedTargetKinds.get(targetKey);
+    if (previousKind !== undefined)
       return yield* new BlueprintError({
-        message: `Duplicate target selection: ${targetKey}`,
+        message:
+          previousKind === target.identity.kind
+            ? `Duplicate target selection: ${targetKey}`
+            : `Overlapping target ownership at ${target.identity.toPath()}: ${previousKind} and ${target.identity.kind}`,
       });
-    selectedTargetKeys.add(targetKey);
+    selectedTargetKinds.set(targetKey, target.identity.kind);
     yield* validateTarget(catalog, target);
   }
 });
@@ -326,7 +330,9 @@ const resolveSelection = Effect.fnUntraced(function* (
     ) {
       const selectedTarget = Arr.findFirst(
         selection.targets,
-        (selected) => selected.identity.toKey() === dependencyTarget.toKey(),
+        ({ identity }) =>
+          identity.kind === dependencyTarget.kind &&
+          identity.toKey() === dependencyTarget.toKey(),
       );
       const providers = Option.isSome(selectedTarget)
         ? yield* Effect.filter(selectedTarget.value.modules, (selectedModule) =>
