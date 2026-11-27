@@ -196,13 +196,6 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
       requiredModules: ["server-http-api"],
     },
     {
-      kind: "client-foldkit",
-      title: "Foldkit Client",
-      description: "A Foldkit website",
-      defaultName: "web",
-      requiredModules: [],
-    },
-    {
       kind: "server-mcp",
       title: "MCP Server",
       description: "A Model Context Protocol server",
