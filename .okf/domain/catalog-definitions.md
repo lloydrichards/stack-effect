@@ -8,7 +8,9 @@ sources:
     resource: ../../packages/domain/src/Catalog.ts
   - id: source-2
     resource: ../../packages/scaffold/src/internal/recipeResolver.ts
-generated: { by: codex, at: "2026-11-27T15:03:44Z" }
+  - id: source-3
+    resource: ../../packages/catalog/src/internal/compose.ts
+generated: { by: codex, at: "2026-11-27T16:30:32Z" }
 ---
 
 # Catalog definitions
@@ -63,7 +65,7 @@ A parent-child relationship between modules on the same target, used to organize
 
 Invariants:
 
-- Children must share at least one `SupportedOn` rule with their parent (same-target constraint).
+- Required children must support every target their parent supports. Optional children must share at least one supported target with their parent. An explicitly named app and the catalog-default app can have the same name and occupy different folders. See source 3.
 - Requirement is either `"required"` (auto-selected when parent selected, not user-toggleable) or `"optional"` (user can toggle).
 - A module listed as a child is excluded from top-level selection lists (inferred from parent relationship).
 - Children are a UI/selection concept only; they do not affect Blueprint dependency resolution.
