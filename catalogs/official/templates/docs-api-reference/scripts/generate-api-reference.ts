@@ -28,16 +28,17 @@ const entries = [...new Set(entryPoints)].map((entryPoint) => {
   const publicSources = new Set([source]);
   for (const file of publicSources) {
     for (const declaration of file.getExportDeclarations()) {
-      const specifier = declaration.getModuleSpecifierValue();
+      const specifier = declaration.getModuleSpecifier();
       if (specifier === undefined) continue;
 
       const target = declaration.getModuleSpecifierSourceFile();
-      if (!target) {
+      if (target) {
+        publicSources.add(target);
+      } else if (!specifier.getSymbol()) {
         throw new Error(
-          `Cannot resolve re-export ${specifier} from ${file.getFilePath()}.`,
+          `Cannot resolve re-export ${specifier.getLiteralValue()} from ${file.getFilePath()}.`,
         );
       }
-      publicSources.add(target);
     }
   }
 
