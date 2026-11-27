@@ -180,6 +180,7 @@ describe("moduleRegistry", () => {
         "alchemy-client-react-website",
         "package-library",
         "docs-mermaid",
+        "docs-api-reference",
       ],
     );
   });
