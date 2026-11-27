@@ -78,6 +78,13 @@ export const ownerKey = (owner: {
   readonly name: string;
 }): string => `${owner.kind}/${owner.name}`;
 
+export const resolvedOwnerKey = (identity: TargetIdentity): string =>
+  ownerKey(
+    identity.placement === "default"
+      ? { kind: identity.kind, name: "" }
+      : identity,
+  );
+
 export type SupportConfiguration = {
   readonly owner: { readonly kind: string; readonly name: string };
   readonly parentId: string;

@@ -221,12 +221,6 @@ const moduleReferenceIssues = (
 const supportsKind = (module: ModuleDefinition, kind: string) =>
   module.supportedOn.some((rule) => rule._tag === "kind" && rule.kind === kind);
 
-const rulesOverlap = (rule: SupportedOn, other: SupportedOn) =>
-  rule._tag === "identity" && other._tag === "identity"
-    ? rule.identity.kind === other.identity.kind &&
-      rule.identity.toKey() === other.identity.toKey()
-    : supportedOnTargetKind(rule) === supportedOnTargetKind(other);
-
 const targetIssues = (
   context: Composition,
   entry: Composition["targetEntries"][number],
@@ -258,6 +252,21 @@ const dependencyOwner = (context: Composition, identity: TargetIdentity) =>
     context.targetEntries.find(({ target }) => target.kind === identity.kind)
       ?.target.defaultName,
   );
+
+const rulesOverlap = (
+  context: Composition,
+  rule: SupportedOn,
+  other: SupportedOn,
+): boolean => {
+  if (supportedOnTargetKind(rule) !== supportedOnTargetKind(other))
+    return false;
+  return (
+    rule._tag === "kind" ||
+    other._tag === "kind" ||
+    dependencyOwner(context, rule.identity).matches(other) ||
+    dependencyOwner(context, other.identity).matches(rule)
+  );
+};
 
 const requiredModuleIssues = (
   context: Composition,
@@ -353,7 +362,9 @@ const childIssues = (
       ...moduleReferenceIssues(context, owner, child.moduleId),
       ...(definition &&
       !module.supportedOn.some((rule) =>
-        definition.supportedOn.some((other) => rulesOverlap(rule, other)),
+        definition.supportedOn.some((other) =>
+          rulesOverlap(context, rule, other),
+        ),
       )
         ? [
             issue(

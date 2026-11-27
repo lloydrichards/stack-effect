@@ -117,7 +117,6 @@ describe("add", () => {
             input: Effect.forEach(
               [
                 MockTerminal.inputKey("enter"),
-                MockTerminal.inputText("svc"),
                 MockTerminal.inputKey("enter"),
                 MockTerminal.inputKey("down"),
                 MockTerminal.inputKey("space"),
@@ -129,8 +128,9 @@ describe("add", () => {
               { discard: true },
             ),
           });
-          const flags = yield* run([...add, "--target", "api/svc:api-web"]);
+          const flags = yield* run([...add, "--target", "api/:api-web"]);
           for (const result of [interactive, flags]) {
+            assert.include(result.stdout.join("\n"), "apps/api-svc#api-web");
             assert.include(result.stdout.join("\n"), "apps/server-api");
             assert.notInclude(result.stdout.join("\n"), "apps/api/");
           }

@@ -27,7 +27,7 @@ import type {
   SupportSelection,
   TargetInstance,
 } from "../form";
-import { ownerKey } from "../form";
+import { ownerKey, resolvedOwnerKey } from "../form";
 import { usePresetTargets } from "../preset-targets";
 import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import { ModuleBranch } from "./module-branch";
@@ -91,7 +91,7 @@ const TargetConfiguration = ({
   const presetTargets = usePresetTargets();
   const presetModules = presetTargets.flatMap(({ targets }) =>
     targets
-      .filter(({ identity }) => ownerKey(identity) === ownerKey(target))
+      .filter(({ identity }) => resolvedOwnerKey(identity) === ownerKey(target))
       .flatMap(({ modules }) => modules.map(({ id }) => id)),
   );
   const roots = publicRootModules(modules);

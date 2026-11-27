@@ -110,7 +110,7 @@ export const documents: Readonly<Record<string, string>> = {
     catalogId: Schema.NonEmptyString.make("providers"),
     requiredCapabilities: ["contribution:file", "token:targetPath"],
     targets: [
-      target("api", "api.txt"),
+      { ...target("api", "api.txt"), defaultName: "svc" },
       { ...target("server", "server.txt"), defaultName: "api" },
       target("workspace", "PROVIDERS.md"),
       target("package", "package.txt"),
@@ -142,6 +142,15 @@ export const documents: Readonly<Record<string, string>> = {
         ],
       }),
       module("api-web", "api", {
+        supportedOn: [
+          {
+            _tag: "identity",
+            identity: new TargetIdentity({
+              kind: TargetKind.make("api"),
+              name: "svc",
+            }),
+          },
+        ],
         dependencies: [
           {
             _tag: "required-capability",

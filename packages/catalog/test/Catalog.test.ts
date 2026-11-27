@@ -32,6 +32,11 @@ it.effect(
       supportedOn: [{ _tag: "identity" as const, identity: blank }],
       provides: [ModuleCapability.make("extra")],
     };
+    const childModule: ModuleDefinition = {
+      ...extraModule,
+      id: ModuleId.make("server-default-child"),
+      supportedOn: [{ _tag: "identity", identity: named }],
+    };
     const referenceModule: ModuleDefinition = {
       ...extraModule,
       dependencies: [
@@ -57,8 +62,11 @@ it.effect(
         catalog.targetModules
           .find(({ owner }) => owner.kind === kind && owner.name === name)
           ?.modules.map(({ id }) => id);
-      assert.deepStrictEqual(modulesFor(""), [defaultModule.id]);
-      assert.deepStrictEqual(modulesFor("api"), []);
+      assert.sameMembers(modulesFor("") ?? [], [
+        defaultModule.id,
+        childModule.id,
+      ]);
+      assert.deepStrictEqual(modulesFor("api"), [childModule.id]);
     }).pipe(
       Effect.provide(
         CatalogReader.fromFragments([
@@ -78,7 +86,16 @@ it.effect(
                 contributions: [],
               },
             ],
-            modules: [defaultModule, referenceModule],
+            modules: [
+              {
+                ...defaultModule,
+                children: [
+                  { moduleId: childModule.id, requirement: "optional" },
+                ],
+              },
+              childModule,
+              referenceModule,
+            ],
           },
         ]),
       ),

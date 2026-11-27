@@ -63,8 +63,14 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
       import("./recipe-fixtures"),
     ]);
   const previewFor = ({ input }: PreviewAtomRequest) => {
+    const cafe = input.recipe.targets.some(({ modules }) =>
+      modules.some((id) => id === "workspace-alchemy-cafe"),
+    );
     const targets = input.recipe.targets.map(({ target, modules }) => ({
-      identity: target,
+      identity:
+        cafe && target.kind === "client-foldkit" && !target.hasExplicitName()
+          ? target.placeCatalogReference("web")
+          : target,
       modules: modules.map((id) => ({ id })),
     }));
     const requiredServer = targets.find(({ modules }) =>
@@ -85,7 +91,18 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
     return {
       command: `bunx stack-effect create ${input.config.name}`,
       selection: { targets },
-      blueprint: { nodes: blueprintTargets, edges: [] },
+      blueprint: {
+        nodes: blueprintTargets,
+        edges: cafe
+          ? blueprintTargets
+              .filter(({ identity }) => identity.kind === "client-foldkit")
+              .map(({ id }) => ({
+                from: ".#workspace-alchemy-cafe",
+                to: id,
+                reason: "required-target" as const,
+              }))
+          : [],
+      },
       files: [
         {
           path: "stack.effect.json",
@@ -373,25 +390,38 @@ test.each([
   }
 });
 
-test("selects and clears CAFE as a shareable stack preset", async () => {
+test("CAFE protects a blank Foldkit target while the preset is selected", async () => {
   await renderRecipeBuilder();
   await targetsStep();
+  await chooseTarget("Foldkit Client");
+  await page
+    .getByRole("button", { name: "Configure modules for web, client-foldkit" })
+    .click();
+  const settings = page.getByText("Target settings", { exact: true });
   const preset = page.getByRole("checkbox", { name: "CAFE Starter" });
   const selectedTargets = () =>
     new URLSearchParams(
       page.getByLabelText("Recipe URL search").element().textContent ?? "",
     ).getAll("target");
 
+  await expect.element(settings).toBeVisible();
   await expect.element(preset).not.toBeChecked();
   await preset.click();
   await expect.element(preset).toBeChecked();
   await expect
     .poll(selectedTargets)
     .toContain("workspace/my-effect-app:workspace-alchemy-cafe");
+  await expect
+    .element(page.getByText("Included by CAFE Starter"))
+    .toBeVisible();
+  await expect.element(settings).not.toBeInTheDocument();
 
   await preset.click();
   await expect.element(preset).not.toBeChecked();
-  await expect.poll(selectedTargets).toEqual([]);
+  await expect
+    .poll(selectedTargets)
+    .not.toContain("workspace/my-effect-app:workspace-alchemy-cafe");
+  await expect.element(settings).toBeVisible();
 });
 
 test("adds a target before editing its modules in the inline overview", async () => {
