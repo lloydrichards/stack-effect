@@ -18,11 +18,24 @@ const describeEvent = (value: ImportValidationEvent) =>
     completed: (event) => `Completed: ${event.total} rows processed.`,
   });
 
+const statusMessage = (
+  result: AsyncResult.AsyncResult<ImportValidationEvent, unknown>,
+  cancelled: boolean,
+) => {
+  if (cancelled) return "Validation cancelled.";
+  if (AsyncResult.isFailure(result)) return "Validation failed.";
+  const event = AsyncResult.getOrElse(result, () => undefined);
+  return event
+    ? describeEvent(event)
+    : "Run validation to see progress from the worker.";
+};
+
 export const ImportValidationDemo = () => {
   const inputId = useId();
   const [content, setContent] = useState(sample);
   const [result, validate] = useAtom(importValidationAtom);
-  const event = AsyncResult.getOrElse(result, () => undefined);
+  const [cancelled, setCancelled] = useState(false);
+  const running = AsyncResult.isWaiting(result) && !cancelled;
 
   return (
     <div className="not-typeset my-4 space-y-3 rounded-md border border-border p-4">
@@ -36,18 +49,26 @@ export const ImportValidationDemo = () => {
         value={content}
       />
       <div className="flex flex-wrap gap-2">
-        <Button onClick={() => validate(content)}>Validate rows</Button>
-        <Button variant="outline" onClick={() => validate(Atom.Interrupt)}>
+        <Button
+          onClick={() => {
+            setCancelled(false);
+            validate(content);
+          }}
+        >
+          Validate rows
+        </Button>
+        <Button
+          variant="outline"
+          disabled={!running}
+          onClick={() => {
+            setCancelled(true);
+            validate(Atom.Interrupt);
+          }}
+        >
           Cancel
         </Button>
       </div>
-      <p role="status">
-        {AsyncResult.isFailure(result) && "Validation failed."}
-        {!AsyncResult.isFailure(result) &&
-          (event
-            ? describeEvent(event)
-            : "Run validation to see progress from the worker.")}
-      </p>
+      <p role="status">{statusMessage(result, cancelled)}</p>
     </div>
   );
 };

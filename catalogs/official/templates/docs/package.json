@@ -3,7 +3,12 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "scripts": {},
+  "scripts": {
+    "build": "react-router build",
+    "dev": "react-router dev --port 5175",
+    "preview": "serve dist/client --listen tcp://127.0.0.1:4175 --no-clipboard --no-port-switching",
+    "type-check": "react-router typegen && tsc --noEmit"
+  },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@mdx-js/react": "^3.1.1",
