@@ -5,6 +5,7 @@ import {
 } from "@repo/domain/Catalog";
 import {
   encodeRecipeTargetSpecs,
+  mergeRecipeTargets,
   RecipeTargetString,
 } from "@repo/domain/Recipe";
 import {
@@ -103,21 +104,6 @@ type InvalidRecipeUrl = {
 };
 
 export type DecodedRecipeUrl = ValidRecipeUrl | InvalidRecipeUrl;
-
-const mergeTargets = (targets: ReadonlyArray<RecipeTargetString>) =>
-  Arr.fromIterable(
-    targets
-      .reduce((merged, spec) => {
-        const key = spec.target.toKey();
-        const existing = merged.get(key);
-        merged.set(key, {
-          target: spec.target,
-          modules: Arr.dedupe([...(existing?.modules ?? []), ...spec.modules]),
-        });
-        return merged;
-      }, new Map<string, RecipeTargetString>())
-      .values(),
-  );
 
 /** `official` or `<name>=<url>`, split at the first `=` as the CLI flag is. */
 const parseCatalogParameter = (entry: string) => {
@@ -256,7 +242,7 @@ const toInitialValues = (
     test: recipe.test ?? runtimeDefaults.test,
     catalogs,
   };
-  const targets = mergeTargets(recipe.target);
+  const targets = mergeRecipeTargets(recipe.target);
   const workspaceTargets = targets.filter(
     (target) => target.target.kind === "workspace",
   );

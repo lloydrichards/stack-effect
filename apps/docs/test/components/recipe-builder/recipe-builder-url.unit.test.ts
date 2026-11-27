@@ -15,6 +15,20 @@ import {
 } from "./recipe-fixtures";
 
 describe("recipe builder URL", () => {
+  it("keeps different app kinds whose old folder keys were the same", () => {
+    const params = new URLSearchParams();
+    params.append("name", "same-key");
+    params.append("target", "server-mcp/sdk/foo:mcp-tools");
+    params.append("target", "server/sdk/mcp-foo:server-http-api");
+
+    const decoded = decodeRecipeBuilderUrl(params);
+
+    assert.isUndefined(decoded.issue);
+    expect(
+      encodeRecipeBuilderUrl(decoded.initialValues).getAll("target"),
+    ).toEqual(params.getAll("target").sort());
+  });
+
   it("restores which target and module brought in a dependency", () => {
     const encoded = encodeRecipeBuilderUrl(fullStackRecipeFixture);
     const decoded = decodeRecipeBuilderUrl(encoded);

@@ -218,7 +218,7 @@ describe("recipe builder state", () => {
       {
         id: "implied-server-1",
         kind: "server",
-        name: "api",
+        name: "",
         modules: ["server-http-api"],
         requirements: [
           {
@@ -276,7 +276,7 @@ describe("recipe builder state", () => {
       {
         id: "implied-server-1",
         kind: "server",
-        name: "api",
+        name: "",
         modules: ["server-http-api"],
         requirements: [
           {

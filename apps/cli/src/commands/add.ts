@@ -324,11 +324,11 @@ const findTarget = (
   targets: ReadonlyArray<CollectedTarget>,
   identity: TargetIdentity,
 ) =>
-  Arr.findFirst(
-    targets,
-    (target) =>
-      new TargetIdentity({ kind: target.kind, name: target.name }).toKey() ===
-      identity.toKey(),
+  Arr.findFirst(targets, (target) =>
+    new TargetIdentity({
+      kind: target.kind,
+      name: target.name,
+    }).matchesReference(identity),
   );
 
 const ensureTargetModule = (
@@ -394,7 +394,7 @@ const collectRequiredModuleClosure = (
       moduleId: ModuleId,
     ): Effect.Effect<void, CatalogNotFound> =>
       Effect.gen(function* () {
-        const key = `${target.toKey()}:${moduleId}`;
+        const key = `${target.kind}:${target.toKey()}:${moduleId}`;
         const visited = yield* Ref.get(visitedRef);
         if (visited.has(key)) return;
 

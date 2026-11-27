@@ -207,6 +207,31 @@ export const buildModuleRelationshipNodes = (
   return childrenFor(root, rootOwner, false);
 };
 
+export const nextTargetName = (
+  definition: Pick<
+    RecipeBuilderCatalog["targets"][number],
+    "kind" | "defaultName"
+  >,
+  targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
+): string => {
+  const { kind, defaultName } = definition;
+  const baseName = defaultName ?? kind;
+  const usedNames = new Set(
+    targets
+      .filter((target) => target.kind === kind)
+      .map((target) => target.name || baseName),
+  );
+  if (kind !== "package" && defaultName !== undefined && usedNames.size === 0)
+    return "";
+  if (!usedNames.has(baseName)) return baseName;
+  return (
+    Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
+      .map((suffix) => (baseName ? `${baseName}-${suffix}` : `${suffix}`))
+      .find((candidate) => !usedNames.has(candidate)) ??
+    `${baseName}-${usedNames.size + 2}`
+  );
+};
+
 const addModuleImplications = (
   targets: ReadonlyArray<TargetInstance>,
   sourceTargetId: string,
@@ -224,8 +249,6 @@ const addModuleImplications = (
     );
     if (matchingTargets.length > 1) return current;
     const existingTarget = matchingTargets[0];
-    const name =
-      existingTarget?.name ?? definition.defaultName ?? definition.kind;
     const moduleAlreadySelected =
       existingTarget?.modules.includes(implication.moduleId) ?? false;
     const moduleWasDependencyAdded =
@@ -257,7 +280,7 @@ const addModuleImplications = (
       {
         id: `implied-${definition.kind}-${nextId()}`,
         kind: definition.kind,
-        name,
+        name: nextTargetName(definition, current),
         modules: [implication.moduleId],
         requirements: [requirement],
         addedByDependency: true,
@@ -415,31 +438,6 @@ export const publicRootModules = <
   );
   return modules.filter(
     (module) => module.visibility === "public" && !childIds.has(module.id),
-  );
-};
-
-export const nextTargetName = (
-  definition: Pick<
-    RecipeBuilderCatalog["targets"][number],
-    "kind" | "defaultName"
-  >,
-  targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
-): string => {
-  const { kind, defaultName } = definition;
-  const baseName = defaultName ?? kind;
-  const usedNames = new Set(
-    targets
-      .filter((target) => target.kind === kind)
-      .map((target) => target.name || baseName),
-  );
-  if (kind !== "package" && defaultName !== undefined && usedNames.size === 0)
-    return "";
-  if (!usedNames.has(baseName)) return baseName;
-  return (
-    Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
-      .map((suffix) => (baseName ? `${baseName}-${suffix}` : `${suffix}`))
-      .find((candidate) => !usedNames.has(candidate)) ??
-    `${baseName}-${usedNames.size + 2}`
   );
 };
 
