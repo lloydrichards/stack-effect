@@ -68,6 +68,7 @@ export type BuilderCatalogTarget = {
   readonly title: string;
   readonly description: string;
   readonly defaultName?: string | undefined;
+  readonly supportedRuntimes?: ReadonlyArray<SupportedRuntime> | undefined;
   readonly requiredModules: ReadonlyArray<ModuleId>;
 };
 

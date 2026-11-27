@@ -414,6 +414,12 @@ export const SupportedRuntime = Schema.Literals(["bun", "node", "deno"]);
 
 export type SupportedRuntime = typeof SupportedRuntime.Type;
 
+/** Runtimes assumed when a catalog definition omits compatibility metadata. */
+export const defaultSupportedRuntimes: ReadonlyArray<SupportedRuntime> = [
+  "bun",
+  "node",
+];
+
 export const ModuleDefinition = Schema.Struct({
   id: ModuleId,
   title: Schema.String,

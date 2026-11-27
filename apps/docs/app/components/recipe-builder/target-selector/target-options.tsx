@@ -1,10 +1,12 @@
-import { TargetIdentity } from "@repo/domain/Catalog";
+import { defaultSupportedRuntimes, TargetIdentity } from "@repo/domain/Catalog";
+import { useSelector } from "@tanstack/react-form";
 import { Plus } from "lucide-react";
 import { useState } from "react";
 import { Button } from "~/components/ui/button";
 import { RecipeBuilderCatalog } from "../../../workers/recipe-builder/domain";
 import { CatalogSourceBadge } from "../catalog-sources";
 import type { TargetInstance } from "../form";
+import { useRecipeBuilderFormContext } from "../recipe-builder-context";
 import { nextTargetName } from "./state";
 
 type TargetOptionsProps = {
@@ -21,7 +23,16 @@ export const AddTargetPicker = ({
   catalogFailed,
 }: TargetOptionsProps) => {
   const [kind, setKind] = useState("");
-  const choice = targets?.find((target) => target.kind === kind);
+  const form = useRecipeBuilderFormContext();
+  const runtime = useSelector(
+    form.store,
+    (state) => state.values.config.runtime._tag,
+  );
+  const supportsRuntime = (target: RecipeBuilderCatalog["targets"][number]) =>
+    (target.supportedRuntimes ?? defaultSupportedRuntimes).includes(runtime);
+  const choice = targets?.find(
+    (target) => target.kind === kind && supportsRuntime(target),
+  );
   if (catalogFailed) return null;
   if (!targets)
     return (
@@ -55,32 +66,41 @@ export const AddTargetPicker = ({
     >
       <fieldset className="divide-y border-y">
         <legend className="sr-only">Target type</legend>
-        {targets.map((target) => (
-          <label
-            key={target.kind}
-            className="flex min-h-11 cursor-pointer items-start gap-3 px-2 py-3 text-sm hover:bg-muted/30 has-checked:bg-muted/40"
-          >
-            <input
-              type="radio"
-              className="mt-1 accent-primary"
-              name="target-kind"
-              value={target.kind}
-              checked={kind === target.kind}
-              onChange={() => setKind(target.kind)}
-            />
-            <span className="min-w-0">
-              <span className="flex flex-wrap items-center gap-2 font-medium">
-                {target.title}
-                <CatalogSourceBadge source={target.source} />
-              </span>
-              {target.kind === kind && (
-                <span className="mt-1 block leading-5 text-muted-foreground">
-                  {target.description}
+        {targets.map((target) => {
+          const available = supportsRuntime(target);
+          return (
+            <label
+              key={target.kind}
+              className="flex min-h-11 cursor-pointer items-start gap-3 px-2 py-3 text-sm hover:bg-muted/30 has-checked:bg-muted/40"
+            >
+              <input
+                type="radio"
+                className="mt-1 accent-primary"
+                name="target-kind"
+                value={target.kind}
+                checked={available && kind === target.kind}
+                disabled={!available}
+                onChange={() => setKind(target.kind)}
+              />
+              <span className="min-w-0">
+                <span className="flex flex-wrap items-center gap-2 font-medium">
+                  {target.title}
+                  <CatalogSourceBadge source={target.source} />
                 </span>
-              )}
-            </span>
-          </label>
-        ))}
+                {!available && (
+                  <span className="mt-1 block text-muted-foreground">
+                    Unavailable on {runtime}.
+                  </span>
+                )}
+                {available && target.kind === kind && (
+                  <span className="mt-1 block leading-5 text-muted-foreground">
+                    {target.description}
+                  </span>
+                )}
+              </span>
+            </label>
+          );
+        })}
       </fieldset>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={!choice}>

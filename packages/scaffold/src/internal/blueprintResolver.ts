@@ -11,6 +11,7 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import {
+  defaultSupportedRuntimes,
   type ModuleCapability,
   ModuleDependency,
   targetPathsOverlap,
@@ -38,8 +39,6 @@ type ResolutionState = {
 };
 
 type SelectedTarget = Selection["targets"][number];
-
-const DEFAULT_SUPPORTED_RUNTIMES = ["bun", "node"];
 
 const appendEdge = (stateRef: Ref.Ref<ResolutionState>, edge: BlueprintEdge) =>
   Ref.update(stateRef, (s) =>
@@ -128,7 +127,7 @@ const ensureRuntimeSupported = Effect.fnUntraced(function* (
       ? yield* catalog.getTarget(node.identity.kind)
       : yield* catalog.getModule(node.moduleId);
   const supportedRuntimes =
-    definition.supportedRuntimes ?? DEFAULT_SUPPORTED_RUNTIMES;
+    definition.supportedRuntimes ?? defaultSupportedRuntimes;
   if (!supportedRuntimes.includes(config.runtimeName))
     return yield* new BlueprintError({
       message: `Runtime ${config.runtimeName} does not support ${node._tag === "target" ? `target ${node.identity.kind}` : `module ${node.moduleId}`}.`,

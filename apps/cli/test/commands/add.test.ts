@@ -9,6 +9,43 @@ import {
 
 describe("add", () => {
   it.effect(
+    "preserves customized docs starter files when reapplying the target with --yes",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          yield* run([
+            "create",
+            "handbook",
+            "--target",
+            "docs/",
+            "--yes",
+            "--no-git",
+            "--root",
+            directory,
+          ]);
+          const root = path.join(directory, "handbook");
+          const edits = [
+            ["apps/docs/app/components/callout.tsx", "// Custom callout"],
+            ["apps/docs/app/content/index.mdx", "# Custom handbook"],
+            ["apps/docs/.gitignore", "/drafts/"],
+          ] as const;
+
+          yield* Effect.forEach(edits, ([file, contents]) =>
+            fs.writeFileString(path.join(root, file), contents),
+          );
+          yield* run(["add", "--target", "docs/", "--yes", "--root", root]);
+          yield* Effect.forEach(edits, ([file, contents]) =>
+            Effect.map(fs.readFileString(path.join(root, file)), (actual) =>
+              assert.strictEqual(actual, contents),
+            ),
+          );
+        }),
+      ),
+    30_000,
+  );
+
+  it.effect(
     "should offer providers for a capability that a selected module requires through a dependency",
     () =>
       withNodeServices(
