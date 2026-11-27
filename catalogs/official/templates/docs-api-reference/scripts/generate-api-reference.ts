@@ -19,38 +19,43 @@ const entries = [...new Set(entryPoints)].map((entryPoint) => {
     ts.sys.fileExists,
   );
   const project = new Project(
-    tsConfigFilePath === undefined
-      ? {}
-      : { tsConfigFilePath, skipAddingFilesFromTsConfig: true },
+    tsConfigFilePath === undefined ? {} : { tsConfigFilePath },
   );
   const source = project.addSourceFileAtPath(entryPoint);
   project.resolveSourceFileDependencies();
 
-  // An unresolved re-export can leave a barrel with a partial export list.
-  const invalidExport = project.getPreEmitDiagnostics().find((diagnostic) => {
-    const source = diagnostic.getSourceFile();
-    const start = diagnostic.getStart();
-    return (
-      start !== undefined &&
-      source
-        ?.getExportDeclarations()
-        .some(
-          (declaration) =>
-            start >= declaration.getStart() && start < declaration.getEnd(),
-        )
-    );
-  });
-  if (invalidExport) {
+  // Follow re-exports only. Unrelated library imports need not resolve.
+  const publicSources = new Set([source]);
+  for (const file of publicSources) {
+    for (const declaration of file.getExportDeclarations()) {
+      const specifier = declaration.getModuleSpecifierValue();
+      if (specifier === undefined) continue;
+
+      const target = declaration.getModuleSpecifierSourceFile();
+      if (!target) {
+        throw new Error(
+          `Cannot resolve re-export ${specifier} from ${file.getFilePath()}.`,
+        );
+      }
+      publicSources.add(target);
+    }
+  }
+
+  const exportedSymbols = source.getExportSymbols();
+  const unresolved = exportedSymbols.find(
+    (symbol) =>
+      symbol.isAlias() && !symbol.getAliasedSymbol()?.getDeclarations().length,
+  );
+  if (unresolved) {
     throw new Error(
-      `Cannot generate exports for ${entryPoint}.
-${project.formatDiagnosticsWithColorAndContext([invalidExport])}`,
+      `Cannot resolve exported alias ${unresolved.getName()} from ${entryPoint}.`,
     );
   }
 
   const checker = project.getTypeChecker().compilerObject;
   return {
     entryPoint: relative(process.cwd(), source.getFilePath()),
-    members: source.getExportSymbols().map((exported) => {
+    members: exportedSymbols.map((exported) => {
       const declaration = exported.getAliasedSymbol() ?? exported;
       return {
         name: exported.getName(),
