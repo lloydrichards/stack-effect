@@ -6,6 +6,7 @@ import {
   ModuleId,
   TargetIdentity,
   TargetKind,
+  type SupportedOn,
   type ModuleDefinition,
 } from "@repo/domain/Catalog";
 import { Effect, Graph, Option, Result } from "effect";
@@ -108,8 +109,15 @@ it.effect("requires children to support every placement of their parent", () =>
     const kind = TargetKind.make("server");
     const blank = new TargetIdentity({ kind, name: "" });
     const named = new TargetIdentity({ kind, name: "api" });
-    const childId = ModuleId.make("server-child");
+    const declaredPlacement = new TargetIdentity({
+      kind,
+      name: "api",
+      placement: "default",
+    });
+    const workspace = TargetKind.make("workspace");
+    const childId = ModuleId.make("coverage-child");
     const targets = [
+      ...testCatalog.targets,
       {
         kind,
         defaultName: "api",
@@ -118,29 +126,41 @@ it.effect("requires children to support every placement of their parent", () =>
         contributions: [],
       },
     ];
-    const composeChildren = (parent: TargetIdentity, child: TargetIdentity) =>
+    const identityRule = (identity: TargetIdentity): SupportedOn => ({
+      _tag: "identity",
+      identity,
+    });
+    const composeChildren = (parent: SupportedOn, child: SupportedOn) =>
       compose([
         {
           targets,
           modules: [
             {
               ...extraModule,
-              id: ModuleId.make("server-parent"),
-              supportedOn: [{ _tag: "identity", identity: parent }],
+              id: ModuleId.make("coverage-parent"),
+              supportedOn: [parent],
               children: [{ moduleId: childId, requirement: "required" }],
             },
             {
               ...extraModule,
               id: childId,
-              supportedOn: [{ _tag: "identity", identity: child }],
+              supportedOn: [child],
             },
           ],
         },
       ]);
 
-    const failure = yield* Effect.flip(composeChildren(named, blank));
-    assert.strictEqual(failure.details[0]?.code, "unsupported-target");
-    yield* composeChildren(blank, named);
+    for (const parent of [named, declaredPlacement]) {
+      const failure = yield* Effect.flip(
+        composeChildren(identityRule(parent), identityRule(blank)),
+      );
+      assert.strictEqual(failure.details[0]?.code, "unsupported-target");
+    }
+    yield* composeChildren(identityRule(blank), identityRule(named));
+    yield* composeChildren(
+      { _tag: "kind", kind: workspace },
+      identityRule(new TargetIdentity({ kind: workspace, name: "example" })),
+    );
   }),
 );
 
