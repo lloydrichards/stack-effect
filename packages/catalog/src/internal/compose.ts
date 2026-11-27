@@ -9,7 +9,7 @@ import {
   type ModuleId,
   ModuleDependency,
   type SupportedOn,
-  type TargetIdentity,
+  TargetIdentity,
   catalogIssueLabel,
   duplicates,
 } from "@repo/domain/Catalog";
@@ -258,13 +258,16 @@ const ruleCoveredBy = (
   rule: SupportedOn,
   other: SupportedOn,
 ): boolean => {
-  if (other._tag === "kind") return supportedOnTargetKind(rule) === other.kind;
+  const kind = supportedOnTargetKind(rule);
+  if (kind !== supportedOnTargetKind(other)) return false;
+  if (other._tag === "kind" || kind === "workspace") return true;
   if (rule._tag === "kind") return false;
 
-  const identity = rule.identity.hasExplicitName()
-    ? rule.identity
-    : dependencyOwner(context, rule.identity);
-  return identity.matches(other);
+  const identity = new TargetIdentity({ kind, name: rule.identity.name });
+  const target = identity.hasExplicitName()
+    ? identity
+    : dependencyOwner(context, identity);
+  return target.matches(other);
 };
 
 const requiredModuleIssues = (
