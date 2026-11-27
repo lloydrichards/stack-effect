@@ -10,7 +10,12 @@ import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, Layer, Schema } from "effect";
-import { ProviderCatalogLayer, selected, target } from "./fixtures/scaffold";
+import {
+  module,
+  ProviderCatalogLayer,
+  selected,
+  target,
+} from "./fixtures/scaffold";
 
 describe("BlueprintResolver", () => {
   const domainIdentity = new TargetIdentity({
@@ -49,6 +54,59 @@ describe("BlueprintResolver", () => {
 
   const TestLayer = BlueprintResolver.layer.pipe(
     Layer.provide(OfficialCatalogLayer),
+  );
+
+  it.effect(
+    "matches a required target to the named app even on the same kind",
+    () =>
+      Effect.gen(function* () {
+        const blueprints = yield* BlueprintResolver;
+        const namedApi = new TargetIdentity({
+          kind: serverApiIdentity.kind,
+          name: serverApiIdentity.name,
+          placement: "named",
+        });
+        const source = selected("server", "admin", "server-requires-api");
+        const blueprint = yield* blueprints.resolve({
+          targets: [source, { identity: namedApi, modules: [] }],
+        });
+
+        assert.includeDeepMembers(
+          [...blueprint.edges],
+          [
+            makeBlueprintEdge(
+              "required-target",
+              toAttachedModuleNodeId(
+                source.identity.toKey(),
+                ModuleId.make("server-requires-api"),
+              ),
+              namedApi.toKey(),
+            ),
+          ],
+        );
+      }).pipe(
+        Effect.provide(
+          BlueprintResolver.layer.pipe(
+            Layer.provide(
+              CatalogReader.fromFragments([
+                {
+                  targets: [target("server")],
+                  modules: [
+                    module("server-requires-api", "server", {
+                      dependencies: [
+                        {
+                          _tag: "required-target",
+                          identity: serverApiIdentity,
+                        },
+                      ],
+                    }),
+                  ],
+                },
+              ]),
+            ),
+          ),
+        ),
+      ),
   );
 
   layer(TestLayer)("resolve", (it) => {

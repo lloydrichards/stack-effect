@@ -34,6 +34,8 @@ If you created an app in a catalog default folder such as `apps/server-api` befo
 
 To create a package with compiled JavaScript and declarations for npm, use the `package-library` module. See [Create a publishable library](/publish-library).
 
+For an older app with a custom name, such as `server/backoffice` in `apps/server-backoffice`, move the directory to `apps/backoffice` before running `add` with the same target spec. Update any workspace paths, imports, and scripts that refer to the old folder. Keep the package name `server-backoffice`.
+
 Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group.
 
 ## First, Stack Effect resolves the project shape

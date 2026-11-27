@@ -6,7 +6,7 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
-generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
+generated: { by: codex, at: "2026-11-27T15:21:22Z" }
 ---
 
 # Identity and compatibility
@@ -14,16 +14,17 @@ generated: { by: codex, at: "2026-10-10T10:30:00+00:00" }
 ## TargetIdentity
 
 Definition:
-Canonical target identity value `{ kind, name }` with behavior for keys, paths, and compatibility matching.
+Canonical target identity with kind and name. A resolved app can also carry its placement.
 
 Invariants:
 
 - `toKey()` and `toPath()` are deterministic from identity fields.
 - `matches()` checks either kind-level or exact-identity support rules.
-- Each slash-separated name segment is normalized to kebab-case. Group segments determine directories; the final segment names the target. `server/sdk/api` resolves to `apps/sdk/server-api`, while `package/sdk/client` resolves to `packages/sdk/client`.
+- Each slash-separated name segment is normalized to kebab-case. Group segments determine directories; the final segment names the target. `server/sdk/api` resolves to `apps/sdk/api`, while `package/sdk/client` resolves to `packages/sdk/client`.
 - npm names join all name segments with hyphens: `server-sdk-api` and `@repo/sdk-client` in those examples. Hierarchical and flat names remain different identities, but colliding npm names cannot coexist.
 - Names reject empty, hidden, dot, `node_modules`, and unsafe directory segments. Package names must be non-empty; unnamed apps retain their kind-based default.
-- Placement has no independent catalog or Blueprint override. Dependencies keep their declared identities.
+- Explicit app names select the named layout. A blank app name resolves to the catalog default. A dependency reuses a matching selected app or uses its catalog folder. CAFE uses fixed folders for its generated imports.
+- A required target refers to an exact identity. A required module or capability on the same app kind can attach to the requesting app.
 
 Connected terms:
 

@@ -241,6 +241,11 @@ describe("Official catalog scaffolding", () => {
     );
   });
 
+  const target = (kind: string, name: string, ...modules: string[]) => ({
+    target: new TargetIdentity({ kind: TargetKind.make(kind), name }),
+    modules: modules.map((id) => ModuleId.make(id)),
+  });
+
   describe("generated READMEs", () => {
     const config = new StackConfig({
       name: "readme-example",
@@ -250,11 +255,6 @@ describe("Official catalog scaffolding", () => {
       lint: "oxlint",
       format: "oxfmt",
       test: "vitest",
-    });
-
-    const target = (kind: string, name: string, ...modules: string[]) => ({
-      target: new TargetIdentity({ kind: TargetKind.make(kind), name }),
-      modules: modules.map((id) => ModuleId.make(id)),
     });
 
     const readme = (
@@ -747,24 +747,36 @@ describe("Official catalog scaffolding", () => {
     );
 
     it.effect(
-      "the CAFE module generates a connected Foldkit Website and API Worker",
+      "CAFE adds optional Foldkit modules without changing its fixed folders",
       () =>
         Effect.gen(function* () {
-          const result = yield* preview("workspace", [
-            "workspace-alchemy-cafe",
-          ]);
+          const previews = yield* RecipePreviewer;
+          const result = yield* previews.preview({
+            config: new StackConfig({
+              name: "deployment",
+              runtime: { _tag: "bun" },
+            }),
+            recipe: {
+              targets: [
+                target("workspace", "root", "workspace-alchemy-cafe"),
+                target("client-foldkit", "", "client-foldkit-devtools"),
+              ],
+            },
+          });
           const stack =
             result.files.find(({ path }) => path === "alchemy.run.ts")
               ?.contents ?? "";
           const paths = result.files.map(({ path }) => path);
           assert.includeMembers(paths, [
             "apps/client-foldkit-web/alchemy.ts",
+            "apps/client-foldkit-web/src/devtools.ts",
             "apps/client-foldkit-web/src/features/rest.ts",
             "apps/cloudflare-worker-api/alchemy.ts",
             "apps/cloudflare-worker-api/src/Api.ts",
             "packages/domain/src/Api.ts",
             "packages/config-typescript/vite.json",
           ]);
+          assert.include(result.command, "--target client-foldkit/:");
           assert.include(stack, '"./apps/client-foldkit-web/alchemy"');
           assert.include(stack, '"./apps/cloudflare-worker-api/alchemy"');
           assert.include(
@@ -772,7 +784,7 @@ describe("Official catalog scaffolding", () => {
             "Website({ VITE_SERVER_URL: api.url.as<string>() })",
           );
           assert.include(stack, "return { api: api.url, web: web.url }");
-        }),
+        }).pipe(Effect.provide(TestLayer)),
     );
   });
 });
