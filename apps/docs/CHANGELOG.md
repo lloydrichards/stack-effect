@@ -1,5 +1,47 @@
 # @stack-effect/docs
 
+## 0.6.0
+
+### Minor Changes
+
+- bab3846: Labs adds an Effect Graph task planner that orders prerequisites and reports missing tasks, duplicate IDs, and cycles.
+- 2bf64a0: Labs adds a typed GraphQL client to Bun, Node, and Deno API servers. Selecting the client also installs the query endpoint, so one server demonstrates the complete lookup. Set `UPSTREAM_GRAPHQL_URL` to use a different endpoint.
+- 76e762c: Labs adds a signed Discord PING/PONG example for Bun, Node, and Deno servers with a credential-free fixture.
+- b0ccea9: Explicit app target names now determine the folder under apps/. Use a blank target name to keep the catalog default folder.
+  
+  `--target server/api:server-http-api` now generates `apps/api`. To add modules to an existing `apps/server-api` app, use `--target server/:server-http-api`. If a later add reports a conflict with an existing named app, include that app's target in the same command.
+  
+  For a previously generated custom app, move it to the new folder and update any workspace paths, imports, or scripts that reference the old folder before running `add`. The workspace package name stays the same.
+  
+  In custom catalogs, a required child module must support every target its parent supports. Widen the child's support or make it optional if it applies only to some targets.
+- a05752a: Labs adds a signed GitHub issue webhook for Bun, Node, and Deno servers. A fixture client demonstrates applying one allowlisted label without writing to GitHub.
+- 666a253: Breaking: the browser worker, managed chat runtime, and Web Fetch toolkit now come from Labs. To keep using them in an existing project, retain `official` and add `{ "name": "labs", "url": "https://stack-effect.lloydrichards.dev/registry/v1/labs.json" }` to `stack.effect.json` under `catalogs`.
+  
+  New Recipe Builder sessions start with both sources. Labs also adds a Bun PersistedQueue example with separate enqueue and consume commands backed by SQLite.
+- f653e73: Labs adds an Effect Cluster counter for Bun, Node, and Deno servers and an optional CLI command. Run `counter a` twice and `counter b` once to see that each ID keeps its own count.
+- 9fea5ae: The official catalog adds a Documentation Site target for Bun projects.
+  
+  Use `bunx stack-effect@latest create my-project --target docs/ --yes` to generate a static MDX site in `apps/docs`.
+  
+  Optional modules add Mermaid diagrams, an API reference, header pages, and a browser worker demo.
+- 9d58269: Labs adds a GraphQL query module for Bun, Node, and Deno servers. Query one item through an Effect lookup service, and swap in your own service when you are ready to use real data.
+- 1bb387b: The Labs Receipt Workflow forms for React and Foldkit now support Postgres. Choose SQLite or Postgres in Recipe Builder, or pass the database provider explicitly when creating the project from the CLI.
+- 8aea206: Labs adds a durable receipt workflow for Bun, Node, and Deno. Run it from the CLI to see execution resume after a restart, or use the React and Foldkit forms to submit a receipt and follow its status after a refresh.
+- 377a1db: Labs can generate a shared Chat Bot package and connect it to Slack. Install the generated Slack app, mention the bot with `ping`, and edit `Bot.ts` to customize its reply.
+- 3e6ce86: Graph Task Planner is available on Bun, Node, and Deno shared packages and exports `TaskPlan` from publishable libraries.
+
+### Patch Changes
+
+- fcd6a81: New catalog registry projects import `@stack-effect/author` through its `Define`, `Template`, and `Build` subpaths and depend on `~0.6.0`.
+- 5326799: The Labs Graph Task Planner documents its public API and includes a package-root scratchpad that demonstrates how to call it.
+- 776e985: New projects use Effect 4.1.6. Catalog authors should install Effect 4.1.6 with the matching @stack-effect/author release.
+- 58812b0: Recipe Builder shows targets required by selected modules under Your targets.
+- 7106833: Generated projects and Recipe Builder previews omit empty layer placeholders when modules contribute real layers.
+- 9a8e10f: New Nx projects with TypeScript 7 install successfully with npm.
+- 95f7f7e: Reapplying Workshop Checklist now asks before replacing custom instructions.
+- 9b22295: Recipe Builder shows why a catalog or preview failed under its message, one `Caused by:` line per underlying error.
+- 241913d: Module names are easier to scan in Recipe Builder and the CLI, with shorter labels and clearer names for dependencies.
+
 ## 0.5.0
 
 ### Minor Changes
