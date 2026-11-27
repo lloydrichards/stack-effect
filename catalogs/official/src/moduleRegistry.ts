@@ -5,6 +5,7 @@ import { clientModules } from "./modules/client";
 import { clientFoldkitModules } from "./modules/client-foldkit";
 import { cloudflareWorkerModules } from "./modules/cloudflare-worker";
 import { configModules } from "./modules/config";
+import { docsModules } from "./modules/docs";
 import { domainModules } from "./modules/domain";
 import { initModules } from "./modules/init";
 import { mcpModules } from "./modules/mcp";
@@ -27,4 +28,5 @@ export const moduleGroups = [
   alchemyModules,
   packageModules,
   cliModules,
+  docsModules,
 ];

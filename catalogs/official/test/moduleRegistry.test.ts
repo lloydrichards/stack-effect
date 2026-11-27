@@ -179,6 +179,7 @@ describe("moduleRegistry", () => {
         "alchemy-client-foldkit-website",
         "alchemy-client-react-website",
         "package-library",
+        "docs-mermaid",
       ],
     );
   });

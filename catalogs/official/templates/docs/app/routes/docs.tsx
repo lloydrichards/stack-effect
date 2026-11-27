@@ -15,7 +15,14 @@ const ScrollableTable = (props: ComponentProps<"table">) => (
   </div>
 );
 
-const components = { pre: CodeBlock, table: ScrollableTable };
+const defineComponents = (
+  value: NonNullable<ComponentProps<typeof MDXProvider>["components"]>,
+) => value;
+
+const components = defineComponents({
+  pre: CodeBlock,
+  table: ScrollableTable,
+});
 
 const Docs = () => (
   <div className="mx-auto grid max-w-7xl gap-8 px-5 py-8 sm:px-8 md:grid-cols-[11rem_minmax(0,1fr)]">

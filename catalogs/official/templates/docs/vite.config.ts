@@ -7,26 +7,31 @@ import remarkGfm from "remark-gfm";
 import { defineConfig } from "vite";
 import { rehypeToc } from "./app/lib/rehype-toc.ts";
 
-export default defineConfig({
-  plugins: [
-    mdx({
-      providerImportSource: "@mdx-js/react",
-      remarkPlugins: [remarkGfm],
-      rehypePlugins: [
-        rehypeSlug,
-        rehypeToc,
-        [
-          rehypePrettyCode,
-          {
-            theme: { light: "github-light", dark: "github-dark" },
-            defaultColor: false,
-            keepBackground: false,
-          },
-        ],
+const configureMdx = (
+  ...remarkPlugins: NonNullable<
+    NonNullable<Parameters<typeof mdx>[0]>["remarkPlugins"]
+  >
+) =>
+  mdx({
+    providerImportSource: "@mdx-js/react",
+    remarkPlugins,
+    rehypePlugins: [
+      rehypeSlug,
+      rehypeToc,
+      [
+        rehypePrettyCode,
+        {
+          theme: { light: "github-light", dark: "github-dark" },
+          defaultColor: false,
+          keepBackground: false,
+        },
       ],
-    }),
-    tailwindcss(),
-    reactRouter(),
-  ],
+    ],
+  });
+
+const docsMdx = configureMdx(remarkGfm);
+
+export default defineConfig({
+  plugins: [docsMdx, tailwindcss(), reactRouter()],
   resolve: { tsconfigPaths: true },
 });
