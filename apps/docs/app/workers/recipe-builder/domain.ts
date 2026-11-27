@@ -60,6 +60,7 @@ export const RecipeBuilderCatalog = Schema.Struct({
       title: TargetDefinition.fields.title,
       description: TargetDefinition.fields.description,
       defaultName: TargetDefinition.fields.defaultName,
+      supportedRuntimes: TargetDefinition.fields.supportedRuntimes,
       requiredModules: Schema.requiredKey(
         TargetDefinition.fields.requiredModules.schema,
       ),

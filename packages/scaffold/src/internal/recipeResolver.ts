@@ -1,10 +1,10 @@
 import { CatalogReader } from "@repo/catalog/Catalog";
 import {
+  defaultSupportedRuntimes,
   type ModuleCapability,
   type ModuleDefinition,
   ModuleDependency,
   ModuleId,
-  type SupportedRuntime,
   TargetIdentity,
   TargetKind,
 } from "@repo/domain/Catalog";
@@ -31,12 +31,6 @@ import {
   toWorkspaceModuleId,
 } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Option } from "effect";
-
-// Matches the runtimes Blueprint assumes for a definition that names none.
-const DEFAULT_SUPPORTED_RUNTIMES: ReadonlyArray<SupportedRuntime> = [
-  "bun",
-  "node",
-];
 
 const CREATE_COMMAND = {
   bun: "bunx stack-effect@latest",
@@ -162,7 +156,7 @@ const dependencyTargetOf = (
     : dependencyTarget;
 
 const supportsRuntime = (definition: ModuleDefinition, config: StackConfig) =>
-  (definition.supportedRuntimes ?? DEFAULT_SUPPORTED_RUNTIMES).includes(
+  (definition.supportedRuntimes ?? defaultSupportedRuntimes).includes(
     config.runtimeName,
   );
 

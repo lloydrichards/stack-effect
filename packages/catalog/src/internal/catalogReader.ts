@@ -255,6 +255,7 @@ export const makeCatalogReader = Effect.gen(function* () {
             title: target.title,
             description: target.description,
             defaultName: target.defaultName,
+            supportedRuntimes: target.supportedRuntimes,
             requiredModules: target.requiredModules ?? [],
           }),
         ),

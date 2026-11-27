@@ -6,9 +6,14 @@ import type {
   ModuleDefinition,
   ModuleId,
   ModuleImplication,
+  SupportedRuntime,
   TargetKind,
 } from "@repo/domain/Catalog";
-import { ModuleDependency, TargetIdentity } from "@repo/domain/Catalog";
+import {
+  defaultSupportedRuntimes,
+  ModuleDependency,
+  TargetIdentity,
+} from "@repo/domain/Catalog";
 import {
   parseRecipeTargetSpecs,
   RecipeResolveOptions,
@@ -642,18 +647,27 @@ const renderTargetPanel = (
   );
 };
 
-const collectTargetsInteractive = Effect.gen(function* () {
+const collectTargetsInteractive = Effect.fnUntraced(function* (
+  runtime: SupportedRuntime,
+) {
   const catalog = yield* CatalogReader;
   const terminal = yield* Terminal.Terminal;
 
-  const targetChoices = yield* Effect.forEach(
+  const definitions = yield* Effect.forEach(
     catalog.getTargetKinds({ visibility: "public" }),
-    (kind) =>
-      Effect.map(catalog.getTarget(kind), (target) => ({
-        title: target.title,
-        value: kind,
-      })),
+    catalog.getTarget,
   );
+  const targetChoices = definitions
+    .filter((target) =>
+      (target.supportedRuntimes ?? defaultSupportedRuntimes).includes(runtime),
+    )
+    .map((target) => ({ title: target.title, value: target.kind }));
+
+  if (targetChoices.length === 0) {
+    return yield* Effect.fail(
+      `The selected catalogs have no application targets for ${runtime}.`,
+    );
+  }
 
   const targets: Array<CollectedTarget> = [];
   yield* addTarget(targets, targetChoices);
@@ -728,7 +742,7 @@ export const add = Command.make(
 
       const collected = Option.isSome(flags.target)
         ? yield* collectTargetsFromSpecs(flags.target.value)
-        : yield* collectTargetsInteractive;
+        : yield* collectTargetsInteractive(config.runtimeName);
 
       const selection = yield* recipes.resolve(
         {
