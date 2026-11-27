@@ -178,6 +178,7 @@ export const recipeCatalogFixture = Schema.decodeUnknownSync(
       title: "CLI",
       description: "A command line application",
       defaultName: "jobs",
+      supportedRuntimes: ["bun", "node", "deno"],
       requiredModules: [],
     },
     {
