@@ -253,19 +253,18 @@ const dependencyOwner = (context: Composition, identity: TargetIdentity) =>
       ?.target.defaultName,
   );
 
-const rulesOverlap = (
+const ruleCoveredBy = (
   context: Composition,
   rule: SupportedOn,
   other: SupportedOn,
 ): boolean => {
-  if (supportedOnTargetKind(rule) !== supportedOnTargetKind(other))
-    return false;
-  return (
-    rule._tag === "kind" ||
-    other._tag === "kind" ||
-    dependencyOwner(context, rule.identity).matches(other) ||
-    dependencyOwner(context, other.identity).matches(rule)
-  );
+  if (other._tag === "kind") return supportedOnTargetKind(rule) === other.kind;
+  if (rule._tag === "kind") return false;
+
+  const identity = rule.identity.hasExplicitName()
+    ? rule.identity
+    : dependencyOwner(context, rule.identity);
+  return identity.matches(other);
 };
 
 const requiredModuleIssues = (
@@ -358,19 +357,28 @@ const childIssues = (
 ): ReadonlyArray<CatalogIssue> =>
   (module.children ?? []).flatMap((child) => {
     const definition = context.moduleById.get(child.moduleId);
+    const matchesParentRule = (rule: SupportedOn) =>
+      definition?.supportedOn.some(
+        (other) =>
+          ruleCoveredBy(context, rule, other) ||
+          (child.requirement === "optional" &&
+            ruleCoveredBy(context, other, rule)),
+      );
+    const supported =
+      child.requirement === "required"
+        ? module.supportedOn.every(matchesParentRule)
+        : module.supportedOn.some(matchesParentRule);
+
     return [
       ...moduleReferenceIssues(context, owner, child.moduleId),
-      ...(definition &&
-      !module.supportedOn.some((rule) =>
-        definition.supportedOn.some((other) =>
-          rulesOverlap(context, rule, other),
-        ),
-      )
+      ...(definition && !supported
         ? [
             issue(
               owner,
               "unsupported-target",
-              `Module ${module.id} has child ${child.moduleId} on another target`,
+              child.requirement === "required"
+                ? `Module ${module.id} has required child ${child.moduleId} that does not support all of its targets`
+                : `Module ${module.id} has child ${child.moduleId} on another target`,
             ),
           ]
         : []),

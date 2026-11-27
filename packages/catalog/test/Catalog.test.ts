@@ -103,6 +103,47 @@ it.effect(
   },
 );
 
+it.effect("requires children to support every placement of their parent", () =>
+  Effect.gen(function* () {
+    const kind = TargetKind.make("server");
+    const blank = new TargetIdentity({ kind, name: "" });
+    const named = new TargetIdentity({ kind, name: "api" });
+    const childId = ModuleId.make("server-child");
+    const targets = [
+      {
+        kind,
+        defaultName: "api",
+        title: "Server",
+        description: "Server",
+        contributions: [],
+      },
+    ];
+    const composeChildren = (parent: TargetIdentity, child: TargetIdentity) =>
+      compose([
+        {
+          targets,
+          modules: [
+            {
+              ...extraModule,
+              id: ModuleId.make("server-parent"),
+              supportedOn: [{ _tag: "identity", identity: parent }],
+              children: [{ moduleId: childId, requirement: "required" }],
+            },
+            {
+              ...extraModule,
+              id: childId,
+              supportedOn: [{ _tag: "identity", identity: child }],
+            },
+          ],
+        },
+      ]);
+
+    const failure = yield* Effect.flip(composeChildren(named, blank));
+    assert.strictEqual(failure.details[0]?.code, "unsupported-target");
+    yield* composeChildren(blank, named);
+  }),
+);
+
 it.effect(
   "should expose dependency edges and owner-specific Builder choices for a composed extension",
   () => {
