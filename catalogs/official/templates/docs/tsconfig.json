@@ -1,0 +1,13 @@
+{
+  "extends": "@repo/config-typescript/vite.json",
+  "include": ["app/**/*", "*.config.ts", ".react-router/types/**/*"],
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": {
+      "~/*": ["./app/*"]
+    },
+    "allowImportingTsExtensions": true,
+    "types": ["vite/client", "node", "mdx"]
+  }
+}

@@ -235,6 +235,173 @@ export const targetGroup = defineTargets(import.meta.url, [
   },
 
   {
+    kind: "docs",
+    title: "Documentation Site",
+    description: "A static MDX documentation site with React and shadcn",
+    defaultName: "",
+    supportedRuntimes: ["bun"],
+    requiredModules: ["config-typescript-vite"],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/README.md",
+        contents: template("./docs/README.md"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/.gitignore",
+        contents: template("./docs/_gitignore"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/package.json",
+        contents: template("./docs/package.json"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/tsconfig.json",
+        contents: template("./docs/tsconfig.json"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/components.json",
+        contents: template("./docs/components.json"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/vite.config.ts",
+        contents: template("./docs/vite.config.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/react-router.config.ts",
+        contents: template("./docs/react-router.config.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/app.css",
+        contents: template("./docs/app/app.css"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/typeset.css",
+        contents: template("./docs/app/typeset.css"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/components/callout.tsx",
+        contents: template("./docs/app/components/callout.tsx"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/components/code-block.tsx",
+        contents: template("./docs/app/components/code-block.tsx"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/components/theme-toggle.tsx",
+        contents: template("./docs/app/components/theme-toggle.tsx"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/components/ui/button.tsx",
+        contents: template("./docs/app/components/ui/button.tsx"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/content/getting-started.mdx",
+        contents: template("./docs/app/content/getting-started.mdx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/content/index.mdx",
+        contents: template("./docs/app/content/index.mdx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/docs-pages.ts",
+        contents: template("./docs/app/docs-pages.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/lib/rehype-toc.ts",
+        contents: template("./docs/app/lib/rehype-toc.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/lib/utils.ts",
+        contents: template("./docs/app/lib/utils.ts"),
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/root.tsx",
+        contents: template("./docs/app/root.tsx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/routes.ts",
+        contents: template("./docs/app/routes.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/routes/docs.tsx",
+        contents: template("./docs/app/routes/docs.tsx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/routes/home.tsx",
+        contents: template("./docs/app/routes/home.tsx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "build",
+        value: "react-router build",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "dev",
+        value: "react-router dev --port 5175",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "preview",
+        value:
+          "serve dist/client --listen tcp://127.0.0.1:4175 --no-clipboard --no-port-switching",
+      },
+      {
+        _tag: "pkg-json-entry",
+        path: "{{targetPath}}/package.json",
+        field: "scripts",
+        name: "type-check",
+        value: "react-router typegen && tsc --noEmit",
+      },
+    ],
+    nextSteps: [
+      "Documentation Site: run `bun run --cwd {{targetPath}} dev` to start writing guides.",
+    ],
+  },
+
+  {
     kind: "client-foldkit",
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Foldkit Client",

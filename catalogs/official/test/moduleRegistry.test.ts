@@ -162,7 +162,7 @@ describe("moduleRegistry", () => {
       targetRegistry
         .filter((target) => !target.supportedRuntimes?.includes("deno"))
         .map((target) => target.kind),
-      ["cloudflare-worker"],
+      ["cloudflare-worker", "docs"],
     );
     assert.deepStrictEqual(
       moduleRegistry

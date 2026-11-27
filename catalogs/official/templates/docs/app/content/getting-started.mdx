@@ -1,0 +1,29 @@
+import { Link } from "react-router";
+import { Callout } from "../components/callout";
+
+export const meta = () => [{ title: "Getting started | Documentation" }];
+
+# Getting started
+
+Pages live in `app/content/`. Add each new page to `app/docs-pages.ts` to give it a URL and a place in the sidebar.
+
+## Add a page
+
+Create a file such as `app/content/installation.mdx`, then add this entry to the page list.
+
+```ts
+{ slug: "installation", title: "Installation", file: "content/installation.mdx" }
+```
+
+## Use React in MDX
+
+This page imports the local `Callout` component. Use the same import pattern for your own components.
+
+<Callout>
+  Start with the <Link to="/docs">introduction</Link> when sharing this site
+  with a new reader.
+</Callout>
+
+## Build the site
+
+Run the build script and publish `dist/client` to a static host.

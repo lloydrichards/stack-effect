@@ -1,0 +1,140 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "./typeset.css";
+
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme]), :root:not([data-theme]) *) {
+      @slot;
+    }
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--muted);
+  --color-secondary-foreground: var(--foreground);
+  --color-accent: var(--muted);
+  --color-accent-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+}
+
+:root {
+  color-scheme: light;
+  --background: light-dark(oklch(1 0 0), oklch(0.17 0.006 286));
+  --foreground: light-dark(oklch(0.21 0.006 286), oklch(0.95 0 0));
+  --primary: light-dark(oklch(0.27 0.007 286), oklch(0.9 0.005 286));
+  --primary-foreground: light-dark(oklch(0.985 0 0), oklch(0.21 0.006 286));
+  --muted: light-dark(oklch(0.967 0.001 286), oklch(0.26 0.006 286));
+  --muted-foreground: light-dark(oklch(0.49 0.016 286), oklch(0.72 0.015 286));
+  --border: light-dark(oklch(0.92 0.004 286), oklch(0.32 0.006 286));
+  --ring: light-dark(oklch(0.55 0.15 255), oklch(0.71 0.13 255));
+  --destructive: light-dark(oklch(0.58 0.22 27), oklch(0.72 0.17 27));
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+  }
+}
+
+body {
+  @apply min-h-screen bg-background text-foreground antialiased;
+}
+
+.docs-article {
+  @apply grid min-w-0 gap-5 xl:gap-8 xl:grid-cols-[minmax(0,1fr)_12rem];
+}
+
+.docs-outline {
+  @apply self-start text-sm;
+
+  p {
+    @apply mb-2 font-medium;
+  }
+
+  summary {
+    @apply cursor-pointer rounded-md border border-border px-3 py-2 font-medium;
+  }
+
+  nav ul {
+    @apply mt-3 px-3;
+  }
+
+  ul {
+    @apply space-y-2 text-muted-foreground;
+  }
+
+  a:hover {
+    @apply text-foreground;
+  }
+}
+
+.docs-prose {
+  @apply mx-auto w-full min-w-0 max-w-3xl xl:col-start-1 xl:row-start-1;
+  --typeset-size: 1rem;
+  --typeset-flow: 1.25em;
+}
+
+.docs-prose .linked-heading {
+  @apply flex items-baseline gap-2;
+  margin-block-start: var(--typeset-flow);
+}
+
+.docs-prose > .linked-heading:first-child {
+  margin-block-start: 0;
+}
+
+.docs-prose .linked-heading :is(h1, h2, h3, h4, h5, h6) {
+  @apply mt-0 scroll-mt-6;
+}
+
+.docs-prose .heading-anchor {
+  @apply shrink-0 text-sm text-muted-foreground opacity-0 focus:opacity-100;
+}
+
+.docs-prose .linked-heading:hover .heading-anchor {
+  @apply opacity-100;
+}
+
+@media (hover: none) {
+  .docs-prose .heading-anchor {
+    @apply opacity-100;
+  }
+}
+
+.docs-prose pre [style*="--shiki-light"] {
+  color: light-dark(var(--shiki-light), var(--shiki-dark));
+}
+
+.docs-table {
+  @apply my-4 overflow-x-auto;
+
+  :where(th, td) {
+    @apply border border-border px-3 py-2 text-left;
+  }
+
+  :where([align="center"]) {
+    @apply text-center;
+  }
+
+  :where([align="right"]) {
+    @apply text-right;
+  }
+}

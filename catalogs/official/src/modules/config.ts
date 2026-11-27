@@ -13,6 +13,7 @@ export const configModules = defineModules(import.meta.url, [
     supportedOn: [
       { _tag: "kind", kind: "client-react" },
       { _tag: "kind", kind: "client-foldkit" },
+      { _tag: "kind", kind: "docs" },
     ],
     dependencies: [],
     contributions: [

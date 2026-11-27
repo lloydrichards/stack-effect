@@ -59,6 +59,7 @@ const defaultTargetNames = new Map<string, string>([
   ["cloudflare-worker", "api"],
   ["client-react", "web"],
   ["client-foldkit", "app"],
+  ["docs", ""],
   ["server-mcp", ""],
   ["cli", "app"],
   ["package", "domain"],
@@ -179,6 +180,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
       return next;
     };
 
+    const supportedTargetKinds = new Set<TargetKind>();
     for (const targetKind of catalog.getTargetKinds()) {
       const definition = yield* catalog.getTarget(targetKind);
       if (
@@ -186,6 +188,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
         !definition.supportedRuntimes.includes(config.runtime._tag)
       )
         continue;
+      supportedTargetKinds.add(targetKind);
       ensureTarget(
         new TargetIdentity({
           kind: targetKind,
@@ -241,7 +244,9 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
 
     // The first module to provide a capability on a target wins it.
     for (const { module, supportedOn } of placements) {
-      const target = ensureTarget(targetIdentityFrom(supportedOn, module.id));
+      const identity = targetIdentityFrom(supportedOn, module.id);
+      if (!supportedTargetKinds.has(identity.kind)) continue;
+      const target = ensureTarget(identity);
       const provides = module.provides ?? [];
       if (provides.some((capability) => target.capabilities.has(capability))) {
         continue;
