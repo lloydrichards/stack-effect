@@ -1,5 +1,35 @@
 # stack-effect
 
+## 0.21.0
+
+### Minor Changes
+
+- 7b70dfb: `init`, `add`, and `create` now add the provider a selected module needs when only one compatible module provides it, such as a cache module's backing store. When several modules could provide it, the command lists them and asks you to select one with `--target`; when none can, it names the missing capability and target. `catalog workspace reset` without `--target` picks the first provider in catalog order.
+- b0ccea9: Explicit app target names now determine the folder under apps/. Use a blank target name to keep the catalog default folder.
+  
+  `--target server/api:server-http-api` now generates `apps/api`. To add modules to an existing `apps/server-api` app, use `--target server/:server-http-api`. If a later add reports a conflict with an existing named app, include that app's target in the same command.
+  
+  For a previously generated custom app, move it to the new folder and update any workspace paths, imports, or scripts that reference the old folder before running `add`. The workspace package name stays the same.
+  
+  In custom catalogs, a required child module must support every target its parent supports. Widen the child's support or make it optional if it applies only to some targets.
+- 5291ab4: Generated API contracts no longer carry a `success` flag. The HTTP `Hello` response is `{ message }`, and the presence `setStatus` RPC returns nothing. A failure is the typed error, not `success: false`.
+  
+  **Migration:** `add` rewrites the shared contracts when it adds a server module, but it leaves an existing client alone. If your React client still reads `data.success`, for example in `src/components/rest-card.tsx`, delete that line, or run `add` again with the client's HTTP module selected to regenerate it.
+
+### Patch Changes
+
+- 776e985: New projects use Effect 4.1.6. Catalog authors should install Effect 4.1.6 with the matching @stack-effect/author release.
+- 7106833: Generated projects and Recipe Builder previews omit empty layer placeholders when modules contribute real layers.
+- 9b22295: Errors now say what failed on the first line and print why underneath, one `Caused by:` line per underlying error, instead of pasting the underlying message into the first line.
+  
+  ```text
+  Could not load catalog source mine.
+    Caused by: Could not fetch catalog from https://registry.example/v1.json.
+    Caused by: Transport error (GET https://registry.example/v1.json)
+  ```
+- 95f7f7e: Reapplying Workshop Checklist now asks before replacing custom instructions.
+- 5c8d9e4: Adding Graph Task Planner to an existing Publishable Library now uses the compiled export in the packed package.
+
 ## 0.20.0
 
 ### Minor Changes

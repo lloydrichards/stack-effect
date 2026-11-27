@@ -1,5 +1,20 @@
 # @stack-effect/author
 
+## 0.6.0
+
+### Minor Changes
+
+- fcd6a81: Import each authoring concept from its own subpath: `@stack-effect/author/Define`, `/Template`, `/Build`, and `/Official`. The root entry still re-exports everything, so existing imports keep working and no migration is needed.
+  
+  ```ts
+  import { defineModules } from "@stack-effect/author/Define";
+  import { templates } from "@stack-effect/author/Template";
+  import { buildCatalog } from "@stack-effect/author/Build";
+  import { loadOfficialCatalog } from "@stack-effect/author/Official";
+  ```
+- dda3393: `OfficialCatalogUnavailable` and `CatalogBuildError` are now `Schema.TaggedError` classes. `OfficialCatalogUnavailable.message` names only the URL it could not load; read the fetch or decode failure from its new `cause` field instead of parsing the message.
+- 776e985: New projects use Effect 4.1.6. Catalog authors should install Effect 4.1.6 with the matching @stack-effect/author release.
+
 ## 0.5.0
 
 ### Minor Changes
