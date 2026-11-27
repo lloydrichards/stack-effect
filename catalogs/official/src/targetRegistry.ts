@@ -258,6 +258,7 @@ export const targetGroup = defineTargets(import.meta.url, [
         _tag: "file",
         path: "{{targetPath}}/package.json",
         contents: template("./docs/package.json"),
+        conflictOnModify: true,
       },
       {
         _tag: "file",
@@ -378,35 +379,6 @@ export const targetGroup = defineTargets(import.meta.url, [
         path: "{{targetPath}}/app/routes/home.tsx",
         contents: template("./docs/app/routes/home.tsx"),
         conflictOnModify: true,
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "build",
-        value: "react-router build",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "dev",
-        value: "react-router dev --port 5175",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "preview",
-        value:
-          "serve dist/client --listen tcp://127.0.0.1:4175 --no-clipboard --no-port-switching",
-      },
-      {
-        _tag: "pkg-json-entry",
-        path: "{{targetPath}}/package.json",
-        field: "scripts",
-        name: "type-check",
-        value: "react-router typegen && tsc --noEmit",
       },
     ],
     nextSteps: [

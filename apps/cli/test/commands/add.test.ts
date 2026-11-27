@@ -9,6 +9,51 @@ import {
 
 describe("add", () => {
   it.effect(
+    "installs Mermaid dependencies without resetting a customized docs dev script",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          yield* run([
+            "create",
+            "handbook",
+            "--target",
+            "docs/",
+            "--yes",
+            "--no-git",
+            "--root",
+            directory,
+          ]);
+          const root = path.join(directory, "handbook");
+          const manifest = path.join(root, "apps/docs/package.json");
+          const original = yield* fs.readFileString(manifest);
+          yield* fs.writeFileString(
+            manifest,
+            original.replace("--port 5175", "--port 5180"),
+          );
+          yield* run([
+            "add",
+            "--target",
+            "docs/:docs-mermaid",
+            "--yes",
+            "--root",
+            root,
+          ]);
+          const contents = yield* fs.readFileString(manifest);
+          assert.include(contents, "react-router dev --port 5180");
+          assert.include(contents, '"mdx-mermaid":');
+          assert.include(
+            yield* fs.readFileString(
+              path.join(root, "apps/docs/vite.config.ts"),
+            ),
+            "configureMdx(remarkGfm, mdxMermaid)",
+          );
+        }),
+      ),
+    30_000,
+  );
+
+  it.effect(
     "preserves customized docs starter files when reapplying the target with --yes",
     () =>
       withNodeServices(
