@@ -9,6 +9,7 @@ import {
   type ModuleId,
   ModuleDependency,
   type SupportedOn,
+  type TargetIdentity,
   catalogIssueLabel,
   duplicates,
 } from "@repo/domain/Catalog";
@@ -222,7 +223,8 @@ const supportsKind = (module: ModuleDefinition, kind: string) =>
 
 const rulesOverlap = (rule: SupportedOn, other: SupportedOn) =>
   rule._tag === "identity" && other._tag === "identity"
-    ? rule.identity.toKey() === other.identity.toKey()
+    ? rule.identity.kind === other.identity.kind &&
+      rule.identity.toKey() === other.identity.toKey()
     : supportedOnTargetKind(rule) === supportedOnTargetKind(other);
 
 const targetIssues = (
@@ -251,6 +253,12 @@ const targetIssues = (
   });
 };
 
+const dependencyOwner = (context: Composition, identity: TargetIdentity) =>
+  identity.placeCatalogReference(
+    context.targetEntries.find(({ target }) => target.kind === identity.kind)
+      ?.target.defaultName,
+  );
+
 const requiredModuleIssues = (
   context: Composition,
   owner: Owner,
@@ -258,10 +266,10 @@ const requiredModuleIssues = (
   dependency: Extract<ModuleDependency, { _tag: "required-module" }>,
 ): ReadonlyArray<CatalogIssue> => {
   const required = context.moduleById.get(dependency.moduleId);
+  const target = dependencyOwner(context, dependency.target);
   return [
     ...moduleReferenceIssues(context, owner, dependency.moduleId),
-    ...(required &&
-    !required.supportedOn.some((rule) => dependency.target.matches(rule))
+    ...(required && !required.supportedOn.some((rule) => target.matches(rule))
       ? [
           issue(
             owner,
@@ -278,13 +286,12 @@ const capabilityIssues = (
   owner: Owner,
   module: ModuleDefinition,
   dependency: Extract<ModuleDependency, { _tag: "required-capability" }>,
-): ReadonlyArray<CatalogIssue> =>
-  context.moduleEntries.some(
+): ReadonlyArray<CatalogIssue> => {
+  const target = dependencyOwner(context, dependency.target);
+  return context.moduleEntries.some(
     (candidate) =>
       candidate.module.provides?.includes(dependency.capability) &&
-      candidate.module.supportedOn.some((rule) =>
-        dependency.target.matches(rule),
-      ) &&
+      candidate.module.supportedOn.some((rule) => target.matches(rule)) &&
       canReference(context, owner.fragment, candidate.fragment),
   )
     ? []
@@ -295,6 +302,7 @@ const capabilityIssues = (
           `Module ${module.id} requires unavailable capability ${dependency.capability}`,
         ),
       ];
+};
 
 const dependencyIssues = (
   context: Composition,

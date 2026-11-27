@@ -334,7 +334,10 @@ export const make = Effect.gen(function* () {
       modules: [...modules],
     }));
     const findSelected = (identity: TargetIdentity) =>
-      selected.find(({ target }) => target.toKey() === identity.toKey());
+      selected.find(
+        ({ target }) =>
+          target.kind === identity.kind && target.toKey() === identity.toKey(),
+      );
     const placedTarget = (reference: TargetIdentity) =>
       findSelected(reference)?.target ??
       (reference.placement === undefined
@@ -525,14 +528,16 @@ export const make = Effect.gen(function* () {
     // A recipe keeps the first identity it names for each target key.
     const firstIdentities = new Map<string, TargetIdentity>();
     for (const { target } of targets) {
-      if (!firstIdentities.has(target.toKey())) {
-        firstIdentities.set(target.toKey(), target);
+      const key = `${target.kind}:${target.toKey()}`;
+      if (!firstIdentities.has(key)) {
+        firstIdentities.set(key, target);
       }
     }
 
     const merged = mergeRecipeTargets(
       targets.map(({ target, modules }) => ({
-        target: firstIdentities.get(target.toKey()) ?? target,
+        target:
+          firstIdentities.get(`${target.kind}:${target.toKey()}`) ?? target,
         modules,
       })),
     );

@@ -30,10 +30,19 @@ it.effect(
       ...extraModule,
       id: ModuleId.make("server-default-extra"),
       supportedOn: [{ _tag: "identity" as const, identity: blank }],
+      provides: [ModuleCapability.make("extra")],
     };
     const referenceModule: ModuleDefinition = {
       ...extraModule,
-      dependencies: [{ _tag: "required-target", identity: named }],
+      dependencies: [
+        { _tag: "required-target", identity: named },
+        { _tag: "required-module", target: named, moduleId: defaultModule.id },
+        {
+          _tag: "required-capability",
+          target: named,
+          capability: ModuleCapability.make("extra"),
+        },
+      ],
     };
 
     return Effect.gen(function* () {

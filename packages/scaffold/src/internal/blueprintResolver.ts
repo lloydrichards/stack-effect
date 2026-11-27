@@ -150,6 +150,10 @@ const resolveSelection = Effect.fnUntraced(function* (
     );
 
     if (Option.isSome(current)) {
+      if (current.value.identity.kind !== identity.kind)
+        return yield* new BlueprintError({
+          message: `Overlapping target ownership at ${identity.toPath()}: ${current.value.identity.kind} and ${identity.kind}`,
+        });
       return current.value;
     }
 
@@ -248,7 +252,9 @@ const resolveSelection = Effect.fnUntraced(function* (
       const allowNamedPlacement = moduleId !== "workspace-alchemy-cafe";
       const selected =
         selection.targets.find(
-          ({ identity }) => identity.toKey() === dependencyTarget.toKey(),
+          ({ identity }) =>
+            identity.kind === dependencyTarget.kind &&
+            identity.toKey() === dependencyTarget.toKey(),
         ) ??
         selection.targets.find(
           ({ identity }) =>
