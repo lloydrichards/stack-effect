@@ -36,7 +36,7 @@ To create a package with compiled JavaScript and declarations for npm, use the `
 
 For an older app with a custom name, such as `server/backoffice` in `apps/server-backoffice`, move the directory to `apps/backoffice` before running `add` with the same target spec. Update any workspace paths, imports, and scripts that refer to the old folder. Keep the package name `server-backoffice`.
 
-Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group.
+Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group. A capability provider on an app whose catalog name differs from the target kind's default uses the named folder so the copied command can replay the provider choice.
 
 ## First, Stack Effect resolves the project shape
 

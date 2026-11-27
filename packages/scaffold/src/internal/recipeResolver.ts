@@ -186,6 +186,7 @@ const chooseProvider = Effect.fnUntraced(function* (
   strategy: RecipeProviderStrategy,
   requirement: ProviderRequirement,
   candidates: ReadonlyArray<ModuleDefinition>,
+  providerTargetOf: (target: TargetIdentity) => TargetIdentity,
 ) {
   const [first, ...others] = candidates;
   if (first === undefined) {
@@ -196,7 +197,8 @@ const chooseProvider = Effect.fnUntraced(function* (
     strategy._tag === "explicit"
       ? strategy.providers.find(
           (provider) =>
-            provider.target.toKey() === requirement.target.toKey() &&
+            providerTargetOf(provider.target).toKey() ===
+              requirement.target.toKey() &&
             provider.capability === requirement.capability,
         )
       : undefined;
@@ -338,6 +340,14 @@ export const make = Effect.gen(function* () {
       selected.find(({ target }) => target.matchesReference(reference))
         ?.target ??
       reference;
+    const providerTargetOf = (reference: TargetIdentity) => {
+      if (reference.placement !== undefined) return reference;
+      const named = selected.find(
+        ({ target }) =>
+          target.placement === "named" && target.matchesReference(reference),
+      );
+      return named?.target ?? placedTarget(reference);
+    };
 
     // Each target's modules Blueprint attaches, in the order the walk reaches them.
     const attached = new Map<string, Array<ModuleId>>();
@@ -364,10 +374,27 @@ export const make = Effect.gen(function* () {
     ) {
       const dependencyTarget = findSelected(target);
       if (dependencyTarget === undefined) {
+        const definition = yield* catalog
+          .getTarget(target.kind)
+          .pipe(Effect.option);
+        const catalogDefault =
+          Option.isSome(definition) &&
+          definition.value.defaultName !== undefined
+            ? new TargetIdentity({
+                kind: target.kind,
+                name: definition.value.defaultName,
+              })
+            : undefined;
+        const useDefault =
+          target.kind !== "workspace" &&
+          target.kind !== "package" &&
+          catalogDefault?.matchesReference(target);
         const placed = yield* resolveTargetIdentity(
           catalog,
           options.config,
-          target,
+          useDefault
+            ? new TargetIdentity({ kind: target.kind, name: "" })
+            : target,
         );
         selected.push({ target: placed, modules: [providerId] });
         yield* enqueueTarget(placed, [providerId]);
@@ -448,7 +475,7 @@ export const make = Effect.gen(function* () {
         ? hardProvider.value
         : yield* chooseProvider(
             options.providerStrategy,
-            requirement,
+            { ...requirement, target },
             catalog
               .getCapabilityProviders({
                 capability,
@@ -458,6 +485,7 @@ export const make = Effect.gen(function* () {
               .filter((candidate) =>
                 supportsRuntime(candidate, options.config),
               ),
+            providerTargetOf,
           );
 
       yield* selectProvider(target, providerId);
