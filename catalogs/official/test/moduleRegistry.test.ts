@@ -181,6 +181,7 @@ describe("moduleRegistry", () => {
         "package-library",
         "docs-mermaid",
         "docs-api-reference",
+        "docs-header-pages",
       ],
     );
   });
