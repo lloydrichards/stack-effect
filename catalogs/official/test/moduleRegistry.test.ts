@@ -182,6 +182,7 @@ describe("moduleRegistry", () => {
         "docs-mermaid",
         "docs-api-reference",
         "docs-header-pages",
+        "docs-worker-demo",
       ],
     );
   });
