@@ -8,7 +8,7 @@ import {
 
 describe("catalog workspace reset", () => {
   it.effect(
-    "should leave modules Deno does not support out of the default workspace",
+    "should leave targets and modules Deno does not support out of the default workspace",
     () =>
       withNodeServices(
         Effect.gen(function* () {
@@ -31,6 +31,7 @@ describe("catalog workspace reset", () => {
           assert.include(manifest, '"moduleId"');
           assert.notInclude(manifest, "package-library");
           assert.notInclude(manifest, "cloudflare-worker");
+          assert.notInclude(manifest, '"path": "apps/docs/');
           assert.include(
             executed.map(({ command }) => command),
             "git init --initial-branch=main",
