@@ -8,6 +8,7 @@ import {
 } from "react-router";
 import type { Route } from "./+types/root";
 import { ThemeToggle } from "./components/theme-toggle";
+import { sitePages } from "./site-pages";
 import "./app.css";
 
 export const meta: Route.MetaFunction = () => [
@@ -47,7 +48,16 @@ export const Layout = ({ children }: { children: React.ReactNode }) => (
           <Link className="font-semibold" to="/">
             Documentation
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-4">
+            {sitePages
+              .filter((page) => page.slug)
+              .map((page) => (
+                <Link key={page.slug} to={`/${page.slug}`} className="text-sm">
+                  {page.title}
+                </Link>
+              ))}
+            <ThemeToggle />
+          </div>
         </div>
       </header>
       {children}

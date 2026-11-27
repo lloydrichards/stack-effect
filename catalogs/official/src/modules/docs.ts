@@ -146,4 +146,50 @@ export const docsModules = defineModules(import.meta.url, [
       },
     ],
   },
+  {
+    id: "docs-header-pages",
+    title: "Header Pages",
+    description:
+      "Add a product homepage and an About page alongside the handbook",
+    supportedRuntimes: ["bun"],
+    supportedOn: [
+      {
+        _tag: "kind",
+        kind: "docs",
+      },
+    ],
+    dependencies: [],
+    contributions: [
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/routes/product-home.tsx",
+        contents: template("./docs-header-pages/app/routes/product-home.tsx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
+        path: "{{targetPath}}/app/routes/about.tsx",
+        contents: template("./docs-header-pages/app/routes/about.tsx"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "ts-object-field",
+        path: "{{targetPath}}/app/site-pages.ts",
+        targetVariable: "sitePages",
+        functionName: "defineSitePages",
+        field: "home",
+        value:
+          '{"slug": "", "title": "Home", "file": "routes/product-home.tsx"}',
+      },
+      {
+        _tag: "ts-object-field",
+        path: "{{targetPath}}/app/site-pages.ts",
+        targetVariable: "sitePages",
+        functionName: "defineSitePages",
+        field: "about",
+        value:
+          '{"slug": "about", "title": "About", "file": "routes/about.tsx"}',
+      },
+    ],
+  },
 ]);

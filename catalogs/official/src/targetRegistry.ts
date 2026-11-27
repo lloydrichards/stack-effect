@@ -334,6 +334,12 @@ export const targetGroup = defineTargets(import.meta.url, [
       },
       {
         _tag: "file",
+        path: "{{targetPath}}/app/site-pages.ts",
+        contents: template("./docs/app/site-pages.ts"),
+        conflictOnModify: true,
+      },
+      {
+        _tag: "file",
         path: "{{targetPath}}/app/lib/rehype-toc.ts",
         contents: template("./docs/app/lib/rehype-toc.ts"),
       },
