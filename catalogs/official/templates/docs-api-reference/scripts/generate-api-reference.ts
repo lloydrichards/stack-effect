@@ -26,6 +26,60 @@ const moduleStatements = (declaration: Node) => {
   return Node.isModuleBlock(body) ? body.getStatements() : [];
 };
 
+const importedBinding = (declaration: Node) => {
+  if (Node.isImportSpecifier(declaration)) {
+    const module = declaration
+      .getImportDeclaration()
+      .getModuleSpecifier()
+      .getSymbol();
+    return module && { module, name: declaration.getName() };
+  }
+  if (!Node.isImportEqualsDeclaration(declaration)) return;
+  const reference = declaration.getModuleReference();
+  if (!Node.isQualifiedName(reference)) return;
+  const qualifier = reference.getLeft().getSymbol();
+  const module = qualifier?.getAliasedSymbol() ?? qualifier;
+  return module && { module, name: reference.getRight().getText() };
+};
+
+const publicImports = (exported: Symbol) => {
+  const imports: Array<{ module: Symbol; name: string }> = [];
+  const aliases = new Set([exported]);
+  for (const alias of aliases) {
+    if (!alias.isAlias()) continue;
+    for (const declaration of alias.getDeclarations()) {
+      const imported = importedBinding(declaration);
+      if (imported) imports.push(imported);
+    }
+    const next = alias.getImmediatelyAliasedSymbol();
+    if (next) aliases.add(next);
+  }
+  return imports;
+};
+
+const recordStarExports = (
+  { module, name }: { module: Symbol; name: string },
+  namedImports: Map<ExportDeclaration, Set<string>>,
+) => {
+  const sources = new Set([module]);
+  for (const source of sources) {
+    for (const statement of source
+      .getDeclarations()
+      .flatMap(moduleStatements)) {
+      if (
+        !Node.isExportDeclaration(statement) ||
+        statement.compilerNode.exportClause
+      )
+        continue;
+      const target = statement.getModuleSpecifier()?.getSymbol();
+      if (target) sources.add(target);
+      const names = namedImports.get(statement) ?? new Set<string>();
+      names.add(name);
+      namedImports.set(statement, names);
+    }
+  }
+};
+
 const validateExports = (
   project: Project,
   root: Symbol,
@@ -33,6 +87,7 @@ const validateExports = (
 ) => {
   const modules = new Set([root]);
   const reExports = new Set<ExportDeclaration>();
+  const namedImports = new Map<ExportDeclaration, Set<string>>();
 
   // Visit modules exposed by re-export declarations or public namespace aliases.
   for (const module of modules) {
@@ -65,19 +120,8 @@ const validateExports = (
       }
       if (resolved.getFlags() & ts.SymbolFlags.Module) modules.add(resolved);
 
-      const aliases = new Set([exported]);
-      for (const alias of aliases) {
-        if (!alias.isAlias()) continue;
-        for (const declaration of alias.getDeclarations()) {
-          const imported = declaration
-            .getFirstAncestorByKind(ts.SyntaxKind.ImportDeclaration)
-            ?.getModuleSpecifier()
-            .getSymbol();
-          if (imported) modules.add(imported);
-        }
-        const next = alias.getImmediatelyAliasedSymbol();
-        if (next) aliases.add(next);
-      }
+      for (const imported of publicImports(exported))
+        recordStarExports(imported, namedImports);
     }
   }
 
@@ -87,9 +131,25 @@ const validateExports = (
     if (diagnostic.getCode() !== 2308) return false;
     const file = diagnostic.getSourceFile();
     const start = diagnostic.getStart();
+    const message = ts.flattenDiagnosticMessageText(
+      diagnostic.compilerObject.messageText,
+      "\n",
+    );
+    const declarations = new Set(reExports);
+    for (const [declaration, names] of namedImports) {
+      if (
+        [...names].some((name) =>
+          message.endsWith(
+            `named '${name}'. Consider explicitly re-exporting to resolve the ambiguity.`,
+          ),
+        )
+      ) {
+        declarations.add(declaration);
+      }
+    }
     return (
       start !== undefined &&
-      [...reExports].some(
+      [...declarations].some(
         (declaration) =>
           declaration.getSourceFile() === file &&
           start >= declaration.getStart() &&
