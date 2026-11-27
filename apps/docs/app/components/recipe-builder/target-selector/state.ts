@@ -1,3 +1,5 @@
+import { TargetIdentity, targetPathsOverlap } from "@repo/domain/Catalog";
+import { Option, Schema } from "effect";
 import {
   CatalogModule,
   RecipeBuilderCatalog,
@@ -207,33 +209,66 @@ export const buildModuleRelationshipNodes = (
   return childrenFor(root, rootOwner, false);
 };
 
+type TargetNameDefinition = Pick<
+  RecipeBuilderCatalog["targets"][number],
+  "kind" | "defaultName"
+>;
+
+const decodeTargetIdentity = Schema.decodeUnknownOption(TargetIdentity);
+
 export const nextTargetName = (
-  definition: Pick<
-    RecipeBuilderCatalog["targets"][number],
-    "kind" | "defaultName"
-  >,
+  definition: TargetNameDefinition,
   targets: ReadonlyArray<Pick<TargetInstance, "kind" | "name">>,
+  definitions: ReadonlyArray<TargetNameDefinition>,
 ): string => {
   const { kind, defaultName } = definition;
   const baseName = defaultName ?? kind;
-  const usedNames = new Set(
-    targets
-      .filter((target) => target.kind === kind)
-      .map((target) => target.name || baseName),
-  );
-  if (kind !== "package" && defaultName !== undefined && usedNames.size === 0)
+  const owners = targets.flatMap((target) => {
+    if (target.kind === "workspace") return [];
+    const decoded = decodeTargetIdentity(target);
+    if (Option.isNone(decoded)) return [];
+    const identity = decoded.value;
+    if (identity.hasExplicitName())
+      return [
+        new TargetIdentity({
+          kind: identity.kind,
+          name: identity.name,
+          placement: "named",
+        }),
+      ];
+
+    const targetDefault = definitions.find(
+      ({ kind }) => kind === identity.kind,
+    )?.defaultName;
+    return [identity.placeCatalogReference(targetDefault)];
+  });
+  const available = (identity: TargetIdentity) =>
+    owners.every(
+      (owner) =>
+        owner.toPackageName() !== identity.toPackageName() &&
+        !targetPathsOverlap(owner.toPath(), identity.toPath()),
+    );
+  if (
+    kind !== "package" &&
+    defaultName !== undefined &&
+    !targets.some((target) => target.kind === kind) &&
+    available(
+      new TargetIdentity({ kind, name: defaultName, placement: "default" }),
+    )
+  )
     return "";
-  for (const target of targets) {
-    if (kind !== "package" && target.kind !== "package" && target.name)
-      usedNames.add(target.name);
-  }
-  if (!usedNames.has(baseName)) return baseName;
-  return (
-    Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)
-      .map((suffix) => (baseName ? `${baseName}-${suffix}` : `${suffix}`))
-      .find((candidate) => !usedNames.has(candidate)) ??
-    `${baseName}-${usedNames.size + 2}`
-  );
+
+  const availableName = (name: string) =>
+    available(new TargetIdentity({ kind, name, placement: "named" }));
+  if (baseName && availableName(baseName)) return baseName;
+
+  // A conflicting parent directory can block all suffixes of a nested name.
+  const suffixBase = baseName.replaceAll("/", "-");
+  const withSuffix = (suffix: number) =>
+    suffixBase ? `${suffixBase}-${suffix}` : String(suffix);
+  let suffix = 2;
+  while (!availableName(withSuffix(suffix))) suffix += 1;
+  return withSuffix(suffix);
 };
 
 const addModuleImplications = (
@@ -284,7 +319,7 @@ const addModuleImplications = (
       {
         id: `implied-${definition.kind}-${nextId()}`,
         kind: definition.kind,
-        name: nextTargetName(definition, current),
+        name: nextTargetName(definition, current, catalog.targets),
         modules: [implication.moduleId],
         requirements: [requirement],
         addedByDependency: true,
@@ -449,11 +484,12 @@ export const makeTargetInstance = (
   id: string,
   definition: RecipeBuilderCatalog["targets"][number],
   targets: ReadonlyArray<TargetInstance>,
+  definitions: ReadonlyArray<TargetNameDefinition>,
 ): TargetInstance => {
   return {
     id,
     kind: definition.kind,
-    name: nextTargetName(definition, targets),
+    name: nextTargetName(definition, targets, definitions),
     modules: definition.requiredModules,
   };
 };

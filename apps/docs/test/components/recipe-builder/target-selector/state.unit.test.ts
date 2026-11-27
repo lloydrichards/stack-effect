@@ -450,18 +450,42 @@ describe("recipe builder state", () => {
     );
   });
 
-  it("skips suggested folder names used by other app kinds", () => {
+  it.each(["api-2", "API 2", "api-2/admin"])(
+    "skips a folder that overlaps another app named %s",
+    (name) => {
+      const definition = recipeCatalogFixture.targets.find(
+        ({ kind }) => kind === "server",
+      );
+      assert.isDefined(definition);
+
+      const next = makeTargetInstance(
+        "server-next",
+        definition,
+        [
+          { id: "server-default", kind: "server", name: "", modules: [] },
+          { id: "worker", kind: "cloudflare-worker", name, modules: [] },
+        ],
+        recipeCatalogFixture.targets,
+      );
+
+      assert.strictEqual(next.name, "api-3");
+    },
+  );
+
+  it("uses a named folder when another app owns the default folder", () => {
     const definition = recipeCatalogFixture.targets.find(
       ({ kind }) => kind === "server",
     );
     assert.isDefined(definition);
 
-    const next = makeTargetInstance("server-next", definition, [
-      { id: "server-default", kind: "server", name: "", modules: [] },
-      { id: "worker", kind: "cloudflare-worker", name: "api-2", modules: [] },
-    ]);
+    const next = makeTargetInstance(
+      "server-next",
+      definition,
+      [{ id: "docs", kind: "docs", name: "server-api", modules: [] }],
+      recipeCatalogFixture.targets,
+    );
 
-    assert.strictEqual(next.name, "api-3");
+    assert.strictEqual(next.name, "api");
   });
 
   it("should fill the first available suffix when default target names have a gap", () => {
@@ -471,11 +495,16 @@ describe("recipe builder state", () => {
     assert.isDefined(definition);
 
     assert.strictEqual(
-      makeTargetInstance("client-new", definition, [
-        clientTargetFixture,
-        { ...clientTargetFixture, id: "client-2", name: "web-2" },
-        { ...clientTargetFixture, id: "client-4", name: "web-4" },
-      ]).name,
+      makeTargetInstance(
+        "client-new",
+        definition,
+        [
+          clientTargetFixture,
+          { ...clientTargetFixture, id: "client-2", name: "web-2" },
+          { ...clientTargetFixture, id: "client-4", name: "web-4" },
+        ],
+        recipeCatalogFixture.targets,
+      ).name,
       "web-3",
     );
   });

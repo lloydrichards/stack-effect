@@ -46,7 +46,7 @@ export const AddTargetPicker = ({
         The selected catalogs have no application targets.
       </p>
     );
-  const name = choice && nextTargetName(choice, instances);
+  const name = choice && nextTargetName(choice, instances, targets);
   const owner =
     choice &&
     new TargetIdentity({

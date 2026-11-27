@@ -168,12 +168,13 @@ export const useTargetEditor = () => {
     );
 
   const addTarget = (kind: string) => {
-    const definition = catalog?.targets.find((target) => target.kind === kind);
+    const definitions = catalog?.targets ?? [];
+    const definition = definitions.find((target) => target.kind === kind);
     if (definition === undefined) return;
     const id = `${kind}-${nextId()}`;
     form.setFieldValue("targets", (current) => [
       ...current,
-      makeTargetInstance(id, definition, targets),
+      makeTargetInstance(id, definition, targets, definitions),
     ]);
     trackEvent("recipe-target-added", {
       target_kind: kind,
