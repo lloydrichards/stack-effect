@@ -154,6 +154,30 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     );
   }
 
+  placeCatalogReference(defaultName: string | undefined): TargetIdentity {
+    if (
+      this.placement !== undefined ||
+      this.kind === "package" ||
+      this.kind === "workspace"
+    )
+      return this;
+
+    if (defaultName !== undefined) {
+      const fallback = new TargetIdentity({
+        kind: this.kind,
+        name: defaultName,
+        placement: "default",
+      });
+      if (fallback.matchesReference(this)) return fallback;
+    }
+
+    return new TargetIdentity({
+      kind: this.kind,
+      name: this.name,
+      placement: this.hasExplicitName() ? "named" : "implicit",
+    });
+  }
+
   /**
    * Returns the package.json "name" field value for this target.
    * - Packages use scoped names: `@repo/<name>`

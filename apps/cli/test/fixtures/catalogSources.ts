@@ -111,6 +111,7 @@ export const documents: Readonly<Record<string, string>> = {
     requiredCapabilities: ["contribution:file", "token:targetPath"],
     targets: [
       target("api", "api.txt"),
+      { ...target("server", "server.txt"), defaultName: "api" },
       target("workspace", "PROVIDERS.md"),
       target("package", "package.txt"),
     ],
@@ -139,6 +140,21 @@ export const documents: Readonly<Record<string, string>> = {
             capability: ModuleCapability.make("db-sql"),
           },
         ],
+      }),
+      module("api-web", "api", {
+        dependencies: [
+          {
+            _tag: "required-capability",
+            target: new TargetIdentity({
+              kind: TargetKind.make("server"),
+              name: "api",
+            }),
+            capability: ModuleCapability.make("http-server"),
+          },
+        ],
+      }),
+      module("server-provider", "server", {
+        provides: [ModuleCapability.make("http-server")],
       }),
       module("sql-sqlite", "package", {
         provides: [ModuleCapability.make("db-sql")],

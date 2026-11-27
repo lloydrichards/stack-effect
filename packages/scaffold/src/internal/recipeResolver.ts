@@ -337,16 +337,41 @@ export const make = Effect.gen(function* () {
       selected.find(({ target }) => target.toKey() === identity.toKey());
     const placedTarget = (reference: TargetIdentity) =>
       findSelected(reference)?.target ??
-      selected.find(({ target }) => target.matchesReference(reference))
-        ?.target ??
+      (reference.placement === undefined
+        ? selected.find(({ target }) => target.matchesReference(reference))
+            ?.target
+        : undefined) ??
       reference;
-    const providerTargetOf = (reference: TargetIdentity) => {
+    const resolveReference = Effect.fnUntraced(function* (
+      target: TargetIdentity,
+    ) {
+      const placed = placedTarget(target);
+      if (
+        placed.placement !== undefined ||
+        placed.kind === "workspace" ||
+        placed.kind === "package"
+      )
+        return placed;
+      const definition = yield* catalog
+        .getTarget(placed.kind)
+        .pipe(Effect.option);
+      return placed.placeCatalogReference(
+        Option.getOrUndefined(definition)?.defaultName,
+      );
+    });
+    const providerTargetOf = (
+      reference: TargetIdentity,
+      requirement: TargetIdentity,
+    ) => {
       if (reference.placement !== undefined) return reference;
       const named = selected.find(
         ({ target }) =>
           target.placement === "named" && target.matchesReference(reference),
       );
-      return named?.target ?? placedTarget(reference);
+      const placed = named?.target ?? placedTarget(reference);
+      return placed === reference && requirement.matchesReference(reference)
+        ? requirement
+        : placed;
     };
 
     // Each target's modules Blueprint attaches, in the order the walk reaches them.
@@ -374,30 +399,8 @@ export const make = Effect.gen(function* () {
     ) {
       const dependencyTarget = findSelected(target);
       if (dependencyTarget === undefined) {
-        const definition = yield* catalog
-          .getTarget(target.kind)
-          .pipe(Effect.option);
-        const catalogDefault =
-          Option.isSome(definition) &&
-          definition.value.defaultName !== undefined
-            ? new TargetIdentity({
-                kind: target.kind,
-                name: definition.value.defaultName,
-              })
-            : undefined;
-        const useDefault =
-          target.kind !== "workspace" &&
-          target.kind !== "package" &&
-          catalogDefault?.matchesReference(target);
-        const placed = yield* resolveTargetIdentity(
-          catalog,
-          options.config,
-          useDefault
-            ? new TargetIdentity({ kind: target.kind, name: "" })
-            : target,
-        );
-        selected.push({ target: placed, modules: [providerId] });
-        yield* enqueueTarget(placed, [providerId]);
+        selected.push({ target, modules: [providerId] });
+        yield* enqueueTarget(target, [providerId]);
       } else if (!dependencyTarget.modules.includes(providerId)) {
         dependencyTarget.modules.push(providerId);
         pending.push({ target, moduleId: providerId });
@@ -412,7 +415,8 @@ export const make = Effect.gen(function* () {
         next !== undefined;
         next = pending.shift()
       ) {
-        const targetKey = next.target.toKey();
+        const placed = yield* resolveReference(next.target);
+        const targetKey = placed.toKey();
         const attachedOnTarget = attached.get(targetKey) ?? [];
         if (attachedOnTarget.includes(next.moduleId)) continue;
         attached.set(targetKey, [...attachedOnTarget, next.moduleId]);
@@ -420,7 +424,7 @@ export const make = Effect.gen(function* () {
         const definition = yield* findModule(next.moduleId);
         if (Option.isNone(definition)) continue;
 
-        const requester = next;
+        const requester = { ...next, target: placed };
         const { dependencies } = definition.value;
         pending.push(
           ...dependencies
@@ -453,7 +457,7 @@ export const make = Effect.gen(function* () {
       requirement = requirements.shift()
     ) {
       const { capability } = requirement;
-      const target = placedTarget(requirement.target);
+      const target = yield* resolveReference(requirement.target);
 
       // Several selected providers stay for Blueprint to reject.
       const selectedProviders = yield* Effect.filter(
@@ -465,10 +469,7 @@ export const make = Effect.gen(function* () {
       // Blueprint finds providers in the Selection, so a hard dependency that
       // already provides the capability is written there.
       const hardProvider = yield* Effect.findFirst(
-        Arr.dedupe([
-          ...(attached.get(target.toKey()) ?? []),
-          ...(attached.get(requirement.target.toKey()) ?? []),
-        ]),
+        attached.get(target.toKey()) ?? [],
         (moduleId) => providesCapability(moduleId, capability),
       );
       const providerId = Option.isSome(hardProvider)
@@ -485,7 +486,7 @@ export const make = Effect.gen(function* () {
               .filter((candidate) =>
                 supportsRuntime(candidate, options.config),
               ),
-            providerTargetOf,
+            (reference) => providerTargetOf(reference, target),
           );
 
       yield* selectProvider(target, providerId);

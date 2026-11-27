@@ -74,7 +74,7 @@ export const useTargetEditor = () => {
     targets.push({
       id: `resolved:${id}`,
       kind: identity.kind,
-      name: identity.name,
+      name: identity.placement === "default" ? "" : identity.name,
       modules: [],
       addedByDependency: true,
     });
@@ -122,9 +122,8 @@ export const useTargetEditor = () => {
       ({ kind }) => kind === activeTarget.kind,
     )?.defaultName;
     const preservesDefault =
-      resolvedActiveTarget?.identity.placement === "default" ||
-      (resolvedActiveTarget?.identity.placement === "implicit" &&
-        activeTarget.name === defaultName);
+      resolvedActiveTarget?.identity.placement === "implicit" &&
+      activeTarget.name === defaultName;
 
     const target =
       activeTargetIndex >= 0

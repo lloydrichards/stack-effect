@@ -161,6 +161,63 @@ describe("RecipeResolver", () => {
     }).pipe(Effect.provide(DefaultAppCatalogLayer)),
   );
 
+  it.effect(
+    "checks default app provider eligibility before choosing any provider",
+    () =>
+      Effect.gen(function* () {
+        for (const modules of [
+          ["client-sql", "client-log"],
+          ["client-log", "client-sql"],
+        ]) {
+          const error = yield* Effect.flip(
+            resolve([recipeTarget("client", "web", ...modules)]),
+          );
+          assert.strictEqual(error._tag, "AmbiguousRecipeProvider");
+        }
+      }).pipe(
+        Effect.provide(
+          resolveLayer(
+            CatalogReader.fromFragments([
+              {
+                targets: [
+                  target("workspace"),
+                  target("client"),
+                  target("server", { defaultName: "api" }),
+                ],
+                modules: [
+                  sqlProvider("sql-server", "server"),
+                  module("sql-default", "server", {
+                    supportedOn: [
+                      {
+                        _tag: "identity",
+                        identity: recipeTarget("server", "").target,
+                      },
+                    ],
+                    provides: [ModuleCapability.make("sql")],
+                  }),
+                  module("server-logger", "server", {
+                    provides: [ModuleCapability.make("log")],
+                  }),
+                  module("client-sql", "client", {
+                    dependencies: [requiresSql("server", "api")],
+                  }),
+                  module("client-log", "client", {
+                    dependencies: [
+                      {
+                        _tag: "required-capability",
+                        target: recipeTarget("server", "api").target,
+                        capability: ModuleCapability.make("log"),
+                      },
+                    ],
+                  }),
+                ],
+              },
+            ]),
+          ),
+        ),
+      ),
+  );
+
   /**
    * A custom source, listed first, that contributes another `sql` provider to
    * the official package target. Official modules cannot reference it.

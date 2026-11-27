@@ -450,6 +450,20 @@ describe("recipe builder state", () => {
     );
   });
 
+  it("skips suggested folder names used by other app kinds", () => {
+    const definition = recipeCatalogFixture.targets.find(
+      ({ kind }) => kind === "server",
+    );
+    assert.isDefined(definition);
+
+    const next = makeTargetInstance("server-next", definition, [
+      { id: "server-default", kind: "server", name: "", modules: [] },
+      { id: "worker", kind: "cloudflare-worker", name: "api-2", modules: [] },
+    ]);
+
+    assert.strictEqual(next.name, "api-3");
+  });
+
   it("should fill the first available suffix when default target names have a gap", () => {
     const definition = recipeCatalogFixture.targets.find(
       (target) => target.kind === "client-react",
