@@ -149,7 +149,8 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   matchesReference(reference: TargetIdentity): boolean {
     return (
       this.kind === reference.kind &&
-      toTargetPathString(this) === toTargetPathString(reference)
+      (toTargetPathString(this) === toTargetPathString(reference) ||
+        (this.placement === "default" && !reference.hasExplicitName()))
     );
   }
 

@@ -78,6 +78,50 @@ describe("RecipeResolver", () => {
     capability: ModuleCapability.make("sql"),
   });
 
+  it.effect(
+    "resolves a provider when a blank dependency refers to a catalog default",
+    () =>
+      Effect.gen(function* () {
+        const blueprints = yield* BlueprintResolver;
+        const selection = yield* resolve([
+          recipeTarget("client", "web", "client-consumer"),
+        ]);
+        const blueprint = yield* blueprints.resolve(selection, config);
+
+        assert.deepStrictEqual(modulesOn(selection, "apps/server-api"), [
+          ModuleId.make("sql-server"),
+        ]);
+        assert.isTrue(
+          blueprint.nodes.some(
+            (node) =>
+              node._tag === "attached-module" &&
+              node.targetId === "apps/server-api" &&
+              node.moduleId === "sql-server",
+          ),
+        );
+      }).pipe(
+        Effect.provide(
+          resolveLayer(
+            CatalogReader.fromFragments([
+              {
+                targets: [
+                  target("workspace"),
+                  target("client"),
+                  target("server", { defaultName: "api" }),
+                ],
+                modules: [
+                  sqlProvider("sql-server", "server"),
+                  module("client-consumer", "client", {
+                    dependencies: [requiresSql("server", "")],
+                  }),
+                ],
+              },
+            ]),
+          ),
+        ),
+      ),
+  );
+
   /**
    * A custom source, listed first, that contributes another `sql` provider to
    * the official package target. Official modules cannot reference it.

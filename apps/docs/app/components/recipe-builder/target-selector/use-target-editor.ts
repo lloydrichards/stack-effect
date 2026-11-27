@@ -101,8 +101,10 @@ export const useTargetEditor = () => {
   );
 
   const resolvedActiveTarget = resolvedTargets.find(
-    ({ identity }) =>
-      activeTarget && resolvedOwnerKey(identity) === ownerKey(activeTarget),
+    ({ id, identity }) =>
+      activeTarget &&
+      (activeTarget.id === `resolved:${id}` ||
+        resolvedOwnerKey(identity) === ownerKey(activeTarget)),
   );
 
   const toggleModule = (module: CatalogModule) => {
