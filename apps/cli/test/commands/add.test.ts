@@ -91,6 +91,54 @@ describe("add", () => {
   );
 
   it.effect(
+    "uses the catalog-default provider folder for prompts and flags",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, directory, fs, path } = yield* catalogSourcesFixture;
+          const root = path.join(directory, "shop");
+          yield* fs.makeDirectory(path.join(root, "apps/server-api"), {
+            recursive: true,
+          });
+          yield* fs.writeFileString(
+            path.join(root, "apps/server-api/package.json"),
+            '{"name":"server-api"}',
+          );
+          yield* fs.writeFileString(
+            path.join(root, "stack.effect.json"),
+            JSON.stringify({
+              name: "shop",
+              runtime: { _tag: "bun" },
+              catalogs: [{ name: "providers", url: urls.providers }],
+            }),
+          );
+          const add = ["add", "--root", root, "--dry-run"];
+          const interactive = yield* run(add, {
+            input: Effect.forEach(
+              [
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputText("svc"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("down"),
+                MockTerminal.inputKey("space"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("enter"),
+                MockTerminal.inputKey("enter"),
+              ],
+              (input) => input,
+              { discard: true },
+            ),
+          });
+          const flags = yield* run([...add, "--target", "api/svc:api-web"]);
+          for (const result of [interactive, flags]) {
+            assert.include(result.stdout.join("\n"), "apps/server-api");
+            assert.notInclude(result.stdout.join("\n"), "apps/api/");
+          }
+        }),
+      ),
+  );
+
+  it.effect(
     "should offer providers for a capability that a selected module requires through a dependency",
     () =>
       withNodeServices(

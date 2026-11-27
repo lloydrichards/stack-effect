@@ -223,6 +223,10 @@ export const nextTargetName = (
   );
   if (kind !== "package" && defaultName !== undefined && usedNames.size === 0)
     return "";
+  for (const target of targets) {
+    if (kind !== "package" && target.kind !== "package" && target.name)
+      usedNames.add(target.name);
+  }
   if (!usedNames.has(baseName)) return baseName;
   return (
     Array.from({ length: usedNames.size + 1 }, (_, index) => index + 2)

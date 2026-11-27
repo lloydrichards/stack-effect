@@ -184,7 +184,7 @@ export const makeCatalogReader = Effect.gen(function* () {
         const defaultName = targetIndex.get(owner.kind)?.defaultName;
         const identity =
           !owner.hasExplicitName() && defaultName !== undefined
-            ? new TargetIdentity({ kind: owner.kind, name: defaultName })
+            ? owner.placeCatalogReference(defaultName)
             : owner;
         return Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
           Arr.some(module.supportedOn, (supportedOn) =>
@@ -207,6 +207,13 @@ export const makeCatalogReader = Effect.gen(function* () {
         const dependencyOwners = Arr.flatMap(modules, (module) =>
           Arr.map(module.dependencies, dependencyTarget),
         );
+        const defaultOwners = dependencyOwners.flatMap((reference) => {
+          const defaultName = targetIndex.get(reference.kind)?.defaultName;
+          return reference.hasExplicitName() &&
+            reference.placeCatalogReference(defaultName).placement === "default"
+            ? [new TargetIdentity({ kind: reference.kind, name: "" })]
+            : [];
+        });
         const implicationOwners = modules
           .flatMap((module) => module.implies ?? [])
           .flatMap((implication) => {
@@ -224,7 +231,12 @@ export const makeCatalogReader = Effect.gen(function* () {
             ];
           });
         return expandOwners(
-          [...remaining, ...dependencyOwners, ...implicationOwners],
+          [
+            ...remaining,
+            ...dependencyOwners,
+            ...defaultOwners,
+            ...implicationOwners,
+          ],
           expanded,
         );
       };

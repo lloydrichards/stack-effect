@@ -458,10 +458,19 @@ const provideCapability = Effect.fnUntraced(function* (
 ) {
   const catalog = yield* CatalogReader;
   const requiredTarget = dependencyTargetFor(target, dependency.target);
+  const existing = findTarget(targets, requiredTarget);
+  const definitionForTarget = yield* catalog.getTarget(requiredTarget.kind);
+  const catalogTarget = requiredTarget.placeCatalogReference(
+    definitionForTarget.defaultName,
+  );
+  const insertionTarget =
+    Option.isNone(existing) && catalogTarget.placement === "default"
+      ? new TargetIdentity({ kind: requiredTarget.kind, name: "" })
+      : requiredTarget;
 
   if (
     yield* isProvidedBy(
-      findTarget(targets, requiredTarget),
+      findTarget(targets, insertionTarget),
       dependency.capability,
     )
   ) {
@@ -470,7 +479,10 @@ const provideCapability = Effect.fnUntraced(function* (
 
   const providers = catalog.getCapabilityProviders({
     capability: dependency.capability,
-    target: requiredTarget,
+    target:
+      Option.isSome(existing) && existing.value.name.trim() !== ""
+        ? requiredTarget
+        : catalogTarget,
   });
   if (!Arr.isReadonlyArrayNonEmpty(providers)) {
     return yield* Effect.fail(
@@ -489,7 +501,7 @@ const provideCapability = Effect.fnUntraced(function* (
           })),
         });
 
-  return ensureTargetModule(targets, requiredTarget, providerId);
+  return ensureTargetModule(targets, insertionTarget, providerId);
 });
 
 const resolveCapabilities = Effect.fnUntraced(function* (

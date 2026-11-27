@@ -66,6 +66,11 @@ describe("BlueprintResolver", () => {
           name: serverApiIdentity.name,
           placement: "named",
         });
+        const backoffice = new TargetIdentity({
+          kind: serverApiIdentity.kind,
+          name: "backoffice",
+          placement: "named",
+        });
         const source = selected("server", "admin", "server-requires-api");
         const blueprint = yield* blueprints.resolve({
           targets: [source, { identity: namedApi, modules: [] }],
@@ -84,19 +89,37 @@ describe("BlueprintResolver", () => {
             ),
           ],
         );
+        const dependency = getNode(blueprint, backoffice.toKey());
+        assert(dependency._tag === "target");
+        assert.strictEqual(dependency.identity.toPath(), "apps/backoffice");
+        const replay = yield* blueprints.resolve({
+          targets: [
+            source,
+            { identity: namedApi, modules: [] },
+            { identity: backoffice, modules: [] },
+          ],
+        });
+        assert.deepStrictEqual(replay, blueprint);
       }).pipe(
         Effect.provide(
           BlueprintResolver.layer.pipe(
             Layer.provide(
               CatalogReader.fromFragments([
                 {
-                  targets: [target("server")],
+                  targets: [target("server", { defaultName: "api" })],
                   modules: [
                     module("server-requires-api", "server", {
                       dependencies: [
                         {
                           _tag: "required-target",
                           identity: serverApiIdentity,
+                        },
+                        {
+                          _tag: "required-target",
+                          identity: new TargetIdentity({
+                            kind: serverApiIdentity.kind,
+                            name: "backoffice",
+                          }),
                         },
                       ],
                     }),

@@ -241,7 +241,9 @@ const resolveSelection = Effect.fnUntraced(function* (
       makeBlueprintEdge("owns-module", targetState.id, attachedModuleNodeId),
     );
 
-    const placedReference = (dependencyTarget: TargetIdentity) => {
+    const placedReference = Effect.fnUntraced(function* (
+      dependencyTarget: TargetIdentity,
+    ) {
       // shortcut: CAFE imports fixed folders, revisit when its imports can follow resolved targets.
       const allowNamedPlacement = moduleId !== "workspace-alchemy-cafe";
       const selected =
@@ -259,16 +261,20 @@ const resolveSelection = Effect.fnUntraced(function* (
         dependencyTarget.kind === "workspace"
       )
         return dependencyTarget;
-      return new TargetIdentity({
-        kind: dependencyTarget.kind,
-        name: dependencyTarget.name,
-        placement: "implicit",
-      });
-    };
+      if (!allowNamedPlacement) {
+        return new TargetIdentity({
+          kind: dependencyTarget.kind,
+          name: dependencyTarget.name,
+          placement: "implicit",
+        });
+      }
+      const definition = yield* catalog.getTarget(dependencyTarget.kind);
+      return dependencyTarget.placeCatalogReference(definition.defaultName);
+    });
 
     const dependencyTargetOf = (reference: TargetIdentity) =>
       reference.kind !== "package" && reference.kind === target.kind
-        ? target
+        ? Effect.succeed(target)
         : placedReference(reference);
 
     const requireTarget = Effect.fnUntraced(function* (
@@ -336,11 +342,15 @@ const resolveSelection = Effect.fnUntraced(function* (
       definition.dependencies,
       ModuleDependency.match({
         "required-target": (dep) =>
-          requireTarget(placedReference(dep.identity)),
+          Effect.flatMap(placedReference(dep.identity), requireTarget),
         "required-module": (dep) =>
-          requireModule(dependencyTargetOf(dep.target), dep.moduleId),
+          Effect.flatMap(dependencyTargetOf(dep.target), (identity) =>
+            requireModule(identity, dep.moduleId),
+          ),
         "required-capability": (dep) =>
-          requireCapability(dependencyTargetOf(dep.target), dep.capability),
+          Effect.flatMap(dependencyTargetOf(dep.target), (identity) =>
+            requireCapability(identity, dep.capability),
+          ),
       }),
       { discard: true },
     );

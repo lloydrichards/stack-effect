@@ -21,6 +21,63 @@ const extraModule: ModuleDefinition = {
 };
 
 it.effect(
+  "projects blank-name support for default apps without exposing it on named apps",
+  () => {
+    const kind = TargetKind.make("server");
+    const blank = new TargetIdentity({ kind, name: "" });
+    const named = new TargetIdentity({ kind, name: "api" });
+    const defaultModule = {
+      ...extraModule,
+      id: ModuleId.make("server-default-extra"),
+      supportedOn: [{ _tag: "identity" as const, identity: blank }],
+    };
+    const referenceModule: ModuleDefinition = {
+      ...extraModule,
+      dependencies: [{ _tag: "required-target", identity: named }],
+    };
+
+    return Effect.gen(function* () {
+      const reader = yield* CatalogReader;
+      const workspace = new TargetIdentity({
+        kind: TargetKind.make("workspace"),
+        name: "demo",
+      });
+      const catalog = yield* reader.toBuilderCatalog([workspace, named]);
+
+      const modulesFor = (name: string) =>
+        catalog.targetModules
+          .find(({ owner }) => owner.kind === kind && owner.name === name)
+          ?.modules.map(({ id }) => id);
+      assert.deepStrictEqual(modulesFor(""), [defaultModule.id]);
+      assert.deepStrictEqual(modulesFor("api"), []);
+    }).pipe(
+      Effect.provide(
+        CatalogReader.fromFragments([
+          {
+            targets: [
+              {
+                kind: TargetKind.make("workspace"),
+                title: "Workspace",
+                description: "Root",
+                contributions: [],
+              },
+              {
+                kind,
+                title: "Server",
+                description: "Server",
+                defaultName: "api",
+                contributions: [],
+              },
+            ],
+            modules: [defaultModule, referenceModule],
+          },
+        ]),
+      ),
+    );
+  },
+);
+
+it.effect(
   "should expose dependency edges and owner-specific Builder choices for a composed extension",
   () => {
     const kind = TargetKind.make("package");
