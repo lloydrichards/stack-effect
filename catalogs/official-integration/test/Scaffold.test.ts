@@ -279,12 +279,10 @@ describe("Official catalog scaffolding", () => {
             recipe: { targets: [target("widget", "demo")] },
           });
           const root = readme(preview);
-          assert.include(root, "](apps/widget-demo)");
-          assert.notInclude(root, "apps/widget-demo/README.md");
+          assert.include(root, "](apps/demo)");
+          assert.notInclude(root, "apps/demo/README.md");
           assert.isTrue(
-            preview.files.some(
-              (file) => file.path === "apps/widget-demo/main.ts",
-            ),
+            preview.files.some((file) => file.path === "apps/demo/main.ts"),
           );
         }).pipe(
           Effect.provide(
@@ -354,8 +352,8 @@ describe("Official catalog scaffolding", () => {
           });
           const root = readme(preview);
           for (const path of [
-            "apps/client-react-web",
-            "apps/server-api",
+            "apps/web",
+            "apps/api",
             "packages/domain",
             "packages/db",
           ]) {
@@ -365,11 +363,11 @@ describe("Official catalog scaffolding", () => {
           assert.include(root, "--target server/api:");
           assert.include(root, "--target package/db:");
           assert.include(
-            readme(preview, "apps/client-react-web/README.md"),
+            readme(preview, "apps/web/README.md"),
             "VITE_SERVER_URL",
           );
           assert.include(
-            readme(preview, "apps/server-api/README.md"),
+            readme(preview, "apps/api/README.md"),
             "ALLOWED_ORIGINS",
           );
           const database = readme(preview, "packages/db/README.md");
@@ -457,7 +455,7 @@ describe("Official catalog scaffolding", () => {
             }),
             repositoryRoot: "/repo",
           });
-          const manifestPath = "/repo/apps/server-api/package.json";
+          const manifestPath = "/repo/apps/api/package.json";
           const manifest = yield* fs.readFileString(manifestPath);
           yield* fs.writeFileString(
             manifestPath,
@@ -468,9 +466,7 @@ describe("Official catalog scaffolding", () => {
 
           assert.deepStrictEqual(
             plan.conflicts
-              .filter(
-                (conflict) => conflict.path === "apps/server-api/package.json",
-              )
+              .filter((conflict) => conflict.path === "apps/api/package.json")
               .map((conflict) => conflict.path),
             [],
           );
@@ -486,15 +482,14 @@ describe("Official catalog scaffolding", () => {
           const blueprints = yield* BlueprintResolver;
           const plans = yield* Planner;
           const applies = yield* Applier;
-          const skillPath =
-            "apps/server-mcp-remote/src/skills/WorkshopChecklistSkill.ts";
+          const skillPath = "apps/remote/src/skills/WorkshopChecklistSkill.ts";
           const customSkill =
             "// Custom packing instructions: bring spare labels.\n";
-          yield* fs.makeDirectory("/repo/apps/server-mcp-remote/src/skills", {
+          yield* fs.makeDirectory("/repo/apps/remote/src/skills", {
             recursive: true,
           });
           yield* fs.writeFileString(`/repo/${skillPath}`, customSkill);
-          const manifestPath = "apps/server-mcp-remote/package.json";
+          const manifestPath = "apps/remote/package.json";
           yield* fs.writeFileString(
             `/repo/${manifestPath}`,
             '{"name":"server-mcp-remote","dependencies":{"effect":"4.1.4"}}',
@@ -582,10 +577,7 @@ describe("Official catalog scaffolding", () => {
           const originalRoot = yield* fs.readFileString("/repo/README.md");
           const edits = [
             ["README.md", `${originalRoot}\nCustom onboarding instructions.\n`],
-            [
-              "apps/server-api/README.md",
-              "# Our API\n\nCustom operations guide.\n",
-            ],
+            ["apps/api/README.md", "# Our API\n\nCustom operations guide.\n"],
             [
               "packages/domain/README.md",
               "# Our contracts\n\nCustom contract guide.\n",
@@ -629,9 +621,7 @@ describe("Official catalog scaffolding", () => {
             );
           }
           assert.isTrue(yield* fs.exists("/repo/packages/db/README.md"));
-          assert.isTrue(
-            yield* fs.exists("/repo/apps/server-api/src/api/Todo.ts"),
-          );
+          assert.isTrue(yield* fs.exists("/repo/apps/api/src/api/Todo.ts"));
         }).pipe(Effect.provide(applyLayer)),
     );
   });
@@ -678,15 +668,13 @@ describe("Official catalog scaffolding", () => {
         Effect.gen(function* () {
           const result = yield* preview(kind, [`alchemy-${kind}-website`]);
           assert.isTrue(
-            result.files.some(
-              (file) => file.path === `apps/${kind}-app/alchemy.ts`,
-            ),
+            result.files.some((file) => file.path === "apps/app/alchemy.ts"),
           );
           assert.isFalse(
             result.files.some(
               (file) =>
-                file.path.includes("cloudflare-worker") ||
-                file.path.startsWith("apps/server-"),
+                file.path.startsWith("apps/") &&
+                !file.path.startsWith("apps/app/"),
             ),
           );
           const root =
@@ -706,7 +694,11 @@ describe("Official catalog scaffolding", () => {
             "alchemy-worker-deployment",
           ]);
           assert.isFalse(
-            result.files.some((file) => file.path.startsWith("apps/client-")),
+            result.files.some(
+              (file) =>
+                file.path.startsWith("apps/") &&
+                !file.path.startsWith("apps/app/"),
+            ),
           );
           assert.notInclude(
             result.files.find(
@@ -717,9 +709,8 @@ describe("Official catalog scaffolding", () => {
             "alchemy/",
           );
           assert.include(
-            result.files.find(
-              (file) => file.path === "apps/cloudflare-worker-app/alchemy.ts",
-            )?.contents ?? "",
+            result.files.find((file) => file.path === "apps/app/alchemy.ts")
+              ?.contents ?? "",
             "HttpRouter.toHttpEffect",
           );
         }),
@@ -733,8 +724,10 @@ describe("Official catalog scaffolding", () => {
             "client-foldkit-http-api-worker",
           ]);
           assert.isFalse(
-            result.files.some((file) =>
-              file.path.startsWith("apps/cloudflare-worker-"),
+            result.files.some(
+              (file) =>
+                file.path.startsWith("apps/") &&
+                !file.path.startsWith("apps/app/"),
             ),
           );
           assert.isTrue(
@@ -743,11 +736,7 @@ describe("Official catalog scaffolding", () => {
             ),
           );
           assert.isFalse(
-            result.files.some(
-              (file) =>
-                file.path.startsWith("apps/server-") ||
-                file.path === "alchemy.run.ts",
-            ),
+            result.files.some((file) => file.path === "alchemy.run.ts"),
           );
           assert.isTrue(
             result.files.some((file) =>

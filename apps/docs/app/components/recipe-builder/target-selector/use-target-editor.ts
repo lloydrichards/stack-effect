@@ -100,6 +100,11 @@ export const useTargetEditor = () => {
     (target) => target.id === activeId,
   );
 
+  const resolvedActiveTarget = resolvedTargets.find(
+    ({ identity }) =>
+      activeTarget && resolvedOwnerKey(identity) === ownerKey(activeTarget),
+  );
+
   const toggleModule = (module: CatalogModule) => {
     if (activeTarget === undefined || catalog === undefined) return;
     const activeModules =
@@ -111,12 +116,21 @@ export const useTargetEditor = () => {
           ),
       )?.modules ?? [];
     const selected = activeTarget.modules.includes(module.id);
+    const defaultName = catalog.targets.find(
+      ({ kind }) => kind === activeTarget.kind,
+    )?.defaultName;
+    const preservesDefault =
+      resolvedActiveTarget?.identity.placement === "default" ||
+      (resolvedActiveTarget?.identity.placement === "implicit" &&
+        activeTarget.name === defaultName);
+
     const target =
       activeTargetIndex >= 0
         ? activeTarget
         : {
             ...activeTarget,
             id: `${activeTarget.kind}-${nextId()}`,
+            name: preservesDefault ? "" : activeTarget.name,
             addedByDependency: undefined,
           };
     batch(() => {
@@ -185,11 +199,6 @@ export const useTargetEditor = () => {
       targetButtons.current.get(focusId ?? "")?.focus(),
     );
   };
-
-  const resolvedActiveTarget = resolvedTargets.find(
-    ({ identity }) =>
-      activeTarget && resolvedOwnerKey(identity) === ownerKey(activeTarget),
-  );
 
   return {
     activeRequiredModules: resolvedActiveTarget
