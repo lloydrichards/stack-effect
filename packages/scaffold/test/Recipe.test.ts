@@ -85,6 +85,7 @@ describe("RecipeResolver", () => {
           target("workspace"),
           target("client"),
           target("server", { defaultName: "api" }),
+          target("server-mcp", { defaultName: "" }),
         ],
         modules: [
           sqlProvider("sql-server", "server"),
@@ -94,6 +95,9 @@ describe("RecipeResolver", () => {
           }),
           module("client-default-consumer", "client", {
             dependencies: [requiresSql("server", "")],
+          }),
+          module("client-mcp-consumer", "client", {
+            dependencies: [requiresSql("server", "mcp")],
           }),
           module("client-custom-consumer", "client", {
             dependencies: [requiresSql("server", "backoffice")],
@@ -216,6 +220,29 @@ describe("RecipeResolver", () => {
           ),
         ),
       ),
+  );
+
+  it.effect(
+    "does not reuse a default target of another kind with the same legacy key",
+    () =>
+      Effect.gen(function* () {
+        const blueprints = yield* BlueprintResolver;
+        const selection = yield* resolve(
+          [
+            recipeTarget("server-mcp", ""),
+            recipeTarget("client", "web", "client-mcp-consumer"),
+          ],
+          { _tag: "first-provider" },
+        );
+        assert.deepStrictEqual(modulesOn(selection, "server:apps/mcp"), [
+          ModuleId.make("sql-server"),
+        ]);
+        const conflict = yield* Effect.flip(
+          blueprints.resolve(selection, config),
+        );
+        assert.include(conflict.message, "Overlapping target ownership");
+        assert.include(conflict.message, "server:apps/mcp (server-mcp)");
+      }).pipe(Effect.provide(DefaultAppCatalogLayer)),
   );
 
   /**
