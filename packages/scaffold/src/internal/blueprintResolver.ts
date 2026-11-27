@@ -241,12 +241,7 @@ const resolveSelection = Effect.fnUntraced(function* (
       makeBlueprintEdge("owns-module", targetState.id, attachedModuleNodeId),
     );
 
-    const dependencyTargetOf = (dependencyTarget: TargetIdentity) => {
-      if (
-        dependencyTarget.kind !== "package" &&
-        dependencyTarget.kind === target.kind
-      )
-        return target;
+    const placedReference = (dependencyTarget: TargetIdentity) => {
       // shortcut: CAFE imports fixed folders, revisit when its imports can follow resolved targets.
       const allowNamedPlacement = moduleId !== "workspace-alchemy-cafe";
       const selected =
@@ -270,6 +265,11 @@ const resolveSelection = Effect.fnUntraced(function* (
         placement: "implicit",
       });
     };
+
+    const dependencyTargetOf = (reference: TargetIdentity) =>
+      reference.kind !== "package" && reference.kind === target.kind
+        ? target
+        : placedReference(reference);
 
     const requireTarget = Effect.fnUntraced(function* (
       identity: TargetIdentity,
@@ -335,7 +335,8 @@ const resolveSelection = Effect.fnUntraced(function* (
     yield* Effect.forEach(
       definition.dependencies,
       ModuleDependency.match({
-        "required-target": (dep) => requireTarget(dep.identity),
+        "required-target": (dep) =>
+          requireTarget(placedReference(dep.identity)),
         "required-module": (dep) =>
           requireModule(dependencyTargetOf(dep.target), dep.moduleId),
         "required-capability": (dep) =>
