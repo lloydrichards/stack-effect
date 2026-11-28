@@ -1,4 +1,5 @@
 import { Package } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
 import { GithubIcon } from "~/components/icons";
 import {
@@ -12,11 +13,23 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "~/components/ui/sidebar";
 import { navigation } from "~/nav.config";
 
 export const AppSidebar = () => {
   const location = useLocation();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const pathname = location.pathname;
+  const renderedPathname = useRef(pathname);
+
+  // On a phone the drawer covers the article, so following one of its links
+  // has to dismiss it; the menu button reopens it on demand.
+  useEffect(() => {
+    if (renderedPathname.current === pathname) return;
+    renderedPathname.current = pathname;
+    if (isMobile) setOpenMobile(false);
+  }, [isMobile, pathname, setOpenMobile]);
 
   return (
     <Sidebar>
