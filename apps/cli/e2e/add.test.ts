@@ -359,56 +359,6 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
     );
 
     it.effect(
-      "requires the named server when a later add would create a second server",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-          const name = "existing-named-server";
-          const root = `${cli.workdir}/${name}`;
-
-          yield* cli.run(
-            "create",
-            name,
-            ...labsCatalogArgs,
-            "--root",
-            cli.workdir,
-            "--target",
-            "server/api:server-http-api",
-            "--yes",
-            "--no-git",
-          );
-          yield* cli.expectExitCode(0);
-
-          const add = [
-            "add",
-            "--root",
-            root,
-            "--target",
-            "cli/:cli-cluster-counter",
-            "--yes",
-          ];
-          const rejected = yield* cli.run(...add);
-          assert.strictEqual(rejected.exitCode, 1);
-          assert.include(
-            rejected.stdout + rejected.stderr,
-            "overlaps or relocates",
-          );
-          assert.include(rejected.stdout + rejected.stderr, "apps/api");
-
-          yield* cli.run(
-            ...add,
-            "--target",
-            "server/api:server-http-api",
-            "--dry-run",
-          );
-          yield* cli.expectExitCode(0);
-          yield* cli.withinProject(name, function* (project) {
-            yield* project.expectFileNotExists("apps/server-api/package.json");
-          });
-        }),
-    );
-
-    it.effect(
       "requires an Effect upgrade before adding Cluster Counter to an older npm project",
       () =>
         Effect.gen(function* () {

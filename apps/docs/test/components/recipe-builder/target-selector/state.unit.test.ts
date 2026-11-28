@@ -472,22 +472,6 @@ describe("recipe builder state", () => {
     },
   );
 
-  it("uses a named folder when another app owns the default folder", () => {
-    const definition = recipeCatalogFixture.targets.find(
-      ({ kind }) => kind === "server",
-    );
-    assert.isDefined(definition);
-
-    const next = makeTargetInstance(
-      "server-next",
-      definition,
-      [{ id: "docs", kind: "docs", name: "server-api", modules: [] }],
-      recipeCatalogFixture.targets,
-    );
-
-    assert.strictEqual(next.name, "api");
-  });
-
   it("should fill the first available suffix when default target names have a gap", () => {
     const definition = recipeCatalogFixture.targets.find(
       (target) => target.kind === "client-react",

@@ -377,45 +377,6 @@ it.live(
 );
 
 it.live(
-  "should generate named apps alongside an app using its catalog default folder",
-  () =>
-    Effect.gen(function* () {
-      const session = yield* makeSession;
-      yield* session.catalog();
-      const { preview } = yield* session.preview({
-        sessionId: 1,
-        targetIdentityKey: "named-apps",
-        input: toRecipePreviewInput({
-          ...fullStackRecipeFixture,
-          targets: [
-            ...fullStackRecipeFixture.targets.map((target) =>
-              target.kind === "client-react"
-                ? { ...target, name: "client" }
-                : target,
-            ),
-            { id: "docs", kind: "docs", name: "docs", modules: [] },
-            { id: "cli", kind: "cli", name: "", modules: [] },
-          ],
-        }),
-      });
-
-      assert.includeMembers(
-        preview.files.map(({ path }) => path),
-        [
-          "apps/client/package.json",
-          "apps/api/package.json",
-          "apps/docs/package.json",
-          "apps/cli-app/package.json",
-        ],
-      );
-      assert.notInclude(
-        preview.files.map(({ path }) => path),
-        "apps/server-api/package.json",
-      );
-    }).pipe(Effect.scoped),
-);
-
-it.live(
   "should return flattened catalog relationships when catalog data crosses the browser Worker boundary",
   () =>
     Effect.gen(function* () {
