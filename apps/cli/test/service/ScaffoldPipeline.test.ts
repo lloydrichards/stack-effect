@@ -6,7 +6,6 @@ import { Blueprint } from "@repo/domain/Blueprint";
 import { Plan, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
-import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Finalizer } from "@repo/scaffold/Finalize";
 import { Planner } from "@repo/scaffold/Plan";
 import * as MockTerminal from "@repo/tui/test/MockTerminal";
@@ -61,6 +60,7 @@ const script = {
 
 const request = {
   selection,
+  blueprint,
   repositoryRoot: "/tmp/pipeline-app",
   config,
 };
@@ -101,9 +101,6 @@ const layerWithServices = ({
 }) =>
   Layer.mergeAll(
     ScaffoldPipeline.layer,
-    Layer.succeed(BlueprintResolver, {
-      resolve: () => Effect.succeed(blueprint),
-    }),
     Layer.succeed(Planner, {
       build: () => Effect.succeed(planned),
     }),

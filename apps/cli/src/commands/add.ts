@@ -19,6 +19,7 @@ import {
   RecipeResolveOptions,
   type RecipeTargetSpec,
 } from "@repo/domain/Recipe";
+import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { RecipeResolver } from "@repo/scaffold/Recipe";
 import {
   HorizontalSelect,
@@ -758,10 +759,12 @@ export const add = Command.make(
           providerStrategy: { _tag: "fail-on-ambiguous" },
         }),
       );
+      const blueprints = yield* BlueprintResolver;
+      const blueprint = yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
       yield* pipeline.run(
-        { selection, repositoryRoot, config, createCommand },
+        { selection, blueprint, repositoryRoot, config, createCommand },
         mode,
       );
     }).pipe(
