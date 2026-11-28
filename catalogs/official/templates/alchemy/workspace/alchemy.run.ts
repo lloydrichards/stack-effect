@@ -2,8 +2,8 @@ import * as Alchemy from "alchemy";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Layer } from "effect";
 {{#if module=workspace-alchemy-cafe}}
-import Website from "./apps/client-foldkit-web/alchemy";
-import Worker from "./apps/cloudflare-worker-api/alchemy";
+import Website from "client-foldkit/alchemy";
+import Worker from "cloudflare-worker-api/alchemy";
 
 const Applications = Effect.gen(function* () {
   const api = yield* Worker;

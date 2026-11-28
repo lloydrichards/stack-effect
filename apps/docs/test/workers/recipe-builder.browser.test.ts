@@ -351,9 +351,9 @@ it.live(
       );
       const paths = preview.preview.files.map((file) => file.path);
 
-      assert.include(targetKeys, TargetKey.make("client-react:apps/sdk/web"));
-      assert.include(targetKeys, TargetKey.make("server:apps/api"));
-      assert.include(targetKeys, TargetKey.make("packages/domain"));
+      assert.include(targetKeys, TargetKey.make("client-react/sdk/web"));
+      assert.include(targetKeys, TargetKey.make("server/api"));
+      assert.include(targetKeys, TargetKey.make("package/domain"));
       assert.include(paths, "stack.effect.json");
       assert.include(
         preview.preview.files.find((file) => file.path === "stack.effect.json")
@@ -361,7 +361,7 @@ it.live(
         STACK_CONFIG_SCHEMA_URL,
       );
       const sdkPackage = preview.preview.files.find(
-        (file) => file.path === "apps/sdk/web/package.json",
+        (file) => file.path === "apps/sdk/client-web/package.json",
       );
       assert.isDefined(sdkPackage);
       assert.equal(
@@ -370,7 +370,7 @@ it.live(
         )(sdkPackage.contents)).name,
         "client-react-sdk-web",
       );
-      assert.include(paths, "apps/api/package.json");
+      assert.include(paths, "apps/server-api/package.json");
       assert.include(paths, "packages/domain/package.json");
       assert.include(preview.preview.command, "full-stack-app");
     }).pipe(Effect.scoped),
@@ -500,7 +500,7 @@ it.live(
       });
       assert.include(
         preview.preview.files.map((file) => file.path),
-        "apps/api/src/ext-auth.ts",
+        "apps/server-api/src/ext-auth.ts",
       );
       assert.include(
         preview.preview.command,
@@ -561,8 +561,8 @@ it.live(
           "apps/jobs/src/commands/queue.ts",
           "packages/domain/src/SummaryJob.ts",
           "packages/db/src/Database.ts",
-          "apps/api/src/runtime/ChatManagedRuntime.ts",
-          "apps/web/src/lib/import-validation-worker.ts",
+          "apps/server-api/src/runtime/ChatManagedRuntime.ts",
+          "apps/client-web/src/lib/import-validation-worker.ts",
           "packages/ai/src/toolkits/WebFetchToolkit.ts",
           "packages/ai/src/services/AiChatService.ts",
         ],

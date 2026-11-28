@@ -9,7 +9,7 @@ import {
   type ModuleId,
   ModuleDependency,
   type SupportedOn,
-  TargetIdentity,
+  type TargetKind,
   catalogIssueLabel,
   duplicates,
 } from "@repo/domain/Catalog";
@@ -247,11 +247,9 @@ const targetIssues = (
   });
 };
 
-const dependencyOwner = (context: Composition, identity: TargetIdentity) =>
-  identity.placeCatalogReference(
-    context.targetEntries.find(({ target }) => target.kind === identity.kind)
-      ?.target.defaultName,
-  );
+const defaultNameFor = (context: Composition, kind: TargetKind) =>
+  context.targetEntries.find(({ target }) => target.kind === kind)?.target
+    .defaultName;
 
 const ruleCoveredBy = (
   context: Composition,
@@ -263,11 +261,7 @@ const ruleCoveredBy = (
   if (other._tag === "kind" || kind === "workspace") return true;
   if (rule._tag === "kind") return false;
 
-  const identity = new TargetIdentity({ kind, name: rule.identity.name });
-  const target = identity.hasExplicitName()
-    ? identity
-    : dependencyOwner(context, identity);
-  return target.matches(other);
+  return rule.identity.matches(other, defaultNameFor(context, kind));
 };
 
 const requiredModuleIssues = (
@@ -277,10 +271,13 @@ const requiredModuleIssues = (
   dependency: Extract<ModuleDependency, { _tag: "required-module" }>,
 ): ReadonlyArray<CatalogIssue> => {
   const required = context.moduleById.get(dependency.moduleId);
-  const target = dependencyOwner(context, dependency.target);
+  const target = dependency.target;
   return [
     ...moduleReferenceIssues(context, owner, dependency.moduleId),
-    ...(required && !required.supportedOn.some((rule) => target.matches(rule))
+    ...(required &&
+    !required.supportedOn.some((rule) =>
+      target.matches(rule, defaultNameFor(context, target.kind)),
+    )
       ? [
           issue(
             owner,
@@ -298,11 +295,13 @@ const capabilityIssues = (
   module: ModuleDefinition,
   dependency: Extract<ModuleDependency, { _tag: "required-capability" }>,
 ): ReadonlyArray<CatalogIssue> => {
-  const target = dependencyOwner(context, dependency.target);
+  const target = dependency.target;
   return context.moduleEntries.some(
     (candidate) =>
       candidate.module.provides?.includes(dependency.capability) &&
-      candidate.module.supportedOn.some((rule) => target.matches(rule)) &&
+      candidate.module.supportedOn.some((rule) =>
+        target.matches(rule, defaultNameFor(context, target.kind)),
+      ) &&
       canReference(context, owner.fragment, candidate.fragment),
   )
     ? []

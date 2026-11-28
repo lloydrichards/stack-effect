@@ -150,7 +150,11 @@ export const plan = Command.make(
 
       const finalizer = yield* Finalizer;
       const scripts = yield* finalizer
-        .scripts(blueprint, { repositoryRoot, config })
+        .scripts(blueprint, {
+          repositoryRoot,
+          config,
+          baseline: planResult.baseline,
+        })
         .pipe(
           Effect.orElseSucceed(
             () =>

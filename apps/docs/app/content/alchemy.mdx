@@ -22,9 +22,9 @@ In the [Recipe Builder](/builder), open **Targets & files** and choose **CAFE St
 stack-effect create application --yes --target workspace/root:workspace-alchemy-cafe
 ```
 
-The CAFE module adds `client-foldkit/web` with the Worker HTTP client and Alchemy Website, and `cloudflare-worker/api` with the Alchemy Worker deployment. The generated Stack passes the API Worker URL to the Website as `VITE_SERVER_URL`. The HTTP client module adds the shared API contract, and the Worker target supplies its handlers.
+The CAFE module adds `client-foldkit/` with the Worker HTTP client and Alchemy Website, and `cloudflare-worker/api` with the Alchemy Worker deployment. The generated Stack passes the API Worker URL to the Website as `VITE_SERVER_URL`. The HTTP client module adds the shared API contract, and the Worker target supplies its handlers.
 
-To choose different target names or use React, select the deployment and HTTP client modules directly and compose the Stack manually.
+The preset's Stack imports the workspace packages by name, so its imports follow either app when you move its directory. To choose different target names or use React, select the deployment and HTTP client modules directly and compose the Stack manually.
 
 Deployment modules support Bun and Node. Add `--runtime node --package-manager npm` for Node/npm projects. Projects that omit these modules retain their existing development setup.
 
@@ -35,7 +35,7 @@ When you select deployment modules directly, add imports for your declarations a
 For a frontend alone:
 
 ```ts
-import Website from "./apps/client-foldkit-web/alchemy";
+import Website from "./apps/client/alchemy";
 
 const Applications = Website().pipe(Effect.map((web) => ({ web: web.url })));
 ```
@@ -51,8 +51,8 @@ const Applications = Worker.pipe(Effect.map((api) => ({ api: api.url })));
 To connect them:
 
 ```ts
-import Website from "./apps/client-foldkit-web/alchemy";
-import Worker from "./apps/cloudflare-worker-api/alchemy";
+import Website from "client-foldkit/alchemy";
+import Worker from "cloudflare-worker-api/alchemy";
 
 const Applications = Effect.gen(function* () {
   const api = yield* Worker;

@@ -1,3 +1,4 @@
+import { CatalogReader } from "@repo/catalog/Catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
 import {
   Plan,
@@ -9,7 +10,7 @@ import {
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, SchemaIssue } from "effect";
 import type { ContributionResolver } from "../Plan";
-import { validatePackageOwners } from "./packageOwnership";
+import { resolvePackagePaths } from "./packageOwnership";
 import * as PlanAssessment from "./planAssessment";
 import type { PlanningIntentPath } from "./planAssessment";
 import * as PlanningIntent from "./planningIntent";
@@ -90,6 +91,7 @@ const projectPlan = Effect.fnUntraced(function* ({
 /** @internal */
 export const makePlanner = (contribute: ContributionResolver["Service"]) =>
   Effect.gen(function* () {
+    const catalog = yield* CatalogReader;
     const repositoryState = yield* RepositoryState.RepositoryState;
 
     const build = Effect.fn("Planner.build")(function* ({
@@ -103,10 +105,11 @@ export const makePlanner = (contribute: ContributionResolver["Service"]) =>
     }) {
       const repository = repositoryState.at(repositoryRoot);
       const owners = yield* repository.discoverOwners;
-      yield* validatePackageOwners(blueprint, owners);
+      const locations = yield* resolvePackagePaths(blueprint, owners, catalog);
       const normalizedContributions = yield* contribute.resolve(
         blueprint,
         config,
+        locations,
       );
       const planningPaths = yield* PlanningIntent.compile(
         normalizedContributions,

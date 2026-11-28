@@ -34,9 +34,13 @@ export const useTargetEditor = () => {
   const blueprint = Option.getOrUndefined(
     AsyncResult.value(previewResult),
   )?.blueprint;
+  const defaultNameFor = (kind: string) =>
+    catalog?.targets.find((target) => target.kind === kind)?.defaultName;
+  const keyFor = (target: Parameters<typeof ownerKey>[0]) =>
+    resolvedOwnerKey(target, defaultNameFor(target.kind));
   const presetNames = new Map(
     usePresetTargets().flatMap(({ preset, targets }) =>
-      targets.map(({ identity }) => [resolvedOwnerKey(identity), preset.title]),
+      targets.map(({ identity }) => [keyFor(identity), preset.title]),
     ),
   );
   const requiredModuleNodes = new Set(
@@ -56,17 +60,17 @@ export const useTargetEditor = () => {
   }
 
   const targets = [...explicitTargets];
-  const explicitOwners = new Set(explicitTargets.map(ownerKey));
+  const explicitOwners = new Set(explicitTargets.map(keyFor));
   for (const { id, identity } of resolvedTargets) {
-    if (
-      identity.kind === "workspace" ||
-      explicitOwners.has(resolvedOwnerKey(identity))
-    )
+    if (identity.kind === "workspace" || explicitOwners.has(keyFor(identity)))
       continue;
     targets.push({
       id: `resolved:${id}`,
       kind: identity.kind,
-      name: identity.placement === "default" ? "" : identity.name,
+      name:
+        keyFor(identity) === keyFor({ kind: identity.kind, name: "" })
+          ? ""
+          : identity.name,
       modules: [],
       addedByDependency: true,
     });
@@ -96,7 +100,7 @@ export const useTargetEditor = () => {
     ({ id, identity }) =>
       activeTarget &&
       (activeTarget.id === `resolved:${id}` ||
-        resolvedOwnerKey(identity) === ownerKey(activeTarget)),
+        keyFor(identity) === keyFor(activeTarget)),
   );
 
   const toggleModule = (module: CatalogModule) => {
@@ -110,12 +114,6 @@ export const useTargetEditor = () => {
           ),
       )?.modules ?? [];
     const selected = activeTarget.modules.includes(module.id);
-    const defaultName = catalog.targets.find(
-      ({ kind }) => kind === activeTarget.kind,
-    )?.defaultName;
-    const preservesDefault =
-      resolvedActiveTarget?.identity.placement === "implicit" &&
-      activeTarget.name === defaultName;
 
     const target =
       activeTargetIndex >= 0
@@ -123,7 +121,6 @@ export const useTargetEditor = () => {
         : {
             ...activeTarget,
             id: `${activeTarget.kind}-${nextId()}`,
-            name: preservesDefault ? "" : activeTarget.name,
             addedByDependency: undefined,
           };
     batch(() => {
@@ -199,9 +196,12 @@ export const useTargetEditor = () => {
       ? requiredModulesByTarget.get(resolvedActiveTarget.id)
       : undefined,
     activeTarget,
-    activeTargetPath: resolvedActiveTarget?.identity.toPath(),
+    activeTargetPath: resolvedActiveTarget?.identity.toPath(
+      defaultNameFor(resolvedActiveTarget.identity.kind),
+    ),
     activeTargetIndex,
-    presetNames,
+    presetNameFor: (target: Parameters<typeof ownerKey>[0]) =>
+      presetNames.get(keyFor(target)),
     addTarget,
     catalog,
     catalogFailed,

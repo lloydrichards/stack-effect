@@ -114,7 +114,7 @@ export const targetGroup = defineTargets(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "React Client",
     description: "A frontend application built with React",
-    defaultName: "web",
+    defaultName: "",
     requiredModules: ["config-typescript-vite"],
     contributions: [
       {
@@ -391,7 +391,7 @@ export const targetGroup = defineTargets(import.meta.url, [
     supportedRuntimes: ["bun", "node", "deno"],
     title: "Foldkit Client",
     description: "A frontend application built with Foldkit (Elm Architecture)",
-    defaultName: "web",
+    defaultName: "",
     requiredModules: ["config-typescript-vite"],
     contributions: [
       {

@@ -110,15 +110,7 @@ const resolveTargetIdentity = Effect.fnUntraced(function* (
     });
   }
 
-  if (identity.hasExplicitName()) {
-    return identity.kind === "package" || identity.placement !== undefined
-      ? identity
-      : new TargetIdentity({
-          kind: identity.kind,
-          name: identity.name,
-          placement: "named",
-        });
-  }
+  if (identity.hasExplicitName()) return identity.withDefaultName();
 
   const targetDefinition = yield* catalog.getTarget(identity.kind).pipe(
     Effect.mapError(
@@ -133,15 +125,8 @@ const resolveTargetIdentity = Effect.fnUntraced(function* (
         }),
     ),
   );
-  const defaultName = Option.fromNullishOr(targetDefinition.defaultName);
-
-  if (Option.isSome(defaultName)) {
-    return new TargetIdentity({
-      kind: identity.kind,
-      name: defaultName.value,
-      placement: "default",
-    });
-  }
+  if (targetDefinition.defaultName !== undefined)
+    return identity.withDefaultName(targetDefinition.defaultName);
 
   return yield* new InvalidRecipeSpec({
     issues: [
@@ -182,14 +167,11 @@ const toProviderCandidates = (candidates: ReadonlyArray<ModuleDefinition>) =>
     description,
   }));
 
-const recipeTargetKey = (target: TargetIdentity) =>
-  `${target.kind}:${target.toKey()}`;
-
 const chooseProvider = Effect.fnUntraced(function* (
   strategy: RecipeProviderStrategy,
   requirement: ProviderRequirement,
   candidates: ReadonlyArray<ModuleDefinition>,
-  providerTargetOf: (target: TargetIdentity) => TargetIdentity,
+  defaultName: string | undefined,
 ) {
   const [first, ...others] = candidates;
   if (first === undefined) {
@@ -200,8 +182,7 @@ const chooseProvider = Effect.fnUntraced(function* (
     strategy._tag === "explicit"
       ? strategy.providers.find(
           (provider) =>
-            recipeTargetKey(providerTargetOf(provider.target)) ===
-              recipeTargetKey(requirement.target) &&
+            provider.target.matchesReference(requirement.target, defaultName) &&
             provider.capability === requirement.capability,
         )
       : undefined;
@@ -238,10 +219,7 @@ const toSelection = (
 const selectionTargetToRecipeTargetSpec = (
   target: Selection["targets"][number],
 ): RecipeTargetSpec => ({
-  target:
-    target.identity.placement === "default"
-      ? new TargetIdentity({ kind: target.identity.kind, name: "" })
-      : target.identity,
+  target: target.identity,
   modules: target.modules.map((moduleSelection) => moduleSelection.id),
 });
 
@@ -337,47 +315,19 @@ export const make = Effect.gen(function* () {
       modules: [...modules],
     }));
     const findSelected = (identity: TargetIdentity) =>
-      selected.find(
-        ({ target }) => recipeTargetKey(target) === recipeTargetKey(identity),
-      );
-    const placedTarget = (reference: TargetIdentity) =>
-      findSelected(reference)?.target ??
-      (reference.placement === undefined
-        ? selected.find(({ target }) => target.matchesReference(reference))
-            ?.target
-        : undefined) ??
-      reference;
+      selected.find(({ target }) => target.toKey() === identity.toKey());
     const resolveReference = Effect.fnUntraced(function* (
-      target: TargetIdentity,
+      reference: TargetIdentity,
     ) {
-      const placed = placedTarget(target);
-      if (
-        placed.placement !== undefined ||
-        placed.kind === "workspace" ||
-        placed.kind === "package"
-      )
-        return placed;
+      if (reference.hasExplicitName() || reference.kind === "workspace")
+        return reference.withDefaultName();
       const definition = yield* catalog
-        .getTarget(placed.kind)
+        .getTarget(reference.kind)
         .pipe(Effect.option);
-      return placed.placeCatalogReference(
+      return reference.withDefaultName(
         Option.getOrUndefined(definition)?.defaultName,
       );
     });
-    const providerTargetOf = (
-      reference: TargetIdentity,
-      requirement: TargetIdentity,
-    ) => {
-      if (reference.placement !== undefined) return reference;
-      const named = selected.find(
-        ({ target }) =>
-          target.placement === "named" && target.matchesReference(reference),
-      );
-      const placed = named?.target ?? placedTarget(reference);
-      return placed === reference && requirement.matchesReference(reference)
-        ? requirement
-        : placed;
-    };
 
     // Each target's modules Blueprint attaches, in the order the walk reaches them.
     const attached = new Map<string, Array<ModuleId>>();
@@ -421,7 +371,7 @@ export const make = Effect.gen(function* () {
         next = pending.shift()
       ) {
         const placed = yield* resolveReference(next.target);
-        const targetKey = recipeTargetKey(placed);
+        const targetKey = placed.toKey();
         const attachedOnTarget = attached.get(targetKey) ?? [];
         if (attachedOnTarget.includes(next.moduleId)) continue;
         attached.set(targetKey, [...attachedOnTarget, next.moduleId]);
@@ -435,9 +385,7 @@ export const make = Effect.gen(function* () {
           ...dependencies
             .filter(ModuleDependency.guards["required-module"])
             .map((dependency) => ({
-              target: placedTarget(
-                dependencyTargetOf(requester.target, dependency.target),
-              ),
+              target: dependencyTargetOf(requester.target, dependency.target),
               moduleId: dependency.moduleId,
             })),
         );
@@ -446,9 +394,7 @@ export const make = Effect.gen(function* () {
             .filter(ModuleDependency.guards["required-capability"])
             .map((dependency) => ({
               requestingModuleId: requester.moduleId,
-              target: placedTarget(
-                dependencyTargetOf(requester.target, dependency.target),
-              ),
+              target: dependencyTargetOf(requester.target, dependency.target),
               capability: dependency.capability,
             })),
         );
@@ -463,6 +409,10 @@ export const make = Effect.gen(function* () {
     ) {
       const { capability } = requirement;
       const target = yield* resolveReference(requirement.target);
+      const definition = yield* catalog
+        .getTarget(target.kind)
+        .pipe(Effect.option);
+      const defaultName = Option.getOrUndefined(definition)?.defaultName;
 
       // Several selected providers stay for Blueprint to reject.
       const selectedProviders = yield* Effect.filter(
@@ -474,7 +424,7 @@ export const make = Effect.gen(function* () {
       // Blueprint finds providers in the Selection, so a hard dependency that
       // already provides the capability is written there.
       const hardProvider = yield* Effect.findFirst(
-        attached.get(recipeTargetKey(target)) ?? [],
+        attached.get(target.toKey()) ?? [],
         (moduleId) => providesCapability(moduleId, capability),
       );
       const providerId = Option.isSome(hardProvider)
@@ -491,7 +441,7 @@ export const make = Effect.gen(function* () {
               .filter((candidate) =>
                 supportsRuntime(candidate, options.config),
               ),
-            (reference) => providerTargetOf(reference, target),
+            defaultName,
           );
 
       yield* selectProvider(target, providerId);
@@ -527,21 +477,7 @@ export const make = Effect.gen(function* () {
       ...recipeTargets,
     ];
 
-    // A recipe keeps the first identity it names for each target key.
-    const firstIdentities = new Map<string, TargetIdentity>();
-    for (const { target } of targets) {
-      const key = recipeTargetKey(target);
-      if (!firstIdentities.has(key)) {
-        firstIdentities.set(key, target);
-      }
-    }
-
-    const merged = mergeRecipeTargets(
-      targets.map(({ target, modules }) => ({
-        target: firstIdentities.get(recipeTargetKey(target)) ?? target,
-        modules,
-      })),
-    );
+    const merged = mergeRecipeTargets(targets);
 
     return toSelection(yield* addCapabilityProviders(merged, options));
   });
@@ -568,7 +504,6 @@ export const make = Effect.gen(function* () {
     const configModuleIds = new Set(configWorkspaceModules(config));
     const targetSpecs = selection.targets.flatMap(
       (target): Array<RecipeTargetSpec> => {
-        if (target.identity.placement === "implicit") return [];
         if (target.identity.kind !== "workspace") {
           return [selectionTargetToRecipeTargetSpec(target)];
         }

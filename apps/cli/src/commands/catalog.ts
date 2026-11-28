@@ -262,15 +262,7 @@ const buildWorkspaceSelection = Effect.fn("catalog.workspace.buildSelection")(
         targets: Array.from(targets.values())
           .sort(byTargetKey)
           .map((target) => ({
-            target:
-              target.identity.kind === "workspace" ||
-              target.identity.kind === "package"
-                ? target.identity
-                : new TargetIdentity({
-                    kind: target.identity.kind,
-                    name: target.identity.name,
-                    placement: "default",
-                  }),
+            target: target.identity,
             modules: Array.from(target.modules).sort(Order.String),
           })),
       },

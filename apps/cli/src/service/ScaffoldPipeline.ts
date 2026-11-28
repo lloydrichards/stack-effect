@@ -154,7 +154,10 @@ const previewScaffold = Effect.fnUntraced(function* (
       ),
     }),
   );
-  const scripts = yield* finalizer.scripts(blueprint, request);
+  const scripts = yield* finalizer.scripts(blueprint, {
+    ...request,
+    baseline: plan.baseline,
+  });
 
   yield* Console.log(
     Box.renderPrettySync(
@@ -312,7 +315,7 @@ const nextStepsOf = (
 };
 
 const finalizeScaffold = Effect.fnUntraced(function* (
-  request: ScaffoldRequest,
+  request: ScaffoldRequest & { readonly baseline?: Plan["baseline"] },
   blueprint: Blueprint,
   result: ApplyResult,
   policy: ScriptPolicy,
@@ -384,7 +387,12 @@ const writeScaffold = Effect.fnUntraced(function* (
     yield* Console.log(`Failed: ${result.failed.length} files`);
   }
 
-  yield* finalizeScaffold(request, blueprint, result, mode.scripts);
+  yield* finalizeScaffold(
+    { ...request, baseline: plan.baseline },
+    blueprint,
+    result,
+    mode.scripts,
+  );
 });
 
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(

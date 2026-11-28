@@ -27,6 +27,7 @@ import { RecipeBuilderCatalog } from "../../workers/recipe-builder/domain";
 import { registryUrl } from "../../workers/recipe-builder/registry-url";
 import {
   ownerKey,
+  resolvedOwnerKey,
   type RecipeBuilderFormApi,
   type TargetInstance,
   toRecipePreviewInput,
@@ -140,6 +141,20 @@ export const useRecipeBuilderWorker = (
     catalogSnapshot?.request.sessionId === sessionId
       ? catalogSnapshot.catalog
       : undefined;
+  const canonicalTargetKeys = targets.map((target) =>
+    resolvedOwnerKey(
+      target,
+      catalog?.targets.find(({ kind }) => kind === target.kind)?.defaultName,
+    ),
+  );
+  const duplicateTarget =
+    new Set(canonicalTargetKeys).size !== canonicalTargetKeys.length;
+  const canPreview =
+    enabled &&
+    formValid &&
+    identitiesValid &&
+    !duplicateTarget &&
+    catalog !== undefined;
   const catalogOwnersByTargetId = useMemo(
     () =>
       new Map(
@@ -240,11 +255,7 @@ export const useRecipeBuilderWorker = (
   }, [catalogRequestResult, enabled, sessionId, targetIdentityKey]);
 
   useEffect(() => {
-    if (!enabled) {
-      requestPreview(Atom.Interrupt);
-      return;
-    }
-    if (!formValid || !identitiesValid || catalog === undefined) {
+    if (!canPreview) {
       requestPreview(Atom.Interrupt);
       return;
     }
@@ -253,25 +264,18 @@ export const useRecipeBuilderWorker = (
       targetIdentityKey,
       input: toRecipePreviewInput(values),
     });
-  }, [
-    catalog,
-    enabled,
-    formValid,
-    identitiesValid,
-    requestPreview,
-    sessionId,
-    targetIdentityKey,
-    values,
-  ]);
+  }, [canPreview, requestPreview, sessionId, targetIdentityKey, values]);
 
   return {
-    canPreview:
-      enabled && formValid && identitiesValid && catalog !== undefined,
+    canPreview,
     catalog,
     catalogFailed,
     catalogOwnersByTargetId,
     catalogResult,
-    compatibilityNotice,
+    compatibilityNotice:
+      duplicateTarget && catalog !== undefined
+        ? "Two selections refer to the same target. Rename or remove one before previewing."
+        : compatibilityNotice,
     previewResult,
     retryCatalog,
   };

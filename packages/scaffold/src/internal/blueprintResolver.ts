@@ -14,7 +14,6 @@ import {
   defaultSupportedRuntimes,
   type ModuleCapability,
   ModuleDependency,
-  targetPathsOverlap,
   type ModuleId,
   type TargetDefinition,
   TargetIdentity,
@@ -92,18 +91,14 @@ const validateSelection = Effect.fnUntraced(function* (
   selection: Selection,
   catalog: CatalogReader["Service"],
 ) {
-  const selectedTargetKinds = new Map<string, TargetIdentity["kind"]>();
+  const selected = new Set<string>();
   for (const target of selection.targets) {
     const targetKey = target.identity.toKey();
-    const previousKind = selectedTargetKinds.get(targetKey);
-    if (previousKind !== undefined)
+    if (selected.has(targetKey))
       return yield* new BlueprintError({
-        message:
-          previousKind === target.identity.kind
-            ? `Duplicate target selection: ${targetKey}`
-            : `Overlapping target ownership at ${target.identity.toPath()}: ${previousKind} and ${target.identity.kind}`,
+        message: `Duplicate target selection: ${targetKey}`,
       });
-    selectedTargetKinds.set(targetKey, target.identity.kind);
+    selected.add(targetKey);
     yield* validateTarget(catalog, target);
   }
 });
@@ -153,13 +148,7 @@ const resolveSelection = Effect.fnUntraced(function* (
       Effect.map((s) => HashMap.get(s.targets, identity.toKey())),
     );
 
-    if (Option.isSome(current)) {
-      if (current.value.identity.kind !== identity.kind)
-        return yield* new BlueprintError({
-          message: `Overlapping target ownership at ${identity.toPath()}: ${current.value.identity.kind} and ${identity.kind}`,
-        });
-      return current.value;
-    }
+    if (Option.isSome(current)) return current.value;
 
     yield* catalog.getTarget(identity.kind);
 
@@ -252,34 +241,11 @@ const resolveSelection = Effect.fnUntraced(function* (
     const placedReference = Effect.fnUntraced(function* (
       dependencyTarget: TargetIdentity,
     ) {
-      // shortcut: CAFE imports fixed folders, revisit when its imports can follow resolved targets.
-      const allowNamedPlacement = moduleId !== "workspace-alchemy-cafe";
-      const selected =
-        selection.targets.find(
-          ({ identity }) =>
-            identity.kind === dependencyTarget.kind &&
-            identity.toKey() === dependencyTarget.toKey(),
-        ) ??
-        selection.targets.find(
-          ({ identity }) =>
-            (allowNamedPlacement || identity.placement !== "named") &&
-            identity.matchesReference(dependencyTarget),
-        );
-      if (selected !== undefined) return selected.identity;
-      if (
-        dependencyTarget.kind === "package" ||
-        dependencyTarget.kind === "workspace"
-      )
-        return dependencyTarget;
-      if (!allowNamedPlacement) {
-        return new TargetIdentity({
-          kind: dependencyTarget.kind,
-          name: dependencyTarget.name,
-          placement: "implicit",
-        });
-      }
+      if (dependencyTarget.kind === "workspace") return dependencyTarget;
+      if (dependencyTarget.hasExplicitName())
+        return dependencyTarget.withDefaultName();
       const definition = yield* catalog.getTarget(dependencyTarget.kind);
-      return dependencyTarget.placeCatalogReference(definition.defaultName);
+      return dependencyTarget.withDefaultName(definition.defaultName);
     });
 
     const dependencyTargetOf = (reference: TargetIdentity) =>
@@ -330,9 +296,7 @@ const resolveSelection = Effect.fnUntraced(function* (
     ) {
       const selectedTarget = Arr.findFirst(
         selection.targets,
-        ({ identity }) =>
-          identity.kind === dependencyTarget.kind &&
-          identity.toKey() === dependencyTarget.toKey(),
+        ({ identity }) => identity.toKey() === dependencyTarget.toKey(),
       );
       const providers = Option.isSome(selectedTarget)
         ? yield* Effect.filter(selectedTarget.value.modules, (selectedModule) =>
@@ -394,9 +358,21 @@ export const make = Effect.gen(function* () {
   const catalog = yield* CatalogReader;
 
   const resolve = Effect.fn("BlueprintResolver.resolve")(function* (
-    selection: Selection,
+    requested: Selection,
     config?: StackConfig,
   ) {
+    const selected = yield* Effect.forEach(
+      requested.targets,
+      ({ identity, modules }) =>
+        Effect.map(catalog.getTarget(identity.kind), ({ defaultName }) => ({
+          identity:
+            identity.kind === "workspace"
+              ? identity
+              : identity.withDefaultName(defaultName),
+          modules,
+        })),
+    );
+    const selection = { targets: selected };
     yield* validateSelection(selection, catalog);
 
     const finalState = yield* resolveSelection(selection, catalog);
@@ -407,11 +383,8 @@ export const make = Effect.gen(function* () {
         .slice(index + 1)
         .filter(
           (right) =>
-            targetPathsOverlap(
-              left.identity.toPath(),
-              right.identity.toPath(),
-            ) ||
-            left.identity.toPackageName() === right.identity.toPackageName(),
+            left.identity.toPackageName().toLowerCase() ===
+            right.identity.toPackageName().toLowerCase(),
         )
         .map(
           (right) =>

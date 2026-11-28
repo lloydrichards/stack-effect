@@ -22,7 +22,7 @@ const extraModule: ModuleDefinition = {
 };
 
 it.effect(
-  "projects blank-name support for default apps without exposing it on named apps",
+  "projects the same support for both spellings of the default app",
   () => {
     const kind = TargetKind.make("server");
     const blank = new TargetIdentity({ kind, name: "" });
@@ -67,7 +67,10 @@ it.effect(
         defaultModule.id,
         childModule.id,
       ]);
-      assert.deepStrictEqual(modulesFor("api"), [childModule.id]);
+      assert.sameMembers(modulesFor("api") ?? [], [
+        defaultModule.id,
+        childModule.id,
+      ]);
     }).pipe(
       Effect.provide(
         CatalogReader.fromFragments([
@@ -104,64 +107,61 @@ it.effect(
   },
 );
 
-it.effect("requires children to support every placement of their parent", () =>
-  Effect.gen(function* () {
-    const kind = TargetKind.make("server");
-    const blank = new TargetIdentity({ kind, name: "" });
-    const named = new TargetIdentity({ kind, name: "api" });
-    const declaredPlacement = new TargetIdentity({
-      kind,
-      name: "api",
-      placement: "default",
-    });
-    const workspace = TargetKind.make("workspace");
-    const childId = ModuleId.make("coverage-child");
-    const targets = [
-      ...testCatalog.targets,
-      {
-        kind,
-        defaultName: "api",
-        title: "Server",
-        description: "Server",
-        contributions: [],
-      },
-    ];
-    const identityRule = (identity: TargetIdentity): SupportedOn => ({
-      _tag: "identity",
-      identity,
-    });
-    const composeChildren = (parent: SupportedOn, child: SupportedOn) =>
-      compose([
+it.effect(
+  "requires children to support the canonical target of their parent",
+  () =>
+    Effect.gen(function* () {
+      const kind = TargetKind.make("server");
+      const blank = new TargetIdentity({ kind, name: "" });
+      const named = new TargetIdentity({ kind, name: "api" });
+      const other = new TargetIdentity({ kind, name: "other" });
+      const workspace = TargetKind.make("workspace");
+      const childId = ModuleId.make("coverage-child");
+      const targets = [
+        ...testCatalog.targets,
         {
-          targets,
-          modules: [
-            {
-              ...extraModule,
-              id: ModuleId.make("coverage-parent"),
-              supportedOn: [parent],
-              children: [{ moduleId: childId, requirement: "required" }],
-            },
-            {
-              ...extraModule,
-              id: childId,
-              supportedOn: [child],
-            },
-          ],
+          kind,
+          defaultName: "api",
+          title: "Server",
+          description: "Server",
+          contributions: [],
         },
-      ]);
+      ];
+      const identityRule = (identity: TargetIdentity): SupportedOn => ({
+        _tag: "identity",
+        identity,
+      });
+      const composeChildren = (parent: SupportedOn, child: SupportedOn) =>
+        compose([
+          {
+            targets,
+            modules: [
+              {
+                ...extraModule,
+                id: ModuleId.make("coverage-parent"),
+                supportedOn: [parent],
+                children: [{ moduleId: childId, requirement: "required" }],
+              },
+              {
+                ...extraModule,
+                id: childId,
+                supportedOn: [child],
+              },
+            ],
+          },
+        ]);
 
-    for (const parent of [named, declaredPlacement]) {
       const failure = yield* Effect.flip(
-        composeChildren(identityRule(parent), identityRule(blank)),
+        composeChildren(identityRule(other), identityRule(blank)),
       );
       assert.strictEqual(failure.details[0]?.code, "unsupported-target");
-    }
-    yield* composeChildren(identityRule(blank), identityRule(named));
-    yield* composeChildren(
-      { _tag: "kind", kind: workspace },
-      identityRule(new TargetIdentity({ kind: workspace, name: "example" })),
-    );
-  }),
+      yield* composeChildren(identityRule(named), identityRule(blank));
+      yield* composeChildren(identityRule(blank), identityRule(named));
+      yield* composeChildren(
+        { _tag: "kind", kind: workspace },
+        identityRule(new TargetIdentity({ kind: workspace, name: "example" })),
+      );
+    }),
 );
 
 it.effect(

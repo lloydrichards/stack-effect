@@ -1,9 +1,10 @@
 import { CatalogReader } from "@repo/catalog/Catalog";
 import { type Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import { Contribution } from "@repo/domain/Catalog";
+import { Contribution, type TargetKey } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   ModuleContribution,
+  type RepositoryPath,
   TargetContribution,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
@@ -82,6 +83,7 @@ export const makeContributionResolver = Effect.gen(function* () {
   const resolve = Effect.fn("ContributionResolver.resolve")(function* (
     blueprint: Blueprint,
     config: StackConfig,
+    locations?: ReadonlyMap<TargetKey, RepositoryPath>,
   ) {
     const targets = blueprint.nodes.filter(BlueprintNode.guards.target);
     const modules = blueprint.nodes.filter(
@@ -91,12 +93,18 @@ export const makeContributionResolver = Effect.gen(function* () {
       Effect.map(catalog.getTarget(node.identity.kind), (definition) => ({
         node,
         definition,
+        targetPath:
+          locations?.get(node.id) ??
+          node.identity.toPath(definition.defaultName),
       })),
     );
-    const projectTargets = definitions.map(({ node, definition }) => ({
-      identity: node.identity,
-      description: definition.description,
-    }));
+    const projectTargets = definitions.map(
+      ({ node, definition, targetPath }) => ({
+        identity: node.identity,
+        targetPath,
+        description: definition.description,
+      }),
+    );
     // Explicit resolved targets preserve the initial provider choices in the recipe.
     const scaffoldRecipe = recipes.renderCreateCommand({
       config,
@@ -110,20 +118,22 @@ export const makeContributionResolver = Effect.gen(function* () {
       },
     });
 
-    const targetContexts = definitions.map(({ node, definition }) => ({
-      node,
-      definition,
-      context: new ContributionTokenContext({
-        targetKey: node.id,
-        identity: node.identity,
-        config,
-        projectTargets,
-        scaffoldRecipe,
-        moduleIds: modules
-          .filter((module) => module.targetId === node.id)
-          .map((module) => module.moduleId),
+    const targetContexts = definitions.map(
+      ({ node, definition, targetPath }) => ({
+        node,
+        definition,
+        context: new ContributionTokenContext({
+          identity: node.identity,
+          targetPath,
+          config,
+          projectTargets,
+          scaffoldRecipe,
+          moduleIds: modules
+            .filter((module) => module.targetId === node.id)
+            .map((module) => module.moduleId),
+        }),
       }),
-    }));
+    );
     const targetContributions = targetContexts.map(
       ({ node, definition, context }) =>
         TargetContribution.make({

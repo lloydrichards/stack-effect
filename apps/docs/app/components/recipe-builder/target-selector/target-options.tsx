@@ -51,9 +51,8 @@ export const AddTargetPicker = ({
     choice &&
     new TargetIdentity({
       kind: choice.kind,
-      name: name || choice.defaultName || "",
-      placement: name && choice.kind !== "package" ? "named" : undefined,
-    });
+      name: name ?? "",
+    }).withDefaultName(choice.defaultName);
   return (
     <form
       className="space-y-4"
@@ -109,7 +108,7 @@ export const AddTargetPicker = ({
           aria-live="polite"
           className="break-all font-mono text-xs text-muted-foreground"
         >
-          {owner?.toPath()}
+          {owner?.toPath(choice?.defaultName)}
         </span>
       </div>
     </form>

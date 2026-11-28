@@ -297,7 +297,7 @@ Say:
 
 Avoid:
 
-- Substituting `TargetKey` or `TargetPath` when identity is meant
+- Substituting `TargetKey` or `RepositoryPath` when identity is meant
 
 ## TargetKey
 
@@ -309,11 +309,11 @@ Avoid:
 
 - "Display name"
 
-## TargetPath
+## RepositoryPath
 
 Say:
 
-- "TargetPath is the canonical filesystem location for a target."
+- "RepositoryPath is a canonical POSIX path relative to the repository root."
 
 Avoid:
 
@@ -365,7 +365,7 @@ See also:
 
 - `Selection` means user intent.
 - `Blueprint` means dependency closure; `Plan` means repository-aware projection.
-- `TargetIdentity`, `TargetKey`, and `TargetPath` are related but distinct.
+- `TargetIdentity`, `TargetKey`, and `RepositoryPath` are related but distinct.
 - `Catalog` is reference data, not mutable runtime state. Registry content changes between operations; the loaded catalog does not change within one.
 - A `Catalog Source` name, a `catalogId`, and a target kind or module ID are three different identifiers.
 
@@ -375,6 +375,6 @@ Use these checks in discussions and PR reviews:
 
 - "Are we describing user intent (`Selection`) or resolved closure (`Blueprint`)?"
 - "Are we discussing dependency logic (`Blueprint`) or repo changes/conflicts (`Plan`)?"
-- "Are we naming identity (`TargetIdentity`), key (`TargetKey`), or location (`TargetPath`)?"
+- "Are we naming identity (`TargetIdentity`), key (`TargetKey`), or location (`RepositoryPath`)?"
 - "Are we talking plan intent (`Apply`) or execution outcome (`ApplyResult`)?"
 - "Are we naming a selected source (`Catalog Source`), a document (`catalogId`), or a definition ID?"

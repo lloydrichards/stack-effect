@@ -57,6 +57,22 @@ type TargetConfigurationProps = {
   readonly targets: ReadonlyArray<TargetInstance>;
 };
 
+const modulesFromPresets = (
+  presets: ReturnType<typeof usePresetTargets>,
+  target: TargetInstance,
+  catalog: RecipeBuilderCatalog | undefined,
+) => {
+  const defaultName = catalog?.targets.find(
+    ({ kind }) => kind === target.kind,
+  )?.defaultName;
+  const key = resolvedOwnerKey(target, defaultName);
+  return presets.flatMap(({ targets }) =>
+    targets
+      .filter(({ identity }) => resolvedOwnerKey(identity, defaultName) === key)
+      .flatMap(({ modules }) => modules.map(({ id }) => id)),
+  );
+};
+
 const TargetConfiguration = ({
   catalog,
   catalogFailed,
@@ -87,13 +103,9 @@ const TargetConfiguration = ({
     ? `Set by ${dependencySourceNames(target, targets).join(", ")}.`
     : target.kind === "package"
       ? "Use / for nested folders, such as sdk/web."
-      : "Enter a folder under apps, such as client or sdk/web. Leave blank to use the catalog default.";
+      : "Enter a target name, such as admin or sdk/web. Leave blank to use the catalog default.";
   const presetTargets = usePresetTargets();
-  const presetModules = presetTargets.flatMap(({ targets }) =>
-    targets
-      .filter(({ identity }) => resolvedOwnerKey(identity) === ownerKey(target))
-      .flatMap(({ modules }) => modules.map(({ id }) => id)),
-  );
+  const presetModules = modulesFromPresets(presetTargets, target, catalog);
   const roots = publicRootModules(modules);
   const isDatabaseTarget = ownerKey(target) === "package/db";
   const requiredModuleIds = new Set([
@@ -300,7 +312,7 @@ export const ActiveTargetConfiguration = ({
       supportSelections={editor.supportSelections}
       target={target}
       targetIndex={editor.activeTargetIndex}
-      presetName={editor.presetNames.get(ownerKey(target))}
+      presetName={editor.presetNameFor(target)}
       targets={editor.targets}
     />
   );

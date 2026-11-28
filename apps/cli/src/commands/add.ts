@@ -135,7 +135,7 @@ const buildNode = (
   requirement: ChildRef["requirement"],
   visitedRef: Ref.Ref<ReadonlySet<string>>,
   target: TargetIdentity,
-): Effect.Effect<NestedModuleChild<ModuleId>, never, CatalogReader> =>
+): Effect.Effect<NestedModuleChild<ModuleId>, CatalogNotFound, CatalogReader> =>
   Effect.gen(function* () {
     const node = {
       id: mod.id,
@@ -169,7 +169,7 @@ const buildChild = Effect.fnUntraced(function* (
     Option.isNone(child) ||
     (yield* Ref.get(visitedRef)).has(child.value.id) ||
     (ref.requirement === "optional" &&
-      !child.value.supportedOn.some((rule) => target.matches(rule)))
+      !(yield* catalog.isSupportedOn(child.value.id, target)))
   ) {
     return Option.none();
   }
@@ -191,24 +191,22 @@ const buildRoot = Effect.fnUntraced(function* (
  * children are shown for visibility, but Selection construction routes each
  * chosen module back to its owning target.
  */
-const buildModuleTree = (
+const buildModuleTree = Effect.fnUntraced(function* (
   modules: ReadonlyArray<ModuleDefinition>,
   target: TargetIdentity,
-) => {
+) {
+  const catalog = yield* CatalogReader;
   const childModuleIds = new Set(
     modules.flatMap((mod) =>
       (mod.children ?? []).map((child) => child.moduleId),
     ),
   );
-  return Effect.forEach(
-    modules.filter(
-      (mod) =>
-        !childModuleIds.has(mod.id) &&
-        mod.supportedOn.some((rule) => target.matches(rule)),
-    ),
-    (mod) => buildRoot(mod, target),
+  const roots = yield* Effect.filter(
+    modules.filter((mod) => !childModuleIds.has(mod.id)),
+    (mod) => catalog.isSupportedOn(mod.id, target),
   );
-};
+  return yield* Effect.forEach(roots, (mod) => buildRoot(mod, target));
+});
 
 const placeImplication = Effect.fnUntraced(function* (
   targets: Array<CollectedTarget>,
@@ -337,20 +335,22 @@ const removeOrphanedImplications = Effect.fnUntraced(function* (
 const findTarget = (
   targets: ReadonlyArray<CollectedTarget>,
   identity: TargetIdentity,
+  defaultName?: string,
 ) =>
   Arr.findFirst(targets, (target) =>
     new TargetIdentity({
       kind: target.kind,
       name: target.name,
-    }).matchesReference(identity),
+    }).matchesReference(identity, defaultName),
   );
 
 const ensureTargetModule = (
   targets: Array<CollectedTarget>,
   identity: TargetIdentity,
   moduleId: ModuleId,
+  defaultName?: string,
 ) => {
-  const existing = findTarget(targets, identity);
+  const existing = findTarget(targets, identity, defaultName);
 
   if (Option.isNone(existing)) {
     targets.push({
@@ -373,11 +373,9 @@ const pickTargetModules = Effect.fnUntraced(function* (
   initialSelected: ReadonlyArray<ModuleId> = [],
 ) {
   const catalog = yield* CatalogReader;
-  const target = identity.hasExplicitName()
-    ? identity
-    : identity.placeCatalogReference(
-        (yield* catalog.getTarget(identity.kind)).defaultName,
-      );
+  const target = identity.withDefaultName(
+    (yield* catalog.getTarget(identity.kind)).defaultName,
+  );
   const available = yield* catalog.getSupportedModules(target.kind, {
     visibility: "public",
   });
@@ -424,14 +422,16 @@ const collectRequiredModuleClosure = (
       moduleId: ModuleId,
     ): Effect.Effect<void, CatalogNotFound> =>
       Effect.gen(function* () {
-        const key = `${target.kind}:${target.toKey()}:${moduleId}`;
+        const { defaultName } = yield* catalog.getTarget(target.kind);
+        const owner = target.withDefaultName(defaultName);
+        const key = `${owner.toKey()}#${moduleId}`;
         const visited = yield* Ref.get(visitedRef);
         if (visited.has(key)) return;
 
         yield* Ref.update(visitedRef, (current) => new Set([...current, key]));
         yield* Ref.update(reachableRef, (current) => [
           ...current,
-          { target, moduleId },
+          { target: owner, moduleId },
         ]);
 
         const definition = yield* catalog.getModule(moduleId);
@@ -441,7 +441,7 @@ const collectRequiredModuleClosure = (
           ),
           (dependency) =>
             visit(
-              dependencyTargetFor(target, dependency.target),
+              dependencyTargetFor(owner, dependency.target),
               dependency.moduleId,
             ),
         );
@@ -488,35 +488,18 @@ const provideCapability = Effect.fnUntraced(function* (
 ) {
   const catalog = yield* CatalogReader;
   const requiredTarget = dependencyTargetFor(target, dependency.target);
-  const existing = findTarget(targets, requiredTarget);
-  const definitionForTarget = yield* catalog.getTarget(requiredTarget.kind);
-  const catalogTarget = requiredTarget.placeCatalogReference(
-    definitionForTarget.defaultName,
-  );
-  const insertionTarget =
-    Option.isNone(existing) && catalogTarget.placement === "default"
-      ? new TargetIdentity({ kind: requiredTarget.kind, name: "" })
-      : requiredTarget;
-
-  if (
-    yield* isProvidedBy(
-      findTarget(targets, insertionTarget),
-      dependency.capability,
-    )
-  ) {
-    return false;
-  }
+  const { defaultName } = yield* catalog.getTarget(requiredTarget.kind);
+  const owner = requiredTarget.withDefaultName(defaultName);
+  const existing = findTarget(targets, owner, defaultName);
+  if (yield* isProvidedBy(existing, dependency.capability)) return false;
 
   const providers = catalog.getCapabilityProviders({
     capability: dependency.capability,
-    target:
-      Option.isSome(existing) && existing.value.name.trim() !== ""
-        ? requiredTarget
-        : catalogTarget,
+    target: owner,
   });
   if (!Arr.isReadonlyArrayNonEmpty(providers)) {
     return yield* Effect.fail(
-      `Module "${definition.id}" requires capability "${dependency.capability}" on ${requiredTarget.toKey()}, but no compatible provider module exists.`,
+      `Module "${definition.id}" requires capability "${dependency.capability}" on ${owner.toKey()}, but no compatible provider module exists.`,
     );
   }
 
@@ -524,14 +507,14 @@ const provideCapability = Effect.fnUntraced(function* (
     providers.length === 1
       ? providers[0].id
       : yield* HorizontalSelect({
-          message: `Module "${definition.title}" requires ${dependency.capability}. Which provider should be added to ${requiredTarget.toKey()}?`,
+          message: `Module "${definition.title}" requires ${dependency.capability}. Which provider should be added to ${owner.toKey()}?`,
           choices: providers.map((candidate) => ({
             title: candidate.title,
             value: candidate.id,
           })),
         });
 
-  return ensureTargetModule(targets, insertionTarget, providerId);
+  return ensureTargetModule(targets, owner, providerId, defaultName);
 });
 
 const resolveCapabilities = Effect.fnUntraced(function* (

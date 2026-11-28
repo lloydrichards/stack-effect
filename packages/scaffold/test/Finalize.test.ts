@@ -14,6 +14,7 @@ import {
   TargetKind,
 } from "@repo/domain/Catalog";
 import { FinalizeScript } from "@repo/domain/Finalize";
+import { RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Finalizer, scriptKey } from "@repo/scaffold/Finalize";
@@ -186,7 +187,7 @@ describe("Finalizer", () => {
           targetWithModule(serverIdentity, moduleId),
           makeConfig(),
         );
-        assert.include(steps, "Read apps/sdk/server-api/extra.txt");
+        assert.include(steps, "Read apps/sdk/api/extra.txt");
       }).pipe(Effect.provide(serviceLayer));
     },
   );
@@ -201,9 +202,9 @@ describe("Finalizer", () => {
       const steps = yield* finalize.collectNextSteps(blueprint, makeConfig());
 
       assert.deepStrictEqual(steps, [
-        "Configure apps/sdk/server-api",
-        "Read apps/sdk/server-api/README.md",
-        "Start apps/sdk/server-api",
+        "Configure apps/sdk/api",
+        "Read apps/sdk/api/README.md",
+        "Start apps/sdk/api",
       ]);
     }).pipe(
       Effect.provide(
@@ -350,19 +351,44 @@ describe("Finalizer", () => {
             ["Build", "Module setup", "Install dependencies", "Post setup"],
           );
           assert.include(scripts[0], {
-            command: "bun run build --cwd apps/sdk/server-api",
-            workdir: "apps/sdk/server-api",
+            command: "bun run build --cwd apps/sdk/api",
+            workdir: "apps/sdk/api",
             origin: "target: server",
           });
           assert.include(scripts[1], {
-            workdir: "apps/sdk/server-api",
+            workdir: "apps/sdk/api",
             origin: "module: app-setup",
           });
+
+          const relocated = {
+            ...makeConfig(),
+            baseline: {
+              root: "/repo",
+              paths: [],
+              packageOwners: [
+                {
+                  name: serverIdentity.toPackageName(),
+                  path: RepositoryPath.make("apps/backend/api"),
+                },
+              ],
+            },
+          };
+          const movedScripts = yield* finalizer.scripts(blueprint, relocated);
+          assert.include(movedScripts[0], {
+            command: "bun run build --cwd apps/backend/api",
+            workdir: "apps/backend/api",
+          });
+          assert.include(movedScripts[1], { workdir: "apps/backend/api" });
+          assert.include(
+            yield* finalizer.collectNextSteps(blueprint, relocated),
+            "Open apps/backend/api",
+          );
         }).pipe(
           Effect.provide(
             makeFinalizeLayer({
               targets: {
                 server: {
+                  nextSteps: ["Open {{targetPath}}"],
                   scripts: [
                     {
                       label: "Build",
@@ -504,7 +530,7 @@ describe("Finalizer", () => {
                 label: "Check target",
                 phase: "finalize",
                 origin: "target: server",
-                workdir: "apps/sdk/server-api",
+                workdir: "apps/sdk/api",
               }),
               "/repo",
             );
@@ -529,7 +555,7 @@ describe("Finalizer", () => {
                     assert(command._tag === "StandardCommand");
                     assert.strictEqual(
                       command.options.cwd,
-                      "/repo/apps/sdk/server-api",
+                      "/repo/apps/sdk/api",
                     );
                     assert.strictEqual(command.options.shell, true);
                     const encoder = new TextEncoder();

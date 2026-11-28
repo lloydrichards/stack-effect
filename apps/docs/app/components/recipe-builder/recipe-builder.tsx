@@ -270,7 +270,7 @@ const RecipeNotices = () => {
       {compatibilityNotice ? (
         <Alert>
           <AlertCircle />
-          <AlertTitle>Selection adjusted</AlertTitle>
+          <AlertTitle>Target selection</AlertTitle>
           <AlertDescription>{compatibilityNotice}</AlertDescription>
         </Alert>
       ) : null}

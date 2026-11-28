@@ -4,11 +4,13 @@
  */
 import type { CatalogReader } from "@repo/catalog/Catalog";
 import type { Blueprint } from "@repo/domain/Blueprint";
+import type { TargetKey } from "@repo/domain/Catalog";
 import type { CatalogNotFound } from "@repo/domain/Catalog";
 import type {
   NormalizedContributions,
   Plan,
   PlanError,
+  RepositoryPath,
 } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import {
@@ -43,6 +45,7 @@ export class ContributionResolver extends Context.Service<
     readonly resolve: (
       blueprint: Blueprint,
       config: StackConfig,
+      locations?: ReadonlyMap<TargetKey, RepositoryPath>,
     ) => Effect.Effect<NormalizedContributions, CatalogNotFound>;
   }
 >()("@repo/scaffold/ContributionResolver") {

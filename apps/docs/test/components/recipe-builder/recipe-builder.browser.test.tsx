@@ -71,7 +71,7 @@ vi.mock("../../../app/atom/recipe-builder-atom", async (importOriginal) => {
       modules.some(({ id }) => id === "server-http-api"),
     );
     const domain = recipeCatalogFixture.targetModules.find(
-      ({ owner }) => owner.toKey() === "packages/domain",
+      ({ owner }) => owner.kind === "package" && owner.name === "domain",
     );
     const resolvedTargets =
       requiredServer && domain
@@ -401,7 +401,7 @@ test("adds a target before editing its modules in the inline overview", async ()
   await expect.element(add).toBeDisabled();
   await page.getByRole("radio", { name: "React Client" }).click();
   await expect
-    .element(page.getByText("apps/client-react-web", { exact: true }))
+    .element(page.getByText("apps/client-web", { exact: true }))
     .toBeVisible();
   assert.strictEqual(
     page.getByLabelText("Recipe URL search").element().textContent,
@@ -726,6 +726,21 @@ test("should log a share after copying a valid recipe link", async () => {
       file_count: 1,
     });
   });
+});
+
+test("blocks preview when a blank and named selection resolve to the same target", async () => {
+  await renderRecipeBuilder("/builder?target=server%2F&target=server%2Fapi");
+
+  await expect
+    .element(
+      page.getByText("Two selections refer to the same target.", {
+        exact: false,
+      }),
+    )
+    .toBeVisible();
+  await expect
+    .element(page.getByRole("button", { name: "Copy command" }))
+    .toBeDisabled();
 });
 
 test("should remove unsupported modules when a renamed target resolves a different catalog", async () => {

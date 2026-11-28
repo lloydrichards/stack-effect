@@ -352,8 +352,8 @@ describe("Official catalog scaffolding", () => {
           });
           const root = readme(preview);
           for (const path of [
-            "apps/web",
-            "apps/api",
+            "apps/client-web",
+            "apps/server-api",
             "packages/domain",
             "packages/db",
           ]) {
@@ -363,11 +363,11 @@ describe("Official catalog scaffolding", () => {
           assert.include(root, "--target server/api:");
           assert.include(root, "--target package/db:");
           assert.include(
-            readme(preview, "apps/web/README.md"),
+            readme(preview, "apps/client-web/README.md"),
             "VITE_SERVER_URL",
           );
           assert.include(
-            readme(preview, "apps/api/README.md"),
+            readme(preview, "apps/server-api/README.md"),
             "ALLOWED_ORIGINS",
           );
           const database = readme(preview, "packages/db/README.md");
@@ -455,7 +455,7 @@ describe("Official catalog scaffolding", () => {
             }),
             repositoryRoot: "/repo",
           });
-          const manifestPath = "/repo/apps/api/package.json";
+          const manifestPath = "/repo/apps/server-api/package.json";
           const manifest = yield* fs.readFileString(manifestPath);
           yield* fs.writeFileString(
             manifestPath,
@@ -466,7 +466,9 @@ describe("Official catalog scaffolding", () => {
 
           assert.deepStrictEqual(
             plan.conflicts
-              .filter((conflict) => conflict.path === "apps/api/package.json")
+              .filter(
+                (conflict) => conflict.path === "apps/server-api/package.json",
+              )
               .map((conflict) => conflict.path),
             [],
           );
@@ -577,7 +579,10 @@ describe("Official catalog scaffolding", () => {
           const originalRoot = yield* fs.readFileString("/repo/README.md");
           const edits = [
             ["README.md", `${originalRoot}\nCustom onboarding instructions.\n`],
-            ["apps/api/README.md", "# Our API\n\nCustom operations guide.\n"],
+            [
+              "apps/server-api/README.md",
+              "# Our API\n\nCustom operations guide.\n",
+            ],
             [
               "packages/domain/README.md",
               "# Our contracts\n\nCustom contract guide.\n",
@@ -621,7 +626,9 @@ describe("Official catalog scaffolding", () => {
             );
           }
           assert.isTrue(yield* fs.exists("/repo/packages/db/README.md"));
-          assert.isTrue(yield* fs.exists("/repo/apps/api/src/api/Todo.ts"));
+          assert.isTrue(
+            yield* fs.exists("/repo/apps/server-api/src/api/Todo.ts"),
+          );
         }).pipe(Effect.provide(applyLayer)),
     );
   });
@@ -668,13 +675,15 @@ describe("Official catalog scaffolding", () => {
         Effect.gen(function* () {
           const result = yield* preview(kind, [`alchemy-${kind}-website`]);
           assert.isTrue(
-            result.files.some((file) => file.path === "apps/app/alchemy.ts"),
+            result.files.some(
+              (file) => file.path === "apps/client-app/alchemy.ts",
+            ),
           );
           assert.isFalse(
             result.files.some(
               (file) =>
                 file.path.startsWith("apps/") &&
-                !file.path.startsWith("apps/app/"),
+                !file.path.startsWith("apps/client-app/"),
             ),
           );
           const root =
@@ -727,7 +736,7 @@ describe("Official catalog scaffolding", () => {
             result.files.some(
               (file) =>
                 file.path.startsWith("apps/") &&
-                !file.path.startsWith("apps/app/"),
+                !file.path.startsWith("apps/client-app/"),
             ),
           );
           assert.isTrue(
@@ -747,7 +756,7 @@ describe("Official catalog scaffolding", () => {
     );
 
     it.effect(
-      "CAFE adds optional Foldkit modules without changing its fixed folders",
+      "CAFE adds optional Foldkit modules and imports the deployment packages by name",
       () =>
         Effect.gen(function* () {
           const previews = yield* RecipePreviewer;
@@ -768,23 +777,85 @@ describe("Official catalog scaffolding", () => {
               ?.contents ?? "";
           const paths = result.files.map(({ path }) => path);
           assert.includeMembers(paths, [
-            "apps/client-foldkit-web/alchemy.ts",
-            "apps/client-foldkit-web/src/devtools.ts",
-            "apps/client-foldkit-web/src/features/rest.ts",
+            "apps/client/alchemy.ts",
+            "apps/client/src/devtools.ts",
+            "apps/client/src/features/rest.ts",
             "apps/cloudflare-worker-api/alchemy.ts",
             "apps/cloudflare-worker-api/src/Api.ts",
             "packages/domain/src/Api.ts",
             "packages/config-typescript/vite.json",
           ]);
           assert.include(result.command, "--target client-foldkit/:");
-          assert.include(stack, '"./apps/client-foldkit-web/alchemy"');
-          assert.include(stack, '"./apps/cloudflare-worker-api/alchemy"');
+          assert.include(stack, '"client-foldkit/alchemy"');
+          assert.include(stack, '"cloudflare-worker-api/alchemy"');
           assert.include(
             stack,
             "Website({ VITE_SERVER_URL: api.url.as<string>() })",
           );
           assert.include(stack, "return { api: api.url, web: web.url }");
         }).pipe(Effect.provide(TestLayer)),
+    );
+
+    it.effect("CAFE links deployment exports from moved packages", () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const recipes = yield* RecipeResolver;
+        const blueprints = yield* BlueprintResolver;
+        const plans = yield* Planner;
+        const applies = yield* Applier;
+        const repositoryRoot = "/repo";
+        const client = "apps/frontend/site";
+        const worker = "apps/backend/worker";
+        const config = new StackConfig({
+          name: "deployment",
+          runtime: { _tag: "bun" },
+        });
+        for (const [directory, name] of [
+          [client, "client-foldkit"],
+          [worker, "cloudflare-worker-api"],
+        ]) {
+          yield* fs.makeDirectory(`${repositoryRoot}/${directory}`, {
+            recursive: true,
+          });
+          yield* fs.writeFileString(
+            `${repositoryRoot}/${directory}/package.json`,
+            JSON.stringify({ name }),
+          );
+        }
+
+        const selection = yield* recipes.resolve(
+          {
+            targets: [target("workspace", "root", "workspace-alchemy-cafe")],
+          },
+          { config, providerStrategy: { _tag: "fail-on-ambiguous" } },
+        );
+        const blueprint = yield* blueprints.resolve(selection, config);
+        const plan = yield* plans.build({ blueprint, config, repositoryRoot });
+        const result = yield* applies.apply({
+          apply: new Apply({ plan, decisions: [] }),
+          repositoryRoot,
+        });
+
+        assert.deepStrictEqual(result.failed, []);
+        for (const directory of [client, worker]) {
+          assert.isTrue(
+            yield* fs.exists(`${repositoryRoot}/${directory}/alchemy.ts`),
+          );
+          assert.include(
+            yield* fs.readFileString(
+              `${repositoryRoot}/${directory}/package.json`,
+            ),
+            '"./alchemy": "./alchemy.ts"',
+          );
+        }
+        const root = yield* fs.readFileString(`${repositoryRoot}/package.json`);
+        assert.include(root, '"client-foldkit": "workspace:*"');
+        assert.include(root, '"cloudflare-worker-api": "workspace:*"');
+        assert.isFalse(yield* fs.exists(`${repositoryRoot}/apps/client`));
+        assert.isFalse(
+          yield* fs.exists(`${repositoryRoot}/apps/cloudflare-worker-api`),
+        );
+      }).pipe(Effect.provide(applyLayer)),
     );
   });
 });

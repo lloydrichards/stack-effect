@@ -224,6 +224,23 @@ describe("TargetDefinition", () => {
 });
 
 describe("TargetIdentity", () => {
+  it("keeps different target keys when their suggested paths match", () => {
+    const server = new TargetIdentity({
+      kind: TargetKind.make("server"),
+      name: "foo/a-b",
+    });
+    const alternate = new TargetIdentity({
+      kind: TargetKind.make("server-a"),
+      name: "foo/b",
+    });
+
+    assert.strictEqual(
+      server.toPath(server.name),
+      alternate.toPath(alternate.name),
+    );
+    assert.notStrictEqual(server.toKey(), alternate.toKey());
+  });
+
   it.each([
     {
       label: "a package",

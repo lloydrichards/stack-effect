@@ -12,7 +12,7 @@ describe("add", () => {
     withNodeServices(
       Effect.gen(function* () {
         const { run, directory: root, fs, path } = yield* catalogSourcesFixture;
-        const server = path.join(root, "apps/backend/api");
+        const server = path.join(root, "apps/$&/api");
         yield* fs.makeDirectory(server, { recursive: true });
         yield* fs.writeFileString(
           path.join(server, "package.json"),
@@ -222,8 +222,8 @@ describe("add", () => {
               { discard: true },
             ),
           });
-          assert.include(named.stdout.join("\n"), "apps/svc#api-web");
-          assert.notInclude(named.stdout.join("\n"), "api-default-child");
+          assert.include(named.stdout.join("\n"), "api/svc#api-web");
+          assert.notInclude(named.stdout.join("\n"), "#api-default-child");
 
           const flags = yield* run([
             ...add,
@@ -231,12 +231,12 @@ describe("add", () => {
             "api/:api-web,api-default-child",
           ]);
           for (const result of [interactive, flags]) {
-            assert.include(result.stdout.join("\n"), "apps/api-svc#api-web");
+            assert.include(result.stdout.join("\n"), "api/svc#api-web");
             assert.include(
               result.stdout.join("\n"),
-              "apps/api-svc#api-default-child",
+              "api/svc#api-default-child",
             );
-            assert.include(result.stdout.join("\n"), "apps/server-api");
+            assert.include(result.stdout.join("\n"), "server/api");
             assert.notInclude(result.stdout.join("\n"), "apps/api/");
           }
         }),
@@ -280,10 +280,10 @@ describe("add", () => {
 
           assert.include(
             output,
-            'Module "todo-repository" requires db-sql. Which provider should be added to packages/db?',
+            'Module "todo-repository" requires db-sql. Which provider should be added to package/db?',
           );
           assert.include(output, "sql-postgres");
-          assert.include(output, "packages/db#sql-sqlite");
+          assert.include(output, "package/db#sql-sqlite");
         }),
       ),
     30_000,

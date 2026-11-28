@@ -8,6 +8,7 @@ import { Option, Schema } from "effect";
 import {
   initialRecipeBuilderValues,
   RecipeBuilderFormValues,
+  resolvedOwnerKey,
   toRecipePreviewInput,
 } from "../../../app/components/recipe-builder/form";
 import { fullStackRecipeFixture } from "./recipe-fixtures";
@@ -15,6 +16,13 @@ import { fullStackRecipeFixture } from "./recipe-fixtures";
 const decodeForm = Schema.decodeUnknownOption(RecipeBuilderFormValues);
 
 describe("recipe builder form", () => {
+  it("uses the canonical identity for a catalog default with spaces", () => {
+    assert.strictEqual(
+      resolvedOwnerKey({ kind: "server", name: "" }, "Main API"),
+      resolvedOwnerKey({ kind: "server", name: "main-api" }, "Main API"),
+    );
+  });
+
   it.each(["Invalid Name", "sdk//web", "../web", "sdk/con"])(
     "should reject %s when it is outside the safe canonical path format",
     (name) => {

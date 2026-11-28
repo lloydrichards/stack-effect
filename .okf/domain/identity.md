@@ -6,6 +6,8 @@ status: stable
 sources:
   - id: source-1
     resource: ../../packages/domain/src/Catalog.ts
+  - id: source-2
+    resource: ../../packages/domain/src/RepositoryPath.ts
 generated: { by: codex, at: "2026-11-27T15:21:22Z" }
 ---
 
@@ -14,21 +16,21 @@ generated: { by: codex, at: "2026-11-27T15:21:22Z" }
 ## TargetIdentity
 
 Definition:
-Canonical target identity with kind and name. A resolved app can also carry its placement.
+Canonical target identity with kind and name.
 
 Invariants:
 
-- `toKey()` and `toPath()` are deterministic from identity fields.
+- `toKey()` uses the canonical kind and normalized name. `toPath()` suggests a directory for a new target using the identity and catalog default name.
 - `matches()` checks either kind-level or exact-identity support rules.
 - Each slash-separated name segment is normalized to kebab-case. Group segments determine directories; the final segment names the target. `server/sdk/api` resolves to `apps/sdk/api`, while `package/sdk/client` resolves to `packages/sdk/client`.
 - npm names join all name segments with hyphens: `server-sdk-api` and `@repo/sdk-client` in those examples. Hierarchical and flat names remain different identities, but colliding npm names cannot coexist.
 - Names reject empty, hidden, dot, `node_modules`, and unsafe directory segments. Package names must be non-empty; unnamed apps retain their kind-based default.
-- Explicit app names select the named layout. A blank app name resolves to the catalog default. A dependency reuses a matching selected app. An unselected catalog default uses its default folder. An unselected non-default app uses the named layout so a copied command or later add can address it. CAFE uses fixed folders for its generated imports.
+- An omitted app name and an explicit spelling of the catalog default resolve to the same identity. Plan reuses an installed directory by exact package name and uses the suggested directory for an absent package.
 - A required target refers to an exact identity. A required module or capability on the same app kind can attach to the requesting app.
 
 Connected terms:
 
-- `TargetKind`, `TargetPath`, `TargetKey`, `SupportedOn`
+- `TargetKind`, `RepositoryPath`, `TargetKey`, `SupportedOn`
 
 In code:
 
@@ -52,15 +54,15 @@ In code:
 
 - `TargetKind`
 
-## TargetPath
+## RepositoryPath
 
 Definition:
-Canonical repository location for a target.
+A canonical POSIX path relative to the repository root. The value `.` represents the root.
 
 Invariants:
 
-- Path meaning is filesystem location.
-- Path can equal key string in practice, but the role is different.
+- Reject absolute paths, Windows drive prefixes, and empty, dot, or traversal segments. Preserve the spelling of discovered directory names.
+- Plan and Finalize derive installed target directories from the same captured owner inventory.
 
 Connected terms:
 
@@ -68,7 +70,7 @@ Connected terms:
 
 In code:
 
-- `TargetPath`
+- `RepositoryPath`
 
 ## TargetKey
 
@@ -82,7 +84,7 @@ Invariants:
 
 Connected terms:
 
-- `TargetIdentity`, `TargetPath`, `BlueprintTargetNode`
+- `TargetIdentity`, `RepositoryPath`, `BlueprintTargetNode`
 
 In code:
 

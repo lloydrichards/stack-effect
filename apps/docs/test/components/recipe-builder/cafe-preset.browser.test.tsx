@@ -15,14 +15,16 @@ test("CAFE protects a blank Foldkit target while the preset is selected", async 
   );
   await page.getByRole("button", { name: /Targets & files/u }).click();
   await page
-    .getByRole("button", { name: "Configure modules for web, client-foldkit" })
+    .getByRole("button", {
+      name: "Configure modules for client-foldkit, client-foldkit",
+    })
     .click();
 
   const settings = page.getByText("Target settings", { exact: true });
   const preset = page.getByRole("checkbox", { name: "CAFE Starter" });
   const origin = page
     .getByRole("button", {
-      name: "Configure modules for web, client-foldkit",
+      name: "Configure modules for client-foldkit, client-foldkit",
     })
     .getByText("Included by CAFE Starter");
   await expect.element(settings).toBeVisible();

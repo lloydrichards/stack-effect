@@ -1889,7 +1889,7 @@ describe("RecipePreviewer", () => {
 
         assert(failure._tag === "AmbiguousRecipeProvider");
         assert.strictEqual(failure.requestingModuleId, "todo-repository");
-        assert.strictEqual(failure.target.toKey(), "packages/db");
+        assert.strictEqual(failure.target.toKey(), "package/db");
         assert.strictEqual(failure.capability, "db-sql");
         assert.sameMembers(
           failure.providers.map(({ moduleId }) => moduleId),

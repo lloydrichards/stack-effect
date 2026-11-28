@@ -70,35 +70,35 @@ const recipes = [
       "bunx stack-effect@latest create demo-chat --target client-react/web:client-react-chat --target server/api:server-chat-rpc --no-git",
     totals: "48 create · 0 modify · 0 skip",
     blueprint:
-      blueprintSection(`${workspaceBlueprint}\n\n${bold}- apps/client-react-web (client-react)${reset}
-  ├╌> apps/client-react-web#client-react-chat
-  │   ├─> packages/domain#domain-chat-contracts ${dim}[required-module]${reset}
-  │   ╰─> packages/domain ${dim}[required-target]${reset}
-  ╰╌> apps/client-react-web#config-typescript-vite
+      blueprintSection(`${workspaceBlueprint}\n\n${bold}- client-react/web (client-react)${reset}
+  ├╌> client-react/web#client-react-chat
+  │   ├─> package/domain#domain-chat-contracts ${dim}[required-module]${reset}
+  │   ╰─> package/domain ${dim}[required-target]${reset}
+  ╰╌> client-react/web#config-typescript-vite
 
-${bold}- apps/server-api (server)${reset}
-  ├╌> apps/server-api#server-chat-rpc
-  │   ├─> packages/ai#package-ai-chat-service ${dim}[required-module]${reset}
-  │   ├─> packages/domain#domain-chat-contracts ${dim}[required-module]${reset}
-  │   ├─> packages/ai ${dim}[required-target]${reset}
-  │   ╰─> packages/domain ${dim}[required-target]${reset}
-  ╰╌> apps/server-api#server-http-api
-      ├─> packages/domain#domain-api-contracts ${dim}[required-module]${reset}
-      ╰─> packages/domain ${dim}[required-target]${reset}
+${bold}- server/api (server)${reset}
+  ├╌> server/api#server-chat-rpc
+  │   ├─> package/ai#package-ai-chat-service ${dim}[required-module]${reset}
+  │   ├─> package/domain#domain-chat-contracts ${dim}[required-module]${reset}
+  │   ├─> package/ai ${dim}[required-target]${reset}
+  │   ╰─> package/domain ${dim}[required-target]${reset}
+  ╰╌> server/api#server-http-api
+      ├─> package/domain#domain-api-contracts ${dim}[required-module]${reset}
+      ╰─> package/domain ${dim}[required-target]${reset}
 
-${bold}- packages/ai (package)${reset}
-  ├╌> packages/ai#package-ai-chat-service
-  │   ├─> packages/ai#package-ai-core ${dim}[required-module]${reset}
-  │   ╰─> packages/ai#package-ai-toolkit-think ${dim}[required-module]${reset}
-  ├╌> packages/ai#package-ai-core
-  ╰╌> packages/ai#package-ai-toolkit-think
+${bold}- package/ai (package)${reset}
+  ├╌> package/ai#package-ai-chat-service
+  │   ├─> package/ai#package-ai-core ${dim}[required-module]${reset}
+  │   ╰─> package/ai#package-ai-toolkit-think ${dim}[required-module]${reset}
+  ├╌> package/ai#package-ai-core
+  ╰╌> package/ai#package-ai-toolkit-think
 
-${bold}- packages/domain (package)${reset}
-  ├╌> packages/domain#domain-api-contracts
-  ╰╌> packages/domain#domain-chat-contracts`),
+${bold}- package/domain (package)${reset}
+  ├╌> package/domain#domain-api-contracts
+  ╰╌> package/domain#domain-chat-contracts`),
     apply: applySection(
       `${bold}.${reset}
-├── ${bold}apps/client-react-web${reset}
+├── ${bold}apps/client-web${reset}
 │   ├── ${green}[+]${reset} src/components/chat-box.tsx
 │   ├── ${green}[+]${reset} src/lib/atoms/chat-atom.ts
 │   ╰── ${green}[+]${reset} src/lib/chat-rpc-client.ts
@@ -138,23 +138,23 @@ ${bold}- packages/domain (package)${reset}
       "bunx stack-effect@latest create demo-ask --target cli/app:cli-command-chat-ask --no-git",
     totals: "28 create · 0 modify · 0 skip",
     blueprint:
-      blueprintSection(`${workspaceBlueprint}\n\n${bold}- apps/cli-app (cli)${reset}
-  ├╌> apps/cli-app#cli-chat-driver
-  │   ├─> packages/ai#package-ai-chat-service ${dim}[required-module]${reset}
-  │   ├─> packages/domain#domain-chat-contracts ${dim}[required-module]${reset}
-  │   ├─> packages/ai ${dim}[required-target]${reset}
-  │   ╰─> packages/domain ${dim}[required-target]${reset}
-  ├╌> apps/cli-app#cli-command-chat-ask
-  │   ╰─> apps/cli-app#cli-chat-driver ${dim}[required-module]${reset}
-  ╰╌> apps/cli-app#cli-command-hello
+      blueprintSection(`${workspaceBlueprint}\n\n${bold}- cli/app (cli)${reset}
+  ├╌> cli/app#cli-chat-driver
+  │   ├─> package/ai#package-ai-chat-service ${dim}[required-module]${reset}
+  │   ├─> package/domain#domain-chat-contracts ${dim}[required-module]${reset}
+  │   ├─> package/ai ${dim}[required-target]${reset}
+  │   ╰─> package/domain ${dim}[required-target]${reset}
+  ├╌> cli/app#cli-command-chat-ask
+  │   ╰─> cli/app#cli-chat-driver ${dim}[required-module]${reset}
+  ╰╌> cli/app#cli-command-hello
 
-${bold}- packages/ai (package)${reset}
-  ├╌> packages/ai#package-ai-chat-service
-  ├╌> packages/ai#package-ai-core
-  ╰╌> packages/ai#package-ai-toolkit-think
+${bold}- package/ai (package)${reset}
+  ├╌> package/ai#package-ai-chat-service
+  ├╌> package/ai#package-ai-core
+  ╰╌> package/ai#package-ai-toolkit-think
 
-${bold}- packages/domain (package)${reset}
-  ╰╌> packages/domain#domain-chat-contracts`),
+${bold}- package/domain (package)${reset}
+  ╰╌> package/domain#domain-chat-contracts`),
     apply: applySection(
       `${bold}.${reset}
 ├── ${bold}apps/cli-app${reset}

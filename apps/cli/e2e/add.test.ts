@@ -385,7 +385,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           const manifests = yield* Effect.forEach(
             [
               `${root}/package.json`,
-              `${root}/apps/api/package.json`,
+              `${root}/apps/server-api/package.json`,
               `${root}/packages/domain/package.json`,
             ],
             (path) =>
@@ -433,7 +433,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             manifests.map(({ older }) => older),
           );
           assert.isFalse(
-            yield* fs.exists(`${root}/apps/api/src/cluster/Runner.ts`),
+            yield* fs.exists(`${root}/apps/server-api/src/cluster/Runner.ts`),
           );
 
           yield* Effect.forEach(manifests, ({ path, current }) =>
@@ -443,15 +443,15 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           yield* cli.expectExitCode(0);
           yield* cli.withinProject(name, function* (project) {
             yield* project.expectFileContaining(
-              "apps/api/package.json",
+              "apps/server-api/package.json",
               `"@effect/sql-sqlite-node": "${EFFECT_VERSION}"`,
             );
             yield* project.expectFileContaining(
-              "apps/api/CLUSTER.md",
+              "apps/server-api/CLUSTER.md",
               "@effect/platform-node-shared",
             );
             yield* project.expectFileContaining(
-              "apps/api/CLUSTER.md",
+              "apps/server-api/CLUSTER.md",
               "stack-effect add --target server/api:server-cluster-counter --dry-run",
             );
             yield* project.expectTypeCheckPasses("npm");
@@ -488,7 +488,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
               "--no-git",
             );
             yield* cli.expectExitCode(0);
-            const manifestPath = `${root}/apps/app/package.json`;
+            const manifestPath = `${root}/apps/client-app/package.json`;
             const manifest = yield* fs.readFileString(manifestPath);
             assert.include(manifest, '"foldkit": "0.170.0"');
             yield* fs.writeFileString(
@@ -497,7 +497,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             );
             const paths = [
               manifestPath,
-              `${root}/apps/app/src/main.ts`,
+              `${root}/apps/client-app/src/main.ts`,
               `${root}/stack.effect.json`,
               `${root}/bun.lock`,
             ];
@@ -523,7 +523,9 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             );
             assert.deepStrictEqual(after, before);
             assert.isFalse(
-              yield* fs.exists(`${root}/apps/app/src/features/${feature}.ts`),
+              yield* fs.exists(
+                `${root}/apps/client-app/src/features/${feature}.ts`,
+              ),
             );
             assert.isFalse(yield* fs.exists(`${root}/apps/server-api`));
             yield* fs.writeFileString(manifestPath, manifest);
@@ -706,11 +708,11 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
 
           yield* cli.withinProject("impl-test", function* (project) {
             yield* project.expectFileContaining(
-              "apps/client-react-web/vite.config.ts",
+              "apps/client/vite.config.ts",
               'fileURLToPath(new URL("./src", import.meta.url))',
             );
             yield* project.expectFileContaining(
-              "apps/client-react-web/vite.config.ts",
+              "apps/client/vite.config.ts",
               "@effect-diagnostics nodeBuiltinImport:off",
             );
           });
@@ -1063,11 +1065,13 @@ await Effect.runPromise(
           yield* cli.expectExitCode(0);
 
           yield* cli.withinProject("foldkit-test", function* (project) {
-            yield* project.expectFileExists("apps/app/package.json");
-            yield* project.expectFileExists("apps/app/src/main.ts");
-            yield* project.expectFileExists("apps/app/src/features/rest.ts");
+            yield* project.expectFileExists("apps/client-app/package.json");
+            yield* project.expectFileExists("apps/client-app/src/main.ts");
+            yield* project.expectFileExists(
+              "apps/client-app/src/features/rest.ts",
+            );
             yield* project.expectFileContaining(
-              "apps/app/vite.config.ts",
+              "apps/client-app/vite.config.ts",
               'fileURLToPath(new URL("./src", import.meta.url))',
             );
             yield* project.expectTypeCheckPasses();

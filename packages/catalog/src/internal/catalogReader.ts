@@ -99,7 +99,7 @@ export const makeCatalogReader = Effect.gen(function* () {
   ) {
     const definition = yield* getModule(moduleId);
     return Arr.some(definition.supportedOn, (supportedOn) =>
-      target.matches(supportedOn),
+      target.matches(supportedOn, targetIndex.get(target.kind)?.defaultName),
     );
   });
 
@@ -170,7 +170,10 @@ export const makeCatalogReader = Effect.gen(function* () {
         Arr.contains(mod.provides ?? [], options.capability) &&
         hasVisibility(mod, options.visibility) &&
         Arr.some(mod.supportedOn, (supportedOn) =>
-          options.target.matches(supportedOn),
+          options.target.matches(
+            supportedOn,
+            targetIndex.get(options.target.kind)?.defaultName,
+          ),
         ) &&
         (options.requestingModuleId === undefined ||
           canReference(options.requestingModuleId, mod.id)),
@@ -184,11 +187,11 @@ export const makeCatalogReader = Effect.gen(function* () {
         const defaultName = targetIndex.get(owner.kind)?.defaultName;
         const identity =
           !owner.hasExplicitName() && defaultName !== undefined
-            ? owner.placeCatalogReference(defaultName)
+            ? owner.withDefaultName(defaultName)
             : owner;
         return Arr.filter(Arr.fromIterable(moduleIndex.values()), (module) =>
           Arr.some(module.supportedOn, (supportedOn) =>
-            identity.matches(supportedOn),
+            identity.matches(supportedOn, defaultName),
           ),
         );
       };
@@ -208,9 +211,15 @@ export const makeCatalogReader = Effect.gen(function* () {
           Arr.map(module.dependencies, dependencyTarget),
         );
         const defaultOwners = dependencyOwners.flatMap((reference) => {
+          if (reference.kind === "package" || reference.kind === "workspace")
+            return [];
           const defaultName = targetIndex.get(reference.kind)?.defaultName;
           return reference.hasExplicitName() &&
-            reference.placeCatalogReference(defaultName).placement === "default"
+            defaultName !== undefined &&
+            reference.matchesReference(
+              new TargetIdentity({ kind: reference.kind, name: "" }),
+              defaultName,
+            )
             ? [new TargetIdentity({ kind: reference.kind, name: "" })]
             : [];
         });
