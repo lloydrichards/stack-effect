@@ -45,7 +45,7 @@ my-app/
     │   ╰── src/
     │       ├── [+] main.tsx
     │       ╰── [+] app.tsx
-    ╰── api/
+    ╰── server-api/
         ╰── src/
             ├── [+] index.ts
             ╰── Api/

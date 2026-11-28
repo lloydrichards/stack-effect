@@ -351,9 +351,9 @@ it.live(
       );
       const paths = preview.preview.files.map((file) => file.path);
 
-      assert.include(targetKeys, TargetKey.make("client-react:apps/sdk/web"));
-      assert.include(targetKeys, TargetKey.make("server:apps/api"));
-      assert.include(targetKeys, TargetKey.make("packages/domain"));
+      assert.include(targetKeys, TargetKey.make("client-react/sdk/web"));
+      assert.include(targetKeys, TargetKey.make("server/api"));
+      assert.include(targetKeys, TargetKey.make("package/domain"));
       assert.include(paths, "stack.effect.json");
       assert.include(
         preview.preview.files.find((file) => file.path === "stack.effect.json")
@@ -370,48 +370,9 @@ it.live(
         )(sdkPackage.contents)).name,
         "client-react-sdk-web",
       );
-      assert.include(paths, "apps/api/package.json");
+      assert.include(paths, "apps/server-api/package.json");
       assert.include(paths, "packages/domain/package.json");
       assert.include(preview.preview.command, "full-stack-app");
-    }).pipe(Effect.scoped),
-);
-
-it.live(
-  "should generate named apps alongside an app using its catalog default folder",
-  () =>
-    Effect.gen(function* () {
-      const session = yield* makeSession;
-      yield* session.catalog();
-      const { preview } = yield* session.preview({
-        sessionId: 1,
-        targetIdentityKey: "named-apps",
-        input: toRecipePreviewInput({
-          ...fullStackRecipeFixture,
-          targets: [
-            ...fullStackRecipeFixture.targets.map((target) =>
-              target.kind === "client-react"
-                ? { ...target, name: "client" }
-                : target,
-            ),
-            { id: "docs", kind: "docs", name: "docs", modules: [] },
-            { id: "cli", kind: "cli", name: "", modules: [] },
-          ],
-        }),
-      });
-
-      assert.includeMembers(
-        preview.files.map(({ path }) => path),
-        [
-          "apps/client/package.json",
-          "apps/api/package.json",
-          "apps/docs/package.json",
-          "apps/cli-app/package.json",
-        ],
-      );
-      assert.notInclude(
-        preview.files.map(({ path }) => path),
-        "apps/server-api/package.json",
-      );
     }).pipe(Effect.scoped),
 );
 
@@ -539,7 +500,7 @@ it.live(
       });
       assert.include(
         preview.preview.files.map((file) => file.path),
-        "apps/api/src/ext-auth.ts",
+        "apps/server-api/src/ext-auth.ts",
       );
       assert.include(
         preview.preview.command,
@@ -600,7 +561,7 @@ it.live(
           "apps/jobs/src/commands/queue.ts",
           "packages/domain/src/SummaryJob.ts",
           "packages/db/src/Database.ts",
-          "apps/api/src/runtime/ChatManagedRuntime.ts",
+          "apps/server-api/src/runtime/ChatManagedRuntime.ts",
           "apps/web/src/lib/import-validation-worker.ts",
           "packages/ai/src/toolkits/WebFetchToolkit.ts",
           "packages/ai/src/services/AiChatService.ts",

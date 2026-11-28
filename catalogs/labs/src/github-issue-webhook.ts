@@ -7,7 +7,7 @@ const domain = { kind: "package", name: "domain" };
 
 const httpApi = {
   _tag: "required-module",
-  target: { kind: "server", name: "api" },
+  target: "self",
   moduleId: "server-http-api",
 } as const;
 

@@ -113,22 +113,22 @@ describe("@repo/domain Blueprint", () => {
     assert.deepStrictEqual(
       blueprint.nodes.map((node) => node.id),
       [
-        serverHttpApi,
         domainContracts,
         domainErrors,
-        "apps/client-react-web",
-        "apps/server-api",
-        "packages/domain",
+        serverHttpApi,
+        "client-react/web",
+        "package/domain",
+        "server/api",
       ],
     );
     assert.deepStrictEqual(
       blueprint.edges.map((edge) => edge.id),
       [
-        "owns-module=>apps/server-api=>apps/server-api#server-http-api",
-        "owns-module=>packages/domain=>packages/domain#domain-api-contracts",
-        "owns-module=>packages/domain=>packages/domain#domain-errors",
-        "required-module=>apps/server-api#server-http-api=>packages/domain#domain-api-contracts",
-        "required-target=>apps/server-api#server-http-api=>packages/domain",
+        "owns-module=>package/domain=>package/domain#domain-api-contracts",
+        "owns-module=>package/domain=>package/domain#domain-errors",
+        "owns-module=>server/api=>server/api#server-http-api",
+        "required-module=>server/api#server-http-api=>package/domain#domain-api-contracts",
+        "required-target=>server/api#server-http-api=>package/domain",
       ],
     );
   });

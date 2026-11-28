@@ -10,6 +10,7 @@ import {
   String as Str,
 } from "effect";
 import { Url } from "effect/http";
+import { RepositoryPath } from "./RepositoryPath";
 
 export class CatalogNotFound extends Schema.TaggedError<CatalogNotFound>()(
   "CatalogNotFound",
@@ -83,10 +84,6 @@ export const TargetKind = Schema.String.check(
 
 export type TargetKind = typeof TargetKind.Type;
 
-const TargetPath = Schema.String.pipe(Schema.brand("TargetPath"));
-
-export type TargetPath = typeof TargetPath.Type;
-
 /** Directory ownership overlaps only at complete segment boundaries. */
 export const targetPathsOverlap = (left: string, right: string): boolean => {
   const a = left.toLowerCase();
@@ -103,9 +100,6 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
   Schema.Struct({
     kind: TargetKind,
     name: TargetName,
-    placement: Schema.optional(
-      Schema.Literals(["default", "named", "implicit"]),
-    ),
   }).check(
     Schema.makeFilter(
       (identity) =>
@@ -113,69 +107,63 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
         identity.name.trim().length > 0 ||
         "Package targets require a non-empty name",
     ),
-    Schema.makeFilter(
-      (identity) =>
-        identity.placement !== "named" ||
-        identity.name.trim().length > 0 ||
-        "Named app targets require a non-empty name",
-    ),
   ),
 ) {
   hasExplicitName(): boolean {
-    return targetNameSlug(this).length > 0;
+    return this.name.trim().length > 0;
   }
 
-  // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve and packageOwnership
-  toPath(): TargetPath {
-    return TargetPath.make(
-      this.placement === "named" &&
-        this.kind !== "package" &&
-        this.kind !== "workspace"
-        ? `apps/${targetNameSegments(this).join("/")}`
-        : toTargetPathString(this),
+  toPath(defaultName?: string): RepositoryPath {
+    const segments = targetNameSegments(this.name);
+    if (this.kind === "workspace") return RepositoryPath.make(".");
+    if (this.kind === "package")
+      return RepositoryPath.make(`packages/${segments.join("/")}`);
+
+    if (
+      segments.length > 0 &&
+      segments.join("/") !== targetNameSegments(defaultName ?? "").join("/")
+    )
+      return RepositoryPath.make(`apps/${segments.join("/")}`);
+
+    const prefix =
+      this.kind === "client-react" || this.kind === "client-foldkit"
+        ? "client"
+        : this.kind;
+    const leaf = segments.at(-1);
+    return RepositoryPath.make(
+      [
+        "apps",
+        ...segments.slice(0, -1),
+        leaf ? `${prefix}-${leaf}` : prefix,
+      ].join("/"),
     );
   }
 
   toKey(): TargetKey {
     return TargetKey.make(
-      this.placement === "named" &&
-        this.kind !== "package" &&
-        this.kind !== "workspace"
-        ? `${this.kind}:${this.toPath()}`
-        : toTargetPathString(this),
+      this.kind === "workspace" ? "." : `${this.kind}/${this.canonicalName()}`,
     );
   }
 
-  matchesReference(reference: TargetIdentity): boolean {
+  matchesReference(reference: TargetIdentity, defaultName?: string): boolean {
     return (
       this.kind === reference.kind &&
-      (toTargetPathString(this) === toTargetPathString(reference) ||
-        (this.placement === "default" && !reference.hasExplicitName()))
+      (this.kind === "workspace" ||
+        this.canonicalName(defaultName) ===
+          reference.canonicalName(defaultName))
     );
   }
 
-  placeCatalogReference(defaultName: string | undefined): TargetIdentity {
-    if (
-      this.placement !== undefined ||
-      this.kind === "package" ||
-      this.kind === "workspace"
-    )
-      return this;
-
-    if (defaultName !== undefined) {
-      const fallback = new TargetIdentity({
-        kind: this.kind,
-        name: defaultName,
-        placement: "default",
-      });
-      if (fallback.matchesReference(this)) return fallback;
-    }
-
+  withDefaultName(defaultName?: string): TargetIdentity {
     return new TargetIdentity({
       kind: this.kind,
-      name: this.name,
-      placement: this.hasExplicitName() ? "named" : "implicit",
+      name: this.canonicalName(defaultName),
     });
+  }
+
+  private canonicalName(defaultName?: string): string {
+    const name = this.name.trim() === "" ? (defaultName ?? "") : this.name;
+    return targetNameSegments(name).join("/");
   }
 
   /**
@@ -184,7 +172,6 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
    * - Apps use flat names: `<kind>` or `<kind>-<name>`
    * Hierarchical name segments are joined with hyphens for npm names.
    */
-  // fallow-ignore-next-line unused-class-member -- called by BlueprintResolver.resolve and packageOwnership
   toPackageName(): string {
     const slug = targetNameSlug(this);
     const resolvedName = slug || this.kind;
@@ -198,40 +185,21 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     }
   }
 
-  matches(supportedOn: SupportedOn): boolean {
+  matches(supportedOn: SupportedOn, defaultName?: string): boolean {
     return SupportedOn.match(supportedOn, {
-      identity: (s) => this.matchesReference(s.identity),
+      identity: (s) => this.matchesReference(s.identity, defaultName),
       kind: (s) => s.kind === this.kind,
     });
   }
 }
 
-const targetNameSegments = (identity: TargetIdentity): Array<string> =>
-  identity.name.trim() === ""
+const targetNameSegments = (name: string): Array<string> =>
+  name.trim() === ""
     ? []
-    : identity.name.split("/").map((segment) => Str.kebabCase(segment.trim()));
+    : name.split("/").map((segment) => Str.kebabCase(segment.trim()));
 
 const targetNameSlug = (identity: TargetIdentity): string =>
-  targetNameSegments(identity).join("-");
-
-const toTargetPathString = (identity: TargetIdentity): string => {
-  const segments = targetNameSegments(identity);
-  const leaf = segments.at(-1) ?? "";
-  const group = segments.slice(0, -1);
-
-  switch (identity.kind) {
-    case "workspace":
-      return ".";
-    case "package":
-      return `packages/${segments.join("/")}`;
-    default:
-      return [
-        "apps",
-        ...group,
-        `${identity.kind}${leaf ? `-${leaf}` : ""}`,
-      ].join("/");
-  }
-};
+  targetNameSegments(identity.name).join("-");
 
 const SupportedOn = Schema.TaggedUnion({
   kind: {
@@ -385,9 +353,16 @@ export const Contribution = Schema.TaggedUnion({
 
 export type Contribution = typeof Contribution.Type;
 
+const ModuleDependencyTarget = Schema.Union([
+  Schema.Literal("self"),
+  TargetIdentity,
+]);
+export type ModuleDependencyTarget = typeof ModuleDependencyTarget.Type;
+
 /**
  * A ModuleDependency declares a requirement that must be satisfied before
- * a module can be attached.
+ * a module can be attached. Module and capability dependencies can refer to
+ * the requesting target with `"self"` or name a target explicitly.
  *
  * Tagged union of dependency types:
  * - `required-target`: Target must exist as a workspace (no specific module required)
@@ -412,7 +387,7 @@ export const ModuleDependency = Schema.TaggedUnion({
    * a required-target edge and a required-module edge when resolving.
    */
   "required-module": {
-    target: TargetIdentity,
+    target: ModuleDependencyTarget,
     moduleId: ModuleId,
   },
 
@@ -422,12 +397,20 @@ export const ModuleDependency = Schema.TaggedUnion({
    * Blueprint resolution; Blueprint treats unresolved capabilities as invalid.
    */
   "required-capability": {
-    target: TargetIdentity,
+    target: ModuleDependencyTarget,
     capability: ModuleCapability,
   },
 });
 
 export type ModuleDependency = typeof ModuleDependency.Type;
+
+/** Resolves a module or capability dependency relative to its requesting target. */
+export const bindModuleDependencyTarget = <
+  Owner extends { readonly kind: string; readonly name: string },
+>(
+  requester: Owner,
+  reference: ModuleDependencyTarget,
+): Owner | TargetIdentity => (reference === "self" ? requester : reference);
 
 const Visibility = Schema.Literals(["public", "internal"]);
 
@@ -696,15 +679,13 @@ const CatalogTreeModule = Schema.Struct({
   categories: Schema.Array(ModuleCategory),
   requires: Schema.Array(
     Schema.Struct({
-      targetKind: TargetKind,
-      targetName: Schema.String,
+      target: ModuleDependencyTarget,
       moduleId: ModuleId,
     }),
   ),
   requiredCapabilities: Schema.Array(
     Schema.Struct({
-      targetKind: TargetKind,
-      targetName: Schema.String,
+      target: ModuleDependencyTarget,
       capability: ModuleCapability,
     }),
   ),

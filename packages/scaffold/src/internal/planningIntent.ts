@@ -72,74 +72,68 @@ const PlanningIntentEntry = Schema.Union([
 
 type PlanningIntentEntry = typeof PlanningIntentEntry.Type;
 
-const toPlanningIntentEntries = (
-  contributions: ReadonlyArray<Contribution>,
-): ReadonlyArray<PlanningIntentEntry> =>
-  contributions.flatMap(
-    Contribution.match({
-      file: (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.authoritative.make({
-          path: RepositoryPath.make(c.path),
-          contents: c.contents,
-          conflictOnModify: c.conflictOnModify ?? false,
-        }),
-      ],
-      "pkg-json-entry": (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.packageJsonEntry.make({
-          path: RepositoryPath.make(c.path),
-          field: c.field,
-          name: c.name,
-          value: c.value,
-        }),
-      ],
-      "ts-call-arg": (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.tsCallArg.make({
-          path: RepositoryPath.make(c.path),
-          targetVariable: c.targetVariable,
-          functionName: c.functionName,
-          argument: c.argument,
-          import: {
-            moduleSpecifier: c.import.moduleSpecifier,
-            namedImports: c.import.namedImports,
-            defaultImport: c.import.defaultImport,
-            namespaceImport: c.import.namespaceImport,
-          },
-        }),
-      ],
-      "ts-object-field": (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.tsObjectField.make({
-          path: RepositoryPath.make(c.path),
-          targetVariable: c.targetVariable,
-          functionName: c.functionName,
-          field: c.field,
-          value: c.value,
-          import: c.import
-            ? {
-                moduleSpecifier: c.import.moduleSpecifier,
-                namedImports: c.import.namedImports,
-                defaultImport: c.import.defaultImport,
-                namespaceImport: c.import.namespaceImport,
-              }
-            : undefined,
-        }),
-      ],
-      "jsx-slot": (c): ReadonlyArray<PlanningIntentEntry> => [
-        PlanningIntentEntry.cases.jsxSlot.make({
-          path: RepositoryPath.make(c.path),
-          slotId: c.slotId,
-          content: c.content,
-          import: c.import
-            ? {
-                moduleSpecifier: c.import.moduleSpecifier,
-                namedImports: c.import.namedImports,
-                defaultImport: c.import.defaultImport,
-                namespaceImport: c.import.namespaceImport,
-              }
-            : undefined,
-        }),
-      ],
-    }),
-  );
+const toPlanningIntentEntry = (
+  contribution: Contribution,
+  path: RepositoryPath,
+): PlanningIntentEntry =>
+  Contribution.match(contribution, {
+    file: (c) =>
+      PlanningIntentEntry.cases.authoritative.make({
+        path,
+        contents: c.contents,
+        conflictOnModify: c.conflictOnModify ?? false,
+      }),
+    "pkg-json-entry": (c) =>
+      PlanningIntentEntry.cases.packageJsonEntry.make({
+        path,
+        field: c.field,
+        name: c.name,
+        value: c.value,
+      }),
+    "ts-call-arg": (c) =>
+      PlanningIntentEntry.cases.tsCallArg.make({
+        path,
+        targetVariable: c.targetVariable,
+        functionName: c.functionName,
+        argument: c.argument,
+        import: {
+          moduleSpecifier: c.import.moduleSpecifier,
+          namedImports: c.import.namedImports,
+          defaultImport: c.import.defaultImport,
+          namespaceImport: c.import.namespaceImport,
+        },
+      }),
+    "ts-object-field": (c) =>
+      PlanningIntentEntry.cases.tsObjectField.make({
+        path,
+        targetVariable: c.targetVariable,
+        functionName: c.functionName,
+        field: c.field,
+        value: c.value,
+        import: c.import
+          ? {
+              moduleSpecifier: c.import.moduleSpecifier,
+              namedImports: c.import.namedImports,
+              defaultImport: c.import.defaultImport,
+              namespaceImport: c.import.namespaceImport,
+            }
+          : undefined,
+      }),
+    "jsx-slot": (c) =>
+      PlanningIntentEntry.cases.jsxSlot.make({
+        path,
+        slotId: c.slotId,
+        content: c.content,
+        import: c.import
+          ? {
+              moduleSpecifier: c.import.moduleSpecifier,
+              namedImports: c.import.namedImports,
+              defaultImport: c.import.defaultImport,
+              namespaceImport: c.import.namespaceImport,
+            }
+          : undefined,
+      }),
+  });
 
 type PlanningIntentEntryGroups = {
   authoritative: ReadonlyArray<PlanningIntentAuthoritativeEntry>;
@@ -379,10 +373,22 @@ const derivePlanningIntentPath = Effect.fnUntraced(function* (
 export const compile = Effect.fnUntraced(function* (
   normalizedContributions: NormalizedContributions,
 ): Effect.fn.Return<ReadonlyArray<PlanningIntentPath>, PlanError> {
-  const entries = [
+  const contributions = [
     ...normalizedContributions.targets,
     ...normalizedContributions.modules,
-  ].flatMap((entry) => toPlanningIntentEntries(entry.contributions));
+  ].flatMap((entry) => entry.contributions);
+  const entries = yield* Effect.forEach(contributions, (contribution) =>
+    Schema.decodeEffect(RepositoryPath)(contribution.path).pipe(
+      Effect.map((path) => toPlanningIntentEntry(contribution, path)),
+      Effect.mapError(
+        (cause) =>
+          new PlanError({
+            message: `Invalid contribution path ${contribution.path}`,
+            cause,
+          }),
+      ),
+    ),
+  );
 
   return yield* Effect.forEach(
     Object.values(Arr.groupBy(entries, (entry) => entry.path)),

@@ -103,10 +103,7 @@ export const cliModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: {
-          kind: "cli",
-          name: "app",
-        },
+        target: "self",
         moduleId: "cli-chat-driver",
       },
     ],
@@ -139,10 +136,7 @@ export const cliModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: {
-          kind: "cli",
-          name: "app",
-        },
+        target: "self",
         moduleId: "cli-chat-driver",
       },
     ],

@@ -1,5 +1,6 @@
+import type { CatalogReader } from "@repo/catalog/Catalog";
 import { Blueprint, BlueprintNode } from "@repo/domain/Blueprint";
-import { targetPathsOverlap } from "@repo/domain/Catalog";
+import { type TargetIdentity, targetPathsOverlap } from "@repo/domain/Catalog";
 import {
   type PackageOwner,
   PlanError,
@@ -26,14 +27,15 @@ const ManifestName = Schema.fromJsonString(
 /** @internal */
 export const parsePackageOwner = (manifestPath: string, contents: string) =>
   Schema.decodeEffect(ManifestName)(contents).pipe(
-    Effect.map(({ name }): PackageOwner => ({
-      path: RepositoryPath.make(manifestPath.slice(0, -"/package.json".length)),
-      name,
-    })),
+    Effect.flatMap(({ name }) =>
+      Schema.decodeEffect(RepositoryPath)(
+        manifestPath.slice(0, -"/package.json".length),
+      ).pipe(Effect.map((path): PackageOwner => ({ path, name }))),
+    ),
     Effect.mapError(
       (cause) =>
         new PlanError({
-          message: `Cannot inspect package ownership at ${manifestPath}: invalid package JSON or missing name`,
+          message: `Cannot inspect package ownership at ${manifestPath}: invalid package path or manifest`,
           cause,
         }),
     ),
@@ -61,32 +63,48 @@ export const assertDistinctOwners = Effect.fnUntraced(function* (
 });
 
 /** @internal */
-export const validatePackageOwners = Effect.fnUntraced(function* (
+export const packagePath = (
+  identity: TargetIdentity,
+  defaultName: string | undefined,
+  owners: ReadonlyArray<PackageOwner>,
+): RepositoryPath =>
+  identity.kind === "workspace"
+    ? identity.toPath()
+    : (owners.find(({ name }) => name === identity.toPackageName())?.path ??
+      identity.toPath(defaultName));
+
+/** @internal */
+export const resolvePackagePaths = Effect.fnUntraced(function* (
   blueprint: Blueprint,
   existing: ReadonlyArray<PackageOwner>,
+  catalog: CatalogReader["Service"],
 ) {
-  const proposed = blueprint.nodes
-    .filter(BlueprintNode.guards.target)
-    .filter((node) => node.identity.kind !== "workspace")
-    .map((node): PackageOwner => ({
-      path: RepositoryPath.make(node.identity.toPath()),
-      name: node.identity.toPackageName(),
-    }));
+  const targets = blueprint.nodes.filter(BlueprintNode.guards.target);
+  const locations = yield* Effect.forEach(targets, ({ id, identity }) =>
+    Effect.map(catalog.getTarget(identity.kind), ({ defaultName }) => ({
+      id,
+      kind: identity.kind,
+      name: identity.toPackageName(),
+      path: packagePath(identity, defaultName, existing),
+    })),
+  );
+  const proposed = locations.filter(({ kind }) => kind !== "workspace");
   yield* assertDistinctOwners(proposed);
 
-  const relocation = Arr.findFirst(proposed, (owner) =>
+  const conflict = Arr.findFirst(proposed, (owner) =>
     Arr.findFirst(existing, (other) => {
       const sameName = CaseInsensitive(owner.name, other.name);
-      if (owner.path === other.path && sameName) return false;
+      if (owner.path === other.path && owner.name === other.name) return false;
       return sameName || targetPathsOverlap(owner.path, other.path);
     }).pipe(Option.map((other) => ({ owner, other }))),
   );
-  if (Option.isSome(relocation)) {
-    const { owner, other } = relocation.value;
+  if (Option.isSome(conflict)) {
+    const { owner, other } = conflict.value;
     return yield* new PlanError({
-      message: `Cannot inspect package ownership at ${owner.path}: package ${owner.name} overlaps or relocates ${other.name} at ${other.path}`,
+      message: `Cannot inspect package ownership at ${owner.path}: package ${owner.name} conflicts with ${other.name} at ${other.path}`,
     });
   }
+  return new Map(locations.map(({ id, path }) => [id, path]));
 });
 
 const isOwnedBy = (root: string, owner: string) => {

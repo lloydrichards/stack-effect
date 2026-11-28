@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { TargetIdentity, TargetKey, TargetKind } from "@repo/domain/Catalog";
+import { TargetIdentity, TargetKind } from "@repo/domain/Catalog";
 import {
   ContributionTokenContext,
   Plan,
@@ -7,6 +7,29 @@ import {
 } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { Schema } from "effect";
+
+it("decodes canonical repository paths and rejects aliases and traversal", () => {
+  for (const path of [
+    ".",
+    "apps/backend/api",
+    "apps/vendor:api",
+    "packages/User App/package.json",
+  ])
+    assert.strictEqual(Schema.decodeUnknownSync(RepositoryPath)(path), path);
+
+  for (const path of [
+    "",
+    "/apps/api",
+    "../api",
+    "apps/../api",
+    "apps//api",
+    "apps/./api",
+    "apps/api/",
+    "C:\\api",
+    "C:api",
+  ])
+    assert.isFalse(Schema.is(RepositoryPath)(path), path);
+});
 
 describe("@repo/domain Plan", () => {
   const baseline = {
@@ -380,11 +403,17 @@ describe("ContributionTokenContext.resolve", () => {
     const recipe =
       "bunx stack-effect@latest create sdk --catalog 'mine=https://example.com/catalog.json?q=$&'";
     const context = new ContributionTokenContext({
-      targetKey: nested.toKey(),
+      targetPath: nested.toPath(),
       identity: nested,
       config: new StackConfig({ name: "sdk", runtime: { _tag: "bun" } }),
       scaffoldRecipe: recipe,
-      projectTargets: [{ identity: nested, description: "Price $& guide" }],
+      projectTargets: [
+        {
+          identity: nested,
+          targetPath: nested.toPath(),
+          description: "Price $& guide",
+        },
+      ],
     });
 
     assert.strictEqual(context.resolve("{{scaffoldRecipe}}"), recipe);
@@ -393,7 +422,7 @@ describe("ContributionTokenContext.resolve", () => {
 
   it("should resolve path tokens and a flat npm name when the target name is nested", () => {
     const context = new ContributionTokenContext({
-      targetKey: nested.toKey(),
+      targetPath: nested.toPath(),
       identity: nested,
       config: new StackConfig({ name: "sdk", runtime: { _tag: "bun" } }),
     });
@@ -413,7 +442,7 @@ describe("ContributionTokenContext.resolve", () => {
     moduleIds?: ReadonlyArray<string>,
   ) =>
     new ContributionTokenContext({
-      targetKey: TargetKey.make("apps/server-api"),
+      targetPath: RepositoryPath.make("apps/server-api"),
       identity: new TargetIdentity({
         kind: TargetKind.make("server"),
         name: "api",
@@ -448,7 +477,7 @@ describe("ContributionTokenContext.resolve", () => {
         name,
       });
       const context = new ContributionTokenContext({
-        targetKey: identity.toKey(),
+        targetPath: identity.toPath(),
         identity,
         config: new StackConfig({
           name: "my-project",
@@ -514,7 +543,7 @@ describe("ContributionTokenContext.resolve", () => {
       name: "",
     });
     const context = new ContributionTokenContext({
-      targetKey: workspace.toKey(),
+      targetPath: workspace.toPath(),
       identity: workspace,
       config: new StackConfig({ name: "my-project", runtime: { _tag: "bun" } }),
     });
@@ -533,7 +562,7 @@ describe("ContributionTokenContext.resolve", () => {
       name: "api",
     });
     const context = new ContributionTokenContext({
-      targetKey: api.toKey(),
+      targetPath: api.toPath("api"),
       identity: api,
       config: new StackConfig({ name: "my-project", runtime: { _tag: "bun" } }),
       projectTargets: [
@@ -542,9 +571,14 @@ describe("ContributionTokenContext.resolve", () => {
             kind: TargetKind.make("workspace"),
             name: "",
           }),
+          targetPath: RepositoryPath.make("."),
           description: "Root",
         },
-        { identity: api, description: "Serves | the API\nover HTTP" },
+        {
+          identity: api,
+          targetPath: RepositoryPath.make("apps/My API"),
+          description: "Serves | the API\nover HTTP",
+        },
       ],
     });
 
@@ -553,7 +587,7 @@ describe("ContributionTokenContext.resolve", () => {
       [
         "| Workspace | Responsibility |",
         "| --- | --- |",
-        "| [apps/server-api](apps/server-api) | Serves \\| the API over HTTP |",
+        "| [apps/My API](apps/My%20API) | Serves \\| the API over HTTP |",
       ],
     );
   });
@@ -583,7 +617,7 @@ describe("ContributionTokenContext.resolve", () => {
         name: "api",
       });
       const context = new ContributionTokenContext({
-        targetKey: api.toKey(),
+        targetPath: api.toPath("api"),
         identity: api,
         config: new StackConfig({
           name: "my-project",
@@ -594,6 +628,9 @@ describe("ContributionTokenContext.resolve", () => {
             kind: TargetKind.make(kind),
             name: kind === "workspace" ? "" : "core",
           }),
+          targetPath: RepositoryPath.make(
+            kind === "workspace" ? "." : "apps/core",
+          ),
           description: kind,
         })),
       });

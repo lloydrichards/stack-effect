@@ -24,8 +24,8 @@ Invariants:
 
 - Identity is `kind`. The `title` is a display label for target pickers and can change independently of the kind.
 - Includes contributions and optional scripts.
-- An explicit recipe app name maps to `apps/<name>`, including nested name segments. An omitted app name uses the catalog default and the kind-prefixed layout. Catalog dependency identities keep their default placement when the recipe does not select a matching app.
-- App folder ownership is exclusive across kinds. Package names keep their kind prefix so Plan can detect an attempt to create the same app at another path. Recipe resolution keeps the kind in named target keys so Blueprint can detect conflicting folder claims before planning.
+- An omitted app name and an explicit name equivalent to the catalog default resolve to the same target. Default folders use a kind prefix. React and Foldkit share the default `apps/client` directory while retaining their full kind in their package names. Non-default explicit app names map to `apps/<name>`, including nested grouping segments.
+- Logical target keys use the canonical kind and normalized name. Blueprint rejects distinct targets that claim the same package name. Plan resolves the actual directory by package name and checks directory ownership under the [repository state decision](../architecture/plan-apply-repository-state.md#preserve-package-ownership).
 
 Connected terms:
 
@@ -44,7 +44,7 @@ Invariants:
 
 - Identity is `id: ModuleId`.
 - Compatibility is declared via `SupportedOn` rules.
-- Dependencies are tagged as `required-target`, `required-module`, or `required-capability`. A required module also requires its owning target. Provider selection must resolve a required capability before Blueprint resolution; recipe resolution does this by [provider strategy](../architecture/catalog.md#capability-provider-resolution "defines provider resolution").
+- Dependencies are tagged as `required-target`, `required-module`, or `required-capability`. A required module also requires its owning target. Module and capability dependencies use `target: "self"` for the requesting target, or a target identity for a specific destination. An empty identity name selects that kind’s default. Target dependencies always use an identity. Provider selection must resolve a required capability before Blueprint resolution; recipe resolution does this by [provider strategy](../architecture/catalog.md#capability-provider-resolution "defines provider resolution").
 - Children declare same-target parent-child relationships for nested selection UI.
 - Modules contribute only to their owning targets; target paths derive from the identity name, including slash-separated group segments.
 - A catalog document containing a hierarchical default name, exact owner identity, or dependency identity requires the `target:hierarchical-name` interpreter capability. Ordinary contribution strings do not require it; flat catalog capability sets remain unchanged.
@@ -65,7 +65,7 @@ A parent-child relationship between modules on the same target, used to organize
 
 Invariants:
 
-- Required children must support every target their parent supports. Optional children must share at least one supported target with their parent. An explicitly named app and the catalog-default app can have the same name and occupy different folders. See source 3.
+- Required children must support every target their parent supports. Optional children must share at least one supported target with their parent. See source 3.
 - Requirement is either `"required"` (auto-selected when parent selected, not user-toggleable) or `"optional"` (user can toggle).
 - A module listed as a child is excluded from top-level selection lists (inferred from parent relationship).
 - Children are a UI/selection concept only; they do not affect Blueprint dependency resolution.

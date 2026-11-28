@@ -6,7 +6,7 @@ In this guide you create a catalog project, change its starter module, and valid
 
 A catalog uses four terms. [How Stack Effect changes your repository](/how-it-works) explains the rest.
 
-- **Target**: a place in the repository, such as a server app at `apps/api`. Its **kind** (`server`) says what sort of place it is.
+- **Target**: a place in the repository, such as a server app at `apps/server-api`. Its **kind** (`server`) says what sort of place it is.
 - **Module**: a feature added to a target, such as an HTTP API on a server.
 - **Contribution**: one change a module or target makes, such as a whole file or one `package.json` script.
 - **Finalize scripts**: commands, such as `bun install`, that run after the files are written.
@@ -504,7 +504,7 @@ bun run validate
 bun run preview server/api:ext-greeting
 ```
 
-Validation now reports `0 targets, 1 modules`. The preview's Blueprint shows `server-http-api` added to `apps/api` as a required module, and the planned `package.json` contains the `greet` script.
+Validation now reports `0 targets, 1 modules`. The preview's Blueprint shows `server-http-api` added to `apps/server-api` as a required module, and the planned `package.json` contains the `greet` script.
 
 Without the changes in step 2, a module on an official kind fails validation:
 

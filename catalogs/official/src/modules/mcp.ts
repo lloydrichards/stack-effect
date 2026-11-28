@@ -165,12 +165,12 @@ export const mcpModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: { kind: "server-mcp", name: "mcp" },
+        target: "self",
         moduleId: "mcp-toolkit-math",
       },
       {
         _tag: "required-module",
-        target: { kind: "server-mcp", name: "mcp" },
+        target: "self",
         moduleId: "mcp-resource-primer",
       },
       {

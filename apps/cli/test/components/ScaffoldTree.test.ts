@@ -107,9 +107,9 @@ describe("ScaffoldTree", () => {
     const result = ScaffoldTree.formatBlueprint(blueprint);
     const rendered = Box.renderPlainSync(result.content);
     expect(result.title).toBe("Blueprint");
-    expect(rendered).toContain("apps/server-api");
+    expect(rendered).toContain("server/api");
     expect(rendered).toContain("server-http-api");
-    expect(rendered).toContain("packages/domain");
+    expect(rendered).toContain("package/domain");
     expect(rendered).toContain("domain-api-contracts");
     expect(rendered).toContain("required-target");
     expect(rendered).toContain("required-module");

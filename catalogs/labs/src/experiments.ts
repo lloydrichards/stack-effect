@@ -19,10 +19,7 @@ export const experiments = defineModules(import.meta.url, [
       },
       {
         _tag: "required-module",
-        target: {
-          kind: "server",
-          name: "api",
-        },
+        target: "self",
         moduleId: "server-chat-rpc",
       },
     ],

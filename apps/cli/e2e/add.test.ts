@@ -359,56 +359,6 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
     );
 
     it.effect(
-      "requires the named server when a later add would create a second server",
-      () =>
-        Effect.gen(function* () {
-          const cli = yield* CLI;
-          const name = "existing-named-server";
-          const root = `${cli.workdir}/${name}`;
-
-          yield* cli.run(
-            "create",
-            name,
-            ...labsCatalogArgs,
-            "--root",
-            cli.workdir,
-            "--target",
-            "server/api:server-http-api",
-            "--yes",
-            "--no-git",
-          );
-          yield* cli.expectExitCode(0);
-
-          const add = [
-            "add",
-            "--root",
-            root,
-            "--target",
-            "cli/:cli-cluster-counter",
-            "--yes",
-          ];
-          const rejected = yield* cli.run(...add);
-          assert.strictEqual(rejected.exitCode, 1);
-          assert.include(
-            rejected.stdout + rejected.stderr,
-            "overlaps or relocates",
-          );
-          assert.include(rejected.stdout + rejected.stderr, "apps/api");
-
-          yield* cli.run(
-            ...add,
-            "--target",
-            "server/api:server-http-api",
-            "--dry-run",
-          );
-          yield* cli.expectExitCode(0);
-          yield* cli.withinProject(name, function* (project) {
-            yield* project.expectFileNotExists("apps/server-api/package.json");
-          });
-        }),
-    );
-
-    it.effect(
       "requires an Effect upgrade before adding Cluster Counter to an older npm project",
       () =>
         Effect.gen(function* () {
@@ -435,7 +385,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           const manifests = yield* Effect.forEach(
             [
               `${root}/package.json`,
-              `${root}/apps/api/package.json`,
+              `${root}/apps/server-api/package.json`,
               `${root}/packages/domain/package.json`,
             ],
             (path) =>
@@ -483,7 +433,7 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
             manifests.map(({ older }) => older),
           );
           assert.isFalse(
-            yield* fs.exists(`${root}/apps/api/src/cluster/Runner.ts`),
+            yield* fs.exists(`${root}/apps/server-api/src/cluster/Runner.ts`),
           );
 
           yield* Effect.forEach(manifests, ({ path, current }) =>
@@ -493,15 +443,15 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
           yield* cli.expectExitCode(0);
           yield* cli.withinProject(name, function* (project) {
             yield* project.expectFileContaining(
-              "apps/api/package.json",
+              "apps/server-api/package.json",
               `"@effect/sql-sqlite-node": "${EFFECT_VERSION}"`,
             );
             yield* project.expectFileContaining(
-              "apps/api/CLUSTER.md",
+              "apps/server-api/CLUSTER.md",
               "@effect/platform-node-shared",
             );
             yield* project.expectFileContaining(
-              "apps/api/CLUSTER.md",
+              "apps/server-api/CLUSTER.md",
               "stack-effect add --target server/api:server-cluster-counter --dry-run",
             );
             yield* project.expectTypeCheckPasses("npm");
@@ -756,11 +706,11 @@ assert.deepEqual(Effect.runSync(planTasks(tasks)), ["build", "publish"]);
 
           yield* cli.withinProject("impl-test", function* (project) {
             yield* project.expectFileContaining(
-              "apps/client-react-web/vite.config.ts",
+              "apps/client/vite.config.ts",
               'fileURLToPath(new URL("./src", import.meta.url))',
             );
             yield* project.expectFileContaining(
-              "apps/client-react-web/vite.config.ts",
+              "apps/client/vite.config.ts",
               "@effect-diagnostics nodeBuiltinImport:off",
             );
           });

@@ -14,7 +14,7 @@ import {
   StackConfigDefaults,
 } from "@repo/domain/StackConfig";
 import { useForm } from "@tanstack/react-form";
-import { Array as Arr, Context, Schema } from "effect";
+import { Array as Arr, Context, Option, Schema } from "effect";
 
 export const ProjectName = Schema.String.check(
   Schema.makeFilter((name) => {
@@ -78,12 +78,14 @@ export const ownerKey = (owner: {
   readonly name: string;
 }): string => `${owner.kind}/${owner.name}`;
 
-export const resolvedOwnerKey = (identity: TargetIdentity): string =>
-  ownerKey(
-    identity.placement === "default"
-      ? { kind: identity.kind, name: "" }
-      : identity,
-  );
+export const resolvedOwnerKey = (
+  owner: Parameters<typeof ownerKey>[0],
+  defaultName?: string,
+): string =>
+  Option.match(Schema.decodeOption(TargetIdentity)(owner), {
+    onNone: () => ownerKey(owner),
+    onSome: (identity) => identity.withDefaultName(defaultName).toKey(),
+  });
 
 export type SupportConfiguration = {
   readonly owner: { readonly kind: string; readonly name: string };

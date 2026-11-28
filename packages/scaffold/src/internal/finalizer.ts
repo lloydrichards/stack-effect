@@ -20,6 +20,7 @@ import {
 import { ChildProcess } from "effect/process";
 import { ChildProcessSpawner } from "effect/process/ChildProcessSpawner";
 import type { FinalizeConfig, FinalizeExecution } from "../Finalize";
+import { packagePath } from "./packageOwnership";
 
 /**
  * The source is part of the key, so a custom script can never stand in for an
@@ -57,10 +58,15 @@ const attachedModules = (blueprint: Blueprint) => {
 const createTokenContext = (
   config: FinalizeConfig,
   target: BlueprintTargetNode,
+  defaultName: string | undefined,
 ) =>
   new ContributionTokenContext({
-    targetKey: target.id,
     identity: target.identity,
+    targetPath: packagePath(
+      target.identity,
+      defaultName,
+      config.baseline?.packageOwners ?? [],
+    ),
     config: config.config,
   });
 
@@ -132,8 +138,10 @@ export const make = Effect.gen(function* () {
     config: FinalizeConfig,
     node: BlueprintTargetNode,
   ) {
-    const { scripts } = yield* catalog.getTarget(node.identity.kind);
-    const context = createTokenContext(config, node);
+    const { scripts, defaultName } = yield* catalog.getTarget(
+      node.identity.kind,
+    );
+    const context = createTokenContext(config, node, defaultName);
     const source = sourceField(
       catalog.getSource({ _tag: "target", kind: node.identity.kind }),
     );
@@ -160,7 +168,8 @@ export const make = Effect.gen(function* () {
     },
   ) {
     const { scripts } = yield* catalog.getModule(moduleNode.moduleId);
-    const context = createTokenContext(config, targetNode);
+    const { defaultName } = yield* catalog.getTarget(targetNode.identity.kind);
+    const context = createTokenContext(config, targetNode, defaultName);
     const source = sourceField(
       catalog.getSource({ _tag: "module", id: moduleNode.moduleId }),
     );
@@ -253,7 +262,7 @@ export const make = Effect.gen(function* () {
       Effect.map(catalog.getTarget(node.identity.kind), (definition) =>
         resolveNextSteps(
           definition.nextSteps,
-          createTokenContext(config, node),
+          createTokenContext(config, node, definition.defaultName),
         ),
       ),
     );
@@ -261,15 +270,18 @@ export const make = Effect.gen(function* () {
     const moduleSteps = yield* Effect.forEach(
       modules,
       ({ moduleNode, targetNode }) =>
-        Effect.map(catalog.getModule(moduleNode.moduleId), (definition) =>
-          resolveNextSteps(
+        Effect.gen(function* () {
+          const definition = yield* catalog.getModule(moduleNode.moduleId);
+          const { defaultName } = yield* catalog.getTarget(
+            targetNode.identity.kind,
+          );
+          return resolveNextSteps(
             definition.nextSteps,
-            createTokenContext(config, targetNode),
-          ),
-        ),
+            createTokenContext(config, targetNode, defaultName),
+          );
+        }),
     );
 
-    // NOTE: Exact next-step text is the stable identity; preserve the first occurrence.
     return Arr.dedupe([...targetSteps.flat(), ...moduleSteps.flat()]);
   });
 

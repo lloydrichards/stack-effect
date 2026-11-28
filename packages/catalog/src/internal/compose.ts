@@ -8,8 +8,9 @@ import {
   type ModuleDefinition,
   type ModuleId,
   ModuleDependency,
+  type ModuleDependencyTarget,
   type SupportedOn,
-  TargetIdentity,
+  type TargetKind,
   catalogIssueLabel,
   duplicates,
 } from "@repo/domain/Catalog";
@@ -247,11 +248,9 @@ const targetIssues = (
   });
 };
 
-const dependencyOwner = (context: Composition, identity: TargetIdentity) =>
-  identity.placeCatalogReference(
-    context.targetEntries.find(({ target }) => target.kind === identity.kind)
-      ?.target.defaultName,
-  );
+const defaultNameFor = (context: Composition, kind: TargetKind) =>
+  context.targetEntries.find(({ target }) => target.kind === kind)?.target
+    .defaultName;
 
 const ruleCoveredBy = (
   context: Composition,
@@ -263,12 +262,22 @@ const ruleCoveredBy = (
   if (other._tag === "kind" || kind === "workspace") return true;
   if (rule._tag === "kind") return false;
 
-  const identity = new TargetIdentity({ kind, name: rule.identity.name });
-  const target = identity.hasExplicitName()
-    ? identity
-    : dependencyOwner(context, identity);
-  return target.matches(other);
+  return rule.identity.matches(other, defaultNameFor(context, kind));
 };
+
+const dependencySupportedOn = (
+  context: Composition,
+  module: ModuleDefinition,
+  target: ModuleDependencyTarget,
+  supportedOn: ReadonlyArray<SupportedOn>,
+) =>
+  target === "self"
+    ? module.supportedOn.every((parent) =>
+        supportedOn.some((rule) => ruleCoveredBy(context, parent, rule)),
+      )
+    : supportedOn.some((rule) =>
+        target.matches(rule, defaultNameFor(context, target.kind)),
+      );
 
 const requiredModuleIssues = (
   context: Composition,
@@ -277,10 +286,15 @@ const requiredModuleIssues = (
   dependency: Extract<ModuleDependency, { _tag: "required-module" }>,
 ): ReadonlyArray<CatalogIssue> => {
   const required = context.moduleById.get(dependency.moduleId);
-  const target = dependencyOwner(context, dependency.target);
   return [
     ...moduleReferenceIssues(context, owner, dependency.moduleId),
-    ...(required && !required.supportedOn.some((rule) => target.matches(rule))
+    ...(required &&
+    !dependencySupportedOn(
+      context,
+      module,
+      dependency.target,
+      required.supportedOn,
+    )
       ? [
           issue(
             owner,
@@ -298,13 +312,14 @@ const capabilityIssues = (
   module: ModuleDefinition,
   dependency: Extract<ModuleDependency, { _tag: "required-capability" }>,
 ): ReadonlyArray<CatalogIssue> => {
-  const target = dependencyOwner(context, dependency.target);
-  return context.moduleEntries.some(
-    (candidate) =>
-      candidate.module.provides?.includes(dependency.capability) &&
-      candidate.module.supportedOn.some((rule) => target.matches(rule)) &&
-      canReference(context, owner.fragment, candidate.fragment),
-  )
+  const supportedOn = context.moduleEntries
+    .filter(
+      (candidate) =>
+        candidate.module.provides?.includes(dependency.capability) &&
+        canReference(context, owner.fragment, candidate.fragment),
+    )
+    .flatMap((candidate) => candidate.module.supportedOn);
+  return dependencySupportedOn(context, module, dependency.target, supportedOn)
     ? []
     : [
         issue(
@@ -320,16 +335,21 @@ const dependencyIssues = (
   owner: Owner,
   module: ModuleDefinition,
 ): ReadonlyArray<CatalogIssue> =>
-  module.dependencies.flatMap((dependency) => [
-    ...targetReferenceIssues(context, owner, dependencyTarget(dependency).kind),
-    ...ModuleDependency.match(dependency, {
-      "required-target": () => [],
-      "required-module": (required) =>
-        requiredModuleIssues(context, owner, module, required),
-      "required-capability": (required) =>
-        capabilityIssues(context, owner, module, required),
-    }),
-  ]);
+  module.dependencies.flatMap((dependency) => {
+    const reference = dependencyTarget(dependency);
+    return [
+      ...(reference === "self"
+        ? []
+        : targetReferenceIssues(context, owner, reference.kind)),
+      ...ModuleDependency.match(dependency, {
+        "required-target": () => [],
+        "required-module": (required) =>
+          requiredModuleIssues(context, owner, module, required),
+        "required-capability": (required) =>
+          capabilityIssues(context, owner, module, required),
+      }),
+    ];
+  });
 
 const implicationIssues = (
   context: Composition,

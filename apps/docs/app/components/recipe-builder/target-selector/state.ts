@@ -1,4 +1,8 @@
-import { TargetIdentity, targetPathsOverlap } from "@repo/domain/Catalog";
+import {
+  bindModuleDependencyTarget,
+  TargetIdentity,
+  targetPathsOverlap,
+} from "@repo/domain/Catalog";
 import { Option, Schema } from "effect";
 import {
   CatalogModule,
@@ -44,18 +48,18 @@ export const moduleRequiresCapability = (
     ) {
       return true;
     }
-    const requiredModules = module.dependencies.flatMap((dependency) =>
-      dependency._tag === "required-module"
-        ? [
-            {
-              owner: dependency.target,
-              module: modulesByOwner
-                .get(ownerKey(dependency.target))
-                ?.get(dependency.moduleId),
-            },
-          ]
-        : [],
-    );
+    const requiredModules = module.dependencies.flatMap((dependency) => {
+      if (dependency._tag !== "required-module") return [];
+      const destination = bindModuleDependencyTarget(owner, dependency.target);
+      return [
+        {
+          owner: destination,
+          module: modulesByOwner
+            .get(ownerKey(destination))
+            ?.get(dependency.moduleId),
+        },
+      ];
+    });
     const impliedModules = module.implies.flatMap((implication) => {
       const entry = catalog.targetModules.find(
         ({ owner: candidate, modules }) =>
@@ -152,7 +156,7 @@ export const buildModuleRelationshipNodes = (
         dependency._tag === "required-module"
           ? [
               {
-                owner: dependency.target,
+                owner: bindModuleDependencyTarget(owner, dependency.target),
                 moduleId: dependency.moduleId,
                 requirement: "required" as const,
               },
@@ -228,38 +232,32 @@ export const nextTargetName = (
     const decoded = decodeTargetIdentity(target);
     if (Option.isNone(decoded)) return [];
     const identity = decoded.value;
-    if (identity.hasExplicitName())
-      return [
-        new TargetIdentity({
-          kind: identity.kind,
-          name: identity.name,
-          placement: "named",
-        }),
-      ];
-
     const targetDefault = definitions.find(
       ({ kind }) => kind === identity.kind,
     )?.defaultName;
-    return [identity.placeCatalogReference(targetDefault)];
+    return [identity.withDefaultName(targetDefault)];
   });
   const available = (identity: TargetIdentity) =>
     owners.every(
       (owner) =>
         owner.toPackageName() !== identity.toPackageName() &&
-        !targetPathsOverlap(owner.toPath(), identity.toPath()),
+        !targetPathsOverlap(
+          owner.toPath(
+            definitions.find(({ kind }) => kind === owner.kind)?.defaultName,
+          ),
+          identity.toPath(defaultName),
+        ),
     );
   if (
     kind !== "package" &&
     defaultName !== undefined &&
     !targets.some((target) => target.kind === kind) &&
-    available(
-      new TargetIdentity({ kind, name: defaultName, placement: "default" }),
-    )
+    available(new TargetIdentity({ kind, name: defaultName }))
   )
     return "";
 
   const availableName = (name: string) =>
-    available(new TargetIdentity({ kind, name, placement: "named" }));
+    available(new TargetIdentity({ kind, name }).withDefaultName(defaultName));
   if (baseName && availableName(baseName)) return baseName;
 
   // A conflicting parent directory can block all suffixes of a nested name.

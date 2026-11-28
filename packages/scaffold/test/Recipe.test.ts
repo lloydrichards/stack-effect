@@ -85,7 +85,6 @@ describe("RecipeResolver", () => {
           target("workspace"),
           target("client"),
           target("server", { defaultName: "api" }),
-          target("server-mcp", { defaultName: "" }),
         ],
         modules: [
           sqlProvider("sql-server", "server"),
@@ -96,15 +95,25 @@ describe("RecipeResolver", () => {
           module("client-default-consumer", "client", {
             dependencies: [requiresSql("server", "")],
           }),
-          module("client-mcp-consumer", "client", {
-            dependencies: [requiresSql("server", "mcp")],
-          }),
           module("client-custom-consumer", "client", {
             dependencies: [requiresSql("server", "backoffice")],
           }),
         ],
       },
     ]),
+  );
+
+  it.effect("resolves an omitted name like the explicit catalog default", () =>
+    Effect.gen(function* () {
+      const blueprints = yield* BlueprintResolver;
+      const omitted = yield* resolve([recipeTarget("server", "")]);
+      const explicit = yield* resolve([recipeTarget("server", "api")]);
+
+      assert.deepStrictEqual(
+        yield* blueprints.resolve(omitted, config),
+        yield* blueprints.resolve(explicit, config),
+      );
+    }).pipe(Effect.provide(DefaultAppCatalogLayer)),
   );
 
   it.effect(
@@ -114,9 +123,9 @@ describe("RecipeResolver", () => {
         const recipes = yield* RecipeResolver;
         const blueprints = yield* BlueprintResolver;
         for (const [moduleId, recipeName, key] of [
-          ["client-consumer", "", "apps/server-api"],
-          ["client-default-consumer", "", "apps/server-api"],
-          ["client-custom-consumer", "backoffice", "server:apps/backoffice"],
+          ["client-consumer", "api", "server/api"],
+          ["client-default-consumer", "api", "server/api"],
+          ["client-custom-consumer", "backoffice", "server/backoffice"],
         ] as const) {
           const client = recipeTarget("client", "web", moduleId);
           const selection = yield* resolve([client], {
@@ -158,7 +167,7 @@ describe("RecipeResolver", () => {
         },
       );
 
-      assert.deepStrictEqual(modulesOn(selection, "server:apps/api"), [
+      assert.deepStrictEqual(modulesOn(selection, "server/api"), [
         ModuleId.make("sql-alternate"),
       ]);
       yield* blueprints.resolve(selection, config);
@@ -223,29 +232,6 @@ describe("RecipeResolver", () => {
   );
 
   it.effect(
-    "does not reuse a default target of another kind with the same legacy key",
-    () =>
-      Effect.gen(function* () {
-        const blueprints = yield* BlueprintResolver;
-        const selection = yield* resolve(
-          [
-            recipeTarget("server-mcp", ""),
-            recipeTarget("client", "web", "client-mcp-consumer"),
-          ],
-          { _tag: "first-provider" },
-        );
-        assert.deepStrictEqual(modulesOn(selection, "server:apps/mcp"), [
-          ModuleId.make("sql-server"),
-        ]);
-        const conflict = yield* Effect.flip(
-          blueprints.resolve(selection, config),
-        );
-        assert.include(conflict.message, "Overlapping target ownership");
-        assert.include(conflict.message, "server:apps/mcp (server-mcp)");
-      }).pipe(Effect.provide(DefaultAppCatalogLayer)),
-  );
-
-  it.effect(
     "keeps cached providers separate when app defaults claim the same path",
     () =>
       Effect.gen(function* () {
@@ -265,10 +251,7 @@ describe("RecipeResolver", () => {
         const conflict = yield* Effect.flip(
           blueprints.resolve(selection, config),
         );
-        assert.include(
-          conflict.message,
-          "Overlapping target ownership at apps/server-mcp",
-        );
+        assert.include(conflict.message, "Overlapping target ownership");
       }).pipe(
         Effect.provide(
           resolveLayer(
@@ -391,7 +374,7 @@ describe("RecipeResolver", () => {
             recipeTarget("package", "cache", "cache-redis"),
           ]);
 
-          assert.deepStrictEqual(modulesOn(selection, "packages/secrets"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/secrets"), [
             ModuleId.make("secrets-env"),
           ]);
 
@@ -399,7 +382,7 @@ describe("RecipeResolver", () => {
           const blueprint = yield* blueprints.resolve(selection, config);
           assert.isTrue(
             blueprint.nodes.some(
-              (node) => node.id === "packages/secrets#secrets-env",
+              (node) => node.id === "package/secrets#secrets-env",
             ),
           );
         }),
@@ -413,14 +396,14 @@ describe("RecipeResolver", () => {
             recipeTarget("server", "api", "server-sessions"),
           ]);
 
-          assert.deepStrictEqual(modulesOn(selection, "packages/cache"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/cache"), [
             ModuleId.make("cache-redis"),
           ]);
-          assert.deepStrictEqual(modulesOn(selection, "packages/secrets"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/secrets"), [
             ModuleId.make("secrets-env"),
           ]);
           assert.strictEqual(
-            modulesOn(selection, "packages/sessions"),
+            modulesOn(selection, "package/sessions"),
             undefined,
           );
         }),
@@ -437,7 +420,7 @@ describe("RecipeResolver", () => {
           assert.strictEqual(error._tag, "AmbiguousRecipeProvider");
           if (error._tag !== "AmbiguousRecipeProvider") return;
           assert.strictEqual(error.requestingModuleId, "todo-repository");
-          assert.strictEqual(error.target.toKey(), "packages/db");
+          assert.strictEqual(error.target.toKey(), "package/db");
           assert.strictEqual(error.capability, "db-sql");
           assert.deepStrictEqual(
             error.providers.map((provider) => provider.moduleId),
@@ -457,7 +440,7 @@ describe("RecipeResolver", () => {
           assert.strictEqual(error._tag, "MissingRecipeProvider");
           if (error._tag !== "MissingRecipeProvider") return;
           assert.strictEqual(error.requestingModuleId, "metrics");
-          assert.strictEqual(error.target.toKey(), "packages/telemetry");
+          assert.strictEqual(error.target.toKey(), "package/telemetry");
           assert.strictEqual(error.capability, "telemetry");
         }),
     );
@@ -471,7 +454,7 @@ describe("RecipeResolver", () => {
             { _tag: "first-provider" },
           );
 
-          assert.deepStrictEqual(modulesOn(selection, "packages/db"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/db"), [
             ModuleId.make("todo-repository"),
             ModuleId.make("sql-sqlite"),
           ]);
@@ -486,7 +469,7 @@ describe("RecipeResolver", () => {
             recipeTarget("package", "db", "todo-repository", "sql-postgres"),
           ]);
 
-          assert.deepStrictEqual(modulesOn(selection, "packages/db"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/db"), [
             ModuleId.make("todo-repository"),
             ModuleId.make("sql-postgres"),
           ]);
@@ -511,7 +494,7 @@ describe("RecipeResolver", () => {
             },
           );
 
-          assert.deepStrictEqual(modulesOn(selection, "packages/db"), [
+          assert.deepStrictEqual(modulesOn(selection, "package/db"), [
             ModuleId.make("todo-repository"),
             ModuleId.make("sql-postgres"),
           ]);
@@ -540,7 +523,7 @@ describe("RecipeResolver", () => {
             );
 
             assert(error._tag === "AmbiguousRecipeProvider");
-            assert.strictEqual(error.target.toKey(), "packages/db");
+            assert.strictEqual(error.target.toKey(), "package/db");
             assert.strictEqual(error.capability, "db-sql");
           }),
       );
@@ -587,7 +570,7 @@ describe("RecipeResolver", () => {
             );
 
             assert.deepStrictEqual(
-              modulesOn(selection, "packages/db"),
+              modulesOn(selection, "package/db"),
               [
                 ModuleId.make("official-repository"),
                 ModuleId.make("sql-official"),
@@ -610,11 +593,11 @@ describe("RecipeResolver", () => {
             const cases = [
               {
                 recipe: recipeTarget("package", "db", "hard-repository"),
-                targetKey: "packages/db",
+                targetKey: "package/db",
               },
               {
                 recipe: recipeTarget("db", "main", "db-repository"),
-                targetKey: "db:apps/main",
+                targetKey: "db/main",
               },
             ];
 
@@ -757,10 +740,10 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "server:apps/api", [
+          assertTargetModules(selection, "server/api", [
             ModuleId.make("server-http-api"),
           ]);
-          assertTargetModules(selection, "packages/db", [
+          assertTargetModules(selection, "package/db", [
             ModuleId.make("package-db-postgres"),
           ]);
         }).pipe(Effect.provide(TestLayer)),
@@ -1036,50 +1019,13 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "apps/client-react-web", [
+          assertTargetModules(selection, "client-react/", [
             ModuleId.make("client-react-http-api"),
           ]);
-          assertTargetModules(selection, "apps/server-api", [
+          assertTargetModules(selection, "server/api", [
             ModuleId.make("server-http-api"),
           ]);
         }).pipe(Effect.provide(TestLayer)),
-    );
-
-    it.effect(
-      "should reject two app kinds claiming the same named folder",
-      () =>
-        Effect.gen(function* () {
-          const recipes = yield* RecipeResolver;
-          const blueprints = yield* BlueprintResolver;
-          const selection = yield* recipes.resolve(
-            {
-              targets: ["server", "docs"].map((kind) => ({
-                target: new TargetIdentity({
-                  kind: TargetKind.make(kind),
-                  name: "shared",
-                }),
-                modules: [],
-              })),
-            },
-            {
-              config: testConfig,
-              providerStrategy: { _tag: "fail-on-ambiguous" },
-            },
-          );
-
-          const failure = yield* Effect.flip(
-            blueprints.resolve(selection, testConfig),
-          );
-          assert.include(failure.message, "Overlapping target ownership");
-          assert.include(failure.message, "apps/shared");
-        }).pipe(
-          Effect.provide(
-            Layer.merge(
-              TestLayer,
-              BlueprintResolver.layer.pipe(Layer.provide(OfficialCatalogLayer)),
-            ),
-          ),
-        ),
     );
 
     it.effect(
@@ -1139,7 +1085,7 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "server:apps/api", [
+          assertTargetModules(selection, "server/api", [
             ModuleId.make("server-http-api"),
             ModuleId.make("server-http-rpc"),
           ]);
@@ -1147,7 +1093,7 @@ describe("RecipeResolver with the official catalog", () => {
     );
 
     it.effect(
-      "should keep the first identity when recipe targets share a key",
+      "should use the canonical default spelling for equivalent names",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeResolver;
@@ -1177,9 +1123,9 @@ describe("RecipeResolver with the official catalog", () => {
           );
 
           const server = selection.targets.find(
-            (target) => target.identity.toKey() === "server:apps/api",
+            (target) => target.identity.toKey() === "server/api",
           );
-          assert.strictEqual(server?.identity.name, "Api");
+          assert.strictEqual(server?.identity.name, "api");
         }).pipe(Effect.provide(TestLayer)),
     );
 
@@ -1207,7 +1153,7 @@ describe("RecipeResolver with the official catalog", () => {
           },
         );
 
-        assertTargetModules(selection, "server:apps/api", [
+        assertTargetModules(selection, "server/api", [
           ModuleId.make("server-not-real"),
           ModuleId.make("package-db-postgres"),
         ]);
@@ -1271,18 +1217,18 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "client-react:apps/web", [
+          assertTargetModules(selection, "client-react/web", [
             ModuleId.make("client-react-http-api"),
           ]);
           assert.strictEqual(
-            modulesForTarget(selection.targets, "packages/domain"),
+            modulesForTarget(selection.targets, "package/domain"),
             undefined,
           );
         }).pipe(Effect.provide(TestLayer)),
     );
 
     it.effect(
-      "should not add same-kind required modules before Blueprint resolution",
+      "should leave required modules on self for Blueprint resolution",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeResolver;
@@ -1304,13 +1250,9 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "cli:apps/custom", [
+          assertTargetModules(selection, "cli/custom", [
             ModuleId.make("cli-command-chat-terminal"),
           ]);
-          assert.strictEqual(
-            modulesForTarget(selection.targets, "apps/cli-app"),
-            undefined,
-          );
         }).pipe(Effect.provide(TestLayer)),
     );
 
@@ -1340,16 +1282,16 @@ describe("RecipeResolver with the official catalog", () => {
             },
           );
 
-          assertTargetModules(selection, "client-react:apps/web", [
+          assertTargetModules(selection, "client-react/web", [
             ModuleId.make("client-react-http-api"),
             ModuleId.make("server-needs-db"),
           ]);
           assert.strictEqual(
-            modulesForTarget(selection.targets, "server:apps/api"),
+            modulesForTarget(selection.targets, "server/api"),
             undefined,
           );
           assert.strictEqual(
-            modulesForTarget(selection.targets, "packages/db"),
+            modulesForTarget(selection.targets, "package/db"),
             undefined,
           );
         }).pipe(Effect.provide(TestLayer)),

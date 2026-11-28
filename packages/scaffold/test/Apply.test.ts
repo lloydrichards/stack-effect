@@ -798,7 +798,6 @@ describe("Applier", () => {
     for (const [directory, name] of [
       ["packages/domain", "@repo/other"],
       ["packages/domain/client", "@repo/client"],
-      ["packages/other", "@repo/domain"],
       ["packages/Domain", "@repo/other"],
       ["packages", "@repo/sdk"],
     ] as const) {
@@ -816,6 +815,36 @@ describe("Applier", () => {
           }).pipe(Effect.provide(officialLayer)),
       );
     }
+
+    it.effect("should add to a package at its existing directory by name", () =>
+      Effect.gen(function* () {
+        yield* ownerManifest("packages/shared/domain", "@repo/domain");
+
+        const planned = yield* build;
+        const result = yield* apply(planned, decideAll(planned, "skip"));
+
+        assert.deepStrictEqual(result.failed, []);
+        assert.include(
+          result.created,
+          RepositoryPath.make("packages/shared/domain/src/Api.ts"),
+        );
+        assert.isFalse(yield* exists("packages/domain/package.json"));
+      }).pipe(Effect.provide(officialLayer)),
+    );
+
+    it.effect("should report both directories when owners share a name", () =>
+      Effect.gen(function* () {
+        yield* ownerManifest("packages/first", "@repo/domain");
+        yield* ownerManifest("packages/second", "@repo/domain");
+
+        const failure = yield* Effect.flip(build);
+
+        assert.strictEqual(failure._tag, "PlanError");
+        assert.include(failure.message, "packages/first");
+        assert.include(failure.message, "packages/second");
+        assert.isFalse(yield* exists("packages/domain/package.json"));
+      }).pipe(Effect.provide(officialLayer)),
+    );
 
     for (const symbolic of [false, true]) {
       it.effect(
@@ -908,16 +937,23 @@ describe("Applier", () => {
     );
 
     it.effect(
-      "should preserve existing files when sdk/client aliases sdk-client",
+      "should plan against the installed package when sdk/client aliases sdk-client",
       () =>
         Effect.gen(function* () {
           yield* writeFiles({});
           yield* apply(yield* plan(packages("sdk-client")));
           const original = yield* readFile("packages/sdk-client/package.json");
 
-          const failure = yield* Effect.flip(plan(packages("sdk/client")));
+          const planned = yield* plan(packages("sdk/client"));
 
-          assert.strictEqual(failure._tag, "PlanError");
+          assert.include(
+            planned.outcomes.map(({ path }) => path),
+            RepositoryPath.make("packages/sdk-client/package.json"),
+          );
+          assert.notInclude(
+            planned.outcomes.map(({ path }) => path),
+            RepositoryPath.make("packages/sdk/client/package.json"),
+          );
           assert.strictEqual(
             yield* readFile("packages/sdk-client/package.json"),
             original,
@@ -1853,7 +1889,7 @@ describe("RecipePreviewer", () => {
 
         assert(failure._tag === "AmbiguousRecipeProvider");
         assert.strictEqual(failure.requestingModuleId, "todo-repository");
-        assert.strictEqual(failure.target.toKey(), "packages/db");
+        assert.strictEqual(failure.target.toKey(), "package/db");
         assert.strictEqual(failure.capability, "db-sql");
         assert.sameMembers(
           failure.providers.map(({ moduleId }) => moduleId),

@@ -13,7 +13,7 @@ const file = (path: string, source: string): ContributionInput => ({
   conflictOnModify: true,
 });
 const entry = (
-  field: "scripts" | "devDependencies" | "dependencies",
+  field: "scripts" | "devDependencies" | "dependencies" | "exports",
   name: string,
   value: string,
 ): ContributionInput => ({
@@ -79,17 +79,17 @@ export const alchemyModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: { kind: "client-foldkit", name: "web" },
+        target: { kind: "client-foldkit", name: "" },
         moduleId: "client-foldkit-http-api-worker",
       },
       {
         _tag: "required-module",
-        target: { kind: "client-foldkit", name: "web" },
+        target: { kind: "client-foldkit", name: "" },
         moduleId: "alchemy-client-foldkit-website",
       },
       {
         _tag: "required-module",
-        target: { kind: "client-foldkit", name: "web" },
+        target: { kind: "client-foldkit", name: "" },
         moduleId: "config-typescript-vite",
       },
       {
@@ -103,7 +103,14 @@ export const alchemyModules = defineModules(import.meta.url, [
         moduleId: "cloudflare-worker-http",
       },
     ],
-    contributions: [],
+    contributions: [
+      entry("devDependencies", "client-foldkit", "{{workspaceDependency}}"),
+      entry(
+        "devDependencies",
+        "cloudflare-worker-api",
+        "{{workspaceDependency}}",
+      ),
+    ],
   },
   {
     id: "alchemy-worker-deployment",
@@ -114,6 +121,7 @@ export const alchemyModules = defineModules(import.meta.url, [
     dependencies: [root],
     contributions: [
       entry("dependencies", "alchemy", "2.0.0-beta.87"),
+      entry("exports", "./alchemy", "./alchemy.ts"),
       file("{{targetPath}}/alchemy.ts", "./cloudflare-worker/alchemy.ts"),
     ],
   },
@@ -125,6 +133,11 @@ export const alchemyModules = defineModules(import.meta.url, [
     supportedOn: [{ _tag: "kind" as const, kind }],
     supportedRuntimes: ["bun" as const, "node" as const],
     dependencies: [root],
-    contributions: [file("{{targetPath}}/alchemy.ts", `./${kind}/alchemy.ts`)],
+    contributions: [
+      ...(kind === "client-foldkit"
+        ? [entry("exports", "./alchemy", "./alchemy.ts")]
+        : []),
+      file("{{targetPath}}/alchemy.ts", `./${kind}/alchemy.ts`),
+    ],
   })),
 ]);

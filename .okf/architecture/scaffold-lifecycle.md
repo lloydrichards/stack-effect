@@ -59,7 +59,7 @@ The [repository state decision](plan-apply-repository-state.md "defines the impl
 
 ## Service ownership
 
-`BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogReader. Blueprint contains identities and dependency edges, not file contributions.
+`BlueprintResolver` validates Selection and resolves target/module dependency closure through CatalogReader. Blueprint contains identities and dependency edges, not file contributions. The CLI commands `create`, `init`, and `add` resolve Blueprint once per scaffold attempt and pass it to `ScaffoldPipeline`. For `create` and `init`, resolution must succeed before the command writes `stack.effect.json`.
 
 `Planner` resolves contributions, compiles planning intent by path with `PlanningIntent`, loads relevant repository state, and classifies outcomes with the pure `PlanAssessment` module. Outcomes are complete contents or base contents plus composition operations. Classifications are create, modify, unchanged, or conflict. A conflicted path can have multiple diagnostics but receives one ApplyDecision. Guarded file replacements report a complete-file conflict. Dependency conflicts record the required declaration and the existing declaration when it is a version or range. Existing URL and file declarations stay out of the diagnostic.
 

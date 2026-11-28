@@ -12,7 +12,7 @@ Start with an initialized Stack Effect repository and run the interactive add fl
 stack-effect add
 ```
 
-Choose the `server` target, name it `api`, and add its HTTP API module. That request is equivalent to `server/api:server-http-api` and generates `apps/api`. Leave the name blank with `server/:server-http-api` to use the catalog folder `apps/server-api`.
+Choose the `server` target, name it `api`, and add its HTTP API module. That request is equivalent to `server/api:server-http-api`. Leaving the name blank with `server/:server-http-api` selects the same package, `server-api`. A new server goes in `apps/server-api`.
 
 A **target** owns a location in the repository. A **module** adds a capability to its target. If that capability needs something elsewhere, Stack Effect models it as a dependency instead of letting one module write into an unrelated target.
 
@@ -28,13 +28,13 @@ stack-effect add --target server/sdk/api:server-http-api
 
 The name `sdk/api` creates the server at `apps/sdk/api`, with `server-sdk-api` in `package.json`. Use the same target argument when adding another module to that server. For packages, `package/sdk/client` creates `packages/sdk/client`, with the npm name `@repo/sdk-client`.
 
-Stack Effect keeps npm names flat. `package/sdk/client` and `package/sdk-client` therefore cannot coexist even though their directories differ. It also rejects nested package roots and attempts to relocate an existing package. Grouping directories can contain multiple packages; a package directory owns its contents.
+Stack Effect looks for the target’s package name in `apps/` and `packages/` before choosing a directory. If `server-api` already lives at `apps/backend/api`, a later add uses that directory. The same rule applies to dependency targets.
 
-If you created an app in a catalog default folder such as `apps/server-api` before this change, use a blank name to add modules there. An explicit name such as `api` selects `apps/api`. If a later `add` reports that a dependency would overlap or relocate that app, include its existing target, such as `--target server/api`, in the same command.
+An unnamed React or Foldkit client suggests `apps/client`. If another package already owns that directory, name the new client. For example, `client-foldkit/admin` suggests `apps/admin`. If multiple installed packages share a name, resolve the conflict in the repository before running `add` again.
 
 To create a package with compiled JavaScript and declarations for npm, use the `package-library` module. See [Create a publishable library](/publish-library).
 
-For an older app with a custom name, such as `server/backoffice` in `apps/server-backoffice`, move the directory to `apps/backoffice` before running `add` with the same target spec. Update any workspace paths, imports, and scripts that refer to the old folder. Keep the package name `server-backoffice`.
+For an existing React or Foldkit package named with the old `web` default, use `client-react/web` or `client-foldkit/web` to target it by its existing package name.
 
 Required dependencies keep the names declared by the catalog. Giving a server a grouped name does not move its dependencies into that group. A capability provider on an app whose catalog name differs from the target kind's default uses the named folder so the copied command can replay the provider choice.
 

@@ -523,7 +523,7 @@ describe("init", () => {
           );
 
           yield* cli.withinProject("nx-npm-app", function* (project) {
-            const web = "apps/client-react-web";
+            const web = "apps/client";
             yield* project.expectFileContaining(
               `${web}/src/app.tsx`,
               "<ImportValidationCard />",
@@ -554,7 +554,10 @@ describe("init", () => {
               "projects",
             );
             assert.strictEqual(discovered.exitCode, 0);
-            assert.match(discovered.stdout, /client-react-web/);
+            assert.include(
+              discovered.stdout.trim().split(/\r?\n/u),
+              "client-react",
+            );
             assert.isFalse(/nx-npm-app/.test(discovered.stdout));
             yield* project.expectTypeCheckPasses("npm");
             yield* project.expectBuildSucceeds("npm");

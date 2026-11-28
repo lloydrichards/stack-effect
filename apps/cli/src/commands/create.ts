@@ -185,7 +185,7 @@ export const create = Command.make(
         }),
       );
       const blueprints = yield* BlueprintResolver;
-      yield* blueprints.resolve(selection, config);
+      const blueprint = yield* blueprints.resolve(selection, config);
       const createCommand = recipes.renderCreateCommand({ config, selection });
 
       const existing = yield* configure.readConfig(repositoryRoot).pipe(
@@ -208,7 +208,7 @@ export const create = Command.make(
       }
 
       yield* pipeline.run(
-        { selection, repositoryRoot, config, createCommand },
+        { selection, blueprint, repositoryRoot, config, createCommand },
         mode,
       );
     }),

@@ -1,7 +1,12 @@
 import { describe, layer } from "@effect/vitest";
 import { OfficialCatalogLayer } from "@repo/catalog-official/service";
 import { CatalogReader } from "@repo/catalog/Catalog";
-import { ModuleId } from "@repo/domain/Catalog";
+import {
+  bindModuleDependencyTarget,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { Effect } from "effect";
 import { CLI } from "./harness";
 
@@ -84,40 +89,61 @@ const catalogModulesById = new Map(
   catalogModules.map((module) => [module.id, module]),
 );
 
+const targetIdentity = (target: string): TargetIdentity => {
+  const [kind = "", ...name] = target.split("/");
+  return new TargetIdentity({
+    kind: TargetKind.make(kind),
+    name: name.join("/"),
+  });
+};
+
 const requiredProviderSelections = (
+  target: string,
   moduleIds: ReadonlyArray<string>,
 ): ReadonlyArray<ProviderSelection> => {
   const visited = new Set<string>();
   const selections = new Map<string, ProviderSelection>();
 
-  const visit = (moduleId: string) => {
-    if (visited.has(moduleId)) return;
-    visited.add(moduleId);
+  const root = targetIdentity(target);
+  const visit = (owner: TargetIdentity, moduleId: string) => {
+    const key = `${owner.toKey()}:${moduleId}`;
+    if (visited.has(key)) return;
+    visited.add(key);
 
     const module = catalogModulesById.get(ModuleId.make(moduleId));
     if (!module) return;
 
     for (const implication of module.implies ?? []) {
-      visit(implication.moduleId);
+      const destination =
+        implication.targetKind === root.kind
+          ? root
+          : targetIdentity(
+              `${implication.targetKind}/${defaultTargetNames.get(implication.targetKind) ?? ""}`,
+            );
+      visit(destination, implication.moduleId);
     }
 
     for (const dependency of module.dependencies) {
       if (dependency._tag === "required-module") {
-        visit(dependency.moduleId);
+        visit(
+          bindModuleDependencyTarget(owner, dependency.target),
+          dependency.moduleId,
+        );
         continue;
       }
       if (dependency._tag !== "required-capability") continue;
 
+      const destination = bindModuleDependencyTarget(owner, dependency.target);
       const providers = getCapabilityProviders({
         capability: dependency.capability,
-        target: dependency.target,
+        target: destination,
       });
       const provider =
         providers.find((candidate) => moduleIds.includes(candidate.id)) ??
         providers[0];
       if (!provider) continue;
 
-      const target = identityToTarget(dependency.target);
+      const target = identityToTarget(destination);
       selections.set(`${target}:${dependency.capability}`, {
         target,
         moduleId: provider.id,
@@ -125,12 +151,15 @@ const requiredProviderSelections = (
     }
   };
 
-  for (const moduleId of moduleIds) visit(moduleId);
+  for (const moduleId of moduleIds) visit(root, moduleId);
   return Array.from(selections.values());
 };
 
-const requiredProviderArgs = (moduleIds: ReadonlyArray<string>) =>
-  requiredProviderSelections(moduleIds).flatMap((provider) => [
+const requiredProviderArgs = (
+  target: string,
+  moduleIds: ReadonlyArray<string>,
+) =>
+  requiredProviderSelections(target, moduleIds).flatMap((provider) => [
     "--target",
     `${provider.target}:${provider.moduleId}`,
   ]);
@@ -342,19 +371,24 @@ const buildCapabilityMatrix = Effect.gen(function* () {
     for (const dependency of mod.dependencies) {
       if (dependency._tag !== "required-capability") continue;
 
+      const requiringTarget = getModuleTarget(mod);
+      const owner = bindModuleDependencyTarget(
+        targetIdentity(requiringTarget),
+        dependency.target,
+      );
       const providers = catalog.getCapabilityProviders({
         capability: dependency.capability,
-        target: dependency.target,
+        target: owner,
       });
 
       for (const provider of providers) {
         entries.push({
-          requiringTarget: getModuleTarget(mod),
+          requiringTarget,
           requiringModule: mod.id,
-          providerTarget: identityToTarget(dependency.target),
+          providerTarget: identityToTarget(owner),
           providerModule: provider.id,
           capability: dependency.capability,
-          label: `${getModuleTarget(mod)} + ${mod.id} with ${dependency.capability} provider ${provider.id}`,
+          label: `${requiringTarget} + ${mod.id} with ${dependency.capability} provider ${provider.id}`,
         });
       }
     }
@@ -484,7 +518,7 @@ describe("matrix", () => {
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
               ...impliedServerArgs(entry),
-              ...requiredProviderArgs(entry.modules),
+              ...requiredProviderArgs(entry.target, entry.modules),
             );
             yield* cli.expectExitCode(0);
 
@@ -521,7 +555,7 @@ describe("matrix", () => {
               "--target",
               `${entry.target}:${entry.modules.join(",")}`,
               ...impliedServerArgs(entry),
-              ...requiredProviderArgs(entry.modules),
+              ...requiredProviderArgs(entry.target, entry.modules),
             );
             yield* cli.expectExitCode(0);
 
@@ -564,7 +598,7 @@ describe("matrix", () => {
               root,
               "--target",
               `${entry.target}:${entry.parentModule}`,
-              ...requiredProviderArgs([entry.parentModule]),
+              ...requiredProviderArgs(entry.target, [entry.parentModule]),
             );
             yield* cli.expectExitCode(0);
 
@@ -576,7 +610,7 @@ describe("matrix", () => {
                 root,
                 "--target",
                 `${child.childTarget}:${child.moduleId}`,
-                ...requiredProviderArgs([child.moduleId]),
+                ...requiredProviderArgs(child.childTarget, [child.moduleId]),
               );
               yield* cli.expectExitCode(0);
             }

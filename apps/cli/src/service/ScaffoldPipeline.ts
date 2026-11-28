@@ -6,7 +6,6 @@ import type { Plan, PlanConflict } from "@repo/domain/Plan";
 import type { Selection } from "@repo/domain/Selection";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import { Applier, ApplyWorkspaces } from "@repo/scaffold/Apply";
-import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Finalizer, scriptKey } from "@repo/scaffold/Finalize";
 import { Planner } from "@repo/scaffold/Plan";
 import { Confirm, MultiSelect } from "@repo/tui";
@@ -57,6 +56,7 @@ class FinalizeScriptError extends Schema.TaggedError<FinalizeScriptError>()(
 /** What to scaffold and where; the run mode says how. */
 type ScaffoldRequest = {
   readonly selection: Selection;
+  readonly blueprint: Blueprint;
   readonly repositoryRoot: string;
   readonly config: StackConfig;
   readonly createCommand?: string | undefined;
@@ -134,7 +134,6 @@ const decideConflict = Effect.fnUntraced(function* (
 
 const previewScaffold = Effect.fnUntraced(function* (
   request: ScaffoldRequest,
-  blueprint: Blueprint,
   plan: Plan,
   { showFiles }: PreviewMode,
 ) {
@@ -154,12 +153,15 @@ const previewScaffold = Effect.fnUntraced(function* (
       ),
     }),
   );
-  const scripts = yield* finalizer.scripts(blueprint, request);
+  const scripts = yield* finalizer.scripts(request.blueprint, {
+    ...request,
+    baseline: plan.baseline,
+  });
 
   yield* Console.log(
     Box.renderPrettySync(
       DryRunPreview({
-        blueprint: ScaffoldTree.formatBlueprint(blueprint).content,
+        blueprint: ScaffoldTree.formatBlueprint(request.blueprint).content,
         plan: ScaffoldTree.formatPlan(plan),
         changes: {
           apply: preview.apply,
@@ -312,13 +314,17 @@ const nextStepsOf = (
 };
 
 const finalizeScaffold = Effect.fnUntraced(function* (
-  request: ScaffoldRequest,
-  blueprint: Blueprint,
+  request: ScaffoldRequest & { readonly baseline: Plan["baseline"] },
   result: ApplyResult,
   policy: ScriptPolicy,
 ) {
   const finalizer = yield* Finalizer;
-  const scripts = yield* finalizer.scripts(blueprint, request);
+  const repository = {
+    config: request.config,
+    repositoryRoot: request.repositoryRoot,
+    baseline: request.baseline,
+  };
+  const scripts = yield* finalizer.scripts(request.blueprint, repository);
   if (scripts.length === 0) return;
 
   const selectedKeys = new Set(
@@ -330,10 +336,13 @@ const finalizeScaffold = Effect.fnUntraced(function* (
   if (selectedKeys.size === 0) {
     yield* Console.log("\nNo finalize scripts selected. Skipping.");
   } else {
-    yield* runScripts(scripts.filter(isSelected), request.repositoryRoot);
+    yield* runScripts(scripts.filter(isSelected), repository.repositoryRoot);
   }
 
-  const catalogSteps = yield* finalizer.collectNextSteps(blueprint, request);
+  const catalogSteps = yield* finalizer.collectNextSteps(
+    request.blueprint,
+    repository,
+  );
   yield* Console.log(
     Box.renderPrettySync(
       NextStepsPreview({
@@ -349,7 +358,6 @@ const finalizeScaffold = Effect.fnUntraced(function* (
 
 const writeScaffold = Effect.fnUntraced(function* (
   request: ScaffoldRequest,
-  blueprint: Blueprint,
   plan: Plan,
   mode: WriteMode,
 ) {
@@ -384,7 +392,11 @@ const writeScaffold = Effect.fnUntraced(function* (
     yield* Console.log(`Failed: ${result.failed.length} files`);
   }
 
-  yield* finalizeScaffold(request, blueprint, result, mode.scripts);
+  yield* finalizeScaffold(
+    { ...request, baseline: plan.baseline },
+    result,
+    mode.scripts,
+  );
 });
 
 export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
@@ -395,20 +407,14 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         request: ScaffoldRequest,
         mode: RunMode,
       ) {
-        const blueprintResolver = yield* BlueprintResolver;
         const planner = yield* Planner;
-
-        const blueprint = yield* blueprintResolver.resolve(
-          request.selection,
-          request.config,
-        );
 
         if (mode._tag === "write") {
           const proceed = yield* askOr(
             mode.confirm,
             Confirm({
               message: "Continue with these changes?",
-              children: blueprintBoxOf(blueprint),
+              children: blueprintBoxOf(request.blueprint),
               initial: true,
             }),
             true,
@@ -423,15 +429,14 @@ export class ScaffoldPipeline extends Context.Service<ScaffoldPipeline>()(
         }
 
         const plan = yield* planner.build({
-          blueprint,
+          blueprint: request.blueprint,
           repositoryRoot: request.repositoryRoot,
           config: request.config,
         });
 
         return yield* RunMode.match(mode, {
-          preview: (preview) =>
-            previewScaffold(request, blueprint, plan, preview),
-          write: (write) => writeScaffold(request, blueprint, plan, write),
+          preview: (preview) => previewScaffold(request, plan, preview),
+          write: (write) => writeScaffold(request, plan, write),
         });
       });
 

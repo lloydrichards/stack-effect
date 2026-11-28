@@ -52,7 +52,7 @@ This illustrates the definition shape. Add the package manifest, scripts, depend
 | worker/jobs | `apps/worker-jobs` |
 | worker with an empty name | `apps/worker` |
 
-Names are trimmed and converted to kebab case for paths. TargetKey and TargetPath currently derive from the same path function but have different domain roles. A new path convention is a shared identity-contract change, not a local template workaround.
+Names are trimmed and converted to kebab case. A TargetKey identifies the kind and canonical name. Plan reuses an existing package directory by its manifest name and uses the suggested directory when the package is absent.
 
 ## Verify the target
 

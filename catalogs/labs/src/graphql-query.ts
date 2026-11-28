@@ -39,7 +39,7 @@ export const graphqlQuery = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: { kind: "server", name: "api" },
+        target: "self",
         moduleId: "server-http-api",
       },
       {

@@ -5,6 +5,7 @@
 import type { CatalogReader } from "@repo/catalog/Catalog";
 import type { Blueprint, CatalogNotFound } from "@repo/domain/Blueprint";
 import type { FinalizeScript, ScriptResult } from "@repo/domain/Finalize";
+import type { PlanBaseline } from "@repo/domain/Plan";
 import type { StackConfig } from "@repo/domain/StackConfig";
 import {
   Context,
@@ -27,6 +28,7 @@ import * as internal from "./internal/finalizer";
 export type FinalizeConfig = {
   readonly config: StackConfig;
   readonly repositoryRoot: string;
+  readonly baseline?: PlanBaseline;
 };
 
 /**

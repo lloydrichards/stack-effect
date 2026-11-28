@@ -11,9 +11,8 @@ import {
   ModuleId,
   TargetIdentity,
   TargetKind,
-  TargetKey,
 } from "@repo/domain/Catalog";
-import { ContributionTokenContext } from "@repo/domain/Plan";
+import { ContributionTokenContext, RepositoryPath } from "@repo/domain/Plan";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { Array as Arr, Effect, Schema } from "effect";
 import {
@@ -27,7 +26,7 @@ const extraFile = (contents: string) =>
   ({ _tag: "file", path: "extra.txt", contents }) as const;
 
 const tokenContext = new ContributionTokenContext({
-  targetKey: TargetKey.make("apps/server-api"),
+  targetPath: RepositoryPath.make("apps/server-api"),
   identity: new TargetIdentity({
     kind: TargetKind.make("server"),
     name: "api",

@@ -8,6 +8,81 @@ import {
 } from "../fixtures/catalogSources";
 
 describe("add", () => {
+  it.effect("reuses a moved dependency without another target flag", () =>
+    withNodeServices(
+      Effect.gen(function* () {
+        const { run, directory: root, fs, path } = yield* catalogSourcesFixture;
+        const server = path.join(root, "apps/$&/api");
+        yield* fs.makeDirectory(server, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(server, "package.json"),
+          '{"name":"server-api"}',
+        );
+        yield* fs.writeFileString(
+          path.join(root, "stack.effect.json"),
+          JSON.stringify({
+            name: "shop",
+            runtime: { _tag: "bun" },
+            catalogs: [{ name: "providers", url: urls.providers }],
+          }),
+        );
+
+        yield* run([
+          "add",
+          "--root",
+          root,
+          "--target",
+          "api/:api-web",
+          "--yes",
+        ]);
+
+        assert.isTrue(yield* fs.exists(path.join(server, "server.txt")));
+        assert.isFalse(yield* fs.exists(path.join(root, "apps/server-api")));
+      }),
+    ),
+  );
+
+  it.effect(
+    "reports the occupied client directory and accepts a second client at an explicit nested path",
+    () =>
+      withNodeServices(
+        Effect.gen(function* () {
+          const { run, runFailing, directory, fs, path } =
+            yield* catalogSourcesFixture;
+          const root = path.join(directory, "two-clients");
+          yield* run([
+            "create",
+            "two-clients",
+            "--target",
+            "client-react/",
+            "--yes",
+            "--no-git",
+            "--root",
+            directory,
+          ]);
+          const manifest = path.join(root, "apps/client/package.json");
+          const original = yield* fs.readFileString(manifest);
+          assert.include(original, '"name": "client-react"');
+
+          const add = ["add", "--yes", "--root", root, "--target"];
+          const rejected = yield* runFailing([...add, "client-foldkit/"]);
+          assert.include(String(rejected.error), "apps/client");
+          assert.include(String(rejected.error), "client-react");
+          assert.strictEqual(yield* fs.readFileString(manifest), original);
+
+          yield* run([...add, "client-foldkit/battle-app/frontend"]);
+          const secondManifest = yield* fs.readFileString(
+            path.join(root, "apps/battle-app/frontend/package.json"),
+          );
+          assert.include(
+            secondManifest,
+            '"name": "client-foldkit-battle-app-frontend"',
+          );
+        }),
+      ),
+    30_000,
+  );
+
   it.effect(
     "installs Mermaid dependencies without resetting a customized docs dev script",
     () =>
@@ -150,8 +225,8 @@ describe("add", () => {
               { discard: true },
             ),
           });
-          assert.include(named.stdout.join("\n"), "apps/svc#api-web");
-          assert.notInclude(named.stdout.join("\n"), "api-default-child");
+          assert.include(named.stdout.join("\n"), "api/svc#api-web");
+          assert.notInclude(named.stdout.join("\n"), "#api-default-child");
 
           const flags = yield* run([
             ...add,
@@ -159,12 +234,12 @@ describe("add", () => {
             "api/:api-web,api-default-child",
           ]);
           for (const result of [interactive, flags]) {
-            assert.include(result.stdout.join("\n"), "apps/api-svc#api-web");
+            assert.include(result.stdout.join("\n"), "api/svc#api-web");
             assert.include(
               result.stdout.join("\n"),
-              "apps/api-svc#api-default-child",
+              "api/svc#api-default-child",
             );
-            assert.include(result.stdout.join("\n"), "apps/server-api");
+            assert.include(result.stdout.join("\n"), "server/api");
             assert.notInclude(result.stdout.join("\n"), "apps/api/");
           }
         }),
@@ -208,10 +283,10 @@ describe("add", () => {
 
           assert.include(
             output,
-            'Module "todo-repository" requires db-sql. Which provider should be added to packages/db?',
+            'Module "todo-repository" requires db-sql. Which provider should be added to package/db?',
           );
           assert.include(output, "sql-postgres");
-          assert.include(output, "packages/db#sql-sqlite");
+          assert.include(output, "package/db#sql-sqlite");
         }),
       ),
     30_000,

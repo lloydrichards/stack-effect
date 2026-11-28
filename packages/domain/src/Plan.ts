@@ -6,8 +6,11 @@ import {
   TargetIdentity,
   TargetKey,
 } from "./Catalog";
+import { RepositoryPath } from "./RepositoryPath";
 import { Selection } from "./Selection";
 import { StackConfig } from "./StackConfig";
+
+export { RepositoryPath } from "./RepositoryPath";
 
 /**
  * The portable request accepted by planning entry points.
@@ -21,16 +24,6 @@ export const PlanRequest = Schema.Struct({
 });
 
 export type PlanRequest = typeof PlanRequest.Type;
-
-/**
- * A path relative to the repository root, such as `packages/domain/package.json`.
- * Absolute paths, such as a Plan's baseline root, stay plain strings.
- */
-export const RepositoryPath = Schema.String.pipe(
-  Schema.brand("RepositoryPath"),
-);
-
-export type RepositoryPath = typeof RepositoryPath.Type;
 
 /**
  * Orders repository paths segment by segment, so a directory's files stay
@@ -442,14 +435,18 @@ const CONFIG_FIELD_VALUES = {
 export class ContributionTokenContext extends Schema.Class<ContributionTokenContext>(
   "ContributionTokenContext",
 )({
-  targetKey: TargetKey,
   identity: TargetIdentity,
+  targetPath: RepositoryPath,
   config: StackConfig,
   moduleIds: Schema.optional(Schema.Array(Schema.String)),
   scaffoldRecipe: Schema.optional(Schema.String),
   projectTargets: Schema.optional(
     Schema.Array(
-      Schema.Struct({ identity: TargetIdentity, description: Schema.String }),
+      Schema.Struct({
+        identity: TargetIdentity,
+        targetPath: RepositoryPath,
+        description: Schema.String,
+      }),
     ),
   ),
 }) {
@@ -492,13 +489,13 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
       ? this.identity.name
       : this.identity.kind;
 
-    const targetPath = this.identity.toPath();
+    const targetPath = this.targetPath;
 
     // NOTE: Workspace targets omit "./" so token output matches contribution paths.
     const resolveTargetToken = (t: string, token: string) =>
       targetPath === "."
         ? t.replaceAll(`${token}/`, "").replaceAll(token, "")
-        : t.replaceAll(token, targetPath);
+        : t.replaceAll(token, () => targetPath);
 
     const getConfigValue = (field: string): string =>
       isConfigField(field) ? CONFIG_FIELD_VALUES[field](this) : "";
@@ -533,10 +530,20 @@ export class ContributionTokenContext extends Schema.Class<ContributionTokenCont
         : [
             "| Workspace | Responsibility |",
             "| --- | --- |",
-            ...projectTargets.map(
-              ({ identity, description }) =>
-                `| [${identity.toPath()}](${identity.toPath()}) | ${description.replaceAll("|", "\\|").replaceAll("\n", " ")} |`,
-            ),
+            ...projectTargets.map(({ targetPath, description }) => {
+              const label = targetPath
+                .replace(/[\[\]|]/g, "\\$&")
+                .replaceAll("\n", " ");
+              const href = targetPath
+                .split("/")
+                .map((segment) =>
+                  encodeURIComponent(segment)
+                    .replaceAll("(", "%28")
+                    .replaceAll(")", "%29"),
+                )
+                .join("/");
+              return `| [${label}](${href}) | ${description.replaceAll("|", "\\|").replaceAll("\n", " ")} |`;
+            }),
           ].join("\n");
     const projectRoot =
       targetPath === "."

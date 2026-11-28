@@ -123,7 +123,7 @@ export const TargetWorkspace = ({
                 ?.defaultName ||
               target.kind;
             const expanded = activeTarget?.id === target.id;
-            const presetName = editor.presetNames.get(ownerKey(target));
+            const presetName = editor.presetNameFor(target);
             const origin = presetName
               ? `Included by ${presetName}`
               : (targetOrigin(target, editor) ??

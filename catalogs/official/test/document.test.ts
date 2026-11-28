@@ -4,7 +4,7 @@ import { Effect, Schema } from "effect";
 import { exportOfficialCatalog } from "../src/service";
 
 it.effect(
-  "should round-trip the published document when identities decode as TargetIdentity",
+  "should round-trip the published document with named and self references",
   () =>
     Effect.gen(function* () {
       const json = yield* exportOfficialCatalog;
@@ -14,7 +14,7 @@ it.effect(
         yield* Schema.encodeEffect(codec)(document),
         json.trim(),
       );
-      const identities = document.modules.flatMap((module) => [
+      const references = document.modules.flatMap((module) => [
         ...module.dependencies.map((dependency) =>
           dependency._tag === "required-target"
             ? dependency.identity
@@ -24,6 +24,8 @@ it.effect(
           rule._tag === "identity" ? [rule.identity] : [],
         ),
       ]);
+      assert.include(references, "self");
+      const identities = references.filter((reference) => reference !== "self");
       assert.isNotEmpty(identities);
       for (const identity of identities)
         assert.instanceOf(identity, TargetIdentity);

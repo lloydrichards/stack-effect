@@ -391,7 +391,7 @@ export const mergeRecipeTargets = (
   >();
 
   for (const { target, modules } of targets) {
-    const key = `${target.kind}:${target.toKey()}`;
+    const key = target.toKey();
     const existing = merged.get(key);
     if (existing === undefined) {
       merged.set(key, { target, modules: new Set(modules) });

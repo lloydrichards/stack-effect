@@ -395,14 +395,17 @@ export const init = Command.make(
       );
 
       const blueprints = yield* BlueprintResolver;
-      yield* blueprints.resolve(selection, config);
+      const blueprint = yield* blueprints.resolve(selection, config);
 
       if (mode._tag === "write") {
         yield* configure.writeConfig(repositoryRoot, config);
         yield* Console.log(`\nWritten ${CONFIG_FILENAME}`);
       }
 
-      yield* pipeline.run({ selection, repositoryRoot, config }, mode);
+      yield* pipeline.run(
+        { selection, blueprint, repositoryRoot, config },
+        mode,
+      );
     }),
 ).pipe(
   Command.withDescription(

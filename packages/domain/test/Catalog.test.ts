@@ -224,153 +224,126 @@ describe("TargetDefinition", () => {
 });
 
 describe("TargetIdentity", () => {
+  it("keeps different target keys when their suggested paths match", () => {
+    const server = new TargetIdentity({
+      kind: TargetKind.make("server"),
+      name: "foo/a-b",
+    });
+    const alternate = new TargetIdentity({
+      kind: TargetKind.make("server-a"),
+      name: "foo/b",
+    });
+
+    assert.strictEqual(
+      server.toPath(server.name),
+      alternate.toPath(alternate.name),
+    );
+    assert.notStrictEqual(server.toKey(), alternate.toKey());
+  });
+
   it.each([
     {
       label: "a package",
       kind: "package",
       name: "domain",
-      key: "packages/domain",
       packageName: "@repo/domain",
     },
     {
       label: "a server app",
       kind: "server",
       name: "api",
-      key: "apps/server-api",
       packageName: "server-api",
     },
     {
       label: "a hyphenated client app",
       kind: "client-react",
       name: "admin-ui",
-      key: "apps/client-react-admin-ui",
       packageName: "client-react-admin-ui",
-    },
-    {
-      label: "a whitespace-only app name",
-      kind: "server",
-      name: "   ",
-      key: "apps/server",
-      packageName: "server",
     },
     {
       label: "the workspace root",
       kind: "workspace",
       name: "",
-      key: ".",
       packageName: "workspace",
     },
     {
       label: "a name that merely ends with a reserved device word",
       kind: "package",
       name: "falcon",
-      key: "packages/falcon",
       packageName: "@repo/falcon",
     },
     {
       label: "a name that merely starts with a reserved device word",
       kind: "package",
       name: "console",
-      key: "packages/console",
       packageName: "@repo/console",
     },
     {
       label: "a COM device name made safe by normalization",
       kind: "package",
       name: "COM1",
-      key: "packages/com-1",
       packageName: "@repo/com-1",
     },
     {
       label: "an LPT device name made safe by normalization",
       kind: "package",
       name: "LPT1",
-      key: "packages/lpt-1",
       packageName: "@repo/lpt-1",
     },
     {
       label: "an unnamed server app",
       kind: "server",
       name: "",
-      key: "apps/server",
       packageName: "server",
     },
     {
       label: "an unnamed client app",
       kind: "client-react",
       name: "",
-      key: "apps/client-react",
       packageName: "client-react",
-    },
-    {
-      label: "an uppercase name",
-      kind: "server",
-      name: "API",
-      key: "apps/server-api",
-      packageName: "server-api",
     },
     {
       label: "a name with spaces",
       kind: "server",
       name: "My API",
-      key: "apps/server-my-api",
       packageName: "server-my-api",
     },
     {
       label: "a package name with spaces",
       kind: "package",
       name: "Domain Core",
-      key: "packages/domain-core",
       packageName: "@repo/domain-core",
     },
     {
       label: "a name with underscores",
       kind: "client-react",
       name: "admin_ui",
-      key: "apps/client-react-admin-ui",
       packageName: "client-react-admin-ui",
     },
     {
       label: "a nested package name",
       kind: "package",
       name: "domain/core",
-      key: "packages/domain/core",
       packageName: "@repo/domain-core",
     },
     {
       label: "a nested app name with spaces",
       kind: "server",
       name: "SDK/My API",
-      key: "apps/sdk/server-my-api",
-      packageName: "server-sdk-my-api",
-    },
-    {
-      label: "a name with surrounding whitespace",
-      kind: "server",
-      name: "  SDK/My Api  ",
-      key: "apps/sdk/server-my-api",
       packageName: "server-sdk-my-api",
     },
     {
       label: "a kind outside the official catalog",
       kind: "worker",
       name: "jobs",
-      key: "apps/worker-jobs",
       packageName: "worker-jobs",
     },
   ])(
-    "should derive the canonical key, path, and package name when the identity is $label",
-    ({ kind, name, key, packageName }) => {
+    "should derive the package name when the identity is $label",
+    ({ kind, name, packageName }) => {
       const identity = Schema.decodeSync(TargetIdentity)({ kind, name });
 
-      assert.deepStrictEqual(
-        {
-          key: identity.toKey(),
-          path: identity.toPath(),
-          packageName: identity.toPackageName(),
-        },
-        { key, path: key, packageName },
-      );
+      assert.strictEqual(identity.toPackageName(), packageName);
     },
   );
 

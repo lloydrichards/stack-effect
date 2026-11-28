@@ -48,7 +48,8 @@ Without a repository baseline, Apply could read newer contents when composing a 
 
 - Discover package roots under `apps` and `packages` through grouping directories. Stop at each `package.json`; manifests and symlinks inside an existing package are content rather than additional owners.
 - Ignore hidden grouping directories and `node_modules`. Reject symlinks encountered while searching grouping directories, including dangling links.
-- Reject distinct owners with colliding npm names or equal, case-aliased, or ancestor directory paths. A target with a hierarchical name cannot silently relocate an existing package from its former flattened location.
+- Reject distinct owners with colliding npm names or equal, case-aliased, or ancestor directory paths. For each Blueprint target, Plan uses the directory of the existing owner with the exact generated package name, or the suggested directory if the name is absent. Apply checks ownership before writing. Finalize derives directories from the same captured owner inventory as Plan. Repository paths use canonical root-relative POSIX spelling, with `.` reserved for the workspace root.
+- Name-based placement applies to Blueprint targets. The TypeScript config package is currently emitted by workspace contributions at `packages/config-typescript`.
 - Record the discovered roots in `Plan.baseline.packageOwners` and recheck them during Apply. Validate final root manifest writes together before any file is written; ignore owner-internal fixture manifests using the same boundary rule.
 
 ### Reject drift before preview or publication

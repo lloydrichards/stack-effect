@@ -88,6 +88,8 @@ dependencies: [
 ]
 ```
 
+Use `target: "self"` when a module or capability is required on the requesting target. Use a target identity to require a module or capability on a specific target, even when both targets have the same kind.
+
 A `required-module` already implies target existence, so normally omit the redundant `required-target` entry. A `required-capability` contains `target` and `capability`; selection must choose a concrete provider before Blueprint resolution. Providers declare `provides`, and incompatible alternatives may declare `conflictsWith`.
 
 For the browser Receipt Workflow, the API requires a database-owned module that in turn requires `db-sql`. Recipe Builder can then use its database selector for both browser clients. Keep provider-specific file contributions on `package/db` so `module=` conditions can see the selected provider. See source 4.
