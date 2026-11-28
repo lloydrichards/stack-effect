@@ -118,9 +118,10 @@ const definitionHierarchicalNameCapabilities = (
           ...definition.supportedOn.flatMap((rule) =>
             rule._tag === "identity" ? [rule.identity.name] : [],
           ),
-          ...definition.dependencies.map(
-            (dependency) => dependencyTarget(dependency).name,
-          ),
+          ...definition.dependencies.flatMap((dependency) => {
+            const target = dependencyTarget(dependency);
+            return target === "self" ? [] : [target.name];
+          }),
         ]
       : [definition.defaultName ?? ""];
   return names.some((name) => name.includes("/"))

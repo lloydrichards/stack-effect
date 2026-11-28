@@ -1,4 +1,8 @@
-import { TargetIdentity, targetPathsOverlap } from "@repo/domain/Catalog";
+import {
+  bindModuleDependencyTarget,
+  TargetIdentity,
+  targetPathsOverlap,
+} from "@repo/domain/Catalog";
 import { Option, Schema } from "effect";
 import {
   CatalogModule,
@@ -44,18 +48,18 @@ export const moduleRequiresCapability = (
     ) {
       return true;
     }
-    const requiredModules = module.dependencies.flatMap((dependency) =>
-      dependency._tag === "required-module"
-        ? [
-            {
-              owner: dependency.target,
-              module: modulesByOwner
-                .get(ownerKey(dependency.target))
-                ?.get(dependency.moduleId),
-            },
-          ]
-        : [],
-    );
+    const requiredModules = module.dependencies.flatMap((dependency) => {
+      if (dependency._tag !== "required-module") return [];
+      const destination = bindModuleDependencyTarget(owner, dependency.target);
+      return [
+        {
+          owner: destination,
+          module: modulesByOwner
+            .get(ownerKey(destination))
+            ?.get(dependency.moduleId),
+        },
+      ];
+    });
     const impliedModules = module.implies.flatMap((implication) => {
       const entry = catalog.targetModules.find(
         ({ owner: candidate, modules }) =>
@@ -152,7 +156,7 @@ export const buildModuleRelationshipNodes = (
         dependency._tag === "required-module"
           ? [
               {
-                owner: dependency.target,
+                owner: bindModuleDependencyTarget(owner, dependency.target),
                 moduleId: dependency.moduleId,
                 requirement: "required" as const,
               },

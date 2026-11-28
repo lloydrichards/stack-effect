@@ -1228,7 +1228,7 @@ describe("RecipeResolver with the official catalog", () => {
     );
 
     it.effect(
-      "should not add same-kind required modules before Blueprint resolution",
+      "should leave required modules on self for Blueprint resolution",
       () =>
         Effect.gen(function* () {
           const service = yield* RecipeResolver;
@@ -1253,10 +1253,6 @@ describe("RecipeResolver with the official catalog", () => {
           assertTargetModules(selection, "cli/custom", [
             ModuleId.make("cli-command-chat-terminal"),
           ]);
-          assert.strictEqual(
-            modulesForTarget(selection.targets, "cli/app"),
-            undefined,
-          );
         }).pipe(Effect.provide(TestLayer)),
     );
 

@@ -208,7 +208,10 @@ export const makeCatalogReader = Effect.gen(function* () {
         expanded.set(ownerKey(owner), owner);
         const modules = supportedModules(owner);
         const dependencyOwners = Arr.flatMap(modules, (module) =>
-          Arr.map(module.dependencies, dependencyTarget),
+          module.dependencies.flatMap((dependency) => {
+            const reference = dependencyTarget(dependency);
+            return reference === "self" ? [] : [reference];
+          }),
         );
         const defaultOwners = dependencyOwners.flatMap((reference) => {
           if (reference.kind === "package" || reference.kind === "workspace")
@@ -364,15 +367,13 @@ export const makeCatalogReader = Effect.gen(function* () {
           requires: mod.dependencies
             .filter(ModuleDependency.guards["required-module"])
             .map((dependency) => ({
-              targetKind: dependency.target.kind,
-              targetName: dependency.target.name,
+              target: dependency.target,
               moduleId: dependency.moduleId,
             })),
           requiredCapabilities: mod.dependencies
             .filter(ModuleDependency.guards["required-capability"])
             .map((dependency) => ({
-              targetKind: dependency.target.kind,
-              targetName: dependency.target.name,
+              target: dependency.target,
               capability: dependency.capability,
             })),
           provides: mod.provides ?? [],

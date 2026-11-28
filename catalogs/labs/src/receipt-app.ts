@@ -108,12 +108,12 @@ export const receiptApp = defineModules(import.meta.url, [
       contracts,
       {
         _tag: "required-module",
-        target: server,
+        target: "self",
         moduleId: "server-http-api",
       },
       {
         _tag: "required-module",
-        target: server,
+        target: "self",
         moduleId: "server-sqlite-dev-permission",
       },
       {

@@ -1,5 +1,6 @@
 import { CatalogReader } from "@repo/catalog/Catalog";
 import {
+  bindModuleDependencyTarget,
   defaultSupportedRuntimes,
   type ModuleCapability,
   type ModuleDefinition,
@@ -137,17 +138,6 @@ const resolveTargetIdentity = Effect.fnUntraced(function* (
     ],
   });
 });
-
-// Mirrors Blueprint: a non-package dependency on the requester's own kind
-// means the requester's target.
-const dependencyTargetOf = (
-  requester: TargetIdentity,
-  dependencyTarget: TargetIdentity,
-) =>
-  dependencyTarget.kind !== "package" &&
-  dependencyTarget.kind === requester.kind
-    ? requester
-    : dependencyTarget;
 
 const supportsRuntime = (definition: ModuleDefinition, config: StackConfig) =>
   (definition.supportedRuntimes ?? defaultSupportedRuntimes).includes(
@@ -385,7 +375,10 @@ export const make = Effect.gen(function* () {
           ...dependencies
             .filter(ModuleDependency.guards["required-module"])
             .map((dependency) => ({
-              target: dependencyTargetOf(requester.target, dependency.target),
+              target: bindModuleDependencyTarget(
+                requester.target,
+                dependency.target,
+              ),
               moduleId: dependency.moduleId,
             })),
         );
@@ -394,7 +387,10 @@ export const make = Effect.gen(function* () {
             .filter(ModuleDependency.guards["required-capability"])
             .map((dependency) => ({
               requestingModuleId: requester.moduleId,
-              target: dependencyTargetOf(requester.target, dependency.target),
+              target: bindModuleDependencyTarget(
+                requester.target,
+                dependency.target,
+              ),
               capability: dependency.capability,
             })),
         );

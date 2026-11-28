@@ -110,10 +110,7 @@ const huskyModule: ModuleInput = {
   dependencies: [
     {
       _tag: "required-module",
-      target: {
-        kind: "workspace",
-        name: "root",
-      },
+      target: "self",
       moduleId: "workspace-devenv-git",
     },
   ],
@@ -505,10 +502,7 @@ export const initModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: {
-          kind: "workspace",
-          name: "root",
-        },
+        target: "self",
         moduleId: "workspace-quality-biome",
       },
     ],
@@ -534,10 +528,7 @@ export const initModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: {
-          kind: "workspace",
-          name: "root",
-        },
+        target: "self",
         moduleId: "workspace-quality-biome",
       },
     ],

@@ -11,9 +11,11 @@ import {
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
 import {
+  bindModuleDependencyTarget,
   defaultSupportedRuntimes,
   type ModuleCapability,
   ModuleDependency,
+  type ModuleDependencyTarget,
   type ModuleId,
   type TargetDefinition,
   TargetIdentity,
@@ -248,10 +250,8 @@ const resolveSelection = Effect.fnUntraced(function* (
       return dependencyTarget.withDefaultName(definition.defaultName);
     });
 
-    const dependencyTargetOf = (reference: TargetIdentity) =>
-      reference.kind !== "package" && reference.kind === target.kind
-        ? Effect.succeed(target)
-        : placedReference(reference);
+    const dependencyTargetOf = (reference: ModuleDependencyTarget) =>
+      placedReference(bindModuleDependencyTarget(target, reference));
 
     const requireTarget = Effect.fnUntraced(function* (
       identity: TargetIdentity,

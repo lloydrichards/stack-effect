@@ -22,10 +22,6 @@ const dbTarget = {
   kind: packageKind,
   name: "db",
 };
-const serverApiTarget = {
-  kind: serverKind,
-  name: "api",
-};
 
 const todoRepositoryWiring = [
   {
@@ -140,7 +136,7 @@ export const serverModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: serverApiTarget,
+        target: "self",
         moduleId: "server-http-api",
       },
       {
@@ -190,7 +186,7 @@ export const serverModules = defineModules(import.meta.url, [
     dependencies: [
       {
         _tag: "required-module",
-        target: serverApiTarget,
+        target: "self",
         moduleId: "server-http-rpc",
       },
       {

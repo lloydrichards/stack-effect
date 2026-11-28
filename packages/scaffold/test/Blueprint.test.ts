@@ -6,7 +6,12 @@ import {
   makeBlueprintEdge,
   toAttachedModuleNodeId,
 } from "@repo/domain/Blueprint";
-import { ModuleId, TargetIdentity, TargetKind } from "@repo/domain/Catalog";
+import {
+  ModuleCapability,
+  ModuleId,
+  TargetIdentity,
+  TargetKind,
+} from "@repo/domain/Catalog";
 import { StackConfig } from "@repo/domain/StackConfig";
 import { BlueprintResolver } from "@repo/scaffold/Blueprint";
 import { Effect, Layer, Schema } from "effect";
@@ -556,41 +561,37 @@ describe("BlueprintResolver", () => {
           }),
       );
 
-      it.effect(
-        "should resolve same-kind required modules on the selected target",
-        () =>
-          Effect.gen(function* () {
-            const blueprintResolver = yield* BlueprintResolver;
-            const cliCustomIdentity = new TargetIdentity({
-              kind: TargetKind.make("cli"),
-              name: "sdk/custom",
-            });
-            const blueprint = yield* blueprintResolver.resolve({
-              targets: [
-                {
-                  identity: cliCustomIdentity,
-                  modules: [{ id: ModuleId.make("cli-command-chat-terminal") }],
-                },
-              ],
-            });
+      it.effect("should resolve self dependencies on the selected target", () =>
+        Effect.gen(function* () {
+          const blueprintResolver = yield* BlueprintResolver;
+          const cliCustomIdentity = new TargetIdentity({
+            kind: TargetKind.make("cli"),
+            name: "sdk/custom",
+          });
+          const blueprint = yield* blueprintResolver.resolve({
+            targets: [
+              {
+                identity: cliCustomIdentity,
+                modules: [{ id: ModuleId.make("cli-command-chat-terminal") }],
+              },
+            ],
+          });
 
-            assert.strictEqual(
-              getNode(blueprint, "cli/sdk/custom")._tag,
-              "target",
-            );
-            assert.isFalse(
-              blueprint.nodes.some((node) => node.id === "cli/app"),
-            );
-            const cliChatDriverNode = getAttachedModule(
-              blueprint,
-              toAttachedModuleNodeId(
-                cliCustomIdentity.toKey(),
-                ModuleId.make("cli-chat-driver"),
-              ),
-            );
-            assert.strictEqual(cliChatDriverNode.targetId, "cli/sdk/custom");
-            assert.strictEqual(cliChatDriverNode.moduleId, "cli-chat-driver");
-          }),
+          assert.strictEqual(
+            getNode(blueprint, "cli/sdk/custom")._tag,
+            "target",
+          );
+          assert.isFalse(blueprint.nodes.some((node) => node.id === "cli/app"));
+          const cliChatDriverNode = getAttachedModule(
+            blueprint,
+            toAttachedModuleNodeId(
+              cliCustomIdentity.toKey(),
+              ModuleId.make("cli-chat-driver"),
+            ),
+          );
+          assert.strictEqual(cliChatDriverNode.targetId, "cli/sdk/custom");
+          assert.strictEqual(cliChatDriverNode.moduleId, "cli-chat-driver");
+        }),
       );
 
       it.effect(
@@ -780,6 +781,76 @@ describe("BlueprintResolver", () => {
       );
     });
   });
+
+  it.effect(
+    "binds self and named module and capability dependencies to different servers",
+    () => {
+      const capability = ModuleCapability.make("worker-provider");
+      const consumer = selected("server", "worker", "consumer", "provider");
+      const api = selected("server", "api", "provider");
+      const apiDefault = new TargetIdentity({
+        kind: api.identity.kind,
+        name: "",
+      });
+      const catalog = CatalogReader.fromFragments([
+        {
+          targets: [target("server", { defaultName: "api" })],
+          modules: [
+            module("consumer", "server", {
+              dependencies: [
+                {
+                  _tag: "required-module",
+                  target: "self",
+                  moduleId: ModuleId.make("local"),
+                },
+                {
+                  _tag: "required-module",
+                  target: apiDefault,
+                  moduleId: ModuleId.make("remote"),
+                },
+                { _tag: "required-capability", target: "self", capability },
+                {
+                  _tag: "required-capability",
+                  target: api.identity,
+                  capability,
+                },
+              ],
+            }),
+            module("local", "server"),
+            module("remote", "server"),
+            module("provider", "server", { provides: [capability] }),
+          ],
+        },
+      ]);
+      return Effect.gen(function* () {
+        const resolver = yield* BlueprintResolver;
+        const blueprint = yield* resolver.resolve({ targets: [consumer, api] });
+        const source = toAttachedModuleNodeId(
+          consumer.identity.toKey(),
+          ModuleId.make("consumer"),
+        );
+
+        const destination = (identity: TargetIdentity, moduleId: string) =>
+          toAttachedModuleNodeId(identity.toKey(), ModuleId.make(moduleId));
+        assert.sameDeepMembers(
+          blueprint.edges
+            .filter(
+              (edge) =>
+                edge.reason === "required-module" && edge.from === source,
+            )
+            .map((edge) => edge.to),
+          [
+            destination(consumer.identity, "local"),
+            destination(api.identity, "remote"),
+            destination(consumer.identity, "provider"),
+            destination(api.identity, "provider"),
+          ],
+        );
+      }).pipe(
+        Effect.provide(BlueprintResolver.layer.pipe(Layer.provide(catalog))),
+      );
+    },
+  );
 
   it.effect(
     "should reject a capability dependency when its target was not selected",

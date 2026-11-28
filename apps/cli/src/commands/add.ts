@@ -10,6 +10,7 @@ import type {
   TargetKind,
 } from "@repo/domain/Catalog";
 import {
+  bindModuleDependencyTarget,
   defaultSupportedRuntimes,
   ModuleDependency,
   TargetIdentity,
@@ -394,15 +395,6 @@ const pickTargetModules = Effect.fnUntraced(function* (
   );
 });
 
-// A dependency on the same non-package kind stays on the dependent's own target.
-const dependencyTargetFor = (
-  dependent: TargetIdentity,
-  dependency: TargetIdentity,
-) =>
-  dependency.kind !== "package" && dependency.kind === dependent.kind
-    ? dependent
-    : dependency;
-
 /**
  * Follow required-module dependencies without adding them to Selection.
  * Blueprint remains responsible for materializing the dependency closure; the
@@ -442,7 +434,7 @@ const collectRequiredModuleClosure = (
           ),
           (dependency) =>
             visit(
-              dependencyTargetFor(owner, dependency.target),
+              bindModuleDependencyTarget(owner, dependency.target),
               dependency.moduleId,
             ),
         );
@@ -488,7 +480,7 @@ const provideCapability = Effect.fnUntraced(function* (
   { definition, target, dependency }: CapabilityNeed,
 ) {
   const catalog = yield* CatalogReader;
-  const requiredTarget = dependencyTargetFor(target, dependency.target);
+  const requiredTarget = bindModuleDependencyTarget(target, dependency.target);
   const { defaultName } = yield* catalog.getTarget(requiredTarget.kind);
   const owner = requiredTarget.withDefaultName(defaultName);
   const existing = findTarget(targets, owner, defaultName);

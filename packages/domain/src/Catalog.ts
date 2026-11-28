@@ -353,9 +353,16 @@ export const Contribution = Schema.TaggedUnion({
 
 export type Contribution = typeof Contribution.Type;
 
+const ModuleDependencyTarget = Schema.Union([
+  Schema.Literal("self"),
+  TargetIdentity,
+]);
+export type ModuleDependencyTarget = typeof ModuleDependencyTarget.Type;
+
 /**
  * A ModuleDependency declares a requirement that must be satisfied before
- * a module can be attached.
+ * a module can be attached. Module and capability dependencies can refer to
+ * the requesting target with `"self"` or name a target explicitly.
  *
  * Tagged union of dependency types:
  * - `required-target`: Target must exist as a workspace (no specific module required)
@@ -380,7 +387,7 @@ export const ModuleDependency = Schema.TaggedUnion({
    * a required-target edge and a required-module edge when resolving.
    */
   "required-module": {
-    target: TargetIdentity,
+    target: ModuleDependencyTarget,
     moduleId: ModuleId,
   },
 
@@ -390,12 +397,20 @@ export const ModuleDependency = Schema.TaggedUnion({
    * Blueprint resolution; Blueprint treats unresolved capabilities as invalid.
    */
   "required-capability": {
-    target: TargetIdentity,
+    target: ModuleDependencyTarget,
     capability: ModuleCapability,
   },
 });
 
 export type ModuleDependency = typeof ModuleDependency.Type;
+
+/** Resolves a module or capability dependency relative to its requesting target. */
+export const bindModuleDependencyTarget = <
+  Owner extends { readonly kind: string; readonly name: string },
+>(
+  requester: Owner,
+  reference: ModuleDependencyTarget,
+): Owner | TargetIdentity => (reference === "self" ? requester : reference);
 
 const Visibility = Schema.Literals(["public", "internal"]);
 
@@ -664,15 +679,13 @@ const CatalogTreeModule = Schema.Struct({
   categories: Schema.Array(ModuleCategory),
   requires: Schema.Array(
     Schema.Struct({
-      targetKind: TargetKind,
-      targetName: Schema.String,
+      target: ModuleDependencyTarget,
       moduleId: ModuleId,
     }),
   ),
   requiredCapabilities: Schema.Array(
     Schema.Struct({
-      targetKind: TargetKind,
-      targetName: Schema.String,
+      target: ModuleDependencyTarget,
       capability: ModuleCapability,
     }),
   ),

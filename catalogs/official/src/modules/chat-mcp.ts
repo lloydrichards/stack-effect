@@ -39,7 +39,6 @@ export const chatMcpModules = defineModules(
   import.meta.url,
   (["server", "cli"] as const).flatMap((kind) => {
     const parent = kind === "server" ? "server-chat-rpc" : "cli-chat-driver";
-    const target = { kind, name: kind === "server" ? "api" : "app" };
     const runtime =
       kind === "server" ? "runtime/ChatRuntime.ts" : "chat/ChatDriver.ts";
     const driver = kind === "server" ? "makeChatRuntime" : "makeGenerate";
@@ -59,7 +58,9 @@ export const chatMcpModules = defineModules(
         })),
         supportedRuntimes: ["bun", "node", "deno"],
         supportedOn: [{ _tag: "kind", kind }],
-        dependencies: [{ _tag: "required-module", target, moduleId: parent }],
+        dependencies: [
+          { _tag: "required-module", target: "self", moduleId: parent },
+        ],
         contributions: [
           {
             _tag: "file",
@@ -102,8 +103,8 @@ export const chatMcpModules = defineModules(
           supportedRuntimes: ["bun", "node", "deno"],
           supportedOn: [{ _tag: "kind", kind }],
           dependencies: [
-            { _tag: "required-module", target, moduleId: parent },
-            { _tag: "required-module", target, moduleId: connection },
+            { _tag: "required-module", target: "self", moduleId: parent },
+            { _tag: "required-module", target: "self", moduleId: connection },
             ...(id === "resources"
               ? [
                   {

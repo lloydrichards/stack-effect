@@ -21,7 +21,6 @@ describe("moduleRegistry", () => {
   it("attaches MCP capabilities to existing chat features with app-owned connections", () => {
     for (const kind of ["server", "cli"]) {
       const parent = kind === "server" ? "server-chat-rpc" : "cli-chat-driver";
-      const target = { kind, name: kind === "server" ? "api" : "app" };
       const connection = moduleRegistry.find(
         (module) => module.id === `${kind}-chat-mcp`,
       );
@@ -30,7 +29,7 @@ describe("moduleRegistry", () => {
       assert.deepStrictEqual(
         connection?.dependencies,
         decodeDependencies([
-          { _tag: "required-module", target, moduleId: parent },
+          { _tag: "required-module", target: "self", moduleId: parent },
         ]),
       );
       for (const capability of ["tools", "resources", "prompts"]) {
@@ -42,8 +41,12 @@ describe("moduleRegistry", () => {
         assert.deepStrictEqual(
           child?.dependencies,
           decodeDependencies([
-            { _tag: "required-module", target, moduleId: parent },
-            { _tag: "required-module", target, moduleId: `${kind}-chat-mcp` },
+            { _tag: "required-module", target: "self", moduleId: parent },
+            {
+              _tag: "required-module",
+              target: "self",
+              moduleId: `${kind}-chat-mcp`,
+            },
             ...(capability === "resources"
               ? [
                   {
