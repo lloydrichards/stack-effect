@@ -24,7 +24,7 @@ Invariants:
 
 - Identity is `kind`. The `title` is a display label for target pickers and can change independently of the kind.
 - Includes contributions and optional scripts.
-- An omitted app name and an explicit name equivalent to the catalog default resolve to the same target. Default folders use a kind prefix. React and Foldkit use the shared `client` folder prefix while retaining their full kind in their package names. Other explicit app names map to `apps/<name>`, including nested grouping segments.
+- An omitted app name and an explicit name equivalent to the catalog default resolve to the same target. Default folders use a kind prefix. React and Foldkit share the default `apps/client` directory while retaining their full kind in their package names. Non-default explicit app names map to `apps/<name>`, including nested grouping segments.
 - Logical target keys use the canonical kind and normalized name. Blueprint rejects distinct targets that claim the same package name. Plan resolves the actual directory by package name and checks directory ownership under the [repository state decision](../architecture/plan-apply-repository-state.md#preserve-package-ownership).
 
 Connected terms:

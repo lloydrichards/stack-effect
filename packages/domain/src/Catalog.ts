@@ -119,16 +119,16 @@ export class TargetIdentity extends Schema.Class<TargetIdentity>(
     if (this.kind === "package")
       return RepositoryPath.make(`packages/${segments.join("/")}`);
 
-    const isClient =
-      this.kind === "client-react" || this.kind === "client-foldkit";
     if (
-      !isClient &&
       segments.length > 0 &&
       segments.join("/") !== targetNameSegments(defaultName ?? "").join("/")
     )
       return RepositoryPath.make(`apps/${segments.join("/")}`);
 
-    const prefix = isClient ? "client" : this.kind;
+    const prefix =
+      this.kind === "client-react" || this.kind === "client-foldkit"
+        ? "client"
+        : this.kind;
     const leaf = segments.at(-1);
     return RepositoryPath.make(
       [

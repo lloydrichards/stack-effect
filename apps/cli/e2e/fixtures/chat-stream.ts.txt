@@ -9,7 +9,7 @@ import { ChatRpc } from "@repo/domain/ChatRpc";
 import {
   init, StartedChat, SubmittedChatMessage, subscriptions, update,
   UpdatedChatInput, type Model,
-} from "./apps/client-app/src/features/chat";
+} from "./apps/app/src/features/chat";
 import { ChatId, type ChatStreamPart } from "@repo/domain/Chat";
 
 // Serve the supplied chat parts over the same RPC transport used by the generated client.

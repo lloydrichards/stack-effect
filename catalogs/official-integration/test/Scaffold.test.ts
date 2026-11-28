@@ -352,7 +352,7 @@ describe("Official catalog scaffolding", () => {
           });
           const root = readme(preview);
           for (const path of [
-            "apps/client-web",
+            "apps/web",
             "apps/server-api",
             "packages/domain",
             "packages/db",
@@ -363,7 +363,7 @@ describe("Official catalog scaffolding", () => {
           assert.include(root, "--target server/api:");
           assert.include(root, "--target package/db:");
           assert.include(
-            readme(preview, "apps/client-web/README.md"),
+            readme(preview, "apps/web/README.md"),
             "VITE_SERVER_URL",
           );
           assert.include(
@@ -675,15 +675,13 @@ describe("Official catalog scaffolding", () => {
         Effect.gen(function* () {
           const result = yield* preview(kind, [`alchemy-${kind}-website`]);
           assert.isTrue(
-            result.files.some(
-              (file) => file.path === "apps/client-app/alchemy.ts",
-            ),
+            result.files.some((file) => file.path === "apps/app/alchemy.ts"),
           );
           assert.isFalse(
             result.files.some(
               (file) =>
                 file.path.startsWith("apps/") &&
-                !file.path.startsWith("apps/client-app/"),
+                !file.path.startsWith("apps/app/"),
             ),
           );
           const root =
@@ -736,7 +734,7 @@ describe("Official catalog scaffolding", () => {
             result.files.some(
               (file) =>
                 file.path.startsWith("apps/") &&
-                !file.path.startsWith("apps/client-app/"),
+                !file.path.startsWith("apps/app/"),
             ),
           );
           assert.isTrue(

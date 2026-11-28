@@ -408,7 +408,7 @@ describe("init", () => {
             assert.match(cached.stdout, /read the output from the cache/i);
 
             yield* project.writeFile(
-              "apps/sdk/client-web/.env.local",
+              "apps/sdk/web/.env.local",
               "NX_GAUNTLET_SECRET=must-not-appear-in-nx-output\n",
             );
             const digest = yield* project.exec("node", "scripts/hash-env.mjs");
@@ -458,13 +458,10 @@ describe("init", () => {
             assert.isFalse(/also-must-not-appear/.test(rootEnvOutput));
             const before = yield* project.exec("node", "scripts/hash-env.mjs");
             yield* project.writeFile(
-              "apps/sdk/client-web/templates/package.json",
+              "apps/sdk/web/templates/package.json",
               "{}",
             );
-            yield* project.writeFile(
-              "apps/sdk/client-web/templates/.env",
-              "IGNORED",
-            );
+            yield* project.writeFile("apps/sdk/web/templates/.env", "IGNORED");
             const after = yield* project.exec("node", "scripts/hash-env.mjs");
             assert.strictEqual(after.exitCode, 0);
             assert.strictEqual(after.stdout, before.stdout);

@@ -361,7 +361,7 @@ it.live(
         STACK_CONFIG_SCHEMA_URL,
       );
       const sdkPackage = preview.preview.files.find(
-        (file) => file.path === "apps/sdk/client-web/package.json",
+        (file) => file.path === "apps/sdk/web/package.json",
       );
       assert.isDefined(sdkPackage);
       assert.equal(
@@ -562,7 +562,7 @@ it.live(
           "packages/domain/src/SummaryJob.ts",
           "packages/db/src/Database.ts",
           "apps/server-api/src/runtime/ChatManagedRuntime.ts",
-          "apps/client-web/src/lib/import-validation-worker.ts",
+          "apps/web/src/lib/import-validation-worker.ts",
           "packages/ai/src/toolkits/WebFetchToolkit.ts",
           "packages/ai/src/services/AiChatService.ts",
         ],

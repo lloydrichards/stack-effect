@@ -41,7 +41,7 @@ my-app/
 │           ├── [+] Api.ts
 │           ╰── [+] index.ts
 ╰── apps/
-    ├── client-web/
+    ├── web/
     │   ╰── src/
     │       ├── [+] main.tsx
     │       ╰── [+] app.tsx

@@ -98,7 +98,7 @@ ${bold}- package/domain (package)${reset}
   ╰╌> package/domain#domain-chat-contracts`),
     apply: applySection(
       `${bold}.${reset}
-├── ${bold}apps/client-web${reset}
+├── ${bold}apps/web${reset}
 │   ├── ${green}[+]${reset} src/components/chat-box.tsx
 │   ├── ${green}[+]${reset} src/lib/atoms/chat-atom.ts
 │   ╰── ${green}[+]${reset} src/lib/chat-rpc-client.ts

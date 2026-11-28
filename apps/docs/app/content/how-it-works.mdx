@@ -30,7 +30,7 @@ The name `sdk/api` creates the server at `apps/sdk/api`, with `server-sdk-api` i
 
 Stack Effect looks for the target’s package name in `apps/` and `packages/` before choosing a directory. If `server-api` already lives at `apps/backend/api`, a later add uses that directory. The same rule applies to dependency targets.
 
-An unnamed React or Foldkit client suggests `apps/client`. If another package already owns that directory, name the new client. For example, `client-foldkit/admin` suggests `apps/client-admin`. If multiple installed packages share a name, resolve the conflict in the repository before running `add` again.
+An unnamed React or Foldkit client suggests `apps/client`. If another package already owns that directory, name the new client. For example, `client-foldkit/admin` suggests `apps/admin`. If multiple installed packages share a name, resolve the conflict in the repository before running `add` again.
 
 To create a package with compiled JavaScript and declarations for npm, use the `package-library` module. See [Create a publishable library](/publish-library).
 

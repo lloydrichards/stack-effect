@@ -43,7 +43,7 @@ describe("add", () => {
   );
 
   it.effect(
-    "reports the occupied client directory and accepts a named second client",
+    "reports the occupied client directory and accepts a second client at an explicit nested path",
     () =>
       withNodeServices(
         Effect.gen(function* () {
@@ -70,11 +70,14 @@ describe("add", () => {
           assert.include(String(rejected.error), "client-react");
           assert.strictEqual(yield* fs.readFileString(manifest), original);
 
-          yield* run([...add, "client-foldkit/admin"]);
+          yield* run([...add, "client-foldkit/battle-app/frontend"]);
           const secondManifest = yield* fs.readFileString(
-            path.join(root, "apps/client-admin/package.json"),
+            path.join(root, "apps/battle-app/frontend/package.json"),
           );
-          assert.include(secondManifest, '"name": "client-foldkit-admin"');
+          assert.include(
+            secondManifest,
+            '"name": "client-foldkit-battle-app-frontend"',
+          );
         }),
       ),
     30_000,
